@@ -7,11 +7,11 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
-#include "vcf.h"
-#include "synced_bcf_reader.h"
-#include "vcfutils.h"
+#include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
+#include <htslib/vcfutils.h>
 
-#include "khash.h"
+#include <htslib/khash.h>
 KHASH_MAP_INIT_STR(strdict, int)
 typedef khash_t(strdict) strdict_t;
 

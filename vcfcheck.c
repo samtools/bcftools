@@ -8,10 +8,10 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <math.h>
-#include "vcf.h"
-#include "synced_bcf_reader.h"
-#include "vcfutils.h"
-#include "faidx.h"
+#include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
+#include <htslib/vcfutils.h>
+#include <htslib/faidx.h>
 
 #define QUAL_STATS 0
 

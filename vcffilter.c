@@ -9,9 +9,9 @@
 #include <sys/types.h>
 #include <math.h>
 #include <time.h>
-#include "vcf.h"
-#include "synced_bcf_reader.h"
-#include "vcfutils.h"
+#include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
+#include <htslib/vcfutils.h>
 
 #define NFIXED 6
 #define MASK_GOOD 2

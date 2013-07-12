@@ -7,9 +7,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "vcf.h"
-#include "synced_bcf_reader.h"
-#include "faidx.h"
+#include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
+#include <htslib/faidx.h>
 
 typedef struct
 {

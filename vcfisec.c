@@ -7,9 +7,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "vcf.h"
-#include "synced_bcf_reader.h"
-#include "vcfutils.h"
+#include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
+#include <htslib/vcfutils.h>
 
 #define OP_PLUS 1
 #define OP_MINUS 2

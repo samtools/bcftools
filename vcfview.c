@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
-#include "vcf.h"
+#include <htslib/vcf.h>
 
 int main_vcfview(int argc, char *argv[])
 {

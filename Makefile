@@ -1,12 +1,21 @@
+# The default version string in bam.h and bcftools/bcf.h can be overriden directly
+#   make VERSION="-DVERSION='\\\"my-version\\\"'"
+# or using the git-stamp rule
+#   make git-stamp
 VERSION=
+
+# Adjust $(HTSDIR) to point to your top-level htslib directory
+HTSDIR = ../htslib
+HTSLIB = $(HTSDIR)/htslib/libhts.a
+
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2 $(VERSION)
 DFLAGS=
-OBJS=		main.o samview.o vcfview.o bamidx.o bcfidx.o bamshuf.o bam2fq.o tabix.o \
-			abreak.o bam2bed.o vcfcheck.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o \
+OBJS=		main.o vcfview.o bcfidx.o tabix.o \
+			vcfcheck.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o \
             vcfnorm.o vcfgtcheck.o vcfsubset.o
-INCLUDES=	-Ihtslib
-PROG=		htscmd
+INCLUDES=	-I. -I$(HTSDIR)
+PROG=		bcftools
 
 .SUFFIXES:.c .o
 .PHONY:all lib test
@@ -21,11 +30,9 @@ git-stamp:
 
 test:
 		./test/test.pl
-lib:
-		cd htslib; $(MAKE) CC="$(CC)" CFLAGS="$(CFLAGS)" libhts.a || exit 1; cd ..
 
-htscmd:lib $(OBJS)
-		$(CC) $(CFLAGS) -o $@ $(OBJS) -Lhtslib -lhts -lpthread -lz -lm
+bcftools:$(OBJS)
+		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm
 
 clean:
 		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG); cd htslib; $(MAKE) clean; cd ..

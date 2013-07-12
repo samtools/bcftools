@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "tbx.h"
+#include <htslib/tbx.h>
 
 int main_tabix(int argc, char *argv[])
 {
