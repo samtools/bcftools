@@ -6,7 +6,7 @@ VERSION=
 
 # Adjust $(HTSDIR) to point to your top-level htslib directory
 HTSDIR = ../htslib
-HTSLIB = $(HTSDIR)/htslib/libhts.a
+HTSLIB = $(HTSDIR)/libhts.a
 
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2 $(VERSION)
@@ -35,4 +35,4 @@ bcftools:$(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm
 
 clean:
-		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG); cd htslib; $(MAKE) clean; cd ..
+		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG)
