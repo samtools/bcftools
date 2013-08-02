@@ -45,19 +45,12 @@ typedef struct
     bcf_hdr_t *hdr;
     faidx_t *fai;
 	char **argv, *ref_fname, *vcf_fname;
-	int argc, rmdup;
+	int argc, rmdup, output_bcf;
 }
 args_t;
 
 
-static void error(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	vfprintf(stderr, format, ap);
-	va_end(ap);
-	exit(-1);
-}
+void error(const char *format, ...);
 
 /**
  *  rbuf_init() - initialize round buffer
@@ -337,17 +330,19 @@ static int align(args_t *args, aln_aux_t *aux)
 
     // _vcfnorm_debug_print(aux);
 
-    // skip as much of the matching sequence at the beggining as possible
+    // Skip as much of the matching sequence at the beggining as possible. (Note, the sequence
+    // is reversed, thus skipping from the end.)
     k = (nref+1)*(nseq+1)-1;
-    int kmin = nref>nseq ? 2*(nref+1) - nseq : (nseq-nref)*(nref+1);
+    int kmin = nref>nseq ? 2*(nref+1) - nseq : (nseq-nref)*(nref+1);    // skip the first row and column of the matrix, which are 0s
     int ipos = 0;
-    while (k>kmin && !mat[k].dir) { k -= kd; ipos++; }
+    while (k>kmin && mat[k].dir==DM) { k -= kd; ipos++; }
 
-    i = k/(nref+1);
-    j = k - i*(nref+1);
+    i = k/(nref+1);             // seq[nseq-i]
+    j = k - i*(nref+1);         // ref[nref-j]
+
     if ( !i && !j ) return -1;  // this is a legitimate case, consider MNPs
-
     assert(i>0 && j>0);
+
     int l = k, nout_ref = ipos, nout_seq = ipos, nsuffix = 0;
     while ( l>0 )
     {
@@ -367,7 +362,7 @@ static int align(args_t *args, aln_aux_t *aux)
         }
         else     // match/mismatch
         {
-            nsuffix = ref[nref-i]==seq[nseq-j] ? nsuffix + 1 : 0;
+            nsuffix = ref[nref-j]==seq[nseq-i] ? nsuffix + 1 : 0;
             nout_seq++;
             nout_ref++;
             l -= kd;
@@ -405,7 +400,7 @@ int realign(args_t *args, bcf1_t *line)
             if ( line->d.allele[0][i]=='N' ) return -1;
     }
 
-    int win = line->pos < args->aln_win ? line->pos - 1 : args->aln_win;
+    int win = line->pos < args->aln_win ? line->pos : args->aln_win;
     len += win + 2;
     if ( args->mseq < len*(line->n_allele-1) ) 
     {
@@ -414,11 +409,17 @@ int realign(args_t *args, bcf1_t *line)
     }
     int ref_winlen;
     char *ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-win, line->pos+ref_len, &ref_winlen);
+    if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-win);
     assert( ref_winlen==ref_len+win+1 );
 
     // Sanity check: the reference sequence must match the REF allele
-    if ( strncasecmp(&ref[win],line->d.allele[0],ref_len) ) 
-        error("\nSanity check failed, the reference sequence differs at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
+    if ( strncasecmp(&ref[win],line->d.allele[0],ref_len) )
+    {
+        for (i=0; i<ref_len; i++)
+            if ( toupper(ref[win+i])!=toupper(line->d.allele[0][i]) ) break;
+        error("\nSanity check failed, the reference sequence differs at %s:%d[%d] .. '%c' vs '%c'\n", 
+            args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, i+1,toupper(ref[win+i]),toupper(line->d.allele[0][i]));
+    }
 
     if ( args->aln.m_arr < line->n_allele )
     {
@@ -536,6 +537,7 @@ void flush_buffer(args_t *args, htsFile *file, int n)
             prev_pos  = args->lines[k]->pos;
             prev_type = args->lines[k]->d.var_type;
         }
+        if ( args->output_bcf ) bcf1_sync(args->lines[k]);
         vcf_write1(file, args->hdr, args->lines[k]);
     }
 }
@@ -565,7 +567,7 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 static void normalize_vcf(args_t *args)
 {
-    htsFile *out = hts_open("-","w",0);
+    htsFile *out = args->output_bcf ? hts_open("-","wb",0) : hts_open("-","w",0);
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "vcfnorm");
     vcf_hdr_write(out, args->hdr);
 
@@ -607,9 +609,10 @@ static void usage(void)
 	fprintf(stderr, "About:   Left-align and normalize indels.\n");
 	fprintf(stderr, "Usage:   vcfnorm [options] -f ref.fa <file.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "    -b, --output-bcf                  output BCF\n");
 	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type. [Todo: merge genotypes, don't just throw away.]\n");
 	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
-	fprintf(stderr, "    -r, --region <chr|chr:from-to>    perform intersection in the given region only\n");
+	fprintf(stderr, "    -r, --region <chr|chr:from-to>    restrict output to this region\n");
 	fprintf(stderr, "    -w, --win <int,int>               alignment window and buffer window [50,1000]\n");
 	fprintf(stderr, "\n");
 	exit(1);
@@ -631,10 +634,12 @@ int main_vcfnorm(int argc, char *argv[])
 		{"region",1,0,'r'},
 		{"win",1,0,'w'},
 		{"remove-duplicates",0,0,'D'},
+        {"output-bcf",1,0,'b'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hr:f:w:D",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hr:f:w:Db",loptions,NULL)) >= 0) {
 		switch (c) {
+            case 'b': args->output_bcf = 1; break;
 			case 'D': args->rmdup = 1; break;
 			case 'f': args->ref_fname = optarg; break;
 			case 'r': args->files->region = optarg; break;
