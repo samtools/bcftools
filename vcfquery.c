@@ -34,7 +34,7 @@ typedef struct _args_t args_t;
 
 typedef struct _fmt_t
 {
-    int type, id, is_gt_field, ready;
+    int type, id, is_gt_field, ready, subscript;
     char *key;
     bcf_fmt_t *fmt;
     void (*handler)(args_t *, bcf1_t *, struct _fmt_t *, int, kstring_t *);
@@ -54,15 +54,7 @@ struct _args_t
 
 char **read_list(char *fname, int *n);
 void destroy_list(char **list, int n);
-
-static void error(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	vfprintf(stderr, format, ap);
-	va_end(ap);
-	exit(-1);
-}
+void error(const char *format, ...);
 
 static void process_chrom(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(args->header->id[BCF_DT_CTG][line->rid].key, str); }
 static void process_pos(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+1, str); }
@@ -100,6 +92,12 @@ static void process_filter(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, 
     } 
     else kputc('.', str);
 }
+static int bcf_array_ivalue(void *bcf_array, int type, int idx)
+{
+    if ( type==BCF_BT_INT8 ) return ((int8_t*)bcf_array)[idx];
+    if ( type==BCF_BT_INT16 ) return ((int16_t*)bcf_array)[idx];
+    return ((int32_t*)bcf_array)[idx];
+}
 static void process_info(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
 {
     int i;
@@ -121,13 +119,24 @@ static void process_info(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, ks
         kputc('1', str);
         return;
     }
-        
+
     if ( info->len == 1 )
     {
         if ( info->type == BCF_BT_FLOAT ) ksprintf(str, "%g", info->v1.f);
         else if ( info->type != BCF_BT_CHAR ) kputw(info->v1.i, str);
         else kputc(info->v1.i, str);
-    } 
+    }
+    else if ( fmt->subscript >=0 )
+    {
+        if ( info->len <= fmt->subscript ) 
+        {
+            kputc('.', str);
+            return;
+        }
+        if ( info->type == BCF_BT_FLOAT ) ksprintf(str, "%g", ((float*)info->vptr)[fmt->subscript]);
+        else if ( info->type != BCF_BT_CHAR ) kputw(bcf_array_ivalue(info->vptr,info->type,fmt->subscript), str);
+        else error("TODO: %s:%d .. info->type=%d\n", __FILE__,__LINE__, info->type);
+    }
     else 
         bcf_fmt_array(str, info->len, info->type, info->vptr);
 }
@@ -221,7 +230,7 @@ static void process_line(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, ks
     vcf_format1(args->header, line, str);
 }
 
-static void register_tag(args_t *args, int type, char *key, int is_gtf)
+static fmt_t *register_tag(args_t *args, int type, char *key, int is_gtf)
 {
     args->nfmt++;
     if ( args->nfmt > args->mfmt )
@@ -234,6 +243,7 @@ static void register_tag(args_t *args, int type, char *key, int is_gtf)
     fmt->type  = type;
     fmt->key   = key ? strdup(key) : NULL;
     fmt->is_gt_field = is_gtf;
+    fmt->subscript = -1;
     switch (fmt->type)
     {
         case T_CHROM: fmt->handler = &process_chrom; break;
@@ -263,6 +273,19 @@ static void register_tag(args_t *args, int type, char *key, int is_gtf)
             if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: INFO/%s\n", key);
         }
     }
+    return fmt;
+}
+
+static int parse_subscript(char **p)
+{
+    char *q = *p;
+    if ( *q!='{' ) return -1;
+    q++;
+    while ( *q && *q!='}' && isdigit(*q) ) q++;
+    if ( *q!='}' ) return -1;
+    int idx = atoi((*p)+1);
+    *p = q+1;
+    return idx;
 }
 
 static char *parse_tag(args_t *args, char *p, int is_gtf)
@@ -277,7 +300,11 @@ static char *parse_tag(args_t *args, char *p, int is_gtf)
         if ( !strcmp(str.s, "SAMPLE") ) register_tag(args, T_SAMPLE, "SAMPLE", is_gtf);
         else if ( !strcmp(str.s, "GT") ) register_tag(args, T_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "TGT") ) register_tag(args, T_TGT, "GT", is_gtf);
-        else register_tag(args, T_FORMAT, str.s, is_gtf);
+        else 
+        {
+            fmt_t *fmt = register_tag(args, T_FORMAT, str.s, is_gtf);
+            fmt->subscript = parse_subscript(&q);
+        }
     }
     else
     {
@@ -301,10 +328,14 @@ static char *parse_tag(args_t *args, char *p, int is_gtf)
             while ( *q && isalnum(*q) ) q++;
             if ( q-p==0 ) error("Could not parse format string: %s\n", args->format);
             kputsn(p, q-p, &str);
-            register_tag(args, T_INFO, str.s, is_gtf);
+            fmt_t *fmt = register_tag(args, T_INFO, str.s, is_gtf);
+            fmt->subscript = parse_subscript(&q);
         }
         else 
-            register_tag(args, T_INFO, str.s, is_gtf);
+        {
+            fmt_t *fmt = register_tag(args, T_INFO, str.s, is_gtf);
+            fmt->subscript = parse_subscript(&q);
+        }
     }
     free(str.s);
     return q;
@@ -550,6 +581,7 @@ static void usage(void)
     fprintf(stderr, "\t%%INFO/TAG       Any tag in the INFO column\n");
     fprintf(stderr, "\t%%TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)\n");
     fprintf(stderr, "\t%%MASK           Indicates presence of the site in other files (with multiple files)\n");
+    fprintf(stderr, "\t%%TAG{INT}       Curly brackets to subscript vectors (0-based)\n");
     fprintf(stderr, "\t[]              The brackets loop over all samples\n");
     fprintf(stderr, "\t%%GT             Genotype (e.g. 0/1)\n");
     fprintf(stderr, "\t%%TGT            Translated genotype (e.g. C/A)\n");
