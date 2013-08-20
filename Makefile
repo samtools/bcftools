@@ -48,7 +48,9 @@ version.h:
 
 
 .SUFFIXES:.c .o
-.PHONY:all lib test
+.PHONY:all lib test force
+
+force:
 
 .c.o:
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
