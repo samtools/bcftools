@@ -23,15 +23,7 @@ typedef struct
 }
 args_t;
 
-static void error(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	vfprintf(stderr, format, ap);
-	va_end(ap);
-	exit(-1);
-}
-
+void error(const char *format, ...);
 FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
 void py_plot(char *script);
 char *msprintf(const char *fmt, ...);
@@ -273,13 +265,13 @@ static void print_header(args_t *args, FILE *fp)
 
 static void check_gt(args_t *args)
 {
-    int i,j, ret, *gt2ipl = NULL, m_gt2ipl = 0, *gt_cnts = NULL, *gt_arr = NULL, *pl_arr = NULL, ngt_arr = 0, npl_arr = 0;
-    int gt_id = bcf_id2int(args->gt_hdr, BCF_DT_ID, "GT");
-    int pl_id = bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL");
-    int dp_id = bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP");
-    if ( gt_id<0 ) error("[E::%s] GT not present in the header of %s?\n", __func__, args->files->readers[1].fname);
-    if ( pl_id<0 ) error("[E::%s] PL not present in the header of %s?\n", __func__, args->files->readers[0].fname);
-    if ( dp_id<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
+    int i,j, ret, *gt2ipl = NULL, m_gt2ipl = 0, *gt_cnts = NULL, *gt_arr = NULL, *pl_arr = NULL, ngt_arr = 0, npl_arr = 0, *dp_arr = NULL, ndp_arr = 0;
+
+fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
+
+    if ( bcf_id2int(args->gt_hdr, BCF_DT_ID, "GT")<0 ) error("[E::%s] GT not present in the header of %s?\n", __func__, args->files->readers[1].fname);
+    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) error("[E::%s] PL not present in the header of %s?\n", __func__, args->files->readers[0].fname);
+    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
     int tgt_isample = -1, query_isample = 0;
     if ( args->target_sample ) 
     {
@@ -315,38 +307,20 @@ static void check_gt(args_t *args)
         }
         if ( !init_gt2ipl(args, gt_line, sm_line, gt2ipl, n_gt2ipl) ) continue;
 
-        // Get BCF handler for GT
-        bcf_fmt_t *gt_fmt = NULL, *pl_fmt = NULL;
-        for (i=0; i<(int)gt_line->n_fmt; i++)  
-        {
-            if ( gt_line->d.fmt[i].id==gt_id )
-            {
-                gt_fmt = &gt_line->d.fmt[i];
-                break;
-            }
-        }
-        if ( !gt_fmt ) error("GT not present at %s:%d?", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
-        assert( gt_fmt->n==2 && gt_fmt->size==2*sizeof(int8_t) );
+        int ngt, npl;
+        if ( (ngt=bcf_get_format_int(args->gt_hdr, gt_line, "GT", &gt_arr, &ngt_arr)) <= 0 ) 
+            error("GT not present at %s:%d?", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
+        ngt /= args->gt_hdr->n[BCF_DT_SAMPLE];
 
-        // Get BCF handler for PL
-        for (i=0; i<(int)sm_line->n_fmt; i++)  
-        {
-            if ( sm_line->d.fmt[i].id==pl_id ) 
-            {
-                pl_fmt = &sm_line->d.fmt[i];
-                break;
-            }
-        }
-        if ( !pl_fmt ) error("PL not present at %s:%d?", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
-
-        gt_arr = bcf_set_iarray(gt_fmt, args->gt_hdr->n[BCF_DT_SAMPLE], gt_arr, &ngt_arr);
-        pl_arr = bcf_set_iarray(pl_fmt, args->sm_hdr->n[BCF_DT_SAMPLE], pl_arr, &npl_arr);
+        if ( (npl=bcf_get_format_int(args->sm_hdr, sm_line, "PL", &pl_arr, &npl_arr)) <= 0 )
+            error("PL not present at %s:%d?", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
+        npl /= args->sm_hdr->n[BCF_DT_SAMPLE];
 
         // Set the counts of genotypes to test significance
         for (i=0; i<=n_gt2ipl; i++) gt_cnts[i] = 0;
         for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++)
         {
-            int *gt_ptr = gt_arr + i*gt_fmt->n;
+            int *gt_ptr = gt_arr + i*ngt;
             int a = (gt_ptr[0]>>1) - 1;
             int b = (gt_ptr[1]>>1) - 1;
             if ( a<0 || b<0 ) 
@@ -358,15 +332,11 @@ static void check_gt(args_t *args)
             }
         }
 
-        bcf_info_t *dp_inf = NULL;
-        for (i=0; i<sm_line->n_info; i++)
-            if ( dp_id==sm_line->d.info[i].key ) { dp_inf = &sm_line->d.info[i]; break; }
-
         // With -s but no -p, print LKs at all sites for debugging
         int igt = -1;
         if ( tgt_isample>=0 )
         {
-            int *gt_ptr = gt_arr + tgt_isample*gt_fmt->n;
+            int *gt_ptr = gt_arr + tgt_isample*ngt;
             int a = (gt_ptr[0]>>1) - 1;
             int b = (gt_ptr[1]>>1) - 1; 
             if ( args->hom_only && a!=b ) continue; // heterozygous genotype
@@ -376,16 +346,18 @@ static void check_gt(args_t *args)
             if (a>=0 || b>=0) igt = a<=b ? bcf_ij2G(a,b) : bcf_ij2G(b,a);
         }
 
+        bcf_get_info_int(args->sm_hdr, sm_line, "DP", &dp_arr, &ndp_arr);
+
         // Calculate likelihoods for all samples, assuming diploid genotypes
         if ( tgt_isample<0 )
         {
             // PLs of the query sample
-            int *pl_ptr = pl_arr + query_isample*pl_fmt->n;
+            int *pl_ptr = pl_arr + query_isample*npl;
 
             // this is the default output, check the query VCF against the -g VCF
             for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++)
             {
-                int *gt_ptr = gt_arr + i*gt_fmt->n;
+                int *gt_ptr = gt_arr + i*ngt;
                 int a = (gt_ptr[0]>>1) - 1;
                 int b = (gt_ptr[1]>>1) - 1;
                 if ( a<0 || b<0 ) continue; // missing genotype
@@ -400,32 +372,32 @@ static void check_gt(args_t *args)
                 if ( pl_ptr[igt] >=0 )
                 {
                     double sum = 0; 
-                    for (j=0; j<pl_fmt->n; j++) 
+                    for (j=0; j<npl; j++) 
                         sum += pow(10, -0.1*pl_ptr[j]); 
                     args->lks[i] += -log(pow(10, -0.1*pl_ptr[igt])/sum); 
                     args->cnts[i]++; 
                 } 
-                if ( dp_inf->v1.i<0 ) error("here it is: %d dp=%d dp_id=%d\n", sm_line->pos+1, dp_inf->v1.i, dp_id);
-                args->dps[i] += dp_inf->v1.i; 
+                args->dps[i] += dp_arr[0];
             }
         }
         else
         {
             // per-site listing of the query sample in the query file
-            int *pl_ptr = pl_arr + query_isample*pl_fmt->n; // PLs of the query sample
-            printf("\t%d", dp_inf->v1.i);
+            int *pl_ptr = pl_arr + query_isample*npl; // PLs of the query sample
+            printf("\t%d", dp_arr[0]);
             for (i=0; i<sm_line->n_allele; i++) printf("%c%s", i==0?'\t':',', sm_line->d.allele[i]); 
-            for (igt=0; igt<pl_fmt->n; igt++)   
+            for (igt=0; igt<npl; igt++)   
                 if ( pl_ptr[igt]==bcf_int32_vector_end ) break;
                 else if ( pl_ptr[igt]==bcf_int32_missing ) printf(".");
                 else printf("\t%d", pl_ptr[igt]); 
             printf("\n"); 
         }
     }
-    if ( gt2ipl ) free(gt2ipl);
-    if ( gt_cnts ) free(gt_cnts);
-    if ( gt_arr ) free(gt_arr);
-    if ( pl_arr ) free(pl_arr);
+    free(gt2ipl);
+    free(gt_cnts);
+    free(gt_arr);
+    free(pl_arr);
+    free(dp_arr);
 
     // Scale LKs and certainties
     double max = args->lks[0];
@@ -481,57 +453,50 @@ static void cross_check_gts(args_t *args)
 {
     int nsamples = args->sm_hdr->n[BCF_DT_SAMPLE], ndp_arr = 0, npl_arr = 0;
     unsigned int *dp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)), *ndp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)); // this will overflow one day...
+
+fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
+
     int i,j,k,idx, *dp_arr = NULL, *pl_arr = NULL, pl_warned = 0, dp_warned = 0;
     int *is_hom = args->hom_only ? (int*) malloc(sizeof(int)*nsamples) : NULL;
-    int pl_id = bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL");
-    int dp_id = bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP");
-    if ( pl_id<0 ) error("[E::%s] PL not present in the header of %s?\n", __func__, args->files->readers[0].fname);
-    if ( dp_id<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
+    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) error("[E::%s] PL not present in the header of %s?\n", __func__, args->files->readers[0].fname);
+    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = args->files->readers[0].buffer[0];
         bcf_unpack(line, BCF_UN_FMT);
 
-        // Get BCF handler for PL and DP
-        bcf_fmt_t *dp_fmt = NULL, *pl_fmt = NULL;
-        for (i=0; i<(int)line->n_fmt; i++)  
-        {
-            if ( line->d.fmt[i].id==pl_id ) pl_fmt = &line->d.fmt[i];
-            if ( line->d.fmt[i].id==dp_id ) dp_fmt = &line->d.fmt[i];
-        }
-        if ( !pl_fmt ) { pl_warned++; continue; }
-        if ( !dp_fmt ) { dp_warned++; continue; }
-
-        dp_arr = bcf_set_iarray(dp_fmt, nsamples, dp_arr, &ndp_arr);
-        pl_arr = bcf_set_iarray(pl_fmt, nsamples, pl_arr, &npl_arr);
+        int npl = bcf_get_format_int(args->sm_hdr, line, "PL", &pl_arr, &npl_arr);
+        if ( npl<=0 ) { pl_warned++; continue; }
+        npl /= nsamples;
+        if ( bcf_get_format_int(args->sm_hdr, line, "DP", &dp_arr, &ndp_arr) <= 0 ) { dp_warned++; continue; }
 
         if ( args->hom_only )
         {
             for (i=0; i<nsamples; i++)
-                is_hom[i] = is_hom_most_likely(line->n_allele, pl_arr+i*pl_fmt->n);
+                is_hom[i] = is_hom_most_likely(line->n_allele, pl_arr+i*npl);
         }
 
         idx = 0;
         for (i=1; i<nsamples; i++)
         {
-            int *ipl = &pl_arr[i*pl_fmt->n];
+            int *ipl = &pl_arr[i*npl];
             if ( dp_arr[i]==bcf_int32_missing || !dp_arr[i] ) { idx += i; continue; }
             if ( args->hom_only && !is_hom[i] ) { idx += i; continue; }
 
             for (j=0; j<i; j++)
             {
-                int *jpl = &pl_arr[j*pl_fmt->n];
+                int *jpl = &pl_arr[j*npl];
                 if ( dp_arr[j]==bcf_int32_missing || !dp_arr[j] ) { idx++; continue; }
                 if ( args->hom_only && !is_hom[j] ) { idx++; continue; }
 
                 int min_pl = INT_MAX;
-                for (k=0; k<pl_fmt->n; k++)
+                for (k=0; k<npl; k++)
                 {
                     if ( ipl[k]==bcf_int32_missing || jpl[k]==bcf_int32_missing ) break;
-                    if ( ipl[k]==bcf_int32_vector_end || jpl[k]==bcf_int32_vector_end ) { k = pl_fmt->n; break; }
+                    if ( ipl[k]==bcf_int32_vector_end || jpl[k]==bcf_int32_vector_end ) { k = npl; break; }
                     if ( min_pl > ipl[k]+jpl[k] ) min_pl = ipl[k]+jpl[k];
                 }
-                if ( k!=pl_fmt->n ) { idx++; continue; }
+                if ( k!=npl ) { idx++; continue; }
 
                 args->lks[idx] += min_pl;
                 args->cnts[idx]++;
