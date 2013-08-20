@@ -33,6 +33,8 @@ if ( $$opts{make_plots} )
 	plot_concordance_by_sample($opts);
 	for my $id (file_ids($opts))
 	{
+		plot_irc_by_AF($opts,$id);
+		plot_irc_by_rlen($opts,$id);
 		plot_tstv_by_AF($opts,$id);
 		plot_tstv_by_QUAL($opts,$id);
 		plot_indel_distribution($opts,$id);
@@ -110,12 +112,12 @@ sub parse_params
             { 
                 id=>'SiS',   
                 header=>'Sis, Singleton stats', 
-                exp=>"# SiS\t[2]id\t[3]allele count\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\n" 
+                exp=>"# SiS\t[2]id\t[3]allele count\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable\n" 
             },
             { 
                 id=>'AF',    
                 header=>'AF, Stats by non-reference allele frequency', 
-                exp=>"# AF\t[2]id\t[3]allele frequency\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\n" 
+                exp=>"# AF\t[2]id\t[3]allele frequency\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable\n" 
             },
             { 
                 id=>'IDD',   
@@ -158,9 +160,14 @@ sub parse_params
                 exp=>"# FS\t[2]id\t[3]in-frame\t[4]out-frame\t[5]not applicable\t[6]out/(in+out) ratio\t[7]in-frame (1st ALT)\t[8]out-frame (1st ALT)\t[9]not applicable (1st ALT)\t[10]out/(in+out) ratio (1st ALT)\n"
             },
             { 
-                id=>'IC',    
-                header=>'IC, Indel context', 
-                exp=>"# IC\t[2]id\t[3]repeat-consistent\t[4]repeat-inconsistent\t[5]not applicable\t[6]c/(c+i) ratio\n" 
+                id=>'ICS',
+                header=>'ICS, Indel context summary', 
+                exp=>"# ICS\t[2]id\t[3]repeat-consistent\t[4]repeat-inconsistent\t[5]not applicable\t[6]c/(c+i) ratio\n" 
+            },
+            { 
+                id=>'ICL',
+                header=>'ICL, Indel context by length', 
+                exp=>"# ICL\t[2]id\t[3]length of repeat element\t[4]repeat-consistent deletions)\t[5]repeat-inconsistent deletions\t[6]consistent insertions\t[7]inconsistent insertions\t[8]c/(c+i) ratio\n"
             },
             { 
                 id=>'QUAL',
@@ -441,13 +448,23 @@ sub merge_FS
     }
 }
 
-sub merge_IC
+sub merge_ICS
 {
     my ($a,$b) = @_;
     for (my $i=0; $i<@$a; $i++)
     {
         for (my $j=0; $j<3; $j++) { $$a[$i][$j] += $$b[$i][$j]; }
         $$a[$i][3] = sprintf "%.4f", ($$a[$i][0] + $$a[$i][1]) ? $$a[$i][0]/($$a[$i][0] + $$a[$i][1]) : 0;
+    }
+}
+
+sub merge_ICL
+{
+    my ($a,$b) = @_;
+    for (my $i=0; $i<@$a; $i++)
+    {
+        for (my $j=1; $j<5; $j++) { $$a[$i][$j] += $$b[$i][$j]; }
+        $$a[$i][5] = sprintf "%.4f", ($$a[$i][2] + $$a[$i][4]) ? ($$a[$i][1] + $$a[$i][3])/($$a[$i][1] + $$a[$i][2] + $$a[$i][3] + $$a[$i][4]) : 0;
     }
 }
 
@@ -519,7 +536,8 @@ sub parse_vcfcheck1
             elsif ( $a eq 'PSC') { merge_PSC($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'IDD') { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_num); }
             elsif ( $a eq 'FS') { merge_FS($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
-            elsif ( $a eq 'IC') { merge_IC($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
+            elsif ( $a eq 'ICS') { merge_ICS($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
+            elsif ( $a eq 'ICL') { merge_ICL($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
             elsif ( $a eq 'TSTV') { merge_TSTV($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             else { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_num_op); } # SiS AF IDD
         }
@@ -535,14 +553,16 @@ sub file_ids
 	return @out;
 }
 
-sub iprint
+sub tprint
 {
 	my ($fh,@txt) = @_;
 	for my $txt (@txt)
 	{
-		$txt =~ s/\n[ \t]+/\n/g;
-        $txt =~ s/^\\t/\t/g;
-        $txt =~ s/\n\\t\s*/\n\t/g;
+		$txt =~ s/\n[ \t]+/\n/g;        # eat leading tabs
+        while ( ($txt =~ /\n\t*\\t/) )
+        {
+            $txt =~ s/(\n\t*)\\t/$1\t/g;    # replace escaped tabs (\\t) with tabs
+        }
 		print $fh $txt;
 	}
 }
@@ -553,14 +573,22 @@ sub init_plots
 
 	$$opts{plt_file} = "$$opts{prefix}plot.py";
 
+    my $titles = "# Title abbreviations:\n";
+    for my $id (file_ids($opts))
+    {
+        $titles .= "# \t $id .. $$opts{title}{$id} .. $$opts{dat}{ID}{$id}[0][0]\n";
+    }
+    $titles .= "#";
+
 	open(my $fh,'>',$$opts{plt_file}) or error("$$opts{plt_file}: $!");
-	iprint $fh, qq[
+	tprint $fh, qq[
 		# This file was produced by plot-vcfcheck, the command line was:
 		#	$$opts{args}
 		#
 		# Edit as necessary and recreate the plots by running
 		#	python $$opts{plt_file} 
 		#
+        $titles
 
         # Set to 1 to plot in PDF instead of PNG
         pdf_plots = $$opts{pdf_plots}
@@ -576,6 +604,10 @@ sub init_plots
 		import matplotlib as mpl
 		mpl.use('Agg')
 		import matplotlib.pyplot as plt
+
+        import csv
+        csv.register_dialect('tab', delimiter='\\t', quoting=csv.QUOTE_NONE)
+
 		];
 	$$opts{plt_fh} = $fh;
 }
@@ -647,7 +679,7 @@ sub plot_venn_bars
 	}
 
     my $fh = $$opts{plt_fh};
-	iprint $fh, qq[
+	tprint $fh, qq[
 			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
 	 		ax1 = fig.add_subplot(111)
 	 		ax1.bar([1,2,3],[$snps[0],$snps[2],$snps[1]],align='center',color='$$opts{id2col}[0]',width=0.3)
@@ -688,16 +720,16 @@ sub plot_per_sample_stats
 	my $img5 = "$$opts{prefix}singletons_by_sample.$id";
 	my $img6 = "$$opts{prefix}dp_by_sample.$id";
 
-	iprint $fh, "
+	tprint $fh, "
 			dat = [
 		";
 	for (my $i=0; $i<@vals; $i++)
 	{ 
 		my $tstv = $vals[$i][5] ? $vals[$i][4]/$vals[$i][5] : 0;
         my $hethom = $vals[$i][2] ? $vals[$i][3]/$vals[$i][2] : 0;
-		iprint $fh, sprintf("\t[ %d, %f, %f, %d, %d, %f, %d, r'%s' ],\n", $i, $tstv, $hethom, $vals[$i][4]+$vals[$i][5], $vals[$i][6], $vals[$i][7], $vals[$i][8], $vals[$i][0]);
+		tprint $fh, sprintf("\t[ %d, %f, %f, %d, %d, %f, %d, r'%s' ],\n", $i, $tstv, $hethom, $vals[$i][4]+$vals[$i][5], $vals[$i][6], $vals[$i][7], $vals[$i][8], $vals[$i][0]);
 	}
-	iprint $fh, "]
+	tprint $fh, "]
 
 			fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
 			ax1 = fig.add_subplot(111)
@@ -806,7 +838,7 @@ sub plot_DP
 	my $fh   = $$opts{plt_fh};
 	my $img  = "$$opts{prefix}depth.$id";
 
-	iprint $fh, "
+	tprint $fh, "
 			dat = [
 		";
     my $sum = 0;
@@ -815,9 +847,9 @@ sub plot_DP
         if ( $sum>99. ) { last; }
         if ( !($vals[$i][0]=~/^\d+$/) ) { next; }  # DP ">500" case
         $sum += $vals[$i][2];
-		iprint $fh, sprintf("\t[ %d, %f, %f ],\n", $vals[$i][0], $sum, $vals[$i][2]);
+		tprint $fh, sprintf("\t[ %d, %f, %f ],\n", $vals[$i][0], $sum, $vals[$i][2]);
 	}
-	iprint $fh, "]
+	tprint $fh, "]
 
 			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
 			ax1 = fig.add_subplot(111)
@@ -836,6 +868,104 @@ sub plot_DP
 		";
 }
 
+sub plot_irc_by_rlen
+{
+    my ($opts,$id) = @_;
+	my @vals = get_values($opts,$id,'ICL');
+    if ( !@vals ) { return; }
+
+    my $fh  = $$opts{plt_fh};
+	my $img = "$$opts{prefix}irc_by_rlen.$id";
+
+    my $has_vals = 0;
+	tprint $fh, "
+			dat = [
+		";
+	for (my $i=0; $i<@vals; $i++)
+	{ 
+		tprint $fh, sprintf("\t[ %d, %d, %f, %f ],\n", 
+            $vals[$i][0],                                                   # repeat type
+            $vals[$i][1]+$vals[$i][2]+$vals[$i][3]+$vals[$i][4],            # total count
+            $vals[$i][2] ? $vals[$i][1]/($vals[$i][1]+$vals[$i][2]) : 0,    # IRC of deletions
+            $vals[$i][4] ? $vals[$i][3]/($vals[$i][3]+$vals[$i][4]) : 0     # IRC of insertions
+            );
+	}
+	tprint $fh, "]
+
+			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+			ax1 = fig.add_subplot(111)
+            ax2 = ax1.twinx()
+			plots =  ax1.plot([row[0] for row in dat], [row[2] for row in dat], 'o-', ms=3, color='r', mec='r', label='Deletions'); 
+			plots += ax1.plot([row[0] for row in dat], [row[3] for row in dat], 'o-', ms=3, color='g', mec='g', label='Insertions');
+			plots += ax2.plot([row[0] for row in dat], [row[1] for row in dat], '^--', ms=3, color='k', mec='k', label='Number of sites');
+
+            ax2.ticklabel_format(style='sci',scilimits=(-3,4))
+            ax1.set_xlabel('Repeat type');
+            ax1.set_ylabel('Repeat Consistency');
+            ax2.set_ylabel('Number of sites');
+            labels = [l.get_label() for l in plots]
+            ax1.legend(plots,labels,numpoints=1,markerscale=1,loc='best',prop={'size':9},frameon=False)
+
+			plt.subplots_adjust(right=0.88,left=0.15,bottom=0.11)
+			plt.title('$$opts{title}{$id}')
+			plt.savefig('$img.png')
+			if pdf_plots: plt.savefig('$img.pdf')
+			plt.close()
+		";
+}
+
+sub plot_irc_by_AF
+{
+    my ($opts,$id) = @_;
+	my @vals = get_values($opts,$id,'AF');
+    if ( !@vals ) { return; }
+
+    my $fh   = $$opts{plt_fh};
+	my $img  = "$$opts{prefix}irc_by_af.$id";
+	my $vals = rebin_values(\@vals,8,0);
+
+    my $has_vals = 0;
+	tprint $fh, "
+			dat = [
+		";
+	for (my $i=0; $i<@$vals; $i++)
+	{ 
+		if ( $$vals[$i][5] + $$vals[$i][6] == 0 ) { next; }
+        $has_vals++;
+		tprint $fh, sprintf("\t[ %f, %d, %f, %f ],\n", 
+			$$vals[$i][0]/100., 
+			$$vals[$i][5] + $$vals[$i][6],
+			$$vals[$i][6] ? $$vals[$i][5]/($$vals[$i][5] + $$vals[$i][6]) : 0,
+			($$vals[$i][6] + $$vals[$i][7]) ? $$vals[$i][5]/($$vals[$i][5] + $$vals[$i][6] + $$vals[$i][7]) : 0);
+	}
+	tprint $fh, "]";
+    if ( $has_vals<2 ) { return; }
+
+	tprint $fh, "
+			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+			ax1 = fig.add_subplot(111)
+			ax1.plot([row[0] for row in dat], [row[1] for row in dat], '-o',color='k',mec='k',markersize=3)
+			ax1.set_ylabel('Number of sites',color='k')
+			ax1.set_yscale('log')
+			#ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y') 
+			for tl in ax1.get_yticklabels(): tl.set_color('k')
+			ax1.set_xlabel('Non-ref allele frequency')
+			ax2 = ax1.twinx()
+			ax2.plot([row[0] for row in dat], [row[2] for row in dat], '-o',color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]',markersize=3,label='c/(c+i)')
+			ax2.plot([row[0] for row in dat], [row[3] for row in dat], '--^',color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]',markersize=3,label='c/(c+i+n/a)')
+            ax2.legend(numpoints=1,markerscale=2,loc='best',prop={'size':10},frameon=False)
+			ax2.set_ylabel('Indel Repeat Consistency',color='$$opts{id2col}[$id]')
+			ax2.set_ylim(0,1)
+			ax1.set_xlim(0,1)
+			for tl in ax2.get_yticklabels(): tl.set_color('$$opts{id2col}[$id]')
+			plt.subplots_adjust(right=0.88,left=0.15,bottom=0.11)
+			plt.title('$$opts{title}{$id}')
+			plt.savefig('$img.png')
+			if pdf_plots: plt.savefig('$img.pdf')
+			plt.close()
+		";
+}
+
 sub plot_tstv_by_AF
 {
     my ($opts,$id) = @_;
@@ -847,22 +977,22 @@ sub plot_tstv_by_AF
 	my $vals = rebin_values(\@vals,8,0);
 
     my $has_vals = 0;
-	iprint $fh, "
+	tprint $fh, "
 			dat = [
 		";
 	for (my $i=0; $i<@$vals; $i++)
 	{ 
 		if ( $$vals[$i][2] + $$vals[$i][3] == 0 ) { next; }
         $has_vals++;
-		iprint $fh, sprintf("\t[ %f, %d, %f ],\n", 
+		tprint $fh, sprintf("\t[ %f, %d, %f ],\n", 
 			$$vals[$i][0]/100., 
 			$$vals[$i][2] + $$vals[$i][3],
 			$$vals[$i][3] ? $$vals[$i][2]/$$vals[$i][3]: 0);
 	}
-	iprint $fh, "]";
+	tprint $fh, "]";
     if ( $has_vals<2 ) { return; }
 
-	iprint $fh, "
+	tprint $fh, "
 			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
 			ax1 = fig.add_subplot(111)
 			ax1.plot([row[0] for row in dat], [row[1] for row in dat], '-o',color='k',mec='k',markersize=3)
@@ -891,43 +1021,58 @@ sub plot_tstv_by_QUAL
 	my @vals = get_values($opts,$id,'QUAL');
     if ( !@vals ) { return; }
 
-    my $vals = rebin_values(\@vals,10,0);
-    @vals = @$vals;
-
     my $fh   = $$opts{plt_fh};
 	my $img  = "$$opts{prefix}tstv_by_qual.$id";
 
-    my $has_vals = 0;
-	iprint $fh, "
-			dat = [
-		";
-	for (my $i=0; $i<@vals; $i++)
-	{ 
-		if ( $vals[$i][1] == 0 ) { next; }
-        $has_vals++;
-		iprint $fh, sprintf("\t[ %d, %d, %f ],\n", 
-			$vals[$i][0], 
-			$vals[$i][1],
-			$vals[$i][3] ? $vals[$i][2]/$vals[$i][3]: 0);
-	}
-	iprint $fh, "]";
-    if ( $has_vals<2 ) { return; }
+    open(my $tfh,'>',"$img.dat") or error("$img.dat: $!");
+    print $tfh "# [1]Quality\t[2]Number of sites\t[3]Marginal Ts/Tv\n";
 
-	iprint $fh, "
+    my @dat = ();
+    my $ntot = 0;
+    for my $val (@vals)
+    {
+        push @dat, [ $$val[0], $$val[2], $$val[3] ];    # qual, nts, ntv
+        $ntot += $$val[2] + $$val[3];
+    }
+    my @sdat = sort { $$b[0] <=> $$a[0] } @dat;
+    push @sdat, [-1];
+    my $dn    = $ntot*0.05;
+    my $qprev = $sdat[0][0];
+    my $nts   = 0;
+    my $ntv   = 0;
+    my $nout  = 0;
+    for my $rec (@sdat)
+    {
+        if ( $$rec[0]==-1 or $nts+$ntv > $dn )
+        {
+            if ( $ntv ) {  printf $tfh "$qprev\t%d\t%f\n", $nts+$ntv+$nout,$nts/$ntv; }
+            if ( $$rec[0]==-1 ) { last; }
+            $nout += $nts+$ntv;
+            $nts   = 0;
+            $ntv   = 0;
+            $qprev = $$rec[0];
+        }
+        $nts += $$rec[1];
+        $ntv += $$rec[2];
+    }
+    close($tfh) or error("close $img.dat");
+
+	tprint $fh, "
+            dat = []
+            with open('$img.dat', 'rb') as f:
+            \\treader = csv.reader(f, 'tab')
+            \\tfor row in reader:
+            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
+
 			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
 			ax1 = fig.add_subplot(111)
-			ax1.plot([row[0] for row in dat], [row[1] for row in dat], color='k')
-			ax1.set_ylabel('Number of sites',color='k')
-			ax1.set_yscale('log')
-			for tl in ax1.get_yticklabels(): tl.set_color('k')
-			ax1.set_xlabel('Quality')
-			ax2 = ax1.twinx()
-			ax2.plot([row[0] for row in dat], [row[2] for row in dat], color='r')
-			ax2.set_ylabel('Ts/Tv',color='r')
-			ax2.set_ylim(0,0.5+max(3,max(row[2] for row in dat)))
-			#ax1.set_xlim(0,100)
-			for tl in ax2.get_yticklabels(): tl.set_color('r')
-			plt.subplots_adjust(right=0.88,left=0.15,bottom=0.11)
+			ax1.plot([row[1] for row in dat], [row[2] for row in dat], '^-', ms=3, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]')
+			ax1.set_ylabel('Ts/Tv',fontsize=10)
+			ax1.set_xlabel('Number of sites\\n(sorted by QUAL, descending)',fontsize=10)
+            ax1.ticklabel_format(style='sci', scilimits=(-3,2), axis='x')
+            ax1.set_ylim(min(2,min(row[2] for row in dat))-0.3,0.3+max(2.2,max(row[2] for row in dat)))
+
+			plt.subplots_adjust(right=0.88,left=0.15,bottom=0.15)
 			plt.title('$$opts{title}{$id}')
 			plt.savefig('$img.png')
 			if pdf_plots: plt.savefig('$img.pdf')
@@ -980,12 +1125,12 @@ sub plot_concordance_by_AF
 	my $img  = "$$opts{prefix}gts_by_af";
 	my $img2 = "$$opts{prefix}r2_by_af";
 
-	iprint $fh, "
+	tprint $fh, "
 			dat = [
 		";
 	for (my $i=0; $i<@$vals; $i++)
 	{ 
-		iprint $fh, sprintf("\t[ %f,%f,%f,%f,%f,%f,%f,%f,%d ],\n", 
+		tprint $fh, sprintf("\t[ %f,%f,%f,%f,%f,%f,%f,%f,%d ],\n", 
             $$vals[$i][0]/100.,
             $$vals[$i][1]+$$vals[$i][4] ? $$vals[$i][1]/($$vals[$i][1]+$$vals[$i][4]) : 1,
             $$vals[$i][2]+$$vals[$i][5] ? $$vals[$i][2]/($$vals[$i][2]+$$vals[$i][5]) : 1,
@@ -997,7 +1142,7 @@ sub plot_concordance_by_AF
             $$vals[$i][8]
             );
 	}
-	iprint $fh, "]
+	tprint $fh, "]
 
 			fig = plt.figure(figsize=($$opts{img_width}*1.2,$$opts{img_height}))
 			ax1 = fig.add_subplot(111)
@@ -1047,14 +1192,14 @@ sub plot_concordance_by_sample
 	my $img  = "$$opts{prefix}gts_by_sample";
 
 	my @counts;
-	iprint $fh, "
+	tprint $fh, "
 			dat = [
 		";
 	for (my $i=0; $i<@vals; $i++)
 	{ 
-		iprint $fh, sprintf("\t[ %d, %f, r'%s' ],\n", $i, $vals[$i][1], $vals[$i][0]);
+		tprint $fh, sprintf("\t[ %d, %f, r'%s' ],\n", $i, $vals[$i][1], $vals[$i][0]);
 	}
-	iprint $fh, "]
+	tprint $fh, "]
 
 			fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
 			ax1 = fig.add_subplot(111)
@@ -1092,18 +1237,18 @@ sub plot_counts_by_AF_col
     {
         my @tmp = get_values($opts,$id,'AF');
         my $vals = rebin_values(\@tmp,1,0);
-        iprint $fh, "
+        tprint $fh, "
             dat$id = [
             ";
         for my $val (@$vals) 
         { 
             if ( !$$val[$col] ) { next; }
-            iprint $fh, "[ $$val[0], $$val[$col] ],\n"; 
+            tprint $fh, "[ $$val[0], $$val[$col] ],\n"; 
             $has_vals[$id]++;
         }
-        iprint $fh, "]\n";
+        tprint $fh, "]\n";
     }
-	iprint $fh, "
+	tprint $fh, "
 			fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
 			ax1 = fig.add_subplot(111)
 			ax1.set_ylabel('Number of sites')
@@ -1116,13 +1261,13 @@ sub plot_counts_by_AF_col
     for my $id (file_ids($opts))
     {
         if ( !$has_vals[$id] or $has_vals[$id]<2 ) { next; }
-		iprint $fh, "
+		tprint $fh, "
 			ax1.plot([row[0]/100. for row in dat$id], [row[1] for row in dat$id], '-o',markersize=3, color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]',label='$$opts{title}{$id}')
 		";
         $nfiles++;
     }
     if ( !$nfiles ) { return; }
-	iprint $fh, "
+	tprint $fh, "
             ax1.legend(numpoints=1,markerscale=1,loc='best',prop={'size':10},frameon=False)
 			plt.title('$title count by AF')
 			plt.subplots_adjust(bottom=0.2,left=0.1,right=0.95)
@@ -1167,19 +1312,23 @@ sub plot_overlap_by_AF_col
     for my $val (@vals_a) { $afs{$$val[0]} = $$val[$col]; $af_a{$$val[0]} = $$val[$col]; }
     for my $val (@vals_ab) { $afs{$$val[0]} = $$val[$col]; $af_ab{$$val[0]} = $$val[$col]; }
 
-    iprint $fh, "
-        dat = [
-    ";
+    open(my $tfh,'>',"$img.dat") or error("$img.dat: $!");
+    print $tfh "# [1]Allele frequency\t[2]Fraction of sites from $$opts{title}{$ids[$ia]} also in $$opts{title}{$ids[$ib]}\t[3]Number of sites\n";
     for my $af (sort { $a<=>$b } keys %afs)
     {
         my $a  = exists($af_a{$af})  ? $af_a{$af}  : 0; 
         my $ab = exists($af_ab{$af}) ? $af_ab{$af} : 0; 
         my $yval =  ($a+$ab) ? $ab * 100. / ($a + $ab) : 0;
-        iprint $fh, "[ $af, $yval ],\n";
+        print $tfh "$af\t$yval\t" .($a+$ab). "\n";
     }
+    close($tfh) or error("close $img.dat");
 
-	iprint $fh, "
-        ]
+	tprint $fh, "
+        dat = []
+        with open('$img.dat', 'rb') as f:
+        \\treader = csv.reader(f, 'tab')
+        \\tfor row in reader:
+        \\t\\tif row[0][0] != '#': dat.append(row)
 
         fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
         ax1 = fig.add_subplot(111)
@@ -1228,11 +1377,11 @@ sub plot_indel_distribution
     my $fh  = $$opts{plt_fh};
 	my $img = "$$opts{prefix}indels.$id";
 
-	iprint $fh, "
+	tprint $fh, "
 			dat = [
 		";
-	for my $val (@vals) { iprint $fh, "\t[$$val[0],$$val[1]],\n"; }
-	iprint $fh, "]
+	for my $val (@vals) { tprint $fh, "\t[$$val[0],$$val[1]],\n"; }
+	tprint $fh, "]
 
 			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
 			ax1 = fig.add_subplot(111)
@@ -1259,11 +1408,11 @@ sub plot_substitutions
     my $fh  = $$opts{plt_fh};
 	my $img = "$$opts{prefix}substitutions.$id";
 
-	iprint $fh, "
+	tprint $fh, "
 			dat = [
 		";
-	for (my $i=0; $i<@vals; $i++) { my $val=$vals[$i]; iprint $fh, "\t[$i,'$$val[0]',$$val[1]],\n"; }
-	iprint $fh, "]
+	for (my $i=0; $i<@vals; $i++) { my $val=$vals[$i]; tprint $fh, "\t[$i,'$$val[0]',$$val[1]],\n"; }
+	tprint $fh, "]
 
 			fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
 			cm  = mpl.cm.get_cmap('autumn')
@@ -1289,6 +1438,7 @@ sub singletons
 	my @si_vals   = get_values($opts,$id,'SiS');
 	my $si_snps   = $si_vals[0][1];
 	my $si_indels = $si_vals[0][4];
+	my $si_irc    = sprintf "%.3f", $si_vals[0][6] ? $si_vals[0][5]/($si_vals[0][5]+$si_vals[0][6]) : 0;
 	my $si_tstv   = sprintf "%.2f", $si_vals[0][3] ? $si_vals[0][2]/$si_vals[0][3] : 0;
 	my @all_vals  = get_values($opts,$id,'AF');
 	my $nsnps = 0;
@@ -1300,7 +1450,7 @@ sub singletons
 	}
 	$si_snps   = sprintf "%.1f", $nsnps ? $si_snps*100./$nsnps : 0;
 	$si_indels = sprintf "%.1f", $nindels ? $si_indels*100./$nindels : 0;
-	return { snps=>$si_snps, indels=>$si_indels, tstv=>$si_tstv };
+	return { snps=>$si_snps, indels=>$si_indels, tstv=>$si_tstv, irc=>$si_irc };
 }
 
 sub calc_3n_n3n
@@ -1408,7 +1558,7 @@ sub create_pdf
 	my $tex_file = "$$opts{lprefix}summary.tex";
 	my $pdf_file = "$$opts{prefix}summary.pdf";
 	open(my $tex,'>',$tex_file) or error("$tex_file: $!");
-	iprint $tex, qq[
+	tprint $tex, qq[
 			% This file was produced by plot-vcfcheck, the command line was:
 			%   $$opts{args}
 			%
@@ -1450,18 +1600,18 @@ sub create_pdf
 		];
 	if ( @has_xcolor )
 	{
-		iprint $tex, '\usepackage[table]{xcolor}';
+		tprint $tex, '\usepackage[table]{xcolor}';
 	}
 	else
 	{
-		iprint $tex, qq[
+		tprint $tex, qq[
 			\\newcommand{\\definecolor}[3]{}
 			\\newcommand{\\columncolor}[1]{}
 			\\newcommand{\\rowcolors}[4]{}
 			\\newcommand{\\arrayrulecolor}[1]{}
 		];
 	}
-	iprint $tex, qq[
+	tprint $tex, qq[
 			\\definecolor{hcol1}{rgb}{1,0.6,0}
 			\\definecolor{hcol2}{rgb}{1,0.68,0.2}
 			\\definecolor{row1}{rgb}{1,0.88,0.7}
@@ -1515,7 +1665,7 @@ sub create_pdf
 		my $tstv1  = sprintf "%.2f",get_values($opts,$id,'TSTV',0,5);
 		my @frsh   = get_values($opts,$id,'FS');
 		my $frsh   = @frsh ? $frsh[0][3] : '--';
-        my @rc     = get_values($opts,$id,'IC');
+        my @rc     = get_values($opts,$id,'ICS');
         my $rc     = @rc ? sprintf("%.3f",$rc[0][3]) : '--';
 		my $title  = $$opts{title}{$id};
 		$title =~ s/_/\\_/g;
@@ -1527,15 +1677,16 @@ sub create_pdf
         \multicolumn{8}{r}{$^*$ frameshift ratio: out/(out+in);\hspace{1em} $^{**}$ repeat-consistency} \\\\
         \end{tabular}
         \\\\ \vspace{1em}
-        \begin{tabular}{l | r r r | r r}
+        \begin{tabular}{l | r r r r | r r}
         \multicolumn{1}{>{\columncolor{hcol1}}l|}{}
-        & \multicolumn{3}{>{\columncolor{hcol1}}c|}{singletons {\footnotesize(AC=1)}}
+        & \multicolumn{4}{>{\columncolor{hcol1}}c|}{singletons {\footnotesize(AC=1)}}
         & \multicolumn{2}{>{\columncolor{hcol1}}c}{multiallelic}  \\\\
         %
         \multicolumn{1}{>{\columncolor{hcol2}}l|}{Callset}
         & \multicolumn{1}{>{\columncolor{hcol2}}c}{SNPs}
         & \multicolumn{1}{>{\columncolor{hcol2}}c}{ts/tv} 
-        & \multicolumn{1}{>{\columncolor{hcol2}}c|}{indels}
+        & \multicolumn{1}{>{\columncolor{hcol2}}c}{indels}
+        & \multicolumn{1}{>{\columncolor{hcol2}}c|}{rc}
         & \multicolumn{1}{>{\columncolor{hcol2}}c}{sites}
         & \multicolumn{1}{>{\columncolor{hcol2}}c}{SNPs} \\\\ \hline 
     ];
@@ -1546,7 +1697,7 @@ sub create_pdf
         my $mals  = get_value($opts,$id,'number of multiallelic sites:');
         my $msnps = get_value($opts,$id,'number of multiallelic SNP sites:');
 		my $title = $tex_titles{$id};
-		$slide .= qq[ $title & $$s{snps}\\% & $$s{tstv} & $$s{indels}\\% &  ] . bignum($mals) . ' &' . bignum($msnps) . qq[ \\\\ \n];
+		$slide .= qq[ $title & $$s{snps}\\% & $$s{tstv} & $$s{indels}\\% & $$s{irc} &  ] . bignum($mals) . ' &' . bignum($msnps) . qq[ \\\\ \n];
     }
 	$slide .= q[ \\end{tabular}
             \\vspace{2em}
@@ -1563,7 +1714,7 @@ sub create_pdf
     }
     $slide .= q[\\end{itemize}\\end{minipage}];
     my $title = exists($$opts{main_title}) ? $$opts{main_title} : 'Summary Numbers';
-	iprint $tex, qq[
+	tprint $tex, qq[
 			% Table with summary numbers
 			%
 			\\hslide{$title}{$slide}
@@ -1574,7 +1725,7 @@ sub create_pdf
 	# Venn bars
 	if ( @ids==3 )
 	{
-		iprint $tex, qq[%
+		tprint $tex, qq[%
 
 			% Venn numbers
 			%
@@ -1585,15 +1736,15 @@ sub create_pdf
 		];
 	}
 
-	iprint $tex, fmt_slide3v($opts, "$$opts{lprefix}tstv_by_sample", 'Ts/Tv by sample');
-	iprint $tex, fmt_slide3v($opts, "$$opts{lprefix}hets_by_sample", 'Hets vs non-ref Homs by sample');
-	iprint $tex, fmt_slide3v($opts, "$$opts{lprefix}singletons_by_sample", 'Singletons by sample {\normalsize(hets and homs)}');
-	iprint $tex, fmt_slide3v($opts, "$$opts{lprefix}dp_by_sample", 'Average depth by sample');
-	iprint $tex, fmt_slide3v($opts, "$$opts{lprefix}snps_by_sample", 'Number of SNPs by sample');
-	iprint $tex, fmt_slide3v($opts, "$$opts{lprefix}indels_by_sample", 'Number of indels by sample');
+	tprint $tex, fmt_slide3v($opts, "$$opts{lprefix}tstv_by_sample", 'Ts/Tv by sample');
+	tprint $tex, fmt_slide3v($opts, "$$opts{lprefix}hets_by_sample", 'Hets vs non-ref Homs by sample');
+	tprint $tex, fmt_slide3v($opts, "$$opts{lprefix}singletons_by_sample", 'Singletons by sample {\normalsize(hets and homs)}');
+	tprint $tex, fmt_slide3v($opts, "$$opts{lprefix}dp_by_sample", 'Average depth by sample');
+	tprint $tex, fmt_slide3v($opts, "$$opts{lprefix}snps_by_sample", 'Number of SNPs by sample');
+	tprint $tex, fmt_slide3v($opts, "$$opts{lprefix}indels_by_sample", 'Number of indels by sample');
 	if ( scalar get_values($opts,2,'GCsS') ) 
 	{ 
-		iprint $tex, qq[
+		tprint $tex, qq[
 			% Genotype discordance by sample
 			%
 			\\hslide{Genotype discordance by sample}{\\pdf{$ext,width=$width1}{$$opts{lprefix}gts_by_sample}}
@@ -1618,7 +1769,7 @@ sub create_pdf
 			\\multicolumn{1}{>{\\columncolor{hcol1}}c}{NRD} \\\\ \\hline
 			$rr\\% & $ra\\% & $aa\\% & $nrd\\% \\\\
 			\\end{tabular}}];
-		iprint $tex, qq[
+		tprint $tex, qq[
 				% Genotype discordance by AF
 				%
 				\\head{Genotype discordance by AF}\\begin{vplace}[0.7]\\centerline{$table}%
@@ -1632,7 +1783,7 @@ sub create_pdf
 	}
     if ( -e "$$opts{lprefix}counts_by_af.snps.$fmt" && -e "$$opts{lprefix}counts_by_af.indels.$fmt" )
     {
-	    iprint $tex, qq[
+	    tprint $tex, qq[
 	    	% SNP and indel counts by AF
 	    	%
 	    	\\hslide{}{\\vbox{\\noindent\\includegraphics[$ext,width=$width1]{$$opts{lprefix}counts_by_af.snps}\\\\%
@@ -1641,20 +1792,22 @@ sub create_pdf
     }
     if ( -e "$$opts{lprefix}overlap_by_af.snps.$fmt" && -e "$$opts{lprefix}overlap_by_af.indels.$fmt" )
     {
-	    iprint $tex, qq[
+	    tprint $tex, qq[
 	    	% SNP and indel overlap by AF
 	    	%
 	    	\\hslide{}{\\vbox{\\noindent\\includegraphics[$ext,width=$width1]{$$opts{lprefix}overlap_by_af.snps}\\\\%
 	    		\\noindent\\includegraphics[$ext,width=$width1]{$$opts{lprefix}overlap_by_af.indels}}}
 	    	];
     }
-	iprint $tex, fmt_slide3h($opts, "$$opts{lprefix}tstv_by_af", 'Ts/Tv by AF');
-	#iprint $tex, fmt_slide3h($opts, "$$opts{lprefix}tstv_by_qual", 'Ts/Tv by QUAL');
-	iprint $tex, fmt_slide3h($opts, "$$opts{lprefix}indels", 'Indel distribution');
-	iprint $tex, fmt_slide3h($opts, "$$opts{lprefix}depth", 'Depth distribution');
-	iprint $tex, fmt_slide3h($opts, "$$opts{lprefix}substitutions", 'Substitution types');
+	tprint $tex, fmt_slide3h($opts, "$$opts{lprefix}tstv_by_af", 'Ts/Tv by AF');
+	tprint $tex, fmt_slide3h($opts, "$$opts{lprefix}tstv_by_qual", 'Ts/Tv stratified by QUAL');
+	tprint $tex, fmt_slide3h($opts, "$$opts{lprefix}indels", 'Indel distribution');
+	tprint $tex, fmt_slide3h($opts, "$$opts{lprefix}depth", 'Depth distribution');
+	tprint $tex, fmt_slide3h($opts, "$$opts{lprefix}substitutions", 'Substitution types');
+	tprint $tex, fmt_slide3h($opts, "$$opts{lprefix}irc_by_af", 'Indel Repeat Consistency by AF');
+	tprint $tex, fmt_slide3h($opts, "$$opts{lprefix}irc_by_rlen", 'Indel Consistency by Repeat Type');
 
-	iprint $tex, "\n\n\\end{document}\n";
+	tprint $tex, "\n\n\\end{document}\n";
 	close($tex);
 
 	$tex_file =~ s{^.+/}{};

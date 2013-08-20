@@ -12,8 +12,11 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/faidx.h>
+#include "version.h"
 
-#define QUAL_STATS 0
+#define QUAL_STATS 1
+#define IRC_STATS 1
+#define IRC_RLEN 10
 
 typedef struct
 {
@@ -25,8 +28,11 @@ idist_t;
 typedef struct
 {
     int n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals;
-    int n_repeat[3];    // number of indels which are repeat-consistent, repeat-inconsistent, and not applicable
-    int *af_ts, *af_tv, *af_snps, *af_indels;   // first bin of af_* stats are singletons
+    int *af_ts, *af_tv, *af_snps;   // first bin of af_* stats are singletons
+    #if IRC_STATS
+        int n_repeat[IRC_RLEN][4], n_repeat_na;    // number of indels which are repeat-consistent, repeat-inconsistent (dels and ins), and not applicable
+        int *af_repeats[3];
+    #endif
     int ts_alt1, tv_alt1;
     #if QUAL_STATS
         int *qual_ts, *qual_tv, *qual_snps, *qual_indels;
@@ -79,19 +85,13 @@ typedef struct
     bcf_sr_regions_t regions;
     int prev_reg;
     char **argv, *exons_file, *samples_file, *targets_fname;
-    int argc, debug;
+    int argc, debug, first_allele_only;
     int split_by_id, nstats;
 }
 args_t;
 
-static void error(const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    exit(-1);
-}
+
+void error(const char *format, ...);
 
 static void idist_init(idist_t *d, int min, int max, int step)
 {
@@ -117,21 +117,22 @@ static inline int idist_i2bin(idist_t *d, int i)
 }
 
 
-#if 0
+#define IC_DBG 0
+#if IC_DBG
 static void _indel_ctx_print1(_idc1_t *idc)
 {
     int i;
-    fprintf(stderr, "%d\t", idc->cnt);
+    fprintf(stdout, "%d\t", idc->cnt);
     for (i=0; i<idc->len; i++)
-        fputc("eNACGT"[(int)idc->seq[i]], stderr);
-    fputc('\n', stderr);
+        fputc(idc->seq[i], stdout);
+    fputc('\n', stdout);
 }
 static void _indel_ctx_print(indel_ctx_t *ctx)
 {
     int i;
     for (i=0; i<ctx->ndat; i++)
         _indel_ctx_print1(&ctx->dat[i]);
-    fputc('\n',stderr);
+    fputc('\n',stdout);
 }
 #endif
 static int _indel_ctx_lookup(indel_ctx_t *ctx, char *seq, int seq_len, int *hit)
@@ -216,8 +217,8 @@ void indel_ctx_destroy(indel_ctx_t *ctx)
  */
 int indel_ctx_type(indel_ctx_t *ctx, char *chr, int pos, char *ref, char *alt, int *nrep, int *nlen)
 {
-    const int win_size = 50;    // hard-wired for now
-    const int rep_len  = 10;    // hard-wired for now
+    const int win_size = 50;             // hard-wired for now
+    const int rep_len  = IRC_RLEN;       // hard-wired for now
 
     int ref_len = strlen(ref);
     int alt_len = 0;
@@ -226,13 +227,14 @@ int indel_ctx_type(indel_ctx_t *ctx, char *chr, int pos, char *ref, char *alt, i
     int i, fai_ref_len;
     char *fai_ref = faidx_fetch_seq(ctx->ref, chr, pos-1, pos+win_size, &fai_ref_len);
     for (i=0; i<fai_ref_len; i++)
-        fai_ref[i] = 2 + bcf_acgt2int(fai_ref[i]);  // end of string is preserved and NACGT\0 = 123450
+        if ( (int)fai_ref[i]>96 ) fai_ref[i] -= 32;
 
     // Sanity check: the reference sequence must match the REF allele
     for (i=0; i<fai_ref_len && i<ref_len; i++)
-        if ( 2 + bcf_acgt2int(ref[i]) != fai_ref[i] )
-            error("\nSanity check failed, the reference sequence differs: %s:%d+%d .. %c vs %c\n", chr, pos, i, ref[i],"eNACGT"[(int)fai_ref[i]]);
+        if ( ref[i] != fai_ref[i] && ref[i] - 32 != fai_ref[i] )
+            error("\nSanity check failed, the reference sequence differs: %s:%d+%d .. %c vs %c\n", chr, pos, i, ref[i],fai_ref[i]);
 
+    // Count occurrences of all possible kmers
     ctx->ndat = 0;
     for (i=0; i<win_size; i++)
     {
@@ -240,16 +242,25 @@ int indel_ctx_type(indel_ctx_t *ctx, char *chr, int pos, char *ref, char *alt, i
         for (k=0; k<kmax; k++)
             _indel_ctx_insert(ctx, &fai_ref[i-k+1], k+1, i-k);
     }
+
+    #if IC_DBG
+    fprintf(stdout,"ref: %s\n", ref);
+    fprintf(stdout,"alt: %s\n", alt);
+    fprintf(stdout,"ctx: %s\n", fai_ref);
+    _indel_ctx_print(ctx);
+    #endif
+
     int max_cnt = 0, max_len = 0;
     for (i=0; i<ctx->ndat; i++)
     {
-        if ( max_cnt < ctx->dat[i].cnt )
+        if ( max_cnt < ctx->dat[i].cnt || (max_cnt==ctx->dat[i].cnt && max_len < ctx->dat[i].len) )
         {
             max_cnt = ctx->dat[i].cnt;
             max_len = ctx->dat[i].len;
         }
         free(ctx->dat[i].seq);
     }
+
     *nrep = max_cnt;
     *nlen = max_len;
     return alt_len - ref_len;
@@ -288,7 +299,8 @@ static void init_stats(args_t *args)
         stats->af_ts       = (int*) calloc(args->m_af,sizeof(int));
         stats->af_tv       = (int*) calloc(args->m_af,sizeof(int));
         stats->af_snps     = (int*) calloc(args->m_af,sizeof(int));
-        stats->af_indels   = (int*) calloc(args->m_af,sizeof(int));
+        int j;
+        for (j=0; j<3; j++) stats->af_repeats[j] = (int*) calloc(args->m_af,sizeof(int));
         #if QUAL_STATS
             stats->qual_ts     = (int*) calloc(args->m_qual,sizeof(int));
             stats->qual_tv     = (int*) calloc(args->m_qual,sizeof(int));
@@ -317,8 +329,10 @@ static void init_stats(args_t *args)
         args->prev_reg = -1;
     }
 
+    #if IRC_STATS
     if ( args->ref_fname )
         args->indel_ctx = indel_ctx_init(args->ref_fname);
+    #endif
 }
 static void destroy_stats(args_t *args)
 {
@@ -329,7 +343,9 @@ static void destroy_stats(args_t *args)
         if (stats->af_ts) free(stats->af_ts);
         if (stats->af_tv) free(stats->af_tv);
         if (stats->af_snps) free(stats->af_snps);
-        if (stats->af_indels) free(stats->af_indels);
+        int j;
+        for (j=0; j<3; j++) 
+            if (stats->af_repeats[j]) free(stats->af_repeats[j]);
         #if QUAL_STATS
             if (stats->qual_ts) free(stats->qual_ts);
             if (stats->qual_tv) free(stats->qual_tv);
@@ -431,9 +447,39 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     int i;
     for (i=1; i<line->n_allele; i++)
     {
+        if ( args->first_allele_only && i>1 ) break;
         if ( line->d.var[i].type!=VCF_INDEL ) continue;
-        stats->af_indels[ args->tmp_iaf[i] ]++;
         int len = line->d.var[i].n;
+
+        #if IRC_STATS
+        // Indel repeat consistency
+        if ( args->indel_ctx && line->d.var[i].type==VCF_INDEL )
+        {
+            int nrep, nlen, ndel;
+            ndel = indel_ctx_type(args->indel_ctx, (char*)reader->header->id[BCF_DT_CTG][line->rid].key, line->pos+1, line->d.allele[0], line->d.allele[i], &nrep, &nlen);
+            if ( nlen<=1 || nrep<=1 ) 
+            {
+                // not a repeat or a single base repeat
+                stats->n_repeat_na++;
+                stats->af_repeats[2][ args->tmp_iaf[i] ]++;
+            }
+            else 
+            {
+                if ( abs(ndel) % nlen ) 
+                {
+                    // the length of the inserted/deleted sequence is not consistent with the repeat element
+                    stats->n_repeat[nlen-1][ndel<0 ? 1 : 3]++;
+                    stats->af_repeats[1][ args->tmp_iaf[i] ]++;
+                }
+                else
+                {
+                    // the length consistent with the repeat
+                    stats->n_repeat[nlen-1][ndel<0 ? 0 : 2]++;
+                    stats->af_repeats[0][ args->tmp_iaf[i] ]++;
+                }
+            }
+        }
+        #endif
 
         // Check the frameshifts
         int tlen = 0;
@@ -478,20 +524,6 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
         if ( --len >= stats->m_indel ) len = stats->m_indel-1;
         ptr[len]++;
     }
-
-    if ( args->indel_ctx && line->d.var[1].type==VCF_INDEL )
-    {
-        // Indel repeat consistency
-        int nrep, nlen, ndel;
-        ndel = indel_ctx_type(args->indel_ctx, (char*)reader->header->id[BCF_DT_CTG][line->rid].key, line->pos+1, line->d.allele[0], line->d.allele[1], &nrep, &nlen);
-        if ( nlen<=1 || nrep<=1 ) stats->n_repeat[2]++;
-        else 
-        {
-            int rlen = nrep*nlen;
-            if ( rlen % abs(ndel) ) stats->n_repeat[1]++;
-            else stats->n_repeat[0]++;
-        }
-    }
 }
 
 static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
@@ -510,6 +542,7 @@ static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     int i;
     for (i=1; i<line->n_allele; i++)
     {
+        if ( args->first_allele_only && i>1 ) break;
         if ( !(line->d.var[i].type&VCF_SNP) ) continue;
         int alt = bcf_acgt2int(*line->d.allele[i]);
         if ( alt<0 || ref==alt ) continue;
@@ -518,19 +551,25 @@ static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
         stats->af_snps[iaf]++;
         if ( abs(ref-alt)==2 ) 
         {
-            if (i==1) stats->ts_alt1++;
+            if (i==1) 
+            {
+                stats->ts_alt1++;
+                #if QUAL_STATS
+                    stats->qual_ts[iqual]++;
+                #endif
+            }
             stats->af_ts[iaf]++;
-            #if QUAL_STATS
-                stats->qual_ts[iqual]++;
-            #endif
         }
         else 
         {
-            if (i==1) stats->tv_alt1++;
+            if (i==1) 
+            {
+                stats->tv_alt1++;
+                #if QUAL_STATS
+                    stats->qual_tv[iqual]++;
+                #endif
+            }
             stats->af_tv[iaf]++;
-            #if QUAL_STATS
-                stats->qual_tv[iqual]++;
-            #endif
         }
     }
 }
@@ -716,8 +755,8 @@ static void check_vcf(args_t *args)
 static void print_header(args_t *args)
 {
     int i;
-    printf("# This file was produced by vcfcheck(%s) and can be plotted using plot-vcfcheck.\n", HTS_VERSION);
-    printf("# The command line was:\thtscmd %s ", args->argv[0]);
+    printf("# This file was produced by vcfcheck(%s) and can be plotted using plot-vcfcheck.\n", bcftools_version());
+    printf("# The command line was:\tbcftools %s ", args->argv[0]);
     for (i=1; i<args->argc; i++)
         printf(" %s",args->argv[i]);
     printf("\n#\n");
@@ -780,36 +819,56 @@ static void print_stats(args_t *args)
     }
     if ( args->indel_ctx )
     {
-        printf("# IC, Indel context (1st ALT):\n# IC\t[2]id\t[3]repeat-consistent\t[4]repeat-inconsistent\t[5]not applicable\t[6]c/(c+i) ratio\n");
+        printf("# ICS, Indel context summary:\n# ICS\t[2]id\t[3]repeat-consistent\t[4]repeat-inconsistent\t[5]not applicable\t[6]c/(c+i) ratio\n");
         for (id=0; id<args->nstats; id++)
         {
-            int nc = args->stats[id].n_repeat[0], ni = args->stats[id].n_repeat[1], na = args->stats[id].n_repeat[2];
-            printf("IC\t%d\t%d\t%d\t%d\t%.4f\n", id, nc,ni,na,nc+ni ? (float)nc/(nc+ni) : 0.0);
+            int nc = 0, ni = 0, na = args->stats[id].n_repeat_na;
+            for (i=0; i<IRC_RLEN; i++)
+            {
+                nc += args->stats[id].n_repeat[i][0] + args->stats[id].n_repeat[i][2];
+                ni += args->stats[id].n_repeat[i][1] + args->stats[id].n_repeat[i][3];
+            }
+            printf("ICS\t%d\t%d\t%d\t%d\t%.4f\n", id, nc,ni,na,nc+ni ? (float)nc/(nc+ni) : 0.0);
+        }
+        printf("# ICL, Indel context by length:\n# ICL\t[2]id\t[3]length of repeat element\t[4]repeat-consistent deletions)\t[5]repeat-inconsistent deletions\t[6]consistent insertions\t[7]inconsistent insertions\t[8]c/(c+i) ratio\n");
+        for (id=0; id<args->nstats; id++)
+        {
+            for (i=1; i<IRC_RLEN; i++)
+            {
+                int nc = args->stats[id].n_repeat[i][0]+args->stats[id].n_repeat[i][2], ni = args->stats[id].n_repeat[i][1]+args->stats[id].n_repeat[i][3];
+                printf("ICL\t%d\t%d\t%d\t%d\t%d\t%d\t%.4f\n", id, i+1,
+                    args->stats[id].n_repeat[i][0],args->stats[id].n_repeat[i][1],args->stats[id].n_repeat[i][2],args->stats[id].n_repeat[i][3],
+                    nc+ni ? (float)nc/(nc+ni) : 0.0);
+            }
         }
     }
-    printf("# Sis, Singleton stats:\n# SiS\t[2]id\t[3]allele count\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\n");
+    printf("# Sis, Singleton stats:\n# SiS\t[2]id\t[3]allele count\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable\n");
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
-        printf("SiS\t%d\t%d\t%d\t%d\t%d\t%d\n", id,1,stats->af_snps[0],stats->af_ts[0],stats->af_tv[0],stats->af_indels[0]);
+        printf("SiS\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", id,1,stats->af_snps[0],stats->af_ts[0],stats->af_tv[0],
+            stats->af_repeats[0][0]+stats->af_repeats[1][0]+stats->af_repeats[2][0],stats->af_repeats[0][0],stats->af_repeats[1][0],stats->af_repeats[2][0]);
         // put the singletons stats into the first AF bin, note that not all of the stats is transferred (i.e. nrd mismatches)
-        stats->af_snps[1]   += stats->af_snps[0];
-        stats->af_ts[1]     += stats->af_ts[0];
-        stats->af_tv[1]     += stats->af_tv[0];
-        stats->af_indels[1] += stats->af_indels[0];
+        stats->af_snps[1]       += stats->af_snps[0];
+        stats->af_ts[1]         += stats->af_ts[0];
+        stats->af_tv[1]         += stats->af_tv[0];
+        stats->af_repeats[0][1] += stats->af_repeats[0][0];
+        stats->af_repeats[1][1] += stats->af_repeats[1][0];
+        stats->af_repeats[2][1] += stats->af_repeats[2][0];
     }
-    printf("# AF, Stats by non-reference allele frequency:\n# AF\t[2]id\t[3]allele frequency\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\n");
+    printf("# AF, Stats by non-reference allele frequency:\n# AF\t[2]id\t[3]allele frequency\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable\n");
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
         for (i=1; i<args->m_af; i++) // note that af[1] now contains also af[0], see SiS stats output above 
         {
-            if ( stats->af_snps[i]+stats->af_ts[i]+stats->af_tv[i]+stats->af_indels[i] == 0  ) continue;
-            printf("AF\t%d\t%f\t%d\t%d\t%d\t%d\n", id,100.*(i-1)/(args->m_af-2),stats->af_snps[i],stats->af_ts[i],stats->af_tv[i],stats->af_indels[i]);
+            if ( stats->af_snps[i]+stats->af_ts[i]+stats->af_tv[i]+stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i] == 0  ) continue;
+            printf("AF\t%d\t%f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", id,100.*(i-1)/(args->m_af-2),stats->af_snps[i],stats->af_ts[i],stats->af_tv[i],
+                stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i],stats->af_repeats[0][i],stats->af_repeats[1][i],stats->af_repeats[2][i]);
         }
     }
     #if QUAL_STATS
-        printf("# QUAL, Stats by quality:\n# QUAL\t[2]id\t[3]Quality\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\n");
+        printf("# QUAL, Stats by quality:\n# QUAL\t[2]id\t[3]Quality\t[4]number of SNPs\t[5]number of transitions (1st ALT)\t[6]number of transversions (1st ALT)\t[7]number of indels\n");
         for (id=0; id<args->nstats; id++)
         {
             stats_t *stats = &args->stats[id];
@@ -925,6 +984,7 @@ static void usage(void)
     fprintf(stderr, "         and the complements.\n");
     fprintf(stderr, "Usage:   vcfcheck [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -1, --1st-allele-only             include only 1st allele at multiallelic sites\n");
     fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|any>\n");
     fprintf(stderr, "    -d, --depth <int,int,int>         depth distribution: min,max,bin size [0,500,1]\n");
     fprintf(stderr, "        --debug                       produce verbose per-site and per-sample output\n");
@@ -949,6 +1009,7 @@ int main_vcfcheck(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
+        {"1st-allele-only",0,0,'1'},
         {"help",0,0,'h'},
         {"collapse",1,0,'c'},
         {"debug",0,0,1},
@@ -961,8 +1022,9 @@ int main_vcfcheck(int argc, char *argv[])
         {"fasta-ref",1,0,'F'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hc:r:e:s:d:i1t:F:f:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:e:s:d:i1t:F:f:1",loptions,NULL)) >= 0) {
         switch (c) {
+            case '1': args->first_allele_only = 1; break;
             case 'F': args->ref_fname = optarg; break;
             case 't': args->targets_fname = optarg; break;
             case 'c':
