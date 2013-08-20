@@ -28,14 +28,7 @@ typedef struct
 }
 args_t;
 
-static void error(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	vfprintf(stderr, format, ap);
-	va_end(ap);
-	exit(-1);
-}
+void error(const char *format, ...);
 
 /**
  *  mkdir_p() - create new directory for a file $fname

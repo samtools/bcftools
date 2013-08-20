@@ -184,7 +184,7 @@ sub bgzip_tabix
     }
     if ( $$opts{redo_outputs} or !-e "$$opts{tmp}/$file.gz.tbi" or is_file_newer("$$opts{tmp}/$file.gz","$$opts{tmp}/$file.gz.tbi") )
     {
-        cmd("$$opts{bin}/htscmd tabix -f $args{args} $$opts{tmp}/$file.gz");
+        cmd("$$opts{bin}/bcftools tabix -f $args{args} $$opts{tmp}/$file.gz");
     }
 }
 sub bgzip_tabix_vcf
@@ -200,13 +200,13 @@ sub test_tabix
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
 }
 sub test_vcf_check
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd vcfcheck -s - $$opts{tmp}/$args{in}.vcf.gz | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools check -s - $$opts{tmp}/$args{in}.vcf.gz | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
 }
 sub test_vcf_merge
 {
@@ -218,7 +218,7 @@ sub test_vcf_merge
         push @files, "$$opts{tmp}/$file.vcf.gz";
     }
     my $files = join(' ',@files);
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd vcfmerge $files | grep -v ^##vcfmerge");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge $files | grep -v ^##vcfmerge");
 }
 sub test_vcf_isec
 {
@@ -230,7 +230,7 @@ sub test_vcf_isec
         push @files, "$$opts{tmp}/$file.vcf.gz";
     }
     my $files = join(' ',@files);
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd vcfisec $args{args} $files");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} $files");
 }
 sub test_vcf_isec2
 {
@@ -243,24 +243,24 @@ sub test_vcf_isec2
     }
     my $files = join(' ',@files);
     bgzip_tabix($opts,file=>$args{tab_in},suffix=>'tab',args=>'-s 1 -b 2 -e 3');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd vcfisec $args{args} -s $$opts{tmp}/$args{tab_in}.tab.gz $files");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -s $$opts{tmp}/$args{tab_in}.tab.gz $files");
 }
 sub test_vcf_query
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd vcfquery $args{args} $$opts{tmp}/$args{in}.vcf.gz");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools query $args{args} $$opts{tmp}/$args{in}.vcf.gz");
 }
 sub test_vcf_norm
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd vcfnorm -f $$opts{path}/$args{fai}.fa $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##vcfnorm");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -f $$opts{path}/$args{fai}.fa $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##vcfnorm");
 }
 sub test_vcf_subset
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/htscmd vcfsubset $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##vcfsubset");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##vcfsubset");
 }
 

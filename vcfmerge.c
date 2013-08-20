@@ -10,6 +10,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include "version.h"
 
 #include <htslib/khash.h>
 KHASH_MAP_INIT_STR(strdict, int)
@@ -68,17 +69,8 @@ typedef struct
 }
 args_t;
 
-static void error(const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    exit(-1);
-}
-
+void error(const char *format, ...);
 int bcf_hdr_sync(bcf_hdr_t *h);
-void bcf_hdr_add_sample(bcf_hdr_t *h, char *s);
 
 void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *_hr, const char *clash_prefix)
 {
@@ -1148,7 +1140,7 @@ void merge_buffer(args_t *args)
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd)
 {
     kstring_t str = {0,0,0};
-    ksprintf(&str,"##%sVersion=%s\n", cmd, HTS_VERSION);
+    ksprintf(&str,"##%sVersion=%s\n", cmd, bcftools_version());
     bcf_hdr_append(hdr,str.s);
 
     str.l = 0;
@@ -1166,7 +1158,7 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
 void merge_vcf(args_t *args)
 {
     args->out_fh  = args->output_bcf ? hts_open("-","wb",0) : hts_open("-","w",0);
-    args->out_hdr = bcf_hdr_init();
+    args->out_hdr = bcf_hdr_init("w");
 
     if ( args->header_fname )
     {

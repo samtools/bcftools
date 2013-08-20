@@ -32,14 +32,7 @@ struct _token_t
     int missing_value;
 };
 
-static void error(const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    exit(-1);
-}
+void error(const char *format, ...);
 
 typedef struct _args_t
 {
@@ -152,7 +145,8 @@ static int filters_next_token(char **str, int *len)
 
 static void filters_set_qual(bcf1_t *line, token_t *tok)
 {
-    if ( bcf_float_is_missing(line->qual) )     // hmm, how to do this cleanly and avoid the "strict-aliasing rules" warning?
+    float *ptr = &line->qual;
+    if ( bcf_float_is_missing(*ptr) )
         tok->missing_value = 1;
     else
         tok->num_value = line->qual;
@@ -179,8 +173,8 @@ int bcf_get_info_value(bcf1_t *line, int info_id, int ivec, void *value)
     bcf_info_t *info = &line->d.info[j];
     if ( info->len == 1 )
     {
-        if ( info->type==BCF_HT_INT ) *((int*)value) = info->v1.i;
-        else if ( info->type==BCF_HT_REAL ) *((float*)value) = info->v1.f;
+        if ( info->type==BCF_BT_FLOAT ) *((float*)value) = info->v1.f;
+        else if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 ) *((int*)value) = info->v1.i;
         return 1;
     }
 
@@ -729,8 +723,9 @@ int subset_vcf(args_t *args, bcf1_t *line)
     if (args->exclude_ref && n_ac == 0) return 0;
     if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
     if (args->sites_only) bcf_subset(args->hsub ? args->hsub : args->hdr, line, 0, 0);
-bcf_unpack(line,BCF_UN_ALL);
-line->d.shared_dirty |= BCF1_DIRTY_INF;
+//bcf_unpack(line,BCF_UN_ALL);
+//line->d.shared_dirty |= BCF1_DIRTY_INF;
+
     if (args->output_bcf) bcf1_sync(line);
     return 1;
 }

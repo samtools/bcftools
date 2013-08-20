@@ -14,13 +14,22 @@ SN	0	number of multiallelic SNP sites:	1
 # TSTV	[2]id	[3]ts	[4]tv	[5]ts/tv	[6]ts (1st ALT)	[7]tv (1st ALT)	[8]ts/tv (1st ALT)
 TSTV	0	0	2	0.00	0	1	0.00
 # Sis, Singleton stats:
-# SiS	[2]id	[3]allele count	[4]number of SNPs	[5]number of transitions	[6]number of transversions	[7]number of indels
-SiS	0	1	2	0	2	0
+# SiS	[2]id	[3]allele count	[4]number of SNPs	[5]number of transitions	[6]number of transversions	[7]number of indels	[8]repeat-consistent	[9]repeat-inconsistent	[10]not applicable
+SiS	0	1	2	0	2	0	0	0	0
 # AF, Stats by non-reference allele frequency:
-# AF	[2]id	[3]allele frequency	[4]number of SNPs	[5]number of transitions	[6]number of transversions	[7]number of indels
-AF	0	0.000000	2	0	2	2
-AF	0	49.494949	0	0	0	14
-AF	0	100.000000	0	0	0	1
+# AF	[2]id	[3]allele frequency	[4]number of SNPs	[5]number of transitions	[6]number of transversions	[7]number of indels	[8]repeat-consistent	[9]repeat-inconsistent	[10]not applicable
+AF	0	0.000000	2	0	2	0	0	0	0
+# QUAL, Stats by quality:
+# QUAL	[2]id	[3]Quality	[4]number of SNPs	[5]number of transitions (1st ALT)	[6]number of transversions (1st ALT)	[7]number of indels
+QUAL	0	12	1	0	1	1
+QUAL	0	45	0	0	0	1
+QUAL	0	59	1	0	0	4
+QUAL	0	60	0	0	0	1
+QUAL	0	61	0	0	0	1
+QUAL	0	79	0	0	0	1
+QUAL	0	82	0	0	0	1
+QUAL	0	90	0	0	0	1
+QUAL	0	342	0	0	0	1
 # IDD, InDel distribution:
 # IDD	[2]id	[3]length (deletions negative)	[4]count
 IDD	0	-10	1
