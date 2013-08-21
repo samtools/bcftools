@@ -44,7 +44,7 @@ endif
 version.h: $(if $(wildcard version.h),$(if $(findstring "$(PACKAGE_VERSION)",$(shell cat version.h)),,force))
 endif
 version.h:
-	echo -e '#define BCFTOOLS_VERSION "$(PACKAGE_VERSION)"\nchar *bcftools_version(void);' > $@
+	printf '#define BCFTOOLS_VERSION "$(PACKAGE_VERSION)"\nchar *bcftools_version(void);\n' > $@
 
 
 .SUFFIXES:.c .o
