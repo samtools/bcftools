@@ -11,6 +11,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include "bcftools.h"
 
 typedef struct
 {
@@ -23,9 +24,8 @@ typedef struct
 }
 args_t;
 
-void error(const char *format, ...);
-FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
 void py_plot(char *script);
+FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
 char *msprintf(const char *fmt, ...);
 
 static void plot_check(args_t *args)
@@ -618,7 +618,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 			case 'p': args->plot = optarg; break;
 			case 's': args->target_sample = optarg; break;
 			case 'S': args->query_sample = optarg; break;
-            case 'r': args->files->region = optarg; break;
+            //case 'r': args->files->region = optarg; break;
 			case 'h': 
 			case '?': usage();
 			default: error("Unknown argument: %s\n", optarg);

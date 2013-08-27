@@ -12,7 +12,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/faidx.h>
-#include "version.h"
+#include "bcftools.h"
 
 #define QUAL_STATS 1
 #define IRC_STATS 1
@@ -82,16 +82,13 @@ typedef struct
 
     // other
     bcf_srs_t *files;
-    bcf_sr_regions_t regions;
-    int prev_reg;
-    char **argv, *exons_file, *samples_file, *targets_fname;
+    bcf_sr_regions_t *exons;
+    char **argv, *exons_fname, *regions_fname, *samples_fname, *targets_fname;
     int argc, debug, first_allele_only;
     int split_by_id, nstats;
 }
 args_t;
 
-
-void error(const char *format, ...);
 
 static void idist_init(idist_t *d, int min, int max, int step)
 {
@@ -282,9 +279,9 @@ static void init_stats(args_t *args)
         args->m_qual = 999;
     #endif
 
-    if ( args->samples_file )
+    if ( args->samples_fname )
     {
-        if ( !bcf_sr_set_samples(args->files,args->samples_file) ) error("Could not initialize samples: %s\n", args->samples_file);
+        if ( !bcf_sr_set_samples(args->files,args->samples_fname) ) error("Could not initialize samples: %s\n", args->samples_fname);
         args->af_gts_snps     = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
         args->af_gts_indels   = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
         args->smpl_gts_snps   = (gtcmp_t *) calloc(args->files->n_smpl,sizeof(gtcmp_t));
@@ -322,11 +319,11 @@ static void init_stats(args_t *args)
         idist_init(&stats->dp, args->dp_min,args->dp_max,args->dp_step);
     }
 
-    if ( args->exons_file )
+    if ( args->exons_fname )
     {
-        if ( !init_regions(args->exons_file, &args->regions) )
-            error("Error occurred while reading, was the file compressed with bgzip: %s?\n", args->exons_file);
-        args->prev_reg = -1;
+        args->exons = bcf_sr_regions_init(args->exons_fname);
+        if ( !args->exons )
+            error("Error occurred while reading, was the file compressed with bgzip: %s?\n", args->exons_fname);
     }
 
     #if IRC_STATS
@@ -366,7 +363,7 @@ static void destroy_stats(args_t *args)
         idist_destroy(&stats->dp);
     }
     if (args->tmp_iaf) free(args->tmp_iaf);
-    if (args->exons_file) destroy_regions(&args->regions);
+    if (args->exons) bcf_sr_regions_destroy(args->exons);
     if (args->af_gts_snps) free(args->af_gts_snps);
     if (args->af_gts_indels) free(args->af_gts_indels);
     if (args->smpl_gts_snps) free(args->smpl_gts_snps);
@@ -384,7 +381,7 @@ static void init_iaf(args_t *args, bcf_sr_t *reader)
     }
     // tmp_iaf is first filled with AC counts in calc_ac and then transformed to
     //  an index to af_gts_snps
-    int i, ret = bcf_calc_ac(reader->header, line, args->tmp_iaf, args->samples_file ? BCF_UN_INFO|BCF_UN_FMT : BCF_UN_INFO);
+    int i, ret = bcf_calc_ac(reader->header, line, args->tmp_iaf, args->samples_fname ? BCF_UN_INFO|BCF_UN_FMT : BCF_UN_INFO);
     if ( ret )
     {
         int an=0;
@@ -431,17 +428,19 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     #endif
 
     // Check if the indel is near an exon for the frameshift statistics
-    bcf_sr_pos_t *reg = NULL, *reg_next = NULL;
-    if ( args->regions.nseqs )
+    if ( args->exons )
     {
-        if (  args->files->iseq<0 ||  args->files->iseq!=args->prev_reg )
+        // New chromosome?
+        if ( !args->exons->seq || strcmp(args->exons->seq,reader->header->id[BCF_DT_CTG][line->rid].key) )
         {
-            reset_regions(&args->regions, reader->header->id[BCF_DT_CTG][line->rid].key);
-            args->prev_reg = args->files->iseq;
+            if ( bcf_sr_regions_seek(args->exons, reader->header->id[BCF_DT_CTG][line->rid].key)==0 )
+                bcf_sr_regions_next(args->exons);
         }
-        reg = is_in_regions(&args->regions, line->pos+1);
-        if ( !reg && args->regions.cseq>=0 && args->regions.cpos < args->regions.npos[args->regions.cseq] )
-            reg_next = &args->regions.pos[args->regions.cseq][args->regions.cpos];
+        if ( args->exons->start >= 0 )
+        {
+            while ( args->exons->start <= line->pos )
+                if ( bcf_sr_regions_next(args->exons)<0 )  break;   // no more exons
+        }
     }
 
     int i;
@@ -483,21 +482,24 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
 
         // Check the frameshifts
         int tlen = 0;
-        if ( reg )
+        if ( args->exons && args->exons->start >= 0 )   // there is an exon
         {
-            tlen = abs(len);
-            if ( len<0 ) 
+            if ( len>0 )
             {
-                int to = line->pos+1 + tlen;
-                if ( to > reg->to ) tlen -= to-reg->to;
+                // insertion
+                if ( args->exons->start <= line->pos && args->exons->end > line->pos ) tlen = abs(len);
+            }
+            else if ( args->exons->start <= line->pos + abs(len) )
+            {
+                // deletion
+                tlen = abs(len);
+                if ( line->pos < args->exons->start )              // trim the beginning
+                    tlen -= args->exons->start - line->pos + 1;
+                if ( args->exons->end < line->pos + abs(len) )     // trim the end
+                    tlen -= line->pos + abs(len) - args->exons->end;
             }
         }
-        else if ( reg_next && len<0 )
-        {
-            tlen = abs(len) - reg_next->from + line->pos+1;
-            if ( tlen<0 ) tlen = 0;
-        }
-        if ( tlen )
+        if ( tlen )     // there are some deleted/inserted bases in the exon
         {
             if ( tlen%3 ) stats->out_frame++;
             else stats->in_frame++;
@@ -508,11 +510,12 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
                 else stats->in_frame_alt1++;
             }
         }
-        else
+        else            // no exon affected
         {
             if ( i==1 ) stats->na_frame_alt1++;
             stats->na_frame++;
         }
+            
 
         // Indel length distribution
         int *ptr = stats->insertions;
@@ -701,7 +704,8 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                 int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL);
                 if ( gt != gt2 ) 
                 {
-                    printf("DBG\t%s\t%d\t%s\t%d\t%d\n",args->files->seqs[args->files->iseq],files->readers[0].buffer[0]->pos+1,files->samples[is],gt,gt2);
+                    bcf_sr_t *reader = &files->readers[0];
+                    printf("DBG\t%s\t%d\t%s\t%d\t%d\n",reader->header->id[BCF_DT_CTG][reader->buffer[0]->rid].key,reader->buffer[0]->pos+1,files->samples[is],gt,gt2);
                 }
             }
         }
@@ -807,7 +811,7 @@ static void print_stats(args_t *args)
         for (i=0; i<args->m_af; i++) { ts += stats->af_ts[i]; tv += stats->af_tv[i];  }
         printf("TSTV\t%d\t%d\t%d\t%.2f\t%d\t%d\t%.2f\n", id,ts,tv,tv?(float)ts/tv:0, stats->ts_alt1,stats->tv_alt1,stats->tv_alt1?(float)stats->ts_alt1/stats->tv_alt1:0);
     }
-    if ( args->exons_file )
+    if ( args->exons_fname )
     {
         printf("# FS, Indel frameshifts:\n# FS\t[2]id\t[3]in-frame\t[4]out-frame\t[5]not applicable\t[6]out/(in+out) ratio\t[7]in-frame (1st ALT)\t[8]out-frame (1st ALT)\t[9]not applicable (1st ALT)\t[10]out/(in+out) ratio (1st ALT)\n");
         for (id=0; id<args->nstats; id++)
@@ -985,16 +989,16 @@ static void usage(void)
     fprintf(stderr, "Usage:   vcfcheck [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -1, --1st-allele-only             include only 1st allele at multiallelic sites\n");
-    fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|any>\n");
+    fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|any|some>\n");
     fprintf(stderr, "    -d, --depth <int,int,int>         depth distribution: min,max,bin size [0,500,1]\n");
     fprintf(stderr, "        --debug                       produce verbose per-site and per-sample output\n");
     fprintf(stderr, "    -e, --exons <file.gz>             tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --fasta-ref <file>            faidx indexed reference sequence file to determine INDEL context\n");
     fprintf(stderr, "    -i, --split-by-ID                 collect stats for sites with ID separately (known vs novel)\n");
-    fprintf(stderr, "    -r, --region <chr|chr:from-to>    collect stats in the given region only\n");
+    fprintf(stderr, "    -r, --region <reg|file>           collect stats in the given regions\n");
     fprintf(stderr, "    -s, --samples <list|file>         produce sample stats, \"-\" to include all samples\n");
-    fprintf(stderr, "    -t, --targets <file>              restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -t, --targets <reg|file>          restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1032,6 +1036,8 @@ int main_vcfcheck(int argc, char *argv[])
                 else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
                 else if ( !strcmp(optarg,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
                 else if ( !strcmp(optarg,"any") ) args->files->collapse |= COLLAPSE_ANY;
+				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
+                else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;
             case  1 : args->debug = 1; break;
             case 'd': 
@@ -1041,9 +1047,9 @@ int main_vcfcheck(int argc, char *argv[])
                     error("Is this a typo? --depth %s\n", optarg);
                 break;
             case 'f': args->files->apply_filters = optarg; break;
-            case 'r': args->files->region = optarg; break;
-            case 'e': args->exons_file = optarg; break;
-            case 's': args->samples_file = optarg; break;
+            case 'r': args->regions_fname = optarg; break;
+            case 'e': args->exons_fname = optarg; break;
+            case 's': args->samples_fname = optarg; break;
             case 'i': args->split_by_id = 1; break;
             case 'h': 
             case '?': usage();
@@ -1058,13 +1064,11 @@ int main_vcfcheck(int argc, char *argv[])
         args->files->require_index = 1;
         if ( args->split_by_id ) error("Only one file can be given with -i.\n");
     }
-    if ( !args->samples_file ) args->files->max_unpack = BCF_UN_INFO;
-    if ( args->targets_fname )
-    {
-        args->files->require_index = 1;
-        if ( !bcf_sr_set_targets(args->files, args->targets_fname) )
-            error("Failed to read the targets: %s\n", args->targets_fname);
-    }
+    if ( !args->samples_fname ) args->files->max_unpack = BCF_UN_INFO;
+    if ( args->targets_fname && bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
+        error("Failed to read the targets: %s\n", args->targets_fname);
+    if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
+        error("Failed to read the regions: %s\n", args->regions_fname);
     while (optind<argc)
     {
         if ( !bcf_sr_add_reader(args->files, argv[optind]) ) 

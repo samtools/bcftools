@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <ctype.h>
@@ -11,6 +10,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include "bcftools.h"
 
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
@@ -32,17 +32,16 @@ struct _token_t
     int missing_value;
 };
 
-void error(const char *format, ...);
-
 typedef struct _args_t
 {
     char *filter_str;
     token_t *filters, **flt_stack;  // input tokens (in RPN) and evaluation stack
-    int nfilters, filter_logic;
+    int nfilters, filter_logic, soft_filter;
+    int filter_ids[1];
 
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
-    char **argv, *format, *sample_names, *subset_fname, *targets_fname;
+    char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
     int argc, clevel, output_bcf, print_header, update_info, header_only, n_samples, *imap;
     int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private, exclude_uncalled, min_ac, max_ac, calc_ac;
     char *fn_ref, *fn_out, **samples;
@@ -52,8 +51,9 @@ typedef struct _args_t
 }
 args_t;
 
+#define FLT_ID_IE 0
 
-/* general filters - Djikstra's shunting yard algorithm */
+/* general filters */
 
 #define TOK_VAL  0
 #define TOK_LFT  1       // (
@@ -70,7 +70,8 @@ args_t;
 #define TOK_MULT 12      // *
 #define TOK_DIV  13      // /
 
-static int op_prec[] = {0,5,5,5,5,5,5,5,1,2,6,6,7,7};
+//                        ( ) [ < = > ] | & + - * /
+static int op_prec[] = {0,1,1,5,5,5,5,5,2,3,6,6,7,7};
 
 static int filters_next_token(char **str, int *len)
 {
@@ -304,7 +305,7 @@ void filters_debug(args_t *args, token_t *filters, int nfilters)
                 fprintf(stderr," %e", filters[i].threshold);
         }
         else
-            fprintf(stderr," %c", "0()[<=>]|&"[filters[i].tok_type]);
+            fprintf(stderr," %c", "0()[<=>]|&+-*/"[filters[i].tok_type]);
     }
     fprintf(stderr, "\n");
 }
@@ -329,7 +330,7 @@ void filters_debug_stack(args_t *args, int nstack)
     fprintf(stderr,"\n");
 }
 
-// Parse filter expression and convert to reverse polish notation
+// Parse filter expression and convert to reverse polish notation. Dijkstra's shunting-yard algorithm
 static void filters_init(args_t *args)
 {
     if ( !args->filter_str ) return;
@@ -342,7 +343,7 @@ static void filters_init(args_t *args)
     {
         int len, ret;
         ret = filters_next_token(&tmp, &len);
-        // fprintf(stderr,"%c .. [%s] %d\n", "x()[<=>]|&"[ret], tmp, len);
+        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c.", "x()[<=>]|&+-*/"[ops[i]]); fprintf(stderr,"\n");
         if ( ret==TOK_LFT )         // left bracket
         {
             nops++;
@@ -379,7 +380,7 @@ static void filters_init(args_t *args)
             if ( !isspace(*tmp) ) error("Could not parse the expression: %s\n", args->filter_str);
             break;     // all tokens read
         }
-        else                        // annotation name or filtering value
+        else           // annotation name or filtering value
         {
             nout++;
             hts_expand0(token_t, nout, mout, out);
@@ -400,6 +401,7 @@ static void filters_init(args_t *args)
     args->filters   = out;
     args->nfilters  = nout;
     args->flt_stack = (token_t **)malloc(sizeof(token_t*)*nout);
+    // filters_debug(args, NULL, 0);
 }
 
 static void filters_destroy(args_t *args)
@@ -423,6 +425,7 @@ static int filters_pass(args_t *args, bcf1_t *line)
         args->filters[i].missing_value = 0;
         args->filters[i].str_value = NULL;
         args->filters[i].pass = -1;
+
         // filters_debug_stack(args, nstack);
 
         if ( args->filters[i].tok_type == TOK_VAL )
@@ -536,8 +539,6 @@ static int filters_pass(args_t *args, bcf1_t *line)
 }
 
 
-void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd);
-
 static void init_data(args_t *args)
 {
     int i;
@@ -642,7 +643,7 @@ static void init_data(args_t *args)
     if (args->clevel >= 0 && args->clevel <= 9) sprintf(modew + 1, "%d", args->clevel);
     if (args->output_bcf) strcat(modew, "b");
     args->out = hts_open(args->fn_out ? args->fn_out : "-", modew, 0);
-    
+ 
     // headers: hdr=full header, hsub=subset header, hnull=sites only header
     if (args->sites_only)
         args->hnull = bcf_hdr_subset(args->hdr, 0, 0, 0);
@@ -650,6 +651,26 @@ static void init_data(args_t *args)
         args->hsub = bcf_hdr_subset(args->hdr, args->n_samples, args->samples, args->imap);
 
     filters_init(args);
+    if ( args->filters && args->soft_filter )
+    {
+        kstring_t tmp = {0,0,0};
+        int i = 0, id = -1;
+        do
+        {
+            ksprintf(&tmp,"Subset%d", ++i);
+            id = bcf_id2int(args->hdr,BCF_DT_ID,tmp.s);
+        } 
+        while ( id>=0 && bcf_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
+
+        tmp.l = 0; ksprintf(&tmp,"##FILTER=<ID=Subset%d,Description=\"Set if %s: %s\">", i,args->filter_logic & FLT_INCLUDE ? "not true" : "true", args->filter_str);
+        bcf_hdr_append(args->hdr,tmp.s);
+
+        tmp.l = 0; ksprintf(&tmp,"Subset%d", i);
+        args->filter_ids[FLT_ID_IE] = bcf_id2int(args->hdr,BCF_DT_ID,tmp.s);
+        assert( args->filter_ids[FLT_ID_IE]>=0 );
+        free(tmp.s);
+    }
+    bcf_hdr_fmt_text(args->hdr);
 }
 
 static void destroy_data(args_t *args)
@@ -682,8 +703,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if ( args->exclude &&   line->d.var_type&args->exclude  ) return 0; // exclude given variant types
     }
 
-    if ( args->filters && !filters_pass(args,line) ) return 0;
-        
+    if ( args->filters && !filters_pass(args,line) ) return -FLT_ID_IE-1;
 
     int i, an = 0, n_ac = 0, *ac = (int*) calloc(line->n_allele+1,sizeof(int));
     if (args->calc_ac) {
@@ -723,9 +743,6 @@ int subset_vcf(args_t *args, bcf1_t *line)
     if (args->exclude_ref && n_ac == 0) return 0;
     if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
     if (args->sites_only) bcf_subset(args->hsub ? args->hsub : args->hdr, line, 0, 0);
-//bcf_unpack(line,BCF_UN_ALL);
-//line->d.shared_dirty |= BCF1_DIRTY_INF;
-
     if (args->output_bcf) bcf1_sync(line);
     return 1;
 }
@@ -740,13 +757,14 @@ static void usage(args_t *args)
     // fprintf(stderr, "    -S    input is VCF\n");
     // fprintf(stderr, "\n");
     fprintf(stderr, "Output options:\n");
-    fprintf(stderr, "    -o, --out FILE        output file name [stdout]\n");
+    fprintf(stderr, "    -o, --out FILE             output file name [stdout]\n");
     // fprintf(stderr, "    -b                    output in BCF\n");
     // fprintf(stderr, "    -l INT                compression level [%d]\n", args->clevel);
-    fprintf(stderr, "    -h                    suppress the header in VCF output\n");
-    fprintf(stderr, "    -H                    print the header only\n");
-    fprintf(stderr, "    -G,                   drop individual genotype information (after subsetting if -s option set)\n");
-    fprintf(stderr, "    -t, --targets FILE    restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -h                         suppress the header in VCF output\n");
+    fprintf(stderr, "    -H                         print the header only\n");
+    fprintf(stderr, "    -G,                        drop individual genotype information (after subsetting if -s option set)\n");
+    fprintf(stderr, "    -r, --regions <reg|file>   same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
+    fprintf(stderr, "    -t, --targets <reg|file>   restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in subset\n");
@@ -757,9 +775,9 @@ static void usage(args_t *args)
     fprintf(stderr, "    -R,   --exclude-ref                            exclude sites without a non-reference genotype\n");
     fprintf(stderr, "    -U,   --exclude-uncalled                       exclude sites without a called genotype\n");
     fprintf(stderr, "    -p,   --private                                print sites where only the subset samples carry an non-reference allele\n");
-    fprintf(stderr, "    -e,   --exclude-filters <expr>                 include sites for which the expression is true (e.g. 'QUAL>=10 && (DP4[2]+DP4[3] > 2)\n");
-    fprintf(stderr, "    -i,   --include-filters <expr>                 same as -e but with the reverse logic\n");
+    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (e.g. 'QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                   require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -S,   --soft-filter                            do not exclude the site, only add to the existing FILTER\n");
     fprintf(stderr, "    -k/n, --known/--novel                          print known/novel sites only (ID is/not '.')\n");
     fprintf(stderr, "    -m/M, --multiallelic/--biallelic               print multiallelic/biallelic sites only\n");
     fprintf(stderr, "    -c/C  --min-ac/--max-ac                        minimum/maximum allele count (INFO/AC) of sites to be printed\n");
@@ -797,14 +815,16 @@ int main_vcfsubset(int argc, char *argv[])
         {"out",1,0,'o'},
         {"include-types",1,0,'v'},
         {"exclude-types",1,0,'V'},
-        {"targets",1,0,'L'},
+        {"targets",1,0,'t'},
+        {"regions",1,0,'r'},
         {"min-ac",1,0,'c'},
         {"max-ac",1,0,'C'},
         {"singletons",0,0,'1'},
         {"doubletons",0,0,'2'},
+        {"soft-filter",0,0,'S'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:bSt:o:L:s:Gf:knv:V:mMaRpUhHc:C:12Ie:i:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "l:bSt:r:o:s:Gf:knv:V:mMaRpUhHc:C:12Ie:i:S",loptions,NULL)) >= 0) {
         switch (c) {
             case 'l': args->clevel = atoi(optarg); args->output_bcf = 1; break;
             case 'b': args->output_bcf = 1; break;
@@ -813,6 +833,7 @@ int main_vcfsubset(int argc, char *argv[])
             case 'H': args->header_only = 1; break;
             
             case 't': args->targets_fname = optarg; break;
+            case 'r': args->regions_fname = optarg; break;
             
             case 's': args->sample_names = optarg; break;
             case 'a': args->trim_alts = 1; args->calc_ac = 1; break;
@@ -828,6 +849,7 @@ int main_vcfsubset(int argc, char *argv[])
             case 'V': args->exclude_types = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'S': args->soft_filter = 1; break;
 
             case 'c': args->min_ac = atoi(optarg); args->calc_ac = 1; break;
             case 'C': args->max_ac = atoi(optarg); args->calc_ac = 1; break;
@@ -845,27 +867,25 @@ int main_vcfsubset(int argc, char *argv[])
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Sorry, only one of -i or -e can be given.\n");
     if ( argc<optind+1 ) usage(args);   // none or too many files given
     // read in the regions from the command line
-    if ( optind+1 < argc ) {
+    if ( args->regions_fname )
+    {
         args->files->require_index = 1;
-        args->files->region = argv[optind+1];
+        if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
+            error("Failed to read the regions: %s\n", args->regions_fname);
+    }
+    else if ( optind+1 < argc ) 
+    {
         int i;
-        for (i = optind + 1; i < argc; ++i) {
-            if ( !args->files->seqs ) {
-                args->files->mseqs = args->files->nseqs = 1;
-                args->files->seqs = (const char**) malloc(sizeof(const char*));
-                args->files->seqs[0] = argv[i];
-            }
-            else {
-                args->files->mseqs += 30;
-                args->files->seqs = (const char**) realloc(args->files->seqs, sizeof(const char*)*args->files->mseqs);
-                args->files->seqs[args->files->nseqs++] = argv[i];
-            }
-        }
+        kstring_t tmp = {0,0,0};
+        kputs(argv[optind+1],&tmp);
+        for (i=optind+2; i<argc; i++) { kputc(',',&tmp); kputs(argv[i],&tmp); }
+        args->files->require_index = 1;
+        if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
+            error("Failed to read the regions: %s\n", args->regions_fname);
     }
     if ( args->targets_fname )
     {
-        args->files->require_index = 1;
-        if ( !bcf_sr_set_targets(args->files, args->targets_fname) )
+        if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
             error("Failed to read the targets: %s\n", args->targets_fname);
     }
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
@@ -874,11 +894,22 @@ int main_vcfsubset(int argc, char *argv[])
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);
     if (args->print_header)
         vcf_hdr_write(args->out, out_hdr);
-    if (!args->header_only) {
+    if (!args->header_only) 
+    {
         while ( bcf_sr_next_line(args->files) )
         {
             bcf1_t *line = args->files->readers[0].buffer[0];
-            if ( subset_vcf(args, line) )
+            int ret = subset_vcf(args, line);
+            if ( ret<0 ) 
+            {
+                if ( args->soft_filter  )
+                {
+                    ret = abs(ret);
+                    bcf1_add_filter(args->hdr, line, args->filter_ids[ret-1]);
+                }
+                else ret = 0;
+            }
+            if ( ret )
                 vcf_write1(args->out, out_hdr, line);
         }
     }

@@ -7,9 +7,10 @@
 #include <time.h>
 #include <zlib.h>
 #include <stdarg.h>
+#include <htslib/kfunc.h>
+#include <htslib/synced_bcf_reader.h>
 #include "call.h"
 #include "prob1.h"
-#include <htslib/kfunc.h>
 
 void error(const char *format, ...);
 
@@ -23,7 +24,7 @@ KSTREAM_INIT(gzFile, gzread, 16384)
 
 #define CF_NO_GENO      1
 #define CF_BCFOUT       (1<<1)
-#define CF_CALL         (1<<2)
+#define CF_CCALL        (1<<2)
 //
 #define CF_VCFIN        (1<<4)
 #define CF_COMPRESS     (1<<5)
@@ -44,6 +45,8 @@ typedef struct
     char *bcf_fname;
     char **samples;
     int nsamples;
+    bcf_srs_t *files;           // synced reader
+    char *regions, *targets;    // regions to process
 
     call_t aux;     // parameters and temporary data
 
@@ -132,11 +135,24 @@ static char **read_samples(const char *fn, int *_n)
 
 static void init_data(args_t *args)
 {
+    args->files = bcf_sr_init();
+
     // Open files for input and output, initialize structures
-    args->bcf_in = hts_open(args->bcf_fname, "rb", NULL);
-    if ( !args->bcf_in ) error("Fail to open %s\n", args->bcf_fname);
-    args->aux.hdr_in  = vcf_hdr_read(args->bcf_in);
-    args->aux.hdr_out = args->aux.hdr_in;
+    if ( args->targets )
+    {
+        if ( bcf_sr_set_targets(args->files, args->targets,0)<0 )
+            error("Failed to read the targets: %s\n", args->targets);
+    }
+    if ( args->regions )
+    {
+        args->files->require_index = 1;
+        if ( bcf_sr_set_targets(args->files, args->regions,0)<0 )
+            error("Failed to read the targets: %s\n", args->regions);
+    }
+    if ( !bcf_sr_add_reader(args->files, args->bcf_fname) ) error("Failed to open: %s\n", args->bcf_fname);
+    // args->bcf_in = hts_open(args->bcf_fname, args->flag & CF_VCFIN ? "r" : "rb", NULL);
+    args->aux.hdr_in  = args->files->readers[0].header;
+    args->aux.hdr_out = bcf_hdr_dup(args->aux.hdr_in);
 
     assert( !args->nsamples || args->nsamples==args->aux.hdr_in->n[BCF_DT_SAMPLE] );    // todo: subsetting
 
@@ -145,65 +161,57 @@ static void init_data(args_t *args)
     else
         args->out_fh = args->flag & CF_COMPRESS ? hts_open("-","wz",0) : hts_open("-","w",0);
 
-    if ( args->flag & CF_QCALL ) return;
+    if ( args->flag & CF_QCALL ) 
+        return;
+
+    if ( args->flag & CF_MCALL ) 
+        mcall_init(&args->aux);
+
+    if ( args->flag & CF_CCALL )
+        ccall_init(&args->aux);
 
     vcf_hdr_write(args->out_fh, args->aux.hdr_out);
-    if ( args->flag & CF_MCALL ) return;
-
-    ccall_init(&args->aux);
-    assert(0);
-
-    //  todo: original calling
-    //
-    //  // Permutation tests
-	//  if ( args->n_perm > 0 ) 
-    //  {
-	//  	args->seeds = (int*) malloc(args->n_perm * sizeof(int));
-	//  	srand48(time(0));
-    //      int i;
-	//  	for (i=0; i<args->n_perm; i++) args->seeds[i] = lrand48();
-	//  }
 }
 
 static void destroy_data(args_t *args)
 {
-    if ( args->flag & CF_CALL ) ccall_destroy(&args->aux);
+    if ( args->flag & CF_CCALL ) ccall_destroy(&args->aux);
     else if ( args->flag & CF_MCALL ) mcall_destroy(&args->aux);
     else if ( args->flag & CF_QCALL ) qcall_destroy(&args->aux);
     if ( args->aux.hdr_in!=args->aux.hdr_out ) bcf_hdr_destroy(args->aux.hdr_out);
-    bcf_hdr_destroy(args->aux.hdr_in);
     hts_close(args->out_fh);
-    hts_close(args->bcf_in);
+    bcf_sr_destroy(args->files);
 }
 
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
-    fprintf(stderr, "Usage: bcftools call [options] <in.bcf> [reg]\n\n");
-    fprintf(stderr, "File format options:\n\n");
+    fprintf(stderr, "Usage: bcftools call [options] <in.bcf> [reg]\n");
+    fprintf(stderr, "File format options:\n");
     fprintf(stderr, "       -b        output BCF instead of VCF\n");
-    fprintf(stderr, "       -l FILE   list of sites (chr pos) or regions (BED) to output [all sites]\n");
     fprintf(stderr, "       -Q        output the QCALL likelihood format\n");
+    fprintf(stderr, "       -r REG    restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
     fprintf(stderr, "       -s STR    comma-separated list or file name with a list of samples to use [all samples]\n");
+    fprintf(stderr, "       -l REG    same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
     fprintf(stderr, "       -V        input is VCF\n");
     fprintf(stderr, "       -z        compressed VCF/BCF output\n");
-    fprintf(stderr, "Input/output options:\n\n");
+    fprintf(stderr, "\nInput/output options:\n");
     fprintf(stderr, "       -A        keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "       -G        output sites only, drop genotype fields\n");
     fprintf(stderr, "       -L        calculate LD for adjacent sites\n");
     fprintf(stderr, "       -N        skip sites where REF is not A/C/G/T\n");
     fprintf(stderr, "       -v        output potential variant sites only\n");
-    fprintf(stderr, "\nConsensus/variant calling options:\n\n");
+    fprintf(stderr, "\nConsensus/variant calling options:\n");
     fprintf(stderr, "       -c        the original calling method (conflicts with -m)\n");
     fprintf(stderr, "       -d FLOAT  skip loci where less than FLOAT fraction of samples covered [0]\n");
     fprintf(stderr, "       -i FLOAT  indel-to-substitution ratio (-c only) [%.4g]\n", args->aux.indel_frac);
     fprintf(stderr, "       -S STR    skip the given variant type <snps|indels>\n");
     fprintf(stderr, "       -m        alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
-    fprintf(stderr, "       -p FLOAT  variant if P(ref|D)<FLOAT with -c [0.5] or P(chi^2)>=FLOAT with -m [0.99]\n");
+    fprintf(stderr, "       -p FLOAT  variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
     fprintf(stderr, "       -P STR    type of prior: full, cond2, flat (-c only) [full]\n");
     fprintf(stderr, "       -t FLOAT  scaled substitution mutation rate (-c only) [%.4g]\n", args->aux.theta);
     fprintf(stderr, "       -T STR    constrained calling; STR can be: pair, trioauto, trioxd and trioxs (see manual) [null]\n");
-    fprintf(stderr, "\nContrast calling and association test options:\n\n");
+    fprintf(stderr, "\nContrast calling and association test options:\n");
     fprintf(stderr, "       -1 INT    number of group-1 samples [0]\n");
     fprintf(stderr, "       -C FLOAT  posterior constrast for LRT<FLOAT and P(ref|D)<0.5 [%g]\n", args->aux.min_lrt);
     fprintf(stderr, "       -U INT    number of permutations for association testing (effective with -1) [0]\n");
@@ -223,14 +231,14 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.pref       = 0.5;
     args.aux.min_perm_p = 0.01;
     args.aux.min_lrt    = 1;
-    args.aux.min_ma_lrt = 0.99;
+    args.aux.min_ma_lrt = 1 - 1e-2;
 
     float p_arg = -1;
     int i, c;
 
     // Note: Some of the functionality was lost in the transition but will be put back on demand (pd3 todo)
 
-	while ((c = getopt(argc, argv, "N1:l:cC:AGvbVzP:t:p:QLi:S:s:U:X:d:T:m")) >= 0) 
+	while ((c = getopt(argc, argv, "N1:l:cC:AGvbVzP:t:p:QLi:S:s:U:X:d:T:mr:l:")) >= 0) 
     {
 		switch (c) 
         {
@@ -244,7 +252,7 @@ int main_vcfcall(int argc, char *argv[])
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
             case 'b': args.flag |= CF_BCFOUT; break;
             case 'V': args.flag |= CF_VCFIN; break;
-            case 'c': args.flag |= CF_CALL; break;          // the original EM based calling method
+            case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'v': args.aux.flag |= CALL_VARONLY; break;
             case 'z': args.flag |= CF_COMPRESS; break;
             case 'S': 
@@ -261,6 +269,8 @@ int main_vcfcall(int argc, char *argv[])
             case 'C': args.aux.min_lrt = atof(optarg); break;
             case 'X': args.aux.min_perm_p = atof(optarg); break;
             // case 'd': args.aux.min_smpl_frac = atof(optarg); break; // todo
+            case 'r': args.regions = optarg; break;
+            case 'l': args.targets = optarg; break;
             case 's': 
                       args.samples = read_samples(optarg, &args.nsamples);
                       args.aux.nsamples = args.nsamples;
@@ -292,16 +302,18 @@ int main_vcfcall(int argc, char *argv[])
     args.bcf_fname = argv[optind++];
 
     // Sanity check options and initialize
-    if ( (args.flag & CF_CALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c, -m, or -Q options can be given\n");
-    if ( !(args.flag & CF_CALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected one of -c, -m, or -Q options\n");
+    if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c, -m, or -Q options can be given\n");
+    if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected one of -c, -m, or -Q options\n");
 	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
-    if ( p_arg!=-1 ) args.aux.pref = args.aux.min_ma_lrt = p_arg;   // only one is actually used
+    if ( p_arg!=-1 ) { args.aux.pref = p_arg; args.aux.min_ma_lrt = 1 - p_arg; }  // only one is actually used
 
     init_data(&args);
-    bcf1_t *bcf_rec = bcf_init1();
 
-    while ( bcf_read1((BGZF*)args.bcf_in->fp, bcf_rec) >=0 )
+    while ( bcf_sr_next_line(args.files) )
     {
+        bcf1_t *bcf_rec = args.files->readers[0].buffer[0];
+        bcf_unpack(bcf_rec, BCF_UN_STR);
+
         // Skip unwanted sites
         if ( args.aux.flag & CALL_VARONLY )
         {
@@ -332,9 +344,9 @@ int main_vcfcall(int argc, char *argv[])
 
         if ( ret==-1 ) error("Something is wrong\n");
         if ( (args.aux.flag & CALL_VARONLY) && ret==0 ) continue;     // not a variant
-        // print
+
+        vcf_write1(args.out_fh, args.aux.hdr_out, bcf_rec);
     }
-    bcf_destroy1(bcf_rec);
     destroy_data(&args);
 	return 0;
 }

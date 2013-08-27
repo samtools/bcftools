@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <ctype.h>
@@ -10,6 +9,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/faidx.h>
+#include "bcftools.h"
 
 typedef struct
 {
@@ -50,7 +50,6 @@ typedef struct
 args_t;
 
 
-void error(const char *format, ...);
 
 /**
  *  rbuf_init() - initialize round buffer
@@ -562,7 +561,6 @@ static void destroy_data(args_t *args)
     if ( args->aln.m_arr ) { free(args->aln.ipos_arr); free(args->aln.lref_arr); free(args->aln.lseq_arr); }
 }
 
-void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd);
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 static void normalize_vcf(args_t *args)
@@ -642,7 +640,7 @@ int main_vcfnorm(int argc, char *argv[])
             case 'b': args->output_bcf = 1; break;
 			case 'D': args->rmdup = 1; break;
 			case 'f': args->ref_fname = optarg; break;
-			case 'r': args->files->region = optarg; break;
+			//case 'r': args->files->region = optarg; break;
             case 'w': { if (sscanf(optarg,"%d,%d",&args->aln_win,&args->buf_win)!=2) error("Could not parse --win %s\n", optarg); break; }
 			case 'h': 
 			case '?': usage();

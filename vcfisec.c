@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <ctype.h>
@@ -10,6 +9,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include "bcftools.h"
 
 #define OP_PLUS 1
 #define OP_MINUS 2
@@ -19,16 +19,14 @@
 
 typedef struct
 {
-    int isec_op, isec_n, *write;
+    int isec_op, isec_n, *write, iwrite, nwrite;
 	bcf_srs_t *files;
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
-	char **argv, *prefix, **fnames, *write_files, *subset_fname;
+	char **argv, *prefix, **fnames, *write_files, *subset_fname, *regions_fname;
 	int argc;
 }
 args_t;
-
-void error(const char *format, ...);
 
 /**
  *  mkdir_p() - create new directory for a file $fname
@@ -104,12 +102,14 @@ void isec_vcf(args_t *args)
     htsFile *out_fh = NULL;
 
     // When only one VCF is output, print VCF to stdout
-    int stdout_vcf = args->subset_fname && files->nreaders==1 ? 1 : 0;
+    int stdout_vcf = 0;
+    if ( args->nwrite==1 ) stdout_vcf = 1;
+    if ( args->subset_fname && files->nreaders==1 ) stdout_vcf = 1;
     if ( args->isec_op==OP_COMPLEMENT ) stdout_vcf = 0;
     if ( stdout_vcf ) 
     {
         out_fh = hts_open("-","w",0);
-        vcf_hdr_write(out_fh, files->readers[0].header);
+        vcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
 
     int n;
@@ -139,7 +139,7 @@ void isec_vcf(args_t *args)
 
         if ( stdout_vcf )
         {
-            vcf_write1(out_fh, files->readers[0].header, line);
+            vcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0]);
             continue;
         }
         else if ( args->fh_sites )
@@ -186,21 +186,24 @@ void isec_vcf(args_t *args)
 static void destroy_data(args_t *args);
 static void init_data(args_t *args)
 {
+    // Which files to write: parse the string passed with -w
+    char *p = args->write_files;
+    while (p && *p)
+    {
+        int i;
+        if ( !args->write ) args->write = (int*) calloc(args->files->nreaders,sizeof(int));
+        if ( sscanf(p,"%d",&i)!=1 ) error("Could not parse --write %s\n", args->write_files);
+        if ( i<0 || i>args->files->nreaders ) error("The index is out of range: %d (%s)\n", i, args->write_files);
+        args->write[i-1] = 1;
+        args->iwrite = i-1;
+        args->nwrite++;
+        while (*p && *p!=',') p++;
+        if ( *p==',' ) p++;
+    }
+    if ( args->nwrite>1 && !args->prefix ) error("Expected -p when mutliple output files given: --write %s\n", args->write_files);
+
     if ( args->prefix )
     {
-        // Which files to write: parse the string passed with -w
-        char *p = args->write_files;
-        while (p && *p)
-        {
-            int i;
-            if ( !args->write ) args->write = (int*) calloc(args->files->nreaders,sizeof(int));
-            if ( sscanf(p,"%d",&i)!=1 ) error("Could not parse --write %s\n", args->write_files);
-            if ( i<0 || i>args->files->nreaders ) error("The index is out of range: %d (%s)\n", i, args->write_files);
-            args->write[i-1] = 1;
-            while (*p && *p!=',') p++;
-            if ( *p==',' ) p++;
-        }
-        
         // Init output directory and create the readme file
         args->fh_log = open_file(NULL,"w","%s/README.txt", args->prefix);
         if ( !args->fh_log ) error("%s/README.txt: %s\n", args->prefix, strerror(errno));
@@ -277,13 +280,13 @@ static void usage(void)
 	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files\n");
 	fprintf(stderr, "Usage:   vcfisec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|any>\n");
+	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|any|some>\n");
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
 	fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
 	fprintf(stderr, "    -p, --prefix <dir>                if given, subset each of the input files accordingly, see also -w\n");
-	fprintf(stderr, "    -r, --region <chr|chr:from-to>    perform intersection in the given region only\n");
-	fprintf(stderr, "    -s, --subset <file>               subset to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+	fprintf(stderr, "    -r, --region <file|reg>           perform intersection in the given regions only\n");
+	fprintf(stderr, "    -s, --subset <file|reg>           subset to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
 	fprintf(stderr, "    -w, --write <list>                list of files to write with -p given as 1-based indexes. By default, all files are written\n");
 	fprintf(stderr, "Examples:\n");
 	fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
@@ -324,11 +327,12 @@ int main_vcfisec(int argc, char *argv[])
 				else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"any") ) args->files->collapse |= COLLAPSE_ANY;
+				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
 				break;
 			case 'f': args->files->apply_filters = optarg; break;
 			case 'C': args->isec_op = OP_COMPLEMENT; break;
-			case 'r': args->files->region = optarg; break;
+			case 'r': args->regions_fname = optarg; break;
 			case 's': args->subset_fname = optarg; break;
 			case 'p': args->prefix = optarg; break;
 			case 'w': args->write_files = optarg; break;
@@ -349,11 +353,10 @@ int main_vcfisec(int argc, char *argv[])
 		}
 	}
 	if ( argc-optind<1 ) usage();   // no file given
-    if ( args->subset_fname )
-    {
-        if ( !bcf_sr_set_targets(args->files, args->subset_fname) )
-            error("Failed to read the targets: %s\n", args->subset_fname);
-    }
+    if ( args->subset_fname && bcf_sr_set_targets(args->files, args->subset_fname,0)<0 )
+        error("Failed to read the targets: %s\n", args->subset_fname);
+    if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
+        error("Failed to read the regions: %s\n", args->regions_fname);
     if ( argc-optind==2 && !args->isec_op ) 
     {
         args->isec_op = OP_VENN;

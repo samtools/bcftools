@@ -4,13 +4,12 @@
  */
 
 #include <stdio.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
-#include "version.h"
+#include "bcftools.h"
 
 #include <htslib/khash.h>
 KHASH_MAP_INIT_STR(strdict, int)
@@ -57,7 +56,7 @@ typedef struct
 {
     maux_t *maux;
     int header_only, collapse, output_bcf;
-    char *header_fname;
+    char *header_fname, *regions_fname;
     strdict_t *tmph;
     kstring_t tmps;
     bcf_srs_t *files;
@@ -69,7 +68,6 @@ typedef struct
 }
 args_t;
 
-void error(const char *format, ...);
 int bcf_hdr_sync(bcf_hdr_t *h);
 
 void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *_hr, const char *clash_prefix)
@@ -102,16 +100,18 @@ void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *_hr, const char *clash_prefix
     // samples
     for (i=0; i<hr->n[BCF_DT_SAMPLE]; i++)
     {
-        char *name = strdup(hr->samples[i]);
+        char *name = hr->samples[i];
         if ( bcf_id2int(hw, BCF_DT_SAMPLE, name)!=-1 )
         {
             // there is a sample with the same name
-            free(name);
             int len = strlen(hr->samples[i]) + strlen(clash_prefix) + 1;
             name = (char*) malloc(sizeof(char)*(len+1));
             sprintf(name,"%s:%s",clash_prefix,hr->samples[i]);
+            bcf_hdr_add_sample(hw,name);
+            free(name);
         }
-        bcf_hdr_add_sample(hw,name);
+        else
+            bcf_hdr_add_sample(hw,name);
     }
 }
 
@@ -1146,7 +1146,13 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
     str.l = 0;
     ksprintf(&str,"##%sCommand=%s", cmd, argv[0]);
     int i;
-    for (i=1; i<argc; i++) ksprintf(&str, " %s", argv[i]);
+    for (i=1; i<argc; i++) 
+    {
+        if ( strchr(argv[i],' ') )
+            ksprintf(&str, " '%s'", argv[i]);
+        else
+            ksprintf(&str, " %s", argv[i]);
+    }
     kputc('\n', &str);
     bcf_hdr_append(hdr,str.s);
     free(str.s);
@@ -1210,7 +1216,7 @@ static void usage(void)
     fprintf(stderr, "    -b, --output-bcf                  output BCF\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|any>\n");
-    fprintf(stderr, "    -r, --region <chr|chr:from-to>    merge in the given region only\n");
+    fprintf(stderr, "    -r, --region <reg|file>           merge in the given regions only\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1242,7 +1248,7 @@ int main_vcfmerge(int argc, char *argv[])
                 else if ( !strcmp(optarg,"any") ) args->collapse |= COLLAPSE_ANY;
                 break;
             case 'f': args->files->apply_filters = optarg; break;
-            case 'r': args->files->region = optarg; break;
+            case 'r': args->regions_fname = optarg; break;
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case 'h': 
@@ -1254,6 +1260,8 @@ int main_vcfmerge(int argc, char *argv[])
     if ( argc-optind<2 ) usage();
 
     args->files->require_index = 1;
+    if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
+        error("Failed to read the regions: %s\n", args->regions_fname);
 
     while (optind<argc)
     {

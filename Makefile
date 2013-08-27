@@ -8,7 +8,7 @@ include $(HTSDIR)/htslib.mk
 HTSLIB = $(HTSDIR)/libhts.a
 
 CC=			gcc
-CFLAGS=		-g -Wall -Wc++-compat -O2 $(VERSION)
+CFLAGS=		-g -Wall -Wc++-compat -O2
 DFLAGS=
 OBJS=		main.o vcfview.o bcfidx.o tabix.o \
 			vcfcheck.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o \
@@ -44,7 +44,7 @@ endif
 version.h: $(if $(wildcard version.h),$(if $(findstring "$(PACKAGE_VERSION)",$(shell cat version.h)),,force))
 endif
 version.h:
-	printf '#define BCFTOOLS_VERSION "$(PACKAGE_VERSION)"\nchar *bcftools_version(void);\n' > $@
+	echo '#define BCFTOOLS_VERSION "$(PACKAGE_VERSION)"' > $@
 
 
 .SUFFIXES:.c .o
@@ -52,13 +52,13 @@ version.h:
 
 force:
 
-.c.o:
+.c.o: bcftools.h version.h
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
 test:
 		./test/test.pl
 
-main.o: version.h $(HTSDIR)/version.h
+main.o: version.h $(HTSDIR)/version.h bcftools.h
 vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h
 
 bcftools:lib-recur $(HTSLIB) $(OBJS)

@@ -11,9 +11,8 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
-#include <stdarg.h>
 #include <inttypes.h>
-#include "version.h"
+#include "bcftools.h"
 
 #define NFIXED 6
 #define MASK_GOOD 2
@@ -110,7 +109,6 @@ typedef struct
 }
 args_t;
 
-void error(const char *format, ...);
 static void usage(void);
 FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
 void mkdir_p(const char *fmt, ...);
@@ -1553,7 +1551,6 @@ static int sync_site(bcf_hdr_t *hdr, bcf1_t *line, site_t *site, int type)
     return 0;
 }
 
-void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd);
 
 
 typedef struct
@@ -1629,7 +1626,7 @@ static void apply_filters(args_t *args)
     if ( args->indel_th >= 0 ) indel = init_site(args->out_prefix, "INDEL", args->region);
 
     bcf_srs_t *sr = bcf_sr_init();
-    sr->region = args->region;
+    //sr->region = args->region;
     if ( !bcf_sr_add_reader(sr, args->fname) ) error("Failed to open or the file not indexed: %s\n", args->fname);
     bcf_hdr_t *hdr = sr->readers[0].header;
 
