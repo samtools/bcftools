@@ -24,6 +24,7 @@ test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_subset($opts,in=>'subset',out=>'subset.1.out',args=>'-aRs NA00002 -v snps',reg=>'');
 test_vcf_subset($opts,in=>'subset',out=>'subset.2.out',args=>'-f PASS -k',reg=>'-r20,Y');
 test_vcf_subset($opts,in=>'subset',out=>'subset.3.out',args=>'-ps NA00003',reg=>'');
+test_vcf_subset($opts,in=>'subset',out=>'subset.4.out',args=>q[-i 'QUAL==999 && (FS<20 || FS>=41.02) && HWE*2>1.2'],reg=>'');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -206,7 +207,7 @@ sub test_vcf_check
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools check -s - $$opts{tmp}/$args{in}.vcf.gz | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools stats -s - $$opts{tmp}/$args{in}.vcf.gz | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
 }
 sub test_vcf_merge
 {

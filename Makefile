@@ -11,7 +11,7 @@ CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 DFLAGS=
 OBJS=		main.o vcfview.o bcfidx.o tabix.o \
-			vcfcheck.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o \
+			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o \
             vcfnorm.o vcfgtcheck.o vcfsubset.o \
             vcfcall.o mcall.o
 INCLUDES=	-I. -I$(HTSDIR)
