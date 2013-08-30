@@ -10,11 +10,11 @@ int main_vcfview(int argc, char *argv[])
 	htsFile *in;
 	bcf1_t *b;
 
-	while ((c = getopt(argc, argv, "l:bSt:o:T:s:GI")) >= 0) {
+	while ((c = getopt(argc, argv, "l:bvt:o:T:s:GI")) >= 0) {
 		switch (c) {
 		case 'l': clevel = atoi(optarg); flag |= 2; break;
-		case 'S': flag |= 1; break;
-		case 'b': flag |= 2; break;
+		case 'v': flag |= FT_VCF; break;
+		case 'b': flag |= FT_BCF; break;
 		case 'G': n_samples = 0; break;
 		case 't': fn_ref = optarg; flag |= 1; break;
 		case 'o': fn_out = optarg; break;
@@ -25,7 +25,7 @@ int main_vcfview(int argc, char *argv[])
 	if (argc == optind) {
 		fprintf(stderr, "\nUsage:   vcfview [options] <in.bcf>|<in.vcf>|<in.vcf.gz>\n\n");
 		fprintf(stderr, "Options: -b           output in BCF\n");
-		fprintf(stderr, "         -S           input is VCF\n");
+		fprintf(stderr, "         -v           input is VCF\n");
 		fprintf(stderr, "         -o FILE      output file name [stdout]\n");
 		fprintf(stderr, "         -l INT       compression level [%d]\n", clevel);
 		fprintf(stderr, "         -t FILE      list of reference names and lengths [null]\n");
@@ -36,7 +36,7 @@ int main_vcfview(int argc, char *argv[])
 		return 1;
 	}
 	strcpy(moder, "r");
-	if ((flag&1) == 0 && !(file_type(argv[optind])&(IS_VCF|IS_VCF_GZ))) strcat(moder, "b");
+	if ( !(flag & FT_VCF) && !(file_type(argv[optind]) & FT_VCF)) strcat(moder, "b");
 
 	in = hts_open(argv[optind], moder, fn_ref);
 	h = vcf_hdr_read(in);
