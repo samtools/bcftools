@@ -547,6 +547,7 @@ static void init_data(args_t *args)
     rbuf_init(&args->rbuf, 100);
     args->lines = (bcf1_t**) calloc(args->rbuf.m, sizeof(bcf1_t*));
     args->fai = fai_load(args->ref_fname);
+    if ( !args->fai ) error("Failed to load the fai index: %s\n", args->ref_fname);
 }
 
 static void destroy_data(args_t *args)
