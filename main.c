@@ -19,7 +19,7 @@ int main_samview(int argc, char *argv[]);
 int main_vcfview(int argc, char *argv[]);
 int main_bcfidx(int argc, char *argv[]);
 int main_tabix(int argc, char *argv[]);
-int main_vcfcheck(int argc, char *argv[]);
+int main_vcfstats(int argc, char *argv[]);
 int main_vcfisec(int argc, char *argv[]);
 int main_vcfmerge(int argc, char *argv[]);
 int main_vcfquery(int argc, char *argv[]);
@@ -53,9 +53,9 @@ static cmd_t cmds[] =
       .help  = "SNP/indel calling (former \"view\"; this version is broken)",
       .sep   = "VCF/BCF tools:"
     },
-    { .func  = main_vcfcheck, 
-      .alias = "check",
-      .help  = "produce VCF stats",
+    { .func  = main_vcfstats, 
+      .alias = "stats",
+      .help  = "produce VCF stats (former vcfcheck)",
       .sep   = NULL
     },
     { .func  = main_vcffilter, 

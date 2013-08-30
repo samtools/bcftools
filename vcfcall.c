@@ -1,4 +1,62 @@
 #include <stdio.h>
+#ifndef __CALL_H__
+#define __CALL_H__
+
+#include <htslib/vcf.h>
+
+#define CALL_KEEPALT 1
+#define CALL_VARONLY (1<<1)
+
+typedef struct
+{
+    // mcall only
+    double min_ma_lrt;  // variant accepted if P(chi^2)>=FLOAT [0.99]
+    int *PLs, nPLs, *gts;   // VCF PL likelihoods (rw); GTs (w)
+    double *pl2p, *pdg;     // PL to 10^(-PL/10) table; PLs converted to P(D|G)
+    float *qsum;            // QS(sum) values
+    int nqsum, npdg;
+    int *als_map, nals_map; // mapping from full set of alleles to trimmed set of alleles (old -> new)
+    int *pl_map, npl_map;   // same as above for PLs, but reverse (new -> old)
+    char **als;             // array to hold the trimmed set of alleles to appear on output
+    int nals;               // size of the als array
+
+    // ccall only
+    double indel_frac, theta, min_lrt, min_perm_p; 
+    double prior_type, pref;
+    int ngrp1_samples, n_perm;
+    char *prior_file;
+
+    // shared
+    bcf1_t *rec;
+    bcf_hdr_t *hdr;
+
+    uint32_t flag;      // One or more of the CALL_* flags defined above
+    uint8_t *ploidy;
+    int nsamples;
+    uint32_t trio;
+}
+call_t;
+
+void error(const char *format, ...);
+
+/*
+ *  *call() - return negative value on error or the number of non-reference
+ *            alleles on success.
+ */
+int mcall(call_t *call, bcf1_t *rec);    // multiallic and rare-variant calling model
+int ccall(call_t *call, bcf1_t *rec);    // the default consensus calling model
+int qcall(call_t *call, bcf1_t *rec);    // QCall output
+
+void mcall_init(call_t *call);
+void ccall_init(call_t *call);
+void qcall_init(call_t *call);
+
+void mcall_destroy(call_t *call);
+void ccall_destroy(call_t *call);
+void qcall_destroy(call_t *call);
+
+
+#endif
 #include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -9,6 +67,7 @@
 #include <stdarg.h>
 #include <htslib/kfunc.h>
 #include <htslib/synced_bcf_reader.h>
+#include "bcftools.h"
 #include "call.h"
 #include "prob1.h"
 
@@ -25,7 +84,7 @@ KSTREAM_INIT(gzFile, gzread, 16384)
 #define CF_NO_GENO      1
 #define CF_BCFOUT       (1<<1)
 #define CF_CCALL        (1<<2)
-//
+//                      (1<<3)
 #define CF_VCFIN        (1<<4)
 #define CF_COMPRESS     (1<<5)
 #define CF_ACGT_ONLY    (1<<6)
@@ -43,8 +102,8 @@ typedef struct
     int flag;   // combination of CF_* flags above
     htsFile *bcf_in, *out_fh;
     char *bcf_fname;
-    char **samples;
-    int nsamples;
+    char **samples;             // for subsampling and ploidy
+    int nsamples, *samples_map;
     bcf_srs_t *files;           // synced reader
     char *regions, *targets;    // regions to process
 
@@ -149,12 +208,29 @@ static void init_data(args_t *args)
         if ( bcf_sr_set_targets(args->files, args->regions,0)<0 )
             error("Failed to read the targets: %s\n", args->regions);
     }
-    if ( !bcf_sr_add_reader(args->files, args->bcf_fname) ) error("Failed to open: %s\n", args->bcf_fname);
-    // args->bcf_in = hts_open(args->bcf_fname, args->flag & CF_VCFIN ? "r" : "rb", NULL);
-    args->aux.hdr_in  = args->files->readers[0].header;
-    args->aux.hdr_out = bcf_hdr_dup(args->aux.hdr_in);
+    
+    int mode = FT_UNKN;
+    if ( !strcmp(args->bcf_fname,"-") )
+    {
+        mode |= args->flag & CF_VCFIN ? FT_VCF : FT_BCF;        // VCF or BCF on input?
+    }
+    if ( !bcf_sr_open_reader(args->files, args->bcf_fname, mode) ) error("Failed to open: %s\n", args->bcf_fname);
 
-    assert( !args->nsamples || args->nsamples==args->aux.hdr_in->n[BCF_DT_SAMPLE] );    // todo: subsetting
+    if ( args->nsamples && args->nsamples != args->files->readers[0].header->n[BCF_DT_SAMPLE] )
+    {
+        args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
+        args->aux.hdr = bcf_hdr_subset(args->files->readers[0].header, args->nsamples, args->samples, args->samples_map);
+
+        // Check if the supplied samples are present in the VCF and print a warning if not.
+        if ( args->nsamples != args->aux.hdr->n[BCF_DT_SAMPLE] )
+        {
+            int i;
+            for (i=0; i<args->nsamples; i++)
+                if ( args->samples_map[i]<0 ) fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
+        }
+    }
+    else
+        args->aux.hdr = bcf_hdr_dup(args->files->readers[0].header);
 
     if ( args->flag & CF_BCFOUT )
         args->out_fh = args->flag & CF_COMPRESS ? hts_open("-","wb",0) : hts_open("-","wbu",0);
@@ -170,7 +246,9 @@ static void init_data(args_t *args)
     if ( args->flag & CF_CCALL )
         ccall_init(&args->aux);
 
-    vcf_hdr_write(args->out_fh, args->aux.hdr_out);
+    bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "vcfcall");
+    bcf_hdr_fmt_text(args->aux.hdr);
+    vcf_hdr_write(args->out_fh, args->aux.hdr);
 }
 
 static void destroy_data(args_t *args)
@@ -178,7 +256,12 @@ static void destroy_data(args_t *args)
     if ( args->flag & CF_CCALL ) ccall_destroy(&args->aux);
     else if ( args->flag & CF_MCALL ) mcall_destroy(&args->aux);
     else if ( args->flag & CF_QCALL ) qcall_destroy(&args->aux);
-    if ( args->aux.hdr_in!=args->aux.hdr_out ) bcf_hdr_destroy(args->aux.hdr_out);
+    int i;
+    for (i=0; i<args->nsamples; i++) free(args->samples[i]);
+    free(args->samples);
+    free(args->samples_map);
+    free(args->aux.ploidy);
+    bcf_hdr_destroy(args->aux.hdr);
     hts_close(args->out_fh);
     bcf_sr_destroy(args->files);
 }
@@ -312,6 +395,7 @@ int main_vcfcall(int argc, char *argv[])
     while ( bcf_sr_next_line(args.files) )
     {
         bcf1_t *bcf_rec = args.files->readers[0].buffer[0];
+        if ( args.samples_map ) bcf_subset(args.aux.hdr, bcf_rec, args.nsamples, args.samples_map);
         bcf_unpack(bcf_rec, BCF_UN_STR);
 
         // Skip unwanted sites
@@ -345,7 +429,8 @@ int main_vcfcall(int argc, char *argv[])
         if ( ret==-1 ) error("Something is wrong\n");
         if ( (args.aux.flag & CALL_VARONLY) && ret==0 ) continue;     // not a variant
 
-        vcf_write1(args.out_fh, args.aux.hdr_out, bcf_rec);
+        if ( args.flag & CF_BCFOUT ) bcf1_sync(bcf_rec);
+        vcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
     }
     destroy_data(&args);
 	return 0;

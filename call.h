@@ -27,7 +27,7 @@ typedef struct
 
     // shared
     bcf1_t *rec;
-    bcf_hdr_t *hdr_in, *hdr_out;
+    bcf_hdr_t *hdr;
 
     uint32_t flag;      // One or more of the CALL_* flags defined above
     uint8_t *ploidy;
