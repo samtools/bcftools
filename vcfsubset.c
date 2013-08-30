@@ -63,15 +63,16 @@ args_t;
 #define TOK_EQ   5       // equal
 #define TOK_BT   6       // bigger than
 #define TOK_BE   7       // bigger or equal
-#define TOK_OR   8       // |
-#define TOK_AND  9       // &
-#define TOK_ADD  10      // +
-#define TOK_SUB  11      // -
-#define TOK_MULT 12      // *
-#define TOK_DIV  13      // /
+#define TOK_NE   8       // not equal
+#define TOK_OR   9       // |
+#define TOK_AND  10      // &
+#define TOK_ADD  11      // +
+#define TOK_SUB  12      // -
+#define TOK_MULT 13      // *
+#define TOK_DIV  14      // /
 
-//                        ( ) [ < = > ] | & + - * /
-static int op_prec[] = {0,1,1,5,5,5,5,5,2,3,6,6,7,7};
+//                        ( ) [ < = > ] ! | & + - * /
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3,6,6,7,7};
 
 static int filters_next_token(char **str, int *len)
 {
@@ -80,24 +81,31 @@ static int filters_next_token(char **str, int *len)
     *str = tmp;
     *len = 0;
 
-    while ( tmp[0] && tmp[1] )
+    while ( tmp[0] )
     {
-        if ( isspace(tmp[1]) ) break;
-        if ( tmp[0]=='<' || tmp[1]=='<' ) break;
-        if ( tmp[0]=='>' || tmp[1]=='>' ) break;
-        if ( tmp[0]=='=' || tmp[1]=='=' ) break;
-        if ( tmp[0]=='&' || tmp[1]=='&' ) break;
-        if ( tmp[0]=='|' || tmp[1]=='|' ) break;
-        if ( tmp[0]=='(' || tmp[1]=='(' ) break;
-        if ( tmp[0]==')' || tmp[1]==')' ) break;
-        if ( tmp[0]=='+' || tmp[1]=='-' ) break;
-        if ( tmp[0]=='*' || tmp[1]=='/' ) break;
+        if ( isspace(tmp[0]) ) break;
+        if ( tmp[0]=='<' ) break;
+        if ( tmp[0]=='>' ) break;
+        if ( tmp[0]=='=' ) break;
+        if ( tmp[0]=='!' ) break;
+        if ( tmp[0]=='&' ) break;
+        if ( tmp[0]=='|' ) break;
+        if ( tmp[0]=='(' ) break;
+        if ( tmp[0]==')' ) break;
+        if ( tmp[0]=='+' ) break;
+        if ( tmp[0]=='*' ) break;
+        if ( tmp[0]=='-' ) break;
+        if ( tmp[0]=='/' ) break;
         tmp++;
     }
     if ( tmp > *str )
     {
-        *len = tmp - (*str) + 1;
+        *len = tmp - (*str);
         return TOK_VAL;
+    }
+    if ( tmp[0]=='!' )
+    {
+        if ( tmp[1]=='=' ) { (*str) += 2; return TOK_NE; }
     }
     if ( tmp[0]=='<' )
     {
@@ -343,7 +351,8 @@ static void filters_init(args_t *args)
     {
         int len, ret;
         ret = filters_next_token(&tmp, &len);
-        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c.", "x()[<=>]|&+-*/"[ops[i]]); fprintf(stderr,"\n");
+        // fprintf(stderr,"token=[%c] .. [%s] %d\n", "x()[<=>]!|&+-*/"[ret], tmp, len);
+        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c.", "x()[<=>]!|&+-*/"[ops[i]]); fprintf(stderr,"\n");
         if ( ret==TOK_LFT )         // left bracket
         {
             nops++;
@@ -527,6 +536,8 @@ static int filters_pass(args_t *args, bcf1_t *line)
             is_true = ( args->flt_stack[nstack-2]->num_value >  args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
         else if ( args->filters[i].tok_type == TOK_BE )
             is_true = ( args->flt_stack[nstack-2]->num_value >= args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
+        else if ( args->filters[i].tok_type == TOK_NE )
+            is_true = ( args->flt_stack[nstack-2]->num_value != args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
         else
             error("FIXME: did not expect this .. tok_type %d = %d\n", i, args->filters[i].tok_type);
 
