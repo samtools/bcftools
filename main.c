@@ -24,6 +24,7 @@ int main_vcfisec(int argc, char *argv[]);
 int main_vcfmerge(int argc, char *argv[]);
 int main_vcfquery(int argc, char *argv[]);
 int main_vcffilter(int argc, char *argv[]);
+int main_vcfsom(int argc, char *argv[]);
 int main_vcfnorm(int argc, char *argv[]);
 int main_vcfgtcheck(int argc, char *argv[]);
 int main_vcfsubset(int argc, char *argv[]);
@@ -60,7 +61,7 @@ static cmd_t cmds[] =
     },
     { .func  = main_vcffilter, 
       .alias = "filter",
-      .help  = "filter VCF files (this version is broken)",
+      .help  = "filter VCF files using fixed thresholds",
       .sep   = NULL
     },
     { .func  = main_vcfgtcheck, 
@@ -86,6 +87,11 @@ static cmd_t cmds[] =
     { .func  = main_vcfquery, 
       .alias = "query",
       .help  = "transform VCF into user-defined formats",
+      .sep   = NULL
+    },
+    { .func  = main_vcfsom, 
+      .alias = "som",
+      .help  = "filter using Self-Organized Maps (broken)",
       .sep   = NULL
     },
     { .func  = main_vcfsubset, 

@@ -1178,7 +1178,7 @@ void merge_vcf(args_t *args)
             char buf[10]; snprintf(buf,10,"%d",i+1);
             bcf_hdr_merge(args->out_hdr, args->files->readers[i].header,buf);
         }
-        bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "vcfmerge");
+        bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_merge");
         bcf_hdr_sync(args->out_hdr);
         bcf_hdr_fmt_text(args->out_hdr);
     }
@@ -1209,7 +1209,7 @@ void merge_vcf(args_t *args)
 
 static void usage(void)
 {
-    fprintf(stderr, "Usage:   vcfmerge [options] <A.vcf.gz> <B.vcf.gz> ...\n");
+    fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> ...\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "        --use-header <file>           use the provided header\n");
     fprintf(stderr, "        --print-header <file>         print only header of the output file and exit\n");

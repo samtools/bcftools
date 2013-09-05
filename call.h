@@ -11,6 +11,7 @@ typedef struct
     // mcall only
     double min_ma_lrt;  // variant accepted if P(chi^2)>=FLOAT [0.99]
     int *PLs, nPLs, *gts;   // VCF PL likelihoods (rw); GTs (w)
+    float anno16[16];       // see anno[16] in bam2bcf.h
     double *pl2p, *pdg;     // PL to 10^(-PL/10) table; PLs converted to P(D|G)
     float *qsum;            // QS(sum) values
     int nqsum, npdg;

@@ -11,7 +11,7 @@ CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 DFLAGS=
 OBJS=		main.o vcfview.o bcfidx.o tabix.o \
-			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o \
+			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
             vcfnorm.o vcfgtcheck.o vcfsubset.o \
             vcfcall.o mcall.o
 INCLUDES=	-I. -I$(HTSDIR)
@@ -60,6 +60,8 @@ test:
 
 main.o: version.h $(HTSDIR)/version.h bcftools.h
 vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h
+vcffilter.o: filter.h
+vcfsubset.o: filter.h
 
 bcftools:lib-recur $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm

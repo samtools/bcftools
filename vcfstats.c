@@ -257,6 +257,7 @@ int indel_ctx_type(indel_ctx_t *ctx, char *chr, int pos, char *ref, char *alt, i
         }
         free(ctx->dat[i].seq);
     }
+    free(fai_ref);
 
     *nrep = max_cnt;
     *nlen = max_len;

@@ -24,7 +24,7 @@ test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_subset($opts,in=>'subset',out=>'subset.1.out',args=>'-aRs NA00002 -v snps',reg=>'');
 test_vcf_subset($opts,in=>'subset',out=>'subset.2.out',args=>'-f PASS -k',reg=>'-r20,Y');
 test_vcf_subset($opts,in=>'subset',out=>'subset.3.out',args=>'-ps NA00003',reg=>'');
-test_vcf_subset($opts,in=>'subset',out=>'subset.4.out',args=>q[-i 'QUAL==999 && (FS<20 || FS>=41.02) && HWE*2>1.2'],reg=>'');
+test_vcf_subset($opts,in=>'subset',out=>'subset.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && HWE*2>1.2'],reg=>'');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -219,7 +219,7 @@ sub test_vcf_merge
         push @files, "$$opts{tmp}/$file.vcf.gz";
     }
     my $files = join(' ',@files);
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge $files | grep -v ^##vcfmerge");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge $files | grep -v ^##bcftools_merge");
 }
 sub test_vcf_isec
 {
@@ -244,7 +244,7 @@ sub test_vcf_isec2
     }
     my $files = join(' ',@files);
     bgzip_tabix($opts,file=>$args{tab_in},suffix=>'tab',args=>'-s 1 -b 2 -e 3');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -s $$opts{tmp}/$args{tab_in}.tab.gz $files");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -s $$opts{tmp}/$args{tab_in}.tab.gz $files | grep -v ^##bcftools_isec");
 }
 sub test_vcf_query
 {
@@ -256,12 +256,12 @@ sub test_vcf_norm
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -f $$opts{path}/$args{fai}.fa $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##vcfnorm");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -f $$opts{path}/$args{fai}.fa $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_norm");
 }
 sub test_vcf_subset
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##vcfsubset");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_subset");
 }
 

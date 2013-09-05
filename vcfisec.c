@@ -19,7 +19,7 @@
 
 typedef struct
 {
-    int isec_op, isec_n, *write, iwrite, nwrite;
+    int isec_op, isec_n, *write, iwrite, nwrite, output_type;
 	bcf_srs_t *files;
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
@@ -94,6 +94,13 @@ FILE *open_file(char **fname, const char *mode, const char *fmt, ...)
     return fp;
 }
 
+const char *hts_bcf_wmode(int file_type)
+{
+    if ( file_type == FT_BCF ) return "wbu";    // uncompressed BCF
+    if ( file_type & FT_BCF ) return "wb";      // compressed BCF
+    if ( file_type & FT_GZ ) return "wz";       // compressed VCF
+    return "w";                                 // uncompressed VCF
+}
 
 void isec_vcf(args_t *args)
 {
@@ -102,13 +109,14 @@ void isec_vcf(args_t *args)
     htsFile *out_fh = NULL;
 
     // When only one VCF is output, print VCF to stdout
-    int stdout_vcf = 0;
-    if ( args->nwrite==1 ) stdout_vcf = 1;
-    if ( args->subset_fname && files->nreaders==1 ) stdout_vcf = 1;
-    if ( args->isec_op==OP_COMPLEMENT ) stdout_vcf = 0;
-    if ( stdout_vcf ) 
+    int out_std = 0;
+    if ( args->nwrite==1 ) out_std = 1;
+    if ( args->subset_fname && files->nreaders==1 ) out_std = 1;
+    if ( out_std ) 
     {
-        out_fh = hts_open("-","w",0);
+        out_fh = hts_open("-",hts_bcf_wmode(args->output_type),0);
+        bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
+        bcf_hdr_fmt_text(files->readers[args->iwrite].header);
         vcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
 
@@ -137,7 +145,7 @@ void isec_vcf(args_t *args)
             case OP_MINUS: if ( n > args->isec_n ) continue;
         }
 
-        if ( stdout_vcf )
+        if ( out_std )
         {
             vcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0]);
             continue;
@@ -214,6 +222,10 @@ static void init_data(args_t *args)
         for (i=1; i<args->argc; i++) fprintf(args->fh_log," %s",args->argv[i]);
         fprintf(args->fh_log,"\n\nUsing the following file names:\n");
 
+        const char *suffix = "vcf";
+        if ( args->output_type & FT_BCF ) suffix = "bcf";
+        else if ( args->output_type & FT_GZ ) suffix = "vcf.gz";
+
         // Open output files and write the legend
         if ( args->isec_op==OP_VENN )
         {
@@ -221,9 +233,11 @@ static void init_data(args_t *args)
             args->fnames = (char**) malloc(sizeof(char*)*3);
 
             #define OPEN_FILE(i,j) { \
-                open_file(&args->fnames[i], NULL, "%s/%04d.bcf", args->prefix, i); \
-                args->fh_out[i] = hts_open(args->fnames[i], "wb", 0);  \
+                open_file(&args->fnames[i], NULL, "%s/%04d.%s", args->prefix, i, suffix); \
+                args->fh_out[i] = hts_open(args->fnames[i], hts_bcf_wmode(args->output_type), 0);  \
                 if ( !args->fh_out[i] ) error("Could not open %s\n", args->fnames[i]); \
+                bcf_hdr_append_version(args->files->readers[j].header,args->argc,args->argv,"bcftools_isec"); \
+                bcf_hdr_fmt_text(args->files->readers[j].header); \
                 vcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
             }
             OPEN_FILE(0,0);
@@ -284,6 +298,7 @@ static void usage(void)
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
 	fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
+	fprintf(stderr, "    -o, --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
 	fprintf(stderr, "    -p, --prefix <dir>                if given, subset each of the input files accordingly, see also -w\n");
 	fprintf(stderr, "    -r, --region <file|reg>           perform intersection in the given regions only\n");
 	fprintf(stderr, "    -s, --subset <file|reg>           subset to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
@@ -307,6 +322,7 @@ int main_vcfisec(int argc, char *argv[])
 	args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->files  = bcf_sr_init();
 	args->argc   = argc; args->argv = argv;
+    args->output_type = FT_VCF;
 
 	static struct option loptions[] = 
 	{
@@ -318,10 +334,20 @@ int main_vcfisec(int argc, char *argv[])
 		{"prefix",1,0,'p'},
 		{"write",1,0,'w'},
 		{"subset",1,0,'s'},
+		{"output-type",1,0,'o'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hc:r:p:n:w:s:Cf:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hc:r:p:n:w:s:Cf:o:",loptions,NULL)) >= 0) {
 		switch (c) {
+			case 'o': 
+                switch (optarg[0]) {
+                    case 'b': args->output_type = FT_BCF_GZ; break;
+                    case 'u': args->output_type = FT_BCF; break;
+                    case 'z': args->output_type = FT_VCF_GZ; break;
+                    case 'v': args->output_type = FT_VCF; break;
+                    default: error("The output type \"%s\" not recognised\n", optarg);
+                }
+                break;
 			case 'c':
 				if ( !strcmp(optarg,"snps") ) args->files->collapse |= COLLAPSE_SNPS;
 				else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;

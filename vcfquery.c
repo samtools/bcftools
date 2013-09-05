@@ -629,7 +629,7 @@ int main_vcfquery(int argc, char *argv[])
 			case 'a': 
                 {
                     kstring_t str = {0,0,0};
-                    kputs("%CHROM\t%POS\t%MASK\t%REF\t%ALT\t%TYPE\t%", &str);
+                    kputs("%CHROM\t%POS\t%MASK\t%REF\t%ALT\t%", &str);
                     char *p = optarg;
                     while ( *p )
                     {

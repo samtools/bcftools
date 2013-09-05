@@ -1,62 +1,3 @@
-#include <stdio.h>
-#ifndef __CALL_H__
-#define __CALL_H__
-
-#include <htslib/vcf.h>
-
-#define CALL_KEEPALT 1
-#define CALL_VARONLY (1<<1)
-
-typedef struct
-{
-    // mcall only
-    double min_ma_lrt;  // variant accepted if P(chi^2)>=FLOAT [0.99]
-    int *PLs, nPLs, *gts;   // VCF PL likelihoods (rw); GTs (w)
-    double *pl2p, *pdg;     // PL to 10^(-PL/10) table; PLs converted to P(D|G)
-    float *qsum;            // QS(sum) values
-    int nqsum, npdg;
-    int *als_map, nals_map; // mapping from full set of alleles to trimmed set of alleles (old -> new)
-    int *pl_map, npl_map;   // same as above for PLs, but reverse (new -> old)
-    char **als;             // array to hold the trimmed set of alleles to appear on output
-    int nals;               // size of the als array
-
-    // ccall only
-    double indel_frac, theta, min_lrt, min_perm_p; 
-    double prior_type, pref;
-    int ngrp1_samples, n_perm;
-    char *prior_file;
-
-    // shared
-    bcf1_t *rec;
-    bcf_hdr_t *hdr;
-
-    uint32_t flag;      // One or more of the CALL_* flags defined above
-    uint8_t *ploidy;
-    int nsamples;
-    uint32_t trio;
-}
-call_t;
-
-void error(const char *format, ...);
-
-/*
- *  *call() - return negative value on error or the number of non-reference
- *            alleles on success.
- */
-int mcall(call_t *call, bcf1_t *rec);    // multiallic and rare-variant calling model
-int ccall(call_t *call, bcf1_t *rec);    // the default consensus calling model
-int qcall(call_t *call, bcf1_t *rec);    // QCall output
-
-void mcall_init(call_t *call);
-void ccall_init(call_t *call);
-void qcall_init(call_t *call);
-
-void mcall_destroy(call_t *call);
-void ccall_destroy(call_t *call);
-void qcall_destroy(call_t *call);
-
-
-#endif
 #include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -82,11 +23,11 @@ void error(const char *format, ...);
 KSTREAM_INIT(gzFile, gzread, 16384)
 
 #define CF_NO_GENO      1
-#define CF_BCFOUT       (1<<1)
+//                      (1<<1)
 #define CF_CCALL        (1<<2)
 //                      (1<<3)
 #define CF_VCFIN        (1<<4)
-#define CF_COMPRESS     (1<<5)
+//                      (1<<5)
 #define CF_ACGT_ONLY    (1<<6)
 #define CF_QCALL        (1<<7)
 #define CF_ADJLD        (1<<8)
@@ -100,6 +41,7 @@ KSTREAM_INIT(gzFile, gzread, 16384)
 typedef struct 
 {
     int flag;   // combination of CF_* flags above
+    int output_type;
     htsFile *bcf_in, *out_fh;
     char *bcf_fname;
     char **samples;             // for subsampling and ploidy
@@ -232,10 +174,7 @@ static void init_data(args_t *args)
     else
         args->aux.hdr = bcf_hdr_dup(args->files->readers[0].header);
 
-    if ( args->flag & CF_BCFOUT )
-        args->out_fh = args->flag & CF_COMPRESS ? hts_open("-","wb",0) : hts_open("-","wbu",0);
-    else
-        args->out_fh = args->flag & CF_COMPRESS ? hts_open("-","wz",0) : hts_open("-","w",0);
+    args->out_fh = hts_open("-", hts_bcf_wmode(args->output_type), 0);
 
     if ( args->flag & CF_QCALL ) 
         return;
@@ -246,7 +185,7 @@ static void init_data(args_t *args)
     if ( args->flag & CF_CCALL )
         ccall_init(&args->aux);
 
-    bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "vcfcall");
+    bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
     bcf_hdr_fmt_text(args->aux.hdr);
     vcf_hdr_write(args->out_fh, args->aux.hdr);
 }
@@ -271,13 +210,12 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Usage: bcftools call [options] <in.bcf> [reg]\n");
     fprintf(stderr, "File format options:\n");
-    fprintf(stderr, "       -b        output BCF instead of VCF\n");
+    fprintf(stderr, "       -o TYPE   output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "       -Q        output the QCALL likelihood format\n");
     fprintf(stderr, "       -r REG    restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
     fprintf(stderr, "       -s STR    comma-separated list or file name with a list of samples to use [all samples]\n");
     fprintf(stderr, "       -l REG    same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
     fprintf(stderr, "       -V        input is VCF\n");
-    fprintf(stderr, "       -z        compressed VCF/BCF output\n");
     fprintf(stderr, "\nInput/output options:\n");
     fprintf(stderr, "       -A        keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "       -G        output sites only, drop genotype fields\n");
@@ -321,7 +259,7 @@ int main_vcfcall(int argc, char *argv[])
 
     // Note: Some of the functionality was lost in the transition but will be put back on demand (pd3 todo)
 
-	while ((c = getopt(argc, argv, "N1:l:cC:AGvbVzP:t:p:QLi:S:s:U:X:d:T:mr:l:")) >= 0) 
+	while ((c = getopt(argc, argv, "N1:l:cC:AGvVP:t:p:QLi:S:s:U:X:d:T:mr:l:o:")) >= 0) 
     {
 		switch (c) 
         {
@@ -333,11 +271,18 @@ int main_vcfcall(int argc, char *argv[])
             //            break;
             case 'G': args.flag |= CF_NO_GENO; break;       // output only sites, no genotype fields
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
-            case 'b': args.flag |= CF_BCFOUT; break;
             case 'V': args.flag |= CF_VCFIN; break;
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'v': args.aux.flag |= CALL_VARONLY; break;
-            case 'z': args.flag |= CF_COMPRESS; break;
+            case 'o': 
+                      switch (optarg[0]) {
+                          case 'b': args.output_type = FT_BCF_GZ; break;
+                          case 'u': args.output_type = FT_BCF; break;
+                          case 'z': args.output_type = FT_VCF_GZ; break;
+                          case 'v': args.output_type = FT_VCF; break;
+                          default: error("The output type \"%s\" not recognised\n", optarg);
+                      }
+                      break;
             case 'S': 
                       if ( !strcasecmp(optarg,"snps") ) args.flag |= CF_INDEL_ONLY;
                       else if ( !strcasecmp(optarg,"indels") ) args.flag |= CF_NO_INDEL;
@@ -429,7 +374,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( ret==-1 ) error("Something is wrong\n");
         if ( (args.aux.flag & CALL_VARONLY) && ret==0 ) continue;     // not a variant
 
-        if ( args.flag & CF_BCFOUT ) bcf1_sync(bcf_rec);
+        if ( args.output_type & FT_BCF ) bcf1_sync(bcf_rec);
         vcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
     }
     destroy_data(&args);

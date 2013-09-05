@@ -11,38 +11,21 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include "bcftools.h"
+#include "filter.h"
 
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
-typedef struct _token_t token_t;
-struct _token_t
-{
-    // read-only values, same for all VCF lines
-    int tok_type;       // one of the TOK_* keys below
-    char *key;          // set only for string constants, otherwise NULL
-    double threshold;   // filtering threshold
-    int hdr_id;         // BCF header lookup ID
-    int idx;            // 1-based index to VCF vector
-    void (*setter)(bcf1_t *, struct _token_t *);
-
-    // modified on filter evaluation at each VCF line
-    double num_value; 
-    char *str_value;
-    int pass;           // -1 not applicable, 0 fails, >0 pass
-    int missing_value;
-};
 
 typedef struct _args_t
 {
+    filter_t *filter;
     char *filter_str;
-    token_t *filters, **flt_stack;  // input tokens (in RPN) and evaluation stack
-    int nfilters, filter_logic, soft_filter;
-    int filter_ids[1];
+    int filter_logic;   // one of FLT_IN/EXCLUDE (-i or -e)
 
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
     char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
-    int argc, clevel, output_bcf, print_header, update_info, header_only, n_samples, *imap;
+    int argc, clevel, output_type, input_type, print_header, update_info, header_only, n_samples, *imap;
     int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private, exclude_uncalled, min_ac, max_ac, calc_ac;
     char *fn_ref, *fn_out, **samples;
     char *include_types, *exclude_types;
@@ -50,505 +33,6 @@ typedef struct _args_t
     htsFile *out;
 }
 args_t;
-
-#define FLT_ID_IE 0
-
-/* general filters */
-
-#define TOK_VAL  0
-#define TOK_LFT  1       // (
-#define TOK_RGT  2       // )
-#define TOK_LE   3       // less or equal
-#define TOK_LT   4       // less than
-#define TOK_EQ   5       // equal
-#define TOK_BT   6       // bigger than
-#define TOK_BE   7       // bigger or equal
-#define TOK_NE   8       // not equal
-#define TOK_OR   9       // |
-#define TOK_AND  10      // &
-#define TOK_ADD  11      // +
-#define TOK_SUB  12      // -
-#define TOK_MULT 13      // *
-#define TOK_DIV  14      // /
-
-//                        ( ) [ < = > ] ! | & + - * /
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3,6,6,7,7};
-
-static int filters_next_token(char **str, int *len)
-{
-    char *tmp = *str;
-    while ( *tmp && isspace(*tmp) ) tmp++;
-    *str = tmp;
-    *len = 0;
-
-    while ( tmp[0] )
-    {
-        if ( isspace(tmp[0]) ) break;
-        if ( tmp[0]=='<' ) break;
-        if ( tmp[0]=='>' ) break;
-        if ( tmp[0]=='=' ) break;
-        if ( tmp[0]=='!' ) break;
-        if ( tmp[0]=='&' ) break;
-        if ( tmp[0]=='|' ) break;
-        if ( tmp[0]=='(' ) break;
-        if ( tmp[0]==')' ) break;
-        if ( tmp[0]=='+' ) break;
-        if ( tmp[0]=='*' ) break;
-        if ( tmp[0]=='-' ) break;
-        if ( tmp[0]=='/' ) break;
-        tmp++;
-    }
-    if ( tmp > *str )
-    {
-        *len = tmp - (*str);
-        return TOK_VAL;
-    }
-    if ( tmp[0]=='!' )
-    {
-        if ( tmp[1]=='=' ) { (*str) += 2; return TOK_NE; }
-    }
-    if ( tmp[0]=='<' )
-    {
-        if ( tmp[1]=='=' ) { (*str) += 2; return TOK_LE; }
-        (*str) += 1; return TOK_LT;
-    }
-    if ( tmp[0]=='>' )
-    {
-        if ( tmp[1]=='=' ) { (*str) += 2; return TOK_BE; }
-        (*str) += 1; return TOK_BT;
-    }
-    if ( tmp[0]=='=' )
-    {
-        if ( tmp[1]=='=' ) { (*str) += 2; return TOK_EQ; }
-        (*str) += 1; return TOK_EQ;
-    }
-    if ( tmp[0]=='(' ) { (*str) += 1; return TOK_LFT; }
-    if ( tmp[0]==')' ) { (*str) += 1; return TOK_RGT; }
-    if ( tmp[0]=='&' && tmp[1]=='&' ) { (*str) += 2; return TOK_AND; }
-    if ( tmp[0]=='|' && tmp[1]=='|' ) { (*str) += 2; return TOK_OR; }
-    if ( tmp[0]=='&' ) { (*str) += 1; return TOK_AND; }
-    if ( tmp[0]=='|' ) { (*str) += 1; return TOK_OR; }
-    if ( tmp[0]=='+' ) { (*str) += 1; return TOK_ADD; }
-    if ( tmp[0]=='-' ) { (*str) += 1; return TOK_SUB; }
-    if ( tmp[0]=='*' ) { (*str) += 1; return TOK_MULT; }
-    if ( tmp[0]=='/' ) { (*str) += 1; return TOK_DIV; }
-
-    while ( *tmp && !isspace(*tmp) )
-    {
-        if ( *tmp=='<' ) break;
-        if ( *tmp=='>' ) break;
-        if ( *tmp=='=' ) break;
-        if ( *tmp=='&' ) break;
-        if ( *tmp=='|' ) break;
-        if ( *tmp=='(' ) break;
-        if ( *tmp==')' ) break;
-        if ( *tmp=='+' ) break;
-        if ( *tmp=='-' ) break;
-        if ( *tmp=='*' ) break;
-        if ( *tmp=='/' ) break;
-        tmp++;
-    }
-    *len = tmp - (*str);
-    return TOK_VAL;
-}
-
-static void filters_set_qual(bcf1_t *line, token_t *tok)
-{
-    float *ptr = &line->qual;
-    if ( bcf_float_is_missing(*ptr) )
-        tok->missing_value = 1;
-    else
-        tok->num_value = line->qual;
-}
-
-/**
- *  bcf_get_info_value() - get single INFO value, int or float
- *  @line:      BCF line
- *  @info_id:   tag ID, as returned by bcf_id2int
- *  @ivec:      0-based index to retrieve
- *  @vptr:      pointer to memory location of sufficient size to accomodate
- *              info_id's type
- *
- *  The returned value is -1 if tag is not present, 0 if present but
- *  values is missing or ivec is out of range, and 1 on success.
- */
-int bcf_get_info_value(bcf1_t *line, int info_id, int ivec, void *value)
-{
-    int j;
-    for (j=0; j<line->n_info; j++)
-        if ( line->d.info[j].key == info_id ) break;
-    if ( j==line->n_info ) return -1;
-
-    bcf_info_t *info = &line->d.info[j];
-    if ( info->len == 1 )
-    {
-        if ( info->type==BCF_BT_FLOAT ) *((float*)value) = info->v1.f;
-        else if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 ) *((int*)value) = info->v1.i;
-        return 1;
-    }
-
-    #define BRANCH(type_t, is_missing, is_vector_end, out_type_t) { \
-        type_t *p = (type_t *) info->vptr; \
-        for (j=0; j<ivec && j<info->len; j++) \
-        { \
-            if ( is_vector_end ) return 0; \
-        } \
-        if ( is_missing ) return 0; \
-        *((out_type_t*)value) = p[j]; \
-        return 1; \
-    }
-    switch (info->type) {
-        case BCF_BT_INT8:  BRANCH(int8_t,  p[j]==bcf_int8_missing,  p[j]==bcf_int8_vector_end,  int); break;
-        case BCF_BT_INT16: BRANCH(int16_t, p[j]==bcf_int16_missing, p[j]==bcf_int16_vector_end, int); break;
-        case BCF_BT_INT32: BRANCH(int32_t, p[j]==bcf_int32_missing, p[j]==bcf_int32_vector_end, int); break;
-        case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(p[j]), bcf_float_is_vector_end(p[j]), float); break;
-        default: fprintf(stderr,"todo: type %d\n", info->type); exit(1); break;
-    }
-    #undef BRANCH
-    return -1;  // this shouldn't happen
-}
-
-static void filters_set_info_int(bcf1_t *line, token_t *tok)
-{
-    int value;
-    if ( bcf_get_info_value(line,tok->hdr_id,tok->idx,&value) <= 0 )
-        tok->missing_value = 1;
-    else
-        tok->num_value = value;
-}
-
-static void filters_set_info_float(bcf1_t *line, token_t *tok)
-{
-    float value;
-    if ( bcf_get_info_value(line,tok->hdr_id,tok->idx,&value) <= 0 )
-        tok->missing_value = 1;
-    else
-        tok->num_value = value;
-}
-
-static void filters_init1(args_t *args, char *str, int len, token_t *tok)
-{
-    tok->tok_type = TOK_VAL;
-    tok->hdr_id   = -1;
-    tok->pass     = -1;
-
-    // is this a string constant?
-    if ( str[0]=='"' )
-    {
-        if ( str[len-1] != '"' ) error("TODO: spaces in [%s]\n", args->filter_str);
-        tok->key = (char*) calloc(len-1,sizeof(char));
-        memcpy(tok->key,str+1,len-2);
-        tok->key[len-2] = 0;
-        return;
-    }
-
-    if ( !strncmp(str,"QUAL",len) )
-    {
-        tok->setter = filters_set_qual;
-        tok->key = strdup("QUAL");
-        return;
-    }
-
-    // is this one of the VCF tags? For now do only INFO and QUAL, to be extended...
-    kstring_t tmp = {0,0,0};
-    kputsn(str, len, &tmp);
-
-    tok->hdr_id = bcf_id2int(args->hdr, BCF_DT_ID, tmp.s);
-    if ( tok->hdr_id>=0 ) 
-    {
-        if ( tmp.s ) free(tmp.s);
-        return;
-    }
-
-    // is it a substrict VCF vector tag?
-    if ( tmp.s[tmp.l-1] == ']' )
-    {
-        int i;
-        for (i=0; i<tmp.l; i++)
-            if ( tmp.s[i]=='[' ) { tmp.s[i] = 0; break; }
-
-        tok->hdr_id = bcf_id2int(args->hdr, BCF_DT_ID, tmp.s);
-        if ( tok->hdr_id>=0 )
-        {
-            switch ( bcf_id2type(args->hdr,BCF_HL_INFO,tok->hdr_id) ) 
-            {
-                case BCF_HT_INT:  tok->setter = &filters_set_info_int; break;
-                case BCF_HT_REAL: tok->setter = &filters_set_info_float; break;
-                default: error("FIXME: not ready for this, sorry\n");
-            }
-            tok->idx = atoi(&tmp.s[i+1]);
-            if ( tmp.s ) free(tmp.s);
-            return;
-        }
-    }
-
-    // is it a value?
-    char *end;
-    errno = 0;
-    tok->threshold = strtod(tmp.s, &end);
-    if ( errno!=0 || end==tmp.s ) error("Error: the tag \"INFO/%s\" is not defined in the VCF header\n", tmp.s);
-
-    if ( tmp.s ) free(tmp.s);
-}
-
-void filters_debug(args_t *args, token_t *filters, int nfilters)
-{
-    if ( !filters ) 
-    {
-        filters  = args->filters;
-        nfilters = args->nfilters;
-    }
-    fprintf(stderr,"RPN .. ");
-
-    int i;
-    for (i=0; i<nfilters; i++)
-    {
-        if ( filters[i].tok_type == TOK_VAL )
-        {
-            if ( filters[i].hdr_id >=0 )
-                fprintf(stderr," %s", args->hdr->id[BCF_DT_ID][filters[i].hdr_id].key);
-            else if ( filters[i].key )
-                fprintf(stderr," %s", filters[i].key);
-            else
-                fprintf(stderr," %e", filters[i].threshold);
-        }
-        else
-            fprintf(stderr," %c", "0()[<=>]|&+-*/"[filters[i].tok_type]);
-    }
-    fprintf(stderr, "\n");
-}
-
-void filters_debug_stack(args_t *args, int nstack)
-{
-    fprintf(stderr,"stack .. ");
-
-    int i;
-    for (i=0; i<nstack; i++)
-    {
-        if ( args->flt_stack[i]->pass < 0 )
-        {
-            if ( args->flt_stack[i]->str_value )
-                fprintf(stderr," %s", args->flt_stack[i]->str_value);
-            else
-                fprintf(stderr," %e", args->flt_stack[i]->num_value);
-        }
-        else
-            fprintf(stderr," %d", args->flt_stack[i]->pass);
-    }
-    fprintf(stderr,"\n");
-}
-
-// Parse filter expression and convert to reverse polish notation. Dijkstra's shunting-yard algorithm
-static void filters_init(args_t *args)
-{
-    if ( !args->filter_str ) return;
-
-    int nops = 0, mops = 0, *ops = NULL;    // operators stack
-    int nout = 0, mout = 0;                 // filter tokens, RPN
-    token_t *out = NULL;
-    char *tmp = args->filter_str;
-    while ( *tmp )
-    {
-        int len, ret;
-        ret = filters_next_token(&tmp, &len);
-        // fprintf(stderr,"token=[%c] .. [%s] %d\n", "x()[<=>]!|&+-*/"[ret], tmp, len);
-        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c.", "x()[<=>]!|&+-*/"[ops[i]]); fprintf(stderr,"\n");
-        if ( ret==TOK_LFT )         // left bracket
-        {
-            nops++;
-            hts_expand(int, nops, mops, ops);
-            ops[nops-1] = ret;
-        }
-        else if ( ret==TOK_RGT )    // right bracket
-        {
-            while ( nops>0 && ops[nops-1]!=TOK_LFT )
-            {
-                nout++;
-                hts_expand0(token_t, nout, mout, out);
-                out[nout-1].tok_type = ops[nops-1];
-                nops--;
-            }
-            if ( nops<=0 ) error("Could not parse: %s\n", args->filter_str);
-            nops--;
-        }
-        else if ( ret!=TOK_VAL )    // one of the comparison operators
-        {
-            while ( nops>0 && op_prec[ret] < op_prec[ops[nops-1]] )
-            {
-                nout++;
-                hts_expand0(token_t, nout, mout, out);
-                out[nout-1].tok_type = ops[nops-1];
-                nops--;
-            }
-            nops++;
-            hts_expand(int, nops, mops, ops);
-            ops[nops-1] = ret;
-        }
-        else if ( !len ) 
-        {
-            if ( !isspace(*tmp) ) error("Could not parse the expression: %s\n", args->filter_str);
-            break;     // all tokens read
-        }
-        else           // annotation name or filtering value
-        {
-            nout++;
-            hts_expand0(token_t, nout, mout, out);
-            filters_init1(args, tmp, len, &out[nout-1]);
-            tmp += len;
-        }
-    }
-    while ( nops>0 )
-    {
-        if ( ops[nops-1]==TOK_LFT || ops[nops-1]==TOK_RGT ) error("Could not parse the expression: %s\n", args->filter_str);
-        nout++;
-        hts_expand0(token_t, nout, mout, out);
-        out[nout-1].tok_type = ops[nops-1];
-        nops--;
-    }
-
-    if ( mops ) free(ops);
-    args->filters   = out;
-    args->nfilters  = nout;
-    args->flt_stack = (token_t **)malloc(sizeof(token_t*)*nout);
-    // filters_debug(args, NULL, 0);
-}
-
-static void filters_destroy(args_t *args)
-{
-    int i;
-    for (i=0; i<args->nfilters; i++)
-        if ( args->filters[i].key ) free(args->filters[i].key);
-    if (args->filters) free(args->filters);
-    if (args->flt_stack) free(args->flt_stack);
-}
-
-static int filters_pass(args_t *args, bcf1_t *line)
-{
-    bcf_unpack(line, BCF_UN_INFO);
-
-    // filters_debug(args, NULL, 0);
-
-    int i, j, nstack = 0;
-    for (i=0; i<args->nfilters; i++)
-    {
-        args->filters[i].missing_value = 0;
-        args->filters[i].str_value = NULL;
-        args->filters[i].pass = -1;
-
-        // filters_debug_stack(args, nstack);
-
-        if ( args->filters[i].tok_type == TOK_VAL )
-        {
-            if ( args->filters[i].setter ) args->filters[i].setter(line, &args->filters[i]);
-            else if ( args->filters[i].hdr_id >=0 ) 
-            {
-                for (j=0; j<line->n_info; j++)
-                    if ( line->d.info[j].key == args->filters[i].hdr_id ) break;
-
-                if ( j==line->n_info ) 
-                    args->filters[i].missing_value = 1;
-                else if ( line->d.info[j].type==BCF_BT_CHAR )
-                    args->filters[i].str_value = (char*)line->d.info[j].vptr;
-                else if ( line->d.info[j].type==BCF_BT_FLOAT )
-                {
-                    args->filters[i].num_value = line->d.info[j].v1.f;
-                    args->filters[i].str_value = NULL;
-                }
-                else
-                {
-                    args->filters[i].num_value = line->d.info[j].v1.i;
-                    args->filters[i].str_value = NULL;
-                }
-            }
-            else if ( args->filters[i].key )
-                args->filters[i].str_value = args->filters[i].key;
-            else
-                args->filters[i].num_value = args->filters[i].threshold;
-            args->flt_stack[nstack++] = &args->filters[i];
-            continue;
-        }
-        if ( nstack<2 ) 
-            error("Error occurred while processing the filter \"%s\": too few values left on stack (%d)\n", args->filter_str,nstack);
-
-        int is_str  = (args->flt_stack[nstack-1]->str_value ? 1 : 0) + (args->flt_stack[nstack-2]->str_value ? 1 : 0 );
-
-        if ( args->filters[i].tok_type == TOK_OR )
-        {
-            if ( args->flt_stack[nstack-1]->pass<0 || args->flt_stack[nstack-2]->pass<0 ) 
-                error("Error occurred while processing the filter \"%s\" (%d %d OR)\n", args->filter_str,args->flt_stack[nstack-2]->pass,args->flt_stack[nstack-1]->pass);
-            args->flt_stack[nstack-2]->pass = args->flt_stack[nstack-1]->pass + args->flt_stack[nstack-2]->pass;
-            nstack--;
-            continue;
-        }
-        if ( args->filters[i].tok_type == TOK_AND )
-        {
-            if ( args->flt_stack[nstack-1]->pass<0 || args->flt_stack[nstack-2]->pass<0 ) 
-                error("Error occurred while processing the filter \"%s\" (%d %d AND)\n", args->filter_str,args->flt_stack[nstack-2]->pass,args->flt_stack[nstack-1]->pass);
-            args->flt_stack[nstack-2]->pass = args->flt_stack[nstack-1]->pass * args->flt_stack[nstack-2]->pass;
-            nstack--;
-            continue;
-        }
-
-        if ( args->filters[i].tok_type == TOK_ADD )
-        {
-            args->flt_stack[nstack-2]->num_value += args->flt_stack[nstack-1]->num_value;
-            nstack--;
-            continue;
-        }
-        else if ( args->filters[i].tok_type == TOK_SUB )
-        {
-            args->flt_stack[nstack-2]->num_value -= args->flt_stack[nstack-1]->num_value;
-            nstack--;
-            continue;
-        }
-        else if ( args->filters[i].tok_type == TOK_MULT )
-        {
-            args->flt_stack[nstack-2]->num_value *= args->flt_stack[nstack-1]->num_value;
-            nstack--;
-            continue;
-        }
-        else if ( args->filters[i].tok_type == TOK_DIV )
-        {
-            args->flt_stack[nstack-2]->num_value /= args->flt_stack[nstack-1]->num_value;
-            nstack--;
-            continue;
-        }
-
-        int is_true = 0;
-        if ( args->flt_stack[nstack-1]->missing_value || args->flt_stack[nstack-2]->missing_value )
-            is_true = 0;
-        else if ( args->filters[i].tok_type == TOK_EQ )
-        {
-            if ( is_str==1 ) error("Comparing string to numeric value: %s\n", args->filter_str);
-            if ( is_str==2 ) 
-                is_true = strcmp(args->flt_stack[nstack-1]->str_value,args->flt_stack[nstack-2]->str_value) ? 0 : 1;
-            else
-                is_true = (args->flt_stack[nstack-1]->num_value == args->flt_stack[nstack-2]->num_value) ? 1 : 0;
-        }
-        else if ( is_str>0 ) error("Wrong operator in string comparison: %s\n", args->filter_str);
-        else if ( args->filters[i].tok_type == TOK_LE )
-            is_true = ( args->flt_stack[nstack-2]->num_value <= args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
-        else if ( args->filters[i].tok_type == TOK_LT )
-            is_true = ( args->flt_stack[nstack-2]->num_value <  args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
-        else if ( args->filters[i].tok_type == TOK_EQ )
-            is_true = ( args->flt_stack[nstack-2]->num_value == args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
-        else if ( args->filters[i].tok_type == TOK_BT )
-            is_true = ( args->flt_stack[nstack-2]->num_value >  args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
-        else if ( args->filters[i].tok_type == TOK_BE )
-            is_true = ( args->flt_stack[nstack-2]->num_value >= args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
-        else if ( args->filters[i].tok_type == TOK_NE )
-            is_true = ( args->flt_stack[nstack-2]->num_value != args->flt_stack[nstack-1]->num_value ) ? 1 : 0;
-        else
-            error("FIXME: did not expect this .. tok_type %d = %d\n", i, args->filters[i].tok_type);
-
-        args->flt_stack[nstack-2]->pass = is_true;
-        nstack--;
-    }
-    if ( nstack>1 ) error("Error occurred while processing the filter \"%s\": too many values left on stack (%d)\n", args->filter_str,nstack);
-    if ( args->filter_logic==FLT_INCLUDE ) return args->flt_stack[0]->pass;
-    return args->flt_stack[0]->pass ? 0 : 1;
-}
-
 
 static void init_data(args_t *args)
 {
@@ -560,7 +44,7 @@ static void init_data(args_t *args)
         bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
         bcf_hdr_append(args->hdr,"##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
     }
-    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "vcfsubset");
+    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_subset");
 
     // setup sample data    
     if (args->sample_names)
@@ -652,7 +136,9 @@ static void init_data(args_t *args)
     char modew[8];
     strcpy(modew, "w");
     if (args->clevel >= 0 && args->clevel <= 9) sprintf(modew + 1, "%d", args->clevel);
-    if (args->output_bcf) strcat(modew, "b");
+    if (args->output_type==FT_BCF) strcat(modew, "bu");         // uncompressed BCF
+    else if (args->output_type & FT_BCF) strcat(modew, "b");    // compressed BCF
+    else if (args->output_type & FT_GZ) strcat(modew,"z");      // compressed VCF
     args->out = hts_open(args->fn_out ? args->fn_out : "-", modew, 0);
  
     // headers: hdr=full header, hsub=subset header, hnull=sites only header
@@ -661,26 +147,9 @@ static void init_data(args_t *args)
     if (args->n_samples > 0)
         args->hsub = bcf_hdr_subset(args->hdr, args->n_samples, args->samples, args->imap);
 
-    filters_init(args);
-    if ( args->filters && args->soft_filter )
-    {
-        kstring_t tmp = {0,0,0};
-        int i = 0, id = -1;
-        do
-        {
-            ksprintf(&tmp,"Subset%d", ++i);
-            id = bcf_id2int(args->hdr,BCF_DT_ID,tmp.s);
-        } 
-        while ( id>=0 && bcf_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
+    if ( args->filter_str )
+        args->filter = filter_init(args->hdr, args->filter_str);
 
-        tmp.l = 0; ksprintf(&tmp,"##FILTER=<ID=Subset%d,Description=\"Set if %s: %s\">", i,args->filter_logic & FLT_INCLUDE ? "not true" : "true", args->filter_str);
-        bcf_hdr_append(args->hdr,tmp.s);
-
-        tmp.l = 0; ksprintf(&tmp,"Subset%d", i);
-        args->filter_ids[FLT_ID_IE] = bcf_id2int(args->hdr,BCF_DT_ID,tmp.s);
-        assert( args->filter_ids[FLT_ID_IE]>=0 );
-        free(tmp.s);
-    }
     bcf_hdr_fmt_text(args->hdr);
 }
 
@@ -695,7 +164,8 @@ static void destroy_data(args_t *args)
     }
     if (args->hnull) bcf_hdr_destroy(args->hnull);
     if (args->hsub) bcf_hdr_destroy(args->hsub);
-    filters_destroy(args);
+    if ( args->filter )
+        filter_destroy(args->filter);
 }
 
 int subset_vcf(args_t *args, bcf1_t *line)
@@ -714,7 +184,12 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if ( args->exclude &&   line->d.var_type&args->exclude  ) return 0; // exclude given variant types
     }
 
-    if ( args->filters && !filters_pass(args,line) ) return -FLT_ID_IE-1;
+    if ( args->filter )
+    {
+        int ret = filter_test(args->filter, line);
+        if ( args->filter_logic==FLT_INCLUDE ) { if ( !ret ) return 0; }
+        else if ( ret ) return 0;
+    }
 
     int i, an = 0, n_ac = 0, *ac = (int*) calloc(line->n_allele+1,sizeof(int));
     if (args->calc_ac) {
@@ -754,7 +229,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
     if (args->exclude_ref && n_ac == 0) return 0;
     if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
     if (args->sites_only) bcf_subset(args->hsub ? args->hsub : args->hdr, line, 0, 0);
-    if (args->output_bcf) bcf1_sync(line);
+    if (args->output_type & FT_BCF) bcf1_sync(line);
     return 1;
 }
 
@@ -762,20 +237,20 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   View, subset and filter VCF/BCF files.\n");
-    fprintf(stderr, "Usage:   vcfsubset [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
+    fprintf(stderr, "Usage:   bcftools subset [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
     fprintf(stderr, "\n");
-    // fprintf(stderr, "Input options:\n");
-    // fprintf(stderr, "    -S    input is VCF\n");
-    // fprintf(stderr, "\n");
+    fprintf(stderr, "Input options:\n");
+    fprintf(stderr, "    -b                             input is BCF\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Output options:\n");
-    fprintf(stderr, "    -o, --out FILE             output file name [stdout]\n");
-    // fprintf(stderr, "    -b                    output in BCF\n");
-    // fprintf(stderr, "    -l INT                compression level [%d]\n", args->clevel);
-    fprintf(stderr, "    -h                         suppress the header in VCF output\n");
-    fprintf(stderr, "    -H                         print the header only\n");
-    fprintf(stderr, "    -G,                        drop individual genotype information (after subsetting if -s option set)\n");
-    fprintf(stderr, "    -r, --regions <reg|file>   same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
-    fprintf(stderr, "    -t, --targets <reg|file>   restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -O, --out FILE                 output file name [stdout]\n");
+    fprintf(stderr, "    -l INT                         compression level [%d]\n", args->clevel);
+    fprintf(stderr, "    -h                             suppress the header in VCF output\n");
+    fprintf(stderr, "    -H                             print the header only\n");
+    fprintf(stderr, "    -G,                            drop individual genotype information (after subsetting if -s option set)\n");
+	fprintf(stderr, "    -o, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
+    fprintf(stderr, "    -t, --targets <reg|file>       restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in subset\n");
@@ -786,9 +261,8 @@ static void usage(args_t *args)
     fprintf(stderr, "    -R,   --exclude-ref                            exclude sites without a non-reference genotype\n");
     fprintf(stderr, "    -U,   --exclude-uncalled                       exclude sites without a called genotype\n");
     fprintf(stderr, "    -p,   --private                                print sites where only the subset samples carry an non-reference allele\n");
-    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (e.g. 'QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
+    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (see vcffilter for details)\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                   require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -S,   --soft-filter                            do not exclude the site, only add to the existing FILTER\n");
     fprintf(stderr, "    -k/n, --known/--novel                          print known/novel sites only (ID is/not '.')\n");
     fprintf(stderr, "    -m/M, --multiallelic/--biallelic               print multiallelic/biallelic sites only\n");
     fprintf(stderr, "    -c/C  --min-ac/--max-ac                        minimum/maximum allele count (INFO/AC) of sites to be printed\n");
@@ -807,6 +281,8 @@ int main_vcfsubset(int argc, char *argv[])
     args->clevel  = -1;
     args->print_header = 1;
     args->update_info = 1;
+    args->output_type = FT_VCF;
+    args->input_type = FT_UNKN;
 
     static struct option loptions[] = 
     {
@@ -823,7 +299,9 @@ int main_vcfsubset(int argc, char *argv[])
         {"multiallelic",0,0,'m'},
         {"biallelic",0,0,'M'},
         {"samples",1,0,'s'},
-        {"out",1,0,'o'},
+        {"output-type",1,0,'o'},
+        {"out",1,0,'O'},
+        {"file-name",1,0,'n'},
         {"include-types",1,0,'v'},
         {"exclude-types",1,0,'V'},
         {"targets",1,0,'t'},
@@ -832,14 +310,22 @@ int main_vcfsubset(int argc, char *argv[])
         {"max-ac",1,0,'C'},
         {"singletons",0,0,'1'},
         {"doubletons",0,0,'2'},
-        {"soft-filter",0,0,'S'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:bSt:r:o:s:Gf:knv:V:mMaRpUhHc:C:12Ie:i:S",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "l:bSt:r:o:O:s:Gf:knv:V:mMaRpUhHc:C:12Ie:i:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'l': args->clevel = atoi(optarg); args->output_bcf = 1; break;
-            case 'b': args->output_bcf = 1; break;
-            case 'o': args->fn_out = optarg; break;
+    	    case 'o': 
+                switch (optarg[0]) {
+                    case 'b': args->output_type = FT_BCF_GZ; break;
+                    case 'u': args->output_type = FT_BCF; break;
+                    case 'z': args->output_type = FT_VCF_GZ; break;
+                    case 'v': args->output_type = FT_VCF; break;
+                    default: error("The output type \"%s\" not recognised\n", optarg);
+                };
+                break;
+            case 'l': args->clevel = atoi(optarg); args->output_type |= FT_GZ; break;
+            case 'b': args->input_type = FT_BCF; break;
+            case 'O': args->fn_out = optarg; break;
             case 'h': args->print_header = 0; break;
             case 'H': args->header_only = 1; break;
             
@@ -860,7 +346,6 @@ int main_vcfsubset(int argc, char *argv[])
             case 'V': args->exclude_types = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-            case 'S': args->soft_filter = 1; break;
 
             case 'c': args->min_ac = atoi(optarg); args->calc_ac = 1; break;
             case 'C': args->max_ac = atoi(optarg); args->calc_ac = 1; break;
@@ -875,8 +360,8 @@ int main_vcfsubset(int argc, char *argv[])
         }
     }
 
-    if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Sorry, only one of -i or -e can be given.\n");
-    if ( argc<optind+1 ) usage(args);   // none or too many files given
+    if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
+    if ( argc<optind+1 ) usage(args);
     // read in the regions from the command line
     if ( args->regions_fname )
     {
@@ -899,7 +384,8 @@ int main_vcfsubset(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
             error("Failed to read the targets: %s\n", args->targets_fname);
     }
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+
+    if ( !bcf_sr_open_reader(args->files, argv[optind], args->input_type) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     
     init_data(args);
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);
@@ -910,17 +396,7 @@ int main_vcfsubset(int argc, char *argv[])
         while ( bcf_sr_next_line(args->files) )
         {
             bcf1_t *line = args->files->readers[0].buffer[0];
-            int ret = subset_vcf(args, line);
-            if ( ret<0 ) 
-            {
-                if ( args->soft_filter  )
-                {
-                    ret = abs(ret);
-                    bcf1_add_filter(args->hdr, line, args->filter_ids[ret-1]);
-                }
-                else ret = 0;
-            }
-            if ( ret )
+            if ( subset_vcf(args, line) )
                 vcf_write1(args->out, out_hdr, line);
         }
     }

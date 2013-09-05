@@ -27,9 +27,10 @@ void mcall_init(call_t *call)
     call->gts = (int*) calloc(call->hdr->n[BCF_DT_SAMPLE]*2,sizeof(int));   // assuming at most diploid everywhere
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
-    bcf_hdr_append(call->hdr,"##INFO=<ID=ICB,Number=1,Type=Float,Description=\"Inbreeding Coefficient Bias\">");
+    bcf_hdr_append(call->hdr,"##INFO=<ID=ICB,Number=1,Type=Float,Description=\"Inbreeding Coefficient Binomial test (bigger is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes for each ALT allele, in the same order as listed\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
+    bcf_hdr_append(call->hdr,"##INFO=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases\">");
 
     return; 
 }
@@ -103,17 +104,26 @@ void init_allele_trimming_maps(call_t *call, int als, int nals)
     }
 }
 
-
-double binom(int N, int k)
+double binom_dist(int N, double p, int k)
 {
-    double b = 1;
-    if (k > N-k) k = N - k;
-    if (k < 1) return 1;
+    int mean = (int) (N*p);
+    if ( mean==k ) return 1.0;
+
+    double log_p = (k-mean)*log(p) + (mean-k)*log(1.0-p);
+    if ( k > N - k ) k = N - k;
+    if ( mean > N - mean ) mean = N - mean;
+    
+    if ( k < mean ) { int tmp = k; k = mean; mean = tmp; }
+    double diff = k - mean;
+
+    double val = 1.0;
     int i;
-    for (i=1; i<=k; i++)
-        b = b * (N - k + i) / i;
-    return b;
+    for (i=0; i<diff; i++)
+        val = val * (N-mean-i) / (k-i);
+
+    return exp(log_p)/val;
 }
+
 
 // Inbreeding Coefficient, binomial test
 float calc_ICB(int nref, int nalt, int nhets, int ndiploid)
@@ -123,14 +133,16 @@ float calc_ICB(int nref, int nalt, int nhets, int ndiploid)
     double q = 2*fref*falt;                 // probability of a het, assuming HWE
     double mean = q*ndiploid;
 
+//fprintf(stderr,"\np=%e N=%d k=%d\n", q,ndiploid,nhets);
+
     // Can we use normal approximation? The second condition is for performance only
     // and is not well justified. 
     if ( (mean>10 && (1-q)*ndiploid>10 ) || ndiploid>200 )
         return exp(-0.5*(nhets-mean)*(nhets-mean)/(mean*(1-q)));
 
-    mean = rint(mean);
-    double norm = binom(ndiploid,mean) * pow(q,mean) * pow(1-q,ndiploid-mean);
-    return binom(ndiploid,nhets)* pow(q,nhets) * pow(1-q,ndiploid-nhets) / norm;
+//fprintf(stderr,"(yeap)\n");
+
+    return binom_dist(ndiploid, q, nhets);
 }
 
 /**
@@ -482,8 +494,17 @@ int mcall(call_t *call, bcf1_t *rec)
     bcf1_update_alleles(call->hdr, rec, (const char**)call->als, n1);
     bcf1_update_genotypes(call->hdr, rec, call->gts, nsmpl*2);
 
+    // DP4 tag
+    int ndp = 16; float *anno16 = call->anno16;
+    bcf_get_info_float(call->hdr, rec, "I16", &anno16, &ndp);
+    assert( anno16==call->anno16 ); // this shouldn't happen unless the VCF is broken
+    int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
+    bcf1_update_info_int32(call->hdr, rec, "DP4", dp, 4);
+
     bcf1_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
     bcf1_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag
+
+    // AC, AN
     if ( n1>1 ) bcf1_update_info_int32(call->hdr, rec, "AC", ac+1, n1-1);
     ac[0] += ac[1] + ac[2] + ac[3];
     bcf1_update_info_int32(call->hdr, rec, "AN", ac, 1);

@@ -1,107 +1,73 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
+#include "bcftools.h"
+
+static void usage(void)
+{
+    fprintf(stderr, "About:     Convert between VCF/BCF.\n");   // Most of the original functionality was moved into vcfsubset
+    fprintf(stderr, "Usage:     bcftools view [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "   -l INT       compression level [%d]\n", -1);
+    fprintf(stderr, "   -n FILE      output file name [stdout]\n");
+    fprintf(stderr, "   -o TYPE      output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "   -v           stdin input is VCF\n");
+    fprintf(stderr, "\n");
+}
 
 int main_vcfview(int argc, char *argv[])
 {
-	int i, c, clevel = -1, flag = 0, n_samples = -1, *imap = 0, excl_indel = 0;
-	char *fn_ref = 0, *fn_out = 0, moder[8], **samples = 0;
-	bcf_hdr_t *h, *hsub = 0;
-	htsFile *in;
-	bcf1_t *b;
+	int c, clevel = -1, in_type = 0, out_type = FT_VCF;
+	char *fname_out = NULL, moder[8], modew[8];
 
-	while ((c = getopt(argc, argv, "l:bvt:o:T:s:GI")) >= 0) {
+	while ((c = getopt(argc, argv, "l:bvo:n:z?hu")) >= 0) {
 		switch (c) {
-		case 'l': clevel = atoi(optarg); flag |= 2; break;
-		case 'v': flag |= FT_VCF; break;
-		case 'b': flag |= FT_BCF; break;
-		case 'G': n_samples = 0; break;
-		case 't': fn_ref = optarg; flag |= 1; break;
-		case 'o': fn_out = optarg; break;
-		case 's': samples = hts_readlines(optarg, &n_samples); break;
-		case 'I': excl_indel = 1; break;
-		}
-	}
-	if (argc == optind) {
-		fprintf(stderr, "\nUsage:   vcfview [options] <in.bcf>|<in.vcf>|<in.vcf.gz>\n\n");
-		fprintf(stderr, "Options: -b           output in BCF\n");
-		fprintf(stderr, "         -v           input is VCF\n");
-		fprintf(stderr, "         -o FILE      output file name [stdout]\n");
-		fprintf(stderr, "         -l INT       compression level [%d]\n", clevel);
-		fprintf(stderr, "         -t FILE      list of reference names and lengths [null]\n");
-		fprintf(stderr, "         -s FILE/STR  list of samples (STR if started with ':'; FILE otherwise) [null]\n");
-		fprintf(stderr, "         -G           drop individual genotype information\n");
-		fprintf(stderr, "         -I           exclude INDELs\n");
-		fprintf(stderr, "\n");
-		return 1;
-	}
+            case 'o': 
+                switch (optarg[0]) {
+                    case 'b': out_type = FT_BCF_GZ; break;
+                    case 'u': out_type = FT_BCF; break;
+                    case 'z': out_type = FT_VCF_GZ; break;
+                    case 'v': out_type = FT_VCF; break;
+                    default: error("The output type \"%s\" not recognised\n", optarg);
+                }
+                break;
+            case 'l': clevel = atoi(optarg); out_type |= FT_GZ; break;
+            case 'v': in_type  = FT_VCF; break;
+            case 'b': out_type = FT_BCF_GZ; break;
+            case 'u': out_type = FT_BCF; break;
+            case 'z': out_type = FT_VCF_GZ; break;
+            case 'n': fname_out = optarg; break;
+            case '?':
+            case 'h': usage(); return 1; break;
+        }
+    }
+	if (argc!=optind+1) { usage(); return 1; }
+
+    // Init reader
 	strcpy(moder, "r");
-	if ( !(flag & FT_VCF) && !(file_type(argv[optind]) & FT_VCF)) strcat(moder, "b");
+	if ( (in_type & FT_BCF) || (hts_file_type(argv[optind]) & FT_BCF)) strcat(moder, "b");
+	htsFile *fp_in = hts_open(argv[optind], moder, NULL);
+	bcf_hdr_t *hdr = vcf_hdr_read(fp_in);
+    if ( !hdr ) error("Fail to read VCF/BCF header: %s\n", argv[optind]); 
+	bcf1_t *rec = bcf_init1();
 
-	in = hts_open(argv[optind], moder, fn_ref);
-	h = vcf_hdr_read(in);
-	if (h == 0) {
-		fprintf(stderr, "[E::%s] fail to read the VCF/BCF2 header\n", __func__);
-		hts_close(in);
-		return 1;
-	}
-	if (n_samples >= 0) {
-		if (n_samples) imap = (int*)malloc(n_samples * sizeof(int));
-		hsub = bcf_hdr_subset(h, n_samples, samples, imap);
-	}
-	b = bcf_init1();
+    // Init writer
+    strcpy(modew, "w");
+    if (clevel >= 0 && clevel <= 9) sprintf(modew + 1, "%d", clevel);
+    if (out_type & FT_GZ) strcat(modew,"z");
+    if (out_type & FT_BCF) strcat(modew, "b");
+    if (out_type == FT_BCF) strcat(modew, "u"); // uncompressed BCF output
+    htsFile *fp_out = hts_open(fname_out ? fname_out : "-", modew, NULL);
 
-	if ((flag&4) == 0) { // VCF/BCF output
-		htsFile *out;
-		char modew[8];
-		strcpy(modew, "w");
-		if (clevel >= 0 && clevel <= 9) sprintf(modew + 1, "%d", clevel);
-		if (flag&2) strcat(modew, "b");
-		out = hts_open(fn_out? fn_out : "-", modew, 0);
-		vcf_hdr_write(out, hsub? hsub : h);
-		if (optind + 1 < argc && !(flag&1)) { // BAM input and has a region
-			hts_idx_t *idx;
-			if ((idx = bcf_index_load(argv[optind])) == 0) {
-				fprintf(stderr, "[E::%s] fail to load the BCF index\n", __func__);
-				return 1;
-			}
-			for (i = optind + 1; i < argc; ++i) {
-				hts_itr_t *iter;
-				if ((iter = bcf_itr_querys(idx, h, argv[i])) == 0) {
-					fprintf(stderr, "[E::%s] fail to parse region '%s'\n", __func__, argv[i]);
-					continue;
-				}
-				while (bcf_itr_next((BGZF*)in->fp, iter, b) >= 0) {
-					if (excl_indel && !bcf_is_snp(b)) continue;
-					if (n_samples >= 0) {
-						bcf_subset(h, b, n_samples, imap);
-						vcf_write1(out, hsub, b);
-					} else vcf_write1(out, h, b);
-				}
-				hts_itr_destroy(iter);
-			}
-			hts_idx_destroy(idx);
-		} else {
-			while (vcf_read1(in, h, b) >= 0) {
-				if (excl_indel && !bcf_is_snp(b)) continue;
-				if (n_samples >= 0) {
-					bcf_subset(h, b, n_samples, imap);
-					vcf_write1(out, hsub, b);
-				} else vcf_write1(out, h, b);
-			}
-		}
-		hts_close(out);
-	}
+    vcf_hdr_write(fp_out, hdr);
+    while ( vcf_read1(fp_in, hdr, rec) >= 0) vcf_write1(fp_out, hdr, rec);
 
-	bcf_destroy1(b);
-	if (n_samples > 0) {
-		for (i = 0; i < n_samples; ++i) free(samples[i]);
-		free(samples);
-		bcf_hdr_destroy(hsub);
-		free(imap);
-	}
-	bcf_hdr_destroy(h);
-	hts_close(in);
+	bcf_destroy1(rec);
+	bcf_hdr_destroy(hdr);
+	hts_close(fp_in);
+    hts_close(fp_out);
+
 	return 0;
 }
 

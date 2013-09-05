@@ -567,7 +567,7 @@ static void destroy_data(args_t *args)
 static void normalize_vcf(args_t *args)
 {
     htsFile *out = args->output_bcf ? hts_open("-","wb",0) : hts_open("-","w",0);
-    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "vcfnorm");
+    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
     vcf_hdr_write(out, args->hdr);
 
     while ( bcf_sr_next_line(args->files) )
@@ -606,7 +606,7 @@ static void normalize_vcf(args_t *args)
 static void usage(void)
 {
 	fprintf(stderr, "About:   Left-align and normalize indels.\n");
-	fprintf(stderr, "Usage:   vcfnorm [options] -f ref.fa <file.vcf.gz>\n");
+	fprintf(stderr, "Usage:   bcftools norm [options] -f ref.fa <file.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -b, --output-bcf                  output BCF\n");
 	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type. [Todo: merge genotypes, don't just throw away.]\n");
