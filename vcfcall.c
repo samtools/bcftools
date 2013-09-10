@@ -151,7 +151,7 @@ static void init_data(args_t *args)
             error("Failed to read the targets: %s\n", args->regions);
     }
     
-    int mode = FT_UNKN;
+    int i, mode = FT_UNKN;
     if ( !strcmp(args->bcf_fname,"-") )
     {
         mode |= args->flag & CF_VCFIN ? FT_VCF : FT_BCF;        // VCF or BCF on input?
@@ -162,17 +162,32 @@ static void init_data(args_t *args)
     {
         args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
         args->aux.hdr = bcf_hdr_subset(args->files->readers[0].header, args->nsamples, args->samples, args->samples_map);
-
-        // Check if the supplied samples are present in the VCF and print a warning if not.
-        if ( args->nsamples != args->aux.hdr->n[BCF_DT_SAMPLE] )
-        {
-            int i;
-            for (i=0; i<args->nsamples; i++)
-                if ( args->samples_map[i]<0 ) fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
-        }
+        for (i=0; i<args->nsamples; i++)
+            if ( args->samples_map[i]<0 ) fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
     }
     else
         args->aux.hdr = bcf_hdr_dup(args->files->readers[0].header);
+
+    // Reorder ploidy to match mpileup's output and exclude samples which are not available
+    if ( args->aux.ploidy )
+    {
+        uint8_t *ploidy = (uint8_t*) calloc(args->aux.hdr->n[BCF_DT_SAMPLE], 1);
+        for (i=0; i<args->aux.nsamples; i++)    // i index in -s sample list
+        {
+            int j = bcf_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[i]);     // j index in the output VCF / subset VCF
+            if ( j<0 ) 
+            {
+                fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
+                continue;
+            }
+            ploidy[j] = args->aux.ploidy[i];
+        }
+        args->aux.nsamples = args->aux.hdr->n[BCF_DT_SAMPLE];
+        for (i=0; i<args->aux.nsamples; i++)
+            assert( ploidy[i]==1 || ploidy[i]==2 );
+        free(args->aux.ploidy);
+        args->aux.ploidy = ploidy;
+    }
 
     args->out_fh = hts_open("-", hts_bcf_wmode(args->output_type), 0);
 
@@ -213,7 +228,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       -o TYPE   output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "       -Q        output the QCALL likelihood format\n");
     fprintf(stderr, "       -r REG    restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
-    fprintf(stderr, "       -s STR    comma-separated list or file name with a list of samples to use [all samples]\n");
+    fprintf(stderr, "       -s STR    comma-separated list or file name with a list of samples. Second column indicates ploidy (1 or 2)[all samples]\n");
     fprintf(stderr, "       -l REG    same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
     fprintf(stderr, "       -V        input is VCF\n");
     fprintf(stderr, "\nInput/output options:\n");

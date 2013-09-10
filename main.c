@@ -54,11 +54,6 @@ static cmd_t cmds[] =
       .help  = "SNP/indel calling (former \"view\"; this version is broken)",
       .sep   = "VCF/BCF tools:"
     },
-    { .func  = main_vcfstats, 
-      .alias = "stats",
-      .help  = "produce VCF stats (former vcfcheck)",
-      .sep   = NULL
-    },
     { .func  = main_vcffilter, 
       .alias = "filter",
       .help  = "filter VCF files using fixed thresholds",
@@ -92,6 +87,11 @@ static cmd_t cmds[] =
     { .func  = main_vcfsom, 
       .alias = "som",
       .help  = "filter using Self-Organized Maps (broken)",
+      .sep   = NULL
+    },
+    { .func  = main_vcfstats, 
+      .alias = "stats",
+      .help  = "produce VCF stats (former vcfcheck)",
       .sep   = NULL
     },
     { .func  = main_vcfsubset, 

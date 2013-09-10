@@ -311,7 +311,7 @@ int mcall(call_t *call, bcf1_t *rec)
     for (i=0; i<nals; i++) if ( max_als  & 1<<i) n1++;
     for (i=0; i<nals; i++) if ( max_als2 & 1<<i) n2++;
 
-    // fprintf(stderr,"max_lk=%e max_lk2=%e ref_lk=%e lk_sum=%e lrt=%e (%e)  .. n1=%d n2=%d .. als1=%d als2=%d\n", max_lk,max_lk2,ref_lk,lk_sum,kf_gammap(0.5,max_lk-max_lk2),call->min_ma_lrt, n1,n2, max_als,max_als2);
+    //fprintf(stderr,"max_lk=%e max_lk2=%e ref_lk=%e lk_sum=%e lrt=%e (%e)  .. n1=%d n2=%d .. als1=%d als2=%d\n", max_lk,max_lk2,ref_lk,lk_sum,kf_gammap(0.5,max_lk-max_lk2),call->min_ma_lrt, n1,n2, max_als,max_als2);
 
     // Xi^2 = -2*ln(P0 / P1) and CDF(0.5*ndf,0.5*x)
     if ( n1>n2 && kf_gammap(0.5,max_lk-max_lk2)<call->min_ma_lrt )
@@ -485,7 +485,7 @@ int mcall(call_t *call, bcf1_t *rec)
         if ( lk_sum==-HUGE_VAL )
             rec->qual = 0;
         else 
-            rec->qual = n1==1 ? -4.343*log(1 - (ref_lk - lk_sum)) : -4.343*(ref_lk - lk_sum);
+            rec->qual = n1==1 ? -4.343*log(1 - exp(ref_lk - lk_sum)) : -4.343*(ref_lk - lk_sum);
     }
 
     hts_expand(char*,n1,call->nals,call->als);
