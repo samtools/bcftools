@@ -33,7 +33,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr;
     htsFile *out_fh;
-    int output_type;
+    int output_type, input_type;
 
     char **argv, *targets_fname, *regions_fname;
     int argc;
@@ -88,7 +88,8 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   Apply fixed-threshold filters.\n");
     fprintf(stderr, "Usage:   bcftools filter [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=snp && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
+    fprintf(stderr, "    -b, --input-is-bcf            input is BCF (required only when reading from stdin)\n");
+    fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=\"snp\" && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
     fprintf(stderr, "    -m, --mode <+|x>              \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass (invokes -s)\n");
     fprintf(stderr, "    -o, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
@@ -103,7 +104,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    - array subscripts, such as AC[0]\n");
     fprintf(stderr, "    - double quotes for string values\n");
     fprintf(stderr, "    - %%QUAL or INFO tag names\n");
-    fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=indel|snp|mnp|other\n");
+    fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
     exit(1);
 }
 
@@ -114,10 +115,12 @@ int main_vcffilter(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
+    args->input_type = FT_UNKN;
 
     static struct option loptions[] = 
     {
         {"mode",1,0,'m'},
+        {"input-is-bcf",0,0,'b'},
         {"soft-filter",1,0,'s'},
         {"exclude",1,0,'e'},
         {"include",1,0,'i'},
@@ -126,7 +129,7 @@ int main_vcffilter(int argc, char *argv[])
         {"output-type",1,0,'o'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:o:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:o:b",loptions,NULL)) >= 0) {
         switch (c) {
             case 'o': 
                 switch (optarg[0]) {
@@ -138,6 +141,7 @@ int main_vcffilter(int argc, char *argv[])
                 }
                 break;
             case 's': args->soft_filter = optarg; break;
+            case 'b': args->input_type = FT_BCF; break;
             case 'm': 
                 if ( strchr(optarg,'x') ) args->annot_mode |= ANNOT_RESET; 
                 if ( strchr(optarg,'+') ) args->annot_mode |= ANNOT_ADD; 
@@ -177,7 +181,7 @@ int main_vcffilter(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
             error("Failed to read the targets: %s\n", args->targets_fname);
     }
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+    if ( !bcf_sr_open_reader(args->files, argv[optind], args->input_type) ) error("Failed to open: %s\n", argv[optind]);
     
     init_data(args);
     vcf_hdr_write(args->out_fh, args->hdr);

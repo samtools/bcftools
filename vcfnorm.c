@@ -44,8 +44,8 @@ typedef struct
     bcf_srs_t *files;       // using the synced reader only for -r option
     bcf_hdr_t *hdr;
     faidx_t *fai;
-	char **argv, *ref_fname, *vcf_fname;
-	int argc, rmdup, output_bcf;
+	char **argv, *ref_fname, *vcf_fname, *region;
+	int argc, rmdup, output_type;
 }
 args_t;
 
@@ -536,7 +536,7 @@ void flush_buffer(args_t *args, htsFile *file, int n)
             prev_pos  = args->lines[k]->pos;
             prev_type = args->lines[k]->d.var_type;
         }
-        if ( args->output_bcf ) bcf1_sync(args->lines[k]);
+        if ( args->output_type & FT_BCF ) bcf1_sync(args->lines[k]);
         vcf_write1(file, args->hdr, args->lines[k]);
     }
 }
@@ -566,7 +566,7 @@ static void destroy_data(args_t *args)
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 static void normalize_vcf(args_t *args)
 {
-    htsFile *out = args->output_bcf ? hts_open("-","wb",0) : hts_open("-","w",0);
+    htsFile *out = hts_open("-", hts_bcf_wmode(args->output_type), 0);
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
     vcf_hdr_write(out, args->hdr);
 
@@ -608,10 +608,10 @@ static void usage(void)
 	fprintf(stderr, "About:   Left-align and normalize indels.\n");
 	fprintf(stderr, "Usage:   bcftools norm [options] -f ref.fa <file.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -b, --output-bcf                  output BCF\n");
 	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type. [Todo: merge genotypes, don't just throw away.]\n");
 	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
-	fprintf(stderr, "    -r, --region <chr|chr:from-to>    restrict output to this region\n");
+    fprintf(stderr, "    -o, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+	fprintf(stderr, "    -r, --region <file|reg>           comma-separated list of regions or regions listed in tab-delimited indexed file\n");
 	fprintf(stderr, "    -w, --win <int,int>               alignment window and buffer window [50,1000]\n");
 	fprintf(stderr, "\n");
 	exit(1);
@@ -633,15 +633,23 @@ int main_vcfnorm(int argc, char *argv[])
 		{"region",1,0,'r'},
 		{"win",1,0,'w'},
 		{"remove-duplicates",0,0,'D'},
-        {"output-bcf",1,0,'b'},
+        {"output-type",1,0,'o'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hr:f:w:Db",loptions,NULL)) >= 0) {
-		switch (c) {
-            case 'b': args->output_bcf = 1; break;
+	while ((c = getopt_long(argc, argv, "hr:f:w:Do:",loptions,NULL)) >= 0) {
+        switch (c) {
+            case 'o': 
+                switch (optarg[0]) {
+                    case 'b': args->output_type = FT_BCF_GZ; break;
+                    case 'u': args->output_type = FT_BCF; break;
+                    case 'z': args->output_type = FT_VCF_GZ; break;
+                    case 'v': args->output_type = FT_VCF; break;
+                    default: error("The output type \"%s\" not recognised\n", optarg);
+                }
+                break;
 			case 'D': args->rmdup = 1; break;
 			case 'f': args->ref_fname = optarg; break;
-			//case 'r': args->files->region = optarg; break;
+			case 'r': args->region = optarg; break;
             case 'w': { if (sscanf(optarg,"%d,%d",&args->aln_win,&args->buf_win)!=2) error("Could not parse --win %s\n", optarg); break; }
 			case 'h': 
 			case '?': usage();
@@ -649,6 +657,11 @@ int main_vcfnorm(int argc, char *argv[])
 		}
 	}
 	if ( argc!=optind+1 || !args->ref_fname ) usage();   // none or too many files given
+    if ( args->region )
+    {
+        if ( bcf_sr_set_targets(args->files, args->region,0)<0 ) error("Failed to read the targets: %s\n", args->region);
+    }
+
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     init_data(args);
     normalize_vcf(args);
