@@ -18,7 +18,7 @@ static void usage(void)
 
 int main_vcfview(int argc, char *argv[])
 {
-	int c, clevel = -1, in_type = 0, out_type = FT_VCF;
+	int c, clevel = -1, in_type = FT_BCF, out_type = FT_VCF;
 	char *fname_out = NULL, moder[8], modew[8];
 
 	while ((c = getopt(argc, argv, "l:bvo:n:z?hu")) >= 0) {
@@ -46,7 +46,7 @@ int main_vcfview(int argc, char *argv[])
 
     // Init reader
 	strcpy(moder, "r");
-	if ( (in_type & FT_BCF) || (hts_file_type(argv[optind]) & FT_BCF)) strcat(moder, "b");
+	if ( (!strcmp("-",argv[optind]) && (in_type & FT_BCF)) || (hts_file_type(argv[optind]) & FT_BCF)) strcat(moder, "b");
 	htsFile *fp_in = hts_open(argv[optind], moder, NULL);
 	bcf_hdr_t *hdr = vcf_hdr_read(fp_in);
     if ( !hdr ) error("Fail to read VCF/BCF header: %s\n", argv[optind]); 

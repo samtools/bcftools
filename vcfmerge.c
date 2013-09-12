@@ -55,7 +55,7 @@ maux_t;
 typedef struct
 {
     maux_t *maux;
-    int header_only, collapse, output_bcf;
+    int header_only, collapse, output_type;
     char *header_fname, *regions_fname;
     strdict_t *tmph;
     kstring_t tmps;
@@ -515,7 +515,7 @@ void merge_info(args_t *args, bcf1_t *out)
                 ma->inf[out->n_info].vptr_off  = inf->vptr_off;
                 ma->inf[out->n_info].vptr_len  = inf->vptr_len;
                 ma->inf[out->n_info].vptr_free = inf->vptr_free;
-                if ( args->output_bcf && id!=bcf_id2int(hdr, BCF_DT_ID, key) )
+                if ( (args->output_type & FT_BCF) && id!=bcf_id2int(hdr, BCF_DT_ID, key) )
                 {
                     // The existing packed info cannot be reused. Change the id.
                     // Although quite hacky, it's faster than anything else given 
@@ -708,6 +708,8 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         bcf_fmt_t *fmt_ori = fmt_map[i];
         if ( fmt_ori ) type = fmt_ori->type;
 
+//if (type==BCF_BT_CHAR)printf("nsize=%d  %d %d %d\n", nsize, fmt);
+
         // set the values
         #define BRANCH(tgt_type_t, src_type_t, src_is_missing, src_is_vector_end, tgt_set_missing, tgt_set_vector_end) { \
             int j, l, k; \
@@ -802,12 +804,16 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             case BCF_BT_INT16: BRANCH(int32_t, int16_t, *src==bcf_int16_missing, *src==bcf_int16_vector_end, *tgt=bcf_int32_missing, *tgt=bcf_int32_vector_end); break;
             case BCF_BT_INT32: BRANCH(int32_t, int32_t, *src==bcf_int32_missing, *src==bcf_int32_vector_end, *tgt=bcf_int32_missing, *tgt=bcf_int32_vector_end); break;
             case BCF_BT_FLOAT: BRANCH(float, float, bcf_float_is_missing(*src), bcf_float_is_vector_end(*src), bcf_float_set_missing(*tgt), bcf_float_set_vector_end(*tgt)); break;
+            //case BCF_BT_CHAR:  BRANCH(uint8_t, uint8_t, *src==bcf_str_missing, *src==bcf_str_vector_end, *tgt=bcf_str_missing, *tgt=bcf_str_vector_end); break;
+            case BCF_BT_CHAR:  BRANCH(uint8_t, uint8_t, *src==bcf_str_missing, *src==bcf_str_vector_end, *tgt=bcf_str_missing, *tgt=bcf_str_vector_end); break;
             default: error("Unexpected case: %d, %s\n", type, key);
         }
         #undef BRANCH
     }
     if ( type==BCF_BT_FLOAT )
         bcf1_update_format_float(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
+    else if ( type==BCF_BT_CHAR )
+        bcf1_update_format_char(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
     else
         bcf1_update_format_int32(out_hdr, out, key, (int32_t*)ma->tmp_arr, nsamples*nsize);
 }
@@ -892,7 +898,7 @@ void merge_line(args_t *args)
     merge_info(args, out);
     merge_format(args, out);
 
-    if ( args->output_bcf ) bcf1_sync(out);
+    if ( args->output_type & FT_BCF ) bcf1_sync(out);
     vcf_write1(args->out_fh, args->out_hdr, out);
 }
 
@@ -1163,7 +1169,7 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
 
 void merge_vcf(args_t *args)
 {
-    args->out_fh  = args->output_bcf ? hts_open("-","wb",0) : hts_open("-","w",0);
+    args->out_fh  = hts_open("-", hts_bcf_wmode(args->output_type), 0);
     args->out_hdr = bcf_hdr_init("w");
 
     if ( args->header_fname )
@@ -1213,9 +1219,9 @@ static void usage(void)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "        --use-header <file>           use the provided header\n");
     fprintf(stderr, "        --print-header <file>         print only header of the output file and exit\n");
-    fprintf(stderr, "    -b, --output-bcf                  output BCF\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|any>\n");
+    fprintf(stderr, "    -o, --output-type <b|u|z|v>       'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --region <reg|file>           merge in the given regions only\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1235,12 +1241,20 @@ int main_vcfmerge(int argc, char *argv[])
         {"apply-filters",1,0,'f'},
         {"use-header",1,0,1},
         {"print-header",0,0,2},
-        {"output-bcf",1,0,'b'},
+        {"output-type",1,0,'o'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:1:2b",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:1:2o:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'b': args->output_bcf = 1; break;
+            case 'o': 
+                switch (optarg[0]) {
+                    case 'b': args->output_type = FT_BCF_GZ; break;
+                    case 'u': args->output_type = FT_BCF; break;
+                    case 'z': args->output_type = FT_VCF_GZ; break;
+                    case 'v': args->output_type = FT_VCF; break;
+                    default: error("The output type \"%s\" not recognised\n", optarg);
+                }
+                break;
             case 'm':
                 if ( !strcmp(optarg,"snps") ) args->collapse |= COLLAPSE_SNPS;
                 else if ( !strcmp(optarg,"indels") ) args->collapse |= COLLAPSE_INDELS;
