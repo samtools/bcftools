@@ -128,19 +128,19 @@ double binom_dist(int N, double p, int k)
 // Inbreeding Coefficient, binomial test
 float calc_ICB(int nref, int nalt, int nhets, int ndiploid)
 {
+    if ( !nref || !nalt || !ndiploid ) return 1.0;
+
     double fref = (double)nref/(nref+nalt); // fraction of reference allelels
     double falt = (double)nalt/(nref+nalt); // non-ref als
     double q = 2*fref*falt;                 // probability of a het, assuming HWE
     double mean = q*ndiploid;
 
-//fprintf(stderr,"\np=%e N=%d k=%d\n", q,ndiploid,nhets);
+    //fprintf(stderr,"\np=%e N=%d k=%d  .. nref=%d nalt=%d nhets=%d ndiploid=%d\n", q,ndiploid,nhets, nref,nalt,nhets,ndiploid);
 
     // Can we use normal approximation? The second condition is for performance only
     // and is not well justified. 
     if ( (mean>10 && (1-q)*ndiploid>10 ) || ndiploid>200 )
         return exp(-0.5*(nhets-mean)*(nhets-mean)/(mean*(1-q)));
-
-//fprintf(stderr,"(yeap)\n");
 
     return binom_dist(ndiploid, q, nhets);
 }
