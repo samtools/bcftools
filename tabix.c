@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <htslib/bgzf.h>
 #include <htslib/tbx.h>
 
 int main_tabix(int argc, char *argv[])
@@ -71,7 +72,7 @@ int main_tabix(int argc, char *argv[])
 		for (i = optind + 1; i < argc; ++i) {
 			hts_itr_t *itr;
 			if ((itr = tbx_itr_querys(tbx, argv[i])) == 0) continue;
-			while (tbx_itr_next(fp, tbx, itr, &s) >= 0) puts(s.s);
+			while (tbx_bgzf_itr_next(fp, tbx, itr, &s) >= 0) puts(s.s);
 			tbx_itr_destroy(itr);
 		}
 		free(s.s);

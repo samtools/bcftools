@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <math.h>
 #include <time.h>
+#include <htslib/bgzf.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
@@ -1066,12 +1067,12 @@ static void eval_filters(args_t *args)
 
     char *fname; 
     open_file(&fname,NULL,"%s.sites.gz", args->out_prefix);
-    htsFile *file = hts_open(fname, "wb", NULL);
+    BGZF *file = bgzf_open(fname, "w");
 
     // Calculate scores
     kstring_t str = {0,0,0};
     kputs("# [1]score\t[2]variant class\t[3]filter mask, good(&1)\t[4]chromosome\t[5]position\n", &str);
-    bgzf_write((BGZF *)file->fp, str.s, str.l);
+    bgzf_write(file, str.s, str.l);
     str.l = 0;
 
     fprintf(stderr,"Classifying...\n");
@@ -1091,9 +1092,9 @@ static void eval_filters(args_t *args)
         double score = dist/max_dist;
         int class = determine_variant_class(args);
         ksprintf(&str, "%le\t%d\t%d\t%s\t%d\n", score, class, IS_GOOD(args->mask) ? 1 : 0, args->chr, args->pos);
-        bgzf_write((BGZF *)file->fp, str.s, str.l);
+        bgzf_write(file, str.s, str.l);
     }
-    hts_close(file);
+    bgzf_close(file);
     free(fname);
 
     // Evaluate. The segregating metric is ts/tv for SNPs and repeat-consistency for indels,
@@ -1218,7 +1219,7 @@ static int sync_site(bcf_hdr_t *hdr, bcf1_t *line, site_t *site, int type)
             // no site in the buffer
             if ( site->itr )
             {
-                if ( tbx_itr_next((BGZF*)site->file->fp, site->tbx, site->itr, &site->str) < 0 ) return 0;
+                if ( tbx_itr_next(site->file, site->tbx, site->itr, &site->str) < 0 ) return 0;
             }
             else
                 if ( hts_getline(site->file, '\n', &site->str) <= 0 ) return 0;
