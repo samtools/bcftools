@@ -15,7 +15,6 @@ void error(const char *format, ...)
     exit(-1);
 }
 
-int main_samview(int argc, char *argv[]);
 int main_vcfview(int argc, char *argv[]);
 int main_bcfidx(int argc, char *argv[]);
 int main_tabix(int argc, char *argv[]);
