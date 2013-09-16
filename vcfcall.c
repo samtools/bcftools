@@ -370,16 +370,14 @@ int main_vcfcall(int argc, char *argv[])
 
         bcf_unpack(bcf_rec, BCF_UN_ALL);
 
-        // todo: subsample, bed overlaps
-
-        // QCall output (todo)
+        // Various output modes: QCall output (todo)
         if ( args.flag & CF_QCALL ) 
         {
             qcall(&args.aux, bcf_rec);
             continue;
         }
 
-        // Output from different calling models
+        // Calling modes which output VCFs
         int ret;
         if ( args.flag & CF_MCALL )
             ret = mcall(&args.aux, bcf_rec);
@@ -389,6 +387,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( ret==-1 ) error("Something is wrong\n");
         if ( (args.aux.flag & CALL_VARONLY) && ret==0 ) continue;     // not a variant
 
+        // Output
         if ( args.output_type & FT_BCF ) bcf1_sync(bcf_rec);
         vcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
     }

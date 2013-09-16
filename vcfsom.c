@@ -1205,7 +1205,7 @@ static site_t *init_site(char *fname, char *region)
         }
         if ( !site->tbx ) error("Error: could not load index of %s\n", fname);
         site->itr = tbx_itr_querys(site->tbx,region);
-        if ( !site->itr ) error("Error: could not init itr of %s\n", fname);
+        if ( !site->itr ) error("Error: could not init itr of %s, is the tabix index broken?\n", fname);
     }
     return site;
 }

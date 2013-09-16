@@ -66,5 +66,7 @@ vcfsubset.o: filter.h
 bcftools:lib-recur $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm
 
-clean:
+cleanlocal:
 		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG)
+
+clean:cleanlocal-recur clean-htslib

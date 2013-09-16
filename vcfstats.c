@@ -14,6 +14,7 @@
 #include <htslib/faidx.h>
 #include "bcftools.h"
 
+#define HWE_STATS 1
 #define QUAL_STATS 1
 #define IRC_STATS 1
 #define IRC_RLEN 10
@@ -29,6 +30,9 @@ typedef struct
 {
     int n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals;
     int *af_ts, *af_tv, *af_snps;   // first bin of af_* stats are singletons
+    #if HWE_STATS
+        int *af_hwe;
+    #endif
     #if IRC_STATS
         int n_repeat[IRC_RLEN][4], n_repeat_na;    // number of indels which are repeat-consistent, repeat-inconsistent (dels and ins), and not applicable
         int *af_repeats[3];
@@ -72,7 +76,7 @@ typedef struct
 {
     // stats
     stats_t stats[3];
-    int *tmp_iaf, ntmp_iaf, m_af, m_qual;
+    int *tmp_iaf, ntmp_iaf, m_af, m_qual, naf_hwe;
     int dp_min, dp_max, dp_step;
     gtcmp_t *af_gts_snps, *af_gts_indels, *smpl_gts_snps, *smpl_gts_indels; // first bin of af_* stats are singletons
 
@@ -279,6 +283,9 @@ static void init_stats(args_t *args)
     #if QUAL_STATS
         args->m_qual = 999;
     #endif
+    #if HWE_STATS
+        args->naf_hwe = 100;
+    #endif
 
     if ( args->samples_fname )
     {
@@ -316,6 +323,9 @@ static void init_stats(args_t *args)
             stats->smpl_dp     = (unsigned long int *) calloc(args->files->n_smpl,sizeof(unsigned long int));
             stats->smpl_ndp    = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_sngl    = (int *) calloc(args->files->n_smpl,sizeof(int));
+            #if HWE_STATS
+                stats->af_hwe = (int*) calloc(args->m_af*args->naf_hwe,sizeof(int));
+            #endif
         }
         idist_init(&stats->dp, args->dp_min,args->dp_max,args->dp_step);
     }
@@ -349,6 +359,9 @@ static void destroy_stats(args_t *args)
             if (stats->qual_tv) free(stats->qual_tv);
             if (stats->qual_snps) free(stats->qual_snps);
             if (stats->qual_indels) free(stats->qual_indels);
+        #endif
+        #if HWE_STATS
+            free(stats->af_hwe);
         #endif
         free(stats->insertions);
         free(stats->deletions);
@@ -583,8 +596,9 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
     bcf_srs_t *files = args->files;
     bcf1_t *line = reader->buffer[0];
     bcf_fmt_t *fmt_ptr;
+    int nref_tot = 0, nhet_tot = 0, nalt_tot = 0;
 
-    if ( (fmt_ptr = bcf_get_fmt_ptr(reader->header,reader->buffer[0],"GT")) )
+    if ( (fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"GT")) )
     {
         int ref = bcf_acgt2int(*line->d.allele[0]);
         int is, n_nref = 0, i_nref = 0;
@@ -592,11 +606,19 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         {
             int ial;
             int gt = bcf_gt_type(fmt_ptr, reader->samples[is], &ial);
-            if ( gt == GT_UNKN ) continue;
+            if ( gt==GT_UNKN || gt==GT_HAPL_R || gt==GT_HAPL_A ) continue;
             if ( gt != GT_HOM_RR ) { n_nref++; i_nref = is; }
+            switch (gt)
+            {
+                case GT_HOM_RR: nref_tot++; break;
+                case GT_HET_RA: nhet_tot++; break;
+                case GT_HET_AA:
+                case GT_HOM_AA: nalt_tot++; break;
+            }
             if ( line->d.var_type&VCF_SNP )
             {
-                if ( gt == GT_HET_RA || gt == GT_HET_AA ) stats->smpl_hets[is]++;
+                if ( gt == GT_HET_RA ) stats->smpl_hets[is]++;
+                else if ( gt == GT_HET_AA ) stats->smpl_hets[is]++;
                 else if ( gt == GT_HOM_RR ) stats->smpl_homRR[is]++;
                 else if ( gt == GT_HOM_AA ) stats->smpl_homAA[is]++;
                 if ( gt != GT_HOM_RR && line->d.var[ial].type&VCF_SNP )
@@ -617,7 +639,14 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         if ( n_nref==1 ) stats->smpl_sngl[i_nref]++;
     }
 
-    if ( (fmt_ptr = bcf_get_fmt_ptr(reader->header,reader->buffer[0],"DP")) )
+    #if HWE_STATS
+        float het_frac = (float)nhet_tot/(nhet_tot + nref_tot + nalt_tot);
+        int idx = het_frac*(args->naf_hwe - 1);
+        if ( line->n_allele>1 ) idx += args->naf_hwe*args->tmp_iaf[1]; 
+        stats->af_hwe[idx]++;
+    #endif
+
+    if ( (fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"DP")) )
     {
         #define BRANCH_INT(type_t,missing,vector_end) { \
             int is; \
@@ -646,8 +675,8 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
     {
         int is;
         bcf_fmt_t *fmt0, *fmt1;
-        fmt0 = bcf_get_fmt_ptr(files->readers[0].header,files->readers[0].buffer[0],"GT"); if ( !fmt0 ) return;
-        fmt1 = bcf_get_fmt_ptr(files->readers[1].header,files->readers[1].buffer[0],"GT"); if ( !fmt1 ) return;
+        fmt0 = bcf_get_fmt(files->readers[0].header,files->readers[0].buffer[0],"GT"); if ( !fmt0 ) return;
+        fmt1 = bcf_get_fmt(files->readers[1].header,files->readers[1].buffer[0],"GT"); if ( !fmt1 ) return;
 
         // only the first ALT allele is considered
         int iaf = line->n_allele>1 ? args->tmp_iaf[1] : 1;
@@ -979,6 +1008,45 @@ static void print_stats(args_t *args)
                 printf("\t%ld\t%f\n", stats->dp.vals[i], stats->dp.vals[i]*100./sum);
             }
         }
+        #ifdef HWE_STATS
+        printf("# HWE\n HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile\n");
+        for (id=0; id<args->nstats; id++)
+        {
+            stats_t *stats = &args->stats[id];
+            for (i=0; i<args->naf_hwe; i++) stats->af_hwe[i+args->naf_hwe] += stats->af_hwe[i]; // singletons
+            for (i=1; i<args->m_af; i++)
+            {
+                unsigned int sum_tot = 0, sum_tmp = 0;
+                int j, *ptr = &stats->af_hwe[i*args->naf_hwe];
+                for (j=0; j<args->naf_hwe; j++) sum_tot += ptr[j];
+                if ( !sum_tot ) continue;
+
+                int nprn = 3;
+                printf("HWE\t%d\t%f\t%d",id,100.*(i-1)/(args->m_af-2),sum_tot);
+                for (j=0; j<args->naf_hwe; j++)
+                {
+                    sum_tmp += ptr[j];
+                    float frac = (float)sum_tmp/sum_tot;
+                    if ( frac >= 0.75 )
+                    {
+                        while (nprn>0) { printf("\t%f", frac); nprn--; }
+                        break;
+                    }
+                    if ( frac >= 0.5 )
+                    {
+                        while (nprn>1) { printf("\t%f", frac); nprn--; }
+                        continue;
+                    }
+                    if ( frac >= 0.25 )
+                    {
+                        while (nprn>2) { printf("\t%f", frac); nprn--; }
+                    }
+                }
+                while ( nprn > 0 ) { printf("\t%f", 1.0); nprn--; }   // this should never happen
+                printf("\n");
+            }
+        }
+        #endif
     }
 }
 

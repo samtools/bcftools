@@ -2,7 +2,12 @@
 #include <htslib/kfunc.h>
 #include "call.h"
 
+void ccall_init(call_t *call) { return; }
+void ccall_destroy(call_t *call) { return; }
 int ccall(call_t *call, bcf1_t *rec) { return 0; }
+
+void qcall_init(call_t *call) { return; }
+void qcall_destroy(call_t *call) { return; }
 int qcall(call_t *call, bcf1_t *rec) 
 { 
     // QCall format: 
@@ -34,8 +39,6 @@ void mcall_init(call_t *call)
 
     return; 
 }
-void ccall_init(call_t *call) { return; }
-void qcall_init(call_t *call) { return; }
 
 void mcall_destroy(call_t *call) 
 { 
@@ -49,8 +52,6 @@ void mcall_destroy(call_t *call)
     free(call->als);
     return; 
 }
-void ccall_destroy(call_t *call) { return; }
-void qcall_destroy(call_t *call) { return; }
 
 
 // Inits P(D|G): convert PLs from log space and normalize. In case of zero
@@ -128,19 +129,22 @@ double binom_dist(int N, double p, int k)
 // Inbreeding Coefficient, binomial test
 float calc_ICB(int nref, int nalt, int nhets, int ndiploid)
 {
-    if ( !nref || !nalt || !ndiploid ) return 1.0;
+    if ( !nref || !nalt || !ndiploid ) return HUGE_VAL;
 
     double fref = (double)nref/(nref+nalt); // fraction of reference allelels
     double falt = (double)nalt/(nref+nalt); // non-ref als
     double q = 2*fref*falt;                 // probability of a het, assuming HWE
     double mean = q*ndiploid;
 
-    //fprintf(stderr,"\np=%e N=%d k=%d  .. nref=%d nalt=%d nhets=%d ndiploid=%d\n", q,ndiploid,nhets, nref,nalt,nhets,ndiploid);
+    fprintf(stderr,"\np=%e N=%d k=%d  .. nref=%d nalt=%d nhets=%d ndiploid=%d\n", q,ndiploid,nhets, nref,nalt,nhets,ndiploid);
 
     // Can we use normal approximation? The second condition is for performance only
     // and is not well justified. 
     if ( (mean>10 && (1-q)*ndiploid>10 ) || ndiploid>200 )
+    {
+        fprintf(stderr,"out: mean=%e  p=%e\n", mean,exp(-0.5*(nhets-mean)*(nhets-mean)/(mean*(1-q))));
         return exp(-0.5*(nhets-mean)*(nhets-mean)/(mean*(1-q)));
+    }
 
     return binom_dist(ndiploid, q, nhets);
 }
@@ -181,7 +185,7 @@ inline double logsumexp2(double a, double b)
 
 /**
   *  This function implements the multiallelic calling model. It has two major parts:
-  *   1) determine the most likely set of alleles and init calculate the quality of ref/non-ref site
+  *   1) determine the most likely set of alleles and calculate the quality of ref/non-ref site
   *   2) determine and set the genotypes
   *  In various places in between, the BCF record gets updated.
   */
@@ -387,7 +391,6 @@ int mcall(call_t *call, bcf1_t *rec)
         for (isample = 0; isample < nsmpl; isample++) 
         {
             int ploidy = call->ploidy ? call->ploidy[isample] : 2;
-            if ( ploidy==2 ) ndiploid++;
 
             pdg += ngts;
             gts += 2;
@@ -403,6 +406,8 @@ int mcall(call_t *call, bcf1_t *rec)
             }
             else
             {
+                if ( ploidy==2 ) ndiploid++;
+
                 // Non-zero depth, determine the most likely genotype
                 int ia;
                 double best_lk = 0;
@@ -478,7 +483,7 @@ int mcall(call_t *call, bcf1_t *rec)
         else
         {
             float icb = calc_ICB(ac[0],ac[1]+ac[2]+ac[3], nhets, ndiploid);
-            bcf1_update_info_float(call->hdr, rec, "ICB", &icb, 1);
+            if ( icb != HUGE_VAL ) bcf1_update_info_float(call->hdr, rec, "ICB", &icb, 1);
         }
 
         // Set the quality of a REF
