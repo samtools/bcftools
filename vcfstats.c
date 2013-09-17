@@ -608,13 +608,15 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             int gt = bcf_gt_type(fmt_ptr, reader->samples[is], &ial);
             if ( gt==GT_UNKN || gt==GT_HAPL_R || gt==GT_HAPL_A ) continue;
             if ( gt != GT_HOM_RR ) { n_nref++; i_nref = is; }
-            switch (gt)
-            {
-                case GT_HOM_RR: nref_tot++; break;
-                case GT_HET_RA: nhet_tot++; break;
-                case GT_HET_AA:
-                case GT_HOM_AA: nalt_tot++; break;
-            }
+            #if HWE_STATS
+                switch (gt)
+                {
+                    case GT_HOM_RR: nref_tot++; break;
+                    case GT_HET_RA: nhet_tot++; break;
+                    case GT_HET_AA:
+                    case GT_HOM_AA: nalt_tot++; break;
+                }
+            #endif
             if ( line->d.var_type&VCF_SNP )
             {
                 if ( gt == GT_HET_RA ) stats->smpl_hets[is]++;
@@ -1029,20 +1031,20 @@ static void print_stats(args_t *args)
                     float frac = (float)sum_tmp/sum_tot;
                     if ( frac >= 0.75 )
                     {
-                        while (nprn>0) { printf("\t%f", frac); nprn--; }
+                        while (nprn>0) { printf("\t%f", (float)j/args->naf_hwe); nprn--; }
                         break;
                     }
                     if ( frac >= 0.5 )
                     {
-                        while (nprn>1) { printf("\t%f", frac); nprn--; }
+                        while (nprn>1) { printf("\t%f", (float)j/args->naf_hwe); nprn--; }
                         continue;
                     }
                     if ( frac >= 0.25 )
                     {
-                        while (nprn>2) { printf("\t%f", frac); nprn--; }
+                        while (nprn>2) { printf("\t%f", (float)j/args->naf_hwe); nprn--; }
                     }
                 }
-                while ( nprn > 0 ) { printf("\t%f", 1.0); nprn--; }   // this should never happen
+                assert(nprn==0);
                 printf("\n");
             }
         }
