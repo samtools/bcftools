@@ -280,7 +280,15 @@ static void destroy_data(args_t *args)
         {
             if ( !args->fnames[i] ) continue;
             hts_close(args->fh_out[i]);
-            if ( bcf_index_build(args->fnames[i],14) ) error("Could not index %s\n", args->fnames[i]);
+            if ( args->output_type==FT_VCF_GZ )
+            {
+                tbx_conf_t conf = tbx_conf_vcf;
+                tbx_index_build(args->fnames[i], -1, &conf);
+            }
+            else if ( args->output_type==FT_BCF_GZ )
+            {
+                if ( bcf_index_build(args->fnames[i],14) ) error("Could not index %s\n", args->fnames[i]);
+            }
             free(args->fnames[i]);
         }
         free(args->fnames);
