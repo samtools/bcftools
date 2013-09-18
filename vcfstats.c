@@ -1011,7 +1011,7 @@ static void print_stats(args_t *args)
             }
         }
         #ifdef HWE_STATS
-        printf("# HWE\n HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile\n");
+        printf("# HWE\n# HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile\n");
         for (id=0; id<args->nstats; id++)
         {
             stats_t *stats = &args->stats[id];
