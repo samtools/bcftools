@@ -12,6 +12,10 @@ int main_bcfidx(int argc, char *argv[])
 		fprintf(stderr, "Usage: bcfidx [-s minShift] <in.bcf>\n");
 		return 1;
 	}
-	bcf_index_build(argv[optind], min_shift);
+	if ( bcf_index_build(argv[optind], min_shift)!=0 ) 
+    {
+        fprintf(stderr,"bcf_index_build failed: Is the BCF compressed?\n");
+        return 1;
+    }
 	return 0;
 }
