@@ -2,9 +2,9 @@
 #include <htslib/kfunc.h>
 #include "call.h"
 
-void ccall_init(call_t *call) { return; }
-void ccall_destroy(call_t *call) { return; }
-int ccall(call_t *call, bcf1_t *rec) { return 0; }
+// void ccall_init(call_t *call) { return; }
+// void ccall_destroy(call_t *call) { return; }
+// int ccall(call_t *call, bcf1_t *rec) { return 0; }
 
 void qcall_init(call_t *call) { return; }
 void qcall_destroy(call_t *call) { return; }
@@ -16,12 +16,52 @@ int qcall(call_t *call, bcf1_t *rec)
     return 0; 
 }
 
-void mcall_init(call_t *call) 
-{ 
-    call->pl2p = (double*) malloc(sizeof(double)*256);
+void call_init_pl2p(call_t *call)
+{
     int i;
     for (i=0; i<256; i++)
         call->pl2p[i] = pow(10., -i/10.);
+}
+
+static void mcall_init_trios(call_t *call)
+{
+    // 23, 138, 478 possible trio genotypes with 2, 3, 4 alleles
+    call->ntrio[2] = 23, call->ntrio[3] = 138, call->ntrio[4] = 478;
+    call->trio[2] = (uint16_t*) malloc(sizeof(uint16_t)*call->ntrio[2]);
+    call->trio[3] = (uint16_t*) malloc(sizeof(uint16_t)*call->ntrio[3]);
+    call->trio[4] = (uint16_t*) malloc(sizeof(uint16_t)*call->ntrio[4]);
+
+    // max 10 possible diploid genotypes
+    int gts[10], nals;
+    for (nals=2; nals<=4; nals++)
+    {
+        int i,j,k, n = 0, ngts = 0;
+        for (i=0; i<nals; i++)
+            for (j=0; j<=i; j++)
+                gts[ngts++] = 1<<i | 1<<j;
+
+        for (i=0; i<ngts; i++)
+            for (j=0; j<ngts; j++)
+                for (k=0; k<ngts; k++)
+                {
+                    if ( ((gts[i]|gts[j])&gts[k]) != gts[k] ) continue;
+                    assert( n<call->ntrio[nals] );
+                    call->trio[nals][n++] = i<<8 | j<<4 | k;  // father, mother, child
+                }
+    }
+    call->GLs = (double*) malloc(sizeof(double)*bcf_nsamples(call->hdr)*10);
+    call->sumGLs = (double*) malloc(sizeof(double)*bcf_nsamples(call->hdr));
+    call->GQs = (int*) malloc(sizeof(int)*bcf_nsamples(call->hdr));
+}
+static void mcall_destroy_trios(call_t *call)
+{
+    int i;
+    for (i=2; i<=4; i++) free(call->trio[i]);
+}
+
+void mcall_init(call_t *call) 
+{ 
+    call_init_pl2p(call);
 
     call->nqsum = 4;
     call->qsum  = (float*) malloc(sizeof(float)*call->nqsum); 
@@ -29,10 +69,14 @@ void mcall_init(call_t *call)
     call->als_map  = (int*) malloc(sizeof(int)*call->nals_map);
     call->npl_map  = 4*(4+1)/2;
     call->pl_map   = (int*) malloc(sizeof(int)*call->npl_map);
-    call->gts = (int*) calloc(call->hdr->n[BCF_DT_SAMPLE]*2,sizeof(int));   // assuming at most diploid everywhere
+    call->gts = (int*) calloc(bcf_nsamples(call->hdr)*2,sizeof(int));   // assuming at most diploid everywhere
+
+    if ( call->flag & CALL_CONSTR_TRIO ) mcall_init_trios(call);
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    bcf_hdr_append(call->hdr,"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=ICB,Number=1,Type=Float,Description=\"Inbreeding Coefficient Binomial test (bigger is better)\">");
+    bcf_hdr_append(call->hdr,"##INFO=<ID=HOB,Number=1,Type=Float,Description=\"Bias in the number of HOMs number (smaller is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes for each ALT allele, in the same order as listed\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases\">");
@@ -42,7 +86,11 @@ void mcall_init(call_t *call)
 
 void mcall_destroy(call_t *call) 
 { 
-    free(call->pl2p);
+    mcall_destroy_trios(call);
+    free(call->GLs);
+    free(call->sumGLs);
+    free(call->GQs);
+    free(call->anno16);
     free(call->PLs);
     free(call->qsum);
     free(call->als_map);
@@ -58,7 +106,10 @@ void mcall_destroy(call_t *call)
 // depth, missing PLs are all zero. In this case, pdg's are set to 0
 // so that the corresponding genotypes can be set as missing and the
 // qual calculation is not affected.
-void set_pdg(call_t *call, int *PLs, double *pdg, int n_smpl, int n_gt)
+// NB: While the -m callig model uses the pdgs in canonical order, 
+// the original samtools -c calling code uses pdgs in reverse order (AA comes
+// first, RR last).
+void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt)
 {
     int i, j;
     for (i=0; i<n_smpl; i++)
@@ -67,7 +118,7 @@ void set_pdg(call_t *call, int *PLs, double *pdg, int n_smpl, int n_gt)
         for (j=0; j<n_gt; j++)
         {
             assert( PLs[j]<256 );
-            pdg[j] = call->pl2p[ PLs[j] ];
+            pdg[j] = pl2p[ PLs[j] ];
             sum += pdg[j];
         }
         // Normalize: sum_i pdg_i = 1
@@ -136,17 +187,26 @@ float calc_ICB(int nref, int nalt, int nhets, int ndiploid)
     double q = 2*fref*falt;                 // probability of a het, assuming HWE
     double mean = q*ndiploid;
 
-    fprintf(stderr,"\np=%e N=%d k=%d  .. nref=%d nalt=%d nhets=%d ndiploid=%d\n", q,ndiploid,nhets, nref,nalt,nhets,ndiploid);
+    //fprintf(stderr,"\np=%e N=%d k=%d  .. nref=%d nalt=%d nhets=%d ndiploid=%d\n", q,ndiploid,nhets, nref,nalt,nhets,ndiploid);
 
     // Can we use normal approximation? The second condition is for performance only
     // and is not well justified. 
     if ( (mean>10 && (1-q)*ndiploid>10 ) || ndiploid>200 )
     {
-        fprintf(stderr,"out: mean=%e  p=%e\n", mean,exp(-0.5*(nhets-mean)*(nhets-mean)/(mean*(1-q))));
+        //fprintf(stderr,"out: mean=%e  p=%e\n", mean,exp(-0.5*(nhets-mean)*(nhets-mean)/(mean*(1-q))));
         return exp(-0.5*(nhets-mean)*(nhets-mean)/(mean*(1-q)));
     }
 
     return binom_dist(ndiploid, q, nhets);
+}
+
+float calc_HOB(int nref, int nalt, int nhets, int ndiploid)
+{
+    if ( !nref || !nalt || !ndiploid ) return HUGE_VAL;
+
+    double fref = (double)nref/(nref+nalt); // fraction of reference allelels
+    double falt = (double)nalt/(nref+nalt); // non-ref als
+    return fabs((double)nhets/ndiploid - 2*fref*falt);
 }
 
 /**
@@ -182,40 +242,16 @@ inline double logsumexp2(double a, double b)
 
 #define SWAP(type_t,x,y) {type_t tmp; tmp = x; x = y; y = tmp; }
 
-
-/**
-  *  This function implements the multiallelic calling model. It has two major parts:
-  *   1) determine the most likely set of alleles and calculate the quality of ref/non-ref site
-  *   2) determine and set the genotypes
-  *  In various places in between, the BCF record gets updated.
-  */
-int mcall(call_t *call, bcf1_t *rec)
+// Determine the most likely combination of alleles. In this implementation,
+// at most tri-allelic sites are considered. Returns the number of alleles.
+static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
 {
-    int nals = rec->n_allele;
-    if ( nals>4 )
-        error("FIXME: Not ready for more than 4 alleles at %s:%d (%d)\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1, nals);
-
-    // Get the genotype likelihoods
-    int nsmpl = call->hdr->n[BCF_DT_SAMPLE];
-    int npl = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->nPLs);
-    if ( npl!=nsmpl*nals*(nals+1)/2 && npl!=nsmpl*nals )
-        error("Wrong number of PL fields? nals=%d npl=%d\n", nals,npl);
-
-    // Convert PLs to probabilities
-    int ngts = nals*(nals+1)/2;
-    hts_expand(double, npl, call->npdg, call->pdg);
-    set_pdg(call, call->PLs, call->pdg, call->hdr->n[BCF_DT_SAMPLE], ngts);
-
-    // Get sum of qualities
-    int i, nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
-    assert( nals<=call->nqsum );
-    for (i=nqs; i<nals; i++) call->qsum[i] = 0;
-
-    // 1) Determine the most likely combination of alleles. In this implementation, at most three-allelic sites are considered.
     int ia,ib,ic;   // iterators over up to three alleles
     int max_als=0, max_als2=0;  // most likely and second-most likely combination of alleles
     double ref_lk = 0, max_lk = INT_MIN, max_lk2 = INT_MIN; // likelihood of the reference and of most likely combination of alleles
     double lk_sum = -HUGE_VAL;    // for normalizing the likelihoods
+    int nsmpl = bcf_nsamples(call->hdr);
+    int ngts  = nals*(nals+1)/2;
 
     // Single allele
     for (ia=0; ia<nals; ia++)
@@ -311,7 +347,7 @@ int mcall(call_t *call, bcf1_t *rec)
     // not big, go with fewer alleles. Here we use chi-squared distribution with 1 degree of freedom,
     // but is it correct? Is the number of degrees of freedom constant or does it depend on the
     // number of alleles? 
-    int n1=0, n2=0;
+    int i, n1=0, n2=0;
     for (i=0; i<nals; i++) if ( max_als  & 1<<i) n1++;
     for (i=0; i<nals; i++) if ( max_als2 & 1<<i) n2++;
 
@@ -326,197 +362,405 @@ int mcall(call_t *call, bcf1_t *rec)
         SWAP(int, n1, n2);
     }
 
-    // With -A, keep all ALTs except X
-    if ( call->flag & CALL_KEEPALT )
+    call->ref_lk = ref_lk;
+    call->lk_sum = lk_sum;
+    *out_als = max_als;
+    return n1;
+}
+
+static void mcall_set_ref_genotypes(call_t *call, int nals)
+{
+    int i;
+    int ngts  = nals*(nals+1)/2;
+    int nsmpl = bcf_nsamples(call->hdr);
+
+    for (i=0; i<4; i++) call->ac[i] = 0;
+    call->nhets = 0;
+    call->ndiploid = 0;
+
+    // Set all genotypes to 0/0 and remove PL vector
+    int *gts    = call->gts;
+    double *pdg = call->pdg;
+    int isample;
+    for (isample = 0; isample < nsmpl; isample++) 
     {
-        n1 = 0;
-        for (i=0; i<nals; i++)
-            if ( rec->d.allele[i][0]!='X' ) { max_als |= 1<<i; n1++; }
-    }
-    // Make sure the REF allele is always present
-    else if ( !(max_als&1) )
-    {
-        max_als |= 1;
-        n1++;
-    }
-
-
-    // 2) Set the genotypes
-    int ac[4] = {0,0,0,0};
-    if ( max_als==1 )
-    {
-        // Reference only calls: return or set all genotypes to 0/0
-        if ( call->flag & CALL_VARONLY ) return 0;
-        init_allele_trimming_maps(call, max_als, nals);
-
-        // Set the quality
-        rec->qual = lk_sum==-HUGE_VAL ? 0 : -4.343*log(1 - exp(ref_lk - lk_sum));
-
-        // Set all genotypes to 0/0 and remove PL vector
-        int *gts    = call->gts;
-        double *pdg = call->pdg;
-        int isample;
-        for (isample = 0; isample < nsmpl; isample++) 
+        int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+        for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
+        if ( i==ngts ) 
         {
-            int ploidy = call->ploidy ? call->ploidy[isample] : 2;
-            for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
-            if ( i==ngts ) 
+            gts[0] = bcf_gt_missing;
+            gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+        }
+        else
+        {
+            gts[0] = bcf_gt_unphased(0);
+            gts[1] = ploidy==2 ? bcf_gt_unphased(0) : bcf_int32_vector_end;
+            call->ac[0] += ploidy;
+        }
+        gts += 2;
+        pdg += ngts;
+    }
+}
+
+static void mcall_call_genotypes(call_t *call, int nals, int nout_als, int out_als)
+{
+    int ia, ib, i;
+    int ngts  = nals*(nals+1)/2;
+    int nsmpl = bcf_nsamples(call->hdr);
+
+    for (i=0; i<4; i++) call->ac[i] = 0;
+    call->nhets = 0;
+    call->ndiploid = 0;
+
+    double *pdg  = call->pdg - ngts;
+    int *gts  = call->gts - 2;
+
+    int isample;
+    for (isample = 0; isample < nsmpl; isample++) 
+    {
+        int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+
+        pdg += ngts;
+        gts += 2;
+
+        // Skip samples with all pdg's equal to 1. These have zero depth.
+        for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
+        if ( i==ngts ) 
+        {
+            gts[0] = bcf_gt_missing;
+            gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+        }
+        else
+        {
+            if ( ploidy==2 ) call->ndiploid++;
+
+            // Non-zero depth, determine the most likely genotype
+            double best_lk = 0;
+            for (ia=0; ia<nals; ia++)
+            {
+                if ( !(out_als & 1<<ia) ) continue;     // ia-th allele not in the final selection, skip
+                int iaa = (ia+1)*(ia+2)/2-1;            // PL index of the ia/ia genotype
+                double lk = pdg[iaa]*call->qsum[ia]*call->qsum[ia];
+                if ( best_lk < lk ) 
+                { 
+                    best_lk = lk; 
+                    gts[0] = bcf_gt_unphased(call->als_map[ia]); 
+                }
+            }
+            if ( ploidy==2 ) 
+            {
+                gts[1] = gts[0];
+                for (ia=0; ia<nals; ia++)
+                {
+                    if ( !(out_als & 1<<ia) ) continue;
+                    int iaa = (ia+1)*(ia+2)/2-1;
+                    for (ib=0; ib<ia; ib++)
+                    {
+                        if ( !(out_als & 1<<ib) ) continue;
+                        int iab = iaa - ia + ib;
+                        double lk = 2*pdg[iab]*call->qsum[ia]*call->qsum[ib];
+                        if ( best_lk < lk ) 
+                        { 
+                            best_lk = lk; 
+                            gts[0] = bcf_gt_unphased(call->als_map[ia]); 
+                            gts[1] = bcf_gt_unphased(call->als_map[ib]); 
+                        }
+                    }
+                }
+                if ( gts[0] != gts[1] ) call->nhets++;
+            }
+            else
+                gts[1] = bcf_int32_vector_end;
+        }
+
+        call->ac[ bcf_gt_allele(gts[0]) ]++;
+        if ( gts[1]!=bcf_int32_vector_end ) call->ac[ bcf_gt_allele(gts[1]) ]++;
+    }
+}
+
+
+static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int out_als)
+{
+    int ia, ib, i;
+    int nsmpl   = bcf_nsamples(call->hdr);
+    int ngts    = nals*(nals+1)/2;
+    double *gls = call->GLs - ngts;
+    double *pdg = call->pdg - ngts;
+
+    // Collect unconstrained genotype likelihoods
+    int isample;
+    for (isample = 0; isample < nsmpl; isample++) 
+    {
+        int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+
+        gls += ngts;
+        pdg += ngts;
+
+        // Skip samples with all pdg's equal to 1. These have zero depth.
+        for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
+        if ( i==ngts ) { gls[0] = 1; continue; }
+
+        double sum_lk = 0;
+        for (ia=0; ia<nals; ia++)
+        {
+            if ( !(out_als & 1<<ia) ) continue;     // ia-th allele not in the final selection, skip
+            int iaa   = (ia+1)*(ia+2)/2-1;           // PL index of the ia/ia genotype
+            int idx   = (call->als_map[ia]+1)*(call->als_map[ia]+2)/2-1;
+            double lk = pdg[iaa]*call->qsum[ia]*call->qsum[ia];
+            sum_lk   += lk;
+            gls[idx]  = log(lk);
+        }
+        if ( ploidy==2 ) 
+        {
+            for (ia=0; ia<nals; ia++)
+            {
+                if ( !(out_als & 1<<ia) ) continue;
+                int iaa = (ia+1)*(ia+2)/2-1;
+                int ida = (call->als_map[ia]+1)*(call->als_map[ia]+2)/2-1;
+                for (ib=0; ib<ia; ib++)
+                {
+                    if ( !(out_als & 1<<ib) ) continue;
+                    int iab   = iaa - ia + ib;
+                    int idx   = ida - call->als_map[ia] + call->als_map[ib];
+                    double lk = 2*pdg[iab]*call->qsum[ia]*call->qsum[ib];
+                    sum_lk   += lk;
+                    gls[idx]  = log(lk);
+                }
+            }
+        }
+        call->sumGLs[isample] = log(sum_lk);
+    }
+
+    for (i=0; i<4; i++) call->ac[i] = 0;
+    call->nhets = 0;
+    call->ndiploid = 0;
+
+    int ntrio = call->ntrio[nout_als];
+    uint16_t *trio = call->trio[nout_als];
+    
+    // Calculate constrained likelihoods and determine genotypes
+    int ifm;
+    for (ifm=0; ifm<call->nfams; ifm++)
+    {
+        family_t *fam = &call->fams[ifm];
+
+        // Best constrained likelihood
+        double cbest = -HUGE_VAL;
+        int ibest = 0, itr;
+        for (itr=0; itr<ntrio; itr++)   // for each trio genotype combination
+        {
+            double lk = 0;
+            for (i=0; i<3; i++)     // for father, mother, child
+            {
+                int ismpl = fam->sample[i];
+                double *gl = call->GLs + ngts*ismpl;
+                int igt = trio[itr]>>((2-i)*4) & 0xf;
+                lk += gl[igt];
+            }
+            if ( cbest < lk ) { cbest = lk; ibest = itr; }
+        }
+
+        // Set the genotype quality. The current way is not correct, P(igt) != P(igt|constraint)
+        for (i=0; i<3; i++) 
+        {
+            int igt = trio[ibest]>>((2-i)*4) & 0xf;
+            int ismpl = fam->sample[i];
+            double *gl  = call->GLs + ngts*ismpl;
+            if ( gl[0]==1 )
+                call->GQs[ismpl] = bcf_int32_missing;
+            else
+            {
+                double pval = -4.343*log(1.0 - exp(gl[igt] - call->sumGLs[ismpl]));
+                call->GQs[ismpl] = pval > 99 ? 99 : pval;
+                if ( call->GQs[ismpl] > 99 ) call->GQs[ismpl] = 99;
+            }
+        }
+
+        // Set genotypes for father, mother, child
+        for (i=0; i<3; i++)
+        {
+            int ismpl  = fam->sample[i];
+            int ploidy = call->ploidy ? call->ploidy[ismpl] : 2;
+            double *gl = call->GLs + ngts*ismpl;
+            int *gts   = call->gts + 2*ismpl;
+            if ( gl[0]==1 )    // zero depth, set missing genotypes
             {
                 gts[0] = bcf_gt_missing;
                 gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+                continue;
             }
-            else
+            int igt = trio[ibest]>>((2-i)*4) & 0xf;
+
+            // Convert genotype index idx to allele indices
+            int k = 0, dk = 1;
+            while ( k<igt ) k += ++dk;
+            int ia = dk - 1;
+            int ib = igt - k + ia;
+            gts[0] = bcf_gt_unphased(ib); 
+            call->ac[ib]++;
+            if ( ploidy==2 )
             {
-                gts[0] = bcf_gt_unphased(0);
-                gts[1] = ploidy==2 ? bcf_gt_unphased(0) : bcf_int32_vector_end;
-                ac[0] += ploidy;
+                call->ac[ia]++;
+                if ( ia!=ib ) call->nhets++;
+                gts[1] = bcf_gt_unphased(ia);
+                call->ndiploid++;
             }
-            gts += 2;
-            pdg += ngts;
+            else 
+                gts[1] = bcf_int32_vector_end;
         }
+    }
+}
+
+static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
+{
+    int ngts  = nals*(nals+1)/2;
+    int npls_src = ngts, npls_dst = nout_als*(nout_als+1)/2;     // number of PL values in diploid samples, ori and new
+    if ( npls_src == npls_dst ) return;
+
+    int *pls_src = call->PLs, *pls_dst = call->PLs;
+
+    int nsmpl = bcf_nsamples(call->hdr);
+    int isample, ia;
+    for (isample = 0; isample < nsmpl; isample++) 
+    {
+        int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+        if ( ploidy==2 )
+        {
+            for (ia=0; ia<npls_dst; ia++)
+                pls_dst[ia] =  pls_src[ call->pl_map[ia] ];
+        }
+        else
+        {
+            for (ia=0; ia<nout_als; ia++)
+            {
+                int isrc = call->pl_map[ia]; 
+                isrc = (isrc+1)*(isrc+2)/2-1;
+                pls_dst[ia] = pls_src[isrc];
+            }
+            if ( ia<npls_dst ) pls_dst[ia] = bcf_int32_vector_end;
+        }
+        pls_src += npls_src;
+        pls_dst += npls_dst;
+    }
+    bcf1_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*nsmpl);
+}
+
+
+/**
+  *  This function implements the multiallelic calling model. It has two major parts:
+  *   1) determine the most likely set of alleles and calculate the quality of ref/non-ref site
+  *   2) determine and set the genotypes
+  *  In various places in between, the BCF record gets updated.
+  */
+int mcall(call_t *call, bcf1_t *rec)
+{
+//if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec);
+
+    int nals = rec->n_allele;
+    if ( nals>4 )
+        error("FIXME: Not ready for more than 4 alleles at %s:%d (%d)\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1, nals);
+
+    // Get the genotype likelihoods
+    int nsmpl = bcf_nsamples(call->hdr);
+    call->nPLs = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
+    if ( call->nPLs!=nsmpl*nals*(nals+1)/2 && call->nPLs!=nsmpl*nals )  // a mixture of diploid and haploid or haploid only
+        error("Wrong number of PL fields? nals=%d npl=%d\n", nals,call->nPLs);
+
+    // Convert PLs to probabilities
+    int ngts = nals*(nals+1)/2;
+    hts_expand(double, call->nPLs, call->npdg, call->pdg);
+    set_pdg(call->pl2p, call->PLs, call->pdg, nsmpl, ngts);
+
+    // Get sum of qualities
+    int i, nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
+    assert( nals<=call->nqsum );
+    for (i=nqs; i<nals; i++) call->qsum[i] = 0;
+
+    // Find the best combination of alleles
+    int out_als, nout =  mcall_find_best_alleles(call, nals, &out_als);
+
+    // With -A, keep all ALTs except X
+    if ( call->flag & CALL_KEEPALT )
+    {
+        nout = 0;
+        for (i=0; i<nals; i++)
+            if ( rec->d.allele[i][0]!='X' ) { out_als |= 1<<i; nout++; }
+    }
+    // Make sure the REF allele is always present
+    else if ( !(out_als&1) )
+    {
+        out_als |= 1;
+        nout++;
+    }
+
+    if ( call->flag & CALL_VARONLY && out_als==1 ) return 0;
+    int nAC = 0;
+    if ( out_als==1 )
+    { 
+        init_allele_trimming_maps(call, 1, 1);
+        mcall_set_ref_genotypes(call,nals);
         bcf1_update_format_int32(call->hdr, rec, "PL", NULL, 0);    // remove PL, useless now
     }
     else
     {
         // The most likely set of alleles includes non-reference allele (or was enforced), call genotypes.
         // Note that it is a valid outcome if the called genotypes exclude some of the ALTs.
-        init_allele_trimming_maps(call, max_als, nals);
-
-        int npls_src = ngts, npls_dst = n1*(n1+1)/2;     // number of PL values in diploid samples, ori and new
-        double *pdg  = call->pdg - ngts;
-        int *gts  = call->gts - 2;
-        int *pls_src = call->PLs - npls_src, *pls_dst = call->PLs - npls_dst;
-
-        int isample, ndiploid = 0, nhets = 0;
-        for (isample = 0; isample < nsmpl; isample++) 
+        init_allele_trimming_maps(call, out_als, nals);
+        if ( call->flag & CALL_CONSTR_TRIO )
         {
-            int ploidy = call->ploidy ? call->ploidy[isample] : 2;
-
-            pdg += ngts;
-            gts += 2;
-            pls_src += npls_src;
-            pls_dst += npls_dst;
-
-            // Skip samples with all pdg's equal to 1. These have zero depth.
-            for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
-            if ( i==ngts ) 
-            {
-                gts[0] = bcf_gt_missing;
-                gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
-            }
-            else
-            {
-                if ( ploidy==2 ) ndiploid++;
-
-                // Non-zero depth, determine the most likely genotype
-                int ia;
-                double best_lk = 0;
-                for (ia=0; ia<nals; ia++)
-                {
-                    if ( !(max_als & 1<<ia) ) continue;     // ia-th allele not in the final selection, skip
-                    int iaa = (ia+1)*(ia+2)/2-1;            // PL index of the ia/ia genotype
-                    double lk = pdg[iaa]*call->qsum[ia]*call->qsum[ia];
-                    if ( best_lk < lk ) 
-                    { 
-                        best_lk = lk; 
-                        gts[0] = bcf_gt_unphased(call->als_map[ia]); 
-                    }
-                }
-                if ( ploidy==2 ) 
-                {
-                    gts[1] = gts[0];
-                    for (ia=0; ia<nals; ia++)
-                    {
-                        if ( !(max_als & 1<<ia) ) continue;
-                        int iaa = (ia+1)*(ia+2)/2-1;
-                        for (ib=0; ib<ia; ib++)
-                        {
-                            if ( !(max_als & 1<<ib) ) continue;
-                            int iab = iaa - ia + ib;
-                            double lk = 2*pdg[iab]*call->qsum[ia]*call->qsum[ib];
-                            if ( best_lk < lk ) 
-                            { 
-                                best_lk = lk; 
-                                gts[0] = bcf_gt_unphased(call->als_map[ia]); 
-                                gts[1] = bcf_gt_unphased(call->als_map[ib]); 
-                            }
-                        }
-                    }
-                    if ( gts[0] != gts[1] ) nhets++;
-                }
-                else
-                    gts[1] = bcf_int32_vector_end;
-            }
-
-            // Subset PL vector
-            if ( npls_src!=npls_dst )
-            {
-                if ( ploidy==2 )
-                {
-                    for (ia=0; ia<npls_dst; ia++)
-                        pls_dst[ia] =  pls_src[ call->pl_map[ia] ];
-                }
-                else
-                {
-                    for (ia=0; ia<n1; ia++)
-                    {
-                        int isrc = call->pl_map[ia]; 
-                        isrc = (isrc+1)*(isrc+2)/2-1;
-                        pls_dst[ia] = pls_src[isrc];
-                    }
-                    pls_dst[ia] = bcf_int32_vector_end;
-                }
-            }
-
-            ac[ bcf_gt_allele(gts[0]) ]++;
-            if ( gts[1]!=bcf_int32_vector_end ) ac[ bcf_gt_allele(gts[1]) ]++;
-        }
-
-        if ( npls_src!=npls_dst ) 
-            bcf1_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*nsmpl);
-
-        // Skip the site if all samples are 0/0. This can happen occasionally.
-        if ( ac[1]+ac[2]+ac[3]==0 )
-        {
-            if ( call->flag & CALL_VARONLY ) return 0;
+            mcall_call_trio_genotypes(call,nals,nout,out_als);
+            bcf1_update_format_int32(call->hdr, rec, "GQ", call->GQs, nsmpl);
         }
         else
-        {
-            float icb = calc_ICB(ac[0],ac[1]+ac[2]+ac[3], nhets, ndiploid);
-            if ( icb != HUGE_VAL ) bcf1_update_info_float(call->hdr, rec, "ICB", &icb, 1);
-        }
+            mcall_call_genotypes(call,nals,nout,out_als);
 
-        // Set the quality of a REF
-        if ( lk_sum==-HUGE_VAL )
-            rec->qual = 0;
-        else 
-            rec->qual = n1==1 ? -4.343*log(1 - exp(ref_lk - lk_sum)) : -4.343*(ref_lk - lk_sum);
+        // Skip the site if all samples are 0/0. This can happen occasionally.
+        nAC = call->ac[1] + call->ac[2] + call->ac[3];
+        if ( !nAC && call->flag & CALL_VARONLY ) return 0;
+        mcall_trim_PLs(call, rec, nals, nout, out_als);
     }
 
-    hts_expand(char*,n1,call->nals,call->als);
+    // Set QUAL and calculate HWE-related annotations
+    if ( nAC ) 
+    {
+        float icb = calc_ICB(call->ac[0],nAC, call->nhets, call->ndiploid);
+        if ( icb != HUGE_VAL ) bcf1_update_info_float(call->hdr, rec, "ICB", &icb, 1);
+
+        float hob = calc_HOB(call->ac[0],nAC, call->nhets, call->ndiploid);
+        if ( hob != HUGE_VAL ) bcf1_update_info_float(call->hdr, rec, "HOB", &hob, 1);
+
+        // Quality of a variant site
+        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : -4.343*(call->ref_lk - call->lk_sum);
+    }
+    else
+    {
+        // Set the quality of a REF site
+        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : -4.343*log(1 - exp(call->ref_lk - call->lk_sum));
+    }
+    if ( rec->qual>999 ) rec->qual = 999;
+    if ( rec->qual>50 ) rec->qual = rint(rec->qual);
+
+    // AC, AN
+    if ( nout>1 ) bcf1_update_info_int32(call->hdr, rec, "AC", call->ac+1, nout-1);
+    nAC += call->ac[0];
+    bcf1_update_info_int32(call->hdr, rec, "AN", &nAC, 1);
+
+    // Remove unused alleles
+    hts_expand(char*,nout,call->nals,call->als);
     for (i=0; i<nals; i++)
         if ( call->als_map[i]>=0 ) call->als[call->als_map[i]] = rec->d.allele[i];  
-    bcf1_update_alleles(call->hdr, rec, (const char**)call->als, n1);
+    bcf1_update_alleles(call->hdr, rec, (const char**)call->als, nout);
     bcf1_update_genotypes(call->hdr, rec, call->gts, nsmpl*2);
 
     // DP4 tag
-    int ndp = 16; float *anno16 = call->anno16;
-    bcf_get_info_float(call->hdr, rec, "I16", &anno16, &ndp);
-    assert( anno16==call->anno16 ); // this shouldn't happen unless the VCF is broken
+    if ( bcf_get_info_float(call->hdr, rec, "I16", &call->anno16, &call->n16)!=16 ) 
+        error("I16 hasn't 16 fields at %s:%d\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1);
     int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
     bcf1_update_info_int32(call->hdr, rec, "DP4", dp, 4);
 
     bcf1_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
     bcf1_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag
 
-    // AC, AN
-    if ( n1>1 ) bcf1_update_info_int32(call->hdr, rec, "AC", ac+1, n1-1);
-    ac[0] += ac[1] + ac[2] + ac[3];
-    bcf1_update_info_int32(call->hdr, rec, "AN", ac, 1);
-
-    if ( rec->qual>999 ) rec->qual = 999;
-    if ( rec->qual>50 ) rec->qual = rint(rec->qual);
-
-    return n1;
+    return nout;
 }
 

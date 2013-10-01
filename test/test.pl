@@ -25,6 +25,7 @@ test_vcf_subset($opts,in=>'subset',out=>'subset.1.out',args=>'-aRs NA00002 -v sn
 test_vcf_subset($opts,in=>'subset',out=>'subset.2.out',args=>'-f PASS -k',reg=>'-r20,Y');
 test_vcf_subset($opts,in=>'subset',out=>'subset.3.out',args=>'-ps NA00003',reg=>'');
 test_vcf_subset($opts,in=>'subset',out=>'subset.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && HWE*2>1.2'],reg=>'');
+test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -264,4 +265,10 @@ sub test_vcf_subset
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_subset");
 }
+sub test_vcf_call
+{
+    my ($opts,%args) = @_;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_call");
+}
+
 

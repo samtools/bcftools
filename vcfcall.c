@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <htslib/kfunc.h>
 #include <htslib/synced_bcf_reader.h>
+#include <sys/stat.h>
 #include "bcftools.h"
 #include "call.h"
 #include "prob1.h"
@@ -67,6 +68,97 @@ typedef struct
 args_t;
 
 
+static family_t *get_family(family_t *fam, int nfam, char *name)
+{
+    int i;
+    for (i=0; i<nfam; i++)
+    {
+        if ( !strcmp(fam[i].name, name) ) return &fam[i];
+    }
+    return NULL;
+}
+
+static char **add_sample(char **sam, int *n, int *m, char *name, int *ith)
+{
+    int i;
+    for (i=0; i<*n; i++)
+    {
+        if ( !strcmp(sam[i], name) ) 
+        {
+            *ith = i;
+            return sam;
+        }
+    }
+    hts_expand(char*,(*n+1),*m,sam);
+    int len = strlen(name);
+    sam[*n] = (char*) malloc(len+2);
+    memcpy(sam[*n],name,len+1);
+    sam[*n][len+1] = 2;    // todo: chrX,Y; assuming diploid for now
+    *ith = *n;
+    (*n)++;
+    return sam;
+}
+
+static char **read_ped_samples(call_t *call, const char *fn, int *_n)
+{
+	char **sam = 0;
+    int dret, n = 0, max = 0, i;
+    kstream_t *ks;
+    kstring_t s = {0,0,0};
+    gzFile fp;
+    fp = gzopen(fn, "r");
+    if ( !fp ) error("Could not read the file: %s\n", fn);
+    ks = ks_init(fp);
+    while (ks_getuntil(ks, KS_SEP_LINE, &s, &dret) >= 0) 
+    {
+        char *col_ends[5], *tmp = s.s;
+        i = 0;
+        while ( *tmp && i<5 )
+        {
+            if ( *tmp=='\t' || *tmp==' ' ) 
+            { 
+                col_ends[i] = tmp;
+                *tmp = 0;
+                i++; 
+            }
+            tmp++;
+        }
+        if ( i!=5 ) break;
+
+        family_t *fam = get_family(call->fams, call->nfams, s.s);
+        if ( !fam )
+        {
+            call->nfams++;
+            hts_expand(family_t, call->nfams, call->mfams, call->fams);
+            fam = &call->fams[call->nfams-1];
+            fam->name = strdup(s.s);
+            for (i=0; i<3; i++) fam->sample[i] = -1;
+        }
+        sam = add_sample(sam, &n, &max, col_ends[0]+1, &i);
+        if ( col_ends[2]-col_ends[1]!=2 || col_ends[1][1]!='0' )    // father
+        {
+            if ( fam->sample[CHILD]>=0 ) error("Multiple childs in %s\n", s.s);
+            fam->sample[CHILD] = i;
+            if ( fam->sample[FATHER]>=0 ) error("Two fathers in %s?\n", s.s);
+            sam = add_sample(sam, &n, &max, col_ends[1]+1, &fam->sample[FATHER]); 
+        }
+        if ( col_ends[3]-col_ends[2]!=2 || col_ends[2][1]!='0' )    // mother
+        {
+            if ( fam->sample[MOTHER]>=0 ) error("Two mothers in %s?\n", s.s);
+            sam = add_sample(sam, &n, &max, col_ends[2]+1, &fam->sample[MOTHER]); 
+        }
+    }
+    for (i=0; i<call->nfams; i++)
+        assert( call->fams[i].sample[0]>=0 && call->fams[i].sample[1]>=0 && call->fams[i].sample[2]>=0 ); //todo
+
+    ks_destroy(ks);
+    gzclose(fp);
+    free(s.s);
+    *_n = n;
+    return sam;
+}
+
+
 /*
  *  Reads sample names and their ploidy (optional) from a file.
  *  Alternatively, if no such file exists, the file name is interpreted
@@ -76,18 +168,16 @@ args_t;
  *  Returns an array of sample names, where the byte value just after \0
  *  indicates the ploidy.
  */
-static char **read_samples(const char *fn, int *_n)
+static char **read_samples(call_t *call, const char *fn, int *_n)
 {
-	gzFile fp;
-	kstream_t *ks;
-	kstring_t s = {0,0,0};
 	int dret, n = 0, max = 0;
 	char **sam = 0;
 	*_n = 0;
-	fp = gzopen(fn, "r");
-	if (fp == 0) 
+
+    struct stat sbuf;
+    if ( stat(fn, &sbuf) != 0  )
     {
-        // interpret as sample names, not as a file name
+        // it is not a file, interpret as list of sample names
         const char *t = fn, *p = t;
         while (*t)
         {
@@ -106,19 +196,25 @@ static char **read_samples(const char *fn, int *_n)
         *_n = n;
         return sam;
     }
+
+    sam = read_ped_samples(call, fn, _n);
+    if ( sam ) return sam;
+
+	kstream_t *ks;
+	kstring_t s = {0,0,0};
+	gzFile fp;
+	fp = gzopen(fn, "r");
+    if ( !fp ) error("Could not read the file: %s\n", fn);
 	ks = ks_init(fp);
-	while (ks_getuntil(ks, 0, &s, &dret) >= 0) {
-		int l;
-		if (max == n) {
-			max = max? max<<1 : 4;
-			sam = (char**) realloc(sam, sizeof(char*)*max);
-		}
-		l = s.l;
+	while (ks_getuntil(ks, KS_SEP_SPACE, &s, &dret) >= 0) 
+    {
+        hts_expand(char*,(n+1),max,sam);
+		int l = s.l;
 		sam[n] = (char*) malloc(sizeof(char)*(s.l+2));
 		strcpy(sam[n], s.s);
 		sam[n][l+1] = 2; // by default, diploid
 		if (dret != '\n') {
-			if (ks_getuntil(ks, 0, &s, &dret) >= 0) { // read ploidy, 1 or 2
+			if (ks_getuntil(ks, KS_SEP_SPACE, &s, &dret) >= 0) { // read ploidy, 1 or 2
 				int x = (int)s.s[0] - '0'; // Convert ASCII digit to decimal
 				if (x == 1 || x == 2) sam[n][l+1] = x;
 				else fprintf(stderr, "(%s) ploidy can only be 1 or 2; assume diploid\n", __func__);
@@ -141,13 +237,12 @@ static void init_data(args_t *args)
     // Open files for input and output, initialize structures
     if ( args->targets )
     {
-        if ( bcf_sr_set_targets(args->files, args->targets,0)<0 )
+        if ( bcf_sr_set_targets(args->files, args->targets, args->aux.flag&CALL_CONSTR_ALLELES ? 3 : 0)<0 )
             error("Failed to read the targets: %s\n", args->targets);
     }
     if ( args->regions )
     {
-        args->files->require_index = 1;
-        if ( bcf_sr_set_targets(args->files, args->regions,0)<0 )
+        if ( bcf_sr_set_regions(args->files, args->regions)<0 )
             error("Failed to read the targets: %s\n", args->regions);
     }
     
@@ -168,11 +263,21 @@ static void init_data(args_t *args)
     else
         args->aux.hdr = bcf_hdr_dup(args->files->readers[0].header);
 
-    // Reorder ploidy to match mpileup's output and exclude samples which are not available
+    // Reorder ploidy and family indexes to match mpileup's output and exclude samples which are not available
     if ( args->aux.ploidy )
     {
+        for (i=0; i<args->aux.nfams; i++)
+        {
+            int j;
+            for (j=0; j<3; j++)
+            {
+                int k = bcf_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[ args->aux.fams[i].sample[j] ]);
+                if ( k<0 ) error("No such sample: %s\n", args->samples[ args->aux.fams[i].sample[j] ]);
+                args->aux.fams[i].sample[j] = k;
+            }
+        }
         uint8_t *ploidy = (uint8_t*) calloc(args->aux.hdr->n[BCF_DT_SAMPLE], 1);
-        for (i=0; i<args->aux.nsamples; i++)    // i index in -s sample list
+        for (i=0; i<args->nsamples; i++)    // i index in -s sample list
         {
             int j = bcf_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[i]);     // j index in the output VCF / subset VCF
             if ( j<0 ) 
@@ -182,8 +287,8 @@ static void init_data(args_t *args)
             }
             ploidy[j] = args->aux.ploidy[i];
         }
-        args->aux.nsamples = args->aux.hdr->n[BCF_DT_SAMPLE];
-        for (i=0; i<args->aux.nsamples; i++)
+        args->nsamples = args->aux.hdr->n[BCF_DT_SAMPLE];
+        for (i=0; i<args->nsamples; i++)
             assert( ploidy[i]==1 || ploidy[i]==2 );
         free(args->aux.ploidy);
         args->aux.ploidy = ploidy;
@@ -212,6 +317,11 @@ static void destroy_data(args_t *args)
     else if ( args->flag & CF_QCALL ) qcall_destroy(&args->aux);
     int i;
     for (i=0; i<args->nsamples; i++) free(args->samples[i]);
+    if ( args->aux.fams )
+    {
+        for (i=0; i<args->aux.nfams; i++) free(args->aux.fams[i].name);
+        free(args->aux.fams);
+    }
     free(args->samples);
     free(args->samples_map);
     free(args->aux.ploidy);
@@ -223,35 +333,34 @@ static void destroy_data(args_t *args)
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
+    fprintf(stderr, "About: This command replaces the former \"bcftools view\" caller. Some of the original functionality has been\n");
+    fprintf(stderr, "       temporarily lost in the process of transition under htslib, but will be added back on popular demand. The original\n");
+    fprintf(stderr, "       calling model can be invoked with the -c option. Note that we use the new multiallelic -m caller by default,\n");
+    fprintf(stderr, "       therefore -c is not as well tested as -m. If you encounter bugs, please do let us know.\n");
     fprintf(stderr, "Usage: bcftools call [options] <in.bcf> [reg]\n");
     fprintf(stderr, "File format options:\n");
-    fprintf(stderr, "       -o TYPE   output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "       -Q        output the QCALL likelihood format\n");
-    fprintf(stderr, "       -r REG    restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
-    fprintf(stderr, "       -s STR    comma-separated list or file name with a list of samples. Second column indicates ploidy (1 or 2)[all samples]\n");
-    fprintf(stderr, "       -l REG    same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
-    fprintf(stderr, "       -V        input is VCF\n");
+    fprintf(stderr, "   -o, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "   -r, --region <reg|file>         restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
+    fprintf(stderr, "   -s, --samples <list|file>       comma-separated list or file name with a list of samples. Second column indicates ploidy (1 or 2)[all samples]\n");
+    fprintf(stderr, "   -t, --targets <reg|file>        same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
+    fprintf(stderr, "   -V, --vcf-input                 stdin input is VCF\n");
     fprintf(stderr, "\nInput/output options:\n");
-    fprintf(stderr, "       -A        keep all possible alternate alleles at variant sites\n");
-    fprintf(stderr, "       -G        output sites only, drop genotype fields\n");
-    fprintf(stderr, "       -L        calculate LD for adjacent sites\n");
-    fprintf(stderr, "       -N        skip sites where REF is not A/C/G/T\n");
-    fprintf(stderr, "       -v        output potential variant sites only\n");
+    fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
+    fprintf(stderr, "   -N, --skip-Ns                   skip sites where REF is not A/C/G/T\n");
+    fprintf(stderr, "   -S, --skip <snps|indels>        skip indels/snps\n");
+    fprintf(stderr, "   -v, --variants-only             output variant sites only\n");
     fprintf(stderr, "\nConsensus/variant calling options:\n");
-    fprintf(stderr, "       -c        the original calling method (conflicts with -m)\n");
-    fprintf(stderr, "       -d FLOAT  skip loci where less than FLOAT fraction of samples covered [0]\n");
-    fprintf(stderr, "       -i FLOAT  indel-to-substitution ratio (-c only) [%.4g]\n", args->aux.indel_frac);
-    fprintf(stderr, "       -S STR    skip the given variant type <snps|indels>\n");
-    fprintf(stderr, "       -m        alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
-    fprintf(stderr, "       -p FLOAT  variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
-    fprintf(stderr, "       -P STR    type of prior: full, cond2, flat (-c only) [full]\n");
-    fprintf(stderr, "       -t FLOAT  scaled substitution mutation rate (-c only) [%.4g]\n", args->aux.theta);
-    fprintf(stderr, "       -T STR    constrained calling; STR can be: pair, trioauto, trioxd and trioxs (see manual) [null]\n");
-    fprintf(stderr, "\nContrast calling and association test options:\n");
-    fprintf(stderr, "       -1 INT    number of group-1 samples [0]\n");
-    fprintf(stderr, "       -C FLOAT  posterior constrast for LRT<FLOAT and P(ref|D)<0.5 [%g]\n", args->aux.min_lrt);
-    fprintf(stderr, "       -U INT    number of permutations for association testing (effective with -1) [0]\n");
-    fprintf(stderr, "       -X FLOAT  only perform permutations for P(chi^2)<FLOAT [%g]\n", args->aux.min_perm_p);
+    fprintf(stderr, "   -c, --consensus-caller          the original calling method (conflicts with -m)\n");
+    fprintf(stderr, "   -C, --constrain <str>           one of: alleles, pair, trio, triox (see manual)\n");
+    fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
+    fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
+
+    // todo (and more)
+    // fprintf(stderr, "\nContrast calling and association test options:\n");
+    // fprintf(stderr, "       -1 INT    number of group-1 samples [0]\n");
+    // fprintf(stderr, "       -C FLOAT  posterior constrast for LRT<FLOAT and P(ref|D)<0.5 [%g]\n", args->aux.min_lrt);
+    // fprintf(stderr, "       -U INT    number of permutations for association testing (effective with -1) [0]\n");
+    // fprintf(stderr, "       -X FLOAT  only perform permutations for P(chi^2)<FLOAT [%g]\n", args->aux.min_perm_p);
     fprintf(stderr, "\n");
     exit(-1);
 }
@@ -272,19 +381,30 @@ int main_vcfcall(int argc, char *argv[])
     float p_arg = -1;
     int i, c;
 
-    // Note: Some of the functionality was lost in the transition but will be put back on demand (pd3 todo)
+    static struct option loptions[] = 
+    {
+        {"help",0,0,'h'},
+        {"output-type",1,0,'o'},
+        {"region",1,0,'r'},
+        {"samples",1,0,'s'},
+        {"targets",1,0,'t'},
+        {"vcf-input",0,0,'V'},
+        {"keep-alts",0,0,'A'},
+        {"skip-Ns",0,0,'N'},
+        {"skip",1,0,'S'},
+        {"variants-only",0,0,'v'},
+        {"consensus-caller",0,0,'c'},
+        {"constrain",1,0,'C'},
+        {"multiallelic-caller",0,0,'m'},
+        {"pval-threshold",1,0,'p'},
+        {0,0,0,0}
+    };
 
-	while ((c = getopt(argc, argv, "N1:l:cC:AGvVP:t:p:QLi:S:s:U:X:d:T:mr:l:o:")) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?o:r:s:t:VANS:vcmp:C:", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
             case 'N': args.flag |= CF_ACGT_ONLY; break;                 // omit sites where first base in REF is N
-            case '1': args.aux.ngrp1_samples = atoi(optarg); break;     // is anyone using this? Please expand docs
-            //  case 'l': args.bed = bed_read(optarg);          // todo: with few sites, use index to jump rather than stream; genotypes given alleles
-            //            if (!args.bed) 
-            //                error("Could not read \"%s\"\n", optarg); 
-            //            break;
-            case 'G': args.flag |= CF_NO_GENO; break;       // output only sites, no genotype fields
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
             case 'V': args.flag |= CF_VCFIN; break;
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
@@ -298,46 +418,24 @@ int main_vcfcall(int argc, char *argv[])
                           default: error("The output type \"%s\" not recognised\n", optarg);
                       }
                       break;
+            case 'C': 
+                      if ( !strcasecmp(optarg,"alleles") ) args.aux.flag |= CALL_CONSTR_ALLELES;
+                      else if ( !strcasecmp(optarg,"trio") ) args.aux.flag |= CALL_CONSTR_TRIO;
+                      else error("Unknown argument to -C: \"%s\"\n", optarg);
+                      break;
             case 'S': 
                       if ( !strcasecmp(optarg,"snps") ) args.flag |= CF_INDEL_ONLY;
                       else if ( !strcasecmp(optarg,"indels") ) args.flag |= CF_NO_INDEL;
                       else error("Unknown argument to -I: \"%s\"\n", optarg);
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
-            case 't': args.aux.theta = atof(optarg); break;
             case 'p': p_arg = atof(optarg); break;
-            case 'i': args.aux.indel_frac = atof(optarg); break;
-            case 'Q': args.flag |= CF_QCALL; break;
-            case 'L': args.flag |= CF_ADJLD; break;
-            case 'U': args.aux.n_perm = atoi(optarg); break;
-            case 'C': args.aux.min_lrt = atof(optarg); break;
-            case 'X': args.aux.min_perm_p = atof(optarg); break;
-            // case 'd': args.aux.min_smpl_frac = atof(optarg); break; // todo
             case 'r': args.regions = optarg; break;
-            case 'l': args.targets = optarg; break;
+            case 't': args.targets = optarg; break;
             case 's': 
-                      args.samples = read_samples(optarg, &args.nsamples);
-                      args.aux.nsamples = args.nsamples;
+                      args.samples = read_samples(&args.aux, optarg, &args.nsamples);
                       args.aux.ploidy = (uint8_t*) calloc(args.nsamples+1, 1);
                       for (i=0; i<args.nsamples; i++) args.aux.ploidy[i] = args.samples[i][strlen(args.samples[i]) + 1];
                       break;
-            // todo
-            // case 'T': 
-            //           if (strcmp(optarg, "trioauto") == 0) args.aux.trio = bcf_trio_prep(0, 0);
-            //           else if (strcmp(optarg, "trioxd") == 0) args.aux.trio = bcf_trio_prep(1, 0);
-            //           else if (strcmp(optarg, "trioxs") == 0) args.aux.trio = bcf_trio_prep(1, 1);
-            //           else if (strcmp(optarg, "pair") == 0) args.flag |= CF_PAIRCALL;
-            //           else error("[%s] Option '-T' can only take value trioauto, trioxd or trioxs.\n", __func__);
-            // case 'P':
-            //           if (strcmp(optarg, "full") == 0) args.aux.prior_type = MC_PTYPE_FULL;
-            //           else if (strcmp(optarg, "cond2") == 0) args.aux.prior_type = MC_PTYPE_COND2;
-            //           else if (strcmp(optarg, "flat") == 0) args.aux.prior_type = MC_PTYPE_FLAT;
-            //           else args.aux.prior_file = strdup(optarg);
-            //           break;
-
-            //  case 'e': args.flag |= CF_EM; break;        // is anyone using -e without anything else? Disabling for now
-            //  case 'M': args.flag |= CF_ANNO_MAX; break;  // undocumented -> not supported for now
-            //  case 'Y': args.flag |= CF_QCNT; break;      // undocumented -> not supported for now
-            //  case 'K': bcf_p1_fp_lk = gzopen(optarg, "w"); break;    // undocumented -> not supported for now
             default: usage(&args);
         }
     }
@@ -349,6 +447,11 @@ int main_vcfcall(int argc, char *argv[])
     if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected one of -c, -m, or -Q options\n");
 	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
     if ( p_arg!=-1 ) { args.aux.pref = p_arg; args.aux.min_ma_lrt = 1 - p_arg; }  // only one is actually used
+    if ( args.aux.flag & CALL_CONSTR_ALLELES )
+    {
+        if ( !args.targets ) error("Expected -t with \"-C alleles\"\n");
+        if ( !(args.flag & CF_MCALL) ) error("The \"-C alleles\" mode requires -m\n");
+    }
 
     init_data(&args);
 
