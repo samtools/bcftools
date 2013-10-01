@@ -24,9 +24,19 @@ typedef struct
 }
 args_t;
 
-void py_plot(char *script);
 FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
 char *msprintf(const char *fmt, ...);
+void mkdir_p(const char *fmt, ...);
+
+void py_plot(char *script)
+{
+    mkdir_p(script);
+    int len = strlen(script);
+    char *cmd = !strcmp(".py",script+len-3) ? msprintf("python %s", script) : msprintf("python %s.py", script);
+    int ret = system(cmd);
+    if ( ret ) fprintf(stderr, "The command returned non-zero status %d: %s\n", ret, cmd);
+    free(cmd);
+}
 
 static void plot_check(args_t *args)
 {

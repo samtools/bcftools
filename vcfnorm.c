@@ -529,12 +529,12 @@ void flush_buffer(args_t *args, htsFile *file, int n)
         // todo: merge with next record if POS and the type are same. For now, just discard if asked to do so.
         if ( args->rmdup )
         {
-            bcf_set_variant_types(args->lines[k]);
-            if ( prev_rid>=0 && prev_rid==args->lines[k]->rid && prev_pos==args->lines[k]->pos && prev_type==args->lines[k]->d.var_type )
+            int line_type = bcf_get_variant_types(args->lines[k]);
+            if ( prev_rid>=0 && prev_rid==args->lines[k]->rid && prev_pos==args->lines[k]->pos && prev_type==line_type )
                 continue;
             prev_rid  = args->lines[k]->rid;
             prev_pos  = args->lines[k]->pos;
-            prev_type = args->lines[k]->d.var_type;
+            prev_type = line_type;
         }
         if ( args->output_type & FT_BCF ) bcf1_sync(args->lines[k]);
         vcf_write1(file, args->hdr, args->lines[k]);

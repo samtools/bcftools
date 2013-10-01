@@ -180,8 +180,9 @@ int subset_vcf(args_t *args, bcf1_t *line)
                 
     if (args->include || args->exclude)
     {
-        if ( args->include && !(line->d.var_type&args->include) ) return 0; // include only given variant types
-        if ( args->exclude &&   line->d.var_type&args->exclude  ) return 0; // exclude given variant types
+        int line_type = bcf_get_variant_types(line);
+        if ( args->include && !(line_type&args->include) ) return 0; // include only given variant types
+        if ( args->exclude &&   line_type&args->exclude  ) return 0; // exclude given variant types
     }
 
     if ( args->filter )

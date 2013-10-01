@@ -149,7 +149,7 @@ static void filters_set_qual(bcf1_t *line, token_t *tok)
 }
 static void filters_set_type(bcf1_t *line, token_t *tok)
 {
-    tok->num_value = line->d.var_type;
+    tok->num_value = bcf_get_variant_types(line);
 }
 static void filters_set_info(bcf1_t *line, token_t *tok)
 {

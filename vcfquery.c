@@ -52,8 +52,61 @@ struct _args_t
 	int argc, list_columns, print_header;
 };
 
-char **read_list(char *fname, int *n);
-void destroy_list(char **list, int n);
+/**
+ *  ks_getline() - Read next line from $fp, appending it to $str.  The newline
+ *  is stripped and \0 appended. Returns the number of characters read
+ *  excluding the null byte.
+ */
+size_t ks_getline(FILE *fp, kstring_t *str)
+{
+    size_t nread=0;
+    int c;
+    while ((c=getc(fp))!= EOF && c!='\n')
+    {
+        nread++;
+        if ( str->l+nread > str->m )
+        {
+            str->m += 1024;
+            str->s = (char*) realloc(str->s, sizeof(char)*str->m);
+        }
+        str->s[str->l+nread-1] = c;
+    }
+    if ( str->l >= str->m )
+    {
+        str->m += 1024;
+        str->s = (char*) realloc(str->s, sizeof(char)*str->m);
+    }
+    str->l += nread;
+    str->s[ str->l ] = 0;
+    return nread;
+}
+char **read_list(char *fname, int *_n)
+{
+    int n = 0;
+    char **list = NULL;
+
+    FILE *fp = fopen(fname,"r");
+    if ( !fp ) error("%s: %s\n", fname, strerror(errno));
+
+    kstring_t str = {0,0,0};
+    while ( ks_getline(fp, &str) )
+    {
+        list = (char**) realloc(list, sizeof(char*)*(++n));
+        list[n-1] = strdup(str.s);
+        str.l = 0;
+    }
+    fclose(fp);
+    if ( str.m ) free(str.s);
+    *_n = n;
+    return list;
+}
+void destroy_list(char **list, int n)
+{
+    int i;
+    for (i=0; i<n; i++)
+        free(list[i]);
+    free(list);
+}
 
 static void process_chrom(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(args->header->id[BCF_DT_CTG][line->rid].key, str); }
 static void process_pos(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+1, str); }
@@ -208,21 +261,20 @@ static void process_sample(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, 
 static void process_sep(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { if (fmt->key) kputs(fmt->key, str); }
 static void process_is_ts(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
 { 
-    bcf_set_variant_types(line);
     int is_ts = 0;
-    if ( line->d.var_type & (VCF_SNP|VCF_MNP) ) 
+    if ( bcf_get_variant_types(line) & (VCF_SNP|VCF_MNP) ) 
         is_ts = abs(bcf_acgt2int(*line->d.allele[0])-bcf_acgt2int(*line->d.allele[1])) == 2 ? 1 : 0;
     kputc(is_ts ? '1' : '0', str); 
 }
 static void process_type(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
-    bcf_set_variant_types(line);
+    int line_type = bcf_get_variant_types(line);
     int i = 0;
-    if ( line->d.var_type == VCF_REF ) { kputs("REF", str); i++; }
-    if ( line->d.var_type & VCF_SNP ) { if (i) kputc(',',str); kputs("SNP", str); i++; }
-    if ( line->d.var_type & VCF_MNP ) { if (i) kputc(',',str); kputs("MNP", str); i++; }
-    if ( line->d.var_type & VCF_INDEL ) { if (i) kputc(',',str); kputs("INDEL", str); i++; }
-    if ( line->d.var_type & VCF_OTHER ) { if (i) kputc(',',str); kputs("OTHER", str); i++; }
+    if ( line_type == VCF_REF ) { kputs("REF", str); i++; }
+    if ( line_type & VCF_SNP ) { if (i) kputc(',',str); kputs("SNP", str); i++; }
+    if ( line_type & VCF_MNP ) { if (i) kputc(',',str); kputs("MNP", str); i++; }
+    if ( line_type & VCF_INDEL ) { if (i) kputc(',',str); kputs("INDEL", str); i++; }
+    if ( line_type & VCF_OTHER ) { if (i) kputc(',',str); kputs("OTHER", str); i++; }
 }
 static void process_line(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {

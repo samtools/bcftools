@@ -461,12 +461,12 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     for (i=1; i<line->n_allele; i++)
     {
         if ( args->first_allele_only && i>1 ) break;
-        if ( line->d.var[i].type!=VCF_INDEL ) continue;
+        if ( bcf_get_variant_type(line,i)!=VCF_INDEL ) continue;
         int len = line->d.var[i].n;
 
         #if IRC_STATS
         // Indel repeat consistency
-        if ( args->indel_ctx && line->d.var[i].type==VCF_INDEL )
+        if ( args->indel_ctx )
         {
             int nrep, nlen, ndel;
             ndel = indel_ctx_type(args->indel_ctx, (char*)reader->header->id[BCF_DT_CTG][line->rid].key, line->pos+1, line->d.allele[0], line->d.allele[i], &nrep, &nlen);
@@ -560,7 +560,7 @@ static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     for (i=1; i<line->n_allele; i++)
     {
         if ( args->first_allele_only && i>1 ) break;
-        if ( !(line->d.var[i].type&VCF_SNP) ) continue;
+        if ( !(bcf_get_variant_type(line,i)&VCF_SNP) ) continue;
         int alt = bcf_acgt2int(*line->d.allele[i]);
         if ( alt<0 || ref==alt ) continue;
         stats->subst[ref<<2|alt]++;
@@ -597,6 +597,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
     bcf1_t *line = reader->buffer[0];
     bcf_fmt_t *fmt_ptr;
     int nref_tot = 0, nhet_tot = 0, nalt_tot = 0;
+    int line_type = bcf_get_variant_types(line);
 
     if ( (fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"GT")) )
     {
@@ -617,13 +618,13 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                     case GT_HOM_AA: nalt_tot++; break;
                 }
             #endif
-            if ( line->d.var_type&VCF_SNP )
+            if ( line_type&VCF_SNP )
             {
                 if ( gt == GT_HET_RA ) stats->smpl_hets[is]++;
                 else if ( gt == GT_HET_AA ) stats->smpl_hets[is]++;
                 else if ( gt == GT_HOM_RR ) stats->smpl_homRR[is]++;
                 else if ( gt == GT_HOM_AA ) stats->smpl_homAA[is]++;
-                if ( gt != GT_HOM_RR && line->d.var[ial].type&VCF_SNP )
+                if ( gt != GT_HOM_RR && line->d.var[ial].type&VCF_SNP ) // this is safe, bcf_get_variant_types has been already called
                 {
                     int alt = bcf_acgt2int(*line->d.allele[ial]);
                     if ( alt<0 ) continue;
@@ -633,7 +634,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                         stats->smpl_tv[is]++;
                 }
             }
-            if ( line->d.var_type&VCF_INDEL )
+            if ( line_type&VCF_INDEL )
             {
                 if ( gt != GT_HOM_RR ) stats->smpl_indels[is]++;
             }
@@ -682,8 +683,9 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
 
         // only the first ALT allele is considered
         int iaf = line->n_allele>1 ? args->tmp_iaf[1] : 1;
-        gtcmp_t *af_stats = files->readers[0].buffer[0]->d.var_type&VCF_SNP ? args->af_gts_snps : args->af_gts_indels;
-        gtcmp_t *smpl_stats = files->readers[0].buffer[0]->d.var_type&VCF_SNP ? args->smpl_gts_snps : args->smpl_gts_indels;
+        int line_type = bcf_get_variant_types(files->readers[0].buffer[0]);
+        gtcmp_t *af_stats = line_type&VCF_SNP ? args->af_gts_snps : args->af_gts_indels;
+        gtcmp_t *smpl_stats = line_type&VCF_SNP ? args->smpl_gts_snps : args->smpl_gts_indels;
 
         int r2n = 0;
         float r2a2 = 0, r2a = 0, r2b2 = 0, r2b = 0, r2ab = 0;
@@ -761,26 +763,26 @@ static void do_vcf_stats(args_t *args)
             reader = &files->readers[i];
             line = files->readers[i].buffer[0];
         }
-        bcf_set_variant_types(line);
+        int line_type = bcf_get_variant_types(line);
         init_iaf(args, reader);
 
         stats_t *stats = &args->stats[ret-1];
         if ( args->split_by_id && line->d.id[0]=='.' && !line->d.id[1] )
             stats = &args->stats[1];
 
-        if ( line->d.var_type&VCF_SNP ) 
+        if ( line_type&VCF_SNP ) 
             do_snp_stats(args, stats, reader);
-        if ( line->d.var_type&VCF_INDEL )
+        if ( line_type&VCF_INDEL )
             do_indel_stats(args, stats, reader);
-        if ( line->d.var_type&VCF_MNP )
+        if ( line_type&VCF_MNP )
             do_mnp_stats(args, stats, reader);
-        if ( line->d.var_type&VCF_OTHER )
+        if ( line_type&VCF_OTHER )
             do_other_stats(args, stats, reader);
 
         if ( line->n_allele>2 ) 
         {
             stats->n_mals++;
-            if ( line->d.var_type == VCF_SNP ) stats->n_snp_mals++;
+            if ( line_type == VCF_SNP ) stats->n_snp_mals++;
         }
 
         if ( files->n_smpl )

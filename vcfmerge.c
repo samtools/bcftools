@@ -1020,8 +1020,7 @@ void merge_buffer(args_t *args)
         if ( bcf_sr_has_line(files,i) )
         {
             pos = files->readers[i].buffer[0]->pos;
-            bcf_set_variant_types(files->readers[i].buffer[0]);
-            var_type = files->readers[i].buffer[0]->d.var_type;
+            var_type = bcf_get_variant_types(files->readers[i].buffer[0]);
             break;
         }
     }
@@ -1036,7 +1035,7 @@ void merge_buffer(args_t *args)
         for (j=0; j<=reader->nbuffer; j++)
         {
             bcf1_t *line = reader->buffer[j];
-            bcf_set_variant_types(line);
+            int line_type = bcf_get_variant_types(line);
 
             // select relevant lines
             maux->d[i][j].skip = SKIP_DIFF;
@@ -1046,8 +1045,8 @@ void merge_buffer(args_t *args)
                 continue; 
             }
             if ( args->collapse==COLLAPSE_NONE && var_type!=line->d.var_type ) continue;
-            if ( var_type&VCF_SNP && !(line->d.var_type&VCF_SNP) && !(args->collapse&COLLAPSE_ANY) ) continue;
-            if ( var_type&VCF_INDEL && !(line->d.var_type&VCF_INDEL) && !(args->collapse&COLLAPSE_ANY) ) continue;
+            if ( var_type&VCF_SNP && !(line_type&VCF_SNP) && !(args->collapse&COLLAPSE_ANY) ) continue;
+            if ( var_type&VCF_INDEL && !(line_type&VCF_INDEL) && !(args->collapse&COLLAPSE_ANY) ) continue;
             maux->d[i][j].skip = 0;
 
             hts_expand(int, line->n_allele, maux->d[i][j].mmap, maux->d[i][j].map);
