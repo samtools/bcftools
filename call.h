@@ -2,11 +2,12 @@
 #define __CALL_H__
 
 #include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
 
 #define CALL_KEEPALT        1
 #define CALL_VARONLY        (1<<1)
-#define CALL_CONSTR_ALLELES (1<<2)
-#define CALL_CONSTR_TRIO    (1<<3)
+#define CALL_CONSTR_TRIO    (1<<2)
+#define CALL_CONSTR_ALLELES (1<<3)
 
 #define FATHER 0
 #define MOTHER 1
@@ -35,6 +36,7 @@ typedef struct
     uint16_t *trio[5];
     double *GLs, *sumGLs;
     int *GQs;               // VCF FORMAT genotype qualities
+    int *itmp, n_itmp;      // temporary int array, used for new PLs with CALL_CONSTR_ALLELES
 
     // ccall only
     double indel_frac, theta, min_lrt, min_perm_p; 
@@ -46,6 +48,7 @@ typedef struct
     ccall_t *cdat;
 
     // shared
+    bcf_srs_t *srs;         // BCF synced readers holding target alleles for CALL_CONSTR_ALLELES
     bcf1_t *rec;
     bcf_hdr_t *hdr;
     uint32_t flag;          // One or more of the CALL_* flags defined above

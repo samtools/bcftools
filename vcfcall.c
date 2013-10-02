@@ -47,7 +47,6 @@ typedef struct
     char *bcf_fname;
     char **samples;             // for subsampling and ploidy
     int nsamples, *samples_map;
-    bcf_srs_t *files;           // synced reader
     char *regions, *targets;    // regions to process
 
     call_t aux;     // parameters and temporary data
@@ -230,19 +229,20 @@ static char **read_samples(call_t *call, const char *fn, int *_n)
 	return sam;
 }
 
+
 static void init_data(args_t *args)
 {
-    args->files = bcf_sr_init();
+    args->aux.srs = bcf_sr_init();
 
     // Open files for input and output, initialize structures
     if ( args->targets )
     {
-        if ( bcf_sr_set_targets(args->files, args->targets, args->aux.flag&CALL_CONSTR_ALLELES ? 3 : 0)<0 )
+        if ( bcf_sr_set_targets(args->aux.srs, args->targets, args->aux.flag&CALL_CONSTR_ALLELES ? 3 : 0)<0 )
             error("Failed to read the targets: %s\n", args->targets);
     }
     if ( args->regions )
     {
-        if ( bcf_sr_set_regions(args->files, args->regions)<0 )
+        if ( bcf_sr_set_regions(args->aux.srs, args->regions)<0 )
             error("Failed to read the targets: %s\n", args->regions);
     }
     
@@ -251,17 +251,17 @@ static void init_data(args_t *args)
     {
         mode |= args->flag & CF_VCFIN ? FT_VCF : FT_BCF;        // VCF or BCF on input?
     }
-    if ( !bcf_sr_open_reader(args->files, args->bcf_fname, mode) ) error("Failed to open: %s\n", args->bcf_fname);
+    if ( !bcf_sr_open_reader(args->aux.srs, args->bcf_fname, mode) ) error("Failed to open: %s\n", args->bcf_fname);
 
-    if ( args->nsamples && args->nsamples != args->files->readers[0].header->n[BCF_DT_SAMPLE] )
+    if ( args->nsamples && args->nsamples != args->aux.srs->readers[0].header->n[BCF_DT_SAMPLE] )
     {
         args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
-        args->aux.hdr = bcf_hdr_subset(args->files->readers[0].header, args->nsamples, args->samples, args->samples_map);
+        args->aux.hdr = bcf_hdr_subset(args->aux.srs->readers[0].header, args->nsamples, args->samples, args->samples_map);
         for (i=0; i<args->nsamples; i++)
             if ( args->samples_map[i]<0 ) fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
     }
     else
-        args->aux.hdr = bcf_hdr_dup(args->files->readers[0].header);
+        args->aux.hdr = bcf_hdr_dup(args->aux.srs->readers[0].header);
 
     // Reorder ploidy and family indexes to match mpileup's output and exclude samples which are not available
     if ( args->aux.ploidy )
@@ -327,7 +327,7 @@ static void destroy_data(args_t *args)
     free(args->aux.ploidy);
     bcf_hdr_destroy(args->aux.hdr);
     hts_close(args->out_fh);
-    bcf_sr_destroy(args->files);
+    bcf_sr_destroy(args->aux.srs);
 }
 
 static void usage(args_t *args)
@@ -455,9 +455,9 @@ int main_vcfcall(int argc, char *argv[])
 
     init_data(&args);
 
-    while ( bcf_sr_next_line(args.files) )
+    while ( bcf_sr_next_line(args.aux.srs) )
     {
-        bcf1_t *bcf_rec = args.files->readers[0].buffer[0];
+        bcf1_t *bcf_rec = args.aux.srs->readers[0].buffer[0];
         if ( args.samples_map ) bcf_subset(args.aux.hdr, bcf_rec, args.nsamples, args.samples_map);
         bcf_unpack(bcf_rec, BCF_UN_STR);
 

@@ -86,6 +86,7 @@ void mcall_init(call_t *call)
 
 void mcall_destroy(call_t *call) 
 { 
+    free(call->itmp);
     mcall_destroy_trios(call);
     free(call->GLs);
     free(call->sumGLs);
@@ -645,6 +646,80 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
     bcf1_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*nsmpl);
 }
 
+static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
+{
+    bcf_sr_regions_t *tgt = call->srs->targets;
+    if ( tgt->nals>4 ) error("Maximum accepted number of alleles is 4, got %d\n", tgt->nals);
+    hts_expand(char*,tgt->nals+1,call->nals,call->als);
+
+    int has_x = rec->d.allele[rec->n_allele-1][0]=='X' ? 1 : 0;
+    int has_new = 0;
+
+    int i, j, nals = 1;
+    for (i=1; i<call->nals_map; i++) call->als_map[i] = -1;
+
+    // always keep the reference allele
+    call->als[0] = rec->d.allele[0];
+    call->als_map[0] = 0;
+
+    // create mapping from new to old alleles
+    for (i=0; i<tgt->nals; i++)
+    {
+        if ( !strcmp(tgt->als[i],rec->d.allele[0]) ) continue;   // reference allele already added
+
+        // is this a new allele?
+        for (j=0; j<rec->n_allele; j++)
+            if ( !strcmp(tgt->als[i],rec->d.allele[j]) ) break;
+
+        if ( j<tgt->nals ) // existing allele
+        {
+            call->als[nals] = rec->d.allele[j];
+            call->als_map[nals] = j;
+        }
+        else // new allele
+        {
+            has_new = 1;
+            call->als[nals] = tgt->als[i];
+            if ( has_x==1 ) call->als_map[nals] = rec->n_allele - 1;
+            else has_x = -1;
+        }
+        nals++;
+    }
+    if ( !has_new ) return;
+    assert( has_x != -1 );  // todo
+    bcf1_update_alleles(call->hdr, rec, (const char**)call->als, nals);
+    
+    // create mapping from new PL to old PL
+    int k = 0;
+    for (i=0; i<nals; i++)
+    {
+        for (j=0; j<=i; j++)
+            call->pl_map[k++] = call->als_map[i]*(call->als_map[i]+1)/2 + call->als_map[j];
+    }
+
+    // update PL
+    call->nPLs = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
+    int nsmpl  = bcf_nsamples(call->hdr);
+    int npls_ori = call->nPLs / nsmpl;
+    int npls_new = k;
+    hts_expand(int,npls_new*nsmpl,call->n_itmp,call->itmp);
+    int *ori = call->PLs, *new = call->itmp;
+    for (i=0; i<nsmpl; i++)
+    {
+        for (k=0; k<npls_new; k++) new[k] = ori[call->pl_map[k]];
+        ori += npls_ori;
+        new += npls_new;
+    }
+    bcf1_update_format_int32(call->hdr, rec, "PL", call->itmp, npls_new*nsmpl);
+
+    // update QS
+    float qsum[4];
+    int nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
+    for (i=0; i<nals; i++)
+        qsum[i] = i<nqs ? call->qsum[call->als_map[i]] : 0;
+    bcf1_update_info_float(call->hdr, rec, "QS", qsum, nals);
+}
+
 
 /**
   *  This function implements the multiallelic calling model. It has two major parts:
@@ -654,14 +729,15 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
   */
 int mcall(call_t *call, bcf1_t *rec)
 {
-//if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec);
+    // Force alleles when calling genotypes given alleles was requested
+    if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec);
 
-    int nals = rec->n_allele;
+    int nsmpl = bcf_nsamples(call->hdr);
+    int nals  = rec->n_allele;
     if ( nals>4 )
         error("FIXME: Not ready for more than 4 alleles at %s:%d (%d)\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1, nals);
 
     // Get the genotype likelihoods
-    int nsmpl = bcf_nsamples(call->hdr);
     call->nPLs = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
     if ( call->nPLs!=nsmpl*nals*(nals+1)/2 && call->nPLs!=nsmpl*nals )  // a mixture of diploid and haploid or haploid only
         error("Wrong number of PL fields? nals=%d npl=%d\n", nals,call->nPLs);
