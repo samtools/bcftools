@@ -295,6 +295,28 @@ static fmt_t *register_tag(args_t *args, int type, char *key, int is_gtf)
     fmt->key   = key ? strdup(key) : NULL;
     fmt->is_gt_field = is_gtf;
     fmt->subscript = -1;
+
+    // Allow non-format tags, such as CHROM, INFO, etc., to appear amongst the format tags.
+    if ( key )
+    {
+        int id = bcf_id2int(args->header, BCF_DT_ID, key);
+        if ( fmt->type==T_FORMAT && !bcf_idinfo_exists(args->header,BCF_HL_FMT,id) )
+        {
+            if ( !strcmp("CHROM",key) ) { fmt->type = T_CHROM; }
+            else if ( !strcmp("POS",key) ) { fmt->type = T_POS; }
+            else if ( !strcmp("ID",key) ) { fmt->type = T_ID; }
+            else if ( !strcmp("REF",key) ) { fmt->type = T_REF; }
+            else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
+            else if ( !strcmp("QUAL",key) ) { fmt->type = T_QUAL; }
+            else if ( !strcmp("FILTER",key) ) { fmt->type = T_FILTER; }
+            else if ( id>=0 && bcf_idinfo_exists(args->header,BCF_HL_INFO,id) ) 
+            { 
+                fmt->type = T_INFO; 
+                fprintf(stderr,"Warning: Assuming INFO/%s\n", key);
+            }
+        }
+    }
+
     switch (fmt->type)
     {
         case T_CHROM: fmt->handler = &process_chrom; break;

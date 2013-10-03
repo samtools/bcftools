@@ -59,7 +59,7 @@ static void init_data(args_t *args)
                 ksprintf(&flt_name,"Filter%d", ++i);
                 id = bcf_id2int(args->hdr,BCF_DT_ID,flt_name.s);
             }
-            while ( id>=0 && bcf_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
+            while ( bcf_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
         }
         ksprintf(&hdr_line,"##FILTER=<ID=%s,Description=\"Set if %s: %s\">", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", args->filter_str);
         bcf_hdr_append(args->hdr, hdr_line.s);

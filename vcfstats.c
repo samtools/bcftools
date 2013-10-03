@@ -322,9 +322,9 @@ static void init_stats(args_t *args)
             stats->smpl_indels = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_dp     = (unsigned long int *) calloc(args->files->n_smpl,sizeof(unsigned long int));
             stats->smpl_ndp    = (int *) calloc(args->files->n_smpl,sizeof(int));
-            stats->smpl_sngl    = (int *) calloc(args->files->n_smpl,sizeof(int));
+            stats->smpl_sngl   = (int *) calloc(args->files->n_smpl,sizeof(int));
             #if HWE_STATS
-                stats->af_hwe = (int*) calloc(args->m_af*args->naf_hwe,sizeof(int));
+                stats->af_hwe  = (int*) calloc(args->m_af*args->naf_hwe,sizeof(int));
             #endif
         }
         idist_init(&stats->dp, args->dp_min,args->dp_max,args->dp_step);
@@ -361,6 +361,7 @@ static void destroy_stats(args_t *args)
             if (stats->qual_indels) free(stats->qual_indels);
         #endif
         #if HWE_STATS
+            //if ( args->files->n_smpl ) free(stats->af_hwe);
             free(stats->af_hwe);
         #endif
         free(stats->insertions);
@@ -643,10 +644,13 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
     }
 
     #if HWE_STATS
-        float het_frac = (float)nhet_tot/(nhet_tot + nref_tot + nalt_tot);
-        int idx = het_frac*(args->naf_hwe - 1);
-        if ( line->n_allele>1 ) idx += args->naf_hwe*args->tmp_iaf[1]; 
-        stats->af_hwe[idx]++;
+        if ( nhet_tot + nref_tot + nalt_tot )
+        {
+            float het_frac = (float)nhet_tot/(nhet_tot + nref_tot + nalt_tot);
+            int idx = het_frac*(args->naf_hwe - 1);
+            if ( line->n_allele>1 ) idx += args->naf_hwe*args->tmp_iaf[1]; 
+            stats->af_hwe[idx]++;
+        }
     #endif
 
     if ( (fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"DP")) )

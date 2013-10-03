@@ -474,7 +474,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( strcmp(".",out[j].key) )
             {
                 out[j].hdr_id = bcf_id2int(filter->hdr, BCF_DT_ID, out[j].key);
-                if ( out[j].hdr_id<0 || !bcf_idinfo_exists(filter->hdr,BCF_HL_FLT,out[j].hdr_id) )
+                if ( !bcf_idinfo_exists(filter->hdr,BCF_HL_FLT,out[j].hdr_id) )
                     error("The filter \"%s\" not present in the VCF header\n", out[j].key);
             }
             else
