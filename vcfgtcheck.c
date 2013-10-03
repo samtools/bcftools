@@ -17,6 +17,7 @@ typedef struct
 {
 	bcf_srs_t *files;           // first reader is the query VCF - single sample normally or multi-sample for cross-check
     bcf_hdr_t *gt_hdr, *sm_hdr; // VCF with genotypes to compare against and the query VCF
+    int *tmp_arr, ntmp_arr, *pl_arr, npl_arr;
     double *lks, *sigs;
     int *cnts, *dps, hom_only, cross_check;
 	char *cwd, **argv, *gt_fname, *plot, *query_sample, *target_sample;
@@ -191,12 +192,12 @@ static void plot_cross_check(args_t *args)
 static void init_data(args_t *args)
 {
     args->sm_hdr = args->files->readers[0].header;
-    if ( !args->sm_hdr->n[BCF_DT_SAMPLE] ) error("No samples in %s?\n", args->files->readers[0].fname);
+    if ( !bcf_nsamples(args->sm_hdr) ) error("No samples in %s?\n", args->files->readers[0].fname);
 
     if ( !args->cross_check )
     {
         args->gt_hdr = args->files->readers[1].header;
-        int nsamples = args->gt_hdr->n[BCF_DT_SAMPLE];
+        int nsamples = bcf_nsamples(args->gt_hdr);
         if ( !nsamples ) error("No samples in %s?\n", args->files->readers[1].fname);
         args->lks  = (double*) calloc(nsamples,sizeof(double));
         args->sigs = (double*) calloc(nsamples,sizeof(double));
@@ -205,7 +206,7 @@ static void init_data(args_t *args)
     }
     else
     {
-        int nsamples = args->sm_hdr->n[BCF_DT_SAMPLE];
+        int nsamples = bcf_nsamples(args->sm_hdr);
         int narr = (nsamples-1)*nsamples/2;
         args->lks  = (double*) calloc(narr,sizeof(double));
         args->cnts = (int*) calloc(narr,sizeof(int));
@@ -273,14 +274,50 @@ static void print_header(args_t *args, FILE *fp)
     fprintf(fp, "# \t %s\n#\n", args->cwd);
 }
 
+static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
+{
+    // PLs not present, use GTs instead. 
+    int nsm_gt, i;
+    if ( (nsm_gt=bcf_get_genotypes(hdr, line, &args->tmp_arr, &args->ntmp_arr)) <= 0 ) 
+        error("GT not present at %s:%d?\n", hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
+    nsm_gt /= bcf_nsamples(hdr);
+    int npl = line->n_allele*(line->n_allele+1)/2;
+    hts_expand(int,npl*bcf_nsamples(hdr),args->npl_arr,args->pl_arr);
+    for (i=0; i<bcf_nsamples(hdr); i++)
+    {
+        int *gt_ptr = args->tmp_arr + i*nsm_gt;
+        int a = bcf_gt_allele(gt_ptr[0]);
+        int b = bcf_gt_allele(gt_ptr[1]);
+
+        int j, *pl_ptr = args->pl_arr + i*npl;
+        if ( a<0 || b<0 ) // missing genotype
+        {
+            for (j=0; j<npl; j++) pl_ptr[j] = 0;
+        }
+        else
+        {
+            for (j=0; j<npl; j++) pl_ptr[j] = 99;
+            int idx = a>b ? a*(a+1)/2 + b : b*(b+1)/2 + a;
+            pl_ptr[idx] = 0;
+        }
+    }
+    return npl;
+}
+
 static void check_gt(args_t *args)
 {
-    int i,j, ret, *gt2ipl = NULL, m_gt2ipl = 0, *gt_cnts = NULL, *gt_arr = NULL, *pl_arr = NULL, ngt_arr = 0, npl_arr = 0, *dp_arr = NULL, ndp_arr = 0;
+    int i,j, ret, *gt2ipl = NULL, m_gt2ipl = 0, *gt_cnts = NULL, *gt_arr = NULL, ngt_arr = 0, *dp_arr = NULL, ndp_arr = 0;
+    int fake_pls = 0;
 
 fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
-
     if ( bcf_id2int(args->gt_hdr, BCF_DT_ID, "GT")<0 ) error("[E::%s] GT not present in the header of %s?\n", __func__, args->files->readers[1].fname);
-    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) error("[E::%s] PL not present in the header of %s?\n", __func__, args->files->readers[0].fname);
+    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
+    {
+        if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
+            error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
+        fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
+        fake_pls = 1;
+    }
     if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
     int tgt_isample = -1, query_isample = 0;
     if ( args->target_sample ) 
@@ -318,21 +355,26 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
         if ( !init_gt2ipl(args, gt_line, sm_line, gt2ipl, n_gt2ipl) ) continue;
 
         int ngt, npl;
-        if ( (ngt=bcf_get_format_int(args->gt_hdr, gt_line, "GT", &gt_arr, &ngt_arr)) <= 0 ) 
+        if ( (ngt=bcf_get_genotypes(args->gt_hdr, gt_line, &gt_arr, &ngt_arr)) <= 0 ) 
             error("GT not present at %s:%d?", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
-        ngt /= args->gt_hdr->n[BCF_DT_SAMPLE];
+        ngt /= bcf_nsamples(args->gt_hdr);
 
-        if ( (npl=bcf_get_format_int(args->sm_hdr, sm_line, "PL", &pl_arr, &npl_arr)) <= 0 )
-            error("PL not present at %s:%d?", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
-        npl /= args->sm_hdr->n[BCF_DT_SAMPLE];
+        if ( !fake_pls )
+        {
+            if ( (npl=bcf_get_format_int(args->sm_hdr, sm_line, "PL", &args->pl_arr, &args->npl_arr)) <= 0 )
+                error("PL not present at %s:%d?", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
+            npl /= bcf_nsamples(args->sm_hdr);
+        }
+        else
+            npl = fake_PLs(args, args->sm_hdr, sm_line);
 
         // Set the counts of genotypes to test significance
         for (i=0; i<=n_gt2ipl; i++) gt_cnts[i] = 0;
-        for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++)
+        for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
         {
             int *gt_ptr = gt_arr + i*ngt;
-            int a = (gt_ptr[0]>>1) - 1;
-            int b = (gt_ptr[1]>>1) - 1;
+            int a = bcf_gt_allele(gt_ptr[0]);
+            int b = bcf_gt_allele(gt_ptr[1]);
             if ( a<0 || b<0 ) 
                 gt_cnts[n_gt2ipl - 1]++;
             else
@@ -347,8 +389,8 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
         if ( tgt_isample>=0 )
         {
             int *gt_ptr = gt_arr + tgt_isample*ngt;
-            int a = (gt_ptr[0]>>1) - 1;
-            int b = (gt_ptr[1]>>1) - 1; 
+            int a = bcf_gt_allele(gt_ptr[0]);
+            int b = bcf_gt_allele(gt_ptr[1]);
             if ( args->hom_only && a!=b ) continue; // heterozygous genotype
             printf("%s\t%d", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
             for (i=0; i<gt_line->n_allele; i++) printf("%c%s", i==0?'\t':',', gt_line->d.allele[i]);
@@ -362,14 +404,14 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
         if ( tgt_isample<0 )
         {
             // PLs of the query sample
-            int *pl_ptr = pl_arr + query_isample*npl;
+            int *pl_ptr = args->pl_arr + query_isample*npl;
 
             // this is the default output, check the query VCF against the -g VCF
-            for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++)
+            for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
             {
                 int *gt_ptr = gt_arr + i*ngt;
-                int a = (gt_ptr[0]>>1) - 1;
-                int b = (gt_ptr[1]>>1) - 1;
+                int a = bcf_gt_allele(gt_ptr[0]);
+                int b = bcf_gt_allele(gt_ptr[1]);
                 if ( a<0 || b<0 ) continue; // missing genotype
                 if ( args->hom_only && a!=b ) continue; // heterozygous genotype
                 igt = a<=b ? bcf_ij2G(a,b) : bcf_ij2G(b,a);
@@ -393,7 +435,7 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
         else
         {
             // per-site listing of the query sample in the query file
-            int *pl_ptr = pl_arr + query_isample*npl; // PLs of the query sample
+            int *pl_ptr = args->pl_arr + query_isample*npl; // PLs of the query sample
             printf("\t%d", dp_arr[0]);
             for (i=0; i<sm_line->n_allele; i++) printf("%c%s", i==0?'\t':',', sm_line->d.allele[i]); 
             for (igt=0; igt<npl; igt++)   
@@ -406,13 +448,14 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
     free(gt2ipl);
     free(gt_cnts);
     free(gt_arr);
-    free(pl_arr);
+    free(args->pl_arr);
+    free(args->tmp_arr);
     free(dp_arr);
 
     // Scale LKs and certainties
     double max = args->lks[0];
-    for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++) if ( max<args->lks[i] ) max = args->lks[i];
-    for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++) args->lks[i] = (max - args->lks[i]) / max;
+    for (i=0; i<bcf_nsamples(args->gt_hdr); i++) if ( max<args->lks[i] ) max = args->lks[i];
+    for (i=0; i<bcf_nsamples(args->gt_hdr); i++) args->lks[i] = (max - args->lks[i]) / max;
 
     // Output
     if ( args->plot )
@@ -420,7 +463,7 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
         FILE *fp = open_file(NULL, "w", "%s.tab", args->plot);
         print_header(args, fp);
         fprintf(fp, "# [1]Concordance\t[2]Uncertainty\t[3]Average depth\t[4]Number of sites\t[5]Sample\n");
-        for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++)
+        for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
             fprintf(fp, "%f\t%f\t%.1f\t%d\t%s\n", args->lks[i], args->sigs[i], args->cnts[i]?(double)args->dps[i]/args->cnts[i]:0.0, args->cnts[i], args->gt_hdr->samples[i]);
         fclose(fp);
         plot_check(args);
@@ -429,7 +472,7 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
     {
         print_header(args, stdout);
         printf("# [1]Concordance\t[2]Uncertainty\t[3]Average depth\t[4]Number of sites\t[5]Sample\n");
-        for (i=0; i<args->gt_hdr->n[BCF_DT_SAMPLE]; i++)
+        for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
             printf("%f\t%f\t%.1f\t%d\t%s\n", args->lks[i], args->sigs[i], args->cnts[i]?(double)args->dps[i]/args->cnts[i]:0.0, args->cnts[i], args->gt_hdr->samples[i]);
     }
 }
@@ -461,42 +504,53 @@ static inline int is_hom_most_likely(int nals, int *pls)
 
 static void cross_check_gts(args_t *args)
 {
-    int nsamples = args->sm_hdr->n[BCF_DT_SAMPLE], ndp_arr = 0, npl_arr = 0;
+    int nsamples = bcf_nsamples(args->sm_hdr), ndp_arr = 0;
     unsigned int *dp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)), *ndp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)); // this will overflow one day...
+    int fake_pls = 0, ignore_dp = 0;
 
-fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
-
-    int i,j,k,idx, *dp_arr = NULL, *pl_arr = NULL, pl_warned = 0, dp_warned = 0;
+    int i,j,k,idx, *dp_arr = NULL, pl_warned = 0, dp_warned = 0;
     int *is_hom = args->hom_only ? (int*) malloc(sizeof(int)*nsamples) : NULL;
-    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) error("[E::%s] PL not present in the header of %s?\n", __func__, args->files->readers[0].fname);
-    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
+    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
+    {
+        if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
+            error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
+        fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
+        fake_pls = 1;
+    }
+    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) ignore_dp = 1;
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = args->files->readers[0].buffer[0];
         bcf_unpack(line, BCF_UN_FMT);
 
-        int npl = bcf_get_format_int(args->sm_hdr, line, "PL", &pl_arr, &npl_arr);
-        if ( npl<=0 ) { pl_warned++; continue; }
-        npl /= nsamples;
-        if ( bcf_get_format_int(args->sm_hdr, line, "DP", &dp_arr, &ndp_arr) <= 0 ) { dp_warned++; continue; }
+        int npl;
+        if ( !fake_pls )
+        {
+            npl = bcf_get_format_int(args->sm_hdr, line, "PL", &args->pl_arr, &args->npl_arr);
+            if ( npl<=0 ) { pl_warned++; continue; }
+            npl /= nsamples;
+        }
+        else
+            npl = fake_PLs(args, args->sm_hdr, line);
+        if ( !ignore_dp && bcf_get_format_int(args->sm_hdr, line, "DP", &dp_arr, &ndp_arr) <= 0 ) { dp_warned++; continue; }
 
         if ( args->hom_only )
         {
             for (i=0; i<nsamples; i++)
-                is_hom[i] = is_hom_most_likely(line->n_allele, pl_arr+i*npl);
+                is_hom[i] = is_hom_most_likely(line->n_allele, args->pl_arr+i*npl);
         }
 
         idx = 0;
         for (i=1; i<nsamples; i++)
         {
-            int *ipl = &pl_arr[i*npl];
-            if ( dp_arr[i]==bcf_int32_missing || !dp_arr[i] ) { idx += i; continue; }
+            int *ipl = &args->pl_arr[i*npl];
+            if ( !ignore_dp && (dp_arr[i]==bcf_int32_missing || !dp_arr[i]) ) { idx += i; continue; }
             if ( args->hom_only && !is_hom[i] ) { idx += i; continue; }
 
             for (j=0; j<i; j++)
             {
-                int *jpl = &pl_arr[j*npl];
-                if ( dp_arr[j]==bcf_int32_missing || !dp_arr[j] ) { idx++; continue; }
+                int *jpl = &args->pl_arr[j*npl];
+                if ( !ignore_dp && (dp_arr[j]==bcf_int32_missing || !dp_arr[j]) ) { idx++; continue; }
                 if ( args->hom_only && !is_hom[j] ) { idx++; continue; }
 
                 int min_pl = INT_MAX;
@@ -510,15 +564,19 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
 
                 args->lks[idx] += min_pl;
                 args->cnts[idx]++;
-                args->dps[idx] += dp_arr[i] < dp_arr[j] ? dp_arr[i] : dp_arr[j];
-                dp[i] += dp_arr[i]; ndp[i]++;
-                dp[j] += dp_arr[j]; ndp[j]++;
+                if ( !ignore_dp )
+                {
+                    args->dps[idx] += dp_arr[i] < dp_arr[j] ? dp_arr[i] : dp_arr[j];
+                    dp[i] += dp_arr[i]; ndp[i]++;
+                    dp[j] += dp_arr[j]; ndp[j]++;
+                }
                 idx++;
             }
         }
     }
     if ( dp_arr ) free(dp_arr);
-    if ( pl_arr ) free(pl_arr);
+    if ( args->pl_arr ) free(args->pl_arr);
+    if ( args->tmp_arr ) free(args->tmp_arr);
     if ( is_hom ) free(is_hom);
 
     if ( pl_warned ) fprintf(stderr, "[W::%s] PL was not found at %d site(s)\n", __func__, pl_warned);
@@ -593,11 +651,11 @@ static void usage(void)
 	fprintf(stderr, "         With -s but no -p, likelihoods at all sites are printed.\n");
 	fprintf(stderr, "Usage:   vcfgtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -g, --genotypes <file>             genotypes to compare against in VCF\n");
-	fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only for very low coverage data\n");
+	fprintf(stderr, "    -g, --genotypes <file>             genotypes to compare against\n");
+	fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only (useful for low coverage data)\n");
 	fprintf(stderr, "    -p, --plot <prefix>                plot\n");
-    fprintf(stderr, "    -r, --region <chr|chr:from-to>     perform the check in the given region only\n");
-	fprintf(stderr, "    -s, --target-sample <string>       target sample in -g file (used for plotting only)\n");
+    fprintf(stderr, "    -r, --region <chr|chr:from-to>     check only the given region\n");
+	fprintf(stderr, "    -s, --target-sample <string>       target sample in the -g file (used for plotting only)\n");
 	fprintf(stderr, "    -S, --query-sample <string>        query sample (by default the first sample is checked)\n");
 	fprintf(stderr, "\n");
 	exit(1);
