@@ -3,6 +3,7 @@
 
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
+#include "vcmp.h"
 
 #define CALL_KEEPALT        1
 #define CALL_VARONLY        (1<<1)
@@ -37,6 +38,7 @@ typedef struct
     double *GLs, *sumGLs;
     int *GQs;               // VCF FORMAT genotype qualities
     int *itmp, n_itmp;      // temporary int array, used for new PLs with CALL_CONSTR_ALLELES
+    vcmp_t *vcmp;
 
     // ccall only
     double indel_frac, theta, min_lrt, min_perm_p; 

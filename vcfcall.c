@@ -491,7 +491,6 @@ int main_vcfcall(int argc, char *argv[])
         if ( (args.aux.flag & CALL_VARONLY) && ret==0 ) continue;     // not a variant
 
         // Output
-        if ( args.output_type & FT_BCF ) bcf1_sync(bcf_rec);
         vcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
     }
     destroy_data(&args);

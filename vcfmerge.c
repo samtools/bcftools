@@ -392,7 +392,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         if ( i==0 || al_idxs[i] ) ma->out_als[k++] = ma->als[i];
     assert( k==ma->nout_als );
     normalize_alleles(ma->out_als, ma->nout_als);
-    bcf1_update_alleles(out_hdr, out, (const char**) ma->out_als, ma->nout_als);
+    bcf_update_alleles(out_hdr, out, (const char**) ma->out_als, ma->nout_als);
     free(al_idxs);
 }
 
@@ -567,8 +567,8 @@ void update_AN_AC(bcf_hdr_t *hdr, bcf1_t *line)
     if ( ret>0 )
     {
         for (i=0; i<line->n_allele; i++) an += tmp[i];
-        if ( AN_ptr ) bcf1_update_info_int32(hdr, line, "AN", &an, 1);
-        if ( AC_ptr ) bcf1_update_info_int32(hdr, line, "AC", tmp+1, line->n_allele-1);
+        if ( AN_ptr ) bcf_update_info_int32(hdr, line, "AN", &an, 1);
+        if ( AC_ptr ) bcf_update_info_int32(hdr, line, "AC", tmp+1, line->n_allele-1);
     }
     free(tmp);
 }
@@ -665,7 +665,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         }
         #undef BRANCH
     }
-    bcf1_update_format_int32(out_hdr, out, "GT", (int32_t*)ma->tmp_arr, nsamples*nsize);
+    bcf_update_format_int32(out_hdr, out, "GT", (int32_t*)ma->tmp_arr, nsamples*nsize);
     for (i=0; i<nsamples; i++)
     {
         assert( ma->smpl_ploidy[i]>0 && ma->smpl_ploidy[i]<=2 );
@@ -811,11 +811,11 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         #undef BRANCH
     }
     if ( type==BCF_BT_FLOAT )
-        bcf1_update_format_float(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
+        bcf_update_format_float(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
     else if ( type==BCF_BT_CHAR )
-        bcf1_update_format_char(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
+        bcf_update_format_char(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
     else
-        bcf1_update_format_int32(out_hdr, out, key, (int32_t*)ma->tmp_arr, nsamples*nsize);
+        bcf_update_format_int32(out_hdr, out, key, (int32_t*)ma->tmp_arr, nsamples*nsize);
 }
 
 void merge_format(args_t *args, bcf1_t *out)
@@ -898,7 +898,6 @@ void merge_line(args_t *args)
     merge_info(args, out);
     merge_format(args, out);
 
-    if ( args->output_type & FT_BCF ) bcf1_sync(out);
     vcf_write1(args->out_fh, args->out_hdr, out);
 }
 

@@ -275,6 +275,6 @@ sub test_vcf_call_cAls
 {
     my ($opts,%args) = @_;
     bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -mvA -C alleles -t $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_call");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -mA -C alleles -t $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_call");
 }
 

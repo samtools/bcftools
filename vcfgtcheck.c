@@ -19,7 +19,7 @@ typedef struct
     bcf_hdr_t *gt_hdr, *sm_hdr; // VCF with genotypes to compare against and the query VCF
     int *tmp_arr, ntmp_arr, *pl_arr, npl_arr;
     double *lks, *sigs;
-    int *cnts, *dps, hom_only, cross_check;
+    int *cnts, *dps, hom_only, cross_check, avg_site_discordance;
 	char *cwd, **argv, *gt_fname, *plot, *query_sample, *target_sample;
 	int argc;
 }
@@ -135,7 +135,8 @@ static void plot_cross_check(args_t *args)
             "           dp.append([i,float(row[2])])\n"
             "           i += 1\n"
             "       elif row[0]=='CN':\n"
-            "           val = float(row[1])/int(row[2])\n"
+            "           val = 0\n"
+            "           if int(row[2])!=0: val = float(row[1])/int(row[2])\n"
             "           if not dat:\n"
             "               dat = [[0]*len(sm2id) for x in xrange(len(sm2id))]\n"
             "               min = val\n"
@@ -192,12 +193,12 @@ static void plot_cross_check(args_t *args)
 static void init_data(args_t *args)
 {
     args->sm_hdr = args->files->readers[0].header;
-    if ( !bcf_nsamples(args->sm_hdr) ) error("No samples in %s?\n", args->files->readers[0].fname);
+    if ( !bcf_hdr_nsamples(args->sm_hdr) ) error("No samples in %s?\n", args->files->readers[0].fname);
 
     if ( !args->cross_check )
     {
         args->gt_hdr = args->files->readers[1].header;
-        int nsamples = bcf_nsamples(args->gt_hdr);
+        int nsamples = bcf_hdr_nsamples(args->gt_hdr);
         if ( !nsamples ) error("No samples in %s?\n", args->files->readers[1].fname);
         args->lks  = (double*) calloc(nsamples,sizeof(double));
         args->sigs = (double*) calloc(nsamples,sizeof(double));
@@ -206,7 +207,7 @@ static void init_data(args_t *args)
     }
     else
     {
-        int nsamples = bcf_nsamples(args->sm_hdr);
+        int nsamples = bcf_hdr_nsamples(args->sm_hdr);
         int narr = (nsamples-1)*nsamples/2;
         args->lks  = (double*) calloc(narr,sizeof(double));
         args->cnts = (int*) calloc(narr,sizeof(int));
@@ -280,10 +281,10 @@ static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
     int nsm_gt, i;
     if ( (nsm_gt=bcf_get_genotypes(hdr, line, &args->tmp_arr, &args->ntmp_arr)) <= 0 ) 
         error("GT not present at %s:%d?\n", hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
-    nsm_gt /= bcf_nsamples(hdr);
+    nsm_gt /= bcf_hdr_nsamples(hdr);
     int npl = line->n_allele*(line->n_allele+1)/2;
-    hts_expand(int,npl*bcf_nsamples(hdr),args->npl_arr,args->pl_arr);
-    for (i=0; i<bcf_nsamples(hdr); i++)
+    hts_expand(int,npl*bcf_hdr_nsamples(hdr),args->npl_arr,args->pl_arr);
+    for (i=0; i<bcf_hdr_nsamples(hdr); i++)
     {
         int *gt_ptr = args->tmp_arr + i*nsm_gt;
         int a = bcf_gt_allele(gt_ptr[0]);
@@ -292,7 +293,7 @@ static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
         int j, *pl_ptr = args->pl_arr + i*npl;
         if ( a<0 || b<0 ) // missing genotype
         {
-            for (j=0; j<npl; j++) pl_ptr[j] = 0;
+            for (j=0; j<npl; j++) pl_ptr[j] = -1;
         }
         else
         {
@@ -357,20 +358,20 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
         int ngt, npl;
         if ( (ngt=bcf_get_genotypes(args->gt_hdr, gt_line, &gt_arr, &ngt_arr)) <= 0 ) 
             error("GT not present at %s:%d?", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
-        ngt /= bcf_nsamples(args->gt_hdr);
+        ngt /= bcf_hdr_nsamples(args->gt_hdr);
 
         if ( !fake_pls )
         {
             if ( (npl=bcf_get_format_int(args->sm_hdr, sm_line, "PL", &args->pl_arr, &args->npl_arr)) <= 0 )
                 error("PL not present at %s:%d?", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
-            npl /= bcf_nsamples(args->sm_hdr);
+            npl /= bcf_hdr_nsamples(args->sm_hdr);
         }
         else
             npl = fake_PLs(args, args->sm_hdr, sm_line);
 
         // Set the counts of genotypes to test significance
         for (i=0; i<=n_gt2ipl; i++) gt_cnts[i] = 0;
-        for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
+        for (i=0; i<bcf_hdr_nsamples(args->gt_hdr); i++)
         {
             int *gt_ptr = gt_arr + i*ngt;
             int a = bcf_gt_allele(gt_ptr[0]);
@@ -407,7 +408,7 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
             int *pl_ptr = args->pl_arr + query_isample*npl;
 
             // this is the default output, check the query VCF against the -g VCF
-            for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
+            for (i=0; i<bcf_hdr_nsamples(args->gt_hdr); i++)
             {
                 int *gt_ptr = gt_arr + i*ngt;
                 int a = bcf_gt_allele(gt_ptr[0]);
@@ -454,8 +455,8 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
 
     // Scale LKs and certainties
     double max = args->lks[0];
-    for (i=0; i<bcf_nsamples(args->gt_hdr); i++) if ( max<args->lks[i] ) max = args->lks[i];
-    for (i=0; i<bcf_nsamples(args->gt_hdr); i++) args->lks[i] = (max - args->lks[i]) / max;
+    for (i=0; i<bcf_hdr_nsamples(args->gt_hdr); i++) if ( max<args->lks[i] ) max = args->lks[i];
+    for (i=0; i<bcf_hdr_nsamples(args->gt_hdr); i++) args->lks[i] = (max - args->lks[i]) / max;
 
     // Output
     if ( args->plot )
@@ -463,7 +464,7 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
         FILE *fp = open_file(NULL, "w", "%s.tab", args->plot);
         print_header(args, fp);
         fprintf(fp, "# [1]Concordance\t[2]Uncertainty\t[3]Average depth\t[4]Number of sites\t[5]Sample\n");
-        for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
+        for (i=0; i<bcf_hdr_nsamples(args->gt_hdr); i++)
             fprintf(fp, "%f\t%f\t%.1f\t%d\t%s\n", args->lks[i], args->sigs[i], args->cnts[i]?(double)args->dps[i]/args->cnts[i]:0.0, args->cnts[i], args->gt_hdr->samples[i]);
         fclose(fp);
         plot_check(args);
@@ -472,7 +473,7 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
     {
         print_header(args, stdout);
         printf("# [1]Concordance\t[2]Uncertainty\t[3]Average depth\t[4]Number of sites\t[5]Sample\n");
-        for (i=0; i<bcf_nsamples(args->gt_hdr); i++)
+        for (i=0; i<bcf_hdr_nsamples(args->gt_hdr); i++)
             printf("%f\t%f\t%.1f\t%d\t%s\n", args->lks[i], args->sigs[i], args->cnts[i]?(double)args->dps[i]/args->cnts[i]:0.0, args->cnts[i], args->gt_hdr->samples[i]);
     }
 }
@@ -504,7 +505,7 @@ static inline int is_hom_most_likely(int nals, int *pls)
 
 static void cross_check_gts(args_t *args)
 {
-    int nsamples = bcf_nsamples(args->sm_hdr), ndp_arr = 0;
+    int nsamples = bcf_hdr_nsamples(args->sm_hdr), ndp_arr = 0;
     unsigned int *dp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)), *ndp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)); // this will overflow one day...
     int fake_pls = 0, ignore_dp = 0;
 
@@ -518,6 +519,11 @@ static void cross_check_gts(args_t *args)
         fake_pls = 1;
     }
     if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) ignore_dp = 1;
+
+    FILE *fp = args->plot ? open_file(NULL, "w", "%s.tab", args->plot) : stdout;
+    print_header(args, fp);
+    if ( args->avg_site_discordance ) fprintf(fp,"# [1]SD, Site Discordance\t[2]Chromosome\t[3]Position\t[4]Number of available pairs\t[5]Average discordance\n");
+
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = args->files->readers[0].buffer[0];
@@ -540,16 +546,19 @@ static void cross_check_gts(args_t *args)
                 is_hom[i] = is_hom_most_likely(line->n_allele, args->pl_arr+i*npl);
         }
 
+        double sum = 0; int nsum = 0;
         idx = 0;
         for (i=1; i<nsamples; i++)
         {
             int *ipl = &args->pl_arr[i*npl];
+            if ( *ipl==-1 ) { idx += i; continue; } // missing genotype
             if ( !ignore_dp && (dp_arr[i]==bcf_int32_missing || !dp_arr[i]) ) { idx += i; continue; }
             if ( args->hom_only && !is_hom[i] ) { idx += i; continue; }
 
             for (j=0; j<i; j++)
             {
                 int *jpl = &args->pl_arr[j*npl];
+                if ( *jpl==-1 ) { idx++; continue; } // missing genotype
                 if ( !ignore_dp && (dp_arr[j]==bcf_int32_missing || !dp_arr[j]) ) { idx++; continue; }
                 if ( args->hom_only && !is_hom[j] ) { idx++; continue; }
 
@@ -562,17 +571,27 @@ static void cross_check_gts(args_t *args)
                 }
                 if ( k!=npl ) { idx++; continue; }
 
+                if ( args->avg_site_discordance ) { sum += min_pl; nsum++; }
                 args->lks[idx] += min_pl;
                 args->cnts[idx]++;
+
                 if ( !ignore_dp )
                 {
                     args->dps[idx] += dp_arr[i] < dp_arr[j] ? dp_arr[i] : dp_arr[j];
                     dp[i] += dp_arr[i]; ndp[i]++;
                     dp[j] += dp_arr[j]; ndp[j]++;
                 }
+                else
+                {
+                    args->dps[idx]++;
+                    dp[i]++; ndp[i]++;
+                    dp[j]++; ndp[j]++;
+                }
                 idx++;
             }
         }
+        if ( args->avg_site_discordance ) 
+            fprintf(fp,"SD\t%s\t%d\t%d\t%.0f\n", args->sm_hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, nsum, nsum?sum/nsum:0);
     }
     if ( dp_arr ) free(dp_arr);
     if ( args->pl_arr ) free(args->pl_arr);
@@ -582,8 +601,6 @@ static void cross_check_gts(args_t *args)
     if ( pl_warned ) fprintf(stderr, "[W::%s] PL was not found at %d site(s)\n", __func__, pl_warned);
     if ( dp_warned ) fprintf(stderr, "[W::%s] DP was not found at %d site(s)\n", __func__, dp_warned);
 
-    FILE *fp = args->plot ? open_file(NULL, "w", "%s.tab", args->plot) : stdout;
-    print_header(args, fp);
     // Output samples sorted by average discordance
     double *score = (double*) calloc(nsamples,sizeof(double));
     idx = 0;
@@ -651,6 +668,7 @@ static void usage(void)
 	fprintf(stderr, "         With -s but no -p, likelihoods at all sites are printed.\n");
 	fprintf(stderr, "Usage:   vcfgtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "    -a, --average-discordance          output average discordance for all sites\n");
 	fprintf(stderr, "    -g, --genotypes <file>             genotypes to compare against\n");
 	fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only (useful for low coverage data)\n");
 	fprintf(stderr, "    -p, --plot <prefix>                plot\n");
@@ -667,9 +685,11 @@ int main_vcfgtcheck(int argc, char *argv[])
 	args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->files  = bcf_sr_init();
 	args->argc   = argc; args->argv = argv; set_cwd(args);
+    char *regions = NULL;
 
 	static struct option loptions[] = 
 	{
+		{"average-discordance",0,0,'a'},
 		{"homs-only",0,0,'H'},
 		{"help",0,0,'h'},
 		{"genotypes",1,0,'g'},
@@ -679,14 +699,15 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"region",1,0,'r'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:a",loptions,NULL)) >= 0) {
 		switch (c) {
+			case 'a': args->avg_site_discordance = 1; break;
 			case 'H': args->hom_only = 1; break;
 			case 'g': args->gt_fname = optarg; break;
 			case 'p': args->plot = optarg; break;
 			case 's': args->target_sample = optarg; break;
 			case 'S': args->query_sample = optarg; break;
-            //case 'r': args->files->region = optarg; break;
+            case 'r': regions = optarg; break;
 			case 'h': 
 			case '?': usage();
 			default: error("Unknown argument: %s\n", optarg);
@@ -695,6 +716,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     if ( argc==optind || argc>optind+1 )  usage();  // none or too many files given
     if ( !args->gt_fname ) args->cross_check = 1;   // no genotype file, run in cross-check mode
     else args->files->require_index = 1;
+    if ( regions && bcf_sr_set_regions(args->files, regions)<0 ) error("Failed to read the regions: %s\n", regions);
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     if ( args->gt_fname && !bcf_sr_add_reader(args->files, args->gt_fname) ) error("Failed to open or the file not indexed: %s\n", args->gt_fname);
     args->files->collapse = COLLAPSE_SNPS|COLLAPSE_INDELS;
@@ -703,7 +725,10 @@ int main_vcfgtcheck(int argc, char *argv[])
     if ( args->cross_check )
         cross_check_gts(args);
     else
+    {
+        if ( args->avg_site_discordance ) error("The -a option not supported with -g.\n");
         check_gt(args);
+    }
     destroy_data(args);
 	bcf_sr_destroy(args->files);
     if (args->plot) free(args->plot);

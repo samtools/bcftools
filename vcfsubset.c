@@ -223,14 +223,13 @@ int subset_vcf(args_t *args, bcf1_t *line)
     if (args->max_ac && args->max_ac<n_ac) { free(ac); return 0; }
     if (args->exclude_uncalled && n_ac == 0 && ac[0] == 0) { free(ac); return 0; }
     if (args->calc_ac && args->update_info) {
-        bcf1_update_info_int32(args->hdr, line, "AC", &ac[1], line->n_allele-1);
-        bcf1_update_info_int32(args->hdr, line, "AN", &an, 1);
+        bcf_update_info_int32(args->hdr, line, "AC", &ac[1], line->n_allele-1);
+        bcf_update_info_int32(args->hdr, line, "AN", &an, 1);
     }
     free(ac);
     if (args->exclude_ref && n_ac == 0) return 0;
     if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
     if (args->sites_only) bcf_subset(args->hsub ? args->hsub : args->hdr, line, 0, 0);
-    if (args->output_type & FT_BCF) bcf1_sync(line);
     return 1;
 }
 

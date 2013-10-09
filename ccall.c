@@ -16,8 +16,8 @@ void ccall_init(call_t *call)
 { 
     call->cdat = (ccall_t*) calloc(1,sizeof(ccall_t));
     call_init_pl2p(call);
-    call->cdat->p1 = bcf_p1_init(bcf_nsamples(call->hdr), call->ploidy);
-    call->gts = (int*) calloc(bcf_nsamples(call->hdr)*2,sizeof(int));   // assuming at most diploid everywhere
+    call->cdat->p1 = bcf_p1_init(bcf_hdr_nsamples(call->hdr), call->ploidy);
+    call->gts = (int*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int));   // assuming at most diploid everywhere
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AF1,Number=1,Type=Float,Description=\"Max-likelihood estimate of the first ALT allele frequency (assuming HWE)\">");
@@ -111,42 +111,42 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     if (em[0] >= 0)
     {
         tmpf[0] = 1 - em[0];
-        bcf1_update_info_float(call->hdr, rec, "AF1", tmpf, 1);
+        bcf_update_info_float(call->hdr, rec, "AF1", tmpf, 1);
     }
     if (em[4] >= 0 && em[4] <= 0.05) 
     {
         tmpf[0] = em[3]; tmpf[1] = em[2]; tmpf[2] = em[1]; tmpf[3] = em[4];
-        bcf1_update_info_float(call->hdr, rec, "G3", tmpf, 3);
-        bcf1_update_info_float(call->hdr, rec, "HWE", &tmpf[3], 1);
+        bcf_update_info_float(call->hdr, rec, "G3", tmpf, 3);
+        bcf_update_info_float(call->hdr, rec, "HWE", &tmpf[3], 1);
     }
     if (em[5] >= 0 && em[6] >= 0)
     {
         tmpf[0] = 1 - em[5]; tmpf[1] = 1 - em[6];
-        bcf1_update_info_float(call->hdr, rec, "AF2", tmpf, 2);
+        bcf_update_info_float(call->hdr, rec, "AF2", tmpf, 2);
     }
     if (em[7] >= 0) 
     {
         tmpf[0] = em[7];
-        bcf1_update_info_float(call->hdr, rec, "LRT", tmpf, 1);
+        bcf_update_info_float(call->hdr, rec, "LRT", tmpf, 1);
     }
     if (em[8] >= 0)
     {
         tmpf[0] = em[8];
-        bcf1_update_info_float(call->hdr, rec, "LRT2", tmpf, 1);
+        bcf_update_info_float(call->hdr, rec, "LRT2", tmpf, 1);
     }
 
     bcf_p1aux_t *p1 = call->cdat->p1;
 	if (p1->cons_llr > 0) 
     {
         tmpi = p1->cons_llr;
-        bcf1_update_info_int32(call->hdr, rec, "CLR", &tmpi, 1);
+        bcf_update_info_int32(call->hdr, rec, "CLR", &tmpi, 1);
 		if (p1->cons_gt > 0)
         {
             char tmp[4];
             tmp[0] = p1->cons_gt&0xff; tmp[1] = p1->cons_gt>>8&0xff; tmp[2] = p1->cons_gt>>16&0xff; tmp[3] = 0;
-            bcf1_update_info_string(call->hdr, rec, "UGT", tmp);
+            bcf_update_info_string(call->hdr, rec, "UGT", tmp);
             tmp[0] = p1->cons_gt>>32&0xff; tmp[1] = p1->cons_gt>>40&0xff; tmp[2] = p1->cons_gt>>48&0xff;
-            bcf1_update_info_string(call->hdr, rec, "CGT", tmp);
+            bcf_update_info_string(call->hdr, rec, "CGT", tmp);
         }
 	}
 	if (pr == 0) return 1;
@@ -154,15 +154,15 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
 	is_var = (pr->p_ref < call->pref);
 	r = is_var? pr->p_ref : pr->p_var;
 
-    bcf1_update_info_int32(call->hdr, rec, "AC1", &pr->ac, 1);
+    bcf_update_info_int32(call->hdr, rec, "AC1", &pr->ac, 1);
     int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
-    bcf1_update_info_int32(call->hdr, rec, "DP4", dp, 4);
-    bcf1_update_info_int32(call->hdr, rec, "MQ", &a.mq, 1);
+    bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
+    bcf_update_info_int32(call->hdr, rec, "MQ", &a.mq, 1);
 
 	fq = pr->p_ref_folded < 0.5? -4.343 * log(pr->p_ref_folded) : 4.343 * log(pr->p_var_folded);
 	if (fq < -999) fq = -999;
 	if (fq > 999) fq = 999;
-    bcf1_update_info_float(call->hdr, rec, "FQ", &fq, 1);
+    bcf_update_info_float(call->hdr, rec, "FQ", &fq, 1);
 
     assert( pr->cmp[0]<0 );
     // todo
@@ -182,10 +182,10 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     {
         int i;
         for (i=0; i<4; i++) tmpf[i] = a.p[i];
-        bcf1_update_info_float(call->hdr, rec, "PV4", tmpf, 4);
+        bcf_update_info_float(call->hdr, rec, "PV4", tmpf, 4);
     }
-    bcf1_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
-    bcf1_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag
+    bcf_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
+    bcf_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag
 
 	rec->qual = r < 1e-100? 999 : -4.343 * log(r);
 	if (rec->qual > 999) rec->qual = 999;
@@ -194,7 +194,7 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     int nals = !is_var ? 1 : pr->rank0 < 2? 2 : pr->rank0+1;
     if ( nals<rec->n_allele )
     {
-        bcf1_update_alleles(call->hdr, rec, (const char**)rec->d.allele, nals);
+        bcf_update_alleles(call->hdr, rec, (const char**)rec->d.allele, nals);
 
         // Update PLs
         int npls_src = call->nPLs / rec->n_sample, npls_dst = nals*(nals+1)/2;
@@ -219,7 +219,7 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
                 if (i<npls_dst) pls_dst[i] = bcf_int32_vector_end;
             }
         }
-        bcf1_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*rec->n_sample);
+        bcf_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*rec->n_sample);
     }
 
     // Call genotypes
@@ -254,14 +254,14 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
         }
         // GQ: todo
     }
-    bcf1_update_genotypes(call->hdr, rec, call->gts, rec->n_sample*2);
+    bcf_update_genotypes(call->hdr, rec, call->gts, rec->n_sample*2);
 	return is_var;
 }
 
 
 int ccall(call_t *call, bcf1_t *rec) 
 {
-    int nsmpl = bcf_nsamples(call->hdr);
+    int nsmpl = bcf_hdr_nsamples(call->hdr);
 
     // Get the genotype likelihoods
     int nals = rec->n_allele;
