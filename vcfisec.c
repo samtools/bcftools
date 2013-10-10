@@ -117,7 +117,7 @@ void isec_vcf(args_t *args)
         out_fh = hts_open("-",hts_bcf_wmode(args->output_type),0);
         bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
         bcf_hdr_fmt_text(files->readers[args->iwrite].header);
-        vcf_hdr_write(out_fh, files->readers[args->iwrite].header);
+        bcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
 
     int n;
@@ -147,7 +147,7 @@ void isec_vcf(args_t *args)
 
         if ( out_std )
         {
-            vcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0]);
+            bcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0]);
             continue;
         }
         else if ( args->fh_sites )
@@ -175,14 +175,14 @@ void isec_vcf(args_t *args)
         if ( args->prefix )
         {
             if ( args->isec_op==OP_VENN )
-                vcf_write1(args->fh_out[ret-1], reader->header, line);
+                bcf_write1(args->fh_out[ret-1], reader->header, line);
             else
             {
                 for (i=0; i<files->nreaders; i++)
                 {
                     if ( !bcf_sr_has_line(files,i) ) continue;
                     if ( args->write && !args->write[i] ) continue;
-                    vcf_write1(args->fh_out[i], files->readers[i].header, files->readers[i].buffer[0]);
+                    bcf_write1(args->fh_out[i], files->readers[i].header, files->readers[i].buffer[0]);
                 }
             }
         }
@@ -238,7 +238,7 @@ static void init_data(args_t *args)
                 if ( !args->fh_out[i] ) error("Could not open %s\n", args->fnames[i]); \
                 bcf_hdr_append_version(args->files->readers[j].header,args->argc,args->argv,"bcftools_isec"); \
                 bcf_hdr_fmt_text(args->files->readers[j].header); \
-                vcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
+                bcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
             }
             OPEN_FILE(0,0);
             fprintf(args->fh_log,"%s\tfor records private to\t%s\n", args->fnames[0], args->files->readers[0].fname);

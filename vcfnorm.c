@@ -430,7 +430,7 @@ void flush_buffer(args_t *args, htsFile *file, int n)
             prev_pos  = args->lines[k]->pos;
             prev_type = line_type;
         }
-        vcf_write1(file, args->hdr, args->lines[k]);
+        bcf_write1(file, args->hdr, args->lines[k]);
     }
 }
 
@@ -461,7 +461,7 @@ static void normalize_vcf(args_t *args)
 {
     htsFile *out = hts_open("-", hts_bcf_wmode(args->output_type), 0);
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
-    vcf_hdr_write(out, args->hdr);
+    bcf_hdr_write(out, args->hdr);
 
     while ( bcf_sr_next_line(args->files) )
     {

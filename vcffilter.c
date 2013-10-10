@@ -61,15 +61,15 @@ static void init_data(args_t *args)
             do
             {
                 ksprintf(&flt_name,"Filter%d", ++i);
-                id = bcf_id2int(args->hdr,BCF_DT_ID,flt_name.s);
+                id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,flt_name.s);
             }
-            while ( bcf_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
+            while ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
         }
         ksprintf(&hdr_line,"##FILTER=<ID=%s,Description=\"Set if %s: %s\">", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", args->filter_str);
         bcf_hdr_append(args->hdr, hdr_line.s);
 
-        args->flt_pass = bcf_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
-        args->flt_fail = bcf_id2int(args->hdr,BCF_DT_ID,flt_name.s); assert( args->flt_fail>=0 );
+        args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
+        args->flt_fail = bcf_hdr_id2int(args->hdr,BCF_DT_ID,flt_name.s); assert( args->flt_fail>=0 );
         free(flt_name.s);
         free(hdr_line.s);
     }
@@ -306,7 +306,7 @@ int main_vcffilter(int argc, char *argv[])
     if ( !bcf_sr_open_reader(args->files, argv[optind], args->input_type) ) error("Failed to open: %s\n", argv[optind]);
     
     init_data(args);
-    vcf_hdr_write(args->out_fh, args->hdr);
+    bcf_hdr_write(args->out_fh, args->hdr);
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files, 0);
@@ -324,7 +324,7 @@ int main_vcffilter(int argc, char *argv[])
                 else bcf_update_filter(args->hdr, line, &args->flt_fail, 1);
             }
             if ( !args->rbuf_lines )
-                vcf_write1(args->out_fh, args->hdr, line);
+                bcf_write1(args->out_fh, args->hdr, line);
             else
                 buffered_filters(args, line);
         }

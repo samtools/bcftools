@@ -389,7 +389,7 @@ int main_vcfsubset(int argc, char *argv[])
     init_data(args);
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);
     if (args->print_header)
-        vcf_hdr_write(args->out, out_hdr);
+        bcf_hdr_write(args->out, out_hdr);
     if (!args->header_only) 
     {
         while ( bcf_sr_next_line(args->files) )
@@ -397,7 +397,7 @@ int main_vcfsubset(int argc, char *argv[])
             bcf1_t *line = args->files->readers[0].buffer[0];
             if ( line->errcode && out_hdr!=args->hdr ) error("Undefined tags in the header, cannot proceed in the sample subset mode.\n");
             if ( subset_vcf(args, line) )
-                vcf_write1(args->out, out_hdr, line);
+                bcf_write1(args->out, out_hdr, line);
         }
     }
     hts_close(args->out);

@@ -271,7 +271,7 @@ static void init_data(args_t *args)
             int j;
             for (j=0; j<3; j++)
             {
-                int k = bcf_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[ args->aux.fams[i].sample[j] ]);
+                int k = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[ args->aux.fams[i].sample[j] ]);
                 if ( k<0 ) error("No such sample: %s\n", args->samples[ args->aux.fams[i].sample[j] ]);
                 args->aux.fams[i].sample[j] = k;
             }
@@ -279,7 +279,7 @@ static void init_data(args_t *args)
         uint8_t *ploidy = (uint8_t*) calloc(args->aux.hdr->n[BCF_DT_SAMPLE], 1);
         for (i=0; i<args->nsamples; i++)    // i index in -s sample list
         {
-            int j = bcf_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[i]);     // j index in the output VCF / subset VCF
+            int j = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[i]);     // j index in the output VCF / subset VCF
             if ( j<0 ) 
             {
                 fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
@@ -307,7 +307,7 @@ static void init_data(args_t *args)
 
     bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
     bcf_hdr_fmt_text(args->aux.hdr);
-    vcf_hdr_write(args->out_fh, args->aux.hdr);
+    bcf_hdr_write(args->out_fh, args->aux.hdr);
 }
 
 static void destroy_data(args_t *args)
@@ -491,7 +491,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( (args.aux.flag & CALL_VARONLY) && ret==0 ) continue;     // not a variant
 
         // Output
-        vcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
+        bcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
     }
     destroy_data(&args);
 	return 0;

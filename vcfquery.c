@@ -194,7 +194,7 @@ static void process_info(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, ks
 }
 static void init_format(args_t *args, bcf1_t *line, fmt_t *fmt)
 {
-    fmt->id = bcf_id2int(args->header, BCF_DT_ID, fmt->key);
+    fmt->id = bcf_hdr_id2int(args->header, BCF_DT_ID, fmt->key);
     if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: FORMAT/%s\n", fmt->key);
     fmt->fmt = NULL;
     int i;
@@ -299,8 +299,8 @@ static fmt_t *register_tag(args_t *args, int type, char *key, int is_gtf)
     // Allow non-format tags, such as CHROM, INFO, etc., to appear amongst the format tags.
     if ( key )
     {
-        int id = bcf_id2int(args->header, BCF_DT_ID, key);
-        if ( fmt->type==T_FORMAT && !bcf_idinfo_exists(args->header,BCF_HL_FMT,id) )
+        int id = bcf_hdr_id2int(args->header, BCF_DT_ID, key);
+        if ( fmt->type==T_FORMAT && !bcf_hdr_idinfo_exists(args->header,BCF_HL_FMT,id) )
         {
             if ( !strcmp("CHROM",key) ) { fmt->type = T_CHROM; }
             else if ( !strcmp("POS",key) ) { fmt->type = T_POS; }
@@ -309,7 +309,7 @@ static fmt_t *register_tag(args_t *args, int type, char *key, int is_gtf)
             else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
             else if ( !strcmp("QUAL",key) ) { fmt->type = T_QUAL; }
             else if ( !strcmp("FILTER",key) ) { fmt->type = T_FILTER; }
-            else if ( id>=0 && bcf_idinfo_exists(args->header,BCF_HL_INFO,id) ) 
+            else if ( id>=0 && bcf_hdr_idinfo_exists(args->header,BCF_HL_INFO,id) ) 
             { 
                 fmt->type = T_INFO; 
                 fprintf(stderr,"Warning: Assuming INFO/%s\n", key);
@@ -342,7 +342,7 @@ static fmt_t *register_tag(args_t *args, int type, char *key, int is_gtf)
     {
         if ( fmt->type==T_INFO )
         {
-            fmt->id = bcf_id2int(args->header, BCF_DT_ID, key);
+            fmt->id = bcf_hdr_id2int(args->header, BCF_DT_ID, key);
             if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: INFO/%s\n", key);
         }
     }
@@ -468,7 +468,7 @@ static void init_data(args_t *args)
                     str.l = 0;
                     kputsn(p, q-p, &str);
                     int i;
-                    if ( (i=bcf_id2int(args->header, BCF_DT_SAMPLE, str.s))==-1 ) error("No such sample in the VCF: [%s]\n", str.s);
+                    if ( (i=bcf_hdr_id2int(args->header, BCF_DT_SAMPLE, str.s))==-1 ) error("No such sample in the VCF: [%s]\n", str.s);
                     args->samples = (int*) realloc(args->samples, sizeof(int)*(++args->nsamples));
                     args->samples[ args->nsamples-1 ] = i;
                     p = q+1;

@@ -202,7 +202,7 @@ static int filters_cmp_filter(token_t *atok, token_t *btok, int op_type, bcf1_t 
 /**
  *  bcf_get_info_value() - get single INFO value, int or float
  *  @line:      BCF line
- *  @info_id:   tag ID, as returned by bcf_id2int
+ *  @info_id:   tag ID, as returned by bcf_hdr_id2int
  *  @ivec:      0-based index to retrieve
  *  @vptr:      pointer to memory location of sufficient size to accomodate
  *              info_id's type
@@ -304,7 +304,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     kstring_t tmp = {0,0,0};
     kputsn(str, len, &tmp);
 
-    tok->hdr_id = bcf_id2int(filter->hdr, BCF_DT_ID, tmp.s);
+    tok->hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, tmp.s);
     if ( tok->hdr_id>=0 ) 
     {
         tok->setter = filters_set_info;
@@ -320,10 +320,10 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         for (i=0; i<tmp.l; i++)
             if ( tmp.s[i]=='[' ) { tmp.s[i] = 0; break; }
 
-        tok->hdr_id = bcf_id2int(filter->hdr, BCF_DT_ID, tmp.s);
+        tok->hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, tmp.s);
         if ( tok->hdr_id>=0 )
         {
-            switch ( bcf_id2type(filter->hdr,BCF_HL_INFO,tok->hdr_id) ) 
+            switch ( bcf_hdr_id2type(filter->hdr,BCF_HL_INFO,tok->hdr_id) ) 
             {
                 case BCF_HT_INT:  tok->setter = &filters_set_info_int; break;
                 case BCF_HT_REAL: tok->setter = &filters_set_info_float; break;
@@ -473,8 +473,8 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( out[j].tok_type!=TOK_VAL || !out[j].key ) error("[%s:%d %s] Could not parse the expression: %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
             if ( strcmp(".",out[j].key) )
             {
-                out[j].hdr_id = bcf_id2int(filter->hdr, BCF_DT_ID, out[j].key);
-                if ( !bcf_idinfo_exists(filter->hdr,BCF_HL_FLT,out[j].hdr_id) )
+                out[j].hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, out[j].key);
+                if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FLT,out[j].hdr_id) )
                     error("The filter \"%s\" not present in the VCF header\n", out[j].key);
             }
             else

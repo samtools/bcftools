@@ -18,8 +18,8 @@ typedef khash_t(strdict) strdict_t;
 #define SKIP_DONE 1
 #define SKIP_DIFF 2
 
-#define IS_VL_G(hdr,id) (bcf_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_G)
-#define IS_VL_A(hdr,id) (bcf_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_A)
+#define IS_VL_G(hdr,id) (bcf_hdr_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_G)
+#define IS_VL_A(hdr,id) (bcf_hdr_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_A)
 
 // Auxiliary merge data for selecting the right combination
 //  of buffered records across multiple readers. maux1_t 
@@ -101,7 +101,7 @@ void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *_hr, const char *clash_prefix
     for (i=0; i<hr->n[BCF_DT_SAMPLE]; i++)
     {
         char *name = hr->samples[i];
-        if ( bcf_id2int(hw, BCF_DT_SAMPLE, name)!=-1 )
+        if ( bcf_hdr_id2int(hw, BCF_DT_SAMPLE, name)!=-1 )
         {
             // there is a sample with the same name
             int len = strlen(hr->samples[i]) + strlen(clash_prefix) + 1;
@@ -340,7 +340,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         if ( out->pos==-1 )
         {
             const char *chr = hdr->id[BCF_DT_CTG][line->rid].key;
-            out->rid = bcf_name2id(out_hdr, chr);
+            out->rid = bcf_hdr_name2id(out_hdr, chr);
             if ( strcmp(chr,out_hdr->id[BCF_DT_CTG][out->rid].key) ) error("Uh\n"); 
             out->pos = line->pos;
         }
@@ -424,7 +424,7 @@ void merge_filter(args_t *args, bcf1_t *out)
             kitr = kh_get(strdict, tmph, flt);
             if ( kitr == kh_end(tmph) )
             {
-                int id = bcf_id2int(out_hdr, BCF_DT_ID, flt);
+                int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, flt);
                 if ( id==-1 ) error("The filter not defined: %s\n", flt);
                 hts_expand(int,out->d.n_flt+1,ma->mflt,ma->flt);
                 ma->flt[out->d.n_flt] = id;
@@ -436,7 +436,7 @@ void merge_filter(args_t *args, bcf1_t *out)
     // Check if PASS is not mixed with other filters
     if ( out->d.n_flt>1 )
     {
-        int id = bcf_id2int(out_hdr, BCF_DT_ID, "PASS");
+        int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, "PASS");
         for (i=0; i<out->d.n_flt; i++)
             if ( ma->flt[i]==id ) break;
         if ( i<out->d.n_flt )
@@ -503,7 +503,7 @@ void merge_info(args_t *args, bcf1_t *out)
             kitr = kh_get(strdict, tmph, key);
             if ( kitr == kh_end(tmph) )
             {
-                int id = bcf_id2int(out_hdr, BCF_DT_ID, key);
+                int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
                 if ( id==-1 ) error("Error: The INFO field not defined: %s\n", key);
                 hts_expand(bcf_info_t,out->n_info+1,ma->minf,ma->inf);
                 ma->inf[out->n_info].key  = id;
@@ -515,7 +515,7 @@ void merge_info(args_t *args, bcf1_t *out)
                 ma->inf[out->n_info].vptr_off  = inf->vptr_off;
                 ma->inf[out->n_info].vptr_len  = inf->vptr_len;
                 ma->inf[out->n_info].vptr_free = inf->vptr_free;
-                if ( (args->output_type & FT_BCF) && id!=bcf_id2int(hdr, BCF_DT_ID, key) )
+                if ( (args->output_type & FT_BCF) && id!=bcf_hdr_id2int(hdr, BCF_DT_ID, key) )
                 {
                     // The existing packed info cannot be reused. Change the id.
                     // Although quite hacky, it's faster than anything else given 
@@ -537,8 +537,8 @@ void merge_info(args_t *args, bcf1_t *out)
 void update_AN_AC(bcf_hdr_t *hdr, bcf1_t *line)
 {
     int i;
-    int AN_id = bcf_id2int(hdr, BCF_DT_ID, "AN");
-    int AC_id = bcf_id2int(hdr, BCF_DT_ID, "AC");
+    int AN_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "AN");
+    int AC_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "AC");
     if ( AN_id<0 && AC_id<0 ) return;
 
     bcf_info_t *AN_ptr = NULL, *AC_ptr = NULL;
@@ -898,7 +898,7 @@ void merge_line(args_t *args)
     merge_info(args, out);
     merge_format(args, out);
 
-    vcf_write1(args->out_fh, args->out_hdr, out);
+    bcf_write1(args->out_fh, args->out_hdr, out);
 }
 
 
@@ -1187,7 +1187,7 @@ void merge_vcf(args_t *args)
         bcf_hdr_fmt_text(args->out_hdr);
     }
 
-    vcf_hdr_write(args->out_fh, args->out_hdr);
+    bcf_hdr_write(args->out_fh, args->out_hdr);
     if ( args->header_only )
     {
         bcf_hdr_destroy(args->out_hdr);

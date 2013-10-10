@@ -311,19 +311,19 @@ static void check_gt(args_t *args)
     int fake_pls = 0;
 
 fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
-    if ( bcf_id2int(args->gt_hdr, BCF_DT_ID, "GT")<0 ) error("[E::%s] GT not present in the header of %s?\n", __func__, args->files->readers[1].fname);
-    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
+    if ( bcf_hdr_id2int(args->gt_hdr, BCF_DT_ID, "GT")<0 ) error("[E::%s] GT not present in the header of %s?\n", __func__, args->files->readers[1].fname);
+    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
     {
-        if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
+        if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
             error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
         fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
         fake_pls = 1;
     }
-    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
+    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) error("[E::%s] DP not present in the header of %s?\n", __func__, args->files->readers[0].fname);
     int tgt_isample = -1, query_isample = 0;
     if ( args->target_sample ) 
     {
-        tgt_isample = bcf_id2int(args->gt_hdr, BCF_DT_SAMPLE, args->target_sample);
+        tgt_isample = bcf_hdr_id2int(args->gt_hdr, BCF_DT_SAMPLE, args->target_sample);
         if ( tgt_isample<0 ) error("No such sample in %s: [%s]\n", args->files->readers[1].fname, args->target_sample);
         if ( args->plot ) tgt_isample = -1; // different kind of output with -p
         if ( tgt_isample>=0 )
@@ -334,7 +334,7 @@ fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
     }
     if ( args->query_sample )
     {
-        query_isample = bcf_id2int(args->sm_hdr, BCF_DT_SAMPLE, args->query_sample);
+        query_isample = bcf_hdr_id2int(args->sm_hdr, BCF_DT_SAMPLE, args->query_sample);
         if ( query_isample<0 ) error("No such sample in %s: [%s]\n", args->files->readers[0].fname, args->query_sample);
     }
     while ( (ret=bcf_sr_next_line(args->files)) )
@@ -511,14 +511,14 @@ static void cross_check_gts(args_t *args)
 
     int i,j,k,idx, *dp_arr = NULL, pl_warned = 0, dp_warned = 0;
     int *is_hom = args->hom_only ? (int*) malloc(sizeof(int)*nsamples) : NULL;
-    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
+    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
     {
-        if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
+        if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
             error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
         fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
         fake_pls = 1;
     }
-    if ( bcf_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) ignore_dp = 1;
+    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) ignore_dp = 1;
 
     FILE *fp = args->plot ? open_file(NULL, "w", "%s.tab", args->plot) : stdout;
     print_header(args, fp);
