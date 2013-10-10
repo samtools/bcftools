@@ -708,8 +708,6 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         bcf_fmt_t *fmt_ori = fmt_map[i];
         if ( fmt_ori ) type = fmt_ori->type;
 
-//if (type==BCF_BT_CHAR)printf("nsize=%d  %d %d %d\n", nsize, fmt);
-
         // set the values
         #define BRANCH(tgt_type_t, src_type_t, src_is_missing, src_is_vector_end, tgt_set_missing, tgt_set_vector_end) { \
             int j, l, k; \
@@ -763,7 +761,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                         { \
                             jnew = ma->d[i][0].map[jori]; \
                             int kori = iori*(iori+1)/2 + jori; \
-                            int knew = inew*(inew+1)/2 + jnew; \
+                            int knew = inew>jnew ? inew*(inew+1)/2 + jnew : jnew*(jnew+1)/2 + inew; \
                             src = (src_type_t*) fmt_ori->p + j*fmt_ori->n + kori; \
                             tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize + knew; \
                             if ( src_is_vector_end ) \
@@ -804,7 +802,6 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             case BCF_BT_INT16: BRANCH(int32_t, int16_t, *src==bcf_int16_missing, *src==bcf_int16_vector_end, *tgt=bcf_int32_missing, *tgt=bcf_int32_vector_end); break;
             case BCF_BT_INT32: BRANCH(int32_t, int32_t, *src==bcf_int32_missing, *src==bcf_int32_vector_end, *tgt=bcf_int32_missing, *tgt=bcf_int32_vector_end); break;
             case BCF_BT_FLOAT: BRANCH(float, float, bcf_float_is_missing(*src), bcf_float_is_vector_end(*src), bcf_float_set_missing(*tgt), bcf_float_set_vector_end(*tgt)); break;
-            //case BCF_BT_CHAR:  BRANCH(uint8_t, uint8_t, *src==bcf_str_missing, *src==bcf_str_vector_end, *tgt=bcf_str_missing, *tgt=bcf_str_vector_end); break;
             case BCF_BT_CHAR:  BRANCH(uint8_t, uint8_t, *src==bcf_str_missing, *src==bcf_str_vector_end, *tgt=bcf_str_missing, *tgt=bcf_str_vector_end); break;
             default: error("Unexpected case: %d, %s\n", type, key);
         }

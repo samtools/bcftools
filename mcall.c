@@ -696,7 +696,10 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
     for (i=0; i<nals; i++)
     {
         for (j=0; j<=i; j++)
-            call->pl_map[k++] = call->als_map[i]*(call->als_map[i]+1)/2 + call->als_map[j];
+        {
+            int a = call->als_map[i], b = call->als_map[j]; 
+            call->pl_map[k++] = a>b ? a*(a+1)/2 : b*(b+1)/2;
+        }
     }
 
     // update PL
