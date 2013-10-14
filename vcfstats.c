@@ -12,6 +12,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/faidx.h>
+#include <inttypes.h>
 #include "bcftools.h"
 
 #define HWE_STATS 1
@@ -1013,7 +1014,7 @@ static void print_stats(args_t *args)
                 if ( i==0 ) printf("<%d", stats->dp.min);
                 else if ( i+1==stats->dp.m_vals ) printf(">%d", stats->dp.max);
                 else printf("%d", idist_i2bin(&stats->dp,i));
-                printf("\t%ld\t%f\n", stats->dp.vals[i], stats->dp.vals[i]*100./sum);
+                printf("\t%"PRId64"\t%f\n", stats->dp.vals[i], stats->dp.vals[i]*100./sum);
             }
         }
         #ifdef HWE_STATS
