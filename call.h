@@ -9,6 +9,8 @@
 #define CALL_VARONLY        (1<<1)
 #define CALL_CONSTR_TRIO    (1<<2)
 #define CALL_CONSTR_ALLELES (1<<3)
+#define CALL_CHR_X          (1<<4)
+#define CALL_CHR_Y          (1<<5)
 
 #define FATHER 0
 #define MOTHER 1
@@ -16,7 +18,8 @@
 typedef struct
 {
     char *name;
-    int sample[3];
+    int sample[3];  // father, mother, child
+    int type;       // see FTYPE_* definitions in mcall.c
 }
 family_t;
 
@@ -33,8 +36,8 @@ typedef struct
     int nals;               // size of the als array
     family_t *fams;         // list of families and samples for trio calling
     int nfams, mfams;
-    int ntrio[5];           // possible trio genotype combinations
-    uint16_t *trio[5];
+    int ntrio[5][5];        // possible trio genotype combinations and their counts; first idx:
+    uint16_t *trio[5][5];   //  family type, second index: allele count (2-4, first two are unused)
     double *GLs, *sumGLs;
     int *GQs;               // VCF FORMAT genotype qualities
     int *itmp, n_itmp;      // temporary int array, used for new PLs with CALL_CONSTR_ALLELES

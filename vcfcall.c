@@ -77,7 +77,7 @@ static family_t *get_family(family_t *fam, int nfam, char *name)
     return NULL;
 }
 
-static char **add_sample(char **sam, int *n, int *m, char *name, int *ith)
+static char **add_sample(char **sam, int *n, int *m, char *name, int ploidy, int *ith)
 {
     int i;
     for (i=0; i<*n; i++)
@@ -92,7 +92,7 @@ static char **add_sample(char **sam, int *n, int *m, char *name, int *ith)
     int len = strlen(name);
     sam[*n] = (char*) malloc(len+2);
     memcpy(sam[*n],name,len+1);
-    sam[*n][len+1] = 2;    // todo: chrX,Y; assuming diploid for now
+    sam[*n][len+1] = ploidy;
     *ith = *n;
     (*n)++;
     return sam;
@@ -132,19 +132,27 @@ static char **read_ped_samples(call_t *call, const char *fn, int *_n)
             fam = &call->fams[call->nfams-1];
             fam->name = strdup(s.s);
             for (i=0; i<3; i++) fam->sample[i] = -1;
+        } 
+        
+        int ploidy = 2;
+        if ( call->flag & (CALL_CHR_X|CALL_CHR_Y) )
+        {
+            if ( col_ends[3][1]=='1' ) ploidy = 1; // male: one chrX and one chrY copy
+            else
+                ploidy = call->flag & CALL_CHR_X ? 2 : 0; // female: two chrX copies, no chrY
         }
-        sam = add_sample(sam, &n, &max, col_ends[0]+1, &i);
+        sam = add_sample(sam, &n, &max, col_ends[0]+1, ploidy, &i);
         if ( col_ends[2]-col_ends[1]!=2 || col_ends[1][1]!='0' )    // father
         {
             if ( fam->sample[CHILD]>=0 ) error("Multiple childs in %s\n", s.s);
             fam->sample[CHILD] = i;
             if ( fam->sample[FATHER]>=0 ) error("Two fathers in %s?\n", s.s);
-            sam = add_sample(sam, &n, &max, col_ends[1]+1, &fam->sample[FATHER]); 
+            sam = add_sample(sam, &n, &max, col_ends[1]+1, call->flag & (CALL_CHR_X|CALL_CHR_Y) ? 1 : 2, &fam->sample[FATHER]); 
         }
         if ( col_ends[3]-col_ends[2]!=2 || col_ends[2][1]!='0' )    // mother
         {
             if ( fam->sample[MOTHER]>=0 ) error("Two mothers in %s?\n", s.s);
-            sam = add_sample(sam, &n, &max, col_ends[2]+1, &fam->sample[MOTHER]); 
+            sam = add_sample(sam, &n, &max, col_ends[2]+1, call->flag & CALL_CHR_Y ? 0 : 2, &fam->sample[MOTHER]); 
         }
     }
     for (i=0; i<call->nfams; i++)
@@ -215,8 +223,8 @@ static char **read_samples(call_t *call, const char *fn, int *_n)
 		if (dret != '\n') {
 			if (ks_getuntil(ks, KS_SEP_SPACE, &s, &dret) >= 0) { // read ploidy, 1 or 2
 				int x = (int)s.s[0] - '0'; // Convert ASCII digit to decimal
-				if (x == 1 || x == 2) sam[n][l+1] = x;
-				else fprintf(stderr, "(%s) ploidy can only be 1 or 2; assume diploid\n", __func__);
+				if (x == 0 || x == 1 || x == 2) sam[n][l+1] = x;
+				else fprintf(stderr, "(%s) ploidy can only be 0, 1 or 2; assuming diploid\n", __func__);
 			}
 			if (dret != '\n') ks_getuntil(ks, '\n', &s, &dret);
 		}
@@ -289,7 +297,7 @@ static void init_data(args_t *args)
         }
         args->nsamples = args->aux.hdr->n[BCF_DT_SAMPLE];
         for (i=0; i<args->nsamples; i++)
-            assert( ploidy[i]==1 || ploidy[i]==2 );
+            assert( ploidy[i]==0 || ploidy[i]==1 || ploidy[i]==2 );
         free(args->aux.ploidy);
         args->aux.ploidy = ploidy;
     }
@@ -341,7 +349,7 @@ static void usage(args_t *args)
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -o, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --region <reg|file>         restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
-    fprintf(stderr, "   -s, --samples <list|file>       comma-separated list or file name with a list of samples. Second column indicates ploidy (1 or 2)[all samples]\n");
+    fprintf(stderr, "   -s, --samples <list|file>       sample list, PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
     fprintf(stderr, "   -t, --targets <reg|file>        same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
     fprintf(stderr, "   -V, --vcf-input                 stdin input is VCF\n");
     fprintf(stderr, "\nInput/output options:\n");
@@ -351,9 +359,11 @@ static void usage(args_t *args)
     fprintf(stderr, "   -v, --variants-only             output variant sites only\n");
     fprintf(stderr, "\nConsensus/variant calling options:\n");
     fprintf(stderr, "   -c, --consensus-caller          the original calling method (conflicts with -m)\n");
-    fprintf(stderr, "   -C, --constrain <str>           one of: alleles, pair, trio, triox (see manual)\n");
+    fprintf(stderr, "   -C, --constrain <str>           one of: alleles, trio (see manual)\n");
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
+    fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
+    fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
 
     // todo (and more)
     // fprintf(stderr, "\nContrast calling and association test options:\n");
@@ -367,6 +377,7 @@ static void usage(args_t *args)
 
 int main_vcfcall(int argc, char *argv[])
 {
+    char *samples_fname = NULL;
     args_t args;
 	memset(&args, 0, sizeof(args_t));
     args.argc = argc; args.argv = argv;
@@ -397,10 +408,12 @@ int main_vcfcall(int argc, char *argv[])
         {"constrain",1,0,'C'},
         {"multiallelic-caller",0,0,'m'},
         {"pval-threshold",1,0,'p'},
+        {"chromosome-X",0,0,'X'},
+        {"chromosome-Y",0,0,'Y'},
         {0,0,0,0}
     };
 
-	while ((c = getopt_long(argc, argv, "h?o:r:s:t:VANS:vcmp:C:", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?o:r:s:t:VANS:vcmp:C:XY", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
@@ -423,6 +436,8 @@ int main_vcfcall(int argc, char *argv[])
                       else if ( !strcasecmp(optarg,"trio") ) args.aux.flag |= CALL_CONSTR_TRIO;
                       else error("Unknown argument to -C: \"%s\"\n", optarg);
                       break;
+            case 'X': args.aux.flag |= CALL_CHR_X; break;
+            case 'Y': args.aux.flag |= CALL_CHR_Y; break;
             case 'S': 
                       if ( !strcasecmp(optarg,"snps") ) args.flag |= CF_INDEL_ONLY;
                       else if ( !strcasecmp(optarg,"indels") ) args.flag |= CF_NO_INDEL;
@@ -431,11 +446,7 @@ int main_vcfcall(int argc, char *argv[])
             case 'p': p_arg = atof(optarg); break;
             case 'r': args.regions = optarg; break;
             case 't': args.targets = optarg; break;
-            case 's': 
-                      args.samples = read_samples(&args.aux, optarg, &args.nsamples);
-                      args.aux.ploidy = (uint8_t*) calloc(args.nsamples+1, 1);
-                      for (i=0; i<args.nsamples; i++) args.aux.ploidy[i] = args.samples[i][strlen(args.samples[i]) + 1];
-                      break;
+            case 's': samples_fname = optarg; break;
             default: usage(&args);
         }
     }
@@ -443,6 +454,12 @@ int main_vcfcall(int argc, char *argv[])
     args.bcf_fname = argv[optind++];
 
     // Sanity check options and initialize
+    if ( samples_fname )
+    {
+        args.samples = read_samples(&args.aux, samples_fname, &args.nsamples);
+        args.aux.ploidy = (uint8_t*) calloc(args.nsamples+1, 1);
+        for (i=0; i<args.nsamples; i++) args.aux.ploidy[i] = args.samples[i][strlen(args.samples[i]) + 1];
+    }
     if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c, -m, or -Q options can be given\n");
     if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected one of -c, -m, or -Q options\n");
 	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
@@ -452,6 +469,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( !args.targets ) error("Expected -t with \"-C alleles\"\n");
         if ( !(args.flag & CF_MCALL) ) error("The \"-C alleles\" mode requires -m\n");
     }
+    if ( args.aux.flag & CALL_CHR_X && args.aux.flag & CALL_CHR_Y ) error("Only one of -X or -Y should be given\n");
 
     init_data(&args);
 
