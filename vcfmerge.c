@@ -536,36 +536,15 @@ void merge_info(args_t *args, bcf1_t *out)
 // Only existing AN, AC will be modified. If not present, the line stays unchanged
 void update_AN_AC(bcf_hdr_t *hdr, bcf1_t *line)
 {
-    int i;
-    int AN_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "AN");
-    int AC_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "AC");
-    if ( AN_id<0 && AC_id<0 ) return;
-
-    bcf_info_t *AN_ptr = NULL, *AC_ptr = NULL;
-    if ( AN_id>=0 )
-    {
-        for (i=0; i<line->n_info; i++)
-            if ( AN_id==line->d.info[i].key ) 
-            {
-                AN_ptr = &line->d.info[i];
-                break;
-            }
-    }
-    if ( AC_id>=0 )
-    {
-        for (i=0; i<line->n_info; i++)
-            if ( AC_id==line->d.info[i].key ) 
-            {
-                AC_ptr = &line->d.info[i];
-                break;
-            }
-    }
+    bcf_info_t *AN_ptr = bcf_get_info(hdr,line,"AN");
+    bcf_info_t *AC_ptr = bcf_get_info(hdr,line,"AC");
     if ( !AN_ptr && !AC_ptr ) return;
 
     int32_t an = 0, *tmp = (int32_t*) malloc(sizeof(int)*line->n_allele);
     int ret = bcf_calc_ac(hdr, line, tmp, BCF_UN_FMT);
     if ( ret>0 )
     {
+        int i;
         for (i=0; i<line->n_allele; i++) an += tmp[i];
         if ( AN_ptr ) bcf_update_info_int32(hdr, line, "AN", &an, 1);
         if ( AC_ptr ) bcf_update_info_int32(hdr, line, "AC", tmp+1, line->n_allele-1);
@@ -665,6 +644,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         }
         #undef BRANCH
     }
+
     bcf_update_format_int32(out_hdr, out, "GT", (int32_t*)ma->tmp_arr, nsamples*nsize);
     for (i=0; i<nsamples; i++)
     {
