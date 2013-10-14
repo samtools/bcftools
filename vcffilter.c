@@ -104,6 +104,69 @@ static void destroy_data(args_t *args)
 static void buffered_filters(args_t *args, bcf1_t *line)
 {
 #if 0
+    if ( line ) 
+    {
+        // Still on the same chromosome?
+        int ilast = rbuf_last(&args->rbuf); 
+        if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid ) 
+            flush_buffer(args, args->rbuf.n); // new chromosome, flush everything
+
+        // Insert the new record in the buffer. The line would be overwritten in
+        // the next bcf_sr_next_line call, therefore we need to swap it with an
+        // unused one
+        ilast = rbuf_add(&args->rbuf);
+        if ( !args->rbuf_lines[ilast] ) args->rbuf_lines[ilast] = bcf_init1();
+        SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->rbuf_lines[ilast]);
+    }
+
+    int k_flush = 0;
+    if ( args->indel_gap )
+    {
+        // Find indels which are too close to each other
+        int last_to = -1;
+        for (i=-1; rbuf_next(&args->rbuf,&i); )
+        {
+            bcf1_t *rec  = args->rbuf_lines[i];
+            if ( !(rec->var_type & VCF_INDEL ) ) continue;
+            if ( last_to==-1 ) { last_to = rec->pos + rec->d.var[0].n - 1; continue; }  
+
+            int rec_from = rec->pos + 1;
+            if ( last_to < rec_from ) break;
+
+            k_flush++;
+            rec->var_type |= IndelGap_set;
+
+            last_to = rec->pos + rec->d.var[0].n - 1;
+        }
+
+        if ( i!=0 || !line )
+        {
+            // Select the best indel from the cluster of k_flush indels
+            int k = 0;
+            int max_ac = -1, imax_ac = -1;
+            for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
+            {
+                bcf1_t *rec  = args->rbuf_lines[i];
+                if ( !(rec->var_type & IndelGap_set) ) continue;
+                hts_expand(int, rec->ntmp_ac, rec->mtmp_ac, rec->tmp_ac);
+                int ret = bcf_calc_ac(args->hdr, rec, rec->tmpi, BCF_UN_ALL);
+                if ( !ret || max_ac < rec->tmpi[1] ) { max_ac = rec->tmpi[1]; imax_ac = i; }
+                k++;
+            }
+
+            // Filter all but the best indel (with max AF or first if AF not available)
+            k = 0;
+            for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
+            {
+                bcf1_t *rec  = args->rbuf_lines[i];
+                if ( !(rec->var_type & IndelGap_set) ) continue;
+                rec->var_type |= IndelGap_flush;
+                if ( i!=imax_ac ) bcf_add_filter(args->hdr, line, args->IndelGap_id);
+                k++;
+            }
+        }
+    }
+
     if ( !line ) 
     {
         // Finished: flush everything
@@ -111,23 +174,10 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         return;
     }
 
-    // Still on the same chromosome?
-    int ilast = rbuf_last(&args->rbuf); 
-    if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid ) 
-        flush_buffer(args, args->rbuf.n); // new chromosome, flush everything
-
-    // Insert the new record in the buffer. The line would be overwritten in
-    // the next bcf_sr_next_line call, therefore we need to swap it with an
-    // unused one
-    ilast = rbuf_add(&args->rbuf);
-    if ( !args->rbuf_lines[ilast] ) args->rbuf_lines[ilast] = bcf_init1();
-    SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->rbuf_lines[ilast]);
-
     // Find out how many sites to flush. The indel boundaries are based on REF
     // (POS+1,POS+rlen-1). This is not entirely correct: mpileup likes to
     // output REF=CAGAGAGAGA, ALT=CAGAGAGAGAGA where REF=C,ALT=CGA could be
-    // used. This filtering is therefore more strict and may remove some valid
-    // SNPs.
+    // used. This filter is therefore more strict and may remove some valid SNPs.
     int var_type = bcf_get_variant_types(line);
     int i, len = 1;
     if ( var_type & VCF_INDEL )
@@ -167,34 +217,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         }
     }
 
-    int k_flush = 0;
-    if ( args->indel_gap )
-    {
-        int last_from = var_type & VCF_INDEL ? line->pos + 1 : line->pos;   // first position after last unaffected
-        for (i=-1; rbuf_next(&args->rbuf,&i); )
-        {
-            bcf1_t *rec = args->rbuf_lines[i];
-            int rec_to  = rec->pos + rec->d.var[0].n - 1;   // last position affected by the variant
-            if ( rec_to + args->indel_gap < line_from ) 
-                j_flush++;
-            else if ( (var_type & VCF_INDEL) && (rec->var_type & VCF_SNP) && !(rec->var_type & SnpGap_set) )
-            {
-                // this SNP has not been SnpGap-filtered yet
-                rec->var_type |= SnpGap_set;
-                bcf_add_filter(args->hdr, rec, args->SnpGap_id);
-            }
-            else if ( (var_type & VCF_SNP) && (rec->var_type & VCF_INDEL) )
-            {
-                // the line which we are adding is a SNP and needs to be filtered
-                line->var_type |= SnpGap_set;
-                bcf_add_filter(args->hdr, line, args->SnpGap_id);
-                break;
-            }
-        }
-    }
-
-    j_flush < k_flush ? j_flush : k_flush
-    ..
+    flush_buffer(args, args->rbuf.n);j_flush < k_flush ? j_flush : k_flush
 #endif
 }
 
