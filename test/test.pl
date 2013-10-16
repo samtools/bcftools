@@ -27,6 +27,7 @@ test_vcf_subset($opts,in=>'subset',out=>'subset.3.out',args=>'-ps NA00003',reg=>
 test_vcf_subset($opts,in=>'subset',out=>'subset.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && HWE*2>1.2'],reg=>'');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
+test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G3');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -276,5 +277,10 @@ sub test_vcf_call_cAls
     my ($opts,%args) = @_;
     bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -mA -C alleles -t $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_call");
+}
+sub test_vcf_filter
+{
+    my ($opts,%args) = @_;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_filter");
 }
 

@@ -30,7 +30,8 @@ typedef struct _args_t
     char *soft_filter;  // drop failed sites or annotate FILTER column?
     int annot_mode;     // add to existing FILTER annotation or replace? Otherwise reset FILTER to PASS or leave as it is?
     int flt_fail, flt_pass;     // BCF ids of fail and pass filters
-    int snp_gap, indel_gap;
+    int snp_gap, indel_gap, IndelGap_id, SnpGap_id;
+    int ntmpi, *tmpi;
     rbuf_t rbuf;
     bcf1_t **rbuf_lines;
 
@@ -51,7 +52,7 @@ static void init_data(args_t *args)
     args->hdr = args->files->readers[0].header;
     if ( args->soft_filter )
     {
-        kstring_t flt_name = {0,0,0}, hdr_line = {0,0,0};
+        kstring_t flt_name = {0,0,0};
         if ( strcmp(args->soft_filter,"+") )
             kputs(args->soft_filter, &flt_name);
         else
@@ -65,19 +66,29 @@ static void init_data(args_t *args)
             }
             while ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
         }
-        ksprintf(&hdr_line,"##FILTER=<ID=%s,Description=\"Set if %s: %s\">", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", args->filter_str);
-        bcf_hdr_append(args->hdr, hdr_line.s);
+        bcf_hdr_printf(args->hdr, "##FILTER=<ID=%s,Description=\"Set if %s: %s\">", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", args->filter_str);
 
         args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
         args->flt_fail = bcf_hdr_id2int(args->hdr,BCF_DT_ID,flt_name.s); assert( args->flt_fail>=0 );
         free(flt_name.s);
-        free(hdr_line.s);
     }
 
     if ( args->snp_gap || args->indel_gap )
     {
         rbuf_init(&args->rbuf, 100);
         args->rbuf_lines = (bcf1_t**) calloc(args->rbuf.m, sizeof(bcf1_t*));
+        if ( args->snp_gap )
+        {
+            bcf_hdr_printf(args->hdr, "##FILTER=<ID=SnpGap,Description=\"SNP within %d bp of an indel\">", args->snp_gap);
+            args->SnpGap_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, "SnpGap");
+            assert( args->SnpGap_id>=0 );
+        }
+        if ( args->indel_gap )
+        {
+            bcf_hdr_printf(args->hdr, "##FILTER=<ID=IndelGap,Description=\"Indel within %d bp of an indel\">", args->indel_gap);
+            args->IndelGap_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, "IndelGap");
+            assert( args->IndelGap_id>=0 );
+        }
     }
 
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_filter");
@@ -98,12 +109,49 @@ static void destroy_data(args_t *args)
     }
     if ( args->filter )
         filter_destroy(args->filter);
+    free(args->tmpi);
+}
+
+static void flush_buffer(args_t *args, int n)
+{
+    int i;
+    for (i=0; i<n; i++)
+    {
+        int k = rbuf_shift(&args->rbuf);
+        bcf_write1(args->out_fh, args->hdr, args->rbuf_lines[k]);
+    }
 }
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 static void buffered_filters(args_t *args, bcf1_t *line)
 {
-#if 0
+    /**
+     *  The logic of SnpGap=3. The SNPs at positions 1 and 7 are filtered,
+     *  positions 0 and 8 are not:
+     *           0123456789
+     *      ref  .G.GT..G..
+     *      del  .A.G-..A.. 
+     *  Here the positions 1 and 6 are filtered, 0 and 7 are not:
+     *           0123-456789
+     *      ref  .G.G-..G..
+     *      ins  .A.GT..A..
+     *
+     *  The logic of IndelGap=2. The second indel is filtered:
+     *           012345678901
+     *      ref  .GT.GT..GT..
+     *      del  .G-.G-..G-..
+     *  Ans similarly here, the second is filtered:
+     *           01 23 456 78
+     *      ref  .A-.A-..A-..
+     *      ins  .AT.AT..AT..
+     */
+
+    // To avoid additional data structure, we abuse bcf1_t's var and var_type records.
+    const int SnpGap_set     = VCF_OTHER<<1;
+    const int IndelGap_set   = VCF_OTHER<<2;
+    const int IndelGap_flush = VCF_OTHER<<3;
+
+    int var_type, i;
     if ( line ) 
     {
         // Still on the same chromosome?
@@ -117,6 +165,23 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         ilast = rbuf_add(&args->rbuf);
         if ( !args->rbuf_lines[ilast] ) args->rbuf_lines[ilast] = bcf_init1();
         SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->rbuf_lines[ilast]);
+
+        var_type = bcf_get_variant_types(line);
+
+        // Find out the size of an indel. The indel boundaries are based on REF
+        // (POS+1,POS+rlen-1). This is not entirely correct: mpileup likes to
+        // output REF=CAGAGAGAGA, ALT=CAGAGAGAGAGA where REF=C,ALT=CGA could be
+        // used. This filter is therefore more strict and may remove some valid
+        // SNPs.
+        int len = 1;
+        if ( var_type & VCF_INDEL )
+        {
+            for (i=1; i<line->n_allele; i++)
+                if ( len < 1-line->d.var[i].n ) len = 1-line->d.var[i].n;
+        }
+
+        // Set the REF allele's length to max deletion length or to 1 if a SNP or an insertion.
+        line->d.var[0].n = len;
     }
 
     int k_flush = 0;
@@ -127,42 +192,39 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         for (i=-1; rbuf_next(&args->rbuf,&i); )
         {
             bcf1_t *rec  = args->rbuf_lines[i];
-            if ( !(rec->var_type & VCF_INDEL ) ) continue;
-            if ( last_to==-1 ) { last_to = rec->pos + rec->d.var[0].n - 1; continue; }  
+            if ( !(rec->d.var_type & VCF_INDEL ) ) { k_flush++; continue; }
 
-            int rec_from = rec->pos + 1;
-            if ( last_to < rec_from ) break;
+            int rec_from = rec->pos;
+            if ( last_to!=-1 && last_to < rec_from ) break;
 
             k_flush++;
-            rec->var_type |= IndelGap_set;
-
-            last_to = rec->pos + rec->d.var[0].n - 1;
+            rec->d.var_type |= IndelGap_set;
+            last_to = args->indel_gap + rec->pos + rec->d.var[0].n - 1;
         }
-
-        if ( i!=0 || !line )
+        if ( i==args->rbuf.f && line ) k_flush = 0;
+        if ( k_flush || !line )
         {
             // Select the best indel from the cluster of k_flush indels
-            int k = 0;
-            int max_ac = -1, imax_ac = -1;
+            int k = 0, max_ac = -1, imax_ac = -1;
             for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
             {
-                bcf1_t *rec  = args->rbuf_lines[i];
-                if ( !(rec->var_type & IndelGap_set) ) continue;
-                hts_expand(int, rec->ntmp_ac, rec->mtmp_ac, rec->tmp_ac);
-                int ret = bcf_calc_ac(args->hdr, rec, rec->tmpi, BCF_UN_ALL);
-                if ( !ret || max_ac < rec->tmpi[1] ) { max_ac = rec->tmpi[1]; imax_ac = i; }
                 k++;
+                bcf1_t *rec  = args->rbuf_lines[i];
+                if ( !(rec->d.var_type & IndelGap_set) ) continue;
+                hts_expand(int, rec->n_allele, args->ntmpi, args->tmpi);
+                int ret = bcf_calc_ac(args->hdr, rec, args->tmpi, BCF_UN_ALL);
+                if ( imax_ac==-1 || (ret && max_ac < args->tmpi[1]) ) { max_ac = args->tmpi[1]; imax_ac = i; }
             }
 
             // Filter all but the best indel (with max AF or first if AF not available)
             k = 0;
             for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
             {
-                bcf1_t *rec  = args->rbuf_lines[i];
-                if ( !(rec->var_type & IndelGap_set) ) continue;
-                rec->var_type |= IndelGap_flush;
-                if ( i!=imax_ac ) bcf_add_filter(args->hdr, line, args->IndelGap_id);
                 k++;
+                bcf1_t *rec = args->rbuf_lines[i];
+                if ( !(rec->d.var_type & IndelGap_set) ) continue;
+                rec->d.var_type |= IndelGap_flush;
+                if ( i!=imax_ac ) bcf_add_filter(args->hdr, args->rbuf_lines[i], args->IndelGap_id);
             }
         }
     }
@@ -174,51 +236,34 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         return;
     }
 
-    // Find out how many sites to flush. The indel boundaries are based on REF
-    // (POS+1,POS+rlen-1). This is not entirely correct: mpileup likes to
-    // output REF=CAGAGAGAGA, ALT=CAGAGAGAGAGA where REF=C,ALT=CGA could be
-    // used. This filter is therefore more strict and may remove some valid SNPs.
-    int var_type = bcf_get_variant_types(line);
-    int i, len = 1;
-    if ( var_type & VCF_INDEL )
-    {
-        for (i=1; i<line->n_allele; i++)
-            if ( len < 1-line->d.var[i].n ) len = 1-line->d.var[i].n;
-    }
-    // To avoid additional data structure, we abuse bcf1_t's var and var_type records.
-    int SnpGap_set = VCF_OTHER<<1;
-
-    // Set the REF allele's length to max deletion length or to 1 if a SNP or an insertion.
-    line->d.var[0].n = len;
-
     int j_flush = 0;
     if ( args->snp_gap )
     {
-        int last_from = var_type & VCF_INDEL ? line->pos + 1 : line->pos;   // first position after last unaffected
+        //int last_from = var_type & VCF_INDEL ? line->pos + 1 : line->pos;   // first position after last unaffected
+        int last_from = line->pos;
         for (i=-1; rbuf_next(&args->rbuf,&i); )
         {
             bcf1_t *rec = args->rbuf_lines[i];
             int rec_to  = rec->pos + rec->d.var[0].n - 1;   // last position affected by the variant
             if ( rec_to + args->snp_gap < last_from ) 
                 j_flush++;
-            else if ( (var_type & VCF_INDEL) && (rec->var_type & VCF_SNP) && !(rec->var_type & SnpGap_set) )
+            else if ( (var_type & VCF_INDEL) && (rec->d.var_type & VCF_SNP) && !(rec->d.var_type & SnpGap_set) )
             {
                 // this SNP has not been SnpGap-filtered yet
-                rec->var_type |= SnpGap_set;
+                rec->d.var_type |= SnpGap_set;
                 bcf_add_filter(args->hdr, rec, args->SnpGap_id);
             }
-            else if ( (var_type & VCF_SNP) && (rec->var_type & VCF_INDEL) )
+            else if ( (var_type & VCF_SNP) && (rec->d.var_type & VCF_INDEL) )
             {
                 // the line which we are adding is a SNP and needs to be filtered
-                line->var_type |= SnpGap_set;
+                line->d.var_type |= SnpGap_set;
                 bcf_add_filter(args->hdr, line, args->SnpGap_id);
                 break;
             }
         }
     }
 
-    flush_buffer(args, args->rbuf.n);j_flush < k_flush ? j_flush : k_flush
-#endif
+    flush_buffer(args, j_flush < k_flush ? j_flush : k_flush);
 }
 
 
@@ -230,7 +275,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -b, --input-is-bcf            input is BCF (required only when reading from stdin)\n");
     fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=\"snp\" && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
     fprintf(stderr, "    -g, --SnpGap <int>            filter SNPs within <int> base pairs of an indel\n");
-    fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs, allowing only one to pass\n");
+    fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
     fprintf(stderr, "    -m, --mode <+|x>              \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass (invokes -s)\n");
     fprintf(stderr, "    -o, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
@@ -333,8 +378,12 @@ int main_vcffilter(int argc, char *argv[])
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files, 0);
-        int pass = filter_test(args->filter, line);
-        if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+        int pass = 1;
+        if ( args->filter )
+        {
+            pass = filter_test(args->filter, line);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+        }
         if ( args->soft_filter || pass )
         {
             if ( pass ) 

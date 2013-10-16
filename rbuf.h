@@ -36,7 +36,8 @@ static inline int rbuf_last(rbuf_t *rbuf)
  *
  *  Sets i to the next position in the buffer. The return value indicates if
  *  the position points to a valid element (1) or if there are no more elements
- *  after *i (0).
+ *  after *i (0). When reaching the end, *i is set to the first element in the
+ *  buffer.
  */
 static inline int rbuf_next(rbuf_t *rbuf, int *i)
 {
@@ -44,7 +45,9 @@ static inline int rbuf_next(rbuf_t *rbuf, int *i)
     if ( *i==-1 ) { *i = rbuf->f; return 1; }
     int n = (rbuf->f <= *i) ? *i - rbuf->f + 1 : *i + rbuf->m - rbuf->f + 1;
     if ( ++(*i) >= rbuf->m ) *i = 0;
-    return n < rbuf->n ? 1 : 0;
+    if ( n < rbuf->n ) return 1;
+    *i = rbuf->f;
+    return 0;
 }
 /**
  *  rbuf_prev() - get index of the previous element in the round buffer
