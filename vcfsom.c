@@ -47,6 +47,10 @@ typedef struct
     int class, mvals;
     double *vals;
 
+    // training data
+    double *train_dat;
+    int *train_class, mtrain_class, mtrain_dat;
+
     int rand_seed, good_class, bad_class;
 	char **argv, *fname, *prefix;
 	int argc, action, train_bad, merge;
@@ -366,60 +370,51 @@ static void destroy_data(args_t *args)
     {
         for (i=0; i<args->nfold; i++) som_destroy(args->som[i]);
     }
+    free(args->train_dat);
+    free(args->train_class);
     free(args->som);
     free(args->vals);
     free(args->str.s);
 }
 
-// n-fold cross validation: select next map
-static som_t *get_som(args_t *args, int *igood, int *ibad)
-{
-    if ( args->class == args->good_class ) 
-    { 
-        if ( ++(*igood) >= args->nfold ) *igood = 0; 
-        return args->som[*igood];
-    }
-    else if ( args->class == args->bad_class )
-    {
-        if ( ++(*ibad) >= args->nfold ) *ibad = 0; 
-        return args->som[*ibad];
-    }
-    error("Wrong class: %d\n", args->class);
-    return NULL;
-}
-
 #define MERGE_MIN 0
 #define MERGE_MAX 1
 #define MERGE_AVG 2
-static double get_min_score(args_t *args)
+static double get_min_score(args_t *args, int iskip)
 {
     int i;
     double score, min_score = HUGE_VAL;
     for (i=0; i<args->nfold; i++)
     {
+        if ( i==iskip ) continue;
         score = som_get_score(args->som[i], args->vals, args->bmu_th);
         if ( i==0 || score < min_score ) min_score = score;
     }
     return min_score;
 }
-static double get_max_score(args_t *args)
+static double get_max_score(args_t *args, int iskip)
 {
     int i;
     double score, max_score = HUGE_VAL;
     for (i=0; i<args->nfold; i++)
     {
+        if ( i==iskip ) continue;
         score = som_get_score(args->som[i], args->vals, args->bmu_th);
         if ( i==0 || max_score < score ) max_score = score;
     }
     return max_score;
 }
-static double get_avg_score(args_t *args)
+static double get_avg_score(args_t *args, int iskip)
 {
-    int i;
+    int i, n = 0;
     double score = 0;
     for (i=0; i<args->nfold; i++)
+    {
+        if ( i==iskip ) continue;
         score += som_get_score(args->som[i], args->vals, args->bmu_th);
-    return score/args->nfold;
+        n++;
+    }
+    return score/n;
 }
 static int cmpfloat_desc(const void *a, const void *b)
 {
@@ -462,24 +457,52 @@ static void create_eval_plot(args_t *args)
 
 static void do_train(args_t *args)
 {
-    int i, ngood = 0, nbad = 0, igood = 0, ibad = 0;
-
-    // train
+    // read training sites
+    int i, igood = 0, ibad = 0, ngood = 0, nbad = 0, ntrain = 0;
     annots_reader_reset(args);
     while ( annots_reader_next(args) )
     {
-        som_t *som = get_som(args, &igood, &ibad);
-        if ( args->class==args->good_class ) 
-        {
-            som_train_site(som, args->vals, 1);
+        // determine which of the nfold's SOMs to train
+        int isom;
+        if ( args->class == args->good_class ) 
+        { 
+            if ( ++igood >= args->nfold ) igood = 0; 
+            isom = igood;
             ngood++;
         }
-        else 
+        else if ( args->class == args->bad_class )
         {
-            if ( args->train_bad ) som_train_site(som, args->vals, 0);
+            if ( ++ibad >= args->nfold ) ibad = 0; 
+            isom = ibad;
             nbad++;
         }
+        else
+            error("Could not determine the class: %d (vs %d and %d)\n", args->class,args->good_class,args->bad_class);
+
+        // save the values for evaluation
+        ntrain++;
+        hts_expand(double, ntrain*args->mvals, args->mtrain_dat, args->train_dat);
+        hts_expand(int, ntrain, args->mtrain_class, args->train_class);
+        memcpy(args->train_dat+(ntrain-1)*args->mvals, args->vals, args->mvals);
+        args->train_class[ntrain-1] = (args->class==args->good_class ? 1 : 0) | isom<<1;  // store class + chunk used for training
     }
+    annots_reader_close(args);
+
+    if ( !args->ntrain )    // not set by the user
+    {
+        for (i=0; i<args->nfold; i++) 
+            args->som[i]->nt = ngood / args->nfold;
+    }
+
+    // train
+    for (i=0; i<ntrain; i++)
+    {
+        int is_good = args->train_class[i] & 1;
+        int isom    = args->train_class[i] >> 1; 
+        som_train_site(args->som[isom], args->train_dat+i*args->mvals, is_good);
+    }
+
+    // norm and create plots
     for (i=0; i<args->nfold; i++) 
     {
         som_norm_counts(args->som[i]);
@@ -492,22 +515,24 @@ static void do_train(args_t *args)
     }
 
     // evaluate
-    annots_reader_reset(args);
     float *good = (float*) malloc(sizeof(float)*ngood); assert(good);
     float *bad  = (float*) malloc(sizeof(float)*nbad); assert(bad);
     igood = ibad = 0;
     double max_score = sqrt(args->som[0]->kdim);
-    while ( annots_reader_next(args) )
+    for (i=0; i<ntrain; i++)
     {
         double score;
+        int is_good = args->train_class[i] & 1;
+        int isom    = args->train_class[i] >> 1;    // this vector was used for training isom-th SOM, skip
+        memcpy(args->vals, args->train_dat+i*args->mvals, args->mvals);
         switch (args->merge)
         {
-            case MERGE_MIN: score = get_min_score(args); break;
-            case MERGE_MAX: score = get_max_score(args); break;
-            case MERGE_AVG: score = get_avg_score(args); break;
+            case MERGE_MIN: score = get_min_score(args, isom); break;
+            case MERGE_MAX: score = get_max_score(args, isom); break;
+            case MERGE_AVG: score = get_avg_score(args, isom); break;
         }
         score = 1.0 - score/max_score;
-        if ( args->class==args->good_class )
+        if ( is_good )
             good[igood++] = score;
         else
             bad[ibad++] = score;
@@ -546,7 +571,6 @@ static void do_train(args_t *args)
 
     free(good);
     free(bad);
-    annots_reader_close(args);
 }
 
 static void do_classify(args_t *args)
@@ -558,9 +582,9 @@ static void do_classify(args_t *args)
         double score;
         switch (args->merge)
         {
-            case MERGE_MIN: score = get_min_score(args); break;
-            case MERGE_MAX: score = get_max_score(args); break;
-            case MERGE_AVG: score = get_avg_score(args); break;
+            case MERGE_MIN: score = get_min_score(args, -1); break;
+            case MERGE_MAX: score = get_max_score(args, -1); break;
+            case MERGE_AVG: score = get_avg_score(args, -1); break;
         }
         printf("%e\n", 1.0 - score/max_score);
     }
@@ -577,7 +601,6 @@ static void usage(void)
 	fprintf(stderr, "    -c, --classify                     \n");
 	fprintf(stderr, "Model training options:\n");
 	fprintf(stderr, "    -f, --nfold <int>                  n-fold cross-validation (number of maps) [1]\n");
-	fprintf(stderr, "    -n, --ntrain-sites <int>           effective number of training sites (e.g. number of good sites) [0]\n");
 	fprintf(stderr, "    -p, --prefix <string>              prefix of output files\n");
 	fprintf(stderr, "    -s, --size <int>                   map size [20]\n");
 	fprintf(stderr, "    -t, --train                        \n");
@@ -587,6 +610,7 @@ static void usage(void)
 	fprintf(stderr, "    -e, --exclude-bad                  exclude bad sites from training, use for evaluation only\n");
 	fprintf(stderr, "    -l, --learning-rate <float>        learning rate [1.0]\n");
 	fprintf(stderr, "    -m, --merge <min|max|avg>          -f merge algorithm [avg]\n");
+	fprintf(stderr, "    -n, --ntrain-sites <int>           effective number of training sites [number of good sites]\n");
 	fprintf(stderr, "    -r, --random-seed <int>            random seed, 0 for time() [1]\n");
 	fprintf(stderr, "\n");
 	exit(1);
@@ -653,23 +677,14 @@ int main_vcfsom(int argc, char *argv[])
 			default: error("Unknown argument: %s\n", optarg);
 		}
 	}
-    args->ntrain /= args->nfold;
-    if ( args->ntrain==0 ) args->ntrain = 1;
 
     if ( !args->rand_seed ) args->rand_seed = time(NULL);
     if ( argc!=optind+1 ) usage();
     args->fname = argv[optind];
     init_data(args);
 
-    if ( args->action == SOM_TRAIN )
-    {
-        if ( !args->ntrain ) error("Missing the -n option\n");
-        do_train(args);
-    }
-    else if ( args->action == SOM_CLASSIFY )
-    {
-        do_classify(args);
-    }
+    if ( args->action == SOM_TRAIN ) do_train(args);
+    else if ( args->action == SOM_CLASSIFY ) do_classify(args);
 
     destroy_data(args);
 	free(args);
