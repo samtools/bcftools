@@ -18,7 +18,9 @@ TSTV	0	0	2	0.00	0	1	0.00
 SiS	0	1	2	0	2	0	0	0	0
 # AF, Stats by non-reference allele frequency:
 # AF	[2]id	[3]allele frequency	[4]number of SNPs	[5]number of transitions	[6]number of transversions	[7]number of indels	[8]repeat-consistent	[9]repeat-inconsistent	[10]not applicable
-AF	0	0.000000	2	0	2	0	0	0	0
+AF	0	0.000000	2	0	2	2	0	0	2
+AF	0	49.494949	0	0	0	14	0	0	14
+AF	0	100.000000	0	0	0	1	0	0	1
 # QUAL, Stats by quality:
 # QUAL	[2]id	[3]Quality	[4]number of SNPs	[5]number of transitions (1st ALT)	[6]number of transversions (1st ALT)	[7]number of indels
 QUAL	0	12	1	0	1	1

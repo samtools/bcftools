@@ -494,6 +494,8 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
                 }
             }
         }
+        else
+            stats->af_repeats[2][ args->tmp_iaf[i] ]++;
         #endif
 
         // Check the frameshifts

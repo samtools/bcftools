@@ -379,6 +379,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     int nout = 0, mout = 0;                 // filter tokens, RPN
     token_t *out = NULL;
     char *tmp = filter->str;
+    int last_op = -1;
     while ( *tmp )
     {
         int len, ret;
@@ -406,14 +407,29 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( nops<=0 ) error("Could not parse: %s\n", str);
             nops--;
         }
-        else if ( ret!=TOK_VAL )    // one of the comparison operators
+        else if ( ret!=TOK_VAL )    // one of the operators
         {
-            while ( nops>0 && op_prec[ret] < op_prec[ops[nops-1]] )
+            // detect unary minus: replace -value with -1*(value)
+            if ( ret==TOK_SUB && last_op!=TOK_VAL && last_op!=TOK_RGT )
             {
                 nout++;
                 hts_expand0(token_t, nout, mout, out);
-                out[nout-1].tok_type = ops[nops-1];
-                nops--;
+                token_t *tok = &out[nout-1];
+                tok->tok_type  = TOK_VAL;
+                tok->hdr_id    = -1;
+                tok->pass      = -1;
+                tok->threshold = -1.0;
+                ret = TOK_MULT;
+            }
+            else
+            {
+                while ( nops>0 && op_prec[ret] < op_prec[ops[nops-1]] )
+                {
+                    nout++;
+                    hts_expand0(token_t, nout, mout, out);
+                    out[nout-1].tok_type = ops[nops-1];
+                    nops--;
+                }
             }
             nops++;
             hts_expand(int, nops, mops, ops);
@@ -431,6 +447,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             filters_init1(filter, tmp, len, &out[nout-1]);
             tmp += len;
         }
+        last_op = ret;
     }
     while ( nops>0 )
     {
@@ -519,8 +536,6 @@ int filter_test(filter_t *filter, bcf1_t *line)
         filter->filters[i].missing_value = 0;
         filter->filters[i].str_value = NULL;
         filter->filters[i].pass = -1;
-
-        // filters_debug_stack(filter, nstack);
 
         if ( filter->filters[i].tok_type == TOK_VAL )
         {
