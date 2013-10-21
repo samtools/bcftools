@@ -389,7 +389,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                 double *pdg  = call->pdg;
                 for (isample=0; isample<nsmpl; isample++)
                 {
-                    double val;
+                    double val = 0;
                     if ( !call->ploidy || call->ploidy[isample]==2 )
                         val = fa*pdg[iaa] + fb*pdg[ibb] + fab*pdg[iab];
                     else if ( call->ploidy && call->ploidy[isample]==1 )
@@ -810,12 +810,12 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
     int npls_ori = call->nPLs / nsmpl;
     int npls_new = k;
     hts_expand(int,npls_new*nsmpl,call->n_itmp,call->itmp);
-    int *ori = call->PLs, *new = call->itmp;
+    int *ori_pl = call->PLs, *new_pl = call->itmp;
     for (i=0; i<nsmpl; i++)
     {
-        for (k=0; k<npls_new; k++) new[k] = ori[call->pl_map[k]];
-        ori += npls_ori;
-        new += npls_new;
+        for (k=0; k<npls_new; k++) new_pl[k] = ori_pl[call->pl_map[k]];
+        ori_pl += npls_ori;
+        new_pl += npls_new;
     }
     bcf_update_format_int32(call->hdr, rec, "PL", call->itmp, npls_new*nsmpl);
 

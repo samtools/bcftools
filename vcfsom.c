@@ -44,7 +44,7 @@ typedef struct
     // annots reader's data
     htsFile *file;              // reader
     kstring_t str;              // temporary string for the reader
-    int class, mvals;
+    int dclass, mvals;
     double *vals;
 
     // training data
@@ -114,7 +114,7 @@ int annots_reader_next(args_t *args)
     }
 
     // class
-    args->class = atoi(line);
+    args->dclass = atoi(line);
     t = column_next(line, '\t'); 
 
     // values
@@ -157,8 +157,7 @@ static som_t** som_load_map(char *prefix, int *nsom)
 {
     FILE *fp = open_file(NULL,"r","%s.som",prefix);
     char buf[5];
-    fread(buf,5,1,fp);
-    if ( strncmp(buf,"SOMv1",5) ) error("Could not parse %s.som\n", prefix);
+    if ( fread(buf,5,1,fp)!=1 || strncmp(buf,"SOMv1",5) ) error("Could not parse %s.som\n", prefix);
 
     fread(nsom,sizeof(int),1,fp);
     som_t **som = (som_t**)malloc(*nsom*sizeof(som_t*));
@@ -171,8 +170,8 @@ static som_t** som_load_map(char *prefix, int *nsom)
         fread(&som[i]->kdim,sizeof(int),1,fp);
         som[i]->w = (double*) malloc(sizeof(double)*som[i]->size*som[i]->kdim);
         som[i]->c = (double*) malloc(sizeof(double)*som[i]->size);
-        fread(som[i]->w,sizeof(double),som[i]->size*som[i]->kdim,fp);
-        fread(som[i]->c,sizeof(double),som[i]->size,fp);
+        if ( fread(som[i]->w,sizeof(double),som[i]->size*som[i]->kdim,fp) != som[i]->size*som[i]->kdim ) error("Could not read from %s.som\n", prefix);
+        if ( fread(som[i]->c,sizeof(double),som[i]->size,fp) != som[i]->size ) error("Could not read from %s.som\n", prefix);
     }
     if ( fclose(fp) ) error("%s.som: fclose failed\n",prefix);
     return som;
@@ -456,28 +455,28 @@ static void do_train(args_t *args)
     while ( annots_reader_next(args) )
     {
         // determine which of the nfold's SOMs to train
-        int isom;
-        if ( args->class == args->good_class ) 
+        int isom = 0;
+        if ( args->dclass == args->good_class ) 
         { 
             if ( ++igood >= args->nfold ) igood = 0; 
             isom = igood;
             ngood++;
         }
-        else if ( args->class == args->bad_class )
+        else if ( args->dclass == args->bad_class )
         {
             if ( ++ibad >= args->nfold ) ibad = 0; 
             isom = ibad;
             nbad++;
         }
         else
-            error("Could not determine the class: %d (vs %d and %d)\n", args->class,args->good_class,args->bad_class);
+            error("Could not determine the class: %d (vs %d and %d)\n", args->dclass,args->good_class,args->bad_class);
 
         // save the values for evaluation
         ntrain++;
         hts_expand(double, ntrain*args->mvals, args->mtrain_dat, args->train_dat);
         hts_expand(int, ntrain, args->mtrain_class, args->train_class);
         memcpy(args->train_dat+(ntrain-1)*args->mvals, args->vals, args->mvals*sizeof(double));
-        args->train_class[ntrain-1] = (args->class==args->good_class ? 1 : 0) | isom<<1;  // store class + chunk used for training
+        args->train_class[ntrain-1] = (args->dclass==args->good_class ? 1 : 0) | isom<<1;  // store class + chunk used for training
     }
     annots_reader_close(args);
 
@@ -514,7 +513,7 @@ static void do_train(args_t *args)
     double max_score = sqrt(args->som[0]->kdim);
     for (i=0; i<ntrain; i++)
     {
-        double score;
+        double score = 0;
         int is_good = args->train_class[i] & 1;
         int isom    = args->train_class[i] >> 1;    // this vector was used for training isom-th SOM, skip
         memcpy(args->vals, args->train_dat+i*args->mvals, args->mvals*sizeof(double));
@@ -572,7 +571,7 @@ static void do_classify(args_t *args)
     double max_score = sqrt(args->som[0]->kdim);
     while ( annots_reader_next(args) )
     {
-        double score;
+        double score = 0;
         switch (args->merge)
         {
             case MERGE_MIN: score = get_min_score(args, -1); break;

@@ -26,7 +26,7 @@ typedef struct _args_t
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
     char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
     int argc, clevel, output_type, input_type, print_header, update_info, header_only, n_samples, *imap;
-    int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private, exclude_uncalled, min_ac, max_ac, calc_ac;
+    int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private_vars, exclude_uncalled, min_ac, max_ac, calc_ac;
     char *fn_ref, *fn_out, **samples;
     char *include_types, *exclude_types;
     int include, exclude;
@@ -212,7 +212,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
                 an+=ac_sub[i];
             for (i=1; i<=line->n_allele; i++)
                 n_ac_sub += ac_sub[i];
-            if (args->private && !(n_ac_sub > 0 && n_ac == n_ac_sub)) { free(ac); free(ac_sub); return 0; }
+            if (args->private_vars && !(n_ac_sub > 0 && n_ac == n_ac_sub)) { free(ac); free(ac_sub); return 0; }
             n_ac = n_ac_sub;
             for (i=0; i<=line->n_allele; i++)
                 ac[i] = ac_sub[i];
@@ -353,7 +353,7 @@ int main_vcfsubset(int argc, char *argv[])
             case '2': args->min_ac = 2; args->max_ac = 2; args->calc_ac = 1; break;
 
             case 'R': args->exclude_ref = 1; args->calc_ac = 1; break;
-            case 'p': args->private = 1; args->calc_ac = 1; break;
+            case 'p': args->private_vars = 1; args->calc_ac = 1; break;
             case 'U': args->exclude_uncalled = 1; args->calc_ac = 1; break;
             case '?': usage(args);
             default: error("Unknown argument: %s\n", optarg);

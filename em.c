@@ -142,13 +142,13 @@ static double lk_ratio_test(int n, int n1, const double *pdg, double f3[3][3])
 int bcf_em1(call_t *call, const bcf1_t *rec, int n1, int flag, double x[10])
 {
 	double *pdg;
-	int i, n, n2;
+	int i, n; //, n2;
 	if (rec->n_allele < 2) return -1; // one allele only
 	// initialization
 	if (n1 < 0 || n1 > rec->n_sample) n1 = 0;
 	if (flag & 1<<7) flag |= 7<<5; // compute group freq if LRT is required
 	if (flag & 0xf<<1) flag |= 0xf<<1;
-	n = rec->n_sample; n2 = n - n1;
+	n = rec->n_sample; //n2 = n - n1;
 	pdg = call->pdg;
 	if (pdg == 0) return -1;
 	for (i = 0; i < 10; ++i) x[i] = -1.; // set to negative
