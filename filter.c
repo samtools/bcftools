@@ -17,7 +17,7 @@ typedef struct _token_t
     int (*comparator)(struct _token_t *, struct _token_t *, int op_type, bcf1_t *);
 
     // modified on filter evaluation at each VCF line
-    double num_value;
+    double num_value;   // in case str_value is set, num_value is the string's length
     char *str_value;
     int pass;           // -1 not applicable, 0 fails, >0 pass
     int missing_value;
@@ -161,7 +161,10 @@ static void filters_set_info(bcf1_t *line, token_t *tok)
     if ( i==line->n_info ) 
         tok->missing_value = 1;
     else if ( line->d.info[i].type==BCF_BT_CHAR )
-        tok->str_value = (char*)line->d.info[i].vptr;
+    {
+        tok->str_value = (char*)line->d.info[i].vptr;       // string is typically not null-terminated
+        tok->num_value = line->d.info[i].len;
+    }
     else if ( line->d.info[i].type==BCF_BT_FLOAT )
     {
         tok->num_value = line->d.info[i].v1.f;
@@ -283,6 +286,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     {
         if ( str[len-1] != '"' ) error("TODO: [%s]\n", filter->str);
         tok->key = (char*) calloc(len-1,sizeof(char));
+        tok->num_value = len-2;
         memcpy(tok->key,str+1,len-2);
         tok->key[len-2] = 0;
         return 0;
@@ -448,7 +452,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         }
         else if ( !len ) 
         {
-            if ( !isspace(*tmp) ) error("Could not parse the expression: %s\n", str);
+            if ( *tmp && !isspace(*tmp) ) error("Could not parse the expression: [%s]\n", str);
             break;     // all tokens read
         }
         else           // annotation name or filtering value
@@ -462,7 +466,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     }
     while ( nops>0 )
     {
-        if ( ops[nops-1]==TOK_LFT || ops[nops-1]==TOK_RGT ) error("Could not parse the expression: %s\n", filter->str);
+        if ( ops[nops-1]==TOK_LFT || ops[nops-1]==TOK_RGT ) error("Could not parse the expression: [%s]\n", filter->str);
         nout++;
         hts_expand0(token_t, nout, mout, out);
         out[nout-1].tok_type = ops[nops-1];
@@ -553,7 +557,10 @@ int filter_test(filter_t *filter, bcf1_t *line)
             if ( filter->filters[i].setter ) 
                 filter->filters[i].setter(line, &filter->filters[i]);
             else if ( filter->filters[i].key )
+            {
                 filter->filters[i].str_value = filter->filters[i].key;
+                filter->filters[i].num_value = filter->filters[i].num_value;
+            }
             else
                 filter->filters[i].num_value = filter->filters[i].threshold;
             filter->flt_stack[nstack++] = &filter->filters[i];
@@ -616,7 +623,10 @@ int filter_test(filter_t *filter, bcf1_t *line)
             else if ( filter->flt_stack[nstack-2]->comparator )
                 is_true = filter->flt_stack[nstack-2]->comparator(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],TOK_EQ,line);
             else if ( is_str==2 ) 
-                is_true = strcmp(filter->flt_stack[nstack-1]->str_value,filter->flt_stack[nstack-2]->str_value) ? 0 : 1;
+            {
+                int ncmp = filter->flt_stack[nstack-1]->num_value > filter->flt_stack[nstack-2]->num_value ? filter->flt_stack[nstack-1]->num_value : filter->flt_stack[nstack-2]->num_value;
+                is_true = strncmp(filter->flt_stack[nstack-1]->str_value,filter->flt_stack[nstack-2]->str_value, ncmp) ? 0 : 1;
+            }
             else if ( is_str==1 ) 
                 error("Comparing string to numeric value: %s\n", filter->str);
             else
@@ -629,7 +639,10 @@ int filter_test(filter_t *filter, bcf1_t *line)
             else if ( filter->flt_stack[nstack-2]->comparator )
                 is_true = filter->flt_stack[nstack-2]->comparator(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],TOK_NE,line);
             else if ( is_str==2 )
-                is_true = strcmp(filter->flt_stack[nstack-1]->str_value,filter->flt_stack[nstack-2]->str_value) ? 1 : 0;
+            {
+                int ncmp = filter->flt_stack[nstack-1]->num_value > filter->flt_stack[nstack-2]->num_value ? filter->flt_stack[nstack-1]->num_value : filter->flt_stack[nstack-2]->num_value;
+                is_true = strncmp(filter->flt_stack[nstack-1]->str_value,filter->flt_stack[nstack-2]->str_value, ncmp) ? 1 : 0;
+            }
             else if ( is_str==1 )
                 error("Comparing string to numeric value: %s\n", filter->str);
             else
