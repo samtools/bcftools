@@ -353,14 +353,7 @@ static void init_data(args_t *args)
     annots_reader_reset(args);
     annots_reader_next(args);
 
-    if ( args->action==SOM_TRAIN )
-    {
-        srandom(args->rand_seed);
-        args->som = (som_t**) malloc(sizeof(som_t*)*args->nfold);
-        int i;
-        for (i=0; i<args->nfold; i++) args->som[i] = som_init(args);
-    }
-    else if ( args->action==SOM_CLASSIFY )
+    if ( args->action==SOM_CLASSIFY )
         args->som = som_load_map(args->prefix,&args->nfold);
 }
 static void destroy_data(args_t *args)
@@ -483,16 +476,16 @@ static void do_train(args_t *args)
         ntrain++;
         hts_expand(double, ntrain*args->mvals, args->mtrain_dat, args->train_dat);
         hts_expand(int, ntrain, args->mtrain_class, args->train_class);
-        memcpy(args->train_dat+(ntrain-1)*args->mvals, args->vals, args->mvals);
+        memcpy(args->train_dat+(ntrain-1)*args->mvals, args->vals, args->mvals*sizeof(double));
         args->train_class[ntrain-1] = (args->class==args->good_class ? 1 : 0) | isom<<1;  // store class + chunk used for training
     }
     annots_reader_close(args);
 
-    if ( !args->ntrain )    // not set by the user
-    {
-        for (i=0; i<args->nfold; i++) 
-            args->som[i]->nt = ngood / args->nfold;
-    }
+    // init maps
+    if ( !args->ntrain ) args->ntrain = ngood/args->nfold;
+    srandom(args->rand_seed);
+    args->som = (som_t**) malloc(sizeof(som_t*)*args->nfold);
+    for (i=0; i<args->nfold; i++) args->som[i] = som_init(args);
 
     // train
     for (i=0; i<ntrain; i++)
@@ -524,7 +517,7 @@ static void do_train(args_t *args)
         double score;
         int is_good = args->train_class[i] & 1;
         int isom    = args->train_class[i] >> 1;    // this vector was used for training isom-th SOM, skip
-        memcpy(args->vals, args->train_dat+i*args->mvals, args->mvals);
+        memcpy(args->vals, args->train_dat+i*args->mvals, args->mvals*sizeof(double));
         switch (args->merge)
         {
             case MERGE_MIN: score = get_min_score(args, isom); break;
@@ -597,13 +590,13 @@ static void usage(void)
 	fprintf(stderr, "Usage:\n");
 	fprintf(stderr, "    bcftools som --train    [options] <annots.tab.gz>\n");
 	fprintf(stderr, "    bcftools som --classify [options]\n");
-	fprintf(stderr, "Classifying options:\n");
-	fprintf(stderr, "    -c, --classify                     \n");
 	fprintf(stderr, "Model training options:\n");
-	fprintf(stderr, "    -f, --nfold <int>                  n-fold cross-validation (number of maps) [1]\n");
+	fprintf(stderr, "    -f, --nfold <int>                  n-fold cross-validation (number of maps) [5]\n");
 	fprintf(stderr, "    -p, --prefix <string>              prefix of output files\n");
 	fprintf(stderr, "    -s, --size <int>                   map size [20]\n");
 	fprintf(stderr, "    -t, --train                        \n");
+	fprintf(stderr, "Classifying options:\n");
+	fprintf(stderr, "    -c, --classify                     \n");
 	fprintf(stderr, "Experimental training options (no reason to change):\n");
 	fprintf(stderr, "    -b, --bmu-threshold <float>        treshold for selection of best-matching unit [0.95]\n");
 	fprintf(stderr, "    -d, --som-dimension <int>          SOM dimension [2]\n");
@@ -624,7 +617,7 @@ int main_vcfsom(int argc, char *argv[])
     args->nbin       = 20;
     args->learn      = 1.0;
     args->bmu_th     = 0.9;
-    args->nfold      = 1;
+    args->nfold      = 5;
     args->rand_seed  = 1;
     args->ndim       = 2;
     args->bad_class  = 1;
