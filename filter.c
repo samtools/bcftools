@@ -264,6 +264,14 @@ static void filters_set_info_float(bcf1_t *line, token_t *tok)
         tok->num_value = value;
 }
 
+static void filters_set_info_flag(bcf1_t *line, token_t *tok)
+{
+    int j;
+    for (j=0; j<line->n_info; j++)
+        if ( line->d.info[j].key == tok->hdr_id ) break;
+    tok->num_value = j==line->n_info ? 0 : 1;
+}
+
 static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
 {
     tok->tok_type = TOK_VAL;
@@ -307,7 +315,10 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     tok->hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, tmp.s);
     if ( tok->hdr_id>=0 ) 
     {
-        tok->setter = filters_set_info;
+        if ( bcf_hdr_id2type(filter->hdr,BCF_HL_INFO,tok->hdr_id) == BCF_HT_FLAG )
+            tok->setter = filters_set_info_flag;
+        else
+            tok->setter = filters_set_info;
         tok->tag = strdup(tmp.s);
         if ( tmp.s ) free(tmp.s);
         return 0;

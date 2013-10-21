@@ -288,6 +288,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    - parentheses: (, )\n");
     fprintf(stderr, "    - array subscripts, such as AC[0]\n");
     fprintf(stderr, "    - double quotes for string values\n");
+    fprintf(stderr, "    - 1 (or 0) for testing the presence (or absence) of a flag\n");
     fprintf(stderr, "    - %%QUAL or INFO tag names\n");
     fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
     exit(1);
