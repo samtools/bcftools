@@ -18,6 +18,16 @@ OBJS=		main.o vcfview.o bcfidx.o tabix.o \
 INCLUDES=	-I. -I$(HTSDIR)
 SUBDIRS=    .
 
+prefix      = /usr/local
+exec_prefix = $(prefix)
+bindir      = $(exec_prefix)/bin
+mandir      = $(prefix)/share/man
+man1dir     = $(mandir)/man1
+
+INSTALL = install -p
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA    = $(INSTALL) -m 644
+
 all-recur lib-recur clean-recur cleanlocal-recur install-recur:
 		@target=`echo $@ | sed s/-recur//`; \
 		wdir=`pwd`; \
@@ -49,7 +59,7 @@ version.h:
 
 
 .SUFFIXES:.c .o
-.PHONY:all lib test force
+.PHONY:all install lib test force
 
 force:
 
@@ -69,6 +79,13 @@ vcffilter.o: rbuf.h
 
 bcftools:lib-recur $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm
+
+
+install: $(PROG)
+		mkdir -p $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
+		$(INSTALL_PROGRAM) $(PROG) plot-vcfstats $(DESTDIR)$(bindir)
+		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
+
 
 cleanlocal:
 		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h
