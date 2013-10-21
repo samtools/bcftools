@@ -151,7 +151,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
     const int IndelGap_set   = VCF_OTHER<<2;
     const int IndelGap_flush = VCF_OTHER<<3;
 
-    int var_type, i;
+    int var_type = 0, i;
     if ( line ) 
     {
         // Still on the same chromosome?
@@ -239,7 +239,6 @@ static void buffered_filters(args_t *args, bcf1_t *line)
     int j_flush = 0;
     if ( args->snp_gap )
     {
-        //int last_from = var_type & VCF_INDEL ? line->pos + 1 : line->pos;   // first position after last unaffected
         int last_from = line->pos;
         for (i=-1; rbuf_next(&args->rbuf,&i); )
         {
