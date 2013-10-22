@@ -59,6 +59,44 @@ static int filters_next_token(char **str, int *len)
     *str = tmp;
     *len = 0;
 
+    // test for doubles  d.ddde[+-]dd
+    //             mode: 0 111  22 33
+    int mode = 0;
+    while ( tmp[0] )
+    {
+        if ( mode==0 )
+        {
+            if ( isdigit(tmp[0]) ) { tmp++; continue; }
+            if ( tmp[0]=='.' ) { tmp++; mode = 1; continue; } 
+            if ( tmp[0]=='e' ) { tmp++; mode = 2; continue; }
+            break;
+        }
+        if ( mode==1 )
+        {
+            if ( isdigit(tmp[0]) ) { tmp++; continue; }
+            if ( tmp[0]=='e' ) { tmp++; mode = 2; continue; }
+            break;
+        }
+        if ( mode==2 )
+        {
+            if ( tmp[0]=='+' || tmp[0]=='-' ) { tmp++; mode = 3; continue; }
+            if ( isdigit(tmp[0]) ) { mode = 3; continue; }
+            break;
+        }
+        if ( mode==3 )
+        {
+            if ( isdigit(tmp[0]) ) { tmp++; continue; }
+            if ( isspace(tmp[0]) ) { break; }
+            mode = 4; break;
+        }
+    }
+    if ( mode==3 )
+    {
+        *len = tmp - (*str);
+        return TOK_VAL;
+    }
+    tmp = *str;
+
     while ( tmp[0] )
     {
         if ( tmp[0]=='"' ) break;
@@ -354,7 +392,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     char *end;
     errno = 0;
     tok->threshold = strtod(tmp.s, &end);
-    if ( errno!=0 || end==tmp.s ) error("[%s:%d %s] Error: the tag \"INFO/%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
+    if ( errno!=0 || end!=tmp.s+len ) error("[%s:%d %s] Error: the tag \"INFO/%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
 
     if ( tmp.s ) free(tmp.s);
     return 0;

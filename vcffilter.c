@@ -281,14 +281,14 @@ static void usage(args_t *args)
     fprintf(stderr, "    -r, --regions <reg|file>      same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
     fprintf(stderr, "    -t, --targets <reg|file>      restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
-    fprintf(stderr, "Expressions:\n");
+    fprintf(stderr, "Expressions may contain:\n");
     fprintf(stderr, "    - arithmetic perators: +,*,-,/\n");
     fprintf(stderr, "    - logical operators: && (same as &), || (same as |)\n");
     fprintf(stderr, "    - conditional operators: == (same as =), >, >=, <=, <, !=\n");
     fprintf(stderr, "    - parentheses: (, )\n");
     fprintf(stderr, "    - array subscripts, such as AC[0]\n");
     fprintf(stderr, "    - double quotes for string values\n");
-    fprintf(stderr, "    - 1 (or 0) for testing the presence (or absence) of a flag\n");
+    fprintf(stderr, "    - 1 (or 0) for testing the presence (or absence) of a flag (e.g. FlagA=1 && FlagB=0)\n");
     fprintf(stderr, "    - %%QUAL or INFO tag names\n");
     fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
     exit(1);
