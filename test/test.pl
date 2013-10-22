@@ -35,7 +35,7 @@ printf "    passed  .. %d\n", $$opts{nok};
 printf "    failed  .. %d\n", $$opts{nfailed};
 print "\n";
 
-exit;
+exit $$opts{nfailed};
 
 #--------------------
 
