@@ -123,11 +123,11 @@ char *bcftools_version(void)
     return bcftools_version_string;
 }
 
-static int usage(char *argv0)
+static int usage(void)
 {
 	fprintf(stderr, "\n");
     fprintf(stderr, "Version: %s\n", bcftools_version());
-	fprintf(stderr, "Usage:   %s <command> <argument>\n", argv0);
+	fprintf(stderr, "Usage:   bcftools <command> <argument>\n");
 	fprintf(stderr, "Commands:\n");
 
     int i = 0;
@@ -150,7 +150,7 @@ static int usage(char *argv0)
 
 int main(int argc, char *argv[])
 {
-	if (argc < 2) return usage(argv[0]);
+	if (argc < 2) return usage();
 
     int i = 0;
     while (cmds[i].func)
