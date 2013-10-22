@@ -66,7 +66,7 @@ force:
 .c.o: bcftools.h version.h
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
-test:
+test: $(PROG)
 		./test/test.pl
 
 main.o: version.h $(HTSDIR)/version.h bcftools.h
