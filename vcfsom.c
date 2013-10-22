@@ -387,7 +387,7 @@ static double get_min_score(args_t *args, int iskip)
 static double get_max_score(args_t *args, int iskip)
 {
     int i;
-    double score, max_score = HUGE_VAL;
+    double score, max_score = -HUGE_VAL;
     for (i=0; i<args->nfold; i++)
     {
         if ( i==iskip ) continue;
@@ -516,6 +516,7 @@ static void do_train(args_t *args)
         double score = 0;
         int is_good = args->train_class[i] & 1;
         int isom    = args->train_class[i] >> 1;    // this vector was used for training isom-th SOM, skip
+        if ( args->nfold==1 ) isom = -1;
         memcpy(args->vals, args->train_dat+i*args->mvals, args->mvals*sizeof(double));
         switch (args->merge)
         {
