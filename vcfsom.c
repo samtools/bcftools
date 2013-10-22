@@ -159,15 +159,15 @@ static som_t** som_load_map(char *prefix, int *nsom)
     char buf[5];
     if ( fread(buf,5,1,fp)!=1 || strncmp(buf,"SOMv1",5) ) error("Could not parse %s.som\n", prefix);
 
-    fread(nsom,sizeof(int),1,fp);
+    if ( fread(nsom,sizeof(int),1,fp)!=1 ) error("Could not read %s.som\n", prefix);
     som_t **som = (som_t**)malloc(*nsom*sizeof(som_t*));
 
     int i;
     for (i=0; i<*nsom; i++)
     {
         som[i] = (som_t*) calloc(1,sizeof(som_t));
-        fread(&som[i]->size,sizeof(int),1,fp);
-        fread(&som[i]->kdim,sizeof(int),1,fp);
+        if ( fread(&som[i]->size,sizeof(int),1,fp) != 1 ) error("Could not read %s.som\n", prefix);
+        if ( fread(&som[i]->kdim,sizeof(int),1,fp) != 1 ) error("Could not read %s.som\n", prefix);
         som[i]->w = (double*) malloc(sizeof(double)*som[i]->size*som[i]->kdim);
         som[i]->c = (double*) malloc(sizeof(double)*som[i]->size);
         if ( fread(som[i]->w,sizeof(double),som[i]->size*som[i]->kdim,fp) != som[i]->size*som[i]->kdim ) error("Could not read from %s.som\n", prefix);
