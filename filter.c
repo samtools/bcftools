@@ -59,38 +59,9 @@ static int filters_next_token(char **str, int *len)
     *str = tmp;
     *len = 0;
 
-    // test for doubles  d.ddde[+-]dd
-    //             mode: 0 111  22 33
-    int mode = 0;
-    while ( tmp[0] )
-    {
-        if ( mode==0 )
-        {
-            if ( isdigit(tmp[0]) ) { tmp++; continue; }
-            if ( tmp[0]=='.' ) { tmp++; mode = 1; continue; } 
-            if ( tmp[0]=='e' ) { tmp++; mode = 2; continue; }
-            break;
-        }
-        if ( mode==1 )
-        {
-            if ( isdigit(tmp[0]) ) { tmp++; continue; }
-            if ( tmp[0]=='e' ) { tmp++; mode = 2; continue; }
-            break;
-        }
-        if ( mode==2 )
-        {
-            if ( tmp[0]=='+' || tmp[0]=='-' ) { tmp++; mode = 3; continue; }
-            if ( isdigit(tmp[0]) ) { mode = 3; continue; }
-            break;
-        }
-        if ( mode==3 )
-        {
-            if ( isdigit(tmp[0]) ) { tmp++; continue; }
-            if ( isspace(tmp[0]) ) { break; }
-            mode = 4; break;
-        }
-    }
-    if ( mode==3 )
+    // test for doubles:  d.ddde[+-]dd
+    strtod(*str, &tmp);
+    if ( *str!=tmp && (!tmp[0] || !isalnum(tmp[0])) )
     {
         *len = tmp - (*str);
         return TOK_VAL;
@@ -605,7 +576,7 @@ int filter_test(filter_t *filter, bcf1_t *line)
             continue;
         }
         if ( nstack<2 ) 
-            error("Error occurred while processing the filter \"%s\": too few values left on stack (%d)\n", filter->str,nstack);
+            error("Error occurred while processing the filter \"%s\" (%d)\n", filter->str,nstack);  // too few values left on the stack
 
         int is_str  = (filter->flt_stack[nstack-1]->str_value ? 1 : 0) + (filter->flt_stack[nstack-2]->str_value ? 1 : 0 );
 
