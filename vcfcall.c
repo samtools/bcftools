@@ -27,7 +27,7 @@ KSTREAM_INIT(gzFile, gzread, 16384)
 //                      (1<<1)
 #define CF_CCALL        (1<<2)
 //                      (1<<3)
-#define CF_VCFIN        (1<<4)
+//                      (1<<4)
 //                      (1<<5)
 #define CF_ACGT_ONLY    (1<<6)
 #define CF_QCALL        (1<<7)
@@ -254,12 +254,8 @@ static void init_data(args_t *args)
             error("Failed to read the targets: %s\n", args->regions);
     }
     
-    int i, mode = FT_UNKN;
-    if ( !strcmp(args->bcf_fname,"-") )
-    {
-        mode |= args->flag & CF_VCFIN ? FT_VCF : FT_BCF;        // VCF or BCF on input?
-    }
-    if ( !bcf_sr_open_reader(args->aux.srs, args->bcf_fname, mode) ) error("Failed to open: %s\n", args->bcf_fname);
+    int i;
+    if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open: %s\n", args->bcf_fname);
 
     if ( args->nsamples && args->nsamples != args->aux.srs->readers[0].header->n[BCF_DT_SAMPLE] )
     {
@@ -345,13 +341,12 @@ static void usage(args_t *args)
     fprintf(stderr, "       temporarily lost in the process of transition under htslib, but will be added back on popular demand. The original\n");
     fprintf(stderr, "       calling model can be invoked with the -c option. Note that we use the new multiallelic -m caller by default,\n");
     fprintf(stderr, "       therefore -c is not as well tested as -m. If you encounter bugs, please do let us know.\n");
-    fprintf(stderr, "Usage: bcftools call [options] <in.bcf> [reg]\n");
+    fprintf(stderr, "Usage: bcftools call [options] <in.bcf|in.vcf|in.vcf.gz> [reg]\n");
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -o, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --region <reg|file>         restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
     fprintf(stderr, "   -s, --samples <list|file>       sample list, PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
     fprintf(stderr, "   -t, --targets <reg|file>        same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
-    fprintf(stderr, "   -V, --vcf-input                 stdin input is VCF\n");
     fprintf(stderr, "\nInput/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "   -N, --skip-Ns                   skip sites where REF is not A/C/G/T\n");
@@ -399,7 +394,6 @@ int main_vcfcall(int argc, char *argv[])
         {"region",1,0,'r'},
         {"samples",1,0,'s'},
         {"targets",1,0,'t'},
-        {"vcf-input",0,0,'V'},
         {"keep-alts",0,0,'A'},
         {"skip-Ns",0,0,'N'},
         {"skip",1,0,'S'},
@@ -413,13 +407,12 @@ int main_vcfcall(int argc, char *argv[])
         {0,0,0,0}
     };
 
-	while ((c = getopt_long(argc, argv, "h?o:r:s:t:VANS:vcmp:C:XY", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?o:r:s:t:ANS:vcmp:C:XY", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
             case 'N': args.flag |= CF_ACGT_ONLY; break;                 // omit sites where first base in REF is N
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
-            case 'V': args.flag |= CF_VCFIN; break;
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'v': args.aux.flag |= CALL_VARONLY; break;
             case 'o': 

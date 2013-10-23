@@ -12,14 +12,13 @@ static void usage(void)
     fprintf(stderr, "   -l INT       compression level [%d]\n", -1);
     fprintf(stderr, "   -n FILE      output file name [stdout]\n");
     fprintf(stderr, "   -o TYPE      output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "   -v           stdin input is VCF\n");
     fprintf(stderr, "\n");
 }
 
 int main_vcfview(int argc, char *argv[])
 {
 	int c, clevel = -1, in_type = FT_BCF, out_type = FT_VCF;
-	char *fname_out = NULL, moder[8], modew[8];
+	char *fname_out = NULL, modew[8];
 
 	while ((c = getopt(argc, argv, "l:bvo:n:z?hu")) >= 0) {
 		switch (c) {
@@ -45,9 +44,7 @@ int main_vcfview(int argc, char *argv[])
 	if (argc!=optind+1) { usage(); return 1; }
 
     // Init reader
-	strcpy(moder, "r");
-	if ( (!strcmp("-",argv[optind]) && (in_type & FT_BCF)) || (hts_file_type(argv[optind]) & FT_BCF)) strcat(moder, "b");
-	htsFile *fp_in = hts_open(argv[optind], moder, NULL);
+	htsFile *fp_in = hts_open(argv[optind], "r", NULL);
     if ( !fp_in ) error("Fail to open: %s\n", argv[optind]);
 	bcf_hdr_t *hdr = bcf_hdr_read(fp_in);
     if ( !hdr ) error("Fail to read VCF/BCF header: %s\n", argv[optind]); 

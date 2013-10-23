@@ -25,7 +25,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
     char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
-    int argc, clevel, output_type, input_type, print_header, update_info, header_only, n_samples, *imap;
+    int argc, clevel, output_type, print_header, update_info, header_only, n_samples, *imap;
     int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private_vars, exclude_uncalled, min_ac, max_ac, calc_ac;
     char *fn_ref, *fn_out, **samples;
     char *include_types, *exclude_types;
@@ -238,10 +238,6 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   View, subset and filter VCF/BCF files.\n");
     fprintf(stderr, "Usage:   bcftools subset [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Input options:\n");
-    fprintf(stderr, "    -b                             input is BCF\n");
-    fprintf(stderr, "\n");
     fprintf(stderr, "Output options:\n");
     fprintf(stderr, "    -O, --out FILE                 output file name [stdout]\n");
     fprintf(stderr, "    -l INT                         compression level [%d]\n", args->clevel);
@@ -282,7 +278,6 @@ int main_vcfsubset(int argc, char *argv[])
     args->print_header = 1;
     args->update_info = 1;
     args->output_type = FT_VCF;
-    args->input_type = FT_UNKN;
 
     static struct option loptions[] = 
     {
@@ -312,7 +307,7 @@ int main_vcfsubset(int argc, char *argv[])
         {"doubletons",0,0,'2'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:bSt:r:o:O:s:Gf:knv:V:mMaRpUhHc:C:12Ie:i:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "l:St:r:o:O:s:Gf:knv:V:mMaRpUhHc:C:12Ie:i:",loptions,NULL)) >= 0) {
         switch (c) {
     	    case 'o': 
                 switch (optarg[0]) {
@@ -324,7 +319,6 @@ int main_vcfsubset(int argc, char *argv[])
                 };
                 break;
             case 'l': args->clevel = atoi(optarg); args->output_type |= FT_GZ; break;
-            case 'b': args->input_type = FT_BCF; break;
             case 'O': args->fn_out = optarg; break;
             case 'h': args->print_header = 0; break;
             case 'H': args->header_only = 1; break;
@@ -384,7 +378,7 @@ int main_vcfsubset(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->targets_fname);
     }
 
-    if ( !bcf_sr_open_reader(args->files, argv[optind], args->input_type) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     
     init_data(args);
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);

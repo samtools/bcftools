@@ -38,7 +38,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr;
     htsFile *out_fh;
-    int output_type, input_type;
+    int output_type;
 
     char **argv, *targets_fname, *regions_fname;
     int argc;
@@ -271,7 +271,6 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Apply fixed-threshold filters.\n");
     fprintf(stderr, "Usage:   bcftools filter [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
-    fprintf(stderr, "    -b, --input-is-bcf            input is BCF (required only when reading from stdin)\n");
     fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=\"snp\" && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
     fprintf(stderr, "    -g, --SnpGap <int>            filter SNPs within <int> base pairs of an indel\n");
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
@@ -301,12 +300,10 @@ int main_vcffilter(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
-    args->input_type = FT_UNKN;
 
     static struct option loptions[] = 
     {
         {"mode",1,0,'m'},
-        {"input-is-bcf",0,0,'b'},
         {"soft-filter",1,0,'s'},
         {"exclude",1,0,'e'},
         {"include",1,0,'i'},
@@ -317,7 +314,7 @@ int main_vcffilter(int argc, char *argv[])
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:o:bg:G:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:o:g:G:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'g': args->snp_gap = atoi(optarg); break;
             case 'G': args->indel_gap = atoi(optarg); break;
@@ -331,7 +328,6 @@ int main_vcffilter(int argc, char *argv[])
                 }
                 break;
             case 's': args->soft_filter = optarg; break;
-            case 'b': args->input_type = FT_BCF; break;
             case 'm': 
                 if ( strchr(optarg,'x') ) args->annot_mode |= ANNOT_RESET; 
                 if ( strchr(optarg,'+') ) args->annot_mode |= ANNOT_ADD; 
@@ -371,7 +367,7 @@ int main_vcffilter(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
             error("Failed to read the targets: %s\n", args->targets_fname);
     }
-    if ( !bcf_sr_open_reader(args->files, argv[optind], args->input_type) ) error("Failed to open: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open: %s\n", argv[optind]);
     
     init_data(args);
     bcf_hdr_write(args->out_fh, args->hdr);
