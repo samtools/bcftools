@@ -300,6 +300,8 @@ static void som_train_site(som_t *som, double *vec, int update_counts)
             for (k=0; k<som->kdim; k++)
                 ptr[k] += influence * (vec[k] - ptr[k]);
 
+            // Bad sites may help to shape the map, but only nodes with big enough
+            // influence will be used for classification. 
             if ( update_counts ) *cnt += influence;
         }
         ptr += som->kdim;
@@ -491,7 +493,8 @@ static void do_train(args_t *args)
     {
         int is_good = args->train_class[i] & 1;
         int isom    = args->train_class[i] >> 1; 
-        som_train_site(args->som[isom], args->train_dat+i*args->mvals, is_good);
+        if ( is_good || args->train_bad ) 
+            som_train_site(args->som[isom], args->train_dat+i*args->mvals, is_good);
     }
 
     // norm and create plots
@@ -598,7 +601,7 @@ static void usage(void)
 	fprintf(stderr, "Classifying options:\n");
 	fprintf(stderr, "    -c, --classify                     \n");
 	fprintf(stderr, "Experimental training options (no reason to change):\n");
-	fprintf(stderr, "    -b, --bmu-threshold <float>        treshold for selection of best-matching unit [0.95]\n");
+	fprintf(stderr, "    -b, --bmu-threshold <float>        treshold for selection of best-matching unit [0.9]\n");
 	fprintf(stderr, "    -d, --som-dimension <int>          SOM dimension [2]\n");
 	fprintf(stderr, "    -e, --exclude-bad                  exclude bad sites from training, use for evaluation only\n");
 	fprintf(stderr, "    -l, --learning-rate <float>        learning rate [1.0]\n");

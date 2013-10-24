@@ -71,6 +71,7 @@ static int filters_next_token(char **str, int *len)
     while ( tmp[0] )
     {
         if ( tmp[0]=='"' ) break;
+        if ( tmp[0]=='\'' ) break;
         if ( isspace(tmp[0]) ) break;
         if ( tmp[0]=='<' ) break;
         if ( tmp[0]=='>' ) break;
@@ -91,10 +92,11 @@ static int filters_next_token(char **str, int *len)
         *len = tmp - (*str);
         return TOK_VAL;
     }
-    if ( tmp[0]=='"' )
+    if ( tmp[0]=='"' || tmp[0]=='\'' )
     {
+        int quote = tmp[0];
         tmp++;
-        while ( *tmp && tmp[0]!='"' ) tmp++;
+        while ( *tmp && tmp[0]!=quote ) tmp++;
         if ( !*tmp ) return -1;     // missing quotes
         *len = tmp - (*str) + 1;
         return TOK_VAL;
@@ -291,9 +293,10 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     tok->pass     = -1;
 
     // is this a string constant?
-    if ( str[0]=='"' )
+    if ( str[0]=='"' || str[0]=='\'' )
     {
-        if ( str[len-1] != '"' ) error("TODO: [%s]\n", filter->str);
+        int quote = str[0];
+        if ( str[len-1] != quote ) error("TODO: [%s]\n", filter->str);
         tok->key = (char*) calloc(len-1,sizeof(char));
         tok->num_value = len-2;
         memcpy(tok->key,str+1,len-2);
@@ -576,7 +579,7 @@ int filter_test(filter_t *filter, bcf1_t *line)
             continue;
         }
         if ( nstack<2 ) 
-            error("Error occurred while processing the filter \"%s\" (%d)\n", filter->str,nstack);  // too few values left on the stack
+            error("Error occurred while processing the filter \"%s\" (1:%d)\n", filter->str,nstack);  // too few values left on the stack
 
         int is_str  = (filter->flt_stack[nstack-1]->str_value ? 1 : 0) + (filter->flt_stack[nstack-2]->str_value ? 1 : 0 );
 
@@ -674,7 +677,7 @@ int filter_test(filter_t *filter, bcf1_t *line)
         filter->flt_stack[nstack-2]->pass = is_true;
         nstack--;
     }
-    if ( nstack>1 ) error("Error occurred while processing the filter \"%s\": too many values left on stack (%d)\n", filter->str,nstack);
+    if ( nstack>1 ) error("Error occurred while processing the filter \"%s\" (2:%d)\n", filter->str,nstack);    // too few values left on the stack
     return filter->flt_stack[0]->pass;
 }
 
