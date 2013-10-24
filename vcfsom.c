@@ -85,7 +85,7 @@ char *msprintf(const char *fmt, ...)
  *  t = column_next(str, '\t'); if ( !*t ) error("expected field\n", str);
  *  t = column_next(t+1, '\t'); if ( !*t ) error("expected field\n", str);
  */
-inline char *column_next(char *start, char delim)
+static inline char *column_next(char *start, char delim)
 {
     char *end = start;
     while (*end && *end!=delim) end++;

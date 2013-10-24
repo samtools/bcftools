@@ -312,7 +312,7 @@ float calc_HOB(int nref, int nalt, int nhets, int ndiploid)
 /**
   *  log(sum_i exp(a_i))
   */
-inline double logsumexp(double *vals, int nvals)
+static inline double logsumexp(double *vals, int nvals)
 {
     int i;
     double max_exp = vals[0];
@@ -325,7 +325,7 @@ inline double logsumexp(double *vals, int nvals)
 
     return log(sum) + max_exp;
 }
-inline double logsumexp2(double a, double b)
+static inline double logsumexp2(double a, double b)
 {
     if ( a>b )
         return log(1 + exp(b-a)) + a;
