@@ -880,7 +880,7 @@ int mcall(call_t *call, bcf1_t *rec)
     int nAC = 0;
     if ( out_als==1 )
     { 
-        init_allele_trimming_maps(call, 1, 1);
+        init_allele_trimming_maps(call, 1, nals);
         mcall_set_ref_genotypes(call,nals);
         bcf_update_format_int32(call->hdr, rec, "PL", NULL, 0);    // remove PL, useless now
     }
