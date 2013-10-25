@@ -17,10 +17,10 @@ static void usage(void)
 
 int main_vcfview(int argc, char *argv[])
 {
-	int c, clevel = -1, in_type = FT_BCF, out_type = FT_VCF;
+	int c, clevel = -1, out_type = FT_VCF;
 	char *fname_out = NULL, modew[8];
 
-	while ((c = getopt(argc, argv, "l:bvo:n:z?hu")) >= 0) {
+	while ((c = getopt(argc, argv, "l:bo:n:z?hu")) >= 0) {
 		switch (c) {
             case 'o': 
                 switch (optarg[0]) {
@@ -32,7 +32,6 @@ int main_vcfview(int argc, char *argv[])
                 }
                 break;
             case 'l': clevel = atoi(optarg); out_type |= FT_GZ; break;
-            case 'v': in_type  = FT_VCF; break;
             case 'b': out_type = FT_BCF_GZ; break;
             case 'u': out_type = FT_BCF; break;
             case 'z': out_type = FT_VCF_GZ; break;
