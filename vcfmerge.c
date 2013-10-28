@@ -1144,7 +1144,7 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
 
 void merge_vcf(args_t *args)
 {
-    args->out_fh  = hts_open("-", hts_bcf_wmode(args->output_type), 0);
+    args->out_fh  = hts_open("-", hts_bcf_wmode(args->output_type));
     args->out_hdr = bcf_hdr_init("w");
 
     if ( args->header_fname )

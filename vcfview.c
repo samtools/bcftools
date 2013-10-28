@@ -43,7 +43,7 @@ int main_vcfview(int argc, char *argv[])
 	if (argc!=optind+1) { usage(); return 1; }
 
     // Init reader
-	htsFile *fp_in = hts_open(argv[optind], "r", NULL);
+	htsFile *fp_in = hts_open(argv[optind], "r");
     if ( !fp_in ) error("Fail to open: %s\n", argv[optind]);
 	bcf_hdr_t *hdr = bcf_hdr_read(fp_in);
     if ( !hdr ) error("Fail to read VCF/BCF header: %s\n", argv[optind]); 
@@ -55,7 +55,7 @@ int main_vcfview(int argc, char *argv[])
     if (out_type & FT_GZ) strcat(modew,"z");
     if (out_type & FT_BCF) strcat(modew, "b");
     if (out_type == FT_BCF) strcat(modew, "u"); // uncompressed BCF output
-    htsFile *fp_out = hts_open(fname_out ? fname_out : "-", modew, NULL);
+    htsFile *fp_out = hts_open(fname_out ? fname_out : "-", modew);
 
     bcf_hdr_write(fp_out, hdr);
     while ( bcf_read1(fp_in, hdr, rec) >= 0) bcf_write1(fp_out, hdr, rec);

@@ -298,7 +298,7 @@ static void init_data(args_t *args)
         args->aux.ploidy = ploidy;
     }
 
-    args->out_fh = hts_open("-", hts_bcf_wmode(args->output_type), 0);
+    args->out_fh = hts_open("-", hts_bcf_wmode(args->output_type));
 
     if ( args->flag & CF_QCALL ) 
         return;

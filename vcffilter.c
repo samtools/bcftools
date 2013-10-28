@@ -47,7 +47,7 @@ args_t;
 
 static void init_data(args_t *args)
 {
-    args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type),0);
+    args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 
     args->hdr = args->files->readers[0].header;
     if ( args->soft_filter )

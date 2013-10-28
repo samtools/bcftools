@@ -139,7 +139,7 @@ static void init_data(args_t *args)
     if (args->output_type==FT_BCF) strcat(modew, "bu");         // uncompressed BCF
     else if (args->output_type & FT_BCF) strcat(modew, "b");    // compressed BCF
     else if (args->output_type & FT_GZ) strcat(modew,"z");      // compressed VCF
-    args->out = hts_open(args->fn_out ? args->fn_out : "-", modew, 0);
+    args->out = hts_open(args->fn_out ? args->fn_out : "-", modew);
  
     // headers: hdr=full header, hsub=subset header, hnull=sites only header
     if (args->sites_only)

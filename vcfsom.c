@@ -131,7 +131,7 @@ void annots_reader_reset(args_t *args)
 {
     if ( args->file ) hts_close(args->file);
     if ( !args->fname ) error("annots_reader_reset: no fname\n");
-    args->file = hts_open(args->fname, "r", NULL);
+    args->file = hts_open(args->fname, "r");
 }
 void annots_reader_close(args_t *args)
 {

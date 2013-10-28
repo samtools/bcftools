@@ -459,7 +459,7 @@ static void destroy_data(args_t *args)
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 static void normalize_vcf(args_t *args)
 {
-    htsFile *out = hts_open("-", hts_bcf_wmode(args->output_type), 0);
+    htsFile *out = hts_open("-", hts_bcf_wmode(args->output_type));
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
     bcf_hdr_write(out, args->hdr);
 
