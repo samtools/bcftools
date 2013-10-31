@@ -153,10 +153,7 @@ int bcf_em1(call_t *call, const bcf1_t *rec, int n1, int flag, double x[10])
 	if (pdg == 0) return -1;
 	for (i = 0; i < 10; ++i) x[i] = -1.; // set to negative
 	{
-		if ((x[0] = est_freq(n, pdg)) < 0.) {
-			free(pdg);
-			return -1; // no data
-		}
+		if ((x[0] = est_freq(n, pdg)) < 0.) return -1; // no data
 		x[0] = freqml(x[0], 0, n, pdg);
 	}
 	if (flag & (0xf<<1|3<<8)) { // estimate the genotype frequency and test HWE
