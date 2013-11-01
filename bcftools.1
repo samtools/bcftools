@@ -66,10 +66,37 @@ without arguments:
 
 .SH OPTIONS
 
-For a list of options, run 
+For a full list of options, run 
 .B bcftools 
 [\fICOMMAND\fR]
 without arguments.
+.SS "Common Options"
+.IP "\fB-o, --output-type \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR" 4
+Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fIz\fR), uncompressed VCF (\fIv\fR).
+.IP "\fB-r, --regions \fIfile\fR|\fIchr\fR|\fIchr:from-to\fR[,...]" 4
+Regions can be specified either on command line or in a tab-delimited file.
+The columns of the tab-delimited file are: CHROM, POS_FROM, and, optionally, POS_TO.
+Multiple regions can be given, one per line when reading from a file or
+separated by commas when specified on command line. 
+All positions are 1-based and inclusive. Note that sequence names must match exactly, "chr20" is not the same as "20".
+This option requires indexed VCF/BCF files.
+.IP "\fB-t, --targets \fIfile\fR|\fIchr\fR|\fIchr:from-to\fR[,...]" 4
+Same as \fB-r, --regions\fR, but the next position is accessed by streaming the whole VCF/BCF rather than using
+the tbi/csi index. With the \fBcall -C \fIalleles\fR command, third column of the \fItargets\fR file must be comma-separated
+list of alleles, starting with the reference allele.
+
+.SS "Command-specific options"
+.BR
+.IP "\fBbcftools call\fR [\fIOPTIONS\fR]"
+.RS 4
+.IP "\fB-C, --constrain\fR \fIalleles\fR|\fItrio\fR"
+\fIalleles\fR, call genotypes given alleles. See also \fB-t, --targets\fR.
+.IP ""
+\fItrio\fR, ..
+.IP "\fB-s, --samples\fR \fIfile\fR|\fIlist\fR"
+.RE
+.P
+.IP "\fBbcftools query\fR [\fIOPTIONS\fR]"
 
 .SH EXAMPLES
 todo
