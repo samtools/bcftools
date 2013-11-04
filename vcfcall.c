@@ -453,8 +453,8 @@ int main_vcfcall(int argc, char *argv[])
         args.aux.ploidy = (uint8_t*) calloc(args.nsamples+1, 1);
         for (i=0; i<args.nsamples; i++) args.aux.ploidy[i] = args.samples[i][strlen(args.samples[i]) + 1];
     }
-    if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c, -m, or -Q options can be given\n");
-    if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected one of -c, -m, or -Q options\n");
+    if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c or -m options can be given\n");
+    if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected -c or -m option\n");
 	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
     if ( p_arg!=-1 ) { args.aux.pref = p_arg; args.aux.min_ma_lrt = 1 - p_arg; }  // only one is actually used
     if ( args.aux.flag & CALL_CONSTR_ALLELES )
