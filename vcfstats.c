@@ -610,7 +610,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         for (is=0; is<args->files->n_smpl; is++)
         {
             int ial;
-            int gt = bcf_gt_type(fmt_ptr, reader->samples[is], &ial);
+            int gt = bcf_gt_type(fmt_ptr, reader->samples[is], &ial, NULL);
             if ( gt==GT_UNKN || gt==GT_HAPL_R || gt==GT_HAPL_A ) continue;
             if ( gt != GT_HOM_RR ) { n_nref++; i_nref = is; }
             #if HWE_STATS
@@ -700,11 +700,11 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         {
             // Simplified comparison: only 0/0, 0/1, 1/1 is looked at as the identity of 
             //  actual alleles can be enforced by running without the -c option.
-            int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL);
+            int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
             if ( gt == GT_UNKN ) continue;
 
             int match = 1;
-            int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL);
+            int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
             if ( gt2 == GT_UNKN ) match = -1;
             else if ( gt != gt2 ) match = 0;
 
@@ -740,9 +740,9 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         {
             for (is=0; is<files->n_smpl; is++)
             {
-                int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL);
+                int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
                 if ( gt == GT_UNKN ) continue;
-                int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL);
+                int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
                 if ( gt != gt2 ) 
                 {
                     bcf_sr_t *reader = &files->readers[0];
