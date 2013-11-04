@@ -114,11 +114,22 @@ static void destroy_data(args_t *args)
 
 static void flush_buffer(args_t *args, int n)
 {
-    int i;
+    int i, j;
     for (i=0; i<n; i++)
     {
         int k = rbuf_shift(&args->rbuf);
-        bcf_write1(args->out_fh, args->hdr, args->rbuf_lines[k]);
+        bcf1_t *rec = args->rbuf_lines[k];
+
+        int pass = 1;
+        if ( !args->soft_filter )
+        {
+            for (j=0; j<rec->d.n_flt; j++)
+            {
+                if ( args->indel_gap && rec->d.flt[j]==args->IndelGap_id ) { pass = 0; break; }
+                if ( args->snp_gap && rec->d.flt[j]==args->SnpGap_id ) { pass = 0; break; }
+            }
+        }
+        if ( pass ) bcf_write1(args->out_fh, args->hdr, rec);
     }
 }
 
@@ -140,7 +151,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
      *           012345678901
      *      ref  .GT.GT..GT..
      *      del  .G-.G-..G-..
-     *  Ans similarly here, the second is filtered:
+     *  And similarly here, the second is filtered:
      *           01 23 456 78
      *      ref  .A-.A-..A-..
      *      ins  .AT.AT..AT..
@@ -271,11 +282,12 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Apply fixed-threshold filters.\n");
     fprintf(stderr, "Usage:   bcftools filter [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
+    fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=\"snp\" && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
     fprintf(stderr, "    -g, --SnpGap <int>            filter SNPs within <int> base pairs of an indel\n");
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
-    fprintf(stderr, "    -m, --mode <+|x>              \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass (invokes -s)\n");
+    fprintf(stderr, "    -m, --mode <+|x>              \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
     fprintf(stderr, "    -o, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <reg|file>      same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
@@ -331,7 +343,6 @@ int main_vcffilter(int argc, char *argv[])
             case 'm': 
                 if ( strchr(optarg,'x') ) args->annot_mode |= ANNOT_RESET; 
                 if ( strchr(optarg,'+') ) args->annot_mode |= ANNOT_ADD; 
-                if ( !args->soft_filter ) args->soft_filter = "+";
                 break;
             case 't': args->targets_fname = optarg; break;
             case 'r': args->regions_fname = optarg; break;
@@ -384,7 +395,7 @@ int main_vcffilter(int argc, char *argv[])
         {
             if ( pass ) 
             {
-                if ( (args->annot_mode & ANNOT_RESET) ) bcf_add_filter(args->hdr, line, args->flt_pass);
+                if ( (args->annot_mode & ANNOT_RESET) || (args->annot_mode & ANNOT_ADD) ) bcf_add_filter(args->hdr, line, args->flt_pass);
             }
             else
             {

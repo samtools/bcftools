@@ -60,7 +60,7 @@ static int filters_next_token(char **str, int *len)
     *len = 0;
 
     // test for doubles:  d.ddde[+-]dd
-    strtod(*str, &tmp);
+    double val_unused v = strtod(*str, &tmp);
     if ( *str!=tmp && (!tmp[0] || !isalnum(tmp[0])) )
     {
         *len = tmp - (*str);
