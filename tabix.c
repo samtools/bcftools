@@ -24,6 +24,11 @@ int main_tabix(int argc, char *argv[])
 			else if (strcmp(optarg, "bed") == 0) conf_ptr = &tbx_conf_bed;
 			else if (strcmp(optarg, "sam") == 0) conf_ptr = &tbx_conf_sam;
 			else if (strcmp(optarg, "vcf") == 0) conf_ptr = &tbx_conf_vcf;
+            else {
+                fprintf(stderr, "The type '%s' not recognised\n", optarg);
+                return 1;
+            }
+
 		}
 	if (optind == argc) {
 		fprintf(stderr, "\nUsage: bcftools tabix [options] <in.gz> [reg1 [...]]\n\n");
