@@ -10,4 +10,6 @@ void error(const char *format, ...);
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd);
 const char *hts_bcf_wmode(int file_type);
 
+void *smalloc(size_t size);     // safe malloc
+
 #endif

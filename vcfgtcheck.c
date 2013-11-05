@@ -666,7 +666,7 @@ static void usage(void)
 {
 	fprintf(stderr, "About:   Check sample identity. With no -g VCF given, multi-sample cross-check is performed.\n");
 	fprintf(stderr, "         With -s but no -p, likelihoods at all sites are printed.\n");
-	fprintf(stderr, "Usage:   vcfgtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
+	fprintf(stderr, "Usage:   bcftools gtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --average-discordance          output average discordance for all sites\n");
 	fprintf(stderr, "    -g, --genotypes <file>             genotypes to compare against\n");

@@ -1066,7 +1066,7 @@ static void usage(void)
     fprintf(stderr, "\nAbout:   Parses VCF or BCF and produces stats which can be plotted using plot-vcfstats.\n");
     fprintf(stderr, "         When two files are given, the program generates separate stats for intersection\n");
     fprintf(stderr, "         and the complements.\n");
-    fprintf(stderr, "Usage:   vcfstats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
+    fprintf(stderr, "Usage:   bcftools stats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -1, --1st-allele-only             include only 1st allele at multiallelic sites\n");
     fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|any|some>\n");

@@ -300,7 +300,7 @@ static void destroy_data(args_t *args)
 static void usage(void)
 {
 	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files\n");
-	fprintf(stderr, "Usage:   vcfisec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
+	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|any|some>\n");
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");

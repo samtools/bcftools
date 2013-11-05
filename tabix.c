@@ -26,7 +26,7 @@ int main_tabix(int argc, char *argv[])
 			else if (strcmp(optarg, "vcf") == 0) conf_ptr = &tbx_conf_vcf;
 		}
 	if (optind == argc) {
-		fprintf(stderr, "\nUsage:   tabix [options] <in.gz> [reg1 [...]]\n\n");
+		fprintf(stderr, "\nUsage: bcftools tabix [options] <in.gz> [reg1 [...]]\n\n");
 		fprintf(stderr, "Options: -p STR    preset: gff, bed, sam or vcf [gff]\n");
 		fprintf(stderr, "         -s INT    column number for sequence names (suppressed by -p) [1]\n");
 		fprintf(stderr, "         -b INT    column number for region start [4]\n");

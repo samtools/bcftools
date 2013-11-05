@@ -28,11 +28,13 @@ int main_vcfnorm(int argc, char *argv[]);
 int main_vcfgtcheck(int argc, char *argv[]);
 int main_vcfsubset(int argc, char *argv[]);
 int main_vcfcall(int argc, char *argv[]);
+int main_vcfannotate(int argc, char *argv[]);
+int main_vcfroh(int argc, char *argv[]);
 
 typedef struct
 {
     int (*func)(int, char*[]);
-    const char *alias, *help, *sep;
+    const char *alias, *help;
 }
 cmd_t;
 
@@ -40,73 +42,75 @@ static cmd_t cmds[] =
 {
     { .func  = main_tabix,    
       .alias = "tabix",
-      .help  = "tabix for BGZF'd BED, GFF, SAM, VCF and more",
-      .sep   = NULL
+      .help  = "tabix for BGZF'd BED, GFF, SAM, VCF and more"
     },
     { .func = main_bcfidx,   
       .alias = "index",
-      .help = "index BCF",
-      .sep   = NULL
+      .help = "index BCF"
+    },
+    { .func  = NULL, 
+      .alias = "Core VCF/BCF tools:",
+      .help  = NULL
     },
     { .func  = main_vcfcall,  
       .alias = "call", 
-      .help  = "SNP/indel calling (former \"view\"; this version is broken)",
-      .sep   = "VCF/BCF tools:"
+      .help  = "SNP/indel calling (former \"view\")"
     },
     { .func  = main_vcffilter, 
       .alias = "filter",
-      .help  = "filter VCF files using fixed thresholds",
-      .sep   = NULL
+      .help  = "filter VCF/BCF files using fixed thresholds"
     },
     { .func  = main_vcfgtcheck, 
       .alias = "gtcheck",
-      .help  = "tool for detecting swaps and contaminations",
-      .sep   = NULL
+      .help  = "check sample concordance, detect swaps and contaminations"
     },
     { .func  = main_vcfisec,  
       .alias = "isec", 
-      .help  = "intersections of VCF files",
-      .sep   = NULL
+      .help  = "intersections of VCF/BCF files"
     },
     { .func  = main_vcfmerge, 
       .alias = "merge",
-      .help  = "merge VCF files",
-      .sep   = NULL
+      .help  = "merge VCF/BCF files"
     },
     { .func  = main_vcfnorm, 
       .alias = "norm",
-      .help  = "normalize indels",
-      .sep   = NULL
+      .help  = "normalize indels"
     },
     { .func  = main_vcfquery, 
       .alias = "query",
-      .help  = "transform VCF into user-defined formats",
-      .sep   = NULL
-    },
-    { .func  = main_vcfsom, 
-      .alias = "som",
-      .help  = "filter using Self-Organized Maps (broken)",
-      .sep   = NULL
+      .help  = "transform VCF/BCF into user-defined formats"
     },
     { .func  = main_vcfstats, 
       .alias = "stats",
-      .help  = "produce VCF stats (former vcfcheck)",
-      .sep   = NULL
+      .help  = "produce VCF/BCF stats (former vcfcheck)"
     },
     { .func  = main_vcfsubset, 
       .alias = "subset",
-      .help  = "subset and filter vcf and bcf",
-      .sep   = NULL
+      .help  = "subset and filter VCF/BCF files"
     },
     { .func  = main_vcfview,  
       .alias = "view", 
-      .help  = "VCF<->BCF conversion",
-      .sep   = NULL
+      .help  = "VCF<->BCF conversion"
+    },
+    { .func  = NULL, 
+      .alias = "Other/Experimental tools:" ,
+      .help  = NULL
+    },
+    { .func  = main_vcfannotate,  
+      .alias = "annotate", 
+      .help  = "-annotate and edit VCF/BCF files",  // do not advertise yet
+    },
+    { .func  = main_vcfroh, 
+      .alias = "roh",
+      .help  = "-identify runs of autozygosity (HMM)",  // do not advertise yet
+    },
+    { .func  = main_vcfsom, 
+      .alias = "som",
+      .help  = "filter using Self-Organized Maps (experimental)"
     },
     { .func  = NULL,
       .alias = NULL,
-      .help  = NULL,
-      .sep   = NULL
+      .help  = NULL
     }
 };
 
@@ -132,15 +136,15 @@ static int usage(void)
 
     int i = 0;
     const char *sep = NULL;
-    while (cmds[i].func)
+    while (cmds[i].alias)
     {
-        if ( cmds[i].sep ) sep = cmds[i].sep;
+        if ( !cmds[i].func ) sep = cmds[i].alias;
         if ( sep )
         {
             printf("\n -- %s\n", sep);
             sep = NULL;
         }
-        printf("\t%-15s %s\n", cmds[i].alias, cmds[i].help);
+        if ( cmds[i].func && cmds[i].help[0]!='-' ) printf("\t%-15s %s\n", cmds[i].alias, cmds[i].help);
         i++;
     }
 
@@ -153,7 +157,7 @@ int main(int argc, char *argv[])
 	if (argc < 2) return usage();
 
     int i = 0;
-    while (cmds[i].func)
+    while (cmds[i].alias)
     {
         if ( !strcmp(argv[1],cmds[i].alias) ) 
         {
