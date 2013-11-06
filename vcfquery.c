@@ -48,7 +48,7 @@ struct _args_t
     int nsamples, *samples;
 	bcf_srs_t *files;
     bcf_hdr_t *header;
-	char **argv, *format, *sample_names, *subset_fname, *regions_fname, *vcf_list;
+	char **argv, *format, *sample_names, *targets_fname, *regions_fname, *vcf_list;
 	int argc, list_columns, print_header;
 };
 
@@ -645,8 +645,8 @@ static void usage(void)
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
 	fprintf(stderr, "    -l, --list-columns                list columns\n");
-	fprintf(stderr, "    -p, --positions <file>            list positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
-	fprintf(stderr, "    -r, --region <reg|file>           output from the given regions only\n");
+	fprintf(stderr, "    -t, --targets <reg|file>          same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
+	fprintf(stderr, "    -r, --regions <reg|file>          restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
 	fprintf(stderr, "    -s, --samples <list|file>         samples to include: comma-separated list or one name per line in a file\n");
 	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
 	fprintf(stderr, "Expressions:\n");
@@ -678,16 +678,16 @@ int main_vcfquery(int argc, char *argv[])
 		{"help",0,0,'h'},
 		{"list-columns",0,0,'l'},
 		{"format",1,0,'f'},
-		{"region",1,0,'r'},
+		{"regions",1,0,'r'},
+		{"targets",1,0,'t'},
 		{"annots",1,0,'a'},
 		{"samples",1,0,'s'},
 		{"print-header",0,0,'H'},
-		{"positions",1,0,'p'},
 		{"collapse",1,0,'c'},
 		{"vcf-list",1,0,'v'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hlr:f:a:s:Hp:c:v:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hlr:f:a:s:Ht:c:v:",loptions,NULL)) >= 0) {
 		switch (c) {
 			case 'f': args->format = strdup(optarg); break;
 			case 'H': args->print_header = 1; break;
@@ -718,9 +718,9 @@ int main_vcfquery(int argc, char *argv[])
                     break;
                 }
 			case 'r': args->regions_fname = optarg; break;
+			case 't': args->targets_fname = optarg; break;
 			case 'l': args->list_columns = 1; break;
 			case 's': args->sample_names = optarg; break;
-			case 'p': args->subset_fname = optarg; break;
 			case 'h': 
 			case '?': usage();
 			default: error("Unknown argument: %s\n", optarg);
@@ -747,11 +747,11 @@ int main_vcfquery(int argc, char *argv[])
         if ( optind==argc ) usage();
         if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
             error("Failed to read the regions: %s\n", args->regions_fname);
-        if ( args->subset_fname )
+        if ( args->targets_fname )
         {
             args->files->require_index = 1;
-            if ( bcf_sr_set_targets(args->files, args->subset_fname, 0)<0 )
-                error("Failed to read the targets: %s\n", args->subset_fname);
+            if ( bcf_sr_set_targets(args->files, args->targets_fname, 0)<0 )
+                error("Failed to read the targets: %s\n", args->targets_fname);
         }
         while (optind<argc)
         {
@@ -779,11 +779,11 @@ int main_vcfquery(int argc, char *argv[])
         if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
             error("Failed to read the regions: %s\n", args->regions_fname);
         if ( optind < argc ) args->files->require_index = 1;
-        if ( args->subset_fname )
+        if ( args->targets_fname )
         {
             args->files->require_index = 1;
-            if ( bcf_sr_set_targets(args->files, args->subset_fname,0)<0 )
-                error("Failed to read the targets: %s\n", args->subset_fname);
+            if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
+                error("Failed to read the targets: %s\n", args->targets_fname);
         }
         if ( !bcf_sr_add_reader(args->files, fnames[i]) ) error("Failed to open or the file not indexed: %s\n", fnames[i]);
         for (k=optind; k<argc; k++) 
