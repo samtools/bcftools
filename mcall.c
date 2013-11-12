@@ -113,9 +113,8 @@ static void mcall_init_trios(call_t *call)
         assert( n==call->ntrio[FTYPE_100][nals] );
 
     }
-    call->GLs = (double*) malloc(sizeof(double)*bcf_hdr_nsamples(call->hdr)*10);
-    call->sumGLs = (double*) malloc(sizeof(double)*bcf_hdr_nsamples(call->hdr));
-    call->GQs = (int*) malloc(sizeof(int)*bcf_hdr_nsamples(call->hdr));
+    call->GLs = (double*) calloc(bcf_hdr_nsamples(call->hdr)*10,sizeof(double));
+    call->GQs = (float*) malloc(sizeof(float)*bcf_hdr_nsamples(call->hdr));
 
     int i, j;
     for (i=0; i<call->nfams; i++)
@@ -166,13 +165,20 @@ void mcall_init(call_t *call)
     call->als_map  = (int*) malloc(sizeof(int)*call->nals_map);
     call->npl_map  = 4*(4+1)/2;
     call->pl_map   = (int*) malloc(sizeof(int)*call->npl_map);
-    call->gts = (int*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int));   // assuming at most diploid everywhere
+    call->gts  = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int32_t));   // assuming at most diploid everywhere
 
-    if ( call->flag & CALL_CONSTR_TRIO ) mcall_init_trios(call);
+    if ( call->flag & CALL_CONSTR_TRIO ) 
+    {
+        call->cgts = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr),sizeof(int32_t));
+        call->ugts = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr),sizeof(int32_t));
+        mcall_init_trios(call);
+        bcf_hdr_append(call->hdr,"##FORMAT=<ID=CGT,Number=1,Type=Integer,Description=\"Constrained Genotype (0-based index to Number=G ordering).\">");
+        bcf_hdr_append(call->hdr,"##FORMAT=<ID=UGT,Number=1,Type=Integer,Description=\"Unconstrained Genotype (0-based index to Number=G ordering).\">");
+    }
     if ( call->flag & CALL_CONSTR_ALLELES ) call->vcmp = vcmp_init();
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
-    bcf_hdr_append(call->hdr,"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">");
+    bcf_hdr_append(call->hdr,"##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=ICB,Number=1,Type=Float,Description=\"Inbreeding Coefficient Binomial test (bigger is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=HOB,Number=1,Type=Float,Description=\"Bias in the number of HOMs number (smaller is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes for each ALT allele, in the same order as listed\">");
@@ -188,14 +194,13 @@ void mcall_destroy(call_t *call)
     free(call->itmp);
     mcall_destroy_trios(call);
     free(call->GLs);
-    free(call->sumGLs);
     free(call->GQs);
     free(call->anno16);
     free(call->PLs);
     free(call->qsum);
     free(call->als_map);
     free(call->pl_map);
-    free(call->gts);
+    free(call->gts); free(call->cgts); free(call->ugts);
     free(call->pdg);
     free(call->als);
     return; 
@@ -566,8 +571,8 @@ static void mcall_call_genotypes(call_t *call, int nals, int nout_als, int out_a
                         if ( best_lk < lk ) 
                         { 
                             best_lk = lk; 
-                            gts[0] = bcf_gt_unphased(call->als_map[ia]); 
-                            gts[1] = bcf_gt_unphased(call->als_map[ib]); 
+                            gts[0] = bcf_gt_unphased(call->als_map[ib]); 
+                            gts[1] = bcf_gt_unphased(call->als_map[ia]); 
                         }
                     }
                 }
@@ -575,15 +580,15 @@ static void mcall_call_genotypes(call_t *call, int nals, int nout_als, int out_a
             }
             else
                 gts[1] = bcf_int32_vector_end;
-        }
 
-        call->ac[ bcf_gt_allele(gts[0]) ]++;
-        if ( gts[1]!=bcf_int32_vector_end ) call->ac[ bcf_gt_allele(gts[1]) ]++;
+            call->ac[ bcf_gt_allele(gts[0]) ]++;
+            if ( gts[1]!=bcf_int32_vector_end ) call->ac[ bcf_gt_allele(gts[1]) ]++;
+        }
     }
 }
 
 
-static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int out_als)
+static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
 {
     int ia, ib, i;
     int nsmpl   = bcf_hdr_nsamples(call->hdr);
@@ -596,48 +601,63 @@ static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int 
     for (isample = 0; isample < nsmpl; isample++) 
     {
         int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+        int32_t *gts = call->ugts + isample;
 
         gls += ngts;
         pdg += ngts;
 
         // Skip samples with all pdg's equal to 1. These have zero depth.
         for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
-        if ( i==ngts || !ploidy ) { gls[0] = 1; continue; }
+        if ( i==ngts || !ploidy ) 
+        {
+            gts[0] = bcf_int32_missing;
+            gls[0] = 1; 
+            continue; 
+        }
 
-        double sum_lk = 0;
+        double sum_lk  = 0;
+        double best_lk = 0;
         for (ia=0; ia<nals; ia++)
         {
             if ( !(out_als & 1<<ia) ) continue;     // ia-th allele not in the final selection, skip
-            int iaa   = (ia+1)*(ia+2)/2-1;           // PL index of the ia/ia genotype
-            int idx   = (call->als_map[ia]+1)*(call->als_map[ia]+2)/2-1;
+            int iaa   = bcf_alleles2gt(ia,ia);      // PL index of the ia/ia genotype
+            int idx   = bcf_alleles2gt(call->als_map[ia],call->als_map[ia]);
             double lk = pdg[iaa]*call->qsum[ia]*call->qsum[ia];
             sum_lk   += lk;
-            gls[idx]  = log(lk);
+            gls[idx]  = lk;
+            if ( best_lk < lk ) 
+            { 
+                best_lk = lk; 
+                gts[0] = bcf_alleles2gt(call->als_map[ia],call->als_map[ia]);
+            }
         }
         if ( ploidy==2 ) 
         {
             for (ia=0; ia<nals; ia++)
             {
                 if ( !(out_als & 1<<ia) ) continue;
-                int iaa = (ia+1)*(ia+2)/2-1;
-                int ida = (call->als_map[ia]+1)*(call->als_map[ia]+2)/2-1;
                 for (ib=0; ib<ia; ib++)
                 {
                     if ( !(out_als & 1<<ib) ) continue;
-                    int iab   = iaa - ia + ib;
-                    int idx   = ida - call->als_map[ia] + call->als_map[ib];
+                    int iab   = bcf_alleles2gt(ia,ib);
+                    int idx   = bcf_alleles2gt(call->als_map[ia],call->als_map[ib]);
                     double lk = 2*pdg[iab]*call->qsum[ia]*call->qsum[ib];
                     sum_lk   += lk;
-                    gls[idx]  = log(lk);
+                    gls[idx]  = lk;
+                    if ( best_lk < lk ) 
+                    { 
+                        best_lk = lk; 
+                        gts[0] = bcf_alleles2gt(call->als_map[ib],call->als_map[ia]);
+                    }
                 }
             }
+            for (i=0; i<ngts; i++)
+                gls[i] = log(gls[i]/sum_lk);
         }
-        call->sumGLs[isample] = log(sum_lk);
+        else
+            for (i=0; i<nals; i++)
+                gls[i] = log(gls[i]/sum_lk);
     }
-
-    for (i=0; i<4; i++) call->ac[i] = 0;
-    call->nhets = 0;
-    call->ndiploid = 0;
 
     // Calculate constrained likelihoods and determine genotypes
     int ifm;
@@ -672,47 +692,80 @@ static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int 
             int ismpl  = fam->sample[i];
             double *gl = call->GLs + ngts*ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )
-                call->GQs[ismpl] = bcf_int32_missing;
+                bcf_float_set_missing(call->GQs[ismpl]);
             else
             {
-                double pval = -4.343*log(1.0 - exp(gl[igt] - call->sumGLs[ismpl]));
+                double pval = -4.343*log(1.0 - exp(gl[igt]));
                 call->GQs[ismpl] = pval > 99 ? 99 : pval;
                 if ( call->GQs[ismpl] > 99 ) call->GQs[ismpl] = 99;
+                if ( call->GQs[ismpl] > 20 ) call->GQs[ismpl] = (int)call->GQs[ismpl];
             }
         }
 
         // Set genotypes for father, mother, child
         for (i=0; i<3; i++)
         {
-            int igt    = trio[ibest]>>((2-i)*4) & 0xf;
-            int ismpl  = fam->sample[i];
-            int ploidy = call->ploidy ? call->ploidy[ismpl] : 2;
-            double *gl = call->GLs + ngts*ismpl;
-            int *gts   = call->gts + 2*ismpl;
+            int ismpl    = fam->sample[i];
+            int igt      = trio[ibest]>>((2-i)*4) & 0xf;
+            double *gl   = call->GLs + ngts*ismpl;
+            int32_t *gts = call->cgts + ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )    // zero depth, set missing genotypes
             {
-                gts[0] = bcf_gt_missing;
-                gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+                gts[0] = bcf_int32_missing;
                 continue;
             }
-
-            // Convert genotype index idx to allele indices
-            int k = 0, dk = 1;
-            while ( k<igt ) k += ++dk;
-            int ia = dk - 1;
-            int ib = igt - k + ia;
-            gts[0] = bcf_gt_unphased(ib); 
-            call->ac[ib]++;
-            if ( ploidy==2 )
-            {
-                call->ac[ia]++;
-                if ( ia!=ib ) call->nhets++;
-                gts[1] = bcf_gt_unphased(ia);
-                call->ndiploid++;
-            }
-            else 
-                gts[1] = bcf_int32_vector_end;
+            gts[0] = igt;
         }
+    }
+
+    for (i=0; i<4; i++) call->ac[i] = 0;
+    call->nhets = 0;
+    call->ndiploid = 0;
+
+    // Test if CGT,UGT are needed
+    int ucgts_needed = 0;
+    int32_t *cgts = call->cgts - 1;
+    int32_t *ugts = call->ugts - 1;
+    int32_t *gts  = call->gts - 2;
+    for (isample = 0; isample < nsmpl; isample++)
+    {
+        int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+        cgts++;
+        ugts++;
+        gts += 2;
+        if ( ugts[0]==bcf_int32_missing ) 
+        {
+            gts[0] = bcf_gt_missing;
+            gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+            continue;
+        }
+        int a,b;
+        if ( cgts[0]!=ugts[0] && call->GQs[isample] > call->CGQ_th ) 
+        {
+            bcf_gt2alleles(cgts[0], &a, &b);
+            gts[0] = bcf_gt_unphased(a);
+            gts[1] = ploidy==1 ? bcf_int32_vector_end : bcf_gt_unphased(b);
+        }
+        else
+        {
+            bcf_gt2alleles(ugts[0], &a, &b);
+            gts[0] = bcf_gt_unphased(a);
+            gts[1] = ploidy==1 ? bcf_int32_vector_end : bcf_gt_unphased(b);
+        }
+        if ( cgts[0]!=ugts[0] ) ucgts_needed = 1; 
+        call->ac[a]++;
+        if ( ploidy==2 ) 
+        {
+            call->ac[b]++;
+            call->ndiploid++;
+            if ( a!=b ) call->nhets++;
+        }
+    }
+    if ( ucgts_needed )
+    {
+        // Some GTs are different
+        bcf_update_format_int32(call->hdr,rec,"UGT",call->ugts,nsmpl);
+        bcf_update_format_int32(call->hdr,rec,"CGT",call->cgts,nsmpl);
     }
 }
 
@@ -891,8 +944,8 @@ int mcall(call_t *call, bcf1_t *rec)
         init_allele_trimming_maps(call, out_als, nals);
         if ( call->flag & CALL_CONSTR_TRIO )
         {
-            mcall_call_trio_genotypes(call,nals,nout,out_als);
-            bcf_update_format_int32(call->hdr, rec, "GQ", call->GQs, nsmpl);
+            mcall_call_trio_genotypes(call, rec, nals,nout,out_als);
+            bcf_update_format_float(call->hdr, rec, "GQ", call->GQs, nsmpl);
         }
         else
             mcall_call_genotypes(call,nals,nout,out_als);
