@@ -9,7 +9,19 @@
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
+#include <dlfcn.h>
 #include "bcftools.h"
+
+/** Plugin API */
+typedef void (*dl_init_f) ();
+
+typedef struct
+{
+    char *name;
+    dl_init_f init;
+    void *handle;
+}
+plugin_t;
 
 typedef struct _args_t
 {
@@ -19,10 +31,55 @@ typedef struct _args_t
     int output_type;
     bcf_sr_regions_t *tgts;
 
+    plugin_t *plugins;
+    int nplugins;
+
     char **argv, *targets_fname, *regions_fname;
     int argc;
 }
 args_t;
+
+char *msprintf(const char *fmt, ...);
+
+static void load_plugin(args_t *args, const char *fname)
+{
+    char *ss, *rmme;
+    ss = rmme = strdup(fname);
+    while ( ss )
+    {
+        char *se = strchr(ss,',');
+        if ( se ) *se = 0;
+
+        args->nplugins++;
+        args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
+        plugin_t *plugin = &args->plugins[args->nplugins-1];
+        plugin->handle = dlopen(ss, RTLD_NOW);
+        plugin->name   = strdup(ss);
+        if ( !plugin->handle ) 
+        {
+            free(plugin->name);
+            plugin->name = msprintf("%s.so", ss);
+            plugin->handle = dlopen(plugin->name, RTLD_NOW);
+        }
+        if ( !plugin->handle ) error("Could not load %s: %s\n", ss, dlerror());
+
+        dlerror();
+        plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
+        char *ret = dlerror();
+        if ( ret ) error("Could not initialize %s: %s\n", plugin->name, ret);
+
+        if ( se ) { *se = ','; ss = se+1; }
+        else ss = NULL;
+    }
+    free(rmme);
+}
+
+static void init_plugins(args_t *args)
+{
+    int i;
+    for (i=0; i<args->nplugins; i++)
+        args->plugins[i].init(args->hdr);
+}
 
 static void init_data(args_t *args)
 {
@@ -35,6 +92,7 @@ static void init_data(args_t *args)
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 
     args->tgts = bcf_sr_regions_init(args->targets_fname);
+    init_plugins(args);
 }
 
 static void destroy_data(args_t *args)
@@ -52,8 +110,9 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   Annotate and edit VCF/BCF files.\n");
     fprintf(stderr, "Usage:   bcftools annotate [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -a, --annotations <file>       tabix-indexed file with annotations: CHR\tPOS[\tVALUE]+\n");
+    fprintf(stderr, "    -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
 	fprintf(stderr, "    -o, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+	fprintf(stderr, "    -p, --plugin <file.c>          user-defined plugin\n");
     fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
@@ -68,16 +127,17 @@ int main_vcfannotate(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
 
-    error("not finished yet, sorry\n");
+    //error("not finished yet, sorry\n");
 
     static struct option loptions[] = 
     {
         {"output-type",1,0,'o'},
         {"annotations",1,0,'a'},
+        {"plugin",1,0,'p'},
         {"regions",1,0,'r'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?o:r:a:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?o:r:a:p:",loptions,NULL)) >= 0) {
         switch (c) {
     	    case 'o': 
                 switch (optarg[0]) {
@@ -90,6 +150,7 @@ int main_vcfannotate(int argc, char *argv[])
                 break;
             case 'a': args->targets_fname = optarg; break;
             case 'r': args->regions_fname = optarg; break;
+            case 'p': load_plugin(args, optarg); break;
             case 'h': 
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);

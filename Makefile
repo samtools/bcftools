@@ -28,7 +28,7 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA    = $(INSTALL) -m 644
 
 
-all:$(PROG)
+all:$(PROG) plugins
 
 # See htslib/Makefile
 PACKAGE_VERSION  = 0.0.1
@@ -41,15 +41,23 @@ version.h:
 
 
 .SUFFIXES:.c .o
-.PHONY:all install lib test force
+.PHONY:all install lib test force plugins
 
 force:
 
 .c.o: bcftools.h version.h
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
-test: $(PROG)
+test: $(PROG) plugins
 		./test/test.pl
+
+PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
+PLUGINS = $(PLUGINC:.c=.so)
+
+plugins: $(PLUGINS)
+
+%.so: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ $<
 
 main.o: version.h $(HTSDIR)/version.h bcftools.h
 vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h
@@ -61,7 +69,7 @@ vcffilter.o: rbuf.h
 vcfroh.o: rbuf.h
 
 bcftools: $(HTSLIB) $(OBJS)
-		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm
+		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl
 
 
 install: $(PROG)
