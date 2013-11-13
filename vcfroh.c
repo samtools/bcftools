@@ -255,9 +255,9 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools roh [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "General Options:\n");
     fprintf(stderr, "    -c, --counts-only              no HMM, simply report counts of HETs and HOMs per win\n");
-    fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
+    fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --samples <list|file>      list of samples (file or comma separated list) [null]\n");
-    fprintf(stderr, "    -t, --targets <reg|file>       restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -t, --targets <reg|file>       similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "    -w, --win <int>                maximum window length [100_000]\n");
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -a, --autozygosity <float>     P(AZ|HW) transition probability [3.8e-9]\n");

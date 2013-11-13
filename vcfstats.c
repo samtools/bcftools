@@ -1076,9 +1076,9 @@ static void usage(void)
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --fasta-ref <file>            faidx indexed reference sequence file to determine INDEL context\n");
     fprintf(stderr, "    -i, --split-by-ID                 collect stats for sites with ID separately (known vs novel)\n");
-    fprintf(stderr, "    -r, --region <reg|file>           collect stats in the given regions\n");
+    fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --samples <list|file>         produce sample stats, \"-\" to include all samples\n");
-    fprintf(stderr, "    -t, --targets <reg|file>          restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\n");
     exit(1);
 }
