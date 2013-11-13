@@ -344,9 +344,9 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage: bcftools call [options] <in.bcf|in.vcf|in.vcf.gz> [reg]\n");
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -o, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "   -r, --region <reg|file>         restrict to comma-separated list of regions or regions listed in tab-delimited indexed file\n");
+    fprintf(stderr, "   -r, --regions <reg|file>        restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "   -s, --samples <list|file>       sample list, PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
-    fprintf(stderr, "   -t, --targets <reg|file>        same as -r but streams rather than index-jumps to it. Coordinates are 1-based, inclusive\n");
+    fprintf(stderr, "   -t, --targets <reg|file>        similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\nInput/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "   -N, --skip-Ns                   skip sites where REF is not A/C/G/T\n");
@@ -393,7 +393,7 @@ int main_vcfcall(int argc, char *argv[])
     {
         {"help",0,0,'h'},
         {"output-type",1,0,'o'},
-        {"region",1,0,'r'},
+        {"regions",1,0,'r'},
         {"samples",1,0,'s'},
         {"targets",1,0,'t'},
         {"keep-alts",0,0,'A'},

@@ -668,13 +668,14 @@ static void usage(void)
 	fprintf(stderr, "         With -s but no -p, likelihoods at all sites are printed.\n");
 	fprintf(stderr, "Usage:   bcftools gtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -a, --average-discordance          output average discordance for all sites\n");
-	fprintf(stderr, "    -g, --genotypes <file>             genotypes to compare against\n");
-	fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only (useful for low coverage data)\n");
-	fprintf(stderr, "    -p, --plot <prefix>                plot\n");
-    fprintf(stderr, "    -r, --region <chr|chr:from-to>     check only the given region\n");
-	fprintf(stderr, "    -s, --target-sample <string>       target sample in the -g file (used for plotting only)\n");
-	fprintf(stderr, "    -S, --query-sample <string>        query sample (by default the first sample is checked)\n");
+	fprintf(stderr, "    -a, --average-discordance       output average discordance for all sites\n");
+	fprintf(stderr, "    -g, --genotypes <file>          genotypes to compare against\n");
+	fprintf(stderr, "    -H, --homs-only                 homozygous genotypes only (useful for low coverage data)\n");
+	fprintf(stderr, "    -p, --plot <prefix>             plot\n");
+    fprintf(stderr, "    -r, --regions <file|reg>        restrict to list of regions or regions listed in a file, see man page for details\n");
+	fprintf(stderr, "    -s, --target-sample <string>    target sample in the -g file (used for plotting only)\n");
+	fprintf(stderr, "    -S, --query-sample <string>     query sample (by default the first sample is checked)\n");
+    fprintf(stderr, "    -t, --targets <reg|file>        similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "\n");
 	exit(1);
 }
@@ -685,7 +686,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 	args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->files  = bcf_sr_init();
 	args->argc   = argc; args->argv = argv; set_cwd(args);
-    char *regions = NULL;
+    char *regions = NULL, *targets = NULL;
 
 	static struct option loptions[] = 
 	{
@@ -696,10 +697,11 @@ int main_vcfgtcheck(int argc, char *argv[])
 		{"plot",1,0,'p'},
 		{"target-sample",1,0,'s'},
 		{"query-sample",1,0,'S'},
-        {"region",1,0,'r'},
+        {"regions",1,0,'r'},
+        {"targets",1,0,'t'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:a",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:at:",loptions,NULL)) >= 0) {
 		switch (c) {
 			case 'a': args->avg_site_discordance = 1; break;
 			case 'H': args->hom_only = 1; break;
@@ -708,6 +710,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 			case 's': args->target_sample = optarg; break;
 			case 'S': args->query_sample = optarg; break;
             case 'r': regions = optarg; break;
+            case 't': targets = optarg; break;
 			case 'h': 
 			case '?': usage();
 			default: error("Unknown argument: %s\n", optarg);
@@ -717,6 +720,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     if ( !args->gt_fname ) args->cross_check = 1;   // no genotype file, run in cross-check mode
     else args->files->require_index = 1;
     if ( regions && bcf_sr_set_regions(args->files, regions)<0 ) error("Failed to read the regions: %s\n", regions);
+    if ( targets && bcf_sr_set_targets(args->files, targets,0)<0 ) error("Failed to read the targets: %s\n", targets);
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     if ( args->gt_fname && !bcf_sr_add_reader(args->files, args->gt_fname) ) error("Failed to open or the file not indexed: %s\n", args->gt_fname);
     args->files->collapse = COLLAPSE_SNPS|COLLAPSE_INDELS;

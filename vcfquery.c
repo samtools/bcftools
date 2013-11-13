@@ -645,8 +645,8 @@ static void usage(void)
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
 	fprintf(stderr, "    -l, --list-columns                list columns\n");
-	fprintf(stderr, "    -t, --targets <reg|file>          same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
-	fprintf(stderr, "    -r, --regions <reg|file>          restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+	fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+	fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "    -s, --samples <list|file>         samples to include: comma-separated list or one name per line in a file\n");
 	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
 	fprintf(stderr, "Expressions:\n");
