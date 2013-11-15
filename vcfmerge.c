@@ -1038,6 +1038,7 @@ void merge_buffer(args_t *args)
                     maux->d[i][j].map[k] = k;
                     maux->cnt[k] = 1;
                 }
+                if ( line->n_allele!=1 ) maux->cnt[0] = 0;
                 pos = line->pos;
                 continue;
             }
@@ -1046,9 +1047,13 @@ void merge_buffer(args_t *args)
             maux->als = merge_alleles(line->d.allele, line->n_allele, maux->d[i][j].map, maux->als, &maux->nals, &maux->mals);
             hts_expand0(int, maux->nals, maux->ncnt, maux->cnt);
             for (k=1; k<line->n_allele; k++)
-                maux->cnt[ maux->d[i][j].map[k] ]++;
+                maux->cnt[ maux->d[i][j].map[k] ]++;    // how many times an allele appears in the files
+            if ( line->n_allele==1 ) maux->cnt[0]++;
         }
     }
+
+    // for (i=0; i<maux->nals; i++) 
+    //    fprintf(stderr,"%d: %s .. %dx\n", i, maux->als[i], maux->cnt[i]);
 
     // Select records that have the same alleles; the input ordering of indels
     // must not matter. Multiple VCF lines can be emitted from this loop.
@@ -1058,7 +1063,7 @@ void merge_buffer(args_t *args)
     while (1)
     {
         // take the most frequent allele present in multiple files
-        int icnt = 1;
+        int icnt = 0;
         for (i=1; i<maux->nals; i++) 
             if ( maux->cnt[i] > maux->cnt[icnt] ) icnt = i;
         if ( maux->cnt[icnt]<0 ) break;
@@ -1068,23 +1073,32 @@ void merge_buffer(args_t *args)
         {
             maux->has_line[i] = 0;
 
-            // first pass: try to find lines with the same allele
             bcf_sr_t *reader = &files->readers[i];
             if ( !reader->buffer ) continue;
+
+            // find lines with the same allele
             int j;
             for (j=0; j<=reader->nbuffer; j++)
             {
                 if ( maux->d[i][j].skip ) continue;
                 int k;
-                for (k=1; k<reader->buffer[j]->n_allele; k++)
+                for (k=0; k<reader->buffer[j]->n_allele; k++)
                     if ( icnt==maux->d[i][j].map[k] ) break;
                 if ( k<reader->buffer[j]->n_allele ) break;
             }
             if ( j>reader->nbuffer )
             {
-                // no matching allele found in this file, any allele must do
+                // no matching allele found in this file 
+                if ( args->collapse==COLLAPSE_NONE ) continue;
+                
                 for (j=0; j<=reader->nbuffer; j++)
-                    if ( !maux->d[i][j].skip ) break;
+                {
+                    if ( maux->d[i][j].skip ) continue;
+                    if ( args->collapse&COLLAPSE_ANY ) break;
+                    int line_type = bcf_get_variant_types(reader->buffer[j]);
+                    if ( var_type&VCF_SNP && line_type&VCF_SNP && (args->collapse&COLLAPSE_SNPS) ) break;
+                    if ( var_type&VCF_INDEL && line_type&VCF_INDEL && (args->collapse&COLLAPSE_INDELS) ) break;
+                }
             }
             if ( j<=reader->nbuffer ) 
             {
@@ -1195,7 +1209,7 @@ static void usage(void)
     fprintf(stderr, "        --use-header <file>           use the provided header\n");
     fprintf(stderr, "        --print-header <file>         print only header of the output file and exit\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|any>\n");
+    fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|any|none> [both]\n");
     fprintf(stderr, "    -o, --output-type <b|u|z|v>       'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --region <reg|file>           merge in the given regions only\n");
     fprintf(stderr, "\n");
@@ -1208,6 +1222,7 @@ int main_vcfmerge(int argc, char *argv[])
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->files  = bcf_sr_init();
     args->argc   = argc; args->argv = argv;
+    args->collapse = COLLAPSE_BOTH;
 
     static struct option loptions[] = 
     {
@@ -1231,10 +1246,13 @@ int main_vcfmerge(int argc, char *argv[])
                 }
                 break;
             case 'm':
+                args->collapse = COLLAPSE_NONE;
                 if ( !strcmp(optarg,"snps") ) args->collapse |= COLLAPSE_SNPS;
                 else if ( !strcmp(optarg,"indels") ) args->collapse |= COLLAPSE_INDELS;
-                else if ( !strcmp(optarg,"both") ) args->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
+                else if ( !strcmp(optarg,"both") ) args->collapse |= COLLAPSE_BOTH;
                 else if ( !strcmp(optarg,"any") ) args->collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"none") ) args->collapse = COLLAPSE_NONE;
+                else error("The -m type \"%s\" is not recognised.\n", optarg);
                 break;
             case 'f': args->files->apply_filters = optarg; break;
             case 'r': args->regions_fname = optarg; break;
