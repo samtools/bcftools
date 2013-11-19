@@ -184,6 +184,7 @@ void mcall_init(call_t *call)
     bcf_hdr_append(call->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes for each ALT allele, in the same order as listed\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases\">");
+    bcf_hdr_append(call->hdr,"##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Average mapping quality\">");
 
     return; 
 }
@@ -993,6 +994,9 @@ int mcall(call_t *call, bcf1_t *rec)
         error("I16 hasn't 16 fields at %s:%d\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1);
     int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
     bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
+
+    int32_t mq = (call->anno16[8]+call->anno16[10])/(call->anno16[0]+call->anno16[1]+call->anno16[2]+call->anno16[3]);
+    bcf_update_info_int32(call->hdr, rec, "MQ", &mq, 1);
 
     bcf_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
     bcf_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag

@@ -297,10 +297,11 @@ static void usage(args_t *args)
     fprintf(stderr, "    - logical operators: && (same as &), || (same as |)\n");
     fprintf(stderr, "    - conditional operators: == (same as =), >, >=, <=, <, !=\n");
     fprintf(stderr, "    - parentheses: (, )\n");
-    fprintf(stderr, "    - array subscripts, such as AC[0]\n");
-    fprintf(stderr, "    - double quotes for string values\n");
+    fprintf(stderr, "    - array subscripts, such as (e.g. AC[0]>=10)\n");
+    fprintf(stderr, "    - double quotes for string values (e.g. %%FILTER=\"PASS\")\n");
     fprintf(stderr, "    - 1 (or 0) for testing the presence (or absence) of a flag (e.g. FlagA=1 && FlagB=0)\n");
-    fprintf(stderr, "    - %%QUAL or INFO tag names\n");
+    fprintf(stderr, "    - TAG or INFO/TAG for INFO values (e.g. DP<800 or INFO/DP<800)\n");
+    fprintf(stderr, "    - %%QUAL, %%FILTER, etc. for column names (note: currently only some columns are supported)\n");
     fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
     exit(1);
 }
