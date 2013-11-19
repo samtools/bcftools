@@ -68,6 +68,8 @@ static int filters_next_token(char **str, int *len)
     }
     tmp = *str;
 
+    if ( !strncmp(tmp,"INFO/",5) ) tmp += 5;
+
     while ( tmp[0] )
     {
         if ( tmp[0]=='"' ) break;
@@ -303,7 +305,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         tok->key[len-2] = 0;
         return 0;
     }
-
+    if ( !strncmp(str,"INFO/",5) ) { str += 5; len -= 5; }
     if ( !strncmp(str,"%QUAL",len) )
     {
         tok->setter = filters_set_qual;
