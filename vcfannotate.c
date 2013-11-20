@@ -13,12 +13,16 @@
 #include "bcftools.h"
 
 /** Plugin API */
-typedef void (*dl_init_f) ();
+typedef void (*dl_init_f) (bcf_hdr_t *);
+typedef void (*dl_process_f) (bcf1_t *);
+typedef void (*dl_destroy_f) (void);
 
 typedef struct
 {
     char *name;
     dl_init_f init;
+    dl_process_f process;
+    dl_destroy_f destroy;
     void *handle;
 }
 plugin_t;
@@ -35,6 +39,7 @@ typedef struct _args_t
     int nplugins;
 
     char **argv, *targets_fname, *regions_fname;
+    char *remove_annots;
     int argc;
 }
 args_t;
@@ -68,6 +73,14 @@ static void load_plugin(args_t *args, const char *fname)
         char *ret = dlerror();
         if ( ret ) error("Could not initialize %s: %s\n", plugin->name, ret);
 
+        plugin->process = (dl_process_f) dlsym(plugin->handle, "process");
+        ret = dlerror();
+        if ( ret ) error("Could not initialize %s: %s\n", plugin->name, ret);
+
+        plugin->destroy = (dl_destroy_f) dlsym(plugin->handle, "destroy");
+        ret = dlerror();
+        if ( ret ) error("Could not initialize %s: %s\n", plugin->name, ret);
+
         if ( se ) { *se = ','; ss = se+1; }
         else ss = NULL;
     }
@@ -84,6 +97,10 @@ static void init_plugins(args_t *args)
 static void init_data(args_t *args)
 {
     args->hdr = args->files->readers[0].header;
+
+    if ( args->remove_annots )
+    {
+    }
     
     // bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_annotate");
@@ -91,17 +108,27 @@ static void init_data(args_t *args)
 
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 
-    args->tgts = bcf_sr_regions_init(args->targets_fname);
+    if ( args->targets_fname ) args->tgts = bcf_sr_regions_init(args->targets_fname);
     init_plugins(args);
 }
 
 static void destroy_data(args_t *args)
 {
-    bcf_sr_regions_destroy(args->tgts);
+    int i;
+    for (i=0; i<args->nplugins; i++)
+    {
+        free(args->plugins[i].name);
+        args->plugins[i].destroy();
+        dlclose(args->plugins[i].handle);
+    }
+    free(args->plugins);
 }
 
 static void annotate(args_t *args, bcf1_t *line)
 {
+    int i;
+    for (i=0; i<args->nplugins; i++)
+        args->plugins[i].process(line);
 }
 
 static void usage(args_t *args)
@@ -112,8 +139,9 @@ static void usage(args_t *args)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
 	fprintf(stderr, "    -o, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-	fprintf(stderr, "    -p, --plugin <file.c>          user-defined plugin\n");
+	fprintf(stderr, "    -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins\n");
     fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
+    fprintf(stderr, "    -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER)\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -127,17 +155,16 @@ int main_vcfannotate(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
 
-    //error("not finished yet, sorry\n");
-
     static struct option loptions[] = 
     {
         {"output-type",1,0,'o'},
         {"annotations",1,0,'a'},
         {"plugin",1,0,'p'},
         {"regions",1,0,'r'},
+        {"remove",1,0,'R'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?o:r:a:p:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?o:r:a:p:R:",loptions,NULL)) >= 0) {
         switch (c) {
     	    case 'o': 
                 switch (optarg[0]) {
@@ -148,6 +175,7 @@ int main_vcfannotate(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 };
                 break;
+            case 'R': args->remove_annots = optarg; break;
             case 'a': args->targets_fname = optarg; break;
             case 'r': args->regions_fname = optarg; break;
             case 'p': load_plugin(args, optarg); break;
@@ -163,7 +191,6 @@ int main_vcfannotate(int argc, char *argv[])
         if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
             error("Failed to read the regions: %s\n", args->regions_fname);
     }
-    if ( !args->targets_fname ) error("Missing the -a option\n");
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     
     init_data(args);
