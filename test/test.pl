@@ -12,6 +12,7 @@ use File::Temp qw/ tempfile tempdir /;
 my $opts = parse_params();
 
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
+test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -205,6 +206,10 @@ sub test_tabix
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
+
+    cmd("$$opts{bin}/bcftools view $$opts{tmp}/$args{in}.vcf.gz -ob > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools index $$opts{tmp}/$args{in}.bcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset -h $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
 sub test_vcf_check
 {

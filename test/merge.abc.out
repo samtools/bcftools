@@ -10,6 +10,7 @@
 ##FILTER=<ID=q10,Description="Quality below 10">
 ##FILTER=<ID=test,Description="Testing filter">
 ##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
 ##contig=<ID=3,assembly=b37,length=198022430>
 ##contig=<ID=4,assembly=b37,length=191154276>
 ##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
@@ -19,7 +20,6 @@
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
 ##INFO=<ID=STR,Number=1,Type=String,Description="Test string type">
-##contig=<ID=2,length=2147483647>
 ##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
 ##SAMPLE=<ID=NORMAL,SampleName=B,Description="Less-than (\"<\") and greater-than (\">\") quoting nonsense where double brackets would do just fine",softwareName=<Nonsense,Software>,softwareVer=<119,65>,softwareParam=<.>,MetadataResource=http://somewhere.com/path>
 ##FORMAT=<ID=STR,Number=1,Type=String,Description="Testing string in format">
