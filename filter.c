@@ -516,7 +516,8 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
             int j = i+1;
             if ( out[j].tok_type==TOK_EQ || out[j].tok_type==TOK_NE ) j = i - 1;
-            if ( out[j].tok_type!=TOK_VAL || !out[j].key ) error("[%s:%d %s] Could not parse the expression: %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
+            if ( out[j].tok_type!=TOK_VAL || !out[j].key )
+                error("[%s:%d %s] Could not parse the expression, an unquoted string value perhaps? %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
             if ( strcmp(".",out[j].key) )
             {
                 out[j].hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, out[j].key);
