@@ -748,6 +748,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         for (itr=0; itr<ntrio; itr++)   // for each trio genotype combination
         {
             double lk = 0;
+            int npresent = 0;
             for (i=0; i<3; i++)     // for father, mother, child
             {
                 int ismpl = fam->sample[i];
@@ -756,12 +757,17 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
                 int igt = trio[itr]>>((2-i)*4) & 0xf;
                 if ( igt==GT_SKIP ) continue;
                 lk += gl[igt];
+                npresent++;
+                // fprintf(stderr," %e", gl[igt]);
             }
-            double Pkij = (double)2/(trio[itr]>>12);
+            // fprintf(stderr,"\t\t");
+            double Pkij = npresent==3 ? (double)2/(trio[itr]>>12) : 1;  // with missing genotypes Pkij's are different
             lk += log(1 - call->trio_Pm * (1 - Pkij));
+            // fprintf(stderr,"%d%d%d\t%e\t%.2f\n", trio[itr]>>8&0xf,trio[itr]>>4&0xf,trio[itr]&0xf, lk, Pkij);
             if ( best_lk < lk ) { best_lk = lk; best_itr = trio[itr]; }
             // if ( uc_itr==trio[itr] ) uc_is_mendelian = 1;
         }
+        // fprintf(stderr,"best_lk=%e uc_lk=%e  best_itr=%d%d%d uc_itr=%d%d%d\n", best_lk,uc_lk,best_itr>>8&0xf,best_itr>>4&0xf,best_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
 
         // Set genotypes for father, mother, child and calculate genotype qualities
         for (i=0; i<3; i++)
