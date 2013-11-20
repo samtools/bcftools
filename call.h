@@ -38,17 +38,19 @@ typedef struct
     int nfams, mfams;
     int ntrio[5][5];        // possible trio genotype combinations and their counts; first idx:
     uint16_t *trio[5][5];   //  family type, second index: allele count (2-4, first two are unused)
-    double *GLs, *sumGLs;
-    int *GQs;               // VCF FORMAT genotype qualities
+    double *GLs;
+    float *GQs;             // VCF FORMAT genotype qualities
     int *itmp, n_itmp;      // temporary int array, used for new PLs with CALL_CONSTR_ALLELES
     vcmp_t *vcmp;
+    double trio_Pm;         // P(mendelian) for trio calling
+    int32_t *ugts, *cgts;   // unconstraind and constrained GTs
 
     // ccall only
     double indel_frac, theta, min_lrt, min_perm_p; 
     double prior_type, pref;
     double ref_lk, lk_sum;
     int ngrp1_samples, n_perm;
-    int ac[4], nhets, ndiploid;
+    int nhets, ndiploid;
     char *prior_file;
     ccall_t *cdat;
 
@@ -61,7 +63,7 @@ typedef struct
 
     double pl2p[256];       // PL to 10^(-PL/10) table
     int *PLs, nPLs, mPLs;   // VCF PL likelihoods (rw)
-    int *gts;               // GTs (w)
+    int32_t *gts, ac[4];    // GTs and AC (w)
     double *pdg;            // PLs converted to P(D|G)
     float *anno16; int n16; // see anno[16] in bam2bcf.h
 }

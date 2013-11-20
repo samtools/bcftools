@@ -2,10 +2,6 @@
 #include <htslib/kfunc.h>
 #include "call.h"
 
-// void ccall_init(call_t *call) { return; }
-// void ccall_destroy(call_t *call) { return; }
-// int ccall(call_t *call, bcf1_t *rec) { return 0; }
-
 void qcall_init(call_t *call) { return; }
 void qcall_destroy(call_t *call) { return; }
 int qcall(call_t *call, bcf1_t *rec) 
@@ -23,6 +19,7 @@ void call_init_pl2p(call_t *call)
         call->pl2p[i] = pow(10., -i/10.);
 }
 
+// Macros for accessing call->trio and call->ntrio
 #define FTYPE_222 0     // family type: all diploid
 #define FTYPE_121 1     // chrX, the child is a boy
 #define FTYPE_122 2     // chrX, a girl
@@ -32,13 +29,50 @@ void call_init_pl2p(call_t *call)
 #define GT_SKIP 0xf     // empty genotype (chrY in females)
 
 #define IS_POW2(x) (!((x) & ((x) - 1)))    // zero is permitted
+#define IS_HOM(x)  IS_POW2(x)
 
+// Pkij = P(k|i,j) tells how likely it is to be a het if the parents
+// are homs etc. The consistency of i,j,k has been already checked.
+// Parameters are alleles and ploidy of father, mother, kid
+// Returns 2/Pkij. 
+int calc_Pkij(int fals, int mals, int kals, int fpl, int mpl, int kpl)
+{
+    int als = fals|mals|kals;
+    if ( IS_HOM(als) ) return 2;    // all are the same: child must be a HOM, P=1
+
+    if ( fpl==1 )
+    {
+        if ( kpl==1 )   // chr X, the child is a boy, the copy is inherited from the mother
+        {
+            if ( IS_HOM(mals) ) return 2;   // 0 11 -> P(1) = 1
+            return 4;                       // 0 01 -> P(0) = P(1) = 1/2    
+        }
+        // chr X, the child is a girl
+        if ( IS_HOM(mals) ) return 2;       // 0 11 -> P(01) = 1
+        return 4;                           // 0 01 -> P(00) = P(01) = 1/2
+    }
+
+    if ( IS_HOM(fals) && IS_HOM(mals) ) return 2;   // 00 11 01, the child must be a HET, P=1
+    if ( !IS_HOM(fals) && !IS_HOM(mals) )
+    {
+        if ( IS_HOM(kals) ) return 8;   // 01 01 00 or 01 01 11, P(k=HOM) = 1/4
+        return 4;                       // 01 01 01, P(k=HET) = 1/2
+    }
+    return 4;   // 00 01, P(k=HET) = P(k=HOM) = 1/2
+}
+
+// Initialize ntrio and trio: ntrio lists the number of possible
+// genotypes given combination of haploid/diploid genomes and the 
+// number of alleles. trio lists allowed genotype combinations:
+//      4bit: 2/Pkij, 4: father, 4: mother, 4: child
+// See also mcall_call_trio_genotypes()
+//
 static void mcall_init_trios(call_t *call)
 {
     // 23, 138, 478 possible diploid trio genotypes with 2, 3, 4 alleles
     call->ntrio[FTYPE_222][2] = 23; call->ntrio[FTYPE_222][3] = 138; call->ntrio[FTYPE_222][4] = 478;
-    call->ntrio[FTYPE_121][2] = 10; call->ntrio[FTYPE_121][3] = 36;  call->ntrio[FTYPE_121][4] = 88;
-    call->ntrio[FTYPE_122][2] = 14; call->ntrio[FTYPE_122][3] = 57;  call->ntrio[FTYPE_122][4] = 148;
+    call->ntrio[FTYPE_121][2] = 8;  call->ntrio[FTYPE_121][3] = 27;  call->ntrio[FTYPE_121][4] = 64;
+    call->ntrio[FTYPE_122][2] = 8;  call->ntrio[FTYPE_122][3] = 27;  call->ntrio[FTYPE_122][4] = 64;
     call->ntrio[FTYPE_101][2] = 2;  call->ntrio[FTYPE_101][3] = 3;   call->ntrio[FTYPE_101][4] = 4;
     call->ntrio[FTYPE_100][2] = 2;  call->ntrio[FTYPE_100][3] = 3;   call->ntrio[FTYPE_100][4] = 4;
 
@@ -58,13 +92,14 @@ static void mcall_init_trios(call_t *call)
             for (j=0; j<=i; j++)
                 gts[ngts++] = 1<<i | 1<<j;
 
-        // all diploid
+        // 222: all diploid
         for (i=0; i<ngts; i++)
             for (j=0; j<ngts; j++)
                 for (k=0; k<ngts; k++)
                 {
-                    if ( ((gts[i]|gts[j])&gts[k]) != gts[k] ) continue;     // k not present in neither i nor j
-                    call->trio[FTYPE_222][nals][n++] = i<<8 | j<<4 | k;     // father, mother, child
+                    if ( ((gts[i]|gts[j])&gts[k]) != gts[k] ) continue;             // k not present in neither i nor j
+                    int Pkij = calc_Pkij(gts[i],gts[j],gts[k], 2,2,2);
+                    call->trio[FTYPE_222][nals][n++] = Pkij<<12 | i<<8 | j<<4 | k;  // father, mother, child
                 }
         assert( n==call->ntrio[FTYPE_222][nals] );
 
@@ -74,9 +109,11 @@ static void mcall_init_trios(call_t *call)
             for (j=0; j<ngts; j++)
                 for (k=0; k<ngts; k++)
                 {
-                    if ( !IS_POW2(gts[i]) || !IS_POW2(gts[k]) ) continue;   // father nor boy cannot be diploid
+                    if ( !IS_HOM(gts[i]) || !IS_HOM(gts[k]) ) continue;   // father nor boy can be diploid
                     if ( ((gts[i]|gts[j])&gts[k]) != gts[k] ) continue;
-                    call->trio[FTYPE_121][nals][n++] = i<<8 | j<<4 | k;
+                    if ( !(gts[j] & gts[k]) ) continue;     // boy must inherit the copy from mother
+                    int Pkij = calc_Pkij(gts[i],gts[j],gts[k], 1,2,1);
+                    call->trio[FTYPE_121][nals][n++] = Pkij<<12 | i<<8 | j<<4 | k;
                 }
         assert( n==call->ntrio[FTYPE_121][nals] );
 
@@ -86,9 +123,12 @@ static void mcall_init_trios(call_t *call)
             for (j=0; j<ngts; j++)
                 for (k=0; k<ngts; k++)
                 {
-                    if ( !IS_POW2(gts[i]) ) continue; 
+                    if ( !IS_HOM(gts[i]) ) continue; 
                     if ( ((gts[i]|gts[j])&gts[k]) != gts[k] ) continue;
-                    call->trio[FTYPE_122][nals][n++] = i<<8 | j<<4 | k; 
+                    if ( !(gts[i] & gts[k]) ) continue;     // girl must inherit one copy from the father and one from the mother
+                    if ( !(gts[j] & gts[k]) ) continue;
+                    int Pkij = calc_Pkij(gts[i],gts[j],gts[k], 1,2,2);
+                    call->trio[FTYPE_122][nals][n++] = Pkij<<12 | i<<8 | j<<4 | k; 
                 }
         assert( n==call->ntrio[FTYPE_122][nals] );
 
@@ -97,9 +137,9 @@ static void mcall_init_trios(call_t *call)
         for (i=0; i<ngts; i++)
             for (k=0; k<ngts; k++)
             {
-                if ( !IS_POW2(gts[i]) || !IS_POW2(gts[k]) ) continue;
+                if ( !IS_HOM(gts[i]) || !IS_HOM(gts[k]) ) continue;
                 if ( (gts[i]&gts[k]) != gts[k] ) continue;
-                call->trio[FTYPE_101][nals][n++] = i<<8 | GT_SKIP<<4 | k;
+                call->trio[FTYPE_101][nals][n++] = 1<<12 | i<<8 | GT_SKIP<<4 | k;
             }
         assert( n==call->ntrio[FTYPE_101][nals] );
 
@@ -108,14 +148,13 @@ static void mcall_init_trios(call_t *call)
         for (i=0; i<ngts; i++)
         {
             if ( !IS_POW2(gts[i]) ) continue;
-            call->trio[FTYPE_100][nals][n++] = i<<8 | GT_SKIP<<4 | GT_SKIP;
+            call->trio[FTYPE_100][nals][n++] = 1<<12 | i<<8 | GT_SKIP<<4 | GT_SKIP;
         }
         assert( n==call->ntrio[FTYPE_100][nals] );
 
     }
-    call->GLs = (double*) malloc(sizeof(double)*bcf_hdr_nsamples(call->hdr)*10);
-    call->sumGLs = (double*) malloc(sizeof(double)*bcf_hdr_nsamples(call->hdr));
-    call->GQs = (int*) malloc(sizeof(int)*bcf_hdr_nsamples(call->hdr));
+    call->GLs = (double*) calloc(bcf_hdr_nsamples(call->hdr)*10,sizeof(double));
+    call->GQs = (float*) malloc(sizeof(float)*bcf_hdr_nsamples(call->hdr));
 
     int i, j;
     for (i=0; i<call->nfams; i++)
@@ -166,13 +205,20 @@ void mcall_init(call_t *call)
     call->als_map  = (int*) malloc(sizeof(int)*call->nals_map);
     call->npl_map  = 4*(4+1)/2;
     call->pl_map   = (int*) malloc(sizeof(int)*call->npl_map);
-    call->gts = (int*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int));   // assuming at most diploid everywhere
+    call->gts  = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int32_t));   // assuming at most diploid everywhere
 
-    if ( call->flag & CALL_CONSTR_TRIO ) mcall_init_trios(call);
+    if ( call->flag & CALL_CONSTR_TRIO ) 
+    {
+        call->cgts = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr),sizeof(int32_t));
+        call->ugts = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr),sizeof(int32_t));
+        mcall_init_trios(call);
+        bcf_hdr_append(call->hdr,"##FORMAT=<ID=CGT,Number=1,Type=Integer,Description=\"Constrained Genotype (0-based index to Number=G ordering).\">");
+        bcf_hdr_append(call->hdr,"##FORMAT=<ID=UGT,Number=1,Type=Integer,Description=\"Unconstrained Genotype (0-based index to Number=G ordering).\">");
+    }
     if ( call->flag & CALL_CONSTR_ALLELES ) call->vcmp = vcmp_init();
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
-    bcf_hdr_append(call->hdr,"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">");
+    bcf_hdr_append(call->hdr,"##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=ICB,Number=1,Type=Float,Description=\"Inbreeding Coefficient Binomial test (bigger is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=HOB,Number=1,Type=Float,Description=\"Bias in the number of HOMs number (smaller is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes for each ALT allele, in the same order as listed\">");
@@ -189,14 +235,13 @@ void mcall_destroy(call_t *call)
     free(call->itmp);
     mcall_destroy_trios(call);
     free(call->GLs);
-    free(call->sumGLs);
     free(call->GQs);
     free(call->anno16);
     free(call->PLs);
     free(call->qsum);
     free(call->als_map);
     free(call->pl_map);
-    free(call->gts);
+    free(call->gts); free(call->cgts); free(call->ugts);
     free(call->pdg);
     free(call->als);
     return; 
@@ -567,8 +612,8 @@ static void mcall_call_genotypes(call_t *call, int nals, int nout_als, int out_a
                         if ( best_lk < lk ) 
                         { 
                             best_lk = lk; 
-                            gts[0] = bcf_gt_unphased(call->als_map[ia]); 
-                            gts[1] = bcf_gt_unphased(call->als_map[ib]); 
+                            gts[0] = bcf_gt_unphased(call->als_map[ib]); 
+                            gts[1] = bcf_gt_unphased(call->als_map[ia]); 
                         }
                     }
                 }
@@ -576,15 +621,31 @@ static void mcall_call_genotypes(call_t *call, int nals, int nout_als, int out_a
             }
             else
                 gts[1] = bcf_int32_vector_end;
-        }
 
-        call->ac[ bcf_gt_allele(gts[0]) ]++;
-        if ( gts[1]!=bcf_int32_vector_end ) call->ac[ bcf_gt_allele(gts[1]) ]++;
+            call->ac[ bcf_gt_allele(gts[0]) ]++;
+            if ( gts[1]!=bcf_int32_vector_end ) call->ac[ bcf_gt_allele(gts[1]) ]++;
+        }
     }
 }
 
 
-static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int out_als)
+/**
+    Pm = P(mendelian) .. parameter to vary, 1-Pm is the probability of novel mutation
+    Pkij = P(k|i,j)   .. probability that the genotype combination i,j,k is consistent
+                         with mendelian inheritance (the likelihood that offspring 
+                         of two HETs is a HOM is smaller than it being a HET)
+
+    P_uc(F=i,M=j,K=k) = P(F=i) . P(M=j) . P(K=k)  .. unconstrained P
+    P_c(F=i,M=j,K=k) = P_uc . Pkij                .. constrained P
+    P(F=i,M=j,K=k) = P_uc . (1 - Pm) + P_c . Pm
+                   = P_uc . [1 - Pm + Pkij . Pm]
+
+    We choose genotype combination i,j,k which maximizes P(F=i,M=j,K=k). This
+    probability gives the quality GQ(Trio).  
+    Individual qualities are calculated as
+        GQ(F=i,M=j,K=k) = P(F=i,M=j,K=k) / \sum_{x,y} P(F=i,M=x,K=y)
+ */
+static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
 {
     int ia, ib, i;
     int nsmpl   = bcf_hdr_nsamples(call->hdr);
@@ -592,53 +653,68 @@ static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int 
     double *gls = call->GLs - ngts;
     double *pdg = call->pdg - ngts;
 
-    // Collect unconstrained genotype likelihoods
+    // Calculate individuals' genotype likelihoods P(X=i)
     int isample;
     for (isample = 0; isample < nsmpl; isample++) 
     {
         int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+        int32_t *gts = call->ugts + isample;
 
         gls += ngts;
         pdg += ngts;
 
         // Skip samples with all pdg's equal to 1. These have zero depth.
         for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
-        if ( i==ngts || !ploidy ) { gls[0] = 1; continue; }
+        if ( i==ngts || !ploidy ) 
+        {
+            gts[0] = bcf_int32_missing;
+            gls[0] = 1; 
+            continue; 
+        }
 
-        double sum_lk = 0;
+        double sum_lk  = 0;
+        double best_lk = 0;
         for (ia=0; ia<nals; ia++)
         {
             if ( !(out_als & 1<<ia) ) continue;     // ia-th allele not in the final selection, skip
-            int iaa   = (ia+1)*(ia+2)/2-1;           // PL index of the ia/ia genotype
-            int idx   = (call->als_map[ia]+1)*(call->als_map[ia]+2)/2-1;
+            int iaa   = bcf_alleles2gt(ia,ia);      // PL index of the ia/ia genotype
+            int idx   = bcf_alleles2gt(call->als_map[ia],call->als_map[ia]);
             double lk = pdg[iaa]*call->qsum[ia]*call->qsum[ia];
             sum_lk   += lk;
-            gls[idx]  = log(lk);
+            gls[idx]  = lk;
+            if ( best_lk < lk ) 
+            { 
+                best_lk = lk; 
+                gts[0] = bcf_alleles2gt(call->als_map[ia],call->als_map[ia]);
+            }
         }
         if ( ploidy==2 ) 
         {
             for (ia=0; ia<nals; ia++)
             {
                 if ( !(out_als & 1<<ia) ) continue;
-                int iaa = (ia+1)*(ia+2)/2-1;
-                int ida = (call->als_map[ia]+1)*(call->als_map[ia]+2)/2-1;
                 for (ib=0; ib<ia; ib++)
                 {
                     if ( !(out_als & 1<<ib) ) continue;
-                    int iab   = iaa - ia + ib;
-                    int idx   = ida - call->als_map[ia] + call->als_map[ib];
+                    int iab   = bcf_alleles2gt(ia,ib);
+                    int idx   = bcf_alleles2gt(call->als_map[ia],call->als_map[ib]);
                     double lk = 2*pdg[iab]*call->qsum[ia]*call->qsum[ib];
                     sum_lk   += lk;
-                    gls[idx]  = log(lk);
+                    gls[idx]  = lk;
+                    if ( best_lk < lk ) 
+                    { 
+                        best_lk = lk; 
+                        gts[0] = bcf_alleles2gt(call->als_map[ib],call->als_map[ia]);
+                    }
                 }
             }
+            for (i=0; i<ngts; i++)
+                gls[i] = log(gls[i]/sum_lk);
         }
-        call->sumGLs[isample] = log(sum_lk);
+        else
+            for (i=0; i<nals; i++)
+                gls[i] = log(gls[i]/sum_lk);
     }
-
-    for (i=0; i<4; i++) call->ac[i] = 0;
-    call->nhets = 0;
-    call->ndiploid = 0;
 
     // Calculate constrained likelihoods and determine genotypes
     int ifm;
@@ -648,12 +724,31 @@ static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int 
         int ntrio = call->ntrio[fam->type][nout_als];
         uint16_t *trio = call->trio[fam->type][nout_als];
 
+        // Unconstrained likelihood
+        int uc_itr = 0;
+        double uc_lk = 0;
+        for (i=0; i<3; i++)     // for father, mother, child
+        {
+            int ismpl = fam->sample[i];
+            double *gl = call->GLs + ngts*ismpl;
+            if ( gl[0]==1 ) continue;
+            int j, jmax = 0;
+            double max  = gl[0];
+            for (j=1; j<ngts; j++)
+                if ( max < gl[j] ) { max = gl[j]; jmax = j; }
+            uc_lk += max;
+            uc_itr |= jmax << ((2-i)*4);
+        }
+        uc_lk += log(1 - call->trio_Pm);
+
         // Best constrained likelihood
-        double cbest = -HUGE_VAL;
-        int ibest = 0, itr;
+        double best_lk = uc_lk;
+        int itr, best_itr = uc_itr;
+        // int uc_is_mendelian = 0;
         for (itr=0; itr<ntrio; itr++)   // for each trio genotype combination
         {
             double lk = 0;
+            int npresent = 0;
             for (i=0; i<3; i++)     // for father, mother, child
             {
                 int ismpl = fam->sample[i];
@@ -662,58 +757,111 @@ static void mcall_call_trio_genotypes(call_t *call, int nals, int nout_als, int 
                 int igt = trio[itr]>>((2-i)*4) & 0xf;
                 if ( igt==GT_SKIP ) continue;
                 lk += gl[igt];
+                npresent++;
+                // fprintf(stderr," %e", gl[igt]);
             }
-            if ( cbest < lk ) { cbest = lk; ibest = itr; }
+            // fprintf(stderr,"\t\t");
+            double Pkij = npresent==3 ? (double)2/(trio[itr]>>12) : 1;  // with missing genotypes Pkij's are different
+            lk += log(1 - call->trio_Pm * (1 - Pkij));
+            // fprintf(stderr,"%d%d%d\t%e\t%.2f\n", trio[itr]>>8&0xf,trio[itr]>>4&0xf,trio[itr]&0xf, lk, Pkij);
+            if ( best_lk < lk ) { best_lk = lk; best_itr = trio[itr]; }
+            // if ( uc_itr==trio[itr] ) uc_is_mendelian = 1;
         }
+        // fprintf(stderr,"best_lk=%e uc_lk=%e  best_itr=%d%d%d uc_itr=%d%d%d\n", best_lk,uc_lk,best_itr>>8&0xf,best_itr>>4&0xf,best_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
 
-        // Set the genotype quality. The current way is not correct, P(igt) != P(igt|constraint)
-        for (i=0; i<3; i++) 
-        {
-            int igt = trio[ibest]>>((2-i)*4) & 0xf;
-            int ismpl  = fam->sample[i];
-            double *gl = call->GLs + ngts*ismpl;
-            if ( gl[0]==1 || igt==GT_SKIP )
-                call->GQs[ismpl] = bcf_int32_missing;
-            else
-            {
-                double pval = -4.343*log(1.0 - exp(gl[igt] - call->sumGLs[ismpl]));
-                call->GQs[ismpl] = pval > 99 ? 99 : pval;
-                if ( call->GQs[ismpl] > 99 ) call->GQs[ismpl] = 99;
-            }
-        }
-
-        // Set genotypes for father, mother, child
+        // Set genotypes for father, mother, child and calculate genotype qualities
         for (i=0; i<3; i++)
         {
-            int igt    = trio[ibest]>>((2-i)*4) & 0xf;
-            int ismpl  = fam->sample[i];
-            int ploidy = call->ploidy ? call->ploidy[ismpl] : 2;
-            double *gl = call->GLs + ngts*ismpl;
-            int *gts   = call->gts + 2*ismpl;
+            // GT
+            int ismpl    = fam->sample[i];
+            int igt      = best_itr>>((2-i)*4) & 0xf;
+            double *gl   = call->GLs + ngts*ismpl;
+            int32_t *gts = call->cgts + ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )    // zero depth, set missing genotypes
             {
-                gts[0] = bcf_gt_missing;
-                gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+                gts[0] = bcf_int32_missing;
+                bcf_float_set_missing(call->GQs[ismpl]);
                 continue;
             }
+            gts[0] = igt;
 
-            // Convert genotype index idx to allele indices
-            int k = 0, dk = 1;
-            while ( k<igt ) k += ++dk;
-            int ia = dk - 1;
-            int ib = igt - k + ia;
-            gts[0] = bcf_gt_unphased(ib); 
-            call->ac[ib]++;
-            if ( ploidy==2 )
-            {
-                call->ac[ia]++;
-                if ( ia!=ib ) call->nhets++;
-                gts[1] = bcf_gt_unphased(ia);
-                call->ndiploid++;
-            }
-            else 
-                gts[1] = bcf_int32_vector_end;
+            #if 0
+                // todo: Genotype Qualities
+                //
+                // GQ: for each family member i sum over all genotypes j,k keeping igt fixed
+                double lk_sum = 0;
+                for (itr=0; itr<ntrio; itr++)
+                {
+                    if ( igt != (trio[itr]>>((2-i)*4) & 0xf) ) continue;
+                    double lk = 0;
+                    int j;
+                    for (j=0; j<3; j++) 
+                    {
+                        int jsmpl = fam->sample[j];
+                        double *gl = call->GLs + ngts*jsmpl;
+                        if ( gl[0]==1 ) continue;
+                        int jgt = trio[itr]>>((2-j)*4) & 0xf;
+                        if ( jgt==GT_SKIP ) continue;
+                        lk += gl[jgt]; 
+                    }
+                    double Pkij = (double)2/(trio[itr]>>12); 
+                    lk += log(1 - call->trio_Pm * (1 - Pkij));
+                    lk_sum = logsumexp2(lk_sum, lk);
+                }
+                if ( !uc_is_mendelian && (best_itr>>((2-i)*4)&0xf)==(uc_itr>>((2-i)*4)&0xf) ) lk_sum = logsumexp2(lk_sum,uc_lk);
+                call->GQs[ismpl] = -4.3429*(best_lk - lk_sum);
+            #endif
         }
+    }
+
+    for (i=0; i<4; i++) call->ac[i] = 0;
+    call->nhets = 0;
+    call->ndiploid = 0;
+
+    // Test if CGT,UGT are needed
+    int ucgts_needed = 0;
+    int32_t *cgts = call->cgts - 1;
+    int32_t *ugts = call->ugts - 1;
+    int32_t *gts  = call->gts - 2;
+    for (isample = 0; isample < nsmpl; isample++)
+    {
+        int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+        cgts++;
+        ugts++;
+        gts += 2;
+        if ( ugts[0]==bcf_int32_missing ) 
+        {
+            gts[0] = bcf_gt_missing;
+            gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
+            continue;
+        }
+        int a,b;
+        if ( cgts[0]!=ugts[0] ) 
+        {
+            bcf_gt2alleles(cgts[0], &a, &b);
+            gts[0] = bcf_gt_unphased(a);
+            gts[1] = ploidy==1 ? bcf_int32_vector_end : bcf_gt_unphased(b);
+        }
+        else
+        {
+            bcf_gt2alleles(ugts[0], &a, &b);
+            gts[0] = bcf_gt_unphased(a);
+            gts[1] = ploidy==1 ? bcf_int32_vector_end : bcf_gt_unphased(b);
+        }
+        if ( cgts[0]!=ugts[0] ) ucgts_needed = 1; 
+        call->ac[a]++;
+        if ( ploidy==2 ) 
+        {
+            call->ac[b]++;
+            call->ndiploid++;
+            if ( a!=b ) call->nhets++;
+        }
+    }
+    if ( ucgts_needed )
+    {
+        // Some GTs are different
+        bcf_update_format_int32(call->hdr,rec,"UGT",call->ugts,nsmpl);
+        bcf_update_format_int32(call->hdr,rec,"CGT",call->cgts,nsmpl);
     }
 }
 
@@ -892,8 +1040,8 @@ int mcall(call_t *call, bcf1_t *rec)
         init_allele_trimming_maps(call, out_als, nals);
         if ( call->flag & CALL_CONSTR_TRIO )
         {
-            mcall_call_trio_genotypes(call,nals,nout,out_als);
-            bcf_update_format_int32(call->hdr, rec, "GQ", call->GQs, nsmpl);
+            mcall_call_trio_genotypes(call, rec, nals,nout,out_als);
+            // bcf_update_format_float(call->hdr, rec, "GQ", call->GQs, nsmpl);
         }
         else
             mcall_call_genotypes(call,nals,nout,out_als);

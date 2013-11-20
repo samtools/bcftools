@@ -356,6 +356,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -c, --consensus-caller          the original calling method (conflicts with -m)\n");
     fprintf(stderr, "   -C, --constrain <str>           one of: alleles, trio (see manual)\n");
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
+    fprintf(stderr, "   -n, --novel-rate <float>        likelihood of novel mutation for constrained trio calling [1e-6]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
     fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
     fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
@@ -383,6 +384,7 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.min_perm_p = 0.01;
     args.aux.min_lrt    = 1;
     args.aux.min_ma_lrt = 1 - 1e-2;
+    args.aux.trio_Pm    = 1 - 1e-6;
 
     float p_arg = -1;
     int i, c;
@@ -404,10 +406,11 @@ int main_vcfcall(int argc, char *argv[])
         {"pval-threshold",1,0,'p'},
         {"chromosome-X",0,0,'X'},
         {"chromosome-Y",0,0,'Y'},
+        {"novel-rate",1,0,'n'},
         {0,0,0,0}
     };
 
-	while ((c = getopt_long(argc, argv, "h?o:r:s:t:ANS:vcmp:C:XY", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?o:r:s:t:ANS:vcmp:C:XYn:", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
@@ -437,6 +440,7 @@ int main_vcfcall(int argc, char *argv[])
                       else error("Unknown argument to -I: \"%s\"\n", optarg);
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
             case 'p': p_arg = atof(optarg); break;
+            case 'n': args.aux.trio_Pm = 1 - atof(optarg); break;
             case 'r': args.regions = optarg; break;
             case 't': args.targets = optarg; break;
             case 's': samples_fname = optarg; break;
