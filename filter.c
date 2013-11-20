@@ -68,6 +68,8 @@ static int filters_next_token(char **str, int *len)
     }
     tmp = *str;
 
+    if ( !strncmp(tmp,"INFO/",5) ) tmp += 5;
+
     while ( tmp[0] )
     {
         if ( tmp[0]=='"' ) break;
@@ -303,7 +305,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         tok->key[len-2] = 0;
         return 0;
     }
-
+    if ( !strncmp(str,"INFO/",5) ) { str += 5; len -= 5; }
     if ( !strncmp(str,"%QUAL",len) )
     {
         tok->setter = filters_set_qual;
@@ -514,7 +516,8 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
             int j = i+1;
             if ( out[j].tok_type==TOK_EQ || out[j].tok_type==TOK_NE ) j = i - 1;
-            if ( out[j].tok_type!=TOK_VAL || !out[j].key ) error("[%s:%d %s] Could not parse the expression: %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
+            if ( out[j].tok_type!=TOK_VAL || !out[j].key )
+                error("[%s:%d %s] Could not parse the expression, an unquoted string value perhaps? %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
             if ( strcmp(".",out[j].key) )
             {
                 out[j].hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, out[j].key);

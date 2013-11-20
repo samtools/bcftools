@@ -120,9 +120,9 @@ char *bcftools_version(void)
 {
     if ( !bcftools_version_string )
     {
-        int len = strlen(hts_version()) + strlen(BCFTOOLS_VERSION) + 2;
+        int len = strlen(hts_version()) + strlen(BCFTOOLS_VERSION) + 9;
         bcftools_version_string = (char*) malloc(len);
-        snprintf(bcftools_version_string,len,"%s:%s", BCFTOOLS_VERSION,hts_version());
+        snprintf(bcftools_version_string,len,"%s+htslib-%s", BCFTOOLS_VERSION,hts_version());
     }
     return bcftools_version_string;
 }

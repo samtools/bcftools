@@ -504,7 +504,7 @@ static void usage(void)
 	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type. [Todo: merge genotypes, don't just throw away.]\n");
 	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
     fprintf(stderr, "    -o, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-	fprintf(stderr, "    -r, --region <file|reg>           comma-separated list of regions or regions listed in tab-delimited indexed file\n");
+	fprintf(stderr, "    -r, --regions <file|reg>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -w, --win <int,int>               alignment window and buffer window [50,1000]\n");
 	fprintf(stderr, "\n");
 	exit(1);
@@ -523,7 +523,7 @@ int main_vcfnorm(int argc, char *argv[])
 	{
 		{"help",0,0,'h'},
 		{"fasta-ref",1,0,'f'},
-		{"region",1,0,'r'},
+		{"regions",1,0,'r'},
 		{"win",1,0,'w'},
 		{"remove-duplicates",0,0,'D'},
         {"output-type",1,0,'o'},

@@ -74,16 +74,24 @@ without arguments.
 .IP "\fB-o, --output-type \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR" 4
 Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fIz\fR), uncompressed VCF (\fIv\fR).
 .IP "\fB-r, --regions \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from-to\fR|\fIchr:from-\fR[,...]" 4
-Regions can be specified either on command line or in a tab-delimited file.
-The columns of the tab-delimited file are: CHROM, POS_FROM, and, optionally, POS_TO.
-Multiple regions can be given, one per line when reading from a file or
-separated by commas when specified on command line. 
-All positions are 1-based and inclusive. Note that sequence names must match exactly, "chr20" is not the same as "20".
+Regions can be specified either on command line or in a VCF, BED, or tab-delimited file (the default).
+The columns of the tab-delimited file are: CHROM, POS, and, optionally, POS_TO, where positions are 1-based and inclusive.
+Uncompressed files are stored in memory, while \fBbgzip\fR-compressed and \fBtabix\fR-indexed region files are streamed.
+Note that sequence names must match exactly, "chr20" is not the same as "20".
 This option requires indexed VCF/BCF files.
 .IP "\fB-t, --targets \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from-to\fR|\fIchr:from-\fR[,...]" 4
 Same as \fB-r, --regions\fR, but the next position is accessed by streaming the whole VCF/BCF rather than using
-the tbi/csi index. With the \fBcall -C \fIalleles\fR command, third column of the \fItargets\fR file must be comma-separated
-list of alleles, starting with the reference allele.
+the tbi/csi index. Both \fB-r\fR and \fB-t\fR options can be applied simultaneously: \fB-r\fR
+uses the index to jump to a region and \fB-t\fR discards positions which are not in the targets.
+Another difference between the two is that \fB-r\fR checks both start and end positions
+of indels, whereas \fB-t\fR checks start positions only.
+With the \fBcall -C \fIalleles\fR command, third column of the \fItargets\fR file must be comma-separated
+list of alleles, starting with the reference allele. Such a file can be easily created from
+a VCF by using:
+.IP
+.Vb 9
+\&        bcftools query -f'%CHROM\\t%POS\\t%REF,%ALT\\n' file.vcf
+.Ve
 
 .SS "Command-specific options"
 .BR
@@ -92,8 +100,9 @@ list of alleles, starting with the reference allele.
 .IP "\fB-C, --constrain\fR \fIalleles\fR|\fItrio\fR"
 \fIalleles\fR, call genotypes given alleles. See also \fB-t, --targets\fR.
 .IP ""
-\fItrio\fR, ..
+\fItrio\fR, call genotypes given the father-mother-child constraint. See also \fB-s, --samples\fR.
 .IP "\fB-s, --samples\fR \fIfile\fR|\fIlist\fR"
+List of samples to include, given as a comma-separated list, one sample per-line in a file or a PED file. With \fB-C \fItrio\fR, PED file is expected.
 .RE
 .P
 .IP "\fBbcftools query\fR [\fIOPTIONS\fR]"

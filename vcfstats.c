@@ -908,7 +908,7 @@ static void print_stats(args_t *args)
         for (i=1; i<args->m_af; i++) // note that af[1] now contains also af[0], see SiS stats output above 
         {
             if ( stats->af_snps[i]+stats->af_ts[i]+stats->af_tv[i]+stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i] == 0  ) continue;
-            printf("AF\t%d\t%f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", id,100.*(i-1)/(args->m_af-2),stats->af_snps[i],stats->af_ts[i],stats->af_tv[i],
+            printf("AF\t%d\t%f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", id,100.*(i-1)/(args->m_af-1),stats->af_snps[i],stats->af_ts[i],stats->af_tv[i],
                 stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i],stats->af_repeats[0][i],stats->af_repeats[1][i],stats->af_repeats[2][i]);
         }
     }
@@ -960,7 +960,7 @@ static void print_stats(args_t *args)
                 nrd_mm[j] += stats[i].mm[j];
             }
             if ( !i || !n ) continue;   // skip singleton stats and empty bins
-            printf("GCsAF\t2\t%f", 100.*(i-1)/(args->m_af-2));
+            printf("GCsAF\t2\t%f", 100.*(i-1)/(args->m_af-1));
             printf("\t%d\t%d\t%d", stats[i].m[GT_HOM_RR],stats[i].m[GT_HET_RA],stats[i].m[GT_HOM_AA]);
             printf("\t%d\t%d\t%d", stats[i].mm[GT_HOM_RR],stats[i].mm[GT_HET_RA],stats[i].mm[GT_HOM_AA]);
             printf("\t%f\t%d\n", stats[i].r2n ? stats[i].r2sum/stats[i].r2n : -1.0, stats[i].r2n);
@@ -1033,7 +1033,7 @@ static void print_stats(args_t *args)
                 if ( !sum_tot ) continue;
 
                 int nprn = 3;
-                printf("HWE\t%d\t%f\t%d",id,100.*(i-1)/(args->m_af-2),sum_tot);
+                printf("HWE\t%d\t%f\t%d",id,100.*(i-1)/(args->m_af-1),sum_tot);
                 for (j=0; j<args->naf_hwe; j++)
                 {
                     sum_tmp += ptr[j];
@@ -1076,9 +1076,9 @@ static void usage(void)
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --fasta-ref <file>            faidx indexed reference sequence file to determine INDEL context\n");
     fprintf(stderr, "    -i, --split-by-ID                 collect stats for sites with ID separately (known vs novel)\n");
-    fprintf(stderr, "    -r, --region <reg|file>           collect stats in the given regions\n");
+    fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --samples <list|file>         produce sample stats, \"-\" to include all samples\n");
-    fprintf(stderr, "    -t, --targets <reg|file>          restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\n");
     exit(1);
 }

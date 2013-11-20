@@ -245,8 +245,8 @@ static void usage(args_t *args)
     fprintf(stderr, "    -H                             print the header only\n");
     fprintf(stderr, "    -G,                            drop individual genotype information (after subsetting if -s option set)\n");
 	fprintf(stderr, "    -o, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
-    fprintf(stderr, "    -t, --targets <reg|file>       restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+    fprintf(stderr, "    -t, --targets <reg|file>       similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in subset\n");

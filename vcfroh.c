@@ -13,7 +13,6 @@ typedef struct
     rbuf_t rbuf;
     double *ohw, *oaz;  // P(D|HW) and P(D|AZ)
     uint32_t *pos;
-    int j_al, k_al;
 }
 smpl_t;
 
@@ -31,6 +30,8 @@ typedef struct _args_t
     double *AFs;
     double pl2p[256], *pdg;
     int mPLs, mAFs, mAN, mACs, mpdg;
+    int npl, ntot, ngood;
+    int prev_rid;
 
     char **argv, *targets_fname, *regions_fname, *samples_fname;
     int argc, counts_only;
@@ -46,6 +47,7 @@ void *smalloc(size_t size)
 
 static void init_data(args_t *args)
 {
+    args->prev_rid = -1;
     args->hdr = args->files->readers[0].header;
     if ( !args->samples_fname ) args->samples_fname = "-";
     if ( !bcf_sr_set_samples(args->files, args->samples_fname) )
@@ -56,6 +58,7 @@ static void init_data(args_t *args)
     args->smpl  = (smpl_t*) smalloc(sizeof(smpl_t)*args->nsmpl);
     args->fwd   = (double*) smalloc(sizeof(double)*args->mwin);
     args->bwd   = (double*) smalloc(sizeof(double)*args->mwin);
+    args->pdg   = (double*) smalloc(sizeof(double)*args->nsmpl*3);
     int i;
     for (i=0; i<args->nsmpl; i++)
     {
@@ -88,19 +91,19 @@ static void flush_counts(args_t *args, int ismpl, int n)
 {
     smpl_t *smpl = &args->smpl[ismpl];
     
-    int ir  = smpl->rbuf.f;
     int pos = smpl->pos[ smpl->rbuf.f ];
     int nhw = 0, naz = 0;
+    int ir;
 
     for (ir=-1; rbuf_next(&smpl->rbuf,&ir); )
     {
         if ( smpl->ohw[ir] > smpl->oaz[ir] ) nhw++;
         else naz++;
-        if ( smpl->pos[ir] - pos > args->mwin  )
+        if ( smpl->pos[ir] - pos + 1 >= args->mwin  )
         {
-            double az_rate = (double)naz*args->mwin/(smpl->pos[ir] - pos);
-            double hw_rate = (double)nhw*args->mwin/(smpl->pos[ir] - pos);
-            printf("%s\t%d\t%e\t%e\n", args->hdr->samples[args->ismpl[ismpl]], pos+1, az_rate, hw_rate);
+            double az_rate = (double)naz*args->mwin/(smpl->pos[ir] - pos + 1);
+            double hw_rate = (double)nhw*args->mwin/(smpl->pos[ir] - pos + 1);
+            printf("%s\t%s\t%d\t%e\t%e\n", args->hdr->samples[args->ismpl[ismpl]], args->hdr->id[BCF_DT_CTG][args->prev_rid].key, pos+1, az_rate, hw_rate);
             pos = smpl->pos[ir];
             nhw = naz = 0;
         }
@@ -140,6 +143,7 @@ static void flush_buffer(args_t *args, int ismpl, int n)
         faz = (args->fwd[i-1]*(1 - args->hw_az) + (1 - args->fwd[i-1])*args->az_hw) * smpl->oaz[ir];
         fhw = (args->fwd[i-1]*args->hw_az + (1-args->fwd[i-1])*(1 - args->az_hw)) * smpl->ohw[ir];
         args->fwd[i] = faz / (faz + fhw);
+        //printf("fwd: [%d] %d\t%e\t %e %e\n", i, smpl->pos[ir]+1,args->fwd[i], smpl->oaz[ir],smpl->ohw[ir]);
     }
 
     ir = rbuf_kth(&smpl->rbuf, n-1);
@@ -152,10 +156,14 @@ static void flush_buffer(args_t *args, int ismpl, int n)
         faz = (args->bwd[i-1]*(1 - args->hw_az) + (1 - args->bwd[i-1])*args->az_hw) * smpl->oaz[ir];
         fhw = (args->bwd[i-1]*args->hw_az + (1-args->bwd[i-1])*(1 - args->az_hw)) * smpl->ohw[ir];
         args->bwd[i] = faz / (faz + fhw);
+        //printf("bwd: [%d] %d\t%e\t %e %e\n", n-1-i, smpl->pos[ir]+1,args->bwd[i], smpl->oaz[ir],smpl->ohw[ir]);
     }
 
     for (i=0; i<n; i++)
-        printf("%s\t%d\t%f\n", args->hdr->samples[args->ismpl[ismpl]], smpl->pos[i]+1, args->fwd[i]*args->bwd[i]);
+    {
+        ir = rbuf_kth(&smpl->rbuf, i);
+        printf("%s\t%s\t%d\t%f\n", args->hdr->samples[args->ismpl[ismpl]], args->hdr->id[BCF_DT_CTG][args->prev_rid].key, smpl->pos[ir]+1, args->fwd[i]*args->bwd[i]);
+    }
 
     rbuf_shift_n(&smpl->rbuf, n);
 }
@@ -169,23 +177,33 @@ static void vcfroh(args_t *args, bcf1_t *line)
             flush_buffer(args, i, args->smpl[i].rbuf.n); 
         return; 
     }
-    if ( line->n_allele==1 || line->d.allele[1][0]=='X' ) return;    // skip ref-only sites
+    if ( args->prev_rid<0 ) args->prev_rid = line->rid;
+    if ( args->prev_rid!=line->rid )
+    {
+        for (i=0; i<args->nsmpl; i++)
+            flush_buffer(args, i, args->smpl[i].rbuf.n);
+    }
+    args->prev_rid = line->rid;
+    args->ntot++;
     
     // Get the PLs
     int nPLs = bcf_get_format_int(args->hdr, line, "PL", &args->PLs, &args->mPLs);
-    if ( nPLs!=bcf_hdr_nsamples(args->hdr)*line->n_allele*(line->n_allele+1)/2 ) return;
+    if ( nPLs!=bcf_hdr_nsamples(args->hdr)*line->n_allele*(line->n_allele+1)/2 ) 
+    {
+        args->npl++;
+        return;
+    }
     nPLs /= bcf_hdr_nsamples(args->hdr);
 
     // Get the allele frequencies and convert PLs to probabilities
-    hts_expand(double, nPLs*args->nsmpl, args->mpdg, args->pdg);
     if ( bcf_get_info_int(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) error("No AN tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
     int nAC = bcf_get_info_int(args->hdr, line, "AC", &args->ACs, &args->mACs);
     if ( nAC <= 0 ) error("No AC tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
-    if ( nAC < 1 ) return;  // skip
     hts_expand(double, line->n_allele, args->mAFs, args->AFs);
     int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
     args->AFs[0] = (double) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
-    for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i] / args->AN[0];  // ALT frequencies
+    for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i-1] / args->AN[0];  // ALT frequencies
+    args->ngood++;
 
     for (i=0; i<args->nsmpl; i++)
     {
@@ -201,50 +219,51 @@ static void vcfroh(args_t *args, bcf1_t *line)
                 if ( *pl < min ) { min = *pl; jmin = j; kmin = k; }
             }
         }
-        if ( jmin==kmin )
+        double *pdg = &args->pdg[i*3];
+        if ( min==bcf_int32_vector_end || min==bcf_int32_missing )
         {
-            if ( jmin==0 ) 
+            pdg[0] = -1;
+            continue;
+        }
+        if ( jmin==kmin )   // RR or AA
+        {
+            if ( jmin==0 )  // RR
             {
-                // skip ref call
-                args->pdg[i*nPLs] = -1;
+                pdg[0] = 1; pdg[1] = 0; pdg[2] = 0;
                 continue;
             }
             jmin = 0;   // homALT is most likely; leave k at ALT and set jmin to REF
         }
-        args->smpl[i].j_al = jmin;
-        args->smpl[i].k_al = kmin;
 
-        double *pdg = &args->pdg[i*nPLs];
         pl = &args->PLs[args->ismpl[i]*nPLs];
         double sum = 0;
         for (j=0; j<nPLs; j++)
         {
             assert( pl[j]<256 );
-            pdg[j] = args->pl2p[ pl[j] ];
-            sum += pdg[j];
+            sum += args->pl2p[ pl[j] ];
         }
-        // Normalize: sum_i pdg_i = 1
-        if ( sum!=nPLs )
-            for (j=0; j<nPLs; j++) pdg[j] /= sum;
-        else
-            pdg[0] = -1;
+        int idx;
+        idx = bcf_alleles2gt(jmin,jmin); pdg[0] = args->pl2p[ pl[idx] ] / sum;
+        idx = bcf_alleles2gt(jmin,kmin); pdg[1] = args->pl2p[ pl[idx] ] / sum;
+        idx = bcf_alleles2gt(kmin,kmin); pdg[2] = args->pl2p[ pl[idx] ] / sum;
     }
 
     // Calculate emission probabilities P(D|AZ) and P(D|HW)
     for (i=0; i<args->nsmpl; i++)
     {
-        double *pdg = &args->pdg[i*nPLs];
+        double *pdg = &args->pdg[i*3];
         if ( pdg[0]<0 ) continue;   // missing values;
 
         smpl_t *smpl = &args->smpl[i];
         int idx = rbuf_add(&smpl->rbuf);
-        j = smpl->j_al;
-        k = smpl->k_al; 
-        smpl->oaz[idx] = pdg[(j+1)*(j+2)/2-1]*args->AFs[j] + pdg[(k+1)*(k+2)/2-1]*args->AFs[k];
-        smpl->ohw[idx] = pdg[(j+1)*(j+2)/2-1]*args->AFs[j]*args->AFs[j] + pdg[(k+1)*(k+2)/2-1]*args->AFs[k]*args->AFs[k] + pdg[k*(k+1)/2+j]*args->AFs[j]*args->AFs[k]*2;
+        double raf = args->AFs[0];
+        double aaf = 1 - raf;
+        smpl->oaz[idx] = pdg[0]*raf + pdg[2]*aaf;
+        smpl->ohw[idx] = pdg[0]*raf*raf + pdg[2]*aaf*aaf + pdg[1]*raf*aaf*2;
         smpl->pos[idx] = line->pos;
-        //printf("%d\t%e\t%e\t QHet=%f  frac=%e %e (%d,%d)\n", line->pos+1,smpl->oaz[idx],smpl->ohw[idx], -4.3429*log(pdg[k*(k+1)/2+j]), args->AFs[j],args->AFs[k],j,k);
-        if ( smpl->rbuf.n + 1 >= args->mwin ) flush_buffer(args, i, smpl->rbuf.n);
+
+        // printf("%s\t%d\toaz=%e\tohw=%e\t%d\n", args->hdr->id[BCF_DT_CTG][args->prev_rid].key, line->pos+1,smpl->oaz[idx],smpl->ohw[idx], idx);
+        if ( smpl->rbuf.n >= args->mwin ) flush_buffer(args, i, smpl->rbuf.n);
     }
 }
 
@@ -255,9 +274,9 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools roh [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "General Options:\n");
     fprintf(stderr, "    -c, --counts-only              no HMM, simply report counts of HETs and HOMs per win\n");
-    fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
+    fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --samples <list|file>      list of samples (file or comma separated list) [null]\n");
-    fprintf(stderr, "    -t, --targets <reg|file>       restrict to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+    fprintf(stderr, "    -t, --targets <reg|file>       similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "    -w, --win <int>                maximum window length [100_000]\n");
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -a, --autozygosity <float>     P(AZ|HW) transition probability [3.8e-9]\n");
@@ -316,12 +335,16 @@ int main_vcfroh(int argc, char *argv[])
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     
     init_data(args);
-    if ( args->counts_only ) printf("# [1]Sample\t[2]Position\t[3]HOM rate\t[4]HET rate\n");
+    if ( args->counts_only ) 
+        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]HOM rate\t[5]HET rate\n");
+    else 
+        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]ROH p-value\n");
     while ( bcf_sr_next_line(args->files) )
     {
         vcfroh(args, args->files->readers[0].buffer[0]);
     }
     vcfroh(args, NULL);
+    fprintf(stderr,"Number of lines: total/missing PLs/processed: %d/%d/%d\n", args->ntot,args->npl,args->ngood);
     destroy_data(args);
     free(args);
     return 0;
