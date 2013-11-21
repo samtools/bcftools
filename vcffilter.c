@@ -303,6 +303,8 @@ static void usage(args_t *args)
     fprintf(stderr, "    - TAG or INFO/TAG for INFO values (e.g. DP<800 or INFO/DP<800)\n");
     fprintf(stderr, "    - %%QUAL, %%FILTER, etc. for column names (note: currently only some columns are supported)\n");
     fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
+    fprintf(stderr, "    - %%FUNC(TAG) where FUNC is one of MAX, MIN, AVG and TAG is one of the FORMAT fields (e.g. %%MIN(DV)>5)\n");
+    fprintf(stderr, "\n");
     exit(1);
 }
 
