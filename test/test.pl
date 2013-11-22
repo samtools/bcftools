@@ -207,7 +207,7 @@ sub test_tabix
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
 
-    cmd("$$opts{bin}/bcftools view $$opts{tmp}/$args{in}.vcf.gz -ob > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools view -ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index $$opts{tmp}/$args{in}.bcf");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset -h $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
