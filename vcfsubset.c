@@ -61,7 +61,7 @@ static void init_data(args_t *args)
                 if (*p == ',' || *p == 0) {
                     if (m == n) {
                         m = m? m<<1 : 16;
-                        s = (char**)realloc(s, m * sizeof(void*));
+                        s = (char**)realloc(s, m * sizeof(char*));
                     }
                     s[n] = (char*)calloc(p - q + 1, 1);
                     strncpy(s[n++], q, p - q);
@@ -69,7 +69,7 @@ static void init_data(args_t *args)
                     if (*p == 0) break;
                 }
             }
-            s = (char**)realloc(s, n * sizeof(void*));
+            s = (char**)realloc(s, n * sizeof(char*));
             args->samples = s;
             args->n_samples = n;
         }
@@ -91,7 +91,7 @@ static void init_data(args_t *args)
             if (*p == ',' || *p == 0) {
                 if (m == n) {
                     m = m? m<<1 : 16;
-                    type_list = (char**)realloc(type_list, m * sizeof(void*));
+                    type_list = (char**)realloc(type_list, m * sizeof(char*));
                 }
                 type_list[n] = (char*)calloc(p - q + 1, 1);
                 strncpy(type_list[n++], q, p - q);
@@ -99,7 +99,7 @@ static void init_data(args_t *args)
                 if (*p == 0) break;
             }
         }
-        type_list = (char**)realloc(type_list, n * sizeof(void*));
+        type_list = (char**)realloc(type_list, n * sizeof(char*));
 
         if (args->include_types) {
             args->include = 0;
