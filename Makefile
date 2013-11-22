@@ -45,13 +45,13 @@ version.h:
 
 force:
 
-.c.o: bcftools.h version.h
+.c.o:
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
 test: $(PROG)
 		./test/test.pl
 
-main.o: version.h $(HTSDIR)/version.h bcftools.h
+main.o: version.h bcftools.h
 vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h
 mcall.o ccall.o: call.h vcmp.h
 vcffilter.o: filter.h
