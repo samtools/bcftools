@@ -263,6 +263,7 @@ static void init_data(args_t *args)
         args->aux.hdr = bcf_hdr_subset(args->aux.srs->readers[0].header, args->nsamples, args->samples, args->samples_map);
         for (i=0; i<args->nsamples; i++)
             if ( args->samples_map[i]<0 ) fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
+        if ( !bcf_hdr_nsamples(args->aux.hdr) ) error("No matching sample found\n");
     }
     else
         args->aux.hdr = bcf_hdr_dup(args->aux.srs->readers[0].header);
@@ -349,7 +350,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -t, --targets <reg|file>        similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\nInput/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
-    fprintf(stderr, "   -N, --skip-Ns                   skip sites where REF is not A/C/G/T\n");
+    fprintf(stderr, "   -M, --keep-masked-ref           keep sites with masked reference allele (REF=N)\n");
     fprintf(stderr, "   -S, --skip <snps|indels>        skip indels/snps\n");
     fprintf(stderr, "   -v, --variants-only             output variant sites only\n");
     fprintf(stderr, "\nConsensus/variant calling options:\n");
@@ -385,6 +386,7 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.min_lrt    = 1;
     args.aux.min_ma_lrt = 1 - 1e-2;
     args.aux.trio_Pm    = 1 - 1e-6;
+    args.flag           = CF_ACGT_ONLY;
 
     float p_arg = -1;
     int i, c;
@@ -397,7 +399,8 @@ int main_vcfcall(int argc, char *argv[])
         {"samples",1,0,'s'},
         {"targets",1,0,'t'},
         {"keep-alts",0,0,'A'},
-        {"skip-Ns",0,0,'N'},
+        {"skip-Ns",0,0,'N'},            // now the new default
+        {"keep-masked-refs",0,0,'M'},
         {"skip",1,0,'S'},
         {"variants-only",0,0,'v'},
         {"consensus-caller",0,0,'c'},
@@ -410,11 +413,12 @@ int main_vcfcall(int argc, char *argv[])
         {0,0,0,0}
     };
 
-	while ((c = getopt_long(argc, argv, "h?o:r:s:t:ANS:vcmp:C:XYn:", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?o:r:s:t:ANMS:vcmp:C:XYn:", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
-            case 'N': args.flag |= CF_ACGT_ONLY; break;                 // omit sites where first base in REF is N
+            case 'M': args.flag &= ~CF_ACGT_ONLY; break;     // keep sites where REF is N
+            case 'N': args.flag |= CF_ACGT_ONLY; break;      // omit sites where first base in REF is N (the new default)
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'v': args.aux.flag |= CALL_VARONLY; break;
