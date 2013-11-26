@@ -1069,7 +1069,7 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools stats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -1, --1st-allele-only             include only 1st allele at multiallelic sites\n");
-    fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|any|some>\n");
+    fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|all|some|none> [none]\n");
     fprintf(stderr, "    -d, --depth <int,int,int>         depth distribution: min,max,bin size [0,500,1]\n");
     fprintf(stderr, "        --debug                       produce verbose per-site and per-sample output\n");
     fprintf(stderr, "    -e, --exons <file.gz>             tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
@@ -1116,6 +1116,7 @@ int main_vcfstats(int argc, char *argv[])
                 else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
                 else if ( !strcmp(optarg,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
                 else if ( !strcmp(optarg,"any") ) args->files->collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"all") ) args->files->collapse |= COLLAPSE_ANY;
 				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;

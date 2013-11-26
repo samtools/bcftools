@@ -641,7 +641,7 @@ static void usage(void)
 	fprintf(stderr, "Usage:   bcftools query [options] <file.vcf.gz>\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");
-	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|any|some>\n");
+	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none> [none]\n");
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
 	fprintf(stderr, "    -l, --list-columns                list columns\n");
@@ -697,6 +697,7 @@ int main_vcfquery(int argc, char *argv[])
 				else if ( !strcmp(optarg,"indels") ) collapse |= COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"both") ) collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"any") ) collapse |= COLLAPSE_ANY;
+				else if ( !strcmp(optarg,"all") ) collapse |= COLLAPSE_ANY;
 				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
 				break;

@@ -1265,7 +1265,7 @@ static void usage(void)
     fprintf(stderr, "        --use-header <file>           use the provided header\n");
     fprintf(stderr, "        --print-header <file>         print only header of the output file and exit\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|any|none> [both]\n");
+    fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|all|none> [both]\n");
     fprintf(stderr, "    -o, --output-type <b|u|z|v>       'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --region <reg|file>           merge in the given regions only\n");
     fprintf(stderr, "\n");
@@ -1307,6 +1307,7 @@ int main_vcfmerge(int argc, char *argv[])
                 else if ( !strcmp(optarg,"indels") ) args->collapse |= COLLAPSE_INDELS;
                 else if ( !strcmp(optarg,"both") ) args->collapse |= COLLAPSE_BOTH;
                 else if ( !strcmp(optarg,"any") ) args->collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"all") ) args->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"none") ) args->collapse = COLLAPSE_NONE;
                 else error("The -m type \"%s\" is not recognised.\n", optarg);
                 break;

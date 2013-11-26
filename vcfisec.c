@@ -302,7 +302,7 @@ static void usage(void)
 	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files\n");
 	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|any|some>\n");
+	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|all|some|none> [none]\n");
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
 	fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
@@ -319,7 +319,7 @@ static void usage(void)
 	fprintf(stderr, "   vcf isec A.vcf.gz B.vcf.gz -p dir -n =2 -w 1\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "   # Extract records private to A or B comparing by position only\n");
-	fprintf(stderr, "   vcf isec A.vcf.gz B.vcf.gz -p dir -n -1 -c any\n");
+	fprintf(stderr, "   vcf isec A.vcf.gz B.vcf.gz -p dir -n -1 -c all\n");
 	fprintf(stderr, "\n");
 	exit(1);
 }
@@ -361,7 +361,9 @@ int main_vcfisec(int argc, char *argv[])
 				else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"any") ) args->files->collapse |= COLLAPSE_ANY;
+				else if ( !strcmp(optarg,"all") ) args->files->collapse |= COLLAPSE_ANY;
 				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
+				else if ( !strcmp(optarg,"none") ) args->files->collapse = COLLAPSE_NONE;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
 				break;
 			case 'f': args->files->apply_filters = optarg; break;

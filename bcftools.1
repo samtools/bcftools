@@ -71,6 +71,28 @@ For a full list of options, run
 [\fICOMMAND\fR]
 without arguments.
 .SS "Common Options"
+.IP "\fB-c, --collapse \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR" 4
+Controls how to treat records with duplicate positions and defines compatible
+records across multiple input files:
+.IP ""
+\fInone\fR .. only records with identical REF and ALT alleles are compatible
+.IP ""
+\fIsome\fR .. only records where some subset of ALT alleles match are compatible
+.IP ""
+\fIall\fR .. all records are compatible, regardless of whether the ALT alleles
+match or not. In the case of records with the same position, only the first
+will be considered and appear on output.
+.IP ""
+\fIsnps\fR .. any SNP records are compatible, regardless of whether the ALT
+alleles match or not. For duplicate positions, only the first SNP record will
+be considered and appear on output.
+.IP ""
+\fIindels\fR .. all indel records are compatible, regardless of whether the REF
+and ALT alleles match or not. For duplicate positions, only the first indel
+record will be considered and appear on output.
+.IP ""
+\fIboth\fR .. abbreviation of "\fB-c\fR \fIindels\fR \fB-c\fR \fIsnps\fR"
+.PD
 .IP "\fB-o, --output-type \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR" 4
 Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fIz\fR), uncompressed VCF (\fIv\fR).
 .IP "\fB-r, --regions \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from-to\fR|\fIchr:from-\fR[,...]" 4
@@ -98,14 +120,20 @@ a VCF by using:
 .IP "\fBbcftools call\fR [\fIOPTIONS\fR]"
 .RS 4
 .IP "\fB-C, --constrain\fR \fIalleles\fR|\fItrio\fR"
-\fIalleles\fR, call genotypes given alleles. See also \fB-t, --targets\fR.
+\fIalleles\fR .. call genotypes given alleles. See also \fB-t, --targets\fR.
 .IP ""
-\fItrio\fR, call genotypes given the father-mother-child constraint. See also \fB-s, --samples\fR.
+\fItrio\fR .. call genotypes given the father-mother-child constraint. See also \fB-s, --samples\fR.
+.PD
 .IP "\fB-s, --samples\fR \fIfile\fR|\fIlist\fR"
 List of samples to include, given as a comma-separated list, one sample per-line in a file or a PED file. With \fB-C \fItrio\fR, PED file is expected.
 .RE
 .P
-.IP "\fBbcftools query\fR [\fIOPTIONS\fR]"
+.IP "\fBbcftools merge\fR [\fIOPTIONS\fR]"
+.RS 4
+.IP "\fB-m, --merge \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR" 4
+Defines merging behaviour, similar to \fB-c, --collapse\fR. For example, to prevent
+the merge of SNPs and indels into one record, use \fB-m\fR \fIboth\fR. To prevent
+creation of multi-allelic records altogether, use \fB-m\fR \fInone\fR.
 
 .SH EXAMPLES
 todo
