@@ -644,7 +644,7 @@ static void usage(void)
 	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none> [none]\n");
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
-	fprintf(stderr, "    -l, --list-columns                list columns\n");
+	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit \n");
 	fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "    -s, --samples <list|file>         samples to include: comma-separated list or one name per line in a file\n");
@@ -662,7 +662,7 @@ static void usage(void)
     fprintf(stderr, "\t%%SAMPLE         Sample name\n");
     //fprintf(stderr, "\t%*<A><B>        All format fields printed as KEY<A>VALUE<B>\n");
 	fprintf(stderr, "Examples:\n");
-    fprintf(stderr, "\tvcfquery -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
+    fprintf(stderr, "\tbcftools query -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
 	fprintf(stderr, "\n");
 	exit(1);
 }
@@ -676,7 +676,7 @@ int main_vcfquery(int argc, char *argv[])
 	static struct option loptions[] = 
 	{
 		{"help",0,0,'h'},
-		{"list-columns",0,0,'l'},
+		{"list-samples",0,0,'l'},
 		{"format",1,0,'f'},
 		{"regions",1,0,'r'},
 		{"targets",1,0,'t'},

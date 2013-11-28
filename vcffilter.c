@@ -287,14 +287,14 @@ static void usage(args_t *args)
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
     fprintf(stderr, "    -m, --mode <+|x>              \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
-    fprintf(stderr, "    -o, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <reg|file>      restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
     fprintf(stderr, "    -t, --targets <reg|file>      similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "Expressions may contain:\n");
     fprintf(stderr, "    - arithmetic perators: +,*,-,/\n");
     fprintf(stderr, "    - logical operators: && (same as &), || (same as |)\n");
-    fprintf(stderr, "    - conditional operators: == (same as =), >, >=, <=, <, !=\n");
+    fprintf(stderr, "    - comparison operators: == (same as =), >, >=, <=, <, !=\n");
     fprintf(stderr, "    - parentheses: (, )\n");
     fprintf(stderr, "    - array subscripts, such as (e.g. AC[0]>=10)\n");
     fprintf(stderr, "    - double quotes for string values (e.g. %%FILTER=\"PASS\")\n");
@@ -323,16 +323,16 @@ int main_vcffilter(int argc, char *argv[])
         {"include",1,0,'i'},
         {"targets",1,0,'t'},
         {"regions",1,0,'r'},
-        {"output-type",1,0,'o'},
+        {"output-type",1,0,'O'},
         {"SnpGap",1,0,'g'},
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:o:g:G:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:O:g:G:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'g': args->snp_gap = atoi(optarg); break;
             case 'G': args->indel_gap = atoi(optarg); break;
-            case 'o': 
+            case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;

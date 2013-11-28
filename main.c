@@ -62,7 +62,7 @@ static cmd_t cmds[] =
     },
     { .func  = main_vcfgtcheck, 
       .alias = "gtcheck",
-      .help  = "check sample concordance, detect swaps and contaminations"
+      .help  = "check sample concordance, detect sample swaps and contamination"
     },
     { .func  = main_vcfisec,  
       .alias = "isec", 

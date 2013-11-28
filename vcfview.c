@@ -11,7 +11,7 @@ static void usage(void)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -l INT       compression level [%d]\n", -1);
     fprintf(stderr, "   -n FILE      output file name [stdout]\n");
-    fprintf(stderr, "   -o TYPE      output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "   -O TYPE      output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
 }
 
@@ -20,9 +20,9 @@ int main_vcfview(int argc, char *argv[])
 	int c, clevel = -1, out_type = FT_VCF;
 	char *fname_out = NULL, modew[8];
 
-	while ((c = getopt(argc, argv, "l:bo:n:z?hu")) >= 0) {
+	while ((c = getopt(argc, argv, "l:bO:n:z?hu")) >= 0) {
 		switch (c) {
-            case 'o': 
+            case 'O': 
                 switch (optarg[0]) {
                     case 'b': out_type = FT_BCF_GZ; break;
                     case 'u': out_type = FT_BCF; break;

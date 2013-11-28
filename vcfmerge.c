@@ -1263,11 +1263,11 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> ...\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "        --use-header <file>           use the provided header\n");
-    fprintf(stderr, "        --print-header <file>         print only header of the output file and exit\n");
+    fprintf(stderr, "        --print-header                print only the merged header and exit\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|all|none> [both]\n");
-    fprintf(stderr, "    -o, --output-type <b|u|z|v>       'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --region <reg|file>           merge in the given regions only\n");
+    fprintf(stderr, "    -O, --output-type <b|u|z|v>       'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "    -r, --regions <reg|file>          merge in the given regions only\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1287,12 +1287,13 @@ int main_vcfmerge(int argc, char *argv[])
         {"apply-filters",1,0,'f'},
         {"use-header",1,0,1},
         {"print-header",0,0,2},
-        {"output-type",1,0,'o'},
+        {"output-type",1,0,'O'},
+        {"regions",1,0,'r'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:1:2o:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:1:2O:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'o': 
+            case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;

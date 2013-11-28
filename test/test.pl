@@ -207,9 +207,9 @@ sub test_tabix
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
 
-    cmd("$$opts{bin}/bcftools view -ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index $$opts{tmp}/$args{in}.bcf");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset -h $$opts{tmp}/$args{in}.bcf $args{reg}");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset -H $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
 sub test_vcf_check
 {
@@ -252,7 +252,7 @@ sub test_vcf_isec2
     }
     my $files = join(' ',@files);
     bgzip_tabix($opts,file=>$args{tab_in},suffix=>'tab',args=>'-s 1 -b 2 -e 3');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -s $$opts{tmp}/$args{tab_in}.tab.gz $files | grep -v ^##bcftools_isec");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -t $$opts{tmp}/$args{tab_in}.tab.gz $files | grep -v ^##bcftools_isec");
 }
 sub test_vcf_query
 {

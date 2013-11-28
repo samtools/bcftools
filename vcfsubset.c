@@ -239,14 +239,13 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   View, subset and filter VCF/BCF files.\n");
     fprintf(stderr, "Usage:   bcftools subset [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
     fprintf(stderr, "Output options:\n");
-    fprintf(stderr, "    -O, --out FILE                 output file name [stdout]\n");
-    fprintf(stderr, "    -l INT                         compression level [%d]\n", args->clevel);
-    fprintf(stderr, "    -h                             suppress the header in VCF output\n");
-    fprintf(stderr, "    -H                             print the header only\n");
-    fprintf(stderr, "    -G,                            drop individual genotype information (after subsetting if -s option set)\n");
-	fprintf(stderr, "    -o, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "    -t, --targets <reg|file>       similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -h/H --header-only/--no-header     print the header only/suppress the header in VCF output\n");
+    fprintf(stderr, "    -G,  --drop-genotypes              drop individual genotype information (after subsetting if -s option set)\n");
+    fprintf(stderr, "    -l,  --compression-level [0-9]     compression level: 0 uncompressed, 1 best speed, 9 best compression [%d]\n", args->clevel);
+	fprintf(stderr, "    -O, --output-type <b|u|z|v>        b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -o, --output-file <file>           output file name [stdout]\n");
+    fprintf(stderr, "    -r, --regions <reg|file>           restrict to comma-separated list of regions or regions in a file, see man page for details\n");
+    fprintf(stderr, "    -t, --targets <reg|file>           similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in subset\n");
@@ -254,16 +253,16 @@ static void usage(args_t *args)
     fprintf(stderr, "    -s, --samples STR/FILE      list of samples (FILE or comma separated list STR) [null]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Filter options:\n");
-    fprintf(stderr, "    -R,   --exclude-ref                            exclude sites without a non-reference genotype\n");
-    fprintf(stderr, "    -U,   --exclude-uncalled                       exclude sites without a called genotype\n");
-    fprintf(stderr, "    -p,   --private                                print sites where only the subset samples carry an non-reference allele\n");
-    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (see vcffilter for details)\n");
+    fprintf(stderr, "    -1/2  --singletons/--doubletons                print singleton/doubleton sites only (shortcut for -c1 -C1/-c2 -C2)\n");
+    fprintf(stderr, "    -c/C  --min-ac/--max-ac                        minimum/maximum allele count (INFO/AC) of sites to be printed\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                   require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (see vcffilter for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                          print known/novel sites only (ID is/not '.')\n");
     fprintf(stderr, "    -m/M, --multiallelic/--biallelic               print multiallelic/biallelic sites only\n");
-    fprintf(stderr, "    -c/C  --min-ac/--max-ac                        minimum/maximum allele count (INFO/AC) of sites to be printed\n");
-    fprintf(stderr, "    -1/2  --singletons/--doubletons                print singleton/doubleton sites only (shortcut for -c1 -C1/-c2 -C2)\n");
+    fprintf(stderr, "    -R,   --exclude-ref                            exclude sites without a non-reference genotype\n");
+    fprintf(stderr, "    -U,   --exclude-uncalled                       exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V  --include-types/--exclude-types STR      comma-separated list of variant types to include/exclude: snps,indels,mnps,other [null]\n");
+    fprintf(stderr, "    -x,   --private                                print sites where only the subset samples carry an non-reference allele\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -281,6 +280,9 @@ int main_vcfsubset(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
+        {"compression-level",1,0,'l'},
+        {"header-only",1,0,'h'},
+        {"no-header",1,0,'H'},
         {"exclude-filters",1,0,'e'},
         {"include-filters",1,0,'i'},
         {"trim-alt-alleles",0,0,'a'},
@@ -294,8 +296,8 @@ int main_vcfsubset(int argc, char *argv[])
         {"multiallelic",0,0,'m'},
         {"biallelic",0,0,'M'},
         {"samples",1,0,'s'},
-        {"output-type",1,0,'o'},
-        {"out",1,0,'O'},
+        {"output-type",1,0,'O'},
+        {"output-file",1,0,'o'},
         {"file-name",1,0,'n'},
         {"include-types",1,0,'v'},
         {"exclude-types",1,0,'V'},
@@ -309,7 +311,7 @@ int main_vcfsubset(int argc, char *argv[])
     };
     while ((c = getopt_long(argc, argv, "l:St:r:o:O:s:Gf:knv:V:mMaRpUhHc:C:12Ie:i:",loptions,NULL)) >= 0) {
         switch (c) {
-    	    case 'o': 
+    	    case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -319,9 +321,9 @@ int main_vcfsubset(int argc, char *argv[])
                 };
                 break;
             case 'l': args->clevel = atoi(optarg); args->output_type |= FT_GZ; break;
-            case 'O': args->fn_out = optarg; break;
-            case 'h': args->print_header = 0; break;
-            case 'H': args->header_only = 1; break;
+            case 'o': args->fn_out = optarg; break;
+            case 'H': args->print_header = 0; break;
+            case 'h': args->header_only = 1; break;
             
             case 't': args->targets_fname = optarg; break;
             case 'r': args->regions_fname = optarg; break;
