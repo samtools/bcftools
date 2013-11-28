@@ -101,7 +101,11 @@ header {
   position:fixed;
 }
 
-header ul {
+ul {
+  list-style: circle;
+}
+
+ul.header {
   list-style:none;
   height:40px;
   
@@ -121,14 +125,14 @@ header ul {
   width:270px;
 }
 
-header li {
+ul.header li {
   width:89px;
   float:left;
   border-right:1px solid #d2d2d2;
   height:40px;
 }
 
-header ul a {
+ul.header a {
   line-height:1;
   font-size:11px;
   color:#999;
@@ -143,17 +147,17 @@ strong {
   font-weight:700;
 }
 
-header ul li + li {
+ul.header li + li {
   width:88px;
   border-left:1px solid #fff;
 }
 
-header ul li + li + li {
+ul.header li + li + li {
   border-right:none;
   width:89px;
 }
 
-header ul a strong {
+ul.header a strong {
   font-size:14px;
   display:block;
   color:#222;
