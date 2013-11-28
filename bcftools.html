@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.78.0" /></head><body><div xml:lang="en" class="refentry" lang="en"><a id="idm139906531243328"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.78.0" /></head><body><div xml:lang="en" class="refentry" lang="en"><a id="idm139837948308720"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Bcftools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
@@ -25,9 +25,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats OPTIONS A.vcf.gz [B.vcf.gz]">stats</a></strong></span>      ..  produce VCF/BCF stats (former vcfcheck)
 </li><li class="listitem">
-<span class="strong"><strong><a class="link" href="#subset" title="bcftools subset OPTIONS file.vcf.gz [REGION […]]">subset</a></strong></span>    ..  subset and filter VCF/BCF files
-</li><li class="listitem">
-<span class="strong"><strong><a class="link" href="#view" title="bcftools view OPTIONS file">view</a></strong></span>        ..  VCF&lt;→BCF conversion
+<span class="strong"><strong><a class="link" href="#view" title="bcftools view OPTIONS file.vcf.gz [REGION […]]">view</a></strong></span>        ..  subset, filter and convert VCF and BCF files
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#plot-vcfstats" title="plot-vcfstats OPTIONS file.vchk […]">plot-vcfstats</a></strong></span>  .. plots the output of <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats OPTIONS A.vcf.gz [B.vcf.gz]">stats</a></strong></span>
 </li></ul></div></div><div class="refsect1"><a id="_options"></a><h2>OPTIONS</h2><div class="refsect2"><a id="common_options"></a><h3>Common Options</h3><div class="variablelist"><dl class="variablelist"><dt><span class="term">
@@ -465,7 +463,8 @@ the program generates separate stats for intersection and the complements.</p><d
 <span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div></div><div class="refsect2"><a id="subset"></a><h3>bcftools subset <span class="emphasis"><em>OPTIONS</em></span> <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>REGION</em></span> […]]</h3><p>View, subset and filter VCF or BCF files by position and filtering expression.</p><div class="refsect3"><a id="_output_options"></a><h4>Output options</h4><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+</dd></dl></div></div><div class="refsect2"><a id="view"></a><h3>bcftools view <span class="emphasis"><em>OPTIONS</em></span> <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>REGION</em></span> […]]</h3><p>View, subset and filter VCF or BCF files by position and filtering expression.
+Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset</strong></span>.</p><div class="refsect3"><a id="_output_options"></a><h4>Output options</h4><div class="variablelist"><dl class="variablelist"><dt><span class="term">
 <span class="strong"><strong>-h, --header-only</strong></span>
 </span></dt><dd>
     output the VCF header only
@@ -573,8 +572,7 @@ the program generates separate stats for intersection and the complements.</p><d
 <span class="strong"><strong>-x, --private</strong></span>
 </span></dt><dd>
     print sites where only the subset samples carry an non-reference allele
-</dd></dl></div></div></div><div class="refsect2"><a id="view"></a><h3>bcftools view <span class="emphasis"><em>OPTIONS</em></span> <span class="emphasis"><em>file</em></span></h3><p>Converts between VCF/BCF. This command will be soon replaced with
-<span class="strong"><strong><a class="link" href="#subset" title="bcftools subset OPTIONS file.vcf.gz [REGION […]]">bcftools subset</a></strong></span>.</p></div><div class="refsect2"><a id="plot-vcfstats"></a><h3>plot-vcfstats <span class="emphasis"><em>OPTIONS</em></span> <span class="emphasis"><em>file.vchk</em></span> […]</h3><p>Script for processing output of <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats OPTIONS A.vcf.gz [B.vcf.gz]">bcftools stats</a></strong></span>. It can merge
+</dd></dl></div></div></div><div class="refsect2"><a id="plot-vcfstats"></a><h3>plot-vcfstats <span class="emphasis"><em>OPTIONS</em></span> <span class="emphasis"><em>file.vchk</em></span> […]</h3><p>Script for processing output of <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats OPTIONS A.vcf.gz [B.vcf.gz]">bcftools stats</a></strong></span>. It can merge
 results from multiple outputs (useful when running the stats for each
 chromosome separately), plots graphs and creates a PDF presentation.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
 <span class="strong"><strong>-m, --merge</strong></span>
@@ -607,7 +605,7 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
 </span></dt><dd>
     Main title for the PDF.
 </dd></dl></div></div></div><div class="refsect1"><a id="expressions"></a><h2>EXPRESSIONS</h2><p>These filtering expressions are accepted by <span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span> and
-<span class="strong"><strong><a class="link" href="#subset" title="bcftools subset OPTIONS file.vcf.gz [REGION […]]">subset</a></strong></span> commands.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+<span class="strong"><strong><a class="link" href="#view" title="bcftools view OPTIONS file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
 Valid expressions may contain: 
 </span></dt><dd><div class="variablelist"><dl class="variablelist"><dt><span class="term">
 arithmetic perators: 
