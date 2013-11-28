@@ -180,21 +180,8 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .IP \(bu 2.3
 .\}
 
-\fBsubset\fR
-\&.\&. subset and filter VCF/BCF files
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-
 \fBview\fR
-\&.\&. VCF<→BCF conversion
+\&.\&. subset, filter and convert VCF and BCF files
 .RE
 .sp
 .RS 4
@@ -964,9 +951,9 @@ see
 see
 \fBCommon Options\fR
 .RE
-.SS "bcftools subset \fIOPTIONS\fR \fIfile\&.vcf\&.gz\fR [\fIREGION\fR [\&...]]"
+.SS "bcftools view \fIOPTIONS\fR \fIfile\&.vcf\&.gz\fR [\fIREGION\fR [\&...]]"
 .sp
-View, subset and filter VCF or BCF files by position and filtering expression\&.
+View, subset and filter VCF or BCF files by position and filtering expression\&. Convert between VCF and BCF\&. Former \fBbcftools subset\fR\&.
 .sp
 .it 1 an-trap
 .nr an-no-space-flag 1
@@ -1139,9 +1126,6 @@ comma\-separated list of variant types to exclude
 print sites where only the subset samples carry an non\-reference allele
 .RE
 .RE
-.SS "bcftools view \fIOPTIONS\fR \fIfile\fR"
-.sp
-Converts between VCF/BCF\&. This command will be soon replaced with \fBbcftools subset\fR\&.
 .SS "plot\-vcfstats \fIOPTIONS\fR \fIfile\&.vchk\fR [\&...]"
 .sp
 Script for processing output of \fBbcftools stats\fR\&. It can merge results from multiple outputs (useful when running the stats for each chromosome separately), plots graphs and creates a PDF presentation\&.
@@ -1184,7 +1168,7 @@ Main title for the PDF\&.
 .RE
 .SH "EXPRESSIONS"
 .sp
-These filtering expressions are accepted by \fBfilter\fR and \fBsubset\fR commands\&.
+These filtering expressions are accepted by \fBfilter\fR and \fBview\fR commands\&.
 .PP
 Valid expressions may contain:
 .RS 4

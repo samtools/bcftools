@@ -15,7 +15,6 @@ void error(const char *format, ...)
     exit(-1);
 }
 
-int main_vcfview(int argc, char *argv[]);
 int main_bcfidx(int argc, char *argv[]);
 int main_tabix(int argc, char *argv[]);
 int main_vcfstats(int argc, char *argv[]);
@@ -84,13 +83,9 @@ static cmd_t cmds[] =
       .alias = "stats",
       .help  = "produce VCF/BCF stats (former vcfcheck)"
     },
-    { .func  = main_vcfsubset, 
-      .alias = "subset",
-      .help  = "subset and filter VCF/BCF files"
-    },
-    { .func  = main_vcfview,  
+    { .func  = main_vcfsubset,  
       .alias = "view", 
-      .help  = "VCF<->BCF conversion"
+      .help  = "VCF/BCF conversion, view, subset and filter VCF/BCF files"
     },
     { .func  = NULL, 
       .alias = "Other/Experimental tools:" ,

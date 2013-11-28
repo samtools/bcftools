@@ -44,8 +44,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<norm,norm>>*        ..  normalize indels
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
-- *<<subset,subset>>*    ..  subset and filter VCF/BCF files
-- *<<view,view>>*        ..  VCF<->BCF conversion
+- *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
 - *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,stats>>*
 
 
@@ -499,9 +498,10 @@ the program generates separate stats for intersection and the complements.
 
 
 
-[[subset]]
-=== bcftools subset 'OPTIONS' 'file.vcf.gz' ['REGION' [...]]
+[[view]]
+=== bcftools view 'OPTIONS' 'file.vcf.gz' ['REGION' [...]]
 View, subset and filter VCF or BCF files by position and filtering expression.
+Convert between VCF and BCF. Former *bcftools subset*.
 
 ==== Output options
 
@@ -595,12 +595,6 @@ View, subset and filter VCF or BCF files by position and filtering expression.
 
 
 
-[[view]]
-=== bcftools view 'OPTIONS' 'file'
-Converts between VCF/BCF. This command will be soon replaced with
-*<<subset,bcftools subset>>*.
-
-
 [[plot-vcfstats]]
 === plot-vcfstats 'OPTIONS' 'file.vchk' [...]
 Script for processing output of *<<stats,bcftools stats>>*. It can merge
@@ -636,7 +630,7 @@ EXPRESSIONS
 -----------
 
 These filtering expressions are accepted by *<<filter,filter>>* and
-*<<subset,subset>>* commands.
+*<<view,view>>* commands.
 
 Valid expressions may contain: ;;
 

@@ -209,7 +209,7 @@ sub test_tabix
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index $$opts{tmp}/$args{in}.bcf");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset -H $$opts{tmp}/$args{in}.bcf $args{reg}");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
 sub test_vcf_check
 {
@@ -270,7 +270,7 @@ sub test_vcf_subset
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_subset");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_subset");
 }
 sub test_vcf_call
 {
