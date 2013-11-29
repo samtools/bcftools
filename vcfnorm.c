@@ -549,13 +549,21 @@ int main_vcfnorm(int argc, char *argv[])
 			default: error("Unknown argument: %s\n", optarg);
 		}
 	}
-	if ( argc!=optind+1 || !args->ref_fname ) usage();   // none or too many files given
+    if ( !args->ref_fname || argc>optind+1 ) usage();
+    char *fname = NULL;
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage();
+    }
+    else fname = argv[optind];
+
     if ( args->region )
     {
         if ( bcf_sr_set_targets(args->files, args->region,0)<0 ) error("Failed to read the targets: %s\n", args->region);
     }
 
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
     init_data(args);
     normalize_vcf(args);
     destroy_data(args);

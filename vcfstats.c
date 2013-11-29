@@ -1137,7 +1137,13 @@ int main_vcfstats(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if (argc == optind) usage();
+    char *fname = NULL;
+    if ( optind==argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage();
+    }
+    else fname = argv[optind];
 
     if ( argc-optind>2 ) usage();
     if ( argc-optind>1 )
@@ -1150,11 +1156,11 @@ int main_vcfstats(int argc, char *argv[])
         error("Failed to read the targets: %s\n", args->targets_fname);
     if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
         error("Failed to read the regions: %s\n", args->regions_fname);
-    while (optind<argc)
+    while (fname)
     {
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) 
-            error("Could not read the file or the file is not indexed: %s\n", argv[optind]);
-        optind++;
+        if ( !bcf_sr_add_reader(args->files, fname) ) 
+            error("Could not read the file or the file is not indexed: %s\n", fname);
+        fname = ++optind < argc ? argv[optind] : NULL;
     }
 
     init_stats(args);

@@ -727,12 +727,19 @@ int main_vcfquery(int argc, char *argv[])
 			default: error("Unknown argument: %s\n", optarg);
 		}
 	}
-    
+
+    char *fname = NULL;
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";
+    }
+    else fname = argv[optind];
+
     if ( args->list_columns )
     {
-        if ( optind==argc ) error("Missing the VCF file name\n");
+        if ( !fname ) error("Missing the VCF file name\n");
         args->files = bcf_sr_init();
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+        if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
         list_columns(args);
         bcf_sr_destroy(args->files);
         free(args);
@@ -742,10 +749,10 @@ int main_vcfquery(int argc, char *argv[])
     if ( !args->format ) usage();
     if ( !args->vcf_list )
     {
+        if ( !fname ) usage();
         args->files = bcf_sr_init();
         args->files->collapse = collapse;
         if ( optind+1 < argc ) args->files->require_index = 1;
-        if ( optind==argc ) usage();
         if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
             error("Failed to read the regions: %s\n", args->regions_fname);
         if ( args->targets_fname )
@@ -754,10 +761,10 @@ int main_vcfquery(int argc, char *argv[])
             if ( bcf_sr_set_targets(args->files, args->targets_fname, 0)<0 )
                 error("Failed to read the targets: %s\n", args->targets_fname);
         }
-        while (optind<argc)
+        while ( fname )
         {
-            if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
-            optind++;
+            if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
+            fname = ++optind < argc ? argv[optind] : NULL;
         }
         init_data(args);
         query_vcf(args);

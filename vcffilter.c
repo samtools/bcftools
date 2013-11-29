@@ -357,7 +357,14 @@ int main_vcffilter(int argc, char *argv[])
     }
 
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
-    if ( argc<optind+1 ) usage(args);
+    char *fname = NULL;
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage(args);
+    }
+    else fname = argv[optind];
+
     // read in the regions from the command line
     if ( args->regions_fname )
     {
@@ -380,7 +387,7 @@ int main_vcffilter(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
             error("Failed to read the targets: %s\n", args->targets_fname);
     }
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open: %s\n", fname);
     
     init_data(args);
     bcf_hdr_write(args->out_fh, args->hdr);

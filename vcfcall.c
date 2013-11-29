@@ -451,8 +451,12 @@ int main_vcfcall(int argc, char *argv[])
             default: usage(&args);
         }
     }
-	if (argc == optind) usage(&args); 
-    args.bcf_fname = argv[optind++];
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) args.bcf_fname = "-";  // reading from stdin
+        else usage(&args);
+    }
+    else args.bcf_fname = argv[optind++];
 
     // Sanity check options and initialize
     if ( samples_fname )
