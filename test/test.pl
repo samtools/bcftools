@@ -26,6 +26,7 @@ test_vcf_subset($opts,in=>'subset',out=>'subset.1.out',args=>'-aRs NA00002 -v sn
 test_vcf_subset($opts,in=>'subset',out=>'subset.2.out',args=>'-f PASS -k',reg=>'-r20,Y');
 test_vcf_subset($opts,in=>'subset',out=>'subset.3.out',args=>'-ps NA00003',reg=>'');
 test_vcf_subset($opts,in=>'subset',out=>'subset.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && ICF>-0.1 && HWE*2>1.2'],reg=>'');
+test_vcf_subset($opts,in=>'pv4subset',out=>'pv4subset.out',args=>'-s NA00001',reg=>'');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');

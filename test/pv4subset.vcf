@@ -1,0 +1,14 @@
+##fileformat=VCFv4.1
+##contig=<ID=20,length=63025520>
+##INFO=<ID=PV4,Number=4,Type=Float,Description="P-values for strand bias, baseQ bias, mapQ bias and tail distance bias">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="# high-quality bases">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
+20	76962	rs6111385	T	C	999	PASS	PV4=1.23456e-43,0,0,1	GT:PL:DP:GQ	0/1:255,0,255:193:99	1/1:255,255,0:211:99	1/1:255,255,0:182:99
+20	138125	rs2298108	G	T	999	PASS	PV4=1.23456e-44,0,0,1	GT:PL:DP:GQ	0/1:135,0,163:66:99	0/1:140,0,255:71:99	1/1:255,199,0:66:99
+20	138148	rs2298109	C	T	999	PASS	PV4=1.23456e-45,0,0,1	GT:PL:DP:GQ	0/1:195,0,255:87:99	0/1:192,0,255:82:99	1/1:255,235,0:78:99
+20	176962	.	T	C	999	PASS	PV4=1.23456e-46,0,0,1	GT:PL:DP:GQ	0/1:255,0,255:193:99	1/1:255,255,0:211:99	1/1:255,255,0:182:99
+20	238125	.	G	T	999	PASS	PV4=1.23456e-47,0,0,1	GT:PL:DP:GQ	0/1:135,0,163:66:99	0/1:140,0,255:71:99	1/1:255,199,0:66:99
+20	238148	.	C	T	999	PASS	PV4=1.23456e-48,0,0,1	GT:PL:DP:GQ	0/1:195,0,255:87:99	0/1:192,0,255:82:99	1/1:255,235,0:78:99
