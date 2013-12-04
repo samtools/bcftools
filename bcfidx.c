@@ -9,7 +9,7 @@ int main_bcfidx(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "s:")) >= 0)
 		if (c == 's') min_shift = atoi(optarg);
 	if (optind == argc) {
-		fprintf(stderr, "Usage: bctools index [-s minShift] <in.bcf>\n");
+		fprintf(stderr, "Usage: bcftools index [-s minShift] <in.bcf>\n");
 		return 1;
 	}
 	if ( bcf_index_build(argv[optind], min_shift)!=0 ) 
