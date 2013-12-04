@@ -340,8 +340,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "About: This command replaces the former \"bcftools view\" caller. Some of the original functionality has been\n");
     fprintf(stderr, "       temporarily lost in the process of transition under htslib, but will be added back on popular demand. The original\n");
-    fprintf(stderr, "       calling model can be invoked with the -c option. Note that we use the new multiallelic -m caller by default,\n");
-    fprintf(stderr, "       therefore -c is not as well tested as -m. If you encounter bugs, please do let us know.\n");
+    fprintf(stderr, "       calling model can be invoked with the -c option.\n");
     fprintf(stderr, "Usage: bcftools call [options] <in.bcf|in.vcf|in.vcf.gz>\n");
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");

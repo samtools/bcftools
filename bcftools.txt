@@ -401,7 +401,7 @@ Left-align and normalize indels.
 
 
 [[query]]
-=== bcftools query ['OPTIONS'] 'file.vcf.gz' [...]
+=== bcftools query ['OPTIONS'] 'file.vcf.gz' ['file.vcf.gz' [...]]
 Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
 *-a, --annots* 'LIST'::
