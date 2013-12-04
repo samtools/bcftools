@@ -300,7 +300,7 @@ sub test_usage
     my $command = $args{cmd};
     my $commandpath = $$opts{bin}."/".$command;
     my ($ret,$out) = _cmd("$commandpath 2>&1");
-    if ( $out =~ m/\/bin\/bash/ ) { failed($opts,$test,"could not run $commandpath: $out"); return; }
+    if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
     
@@ -312,7 +312,7 @@ sub test_usage
     foreach my $section (@sections) {
 	if ( $section =~ m/^usage/i ) {
 	    $have_usage = 1;
-	    $section =~ s/^[[:word:]]+[[:punct:][:space:]]*//;
+	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
 	    $usage = $section;
 	} elsif ( $section =~ m/^version/i ) {
 	    $have_version = 1;
@@ -352,7 +352,7 @@ sub test_usage_subcommand
     my $subcommand = $args{subcmd};
     my $commandpath = $$opts{bin}."/".$command;
     my ($ret,$out) = _cmd("$commandpath $subcommand 2>&1");
-    if ( $out =~ m/\/bin\/bash/ ) { failed($opts,$test,"could not run $commandpath $subcommand: $out"); return; }
+    if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath $subcommand: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
     
@@ -361,7 +361,7 @@ sub test_usage_subcommand
     foreach my $section (@sections) {
 	if ( $section =~ m/^usage/i ) {
 	    $have_usage = 1;
-	    $section =~ s/^[[:word:]]+[[:punct:][:space:]]*//;
+	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
 	    $usage = $section;
 	}
     }
