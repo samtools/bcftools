@@ -44,7 +44,7 @@ static void init_data(args_t *args)
         bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
         bcf_hdr_append(args->hdr,"##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
     }
-    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_subset");
+    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_view");
 
     // setup sample data    
     if (args->sample_names)
@@ -268,7 +268,7 @@ static void usage(args_t *args)
     exit(1);
 }
 
-int main_vcfsubset(int argc, char *argv[])
+int main_vcfview(int argc, char *argv[])
 {
     int c;
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
