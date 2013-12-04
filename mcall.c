@@ -371,6 +371,7 @@ static inline double logsumexp(double *vals, int nvals)
 
     return log(sum) + max_exp;
 }
+/** log(exp(a)+exp(b)) */
 static inline double logsumexp2(double a, double b)
 {
     if ( a>b )
