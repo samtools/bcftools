@@ -310,7 +310,7 @@ int main_vcfview(int argc, char *argv[])
         {"doubletons",0,0,'2'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:St:r:o:O:s:Gf:knv:V:mMaRPUhHc:C:12Ie:i:x",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "l:St:r:o:O:s:Gf:knv:V:mMaRUhHc:C:12Ie:i:x",loptions,NULL)) >= 0) {
         switch (c) {
     	    case 'O': 
                 switch (optarg[0]) {
