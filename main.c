@@ -25,7 +25,7 @@ int main_vcffilter(int argc, char *argv[]);
 int main_vcfsom(int argc, char *argv[]);
 int main_vcfnorm(int argc, char *argv[]);
 int main_vcfgtcheck(int argc, char *argv[]);
-int main_vcfsubset(int argc, char *argv[]);
+int main_vcfview(int argc, char *argv[]);
 int main_vcfcall(int argc, char *argv[]);
 int main_vcfannotate(int argc, char *argv[]);
 int main_vcfroh(int argc, char *argv[]);
@@ -83,7 +83,7 @@ static cmd_t cmds[] =
       .alias = "stats",
       .help  = "produce VCF/BCF stats (former vcfcheck)"
     },
-    { .func  = main_vcfsubset,  
+    { .func  = main_vcfview,  
       .alias = "view", 
       .help  = "VCF/BCF conversion, view, subset and filter VCF/BCF files"
     },
