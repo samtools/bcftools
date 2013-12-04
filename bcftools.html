@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.78.0" /></head><body><div xml:lang="en" class="refentry" lang="en"><a id="idm139837948308720"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.78.1" /></head><body><div xml:lang="en" class="refentry" lang="en"><a id="idm140179548200608"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Bcftools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
@@ -21,7 +21,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz">norm</a></strong></span>        ..  normalize indels
 </li><li class="listitem">
-<span class="strong"><strong><a class="link" href="#query" title="bcftools query [OPTIONS] file.vcf.gz […]">query</a></strong></span>      ..  transform VCF/BCF into user-defined formats
+<span class="strong"><strong><a class="link" href="#query" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]">query</a></strong></span>      ..  transform VCF/BCF into user-defined formats
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats OPTIONS A.vcf.gz [B.vcf.gz]">stats</a></strong></span>      ..  produce VCF/BCF stats (former vcfcheck)
 </li><li class="listitem">
@@ -368,7 +368,7 @@ in the other files.</p><div class="variablelist"><dl class="variablelist"><dt><s
 <span class="strong"><strong>-w, --win</strong></span> <span class="emphasis"><em>INT</em></span>,<span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
     alignment window and buffer window [50,1000]
-</dd></dl></div></div><div class="refsect2"><a id="query"></a><h3>bcftools query [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> […]</h3><p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+</dd></dl></div></div><div class="refsect2"><a id="query"></a><h3>bcftools query [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>file.vcf.gz</em></span> […]]</h3><p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
 <span class="strong"><strong>-a, --annots</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
     alias for -f <span class="emphasis"><em>%CHROM\t%POS\t%MASK\t%REF\t%ALT\t%TYPE\t</em></span> and tab-separated
