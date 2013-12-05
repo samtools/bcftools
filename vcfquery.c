@@ -757,7 +757,6 @@ int main_vcfquery(int argc, char *argv[])
             error("Failed to read the regions: %s\n", args->regions_fname);
         if ( args->targets_fname )
         {
-            args->files->require_index = 1;
             if ( bcf_sr_set_targets(args->files, args->targets_fname, 0)<0 )
                 error("Failed to read the targets: %s\n", args->targets_fname);
         }
@@ -789,7 +788,6 @@ int main_vcfquery(int argc, char *argv[])
         if ( optind < argc ) args->files->require_index = 1;
         if ( args->targets_fname )
         {
-            args->files->require_index = 1;
             if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
                 error("Failed to read the targets: %s\n", args->targets_fname);
         }

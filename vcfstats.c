@@ -444,20 +444,8 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     #endif
 
     // Check if the indel is near an exon for the frameshift statistics
-    if ( args->exons )
-    {
-        // New chromosome?
-        if ( !args->exons->seq || strcmp(args->exons->seq,reader->header->id[BCF_DT_CTG][line->rid].key) )
-        {
-            if ( bcf_sr_regions_seek(args->exons, reader->header->id[BCF_DT_CTG][line->rid].key)==0 )
-                bcf_sr_regions_next(args->exons);
-        }
-        if ( args->exons->start >= 0 )
-        {
-            while ( args->exons->start <= line->pos )
-                if ( bcf_sr_regions_next(args->exons)<0 )  break;   // no more exons
-        }
-    }
+    int exon_overlap = 0;
+    if ( args->exons && !bcf_sr_regions_overlap(args->exons, bcf_seqname(reader->header,line),line->pos,line->pos) ) exon_overlap = 1;
 
     int i;
     for (i=1; i<line->n_allele; i++)
@@ -500,7 +488,7 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
 
         // Check the frameshifts
         int tlen = 0;
-        if ( args->exons && args->exons->start >= 0 )   // there is an exon
+        if ( args->exons && exon_overlap )   // there is an exon
         {
             if ( len>0 )
             {

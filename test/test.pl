@@ -11,6 +11,7 @@ use File::Temp qw/ tempfile tempdir /;
 
 my $opts = parse_params();
 
+test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_vcf_check($opts,in=>'check',out=>'check.chk');
@@ -29,7 +30,7 @@ test_vcf_view($opts,in=>'view',out=>'view.4.out',args=>q[-i '%QUAL==999 && (FS<2
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');
-test_usage($opts,cmd=>'bcftools');
+test_vcf_regions($opts,in=>'regions');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -37,7 +38,7 @@ printf "    passed  .. %d\n", $$opts{nok};
 printf "    failed  .. %d\n", $$opts{nfailed};
 print "\n";
 
-exit $$opts{nfailed};
+exit ($$opts{nfailed} != 0);
 
 #--------------------
 
@@ -288,6 +289,33 @@ sub test_vcf_filter
 {
     my ($opts,%args) = @_;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_filter");
+}
+sub test_vcf_regions
+{
+    my ($opts,%args) = @_;
+    bgzip_tabix_vcf($opts,$args{in});
+
+    # regions vs targets, holding tab in memory
+    my $query = q[%CHROM %POS %REF,%ALT\n];
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+
+    # regions vs targets, reading tabix-ed tab
+    cmd(qq[cat $$opts{path}/$args{in}.tab | bgzip -c > $$opts{tmp}/$args{in}.tab.gz]);
+    cmd(qq[$$opts{bin}/bcftools tabix -f -s1 -b2 -e3 $$opts{tmp}/$args{in}.tab.gz]);
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+
+    # regions vs targets, holding bed in memory
+    cmd(qq[cat $$opts{path}/$args{in}.tab | awk '{OFS="\\t"}{print \$1,\$2-1,\$3}' > $$opts{tmp}/$args{in}.bed]);
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+
+    # regions vs targets, reading tabix-ed bed
+    cmd(qq[cat $$opts{tmp}/$args{in}.bed | bgzip -c > $$opts{tmp}/$args{in}.bed.gz]);
+    cmd(qq[$$opts{bin}/bcftools tabix -f -p bed $$opts{tmp}/$args{in}.bed.gz]);
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 }
 sub test_usage
 {

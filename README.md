@@ -7,9 +7,9 @@ For a full documentation, see [bcftools GitHub page](http://samtools.github.io/b
 Other useful links:
 ------------------
 
-File format specifications live on [HTS-spec GitHub page](http://samtools.github.io/hts-specs/)  
-[htslib](https://github.com/samtools/htslib) 
-[samtools](https://github.com/samtools/samtools)  
-[tabix](https://github.com/samtools/tabix) 
+File format specifications live on [HTS-spec GitHub page](http://samtools.github.io/hts-specs/)
+[htslib](https://github.com/samtools/htslib)
+[samtools](https://github.com/samtools/samtools)
+[tabix](https://github.com/samtools/tabix)
 
 
