@@ -29,6 +29,7 @@ test_vcf_view($opts,in=>'view',out=>'view.4.out',args=>q[-i '%QUAL==999 && (FS<2
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');
+test_usage($opts,cmd=>'bcftools');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -288,4 +289,86 @@ sub test_vcf_filter
     my ($opts,%args) = @_;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_filter");
 }
+sub test_usage
+{
+    my ($opts,%args) = @_;
 
+    my $test = "test_usage";
+    print "$test:\n";
+    print "\t$args{cmd}\n";
+    
+    my $command = $args{cmd};
+    my $commandpath = $$opts{bin}."/".$command;
+    my ($ret,$out) = _cmd("$commandpath 2>&1");
+    if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath: $out"); return; }
+
+    my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
+    
+    my $have_usage = 0;
+    my $have_version = 0;
+    my $have_subcommands = 0;
+    my $usage = "";
+    my @subcommands = ();
+    foreach my $section (@sections) {
+	if ( $section =~ m/^usage/i ) {
+	    $have_usage = 1;
+	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+	    $usage = $section;
+	} elsif ( $section =~ m/^version/i ) {
+	    $have_version = 1;
+	} elsif ( $section =~ m/^command/i ) {
+	    $have_subcommands = 1;
+	    $section =~ s/^[[:word:]]+[[:punct:][:space:]]*//;
+	    $section =~ s/^[[:space:]]+//mg;
+	    $section =~ s/^[[:punct:]]+.*?\n//msg;
+	    @subcommands = ($section =~ m/^([[:word:]]+)[[:space:]].*/mg);
+	}
+    }
+    
+    if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
+    if ( !$have_version ) { failed($opts,$test,"did not have Version:"); return; }
+    if ( !$have_subcommands ) { failed($opts,$test,"did not have Commands:"); return; }
+
+    if ( !($usage =~ m/$command/) ) { failed($opts,$test,"usage did not mention $command"); return; } 
+    
+    if ( scalar(@subcommands) < 1 ) { failed($opts,$test,"could not parse subcommands"); return; }
+    
+    passed($opts,$test);
+    
+    # now test subcommand usage as well
+    foreach my $subcommand (@subcommands) {
+	test_usage_subcommand($opts,%args,subcmd=>$subcommand);
+    }
+}
+sub test_usage_subcommand
+{
+    my ($opts,%args) = @_;
+
+    my $test = "test_usage_subcommand";
+    print "$test:\n";
+    print "\t$args{cmd} $args{subcmd}\n";
+
+    my $command = $args{cmd};
+    my $subcommand = $args{subcmd};
+    my $commandpath = $$opts{bin}."/".$command;
+    my ($ret,$out) = _cmd("$commandpath $subcommand 2>&1");
+    if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath $subcommand: $out"); return; }
+
+    my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
+    
+    my $have_usage = 0;
+    my $usage = "";
+    foreach my $section (@sections) {
+	if ( $section =~ m/^usage/i ) {
+	    $have_usage = 1;
+	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+	    $usage = $section;
+	}
+    }
+    
+    if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
+
+    if ( !($usage =~ m/$command[[:space:]]+$subcommand/) ) { failed($opts,$test,"usage did not mention $command $subcommand"); return; } 
+    
+    passed($opts,$test);
+}
