@@ -105,14 +105,15 @@
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
 ##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of high-quality non-reference bases">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=GQ,Number=1,Type=Float,Description="Genotype Quality">
 ##INFO=<ID=ICB,Number=1,Type=Float,Description="Inbreeding Coefficient Binomial test (bigger is better)">
 ##INFO=<ID=HOB,Number=1,Type=Float,Description="Bias in the number of HOMs number (smaller is better)">
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00100	HG00101	HG00102
-17	828	.	T	C	436	.	DP=25;VDB=0.842082;SGB=-21.0221;RPB=0.950652;MQB=1;BQB=0.929717;MQ0=0;ICB=0.8;HOB=0.222222;AC=4;AN=6;DP4=2,4,8,11	GT:PL:DP:DV	1/0:211,0,35:12:10	1/0:116,0,91:9:5	1/1:120,12,0:4:4
-17	1665	.	T	C	25.0467	.	DP=20;VDB=0.1;SGB=-16.6226;RPB=0.222222;MQB=0.611111;BQB=0.944444;MQ0=0;ICB=0.128205;HOB=0.0555556;AC=1;AN=6;DP4=7,11,1,1	GT:PL:DP:DV	0/0:0,21,185:7:0	0/0:0,27,222:9:0	1/0:35,0,51:4:2
-17	2220	.	G	C	999	.	DP=21;VDB=0.532753;SGB=-14.4254;RPB=0.964198;MQB=0.898397;BQB=0.0354359;MQ0=0;AC=0;AN=6;DP4=6,2,1,11	GT:PL:DP:DV	0/0:139,157,255:12:6	0/0:69,75,119:4:2	0/0:131,131,131:4:4
-17	2564	.	A	AG	143	.	DP=15;VDB=0.690812;SGB=-11.7544;RPB=0.197899;MQB=1;BQB=0.965069;MQ0=0;AC=0;AN=6;DP4=1,4,4,5	GT:PL:DP:DV	0/0:88,98,171:6:3	0/0:57,63,117:4:2	0/0:124,124,124:4:4
+17	828	.	T	C	436	.	DP=25;VDB=0.842082;SGB=-21.0221;RPB=0.950652;MQB=1;BQB=0.929717;MQ0=0;ICB=0.8;HOB=0.222222;AC=4;AN=6;DP4=2,4,8,11;MQ=60	GT:PL:DP:DV	0/1:211,0,35:12:10	0/1:116,0,91:9:5	1/1:120,12,0:4:4
+17	1665	.	T	C	25.0467	.	DP=20;VDB=0.1;SGB=-16.6226;RPB=0.222222;MQB=0.611111;BQB=0.944444;MQ0=0;ICB=0.128205;HOB=0.0555556;AC=1;AN=6;DP4=7,11,1,1;MQ=55	GT:PL:DP:DV	0/0:0,21,185:7:0	0/0:0,27,222:9:0	0/1:35,0,51:4:2
+17	2220	.	G	C	999	.	DP=21;VDB=0.532753;SGB=-14.4254;RPB=0.964198;MQB=0.898397;BQB=0.0354359;MQ0=0;AC=0;AN=6;DP4=6,2,1,11;MQ=58	GT:PL:DP:DV	0/0:139,157,255:12:6	0/0:69,75,119:4:2	0/0:131,131,131:4:4
+17	2564	.	A	AG	143	.	DP=15;VDB=0.690812;SGB=-11.7544;RPB=0.197899;MQB=1;BQB=0.965069;MQ0=0;AC=0;AN=6;DP4=1,4,4,5;MQ=60	GT:PL:DP:DV	0/0:88,98,171:6:3	0/0:57,63,117:4:2	0/0:124,124,124:4:4

@@ -138,7 +138,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools annotate [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
-	fprintf(stderr, "    -o, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+	fprintf(stderr, "    -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
 	fprintf(stderr, "    -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins\n");
     fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
     fprintf(stderr, "    -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER)\n");
@@ -157,16 +157,17 @@ int main_vcfannotate(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
-        {"output-type",1,0,'o'},
+        {"output-type",1,0,'O'},
         {"annotations",1,0,'a'},
         {"plugin",1,0,'p'},
         {"regions",1,0,'r'},
         {"remove",1,0,'R'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?o:r:a:p:R:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?O:r:a:p:R:",loptions,NULL)) >= 0) 
+    {
         switch (c) {
-    	    case 'o': 
+    	    case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;

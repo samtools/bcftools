@@ -444,20 +444,8 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     #endif
 
     // Check if the indel is near an exon for the frameshift statistics
-    if ( args->exons )
-    {
-        // New chromosome?
-        if ( !args->exons->seq || strcmp(args->exons->seq,reader->header->id[BCF_DT_CTG][line->rid].key) )
-        {
-            if ( bcf_sr_regions_seek(args->exons, reader->header->id[BCF_DT_CTG][line->rid].key)==0 )
-                bcf_sr_regions_next(args->exons);
-        }
-        if ( args->exons->start >= 0 )
-        {
-            while ( args->exons->start <= line->pos )
-                if ( bcf_sr_regions_next(args->exons)<0 )  break;   // no more exons
-        }
-    }
+    int exon_overlap = 0;
+    if ( args->exons && !bcf_sr_regions_overlap(args->exons, bcf_seqname(reader->header,line),line->pos,line->pos) ) exon_overlap = 1;
 
     int i;
     for (i=1; i<line->n_allele; i++)
@@ -500,7 +488,7 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
 
         // Check the frameshifts
         int tlen = 0;
-        if ( args->exons && args->exons->start >= 0 )   // there is an exon
+        if ( args->exons && exon_overlap )   // there is an exon
         {
             if ( len>0 )
             {
@@ -1069,7 +1057,7 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools stats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -1, --1st-allele-only             include only 1st allele at multiallelic sites\n");
-    fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|any|some>\n");
+    fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|all|some|none> [none]\n");
     fprintf(stderr, "    -d, --depth <int,int,int>         depth distribution: min,max,bin size [0,500,1]\n");
     fprintf(stderr, "        --debug                       produce verbose per-site and per-sample output\n");
     fprintf(stderr, "    -e, --exons <file.gz>             tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
@@ -1116,6 +1104,7 @@ int main_vcfstats(int argc, char *argv[])
                 else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
                 else if ( !strcmp(optarg,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
                 else if ( !strcmp(optarg,"any") ) args->files->collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"all") ) args->files->collapse |= COLLAPSE_ANY;
 				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;
@@ -1136,7 +1125,13 @@ int main_vcfstats(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if (argc == optind) usage();
+    char *fname = NULL;
+    if ( optind==argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage();
+    }
+    else fname = argv[optind];
 
     if ( argc-optind>2 ) usage();
     if ( argc-optind>1 )
@@ -1149,11 +1144,11 @@ int main_vcfstats(int argc, char *argv[])
         error("Failed to read the targets: %s\n", args->targets_fname);
     if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
         error("Failed to read the regions: %s\n", args->regions_fname);
-    while (optind<argc)
+    while (fname)
     {
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) 
-            error("Could not read the file or the file is not indexed: %s\n", argv[optind]);
-        optind++;
+        if ( !bcf_sr_add_reader(args->files, fname) ) 
+            error("Could not read the file or the file is not indexed: %s\n", fname);
+        fname = ++optind < argc ? argv[optind] : NULL;
     }
 
     init_stats(args);

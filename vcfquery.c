@@ -638,13 +638,13 @@ static int compare_header(bcf_hdr_t *hdr, int *a, int na, char **b, int nb)
 static void usage(void)
 {
 	fprintf(stderr, "About:   Extracts fields from VCF/BCF file and prints them in user-defined format\n");
-	fprintf(stderr, "Usage:   bcftools query [options] <file.vcf.gz>\n");
+	fprintf(stderr, "Usage:   bcftools query [options] <file.vcf.gz> [file.vcf.gz [...]]\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");
-	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|any|some>\n");
+	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none> [none]\n");
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
-	fprintf(stderr, "    -l, --list-columns                list columns\n");
+	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit \n");
 	fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "    -s, --samples <list|file>         samples to include: comma-separated list or one name per line in a file\n");
@@ -662,7 +662,7 @@ static void usage(void)
     fprintf(stderr, "\t%%SAMPLE         Sample name\n");
     //fprintf(stderr, "\t%*<A><B>        All format fields printed as KEY<A>VALUE<B>\n");
 	fprintf(stderr, "Examples:\n");
-    fprintf(stderr, "\tvcfquery -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
+    fprintf(stderr, "\tbcftools query -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
 	fprintf(stderr, "\n");
 	exit(1);
 }
@@ -676,7 +676,7 @@ int main_vcfquery(int argc, char *argv[])
 	static struct option loptions[] = 
 	{
 		{"help",0,0,'h'},
-		{"list-columns",0,0,'l'},
+		{"list-samples",0,0,'l'},
 		{"format",1,0,'f'},
 		{"regions",1,0,'r'},
 		{"targets",1,0,'t'},
@@ -697,6 +697,7 @@ int main_vcfquery(int argc, char *argv[])
 				else if ( !strcmp(optarg,"indels") ) collapse |= COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"both") ) collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"any") ) collapse |= COLLAPSE_ANY;
+				else if ( !strcmp(optarg,"all") ) collapse |= COLLAPSE_ANY;
 				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
 				break;
@@ -726,12 +727,19 @@ int main_vcfquery(int argc, char *argv[])
 			default: error("Unknown argument: %s\n", optarg);
 		}
 	}
-    
+
+    char *fname = NULL;
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";
+    }
+    else fname = argv[optind];
+
     if ( args->list_columns )
     {
-        if ( optind==argc ) error("Missing the VCF file name\n");
+        if ( !fname ) error("Missing the VCF file name\n");
         args->files = bcf_sr_init();
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+        if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
         list_columns(args);
         bcf_sr_destroy(args->files);
         free(args);
@@ -741,22 +749,21 @@ int main_vcfquery(int argc, char *argv[])
     if ( !args->format ) usage();
     if ( !args->vcf_list )
     {
+        if ( !fname ) usage();
         args->files = bcf_sr_init();
         args->files->collapse = collapse;
         if ( optind+1 < argc ) args->files->require_index = 1;
-        if ( optind==argc ) usage();
         if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
             error("Failed to read the regions: %s\n", args->regions_fname);
         if ( args->targets_fname )
         {
-            args->files->require_index = 1;
             if ( bcf_sr_set_targets(args->files, args->targets_fname, 0)<0 )
                 error("Failed to read the targets: %s\n", args->targets_fname);
         }
-        while (optind<argc)
+        while ( fname )
         {
-            if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
-            optind++;
+            if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
+            fname = ++optind < argc ? argv[optind] : NULL;
         }
         init_data(args);
         query_vcf(args);
@@ -781,7 +788,6 @@ int main_vcfquery(int argc, char *argv[])
         if ( optind < argc ) args->files->require_index = 1;
         if ( args->targets_fname )
         {
-            args->files->require_index = 1;
             if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
                 error("Failed to read the targets: %s\n", args->targets_fname);
         }

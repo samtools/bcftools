@@ -15,7 +15,6 @@ void error(const char *format, ...)
     exit(-1);
 }
 
-int main_vcfview(int argc, char *argv[]);
 int main_bcfidx(int argc, char *argv[]);
 int main_tabix(int argc, char *argv[]);
 int main_vcfstats(int argc, char *argv[]);
@@ -26,7 +25,7 @@ int main_vcffilter(int argc, char *argv[]);
 int main_vcfsom(int argc, char *argv[]);
 int main_vcfnorm(int argc, char *argv[]);
 int main_vcfgtcheck(int argc, char *argv[]);
-int main_vcfsubset(int argc, char *argv[]);
+int main_vcfview(int argc, char *argv[]);
 int main_vcfcall(int argc, char *argv[]);
 int main_vcfannotate(int argc, char *argv[]);
 int main_vcfroh(int argc, char *argv[]);
@@ -62,7 +61,7 @@ static cmd_t cmds[] =
     },
     { .func  = main_vcfgtcheck, 
       .alias = "gtcheck",
-      .help  = "check sample concordance, detect swaps and contaminations"
+      .help  = "check sample concordance, detect sample swaps and contamination"
     },
     { .func  = main_vcfisec,  
       .alias = "isec", 
@@ -84,13 +83,9 @@ static cmd_t cmds[] =
       .alias = "stats",
       .help  = "produce VCF/BCF stats (former vcfcheck)"
     },
-    { .func  = main_vcfsubset, 
-      .alias = "subset",
-      .help  = "subset and filter VCF/BCF files"
-    },
     { .func  = main_vcfview,  
       .alias = "view", 
-      .help  = "VCF<->BCF conversion"
+      .help  = "VCF/BCF conversion, view, subset and filter VCF/BCF files"
     },
     { .func  = NULL, 
       .alias = "Other/Experimental tools:" ,

@@ -203,16 +203,16 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         for (i=-1; rbuf_next(&args->rbuf,&i); )
         {
             bcf1_t *rec  = args->rbuf_lines[i];
-            if ( !(rec->d.var_type & VCF_INDEL ) ) { k_flush++; continue; }
-
             int rec_from = rec->pos;
             if ( last_to!=-1 && last_to < rec_from ) break;
 
             k_flush++;
+            if ( !(rec->d.var_type & VCF_INDEL) ) continue;
+
             rec->d.var_type |= IndelGap_set;
             last_to = args->indel_gap + rec->pos + rec->d.var[0].n - 1;
         }
-        if ( i==args->rbuf.f && line ) k_flush = 0;
+        if ( i==args->rbuf.f && line && last_to!=-1 ) k_flush = 0;
         if ( k_flush || !line )
         {
             // Select the best indel from the cluster of k_flush indels
@@ -272,7 +272,6 @@ static void buffered_filters(args_t *args, bcf1_t *line)
             }
         }
     }
-
     flush_buffer(args, j_flush < k_flush ? j_flush : k_flush);
 }
 
@@ -288,14 +287,14 @@ static void usage(args_t *args)
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
     fprintf(stderr, "    -m, --mode <+|x>              \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
-    fprintf(stderr, "    -o, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <reg|file>      restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
     fprintf(stderr, "    -t, --targets <reg|file>      similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "Expressions may contain:\n");
     fprintf(stderr, "    - arithmetic perators: +,*,-,/\n");
     fprintf(stderr, "    - logical operators: && (same as &), || (same as |)\n");
-    fprintf(stderr, "    - conditional operators: == (same as =), >, >=, <=, <, !=\n");
+    fprintf(stderr, "    - comparison operators: == (same as =), >, >=, <=, <, !=\n");
     fprintf(stderr, "    - parentheses: (, )\n");
     fprintf(stderr, "    - array subscripts, such as (e.g. AC[0]>=10)\n");
     fprintf(stderr, "    - double quotes for string values (e.g. %%FILTER=\"PASS\")\n");
@@ -303,6 +302,8 @@ static void usage(args_t *args)
     fprintf(stderr, "    - TAG or INFO/TAG for INFO values (e.g. DP<800 or INFO/DP<800)\n");
     fprintf(stderr, "    - %%QUAL, %%FILTER, etc. for column names (note: currently only some columns are supported)\n");
     fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
+    fprintf(stderr, "    - %%FUNC(TAG) where FUNC is one of MAX, MIN, AVG and TAG is one of the FORMAT fields (e.g. %%MIN(DV)>5)\n");
+    fprintf(stderr, "\n");
     exit(1);
 }
 
@@ -322,16 +323,16 @@ int main_vcffilter(int argc, char *argv[])
         {"include",1,0,'i'},
         {"targets",1,0,'t'},
         {"regions",1,0,'r'},
-        {"output-type",1,0,'o'},
+        {"output-type",1,0,'O'},
         {"SnpGap",1,0,'g'},
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:o:g:G:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:O:g:G:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'g': args->snp_gap = atoi(optarg); break;
             case 'G': args->indel_gap = atoi(optarg); break;
-            case 'o': 
+            case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -356,7 +357,14 @@ int main_vcffilter(int argc, char *argv[])
     }
 
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
-    if ( argc<optind+1 ) usage(args);
+    char *fname = NULL;
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage(args);
+    }
+    else fname = argv[optind];
+
     // read in the regions from the command line
     if ( args->regions_fname )
     {
@@ -379,7 +387,7 @@ int main_vcffilter(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
             error("Failed to read the targets: %s\n", args->targets_fname);
     }
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open: %s\n", fname);
     
     init_data(args);
     bcf_hdr_write(args->out_fh, args->hdr);

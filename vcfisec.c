@@ -23,7 +23,7 @@ typedef struct
 	bcf_srs_t *files;
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
-	char **argv, *prefix, **fnames, *write_files, *subset_fname, *regions_fname;
+	char **argv, *prefix, **fnames, *write_files, *targets_fname, *regions_fname;
 	int argc;
 }
 args_t;
@@ -111,7 +111,7 @@ void isec_vcf(args_t *args)
     // When only one VCF is output, print VCF to stdout
     int out_std = 0;
     if ( args->nwrite==1 ) out_std = 1;
-    if ( args->subset_fname && files->nreaders==1 ) out_std = 1;
+    if ( args->targets_fname && files->nreaders==1 ) out_std = 1;
     if ( out_std ) 
     {
         out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
@@ -302,24 +302,24 @@ static void usage(void)
 	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files\n");
 	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|any|some>\n");
+	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|all|some|none> [none]\n");
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
 	fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
-	fprintf(stderr, "    -o, --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+	fprintf(stderr, "    -O, --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
 	fprintf(stderr, "    -p, --prefix <dir>                if given, subset each of the input files accordingly, see also -w\n");
-	fprintf(stderr, "    -r, --region <file|reg>           perform intersection in the given regions only\n");
-	fprintf(stderr, "    -s, --subset <file|reg>           subset to positions in tab-delimited tabix indexed file <chr,pos> or <chr,from,to>, 1-based, inclusive\n");
+	fprintf(stderr, "    -r, --regions <file|reg>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+	fprintf(stderr, "    -t, --targets <file|reg>          similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "    -w, --write <list>                list of files to write with -p given as 1-based indexes. By default, all files are written\n");
 	fprintf(stderr, "Examples:\n");
 	fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
-	fprintf(stderr, "   vcf isec A.vcf.gz B.vcf.gz -p dir\n");
+	fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "   # Extract and write records from A shared by both A and B using exact allele match\n");
-	fprintf(stderr, "   vcf isec A.vcf.gz B.vcf.gz -p dir -n =2 -w 1\n");
+	fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir -n =2 -w 1\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "   # Extract records private to A or B comparing by position only\n");
-	fprintf(stderr, "   vcf isec A.vcf.gz B.vcf.gz -p dir -n -1 -c any\n");
+	fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir -n -1 -c all\n");
 	fprintf(stderr, "\n");
 	exit(1);
 }
@@ -341,13 +341,14 @@ int main_vcfisec(int argc, char *argv[])
 		{"nfiles",1,0,'n'},
 		{"prefix",1,0,'p'},
 		{"write",1,0,'w'},
-		{"subset",1,0,'s'},
-		{"output-type",1,0,'o'},
+		{"targets",1,0,'t'},
+		{"regions",1,0,'r'},
+		{"output-type",1,0,'O'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hc:r:p:n:w:s:Cf:o:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hc:r:p:n:w:t:Cf:O:",loptions,NULL)) >= 0) {
 		switch (c) {
-			case 'o': 
+			case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -361,13 +362,15 @@ int main_vcfisec(int argc, char *argv[])
 				else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
 				else if ( !strcmp(optarg,"any") ) args->files->collapse |= COLLAPSE_ANY;
+				else if ( !strcmp(optarg,"all") ) args->files->collapse |= COLLAPSE_ANY;
 				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
+				else if ( !strcmp(optarg,"none") ) args->files->collapse = COLLAPSE_NONE;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
 				break;
 			case 'f': args->files->apply_filters = optarg; break;
 			case 'C': args->isec_op = OP_COMPLEMENT; break;
 			case 'r': args->regions_fname = optarg; break;
-			case 's': args->subset_fname = optarg; break;
+			case 't': args->targets_fname = optarg; break;
 			case 'p': args->prefix = optarg; break;
 			case 'w': args->write_files = optarg; break;
 			case 'n': 
@@ -387,8 +390,8 @@ int main_vcfisec(int argc, char *argv[])
 		}
 	}
 	if ( argc-optind<1 ) usage();   // no file given
-    if ( args->subset_fname && bcf_sr_set_targets(args->files, args->subset_fname,0)<0 )
-        error("Failed to read the targets: %s\n", args->subset_fname);
+    if ( args->targets_fname && bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
+        error("Failed to read the targets: %s\n", args->targets_fname);
     if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
         error("Failed to read the regions: %s\n", args->regions_fname);
     if ( argc-optind==2 && !args->isec_op ) 
@@ -396,10 +399,10 @@ int main_vcfisec(int argc, char *argv[])
         args->isec_op = OP_VENN;
         if ( !args->prefix ) error("Expected the -p option\n");
     }
-    if ( !args->subset_fname )
+    if ( !args->targets_fname )
     {
-        if ( argc-optind<2  ) error("Expected multiple files or the --subset option\n");
-        if ( !args->isec_op ) error("Expected two file names or one of the options --complement, --nfiles or --subset\n");
+        if ( argc-optind<2  ) error("Expected multiple files or the --targets option\n");
+        if ( !args->isec_op ) error("Expected two file names or one of the options --complement, --nfiles or --targets\n");
     }
     args->files->require_index = 1;
 	while (optind<argc)

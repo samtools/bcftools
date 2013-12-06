@@ -11,7 +11,9 @@ use File::Temp qw/ tempfile tempdir /;
 
 my $opts = parse_params();
 
+test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
+test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -21,13 +23,14 @@ test_vcf_isec2($opts,vcf_in=>['isec.a'],tab_in=>'isec',out=>'isec.tab.out',args=
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.out');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
-test_vcf_subset($opts,in=>'subset',out=>'subset.1.out',args=>'-aRs NA00002 -v snps',reg=>'');
-test_vcf_subset($opts,in=>'subset',out=>'subset.2.out',args=>'-f PASS -k',reg=>'-r20,Y');
-test_vcf_subset($opts,in=>'subset',out=>'subset.3.out',args=>'-ps NA00003',reg=>'');
-test_vcf_subset($opts,in=>'subset',out=>'subset.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && ICF>-0.1 && HWE*2>1.2'],reg=>'');
+test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aRs NA00002 -v snps',reg=>'');
+test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -k',reg=>'-r20,Y');
+test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
+test_vcf_view($opts,in=>'view',out=>'view.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && ICF>-0.1 && HWE*2>1.2'],reg=>'');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');
+test_vcf_regions($opts,in=>'regions');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -35,7 +38,7 @@ printf "    passed  .. %d\n", $$opts{nok};
 printf "    failed  .. %d\n", $$opts{nfailed};
 print "\n";
 
-exit $$opts{nfailed};
+exit ($$opts{nfailed} != 0);
 
 #--------------------
 
@@ -205,6 +208,10 @@ sub test_tabix
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
+
+    cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools index $$opts{tmp}/$args{in}.bcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
 sub test_vcf_check
 {
@@ -247,7 +254,7 @@ sub test_vcf_isec2
     }
     my $files = join(' ',@files);
     bgzip_tabix($opts,file=>$args{tab_in},suffix=>'tab',args=>'-s 1 -b 2 -e 3');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -s $$opts{tmp}/$args{tab_in}.tab.gz $files | grep -v ^##bcftools_isec");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -t $$opts{tmp}/$args{tab_in}.tab.gz $files | grep -v ^##bcftools_isec");
 }
 sub test_vcf_query
 {
@@ -261,11 +268,11 @@ sub test_vcf_norm
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -f $$opts{path}/$args{fai}.fa $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_norm");
 }
-sub test_vcf_subset
+sub test_vcf_view
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools subset $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_subset");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_view");
 }
 sub test_vcf_call
 {
@@ -283,4 +290,113 @@ sub test_vcf_filter
     my ($opts,%args) = @_;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_filter");
 }
+sub test_vcf_regions
+{
+    my ($opts,%args) = @_;
+    bgzip_tabix_vcf($opts,$args{in});
 
+    # regions vs targets, holding tab in memory
+    my $query = q[%CHROM %POS %REF,%ALT\n];
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+
+    # regions vs targets, reading tabix-ed tab
+    cmd(qq[cat $$opts{path}/$args{in}.tab | bgzip -c > $$opts{tmp}/$args{in}.tab.gz]);
+    cmd(qq[$$opts{bin}/bcftools tabix -f -s1 -b2 -e3 $$opts{tmp}/$args{in}.tab.gz]);
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+
+    # regions vs targets, holding bed in memory
+    cmd(qq[cat $$opts{path}/$args{in}.tab | awk '{OFS="\\t"}{print \$1,\$2-1,\$3}' > $$opts{tmp}/$args{in}.bed]);
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+
+    # regions vs targets, reading tabix-ed bed
+    cmd(qq[cat $$opts{tmp}/$args{in}.bed | bgzip -c > $$opts{tmp}/$args{in}.bed.gz]);
+    cmd(qq[$$opts{bin}/bcftools tabix -f -p bed $$opts{tmp}/$args{in}.bed.gz]);
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -t $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -r $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+}
+sub test_usage
+{
+    my ($opts,%args) = @_;
+
+    my $test = "test_usage";
+    print "$test:\n";
+    print "\t$args{cmd}\n";
+    
+    my $command = $args{cmd};
+    my $commandpath = $$opts{bin}."/".$command;
+    my ($ret,$out) = _cmd("$commandpath 2>&1");
+    if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath: $out"); return; }
+
+    my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
+    
+    my $have_usage = 0;
+    my $have_version = 0;
+    my $have_subcommands = 0;
+    my $usage = "";
+    my @subcommands = ();
+    foreach my $section (@sections) {
+	if ( $section =~ m/^usage/i ) {
+	    $have_usage = 1;
+	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+	    $usage = $section;
+	} elsif ( $section =~ m/^version/i ) {
+	    $have_version = 1;
+	} elsif ( $section =~ m/^command/i ) {
+	    $have_subcommands = 1;
+	    $section =~ s/^[[:word:]]+[[:punct:][:space:]]*//;
+	    $section =~ s/^[[:space:]]+//mg;
+	    $section =~ s/^[[:punct:]]+.*?\n//msg;
+	    @subcommands = ($section =~ m/^([[:word:]]+)[[:space:]].*/mg);
+	}
+    }
+    
+    if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
+    if ( !$have_version ) { failed($opts,$test,"did not have Version:"); return; }
+    if ( !$have_subcommands ) { failed($opts,$test,"did not have Commands:"); return; }
+
+    if ( !($usage =~ m/$command/) ) { failed($opts,$test,"usage did not mention $command"); return; } 
+    
+    if ( scalar(@subcommands) < 1 ) { failed($opts,$test,"could not parse subcommands"); return; }
+    
+    passed($opts,$test);
+    
+    # now test subcommand usage as well
+    foreach my $subcommand (@subcommands) {
+	test_usage_subcommand($opts,%args,subcmd=>$subcommand);
+    }
+}
+sub test_usage_subcommand
+{
+    my ($opts,%args) = @_;
+
+    my $test = "test_usage_subcommand";
+    print "$test:\n";
+    print "\t$args{cmd} $args{subcmd}\n";
+
+    my $command = $args{cmd};
+    my $subcommand = $args{subcmd};
+    my $commandpath = $$opts{bin}."/".$command;
+    my ($ret,$out) = _cmd("$commandpath $subcommand 2>&1");
+    if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath $subcommand: $out"); return; }
+
+    my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
+    
+    my $have_usage = 0;
+    my $usage = "";
+    foreach my $section (@sections) {
+	if ( $section =~ m/^usage/i ) {
+	    $have_usage = 1;
+	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+	    $usage = $section;
+	}
+    }
+    
+    if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
+
+    if ( !($usage =~ m/$command[[:space:]]+$subcommand/) ) { failed($opts,$test,"usage did not mention $command $subcommand"); return; } 
+    
+    passed($opts,$test);
+}

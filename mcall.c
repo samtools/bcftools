@@ -199,11 +199,11 @@ void mcall_init(call_t *call)
 { 
     call_init_pl2p(call);
 
-    call->nqsum = 4;
+    call->nqsum = 5;
     call->qsum  = (float*) malloc(sizeof(float)*call->nqsum); 
-    call->nals_map = 4;
+    call->nals_map = 5;
     call->als_map  = (int*) malloc(sizeof(int)*call->nals_map);
-    call->npl_map  = 4*(4+1)/2;
+    call->npl_map  = 5*(5+1)/2;
     call->pl_map   = (int*) malloc(sizeof(int)*call->npl_map);
     call->gts  = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int32_t));   // assuming at most diploid everywhere
 
@@ -371,6 +371,7 @@ static inline double logsumexp(double *vals, int nvals)
 
     return log(sum) + max_exp;
 }
+/** log(exp(a)+exp(b)) */
 static inline double logsumexp2(double a, double b)
 {
     if ( a>b )
@@ -902,7 +903,7 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
 static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
 {
     bcf_sr_regions_t *tgt = call->srs->targets;
-    if ( tgt->nals>4 ) error("Maximum accepted number of alleles is 4, got %d\n", tgt->nals);
+    if ( tgt->nals>5 ) error("Maximum accepted number of alleles is 5, got %d\n", tgt->nals);
     hts_expand(char*,tgt->nals+1,call->nals,call->als);
 
     int has_new = 0;
@@ -969,7 +970,7 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
     bcf_update_format_int32(call->hdr, rec, "PL", call->itmp, npls_new*nsmpl);
 
     // update QS
-    float qsum[4];
+    float qsum[5];
     int nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
     for (i=0; i<nals; i++)
         qsum[i] = call->als_map[i]<nqs ? call->qsum[call->als_map[i]] : 0;
@@ -990,8 +991,8 @@ int mcall(call_t *call, bcf1_t *rec)
 
     int nsmpl = bcf_hdr_nsamples(call->hdr);
     int nals  = rec->n_allele;
-    if ( nals>4 )
-        error("FIXME: Not ready for more than 4 alleles at %s:%d (%d)\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1, nals);
+    if ( nals>5 )
+        error("FIXME: Not ready for more than 5 alleles at %s:%d (%d)\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1, nals);
 
     // Get the genotype likelihoods
     call->nPLs = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->mPLs);

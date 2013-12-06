@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <math.h>
 #include "filter.h"
 #include "bcftools.h"
 
@@ -48,9 +49,12 @@ struct _filter_t
 #define TOK_SUB  12      // -
 #define TOK_MULT 13      // *
 #define TOK_DIV  14      // /
+#define TOK_MAX  15
+#define TOK_MIN  16
+#define TOK_AVG  17
 
-//                        ( ) [ < = > ] ! | & + - * /
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3,6,6,7,7};
+//                        ( ) [ < = > ] ! | & + - * / M m a
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3,6,6,7,7,8,8,8};
 
 static int filters_next_token(char **str, int *len)
 {
@@ -68,6 +72,9 @@ static int filters_next_token(char **str, int *len)
     }
     tmp = *str;
 
+    if ( !strncmp(tmp,"%MAX(",5) ) { (*str) += 5; return TOK_MAX; }
+    if ( !strncmp(tmp,"%MIN(",5) ) { (*str) += 5; return TOK_MIN; }
+    if ( !strncmp(tmp,"%AVG(",5) ) { (*str) += 5; return TOK_AVG; }
     if ( !strncmp(tmp,"INFO/",5) ) tmp += 5;
 
     while ( tmp[0] )
@@ -288,6 +295,90 @@ static void filters_set_info_flag(bcf1_t *line, token_t *tok)
     tok->num_value = j==line->n_info ? 0 : 1;
 }
 
+// This implementation of MAX,MIN,AVG functions is not entirely satisfactory.
+// Better is to make them real functions and allowing operations on arrays
+// such as MAX(DV/DP). For this, we'd need to support array operations
+// on token_t, where num_value becomes an array.
+static void filters_set_format_func(bcf1_t *line, token_t *tok, int func_type)
+{
+    if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
+
+    int i,j;
+    for (i=0; i<line->n_fmt; i++)
+        if ( line->d.fmt[i].id==tok->hdr_id ) break;
+    if ( i==line->n_fmt ) 
+    {
+        tok->missing_value = 1;
+        return;
+    }
+    bcf_fmt_t *fmt = &line->d.fmt[i];
+
+    int nvals = 0;
+    if ( func_type==TOK_MAX ) tok->num_value = -HUGE_VAL;
+    else if ( func_type==TOK_MIN ) tok->num_value = HUGE_VAL;
+    else tok->num_value = 0;
+
+    #define BRANCH(type_t,is_missing,is_vector_end) { \
+        type_t *p = (type_t*) fmt->p; \
+        for (i=0; i<line->n_sample; i++) \
+        { \
+            for (j=0; j<fmt->n; j++) \
+            { \
+                if ( is_missing ) continue; \
+                else if ( is_vector_end ) break; \
+                double tmp = (double) p[j]; \
+                if ( func_type==TOK_MAX ) { if ( tok->num_value<tmp ) tok->num_value = tmp; } \
+                else if ( func_type==TOK_MIN ) { if ( tok->num_value>tmp ) tok->num_value = tmp; } \
+                else if ( func_type==TOK_AVG ) { tok->num_value += tmp; nvals++; } \
+            } \
+            p = (type_t *)((char *)p + fmt->size); \
+        } \
+    }
+    switch (fmt->type) {
+        case BCF_BT_INT8:  BRANCH(int8_t,  p[j]==bcf_int8_missing,  p[j]==bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH(int16_t, p[j]==bcf_int16_missing, p[j]==bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH(int32_t, p[j]==bcf_int32_missing, p[j]==bcf_int32_vector_end); break;
+        case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(p[j]), bcf_float_is_vector_end(p[j])); break;
+        default: error("[%s:%d %s] Error: unexpected type of %s: %d\n", __FILE__,__LINE__,__FUNCTION__,tok->tag,fmt->type);
+
+    }
+    #undef BRANCH
+    if ( func_type==TOK_AVG ) tok->num_value /= nvals;
+}
+static void filters_set_format_max(bcf1_t *line, token_t *tok) { filters_set_format_func(line,tok,TOK_MAX); }
+static void filters_set_format_min(bcf1_t *line, token_t *tok) { filters_set_format_func(line,tok,TOK_MIN); }
+static void filters_set_format_avg(bcf1_t *line, token_t *tok) { filters_set_format_func(line,tok,TOK_AVG); }
+
+static int filters_init_func(filter_t *filter, int func_type, char **str, token_t *tok)
+{
+    char *e = *str;
+    while ( *e && *e!=')' ) e++;
+    if ( !*e ) error("Could not parse the expression, right bracket not found [...%s]\n", str);
+
+    kstring_t tmp = {0,0,0};
+    kputsn(*str, e-(*str), &tmp);
+    (*str) += e-(*str)+1;
+
+    tok->hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, tmp.s);
+    if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
+        error("[%s:%d %s] Error: the tag \"FORMAT/%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
+
+    int fmt_type = bcf_hdr_id2type(filter->hdr,BCF_HL_FMT,tok->hdr_id);
+    if ( fmt_type!=BCF_HT_INT && fmt_type!=BCF_HT_REAL ) error("[%s:%d %s] Error: expected numeric tag with %s\n", tmp.s);
+
+    switch (func_type)
+    {
+        case TOK_MAX: tok->setter = filters_set_format_max; break;
+        case TOK_MIN: tok->setter = filters_set_format_min; break;
+        case TOK_AVG: tok->setter = filters_set_format_avg; break;
+        default: error("[%s:%d %s] Error: unknown func_type: %d\n", func_type);
+    }
+    tok->tok_type = TOK_VAL;
+    tok->tag = tmp.s;
+
+    return 0;
+}
+
 static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
 {
     tok->tok_type = TOK_VAL;
@@ -391,7 +482,7 @@ void filter_debug_print(token_t *toks, int ntoks)
                 fprintf(stderr,"%e", tok->threshold);
         }
         else
-            fprintf(stderr,"%c", "x()[<=>]!|&+-*/"[tok->tok_type]);
+            fprintf(stderr,"%c", "x()[<=>]!|&+-*/M"[tok->tok_type]);
         if ( tok->setter ) fprintf(stderr,"\t[setter %p]", tok->setter);
         fprintf(stderr,"\n");
     }
@@ -415,10 +506,16 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         ret = filters_next_token(&tmp, &len);
         if ( ret==-1 ) error("Missing quotes in: %s\n", str);
 
-        // fprintf(stderr,"token=[%c] .. [%s] %d\n", "x()[<=>]!|&+-*/"[ret], tmp, len);
-        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c.", "x()[<=>]!|&+-*/"[ops[i]]); fprintf(stderr,"\n");
+        // fprintf(stderr,"token=[%c] .. [%s] %d\n", "x()[<=>]!|&+-*/Mm"[ret], tmp, len);
+        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c.", "x()[<=>]!|&+-*/Mm"[ops[i]]); fprintf(stderr,"\n");
 
-        if ( ret==TOK_LFT )         // left bracket
+        if ( ret==TOK_MAX || ret==TOK_MIN || ret==TOK_AVG )
+        {
+            nout++;
+            hts_expand0(token_t, nout, mout, out);
+            filters_init_func(filter, ret, &tmp, &out[nout-1]);
+        }
+        else if ( ret==TOK_LFT )         // left bracket
         {
             nops++;
             hts_expand(int, nops, mops, ops);

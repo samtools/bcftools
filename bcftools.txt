@@ -1,0 +1,708 @@
+// This is asciidoc template for the bcftools man page and html
+//  a2x --doctype manpage --format manpage bcftools.txt 
+//  a2x --doctype manpage --format xhtml bcftools.txt
+//
+
+bcftools(1)
+===========
+:doctype: manpage
+
+
+NAME
+----
+bcftools - utilities for variant calling and manipulating VCFs and BCFs
+
+
+SYNOPSIS
+--------
+*bcftools* ['COMMAND'] ['OPTIONS']
+
+
+DESCRIPTION
+-----------
+Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+Call Format (VCF) and its binary counterpart BCF. All commands work
+transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.
+
+Bcftools is designed to work on a stream. It regards an input file "-" as the
+standard input (stdin) and outputs to the standard output (stdout). Several
+commands can thus be  combined  with  Unix pipes.
+
+
+LIST OF COMMANDS
+----------------
+For a full list of available commands, run *bcftools* without arguments. For a full
+list of available options, run *bcftools* 'COMMAND' without arguments.
+
+- *tabix*                ..  index tab-delimited BGZF-compressed files such as BED, GFF, SAM, VCF, etc.
+- *index*                ..  index BCF
+- *<<call,call>>*        ..  SNP/indel calling (former "view")
+- *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
+- *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
+- *<<isec,isec>>*        ..  intersections of VCF/BCF files
+- *<<merge,merge>>*      ..  merge VCF/BCF files
+- *<<norm,norm>>*        ..  normalize indels
+- *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
+- *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
+- *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
+- *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,stats>>*
+
+
+OPTIONS
+-------
+
+[[common_options]]
+=== Common Options
+
+'FILE'::
+    Files can be both VCF or BCF, uncompressed or BGZF-compressed. The file "-"
+    is interpreted as standard input. Some tools may require tabix- or
+    CSI-indexed files.
+
+*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+    Controls  how to treat records with duplicate positions and defines compatible
+    records across multiple input files. Here by "compatible" we mean records which
+    should be considered as identical by the tools. For example, when performing
+    line intersections, the desire may be to consider as identical all sites with
+    matching positions (*bcftools isec -c* 'all'), or only sites with  matching variant
+    type (*bcftools isec -c* 'snps' *-c* 'indels'), or only sites with all alleles
+    identical (*bcftools isec -c* 'none').
+
+
+        'none';;
+            only records with identical REF and ALT alleles are compatible
+
+        'some';;
+            only records where some subset of ALT alleles match are compatible
+
+        'all';;
+            all records are compatible, regardless of whether the ALT alleles
+            match or not. In the case of records with the same position, only
+            the first will be considered and appear on output.
+
+        'snps';; 
+            any SNP records are compatible, regardless of whether the ALT
+            alleles match or not. For duplicate positions, only the first SNP
+            record will be considered and appear on output.
+
+        'indels';;  
+            all  indel records are compatible, regardless of whether the REF
+            and ALT alleles match or not. For duplicate positions, only the
+            first indel record will be considered and appear on output.
+
+        'both';;
+            abbreviation of "*-c* 'indels' *-c* 'snps'"
+
+*-f, --apply-filters* 'LIST'::
+    Skip sites where FILTER column does not contain any of the strings listed
+    in 'LIST'. For example, to include only sites which have no filters set,
+    use *-f* '.,PASS'.
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    Regions can be specified either on command line or in a VCF, BED, or
+    tab-delimited file (the default).  The columns of the tab-delimited file
+    are: CHROM, POS, and,  optionally,  POS_TO,  where positions are 1-based
+    and inclusive.  Uncompressed files are stored in memory, while
+    bgzip-compressed and tabix-indexed region files are streamed.  Note that
+    sequence names must match exactly, "chr20" is not the same as "20".  This
+    option requires indexed VCF/BCF files.
+
+*-s, --samples* 'FILE'|'LIST'::
+    Comma-separated list of samples to include or a file with one sample
+    per line. The command *<<call,bcftools call>>* accepts an optional second
+    column indicating ploidy (0, 1 or 2) and can parse also PED files.
+    With *<<call,bcftools call>>* *-C* 'trio', PED file is expected.
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    Same as *-r, --regions*, but the next position is accessed by streaming the
+    whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
+    can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
+    and *-t* discards positions which are not in the targets.  Another difference
+    between the two is that *-r* checks both start and end positions of indels,
+    whereas *-t* checks start positions only.  With the call *-C* 'alleles' command,
+    third column of the targets file must be comma-separated list of alleles,
+    starting with the reference allele. Such a file can be easily created from
+    a VCF with:
+----
+    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf
+----
+
+
+[[call]]
+=== bcftools call '[OPTIONS]' 'FILE'
+
+This command replaces the former *bcftools view* caller. Some of the original
+functionality has been temporarily lost in the process of transition under
+http://github.com/samtools/htslib[htslib], but will be added back on popular
+demand. The original calling model can be invoked with the *-c* option.
+
+==== File format options:
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'FILE'|'LIST'::
+    see *<<common_options,Common Options>>*
+
+==== Input/output options:
+
+*-A, --keep-alts*::
+    output all alternate alleles present in the alignments even if they do not
+    appear in any of the genotypes 
+
+*-M, --keep-masked-ref*::
+    output sites where REF allele is N
+
+*-S, --skip* 'snps'|'indels'::
+    skip indel/SNP sites
+
+*-v, --variants-only*::
+    output variant sites only
+
+==== Consensus/variant calling options:
+
+*-c, --consensus-caller*::
+    the original *samtools*/*bcftools* calling method (conflicts with *-m*)
+
+*-C, --constrain* 'alleles'|'trio'::
+
+        'alleles';;
+            call genotypes given alleles. See also *-t, --targets*.
+
+        'trio';;
+            call genotypes given the father-mother-child constraint. See also
+            *-s, --samples* and *-n, --novel-rate*.
+
+*-m, --multiallelic-caller*::
+    alternative modelfor multiallelic and rare-variant calling designed to
+    overcome known limitations in *-c* calling model (conflicts with *-c*)
+
+*-n, --novel-rate* 'FLOAT'::
+    likelihood of novel mutation for constrained *-C* 'trio' calling. The trio
+    genotype calling maximizes likelihood of a particular combination of
+    genotypes for father, mother and the child 
+    P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1-Pn).
+
+*-p, --pval-threshold* 'float'::
+    with *-c*, accept variant if P(ref|D)<'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-X, --chromosome-X*::
+    haploid output for male samples (requires PED file with *-s*)
+
+*-Y, --chromosome-Y*::
+    haploid output for males and skips females (requires PED file with *-s*)
+
+
+[[filter]]
+=== bcftools filter '[OPTIONS]' 'FILE'
+
+Apply fixed-threshold filters.
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-g, --SnpGap* 'INT'::
+    filter SNPs within 'INT' base pairs of an indel. The following example
+    demonstrates the logic of *--SnpGap* '3' applied on a deletion and
+    an insertion:
+----
+The SNPs at positions 1 and 7 are filtered, positions 0 and 8 are not:
+         0123456789
+    ref  .G.GT..G..
+    del  .A.G-..A.. 
+Here the positions 1 and 6 are filtered, 0 and 7 are not:
+         0123-456789
+    ref  .G.G-..G..
+    ins  .A.GT..A..
+----
+
+*-G, --IndelGap* 'INT'::
+    filter clusters of indels separated by 'INT' or fewer base pairs allowing
+    only one to pass. The following example demonstrates the logic of
+    *--IndelGap* '2' applied on a deletion and an insertion:
+----
+The second indel is filtered:
+         012345678901
+    ref  .GT.GT..GT..
+    del  .G-.G-..G-..
+And similarly here, the second is filtered:
+         01 23 456 78
+    ref  .A-.A-..A-..
+    ins  .AT.AT..AT..
+----
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-m, --mode* '+'|'x'::
+    what to do with the existing FILTER annotations: use '+' for appending
+    to FILTER instead of replacing the existing annotations, and 'x' to 
+    reset filters at sites which pass.
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-s, --soft-filter* 'STRING'|'+'::
+    annotate FILTER column with 'STRING' or, with '+', a unique filter name generated
+    by the program ("Filter%d").
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+
+
+
+
+[[gtcheck]]
+=== bcftools gtcheck ['OPTIONS'] [*-g* 'genotypes.vcf.gz'] 'query.vcf.gz'
+Checks sample identity or, without *-g*, multi-sample cross-check is performed.
+With *-s* but no *-p*, likelihoods at all sites are printed.
+
+*-a, --average-discordance*::
+    output average discordance for all sites
+
+*-g, --genotypes* 'genotypes.vcf.gz'::
+    reference genotypes to compare against
+
+*-H, --homs-only*::
+    consider only genotypes which are homozygous in both 'genotypes' and
+    'query' VCF. This may be useful with low coverage data.
+
+*-p, --plot* 'PREFIX'::
+    produce plots
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-s, --target-sample* 'STRING'::
+    target sample in the *-g* file, used only for plotting, not for analysis
+
+*-S, --query-sample* 'STRING'::
+    query sample in 'query.vcf.gz'. By default, the first sample is checked.
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+
+
+
+[[isec]]
+=== bcftools isec ['OPTIONS']  'A.vcf.gz' 'B.vcf.gz' [...]
+Creates intersections, unions and complements of VCF files. Depending
+on the options, the program can output records from one (or more) files
+which have (or do not have) corresponding records with the same position
+in the other files.
+
+*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+    see *<<common_options,Common Options>>*
+
+*-C, --complement*::
+    output positions present only in the first file but missing in the others
+
+*-f, --apply-filters* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-n, --nfiles* ['+-=']'INT'::
+    output positions present in this many ('='), this many or more ('+'), or this
+    many or fewer ('-') files
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-p, --prefix* 'DIR'::
+    if given, subset each of the input files accordingly. See also *-w*.
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-w, --write* 'LIST'::
+    list of input files to output given as 1-based indices. With *-p* and no
+    *-w*, all files are written.
+
+==== Examples:
+
+Create intersection and complements of two sets saving the output in dir/*
+----
+    bcftools isec -p dir A.vcf.gz B.vcf.gz
+----
+
+Extract and write records from A shared by both A and B using exact allele match
+----
+    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz
+----
+
+Extract records private to A or B comparing by position only
+----
+    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz 
+----
+
+
+[[merge]]
+=== bcftools merge ['OPTIONS'] 'A.vcf.gz' 'B.vcf.gz' [...]
+Merge one or more VCF or BCF files.
+
+*--use-header* 'FILE'::
+    use the VCF header in the provided text 'FILE'
+
+*--print-header*::
+    print only merged header and exit
+
+*-f, --apply-filters* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-m, --merge* 'snps'|'indels'|'both'|'all'|'none'::
+    Defines  merging behaviour, similar to *-c, --collapse*. For example, to
+    prevent merging of SNPs and indels into one record, use *-m* 'both'. To
+    prevent creation of multi-allelic records altogether, use *-m* 'none'.
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+
+
+[[norm]]
+=== bcftools norm ['OPTIONS'] *-f* 'ref.fa' 'file.vcf.gz'
+Left-align and normalize indels.
+
+*-D, --remove-duplicates*::
+    remove duplicate lines of the same type
+
+*-f, --fasta-ref* 'FILE'::
+    reference sequence
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-w, --win* 'INT','INT'::
+    alignment window and buffer window [50,1000]
+
+
+[[query]]
+=== bcftools query ['OPTIONS'] 'file.vcf.gz' ['file.vcf.gz' [...]]
+Extracts fields from VCF or BCF files and outputs them in user-defined format.
+
+*-a, --annots* 'LIST'::
+    alias for -f '%CHROM\t%POS\t%MASK\t%REF\t%ALT\t%TYPE\t' and tab-separated
+    'LIST' of tags
+
+*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+    see *<<common_options,Common Options>>*
+
+*-f, --format* 'FORMAT'::
+    learn by example, see below
+
+*-H, --print-header*::
+    print header
+
+*-l, --list-samples*::
+    list sample names and exit
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'FILE'|'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-v, --vcf-list* 'FILE'::
+    process multiple VCFs listed in the file
+
+==== Format:
+
+    %CHROM          The CHROM column (similarly also other columns, such as POS, ID, QUAL, etc.)
+    %INFO/TAG       Any tag in the INFO column
+    %TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)
+    %MASK           Indicates presence of the site in other files (with multiple files)
+    %TAG{INT}       Curly brackets to subscript vectors (0-based)
+    []              The brackets loop over all samples
+    %GT             Genotype (e.g. 0/1)
+    %TGT            Translated genotype (e.g. C/A)
+    %LINE           Prints the whole line
+    %SAMPLE         Sample name
+
+==== Examples:
+
+    bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz
+
+
+[[stats]]
+=== bcftools stats 'OPTIONS' 'A.vcf.gz' ['B.vcf.gz']
+Parses VCF or BCF and produces text file stats which is suitable for machine
+processing and can be plotted using *<<plot-vcfstats,plot-vcfstats>>*.  When two files are given,
+the program generates separate stats for intersection and the complements.
+
+*-1, --1st-allele-only*::
+    consider only 1st allele at multiallelic sites
+
+*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+    see *<<common_options,Common Options>>*
+
+*-d, --depth* 'INT','INT','INT'::
+    ranges of depth distribution: min, max, and size of the bin
+
+*--debug*::
+    produce verbose per-site and per-sample output
+
+*-e, --exons* 'file.gz'::
+    tab-delimited file with exons for indel frameshifts statistics. The columns
+    of the file are CHR, FROM, TO, with 1-based, inclusive, positions. The file
+    is BGZF-compressed and indexed with tabix
+----
+    tabix -s1 -b2 -e3 file.gz
+----
+
+*-f, --apply-filters* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-F, --fasta-ref* 'ref.fa'::
+    faidx indexed reference sequence file to determine INDEL context
+
+*-i, --split-by-ID*::
+    collect stats separately for sites which have the ID column set ("known
+    sites") or which do not have the ID column set ("novel sites").
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'FILE'|'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+
+
+
+[[view]]
+=== bcftools view 'OPTIONS' 'file.vcf.gz' ['REGION' [...]]
+View, subset and filter VCF or BCF files by position and filtering expression.
+Convert between VCF and BCF. Former *bcftools subset*.
+
+==== Output options
+
+*-h, --header-only*:: 
+    output the VCF header only
+
+*-H, --no-header*::
+    suppress the header in VCF output
+
+*-G, --drop-genotypes*::
+    drop individual genotype information (after subsetting if *-s* option is set)
+
+*-l, --compression-level* ['0-9']::
+    compression level. 0 stands for uncompressed, 1 for best speed and 9 for
+    best compression.
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-o, --output-file* 'FILE':
+    output file name. If not present, the default is to print to stanard output (stdout).
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+
+==== Subset options:
+*-a, --trim-alt-alleles*::
+    trim alternate alleles not seen in subset
+
+*-I, --no-update*::
+    do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
+
+*-s, --samples* 'FILE'|'LIST'::
+    see *<<common_options,Common Options>>*
+
+
+==== Filter options:
+*-1, --singletons*::
+    print singleton sites only (shortcut for *-c*1 *-C*1)
+
+*-2, --doubletons*::
+    print doubleton sites only (shortcut for *-c*2 *-C*2)
+
+*-c, --min-ac*::
+    minimum allele count (INFO/AC) of sites to be printed
+
+*-C, --max-ac*::
+    maximum allele count (INFO/AC) of sites to be printed
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-f, --apply-filters* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-i, --include* 'EXPRESSION'::
+    include sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-k, --known*::
+    print known sites only (ID column is not ".")
+
+*-n, --novel*::
+    print novel sites only (ID column is ".")
+
+*-m, --multiallelic*::
+    print multiallelic sites only
+
+*-M, --biallelic*::
+    print biallelic sites only
+
+*-R, --exclude-ref*::
+    exclude sites without a non-reference genotype
+
+*-U, --exclude-uncalled*::
+    exclude sites without a called genotype
+
+*-v, --include-types* 'snps'|'indels'|'mnps'|'other'::
+    comma-separated list of variant types to include
+
+*-V, --exclude-types* 'snps'|'indels'|'mnps'|'other'::
+    comma-separated list of variant types to exclude
+
+*-x, --private*::
+    print sites where only the subset samples carry an non-reference allele
+
+
+
+[[plot-vcfstats]]
+=== plot-vcfstats 'OPTIONS' 'file.vchk' [...]
+Script for processing output of *<<stats,bcftools stats>>*. It can merge
+results from multiple outputs (useful when running the stats for each
+chromosome separately), plots graphs and creates a PDF presentation. 
+
+*-m, --merge*::
+    Merge vcfstats files to STDOUT, skip plotting.
+
+*-p, --prefix* 'PATH'::
+    The output files prefix, add a slash to create new directory.
+
+*-P, --no-PDF*::
+    Skip the PDF creation step.
+
+*-r, --rasterize*::
+    Rasterize PDF images for faster rendering.
+
+*-s, --sample-names*::
+    Use sample names for xticks rather than numeric IDs.
+
+*-t, --title* 'STRING'::
+    Identify files by these titles in plots. The option can be given multiple
+    times, for each ID in the *<<stats,bcftools stats>>* output. If not
+    present, the script will use abbreviated source file names for the titles.
+
+*-T, --main-title* 'STRING'::
+    Main title for the PDF.
+
+
+[[expressions]]
+EXPRESSIONS
+-----------
+
+These filtering expressions are accepted by *<<filter,filter>>* and
+*<<view,view>>* commands.
+
+Valid expressions may contain: ;;
+
+    arithmetic perators: ::
+        +, *, -, /
+    
+    logical operators: ::
+        && (same as &),  || (same as |)
+    
+    comparison operators: ::
+        == (same as =), >, >=, <=, <, !=
+    
+    parentheses: ::
+        (, )
+    
+    array subscripts to access vector subfields: ::
+        e.g. AC[0]
+    
+    double quotes for string values: ::
+        e.g. %FILTER="PASS"
+    
+    '1' (or '0') for testing the presence (or absence) of a flag: ::
+        e.g. FlagA=1 && FlagB=0
+    
+    'TAG' or INFO/'TAG' for INFO fields: ::
+        e.g. DP<800 or INFO/DP<800
+    
+    %'COLUMN' for column names (not all columns are supported yet): ::
+        e.g. %QUAL>10 && %FILTER="PASS"
+    
+    %TYPE for testing variant type ('indel', 'snp', 'mnp', 'other'): ::
+        e.g. %TYPE="snp"
+    
+    %'FUNC'('TAG') where 'FUNC' is one of 'MAX', 'MIN', 'AVG' and 'TAG' is one of the FORMAT fields: ::
+        e.g. %MIN(DP)>10 && %MIN(DV)>3
+
+A few more examples:
+
+    %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
+    %MIN(DP)>35 && %AVG(GQ)>50
+    ...
+
+
+BUGS
+----
+Please report any bugs you encounter on the github website: <http://github.com/samtools/bcftools>
+
+
+AUTHORS
+-------
+Heng Li from the Sanger Institute wrote the original C version of htslib,
+samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
+BGZF library. Petr Danecek and John Marshall are  maintaining and further
+developing the packages.  Many other people contributed to the file format
+specifications and to the program, both directly and indirectly by providing
+patches, testing and reporting bugs.
+
+
+RESOURCES
+---------
+Bcftools GitHub website: <http://github.com/samtools/bcftools>
+
+Samtools GitHub website: <http://github.com/samtools/samtools>
+
+HTSlib GitHub website: <http://github.com/samtools/htslib>
+
+File format specifications: <http://samtools.github.io/hts-specs>
+
+Bcftools documentation: <http://samtools.github.io/bcftools>
+
+
+COPYING
+-------
+The MIT License. Copyright (c) Genome Research Ltd.
+

@@ -503,7 +503,7 @@ static void usage(void)
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type. [Todo: merge genotypes, don't just throw away.]\n");
 	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
-    fprintf(stderr, "    -o, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "    -O, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
 	fprintf(stderr, "    -r, --regions <file|reg>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -w, --win <int,int>               alignment window and buffer window [50,1000]\n");
 	fprintf(stderr, "\n");
@@ -526,12 +526,12 @@ int main_vcfnorm(int argc, char *argv[])
 		{"regions",1,0,'r'},
 		{"win",1,0,'w'},
 		{"remove-duplicates",0,0,'D'},
-        {"output-type",1,0,'o'},
+        {"output-type",1,0,'O'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hr:f:w:Do:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hr:f:w:DO:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'o': 
+            case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -549,13 +549,21 @@ int main_vcfnorm(int argc, char *argv[])
 			default: error("Unknown argument: %s\n", optarg);
 		}
 	}
-	if ( argc!=optind+1 || !args->ref_fname ) usage();   // none or too many files given
+    if ( !args->ref_fname || argc>optind+1 ) usage();
+    char *fname = NULL;
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage();
+    }
+    else fname = argv[optind];
+
     if ( args->region )
     {
         if ( bcf_sr_set_targets(args->files, args->region,0)<0 ) error("Failed to read the targets: %s\n", args->region);
     }
 
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
     init_data(args);
     normalize_vcf(args);
     destroy_data(args);
