@@ -26,7 +26,7 @@ typedef struct _args_t
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
     char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
     int argc, clevel, output_type, print_header, update_info, header_only, n_samples, *imap;
-    int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private_vars, exclude_uncalled, min_ac, max_ac, calc_ac;
+    int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private_vars, exclude_uncalled, min_ac, max_ac, calc_ac, phased;
     char *fn_ref, *fn_out, **samples;
     char *include_types, *exclude_types;
     int include, exclude;
@@ -168,6 +168,49 @@ static void destroy_data(args_t *args)
         filter_destroy(args->filter);
 }
 
+// true if all samples are phased.
+// haploid genotypes are considered phased
+// ./. => not phased, .|. => phased 
+int bcf_all_phased(const bcf_hdr_t *header, bcf1_t *line)
+{
+    bcf_unpack(line, BCF_UN_FMT);
+    bcf_fmt_t *fmt_ptr = bcf_get_fmt(header, line, "GT");
+    int all_phased = 1;
+    if ( fmt_ptr )
+    {
+        int i, isample;
+        for (isample=0; isample<line->n_sample; isample++)
+        {
+            int sample_phased = 0;
+            #define BRANCH_INT(type_t,missing,vector_end) { \
+                type_t *p = (type_t*) (fmt_ptr->p + isample*fmt_ptr->size); \
+                for (i=0; i<fmt_ptr->n; i++) \
+                { \
+                    if (fmt_ptr->n == 1 || (p[i] == vector_end && i == 1)) { sample_phased = 1; break; } /* haploid phased by definition */ \
+                    if ( p[i] == vector_end ) { break; }; /* smaller ploidy */ \
+                    if ( !p[i] || p[i] == missing ) continue; /* missing allele */ \
+                    if ((p[i])&1) { \
+                        sample_phased = 1; \
+                        break; \
+                    } \
+                } \
+            }
+            switch (fmt_ptr->type) {
+                case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
+                case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
+                case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+                default: fprintf(stderr, "[E::%s] todo: fmt_type %d\n", __func__, fmt_ptr->type); exit(1); break;
+            }
+            #undef BRANCH_INT
+            if (!sample_phased) {
+                all_phased = 0;
+                break;
+            }
+        }
+    }
+    return all_phased;
+}
+
 int subset_vcf(args_t *args, bcf1_t *line)
 {
     if ( args->multiallelic && !(line->n_allele>2) ) return 0; // select multiallelic sites
@@ -229,6 +272,11 @@ int subset_vcf(args_t *args, bcf1_t *line)
     free(ac);
     if (args->exclude_ref && n_ac == 0) return 0;
     if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
+    if (args->phased) {
+        int phased = bcf_all_phased(args->hdr, line);
+        if (args->phased == 1 && !phased) { return 0; } // skip unphased
+        if (args->phased == 2 && phased) { return 0; } // skip phased
+    } 
     if (args->sites_only) bcf_subset(args->hsub ? args->hsub : args->hdr, line, 0, 0);
     return 1;
 }
@@ -260,6 +308,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (see vcffilter for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                          print known/novel sites only (ID is/not '.')\n");
     fprintf(stderr, "    -m/M, --multiallelic/--biallelic               print multiallelic/biallelic sites only\n");
+    fprintf(stderr, "    -p/P, --phased/--exclude-phased                select/exclude sites where all samples are phased/not all samples are phased\n");
     fprintf(stderr, "    -R,   --exclude-ref                            exclude sites without a non-reference genotype\n");
     fprintf(stderr, "    -U,   --exclude-uncalled                       exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V  --include-types/--exclude-types <str>    comma-separated list of variant types to include/exclude: snps,indels,mnps,other [null]\n");
@@ -308,9 +357,11 @@ int main_vcfview(int argc, char *argv[])
         {"max-ac",1,0,'C'},
         {"singletons",0,0,'1'},
         {"doubletons",0,0,'2'},
+        {"phased",0,0,'p'},
+        {"exclude-phased",0,0,'P'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:St:r:o:O:s:Gf:knv:V:mMaRUhHc:C:12Ie:i:x",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "l:St:r:o:O:s:Gf:knv:V:mMaRUhHc:C:12Ie:i:xpP",loptions,NULL)) >= 0) {
         switch (c) {
     	    case 'O': 
                 switch (optarg[0]) {
@@ -352,6 +403,8 @@ int main_vcfview(int argc, char *argv[])
             case 'R': args->exclude_ref = 1; args->calc_ac = 1; break;
             case 'x': args->private_vars = 1; args->calc_ac = 1; break;
             case 'U': args->exclude_uncalled = 1; args->calc_ac = 1; break;
+            case 'p': args->phased = 1; break; // phased
+            case 'P': args->phased = 2; break; // exclude-phased
             case '?': usage(args);
             default: error("Unknown argument: %s\n", optarg);
         }
