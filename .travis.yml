@@ -5,6 +5,9 @@ compiler:
   - clang
   - gcc
 
+env:
+  - HTSDIR=./htslib PATH=./tabix:$PATH
+
 matrix:
   include:
     # An unoptimised C99 build, for detecting non-static inline functions
@@ -14,6 +17,5 @@ matrix:
 before_script:
   - git clone --depth=5 --branch=develop git://github.com/samtools/htslib.git
   - git clone --depth=5 git://github.com/samtools/tabix.git && cd tabix && make && cd ..
-  - export HTSDIR=./htslib PATH=$TRAVIS_BUILD_DIR/tabix:$PATH
 
 script: make -e && make -e test
