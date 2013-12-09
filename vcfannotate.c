@@ -27,6 +27,13 @@ typedef struct
 }
 plugin_t;
 
+typedef struct
+{
+    int id;
+    void (*handler)(bcf1_t *, struct _rm_tag_t *);
+}
+rm_tag_t;
+
 typedef struct _args_t
 {
     bcf_srs_t *files;
@@ -37,6 +44,9 @@ typedef struct _args_t
 
     plugin_t *plugins;
     int nplugins;
+
+    rm_tag_t *rm;
+    int nrm;
 
     char **argv, *targets_fname, *regions_fname;
     char *remove_annots;
@@ -94,12 +104,59 @@ static void init_plugins(args_t *args)
         args->plugins[i].init(args->hdr);
 }
 
+void remove_id(bcf1_t *line, rm_tag_t *tag)
+{
+    error("todo: -r ID");
+}
+void remove_filter(bcf1_t *line, rm_tag_t *tag)
+{
+    error("todo: -r FILTER");
+}
+void remove_qual(bcf1_t *line, rm_tag_t *tag)
+{
+    error("todo: -r QUAL");
+}
+void remove_info(bcf1_t *line, rm_tag_t *tag)
+{
+    error("todo: -r INFO");
+}
+
 static void init_data(args_t *args)
 {
     args->hdr = args->files->readers[0].header;
 
-    if ( args->remove_annots )
+    if ( args->remove_annots ) 
     {
+        kstring_t str = {0,0,0};
+        char *ss = args->remove_annots;
+        while ( *ss )
+        {
+            args->nrm++;
+            args->rm = (rm_tag_t*) realloc(args->rm,sizeof(rm_tag_t)*args->nrm);
+            rm_tag_t *tag = &args->rm[args->nrm-1];
+
+            int type = BCF_HL_GEN;
+            if ( !strncmp("INFO/",ss,5) ) { type = BCF_HL_INFO; ss += 5; }
+            else if ( !strncmp("FORMAT/",ss,7) ) { type = BCF_HL_FORMAT; ss += 7; }
+
+            char *se = ss;
+            while ( *se && *se!=',' ) se++;
+            str.l = 0;
+            kputsn(ss, se-ss, &str);
+
+            if ( type!= BCF_HL_GEN )
+            {
+                int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,str.s);
+                if ( id==)
+            }
+            else if ( !strcmp("ID",str.s) ) tag->handler = remove_id;
+            else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
+            else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
+            else if ( !strcmp("INFO",str.s) ) tag->handler = remove_info;
+
+            ss = *se ? se+1 : se;
+        }
+        free(str.s);
     }
     
     // bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
@@ -137,11 +194,11 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   Annotate and edit VCF/BCF files.\n");
     fprintf(stderr, "Usage:   bcftools annotate [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
-	fprintf(stderr, "    -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-	fprintf(stderr, "    -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins\n");
-    fprintf(stderr, "    -r, --regions <reg|file>       same as -t but index-jumps rather than streams to a region (requires indexed VCF/BCF)\n");
-    fprintf(stderr, "    -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER)\n");
+    fprintf(stderr, "   -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
+	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+	fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins\n");
+    fprintf(stderr, "   -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+    fprintf(stderr, "   -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER)\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
     exit(1);
