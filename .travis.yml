@@ -6,7 +6,8 @@ compiler:
   - gcc
 
 env:
-  - HTSDIR=./htslib PATH=./tabix:$PATH
+  global:
+    - HTSDIR=./htslib PATH=./tabix:$PATH
 
 matrix:
   include:
