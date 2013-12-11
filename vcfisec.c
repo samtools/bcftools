@@ -116,7 +116,6 @@ void isec_vcf(args_t *args)
     {
         out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
         bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
-        bcf_hdr_fmt_text(files->readers[args->iwrite].header);
         bcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
 
@@ -237,7 +236,6 @@ static void init_data(args_t *args)
                 args->fh_out[i] = hts_open(args->fnames[i], hts_bcf_wmode(args->output_type));  \
                 if ( !args->fh_out[i] ) error("Could not open %s\n", args->fnames[i]); \
                 bcf_hdr_append_version(args->files->readers[j].header,args->argc,args->argv,"bcftools_isec"); \
-                bcf_hdr_fmt_text(args->files->readers[j].header); \
                 bcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
             }
             OPEN_FILE(0,0);

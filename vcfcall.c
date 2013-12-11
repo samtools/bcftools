@@ -257,7 +257,7 @@ static void init_data(args_t *args)
     int i;
     if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open: %s\n", args->bcf_fname);
 
-    if ( args->nsamples && args->nsamples != args->aux.srs->readers[0].header->n[BCF_DT_SAMPLE] )
+    if ( args->nsamples && args->nsamples != bcf_hdr_nsamples(args->aux.srs->readers[0].header) )
     {
         args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
         args->aux.hdr = bcf_hdr_subset(args->aux.srs->readers[0].header, args->nsamples, args->samples, args->samples_map);
@@ -281,7 +281,7 @@ static void init_data(args_t *args)
                 args->aux.fams[i].sample[j] = k;
             }
         }
-        uint8_t *ploidy = (uint8_t*) calloc(args->aux.hdr->n[BCF_DT_SAMPLE], 1);
+        uint8_t *ploidy = (uint8_t*) calloc(bcf_hdr_nsamples(args->aux.hdr), 1);
         for (i=0; i<args->nsamples; i++)    // i index in -s sample list
         {
             int j = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[i]);     // j index in the output VCF / subset VCF
@@ -292,7 +292,7 @@ static void init_data(args_t *args)
             }
             ploidy[j] = args->aux.ploidy[i];
         }
-        args->nsamples = args->aux.hdr->n[BCF_DT_SAMPLE];
+        args->nsamples = bcf_hdr_nsamples(args->aux.hdr);
         for (i=0; i<args->nsamples; i++)
             assert( ploidy[i]==0 || ploidy[i]==1 || ploidy[i]==2 );
         free(args->aux.ploidy);
@@ -311,7 +311,6 @@ static void init_data(args_t *args)
         ccall_init(&args->aux);
 
     bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
-    bcf_hdr_fmt_text(args->aux.hdr);
     bcf_hdr_write(args->out_fh, args->aux.hdr);
 }
 

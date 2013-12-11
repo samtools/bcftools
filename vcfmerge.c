@@ -98,7 +98,7 @@ void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *_hr, const char *clash_prefix
     }
 
     // samples
-    for (i=0; i<hr->n[BCF_DT_SAMPLE]; i++)
+    for (i=0; i<bcf_hdr_nsamples(hr); i++)
     {
         char *name = hr->samples[i];
         if ( bcf_hdr_id2int(hw, BCF_DT_SAMPLE, name)!=-1 )
@@ -247,7 +247,7 @@ maux_t *maux_init(bcf_srs_t *files)
     ma->files  = files;
     int i, n_smpl = 0;
     for (i=0; i<ma->n; i++)
-        n_smpl += files->readers[i].header->n[BCF_DT_SAMPLE];
+        n_smpl += bcf_hdr_nsamples(files->readers[i].header);
     ma->smpl_ploidy = (int*) calloc(n_smpl,sizeof(int));
     ma->smpl_nGsize = (int*) malloc(n_smpl*sizeof(int));
     ma->has_line = (int*) malloc(ma->n*sizeof(int));
@@ -558,7 +558,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     bcf_srs_t *files = args->files;
     bcf_hdr_t *out_hdr = args->out_hdr;
     maux_t *ma = args->maux;
-    int i, ismpl = 0, nsamples = out_hdr->n[BCF_DT_SAMPLE];
+    int i, ismpl = 0, nsamples = bcf_hdr_nsamples(out_hdr);
     
     int nsize = 0, msize = sizeof(int32_t);
     for (i=0; i<files->nreaders; i++)
@@ -585,12 +585,12 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         if ( !fmt_ori )
         {
             // missing values: assume maximum ploidy
-            for (j=0; j<hdr->n[BCF_DT_SAMPLE]; j++)
+            for (j=0; j<bcf_hdr_nsamples(hdr); j++)
             {
                 for (k=0; k<nsize; k++) { tmp[k] = 0; ma->smpl_ploidy[ismpl+j]++; }
                 tmp += nsize;
             }
-            ismpl += hdr->n[BCF_DT_SAMPLE];
+            ismpl += bcf_hdr_nsamples(hdr);
             continue;
         }
 
@@ -599,7 +599,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             if ( !ma->d[i][0].als_differ ) \
             { \
                 /* the allele numbering is unchanged */ \
-                for (j=0; j<hdr->n[BCF_DT_SAMPLE]; j++) \
+                for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     for (k=0; k<fmt_ori->n; k++) \
                     { \
@@ -612,11 +612,11 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                     tmp += nsize; \
                     p_ori += fmt_ori->n; \
                 } \
-                ismpl += hdr->n[BCF_DT_SAMPLE]; \
+                ismpl += bcf_hdr_nsamples(hdr); \
                 continue; \
             } \
             /* allele numbering needs to be changed */ \
-            for (j=0; j<hdr->n[BCF_DT_SAMPLE]; j++) \
+            for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
             { \
                 for (k=0; k<fmt_ori->n; k++) \
                 { \
@@ -634,7 +634,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                 tmp += nsize; \
                 p_ori += fmt_ori->n; \
             } \
-            ismpl += hdr->n[BCF_DT_SAMPLE]; \
+            ismpl += bcf_hdr_nsamples(hdr); \
         }
         switch (fmt_ori->type)
         {
@@ -659,7 +659,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     bcf_srs_t *files = args->files;
     bcf_hdr_t *out_hdr = args->out_hdr;
     maux_t *ma = args->maux;
-    int i, ismpl = 0, nsamples = out_hdr->n[BCF_DT_SAMPLE];
+    int i, ismpl = 0, nsamples = bcf_hdr_nsamples(out_hdr);
 
     const char *key = NULL;
     int nsize = 0, length = BCF_VL_FIXED, type = -1;
@@ -696,11 +696,11 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             if ( !fmt_ori ) \
             { \
                 /* the field is not present in this file, set missing values */ \
-                for (j=0; j<hdr->n[BCF_DT_SAMPLE]; j++) \
+                for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt_set_missing; tgt++; for (l=1; l<nsize; l++) { tgt_set_vector_end; tgt++; } \
                 } \
-                ismpl += hdr->n[BCF_DT_SAMPLE]; \
+                ismpl += bcf_hdr_nsamples(hdr); \
                 continue; \
             } \
             assert( ma->has_line[i] ); \
@@ -710,7 +710,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             if ( (length!=BCF_VL_G && length!=BCF_VL_A) || (line->n_allele==out->n_allele && !ma->d[i][0].als_differ) ) \
             { \
                 /* alleles unchanged, copy over */ \
-                for (j=0; j<hdr->n[BCF_DT_SAMPLE]; j++) \
+                for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     for (l=0; l<fmt_ori->n; l++) \
                     { \
@@ -722,14 +722,14 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                     for (k=l; k<nsize; k++) { tgt_set_vector_end; tgt++; } \
                     for (k=l; k<fmt_ori->n; k++) { src++; } \
                 } \
-                ismpl += hdr->n[BCF_DT_SAMPLE]; \
+                ismpl += bcf_hdr_nsamples(hdr); \
                 continue; \
             } \
             /* allele numbering needs to be changed */ \
             if ( length==BCF_VL_G ) \
             { \
                 /* Number=G tags */ \
-                for (j=0; j<hdr->n[BCF_DT_SAMPLE]; j++) \
+                for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
                     for (l=0; l<ma->smpl_nGsize[ismpl+j]; l++) { tgt_set_missing; tgt++; } \
@@ -759,7 +759,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             else \
             { \
                 /* Number=A tags */ \
-                for (j=0; j<hdr->n[BCF_DT_SAMPLE]; j++) \
+                for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
                     for (l=0; l<nsize; l++) { tgt_set_missing; tgt++; } \
@@ -775,7 +775,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                     } \
                 } \
             } \
-            ismpl += hdr->n[BCF_DT_SAMPLE]; \
+            ismpl += bcf_hdr_nsamples(hdr); \
         }
         switch (type)
         {
@@ -854,7 +854,7 @@ void merge_format(args_t *args, bcf1_t *out)
         ma->d[i][0].als_differ = j==reader->buffer[0]->n_allele ? 0 : 1;
     }
 
-    out->n_sample = out_hdr->n[BCF_DT_SAMPLE];
+    out->n_sample = bcf_hdr_nsamples(out_hdr);
     if ( has_GT )
         merge_GT(args, ma->fmt_map, out);
     update_AN_AC(out_hdr, out);
@@ -1209,7 +1209,6 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
     free(str.s);
 
     bcf_hdr_sync(hdr);
-    bcf_hdr_fmt_text(hdr);
 }
 
 void merge_vcf(args_t *args)
@@ -1231,7 +1230,6 @@ void merge_vcf(args_t *args)
         }
         bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_merge");
         bcf_hdr_sync(args->out_hdr);
-        bcf_hdr_fmt_text(args->out_hdr);
     }
 
     bcf_hdr_write(args->out_fh, args->out_hdr);

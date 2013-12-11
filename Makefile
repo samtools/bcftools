@@ -79,6 +79,6 @@ install: $(PROG)
 
 
 cleanlocal:
-		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h
+		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h plugins/*.so
 
 clean:cleanlocal clean-htslib

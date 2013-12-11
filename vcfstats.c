@@ -278,8 +278,8 @@ static void init_stats(args_t *args)
     // AF corresponds to AC but is more robust for mixture of haploid and diploid GTs
     args->m_af = 101;
     for (i=0; i<args->files->nreaders; i++)
-        if ( args->files->readers[i].header->n[BCF_DT_SAMPLE] + 1> args->m_af )
-            args->m_af = args->files->readers[i].header->n[BCF_DT_SAMPLE] + 1;
+        if ( bcf_hdr_nsamples(args->files->readers[i].header) + 1> args->m_af )
+            args->m_af = bcf_hdr_nsamples(args->files->readers[i].header) + 1;
 
     #if QUAL_STATS
         args->m_qual = 999;
@@ -821,7 +821,7 @@ static void print_stats(args_t *args)
     int i, id;
     printf("# SN, Summary numbers:\n# SN\t[2]id\t[3]key\t[4]value\n");
     for (id=0; id<args->files->nreaders; id++)
-        printf("SN\t%d\tnumber of samples:\t%d\n", id, args->files->readers[id].header->n[BCF_DT_SAMPLE]);
+        printf("SN\t%d\tnumber of samples:\t%d\n", id, bcf_hdr_nsamples(args->files->readers[id].header));
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];

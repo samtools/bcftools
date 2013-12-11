@@ -45,7 +45,8 @@ typedef struct _args_t
     bcf_sr_regions_t *tgts;
 
     plugin_t *plugins;
-    int nplugins;
+    int nplugins, nplugin_paths;
+    char **plugin_paths;
 
     rm_tag_t *rm;
     int nrm;
@@ -58,6 +59,55 @@ args_t;
 
 char *msprintf(const char *fmt, ...);
 
+
+static void *dlopen_plugin(args_t *args, const char *fname)
+{
+    if ( args->nplugin_paths==-1 )
+    {
+        char *path = getenv("BCFTOOLS_PLUGINS");
+        if ( path )
+        {
+            args->nplugin_paths = 1;
+            args->plugin_paths  = (char**) malloc(sizeof(char*));
+            char *ss = args->plugin_paths[0] = strdup(path);
+            while ( *ss ) 
+            { 
+                if ( *ss==':' ) 
+                {   
+                    *ss = 0;
+                    args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
+                    args->plugin_paths[args->nplugin_paths] = ss+1;
+                    args->nplugin_paths++;
+                }
+                ss++;
+            }
+        }
+        else
+            args->nplugin_paths = 0;
+    }
+
+    char *tmp;
+    void *handle;
+    int i;
+    for (i=0; i<args->nplugin_paths; i++)
+    {
+        tmp = msprintf("%s/%s.so", args->plugin_paths[i],fname);
+        handle = dlopen(tmp, RTLD_NOW);
+        free(tmp);
+        if ( handle ) return handle;
+    }
+
+    handle = dlopen(fname, RTLD_NOW);
+    if ( handle ) return handle;
+
+    tmp = msprintf("%s.so", fname);
+    handle = dlopen(tmp, RTLD_NOW);
+    free(tmp);
+    if ( handle ) return handle;
+
+    return NULL;
+}
+
 static void load_plugin(args_t *args, const char *fname)
 {
     char *ss, *rmme;
@@ -67,18 +117,14 @@ static void load_plugin(args_t *args, const char *fname)
         char *se = strchr(ss,',');
         if ( se ) *se = 0;
 
+        void *handle = dlopen_plugin(args, ss);
+        if ( !handle ) error("Could not load %s: %s\n", ss, dlerror());
+
         args->nplugins++;
         args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
         plugin_t *plugin = &args->plugins[args->nplugins-1];
-        plugin->handle = dlopen(ss, RTLD_NOW);
+        plugin->handle = handle;
         plugin->name   = strdup(ss);
-        if ( !plugin->handle ) 
-        {
-            free(plugin->name);
-            plugin->name = msprintf("%s.so", ss);
-            plugin->handle = dlopen(plugin->name, RTLD_NOW);
-        }
-        if ( !plugin->handle ) error("Could not load %s: %s\n", ss, dlerror());
 
         dlerror();
         plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
@@ -178,6 +224,14 @@ static void init_data(args_t *args)
             else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
             else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
             else if ( !strcmp("INFO",str.s) ) tag->handler = remove_info;
+            else if ( str.l )
+            {
+                if ( str.s[0]=='#' && str.s[1]=='#' )
+                    bcf_hdr_remove(args->hdr_out,BCF_HL_GEN,str.s+2);
+                else
+                    bcf_hdr_remove(args->hdr_out,BCF_HL_STR,str.s);
+                args->nrm--;
+            }
 
             ss = *se ? se+1 : se;
         }
@@ -185,9 +239,7 @@ static void init_data(args_t *args)
         if ( !args->nrm ) error("No matching tag in -R %s\n", args->remove_annots);
     }
 
-    // bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
-
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 
     if ( args->targets_fname ) args->tgts = bcf_sr_regions_init(args->targets_fname);
@@ -207,6 +259,11 @@ static void destroy_data(args_t *args)
     for (i=0; i<args->nrm; i++) free(args->rm[i].key);
     free(args->rm);
     bcf_hdr_destroy(args->hdr_out);
+    if ( args->nplugin_paths>0 )
+    {   
+        free(args->plugin_paths[0]);
+        free(args->plugin_paths);
+    }
 }
 
 static void annotate(args_t *args, bcf1_t *line)
@@ -242,6 +299,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
+    args->nplugin_paths = -1;
 
     static struct option loptions[] = 
     {
@@ -283,10 +341,11 @@ int main_vcfannotate(int argc, char *argv[])
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     
     init_data(args);
-    bcf_hdr_write(args->out_fh, args->hdr);
+    bcf_hdr_write(args->out_fh, args->hdr_out);
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = args->files->readers[0].buffer[0];
+        if ( line->errcode ) error("Encountered error, cannot proceed. Please check the error output above.\n");
         annotate(args, line);
         bcf_write1(args->out_fh, args->hdr_out, line);
     }

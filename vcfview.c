@@ -149,8 +149,6 @@ static void init_data(args_t *args)
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
-
-    bcf_hdr_fmt_text(args->hdr);
 }
 
 static void destroy_data(args_t *args)

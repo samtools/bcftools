@@ -481,7 +481,7 @@ static void init_data(args_t *args)
     }
     else
     {
-        args->nsamples = args->header->n[BCF_DT_SAMPLE];
+        args->nsamples = bcf_hdr_nsamples(args->header);
         if ( args->nsamples )
         {
             args->samples = (int*)malloc(sizeof(int)*args->nsamples);
@@ -614,7 +614,7 @@ static void list_columns(args_t *args)
 {
     int i;
     bcf_sr_t *reader = &args->files->readers[0];
-    for (i=0; i<reader->header->n[BCF_DT_SAMPLE]; i++)
+    for (i=0; i<bcf_hdr_nsamples(reader->header); i++)
         printf("%s\n", reader->header->samples[i]);
 }
 

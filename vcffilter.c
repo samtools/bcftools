@@ -92,7 +92,6 @@ static void init_data(args_t *args)
     }
 
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_filter");
-    bcf_hdr_fmt_text(args->hdr);
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
