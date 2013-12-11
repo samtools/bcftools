@@ -27,17 +27,19 @@ typedef struct
 }
 plugin_t;
 
-typedef struct
+struct _args_t;
+
+typedef struct _rm_tag_t
 {
-    int id;
-    void (*handler)(bcf1_t *, struct _rm_tag_t *);
+    char *key;
+    void (*handler)(struct _args_t *, bcf1_t *, struct _rm_tag_t *);
 }
 rm_tag_t;
 
 typedef struct _args_t
 {
     bcf_srs_t *files;
-    bcf_hdr_t *hdr;
+    bcf_hdr_t *hdr, *hdr_out;
     htsFile *out_fh;
     int output_type;
     bcf_sr_regions_t *tgts;
@@ -104,26 +106,35 @@ static void init_plugins(args_t *args)
         args->plugins[i].init(args->hdr);
 }
 
-void remove_id(bcf1_t *line, rm_tag_t *tag)
+void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
     error("todo: -r ID");
 }
-void remove_filter(bcf1_t *line, rm_tag_t *tag)
+void remove_filter(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
     error("todo: -r FILTER");
 }
-void remove_qual(bcf1_t *line, rm_tag_t *tag)
+void remove_qual(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
     error("todo: -r QUAL");
 }
-void remove_info(bcf1_t *line, rm_tag_t *tag)
+void remove_info(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
     error("todo: -r INFO");
+}
+void remove_info_tag(args_t *args, bcf1_t *line, rm_tag_t *tag)
+{
+    bcf_update_info(args->hdr, line, tag->key, NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
+}
+void remove_format_tag(args_t *args, bcf1_t *line, rm_tag_t *tag)
+{
+    bcf_update_format(args->hdr, line, tag->key, NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
 }
 
 static void init_data(args_t *args)
 {
     args->hdr = args->files->readers[0].header;
+    args->hdr_out = bcf_hdr_dup(args->hdr);
 
     if ( args->remove_annots ) 
     {
@@ -134,10 +145,13 @@ static void init_data(args_t *args)
             args->nrm++;
             args->rm = (rm_tag_t*) realloc(args->rm,sizeof(rm_tag_t)*args->nrm);
             rm_tag_t *tag = &args->rm[args->nrm-1];
+            tag->key = NULL;
 
             int type = BCF_HL_GEN;
             if ( !strncmp("INFO/",ss,5) ) { type = BCF_HL_INFO; ss += 5; }
-            else if ( !strncmp("FORMAT/",ss,7) ) { type = BCF_HL_FORMAT; ss += 7; }
+            else if ( !strncmp("INF/",ss,4) ) { type = BCF_HL_INFO; ss += 4; }
+            else if ( !strncmp("FORMAT/",ss,7) ) { type = BCF_HL_FMT; ss += 7; }
+            else if ( !strncmp("FMT/",ss,4) ) { type = BCF_HL_FMT; ss += 4; }
 
             char *se = ss;
             while ( *se && *se!=',' ) se++;
@@ -147,7 +161,18 @@ static void init_data(args_t *args)
             if ( type!= BCF_HL_GEN )
             {
                 int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,str.s);
-                if ( id==)
+                if ( !bcf_hdr_idinfo_exists(args->hdr,type,id) ) 
+                {
+                    fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
+                    args->nrm--;
+                }
+                else
+                {
+                    tag->key = strdup(str.s);
+                    if ( type==BCF_HL_INFO ) tag->handler = remove_info_tag;
+                    else if ( type==BCF_HL_FMT ) tag->handler = remove_format_tag;
+                    bcf_hdr_remove(args->hdr_out,type,tag->key);
+                }
             }
             else if ( !strcmp("ID",str.s) ) tag->handler = remove_id;
             else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
@@ -157,11 +182,11 @@ static void init_data(args_t *args)
             ss = *se ? se+1 : se;
         }
         free(str.s);
+        if ( !args->nrm ) error("No matching tag in -R %s\n", args->remove_annots);
     }
-    
+
     // bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
-    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_annotate");
-    bcf_hdr_fmt_text(args->hdr);
+    bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
 
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 
@@ -179,11 +204,17 @@ static void destroy_data(args_t *args)
         dlclose(args->plugins[i].handle);
     }
     free(args->plugins);
+    for (i=0; i<args->nrm; i++) free(args->rm[i].key);
+    free(args->rm);
+    bcf_hdr_destroy(args->hdr_out);
 }
 
 static void annotate(args_t *args, bcf1_t *line)
 {
     int i;
+    for (i=0; i<args->nrm; i++)
+        args->rm[i].handler(args, line, &args->rm[i]);
+
     for (i=0; i<args->nplugins; i++)
         args->plugins[i].process(line);
 }
@@ -257,7 +288,7 @@ int main_vcfannotate(int argc, char *argv[])
     {
         bcf1_t *line = args->files->readers[0].buffer[0];
         annotate(args, line);
-        bcf_write1(args->out_fh, args->hdr, line);
+        bcf_write1(args->out_fh, args->hdr_out, line);
     }
     hts_close(args->out_fh);
     destroy_data(args);
