@@ -21,7 +21,7 @@ typedef struct
     double *lks, *sigs;
     int *cnts, *dps, hom_only, cross_check, avg_site_discordance;
 	char *cwd, **argv, *gt_fname, *plot, *query_sample, *target_sample;
-	int argc;
+	int argc, no_PLs;
 }
 args_t;
 
@@ -278,6 +278,7 @@ static void print_header(args_t *args, FILE *fp)
 static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
 {
     // PLs not present, use GTs instead. 
+    int fake_PL = args->no_PLs ? 1 : 99;    // with 1, discordance is the number of non-matching GTs
     int nsm_gt, i;
     if ( (nsm_gt=bcf_get_genotypes(hdr, line, &args->tmp_arr, &args->ntmp_arr)) <= 0 ) 
         error("GT not present at %s:%d?\n", hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
@@ -297,8 +298,8 @@ static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
         }
         else
         {
-            for (j=0; j<npl; j++) pl_ptr[j] = 99;
-            int idx = a>b ? a*(a+1)/2 + b : b*(b+1)/2 + a;
+            for (j=0; j<npl; j++) pl_ptr[j] = fake_PL;
+            int idx = bcf_alleles2gt(a,b);
             pl_ptr[idx] = 0;
         }
     }
@@ -308,7 +309,7 @@ static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
 static void check_gt(args_t *args)
 {
     int i,j, ret, *gt2ipl = NULL, m_gt2ipl = 0, *gt_cnts = NULL, *gt_arr = NULL, ngt_arr = 0, *dp_arr = NULL, ndp_arr = 0;
-    int fake_pls = 0;
+    int fake_pls = args->no_PLs;
 
 fprintf(stderr,"Warning: Untested code, please check me [todo]\n");
     if ( bcf_hdr_id2int(args->gt_hdr, BCF_DT_ID, "GT")<0 ) error("[E::%s] GT not present in the header of %s?\n", __func__, args->files->readers[1].fname);
@@ -507,7 +508,7 @@ static void cross_check_gts(args_t *args)
 {
     int nsamples = bcf_hdr_nsamples(args->sm_hdr), ndp_arr = 0;
     unsigned int *dp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)), *ndp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)); // this will overflow one day...
-    int fake_pls = 0, ignore_dp = 0;
+    int fake_pls = args->no_PLs, ignore_dp = 0;
 
     int i,j,k,idx, *dp_arr = NULL, pl_warned = 0, dp_warned = 0;
     int *is_hom = args->hom_only ? (int*) malloc(sizeof(int)*nsamples) : NULL;
@@ -624,12 +625,12 @@ static void cross_check_gts(args_t *args)
         double tmp = (double)score[idx]/nsamples;
         double nsites = (double)ndp[idx]*2/(nsamples*(nsamples+1));
         avg_score += tmp;
-        fprintf(fp, "SM\t%lf\t%.3lf\t%.1lf\t%s\n", tmp, adp, nsites, args->sm_hdr->samples[idx]);
+        fprintf(fp, "SM\t%e\t%.3lf\t%.1lf\t%s\n", tmp, adp, nsites, args->sm_hdr->samples[idx]);
     }
 
     // Overall score: maximum absolute deviation from the average score
     fprintf(fp, "# [1] MD\t[2]Maximum deviation\t[3]The culprit\n");
-    fprintf(fp, "MD\t%f\t%s\n", (double)score[idx]/nsamples - avg_score/nsamples, args->sm_hdr->samples[idx]);    // idx still set
+    fprintf(fp, "MD\t%e\t%s\n", (double)score[idx]/nsamples - avg_score/nsamples, args->sm_hdr->samples[idx]);    // idx still set
     free(p);
     free(score);
     free(dp);
@@ -670,6 +671,7 @@ static void usage(void)
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --average-discordance       output average discordance for all sites\n");
 	fprintf(stderr, "    -g, --genotypes <file>          genotypes to compare against\n");
+	fprintf(stderr, "    -G, --GTs-only                  use GTs, ignore PLs\n");
 	fprintf(stderr, "    -H, --homs-only                 homozygous genotypes only (useful for low coverage data)\n");
 	fprintf(stderr, "    -p, --plot <prefix>             plot\n");
     fprintf(stderr, "    -r, --regions <file|reg>        restrict to list of regions or regions listed in a file, see man page for details\n");
@@ -690,6 +692,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 
 	static struct option loptions[] = 
 	{
+		{"GTs-only",0,0,'G'},
 		{"average-discordance",0,0,'a'},
 		{"homs-only",0,0,'H'},
 		{"help",0,0,'h'},
@@ -701,8 +704,9 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"targets",1,0,'t'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:at:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:at:G",loptions,NULL)) >= 0) {
 		switch (c) {
+			case 'G': args->no_PLs = 1; break;
 			case 'a': args->avg_site_discordance = 1; break;
 			case 'H': args->hom_only = 1; break;
 			case 'g': args->gt_fname = optarg; break;

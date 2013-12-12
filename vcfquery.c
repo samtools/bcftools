@@ -128,7 +128,7 @@ static void process_alt(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kst
 }
 static void process_qual(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
 {  
-    if ( memcmp(&line->qual, &bcf_float_missing, 4) == 0) kputc('.', str);
+    if ( bcf_float_is_missing(line->qual) ) kputc('.', str);
     else ksprintf(str, "%g", line->qual);
 }
 static void process_filter(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 

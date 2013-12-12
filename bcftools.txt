@@ -1,4 +1,7 @@
-// This is asciidoc template for the bcftools man page and html
+// This is asciidoc template for the bcftools man page and html.
+// Please do not modify bcftools.1 or bcftools.html directly,
+// edit this file and convert using the following commands:
+//
 //  a2x --doctype manpage --format manpage bcftools.txt 
 //  a2x --doctype manpage --format xhtml bcftools.txt
 //
@@ -278,6 +281,9 @@ With *-s* but no *-p*, likelihoods at all sites are printed.
 *-g, --genotypes* 'genotypes.vcf.gz'::
     reference genotypes to compare against
 
+*-G, --GTs-only*::
+    ignore PLs, use GTs
+
 *-H, --homs-only*::
     consider only genotypes which are homozygous in both 'genotypes' and
     'query' VCF. This may be useful with low coverage data.
@@ -297,7 +303,19 @@ With *-s* but no *-p*, likelihoods at all sites are printed.
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
+==== Output files format:
 
+    CN;;
+        This field lists pairwise discordance for all possible sample pairs.
+        It is calculated simply as 
+----
+        \sum_s { min_{G} \{ PL_i + PL_j \} },
+----
+        where the sum is over all sites 's' and genotype 'G' is selected
+        to maximize likelihood for samples 'i' and 'j'. When PL field is not
+        present, a constant value '99' is used for the unseen genotypes. 
+        With *-G*, the value '1' is used instead and thus the discordance value
+        gives exactly the number of differing genotypes.
 
 
 [[isec]]
