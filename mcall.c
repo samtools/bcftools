@@ -70,7 +70,7 @@ int calc_Pkij(int fals, int mals, int kals, int fpl, int mpl, int kpl)
 static void mcall_init_trios(call_t *call)
 {
     // 23, 138, 478 possible diploid trio genotypes with 2, 3, 4 alleles
-    call->ntrio[FTYPE_222][2] = 23; call->ntrio[FTYPE_222][3] = 138; call->ntrio[FTYPE_222][4] = 478;
+    call->ntrio[FTYPE_222][2] = 15; call->ntrio[FTYPE_222][3] = 78;  call->ntrio[FTYPE_222][4] = 250;
     call->ntrio[FTYPE_121][2] = 8;  call->ntrio[FTYPE_121][3] = 27;  call->ntrio[FTYPE_121][4] = 64;
     call->ntrio[FTYPE_122][2] = 8;  call->ntrio[FTYPE_122][3] = 27;  call->ntrio[FTYPE_122][4] = 64;
     call->ntrio[FTYPE_101][2] = 2;  call->ntrio[FTYPE_101][3] = 3;   call->ntrio[FTYPE_101][4] = 4;
@@ -93,11 +93,13 @@ static void mcall_init_trios(call_t *call)
                 gts[ngts++] = 1<<i | 1<<j;
 
         // 222: all diploid
+        // i,j,k: father, mother, child
         for (i=0; i<ngts; i++)
             for (j=0; j<ngts; j++)
                 for (k=0; k<ngts; k++)
                 {
                     if ( ((gts[i]|gts[j])&gts[k]) != gts[k] ) continue;             // k not present in neither i nor j
+                    if ( !(gts[i] & gts[k]) || !(gts[j] & gts[k]) ) continue;       // one copy from father, one from mother
                     int Pkij = calc_Pkij(gts[i],gts[j],gts[k], 2,2,2);
                     call->trio[FTYPE_222][nals][n++] = Pkij<<12 | i<<8 | j<<4 | k;  // father, mother, child
                 }
@@ -740,12 +742,10 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             uc_lk += max;
             uc_itr |= jmax << ((2-i)*4);
         }
-        uc_lk += log(1 - call->trio_Pm);
 
         // Best constrained likelihood
-        double best_lk = uc_lk;
-        int itr, best_itr = uc_itr;
-        // int uc_is_mendelian = 0;
+        int c_itr = -1, itr, uc_is_mendelian = 0;
+        double c_lk = -HUGE_VAL;
         for (itr=0; itr<ntrio; itr++)   // for each trio genotype combination
         {
             double lk = 0;
@@ -765,17 +765,24 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             double Pkij = npresent==3 ? (double)2/(trio[itr]>>12) : 1;  // with missing genotypes Pkij's are different
             lk += log(1 - call->trio_Pm * (1 - Pkij));
             // fprintf(stderr,"%d%d%d\t%e\t%.2f\n", trio[itr]>>8&0xf,trio[itr]>>4&0xf,trio[itr]&0xf, lk, Pkij);
-            if ( best_lk < lk ) { best_lk = lk; best_itr = trio[itr]; }
-            // if ( uc_itr==trio[itr] ) uc_is_mendelian = 1;
+            if ( c_lk < lk ) { c_lk = lk; c_itr = trio[itr]; }
+            if ( uc_itr==trio[itr] ) uc_is_mendelian = 1;
         }
-        // fprintf(stderr,"best_lk=%e uc_lk=%e  best_itr=%d%d%d uc_itr=%d%d%d\n", best_lk,uc_lk,best_itr>>8&0xf,best_itr>>4&0xf,best_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
+
+        if ( !uc_is_mendelian )
+        {
+            uc_lk += log(1 - call->trio_Pm);
+            //fprintf(stderr,"c_lk=%e uc_lk=%e c_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,uc_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
+            if ( c_lk < uc_lk ) { c_lk = uc_lk; c_itr = uc_itr; }
+        }
+        //fprintf(stderr,"best_lk=%e best_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
 
         // Set genotypes for father, mother, child and calculate genotype qualities
         for (i=0; i<3; i++)
         {
             // GT
             int ismpl    = fam->sample[i];
-            int igt      = best_itr>>((2-i)*4) & 0xf;
+            int igt      = c_itr>>((2-i)*4) & 0xf;
             double *gl   = call->GLs + ngts*ismpl;
             int32_t *gts = call->cgts + ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )    // zero depth, set missing genotypes
