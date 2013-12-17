@@ -53,12 +53,13 @@ typedef struct _args_t
     double *AFs;
     double pl2p[256], *pdg;
     int mPLs, mAFs, mAN, mACs, mpdg;
-    int npl, ntot, ngood;
+    int ntot, nused;
     int prev_rid;
+    double unseen_PL;
 
     char **argv, *targets_fname, *regions_fname, *samples_fname;
     char *genmap_fname;
-    int argc, counts_only, fwd_bwd;
+    int argc, counts_only, fwd_bwd, fake_PLs;
 }
 args_t;
 
@@ -344,48 +345,14 @@ static void flush_buffer(args_t *args, int ismpl, int n)
     else flush_buffer_viterbi(args, ismpl, n);
 }
 
-static void vcfroh(args_t *args, bcf1_t *line)
+int set_pdg_from_PLs(args_t *args, bcf1_t *line)
 {
-    int i, j, k;
-    if ( !line )
-    { 
-        for (i=0; i<args->nsmpl; i++)
-            flush_buffer(args, i, args->smpl[i].rbuf.n); 
-        return; 
-    }
-    if ( args->prev_rid<0 ) 
-    {
-        args->prev_rid = line->rid;
-        load_genmap(args, line);
-    }
-    if ( args->prev_rid!=line->rid )
-    {
-        load_genmap(args, line);
-        for (i=0; i<args->nsmpl; i++)
-            flush_buffer(args, i, args->smpl[i].rbuf.n);
-    }
-    args->prev_rid = line->rid;
-    args->ntot++;
-    
-    // Get the PLs
     int nPLs = bcf_get_format_int(args->hdr, line, "PL", &args->PLs, &args->mPLs);
-    if ( nPLs!=bcf_hdr_nsamples(args->hdr)*line->n_allele*(line->n_allele+1)/2 ) 
-    {
-        args->npl++;
-        return;
-    }
+    if ( nPLs!=bcf_hdr_nsamples(args->hdr)*line->n_allele*(line->n_allele+1)/2 ) return -1;
     nPLs /= bcf_hdr_nsamples(args->hdr);
 
-    // Get the allele frequencies and convert PLs to probabilities
-    if ( bcf_get_info_int(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) error("No AN tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
-    int nAC = bcf_get_info_int(args->hdr, line, "AC", &args->ACs, &args->mACs);
-    if ( nAC <= 0 ) error("No AC tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
-    hts_expand(double, line->n_allele, args->mAFs, args->AFs);
-    int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
-    args->AFs[0] = (double) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
-    for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i-1] / args->AN[0];  // ALT frequencies
-    args->ngood++;
-
+    // Convert PLs to probabilities
+    int i, j, k;
     for (i=0; i<args->nsmpl; i++)
     {
         int32_t *pl = &args->PLs[args->ismpl[i]*nPLs], min = pl[0];
@@ -431,6 +398,87 @@ static void vcfroh(args_t *args, bcf1_t *line)
         idx = bcf_alleles2gt(jmin,kmin); pdg[1] = args->pl2p[ pl[idx] ] / sum;
         idx = bcf_alleles2gt(kmin,kmin); pdg[2] = args->pl2p[ pl[idx] ] / sum;
     }
+    return 0;
+}
+
+int set_pdg_from_GTs(args_t *args, bcf1_t *line)
+{
+    // misusing PL array for GT, which is OK, only the naming is confusing
+    int nGTs = bcf_get_genotypes(args->hdr, line, &args->PLs, &args->mPLs);
+    if ( nGTs != 2*bcf_hdr_nsamples(args->hdr) ) return -1; // not diploid?
+
+    nGTs /= bcf_hdr_nsamples(args->hdr);
+
+    // Convert GTs to fake probabilities
+    int i;
+    for (i=0; i<args->nsmpl; i++)
+    {
+        double *pdg = &args->pdg[i*3];
+        int32_t *gt = &args->PLs[args->ismpl[i]*nGTs];
+
+        if (  gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) { pdg[0] = -1; continue; }
+
+        int a = bcf_gt_allele(gt[0]);
+        int b = bcf_gt_allele(gt[1]);
+        if ( a!=b )
+        {
+            pdg[0] = pdg[2] = args->unseen_PL;
+            pdg[1] = 1 - 2*args->unseen_PL;
+        }
+        else if ( a==0 )
+        {
+            pdg[0] = 1 - 2*args->unseen_PL;
+            pdg[1] = pdg[2] = args->unseen_PL;
+        }
+        else
+        {
+            pdg[0] = pdg[1] = args->unseen_PL;
+            pdg[2] = 1 - 2*args->unseen_PL;
+        }
+    }
+    return 0;
+}
+
+static void vcfroh(args_t *args, bcf1_t *line)
+{
+    int i;
+    if ( !line )
+    { 
+        for (i=0; i<args->nsmpl; i++)
+            flush_buffer(args, i, args->smpl[i].rbuf.n); 
+        return; 
+    }
+    if ( args->prev_rid<0 ) 
+    {
+        args->prev_rid = line->rid;
+        load_genmap(args, line);
+    }
+    if ( args->prev_rid!=line->rid )
+    {
+        load_genmap(args, line);
+        for (i=0; i<args->nsmpl; i++)
+            flush_buffer(args, i, args->smpl[i].rbuf.n);
+    }
+    args->prev_rid = line->rid;
+    args->ntot++;
+    
+    // Get the allele frequencies
+    if ( bcf_get_info_int(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) error("No AN tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
+    int nAC = bcf_get_info_int(args->hdr, line, "AC", &args->ACs, &args->mACs);
+    if ( nAC <= 0 ) error("No AC tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
+    hts_expand(double, line->n_allele, args->mAFs, args->AFs);
+    int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
+    args->AFs[0] = (double) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
+    for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i-1] / args->AN[0];  // ALT frequencies
+
+    int ret;
+    if ( !args->fake_PLs ) 
+        ret = set_pdg_from_PLs(args, line);
+    else
+        ret = set_pdg_from_GTs(args, line);
+
+    if ( ret ) return;  // not successful
+    args->nused++;
 
     // Calculate emission probabilities P(D|AZ) and P(D|HW)
     for (i=0; i<args->nsmpl; i++)
@@ -459,14 +507,15 @@ static void usage(args_t *args)
     fprintf(stderr, "General Options:\n");
     //fprintf(stderr, "    -c, --counts-only              no HMM, simply report counts of HETs and HOMs per win\n");
     fprintf(stderr, "    -f, --fwd-bwd                  run forward-backward algorithm instead of Viterbi\n");
+    fprintf(stderr, "    -G, --GTs-only <float>         use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
     fprintf(stderr, "    -m, --genetic-map <file>       genetic map in IMPUTE2 format, single file or mask, where \"*\" is replaced with chromosome name\n");
     fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --samples <list|file>      list of samples (file or comma separated list) [null]\n");
     fprintf(stderr, "    -t, --targets <reg|file>       similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "    -w, --win <int>                maximum window length [100_000]\n");
     fprintf(stderr, "HMM Options:\n");
-    fprintf(stderr, "    -a, --autozygosity <float>     P(AZ|HW) transition probability [3.8e-9]\n");
-    fprintf(stderr, "    -H, --Hardy-Weinberg <float>   P(HW|AZ) transition probability [6.0e-8]\n");
+    fprintf(stderr, "    -a, --hw-to-az <float>         P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-4]\n");
+    fprintf(stderr, "    -H, --az-to-hw <float>         P(HW|AZ) transition probability from HW to AZ state [1e-3]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -477,25 +526,27 @@ int main_vcfroh(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
-    args->tAZ     = 1e-3;
-    args->tHW     = 1e-2;
+    args->tAZ     = 1e-4;
+    args->tHW     = 1e-3;
     args->mwin    = (int)1e5;   // maximum number of sites that can be processed in one go
 
     static struct option loptions[] = 
     {
+        {"GTs-only",1,0,'G'},
         {"counts-only",0,0,'c'},
         {"win",1,0,'w'},
         {"samples",1,0,'s'},
-        {"autozygosity",1,0,'a'},
-        {"Hardy-Weinberg",1,0,'H'},
+        {"hw-to-az",1,0,'a'},
+        {"az-to-hw",1,0,'H'},
         {"targets",1,0,'t'},
         {"regions",1,0,'r'},
         {"genetic-map",1,0,'m'},
         {"fwd-bwd",1,0,'f'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:f",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
             case 'm': args->genmap_fname = optarg; break;
             case 'c': args->counts_only = 1; break;
             case 'f': args->fwd_bwd = 1; break;
@@ -536,7 +587,7 @@ int main_vcfroh(int argc, char *argv[])
         vcfroh(args, args->files->readers[0].buffer[0]);
     }
     vcfroh(args, NULL);
-    fprintf(stderr,"Number of lines: total/missing PLs/processed: %d/%d/%d\n", args->ntot,args->npl,args->ngood);
+    fprintf(stderr,"Number of lines: total/processed: %d/%d\n", args->ntot,args->nused);
     destroy_data(args);
     free(args);
     return 0;
