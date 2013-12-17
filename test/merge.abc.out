@@ -1,4 +1,4 @@
-##fileformat=VCFv4.1
+##fileformat=VCFv4.2
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##INFO=<ID=TEST,Number=1,Type=Integer,Description="Testing Tag">
 ##FORMAT=<ID=TT,Number=A,Type=Integer,Description="Testing Tag, with commas and \"escapes\" and escaped escapes combined with \\\"quotes\\\\\"">
