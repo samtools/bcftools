@@ -33,6 +33,7 @@ test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');
 test_vcf_regions($opts,in=>'regions');
+test_vcf_annotate($opts,in=>'annotate');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -402,3 +403,10 @@ sub test_usage_subcommand
     
     passed($opts,$test);
 }
+sub test_vcf_annotate
+{
+    my ($opts,%args) = @_;
+    bgzip_tabix($opts,file=>$args{in},suffix=>'tab',args=>'-s1 -b2 -e2');
+    # todo...
+}
+

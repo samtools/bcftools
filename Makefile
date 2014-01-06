@@ -60,13 +60,14 @@ plugins: $(PLUGINS)
 	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ $<
 
 main.o: version.h $(HTSDIR)/version.h bcftools.h
-vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h
-mcall.o ccall.o: call.h vcmp.h
-vcffilter.o: filter.h
-vcfsubset.o: filter.h
-vcfnorm.o: rbuf.h
-vcffilter.o: rbuf.h
-vcfroh.o: rbuf.h
+vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h bcftools.h
+mcall.o ccall.o: call.h vcmp.h bcftools.h
+vcffilter.o: bcftools.h filter.h
+vcfsubset.o: bcftools.h filter.h
+vcfnorm.o: bcftools.h rbuf.h
+vcffilter.o: bcftools.h rbuf.h
+vcfroh.o: bcftools.h rbuf.h
+vcfannotate.o: bcftools.h vcmp.h $(HTSDIR)/htslib/kseq.h
 
 bcftools: $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl

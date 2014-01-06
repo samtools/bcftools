@@ -9,8 +9,10 @@
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
+#include <htslib/kseq.h>
 #include <dlfcn.h>
 #include "bcftools.h"
+#include "vcmp.h"
 
 /** Plugin API */
 typedef void (*dl_init_f) (bcf_hdr_t *);
@@ -36,6 +38,20 @@ typedef struct _rm_tag_t
 }
 rm_tag_t;
 
+typedef struct
+{
+    char **cols;
+    char *line;
+}
+annot_line_t;
+
+typedef struct _annot_t
+{
+    int icol, hdr_id;
+    int (*setter)(struct _args_t *, bcf1_t *, struct _annot_t *);
+}
+annot_t;
+
 typedef struct _args_t
 {
     bcf_srs_t *files;
@@ -44,15 +60,20 @@ typedef struct _args_t
     int output_type;
     bcf_sr_regions_t *tgts;
 
-    plugin_t *plugins;
+    plugin_t *plugins;      // user plugins
     int nplugins, nplugin_paths;
     char **plugin_paths;
 
-    rm_tag_t *rm;
+    rm_tag_t *rm;           // tags scheduled for removal
     int nrm;
 
-    char **argv, *targets_fname, *regions_fname;
-    char *remove_annots;
+    vcmp_t *vcmp;           // for matching annotation and VCF lines by allele
+    annot_line_t *alines;   // buffered annotation lines
+    int nalines, malines;
+    int *cols, ncols;       // column indexes starting with chr,pos,ref,alt, or -1 if not present
+
+    char **argv, *targets_fname, *regions_fname, *header_fname;
+    char *remove_annots, *columns;
     int argc;
 }
 args_t;
@@ -177,72 +198,116 @@ void remove_format_tag(args_t *args, bcf1_t *line, rm_tag_t *tag)
     bcf_update_format(args->hdr, line, tag->key, NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
 }
 
+static void init_remove_annots(args_t *args)
+{
+    kstring_t str = {0,0,0};
+    char *ss = args->remove_annots;
+    while ( *ss )
+    {
+        args->nrm++;
+        args->rm = (rm_tag_t*) realloc(args->rm,sizeof(rm_tag_t)*args->nrm);
+        rm_tag_t *tag = &args->rm[args->nrm-1];
+        tag->key = NULL;
+
+        int type = BCF_HL_GEN;
+        if ( !strncmp("INFO/",ss,5) ) { type = BCF_HL_INFO; ss += 5; }
+        else if ( !strncmp("INF/",ss,4) ) { type = BCF_HL_INFO; ss += 4; }
+        else if ( !strncmp("FORMAT/",ss,7) ) { type = BCF_HL_FMT; ss += 7; }
+        else if ( !strncmp("FMT/",ss,4) ) { type = BCF_HL_FMT; ss += 4; }
+
+        char *se = ss;
+        while ( *se && *se!=',' ) se++;
+        str.l = 0;
+        kputsn(ss, se-ss, &str);
+
+        if ( type!= BCF_HL_GEN )
+        {
+            int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,str.s);
+            if ( !bcf_hdr_idinfo_exists(args->hdr,type,id) ) 
+            {
+                fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
+                args->nrm--;
+            }
+            else
+            {
+                tag->key = strdup(str.s);
+                if ( type==BCF_HL_INFO ) tag->handler = remove_info_tag;
+                else if ( type==BCF_HL_FMT ) tag->handler = remove_format_tag;
+                bcf_hdr_remove(args->hdr_out,type,tag->key);
+            }
+        }
+        else if ( !strcmp("ID",str.s) ) tag->handler = remove_id;
+        else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
+        else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
+        else if ( !strcmp("INFO",str.s) ) tag->handler = remove_info;
+        else if ( str.l )
+        {
+            if ( str.s[0]=='#' && str.s[1]=='#' )
+                bcf_hdr_remove(args->hdr_out,BCF_HL_GEN,str.s+2);
+            else
+                bcf_hdr_remove(args->hdr_out,BCF_HL_STR,str.s);
+            args->nrm--;
+        }
+
+        ss = *se ? se+1 : se;
+    }
+    free(str.s);
+    if ( !args->nrm ) error("No matching tag in -R %s\n", args->remove_annots);
+}
+static void init_header_lines(args_t *args)
+{
+    htsFile *file = hts_open(args->header_fname, "rb");
+    if ( !file ) error("Error reading %s\n", args->header_fname);
+    kstring_t str = {0,0,0};
+    while ( hts_getline(file, KS_SEP_LINE, &str) > 0 ) 
+    {
+        if ( bcf_hdr_append(args->hdr_out,str.s) ) error("Could not parse %s: %s\n", args->header_fname, str.s);
+    }
+    hts_close(file);
+    free(str.s);
+}
+static void init_columns(args_t *args)
+{
+    kstring_t str = {0,0,0};
+    char *ss = args->columns, *se = ss;
+    args->ncols = 1;
+    while ( *se ) 
+    {
+        if ( *se==',' ) args->ncols++;
+        se++;
+    }
+    args->cols = (int*) malloc(sizeof(int)*args->ncols);
+    int i;
+    for (i=0; i<args->ncols; i++) args->cols[i] = -1;
+    se = ss;
+    while ( *se )
+    {
+        if ( *se!=',' ) { se++; continue; }
+        str.l = 0;
+        kputsn(ss, se-ss, &str);
+        if ( !strcasecmp("CHROM",ss) ) {}
+    }
+    free(str.s);
+}
+
 static void init_data(args_t *args)
 {
     args->hdr = args->files->readers[0].header;
     args->hdr_out = bcf_hdr_dup(args->hdr);
 
-    if ( args->remove_annots ) 
-    {
-        kstring_t str = {0,0,0};
-        char *ss = args->remove_annots;
-        while ( *ss )
-        {
-            args->nrm++;
-            args->rm = (rm_tag_t*) realloc(args->rm,sizeof(rm_tag_t)*args->nrm);
-            rm_tag_t *tag = &args->rm[args->nrm-1];
-            tag->key = NULL;
-
-            int type = BCF_HL_GEN;
-            if ( !strncmp("INFO/",ss,5) ) { type = BCF_HL_INFO; ss += 5; }
-            else if ( !strncmp("INF/",ss,4) ) { type = BCF_HL_INFO; ss += 4; }
-            else if ( !strncmp("FORMAT/",ss,7) ) { type = BCF_HL_FMT; ss += 7; }
-            else if ( !strncmp("FMT/",ss,4) ) { type = BCF_HL_FMT; ss += 4; }
-
-            char *se = ss;
-            while ( *se && *se!=',' ) se++;
-            str.l = 0;
-            kputsn(ss, se-ss, &str);
-
-            if ( type!= BCF_HL_GEN )
-            {
-                int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,str.s);
-                if ( !bcf_hdr_idinfo_exists(args->hdr,type,id) ) 
-                {
-                    fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
-                    args->nrm--;
-                }
-                else
-                {
-                    tag->key = strdup(str.s);
-                    if ( type==BCF_HL_INFO ) tag->handler = remove_info_tag;
-                    else if ( type==BCF_HL_FMT ) tag->handler = remove_format_tag;
-                    bcf_hdr_remove(args->hdr_out,type,tag->key);
-                }
-            }
-            else if ( !strcmp("ID",str.s) ) tag->handler = remove_id;
-            else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
-            else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
-            else if ( !strcmp("INFO",str.s) ) tag->handler = remove_info;
-            else if ( str.l )
-            {
-                if ( str.s[0]=='#' && str.s[1]=='#' )
-                    bcf_hdr_remove(args->hdr_out,BCF_HL_GEN,str.s+2);
-                else
-                    bcf_hdr_remove(args->hdr_out,BCF_HL_STR,str.s);
-                args->nrm--;
-            }
-
-            ss = *se ? se+1 : se;
-        }
-        free(str.s);
-        if ( !args->nrm ) error("No matching tag in -R %s\n", args->remove_annots);
-    }
+    if ( args->remove_annots ) init_remove_annots(args);
+    if ( args->header_fname ) init_header_lines(args);
+    if ( args->columns ) init_columns(args);
 
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 
-    if ( args->targets_fname ) args->tgts = bcf_sr_regions_init(args->targets_fname);
+    if ( args->targets_fname )
+    {
+        args->tgts = bcf_sr_regions_init(args->targets_fname);
+        if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
+        args->vcmp = vcmp_init();
+    }
     init_plugins(args);
 }
 
@@ -264,6 +329,7 @@ static void destroy_data(args_t *args)
         free(args->plugin_paths[0]);
         free(args->plugin_paths);
     }
+    if (args->vcmp) vcmp_destroy(args->vcmp);
 }
 
 static void annotate(args_t *args, bcf1_t *line)
@@ -271,6 +337,15 @@ static void annotate(args_t *args, bcf1_t *line)
     int i;
     for (i=0; i<args->nrm; i++)
         args->rm[i].handler(args, line, &args->rm[i]);
+
+    // Buffer annotation lines. When multiple ALT alleles are present in the
+    // annotation file, at least one must match one of the VCF alleles.
+    int ret = bcf_sr_regions_overlap(args->tgts, bcf_seqname(args->hdr,line), line->pos, line->pos);
+    printf("vcf=%d  tgt=%d  ret=%d\n", line->pos+1,args->tgts->start+1,ret);
+//..
+    int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2);
+    int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2);
+
 
     for (i=0; i<args->nplugins; i++)
         args->plugins[i].process(line);
@@ -283,6 +358,8 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools annotate [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
+    fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
+    fprintf(stderr, "   -h, --header-lines <file>      lines which should to appended to the VCF header\n");
 	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
 	fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins\n");
     fprintf(stderr, "   -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
@@ -308,11 +385,14 @@ int main_vcfannotate(int argc, char *argv[])
         {"plugin",1,0,'p'},
         {"regions",1,0,'r'},
         {"remove",1,0,'R'},
+        {"columns",1,0,'c'},
+        {"header-liens",1,0,'h'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?O:r:a:p:R:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h?O:r:a:p:R:c:",loptions,NULL)) >= 0) 
     {
         switch (c) {
+    	    case 'c': args->columns = optarg; break;
     	    case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
@@ -326,7 +406,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'a': args->targets_fname = optarg; break;
             case 'r': args->regions_fname = optarg; break;
             case 'p': load_plugin(args, optarg); break;
-            case 'h': 
+            case 'h': args->header_fname = optarg; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
