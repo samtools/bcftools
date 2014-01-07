@@ -172,7 +172,7 @@ static void _indel_ctx_insert(indel_ctx_t *ctx, char *seq, int seq_len, int pos)
         ctx->ndat++;
         hts_expand(_idc1_t, ctx->ndat+1, ctx->mdat, ctx->dat);
         if ( idat<ctx->ndat && ctx->ndat>1 )
-            memmove(&ctx->dat[idat+1], &ctx->dat[idat], ctx->ndat - idat - 1);
+            memmove(&ctx->dat[idat+1], &ctx->dat[idat], (ctx->ndat - idat - 1)*sizeof(_idc1_t));
         ctx->dat[idat].len = seq_len;
         ctx->dat[idat].cnt = 1;
         ctx->dat[idat].pos = pos;
