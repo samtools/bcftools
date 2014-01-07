@@ -1,6 +1,8 @@
 PROG=		bcftools
+TEST_PROG=  test/test-rbuf
 
-all: $(PROG)
+
+all: $(PROG) $(TEST_PROG)
 
 # Adjust $(HTSDIR) to point to your top-level htslib directory
 HTSDIR = ../htslib
@@ -48,7 +50,7 @@ force:
 .c.o:
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
-test: $(PROG) plugins
+test: $(PROG) plugins test/test-rbuf
 		./test/test.pl
 
 PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
@@ -68,6 +70,10 @@ vcfnorm.o: bcftools.h rbuf.h
 vcffilter.o: bcftools.h rbuf.h
 vcfroh.o: bcftools.h rbuf.h
 vcfannotate.o: bcftools.h vcmp.h $(HTSDIR)/htslib/kseq.h
+test/test-rbuf.o: rbuf.h test/test-rbuf.c
+
+test/test-rbuf: test/test-rbuf.o
+		$(CC) $(CFLAGS) -o $@ -lm -ldl $<
 
 bcftools: $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl
@@ -78,8 +84,10 @@ install: $(PROG)
 		$(INSTALL_PROGRAM) $(PROG) plot-vcfstats $(DESTDIR)$(bindir)
 		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
-
-cleanlocal:
+cleanlocal: cleantest
 		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h plugins/*.so
+
+cleantest:
+		rm -fr test/*.o test/*~ $(TEST_PROG)
 
 clean:cleanlocal clean-htslib

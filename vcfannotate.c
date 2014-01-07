@@ -41,7 +41,11 @@ rm_tag_t;
 typedef struct
 {
     char **cols;
-    char *line;
+    int ncols, mcols;
+    char **als;
+    int nals, mals;
+    kstring_t line;
+    int rid, start, end;
 }
 annot_line_t;
 
@@ -70,7 +74,8 @@ typedef struct _args_t
     vcmp_t *vcmp;           // for matching annotation and VCF lines by allele
     annot_line_t *alines;   // buffered annotation lines
     int nalines, malines;
-    int *cols, ncols;       // column indexes starting with chr,pos,ref,alt, or -1 if not present
+    int ref_idx, alt_idx;   // -1 if not present
+    int *cols, ncols;       // column indexes 
 
     char **argv, *targets_fname, *regions_fname, *header_fname;
     char *remove_annots, *columns;
@@ -332,20 +337,122 @@ static void destroy_data(args_t *args)
     if (args->vcmp) vcmp_destroy(args->vcmp);
 }
 
+static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
+{
+    if ( args->nalines && args->alines[0].rid != line->rid ) args->nalines = 0;
+
+    int i = 0;
+    while ( i<args->nalines )
+    {
+        if ( line->pos > args->alines[i].end )
+        {
+            args->nalines--;
+            if ( args->nalines && i<args->nalines )
+            {
+            printf("removing: %d .. %p\n", i,args->alines[i].cols);
+                annot_line_t tmp = args->alines[i];
+                memmove(&args->alines[i],&args->alines[i+1],(args->nalines-i)*sizeof(annot_line_t));
+                args->alines[args->nalines] = tmp;
+            }
+        }
+        else i++;
+    }
+
+printf("in: nalines=%d\n", args->nalines);
+for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
+
+    while ( !bcf_sr_regions_overlap(args->tgts, bcf_seqname(args->hdr,line), start_pos,end_pos) )
+    {
+        args->nalines++;
+        hts_expand0(annot_line_t,args->nalines,args->malines,args->alines);
+        annot_line_t *tmp = &args->alines[args->nalines-1];
+        tmp->rid   = line->rid;
+        tmp->start = args->tgts->start;
+        tmp->end   = args->tgts->end;
+        tmp->line.l = 0;
+        kputs(args->tgts->line.s, &tmp->line);
+        char *s = tmp->line.s;
+    printf("ncols=%d mcols=%d .. %p\n", tmp->ncols, tmp->mcols, tmp->cols);
+        tmp->ncols = 1;
+        hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
+        tmp->cols[0] = s;
+        while ( *s )
+        {
+            if ( *s=='\t' )
+            {
+                tmp->ncols++;
+                hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
+                tmp->cols[tmp->ncols-1] = s;
+                *s = 0;
+            }
+            s++;
+        }
+    printf("ncols=%d mcols=%d .. %p\n", tmp->ncols, tmp->mcols, tmp->cols);
+        if ( args->ref_idx != -1 )
+        {
+            assert( args->ref_idx < tmp->ncols );
+            assert( args->alt_idx < tmp->ncols );
+            s = tmp->cols[args->alt_idx];
+            tmp->nals = 1;
+            hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
+            tmp->als[0] = s;
+            while ( *s )
+            {
+                if ( *s=='\t' )
+                {
+                    tmp->nals++;
+                    hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
+                    tmp->als[tmp->nals-1] = s;
+                    *s = 0;
+                }
+                s++;
+            }
+        }
+        int iseq = args->tgts->iseq;
+        if ( bcf_sr_regions_next(args->tgts)<0 || args->tgts->iseq!=iseq ) break;
+    }
+printf("out: nalines=%d\n", args->nalines);
+for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
+
+}
+
 static void annotate(args_t *args, bcf1_t *line)
 {
-    int i;
+    int i, j;
     for (i=0; i<args->nrm; i++)
         args->rm[i].handler(args, line, &args->rm[i]);
 
     // Buffer annotation lines. When multiple ALT alleles are present in the
     // annotation file, at least one must match one of the VCF alleles.
-    int ret = bcf_sr_regions_overlap(args->tgts, bcf_seqname(args->hdr,line), line->pos, line->pos);
-    printf("vcf=%d  tgt=%d  ret=%d\n", line->pos+1,args->tgts->start+1,ret);
-//..
-    int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2);
-    int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2);
-
+    int len = 0;
+    bcf_get_variant_types(line);
+    for (i=1; i<line->n_allele; i++)
+        if ( len > line->d.var[i].n ) len = line->d.var[i].n;
+    int end_pos = len<0 ? line->pos - len : line->pos;
+    buffer_annot_lines(args, line, line->pos, end_pos);
+    for (i=0; i<args->nalines; i++)
+    {
+        if ( line->pos > args->alines[i].end || end_pos < args->alines[i].start ) continue;
+        if ( args->ref_idx != -1 )
+        {
+            if ( vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].cols[args->ref_idx]) < 0 ) 
+                error("todo: %s %s\n", line->d.allele[0], args->alines[i].cols[args->ref_idx]);
+            for (j=0; j<args->alines[i].nals; j++)
+                if ( vcmp_find_allele(args->vcmp, line->d.allele+1, line->n_allele - 1, args->alines[i].als[j]) >= 0 ) break;
+            if ( j==args->alines[i].nals ) continue;    // none of the annot alleles present in VCF's ALT
+        }
+        //..
+        //int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2);
+        //int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2);
+        printf("i=%d: vcf=%d  tgt=%d-%d\t", i,line->pos+1,args->alines[i].start+1,args->alines[i].end+1);
+        for (j=0; j<line->n_allele; j++) printf(" %s", line->d.allele[j]);
+        if ( args->ref_idx != -1 ) 
+        {
+            printf("\t.. %s", args->alines[i].cols[args->ref_idx]);
+            for (j=0; j<args->alines[i].nals; j++) printf(" %s",  args->alines[i].als[j]);
+        }
+        printf("\n");
+    }
 
     for (i=0; i<args->nplugins; i++)
         args->plugins[i].process(line);
@@ -377,6 +484,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
+    args->ref_idx = args->alt_idx = -1;
 
     static struct option loptions[] = 
     {
