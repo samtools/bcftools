@@ -49,12 +49,12 @@ typedef struct
 }
 annot_line_t;
 
-typedef struct _annot_t
+typedef struct _annot_col_t
 {
     int icol, hdr_id;
-    int (*setter)(struct _args_t *, bcf1_t *, struct _annot_t *);
+    int (*setter)(struct _args_t *, bcf1_t *, struct _annot_col_t *, annot_line_t *);
 }
-annot_t;
+annot_col_t;
 
 typedef struct _args_t
 {
@@ -75,7 +75,8 @@ typedef struct _args_t
     annot_line_t *alines;   // buffered annotation lines
     int nalines, malines;
     int ref_idx, alt_idx;   // -1 if not present
-    int *cols, ncols;       // column indexes 
+    annot_col_t *cols;      // column indexes and setters
+    int ncols;
 
     char **argv, *targets_fname, *regions_fname, *header_fname;
     char *remove_annots, *columns;
@@ -271,26 +272,40 @@ static void init_header_lines(args_t *args)
     hts_close(file);
     free(str.s);
 }
+static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+{
+    return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
+}
 static void init_columns(args_t *args)
 {
     kstring_t str = {0,0,0};
     char *ss = args->columns, *se = ss;
-    args->ncols = 1;
-    while ( *se ) 
-    {
-        if ( *se==',' ) args->ncols++;
-        se++;
-    }
-    args->cols = (int*) malloc(sizeof(int)*args->ncols);
-    int i;
-    for (i=0; i<args->ncols; i++) args->cols[i] = -1;
+    args->ncols = 0;
+    int i = -1;
     se = ss;
-    while ( *se )
+    while ( *ss )
     {
-        if ( *se!=',' ) { se++; continue; }
+        if ( *se && *se!=',' ) { se++; continue; }
+        i++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
-        if ( !strcasecmp("CHROM",ss) ) {}
+        if ( !strcasecmp("CHROM",str.s) ) ;
+        else if ( !strcasecmp("POS",str.s) ) ;
+        else if ( !strcasecmp("FROM",str.s) ) ;
+        else if ( !strcasecmp("TO",str.s) ) ;
+        else if ( !strcasecmp("REF",str.s) ) args->ref_idx = i;
+        else if ( !strcasecmp("ALT",str.s) ) args->alt_idx = i;
+        else if ( !strcasecmp("ID",str.s) )
+        {
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            col->icol = i;
+            col->setter = setter_id;
+        }
+        else 
+            error("The column not recognised: %s\n", str.s);
+        if ( !*se ) break;
+        ss = ++se;
     }
     free(str.s);
 }
@@ -335,6 +350,15 @@ static void destroy_data(args_t *args)
         free(args->plugin_paths);
     }
     if (args->vcmp) vcmp_destroy(args->vcmp);
+    free(args->cols);
+    for (i=0; i<args->malines; i++)
+    {
+        free(args->alines[i].cols);
+        free(args->alines[i].als);
+        free(args->alines[i].line.s);
+    }
+    free(args->alines);
+    if ( args->tgts ) bcf_sr_regions_destroy(args->tgts);
 }
 
 static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
@@ -349,7 +373,6 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
             args->nalines--;
             if ( args->nalines && i<args->nalines )
             {
-            printf("removing: %d .. %p\n", i,args->alines[i].cols);
                 annot_line_t tmp = args->alines[i];
                 memmove(&args->alines[i],&args->alines[i+1],(args->nalines-i)*sizeof(annot_line_t));
                 args->alines[args->nalines] = tmp;
@@ -357,9 +380,6 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
         }
         else i++;
     }
-
-printf("in: nalines=%d\n", args->nalines);
-for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
 
     while ( !bcf_sr_regions_overlap(args->tgts, bcf_seqname(args->hdr,line), start_pos,end_pos) )
     {
@@ -372,7 +392,6 @@ for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
         tmp->line.l = 0;
         kputs(args->tgts->line.s, &tmp->line);
         char *s = tmp->line.s;
-    printf("ncols=%d mcols=%d .. %p\n", tmp->ncols, tmp->mcols, tmp->cols);
         tmp->ncols = 1;
         hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
         tmp->cols[0] = s;
@@ -382,12 +401,11 @@ for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
             {
                 tmp->ncols++;
                 hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
-                tmp->cols[tmp->ncols-1] = s;
+                tmp->cols[tmp->ncols-1] = s+1;
                 *s = 0;
             }
             s++;
         }
-    printf("ncols=%d mcols=%d .. %p\n", tmp->ncols, tmp->mcols, tmp->cols);
         if ( args->ref_idx != -1 )
         {
             assert( args->ref_idx < tmp->ncols );
@@ -398,7 +416,7 @@ for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
             tmp->als[0] = s;
             while ( *s )
             {
-                if ( *s=='\t' )
+                if ( *s==',' )
                 {
                     tmp->nals++;
                     hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
@@ -411,9 +429,6 @@ for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
         int iseq = args->tgts->iseq;
         if ( bcf_sr_regions_next(args->tgts)<0 || args->tgts->iseq!=iseq ) break;
     }
-printf("out: nalines=%d\n", args->nalines);
-for (i=0; i<args->malines; i++) printf("\t%p\n", args->alines[i].cols);
-
 }
 
 static void annotate(args_t *args, bcf1_t *line)
@@ -435,24 +450,39 @@ static void annotate(args_t *args, bcf1_t *line)
         if ( line->pos > args->alines[i].end || end_pos < args->alines[i].start ) continue;
         if ( args->ref_idx != -1 )
         {
-            if ( vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].cols[args->ref_idx]) < 0 ) 
-                error("todo: %s %s\n", line->d.allele[0], args->alines[i].cols[args->ref_idx]);
+            if ( vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].cols[args->ref_idx]) < 0 ) continue;   // refs not compatible
             for (j=0; j<args->alines[i].nals; j++)
+            {
+                if ( line->n_allele==1 && args->alines[i].als[j][0]=='.' && args->alines[i].als[j][1]==0 ) break;   // no ALT allele in VCF and annot file has "."
                 if ( vcmp_find_allele(args->vcmp, line->d.allele+1, line->n_allele - 1, args->alines[i].als[j]) >= 0 ) break;
+            }
             if ( j==args->alines[i].nals ) continue;    // none of the annot alleles present in VCF's ALT
         }
-        //..
-        //int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2);
-        //int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2);
-        printf("i=%d: vcf=%d  tgt=%d-%d\t", i,line->pos+1,args->alines[i].start+1,args->alines[i].end+1);
+        break;
+    }
+
+    if ( i<args->nalines )
+    {
+        for (j=0; j<args->ncols; j++)
+            if ( args->cols[j].setter(args,line,args->cols,&args->alines[i]) ) error("fixme: Could not set...\n");
+    }
+    else
+    {
+        printf("nothing for %d: ", line->pos+1);
         for (j=0; j<line->n_allele; j++) printf(" %s", line->d.allele[j]);
+        printf("\n");
         if ( args->ref_idx != -1 ) 
         {
-            printf("\t.. %s", args->alines[i].cols[args->ref_idx]);
-            for (j=0; j<args->alines[i].nals; j++) printf(" %s",  args->alines[i].als[j]);
+            for (i=0; i<args->nalines; i++)
+            {
+                printf("\t.. %s", args->alines[i].cols[args->ref_idx]);
+                for (j=0; j<args->alines[i].nals; j++) printf(" %s",  args->alines[i].als[j]);
+                printf("\n");
+            }
         }
         printf("\n");
     }
+
 
     for (i=0; i<args->nplugins; i++)
         args->plugins[i].process(line);
