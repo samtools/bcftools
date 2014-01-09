@@ -1,0 +1,4 @@
+##INFO=<ID=T_STR,Number=1,Type=String,Description="Test String">
+##INFO=<ID=T_INT,Number=.,Type=Integer,Description="Test Integer">
+##INFO=<ID=T_FLOAT,Number=.,Type=Float,Description="Test Float">
+##INFO=<ID=INDEL,Number=0,Type=Float,Description="Test Flag">

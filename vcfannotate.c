@@ -51,7 +51,8 @@ annot_line_t;
 
 typedef struct _annot_col_t
 {
-    int icol, hdr_id;
+    int icol;
+    char *hdr_key;
     int (*setter)(struct _args_t *, bcf1_t *, struct _annot_col_t *, annot_line_t *);
 }
 annot_col_t;
@@ -74,9 +75,12 @@ typedef struct _args_t
     vcmp_t *vcmp;           // for matching annotation and VCF lines by allele
     annot_line_t *alines;   // buffered annotation lines
     int nalines, malines;
-    int ref_idx, alt_idx;   // -1 if not present
+    int ref_idx, alt_idx, chr_idx, from_idx, to_idx;   // -1 if not present
     annot_col_t *cols;      // column indexes and setters
     int ncols;
+
+    int *tmpi, ntmpi, mtmpi, ntmpf, mtmpf;
+    float *tmpf;
 
     char **argv, *targets_fname, *regions_fname, *header_fname;
     char *remove_annots, *columns;
@@ -276,6 +280,66 @@ static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t 
 {
     return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
 }
+static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+{
+    char *str = tab->cols[col->icol];
+    if ( str[0]=='.' && str[1]==0 ) return 0;
+
+    line->qual = strtod(str, &str);
+    if ( str == tab->cols[col->icol] ) 
+        error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+    return 0;
+}
+static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+{
+    char *str = tab->cols[col->icol];
+    if ( str[0]=='.' && str[1]==0 ) return 0;
+
+    if ( str[0]=='1' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key,NULL,1);
+    if ( str[0]=='0' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key,NULL,0);
+    error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+    return -1;
+}
+static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab) 
+{ 
+    char *str = tab->cols[col->icol], *end = str;
+    if ( str[0]=='.' && str[1]==0 ) return 0;
+
+    args->ntmpi = 0;
+    while ( *end )
+    {
+        int val = strtol(str, &end, 10);
+        if ( end==str )
+            error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+        args->ntmpi++;
+        hts_expand(int,args->ntmpi,args->mtmpi,args->tmpi);
+        args->tmpi[args->ntmpi-1] = val;
+        str = end+1;
+    }
+    return bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,args->ntmpi);
+}
+static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+{ 
+    char *str = tab->cols[col->icol], *end = str;
+    if ( str[0]=='.' && str[1]==0 ) return 0;
+
+    args->ntmpf = 0;
+    while ( *end )
+    {
+        double val = strtod(str, &end);
+        if ( end==str )
+            error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+        args->ntmpf++;
+        hts_expand(float,args->ntmpf,args->mtmpf,args->tmpf);
+        args->tmpf[args->ntmpf-1] = val;
+        str = end+1;
+    }
+    return bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,args->ntmpf);
+}
+static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab) 
+{
+    return bcf_update_info_string(args->hdr_out,line,col->hdr_key,tab->cols[col->icol]);
+}
 static void init_columns(args_t *args)
 {
     kstring_t str = {0,0,0};
@@ -289,10 +353,10 @@ static void init_columns(args_t *args)
         i++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
-        if ( !strcasecmp("CHROM",str.s) ) ;
-        else if ( !strcasecmp("POS",str.s) ) ;
-        else if ( !strcasecmp("FROM",str.s) ) ;
-        else if ( !strcasecmp("TO",str.s) ) ;
+        if ( !strcasecmp("CHROM",str.s) ) args->chr_idx = i;
+        else if ( !strcasecmp("POS",str.s) ) args->from_idx = i;
+        else if ( !strcasecmp("FROM",str.s) ) args->from_idx = i;
+        else if ( !strcasecmp("TO",str.s) ) args->to_idx = i;
         else if ( !strcasecmp("REF",str.s) ) args->ref_idx = i;
         else if ( !strcasecmp("ALT",str.s) ) args->alt_idx = i;
         else if ( !strcasecmp("ID",str.s) )
@@ -301,13 +365,40 @@ static void init_columns(args_t *args)
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
             col->setter = setter_id;
+            col->hdr_key = strdup(str.s);
+        }
+        else if ( !strcasecmp("QUAL",str.s) )
+        {
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            col->icol = i;
+            col->setter = setter_qual;
+            col->hdr_key = strdup(str.s);
         }
         else 
-            error("The column not recognised: %s\n", str.s);
+        {
+            if ( !strncasecmp("INFO/",str.s,5) ) { memmove(str.s,str.s+5,str.l-4); }
+            int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
+            if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) ) error("The column not recognised: [%s] .. %d\n", str.s, hdr_id);
+
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            col->icol = i;
+            col->hdr_key = strdup(str.s);
+            switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
+            {
+                case BCF_HT_FLAG:   col->setter = setter_info_flag; break;
+                case BCF_HT_INT:    col->setter = setter_info_int; break;
+                case BCF_HT_REAL:   col->setter = setter_info_real; break;
+                case BCF_HT_STR:    col->setter = setter_info_str; break;
+                default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id));
+            }
+        }
         if ( !*se ) break;
         ss = ++se;
     }
     free(str.s);
+    if ( args->to_idx==-1 ) args->to_idx = args->from_idx;
 }
 
 static void init_data(args_t *args)
@@ -324,8 +415,9 @@ static void init_data(args_t *args)
 
     if ( args->targets_fname )
     {
-        args->tgts = bcf_sr_regions_init(args->targets_fname);
+        args->tgts = bcf_sr_regions_init(args->targets_fname,args->chr_idx,args->from_idx,args->to_idx);
         if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
+        if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
         args->vcmp = vcmp_init();
     }
     init_plugins(args);
@@ -350,6 +442,8 @@ static void destroy_data(args_t *args)
         free(args->plugin_paths);
     }
     if (args->vcmp) vcmp_destroy(args->vcmp);
+    for (i=0; i<args->ncols; i++)
+        free(args->cols[i].hdr_key);
     free(args->cols);
     for (i=0; i<args->malines; i++)
     {
@@ -359,6 +453,8 @@ static void destroy_data(args_t *args)
     }
     free(args->alines);
     if ( args->tgts ) bcf_sr_regions_destroy(args->tgts);
+    free(args->tmpi);
+    free(args->tmpf);
 }
 
 static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
@@ -380,6 +476,8 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
         }
         else i++;
     }
+
+    if ( args->ref_idx==-1 && args->nalines ) return;
 
     while ( !bcf_sr_regions_overlap(args->tgts, bcf_seqname(args->hdr,line), start_pos,end_pos) )
     {
@@ -425,9 +523,10 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
                 }
                 s++;
             }
+            int iseq = args->tgts->iseq;
+            if ( bcf_sr_regions_next(args->tgts)<0 || args->tgts->iseq!=iseq ) break;
         }
-        int iseq = args->tgts->iseq;
-        if ( bcf_sr_regions_next(args->tgts)<0 || args->tgts->iseq!=iseq ) break;
+        else break;
     }
 }
 
@@ -464,8 +563,10 @@ static void annotate(args_t *args, bcf1_t *line)
     if ( i<args->nalines )
     {
         for (j=0; j<args->ncols; j++)
-            if ( args->cols[j].setter(args,line,args->cols,&args->alines[i]) ) error("fixme: Could not set...\n");
+            if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) ) 
+                error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
     }
+    #if 0
     else
     {
         printf("nothing for %d: ", line->pos+1);
@@ -479,10 +580,10 @@ static void annotate(args_t *args, bcf1_t *line)
                 for (j=0; j<args->alines[i].nals; j++) printf(" %s",  args->alines[i].als[j]);
                 printf("\n");
             }
+            printf("\n");
         }
-        printf("\n");
     }
-
+    #endif
 
     for (i=0; i<args->nplugins; i++)
         args->plugins[i].process(line);
@@ -514,7 +615,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
-    args->ref_idx = args->alt_idx = -1;
+    args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
 
     static struct option loptions[] = 
     {
@@ -527,7 +628,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"header-liens",1,0,'h'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?O:r:a:p:R:c:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?O:r:a:p:R:c:",loptions,NULL)) >= 0) 
     {
         switch (c) {
     	    case 'c': args->columns = optarg; break;

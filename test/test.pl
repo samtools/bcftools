@@ -33,7 +33,8 @@ test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');
 test_vcf_regions($opts,in=>'regions');
-test_vcf_annotate($opts,in=>'annotate');
+test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
+test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -406,7 +407,7 @@ sub test_usage_subcommand
 sub test_vcf_annotate
 {
     my ($opts,%args) = @_;
-    bgzip_tabix($opts,file=>$args{in},suffix=>'tab',args=>'-s1 -b2 -e2');
-    # todo...
+    bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -a $$opts{tmp}/$args{tab}.tab.gz -h $$opts{path}/$args{in}.hdr $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_annotate");
 }
 
