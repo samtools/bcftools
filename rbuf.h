@@ -1,6 +1,8 @@
 #ifndef __RBUF_H__
 #define __RBUF_H__
 
+#include <string.h>
+
 typedef struct
 {
     int m,n,f;    // m: allocated size, n: number of elements in the buffer, f: first element

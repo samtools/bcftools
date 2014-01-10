@@ -38,7 +38,7 @@ int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2)
         vcmp->ndref = (a-ref1) - vcmp->nmatch;
         hts_expand(char,vcmp->ndref+1,vcmp->mdref,vcmp->dref);
         memcpy(vcmp->dref,ref1+vcmp->nmatch,vcmp->ndref);
-    vcmp->dref[vcmp->ndref] = 0;
+        vcmp->dref[vcmp->ndref] = 0;
         return 0;
     }
 

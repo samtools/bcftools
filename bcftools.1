@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 12/12/2013
+.\"      Date: 01/09/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "12/12/2013" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "01/09/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -73,6 +73,18 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+\fBannotate\fR
+\&.\&. edit VCF files, add or remove annotations, apply user plugins
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 \fBcall\fR
 \&.\&. SNP/indel calling (former "view")
 .RE
@@ -122,7 +134,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .IP \(bu 2.3
 .\}
 \fBmerge\fR
-\&.\&. merge VCF/BCF files
+\&.\&. merge VCF/BCF files to create multi\-sample file
 .RE
 .sp
 .RS 4
@@ -250,7 +262,7 @@ Regions can be specified either on command line or in a VCF, BED, or tab\-delimi
 Comma\-separated list of samples to include or a file with one sample per line\&. The command
 \fBbcftools call\fR
 accepts an optional second column indicating ploidy (0, 1 or 2) and can parse also PED files\&. With
-\fBbcftools call\fR\fB\-C\fR\fItrio\fR, PED file is expected\&.
+\fBbcftools call\fR\fB \-C\fR\fItrio\fR, PED file is expected\&.
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -278,6 +290,82 @@ command, third column of the targets file must be comma\-separated list of allel
 .\}
 .nf
     bcftools query \-f\*(Aq%CHROM\et%POS\et%REF,%ALT\en\*(Aq file\&.vcf
+.fi
+.if n \{\
+.RE
+.\}
+.SS "bcftools annotate \fI[OPTIONS]\fR \fIFILE\fR"
+.sp
+This command allows to add or remove annotations and apply user\-written plugins\&.
+.PP
+\fB\-a, \-\-annotations\fR \fIfile\fR
+.RS 4
+Bgzip\-compressed and tabix\-indexed file with annotations\&. The file can be VCF, BED, or a tab\-delimited file with mandatory columns CHROM, POS (or, alternatively, FROM, TO), optional columns REF and ALT, and arbitrary number of annotation columns\&. In case of tab\-delimited file, the coordinates POS, FROM and TO are one\-based and inclusive\&. When REF and ALT are present, only matching VCF records will be annotated\&. When multiple ALT alleles are present in the annotation file (given as comma\-separated list of alleles), at least one must match one of the alleles in the corresponding VCF record\&. See also
+\fB\-c, \-\-columns\fR
+and
+\fB\-h, \-\-header\-lines\fR\&.
+.RE
+.PP
+\fB\-c, \-\-columns\fR \fIlist\fR
+.RS 4
+Comma\-separated list of columns present in the annotation file and defined in the header file (see also
+\fB\-a, \-\-annotations\fR
+and
+\fB\-h, \-\-header\-lines\fR)\&. INFO tags can be written both as INFO/TAG or simply TAG\&. Unused columns can be indicated by
+\fI\-\fR\&. For example:
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    CHROM,FROM,TO,REF,ALT,\-,INFO/TAG
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fB\-h, \-\-header\-lines\fR \fIfile\fR
+.RS 4
+Header lines to appended to the VCF header\&.
+.RE
+.PP
+\fB\-l, \-\-list\-plugins\fR
+.RS 4
+List of available plugins\&. The BCFTOOLS_PLUGINS environment variable tells the program which directories to search\&.
+.RE
+.PP
+\fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-p, \-\-plugins\fR \fIname\fR[,\&...]
+.RS 4
+Comma\-separated list of plugins to run\&. The BCFTOOLS_PLUGINS environment variable tells the program which directories to search\&. See the examples in plugins/*\&.c coming with this distribution for further details and examples\&.
+.RE
+.PP
+\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-remove\fR \fIlist\fR
+.RS 4
+List of annotations to remove\&. Use
+\fIFILTER\fR
+to remove all filters or
+\fIFILTER/SomeFilter\fR
+to remove a specific filter\&. Other examples:
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    ID,INFO/DP,FORMAT/DP
 .fi
 .if n \{\
 .RE
@@ -721,7 +809,9 @@ Extract records private to A or B comparing by position only
 .RE
 .SS "bcftools merge [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR \fIB\&.vcf\&.gz\fR [\&...]"
 .sp
-Merge one or more VCF or BCF files\&.
+Merge multiple VCF or BCF files to create one multi\-sample file\&. For example, when merging file \fIA\&.vcf\&.gz\fR containing samples \fIS1\fR, \fIS2\fR and \fIS3\fR and file \fIB\&.vcf\&.gz\fR containing samples \fIS3\fR and \fIS4\fR, the output file will contain four samples named \fIS1\fR, \fIS2\fR, \fIS3\fR, \fI2:S3\fR and \fIS4\fR\&.
+.sp
+Note that it is responsibility of the user to ensure that the sample names are unique across all files\&. If they are not, the program will create a unique sample name by prepending index of the file as it appeared on the command line to the conflicting sample name (see \fI2:S3\fR in the above example)\&. Sample names can be also given explicitly using the \fB\-\-print\-header\fR and \fB\-\-use\-header\fR options\&.
 .PP
 \fB\-\-use\-header\fR \fIFILE\fR
 .RS 4
