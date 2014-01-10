@@ -39,11 +39,12 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 
 - *tabix*                ..  index tab-delimited BGZF-compressed files such as BED, GFF, SAM, VCF, etc.
 - *index*                ..  index BCF
+- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations, apply user plugins
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
 - *<<isec,isec>>*        ..  intersections of VCF/BCF files
-- *<<merge,merge>>*      ..  merge VCF/BCF files
+- *<<merge,merge>>*      ..  merge VCF/BCF files to create multi-sample file
 - *<<norm,norm>>*        ..  normalize indels
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
@@ -117,7 +118,7 @@ OPTIONS
     Comma-separated list of samples to include or a file with one sample
     per line. The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
-    With *<<call,bcftools call>>* *-C* 'trio', PED file is expected.
+    With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Same as *-r, --regions*, but the next position is accessed by streaming the
@@ -132,6 +133,59 @@ OPTIONS
 ----
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf
 ----
+
+[[annotate]]
+=== bcftools annotate '[OPTIONS]' 'FILE'
+
+This command allows to add or remove annotations and apply user-written plugins.
+
+*-a, --annotations* 'file'::
+    Bgzip-compressed and tabix-indexed file with annotations. The file 
+    can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
+    (or, alternatively, FROM, TO), optional columns REF and ALT, and arbitrary
+    number of annotation columns. In case of tab-delimited file, the
+    coordinates POS, FROM and TO are one-based and inclusive.
+    When REF and ALT are present, only matching VCF records will be annotated.
+    When multiple ALT alleles are present in the annotation file (given as
+    comma-separated list of alleles), at least one must match one of the
+    alleles in the corresponding VCF record.
+    See also *-c, --columns* and *-h, --header-lines*.
+
+*-c, --columns* 'list'::
+    Comma-separated list of columns present in the annotation file and defined
+    in the header file (see also *-a, --annotations* and *-h, --header-lines*).
+    INFO tags can be written both as INFO/TAG or simply TAG. Unused columns can
+    be indicated by '-'.  For example:
+----
+    CHROM,FROM,TO,REF,ALT,-,INFO/TAG
+----
+
+*-h, --header-lines* 'file'::
+    Header lines to appended to the VCF header.
+
+*-l, --list-plugins*::
+    List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
+    the program which directories to search.
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-p, --plugins* 'name'[,...]::
+    Comma-separated list of plugins to run. The BCFTOOLS_PLUGINS environment
+    variable tells the program which directories to search.
+    See the examples in plugins/*.c coming with this distribution for further
+    details and examples.
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --remove* 'list':: 
+    List of annotations to remove. Use 'FILTER' to remove all filters or
+    'FILTER/SomeFilter' to remove a specific filter. More examples:
+----
+    ID,INFO/DP,FORMAT/DP
+----
+
 
 
 [[call]]
@@ -374,7 +428,18 @@ Extract records private to A or B comparing by position only
 
 [[merge]]
 === bcftools merge ['OPTIONS'] 'A.vcf.gz' 'B.vcf.gz' [...]
-Merge one or more VCF or BCF files.
+Merge multiple VCF or BCF files to create one multi-sample file. For example,
+when merging file 'A.vcf.gz' containing samples 'S1', 'S2' and 'S3' and file
+'B.vcf.gz' containing samples 'S3' and 'S4', the output file will contain
+four samples named 'S1', 'S2', 'S3', '2:S3' and 'S4'.
+
+Note that it is responsibility of the user to ensure that the sample names are
+unique across all files. If they are not, the program will create a unique
+sample name by prepending index of the file as it appeared on the command line
+to the conflicting sample name (see '2:S3' in the above example). Sample names
+can be also given explicitly using the *--print-header* and
+*--use-header* options.
+
 
 *--use-header* 'FILE'::
     use the VCF header in the provided text 'FILE'

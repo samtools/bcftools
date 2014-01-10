@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <dirent.h>
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
@@ -16,6 +17,7 @@
 
 /** Plugin API */
 typedef void (*dl_init_f) (bcf_hdr_t *);
+typedef char* (*dl_about_f) (void);
 typedef void (*dl_process_f) (bcf1_t *);
 typedef void (*dl_destroy_f) (void);
 
@@ -23,6 +25,7 @@ typedef struct
 {
     char *name;
     dl_init_f init;
+    dl_about_f about;
     dl_process_f process;
     dl_destroy_f destroy;
     void *handle;
@@ -34,6 +37,7 @@ struct _args_t;
 typedef struct _rm_tag_t
 {
     char *key;
+    int hdr_id;
     void (*handler)(struct _args_t *, bcf1_t *, struct _rm_tag_t *);
 }
 rm_tag_t;
@@ -90,32 +94,35 @@ args_t;
 
 char *msprintf(const char *fmt, ...);
 
+static void init_plugin_paths(args_t *args)
+{
+    if ( args->nplugin_paths!=-1 ) return;
+
+    char *path = getenv("BCFTOOLS_PLUGINS");
+    if ( path )
+    {
+        args->nplugin_paths = 1;
+        args->plugin_paths  = (char**) malloc(sizeof(char*));
+        char *ss = args->plugin_paths[0] = strdup(path);
+        while ( *ss ) 
+        { 
+            if ( *ss==':' ) 
+            {   
+                *ss = 0;
+                args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
+                args->plugin_paths[args->nplugin_paths] = ss+1;
+                args->nplugin_paths++;
+            }
+            ss++;
+        }
+    }
+    else
+        args->nplugin_paths = 0;
+}
 
 static void *dlopen_plugin(args_t *args, const char *fname)
 {
-    if ( args->nplugin_paths==-1 )
-    {
-        char *path = getenv("BCFTOOLS_PLUGINS");
-        if ( path )
-        {
-            args->nplugin_paths = 1;
-            args->plugin_paths  = (char**) malloc(sizeof(char*));
-            char *ss = args->plugin_paths[0] = strdup(path);
-            while ( *ss ) 
-            { 
-                if ( *ss==':' ) 
-                {   
-                    *ss = 0;
-                    args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
-                    args->plugin_paths[args->nplugin_paths] = ss+1;
-                    args->nplugin_paths++;
-                }
-                ss++;
-            }
-        }
-        else
-            args->nplugin_paths = 0;
-    }
+    init_plugin_paths(args);
 
     char *tmp;
     void *handle;
@@ -131,15 +138,10 @@ static void *dlopen_plugin(args_t *args, const char *fname)
     handle = dlopen(fname, RTLD_NOW);
     if ( handle ) return handle;
 
-    tmp = msprintf("%s.so", fname);
-    handle = dlopen(tmp, RTLD_NOW);
-    free(tmp);
-    if ( handle ) return handle;
-
     return NULL;
 }
 
-static void load_plugin(args_t *args, const char *fname)
+static int load_plugin(args_t *args, const char *fname, int exit_on_error)
 {
     char *ss, *rmme;
     ss = rmme = strdup(fname);
@@ -149,7 +151,11 @@ static void load_plugin(args_t *args, const char *fname)
         if ( se ) *se = 0;
 
         void *handle = dlopen_plugin(args, ss);
-        if ( !handle ) error("Could not load %s: %s\n", ss, dlerror());
+        if ( !handle )
+        {
+            if ( exit_on_error ) error("Could not load %s: %s\n", ss, dlerror());
+            return -1;
+        }
 
         args->nplugins++;
         args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
@@ -160,20 +166,41 @@ static void load_plugin(args_t *args, const char *fname)
         dlerror();
         plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
         char *ret = dlerror();
-        if ( ret ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( ret ) 
+        {
+            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            return -1;
+        }
+
+        plugin->about = (dl_about_f) dlsym(plugin->handle, "about");
+        ret = dlerror();
+        if ( ret ) 
+        {
+            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            return -1;
+        }
 
         plugin->process = (dl_process_f) dlsym(plugin->handle, "process");
         ret = dlerror();
-        if ( ret ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( ret ) 
+        {
+            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            return -1;
+        }
 
         plugin->destroy = (dl_destroy_f) dlsym(plugin->handle, "destroy");
         ret = dlerror();
-        if ( ret ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( ret ) 
+        {
+            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            return -1;
+        }
 
         if ( se ) { *se = ','; ss = se+1; }
         else ss = NULL;
     }
     free(rmme);
+    return 0;
 }
 
 static void init_plugins(args_t *args)
@@ -183,21 +210,60 @@ static void init_plugins(args_t *args)
         args->plugins[i].init(args->hdr);
 }
 
+static int list_plugins(args_t *args)
+{
+    init_plugin_paths(args);
+
+    int i, nprinted = 0;
+    for (i=0; i<args->nplugin_paths; i++)
+    {
+        DIR *dp = opendir(args->plugin_paths[i]);
+        if ( dp==NULL ) continue;
+
+        struct dirent *ep;
+        while ( (ep=readdir(dp)) )
+        {
+            char *tmp = msprintf("%s/%s", args->plugin_paths[i],ep->d_name);
+            int ret = load_plugin(args, tmp, 0);
+            free(tmp);
+            if ( ret ) continue;
+            printf("\n-- %s:\n%s", ep->d_name, args->plugins[args->nplugins-1].about());
+            nprinted++;
+        }
+        closedir(dp);
+    }
+    if ( !nprinted ) 
+        fprintf(stderr,
+            "No functional bcftools plugins found:\n"
+            " - is the environment variable BCFTOOLS_PLUGINS set?\n"
+            " - are shared libraries accesible? (Check with `ldd your/plugin.so`.)\n"
+            );
+    else
+        printf("\n");
+    return nprinted ? 0 : 1;
+}
+
 void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
-    error("todo: -r ID");
+    bcf_update_id(args->hdr,line,NULL);
 }
 void remove_filter(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
-    error("todo: -r FILTER");
+    if ( !tag->key ) bcf_update_filter(args->hdr, line, NULL, 0);
+    else bcf_remove_filter(args->hdr, line, tag->hdr_id, 1);
 }
 void remove_qual(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
-    error("todo: -r QUAL");
+    bcf_float_set_missing(line->qual);
 }
 void remove_info(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
-    error("todo: -r INFO");
+    // remove all INFO fields
+    if ( !(line->unpacked & BCF_UN_INFO) ) bcf_unpack(line, BCF_UN_INFO);
+
+    int i;
+    for (i=0; i<line->n_info; i++)
+        bcf_update_info(args->hdr, line, bcf_hdr_int2id(args->hdr,BCF_DT_ID,line->d.info[i].key), NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
 }
 void remove_info_tag(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
@@ -247,6 +313,14 @@ static void init_remove_annots(args_t *args)
             }
         }
         else if ( !strcmp("ID",str.s) ) tag->handler = remove_id;
+        else if ( !strncmp("FILTER/",str.s,7) ) 
+        { 
+            tag->handler = remove_filter; 
+            tag->key = strdup(str.s+7);
+            tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
+            if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
+            bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
+        }
         else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
         else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
         else if ( !strcmp("INFO",str.s) ) tag->handler = remove_info;
@@ -353,7 +427,8 @@ static void init_columns(args_t *args)
         i++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
-        if ( !strcasecmp("CHROM",str.s) ) args->chr_idx = i;
+        if ( !strcasecmp("-",str.s) ) ;
+        else if ( !strcasecmp("CHROM",str.s) ) args->chr_idx = i;
         else if ( !strcasecmp("POS",str.s) ) args->from_idx = i;
         else if ( !strcasecmp("FROM",str.s) ) args->from_idx = i;
         else if ( !strcasecmp("TO",str.s) ) args->to_idx = i;
@@ -536,54 +611,39 @@ static void annotate(args_t *args, bcf1_t *line)
     for (i=0; i<args->nrm; i++)
         args->rm[i].handler(args, line, &args->rm[i]);
 
-    // Buffer annotation lines. When multiple ALT alleles are present in the
-    // annotation file, at least one must match one of the VCF alleles.
-    int len = 0;
-    bcf_get_variant_types(line);
-    for (i=1; i<line->n_allele; i++)
-        if ( len > line->d.var[i].n ) len = line->d.var[i].n;
-    int end_pos = len<0 ? line->pos - len : line->pos;
-    buffer_annot_lines(args, line, line->pos, end_pos);
-    for (i=0; i<args->nalines; i++)
+    if ( args->tgts )
     {
-        if ( line->pos > args->alines[i].end || end_pos < args->alines[i].start ) continue;
-        if ( args->ref_idx != -1 )
+        // Buffer annotation lines. When multiple ALT alleles are present in the
+        // annotation file, at least one must match one of the VCF alleles.
+        int len = 0;
+        bcf_get_variant_types(line);
+        for (i=1; i<line->n_allele; i++)
+            if ( len > line->d.var[i].n ) len = line->d.var[i].n;
+        int end_pos = len<0 ? line->pos - len : line->pos;
+        buffer_annot_lines(args, line, line->pos, end_pos);
+        for (i=0; i<args->nalines; i++)
         {
-            if ( vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].cols[args->ref_idx]) < 0 ) continue;   // refs not compatible
-            for (j=0; j<args->alines[i].nals; j++)
+            if ( line->pos > args->alines[i].end || end_pos < args->alines[i].start ) continue;
+            if ( args->ref_idx != -1 )
             {
-                if ( line->n_allele==1 && args->alines[i].als[j][0]=='.' && args->alines[i].als[j][1]==0 ) break;   // no ALT allele in VCF and annot file has "."
-                if ( vcmp_find_allele(args->vcmp, line->d.allele+1, line->n_allele - 1, args->alines[i].als[j]) >= 0 ) break;
+                if ( vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].cols[args->ref_idx]) < 0 ) continue;   // refs not compatible
+                for (j=0; j<args->alines[i].nals; j++)
+                {
+                    if ( line->n_allele==1 && args->alines[i].als[j][0]=='.' && args->alines[i].als[j][1]==0 ) break;   // no ALT allele in VCF and annot file has "."
+                    if ( vcmp_find_allele(args->vcmp, line->d.allele+1, line->n_allele - 1, args->alines[i].als[j]) >= 0 ) break;
+                }
+                if ( j==args->alines[i].nals ) continue;    // none of the annot alleles present in VCF's ALT
             }
-            if ( j==args->alines[i].nals ) continue;    // none of the annot alleles present in VCF's ALT
+            break;
         }
-        break;
-    }
 
-    if ( i<args->nalines )
-    {
-        for (j=0; j<args->ncols; j++)
-            if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) ) 
-                error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
-    }
-    #if 0
-    else
-    {
-        printf("nothing for %d: ", line->pos+1);
-        for (j=0; j<line->n_allele; j++) printf(" %s", line->d.allele[j]);
-        printf("\n");
-        if ( args->ref_idx != -1 ) 
+        if ( i<args->nalines )
         {
-            for (i=0; i<args->nalines; i++)
-            {
-                printf("\t.. %s", args->alines[i].cols[args->ref_idx]);
-                for (j=0; j<args->alines[i].nals; j++) printf(" %s",  args->alines[i].als[j]);
-                printf("\n");
-            }
-            printf("\n");
+            for (j=0; j<args->ncols; j++)
+                if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) ) 
+                    error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
         }
     }
-    #endif
 
     for (i=0; i<args->nplugins; i++)
         args->plugins[i].process(line);
@@ -598,10 +658,11 @@ static void usage(args_t *args)
     fprintf(stderr, "   -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should to appended to the VCF header\n");
+	fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
 	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-	fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins\n");
+	fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins. See man page for details\n");
     fprintf(stderr, "   -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "   -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER)\n");
+    fprintf(stderr, "   -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -616,19 +677,21 @@ int main_vcfannotate(int argc, char *argv[])
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
+    int plist_only = 0;
 
     static struct option loptions[] = 
     {
         {"output-type",1,0,'O'},
         {"annotations",1,0,'a'},
         {"plugin",1,0,'p'},
+        {"list-plugins",0,0,'l'},
         {"regions",1,0,'r'},
         {"remove",1,0,'R'},
         {"columns",1,0,'c'},
         {"header-liens",1,0,'h'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:r:a:p:R:c:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?O:r:a:p:R:c:l",loptions,NULL)) >= 0) 
     {
         switch (c) {
     	    case 'c': args->columns = optarg; break;
@@ -644,12 +707,14 @@ int main_vcfannotate(int argc, char *argv[])
             case 'R': args->remove_annots = optarg; break;
             case 'a': args->targets_fname = optarg; break;
             case 'r': args->regions_fname = optarg; break;
-            case 'p': load_plugin(args, optarg); break;
+            case 'p': load_plugin(args, optarg, 1); break;
+            case 'l': plist_only = 1; break;
             case 'h': args->header_fname = optarg; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }
+    if ( plist_only ) return list_plugins(args);
 
     if ( argc<optind+1 ) usage(args);
     if ( args->regions_fname )

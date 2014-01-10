@@ -51,6 +51,10 @@ static cmd_t cmds[] =
       .alias = "Core VCF/BCF tools:",
       .help  = NULL
     },
+    { .func  = main_vcfannotate,  
+      .alias = "annotate", 
+      .help  = "annotate and edit VCF/BCF files",
+    },
     { .func  = main_vcfcall,  
       .alias = "call", 
       .help  = "SNP/indel calling (former \"view\")"
@@ -90,10 +94,6 @@ static cmd_t cmds[] =
     { .func  = NULL, 
       .alias = "Other/Experimental tools:" ,
       .help  = NULL
-    },
-    { .func  = main_vcfannotate,  
-      .alias = "annotate", 
-      .help  = "-annotate and edit VCF/BCF files",  // do not advertise yet
     },
     { .func  = main_vcfroh, 
       .alias = "roh",

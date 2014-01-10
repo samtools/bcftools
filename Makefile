@@ -58,8 +58,8 @@ PLUGINS = $(PLUGINC:.c=.so)
 
 plugins: $(PLUGINS)
 
-%.so: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ $<
+%.so: %.c vcfannotate.c $(HTSDIR)/libhts.so
+	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ -L$(HTSDIR) $< -lhts
 
 main.o: version.h $(HTSDIR)/version.h bcftools.h
 vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h bcftools.h
