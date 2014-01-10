@@ -333,7 +333,7 @@ static void init_stats(args_t *args)
 
     if ( args->exons_fname )
     {
-        args->exons = bcf_sr_regions_init(args->exons_fname);
+        args->exons = bcf_sr_regions_init(args->exons_fname,0,1,2);
         if ( !args->exons )
             error("Error occurred while reading, was the file compressed with bgzip: %s?\n", args->exons_fname);
     }

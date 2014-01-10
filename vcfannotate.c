@@ -242,7 +242,7 @@ static void init_data(args_t *args)
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 
-    if ( args->targets_fname ) args->tgts = bcf_sr_regions_init(args->targets_fname);
+    if ( args->targets_fname ) args->tgts = bcf_sr_regions_init(args->targets_fname,0,1,2);
     init_plugins(args);
 }
 
