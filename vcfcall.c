@@ -334,6 +334,28 @@ static void destroy_data(args_t *args)
     bcf_sr_destroy(args->aux.srs);
 }
 
+void parse_novel_rate(args_t *args, const char *str)
+{
+    if ( sscanf(str,"%le,%le,%le",&args->aux.trio_Pm_SNPs,&args->aux.trio_Pm_del,&args->aux.trio_Pm_ins)==3 )  // explicit for all
+    {
+        args->aux.trio_Pm_SNPs = 1 - args->aux.trio_Pm_SNPs;
+        args->aux.trio_Pm_del  = 1 - args->aux.trio_Pm_del;
+        args->aux.trio_Pm_ins  = 1 - args->aux.trio_Pm_ins;
+    }
+    else if ( sscanf(str,"%le,%le",&args->aux.trio_Pm_SNPs,&args->aux.trio_Pm_del)==2 )   // dynamic for indels
+    {
+        args->aux.trio_Pm_SNPs = 1 - args->aux.trio_Pm_SNPs;
+        args->aux.trio_Pm_ins  = -1;    // negative value for dynamic calculation
+    }
+    else if ( sscanf(str,"%le",&args->aux.trio_Pm_SNPs)==1 )  // same for all
+    {
+        args->aux.trio_Pm_SNPs = 1 - args->aux.trio_Pm_SNPs;
+        args->aux.trio_Pm_del  = -1;
+        args->aux.trio_Pm_ins  = -1;
+    }
+    else error("Could not parse --novel-rate %s\n", str);
+}
+
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
@@ -355,7 +377,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -c, --consensus-caller          the original calling method (conflicts with -m)\n");
     fprintf(stderr, "   -C, --constrain <str>           one of: alleles, trio (see manual)\n");
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
-    fprintf(stderr, "   -n, --novel-rate <float>        likelihood of novel mutation for constrained trio calling [1e-6]\n");
+    fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
     fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
     fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
@@ -383,8 +405,9 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.min_perm_p = 0.01;
     args.aux.min_lrt    = 1;
     args.aux.min_ma_lrt = 1 - 1e-2;
-    args.aux.trio_Pm    = 1 - 1e-6;
     args.flag           = CF_ACGT_ONLY;
+    args.aux.trio_Pm_SNPs = 1 - 1e-8;
+    args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
 
     float p_arg = -1;
     int i, c;
@@ -442,7 +465,7 @@ int main_vcfcall(int argc, char *argv[])
                       else error("Unknown argument to -I: \"%s\"\n", optarg);
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
             case 'p': p_arg = atof(optarg); break;
-            case 'n': args.aux.trio_Pm = 1 - atof(optarg); break;
+            case 'n': parse_novel_rate(&args,optarg); break;
             case 'r': args.regions = optarg; break;
             case 't': args.targets = optarg; break;
             case 's': samples_fname = optarg; break;

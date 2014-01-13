@@ -633,7 +633,10 @@ static void mcall_call_genotypes(call_t *call, int nals, int nout_als, int out_a
 
 
 /**
-    Pm = P(mendelian) .. parameter to vary, 1-Pm is the probability of novel mutation
+    Pm = P(mendelian) .. parameter to vary, 1-Pm is the probability of novel mutation.
+                         When trio_Pm_ins is negative, Pm is calculated dynamically
+                         according to indel length. For simplicity, only the
+                         first ALT is considered.
     Pkij = P(k|i,j)   .. probability that the genotype combination i,j,k is consistent
                          with mendelian inheritance (the likelihood that offspring 
                          of two HETs is a HOM is smaller than it being a HET)
@@ -644,7 +647,7 @@ static void mcall_call_genotypes(call_t *call, int nals, int nout_als, int out_a
                    = P_uc . [1 - Pm + Pkij . Pm]
 
     We choose genotype combination i,j,k which maximizes P(F=i,M=j,K=k). This
-    probability gives the quality GQ(Trio).  
+    probability gives the quality GQ(Trio).
     Individual qualities are calculated as
         GQ(F=i,M=j,K=k) = P(F=i,M=j,K=k) / \sum_{x,y} P(F=i,M=x,K=y)
  */
@@ -719,6 +722,27 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
                 gls[i] = log(gls[i]/sum_lk);
     }
 
+    // Set novel mutation rate for this site: using first ALT allele for simplicity.
+    double trio_Pm;
+    if ( call->trio_Pm_ins<0 && call->trio_Pm_del<0 ) trio_Pm = call->trio_Pm_SNPs;     // the same Pm for indels and SNPs requested
+    else 
+    {
+        int ret = bcf_get_variant_types(rec);
+        if ( !(ret & VCF_INDEL) ) trio_Pm = call->trio_Pm_SNPs;
+        else
+        {
+            if ( call->trio_Pm_ins<0 )  // dynamic calculation, trio_Pm_del holds the scaling factor
+            {
+                trio_Pm = rec->d.var[1].n<0 ? -21.9313 - 0.2856*rec->d.var[1].n : -22.8689 + 0.2994*rec->d.var[1].n;
+                trio_Pm = 1 - call->trio_Pm_del * exp(trio_Pm);
+            }
+            else                        // snps and indels set explicitly
+            {
+                trio_Pm = rec->d.var[1].n<0 ? call->trio_Pm_del : call->trio_Pm_ins;
+            }
+        }
+    }
+
     // Calculate constrained likelihoods and determine genotypes
     int ifm;
     for (ifm=0; ifm<call->nfams; ifm++)
@@ -763,7 +787,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             }
             // fprintf(stderr,"\t\t");
             double Pkij = npresent==3 ? (double)2/(trio[itr]>>12) : 1;  // with missing genotypes Pkij's are different
-            lk += log(1 - call->trio_Pm * (1 - Pkij));
+            lk += log(1 - trio_Pm * (1 - Pkij));
             // fprintf(stderr,"%d%d%d\t%e\t%.2f\n", trio[itr]>>8&0xf,trio[itr]>>4&0xf,trio[itr]&0xf, lk, Pkij);
             if ( c_lk < lk ) { c_lk = lk; c_itr = trio[itr]; }
             if ( uc_itr==trio[itr] ) uc_is_mendelian = 1;
@@ -771,7 +795,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
 
         if ( !uc_is_mendelian )
         {
-            uc_lk += log(1 - call->trio_Pm);
+            uc_lk += log(1 - trio_Pm);
             //fprintf(stderr,"c_lk=%e uc_lk=%e c_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,uc_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
             if ( c_lk < uc_lk ) { c_lk = uc_lk; c_itr = uc_itr; }
         }
@@ -813,7 +837,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
                         lk += gl[jgt]; 
                     }
                     double Pkij = (double)2/(trio[itr]>>12); 
-                    lk += log(1 - call->trio_Pm * (1 - Pkij));
+                    lk += log(1 - trio_Pm * (1 - Pkij));
                     lk_sum = logsumexp2(lk_sum, lk);
                 }
                 if ( !uc_is_mendelian && (best_itr>>((2-i)*4)&0xf)==(uc_itr>>((2-i)*4)&0xf) ) lk_sum = logsumexp2(lk_sum,uc_lk);
