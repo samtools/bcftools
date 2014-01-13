@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.78.1" /></head><body><div xml:lang="en" class="refentry" lang="en"><a id="idm140019094848832"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.78.1" /></head><body><div xml:lang="en" class="refentry" lang="en"><a id="idm140027887626496"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Bcftools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
@@ -9,6 +9,8 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </li><li class="listitem">
 <span class="strong"><strong>index</strong></span>                ..  index BCF
 </li><li class="listitem">
+<span class="strong"><strong><a class="link" href="#annotate" title="bcftools annotate [OPTIONS] FILE">annotate</a></strong></span>   .. edit VCF files, add or remove annotations, apply user plugins
+</li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">call</a></strong></span>        ..  SNP/indel calling (former "view")
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span>    ..  filter VCF/BCF files using fixed thresholds
@@ -17,7 +19,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#isec" title="bcftools isec [OPTIONS] A.vcf.gz B.vcf.gz […]">isec</a></strong></span>        ..  intersections of VCF/BCF files
 </li><li class="listitem">
-<span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">merge</a></strong></span>      ..  merge VCF/BCF files
+<span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">merge</a></strong></span>      ..  merge VCF/BCF files to create multi-sample file
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz">norm</a></strong></span>        ..  normalize indels
 </li><li class="listitem">
@@ -73,7 +75,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </dd><dt><span class="term">
 <span class="emphasis"><em>both</em></span>
 </span></dt><dd>
-            abbreviation of "<span class="strong"><strong>-c</strong></span> <span class="emphasis"><em>indels</em></span> <span class="strong"><strong>-c</strong></span> <span class="emphasis"><em>snps</em></span>"
+            abbreviation of "<span class="strong"><strong>-c</strong></span> <span class="emphasis"><em>indels</em></span>  <span class="strong"><strong>-c</strong></span> <span class="emphasis"><em>snps</em></span>"
 </dd></dl></div></dd><dt><span class="term">
 <span class="strong"><strong>-f, --apply-filters</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
@@ -100,7 +102,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     Comma-separated list of samples to include or a file with one sample
     per line. The command <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a></strong></span> accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
-    With <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a></strong></span> <span class="strong"><strong>-C</strong></span> <span class="emphasis"><em>trio</em></span>, PED file is expected.
+    With <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a> -C</strong></span> <span class="emphasis"><em>trio</em></span>, PED file is expected.
 </dd><dt><span class="term">
 <span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
@@ -113,7 +115,56 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     third column of the targets file must be comma-separated list of alleles,
     starting with the reference allele. Such a file can be easily created from
     a VCF with:
-</dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf</pre></div><div class="refsect2"><a id="call"></a><h3>bcftools call <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command replaces the former <span class="strong"><strong>bcftools view</strong></span> caller. Some of the original
+</dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf</pre></div><div class="refsect2"><a id="annotate"></a><h3>bcftools annotate <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command allows to add or remove annotations and apply user-written plugins.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+<span class="strong"><strong>-a, --annotations</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    Bgzip-compressed and tabix-indexed file with annotations. The file
+    can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
+    (or, alternatively, FROM, TO), optional columns REF and ALT, and arbitrary
+    number of annotation columns. In case of tab-delimited file, the
+    coordinates POS, FROM and TO are one-based and inclusive.
+    When REF and ALT are present, only matching VCF records will be annotated.
+    When multiple ALT alleles are present in the annotation file (given as
+    comma-separated list of alleles), at least one must match one of the
+    alleles in the corresponding VCF record.
+    See also <span class="strong"><strong>-c, --columns</strong></span> and <span class="strong"><strong>-h, --header-lines</strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-c, --columns</strong></span> <span class="emphasis"><em>list</em></span>
+</span></dt><dd>
+    Comma-separated list of columns present in the annotation file and defined
+    in the header file (see also <span class="strong"><strong>-a, --annotations</strong></span> and <span class="strong"><strong>-h, --header-lines</strong></span>).
+    INFO tags can be written both as INFO/TAG or simply TAG. Unused columns can
+    be indicated by <span class="emphasis"><em>-</em></span>.  For example:
+</dd></dl></div><pre class="screen">    CHROM,FROM,TO,REF,ALT,-,INFO/TAG</pre><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+<span class="strong"><strong>-h, --header-lines</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    Header lines to appended to the VCF header.
+</dd><dt><span class="term">
+<span class="strong"><strong>-l, --list-plugins</strong></span>
+</span></dt><dd>
+    List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
+    the program which directories to search.
+</dd><dt><span class="term">
+<span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-p, --plugins</strong></span> <span class="emphasis"><em>name</em></span>[,…]
+</span></dt><dd>
+    Comma-separated list of plugins to run. The BCFTOOLS_PLUGINS environment
+    variable tells the program which directories to search.
+    See the examples in plugins/*.c coming with this distribution for further
+    details and examples.
+</dd><dt><span class="term">
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --remove</strong></span> <span class="emphasis"><em>list</em></span>
+</span></dt><dd>
+    List of annotations to remove. Use <span class="emphasis"><em>FILTER</em></span> to remove all filters or
+    <span class="emphasis"><em>FILTER/SomeFilter</em></span> to remove a specific filter. More examples:
+</dd></dl></div><pre class="screen">    ID,INFO/DP,FORMAT/DP</pre></div><div class="refsect2"><a id="call"></a><h3>bcftools call <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command replaces the former <span class="strong"><strong>bcftools view</strong></span> caller. Some of the original
 functionality has been temporarily lost in the process of transition under
 <a class="ulink" href="http://github.com/samtools/htslib" target="_top">htslib</a>, but will be added back on popular
 demand. The original calling model can be invoked with the <span class="strong"><strong>-c</strong></span> option.</p><div class="refsect3"><a id="_file_format_options"></a><h4>File format options:</h4><div class="variablelist"><dl class="variablelist"><dt><span class="term">
@@ -175,7 +226,7 @@ demand. The original calling model can be invoked with the <span class="strong">
 </dd><dt><span class="term">
 <span class="strong"><strong>-p, --pval-threshold</strong></span> <span class="emphasis"><em>float</em></span>
 </span></dt><dd>
-    with <span class="strong"><strong>-c</strong></span>, accept variant if P(ref|D)&lt;'float'. With <span class="strong"><strong>-m</strong></span>, accept another ALT allele if P(chi^2)&gt;=1-<span class="emphasis"><em>float</em></span>
+    with <span class="strong"><strong>-c</strong></span>, accept variant if P(ref|D) &lt; <span class="emphasis"><em>float</em></span>. With <span class="strong"><strong>-m</strong></span>, accept another ALT allele if P(chi^2)&gt;=1-<span class="emphasis"><em>float</em></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
@@ -289,12 +340,16 @@ With <span class="strong"><strong>-s</strong></span> but no <span class="strong"
 CN
 </span></dt><dd>
         This field lists pairwise discordance for all possible sample pairs.
-        It is calculated simply as
-</dd></dl></div><pre class="screen">        \sum_s { min_{G} \{ PL_i + PL_j \} },</pre><pre class="literallayout">where the sum is over all sites 's' and genotype 'G' is selected
-to maximize likelihood for samples 'i' and 'j'. When PL field is not
-present, a constant value '99' is used for the unseen genotypes.
-With *-G*, the value '1' is used instead and thus the discordance value
-gives exactly the number of differing genotypes.</pre></div></div><div class="refsect2"><a id="isec"></a><h3>bcftools isec [<span class="emphasis"><em>OPTIONS</em></span>]  <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Creates intersections, unions and complements of VCF files. Depending
+        It is calculated as
+</dd></dl></div><pre class="screen">        \sum_s { min_{G} \{ PL_i + PL_j \} },</pre><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+ 
+</span></dt><dd>
+        where the sum is over all sites <span class="emphasis"><em>s</em></span> and genotype <span class="emphasis"><em>G</em></span> is selected
+        to maximize likelihood for samples <span class="emphasis"><em>i</em></span> and <span class="emphasis"><em>j</em></span>. When PL field is not
+        present, a constant value <span class="emphasis"><em>99</em></span> is used for the unseen genotypes.
+        With <span class="strong"><strong>-G</strong></span>, the value <span class="emphasis"><em>1</em></span> is used instead and thus the discordance value
+        gives exactly the number of differing genotypes.
+</dd></dl></div></div></div><div class="refsect2"><a id="isec"></a><h3>bcftools isec [<span class="emphasis"><em>OPTIONS</em></span>]  <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Creates intersections, unions and complements of VCF files. Depending
 on the options, the program can output records from one (or more) files
 which have (or do not have) corresponding records with the same position
 in the other files.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
@@ -310,10 +365,10 @@ in the other files.</p><div class="variablelist"><dl class="variablelist"><dt><s
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-n, --nfiles</strong></span> <span class="emphasis"><em><span class="+-=">INT</span></em></span>
+<span class="strong"><strong>-n, --nfiles</strong></span> [+-=]<span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
-    output positions present in this many (<span class="emphasis"><em>=</em></span>), this many or more (<span class="emphasis"><em>+</em></span>), or this
-    many or fewer (<span class="emphasis"><em>-</em></span>) files
+    output positions present in this many (=), this many or more (+), or this
+    many or fewer (-) files
 </dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
@@ -335,7 +390,15 @@ in the other files.</p><div class="variablelist"><dl class="variablelist"><dt><s
 </span></dt><dd>
     list of input files to output given as 1-based indices. With <span class="strong"><strong>-p</strong></span> and no
     <span class="strong"><strong>-w</strong></span>, all files are written.
-</dd></dl></div><div class="refsect3"><a id="_examples"></a><h4>Examples:</h4><p>Create intersection and complements of two sets saving the output in dir/*</p><pre class="screen">    bcftools isec -p dir A.vcf.gz B.vcf.gz</pre><p>Extract and write records from A shared by both A and B using exact allele match</p><pre class="screen">    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz</pre><p>Extract records private to A or B comparing by position only</p><pre class="screen">    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz</pre></div></div><div class="refsect2"><a id="merge"></a><h3>bcftools merge [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Merge one or more VCF or BCF files.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+</dd></dl></div><div class="refsect3"><a id="_examples"></a><h4>Examples:</h4><p>Create intersection and complements of two sets saving the output in dir/*</p><pre class="screen">    bcftools isec -p dir A.vcf.gz B.vcf.gz</pre><p>Extract and write records from A shared by both A and B using exact allele match</p><pre class="screen">    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz</pre><p>Extract records private to A or B comparing by position only</p><pre class="screen">    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz</pre></div></div><div class="refsect2"><a id="merge"></a><h3>bcftools merge [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Merge multiple VCF or BCF files to create one multi-sample file. For example,
+when merging file <span class="emphasis"><em>A.vcf.gz</em></span> containing samples <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span> and <span class="emphasis"><em>S3</em></span> and file
+<span class="emphasis"><em>B.vcf.gz</em></span> containing samples <span class="emphasis"><em>S3</em></span> and <span class="emphasis"><em>S4</em></span>, the output file will contain
+four samples named <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span>, <span class="emphasis"><em>S3</em></span>, <span class="emphasis"><em>2:S3</em></span> and <span class="emphasis"><em>S4</em></span>.</p><p>Note that it is responsibility of the user to ensure that the sample names are
+unique across all files. If they are not, the program will create a unique
+sample name by prepending index of the file as it appeared on the command line
+to the conflicting sample name (see <span class="emphasis"><em>2:S3</em></span> in the above example). Sample names
+can be also given explicitly using the <span class="strong"><strong>--print-header</strong></span> and
+<span class="strong"><strong>--use-header</strong></span> options.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
 <span class="strong"><strong>--use-header</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     use the VCF header in the provided text <span class="emphasis"><em>FILE</em></span>
@@ -618,53 +681,51 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
 </span></dt><dd>
     Main title for the PDF.
 </dd></dl></div></div></div><div class="refsect1"><a id="expressions"></a><h2>EXPRESSIONS</h2><p>These filtering expressions are accepted by <span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span> and
-<span class="strong"><strong><a class="link" href="#view" title="bcftools view OPTIONS file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="variablelist"><dl class="variablelist"><dt><span class="term">
-Valid expressions may contain: 
-</span></dt><dd><div class="variablelist"><dl class="variablelist"><dt><span class="term">
+<span class="strong"><strong><a class="link" href="#view" title="bcftools view OPTIONS file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="variablelist"><p class="title"><strong>Valid expressions may contain:</strong></p><dl class="variablelist"><dt><span class="term">
 arithmetic perators: 
 </span></dt><dd>
-        +, *, -, /
+    +, *, -, /
 </dd><dt><span class="term">
 logical operators: 
 </span></dt><dd>
-        &amp;&amp; (same as &amp;),  || (same as |)
+    &amp;&amp; (same as &amp;),  || (same as |)
 </dd><dt><span class="term">
 comparison operators: 
 </span></dt><dd>
-        == (same as =), &gt;, &gt;=, ⇐, &lt;, !=
+    == (same as =), &gt;, &gt;=, ⇐, &lt;, !=
 </dd><dt><span class="term">
 parentheses: 
 </span></dt><dd>
-        (, )
+    (, )
 </dd><dt><span class="term">
 array subscripts to access vector subfields: 
 </span></dt><dd>
-        e.g. AC[0]
+    e.g. AC[0]
 </dd><dt><span class="term">
 double quotes for string values: 
 </span></dt><dd>
-        e.g. %FILTER="PASS"
+    e.g. %FILTER="PASS"
 </dd><dt><span class="term">
 <span class="emphasis"><em>1</em></span> (or <span class="emphasis"><em>0</em></span>) for testing the presence (or absence) of a flag: 
 </span></dt><dd>
-        e.g. FlagA=1 &amp;&amp; FlagB=0
+    e.g. FlagA=1 &amp;&amp; FlagB=0
 </dd><dt><span class="term">
 <span class="emphasis"><em>TAG</em></span> or INFO/<span class="emphasis"><em>TAG</em></span> for INFO fields: 
 </span></dt><dd>
-        e.g. DP&lt;800 or INFO/DP&lt;800
+    e.g. DP&lt;800 or INFO/DP&lt;800
 </dd><dt><span class="term">
 %<span class="emphasis"><em>COLUMN</em></span> for column names (not all columns are supported yet): 
 </span></dt><dd>
-        e.g. %QUAL&gt;10 &amp;&amp; %FILTER="PASS"
+    e.g. %QUAL&gt;10 &amp;&amp; %FILTER="PASS"
 </dd><dt><span class="term">
 %TYPE for testing variant type (<span class="emphasis"><em>indel</em></span>, <span class="emphasis"><em>snp</em></span>, <span class="emphasis"><em>mnp</em></span>, <span class="emphasis"><em>other</em></span>): 
 </span></dt><dd>
-        e.g. %TYPE="snp"
+    e.g. %TYPE="snp"
 </dd><dt><span class="term">
 %<span class="emphasis"><em>FUNC</em></span>(<span class="emphasis"><em>TAG</em></span>) where <span class="emphasis"><em>FUNC</em></span> is one of <span class="emphasis"><em>MAX</em></span>, <span class="emphasis"><em>MIN</em></span>, <span class="emphasis"><em>AVG</em></span> and <span class="emphasis"><em>TAG</em></span> is one of the FORMAT fields: 
 </span></dt><dd>
-        e.g. %MIN(DP)&gt;10 &amp;&amp; %MIN(DV)&gt;3
-</dd></dl></div></dd></dl></div><p>A few more examples:</p><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)
+    e.g. %MIN(DP)&gt;10 &amp;&amp; %MIN(DV)&gt;3
+</dd></dl></div><p>A few more examples:</p><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)
 %MIN(DP)&gt;35 &amp;&amp; %AVG(GQ)&gt;50
 ...</pre></div><div class="refsect1"><a id="_bugs"></a><h2>BUGS</h2><p>Please report any bugs you encounter on the github website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p></div><div class="refsect1"><a id="_authors"></a><h2>AUTHORS</h2><p>Heng Li from the Sanger Institute wrote the original C version of htslib,
 samtools and bcftools. Bob Handsaker from the Broad Institute implemented the

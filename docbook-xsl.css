@@ -3,11 +3,11 @@
 */
 
 body {
-  font-family: Georgia,serif;
+  /* font-family: Georgia,serif; */
 }
 
 code, pre {
-  font-family: "Courier New", Courier, monospace;
+  /* font-family: "Courier New", Courier, monospace; */
 }
 
 span.strong {
@@ -21,8 +21,8 @@ body blockquote {
 }
 
 html body {
-  margin: 1em 5% 1em 5%;
-  line-height: 1.2;
+  margin: 1em 5% 1em 10%;
+  /*x line-height: 1.2; */
 }
 
 body div {
@@ -31,9 +31,18 @@ body div {
 
 h1, h2, h3, h4, h5, h6
 {
-  color: #527bbd;
-  font-family: Arial,Helvetica,sans-serif;
+  /*x color: #527bbd; */
+  color: #FF8800;
+  /* font-family: Arial,Helvetica,sans-serif; */
 }
+
+a { color: #dd7700; }
+
+h1 { font-size: 130%; padding-top: 1em; }
+h2 { font-size: 120%; padding-top: 1em; }
+h3 { font-size: 110%; }
+
+dl.variablelist { padding-left: 2em; }
 
 div.toc p:first-child,
 div.list-of-figures p:first-child,
@@ -44,39 +53,50 @@ div.sidebar p.title
 {
   font-weight: bold;
   color: #527bbd;
-  font-family: Arial,Helvetica,sans-serif;
+  /* font-family: Arial,Helvetica,sans-serif; */
   margin-bottom: 0.2em;
 }
 
 body h1 {
-  margin: .0em 0 0 -4%;
+  margin: .0em 0 0 -3%;
   line-height: 1.3;
   border-bottom: 2px solid silver;
 }
 
 body h2 {
-  margin: 0.5em 0 0 -4%;
+  margin: 0.5em 0 0 -3%;
   line-height: 1.3;
-  border-bottom: 2px solid silver;
+  border-bottom: 1px solid #FF8800;
 }
 
 body h3 {
-  margin: .8em 0 0 -3%;
+  margin: 2em 0 0em -3%;
   line-height: 1.3;
+  display: inline-block;
+  padding: 0.2em; 
+  /* 
+  background-color: #eee; 
+  border-bottom: 1px solid #FF8800;
+  border-top: 1px solid #FF8800;
+  */
 }
 
+/* div.refsect3 { margin-left: 4em; } */
+pre.screen { margin-left: 5em; }
+
 body h4 {
-  margin: .8em 0 0 -3%;
+  margin: .8em 0 0 0;
   line-height: 1.3;
+  color: black;
 }
 
 body h5 {
-  margin: .8em 0 0 -2%;
+  margin: .8em 0 0 0;
   line-height: 1.3;
 }
 
 body h6 {
-  margin: .8em 0 0 -1%;
+  margin: .8em 0 0 0;
   line-height: 1.3;
 }
 
@@ -88,7 +108,7 @@ div.footnotes hr {
 }
 
 div.navheader th, div.navheader td, div.navfooter td {
-  font-family: Arial,Helvetica,sans-serif;
+  /* font-family: Arial,Helvetica,sans-serif; */
   font-size: 0.9em;
   font-weight: bold;
   color: #527bbd;
@@ -124,18 +144,22 @@ html {
   padding: 0;
 }
 
-body h1, body h2, body h3, body h4, body h5, body h6 {
-  margin-left: 0
-} 
+/* body h1, body h2, body h3, body h4, body h5, body h6 
+{
+  margin-left: 0em;
+}
+*/
 
 body pre {
   margin: 0.5em 10% 0.5em 1em;
   line-height: 1.0;
-  color: navy;
+  /*x color: navy; */
+  /* color: #004499;*/
 }
 
 tt.literal, code.literal {
-  color: navy;
+  /* color: navy; */
+  /* color: #004499; */
 }
 
 .programlisting, .screen {
@@ -180,7 +204,8 @@ dt {
 
 dt span.term {
   font-style: normal;
-  color: navy;
+  /*x color: navy; */
+  /* color: #004499; */
 }
 
 div.variablelist dd p {
@@ -214,7 +239,7 @@ div.revhistory table {
 div.revhistory th {
   border: none;
   color: #527bbd;
-  font-family: Arial,Helvetica,sans-serif;
+  /* font-family: Arial,Helvetica,sans-serif; */
 }
 div.revhistory td {
   border: 1px solid silver;
