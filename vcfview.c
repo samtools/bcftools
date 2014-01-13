@@ -303,7 +303,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -1/2, --singletons/--doubletons                print singleton/doubleton sites only (shortcut for -c1 -C1/-c2 -C2)\n");
     fprintf(stderr, "    -c/C, --min-ac/--max-ac                        minimum/maximum allele count (INFO/AC) of sites to be printed\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                   require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (see vcffilter for details)\n");
+    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (see \"bcftools filter\" for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                          print known/novel sites only (ID is/not '.')\n");
     fprintf(stderr, "    -m/M, --multiallelic/--biallelic               print multiallelic/biallelic sites only\n");
     fprintf(stderr, "    -p/P, --phased/--exclude-phased                select/exclude sites where all samples are phased/not all samples are phased\n");
