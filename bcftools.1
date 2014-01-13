@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 01/09/2014
+.\"      Date: 01/13/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "01/09/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "01/13/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -236,7 +236,8 @@ all indel records are compatible, regardless of whether the REF and ALT alleles 
 .PP
 \fIboth\fR
 .RS 4
-abbreviation of "\fB\-c\fR\fIindels\fR\fB\-c\fR\fIsnps\fR"
+abbreviation of "\fB\-c\fR\fIindels\fR\ \&
+\fB\-c\fR\fIsnps\fR"
 .RE
 .RE
 .PP
@@ -358,7 +359,7 @@ List of annotations to remove\&. Use
 \fIFILTER\fR
 to remove all filters or
 \fIFILTER/SomeFilter\fR
-to remove a specific filter\&. Other examples:
+to remove a specific filter\&. More examples:
 .RE
 .sp
 .if n \{\
@@ -482,7 +483,8 @@ calling\&. The trio genotype calling maximizes likelihood of a particular combin
 \fB\-p, \-\-pval\-threshold\fR \fIfloat\fR
 .RS 4
 with
-\fB\-c\fR, accept variant if P(ref|D)<\*(Aqfloat\*(Aq\&. With
+\fB\-c\fR, accept variant if P(ref|D) <
+\fIfloat\fR\&. With
 \fB\-m\fR, accept another ALT allele if P(chi^2)>=1\-\fIfloat\fR
 .RE
 .PP
@@ -678,7 +680,7 @@ see
 .PP
 CN
 .RS 4
-This field lists pairwise discordance for all possible sample pairs\&. It is calculated simply as
+This field lists pairwise discordance for all possible sample pairs\&. It is calculated as
 .RE
 .sp
 .if n \{\
@@ -690,20 +692,22 @@ This field lists pairwise discordance for all possible sample pairs\&. It is cal
 .if n \{\
 .RE
 .\}
-.sp
-.if n \{\
+.PP
 .RS 4
-.\}
-.nf
-where the sum is over all sites \*(Aqs\*(Aq and genotype \*(AqG\*(Aq is selected
-to maximize likelihood for samples \*(Aqi\*(Aq and \*(Aqj\*(Aq\&. When PL field is not
-present, a constant value \*(Aq99\*(Aq is used for the unseen genotypes\&.
-With *\-G*, the value \*(Aq1\*(Aq is used instead and thus the discordance value
-gives exactly the number of differing genotypes\&.
-.fi
-.if n \{\
+where the sum is over all sites
+\fIs\fR
+and genotype
+\fIG\fR
+is selected to maximize likelihood for samples
+\fIi\fR
+and
+\fIj\fR\&. When PL field is not present, a constant value
+\fI99\fR
+is used for the unseen genotypes\&. With
+\fB\-G\fR, the value
+\fI1\fR
+is used instead and thus the discordance value gives exactly the number of differing genotypes\&.
 .RE
-.\}
 .RE
 .SS "bcftools isec [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR \fIB\&.vcf\&.gz\fR [\&...]"
 .sp
@@ -726,9 +730,9 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-n, \-\-nfiles\fR \fIINT\fR
+\fB\-n, \-\-nfiles\fR [+\-=]\fIINT\fR
 .RS 4
-output positions present in this many (\fI=\fR), this many or more (\fI+\fR), or this many or fewer (\fI\-\fR) files
+output positions present in this many (=), this many or more (+), or this many or fewer (\-) files
 .RE
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
@@ -1274,8 +1278,7 @@ Main title for the PDF\&.
 .sp
 These filtering expressions are accepted by \fBfilter\fR and \fBview\fR commands\&.
 .PP
-Valid expressions may contain:
-.RS 4
+\fBValid expressions may contain:\fR
 .PP
 arithmetic perators:
 .RS 4
@@ -1330,7 +1333,6 @@ e\&.g\&. %TYPE="snp"
 %\fIFUNC\fR(\fITAG\fR) where \fIFUNC\fR is one of \fIMAX\fR, \fIMIN\fR, \fIAVG\fR and \fITAG\fR is one of the FORMAT fields:
 .RS 4
 e\&.g\&. %MIN(DP)>10 && %MIN(DV)>3
-.RE
 .RE
 .sp
 A few more examples:

@@ -95,7 +95,7 @@ OPTIONS
             first indel record will be considered and appear on output.
 
         'both';;
-            abbreviation of "*-c* 'indels' *-c* 'snps'"
+            abbreviation of "*-c* 'indels'{nbsp} *-c* 'snps'"
 
 *-f, --apply-filters* 'LIST'::
     Skip sites where FILTER column does not contain any of the strings listed
@@ -247,7 +247,7 @@ demand. The original calling model can be invoked with the *-c* option.
     P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1-Pn).
 
 *-p, --pval-threshold* 'float'::
-    with *-c*, accept variant if P(ref|D)<'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'
+    with *-c*, accept variant if P(ref|D) < 'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -361,10 +361,11 @@ With *-s* but no *-p*, likelihoods at all sites are printed.
 
     CN;;
         This field lists pairwise discordance for all possible sample pairs.
-        It is calculated simply as 
+        It is calculated as 
 ----
         \sum_s { min_{G} \{ PL_i + PL_j \} },
 ----
+    ;;
         where the sum is over all sites 's' and genotype 'G' is selected
         to maximize likelihood for samples 'i' and 'j'. When PL field is not
         present, a constant value '99' is used for the unseen genotypes. 
@@ -388,9 +389,9 @@ in the other files.
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
-*-n, --nfiles* ['+-=']'INT'::
-    output positions present in this many ('='), this many or more ('+'), or this
-    many or fewer ('-') files
+*-n, --nfiles* \[+-=]'INT'::
+    output positions present in this many (=), this many or more (+), or this
+    many or fewer (-) files
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
@@ -715,40 +716,40 @@ EXPRESSIONS
 These filtering expressions are accepted by *<<filter,filter>>* and
 *<<view,view>>* commands.
 
-Valid expressions may contain: ;;
+.Valid expressions may contain:
 
-    arithmetic perators: ::
-        +, *, -, /
+arithmetic perators: ::
+    +, *, -, /
     
-    logical operators: ::
-        && (same as &),  || (same as |)
+logical operators: ::
+    && (same as &),  || (same as |)
     
-    comparison operators: ::
-        == (same as =), >, >=, <=, <, !=
+comparison operators: ::
+    == (same as =), >, >=, <=, <, !=
     
-    parentheses: ::
-        (, )
+parentheses: ::
+    (, )
     
-    array subscripts to access vector subfields: ::
-        e.g. AC[0]
+array subscripts to access vector subfields: ::
+    e.g. AC[0]
     
-    double quotes for string values: ::
-        e.g. %FILTER="PASS"
+double quotes for string values: ::
+    e.g. %FILTER="PASS"
     
-    '1' (or '0') for testing the presence (or absence) of a flag: ::
-        e.g. FlagA=1 && FlagB=0
+'1' (or '0') for testing the presence (or absence) of a flag: ::
+    e.g. FlagA=1 && FlagB=0
     
-    'TAG' or INFO/'TAG' for INFO fields: ::
-        e.g. DP<800 or INFO/DP<800
+'TAG' or INFO/'TAG' for INFO fields: ::
+    e.g. DP<800 or INFO/DP<800
     
-    %'COLUMN' for column names (not all columns are supported yet): ::
-        e.g. %QUAL>10 && %FILTER="PASS"
+%'COLUMN' for column names (not all columns are supported yet): ::
+    e.g. %QUAL>10 && %FILTER="PASS"
     
-    %TYPE for testing variant type ('indel', 'snp', 'mnp', 'other'): ::
-        e.g. %TYPE="snp"
+%TYPE for testing variant type ('indel', 'snp', 'mnp', 'other'): ::
+    e.g. %TYPE="snp"
     
-    %'FUNC'('TAG') where 'FUNC' is one of 'MAX', 'MIN', 'AVG' and 'TAG' is one of the FORMAT fields: ::
-        e.g. %MIN(DP)>10 && %MIN(DV)>3
+%'FUNC'('TAG') where 'FUNC' is one of 'MAX', 'MIN', 'AVG' and 'TAG' is one of the FORMAT fields: ::
+    e.g. %MIN(DP)>10 && %MIN(DV)>3
 
 A few more examples:
 
