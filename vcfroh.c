@@ -122,12 +122,12 @@ static void load_genmap(args_t *args, bcf1_t *line)
     if ( !args->genmap_fname ) return;
 
     kstring_t str = {0,0,0};
-    char *fname = strchr(args->genmap_fname,'*');
+    char *fname = strstr(args->genmap_fname,"{CHROM}");
     if ( fname )
     {
         kputsn(args->genmap_fname, fname - args->genmap_fname, &str);
         kputs(bcf_seqname(args->hdr,line), &str);
-        kputs(fname+1,&str);
+        kputs(fname+7,&str);
         fname = str.s;
     }
     else
@@ -508,7 +508,7 @@ static void usage(args_t *args)
     //fprintf(stderr, "    -c, --counts-only              no HMM, simply report counts of HETs and HOMs per win\n");
     fprintf(stderr, "    -f, --fwd-bwd                  run forward-backward algorithm instead of Viterbi\n");
     fprintf(stderr, "    -G, --GTs-only <float>         use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
-    fprintf(stderr, "    -m, --genetic-map <file>       genetic map in IMPUTE2 format, single file or mask, where \"*\" is replaced with chromosome name\n");
+    fprintf(stderr, "    -m, --genetic-map <file>       genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
     fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --samples <list|file>      list of samples (file or comma separated list) [null]\n");
     fprintf(stderr, "    -t, --targets <reg|file>       similar to -r but streams rather than index-jumps, see man page for details\n");
