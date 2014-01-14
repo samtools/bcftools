@@ -731,6 +731,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                 int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
                 if ( gt == GT_UNKN ) continue;
                 int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
+                if ( gt2 == GT_UNKN ) continue;
                 if ( gt != gt2 ) 
                 {
                     bcf_sr_t *reader = &files->readers[0];
@@ -935,44 +936,72 @@ static void print_stats(args_t *args)
     {
         printf("SN\t%d\tNumber of samples:\t%d\n", 2, args->files->n_smpl);
 
-        printf("# GCsAF, Genotype concordance by non-reference allele frequency (SNPs)\n# GCsAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites\n");
-        gtcmp_t *stats = args->af_gts_snps;
-        int nrd_m[3] = {0,0,0}, nrd_mm[3] = {0,0,0};
-        for (i=0; i<args->m_af; i++)
+        int x;
+        for (x=0; x<2; x++)
         {
-            int j, n = 0;
-            for (j=0; j<3; j++) 
+            gtcmp_t *stats;
+            if ( x==0 )
             {
-                n += stats[i].m[j] + stats[i].mm[j];
-                nrd_m[j]  += stats[i].m[j];
-                nrd_mm[j] += stats[i].mm[j];
+                printf("# GCsAF, Genotype concordance by non-reference allele frequency (SNPs)\n# GCsAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites\n");
+                stats = args->af_gts_snps;
             }
-            if ( !i || !n ) continue;   // skip singleton stats and empty bins
-            printf("GCsAF\t2\t%f", 100.*(i-1)/(args->m_af-1));
-            printf("\t%d\t%d\t%d", stats[i].m[GT_HOM_RR],stats[i].m[GT_HET_RA],stats[i].m[GT_HOM_AA]);
-            printf("\t%d\t%d\t%d", stats[i].mm[GT_HOM_RR],stats[i].mm[GT_HET_RA],stats[i].mm[GT_HOM_AA]);
-            printf("\t%f\t%d\n", stats[i].r2n ? stats[i].r2sum/stats[i].r2n : -1.0, stats[i].r2n);
+            else
+            {
+                printf("# GCiAF, Genotype concordance by non-reference allele frequency (indels)\n# GCiAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites\n");
+                stats = args->af_gts_indels;
+            }
+            int nrd_m[3] = {0,0,0}, nrd_mm[3] = {0,0,0};
+            for (i=0; i<args->m_af; i++)
+            {
+                int j, n = 0;
+                for (j=0; j<3; j++) 
+                {
+                    n += stats[i].m[j] + stats[i].mm[j];
+                    nrd_m[j]  += stats[i].m[j];
+                    nrd_mm[j] += stats[i].mm[j];
+                }
+                if ( !i || !n ) continue;   // skip singleton stats and empty bins
+                printf("GC%cAF\t2\t%f", x==0 ? 's' : 'i', 100.*(i-1)/(args->m_af-1));
+                printf("\t%d\t%d\t%d", stats[i].m[GT_HOM_RR],stats[i].m[GT_HET_RA],stats[i].m[GT_HOM_AA]);
+                printf("\t%d\t%d\t%d", stats[i].mm[GT_HOM_RR],stats[i].mm[GT_HET_RA],stats[i].mm[GT_HOM_AA]);
+                printf("\t%f\t%d\n", stats[i].r2n ? stats[i].r2sum/stats[i].r2n : -1.0, stats[i].r2n);
+            }
+
+            if ( x==0 )
+                printf("# Non-Reference Discordance (NRD), SNPs\n# NRDs\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
+            else
+                printf("# Non-Reference Discordance (NRD), indels\n# NRDi\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
+            int m  = nrd_m[GT_HET_RA] + nrd_m[GT_HOM_AA];
+            int mm = nrd_mm[GT_HOM_RR] + nrd_mm[GT_HET_RA] + nrd_mm[GT_HOM_AA];
+            printf("NRD%c\t2\t%f\t%f\t%f\t%f\n", x==0 ? 's' : 'i',
+                    m+mm ? mm*100.0/(m+mm) : 0, 
+                    nrd_m[GT_HOM_RR]+nrd_mm[GT_HOM_RR] ? nrd_mm[GT_HOM_RR]*100.0/(nrd_m[GT_HOM_RR]+nrd_mm[GT_HOM_RR]) : 0,
+                    nrd_m[GT_HET_RA]+nrd_mm[GT_HET_RA] ? nrd_mm[GT_HET_RA]*100.0/(nrd_m[GT_HET_RA]+nrd_mm[GT_HET_RA]) : 0,
+                    nrd_m[GT_HOM_AA]+nrd_mm[GT_HOM_AA] ? nrd_mm[GT_HOM_AA]*100.0/(nrd_m[GT_HOM_AA]+nrd_mm[GT_HOM_AA]) : 0
+                  );
         }
 
-        int m  = nrd_m[GT_HET_RA] + nrd_m[GT_HOM_AA];
-        int mm = nrd_mm[GT_HOM_RR] + nrd_mm[GT_HET_RA] + nrd_mm[GT_HOM_AA];
-        printf("# Non-Reference Discordance (NRD)\n# NRD\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
-        printf("NRD\t2\t%f\t%f\t%f\t%f\n", 
-            m+mm ? mm*100.0/(m+mm) : 0, 
-            nrd_m[GT_HOM_RR]+nrd_mm[GT_HOM_RR] ? nrd_mm[GT_HOM_RR]*100.0/(nrd_m[GT_HOM_RR]+nrd_mm[GT_HOM_RR]) : 0,
-            nrd_m[GT_HET_RA]+nrd_mm[GT_HET_RA] ? nrd_mm[GT_HET_RA]*100.0/(nrd_m[GT_HET_RA]+nrd_mm[GT_HET_RA]) : 0,
-            nrd_m[GT_HOM_AA]+nrd_mm[GT_HOM_AA] ? nrd_mm[GT_HOM_AA]*100.0/(nrd_m[GT_HOM_AA]+nrd_mm[GT_HOM_AA]) : 0
-            );
-
-        printf("# GCcS, Genotype concordance by sample (SNPs)\n# GCsS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches\n");
-        stats = args->smpl_gts_snps;
-        for (i=0; i<args->files->n_smpl; i++)
+        for (x=0; x<2; x++)
         {
-            int m  = stats[i].m[GT_HET_RA] + stats[i].m[GT_HOM_AA];
-            int mm = stats[i].mm[GT_HOM_RR] + stats[i].mm[GT_HET_RA] + stats[i].mm[GT_HOM_AA];
-            printf("GCsS\t2\t%s\t%.3f", args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
-            printf("\t%d\t%d\t%d", stats[i].m[GT_HOM_RR],stats[i].m[GT_HET_RA],stats[i].m[GT_HOM_AA]);
-            printf("\t%d\t%d\t%d\n", stats[i].mm[GT_HOM_RR],stats[i].mm[GT_HET_RA],stats[i].mm[GT_HOM_AA]);
+            gtcmp_t *stats;
+            if ( x==0 )
+            {
+                printf("# GCcS, Genotype concordance by sample (SNPs)\n# GCsS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches\n");
+                stats = args->smpl_gts_snps;
+            }
+            else
+            {
+                printf("# GCiS, Genotype concordance by sample (indels)\n# GCiS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches\n");
+                stats = args->smpl_gts_indels;
+            }
+            for (i=0; i<args->files->n_smpl; i++)
+            {
+                int m  = stats[i].m[GT_HET_RA] + stats[i].m[GT_HOM_AA];
+                int mm = stats[i].mm[GT_HOM_RR] + stats[i].mm[GT_HET_RA] + stats[i].mm[GT_HOM_AA];
+                printf("GC%cS\t2\t%s\t%.3f",  x==0 ? 's' : 'i', args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
+                printf("\t%d\t%d\t%d", stats[i].m[GT_HOM_RR],stats[i].m[GT_HET_RA],stats[i].m[GT_HOM_AA]);
+                printf("\t%d\t%d\t%d\n", stats[i].mm[GT_HOM_RR],stats[i].mm[GT_HET_RA],stats[i].mm[GT_HOM_AA]);
+            }
         }
     }
 
