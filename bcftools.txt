@@ -758,6 +758,16 @@ A few more examples:
     ...
 
 
+PERFORMANCE
+-----------
+HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+are internally converted into BCF representation. Simple operations, like removing
+a single column from a VCF file, can be therefore done much faster with standard
+UNIX commands, such as *awk* or *cut*.
+Therefore it is recommended to use BCF as input/output format whenever possible to avoid
+large overhead of the VCF -> BCF -> VCF conversion.
+
+
 BUGS
 ----
 Please report any bugs you encounter on the github website: <http://github.com/samtools/bcftools>
