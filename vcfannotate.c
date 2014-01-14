@@ -688,7 +688,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"regions",1,0,'r'},
         {"remove",1,0,'R'},
         {"columns",1,0,'c'},
-        {"header-liens",1,0,'h'},
+        {"header-lines",1,0,'h'},
         {0,0,0,0}
     };
     while ((c = getopt_long(argc, argv, "h:?O:r:a:p:R:c:l",loptions,NULL)) >= 0) 

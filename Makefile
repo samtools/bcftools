@@ -14,7 +14,7 @@ CFLAGS=		-g -Wall -Wc++-compat -O2
 DFLAGS=
 OBJS=		main.o bcfidx.o tabix.o \
 			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
-            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o \
+            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
             vcfcall.o mcall.o vcmp.o \
             ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES=	-I. -I$(HTSDIR)
@@ -70,6 +70,7 @@ vcfnorm.o: bcftools.h rbuf.h
 vcffilter.o: bcftools.h rbuf.h
 vcfroh.o: bcftools.h rbuf.h
 vcfannotate.o: bcftools.h vcmp.h $(HTSDIR)/htslib/kseq.h
+vcfconcat.o: bcftools.h
 test/test-rbuf.o: rbuf.h test/test-rbuf.c
 
 test/test-rbuf: test/test-rbuf.o
