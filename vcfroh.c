@@ -54,12 +54,12 @@ typedef struct _args_t
     double pl2p[256], *pdg;
     int mPLs, mAFs, mAN, mACs, mpdg;
     int ntot, nused;
-    int prev_rid;
+    int prev_rid, skip_rid;
     double unseen_PL;
 
     char **argv, *targets_fname, *regions_fname, *samples_fname;
     char *genmap_fname;
-    int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only;
+    int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only, snps_only;
 }
 args_t;
 
@@ -72,7 +72,7 @@ void *smalloc(size_t size)
 
 static void init_data(args_t *args)
 {
-    args->prev_rid = -1;
+    args->prev_rid = args->skip_rid = -1;
     args->hdr = args->files->readers[0].header;
     if ( !args->samples_fname ) args->samples_fname = "-";
     if ( !bcf_sr_set_samples(args->files, args->samples_fname) )
@@ -119,9 +119,9 @@ static void destroy_data(args_t *args)
     free(args->AN); free(args->ACs);
 }
 
-static void load_genmap(args_t *args, bcf1_t *line)
+static int load_genmap(args_t *args, bcf1_t *line)
 {
-    if ( !args->genmap_fname ) return;
+    if ( !args->genmap_fname ) { args->ngenmap = 0; return 0; }
 
     kstring_t str = {0,0,0};
     char *fname = strstr(args->genmap_fname,"{CHROM}");
@@ -136,7 +136,11 @@ static void load_genmap(args_t *args, bcf1_t *line)
         fname = args->genmap_fname;
 
     htsFile *fp = hts_open(fname, "rb");
-    if ( !fp ) error("Could not read %s\n", fname);
+    if ( !fp ) 
+    {
+        args->ngenmap = 0;
+        return -1;
+    }
 
     hts_getline(fp, KS_SEP_LINE, &str);
     if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") ) 
@@ -158,6 +162,7 @@ static void load_genmap(args_t *args, bcf1_t *line)
     }
     if ( hts_close(fp) ) error("Close failed\n");
     free(str.s);
+    return 0;
 }
 
 static double get_genmap_rate(args_t *args, int pos)
@@ -328,7 +333,7 @@ static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
         args->viterbi[i+1].ptr = ptr;
         mask = args->viterbi[i].ptr & mask ? 2 : 1;
     }
-    for (i=1; i<=n; i++)
+    for (i=1; i<n; i++)
     {
         int AZ = args->viterbi[i].ptr ? 0 : 1;
         double pAZ = AZ ? args->viterbi[i].pAZ : 1 - args->viterbi[i].pAZ;
@@ -338,6 +343,7 @@ static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
 
     smpl->last_az = args->viterbi[n].pAZ;
     rbuf_shift_n(&smpl->rbuf, n);
+    if ( !smpl->rbuf.n ) smpl->last_az = 0.5;
 }
 
 static void flush_buffer(args_t *args, int ismpl, int n)
@@ -472,18 +478,28 @@ static void vcfroh(args_t *args, bcf1_t *line)
             flush_buffer(args, i, args->smpl[i].rbuf.n); 
         return; 
     }
+    if ( line->rid == args->skip_rid ) return;
     if ( line->n_allele==1 ) return;    // no ALT allele
     if ( args->biallelic_only && line->n_allele!=2 ) return;
+    if ( args->snps_only && !bcf_is_snp(line) ) return;
+
+    int skip_rid = 0;
     if ( args->prev_rid<0 ) 
     {
         args->prev_rid = line->rid;
-        load_genmap(args, line);
+        skip_rid = load_genmap(args, line);
     }
     if ( args->prev_rid!=line->rid )
     {
-        load_genmap(args, line);
         for (i=0; i<args->nsmpl; i++)
             flush_buffer(args, i, args->smpl[i].rbuf.n);
+        skip_rid = load_genmap(args, line);
+    }
+    if ( skip_rid )
+    {
+        fprintf(stderr,"Skipping the sequence: %s\n", bcf_seqname(args->hdr,line));
+        args->skip_rid = line->rid;
+        return;
     }
     args->prev_rid = line->rid;
     args->ntot++;
@@ -538,6 +554,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -b, --biallelic-sites          consider only bi-allelic sites\n");
     fprintf(stderr, "    -f, --fwd-bwd                  run forward-backward algorithm instead of Viterbi\n");
     fprintf(stderr, "    -G, --GTs-only <float>         use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
+    fprintf(stderr, "    -I, --skip-indels              skip indels as their genotypes are enriched for errors\n");
     fprintf(stderr, "    -m, --genetic-map <file>       genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
     fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --samples <list|file>      list of samples (file or comma separated list) [null]\n");
@@ -573,11 +590,13 @@ int main_vcfroh(int argc, char *argv[])
         {"genetic-map",1,0,'m'},
         {"fwd-bwd",1,0,'f'},
         {"biallelic-sites",0,0,'b'},
+        {"skip-indels",0,0,'I'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:b",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:bI",loptions,NULL)) >= 0) {
         switch (c) {
             case 'b': args->biallelic_only = 1; break;
+            case 'I': args->snps_only = 1; break;
             case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
             case 'm': args->genmap_fname = optarg; break;
             case 'c': args->counts_only = 1; break;
