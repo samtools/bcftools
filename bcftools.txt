@@ -240,11 +240,18 @@ demand. The original calling model can be invoked with the *-c* option.
     alternative modelfor multiallelic and rare-variant calling designed to
     overcome known limitations in *-c* calling model (conflicts with *-c*)
 
-*-n, --novel-rate* 'FLOAT'::
+*-n, --novel-rate* 'float'[,...]::
     likelihood of novel mutation for constrained *-C* 'trio' calling. The trio
     genotype calling maximizes likelihood of a particular combination of
     genotypes for father, mother and the child 
     P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1-Pn).
+    By providing three values, the mutation rate Pn is set explictly for SNPs,
+    deletions and insertions, respectively.  If two values are given, the first
+    is interpreted as the mutation rate of SNPs and the second is used to
+    calculate the mutation rate of indels according to their length as
+    Pn='float'*exp(-a-b*len), where a=22.8689, b=0.2994 for insertions and
+    a=21.9313, b=0.2856 for deletions [pubmed:23975140].  If only one value is
+    given, the same mutation rate Pn is used for SNPs and indels.
 
 *-p, --pval-threshold* 'float'::
     with *-c*, accept variant if P(ref|D) < 'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'

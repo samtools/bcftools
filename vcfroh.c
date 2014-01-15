@@ -46,7 +46,7 @@ typedef struct _args_t
     genmap_t *genmap;
     int ngenmap, mgenmap, igenmap;
 
-    int nsmpl, *ismpl;
+    int nsmpl, *ismpl, *als;
     int mwin;
     smpl_t *smpl;
     int32_t *PLs, *AN, *ACs;
@@ -59,7 +59,7 @@ typedef struct _args_t
 
     char **argv, *targets_fname, *regions_fname, *samples_fname;
     char *genmap_fname;
-    int argc, counts_only, fwd_bwd, fake_PLs;
+    int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only;
 }
 args_t;
 
@@ -80,6 +80,7 @@ static void init_data(args_t *args)
     args->nsmpl = args->files->n_smpl;
     args->ismpl = args->files->readers[0].samples;
 
+    args->als   = (int*) smalloc(sizeof(int)*args->nsmpl);
     args->smpl  = (smpl_t*) smalloc(sizeof(smpl_t)*args->nsmpl);
     if ( args->fwd_bwd )
     {
@@ -111,6 +112,7 @@ static void destroy_data(args_t *args)
         smpl_t *smpl = &args->smpl[i];
         free(smpl->ohw); free(smpl->oaz); free(smpl->pos);
     }
+    free(args->als);
     free(args->smpl);
     free(args->fwd); free(args->bwd); free(args->viterbi);
     free(args->PLs); free(args->AFs); free(args->pdg);
@@ -316,7 +318,7 @@ static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
         }
 
         args->viterbi[i].pAZ = pAZ / (pAZ+pHW);
-        // printf("fwd\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  fwd=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->fwd[i]);
+        // printf("viterbi\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  fwd=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->viterbi[i].pAZ);
     }
     // traceback: set ptr to 0 for AZ or 1 for HW
     int mask = args->viterbi[n].pAZ > 0.5 ? 1 : 2;
@@ -362,27 +364,14 @@ int set_pdg_from_PLs(args_t *args, bcf1_t *line)
             for (j=0; j<=k; j++)
             {
                 pl++;
-                if ( *pl==bcf_int32_vector_end ) { j = line->n_allele; break; }
+                if ( *pl==bcf_int32_vector_end ) { k = line->n_allele; break; }
                 if ( *pl==bcf_int32_missing ) { continue; }
                 pl_sum += *pl;
                 if ( *pl < min ) { min = *pl; jmin = j; kmin = k; }
             }
         }
         double *pdg = &args->pdg[i*3];
-        if ( !pl_sum )
-        {
-            pdg[0] = -1;
-            continue;
-        }
-        if ( jmin==kmin )   // RR or AA
-        {
-            if ( jmin==0 )  // RR
-            {
-                pdg[0] = 1; pdg[1] = 0; pdg[2] = 0;
-                continue;
-            }
-            jmin = 0;   // homALT is most likely; leave k at ALT and set jmin to REF
-        }
+        if ( !pl_sum ) { pdg[0] = -1; continue; }   // missing data
 
         pl = &args->PLs[args->ismpl[i]*nPLs];
         double sum = 0;
@@ -391,12 +380,45 @@ int set_pdg_from_PLs(args_t *args, bcf1_t *line)
             assert( pl[j]<256 );
             sum += args->pl2p[ pl[j] ];
         }
-        if ( sum==0 ) { pdg[0] = -1; continue; }  
+        if ( sum==0 ) { pdg[0] = -1; continue; }
+
+        int *als = &args->als[i];
+        if ( line->n_allele==2 )
+        {
+            *als = 1;
+            pdg[0] = args->pl2p[ pl[0] ] / sum;
+            pdg[1] = args->pl2p[ pl[1] ] / sum;
+            pdg[2] = args->pl2p[ pl[2] ] / sum;
+            continue;
+        }
+
+        if ( jmin==kmin )   // RR or AA
+        {
+            if ( jmin!=0 )  // AA
+                jmin = 0;
+            else            // RR
+            {
+                // Choose ALT at multiallelic sites. Typically, the more frequent ALT will be selected as it comes first 
+                pl = &args->PLs[args->ismpl[i]*nPLs]; min = pl[2]; kmin = 1;
+                for (k=1; k<line->n_allele; k++)
+                {
+                    for (j=0; j<=k; j++)
+                    {
+                        pl++;
+                        if ( *pl==bcf_int32_vector_end ) { k = line->n_allele; break; }
+                        if ( *pl==bcf_int32_missing ) { continue; }
+                    }
+                    if ( j==k && *pl < min ) { min = *pl; kmin = k; }
+                }
+                pl = &args->PLs[args->ismpl[i]*nPLs];
+            }
+        }
 
         int idx;
         idx = bcf_alleles2gt(jmin,jmin); pdg[0] = args->pl2p[ pl[idx] ] / sum;
         idx = bcf_alleles2gt(jmin,kmin); pdg[1] = args->pl2p[ pl[idx] ] / sum;
         idx = bcf_alleles2gt(kmin,kmin); pdg[2] = args->pl2p[ pl[idx] ] / sum;
+        *als = jmin<<4 | kmin;
     }
     return 0;
 }
@@ -435,6 +457,8 @@ int set_pdg_from_GTs(args_t *args, bcf1_t *line)
             pdg[0] = pdg[1] = args->unseen_PL;
             pdg[2] = 1 - 2*args->unseen_PL;
         }
+        int *als = &args->als[i];
+        *als = a<<4 | b;
     }
     return 0;
 }
@@ -448,6 +472,8 @@ static void vcfroh(args_t *args, bcf1_t *line)
             flush_buffer(args, i, args->smpl[i].rbuf.n); 
         return; 
     }
+    if ( line->n_allele==1 ) return;    // no ALT allele
+    if ( args->biallelic_only && line->n_allele!=2 ) return;
     if ( args->prev_rid<0 ) 
     {
         args->prev_rid = line->rid;
@@ -486,14 +512,18 @@ static void vcfroh(args_t *args, bcf1_t *line)
         double *pdg = &args->pdg[i*3];
         if ( pdg[0]<0 ) continue;   // missing values;
 
+        int *als = &args->als[i];
+        int ira  = (*als)>>4;
+        int irb  = (*als)&0xf;
+
         smpl_t *smpl = &args->smpl[i];
         int idx = rbuf_add(&smpl->rbuf);
-        double raf = args->AFs[0];
-        double aaf = 1 - raf;
+        double raf = args->AFs[ira];
+        double aaf = args->AFs[irb];
         smpl->oaz[idx] = pdg[0]*raf + pdg[2]*aaf;
         smpl->ohw[idx] = pdg[0]*raf*raf + pdg[2]*aaf*aaf + pdg[1]*raf*aaf*2;
         smpl->pos[idx] = line->pos;
-
+        // printf("%d .. als:%d,%d  oaz=%e ohw=%e  raf=%e aaf=%e pdg=%e,%e,%e\n", line->pos+1,ira,irb,smpl->oaz[idx],smpl->ohw[idx],raf,aaf,pdg[0],pdg[1],pdg[2]);
         // printf("%s\t%d\toaz=%e\tohw=%e\t%d\n", args->hdr->id[BCF_DT_CTG][args->prev_rid].key, line->pos+1,smpl->oaz[idx],smpl->ohw[idx], idx);
         if ( smpl->rbuf.n >= args->mwin ) flush_buffer(args, i, smpl->rbuf.n);
     }
@@ -505,7 +535,7 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   HMM model for detecting runs of autozygosity.\n");
     fprintf(stderr, "Usage:   bcftools roh [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "General Options:\n");
-    //fprintf(stderr, "    -c, --counts-only              no HMM, simply report counts of HETs and HOMs per win\n");
+    fprintf(stderr, "    -b, --biallelic-sites          consider only bi-allelic sites\n");
     fprintf(stderr, "    -f, --fwd-bwd                  run forward-backward algorithm instead of Viterbi\n");
     fprintf(stderr, "    -G, --GTs-only <float>         use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
     fprintf(stderr, "    -m, --genetic-map <file>       genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
@@ -542,10 +572,12 @@ int main_vcfroh(int argc, char *argv[])
         {"regions",1,0,'r'},
         {"genetic-map",1,0,'m'},
         {"fwd-bwd",1,0,'f'},
+        {"biallelic-sites",0,0,'b'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:b",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'b': args->biallelic_only = 1; break;
             case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
             case 'm': args->genmap_fname = optarg; break;
             case 'c': args->counts_only = 1; break;
