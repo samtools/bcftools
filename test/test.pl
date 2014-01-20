@@ -35,8 +35,8 @@ test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
-test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.out',args=>'-a');
-test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.1.out',args=>'-a');
+test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.out',args=>'');
+test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.out',args=>'-a');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -421,5 +421,5 @@ sub test_vcf_concat
         bgzip_tabix_vcf($opts,$file); 
         $files .= " $$opts{tmp}/$file.vcf.gz";
     }
-    # test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat -a ... | grep -v ^##bcftools_concat");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat $args{args} $files | grep -v ^##bcftools_concat");
 }

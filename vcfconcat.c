@@ -14,6 +14,7 @@ typedef struct _args_t
     htsFile *out_fh;
     int output_type;
     bcf_hdr_t *out_hdr;
+    int *seen_seq;
 
     char **argv, *file_list, **fnames;
     int argc, nfnames, allow_overlaps, phased_concat;
@@ -23,11 +24,10 @@ args_t;
 static void init_data(args_t *args)
 {
     kstring_t str = {0,0,0};
-    int i, has_bcf = 0;
+    int i;
     for (i=0; i<args->nfnames; i++)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
-        if ( fp->is_bin ) has_bcf = 1;
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
         hts_close(fp);
         if ( !args->out_hdr ) 
@@ -47,10 +47,19 @@ static void init_data(args_t *args)
                 bcf_hdr_append(args->out_hdr, str.s);
             }
             free(seqs);
+
+            if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) ) 
+                error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
+
+            for (j=0; j<bcf_hdr_nsamples(hdr); j++)
+                if ( strcmp(args->out_hdr->samples[j],hdr->samples[j]) )
+                    error("Different sample names in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
         }
         bcf_hdr_destroy(hdr);
     }
     free(str.s);
+
+    args->seen_seq = (int*) calloc(args->out_hdr->n[BCF_DT_CTG],sizeof(int));
 
     bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
@@ -73,12 +82,15 @@ static void destroy_data(args_t *args)
     if ( args->files ) bcf_sr_destroy(args->files);
     if ( hts_close(args->out_fh)!=0 ) error("hts_close error\n");
     bcf_hdr_destroy(args->out_hdr);
+    free(args->seen_seq);
 }
+
+int vcf_write_line(htsFile *fp, kstring_t *line);
 
 static void concat(args_t *args)
 {
     int i;
-    if ( args->files )
+    if ( args->files )  // combining overlapping files, using synced reader 
     {
         while ( bcf_sr_next_line(args->files) )
         {
@@ -92,6 +104,73 @@ static void concat(args_t *args)
                 bcf_write1(args->out_fh, args->out_hdr, line);
             }
         }
+    }
+    else    // concatenating
+    {
+        kstring_t tmp = {0,0,0};
+        int prev_chr_id = -1, prev_pos;
+        bcf1_t *line = bcf_init();
+        for (i=0; i<args->nfnames; i++)
+        {
+            htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
+            bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
+            if ( !fp->is_bin && args->output_type&FT_VCF )
+            {
+                line->max_unpack = BCF_UN_STR;
+                // if VCF is on both input and output, avoid VCF to BCF conversion
+                while ( hts_getline(fp, KS_SEP_LINE, &fp->line) >=0 )
+                {
+                    char *str = fp->line.s;
+                    while ( *str && *str!='\t' ) str++;
+                    tmp.l = 0;
+                    kputsn(fp->line.s,str-fp->line.s,&tmp);
+                    int chr_id = bcf_hdr_name2id(args->out_hdr, tmp.s);
+                    if ( chr_id<0 ) error("FIXME: sequence name %s in %s\n", tmp.s, args->fnames[i]);
+                    if ( prev_chr_id!=chr_id ) 
+                    {
+                        prev_pos = -1;
+                        if ( args->seen_seq[chr_id] )
+                            error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", tmp.s);
+                    }
+                    char *end;
+                    int pos = strtol(str+1,&end,10) - 1;
+                    if ( end==str+1 ) error("Could not parse line: %s\n", fp->line.s);
+                    if ( prev_pos > pos )
+                        error("The chromosome block %s is not sorted, consider running with -a.\n", tmp.s);
+                    args->seen_seq[chr_id] = 1;
+                    prev_chr_id = chr_id;
+
+                    if ( vcf_write_line(args->out_fh, &fp->line)!=0 ) error("Failed to write %d bytes\n", fp->line.l);
+                }
+            }
+            else
+            {
+                line->max_unpack = 0;
+                // BCF conversion is required
+                while ( bcf_read(fp, hdr, line)==0 )
+                {
+                    int chr_id = bcf_hdr_name2id(args->out_hdr, bcf_seqname(hdr, line));
+                    if ( chr_id<0 ) error("FIXME: sequence name %s in %s\n", tmp.s, bcf_seqname(hdr, line));
+                    if ( prev_chr_id!=chr_id ) 
+                    {
+                        prev_pos = -1;
+                        if ( args->seen_seq[chr_id] )
+                            error("\nThe chromosome block %s is not contiguous, consider running with -a.\n", bcf_seqname(hdr, line));
+                    }
+                    if ( prev_pos > line->pos )
+                        error("The chromosome block %s is not sorted, consider running with -a.\n", bcf_seqname(hdr, line));
+                    args->seen_seq[chr_id] = 1;
+                    line->rid = chr_id;
+                    prev_chr_id = chr_id;
+
+                    if ( bcf_write(args->out_fh, args->out_hdr, line)!=0 ) error("Failed to write\n");
+                }
+            }
+            bcf_hdr_destroy(hdr);
+            hts_close(fp);
+        }
+        bcf_destroy(line);
+        free(tmp.s);
     }
 }
 
@@ -147,7 +226,6 @@ int main_vcfconcat(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( !args->allow_overlaps ) error("Please run with -a, other modes are not ready yet.\n");
     if ( args->phased_concat ) error("TODO: -p\n");
     while ( optind<argc ) 
     { 
