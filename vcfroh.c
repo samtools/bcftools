@@ -59,7 +59,7 @@ typedef struct _args_t
 
     char **argv, *targets_fname, *regions_fname, *samples_fname;
     char *genmap_fname;
-    int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only, snps_only;
+    int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only, snps_only, estimate_AF;
 }
 args_t;
 
@@ -366,6 +366,67 @@ static void flush_buffer(args_t *args, int ismpl, int n)
     else flush_buffer_viterbi(args, ismpl, n);
 }
 
+void set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
+{
+    int i, j;
+    hts_expand(double, line->n_allele, args->mAFs, args->AFs);
+
+    // Get the allele frequencies
+    if ( !args->estimate_AF )
+    {
+        if ( bcf_get_info_int(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) 
+            error("No AN tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
+        int nAC = bcf_get_info_int(args->hdr, line, "AC", &args->ACs, &args->mACs);
+        if ( nAC <= 0 ) 
+            error("No AC tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
+
+        int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
+        args->AFs[0] = (double) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
+        for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i-1] / args->AN[0];  // ALT frequencies
+    }
+    else
+    {
+        if ( !GTs )
+        {
+            nGTs = bcf_get_genotypes(args->hdr, line, &args->PLs, &args->mPLs);
+            if ( nGTs < 0 ) error("Cannot recalculate AC,AN, GT is not present at %s:%d\n", bcf_seqname(args->hdr,line), line->pos+1);
+            if ( nGTs != 2*bcf_hdr_nsamples(args->hdr) ) error("Not diploid at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
+            GTs = args->PLs;
+            nGTs /= bcf_hdr_nsamples(args->hdr);
+        }
+
+        hts_expand(int32_t, line->n_allele, args->mACs, args->ACs);
+        for (i=0; i<line->n_allele; i++) args->ACs[i] = 0;
+        if ( args->estimate_AF==1 ) // all samples
+        {
+            for (i=0; i<bcf_hdr_nsamples(args->hdr); i++)
+            {
+                int32_t *gt = &args->PLs[i*nGTs];
+                for (j=0; j<2; j++)
+                {
+                    if ( gt[j]==bcf_gt_missing ) continue;
+                    if ( gt[j]==bcf_int32_vector_end ) break;
+                    args->ACs[bcf_gt_allele(gt[j])]++;
+                }
+            }
+        }
+        else                        // subset samples
+        {
+            for (i=0; i<args->nsmpl; i++)
+            {
+                int32_t *gt = &args->PLs[args->ismpl[i]*nGTs];
+                for (j=0; j<2; j++)
+                {
+                    if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) continue;
+                    args->ACs[bcf_gt_allele(gt[0])]++;
+                }
+            }
+        }
+        int ntot = 0; for (i=0; i<line->n_allele; i++) ntot += args->ACs[i]; 
+        for (i=0; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i] / ntot;  // ALT frequencies
+    }
+}
+
 int set_pdg_from_PLs(args_t *args, bcf1_t *line)
 {
     int nPLs = bcf_get_format_int(args->hdr, line, "PL", &args->PLs, &args->mPLs);
@@ -439,6 +500,8 @@ int set_pdg_from_PLs(args_t *args, bcf1_t *line)
         idx = bcf_alleles2gt(kmin,kmin); pdg[2] = args->pl2p[ pl[idx] ] / sum;
         *als = jmin<<4 | kmin;
     }
+
+    set_AF(args, line, NULL, 0);
     return 0;
 }
 
@@ -479,6 +542,7 @@ int set_pdg_from_GTs(args_t *args, bcf1_t *line)
         int *als = &args->als[i];
         *als = a<<4 | b;
     }
+    set_AF(args, line, args->PLs, nGTs);
     return 0;
 }
 
@@ -517,15 +581,6 @@ static void vcfroh(args_t *args, bcf1_t *line)
     args->prev_rid = line->rid;
     args->ntot++;
     
-    // Get the allele frequencies
-    if ( bcf_get_info_int(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) error("No AN tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
-    int nAC = bcf_get_info_int(args->hdr, line, "AC", &args->ACs, &args->mACs);
-    if ( nAC <= 0 ) error("No AC tag at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
-    hts_expand(double, line->n_allele, args->mAFs, args->AFs);
-    int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
-    args->AFs[0] = (double) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
-    for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i-1] / args->AN[0];  // ALT frequencies
-
     int ret;
     if ( !args->fake_PLs ) 
         ret = set_pdg_from_PLs(args, line);
@@ -568,18 +623,19 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   HMM model for detecting runs of autozygosity.\n");
     fprintf(stderr, "Usage:   bcftools roh [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "General Options:\n");
-    fprintf(stderr, "    -b, --biallelic-sites          consider only bi-allelic sites\n");
-    fprintf(stderr, "    -f, --fwd-bwd                  run forward-backward algorithm instead of Viterbi\n");
-    fprintf(stderr, "    -G, --GTs-only <float>         use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
-    fprintf(stderr, "    -I, --skip-indels              skip indels as their genotypes are enriched for errors\n");
-    fprintf(stderr, "    -m, --genetic-map <file>       genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
-    fprintf(stderr, "    -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "    -s, --samples <list|file>      list of samples (file or comma separated list) [null]\n");
-    fprintf(stderr, "    -t, --targets <reg|file>       similar to -r but streams rather than index-jumps, see man page for details\n");
-    fprintf(stderr, "    -w, --win <int>                maximum window length [100_000]\n");
+    fprintf(stderr, "    -b, --biallelic-sites              consider only bi-allelic sites\n");
+    fprintf(stderr, "    -e, --estimate-AF <all|subset>     calculate AC,AN counts on the fly, using either all samples or samples given via -s\n");
+    fprintf(stderr, "    -f, --fwd-bwd                      run forward-backward algorithm instead of Viterbi\n");
+    fprintf(stderr, "    -G, --GTs-only <float>             use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
+    fprintf(stderr, "    -I, --skip-indels                  skip indels as their genotypes are enriched for errors\n");
+    fprintf(stderr, "    -m, --genetic-map <file>           genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
+    fprintf(stderr, "    -r, --regions <reg|file>           restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+    fprintf(stderr, "    -s, --samples <list|file>          list of samples (file or comma separated list) [null]\n");
+    fprintf(stderr, "    -t, --targets <reg|file>           similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -w, --win <int>                    maximum window length [100_000]\n");
     fprintf(stderr, "HMM Options:\n");
-    fprintf(stderr, "    -a, --hw-to-az <float>         P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-4]\n");
-    fprintf(stderr, "    -H, --az-to-hw <float>         P(HW|AZ) transition probability from HW to AZ state [1e-3]\n");
+    fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-4]\n");
+    fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from HW to AZ state [1e-3]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -596,6 +652,7 @@ int main_vcfroh(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
+        {"estimate-AF",1,0,'e'},
         {"GTs-only",1,0,'G'},
         {"counts-only",0,0,'c'},
         {"win",1,0,'w'},
@@ -610,8 +667,12 @@ int main_vcfroh(int argc, char *argv[])
         {"skip-indels",0,0,'I'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:bI",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:bIa:e:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'e': 
+                if (!strcmp("all",optarg)) args->estimate_AF = 1; 
+                else if  (!strcmp("subset",optarg)) args->estimate_AF = 2;
+                else error("Expected 'all' or 'subset' with -s\n");
             case 'b': args->biallelic_only = 1; break;
             case 'I': args->snps_only = 1; break;
             case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
