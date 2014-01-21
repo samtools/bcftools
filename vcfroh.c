@@ -101,6 +101,19 @@ static void init_data(args_t *args)
     }
     for (i=0; i<256; i++)
         args->pl2p[i] = pow(10., -i/10.);
+
+    // print header
+    printf("# This file was produced by: bcftools roh(%s)\n", bcftools_version());
+    printf("# The command line was:\tbcftools %s", args->argv[0]);
+    for (i=1; i<args->argc; i++)
+        printf(" %s",args->argv[i]);
+    printf("\n#\n");
+    if ( args->counts_only ) 
+        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]HOM rate\t[5]HET rate\n");
+    else if ( args->fwd_bwd )
+        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]ROH p-value\n");
+    else
+        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]p-value\t[5]ROH\n");
 }
 
 static void destroy_data(args_t *args)
@@ -519,7 +532,11 @@ static void vcfroh(args_t *args, bcf1_t *line)
     else
         ret = set_pdg_from_GTs(args, line);
 
-    if ( ret ) return;  // not successful
+    if ( ret )
+    {
+        if ( !args->fake_PLs ) error("Could not parse PL field at %s:%d, please run with -G option\n", bcf_seqname(args->hdr,line), line->pos+1);
+        error("Could not parse GT field at %s:%d\n", bcf_seqname(args->hdr,line), line->pos+1);
+    }
     args->nused++;
 
     // Calculate emission probabilities P(D|AZ) and P(D|HW)
@@ -627,12 +644,6 @@ int main_vcfroh(int argc, char *argv[])
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     
     init_data(args);
-    if ( args->counts_only ) 
-        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]HOM rate\t[5]HET rate\n");
-    else if ( args->fwd_bwd )
-        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]ROH p-value\n");
-    else
-        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]p-value\t[5]ROH\n");
     while ( bcf_sr_next_line(args->files) )
     {
         vcfroh(args, args->files->readers[0].buffer[0]);
