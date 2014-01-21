@@ -673,6 +673,7 @@ int main_vcfroh(int argc, char *argv[])
                 if (!strcmp("all",optarg)) args->estimate_AF = 1; 
                 else if (!strcmp("subset",optarg)) args->estimate_AF = 2;
                 else error("Expected 'all' or 'subset' with -e.\n");
+                break;
             case 'b': args->biallelic_only = 1; break;
             case 'I': args->snps_only = 1; break;
             case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
