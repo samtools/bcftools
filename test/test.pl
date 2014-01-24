@@ -35,8 +35,12 @@ test_vcf_filter($opts,in=>'filter',out=>'filter.out',args=>'-mx -g2 -G2');
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
-test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.out',args=>'');
-test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.out',args=>'-a');
+test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
+test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
+test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
+test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.bcf.out',do_bcf=>1,args=>'-a');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.c','concat.3.d'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-p');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.c','concat.3.d'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-p');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -418,8 +422,17 @@ sub test_vcf_concat
     my $files;
     for my $file (@{$args{in}}) 
     { 
-        bgzip_tabix_vcf($opts,$file); 
-        $files .= " $$opts{tmp}/$file.vcf.gz";
+        if ( $args{do_bcf} )
+        {
+            cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$file.vcf.gz > $$opts{tmp}/$file.bcf");
+            cmd("$$opts{bin}/bcftools index $$opts{tmp}/$file.bcf");
+            $files .= " $$opts{tmp}/$file.bcf";
+        }
+        else
+        {
+            bgzip_tabix_vcf($opts,$file); 
+            $files .= " $$opts{tmp}/$file.vcf.gz";
+        }
     }
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat $args{args} $files | grep -v ^##bcftools_concat");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat $args{args} $files | grep -v ^##bcftools_");
 }
