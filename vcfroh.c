@@ -15,7 +15,7 @@ typedef struct
     rbuf_t rbuf;
     double *ohw, *oaz;  // P(D|HW) and P(D|AZ)
     double last_az;
-    uint32_t *pos;
+    uint32_t *pos, last_pos;
 }
 smpl_t;
 
@@ -130,6 +130,7 @@ static void destroy_data(args_t *args)
     free(args->fwd); free(args->bwd); free(args->viterbi);
     free(args->PLs); free(args->AFs); free(args->pdg);
     free(args->AN); free(args->ACs);
+    free(args->genmap);
 }
 
 static int load_genmap(args_t *args, bcf1_t *line)
@@ -159,6 +160,7 @@ static int load_genmap(args_t *args, bcf1_t *line)
     if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") ) 
         error("Unexpected header, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
 
+    int i;
     args->ngenmap = args->igenmap = 0;
     while ( hts_getline(fp, KS_SEP_LINE, &str) > 0 )
     {
@@ -169,28 +171,49 @@ static int load_genmap(args_t *args, bcf1_t *line)
         char *tmp, *end;
         gm->pos = strtol(str.s, &tmp, 10);
         if ( str.s==tmp ) error("Could not parse %s: %s\n", fname, str.s);
-        gm->rate = strtod(tmp+2, &end);
-        if ( tmp+2==end ) error("Could not parse %s: %s\n", fname, str.s);
-        gm->rate *= 0.01;
+
+        // skip second column
+        tmp++;
+        while ( *tmp && !isspace(*tmp) ) tmp++;
+        
+        // read the genetic map in cM
+        gm->rate = strtod(tmp+1, &end);
+        if ( tmp+1==end ) error("Could not parse %s: %s\n", fname, str.s);
     }
+    if ( !args->ngenmap ) error("Genetic map empty?\n");
+    for (i=0; i<args->ngenmap; i++) args->genmap[i].rate /= args->genmap[args->ngenmap-1].rate; // scale to 1
     if ( hts_close(fp) ) error("Close failed\n");
     free(str.s);
     return 0;
 }
 
-static double get_genmap_rate(args_t *args, int pos)
+static double get_genmap_rate(args_t *args, int start, int end)
 {
+    // position i to be equal to or smaller than start
     int i = args->igenmap;
-    if ( args->genmap[i].pos > pos )
+    if ( args->genmap[i].pos > start )
     {
-        while ( i>0 && args->genmap[i].pos > pos ) i--;
+        while ( i>0 && args->genmap[i].pos > start ) i--;
     }
     else
     {
-        while ( i+1<args->ngenmap && args->genmap[i+1].pos <= pos ) i++;
+        while ( i+1<args->ngenmap && args->genmap[i+1].pos < start ) i++;
     }
-    args->igenmap = i;
-    return args->genmap[i].rate;
+    // position j to be equal or larger than end
+    int j = i;
+    while ( j+1<args->ngenmap && args->genmap[j].pos < end ) j++;
+
+    if ( i==j ) 
+    {
+        args->igenmap = i;
+        return 0;
+    }
+
+    if ( start <  args->genmap[i].pos ) start = args->genmap[i].pos;
+    if ( end >  args->genmap[j].pos ) end = args->genmap[j].pos;
+    double rate = (args->genmap[j].rate - args->genmap[i].rate)/(args->genmap[j].pos - args->genmap[i].pos) * (end-start);
+    args->igenmap = j;
+    return rate;
 }
 
 
@@ -254,14 +277,23 @@ static void flush_counts(args_t *args, int ismpl, int n)
 static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
 {
     smpl_t *smpl = &args->smpl[ismpl];
-    args->fwd[0] = smpl->last_az < 0 ?  0.5 : smpl->last_az;
+    if ( smpl->last_az < 0 )
+    {
+        args->fwd[0] = 0.5;
+        smpl->last_pos = smpl->pos[smpl->rbuf.f] - 1;
+    }
+    else
+        args->fwd[0] = smpl->last_az;
+
+    if ( args->ngenmap ) error("TODO: test fwd-bwd with genetic map\n");
 
     int i, ir;
     double pAZ, pHW;
     for (i=1; i<=n; i++)
     {
         ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir]) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : 0.5;
+        smpl->last_pos = smpl->pos[ir];
 
         // P_{i+1}(AZ) = oAZ * [(1-tHW) * (1-ci) * AZ{i-1} + tAZ * ci * (1-AZ{i-1})]
         pAZ = smpl->oaz[ir] * ( (1-args->tHW) * (1-ci) * args->fwd[i-1] + args->tAZ * ci * (1-args->fwd[i-1]) );
@@ -273,11 +305,13 @@ static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
         // printf("fwd\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  fwd=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->fwd[i]);
     }
 
+    int last_pos = smpl->last_pos;
     args->bwd[0] = 0.5;
     for (i=1; i<=n; i++)
     {
         ir  = rbuf_kth(&smpl->rbuf, n-i);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir]) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir], last_pos) : 0.5;
+        last_pos = smpl->pos[ir];
 
         pAZ = smpl->oaz[ir] * ( (1-args->tHW) * (1-ci) * args->bwd[i-1] + args->tAZ * ci * (1-args->bwd[i-1]) );
         pHW = smpl->ohw[ir] * ( (1-args->tAZ) * (1-ci) * (1-args->bwd[i-1]) + args->tHW * ci * args->bwd[i-1]);
@@ -299,44 +333,54 @@ static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
 static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
 {
     smpl_t *smpl = &args->smpl[ismpl];
-    args->viterbi[0].pAZ = smpl->last_az < 0 ? 0.5 : smpl->last_az;
+    if ( smpl->last_az < 0 )
+    {
+        args->viterbi[0].pAZ = 0.5;
+        smpl->last_pos = smpl->pos[smpl->rbuf.f] - 1;
+    }
+    else
+        args->viterbi[0].pAZ = smpl->last_az;
 
     int i, ir;
     double pAZ, pHW, fromAZ, fromHW;
     for (i=1; i<=n; i++)
     {
         ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir]) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : 0.5;
+        //printf("ci %d-%d: %e\n", smpl->last_pos, smpl->pos[ir], ci);
+        smpl->last_pos = smpl->pos[ir];
 
         // P_{i+1}(AZ) = oAZ * max[(1-tHW) * (1-ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
         fromAZ = (1-args->tHW) * (1-ci) * args->viterbi[i-1].pAZ;
         fromHW = args->tAZ * ci * (1-args->viterbi[i-1].pAZ);
-        if ( fromAZ > fromHW )
+        if ( fromAZ > fromHW )  // more likely to get to AZ from AZ
         {
             pAZ = smpl->oaz[ir] * fromAZ;
-            args->viterbi[i].ptr = 0;
+            args->viterbi[i].ptr = 0;       // lower bit for from-AZ-ptr
         }
-        else
+        else    // more likely to get to AZ from HW
         {
             pAZ = smpl->oaz[ir] * fromHW;
             args->viterbi[i].ptr = 1;
         }
+        //printf("P XX->AZ:  fromAZ=%e fromHW=%e .. pAZ=%f\n", fromAZ,fromHW,pAZ);
 
         // P_{i+1}(HW) = oHW * max[(1-tAZ) * (1-ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
         fromHW = (1-args->tAZ) * (1-ci) * (1-args->viterbi[i-1].pAZ);
         fromAZ = args->tHW * ci * args->viterbi[i-1].pAZ;
-        if ( fromAZ > fromHW )
+        if ( fromAZ > fromHW )  // more likely to get to HW from AZ
         {
-            pHW = smpl->ohw[ir] * fromAZ;
+            pHW = smpl->ohw[ir] * fromAZ;   // higher bit for from-HW-ptr
         }
-        else
+        else    // more likely to get to HW from HW
         {
             pHW = smpl->ohw[ir] * fromHW;
             args->viterbi[i].ptr |= 2;
         }
+        //printf("P XX->HW:  fromAZ=%e fromHW=%e .. pHW=%f\n", fromAZ,fromHW,pHW);
 
         args->viterbi[i].pAZ = pAZ / (pAZ+pHW);
-        // printf("viterbi\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  fwd=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->viterbi[i].pAZ);
+        //printf("viterbi\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  fwd=%e \t ci=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->viterbi[i].pAZ, ci);
     }
     // traceback: set ptr to 0 for AZ or 1 for HW
     int mask = args->viterbi[n].pAZ > 0.5 ? 1 : 2;
@@ -520,7 +564,7 @@ int set_pdg_from_GTs(args_t *args, bcf1_t *line)
         double *pdg = &args->pdg[i*3];
         int32_t *gt = &args->PLs[args->ismpl[i]*nGTs];
 
-        if (  gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) { pdg[0] = -1; continue; }
+        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) { pdg[0] = -1; continue; }
 
         int a = bcf_gt_allele(gt[0]);
         int b = bcf_gt_allele(gt[1]);
@@ -533,11 +577,13 @@ int set_pdg_from_GTs(args_t *args, bcf1_t *line)
         {
             pdg[0] = 1 - 2*args->unseen_PL;
             pdg[1] = pdg[2] = args->unseen_PL;
+            b = 1;
         }
         else
         {
             pdg[0] = pdg[1] = args->unseen_PL;
             pdg[2] = 1 - 2*args->unseen_PL;
+            a = 0;
         }
         int *als = &args->als[i];
         *als = a<<4 | b;
@@ -611,8 +657,8 @@ static void vcfroh(args_t *args, bcf1_t *line)
         smpl->oaz[idx] = pdg[0]*raf + pdg[2]*aaf;
         smpl->ohw[idx] = pdg[0]*raf*raf + pdg[2]*aaf*aaf + pdg[1]*raf*aaf*2;
         smpl->pos[idx] = line->pos;
-        // printf("%d .. als:%d,%d  oaz=%e ohw=%e  raf=%e aaf=%e pdg=%e,%e,%e\n", line->pos+1,ira,irb,smpl->oaz[idx],smpl->ohw[idx],raf,aaf,pdg[0],pdg[1],pdg[2]);
-        // printf("%s\t%d\toaz=%e\tohw=%e\t%d\n", args->hdr->id[BCF_DT_CTG][args->prev_rid].key, line->pos+1,smpl->oaz[idx],smpl->ohw[idx], idx);
+        //printf("%d .. als:%d,%d  oaz=%e ohw=%e  raf=%e aaf=%e pdg=%e,%e,%e\n", line->pos+1,ira,irb,smpl->oaz[idx],smpl->ohw[idx],raf,aaf,pdg[0],pdg[1],pdg[2]);
+        //printf("%s\t%d\toaz=%e\tohw=%e\t%d\n", args->hdr->id[BCF_DT_CTG][args->prev_rid].key, line->pos+1,smpl->oaz[idx],smpl->ohw[idx], idx);
         if ( smpl->rbuf.n >= args->mwin ) flush_buffer(args, i, smpl->rbuf.n);
     }
 }
