@@ -135,6 +135,9 @@ static void destroy_data(args_t *args)
 
 static int load_genmap(args_t *args, bcf1_t *line)
 {
+    int i;
+    for (i=0; i<args->nsmpl; i++) args->smpl[i].last_az = -1;   // let viterbi know about new chromosome
+
     if ( !args->genmap_fname ) { args->ngenmap = 0; return 0; }
 
     kstring_t str = {0,0,0};
@@ -160,7 +163,6 @@ static int load_genmap(args_t *args, bcf1_t *line)
     if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") ) 
         error("Unexpected header, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
 
-    int i;
     args->ngenmap = args->igenmap = 0;
     while ( hts_getline(fp, KS_SEP_LINE, &str) > 0 )
     {
@@ -400,7 +402,6 @@ static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
 
     smpl->last_az = args->viterbi[n].pAZ;
     rbuf_shift_n(&smpl->rbuf, n);
-    if ( !smpl->rbuf.n ) smpl->last_az = 0.5;
 }
 
 static void flush_buffer(args_t *args, int ismpl, int n)
