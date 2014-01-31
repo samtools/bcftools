@@ -357,12 +357,12 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Filter options:\n");
     fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
-    fprintf(stderr, "    -d/D, --min-af/--max-af <float>[:<type>]    minimum/maximum frequency for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i/e, --include/exclude <expr>              select/exclude sites for which the expression is true (see below for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                       select known/novel sites only (ID is not/is '.')\n");
     fprintf(stderr, "    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in ALT (e.g. -m2 -M2 for biallelic sites)\n");
     fprintf(stderr, "    -p/P, --phased/--exclude-phased             select/exclude sites where all samples are phased/not all samples are phased\n");
+    fprintf(stderr, "    -q/Q, --min-af/--max-af <float>[:<type>]    minimum/maximum frequency for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
     fprintf(stderr, "    -u/U, --uncalled/exclude-uncalled           select/exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private           select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
@@ -414,7 +414,7 @@ int main_vcfview(int argc, char *argv[])
         {"exclude-phased",0,0,'P'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:t:r:o:O:s:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPd:D:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "l:t:r:o:O:s:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:",loptions,NULL)) >= 0)
     {
         char allele_type[8] = "nref";
         switch (c)
@@ -469,7 +469,7 @@ int main_vcfview(int argc, char *argv[])
                 args->calc_ac = 1;
                 break;
             }
-            case 'd':
+            case 'q':
             {
                 args->min_af_type = ALLELE_NONREF;
                 if ( sscanf(optarg,"%f:%s",&args->min_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 ) 
@@ -478,7 +478,7 @@ int main_vcfview(int argc, char *argv[])
                 args->calc_ac = 1;
                 break;
             }
-            case 'D':
+            case 'Q':
             {
                 args->max_af_type = ALLELE_NONREF;
                 if ( sscanf(optarg,"%f:%s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 ) 

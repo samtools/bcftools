@@ -596,14 +596,14 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 ==== Output options
 
+*-G, --drop-genotypes*::
+    drop individual genotype information (after subsetting if *-s* option is set)
+
 *-h, --header-only*:: 
     output the VCF header only
 
 *-H, --no-header*::
     suppress the header in VCF output
-
-*-G, --drop-genotypes*::
-    drop individual genotype information (after subsetting if *-s* option is set)
 
 *-l, --compression-level* ['0-9']::
     compression level. 0 stands for uncompressed, 1 for best speed and 9 for
@@ -624,7 +624,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 ==== Subset options:
 *-a, --trim-alt-alleles*::
-    trim alternate alleles not seen in subset
+    trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT fields will also be trimmed
 
 *-I, --no-update*::
     do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
@@ -634,17 +634,15 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 
 ==== Filter options:
-*-1, --singletons*::
-    print singleton sites only (shortcut for *-c*1 *-C*1)
+*-c, --min-ac* 'INT'[':nref'|':alt1'|':minor']::
+    minimum allele count (INFO/AC) of sites to be printed. Specifying the 
+    type of allele is optional and can be set to non-reference ('nref', the 
+    default), 1st alternate  ('alt1') or minor ('minor') alleles.
 
-*-2, --doubletons*::
-    print doubleton sites only (shortcut for *-c*2 *-C*2)
-
-*-c, --min-ac*::
-    minimum allele count (INFO/AC) of sites to be printed
-
-*-C, --max-ac*::
-    maximum allele count (INFO/AC) of sites to be printed
+*-C, --max-ac* 'INT'[':nref'|':alt1'|':minor']::
+    maximum allele count (INFO/AC) of sites to be printed. Specifying the 
+    type of allele is optional and can be set to non-reference ('nref', the 
+    default), 1st alternate  ('alt1') or minor ('minor') alleles.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
@@ -660,29 +658,50 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-k, --known*::
     print known sites only (ID column is not ".")
 
+*-m, --min-alleles* 'INT'::
+    print sites with at least 'INT' alleles listed in ALT column
+
+*-M, --max-alleles* 'INT'::
+    print sites with at most 'INT' alleles listed in ALT column
+
 *-n, --novel*::
     print novel sites only (ID column is ".")
 
-*-m, --multiallelic*::
-    print multiallelic sites only
+*-p, --phased*::
+    print sites where not all samples are phased. Haploid genotypes are 
+    considered phased. Missing genotypes considered unphased unless the 
+    phased bit is set. 
 
-*-M, --biallelic*::
-    print biallelic sites only
+*-P, --exclude-phased*::
+    exclude sites where not all samples are phased
 
-*-R, --exclude-ref*::
-    exclude sites without a non-reference genotype
+*-q, --min-af* 'FLOAT'[':nref'|':alt1'|':minor']::
+    minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed. 
+    Specifying the type of allele is optional and can be set to non-reference 
+    ('nref', the default), 1st alternate  ('alt1') or minor ('minor') alleles.
+
+*-Q, --max-af* 'FLOAT'[':nref'|':alt1'|':minor']::
+    maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed. 
+    Specifying the type of allele is optional and can be set to non-reference 
+    ('nref', the default), 1st alternate  ('alt1') or minor ('minor') alleles.
+
+*-u, --uncalled*::
+    print sites without a called genotype
 
 *-U, --exclude-uncalled*::
     exclude sites without a called genotype
 
-*-v, --include-types* 'snps'|'indels'|'mnps'|'other'::
-    comma-separated list of variant types to include
+*-v, --types* 'snps'|'indels'|'mnps'|'other'::
+    comma-separated list of variant types to select
 
 *-V, --exclude-types* 'snps'|'indels'|'mnps'|'other'::
     comma-separated list of variant types to exclude
 
 *-x, --private*::
     print sites where only the subset samples carry an non-reference allele
+
+*-X, --exclude-private*::
+    exclude sites where only the subset samples carry an non-reference allele
 
 
 
