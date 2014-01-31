@@ -659,10 +659,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
     print known sites only (ID column is not ".")
 
 *-m, --min-alleles* 'INT'::
-    print sites with at least 'INT' alleles listed in ALT column
+    print sites with at least 'INT' alleles listed in REF and ALT columns
 
 *-M, --max-alleles* 'INT'::
-    print sites with at most 'INT' alleles listed in ALT column
+    print sites with at most 'INT' alleles listed in REF and ALT columns
 
 *-n, --novel*::
     print novel sites only (ID column is ".")

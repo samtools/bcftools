@@ -218,7 +218,7 @@ int bcf_all_phased(const bcf_hdr_t *header, bcf1_t *line)
 int subset_vcf(args_t *args, bcf1_t *line)
 {
     if ( args->min_alleles && line->n_allele < args->min_alleles ) return 0; // min alleles
-    if ( args->max_alleles && line->n_allele > args->min_alleles ) return 0; // max alleles
+    if ( args->max_alleles && line->n_allele > args->max_alleles ) return 0; // max alleles
     if (args->novel || args->known)
     {
         if ( args->novel && (line->d.id[0]!='.' || line->d.id[1]!=0) ) return 0; // skip sites which are known, ID != '.'
@@ -300,8 +300,8 @@ int subset_vcf(args_t *args, bcf1_t *line)
         else if (args->max_af_type == ALLELE_ALT1 && args->max_af<ac[1]/(double)an) { free(ac); return 0; } // max 1st alternate AF
     }
     if (args->uncalled) {
-        if (args->uncalled == FLT_INCLUDE && non_ref_ac > 0 && ac[0] > 0) { free(ac); return 0; } // select uncalled
-        if (args->uncalled == FLT_EXCLUDE && non_ref_ac == 0 && ac[0] == 0) { free(ac); return 0; } // skip if uncalled
+        if (args->uncalled == FLT_INCLUDE && an > 0) { free(ac); return 0; } // select uncalled
+        if (args->uncalled == FLT_EXCLUDE && an == 0) { free(ac); return 0; } // skip if uncalled
     }
     if (args->calc_ac && args->update_info) {
         bcf_update_info_int32(args->hdr, line, "AC", &ac[1], line->n_allele-1);
@@ -358,12 +358,12 @@ static void usage(args_t *args)
     fprintf(stderr, "Filter options:\n");
     fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -i/e, --include/exclude <expr>              select/exclude sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "    -i/e, --include/--exclude <expr>            select/exclude sites for which the expression is true (see below for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                       select known/novel sites only (ID is not/is '.')\n");
-    fprintf(stderr, "    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in ALT (e.g. -m2 -M2 for biallelic sites)\n");
+    fprintf(stderr, "    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in REF and ALT (e.g. -m2 -M2 for biallelic sites)\n");
     fprintf(stderr, "    -p/P, --phased/--exclude-phased             select/exclude sites where all samples are phased/not all samples are phased\n");
     fprintf(stderr, "    -q/Q, --min-af/--max-af <float>[:<type>]    minimum/maximum frequency for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
-    fprintf(stderr, "    -u/U, --uncalled/exclude-uncalled           select/exclude sites without a called genotype\n");
+    fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled         select/exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private           select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
     fprintf(stderr, "\n");
@@ -481,9 +481,9 @@ int main_vcfview(int argc, char *argv[])
             case 'Q':
             {
                 args->max_af_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%f:%s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 ) 
+                if ( sscanf(optarg,"%f:%s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->max_af)!=1 ) 
                     error("Error: Could not parse --min_af %s\n", optarg);
-                set_allele_type(&args->min_af_type, allele_type);
+                set_allele_type(&args->max_af_type, allele_type);
                 args->calc_ac = 1;
                 break;
             }
