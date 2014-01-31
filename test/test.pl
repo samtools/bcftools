@@ -23,7 +23,7 @@ test_vcf_isec2($opts,vcf_in=>['isec.a'],tab_in=>'isec',out=>'isec.tab.out',args=
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.out');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
-test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aRs NA00002 -v snps',reg=>'');
+test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-ac1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -k',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && ICF>-0.1 && HWE*2>1.2'],reg=>'');
