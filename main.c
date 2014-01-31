@@ -29,6 +29,7 @@ int main_vcfview(int argc, char *argv[]);
 int main_vcfcall(int argc, char *argv[]);
 int main_vcfannotate(int argc, char *argv[]);
 int main_vcfroh(int argc, char *argv[]);
+int main_vcfconcat(int argc, char *argv[]);
 
 typedef struct
 {
@@ -51,9 +52,17 @@ static cmd_t cmds[] =
       .alias = "Core VCF/BCF tools:",
       .help  = NULL
     },
+    { .func  = main_vcfannotate,  
+      .alias = "annotate", 
+      .help  = "annotate and edit VCF/BCF files",
+    },
     { .func  = main_vcfcall,  
       .alias = "call", 
       .help  = "SNP/indel calling (former \"view\")"
+    },
+    { .func  = main_vcfconcat,  
+      .alias = "concat", 
+      .help  = "-combine VCF/BCF files (one-sample files yield one-sample file)"    // do not advertise yet
     },
     { .func  = main_vcffilter, 
       .alias = "filter",
@@ -69,7 +78,7 @@ static cmd_t cmds[] =
     },
     { .func  = main_vcfmerge, 
       .alias = "merge",
-      .help  = "merge VCF/BCF files"
+      .help  = "merge VCF/BCF files (one-sample files yield multi-sample file)"
     },
     { .func  = main_vcfnorm, 
       .alias = "norm",
@@ -91,13 +100,9 @@ static cmd_t cmds[] =
       .alias = "Other/Experimental tools:" ,
       .help  = NULL
     },
-    { .func  = main_vcfannotate,  
-      .alias = "annotate", 
-      .help  = "-annotate and edit VCF/BCF files",  // do not advertise yet
-    },
     { .func  = main_vcfroh, 
       .alias = "roh",
-      .help  = "-identify runs of autozygosity (HMM)",  // do not advertise yet
+      .help  = "identify runs of autozygosity (HMM)",
     },
     { .func  = main_vcfsom, 
       .alias = "som",

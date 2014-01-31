@@ -1,6 +1,8 @@
 PROG=		bcftools
+TEST_PROG=  test/test-rbuf
 
-all: $(PROG)
+
+all: $(PROG) $(TEST_PROG)
 
 # Adjust $(HTSDIR) to point to your top-level htslib directory
 HTSDIR = ../htslib
@@ -12,7 +14,7 @@ CFLAGS=		-g -Wall -Wc++-compat -O2
 DFLAGS=
 OBJS=		main.o bcfidx.o tabix.o \
 			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
-            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o \
+            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
             vcfcall.o mcall.o vcmp.o \
             ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES=	-I. -I$(HTSDIR)
@@ -48,7 +50,7 @@ force:
 .c.o:
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
-test: $(PROG) plugins
+test: $(PROG) plugins test/test-rbuf
 		./test/test.pl
 
 PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
@@ -56,17 +58,23 @@ PLUGINS = $(PLUGINC:.c=.so)
 
 plugins: $(PLUGINS)
 
-%.so: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ $<
+%.so: %.c vcfannotate.c $(HTSDIR)/libhts.so
+	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ -L$(HTSDIR) $< -lhts
 
 main.o: version.h $(HTSDIR)/version.h bcftools.h
-vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h
-mcall.o ccall.o: call.h vcmp.h
-vcffilter.o: filter.h
-vcfsubset.o: filter.h
-vcfnorm.o: rbuf.h
-vcffilter.o: rbuf.h
-vcfroh.o: rbuf.h
+vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h bcftools.h
+mcall.o ccall.o: call.h vcmp.h bcftools.h
+vcffilter.o: bcftools.h filter.h
+vcfsubset.o: bcftools.h filter.h
+vcfnorm.o: bcftools.h rbuf.h
+vcffilter.o: bcftools.h rbuf.h
+vcfroh.o: bcftools.h rbuf.h
+vcfannotate.o: bcftools.h vcmp.h $(HTSDIR)/htslib/kseq.h
+vcfconcat.o: bcftools.h
+test/test-rbuf.o: rbuf.h test/test-rbuf.c
+
+test/test-rbuf: test/test-rbuf.o
+		$(CC) $(CFLAGS) -o $@ -lm -ldl $<
 
 bcftools: $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl
@@ -77,8 +85,10 @@ install: $(PROG)
 		$(INSTALL_PROGRAM) $(PROG) plot-vcfstats $(DESTDIR)$(bindir)
 		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
-
-cleanlocal:
+cleanlocal: cleantest
 		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h plugins/*.so
+
+cleantest:
+		rm -fr test/*.o test/*~ $(TEST_PROG)
 
 clean:cleanlocal clean-htslib

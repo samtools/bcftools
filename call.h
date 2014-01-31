@@ -42,7 +42,7 @@ typedef struct
     float *GQs;             // VCF FORMAT genotype qualities
     int *itmp, n_itmp;      // temporary int array, used for new PLs with CALL_CONSTR_ALLELES
     vcmp_t *vcmp;
-    double trio_Pm;         // P(mendelian) for trio calling
+    double trio_Pm_SNPs, trio_Pm_del, trio_Pm_ins;      // P(mendelian) for trio calling, see mcall_call_trio_genotypes()
     int32_t *ugts, *cgts;   // unconstraind and constrained GTs
 
     // ccall only

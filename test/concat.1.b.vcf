@@ -1,0 +1,14 @@
+##fileformat=VCFv4.0
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FILTER=<ID=q10,Description="Quality below 10">
+##contig=<ID=3,length=62435964>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
+3	142	.	GTTT	G	1806	q10	DP=35	GT:GQ:DP	0/1:409:35
+3	152	.	CAAA	C	1792	PASS	DP=32	GT:GQ:DP	0/1:245:32
+3	162	.	GA	G	628	q10	DP=21	GT:GQ:DP	1/1:21:21
+3	172	.	GAA	G	1016	PASS	DP=22	GT:GQ:DP	0/1:212:22
+3	182	.	GT	G	727	PASS	DP=30	GT:GQ:DP	0/1:150:30
+3	192	.	TAAAA	TA,T	246	PASS	DP=10	GT:GQ:DP	1/2:12:10

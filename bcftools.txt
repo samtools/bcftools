@@ -39,11 +39,12 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 
 - *tabix*                ..  index tab-delimited BGZF-compressed files such as BED, GFF, SAM, VCF, etc.
 - *index*                ..  index BCF
+- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations, apply user plugins
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
 - *<<isec,isec>>*        ..  intersections of VCF/BCF files
-- *<<merge,merge>>*      ..  merge VCF/BCF files
+- *<<merge,merge>>*      ..  merge VCF/BCF files to create multi-sample file
 - *<<norm,norm>>*        ..  normalize indels
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
@@ -94,7 +95,7 @@ OPTIONS
             first indel record will be considered and appear on output.
 
         'both';;
-            abbreviation of "*-c* 'indels' *-c* 'snps'"
+            abbreviation of "*-c* 'indels'{nbsp} *-c* 'snps'"
 
 *-f, --apply-filters* 'LIST'::
     Skip sites where FILTER column does not contain any of the strings listed
@@ -117,7 +118,7 @@ OPTIONS
     Comma-separated list of samples to include or a file with one sample
     per line. The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
-    With *<<call,bcftools call>>* *-C* 'trio', PED file is expected.
+    With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Same as *-r, --regions*, but the next position is accessed by streaming the
@@ -132,6 +133,59 @@ OPTIONS
 ----
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf
 ----
+
+[[annotate]]
+=== bcftools annotate '[OPTIONS]' 'FILE'
+
+This command allows to add or remove annotations and apply user-written plugins.
+
+*-a, --annotations* 'file'::
+    Bgzip-compressed and tabix-indexed file with annotations. The file 
+    can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
+    (or, alternatively, FROM, TO), optional columns REF and ALT, and arbitrary
+    number of annotation columns. In case of tab-delimited file, the
+    coordinates POS, FROM and TO are one-based and inclusive.
+    When REF and ALT are present, only matching VCF records will be annotated.
+    When multiple ALT alleles are present in the annotation file (given as
+    comma-separated list of alleles), at least one must match one of the
+    alleles in the corresponding VCF record.
+    See also *-c, --columns* and *-h, --header-lines*.
+
+*-c, --columns* 'list'::
+    Comma-separated list of columns present in the annotation file and defined
+    in the header file (see also *-a, --annotations* and *-h, --header-lines*).
+    INFO tags can be written both as INFO/TAG or simply TAG. Unused columns can
+    be indicated by '-'.  For example:
+----
+    CHROM,FROM,TO,REF,ALT,-,INFO/TAG
+----
+
+*-h, --header-lines* 'file'::
+    Header lines to appended to the VCF header.
+
+*-l, --list-plugins*::
+    List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
+    the program which directories to search.
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-p, --plugins* 'name'[,...]::
+    Comma-separated list of plugins to run. The BCFTOOLS_PLUGINS environment
+    variable tells the program which directories to search.
+    See the examples in plugins/*.c coming with this distribution for further
+    details and examples.
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --remove* 'list':: 
+    List of annotations to remove. Use 'FILTER' to remove all filters or
+    'FILTER/SomeFilter' to remove a specific filter. More examples:
+----
+    ID,INFO/DP,FORMAT/DP
+----
+
 
 
 [[call]]
@@ -186,14 +240,21 @@ demand. The original calling model can be invoked with the *-c* option.
     alternative modelfor multiallelic and rare-variant calling designed to
     overcome known limitations in *-c* calling model (conflicts with *-c*)
 
-*-n, --novel-rate* 'FLOAT'::
+*-n, --novel-rate* 'float'[,...]::
     likelihood of novel mutation for constrained *-C* 'trio' calling. The trio
     genotype calling maximizes likelihood of a particular combination of
     genotypes for father, mother and the child 
     P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1-Pn).
+    By providing three values, the mutation rate Pn is set explictly for SNPs,
+    deletions and insertions, respectively.  If two values are given, the first
+    is interpreted as the mutation rate of SNPs and the second is used to
+    calculate the mutation rate of indels according to their length as
+    Pn='float'*exp(-a-b*len), where a=22.8689, b=0.2994 for insertions and
+    a=21.9313, b=0.2856 for deletions [pubmed:23975140].  If only one value is
+    given, the same mutation rate Pn is used for SNPs and indels.
 
 *-p, --pval-threshold* 'float'::
-    with *-c*, accept variant if P(ref|D)<'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'
+    with *-c*, accept variant if P(ref|D) < 'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -307,10 +368,11 @@ With *-s* but no *-p*, likelihoods at all sites are printed.
 
     CN;;
         This field lists pairwise discordance for all possible sample pairs.
-        It is calculated simply as 
+        It is calculated as 
 ----
         \sum_s { min_{G} \{ PL_i + PL_j \} },
 ----
+    ;;
         where the sum is over all sites 's' and genotype 'G' is selected
         to maximize likelihood for samples 'i' and 'j'. When PL field is not
         present, a constant value '99' is used for the unseen genotypes. 
@@ -334,9 +396,9 @@ in the other files.
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
-*-n, --nfiles* ['+-=']'INT'::
-    output positions present in this many ('='), this many or more ('+'), or this
-    many or fewer ('-') files
+*-n, --nfiles* \[+-=]'INT'::
+    output positions present in this many (=), this many or more (+), or this
+    many or fewer (-) files
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
@@ -374,7 +436,18 @@ Extract records private to A or B comparing by position only
 
 [[merge]]
 === bcftools merge ['OPTIONS'] 'A.vcf.gz' 'B.vcf.gz' [...]
-Merge one or more VCF or BCF files.
+Merge multiple VCF or BCF files to create one multi-sample file. For example,
+when merging file 'A.vcf.gz' containing samples 'S1', 'S2' and 'S3' and file
+'B.vcf.gz' containing samples 'S3' and 'S4', the output file will contain
+four samples named 'S1', 'S2', 'S3', '2:S3' and 'S4'.
+
+Note that it is responsibility of the user to ensure that the sample names are
+unique across all files. If they are not, the program will create a unique
+sample name by prepending index of the file as it appeared on the command line
+to the conflicting sample name (see '2:S3' in the above example). Sample names
+can be also given explicitly using the *--print-header* and
+*--use-header* options.
+
 
 *--use-header* 'FILE'::
     use the VCF header in the provided text 'FILE'
@@ -650,46 +723,56 @@ EXPRESSIONS
 These filtering expressions are accepted by *<<filter,filter>>* and
 *<<view,view>>* commands.
 
-Valid expressions may contain: ;;
+.Valid expressions may contain:
 
-    arithmetic perators: ::
-        +, *, -, /
+arithmetic perators: ::
+    +, *, -, /
     
-    logical operators: ::
-        && (same as &),  || (same as |)
+logical operators: ::
+    && (same as &),  || (same as |)
     
-    comparison operators: ::
-        == (same as =), >, >=, <=, <, !=
+comparison operators: ::
+    == (same as =), >, >=, <=, <, !=
     
-    parentheses: ::
-        (, )
+parentheses: ::
+    (, )
     
-    array subscripts to access vector subfields: ::
-        e.g. AC[0]
+array subscripts to access vector subfields: ::
+    e.g. AC[0]
     
-    double quotes for string values: ::
-        e.g. %FILTER="PASS"
+double quotes for string values: ::
+    e.g. %FILTER="PASS"
     
-    '1' (or '0') for testing the presence (or absence) of a flag: ::
-        e.g. FlagA=1 && FlagB=0
+'1' (or '0') for testing the presence (or absence) of a flag: ::
+    e.g. FlagA=1 && FlagB=0
     
-    'TAG' or INFO/'TAG' for INFO fields: ::
-        e.g. DP<800 or INFO/DP<800
+'TAG' or INFO/'TAG' for INFO fields: ::
+    e.g. DP<800 or INFO/DP<800
     
-    %'COLUMN' for column names (not all columns are supported yet): ::
-        e.g. %QUAL>10 && %FILTER="PASS"
+%'COLUMN' for column names (not all columns are supported yet): ::
+    e.g. %QUAL>10 && %FILTER="PASS"
     
-    %TYPE for testing variant type ('indel', 'snp', 'mnp', 'other'): ::
-        e.g. %TYPE="snp"
+%TYPE for testing variant type ('indel', 'snp', 'mnp', 'other'): ::
+    e.g. %TYPE="snp"
     
-    %'FUNC'('TAG') where 'FUNC' is one of 'MAX', 'MIN', 'AVG' and 'TAG' is one of the FORMAT fields: ::
-        e.g. %MIN(DP)>10 && %MIN(DV)>3
+%'FUNC'('TAG') where 'FUNC' is one of 'MAX', 'MIN', 'AVG' and 'TAG' is one of the FORMAT fields: ::
+    e.g. %MIN(DP)>10 && %MIN(DV)>3
 
 A few more examples:
 
     %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
     %MIN(DP)>35 && %AVG(GQ)>50
     ...
+
+
+PERFORMANCE
+-----------
+HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+are internally converted into BCF representation. Simple operations, like removing
+a single column from a VCF file, can be therefore done much faster with standard
+UNIX commands, such as *awk* or *cut*.
+Therefore it is recommended to use BCF as input/output format whenever possible to avoid
+large overhead of the VCF -> BCF -> VCF conversion.
 
 
 BUGS

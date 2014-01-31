@@ -98,87 +98,102 @@ sub parse_params
             { 
                 id=>'ID',    
                 header=>'Definition of sets', 
-                exp=>"# ID\t[2]id\t[3]tab-separated file names\n" 
+                exp=>"# ID\t[2]id\t[3]tab-separated file names" 
             },
             { 
                 id=>'SN',    
                 header=>'SN, Summary numbers', 
-                exp=>"# SN  [2]id   [3]key  [4]value\n" 
+                exp=>"# SN  [2]id   [3]key  [4]value" 
             },
             { 
                 id=>'TSTV',    
                 header=>'# TSTV, transition/transversions:', 
-                exp=>"# TSTV\t[2]id\t[3]ts\t[4]tv\t[5]ts/tv\t[6]ts (1st ALT)\t[7]tv (1st ALT)\t[8]ts/tv (1st ALT)\n" 
+                exp=>"# TSTV\t[2]id\t[3]ts\t[4]tv\t[5]ts/tv\t[6]ts (1st ALT)\t[7]tv (1st ALT)\t[8]ts/tv (1st ALT)" 
             },
             { 
                 id=>'SiS',   
                 header=>'Sis, Singleton stats', 
-                exp=>"# SiS\t[2]id\t[3]allele count\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable\n" 
+                exp=>"# SiS\t[2]id\t[3]allele count\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable" 
             },
             { 
                 id=>'AF',    
                 header=>'AF, Stats by non-reference allele frequency', 
-                exp=>"# AF\t[2]id\t[3]allele frequency\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable\n" 
+                exp=>"# AF\t[2]id\t[3]allele frequency\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable" 
             },
             { 
                 id=>'IDD',   
                 header=>'IDD, InDel distribution', 
-                exp=>"# IDD\t[2]id\t[3]length (deletions negative)\t[4]count\n" 
+                exp=>"# IDD\t[2]id\t[3]length (deletions negative)\t[4]count" 
             },
             { 
                 id=>'ST',    
                 header=>'ST, Substitution types', 
-                exp=>"# ST\t[2]id\t[3]type\t[4]count\n" 
+                exp=>"# ST\t[2]id\t[3]type\t[4]count" 
             },
             { 
                 id=>'GCsAF', 
                 header=>'GCsAF, Genotype concordance by non-reference allele frequency (SNPs)', 
-                exp=>"# GCsAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites\n" 
+                exp=>"# GCsAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites" 
             },
             { 
-                id=>'NRD',   
-                header=>'Non-Reference Discordance (NRD)', 
-                exp=>"# NRD\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n" 
+                id=>'GCiAF', 
+                header=>'GCiAF, Genotype concordance by non-reference allele frequency (indels)', 
+                exp=>"# GCiAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites" 
+            },
+            { 
+                id=>'NRDs',
+                header=>'Non-Reference Discordance (NRD), SNPs', 
+                exp=>"# NRDs\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance" 
+            },
+            { 
+                id=>'NRDi',
+                header=>'Non-Reference Discordance (NRD), indels', 
+                exp=>"# NRDi\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance" 
             },
             { 
                 id=>'GCsS',  
                 header=>'GCcS, Genotype concordance by sample (SNPs)', 
-                exp=>"# GCsS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches\n" 
+                exp=>"# GCsS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches" 
+            },
+            { 
+                id=>'GCiS',  
+                header=>'GCiS, Genotype concordance by sample (indels)', 
+                exp=>"# GCiS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches" 
             },
             { 
                 id=>'PSC',   
                 header=>'PSC, Per-sample counts', 
-                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons\n" 
+                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons" 
             },
             { 
                 id=>'DP',    
                 header=>'DP, Depth distribution', 
-                exp=>"# DP\t[2]id\t[3]bin\t[4]number of genotypes\t[5]fraction of genotypes (%)\n" 
+                exp=>"# DP\t[2]id\t[3]bin\t[4]number of genotypes\t[5]fraction of genotypes (%)" 
             },
             { 
                 id=>'FS',    
                 header=>'FS, Indel frameshifts', 
-                exp=>"# FS\t[2]id\t[3]in-frame\t[4]out-frame\t[5]not applicable\t[6]out/(in+out) ratio\t[7]in-frame (1st ALT)\t[8]out-frame (1st ALT)\t[9]not applicable (1st ALT)\t[10]out/(in+out) ratio (1st ALT)\n"
+                exp=>"# FS\t[2]id\t[3]in-frame\t[4]out-frame\t[5]not applicable\t[6]out/(in+out) ratio\t[7]in-frame (1st ALT)\t[8]out-frame (1st ALT)\t[9]not applicable (1st ALT)\t[10]out/(in+out) ratio (1st ALT)"
             },
             { 
                 id=>'ICS',
                 header=>'ICS, Indel context summary', 
-                exp=>"# ICS\t[2]id\t[3]repeat-consistent\t[4]repeat-inconsistent\t[5]not applicable\t[6]c/(c+i) ratio\n" 
+                exp=>"# ICS\t[2]id\t[3]repeat-consistent\t[4]repeat-inconsistent\t[5]not applicable\t[6]c/(c+i) ratio" 
             },
             { 
                 id=>'ICL',
                 header=>'ICL, Indel context by length', 
-                exp=>"# ICL\t[2]id\t[3]length of repeat element\t[4]repeat-consistent deletions)\t[5]repeat-inconsistent deletions\t[6]consistent insertions\t[7]inconsistent insertions\t[8]c/(c+i) ratio\n"
+                exp=>"# ICL\t[2]id\t[3]length of repeat element\t[4]repeat-consistent deletions)\t[5]repeat-inconsistent deletions\t[6]consistent insertions\t[7]inconsistent insertions\t[8]c/(c+i) ratio"
             },
             { 
                 id=>'QUAL',
                 header=>'QUAL, Stats by quality', 
-                exp=>"# QUAL\t[2]id\t[3]Quality\t[4]number of SNPs\t[5]number of transitions (1st ALT)\t[6]number of transversions (1st ALT)\t[7]number of indels\n" 
+                exp=>"# QUAL\t[2]id\t[3]Quality\t[4]number of SNPs\t[5]number of transitions (1st ALT)\t[6]number of transversions (1st ALT)\t[7]number of indels" 
             },
             { 
                 id=>'HWE',
                 header=>'HWE', 
-                exp=>"# HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile\n",
+                exp=>"# HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile",
             },
         ],
 	};
@@ -508,6 +523,7 @@ sub parse_vcfstats1
     my %dat;
     while ($line=<$fh>)
     {
+        $line =~ s/\s*$//;
         if ( $line=~/^#\s+(\S+)\t/ ) 
         {
             $$opts{def_line}{$1} = $line;
@@ -515,7 +531,6 @@ sub parse_vcfstats1
         }
         if ( $line=~/^#/ ) { next; }
         my @items = split(/\t/,$line);
-        chomp($items[-1]);
         if ( $items[0] eq 'SN' )
         {
             $dat{$items[1]}{$items[2]} = splice(@items,3);
@@ -534,10 +549,13 @@ sub parse_vcfstats1
 
             if ( $a eq 'ID' ) { merge_id($opts,$$opts{dat}{$a},$dat{$a},$b); }
             elsif ( ref($dat{$a}{$b}) ne 'ARRAY' ) {$$opts{dat}{$a}{$b} += $dat{$a}{$b} unless $b eq 'number of samples:'; } # SN, Summary numbers, do not sum sample counts
-            elsif ( $a eq 'NRD' ) { add_to_avg($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
+            elsif ( $a eq 'NRDs' ) { add_to_avg($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
+            elsif ( $a eq 'NRDi' ) { add_to_avg($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'DP' ) { merge_dp($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
             elsif ( $a eq 'GCsS' ) { merge_GCsS($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
+            elsif ( $a eq 'GCiS' ) { merge_GCsS($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'GCsAF' ) { merge_GCsAF($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
+            elsif ( $a eq 'GCiAF' ) { merge_GCsAF($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'ST' ) { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_str); }
             elsif ( $a eq 'PSC') { merge_PSC($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'IDD') { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_num); }
@@ -545,6 +563,7 @@ sub parse_vcfstats1
             elsif ( $a eq 'ICS') { merge_ICS($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
             elsif ( $a eq 'ICL') { merge_ICL($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
             elsif ( $a eq 'TSTV') { merge_TSTV($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
+            elsif ( $a eq 'DBG' ) { next; }
             else { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_num_op); } # SiS AF IDD
         }
     }
@@ -660,7 +679,7 @@ sub get_values
     if ( !exists($$opts{exp}{$key}) ) { error("todo: sanity check for $key\n"); } 
     if ( exists($$opts{def_line}{$key}) && $$opts{def_line}{$key} ne $$opts{exp}{$key} && !$$opts{def_line_warned}{$key} )
     {
-        warn("Warning: Possible version mismatch, the definition line differs\n\texpected: $$opts{exp}{$key}\tfound:    $$opts{def_line}{$key}");
+        warn("Warning: Possible version mismatch, the definition line differs\n\texpected: $$opts{exp}{$key}\n\tfound:    $$opts{def_line}{$key}\n");
         $$opts{def_line_warned}{$key} = 1;
     }
     if ( defined $i )
@@ -1823,7 +1842,7 @@ sub create_pdf
 	}
 	if ( scalar get_values($opts,2,'GCsAF') ) 
 	{
-		my @vals = get_values($opts,2,'NRD');
+		my @vals = get_values($opts,2,'NRDs');
 		my $nrd = sprintf "%.2f", $vals[0][0];
 		my $rr  = sprintf "%.2f", $vals[0][1];
 		my $ra  = sprintf "%.2f", $vals[0][2];
@@ -1836,7 +1855,7 @@ sub create_pdf
 			\\multicolumn{1}{>{\\columncolor{hcol1}}c|}{REF/REF} & 
 			\\multicolumn{1}{>{\\columncolor{hcol1}}c|}{REF/ALT} & 
 			\\multicolumn{1}{>{\\columncolor{hcol1}}c|}{ALT/ALT} & 
-			\\multicolumn{1}{>{\\columncolor{hcol1}}c}{NRD} \\\\ \\hline
+			\\multicolumn{1}{>{\\columncolor{hcol1}}c}{NRDs} \\\\ \\hline
 			$rr\\% & $ra\\% & $aa\\% & $nrd\\% \\\\
 			\\end{tabular}}];
 		tprint $tex, qq[
@@ -1907,7 +1926,7 @@ sub merge_vcfstats
         my $sid = $$sec{id};
         if ( !exists($$opts{dat}{$sid}) ) { next; }
 
-        print $fh "# $$sec{header}\n$$sec{exp}";
+        print $fh "# $$sec{header}\n$$sec{exp}\n";
         for my $id (sort keys %{$$opts{dat}{$sid}})
         {
             for my $rec (@{$$opts{dat}{$sid}{$id}})
@@ -1918,7 +1937,7 @@ sub merge_vcfstats
 
         if ( $sid eq 'ID' )
         {
-            print $fh "# $$opts{id2sec}{SN}{header}\n$$opts{id2sec}{SN}{exp}";
+            print $fh "# $$opts{id2sec}{SN}{header}\n$$opts{id2sec}{SN}{exp}\n";
             # output summary numbers here
             for my $id (keys %{$$opts{dat}})
             {
