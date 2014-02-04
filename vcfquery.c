@@ -35,6 +35,7 @@ typedef struct _args_t args_t;
 typedef struct _fmt_t
 {
     int type, id, is_gt_field, ready, subscript;
+    int nsamples, *samples;
     char *key;
     bcf_fmt_t *fmt;
     void (*handler)(args_t *, bcf1_t *, struct _fmt_t *, int, kstring_t *);
@@ -45,9 +46,9 @@ struct _args_t
 {
     fmt_t *fmt;
     int nfmt, mfmt;
-    int nsamples, *samples;
 	bcf_srs_t *files;
     bcf_hdr_t *header;
+    int nsamples, *samples;
 	char **argv, *format, *sample_names, *targets_fname, *regions_fname, *vcf_list;
 	int argc, list_columns, print_header;
 };
@@ -452,43 +453,45 @@ static void init_data(args_t *args)
             default:  p = parse_sep(args, p, is_gtf); break;
         }
     }
-    if ( args->sample_names )
+    int i;
+    if ( args->sample_names && strcmp("-",args->sample_names) )
     {
-        kstring_t str = {0,0,0};
-        struct stat sbuf;
-        if ( stat(args->sample_names, &sbuf) == 0  )
-            error("TODO: reading sample names from a file, please email me\n");
+        for (i=0; i<args->files->nreaders; i++)
+        {
+            int ret = bcf_hdr_set_samples(args->files->readers[i].header,args->sample_names);
+            if ( ret<0 ) error("Error parsing the sample list\n");
+            else if ( ret>0 ) error("Sample name mismatch: %d-th sample not found in the header\n", ret);
+        }
+
+        if ( args->sample_names[0]!='^' )
+        {
+            // the sample ordering may be different if not negated
+            int n;
+            char **smpls = hts_readlines(args->sample_names, &n);
+            if ( !smpls ) error("Could not parse %s\n", args->sample_names);
+            if ( n!=bcf_hdr_nsamples(args->files->readers[0].header) ) 
+                error("The number of samples does not match, perhaps some are present multiple times?\n");
+            args->nsamples = bcf_hdr_nsamples(args->files->readers[0].header);
+            args->samples = (int*) malloc(sizeof(int)*args->nsamples);
+            for (i=0; i<n; i++) 
+            {
+                args->samples[i] = bcf_hdr_id2int(args->files->readers[0].header, BCF_DT_SAMPLE,smpls[i]);
+                free(smpls[i]);
+            }
+            free(smpls);
+        }
         else
         {
-            char *p = args->sample_names, *q = p;
-            while (1)
-            {
-                if ( !*q || *q==',' )
-                {
-                    str.l = 0;
-                    kputsn(p, q-p, &str);
-                    int i;
-                    if ( (i=bcf_hdr_id2int(args->header, BCF_DT_SAMPLE, str.s))==-1 ) error("No such sample in the VCF: [%s]\n", str.s);
-                    args->samples = (int*) realloc(args->samples, sizeof(int)*(++args->nsamples));
-                    args->samples[ args->nsamples-1 ] = i;
-                    p = q+1;
-                }
-                if ( !*q ) break;
-                q++;
-            }
+            args->nsamples = bcf_hdr_nsamples(args->files->readers[0].header);
+            args->samples = (int*) malloc(sizeof(int)*args->nsamples);
+            for (i=0; i<args->nsamples; i++) args->samples[i] = i;
         }
-        if ( str.m ) free(str.s);
     }
     else
     {
-        args->nsamples = bcf_hdr_nsamples(args->header);
-        if ( args->nsamples )
-        {
-            args->samples = (int*)malloc(sizeof(int)*args->nsamples);
-            int i;
-            for (i=0; i<args->nsamples; i++)
-                args->samples[i] = i;
-        }
+        args->nsamples = bcf_hdr_nsamples(args->files->readers[0].header);
+        args->samples = (int*) malloc(sizeof(int)*args->nsamples);
+        for (i=0; i<args->nsamples; i++) args->samples[i] = i;
     }
 }
 
@@ -498,15 +501,16 @@ static void destroy_data(args_t *args)
     for (i=0; i<args->nfmt; i++)
         if ( args->fmt[i].key ) free(args->fmt[i].key);
     if ( args->mfmt ) free(args->fmt);
-    if ( args->samples ) free(args->samples);
     args->nfmt = args->mfmt = 0;
     args->fmt = NULL;
+    free(args->samples);
 }
 
 
 static void print_header(args_t *args, kstring_t *str)
 {
     int i, icol = 0;
+    bcf_hdr_t *hdr = args->files->readers[0].header;
 
     // Supress the header output if LINE is present
     for (i=0; i<args->nfmt; i++)
@@ -534,7 +538,7 @@ static void print_header(args_t *args, kstring_t *str)
                     else if ( args->fmt[k].type == T_SAMPLE )
                         ksprintf(str, "[%d]%s", ++icol, args->fmt[k].key);
                     else
-                        ksprintf(str, "[%d]%s:%s", ++icol, args->header->samples[ks], args->fmt[k].key);
+                        ksprintf(str, "[%d]%s:%s", ++icol, hdr->samples[ks], args->fmt[k].key);
                 }
             }
             i = j-1;
@@ -618,19 +622,19 @@ static void list_columns(args_t *args)
         printf("%s\n", reader->header->samples[i]);
 }
 
-static char **copy_header(bcf_hdr_t *hdr, int *src, int nsrc)
+static char **copy_header(bcf_hdr_t *hdr, char **src, int nsrc)
 {
     char **dst = (char**) malloc(sizeof(char*)*nsrc);
     int i;
-    for (i=0; i<nsrc; i++) dst[i] = strdup(hdr->samples[src[i]]);
+    for (i=0; i<nsrc; i++) dst[i] = strdup(src[i]);
     return dst;
 }
-static int compare_header(bcf_hdr_t *hdr, int *a, int na, char **b, int nb)
+static int compare_header(bcf_hdr_t *hdr, char **a, int na, char **b, int nb)
 {
     if ( na!=nb ) return na-nb;
     int i;
     for (i=0; i<na; i++)
-        if ( strcmp(hdr->samples[a[i]],b[i]) ) return 1;
+        if ( strcmp(a[i],b[i]) ) return 1;
     return 0;
 }
 
@@ -641,7 +645,7 @@ static void usage(void)
 	fprintf(stderr, "Usage:   bcftools query [options] <file.vcf.gz> [file.vcf.gz [...]]\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");
-	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none> [none]\n");
+	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none>, see man page [none]\n");
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
 	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit \n");
@@ -796,14 +800,11 @@ int main_vcfquery(int argc, char *argv[])
             if ( !bcf_sr_add_reader(args->files, argv[k]) ) error("Failed to open or the file not indexed: %s\n", argv[k]);
         init_data(args);
         if ( i==0 ) 
-        {
-            prev_samples = copy_header(args->header, args->samples, args->nsamples);
-            prev_nsamples = args->nsamples;
-        }
+            prev_samples = copy_header(args->header, args->files->readers[0].header->samples, bcf_hdr_nsamples(args->files->readers[0].header));
         else
         {
             args->print_header = 0;
-            if ( compare_header(args->header, args->samples, args->nsamples, prev_samples, prev_nsamples) ) 
+            if ( compare_header(args->header, args->files->readers[0].header->samples, bcf_hdr_nsamples(args->files->readers[0].header), prev_samples, prev_nsamples) ) 
                 error("Different samples in %s and %s\n", fnames[i-1],fnames[i]);
         }
         query_vcf(args);
