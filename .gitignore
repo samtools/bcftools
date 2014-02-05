@@ -1,3 +1,4 @@
 bcftools
 *.o
 /version.h
+plugins/*.so

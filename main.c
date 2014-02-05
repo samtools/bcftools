@@ -129,10 +129,13 @@ char *bcftools_version(void)
 
 static int usage(void)
 {
-	fprintf(stderr, "\n");
-    fprintf(stderr, "Version: %s\n", bcftools_version());
-	fprintf(stderr, "Usage:   bcftools <command> <argument>\n");
-	fprintf(stderr, "Commands:\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Program: bcftools (Tools for variant calling and manipulating VCFs and BCFs)\n");
+  fprintf(stderr, "Version: %s\n", bcftools_version());
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Usage:   bcftools <command> <argument>\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Commands:\n");
 
     int i = 0;
     const char *sep = NULL;

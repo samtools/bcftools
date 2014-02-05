@@ -16,17 +16,23 @@
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
 
+#define ALLELE_NONREF 1
+#define ALLELE_MINOR 2
+#define ALLELE_ALT1 3
+
 typedef struct _args_t
 {
     filter_t *filter;
     char *filter_str;
-    int filter_logic;   // one of FLT_IN/EXCLUDE (-i or -e)
+    int filter_logic;   // one of FLT_INCLUDE/FLT_EXCLUDE (-i or -e)
 
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
     char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
-    int argc, clevel, output_type, print_header, update_info, header_only, n_samples, *imap;
-    int trim_alts, sites_only, known, novel, multiallelic, biallelic, exclude_ref, private_vars, exclude_uncalled, min_ac, max_ac, calc_ac, phased;
+    int argc, clevel, output_type, print_header, update_info, header_only, n_samples, *imap, calc_ac;
+    int trim_alts, sites_only, known, novel, min_alleles, max_alleles, private_vars, uncalled, phased;
+    int min_ac, min_ac_type, max_ac, max_ac_type, min_af_type, max_af_type;
+    float min_af, max_af;
     char *fn_ref, *fn_out, **samples;
     char *include_types, *exclude_types;
     int include, exclude;
@@ -81,7 +87,7 @@ static void init_data(args_t *args)
     // determine variant types to include/exclude
     if (args->include_types || args->exclude_types) {
         if (args->include_types && args->exclude_types) {
-            fprintf(stderr, "Error: only supply one of --include_types --exclude-types options\n");
+            fprintf(stderr, "Error: only supply one of --include-types, --exclude-types options\n");
             exit(1);
         }
         char **type_list = 0;
@@ -211,8 +217,8 @@ int bcf_all_phased(const bcf_hdr_t *header, bcf1_t *line)
 
 int subset_vcf(args_t *args, bcf1_t *line)
 {
-    if ( args->multiallelic && !(line->n_allele>2) ) return 0; // select multiallelic sites
-    if ( args->biallelic && !(line->n_allele==2) ) return 0; // skip multiallelic sites
+    if ( args->min_alleles && line->n_allele < args->min_alleles ) return 0; // min alleles
+    if ( args->max_alleles && line->n_allele > args->max_alleles ) return 0; // max alleles
     if (args->novel || args->known)
     {
         if ( args->novel && (line->d.id[0]!='.' || line->d.id[1]!=0) ) return 0; // skip sites which are known, ID != '.'
@@ -233,66 +239,116 @@ int subset_vcf(args_t *args, bcf1_t *line)
         else if ( ret ) return 0;
     }
 
-    int i, an = 0, n_ac = 0, *ac = (int*) calloc(line->n_allele+1,sizeof(int));
+    int i, an = 0, non_ref_ac = 0, *ac = (int*) calloc(line->n_allele,sizeof(int));
     if (args->calc_ac) {
         bcf_calc_ac(args->hdr, line, ac, BCF_UN_INFO|BCF_UN_FMT); // get original AC and AN values from INFO field if available, otherwise calculate
-        for (i=1; i<=line->n_allele; i++)
-            n_ac += ac[i];
+        for (i=1; i<line->n_allele; i++)
+            non_ref_ac += ac[i];
         for (i=0; i<line->n_allele; i++)
             an+=ac[i];
     }
 
     if (args->n_samples)
     {
-        int n_ac_sub = 0, *ac_sub = (int*) calloc(line->n_allele+1,sizeof(int));
+        int non_ref_ac_sub = 0, *ac_sub = (int*) calloc(line->n_allele,sizeof(int));
         bcf_subset(args->hdr, line, args->n_samples, args->imap);
         if (args->calc_ac) {
             bcf_calc_ac(args->hsub, line, ac_sub, BCF_UN_FMT); // recalculate AC and AN
             an = 0;
-            for (i=0; i<line->n_allele; i++)
-                an+=ac_sub[i];
-            for (i=1; i<=line->n_allele; i++)
-                n_ac_sub += ac_sub[i];
-            if (args->private_vars && !(n_ac_sub > 0 && n_ac == n_ac_sub)) { free(ac); free(ac_sub); return 0; }
-            n_ac = n_ac_sub;
-            for (i=0; i<=line->n_allele; i++)
+            for (i=0; i<line->n_allele; i++) {
                 ac[i] = ac_sub[i];
+                an+=ac_sub[i];
+            }
+            for (i=1; i<line->n_allele; i++)
+                non_ref_ac_sub += ac_sub[i];
+            if (args->private_vars) {
+                if (args->private_vars == FLT_INCLUDE && !(non_ref_ac_sub > 0 && non_ref_ac == non_ref_ac_sub)) { free(ac); free(ac_sub); return 0; } // select private sites
+                if (args->private_vars == FLT_EXCLUDE && non_ref_ac_sub > 0 && non_ref_ac == non_ref_ac_sub) { free(ac); free(ac_sub); return 0; } // exclude private sites
+            }
+            non_ref_ac = non_ref_ac_sub;
         }
         free(ac_sub);
     }
-    if (args->min_ac && args->min_ac>n_ac) { free(ac); return 0; }
-    if (args->max_ac && args->max_ac<n_ac) { free(ac); return 0; }
-    if (args->exclude_uncalled && n_ac == 0 && ac[0] == 0) { free(ac); return 0; }
+    int minor_ac = ac[0];
+    for (i=1; i<line->n_allele; i++)
+        if (ac[i]<minor_ac) { minor_ac = ac[i]; }
+
+    if (args->min_ac)
+    {
+        if (args->min_ac_type == ALLELE_NONREF && args->min_ac>non_ref_ac) { free(ac); return 0; } // min AC
+        else if (args->min_ac_type == ALLELE_MINOR && args->min_ac>minor_ac) { free(ac); return 0; } // min minor AC
+        else if (args->min_ac_type == ALLELE_ALT1 && args->min_ac>ac[1]) { free(ac); return 0; } // min 1st alternate AC
+    }
+    if (args->max_ac)
+    {
+        if (args->max_ac_type == ALLELE_NONREF && args->max_ac<non_ref_ac) { free(ac); return 0; } // max AC
+        else if (args->max_ac_type == ALLELE_MINOR && args->max_ac<minor_ac) { free(ac); return 0; } // max minor AC
+        else if (args->max_ac_type == ALLELE_ALT1 && args->max_ac<ac[1]) { free(ac); return 0; } // max 1st alternate AC
+    }
+    if (args->min_af)
+    {
+        if (an == 0) { free(ac); return 0; } // freq not defined, skip site
+        if (args->min_af_type == ALLELE_NONREF && args->min_af>non_ref_ac/(double)an) { free(ac); return 0; } // min AF
+        else if (args->min_af_type == ALLELE_MINOR && args->min_af>minor_ac/(double)an) { free(ac); return 0; } // min minor AF
+        else if (args->min_af_type == ALLELE_ALT1 && args->min_af>ac[1]/(double)an) { free(ac); return 0; } // min 1st alternate AF
+    }
+    if (args->max_af)
+    {
+        if (an == 0) { free(ac); return 0; } // freq not defined, skip site
+        if (args->max_af_type == ALLELE_NONREF && args->max_af<non_ref_ac/(double)an) { free(ac); return 0; } // max AF
+        else if (args->max_af_type == ALLELE_MINOR && args->max_af<minor_ac/(double)an) { free(ac); return 0; } // max minor AF
+        else if (args->max_af_type == ALLELE_ALT1 && args->max_af<ac[1]/(double)an) { free(ac); return 0; } // max 1st alternate AF
+    }
+    if (args->uncalled) {
+        if (args->uncalled == FLT_INCLUDE && an > 0) { free(ac); return 0; } // select uncalled
+        if (args->uncalled == FLT_EXCLUDE && an == 0) { free(ac); return 0; } // skip if uncalled
+    }
     if (args->calc_ac && args->update_info) {
         bcf_update_info_int32(args->hdr, line, "AC", &ac[1], line->n_allele-1);
         bcf_update_info_int32(args->hdr, line, "AN", &an, 1);
     }
     free(ac);
-    if (args->exclude_ref && n_ac == 0) return 0;
     if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
     if (args->phased) {
         int phased = bcf_all_phased(args->hdr, line);
-        if (args->phased == 1 && !phased) { return 0; } // skip unphased
-        if (args->phased == 2 && phased) { return 0; } // skip phased
+        if (args->phased == FLT_INCLUDE && !phased) { return 0; } // skip unphased
+        if (args->phased == FLT_EXCLUDE && phased) { return 0; } // skip phased
     } 
     if (args->sites_only) bcf_subset(args->hsub ? args->hsub : args->hdr, line, 0, 0);
     return 1;
+}
+
+void set_allele_type (int *atype, char *atype_string)
+{
+    *atype = ALLELE_NONREF;
+    if (strcmp(atype_string, "minor") == 0) {
+        *atype = ALLELE_MINOR;
+    }
+    else if (strcmp(atype_string, "alt1") == 0) {
+        *atype = ALLELE_ALT1;
+    }
+    else if (strcmp(atype_string, "nref") == 0) {
+        *atype = ALLELE_NONREF;
+    }
+    else {
+        error("Error: allele type (%s) not recognised. Must be one of nref|alt1|minor: %s\n", atype_string);
+    }                
 }
 
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   VCF/BCF conversion, view, subset and filter VCF/BCF files.\n");
-    fprintf(stderr, "Usage:   bcftools view [options] <in.bcf>|<in.vcf>|<in.vcf.gz> [region1 [...]]\n");
+    fprintf(stderr, "Usage:   bcftools view [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|- [region1 [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Output options:\n");
-    fprintf(stderr, "    -h/H --header-only/--no-header     print the header only/suppress the header in VCF output\n");
-    fprintf(stderr, "    -G,  --drop-genotypes              drop individual genotype information (after subsetting if -s option set)\n");
-    fprintf(stderr, "    -l,  --compression-level [0-9]     compression level: 0 uncompressed, 1 best speed, 9 best compression [%d]\n", args->clevel);
-    fprintf(stderr, "    -O,  --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "    -o,  --output-file <file>          output file name [stdout]\n");
-    fprintf(stderr, "    -r,  --regions <reg|file>          restrict to comma-separated list of regions or regions in a file, see man page for details\n");
-    fprintf(stderr, "    -t,  --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -G,   --drop-genotypes              drop individual genotype information (after subsetting if -s option set)\n");
+    fprintf(stderr, "    -h/H, --header-only/--no-header     print the header only/suppress the header in VCF output\n");
+    fprintf(stderr, "    -l,   --compression-level [0-9]     compression level: 0 uncompressed, 1 best speed, 9 best compression [%d]\n", args->clevel);
+    fprintf(stderr, "    -o,   --output-file <file>          output file name [stdout]\n");
+    fprintf(stderr, "    -O,   --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -r,   --regions <reg|file>          restrict to comma-separated list of regions or regions in a file, see man page for details\n");
+    fprintf(stderr, "    -t,   --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in the subset\n");
@@ -300,17 +356,18 @@ static void usage(args_t *args)
     fprintf(stderr, "    -s, --samples STR/FILE      list of samples (FILE or comma separated list STR) [null]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Filter options:\n");
-    fprintf(stderr, "    -1/2, --singletons/--doubletons                print singleton/doubleton sites only (shortcut for -c1 -C1/-c2 -C2)\n");
-    fprintf(stderr, "    -c/C, --min-ac/--max-ac                        minimum/maximum allele count (INFO/AC) of sites to be printed\n");
-    fprintf(stderr, "    -f,   --apply-filters <list>                   require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -i/e, --include/exclude-filters <expr>         include/exclude sites for which the expression is true (see \"bcftools filter\" for details)\n");
-    fprintf(stderr, "    -k/n, --known/--novel                          print known/novel sites only (ID is/not '.')\n");
-    fprintf(stderr, "    -m/M, --multiallelic/--biallelic               print multiallelic/biallelic sites only\n");
-    fprintf(stderr, "    -p/P, --phased/--exclude-phased                select/exclude sites where all samples are phased/not all samples are phased\n");
-    fprintf(stderr, "    -R,   --exclude-ref                            exclude sites without a non-reference genotype\n");
-    fprintf(stderr, "    -U,   --exclude-uncalled                       exclude sites without a called genotype\n");
-    fprintf(stderr, "    -v/V  --include-types/--exclude-types <str>    comma-separated list of variant types to include/exclude: snps,indels,mnps,other [null]\n");
-    fprintf(stderr, "    -x,   --private                                print sites where only the subset samples carry a non-reference allele\n");
+    fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
+    fprintf(stderr, "    -f,   --apply-filters <list>                require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -i/e, --include/--exclude <expr>            select/exclude sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "    -k/n, --known/--novel                       select known/novel sites only (ID is not/is '.')\n");
+    fprintf(stderr, "    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in REF and ALT (e.g. -m2 -M2 for biallelic sites)\n");
+    fprintf(stderr, "    -p/P, --phased/--exclude-phased             select/exclude sites where all samples are phased/not all samples are phased\n");
+    fprintf(stderr, "    -q/Q, --min-af/--max-af <float>[:<type>]    minimum/maximum frequency for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
+    fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled         select/exclude sites without a called genotype\n");
+    fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,other [null]\n");
+    fprintf(stderr, "    -x/X, --private/--exclude-private           select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
+    fprintf(stderr, "\n");
+    filter_expression_info();
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -331,36 +388,37 @@ int main_vcfview(int argc, char *argv[])
         {"compression-level",1,0,'l'},
         {"header-only",1,0,'h'},
         {"no-header",1,0,'H'},
-        {"exclude-filters",1,0,'e'},
-        {"include-filters",1,0,'i'},
+        {"exclude",1,0,'e'},
+        {"include",1,0,'i'},
         {"trim-alt-alleles",0,0,'a'},
-        {"exclude-ref",0,0,'R'},
         {"no-update",0,0,'I'},
         {"private",0,0,'x'},
+        {"exclude-private",0,0,'X'},
+        {"uncalled",0,0,'u'},
         {"exclude-uncalled",0,0,'U'},
         {"apply-filters",1,0,'f'},
         {"known",0,0,'k'},
         {"novel",0,0,'n'},
-        {"multiallelic",0,0,'m'},
-        {"biallelic",0,0,'M'},
+        {"min-alleles",0,0,'m'},
+        {"max-alleles",0,0,'M'},
         {"samples",1,0,'s'},
         {"output-type",1,0,'O'},
         {"output-file",1,0,'o'},
-        {"file-name",1,0,'n'},
-        {"include-types",1,0,'v'},
+        {"types",1,0,'v'},
         {"exclude-types",1,0,'V'},
         {"targets",1,0,'t'},
         {"regions",1,0,'r'},
         {"min-ac",1,0,'c'},
         {"max-ac",1,0,'C'},
-        {"singletons",0,0,'1'},
-        {"doubletons",0,0,'2'},
         {"phased",0,0,'p'},
         {"exclude-phased",0,0,'P'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:St:r:o:O:s:Gf:knv:V:mMaRUhHc:C:12Ie:i:xpP",loptions,NULL)) >= 0) {
-        switch (c) {
+    while ((c = getopt_long(argc, argv, "l:t:r:o:O:s:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:",loptions,NULL)) >= 0)
+    {
+        char allele_type[8] = "nref";
+        switch (c)
+        {
     	    case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
@@ -386,29 +444,65 @@ int main_vcfview(int argc, char *argv[])
             case 'f': args->files->apply_filters = optarg; break;
             case 'k': args->known = 1; break;
             case 'n': args->novel = 1; break;
-            case 'm': args->multiallelic = 1; break;
-            case 'M': args->biallelic = 1; break;
+            case 'm': args->min_alleles = atoi(optarg); break;
+            case 'M': args->max_alleles = atoi(optarg); break;
             case 'v': args->include_types = optarg; break;
             case 'V': args->exclude_types = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
 
-            case 'c': args->min_ac = atoi(optarg); args->calc_ac = 1; break;
-            case 'C': args->max_ac = atoi(optarg); args->calc_ac = 1; break;
-            case '1': args->min_ac = 1; args->max_ac = 1; args->calc_ac = 1; break;
-            case '2': args->min_ac = 2; args->max_ac = 2; args->calc_ac = 1; break;
+            case 'c':
+            {
+                args->min_ac_type = ALLELE_NONREF;
+                if ( sscanf(optarg,"%d:%s",&args->min_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->min_ac)!=1 ) 
+                    error("Error: Could not parse --min-ac %s\n", optarg);
+                set_allele_type(&args->min_ac_type, allele_type);
+                args->calc_ac = 1;
+                break;
+            }
+            case 'C':
+            {
+                args->max_ac_type = ALLELE_NONREF;
+                if ( sscanf(optarg,"%d:%s",&args->max_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->max_ac)!=1 ) 
+                    error("Error: Could not parse --max-ac %s\n", optarg);
+                set_allele_type(&args->max_ac_type, allele_type);
+                args->calc_ac = 1;
+                break;
+            }
+            case 'q':
+            {
+                args->min_af_type = ALLELE_NONREF;
+                if ( sscanf(optarg,"%f:%s",&args->min_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 ) 
+                    error("Error: Could not parse --min_af %s\n", optarg);
+                set_allele_type(&args->min_af_type, allele_type);
+                args->calc_ac = 1;
+                break;
+            }
+            case 'Q':
+            {
+                args->max_af_type = ALLELE_NONREF;
+                if ( sscanf(optarg,"%f:%s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->max_af)!=1 ) 
+                    error("Error: Could not parse --min_af %s\n", optarg);
+                set_allele_type(&args->max_af_type, allele_type);
+                args->calc_ac = 1;
+                break;
+            }
 
-            case 'R': args->exclude_ref = 1; args->calc_ac = 1; break;
-            case 'x': args->private_vars = 1; args->calc_ac = 1; break;
-            case 'U': args->exclude_uncalled = 1; args->calc_ac = 1; break;
-            case 'p': args->phased = 1; break; // phased
-            case 'P': args->phased = 2; break; // exclude-phased
+            case 'x': args->private_vars |= FLT_INCLUDE; args->calc_ac = 1; break;
+            case 'X': args->private_vars |= FLT_EXCLUDE; args->calc_ac = 1; break;
+            case 'u': args->uncalled |= FLT_INCLUDE; args->calc_ac = 1; break;
+            case 'U': args->uncalled |= FLT_EXCLUDE; args->calc_ac = 1; break;
+            case 'p': args->phased |= FLT_INCLUDE; break; // phased
+            case 'P': args->phased |= FLT_EXCLUDE; break; // exclude-phased
             case '?': usage(args);
             default: error("Unknown argument: %s\n", optarg);
         }
     }
 
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
+    if ( args->private_vars > FLT_EXCLUDE ) error("Only one of -x or -X can be given.\n");
+    if ( args->uncalled > FLT_EXCLUDE ) error("Only one of -u or -U can be given.\n");
+    if ( args->phased > FLT_EXCLUDE ) error("Only one of -p or -P can be given.\n");
 
     char *fname = NULL;
     if ( optind>=argc )
