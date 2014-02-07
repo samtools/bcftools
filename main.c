@@ -15,8 +15,8 @@ void error(const char *format, ...)
     exit(-1);
 }
 
-int main_bcfidx(int argc, char *argv[]);
 int main_tabix(int argc, char *argv[]);
+int main_vcfindex(int argc, char *argv[]);
 int main_vcfstats(int argc, char *argv[]);
 int main_vcfisec(int argc, char *argv[]);
 int main_vcfmerge(int argc, char *argv[]);
@@ -40,13 +40,17 @@ cmd_t;
 
 static cmd_t cmds[] =
 {
-    { .func  = main_tabix,    
-      .alias = "tabix",
-      .help  = "tabix for BGZF'd BED, GFF, SAM, VCF and more"
+    { .func  = NULL, 
+      .alias = "Indexing:",
+      .help  = NULL
     },
-    { .func = main_bcfidx,   
+    { .func = main_vcfindex,   
       .alias = "index",
-      .help = "index BCF"
+      .help = "index VCF/BCF files"
+    },
+    { .func = main_tabix,   
+      .alias = "tabix",
+      .help = "-tabix for BGZF'd BED, GFF, SAM, VCF and more" // do not advertise; only keep here for testing
     },
     { .func  = NULL, 
       .alias = "Core VCF/BCF tools:",

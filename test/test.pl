@@ -224,7 +224,7 @@ sub test_tabix
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
-    cmd("$$opts{bin}/bcftools index $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
 sub test_vcf_check
@@ -429,7 +429,7 @@ sub test_vcf_concat
         if ( $args{do_bcf} )
         {
             cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$file.vcf.gz > $$opts{tmp}/$file.bcf");
-            cmd("$$opts{bin}/bcftools index $$opts{tmp}/$file.bcf");
+            cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$file.bcf");
             $files .= " $$opts{tmp}/$file.bcf";
         }
         else
