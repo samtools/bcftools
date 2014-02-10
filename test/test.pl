@@ -14,6 +14,9 @@ my $opts = parse_params();
 test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
+test_tabix($opts,in=>'large_chrom_tbi_limit',reg=>'chr11:1-536870912',out=>'large_chrom_tbi_limit.20.1.536870912.out'); # 536870912 (1<<29) is the current limit for tbi. cannot retrieve regions larger than that
+test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this 
+# test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20',out=>'large_chrom.20.1.2147483647.out'); # this fails until bug resolved
 test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -224,7 +227,18 @@ sub test_tabix
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
-    cmd("$$opts{bin}/bcftools index $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
+}
+sub test_index
+{
+    my ($opts,%args) = @_;
+    cmd("$$opts{bin}/bcftools view -Oz $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.vcf.gz");
+    cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.vcf.gz");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
+
+    cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
 sub test_vcf_check
@@ -429,7 +443,7 @@ sub test_vcf_concat
         if ( $args{do_bcf} )
         {
             cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$file.vcf.gz > $$opts{tmp}/$file.bcf");
-            cmd("$$opts{bin}/bcftools index $$opts{tmp}/$file.bcf");
+            cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$file.bcf");
             $files .= " $$opts{tmp}/$file.bcf";
         }
         else

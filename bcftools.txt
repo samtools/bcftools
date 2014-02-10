@@ -37,8 +37,7 @@ LIST OF COMMANDS
 For a full list of available commands, run *bcftools* without arguments. For a full
 list of available options, run *bcftools* 'COMMAND' without arguments.
 
-- *tabix*                ..  index tab-delimited BGZF-compressed files such as BED, GFF, SAM, VCF, etc.
-- *index*                ..  index BCF
+- *index*                ..  index VCF/BCF
 - *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations, apply user plugins
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
@@ -380,6 +379,19 @@ With *-s* but no *-p*, likelihoods at all sites are printed.
         gives exactly the number of differing genotypes.
 
 
+[[index]]
+=== bcftools index ['OPTIONS']  '<in.bcf>|<in.vcf.gz>'
+Creates index for bgzip compressed VCF/BCF files for random access. Note 
+that the old tabix (.tbi) index can be invoked by setting -m0. Otherwise 
+the new coordinate-sorted (.csi) index is created.
+
+*-f, --force*::
+    overwrite index if it already exists
+
+*-m, --min-shift 'INT'*::
+    set the minimal interval size to 1<<INT; default: 14
+
+
 [[isec]]
 === bcftools isec ['OPTIONS']  'A.vcf.gz' 'B.vcf.gz' [...]
 Creates intersections, unions and complements of VCF files. Depending
@@ -613,7 +625,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
     see *<<common_options,Common Options>>*
 
 *-o, --output-file* 'FILE':
-    output file name. If not present, the default is to print to stanard output (stdout).
+    output file name. If not present, the default is to print to standard output (stdout).
 
 *-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
