@@ -297,10 +297,11 @@ static void destroy_data(args_t *args)
 
 static void usage(void)
 {
-	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files\n");
+	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files.\n");
+	fprintf(stderr, "         \n");
 	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -c, --collapse <string>           treat as identical sites with differing alleles for <snps|indels|both|all|some|none> [none]\n");
+	fprintf(stderr, "    -c, --collapse <string>           treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
 	fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
