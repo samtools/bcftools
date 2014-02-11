@@ -636,7 +636,7 @@ sub init_plots
         import numpy
         def smooth(x,window_len=11,window='hanning'):
         \\tif x.ndim != 1: raise ValueError, "smooth only accepts 1 dimension arrays."
-        \\tif x.size < window_len: raise ValueError, "Input vector needs to be bigger than window size."
+        \\tif x.size < window_len: return x
         \\tif window_len<3: return x
         \\tif not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']: raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
         \\ts = numpy.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
