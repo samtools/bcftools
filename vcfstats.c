@@ -22,6 +22,16 @@
 
 typedef struct
 {
+    char *tag;
+    float min, max;
+    uint64_t *vals_ts, *vals_tv;
+    void *val;
+    int nbins, type, m_val;
+}
+user_stats_t;
+
+typedef struct
+{
     int min, max, step, m_vals;
     uint64_t *vals;
 }
@@ -48,6 +58,8 @@ typedef struct
     int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl;
     unsigned long int *smpl_dp;
     idist_t dp;
+    int nusr;
+    user_stats_t *usr;
 }
 stats_t;
 
@@ -84,6 +96,10 @@ typedef struct
     // indel context
     indel_ctx_t *indel_ctx;
     char *ref_fname;
+
+    // user stats
+    int nusr;
+    user_stats_t *usr;
 
     // other
     bcf_srs_t *files;
@@ -269,6 +285,60 @@ int indel_ctx_type(indel_ctx_t *ctx, char *chr, int pos, char *ref, char *alt, i
     return alt_len - ref_len;
 }
 
+static void add_user_stats(args_t *args, char *str)
+{
+    args->nusr++;
+    args->usr = (user_stats_t*) realloc(args->usr,sizeof(user_stats_t)*args->nusr);
+    user_stats_t *usr = &args->usr[args->nusr-1];
+    memset(usr,0,sizeof(*usr));
+    usr->min  = 0;
+    usr->max  = 1;
+    usr->nbins = 100;
+
+    char *tmp = str;
+    while ( *tmp && *tmp!=':' ) tmp++;
+    usr->tag = (char*)calloc(tmp-str+2,sizeof(char));
+    memcpy(usr->tag,str,tmp-str);
+
+    if ( *tmp )
+    {
+        char *ptr = ++tmp;
+        usr->min = strtod(tmp, &ptr);
+        if ( tmp==ptr ) error("Could not parse %s\n", str);
+        tmp = ptr+1;
+    }
+    if ( *tmp )
+    {
+        char *ptr = tmp;
+        usr->max = strtod(tmp, &ptr);
+        if ( tmp==ptr ) error("Could not parse %s\n", str);
+        tmp = ptr+1;
+    }
+    if ( *tmp )
+    {
+        char *ptr = tmp;
+        usr->nbins = strtol(tmp, &ptr, 10);
+        if ( tmp==ptr ) error("Could not parse %s\n", str);
+        if ( usr->nbins<=0 ) error("Number of bins does not make sense (%d): %s.\n", usr->nbins, str);
+    }
+}
+static void init_user_stats(args_t *args, bcf_hdr_t *hdr, stats_t *stats)
+{
+    stats->nusr = args->nusr;
+    stats->usr = (user_stats_t*)malloc(sizeof(user_stats_t)*args->nusr);
+    memcpy(stats->usr,args->usr,args->nusr*sizeof(user_stats_t));
+    int i;
+    for (i=0; i<stats->nusr; i++)
+    {
+        user_stats_t *usr = &stats->usr[i];
+        usr->vals_ts = (uint64_t*)calloc(usr->nbins,sizeof(uint64_t));
+        usr->vals_tv = (uint64_t*)calloc(usr->nbins,sizeof(uint64_t));
+        int id = bcf_hdr_id2int(hdr,BCF_DT_ID,usr->tag);
+        if ( !bcf_hdr_idinfo_exists(hdr,BCF_HL_INFO,id) ) error("The INFO tag \"%s\" is not defined in the header\n", usr->tag);
+        usr->type = bcf_hdr_id2type(hdr,BCF_HL_INFO,id);
+        if ( usr->type!=BCF_HT_REAL && usr->type!=BCF_HT_INT ) error("The INFO tag \"%s\" is not of Float or Integer type (%d)\n", usr->type);
+    }
+}
 static void init_stats(args_t *args)
 {
     int i;
@@ -329,6 +399,7 @@ static void init_stats(args_t *args)
             #endif
         }
         idist_init(&stats->dp, args->dp_min,args->dp_max,args->dp_step);
+        init_user_stats(args, i!=1 ? args->files->readers[0].header : args->files->readers[1].header, stats);
     }
 
     if ( args->exons_fname )
@@ -345,14 +416,13 @@ static void init_stats(args_t *args)
 }
 static void destroy_stats(args_t *args)
 {
-    int id;
+    int id, j;
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
         if (stats->af_ts) free(stats->af_ts);
         if (stats->af_tv) free(stats->af_tv);
         if (stats->af_snps) free(stats->af_snps);
-        int j;
         for (j=0; j<3; j++) 
             if (stats->af_repeats[j]) free(stats->af_repeats[j]);
         #if QUAL_STATS
@@ -377,7 +447,16 @@ static void destroy_stats(args_t *args)
         if (stats->smpl_ndp) free(stats->smpl_ndp);
         if (stats->smpl_sngl) free(stats->smpl_sngl);
         idist_destroy(&stats->dp);
+        for (j=0; j<stats->nusr; j++) 
+        {
+            free(stats->usr[j].vals_ts);
+            free(stats->usr[j].vals_tv);
+            free(stats->usr[j].val);
+        }
+        free(stats->usr);
     }
+    for (j=0; j<args->nusr; j++) free(args->usr[j].tag);
+    free(args->usr);
     if (args->tmp_iaf) free(args->tmp_iaf);
     if (args->exons) bcf_sr_regions_destroy(args->exons);
     if (args->af_gts_snps) free(args->af_gts_snps);
@@ -535,6 +614,32 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     }
 }
 
+static void do_user_stats(stats_t *stats, bcf_sr_t *reader, int is_ts)
+{
+    int i;
+    for (i=0; i<stats->nusr; i++)
+    {
+        user_stats_t *usr = &stats->usr[i];
+        uint64_t *vals = is_ts ? usr->vals_ts : usr->vals_tv;
+        float val;
+        if ( usr->type==BCF_HT_REAL )
+        {
+            if ( bcf_get_info_float(reader->header,reader->buffer[0],usr->tag,&usr->val,&usr->m_val)<=0 ) continue;
+            val = ((float*)usr->val)[0];
+        }
+        else
+        {
+            if ( bcf_get_info_int(reader->header,reader->buffer[0],usr->tag,&usr->val,&usr->m_val)<=0 ) continue;
+            val = ((int32_t*)usr->val)[0];
+        }
+        int idx;
+        if ( val<=usr->min ) idx = 0;
+        else if ( val>=usr->max ) idx = usr->nbins - 1;
+        else idx = (val - usr->min)/(usr->max - usr->min) * (usr->nbins-1);
+        vals[idx]++;
+    }
+}
+
 static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
 {
     stats->n_snps++;
@@ -566,6 +671,7 @@ static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
                 #if QUAL_STATS
                     stats->qual_ts[iqual]++;
                 #endif
+                do_user_stats(stats, reader, 1);
             }
             stats->af_ts[iaf]++;
         }
@@ -577,6 +683,7 @@ static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
                 #if QUAL_STATS
                     stats->qual_tv[iqual]++;
                 #endif
+                do_user_stats(stats, reader, 0);
             }
             stats->af_tv[iaf]++;
         }
@@ -913,6 +1020,23 @@ static void print_stats(args_t *args)
             }
         }
     #endif
+    for (i=0; i<args->nusr; i++)
+    {
+        printf("# USR:%s, Stats by %s:\n# USR:%s\t[2]id\t[3]%s\t[4]number of SNPs\t[5]number of transitions (1st ALT)\t[6]number of transversions (1st ALT)\n",
+            args->usr[i].tag,args->usr[i].tag,args->usr[i].tag,args->usr[i].tag);
+        for (id=0; id<args->nstats; id++)
+        {
+            user_stats_t *usr = &args->stats[id].usr[i];
+            int j;
+            for (j=0; j<usr->nbins; j++)
+            {
+                if ( usr->vals_ts[j]+usr->vals_tv[j] == 0 ) continue;   // skip empty bins
+                float val = usr->min + (usr->max - usr->min)*j/(usr->nbins-1);
+                const char *fmt = usr->type==BCF_HT_REAL ? "USR:%s\t%d\t%e\t%d\t%d\t%d\n" : "USR:%s\t%d\t%.0f\t%d\t%d\t%d\n";
+                printf(fmt,usr->tag,id,val,usr->vals_ts[j]+usr->vals_tv[j],usr->vals_ts[j],usr->vals_tv[j]);
+            }
+        }
+    }
     printf("# IDD, InDel distribution:\n# IDD\t[2]id\t[3]length (deletions negative)\t[4]count\n");
     for (id=0; id<args->nstats; id++)
     {
@@ -1085,17 +1209,18 @@ static void usage(void)
     fprintf(stderr, "         and the complements.\n");
     fprintf(stderr, "Usage:   bcftools stats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -1, --1st-allele-only             include only 1st allele at multiallelic sites\n");
-    fprintf(stderr, "    -c, --collapse <string>           treat sites with differing alleles as same for <snps|indels|both|all|some|none> [none]\n");
-    fprintf(stderr, "    -d, --depth <int,int,int>         depth distribution: min,max,bin size [0,500,1]\n");
-    fprintf(stderr, "        --debug                       produce verbose per-site and per-sample output\n");
-    fprintf(stderr, "    -e, --exons <file.gz>             tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
-    fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -F, --fasta-ref <file>            faidx indexed reference sequence file to determine INDEL context\n");
-    fprintf(stderr, "    -i, --split-by-ID                 collect stats for sites with ID separately (known vs novel)\n");
-    fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "    -s, --samples <list|file>         produce sample stats, \"-\" to include all samples\n");
-    fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -1, --1st-allele-only              include only 1st allele at multiallelic sites\n");
+    fprintf(stderr, "    -c, --collapse <string>            treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
+    fprintf(stderr, "    -d, --depth <int,int,int>          depth distribution: min,max,bin size [0,500,1]\n");
+    fprintf(stderr, "        --debug                        produce verbose per-site and per-sample output\n");
+    fprintf(stderr, "    -e, --exons <file.gz>              tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
+    fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -F, --fasta-ref <file>             faidx indexed reference sequence file to determine INDEL context\n");
+    fprintf(stderr, "    -i, --split-by-ID                  collect stats for sites with ID separately (known vs novel)\n");
+    fprintf(stderr, "    -r, --regions <reg|file>           restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+    fprintf(stderr, "    -s, --samples <list|file>          produce sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -t, --targets <reg|file>           similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -u, --user-tstv <TAG[:min:max:n]>  collect Ts/Tv stats for any tag using the given binning [0:1,100]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1121,10 +1246,12 @@ int main_vcfstats(int argc, char *argv[])
         {"split-by-ID",1,0,'i'},
         {"targets",1,0,'t'},
         {"fasta-ref",1,0,'F'},
+        {"user-tstv",1,0,'u'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hc:r:e:s:d:i1t:F:f:1",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:e:s:d:i1t:F:f:1u:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'u': add_user_stats(args,optarg); break;
             case '1': args->first_allele_only = 1; break;
             case 'F': args->ref_fname = optarg; break;
             case 't': args->targets_fname = optarg; break;
