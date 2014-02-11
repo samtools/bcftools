@@ -1,3 +1,8 @@
 bcftools
 *.o
 /version.h
+plugins/*.so
+
+/test/test-rbuf
+
+/TAGS

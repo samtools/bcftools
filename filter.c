@@ -781,3 +781,19 @@ int filter_test(filter_t *filter, bcf1_t *line)
     return filter->flt_stack[0]->pass;
 }
 
+void filter_expression_info()
+{
+    fprintf(stderr, "Filter expressions may contain:\n");
+    fprintf(stderr, "    - arithmetic operators: +,*,-,/\n");
+    fprintf(stderr, "    - logical operators: && (same as &), || (same as |)\n");
+    fprintf(stderr, "    - comparison operators: == (same as =), >, >=, <=, <, !=\n");
+    fprintf(stderr, "    - parentheses: (, )\n");
+    fprintf(stderr, "    - array subscripts, such as (e.g. AC[0]>=10)\n");
+    fprintf(stderr, "    - double quotes for string values (e.g. %%FILTER=\"PASS\")\n");
+    fprintf(stderr, "    - 1 (or 0) for testing the presence (or absence) of a flag (e.g. FlagA=1 && FlagB=0)\n");
+    fprintf(stderr, "    - TAG or INFO/TAG for INFO values (e.g. DP<800 or INFO/DP<800)\n");
+    fprintf(stderr, "    - %%QUAL, %%FILTER, etc. for column names (note: currently only some columns are supported)\n");
+    fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
+    fprintf(stderr, "    - %%FUNC(TAG) where FUNC is one of MAX, MIN, AVG and TAG is one of the FORMAT fields (e.g. %%MIN(DV)>5)\n");
+}
+

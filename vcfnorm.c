@@ -278,11 +278,17 @@ int realign(args_t *args, bcf1_t *line)
 {
     bcf_unpack(line, BCF_UN_STR);
 
+    char *tmp;
     int i, ref_len = strlen(line->d.allele[0]), len = ref_len;
     for (i=1; i<line->n_allele; i++)
     {
         int l = strlen(line->d.allele[i]);
         if ( len < l ) len = l;
+    }
+    for (i=0; i<line->n_allele; i++)
+    {
+        tmp = line->d.allele[i];
+        while (*tmp) { *tmp = toupper(*tmp); tmp++; }
     }
     if ( len==1 ) return 0;    // SNP
 
@@ -305,13 +311,15 @@ int realign(args_t *args, bcf1_t *line)
     if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-win);
     assert( ref_winlen==ref_len+win+1 );
 
+    for (i=0; i<ref_len; i++) ref[i] = toupper(ref[i]);
+
     // Sanity check: the reference sequence must match the REF allele
-    if ( strncasecmp(&ref[win],line->d.allele[0],ref_len) )
+    if ( strncmp(&ref[win],line->d.allele[0],ref_len) )
     {
         for (i=0; i<ref_len; i++)
-            if ( toupper(ref[win+i])!=toupper(line->d.allele[0][i]) ) break;
+            if ( ref[win+i]!=line->d.allele[0][i] ) break;
         error("\nSanity check failed, the reference sequence differs at %s:%d[%d] .. '%c' vs '%c'\n", 
-            args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, i+1,toupper(ref[win+i]),toupper(line->d.allele[0][i]));
+            args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, i+1,ref[win+i],line->d.allele[0][i]);
     }
 
     if ( args->aln.m_arr < line->n_allele )

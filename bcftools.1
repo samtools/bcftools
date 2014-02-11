@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
-.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: 01/15/2014
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 02/07/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "01/15/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "02/07/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -49,20 +49,9 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-\fBtabix\fR
-\&.\&. index tab\-delimited BGZF\-compressed files such as BED, GFF, SAM, VCF, etc\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
+
 \fBindex\fR
-\&.\&. index BCF
+\&.\&. index VCF/BCF
 .RE
 .sp
 .RS 4
@@ -73,6 +62,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBannotate\fR
 \&.\&. edit VCF files, add or remove annotations, apply user plugins
 .RE
@@ -85,6 +75,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBcall\fR
 \&.\&. SNP/indel calling (former "view")
 .RE
@@ -97,6 +88,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBfilter\fR
 \&.\&. filter VCF/BCF files using fixed thresholds
 .RE
@@ -109,6 +101,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBgtcheck\fR
 \&.\&. check sample concordance, detect sample swaps and contamination
 .RE
@@ -121,6 +114,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBisec\fR
 \&.\&. intersections of VCF/BCF files
 .RE
@@ -133,6 +127,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBmerge\fR
 \&.\&. merge VCF/BCF files to create multi\-sample file
 .RE
@@ -145,6 +140,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBnorm\fR
 \&.\&. normalize indels
 .RE
@@ -157,6 +153,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBquery\fR
 \&.\&. transform VCF/BCF into user\-defined formats
 .RE
@@ -169,6 +166,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBstats\fR
 \&.\&. produce VCF/BCF stats (former vcfcheck)
 .RE
@@ -181,6 +179,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
+
 \fBview\fR
 \&.\&. subset, filter and convert VCF and BCF files
 .RE
@@ -193,7 +192,8 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-\fBplot-vcfstats\fR
+
+\fBplot\-vcfstats\fR
 \&.\&. plots the output of
 \fBstats\fR
 .RE
@@ -207,7 +207,12 @@ Files can be both VCF or BCF, uncompressed or BGZF\-compressed\&. The file "\-" 
 .PP
 \fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR
 .RS 4
-Controls how to treat records with duplicate positions and defines compatible records across multiple input files\&. Here by "compatible" we mean records which should be considered as identical by the tools\&. For example, when performing line intersections, the desire may be to consider as identical all sites with matching positions (\fBbcftools isec \-c\fR\fIall\fR), or only sites with matching variant type (\fBbcftools isec \-c\fR\fIsnps\fR\fB\-c\fR\fIindels\fR), or only sites with all alleles identical (\fBbcftools isec \-c\fR\fInone\fR)\&.
+Controls how to treat records with duplicate positions and defines compatible records across multiple input files\&. Here by "compatible" we mean records which should be considered as identical by the tools\&. For example, when performing line intersections, the desire may be to consider as identical all sites with matching positions (\fBbcftools isec \-c\fR
+\fIall\fR), or only sites with matching variant type (\fBbcftools isec \-c\fR
+\fIsnps\fR
+\fB\-c\fR
+\fIindels\fR), or only sites with all alleles identical (\fBbcftools isec \-c\fR
+\fInone\fR)\&.
 .PP
 \fInone\fR
 .RS 4
@@ -236,8 +241,10 @@ all indel records are compatible, regardless of whether the REF and ALT alleles 
 .PP
 \fIboth\fR
 .RS 4
-abbreviation of "\fB\-c\fR\fIindels\fR\ \&
-\fB\-c\fR\fIsnps\fR"
+abbreviation of "\fB\-c\fR
+\fIindels\fR\ \&
+\fB\-c\fR
+\fIsnps\fR"
 .RE
 .RE
 .PP
@@ -245,7 +252,8 @@ abbreviation of "\fB\-c\fR\fIindels\fR\ \&
 .RS 4
 Skip sites where FILTER column does not contain any of the strings listed in
 \fILIST\fR\&. For example, to include only sites which have no filters set, use
-\fB\-f\fR\fI\&.,PASS\fR\&.
+\fB\-f\fR
+\fI\&.,PASS\fR\&.
 .RE
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
@@ -263,7 +271,8 @@ Regions can be specified either on command line or in a VCF, BED, or tab\-delimi
 Comma\-separated list of samples to include or a file with one sample per line\&. The command
 \fBbcftools call\fR
 accepts an optional second column indicating ploidy (0, 1 or 2) and can parse also PED files\&. With
-\fBbcftools call\fR\fB \-C\fR\fItrio\fR, PED file is expected\&.
+\fBbcftools call\fR\fB \-C\fR
+\fItrio\fR, PED file is expected\&.
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -282,7 +291,8 @@ discards positions which are not in the targets\&. Another difference between th
 checks both start and end positions of indels, whereas
 \fB\-t\fR
 checks start positions only\&. With the call
-\fB\-C\fR\fIalleles\fR
+\fB\-C\fR
+\fIalleles\fR
 command, third column of the targets file must be comma\-separated list of alleles, starting with the reference allele\&. Such a file can be easily created from a VCF with:
 .RE
 .sp
@@ -476,7 +486,8 @@ calling model (conflicts with
 \fB\-n, \-\-novel\-rate\fR \fIfloat\fR[,\&...]
 .RS 4
 likelihood of novel mutation for constrained
-\fB\-C\fR\fItrio\fR
+\fB\-C\fR
+\fItrio\fR
 calling\&. The trio genotype calling maximizes likelihood of a particular combination of genotypes for father, mother and the child P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1\-Pn)\&. By providing three values, the mutation rate Pn is set explictly for SNPs, deletions and insertions, respectively\&. If two values are given, the first is interpreted as the mutation rate of SNPs and the second is used to calculate the mutation rate of indels according to their length as Pn=\fIfloat\fR*exp(\-a\-b*len), where a=22\&.8689, b=0\&.2994 for insertions and a=21\&.9313, b=0\&.2856 for deletions [pubmed:23975140]\&. If only one value is given, the same mutation rate Pn is used for SNPs and indels\&.
 .RE
 .PP
@@ -523,7 +534,8 @@ is true\&. For valid expressions see
 filter SNPs within
 \fIINT\fR
 base pairs of an indel\&. The following example demonstrates the logic of
-\fB\-\-SnpGap\fR\fI3\fR
+\fB\-\-SnpGap\fR
+\fI3\fR
 applied on a deletion and an insertion:
 .RE
 .sp
@@ -549,7 +561,8 @@ Here the positions 1 and 6 are filtered, 0 and 7 are not:
 filter clusters of indels separated by
 \fIINT\fR
 or fewer base pairs allowing only one to pass\&. The following example demonstrates the logic of
-\fB\-\-IndelGap\fR\fI2\fR
+\fB\-\-IndelGap\fR
+\fI2\fR
 applied on a deletion and an insertion:
 .RE
 .sp
@@ -709,6 +722,19 @@ is used for the unseen genotypes\&. With
 is used instead and thus the discordance value gives exactly the number of differing genotypes\&.
 .RE
 .RE
+.SS "bcftools index [\fIOPTIONS\fR] \fI<in\&.bcf>|<in\&.vcf\&.gz>\fR"
+.sp
+Creates index for bgzip compressed VCF/BCF files for random access\&. Note that the old tabix (\&.tbi) index can be invoked by setting \-m0\&. Otherwise the new coordinate\-sorted (\&.csi) index is created\&.
+.PP
+\fB\-f, \-\-force\fR
+.RS 4
+overwrite index if it already exists
+.RE
+.PP
+\fB\-m, \-\-min\-shift \fR\fB\fIINT\fR\fR
+.RS 4
+set the minimal interval size to 1<<INT; default: 14
+.RE
 .SS "bcftools isec [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR \fIB\&.vcf\&.gz\fR [\&...]"
 .sp
 Creates intersections, unions and complements of VCF files\&. Depending on the options, the program can output records from one (or more) files which have (or do not have) corresponding records with the same position in the other files\&.
@@ -838,8 +864,10 @@ see
 .RS 4
 Defines merging behaviour, similar to
 \fB\-c, \-\-collapse\fR\&. For example, to prevent merging of SNPs and indels into one record, use
-\fB\-m\fR\fIboth\fR\&. To prevent creation of multi\-allelic records altogether, use
-\fB\-m\fR\fInone\fR\&.
+\fB\-m\fR
+\fIboth\fR\&. To prevent creation of multi\-allelic records altogether, use
+\fB\-m\fR
+\fInone\fR\&.
 .RE
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
@@ -988,7 +1016,7 @@ bcftools query \-f \*(Aq%CHROM\et%POS\et%REF\et%ALT[\et%SAMPLE=%GT]\en\*(Aq file
 .RE
 .SS "bcftools stats \fIOPTIONS\fR \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"
 .sp
-Parses VCF or BCF and produces text file stats which is suitable for machine processing and can be plotted using \fBplot-vcfstats\fR\&. When two files are given, the program generates separate stats for intersection and the complements\&.
+Parses VCF or BCF and produces text file stats which is suitable for machine processing and can be plotted using \fBplot\-vcfstats\fR\&. When two files are given, the program generates separate stats for intersection and the complements\&.
 .PP
 \fB\-1, \-\-1st\-allele\-only\fR
 .RS 4
@@ -1071,6 +1099,13 @@ View, subset and filter VCF or BCF files by position and filtering expression\&.
 \fBOutput options\fR
 .RS 4
 .PP
+\fB\-G, \-\-drop\-genotypes\fR
+.RS 4
+drop individual genotype information (after subsetting if
+\fB\-s\fR
+option is set)
+.RE
+.PP
 \fB\-h, \-\-header\-only\fR
 .RS 4
 output the VCF header only
@@ -1079,13 +1114,6 @@ output the VCF header only
 \fB\-H, \-\-no\-header\fR
 .RS 4
 suppress the header in VCF output
-.RE
-.PP
-\fB\-G, \-\-drop\-genotypes\fR
-.RS 4
-drop individual genotype information (after subsetting if
-\fB\-s\fR
-option is set)
 .RE
 .PP
 \fB\-l, \-\-compression\-level\fR [\fI0\-9\fR]
@@ -1099,7 +1127,7 @@ see
 \fBCommon Options\fR
 .RE
 .sp
-\fB\-o, \-\-output\-file\fR \fIFILE\fR: output file name\&. If not present, the default is to print to stanard output (stdout)\&.
+\fB\-o, \-\-output\-file\fR \fIFILE\fR: output file name\&. If not present, the default is to print to standard output (stdout)\&.
 .PP
 \fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
@@ -1124,7 +1152,7 @@ see
 .PP
 \fB\-a, \-\-trim\-alt\-alleles\fR
 .RS 4
-trim alternate alleles not seen in subset
+trim alternate alleles not seen in subset\&. Type A, G and R INFO and FORMAT fields will also be trimmed
 .RE
 .PP
 \fB\-I, \-\-no\-update\fR
@@ -1147,24 +1175,14 @@ see
 \fBFilter options:\fR
 .RS 4
 .PP
-\fB\-1, \-\-singletons\fR
+\fB\-c, \-\-min\-ac\fR \fIINT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR]
 .RS 4
-print singleton sites only (shortcut for *\-c*1 *\-C*1)
+minimum allele count (INFO/AC) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR) or minor (\fIminor\fR) alleles\&.
 .RE
 .PP
-\fB\-2, \-\-doubletons\fR
+\fB\-C, \-\-max\-ac\fR \fIINT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR]
 .RS 4
-print doubleton sites only (shortcut for *\-c*2 *\-C*2)
-.RE
-.PP
-\fB\-c, \-\-min\-ac\fR
-.RS 4
-minimum allele count (INFO/AC) of sites to be printed
-.RE
-.PP
-\fB\-C, \-\-max\-ac\fR
-.RS 4
-maximum allele count (INFO/AC) of sites to be printed
+maximum allele count (INFO/AC) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR) or minor (\fIminor\fR) alleles\&.
 .RE
 .PP
 \fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
@@ -1194,24 +1212,48 @@ is true\&. For valid expressions see
 print known sites only (ID column is not "\&.")
 .RE
 .PP
+\fB\-m, \-\-min\-alleles\fR \fIINT\fR
+.RS 4
+print sites with at least
+\fIINT\fR
+alleles listed in REF and ALT columns
+.RE
+.PP
+\fB\-M, \-\-max\-alleles\fR \fIINT\fR
+.RS 4
+print sites with at most
+\fIINT\fR
+alleles listed in REF and ALT columns
+.RE
+.PP
 \fB\-n, \-\-novel\fR
 .RS 4
 print novel sites only (ID column is "\&.")
 .RE
 .PP
-\fB\-m, \-\-multiallelic\fR
+\fB\-p, \-\-phased\fR
 .RS 4
-print multiallelic sites only
+print sites where not all samples are phased\&. Haploid genotypes are considered phased\&. Missing genotypes considered unphased unless the phased bit is set\&.
 .RE
 .PP
-\fB\-M, \-\-biallelic\fR
+\fB\-P, \-\-exclude\-phased\fR
 .RS 4
-print biallelic sites only
+exclude sites where not all samples are phased
 .RE
 .PP
-\fB\-R, \-\-exclude\-ref\fR
+\fB\-q, \-\-min\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR]
 .RS 4
-exclude sites without a non\-reference genotype
+minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR) or minor (\fIminor\fR) alleles\&.
+.RE
+.PP
+\fB\-Q, \-\-max\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR]
+.RS 4
+maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR) or minor (\fIminor\fR) alleles\&.
+.RE
+.PP
+\fB\-u, \-\-uncalled\fR
+.RS 4
+print sites without a called genotype
 .RE
 .PP
 \fB\-U, \-\-exclude\-uncalled\fR
@@ -1219,9 +1261,9 @@ exclude sites without a non\-reference genotype
 exclude sites without a called genotype
 .RE
 .PP
-\fB\-v, \-\-include\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
+\fB\-v, \-\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
 .RS 4
-comma\-separated list of variant types to include
+comma\-separated list of variant types to select
 .RE
 .PP
 \fB\-V, \-\-exclude\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
@@ -1232,6 +1274,11 @@ comma\-separated list of variant types to exclude
 \fB\-x, \-\-private\fR
 .RS 4
 print sites where only the subset samples carry an non\-reference allele
+.RE
+.PP
+\fB\-X, \-\-exclude\-private\fR
+.RS 4
+exclude sites where only the subset samples carry an non\-reference allele
 .RE
 .RE
 .SS "plot\-vcfstats \fIOPTIONS\fR \fIfile\&.vchk\fR [\&...]"

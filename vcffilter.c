@@ -290,18 +290,8 @@ static void usage(args_t *args)
     fprintf(stderr, "    -r, --regions <reg|file>      restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
     fprintf(stderr, "    -t, --targets <reg|file>      similar to -r but streams rather than index-jumps, see man page for details\n");
-    fprintf(stderr, "Expressions may contain:\n");
-    fprintf(stderr, "    - arithmetic perators: +,*,-,/\n");
-    fprintf(stderr, "    - logical operators: && (same as &), || (same as |)\n");
-    fprintf(stderr, "    - comparison operators: == (same as =), >, >=, <=, <, !=\n");
-    fprintf(stderr, "    - parentheses: (, )\n");
-    fprintf(stderr, "    - array subscripts, such as (e.g. AC[0]>=10)\n");
-    fprintf(stderr, "    - double quotes for string values (e.g. %%FILTER=\"PASS\")\n");
-    fprintf(stderr, "    - 1 (or 0) for testing the presence (or absence) of a flag (e.g. FlagA=1 && FlagB=0)\n");
-    fprintf(stderr, "    - TAG or INFO/TAG for INFO values (e.g. DP<800 or INFO/DP<800)\n");
-    fprintf(stderr, "    - %%QUAL, %%FILTER, etc. for column names (note: currently only some columns are supported)\n");
-    fprintf(stderr, "    - %%TYPE for variant type, such as %%TYPE=\"indel\"|\"snp\"|\"mnp\"|\"other\"\n");
-    fprintf(stderr, "    - %%FUNC(TAG) where FUNC is one of MAX, MIN, AVG and TAG is one of the FORMAT fields (e.g. %%MIN(DV)>5)\n");
+    fprintf(stderr, "\n");
+    filter_expression_info();
     fprintf(stderr, "\n");
     exit(1);
 }

@@ -15,8 +15,8 @@ void error(const char *format, ...)
     exit(-1);
 }
 
-int main_bcfidx(int argc, char *argv[]);
 int main_tabix(int argc, char *argv[]);
+int main_vcfindex(int argc, char *argv[]);
 int main_vcfstats(int argc, char *argv[]);
 int main_vcfisec(int argc, char *argv[]);
 int main_vcfmerge(int argc, char *argv[]);
@@ -40,13 +40,17 @@ cmd_t;
 
 static cmd_t cmds[] =
 {
-    { .func  = main_tabix,    
-      .alias = "tabix",
-      .help  = "tabix for BGZF'd BED, GFF, SAM, VCF and more"
+    { .func  = NULL, 
+      .alias = "Indexing:",
+      .help  = NULL
     },
-    { .func = main_bcfidx,   
+    { .func = main_vcfindex,   
       .alias = "index",
-      .help = "index BCF"
+      .help = "index VCF/BCF files"
+    },
+    { .func = main_tabix,   
+      .alias = "tabix",
+      .help = "-tabix for BGZF'd BED, GFF, SAM, VCF and more" // do not advertise; only keep here for testing
     },
     { .func  = NULL, 
       .alias = "Core VCF/BCF tools:",
@@ -129,10 +133,13 @@ char *bcftools_version(void)
 
 static int usage(void)
 {
-	fprintf(stderr, "\n");
-    fprintf(stderr, "Version: %s\n", bcftools_version());
-	fprintf(stderr, "Usage:   bcftools <command> <argument>\n");
-	fprintf(stderr, "Commands:\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Program: bcftools (Tools for variant calling and manipulating VCFs and BCFs)\n");
+  fprintf(stderr, "Version: %s\n", bcftools_version());
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Usage:   bcftools <command> <argument>\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Commands:\n");
 
     int i = 0;
     const char *sep = NULL;
