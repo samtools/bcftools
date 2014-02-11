@@ -69,7 +69,7 @@ OPTIONS
     should be considered as identical by the tools. For example, when performing
     line intersections, the desire may be to consider as identical all sites with
     matching positions (*bcftools isec -c* 'all'), or only sites with  matching variant
-    type (*bcftools isec -c* 'snps' *-c* 'indels'), or only sites with all alleles
+    type (*bcftools isec -c* 'snps'{nbsp} *-c* 'indels'), or only sites with all alleles
     identical (*bcftools isec -c* 'none').
 
 
