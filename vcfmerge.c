@@ -70,34 +70,13 @@ args_t;
 
 int bcf_hdr_sync(bcf_hdr_t *h);
 
-void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *_hr, const char *clash_prefix)
+void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix)
 {
-    bcf_hdr_t *hr = (bcf_hdr_t*)_hr;
-
     // header lines
-    int i, nw_ori = hw->nhrec;
-    for (i=0; i<hr->nhrec; i++)
-    {
-        if ( hr->hrec[i]->type==BCF_HL_GEN && hr->hrec[i]->value )
-        {
-            int j;
-            for (j=0; j<nw_ori; j++)
-            {
-                if ( hw->hrec[j]->type!=BCF_HL_GEN ) continue;
-                if ( !strcmp(hr->hrec[i]->key,hw->hrec[j]->key) && !strcmp(hr->hrec[i]->value,hw->hrec[j]->value) ) break;
-            }
-            if ( j>=nw_ori )
-                bcf_hdr_add_hrec(hw, bcf_hrec_dup(hr->hrec[i]));
-        }
-        else
-        {
-            bcf_hrec_t *rec = bcf_hdr_get_hrec(hw, hr->hrec[i]->type, hr->hrec[i]->vals[0]);
-            if ( !rec )
-                bcf_hdr_add_hrec(hw, bcf_hrec_dup(hr->hrec[i]));
-        }
-    }
+    bcf_hdr_combine(hw, hr);
 
     // samples
+    int i;
     for (i=0; i<bcf_hdr_nsamples(hr); i++)
     {
         char *name = hr->samples[i];
@@ -1258,14 +1237,16 @@ void merge_vcf(args_t *args)
 
 static void usage(void)
 {
+    fprintf(stderr, "About:   Merge multiple VCF or BCF files to create one multi-sample file combining compatible records\n");
+    fprintf(stderr, "         into one according to the -m option.\n");
     fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> ...\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "        --use-header <file>           use the provided header\n");
-    fprintf(stderr, "        --print-header                print only the merged header and exit\n");
-    fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -m, --merge <string>              merge sites with differing alleles for <snps|indels|both|all|none> [both]\n");
-    fprintf(stderr, "    -O, --output-type <b|u|z|v>       'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <reg|file>          merge in the given regions only\n");
+    fprintf(stderr, "        --use-header <file>       use the provided header\n");
+    fprintf(stderr, "        --print-header            print only the merged header and exit\n");
+    fprintf(stderr, "    -f, --apply-filters <list>    require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -m, --merge <string>          merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
+    fprintf(stderr, "    -O, --output-type <b|u|z|v>   'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "    -r, --regions <reg|file>      merge in the given regions only\n");
     fprintf(stderr, "\n");
     exit(1);
 }
