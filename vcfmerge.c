@@ -9,7 +9,6 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
-#include <math.h>
 #include "bcftools.h"
 
 #include <htslib/khash.h>
@@ -299,7 +298,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
 
     maux_t *ma = args->maux;
     int *al_idxs = (int*) calloc(ma->nals,sizeof(int));
-    out->qual = -HUGE_VAL;
+    out->qual = 0;
 
     // CHROM, POS, ID, QUAL
     out->pos = -1;
@@ -338,10 +337,8 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         }
 
         // set QUAL to the max qual value. Not exactly correct, but good enough for now
-        if ( !bcf_float_is_missing(files->readers[i].buffer[0]->qual) && out->qual < files->readers[i].buffer[0]->qual ) out->qual = files->readers[i].buffer[0]->qual;
+        if ( out->qual < files->readers[i].buffer[0]->qual ) out->qual = files->readers[i].buffer[0]->qual;
     }
-
-    if ( out->qual==-HUGE_VAL ) bcf_float_set_missing(out->qual);
 
     // set ID
     if ( !tmps->l ) kputs(".", tmps);
@@ -460,6 +457,55 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     tmp_str->l = 0;
 }
 
+static uint8_t *merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, maux_t *ma, maux1_t *als, int len, uint8_t *vals)
+{
+    int nvals;
+    if ( len==BCF_VL_A ) ma->nout_als;
+    else error("todo: !=BCF_VL_A\n"); // : if ( len==BCF_VL_G ) bcf_alleles2gt(ma->nout_als-1,ma->nout_als-1)+1;
+
+    if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 || info->type==BCF_BT_FLOAT )
+    {
+        int i, nvals;
+        if ( !vals )
+        {
+            vals = (uint8_t*) malloc(4*nvals);
+            if ( info->type!=BCF_BT_FLOAT )
+            {
+                int32_t *tmp = (int32_t*) vals;
+                for (i=0; i<nvals; i++) tmp[i] = bcf_int32_missing;
+            }
+            else
+            {
+                float *tmp = (float*) vals;
+                for (i=0; i<nvals; i++) bcf_float_set_missing(tmp[i]);
+            }
+        }
+
+        #define BRANCH(type_t, is_missing, is_vector_end, out_type_t) { \
+            type_t *src = (type_t *) info->vptr; \
+            out_type_t *tgt = (out_type_t *) vals; \
+            int iori, inew; \
+            for (iori=1; iori<line->n_allele; iori++) \
+            { \
+                if ( is_vector_end ) break; \
+                if ( is_missing ) continue; \
+                inew = als->map[iori] - 1; \
+                tgt[inew] = *src; \
+                src++; \
+            } \
+        }
+        switch (inf->type) {
+            case BCF_BT_INT8:  BRANCH(int8_t,  *src==bcf_int8_missing,  *src==bcf_int8_vector_end,  int); break;
+            case BCF_BT_INT16: BRANCH(int16_t, *src==bcf_int16_missing, *src==bcf_int16_vector_end, int); break;
+            case BCF_BT_INT32: BRANCH(int32_t, *src==bcf_int32_missing, *src==bcf_int32_vector_end, int); break;
+            case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(*src), bcf_float_is_vector_end(*src), float); break;
+            default: fprintf(stderr,"TODO: %s:%d .. info->type=%d\n", __FILE__,__LINE__, info->type); exit(1);
+        }
+        #undef BRANCH
+    }
+    return vals;
+}
+
 void merge_info(args_t *args, bcf1_t *out)
 {
     bcf_srs_t *files = args->files;
@@ -470,8 +516,11 @@ void merge_info(args_t *args, bcf1_t *out)
     strdict_t *tmph = args->tmph;
     kh_clear(strdict, tmph);
 
+    uint8_t **AGR_info = NULL;
+    int nAGR_info = 0, mAGR_info = 0;
+
     maux_t *ma = args->maux;
-    out->n_info = 0;
+    out->n_info  = 0;
     for (i=0; i<files->nreaders; i++)
     {
         if ( !ma->has_line[i] ) continue;
@@ -483,11 +532,28 @@ void merge_info(args_t *args, bcf1_t *out)
             bcf_info_t *inf = &line->d.info[j];
 
             const char *key = hdr->id[BCF_DT_ID][inf->key].key;
+            int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
+            if ( id==-1 ) error("Error: The INFO field not defined: %s\n", key);
+
             kitr = kh_get(strdict, tmph, key);
+            if ( bcf_hdr_id2length(hdr,BCF_HL_INFO,id)==BCF_VL_A  )
+            {
+                if ( kitr == kh_end(tmph) )
+                {
+                    // first occurance, alloc arrays
+                    nAGR_info++;
+                    hts_expand0(uint8_t*,nAGR_info,mAGR_info,AGR_info);
+                    kitr = kh_put(strdict, tmph, key, &ret);
+                    kh_val(hash,kitr) = nAGR_info - 1;
+                }
+                kitr = kh_get(strdict, tmph, key);
+                int idx = kh_val(hash, kitr);
+                AGR_info[idx] = merge_AGR_info_tag(line,inf,ma,&ma->d[i][0],bcf_hdr_id2length(hdr,BCF_HL_INFO,id),AGR_info[idx]);
+            }
+            // todo: G-tags, R-tags
+
             if ( kitr == kh_end(tmph) )
             {
-                int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
-                if ( id==-1 ) error("Error: The INFO field not defined: %s\n", key);
                 hts_expand(bcf_info_t,out->n_info+1,ma->minf,ma->inf);
                 ma->inf[out->n_info].key  = id;
                 ma->inf[out->n_info].type = inf->type;
@@ -506,14 +572,20 @@ void merge_info(args_t *args, bcf1_t *out)
                     bcf_info_set_id(out, &ma->inf[out->n_info], id, &args->tmps);
                 }
                 out->n_info++;
-                kh_put(strdict, tmph, key, &ret);
+                kitr = kh_put(strdict, tmph, key, &ret);
+                kh_val(hash,kitr) = -(out->n_info-1);   // arbitrary negative value
             }
-            // todo: G-tags, A-tags
         }
     }
     out->d.info = ma->inf;
     out->d.m_info = ma->minf;
     for (i=out->n_info; i<out->d.m_info; i++) out->d.info[i].vptr_free = 0;
+    for (i=0; i<nAGR_info; i++)
+    {
+        bcf_update_info(out_hdr,out,key..,AGR_info[i],n..,type..);
+        free(AGR_info[i]);
+    }
+    free(AGR_info);
 }
 
 // Only existing AN, AC will be modified. If not present, the line stays unchanged
