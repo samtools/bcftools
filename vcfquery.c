@@ -467,7 +467,7 @@ static void init_data(args_t *args)
         {
             // the sample ordering may be different if not negated
             int n;
-            char **smpls = hts_readlines(args->sample_names, &n);
+            char **smpls = hts_readlist(args->sample_names, &n);
             if ( !smpls ) error("Could not parse %s\n", args->sample_names);
             if ( n!=bcf_hdr_nsamples(args->files->readers[0].header) ) 
                 error("The number of samples does not match, perhaps some are present multiple times?\n");
