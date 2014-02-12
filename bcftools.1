@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 02/07/2014
+.\"      Date: 02/12/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "02/07/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "02/12/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -167,6 +167,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .IP \(bu 2.3
 .\}
 
+\fBroh\fR
+\&.\&. identify runs of homo/auto\-zygosity
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
 \fBstats\fR
 \&.\&. produce VCF/BCF stats (former vcfcheck)
 .RE
@@ -209,7 +222,7 @@ Files can be both VCF or BCF, uncompressed or BGZF\-compressed\&. The file "\-" 
 .RS 4
 Controls how to treat records with duplicate positions and defines compatible records across multiple input files\&. Here by "compatible" we mean records which should be considered as identical by the tools\&. For example, when performing line intersections, the desire may be to consider as identical all sites with matching positions (\fBbcftools isec \-c\fR
 \fIall\fR), or only sites with matching variant type (\fBbcftools isec \-c\fR
-\fIsnps\fR
+\fIsnps\fR\ \&
 \fB\-c\fR
 \fIindels\fR), or only sites with all alleles identical (\fBbcftools isec \-c\fR
 \fInone\fR)\&.
@@ -951,10 +964,11 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fIFILE\fR|\fILIST\fR
+\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
 .RS 4
-see
-\fBCommon Options\fR
+comma\-separated list of samples or, when prefixed with colon
+\fI:\fR, read sample names from
+\fIFILE\fR
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -1013,6 +1027,148 @@ bcftools query \-f \*(Aq%CHROM\et%POS\et%REF\et%ALT[\et%SAMPLE=%GT]\en\*(Aq file
 .if n \{\
 .RE
 .\}
+.RE
+.SS "bcftools roh \fIOPTIONS\fR \fIFILE\fR"
+.sp
+A program for detecting runs of homo/autozygosity\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBThe HMM model:\fR
+.RS 4
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Notation:
+  D  = Data, AZ = autozygosity, HW = Hardy\-Weinberg (non\-autozygosity),
+  f  = non\-ref allele frequency
+
+Emission probabilities:
+  oAZ = P_i(D|AZ) = (1\-f)*P(D|RR) + f*P(D|AA)
+  oHW = P_i(D|HW) = (1\-f)^2 * P(D|RR) + f^2 * P(D|AA) + 2*f*(1\-f)*P(D|RA)
+
+Transition probabilities:
+  tAZ = P(AZ|HW)  \&.\&. from HW to AZ, the \-a parameter
+  tHW = P(HW|AZ)  \&.\&. from AZ to HW, the \-H parameter
+  P(AZ|AZ) = 1 \- P(HW|AZ) = 1 \- tHW
+  P(HW|HW) = 1 \- P(AZ|HW) = 1 \- tAZ
+
+  ci  = P_i(C) \&.\&. probability of cross\-over at site i, from genetic map
+  AZi = P_i(AZ)   \&.\&. probability of site i being AZ/non\-AZ, scaled so that AZi+HWi = 1
+  HWi = P_i(HW)
+
+  P_{i+1}(AZ) = oAZ * max[(1\-tHW) * (1\-ci) * AZ{i\-1} , tAZ * ci * (1\-AZ{i\-1})]
+  P_{i+1}(HW) = oHW * max[(1\-tAZ) * (1\-ci) * (1\-AZ{i\-1}) , tHW * ci * AZ{i\-1}]
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBGeneral Options:\fR
+.RS 4
+.PP
+\fB\-b, \-\-biallelic\-sites\fR
+.RS 4
+skip multi\-allelic sites, consider only bi\-allelic sites
+.RE
+.PP
+\fB\-e, \-\-estimate\-AF\fR \fIall\fR|\fIsubset\fR
+.RS 4
+recalculate INFO/AC and INFO/AN on the fly, using either all samples (\fIall\fR) or samples specified via the
+\fB\-s\fR
+option (\fIsubset\fR)\&. By default, allele frequency is estimated from AC and AN counts which are already present in the INFO field\&.
+.RE
+.PP
+\fB\-F, \-\-AF\-tag\fR \fITAG\fR|\fI:FILE\fR
+.RS 4
+use the specified INFO tag
+\fITAG\fR
+as an allele frequency estimate instead of the defaul AC and AN tags\&. Optionally, if prefixed with
+\fI:\fR, allele frequencies will be read from a tab\-delimited file containing the columns: CHROM\etPOS\etREF,ALT\etAF\&. The file can be compressed with
+\fBbgzip\fR
+and indexed with tabix \-s1 \-b2 \-e2\&. Sites which do not have the
+\fITAG\fR
+or are not present in the
+\fIFILE\fR
+or have different reference or alternate allele will be skipped\&.
+.RE
+.PP
+\fB\-f, \-\-fwd\-bwd\fR
+.RS 4
+run forward\-backward algorithm instead of Viterbi
+.RE
+.PP
+\fB\-G, \-\-GTs\-only\fR \fIFLOAT\fR
+.RS 4
+use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL), setting PL of unseen genotypes to
+\fIFLOAT\fR\&. Safe value to use is 30 to account for GT errors\&.
+.RE
+.PP
+\fB\-I, \-\-skip\-indels\fR
+.RS 4
+skip indels as their genotypes are usually enriched for errors
+.RE
+.PP
+\fB\-m, \-\-genetic\-map\fR \fIFILE\fR
+.RS 4
+genetic map in the format required also by IMPUTE2\&. Only the first and third column are used (position and Genetic_Map(cM))\&. The
+\fIFILE\fR
+can chromosome name\&.
+.RE
+.PP
+\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
+.RS 4
+comma\-separated list of samples or, when prefixed with colon
+\fI:\fR, read sample names from
+\fIFILE\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-w, \-\-win\fR \fIINT\fR
+.RS 4
+maximum number of sites to keep in memory
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBHMM Options:\fR
+.RS 4
+.PP
+\fB\-a, \-\-hw\-to\-az\fR \fIFLOAT\fR
+.RS 4
+P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy\-Weinberg) state
+.RE
+.PP
+\fB\-H, \-\-az\-to\-hw\fR \fIFLOAT\fR
+.RS 4
+P(HW|AZ) transition probability from HW to AZ state
+.RE
 .RE
 .SS "bcftools stats \fIOPTIONS\fR \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"
 .sp
@@ -1403,7 +1559,7 @@ HTSlib was designed with BCF format in mind\&. When parsing VCF files, all recor
 Please report any bugs you encounter on the github website: http://github\&.com/samtools/bcftools
 .SH "AUTHORS"
 .sp
-Heng Li from the Sanger Institute wrote the original C version of htslib, samtools and bcftools\&. Bob Handsaker from the Broad Institute implemented the BGZF library\&. Petr Danecek and John Marshall are maintaining and further developing the packages\&. Many other people contributed to the file format specifications and to the program, both directly and indirectly by providing patches, testing and reporting bugs\&.
+Heng Li from the Sanger Institute wrote the original C version of htslib, samtools and bcftools\&. Bob Handsaker from the Broad Institute implemented the BGZF library\&. Petr Danecek, Shane McCarthy and John Marshall are maintaining and further developing bcftools\&. Many other people contributed to the program and to the file format specifications, both directly and indirectly by providing patches, testing and reporting bugs\&. We thank them all\&.
 .SH "RESOURCES"
 .sp
 Bcftools GitHub website: http://github\&.com/samtools/bcftools

@@ -46,6 +46,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<merge,merge>>*      ..  merge VCF/BCF files to create multi-sample file
 - *<<norm,norm>>*        ..  normalize indels
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
+- *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
 - *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
 - *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
 - *<<plot-vcfstats,plot-vcfstats>>*  .. plots the output of *<<stats,stats>>*
@@ -526,8 +527,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'FILE'|'LIST'::
-    see *<<common_options,Common Options>>*
+*-s, --samples* 'LIST'|':FILE'::
+    comma-separated list of samples or, when prefixed with colon ':', read sample
+    names from 'FILE'
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -551,6 +553,94 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 ==== Examples:
 
     bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz
+
+[[roh]]
+=== bcftools roh 'OPTIONS' 'FILE'
+A program for detecting runs of homo/autozygosity.
+
+==== The HMM model:
+--------------------------------------
+Notation:
+  D  = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity), 
+  f  = non-ref allele frequency
+
+Emission probabilities:
+  oAZ = P_i(D|AZ) = (1-f)*P(D|RR) + f*P(D|AA)
+  oHW = P_i(D|HW) = (1-f)^2 * P(D|RR) + f^2 * P(D|AA) + 2*f*(1-f)*P(D|RA)
+
+Transition probabilities:
+  tAZ = P(AZ|HW)  .. from HW to AZ, the -a parameter
+  tHW = P(HW|AZ)  .. from AZ to HW, the -H parameter
+  P(AZ|AZ) = 1 - P(HW|AZ) = 1 - tHW
+  P(HW|HW) = 1 - P(AZ|HW) = 1 - tAZ
+
+  ci  = P_i(C) .. probability of cross-over at site i, from genetic map
+  AZi = P_i(AZ)   .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
+  HWi = P_i(HW) 
+
+  P_{i+1}(AZ) = oAZ * max[(1-tHW) * (1-ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
+  P_{i+1}(HW) = oHW * max[(1-tAZ) * (1-ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
+
+--------------------------------------
+
+==== General Options:
+
+*-b, --biallelic-sites*::
+    skip multi-allelic sites, consider only bi-allelic sites
+
+*-e, --estimate-AF* 'all'|'subset'::
+    recalculate INFO/AC and INFO/AN on the fly, using either all samples
+    ('all') or samples specified via the *-s* option ('subset'). By default,
+    allele frequency is estimated from AC and AN counts which are already
+    present in the INFO field.
+
+*-F, --AF-tag* 'TAG'|':FILE'::
+    use the specified INFO tag 'TAG' as an allele frequency estimate
+    instead of the defaul AC and AN tags. Optionally, if prefixed with ':',
+    allele frequencies will be read from a tab-delimited file containing
+    the columns: CHROM\tPOS\tREF,ALT\tAF. The file can be compressed with
+    *bgzip* and indexed with tabix -s1 -b2 -e2.  Sites which do not have the
+    'TAG' or are not present in the 'FILE' or have different reference or
+    alternate allele will be skipped. 
+
+*-f, --fwd-bwd*::
+    run forward-backward algorithm instead of Viterbi
+
+*-G, --GTs-only* 'FLOAT'::
+    use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
+    setting PL of unseen genotypes to 'FLOAT'. Safe value to use is 30 to
+    account for GT errors.
+
+*-I, --skip-indels*::
+    skip indels as their genotypes are usually enriched for errors
+
+*-m, --genetic-map* 'FILE'::
+    genetic map in the format required also by IMPUTE2. Only the first and
+    third column are used (position and Genetic_Map(cM)). The 'FILE' can
+    be a single file or a file mask, where string "{CHROM}" is replaced with
+    chromosome name.
+
+*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'LIST'|':FILE'::
+    comma-separated list of samples or, when prefixed with colon ':', read sample
+    names from 'FILE'
+
+*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-w, --win* 'INT'::
+    maximum number of sites to keep in memory
+
+==== HMM Options:
+
+*-a, --hw-to-az* 'FLOAT'::
+    P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state
+
+*-H, --az-to-hw* 'FLOAT'::
+    P(HW|AZ) transition probability from HW to AZ state
+
 
 
 [[stats]]
@@ -815,10 +905,10 @@ AUTHORS
 -------
 Heng Li from the Sanger Institute wrote the original C version of htslib,
 samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
-BGZF library. Petr Danecek and John Marshall are  maintaining and further
-developing the packages.  Many other people contributed to the file format
-specifications and to the program, both directly and indirectly by providing
-patches, testing and reporting bugs.
+BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
+and further developing bcftools.  Many other people contributed to the program
+and to the file format specifications, both directly and indirectly by
+providing patches, testing and reporting bugs. We thank them all.
 
 
 RESOURCES
