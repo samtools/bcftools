@@ -307,7 +307,7 @@ static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
     for (i=1; i<=n; i++)
     {
         ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : (smpl->pos[ir] - smpl->last_pos + 1)*1e-8;
         smpl->last_pos = smpl->pos[ir];
 
         // P_{i+1}(AZ) = oAZ * [(1-tHW) * (1-ci) * AZ{i-1} + tAZ * ci * (1-AZ{i-1})]
@@ -325,7 +325,7 @@ static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
     for (i=1; i<=n; i++)
     {
         ir  = rbuf_kth(&smpl->rbuf, n-i);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir], last_pos) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir], last_pos) : (last_pos - smpl->pos[ir] + 1)*1e-8;
         last_pos = smpl->pos[ir];
 
         pAZ = smpl->oaz[ir] * ( (1-args->tHW) * (1-ci) * args->bwd[i-1] + args->tAZ * ci * (1-args->bwd[i-1]) );
@@ -361,7 +361,7 @@ static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
     for (i=1; i<=n; i++)
     {
         ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : (smpl->pos[ir] - smpl->last_pos + 1)*1e-8;
         //printf("ci %d-%d: %e\n", smpl->last_pos, smpl->pos[ir], ci);
         smpl->last_pos = smpl->pos[ir];
 
