@@ -8,7 +8,7 @@
 #include <stdarg.h>
 #include <htslib/kfunc.h>
 #include <htslib/synced_bcf_reader.h>
-#include <sys/stat.h>
+#include <ctype.h>
 #include "bcftools.h"
 #include "call.h"
 #include "prob1.h"
@@ -19,9 +19,6 @@ void error(const char *format, ...);
 #define srand48(x) srand(x)
 #define lrand48() rand()
 #endif
-
-#include <htslib/kseq.h>
-KSTREAM_INIT(gzFile, gzread, 16384)
 
 #define CF_NO_GENO      1
 //                      (1<<1)
@@ -98,40 +95,40 @@ static char **add_sample(char **sam, int *n, int *m, char *name, int ploidy, int
     return sam;
 }
 
-static char **read_ped_samples(call_t *call, const char *fn, int *_n)
+static char **parse_ped_samples(call_t *call, char **vals, int _n)
 {
-	char **sam = 0;
-    int dret, n = 0, max = 0, i;
-    kstream_t *ks;
-    kstring_t s = {0,0,0};
-    gzFile fp;
-    fp = gzopen(fn, "r");
-    if ( !fp ) error("Could not read the file: %s\n", fn);
-    ks = ks_init(fp);
-    while (ks_getuntil(ks, KS_SEP_LINE, &s, &dret) >= 0) 
+    int i, j, max = 0, n = 0;
+    kstring_t str = {0,0,0};
+    char **sam = NULL;
+    for (i=0; i<_n; i++)
     {
-        char *col_ends[5], *tmp = s.s;
-        i = 0;
-        while ( *tmp && i<5 )
+        str.l = 0;
+        kputs(vals[i], &str);
+        char *col_ends[5], *tmp = str.s;
+        j = 0;
+        while ( *tmp && j<5 )
         {
-            if ( *tmp=='\t' || *tmp==' ' ) 
-            { 
-                col_ends[i] = tmp;
+            if ( isspace(*tmp) ) 
+            {
                 *tmp = 0;
-                i++; 
+                ++tmp;
+                while ( isspace(*tmp) ) tmp++;  // allow multiple spaces
+                col_ends[j] = tmp-1;
+                j++; 
+                continue;
             }
             tmp++;
         }
-        if ( i!=5 ) break;
+        if ( j!=5 ) break;
 
-        family_t *fam = get_family(call->fams, call->nfams, s.s);
+        family_t *fam = get_family(call->fams, call->nfams, str.s);
         if ( !fam )
         {
             call->nfams++;
             hts_expand(family_t, call->nfams, call->mfams, call->fams);
             fam = &call->fams[call->nfams-1];
-            fam->name = strdup(s.s);
-            for (i=0; i<3; i++) fam->sample[i] = -1;
+            fam->name = strdup(str.s);
+            for (j=0; j<3; j++) fam->sample[j] = -1;
         } 
         
         int ploidy = 2;
@@ -141,27 +138,31 @@ static char **read_ped_samples(call_t *call, const char *fn, int *_n)
             else
                 ploidy = call->flag & CALL_CHR_X ? 2 : 0; // female: two chrX copies, no chrY
         }
-        sam = add_sample(sam, &n, &max, col_ends[0]+1, ploidy, &i);
-        if ( col_ends[2]-col_ends[1]!=2 || col_ends[1][1]!='0' )    // father
+        sam = add_sample(sam, &n, &max, col_ends[0]+1, ploidy, &j);
+        if ( strcmp(col_ends[1]+1,"0") )    // father
         {
-            if ( fam->sample[CHILD]>=0 ) error("Multiple childs in %s\n", s.s);
-            fam->sample[CHILD] = i;
-            if ( fam->sample[FATHER]>=0 ) error("Two fathers in %s?\n", s.s);
+            if ( fam->sample[CHILD]>=0 ) error("Multiple childs in %s [%s,%s]\n", str.s, sam[j],sam[fam->sample[CHILD]]);
+            fam->sample[CHILD] = j;
+            if ( fam->sample[FATHER]>=0 ) error("Two fathers in %s?\n", str.s);
             sam = add_sample(sam, &n, &max, col_ends[1]+1, call->flag & (CALL_CHR_X|CALL_CHR_Y) ? 1 : 2, &fam->sample[FATHER]); 
         }
-        if ( col_ends[3]-col_ends[2]!=2 || col_ends[2][1]!='0' )    // mother
+        if ( strcmp(col_ends[2]+1,"0") )    // mother
         {
-            if ( fam->sample[MOTHER]>=0 ) error("Two mothers in %s?\n", s.s);
+            if ( fam->sample[MOTHER]>=0 ) error("Two mothers in %s?\n", str.s);
             sam = add_sample(sam, &n, &max, col_ends[2]+1, call->flag & CALL_CHR_Y ? 0 : 2, &fam->sample[MOTHER]); 
         }
     }
-    for (i=0; i<call->nfams; i++)
-        assert( call->fams[i].sample[0]>=0 && call->fams[i].sample[1]>=0 && call->fams[i].sample[2]>=0 ); //todo
+    free(str.s);
 
-    ks_destroy(ks);
-    gzclose(fp);
-    free(s.s);
-    *_n = n;
+    if ( i!=_n ) // not a ped file
+    {
+        if ( i>0 ) error("Could not parse the samples, thought it was PED format, some rows have 5 columns?!\n");
+        return NULL;
+    }
+    assert( n==_n );
+    for (i=0; i<call->nfams; i++)
+        assert( call->fams[i].sample[0]>=0 && call->fams[i].sample[1]>=0 && call->fams[i].sample[2]>=0 ); // multiple childs, not a trio
+
     return sam;
 }
 
@@ -177,64 +178,38 @@ static char **read_ped_samples(call_t *call, const char *fn, int *_n)
  */
 static char **read_samples(call_t *call, const char *fn, int *_n)
 {
-	int dret, n = 0, max = 0;
-	char **sam = 0;
-	*_n = 0;
+    int i, n;
+    char **vals = hts_readlist(fn, &n);
+    if ( !vals ) error("Could not read the file: %s\n", fn);
 
-    struct stat sbuf;
-    if ( stat(fn, &sbuf) != 0  )
+    char **smpls = parse_ped_samples(call, vals, n);
+    if ( !smpls )
     {
-        // it is not a file, interpret as list of sample names
-        const char *t = fn, *p = t;
-        while (*t)
+        smpls = (char**) malloc(sizeof(char*)*n);
+        for (i=0; i<n; i++)
         {
-            t++;
-            if ( *t==',' || !*t )
-            { 
-                sam = (char**) realloc(sam, sizeof(char*)*(n+1));
-                sam[n] = (char*) malloc(sizeof(char)*(t-p+2));
-                memcpy(sam[n], p, t-p);
-                sam[n][t-p]   = 0;
-                sam[n][t-p+1] = 2;    // assume diploid
-                p = t+1;
-                n++; 
+            char *s = vals[i];
+            while ( *s && !isspace(*s) ) s++;
+            int len = s-vals[i];
+            smpls[i] = (char*) malloc(len+2);
+            strncpy(smpls[i],vals[i],len);
+            smpls[i][len] = 0;
+            while ( *s && isspace(*s) ) s++;
+            int x = 2;
+            if ( *s )
+            {
+                x = (int)s[0] - '0'; // Convert ASCII digit to decimal
+                if (x != 0 && x != 1 && x != 2) error("Ploidy can only be 0, 1 or 2: %s\n", vals[i]);
             }
+            smpls[i][len+1] = x;
         }
-        *_n = n;
-        return sam;
     }
 
-    sam = read_ped_samples(call, fn, _n);
-    if ( sam ) return sam;
+    for (i=0; i<n; i++) free(vals[i]);
+    free(vals);
 
-	kstream_t *ks;
-	kstring_t s = {0,0,0};
-	gzFile fp;
-	fp = gzopen(fn, "r");
-    if ( !fp ) error("Could not read the file: %s\n", fn);
-	ks = ks_init(fp);
-	while (ks_getuntil(ks, KS_SEP_SPACE, &s, &dret) >= 0) 
-    {
-        hts_expand(char*,(n+1),max,sam);
-		int l = s.l;
-		sam[n] = (char*) malloc(sizeof(char)*(s.l+2));
-		strcpy(sam[n], s.s);
-		sam[n][l+1] = 2; // by default, diploid
-		if (dret != '\n') {
-			if (ks_getuntil(ks, KS_SEP_SPACE, &s, &dret) >= 0) { // read ploidy, 1 or 2
-				int x = (int)s.s[0] - '0'; // Convert ASCII digit to decimal
-				if (x == 0 || x == 1 || x == 2) sam[n][l+1] = x;
-				else fprintf(stderr, "(%s) ploidy can only be 0, 1 or 2; assuming diploid\n", __func__);
-			}
-			if (dret != '\n') ks_getuntil(ks, '\n', &s, &dret);
-		}
-		++n;
-	}
-	ks_destroy(ks);
-	gzclose(fp);
-	free(s.s);
-	*_n = n;
-	return sam;
+    *_n = n;
+    return smpls;
 }
 
 
@@ -262,11 +237,16 @@ static void init_data(args_t *args)
         args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
         args->aux.hdr = bcf_hdr_subset(args->aux.srs->readers[0].header, args->nsamples, args->samples, args->samples_map);
         for (i=0; i<args->nsamples; i++)
-            if ( args->samples_map[i]<0 ) fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
+            if ( args->samples_map[i]<0 ) error("No such sample \"%s\", please prefix with ':' to indicate file name\n", args->samples[i]);
         if ( !bcf_hdr_nsamples(args->aux.hdr) ) error("No matching sample found\n");
     }
     else
+    {
         args->aux.hdr = bcf_hdr_dup(args->aux.srs->readers[0].header);
+        for (i=0; i<args->nsamples; i++)
+            if ( bcf_hdr_id2int(args->aux.hdr,BCF_DT_SAMPLE,args->samples[i])<0 ) 
+                error("No such sample \"%s\", please prefix with ':' to indicate file name\n", args->samples[i]);
+    }
 
     // Reorder ploidy and family indexes to match mpileup's output and exclude samples which are not available
     if ( args->aux.ploidy )
@@ -277,7 +257,7 @@ static void init_data(args_t *args)
             for (j=0; j<3; j++)
             {
                 int k = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[ args->aux.fams[i].sample[j] ]);
-                if ( k<0 ) error("No such sample: %s\n", args->samples[ args->aux.fams[i].sample[j] ]);
+                if ( k<0 ) error("No such sample \"%s\", please prefix with ':' to indicate file name\n", args->samples[ args->aux.fams[i].sample[j] ]);
                 args->aux.fams[i].sample[j] = k;
             }
         }
@@ -366,7 +346,7 @@ static void usage(args_t *args)
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --regions <reg|file>        restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "   -s, --samples <list|file>       sample list, PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
+    fprintf(stderr, "   -s, --samples <list|:file>      sample list, PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
     fprintf(stderr, "   -t, --targets <reg|file>        similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\nInput/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");

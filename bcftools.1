@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 02/12/2014
+.\"      Date: 02/13/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "02/12/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "02/13/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -279,9 +279,12 @@ Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fI
 Regions can be specified either on command line or in a VCF, BED, or tab\-delimited file (the default)\&. The columns of the tab\-delimited file are: CHROM, POS, and, optionally, POS_TO, where positions are 1\-based and inclusive\&. Uncompressed files are stored in memory, while bgzip\-compressed and tabix\-indexed region files are streamed\&. Note that sequence names must match exactly, "chr20" is not the same as "20"\&. This option requires indexed VCF/BCF files\&.
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fIFILE\fR|\fILIST\fR
+\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
 .RS 4
-Comma\-separated list of samples to include or a file with one sample per line\&. The command
+Comma\-separated list of samples to include or, when prefixed with colon
+\fI:\fR, read sample names from
+\fIFILE\fR
+with one sample per line\&. The command
 \fBbcftools call\fR
 accepts an optional second column indicating ploidy (0, 1 or 2) and can parse also PED files\&. With
 \fBbcftools call\fR\fB \-C\fR
@@ -966,9 +969,8 @@ see
 .PP
 \fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
 .RS 4
-comma\-separated list of samples or, when prefixed with colon
-\fI:\fR, read sample names from
-\fIFILE\fR
+see
+\fBCommon Options\fR
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -1135,9 +1137,8 @@ see
 .PP
 \fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
 .RS 4
-comma\-separated list of samples or, when prefixed with colon
-\fI:\fR, read sample names from
-\fIFILE\fR
+see
+\fBCommon Options\fR
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -1232,7 +1233,7 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fIFILE\fR|\fILIST\fR
+\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
 .RS 4
 see
 \fBCommon Options\fR

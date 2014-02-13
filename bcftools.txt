@@ -114,9 +114,10 @@ OPTIONS
     sequence names must match exactly, "chr20" is not the same as "20".  This
     option requires indexed VCF/BCF files.
 
-*-s, --samples* 'FILE'|'LIST'::
-    Comma-separated list of samples to include or a file with one sample
-    per line. The command *<<call,bcftools call>>* accepts an optional second
+*-s, --samples* 'LIST'|':FILE'::
+    Comma-separated list of samples to include or, when prefixed with colon
+    ':', read sample names from 'FILE' with one sample per line.
+    The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
@@ -528,8 +529,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     see *<<common_options,Common Options>>*
 
 *-s, --samples* 'LIST'|':FILE'::
-    comma-separated list of samples or, when prefixed with colon ':', read sample
-    names from 'FILE'
+    see *<<common_options,Common Options>>*
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -624,8 +624,7 @@ Transition probabilities:
     see *<<common_options,Common Options>>*
 
 *-s, --samples* 'LIST'|':FILE'::
-    comma-separated list of samples or, when prefixed with colon ':', read sample
-    names from 'FILE'
+    see *<<common_options,Common Options>>*
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -682,7 +681,7 @@ the program generates separate stats for intersection and the complements.
 *-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'FILE'|'LIST'::
+*-s, --samples* 'LIST'|':FILE'::
     see *<<common_options,Common Options>>*
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
