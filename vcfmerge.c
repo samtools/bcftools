@@ -21,6 +21,15 @@ typedef khash_t(strdict) strdict_t;
 #define IS_VL_G(hdr,id) (bcf_hdr_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_G)
 #define IS_VL_A(hdr,id) (bcf_hdr_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_A)
 
+// For merging INFO Number=A,G,R tags
+typedef struct
+{
+    const char *hdr_tag;
+    int type, nvals;
+    int nbuf, mbuf;
+    uint8_t *buf;
+}
+AGR_info_t;
 // Auxiliary merge data for selecting the right combination
 //  of buffered records across multiple readers. maux1_t 
 //  corresponds to one buffered line.
@@ -47,6 +56,8 @@ typedef struct
     void *tmp_arr;
     int ntmp_arr;
     maux1_t **d;    // d[i][j] i-th reader, j-th buffer line
+    AGR_info_t *AGR_info;
+    int nAGR_info, mAGR_info;
     bcf_srs_t *files;
     int *has_line;  // which files are being merged
 }
@@ -243,6 +254,9 @@ void maux_destroy(maux_t *ma)
             if ( ma->d[i][j].map ) free(ma->d[i][j].map);
         free(ma->d[i]);
     }
+    for (i=0; i<ma->mAGR_info; i++)
+        free(ma->AGR_info[i].buf);
+    free(ma->AGR_info);
     if (ma->ntmp_arr) free(ma->tmp_arr);
     if (ma->nfmt_map) free(ma->fmt_map);
     // ma->inf freed in bcf_destroy1
@@ -457,53 +471,88 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     tmp_str->l = 0;
 }
 
-static uint8_t *merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, maux_t *ma, maux1_t *als, int len, uint8_t *vals)
+static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t *als, AGR_info_t *agr)
 {
-    int nvals;
-    if ( len==BCF_VL_A ) ma->nout_als;
-    else error("todo: !=BCF_VL_A\n"); // : if ( len==BCF_VL_G ) bcf_alleles2gt(ma->nout_als-1,ma->nout_als-1)+1;
-
-    if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 || info->type==BCF_BT_FLOAT )
+    int i;
+    if ( !agr->nbuf )
     {
-        int i, nvals;
-        if ( !vals )
+        if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 || info->type==BCF_BT_FLOAT )
         {
-            vals = (uint8_t*) malloc(4*nvals);
+            agr->nbuf = 4 * agr->nvals;
+            hts_expand(uint8_t,agr->nbuf,agr->mbuf,agr->buf);
             if ( info->type!=BCF_BT_FLOAT )
             {
-                int32_t *tmp = (int32_t*) vals;
-                for (i=0; i<nvals; i++) tmp[i] = bcf_int32_missing;
+                int32_t *tmp = (int32_t*) agr->buf;
+                for (i=0; i<agr->nvals; i++) tmp[i] = bcf_int32_missing;
             }
             else
             {
-                float *tmp = (float*) vals;
-                for (i=0; i<nvals; i++) bcf_float_set_missing(tmp[i]);
+                float *tmp = (float*) agr->buf;
+                for (i=0; i<agr->nvals; i++) bcf_float_set_missing(tmp[i]);
             }
         }
-
-        #define BRANCH(type_t, is_missing, is_vector_end, out_type_t) { \
-            type_t *src = (type_t *) info->vptr; \
-            out_type_t *tgt = (out_type_t *) vals; \
-            int iori, inew; \
-            for (iori=1; iori<line->n_allele; iori++) \
-            { \
-                if ( is_vector_end ) break; \
-                if ( is_missing ) continue; \
-                inew = als->map[iori] - 1; \
-                tgt[inew] = *src; \
-                src++; \
-            } \
-        }
-        switch (inf->type) {
-            case BCF_BT_INT8:  BRANCH(int8_t,  *src==bcf_int8_missing,  *src==bcf_int8_vector_end,  int); break;
-            case BCF_BT_INT16: BRANCH(int16_t, *src==bcf_int16_missing, *src==bcf_int16_vector_end, int); break;
-            case BCF_BT_INT32: BRANCH(int32_t, *src==bcf_int32_missing, *src==bcf_int32_vector_end, int); break;
-            case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(*src), bcf_float_is_vector_end(*src), float); break;
-            default: fprintf(stderr,"TODO: %s:%d .. info->type=%d\n", __FILE__,__LINE__, info->type); exit(1);
-        }
-        #undef BRANCH
+        else
+            error("todo: other types\n");
     }
-    return vals;
+
+    if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 || info->type==BCF_BT_FLOAT )
+    {
+        if ( len==BCF_VL_A || len==BCF_VL_R )
+        {
+            int ifrom = len==BCF_VL_A ? 1 : 0;
+            #define BRANCH(type_t, is_missing, is_vector_end, out_type_t) { \
+                type_t *src = (type_t *) info->vptr; \
+                out_type_t *tgt = (out_type_t *) agr->buf; \
+                int iori, inew; \
+                for (iori=ifrom; iori<line->n_allele; iori++) \
+                { \
+                    if ( is_vector_end ) break; \
+                    if ( is_missing ) continue; \
+                    inew = als->map[iori] - 1; \
+                    tgt[inew] = *src; \
+                    src++; \
+                } \
+            }
+            switch (info->type) {
+                case BCF_BT_INT8:  BRANCH(int8_t,  *src==bcf_int8_missing,  *src==bcf_int8_vector_end,  int); break;
+                case BCF_BT_INT16: BRANCH(int16_t, *src==bcf_int16_missing, *src==bcf_int16_vector_end, int); break;
+                case BCF_BT_INT32: BRANCH(int32_t, *src==bcf_int32_missing, *src==bcf_int32_vector_end, int); break;
+                case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(*src), bcf_float_is_vector_end(*src), float); break;
+                default: fprintf(stderr,"TODO: %s:%d .. info->type=%d\n", __FILE__,__LINE__, info->type); exit(1);
+            }
+            #undef BRANCH
+        }
+        else
+        {
+            #define BRANCH(type_t, is_missing, is_vector_end, out_type_t) { \
+                type_t *src = (type_t *) info->vptr; \
+                out_type_t *tgt = (out_type_t *) agr->buf; \
+                int iori,jori, inew,jnew; \
+                for (iori=0; iori<line->n_allele; iori++) \
+                { \
+                    inew = als->map[iori]; \
+                    for (jori=0; jori<=iori; jori++) \
+                    { \
+                        jnew = als->map[jori]; \
+                        int kori = iori*(iori+1)/2 + jori; \
+                        if ( is_vector_end ) break; \
+                        if ( is_missing ) continue; \
+                        int knew = inew>jnew ? inew*(inew+1)/2 + jnew : jnew*(jnew+1)/2 + inew; \
+                        tgt[knew] = src[kori]; \
+                    } \
+                    if ( jori<=iori ) break; \
+                } \
+            }
+            switch (info->type) {
+                case BCF_BT_INT8:  BRANCH(int8_t,  src[kori]==bcf_int8_missing,  src[kori]==bcf_int8_vector_end,  int); break;
+                case BCF_BT_INT16: BRANCH(int16_t, src[kori]==bcf_int16_missing, src[kori]==bcf_int16_vector_end, int); break;
+                case BCF_BT_INT32: BRANCH(int32_t, src[kori]==bcf_int32_missing, src[kori]==bcf_int32_vector_end, int); break;
+                case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(src[kori]), bcf_float_is_vector_end(src[kori]), float); break;
+                default: fprintf(stderr,"TODO: %s:%d .. info->type=%d\n", __FILE__,__LINE__, info->type); exit(1);
+            }
+            #undef BRANCH
+        }
+    }
 }
 
 void merge_info(args_t *args, bcf1_t *out)
@@ -516,11 +565,9 @@ void merge_info(args_t *args, bcf1_t *out)
     strdict_t *tmph = args->tmph;
     kh_clear(strdict, tmph);
 
-    uint8_t **AGR_info = NULL;
-    int nAGR_info = 0, mAGR_info = 0;
-
     maux_t *ma = args->maux;
-    out->n_info  = 0;
+    ma->nAGR_info = 0;
+    out->n_info   = 0;
     for (i=0; i<files->nreaders; i++)
     {
         if ( !ma->has_line[i] ) continue;
@@ -535,22 +582,33 @@ void merge_info(args_t *args, bcf1_t *out)
             int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
             if ( id==-1 ) error("Error: The INFO field not defined: %s\n", key);
 
-            kitr = kh_get(strdict, tmph, key);
-            if ( bcf_hdr_id2length(hdr,BCF_HL_INFO,id)==BCF_VL_A  )
+            kitr = kh_get(strdict, tmph, key);  // have we seen the tag in one of the readers?
+            int len = bcf_hdr_id2length(hdr,BCF_HL_INFO,id);
+            if ( len==BCF_VL_A || len==BCF_VL_G || len==BCF_VL_R  ) // Number=R,G,A requires special treatment
             {
                 if ( kitr == kh_end(tmph) )
                 {
-                    // first occurance, alloc arrays
-                    nAGR_info++;
-                    hts_expand0(uint8_t*,nAGR_info,mAGR_info,AGR_info);
+                    // first occurance in this reader, alloc arrays
+                    ma->nAGR_info++;
+                    hts_expand0(AGR_info_t,ma->nAGR_info,ma->mAGR_info,ma->AGR_info);
                     kitr = kh_put(strdict, tmph, key, &ret);
-                    kh_val(hash,kitr) = nAGR_info - 1;
+                    kh_val(tmph,kitr) = ma->nAGR_info - 1;
+                    ma->AGR_info[ma->nAGR_info-1].hdr_tag = key;
+                    ma->AGR_info[ma->nAGR_info-1].type  = inf->type;
+                    ma->AGR_info[ma->nAGR_info-1].nbuf  = 0;    // size of the buffer
+                    switch (len)
+                    {
+                        case BCF_VL_A: ma->AGR_info[ma->nAGR_info-1].nvals = ma->nout_als; break;
+                        case BCF_VL_G: ma->AGR_info[ma->nAGR_info-1].nvals = bcf_alleles2gt(ma->nout_als-1,ma->nout_als-1)+1; break;
+                        case BCF_VL_R: ma->AGR_info[ma->nAGR_info-1].nvals = ma->nout_als+1; break;
+                    }
                 }
                 kitr = kh_get(strdict, tmph, key);
-                int idx = kh_val(hash, kitr);
-                AGR_info[idx] = merge_AGR_info_tag(line,inf,ma,&ma->d[i][0],bcf_hdr_id2length(hdr,BCF_HL_INFO,id),AGR_info[idx]);
+                int idx = kh_val(tmph, kitr);
+                assert( idx>=0 );
+                merge_AGR_info_tag(line,inf,len,&ma->d[i][0],&ma->AGR_info[idx]);
+                continue;
             }
-            // todo: G-tags, R-tags
 
             if ( kitr == kh_end(tmph) )
             {
@@ -573,19 +631,18 @@ void merge_info(args_t *args, bcf1_t *out)
                 }
                 out->n_info++;
                 kitr = kh_put(strdict, tmph, key, &ret);
-                kh_val(hash,kitr) = -(out->n_info-1);   // arbitrary negative value
+                kh_val(tmph,kitr) = -(out->n_info-1);   // arbitrary negative value
             }
         }
     }
     out->d.info = ma->inf;
     out->d.m_info = ma->minf;
     for (i=out->n_info; i<out->d.m_info; i++) out->d.info[i].vptr_free = 0;
-    for (i=0; i<nAGR_info; i++)
+    for (i=0; i<ma->nAGR_info; i++)
     {
-        bcf_update_info(out_hdr,out,key..,AGR_info[i],n..,type..);
-        free(AGR_info[i]);
+        AGR_info_t *agr = &ma->AGR_info[i];
+        bcf_update_info(out_hdr,out,agr->hdr_tag,agr->buf,agr->nvals,agr->type);
     }
-    free(AGR_info);
 }
 
 // Only existing AN, AC will be modified. If not present, the line stays unchanged
