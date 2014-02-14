@@ -901,7 +901,7 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
 {
     int ngts  = nals*(nals+1)/2;
     int npls_src = ngts, npls_dst = nout_als*(nout_als+1)/2;     // number of PL values in diploid samples, ori and new
-    if ( npls_src == npls_dst ) return;
+    if ( call->all_diploid && npls_src == npls_dst ) return;
 
     int *pls_src = call->PLs, *pls_dst = call->PLs;
 
@@ -913,7 +913,9 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
         if ( ploidy==2 )
         {
             for (ia=0; ia<npls_dst; ia++)
+            {
                 pls_dst[ia] =  pls_src[ call->pl_map[ia] ];
+            }
         }
         else
         {

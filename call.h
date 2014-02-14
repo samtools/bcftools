@@ -59,7 +59,7 @@ typedef struct
     bcf1_t *rec;
     bcf_hdr_t *hdr;
     uint32_t flag;          // One or more of the CALL_* flags defined above
-    uint8_t *ploidy;
+    uint8_t *ploidy, all_diploid;
 
     double pl2p[256];       // PL to 10^(-PL/10) table
     int *PLs, nPLs, mPLs;   // VCF PL likelihoods (rw)

@@ -464,7 +464,12 @@ int main_vcfcall(int argc, char *argv[])
     {
         args.samples = read_samples(&args.aux, samples_fname, &args.nsamples);
         args.aux.ploidy = (uint8_t*) calloc(args.nsamples+1, 1);
-        for (i=0; i<args.nsamples; i++) args.aux.ploidy[i] = args.samples[i][strlen(args.samples[i]) + 1];
+        args.aux.all_diploid = 1;
+        for (i=0; i<args.nsamples; i++) 
+        {
+            args.aux.ploidy[i] = args.samples[i][strlen(args.samples[i]) + 1];
+            if ( args.aux.ploidy[i]!=2 ) args.aux.all_diploid = 0;
+        }
     }
     if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c or -m options can be given\n");
     if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected -c or -m option\n");
