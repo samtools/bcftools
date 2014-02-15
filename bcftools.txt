@@ -335,16 +335,15 @@ And similarly here, the second is filtered:
 [[gtcheck]]
 === bcftools gtcheck ['OPTIONS'] [*-g* 'genotypes.vcf.gz'] 'query.vcf.gz'
 Checks sample identity or, without *-g*, multi-sample cross-check is performed.
-With *-s* but no *-p*, likelihoods at all sites are printed.
 
-*-a, --average-discordance*::
-    output average discordance for all sites
+*-a, --all-sites*::
+    output for all sites
 
 *-g, --genotypes* 'genotypes.vcf.gz'::
     reference genotypes to compare against
 
-*-G, --GTs-only*::
-    ignore PLs, use GTs
+*-G, --GTs-only* 'INT'::
+    ignore PLs, use GTs, setting 'INT' for the unseen genotypes
 
 *-H, --homs-only*::
     consider only genotypes which are homozygous in both 'genotypes' and
@@ -356,11 +355,11 @@ With *-s* but no *-p*, likelihoods at all sites are printed.
 *-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-s, --target-sample* 'STRING'::
-    target sample in the *-g* file, used only for plotting, not for analysis
-
-*-S, --query-sample* 'STRING'::
+*-s, --query-sample* 'STRING'::
     query sample in 'query.vcf.gz'. By default, the first sample is checked.
+
+*-S, --target-sample* 'STRING'::
+    target sample in the *-g* file, used only for plotting, not for analysis
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -377,8 +376,8 @@ With *-s* but no *-p*, likelihoods at all sites are printed.
         where the sum is over all sites 's' and genotype 'G' is selected
         to maximize likelihood for samples 'i' and 'j'. When PL field is not
         present, a constant value '99' is used for the unseen genotypes. 
-        With *-G*, the value '1' is used instead and thus the discordance value
-        gives exactly the number of differing genotypes.
+        With *-G*, the value '1' can be used instead, the discordance value
+        then gives exactly the number of differing genotypes.
 
 
 [[index]]
