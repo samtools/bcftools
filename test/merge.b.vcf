@@ -2,6 +2,16 @@
 ##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
 ##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
 ##INFO=<ID=STR,Number=A,Type=String,Description="Testing string and Number=A in INFO">
+##INFO=<ID=TXT,Number=.,Type=String,Description="Testing in INFO">
+##INFO=<ID=XRF,Number=R,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAF,Number=A,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGF,Number=G,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRI,Number=R,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAI,Number=A,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGI,Number=G,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRS,Number=R,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAS,Number=A,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGS,Number=G,Type=String,Description="Test Number=AGR in INFO">
 ##SAMPLE=<ID=NORMAL,SampleName=B,Description="Less-than (\"<\") and greater-than (\">\") quoting nonsense where double brackets would do just fine",softwareName=<Nonsense,Software>,softwareVer=<119,65>,softwareParam=<.>,MetadataResource=http://somewhere.com/path>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
@@ -19,11 +29,11 @@
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	B
 1	3062915	idSNP	G	A	24.6	q20	DP=14;DP4=1,2,3,4;AN=2;STR=.;AC=1	GT:GQ:DP:STR:GL	0/1:376:14:ABC:-10,0,-10
 1	3062915	id1D	GTT	GT	101	q20	DP=14;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL:STR	0/1:376:14:-10,0,-10:DEF
-1	3062915	id3D	GTTT	G	84.6	q20	DP=14;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:376:14:-10,0,-10
+1	3062915	id3D	GTTT	G	84.6	q20	TXT=AA;DP=14;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:376:14:-10,0,-10
 1	3106154	.	C	T	999	PASS	DP=15;AN=2;AC=1	GT:GQ:DP:GL	0/1:277:15:-10,0,-10
 1	3106154	.	CAAAA	C	15.4	PASS	DP=15;AN=2;AC=1	GT:GQ:DP:GL	0/1:277:15:-10,0,-10
 1	3157410	.	GAC	G	36.8	PASS	DP=11;AN=2;AC=1	GT:GQ:DP	0/1:49:11
-1	3162006	.	GAA	G	238	PASS	DP=19;AN=2;AC=1	GT:GQ:DP	0/1:589:19
+1	3162006	.	GAA	G	238	PASS	DP=19;AN=2;AC=1;XRF=1e6,2e6;XRI=1111,2222;XRS=AAA,BBB;XAF=1e6;XAI=1111;XAS=AAA;XGF=1e6,2e6,3e6;XGI=1111,2222,3333;XGS=A,B,C	GT:GQ:DP	0/1:589:19
 1	3177144	.	G	T	999	PASS	DP=24;AN=2;AC=1	GT:GQ:DP	0/1:236:24
 1	3177144	.	GT	G	999	PASS	DP=24;AN=2;AC=1	GT:GQ:DP	0/1:236:24
 1	3184885	.	TAAA	T	25.8	PASS	DP=16;AN=2;AC=1	GT:GQ:DP	0/1:435:16

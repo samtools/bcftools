@@ -1,8 +1,3 @@
-/*
-    Known issues:
-        - Number=A,G tags not treated in this version
- */
-
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -30,6 +25,19 @@ typedef struct
     uint8_t *buf;
 }
 AGR_info_t;
+
+// Rules for merging arbitrary INFO tags
+typedef struct _info_rule_t
+{
+    char *hdr_tag;
+    void (*merger)(bcf_hdr_t *hdr, bcf1_t *line, struct _info_rule_t *rule);
+    int type;
+    int nvalues, mvalues, ncounts, mcounts;
+    int *counts;
+    void *values;
+}
+info_rule_t;
+
 // Auxiliary merge data for selecting the right combination
 //  of buffered records across multiple readers. maux1_t 
 //  corresponds to one buffered line.
@@ -67,7 +75,9 @@ typedef struct
 {
     maux_t *maux;
     int header_only, collapse, output_type;
-    char *header_fname, *regions_fname;
+    char *header_fname, *regions_fname, *info_rules;
+    info_rule_t *rules;
+    int nrules;
     strdict_t *tmph;
     kstring_t tmps;
     bcf_srs_t *files;
@@ -78,6 +88,214 @@ typedef struct
     int argc;
 }
 args_t;
+
+static void info_rules_merge_sum(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
+{
+    if ( !rule->nvalues ) return;
+    int i, j, ndim = rule->counts[0];
+    #define BRANCH(src_type_t,dst_type_t) { \
+        for (i=1; i<rule->ncounts; i++) \
+        { \
+            assert( rule->counts[i]==ndim ); \
+            for (j=0; j<ndim; j++) ((dst_type_t*)rule->values)[j] += ((src_type_t*)rule->values)[j+i*ndim]; \
+        } \
+    }
+    switch (rule->type) {
+        case BCF_HT_INT:  BRANCH(int, int32_t); break;
+        case BCF_HT_REAL: BRANCH(float, float); break;
+        default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
+    }
+    #undef BRANCH
+
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+}
+static void info_rules_merge_avg(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
+{
+    if ( !rule->nvalues ) return;
+    int i, j, ndim = rule->counts[0];
+    #define BRANCH(src_type_t,dst_type_t) { \
+        for (j=0; j<ndim; j++) \
+        { \
+            double sum = 0; \
+            for (i=0; i<rule->ncounts; i++) sum += ((src_type_t*)rule->values)[j+i*ndim]; \
+            ((dst_type_t*)rule->values)[j] = sum / rule->ncounts; \
+        } \
+    }
+    switch (rule->type) {
+        case BCF_HT_INT:  BRANCH(int, int32_t); break;
+        case BCF_HT_REAL: BRANCH(float, float); break;
+        default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
+    }
+    #undef BRANCH
+
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+}
+static void info_rules_merge_min(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
+{
+    if ( !rule->nvalues ) return;
+    int i, j, ndim = rule->counts[0];
+    #define BRANCH(src_type_t,dst_type_t) { \
+        for (i=1; i<rule->ncounts; i++) \
+        { \
+            assert( rule->counts[i]==ndim ); \
+            for (j=0; j<ndim; j++) \
+            { \
+                if ( ((dst_type_t*)rule->values)[j] > ((src_type_t*)rule->values)[j+i*ndim] ) \
+                    ((dst_type_t*)rule->values)[j] = ((src_type_t*)rule->values)[j+i*ndim]; \
+            } \
+        } \
+    }
+    switch (rule->type) {
+        case BCF_HT_INT:  BRANCH(int, int32_t); break;
+        case BCF_HT_REAL: BRANCH(float, float); break;
+        default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
+    }
+    #undef BRANCH
+
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+}
+static void info_rules_merge_max(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
+{
+    if ( !rule->nvalues ) return;
+    int i, j, ndim = rule->counts[0];
+    #define BRANCH(src_type_t,dst_type_t) { \
+        for (i=1; i<rule->ncounts; i++) \
+        { \
+            assert( rule->counts[i]==ndim ); \
+            for (j=0; j<ndim; j++) \
+            { \
+                if ( ((dst_type_t*)rule->values)[j] < ((src_type_t*)rule->values)[j+i*ndim] ) \
+                    ((dst_type_t*)rule->values)[j] = ((src_type_t*)rule->values)[j+i*ndim]; \
+            } \
+        } \
+    }
+    switch (rule->type) {
+        case BCF_HT_INT:  BRANCH(int, int32_t); break;
+        case BCF_HT_REAL: BRANCH(float, float); break;
+        default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
+    }
+    #undef BRANCH
+
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+}
+static void info_rules_merge_join(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
+{
+    if ( !rule->nvalues ) return;
+    if ( rule->type==BCF_HT_STR )
+    {
+        ((char*)rule->values)[rule->nvalues] = 0;
+        bcf_update_info_string(hdr,line,rule->hdr_tag,rule->values);
+    }
+    else
+        bcf_update_info(hdr,line,rule->hdr_tag,rule->values,rule->nvalues,rule->type);
+}
+
+static void info_rules_init(args_t *args)
+{
+    if ( !args->info_rules ) return;
+
+    args->nrules = 1;
+    char *ss = strdup(args->info_rules), *tmp = ss;
+    int n = 0;
+    while ( *ss ) 
+    {
+        if ( *ss==':' ) { *ss = 0; n++; if ( n%2==0 ) error("Could not parse INFO rules: \"%s\"\n", args->info_rules); }
+        else if ( *ss==',' ) { *ss = 0; args->nrules++; n++; if ( n%2==1 ) error("Could not parse INFO rules: \"%s\"\n", args->info_rules); }
+        ss++;
+    }
+    if ( n%2==0 ) error("Could not parse INFO rules: \"%s\"\n", args->info_rules);
+    args->rules = (info_rule_t*) calloc(args->nrules,sizeof(info_rule_t));
+
+    n = 0;
+    ss = tmp;
+    while ( n < args->nrules )
+    {
+        info_rule_t *rule = &args->rules[n];
+        rule->hdr_tag = ss;
+        int id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, rule->hdr_tag);
+        if ( !bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,id) ) error("The tag is not defined in the header: \"%s\"\n", rule->hdr_tag);
+        rule->type = bcf_hdr_id2type(args->out_hdr,BCF_HL_INFO,id);
+        if ( rule->type!=BCF_HT_INT && rule->type!=BCF_HT_REAL && rule->type!=BCF_HT_STR ) error("The type is not supported: \"%s\"\n", rule->hdr_tag);
+
+        while ( *ss ) ss++; ss++;
+        if ( !*ss ) error("Could not parse INFO rules, missing logic of \"%s\"\n", rule->hdr_tag);
+
+        int is_join = 0;
+        if ( !strcasecmp(ss,"sum") ) rule->merger = info_rules_merge_sum;
+        else if ( !strcasecmp(ss,"avg") ) rule->merger = info_rules_merge_avg;
+        else if ( !strcasecmp(ss,"min") ) rule->merger = info_rules_merge_min;
+        else if ( !strcasecmp(ss,"max") ) rule->merger = info_rules_merge_max;
+        else if ( !strcasecmp(ss,"join") ) { rule->merger = info_rules_merge_join; is_join = 1; }
+        else error("The rule logic \"%s\" not recognised\n", ss);
+
+        if ( !is_join && rule->type==BCF_HT_STR )
+            error("Numeric operation \"%s\" requested on non-numeric field: %s\n", ss, rule->hdr_tag);
+        if ( !is_join && bcf_hdr_id2number(args->out_hdr,BCF_HL_INFO,id)==0xfffff )
+            error("Only fixed-length vectors are supported with \"%s\", cannot run with %s\n", ss, rule->hdr_tag);
+
+        while ( *ss ) ss++; ss++; n++;
+    }
+}
+static void info_rules_destroy(args_t *args)
+{
+    int i;
+    for (i=0; i<args->nrules; i++)
+    {
+        info_rule_t *rule = &args->rules[i];
+        if ( i==0 ) free(rule->hdr_tag);
+        free(rule->counts);
+        free(rule->values);
+    }
+    free(args->rules);
+}
+static void info_rules_reset(args_t *args)
+{
+    int i;
+    for (i=0; i<args->nrules; i++)
+        args->rules[i].ncounts = args->rules[i].nvalues = 0;
+}
+static int info_rules_comp_key(const void *a, const void *b)
+{
+    char *key = (char*) a;
+    info_rule_t *rule = (info_rule_t*) b; 
+    return strcmp(key, rule->hdr_tag);
+}
+static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
+{
+    int ret = bcf_get_info_values(hdr, line, rule->hdr_tag, &args->maux->tmp_arr, &args->maux->ntmp_arr, rule->type);
+    if ( ret<=0 ) error("FIXME: error parsing %s at %s:%d .. %d\n", rule->hdr_tag,bcf_seqname(hdr,line),line->pos+1,ret);
+    rule->ncounts++;
+    hts_expand0(int,rule->ncounts,rule->mcounts,rule->counts);
+    rule->counts[rule->ncounts-1] = ret;
+
+    if ( rule->type==BCF_HT_STR )
+    {
+        int need_comma = rule->nvalues==0 ? 0 : 1;
+        hts_expand(char,rule->nvalues+ret+need_comma+1,rule->mvalues,rule->values);            // 1 for null-termination
+        char *tmp = (char*) rule->values + rule->nvalues;
+        if ( rule->nvalues>0 ) { *tmp = ','; tmp++; }
+        strncpy(tmp,(char*)args->maux->tmp_arr,ret);
+        rule->nvalues += ret + need_comma;
+    }
+    else
+    {
+        #define BRANCH(src_type_t,dst_type_t) { \
+            src_type_t *src = (src_type_t *) args->maux->tmp_arr; \
+            hts_expand0(dst_type_t,(rule->nvalues+ret),rule->mvalues,rule->values); \
+            dst_type_t *dst = (dst_type_t *) rule->values + rule->nvalues; \
+            rule->nvalues += ret; \
+            int i; \
+            for (i=0; i<ret; i++) dst[i] = src[i]; \
+        }
+        switch (rule->type) {
+            case BCF_HT_INT:   BRANCH(int, int32_t); break;
+            case BCF_HT_REAL: BRANCH(float, float); break;
+            default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
+        }
+        #undef BRANCH
+    }
+    return 1;
+}
 
 int bcf_hdr_sync(bcf_hdr_t *h);
 
@@ -471,6 +689,49 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     tmp_str->l = 0;
 }
 
+static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
+{
+//char *src = (char*)calloc(src_len+1,1);
+//strncpy(src,_src,src_len);
+//fprintf(stderr,"%d:[%s] -> %d:[%s]  (strlen=%d)\n", isrc,src,idst,dst->s,dst->l);
+    int ith_src = 0, start_src = 0;    // i-th field in src string
+    while ( ith_src<isrc && start_src<src_len )
+    {
+        if ( src[start_src]==',' ) { ith_src++; }
+        start_src++;
+    }
+    assert( ith_src==isrc ); // if ( ith_src<isrc ) return; // requested field not found
+    int end_src = start_src;
+    while ( end_src<src_len && src[end_src]!=',' ) end_src++;
+
+    int nsrc_cpy = end_src - start_src;
+    if ( nsrc_cpy==1 && src[start_src]=='.' ) return;   // don't write missing values, dst is already initialized
+
+    int ith_dst = 0, start_dst = 0;
+    while ( ith_dst<idst && start_dst<dst->l )
+    {
+        if ( dst->s[start_dst]==',' ) { ith_dst++; }
+        start_dst++;
+    }
+//fprintf(stderr,"ithd_dst,idst=%d,%d   start_dst=[%s]   start_dst,dst->l=%d,%d\n", ith_dst,idst, &dst->s[start_dst], start_dst,dst->l);
+    assert( ith_dst==idst ); // if ( ith_dst<idst ) return;
+    int end_dst = start_dst;
+    while ( end_dst<dst->l && dst->s[end_dst]!=',' ) end_dst++;
+
+    if ( end_dst - start_dst>1 || dst->s[start_dst]!='.' ) return;   // do not overwrite non-empty values
+
+    int ndst_shift = nsrc_cpy - (end_dst - start_dst);
+    int ndst_move  = dst->l - end_dst + 1;  // including \0
+    if ( ndst_shift )
+    {
+        ks_resize(dst, dst->l + ndst_shift);
+        memmove(dst->s+end_dst+ndst_shift, dst->s+end_dst, ndst_move);
+    }
+    memcpy(dst->s+start_dst, src+start_src, nsrc_cpy);
+    dst->l += ndst_shift;
+//fprintf(stderr," -> [%s], len=%d\n", dst->s,dst->l);
+}
+
 static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t *als, AGR_info_t *agr)
 {
     int i;
@@ -491,8 +752,15 @@ static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t 
                 for (i=0; i<agr->nvals; i++) bcf_float_set_missing(tmp[i]);
             }
         }
+        else if ( info->type==BCF_BT_CHAR )
+        {
+            kstring_t tmp; tmp.l = 0; tmp.m = agr->mbuf; tmp.s = (char*)agr->buf;
+            kputc('.',&tmp);
+            for (i=1; i<agr->nvals; i++) kputs(",.",&tmp);
+            agr->mbuf = tmp.m; agr->nbuf = tmp.l; agr->buf = (uint8_t*)tmp.s;
+        }
         else
-            error("todo: other types\n");
+            error("Not ready for type [%d]: %s at %d\n", info->type,agr->hdr_tag,line->pos+1);
     }
 
     if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 || info->type==BCF_BT_FLOAT )
@@ -508,7 +776,7 @@ static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t 
                 { \
                     if ( is_vector_end ) break; \
                     if ( is_missing ) continue; \
-                    inew = als->map[iori] - 1; \
+                    inew = als->map[iori] - ifrom; \
                     tgt[inew] = *src; \
                     src++; \
                 } \
@@ -553,6 +821,32 @@ static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t 
             #undef BRANCH
         }
     }
+    else
+    {
+        kstring_t tmp; tmp.l = agr->nbuf; tmp.m = agr->mbuf; tmp.s = (char*)agr->buf;
+        if ( len==BCF_VL_A || len==BCF_VL_R )
+        {
+            int iori, ifrom = len==BCF_VL_A ? 1 : 0;
+            for (iori=ifrom; iori<line->n_allele; iori++) 
+                copy_string_field((char*)info->vptr, iori-ifrom, info->len, &tmp, als->map[iori]-ifrom);
+        }
+        else
+        {
+            int iori,jori, inew,jnew;
+            for (iori=0; iori<line->n_allele; iori++)
+            { 
+                inew = als->map[iori];
+                for (jori=0; jori<=iori; jori++)
+                {
+                    jnew = als->map[jori];
+                    int kori = iori*(iori+1)/2 + jori;
+                    int knew = bcf_alleles2gt(inew,jnew);
+                    copy_string_field((char*)info->vptr, kori, info->len, &tmp, knew);
+                }
+            }
+        }
+        agr->mbuf = tmp.m; agr->nbuf = tmp.l; agr->buf = (uint8_t*)tmp.s;
+    }
 }
 
 void merge_info(args_t *args, bcf1_t *out)
@@ -568,6 +862,7 @@ void merge_info(args_t *args, bcf1_t *out)
     maux_t *ma = args->maux;
     ma->nAGR_info = 0;
     out->n_info   = 0;
+    info_rules_reset(args);
     for (i=0; i<files->nreaders; i++)
     {
         if ( !ma->has_line[i] ) continue;
@@ -580,12 +875,20 @@ void merge_info(args_t *args, bcf1_t *out)
 
             const char *key = hdr->id[BCF_DT_ID][inf->key].key;
             int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
-            if ( id==-1 ) error("Error: The INFO field not defined: %s\n", key);
+            if ( id==-1 ) error("Error: The INFO field is not defined in the header: %s\n", key);
+
+            if ( args->nrules )
+            {
+                info_rule_t *rule = (info_rule_t*) bsearch(key, args->rules, args->nrules, sizeof(info_rule_t), info_rules_comp_key);
+                if ( rule && info_rules_add_values(args, hdr, line, rule) ) continue;
+            }
 
             kitr = kh_get(strdict, tmph, key);  // have we seen the tag in one of the readers?
-            int len = bcf_hdr_id2length(hdr,BCF_HL_INFO,id);
+            int len = bcf_hdr_id2length(hdr,BCF_HL_INFO,inf->key);
             if ( len==BCF_VL_A || len==BCF_VL_G || len==BCF_VL_R  ) // Number=R,G,A requires special treatment
             {
+                if ( !strcmp("AC",key) ) continue;  // AC is done in merge_format() after genotypes are done
+
                 if ( kitr == kh_end(tmph) )
                 {
                     // first occurance in this reader, alloc arrays
@@ -594,13 +897,13 @@ void merge_info(args_t *args, bcf1_t *out)
                     kitr = kh_put(strdict, tmph, key, &ret);
                     kh_val(tmph,kitr) = ma->nAGR_info - 1;
                     ma->AGR_info[ma->nAGR_info-1].hdr_tag = key;
-                    ma->AGR_info[ma->nAGR_info-1].type  = inf->type;
+                    ma->AGR_info[ma->nAGR_info-1].type  = bcf_hdr_id2type(hdr,BCF_HL_INFO,inf->key);
                     ma->AGR_info[ma->nAGR_info-1].nbuf  = 0;    // size of the buffer
                     switch (len)
                     {
-                        case BCF_VL_A: ma->AGR_info[ma->nAGR_info-1].nvals = ma->nout_als; break;
+                        case BCF_VL_A: ma->AGR_info[ma->nAGR_info-1].nvals = ma->nout_als - 1; break;
                         case BCF_VL_G: ma->AGR_info[ma->nAGR_info-1].nvals = bcf_alleles2gt(ma->nout_als-1,ma->nout_als-1)+1; break;
-                        case BCF_VL_R: ma->AGR_info[ma->nAGR_info-1].nvals = ma->nout_als+1; break;
+                        case BCF_VL_R: ma->AGR_info[ma->nAGR_info-1].nvals = ma->nout_als; break;
                     }
                 }
                 kitr = kh_get(strdict, tmph, key);
@@ -612,7 +915,7 @@ void merge_info(args_t *args, bcf1_t *out)
 
             if ( kitr == kh_end(tmph) )
             {
-                hts_expand(bcf_info_t,out->n_info+1,ma->minf,ma->inf);
+                hts_expand0(bcf_info_t,out->n_info+1,ma->minf,ma->inf);
                 ma->inf[out->n_info].key  = id;
                 ma->inf[out->n_info].type = inf->type;
                 ma->inf[out->n_info].len  = inf->len;
@@ -637,11 +940,18 @@ void merge_info(args_t *args, bcf1_t *out)
     }
     out->d.info = ma->inf;
     out->d.m_info = ma->minf;
-    for (i=out->n_info; i<out->d.m_info; i++) out->d.info[i].vptr_free = 0;
+    for (i=0; i<args->nrules; i++)
+        args->rules[i].merger(args->out_hdr, out, &args->rules[i]);
     for (i=0; i<ma->nAGR_info; i++)
     {
         AGR_info_t *agr = &ma->AGR_info[i];
         bcf_update_info(out_hdr,out,agr->hdr_tag,agr->buf,agr->nvals,agr->type);
+    }
+    if ( out->d.info!=ma->inf )
+    {
+        // hacky, we rely on htslib internals: bcf_update_info() reallocated the info
+        ma->inf  = out->d.info;
+        ma->minf = out->d.m_info;
     }
 }
 
@@ -1342,6 +1652,7 @@ void merge_vcf(args_t *args)
         bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_merge");
         bcf_hdr_sync(args->out_hdr);
     }
+    info_rules_init(args);
 
     bcf_hdr_write(args->out_fh, args->out_hdr);
     if ( args->header_only )
@@ -1359,6 +1670,7 @@ void merge_vcf(args_t *args)
     {
         merge_buffer(args);
     }
+    info_rules_destroy(args);
     maux_destroy(args->maux);
     bcf_hdr_destroy(args->out_hdr);
     hts_close(args->out_fh);
@@ -1373,12 +1685,13 @@ static void usage(void)
     fprintf(stderr, "         into one according to the -m option.\n");
     fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> ...\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "        --use-header <file>       use the provided header\n");
-    fprintf(stderr, "        --print-header            print only the merged header and exit\n");
-    fprintf(stderr, "    -f, --apply-filters <list>    require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -m, --merge <string>          merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
-    fprintf(stderr, "    -O, --output-type <b|u|z|v>   'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <reg|file>      merge in the given regions only\n");
+    fprintf(stderr, "        --use-header <file>            use the provided header\n");
+    fprintf(stderr, "        --print-header                 print only the merged header and exit\n");
+    fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -i, --info-rules <tag:method,..>   list of rules: sum,avg,min,max,join\n");
+    fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
+    fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "    -r, --regions <reg|file>           merge in the given regions only\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1400,10 +1713,12 @@ int main_vcfmerge(int argc, char *argv[])
         {"print-header",0,0,2},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
+        {"info-rules",1,0,'i'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:1:2O:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:1:2O:i:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'i': args->info_rules = optarg; break;
             case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;

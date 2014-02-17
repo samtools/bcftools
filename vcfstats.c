@@ -629,7 +629,7 @@ static void do_user_stats(stats_t *stats, bcf_sr_t *reader, int is_ts)
         }
         else
         {
-            if ( bcf_get_info_int(reader->header,reader->buffer[0],usr->tag,&usr->val,&usr->m_val)<=0 ) continue;
+            if ( bcf_get_info_int32(reader->header,reader->buffer[0],usr->tag,&usr->val,&usr->m_val)<=0 ) continue;
             val = ((int32_t*)usr->val)[0];
         }
         int idx;
