@@ -471,6 +471,10 @@ can be also given explicitly using the *--print-header* and
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
+*-i, --info-rules* '-'|'TAG:METHOD'[,...]::
+    Rules for merging INFO fields (scalars or vectors) or '-' to disable the
+    default rules.  'METHOD' is one of 'sum', 'avg', 'min', 'max', 'join'.
+
 *-m, --merge* 'snps'|'indels'|'both'|'all'|'none'::
     Defines  merging behaviour, similar to *-c, --collapse*. For example, to
     prevent merging of SNPs and indels into one record, use *-m* 'both'. To

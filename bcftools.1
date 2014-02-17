@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 02/15/2014
+.\"      Date: 02/17/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "02/15/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "02/17/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -876,6 +876,20 @@ print only merged header and exit
 .RS 4
 see
 \fBCommon Options\fR
+.RE
+.PP
+\fB\-i, \-\-info\-rules\fR \fI\-\fR|\fITAG:METHOD\fR[,\&...]
+.RS 4
+Rules for merging INFO fields (scalars or vectors) or
+\fI\-\fR
+to disable the default rules\&.
+\fIMETHOD\fR
+is one of
+\fIsum\fR,
+\fIavg\fR,
+\fImin\fR,
+\fImax\fR,
+\fIjoin\fR\&.
 .RE
 .PP
 \fB\-m, \-\-merge\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR

@@ -192,7 +192,20 @@ static void info_rules_merge_join(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rul
 
 static void info_rules_init(args_t *args)
 {
-    if ( !args->info_rules ) return;
+    if ( args->info_rules && !strcmp("-",args->info_rules) ) return;
+
+    kstring_t str = {0,0,0};
+    if ( !args->info_rules ) 
+    {
+        if ( bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "DP")) ) kputs("DP:sum",&str);
+        if ( bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "DP4")) )
+        {
+            if ( str.l ) kputc(',',&str);
+            kputs("DP4:sum",&str);
+        }
+        if ( !str.l ) return;
+        args->info_rules = str.s;
+    }
 
     args->nrules = 1;
     char *ss = strdup(args->info_rules), *tmp = ss;
@@ -235,6 +248,7 @@ static void info_rules_init(args_t *args)
 
         while ( *ss ) ss++; ss++; n++;
     }
+    free(str.s);
 }
 static void info_rules_destroy(args_t *args)
 {
@@ -691,9 +705,6 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
 
 static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
 {
-//char *src = (char*)calloc(src_len+1,1);
-//strncpy(src,_src,src_len);
-//fprintf(stderr,"%d:[%s] -> %d:[%s]  (strlen=%d)\n", isrc,src,idst,dst->s,dst->l);
     int ith_src = 0, start_src = 0;    // i-th field in src string
     while ( ith_src<isrc && start_src<src_len )
     {
@@ -713,7 +724,6 @@ static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t
         if ( dst->s[start_dst]==',' ) { ith_dst++; }
         start_dst++;
     }
-//fprintf(stderr,"ithd_dst,idst=%d,%d   start_dst=[%s]   start_dst,dst->l=%d,%d\n", ith_dst,idst, &dst->s[start_dst], start_dst,dst->l);
     assert( ith_dst==idst ); // if ( ith_dst<idst ) return;
     int end_dst = start_dst;
     while ( end_dst<dst->l && dst->s[end_dst]!=',' ) end_dst++;
@@ -729,7 +739,6 @@ static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t
     }
     memcpy(dst->s+start_dst, src+start_src, nsrc_cpy);
     dst->l += ndst_shift;
-//fprintf(stderr," -> [%s], len=%d\n", dst->s,dst->l);
 }
 
 static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t *als, AGR_info_t *agr)
@@ -1688,7 +1697,7 @@ static void usage(void)
     fprintf(stderr, "        --use-header <file>            use the provided header\n");
     fprintf(stderr, "        --print-header                 print only the merged header and exit\n");
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -i, --info-rules <tag:method,..>   list of rules: sum,avg,min,max,join\n");
+    fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <reg|file>           merge in the given regions only\n");
