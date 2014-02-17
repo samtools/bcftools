@@ -360,7 +360,13 @@ static void init_stats(args_t *args)
 
     if ( args->samples_fname )
     {
-        if ( !bcf_sr_set_samples(args->files,args->samples_fname) ) error("Could not initialize samples: %s\n", args->samples_fname);
+        if ( !bcf_sr_set_samples(args->files,args->samples_fname) )
+        {
+            if ( args->samples_fname[0]!=':' ) 
+                error("No such sample(s), please prefix with ':' to indicate file name: \"%s\"\n", args->samples_fname);
+            else
+                error("Unable to parse the file: \"%s\"\n", args->samples_fname);
+        }
         args->af_gts_snps     = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
         args->af_gts_indels   = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
         args->smpl_gts_snps   = (gtcmp_t *) calloc(args->files->n_smpl,sizeof(gtcmp_t));
@@ -1218,7 +1224,7 @@ static void usage(void)
     fprintf(stderr, "    -F, --fasta-ref <file>             faidx indexed reference sequence file to determine INDEL context\n");
     fprintf(stderr, "    -i, --split-by-ID                  collect stats for sites with ID separately (known vs novel)\n");
     fprintf(stderr, "    -r, --regions <reg|file>           restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "    -s, --samples <list|file>          produce sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -s, --samples <list|:file>         produce sample stats, \"-\" to include all samples\n");
     fprintf(stderr, "    -t, --targets <reg|file>           similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "    -u, --user-tstv <TAG[:min:max:n]>  collect Ts/Tv stats for any tag using the given binning [0:1,100]\n");
     fprintf(stderr, "\n");

@@ -57,7 +57,7 @@ typedef struct _annot_col_t
 {
     int icol;
     char *hdr_key;
-    int (*setter)(struct _args_t *, bcf1_t *, struct _annot_col_t *, annot_line_t *);
+    int (*setter)(struct _args_t *, bcf1_t *, struct _annot_col_t *, void*);
 }
 annot_col_t;
 
@@ -83,8 +83,9 @@ typedef struct _args_t
     annot_col_t *cols;      // column indexes and setters
     int ncols;
 
-    int *tmpi, ntmpi, mtmpi, ntmpf, mtmpf;
+    int *tmpi, ntmpi, mtmpi, ntmpf, mtmpf, ntmps, mtmps;
     float *tmpf;
+    char *tmps;
 
     char **argv, *targets_fname, *regions_fname, *header_fname;
     char *remove_annots, *columns;
@@ -350,12 +351,19 @@ static void init_header_lines(args_t *args)
     hts_close(file);
     free(str.s);
 }
-static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    annot_line_t *tab = (annot_line_t*) data;
     return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
 }
-static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    bcf1_t *rec = (bcf1_t*) data;
+    return bcf_update_id(args->hdr_out,line,rec->d.id);
+}
+static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol];
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
@@ -364,8 +372,15 @@ static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_
         error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
     return 0;
 }
-static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+static int vcf_setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    bcf1_t *rec = (bcf1_t*) data;
+    line->qual = rec->qual;
+    return 0;
+}
+static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol];
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
@@ -374,8 +389,16 @@ static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, annot_
     error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
     return -1;
 }
-static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab) 
+static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    int flag = bcf_get_info_flag(args->files->readers[1].header,rec,col->hdr_key,NULL,NULL);
+    bcf_update_info_flag(args->hdr_out,line,col->hdr_key,NULL,flag);
+    return 0;
+}
+static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data) 
 { 
+    annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
@@ -392,8 +415,17 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, annot_l
     }
     return bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,args->ntmpi);
 }
-static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab)
+static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    args->ntmpi = bcf_get_info_int(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
+    if ( args->ntmpi >=0 )
+        bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,args->ntmpi);
+    return 0;
+}
+static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 { 
+    annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
@@ -410,13 +442,30 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, annot_
     }
     return bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,args->ntmpf);
 }
-static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, annot_line_t *tab) 
+static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    bcf1_t *rec = (bcf1_t*) data;
+    args->ntmpf = bcf_get_info_float(args->files->readers[1].header,rec,col->hdr_key,&args->tmpf,&args->mtmpf);
+    if ( args->ntmpf >=0 )
+        bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,args->ntmpf);
+    return 0;
+}
+static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data) 
+{
+    annot_line_t *tab = (annot_line_t*) data;
     return bcf_update_info_string(args->hdr_out,line,col->hdr_key,tab->cols[col->icol]);
+}
+static int vcf_setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    args->ntmps = bcf_get_info_string(args->files->readers[1].header,rec,col->hdr_key,&args->tmps,&args->mtmps);
+    if ( args->ntmps >=0 )
+        bcf_update_info_string(args->hdr_out,line,col->hdr_key,args->tmps);
+    return 0;
 }
 static void init_columns(args_t *args)
 {
-    kstring_t str = {0,0,0};
+    kstring_t str = {0,0,0}, tmp = {0,0,0};
     char *ss = args->columns, *se = ss;
     args->ncols = 0;
     int i = -1;
@@ -439,7 +488,7 @@ static void init_columns(args_t *args)
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
-            col->setter = setter_id;
+            col->setter = args->tgts ? setter_id : vcf_setter_id;
             col->hdr_key = strdup(str.s);
         }
         else if ( !strcasecmp("QUAL",str.s) )
@@ -447,14 +496,27 @@ static void init_columns(args_t *args)
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
-            col->setter = setter_qual;
+            col->setter = args->tgts ? setter_qual : vcf_setter_qual;
             col->hdr_key = strdup(str.s);
         }
         else 
         {
             if ( !strncasecmp("INFO/",str.s,5) ) { memmove(str.s,str.s+5,str.l-4); }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
-            if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) ) error("The column not recognised: [%s] .. %d\n", str.s, hdr_id);
+            if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) )
+            {
+                if ( args->files->require_index ) // reading annotations from a VCF, add a new header line
+                {
+                    bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_INFO, str.s);
+                    if ( !hrec ) error("The tag \"%s\" is not defined in %s\n", str.s,args->files->readers[1].fname);
+                    tmp.l = 0;
+                    bcf_hrec_format(hrec, &tmp);
+                    bcf_hdr_append(args->hdr_out, tmp.s);
+                    hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
+                }
+                if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) )
+                    error("The column not recognised: [%s] .. %d\n", str.s, hdr_id);
+            }
 
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
@@ -462,10 +524,10 @@ static void init_columns(args_t *args)
             col->hdr_key = strdup(str.s);
             switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
             {
-                case BCF_HT_FLAG:   col->setter = setter_info_flag; break;
-                case BCF_HT_INT:    col->setter = setter_info_int; break;
-                case BCF_HT_REAL:   col->setter = setter_info_real; break;
-                case BCF_HT_STR:    col->setter = setter_info_str; break;
+                case BCF_HT_FLAG:   col->setter = args->tgts ? setter_info_flag : vcf_setter_info_flag; break;
+                case BCF_HT_INT:    col->setter = args->tgts ? setter_info_int  : vcf_setter_info_int; break;
+                case BCF_HT_REAL:   col->setter = args->tgts ? setter_info_real : vcf_setter_info_real; break;
+                case BCF_HT_STR:    col->setter = args->tgts ? setter_info_str  : vcf_setter_info_str; break;
                 default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id));
             }
         }
@@ -473,6 +535,7 @@ static void init_columns(args_t *args)
         ss = ++se;
     }
     free(str.s);
+    free(tmp.s);
     if ( args->to_idx==-1 ) args->to_idx = args->from_idx;
 }
 
@@ -481,21 +544,28 @@ static void init_data(args_t *args)
     args->hdr = args->files->readers[0].header;
     args->hdr_out = bcf_hdr_dup(args->hdr);
 
+    if ( args->targets_fname )
+    {
+        if ( args->files->require_index )   // reading annots from a VCF
+        {
+            if ( !bcf_sr_add_reader(args->files, args->targets_fname) )
+                error("Failed to open or the file not indexed: %s\n", args->targets_fname);
+        }
+        else
+        {
+            args->tgts = bcf_sr_regions_init(args->targets_fname,args->chr_idx,args->from_idx,args->to_idx);
+            if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
+            if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
+            args->vcmp = vcmp_init();
+        }
+    }
     if ( args->remove_annots ) init_remove_annots(args);
     if ( args->header_fname ) init_header_lines(args);
     if ( args->columns ) init_columns(args);
+    init_plugins(args);
 
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
-
-    if ( args->targets_fname )
-    {
-        args->tgts = bcf_sr_regions_init(args->targets_fname,args->chr_idx,args->from_idx,args->to_idx);
-        if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
-        if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
-        args->vcmp = vcmp_init();
-    }
-    init_plugins(args);
 }
 
 static void destroy_data(args_t *args)
@@ -530,6 +600,7 @@ static void destroy_data(args_t *args)
     if ( args->tgts ) bcf_sr_regions_destroy(args->tgts);
     free(args->tmpi);
     free(args->tmpf);
+    free(args->tmps);
 }
 
 static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
@@ -644,6 +715,13 @@ static void annotate(args_t *args, bcf1_t *line)
                     error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
         }
     }
+    else if ( args->files->nreaders == 2 && bcf_sr_has_line(args->files,1) )
+    {
+        bcf1_t *aline = bcf_sr_get_line(args->files,1);
+        for (j=0; j<args->ncols; j++)
+            if ( args->cols[j].setter(args,line,&args->cols[j],aline) ) 
+                error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+    }
 
     for (i=0; i<args->nplugins; i++)
         args->plugins[i].process(line);
@@ -655,7 +733,7 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   Annotate and edit VCF/BCF files.\n");
     fprintf(stderr, "Usage:   bcftools annotate [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "   -a, --annotations <file>       tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
+    fprintf(stderr, "   -a, --annotations <file>       VCF file or tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should to appended to the VCF header\n");
 	fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
@@ -729,13 +807,15 @@ int main_vcfannotate(int argc, char *argv[])
         if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
             error("Failed to read the regions: %s\n", args->regions_fname);
     }
+    if ( args->targets_fname && hts_file_type(args->targets_fname) & (FT_VCF|FT_BCF) ) args->files->require_index = 1;
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
     
     init_data(args);
     bcf_hdr_write(args->out_fh, args->hdr_out);
     while ( bcf_sr_next_line(args->files) )
     {
-        bcf1_t *line = args->files->readers[0].buffer[0];
+        if ( !bcf_sr_has_line(args->files,0) ) continue;
+        bcf1_t *line = bcf_sr_get_line(args->files,0);
         if ( line->errcode ) error("Encountered error, cannot proceed. Please check the error output above.\n");
         annotate(args, line);
         bcf_write1(args->out_fh, args->hdr_out, line);

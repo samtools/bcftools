@@ -21,8 +21,8 @@ typedef struct _args_t
     int *start_pos, ifname;
     int *swap_phase, nswap, *nmatch, *nmism;
     bcf1_t **buf;
-    int nbuf, mbuf;
-    int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual;
+    int nbuf, mbuf, prev_chr, min_PQ;
+    int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
     char **argv, *file_list, **fnames;
     int argc, nfnames, allow_overlaps, phased_concat;
@@ -83,7 +83,10 @@ static void init_data(args_t *args)
 
     // We do not output PS in order to save on VCF size. We can make a command line option if people need it.
     if ( args->phased_concat )
+    {
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PQ,Number=1,Type=Integer,Description=\"Phasing Quality (bigger is better)\">");
+        bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase Set\">");
+    }
     bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
     bcf_hdr_write(args->out_fh, args->out_hdr);
@@ -97,10 +100,12 @@ static void init_data(args_t *args)
     }
     else if ( args->phased_concat )
     {
+        args->prev_chr = -1;
         args->swap_phase = (int*) calloc(bcf_hdr_nsamples(args->out_hdr),sizeof(int));
         args->nmatch = (int*) calloc(bcf_hdr_nsamples(args->out_hdr),sizeof(int));
         args->nmism  = (int*) calloc(bcf_hdr_nsamples(args->out_hdr),sizeof(int));
         args->phase_qual = (int32_t*) malloc(bcf_hdr_nsamples(args->out_hdr)*sizeof(int32_t));
+        args->phase_set  = (int32_t*) malloc(bcf_hdr_nsamples(args->out_hdr)*sizeof(int32_t));
         args->files = bcf_sr_init();
         args->files->require_index = 1;
         args->ifname = 0;
@@ -126,6 +131,7 @@ static void destroy_data(args_t *args)
     free(args->nmatch);
     free(args->nmism);
     free(args->phase_qual);
+    free(args->phase_set);
 }
 
 int vcf_write_line(htsFile *fp, kstring_t *line);
@@ -190,6 +196,7 @@ static void phased_flush(args_t *args)
         bcf_translate(args->out_hdr, args->files->readers[0].header, arec);
         if ( args->nswap )
             phase_update(args, args->out_hdr, arec);
+        bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
         bcf_write(args->out_fh, args->out_hdr, arec);
     }
     args->nswap = 0;
@@ -204,6 +211,7 @@ static void phased_flush(args_t *args)
         }
         if ( args->nmatch[j] && args->nmism[j] )
         {
+            // Entropy-inspired quality. The factor 0.7 shifts and scales to (0,1)
             double f = (double)args->nmatch[j]/(args->nmatch[j]+args->nmism[j]);
             args->phase_qual[j] = 99*(0.7 + f*log(f) + (1-f)*log(1-f))/0.7;
         }
@@ -221,9 +229,12 @@ static void phased_flush(args_t *args)
         {
             bcf_update_format_int32(args->out_hdr,brec,"PQ",args->phase_qual,nsmpl);
             PQ_printed = 1;
+            for (j=0; j<nsmpl; j++)
+                if ( args->phase_qual[j] < args->min_PQ ) args->phase_set[j] = brec->pos+1;
         }
         if ( args->nswap )
             phase_update(args, args->out_hdr, brec);
+        bcf_update_format_int32(args->out_hdr,brec,"PS",args->phase_set,nsmpl);
         bcf_write(args->out_fh, args->out_hdr, brec);
     }
     args->nbuf = 0;
@@ -231,16 +242,29 @@ static void phased_flush(args_t *args)
 
 static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
 {
+    int i, nsmpl = bcf_hdr_nsamples(args->out_hdr);
+    int chr_id = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,arec));
+    if ( args->prev_chr<0 || args->prev_chr!=chr_id )
+    {
+        if ( args->prev_chr>=0 ) phased_flush(args);
+
+        for (i=0; i<nsmpl; i++) 
+            args->phase_set[i] = arec->pos+1;
+
+        args->prev_chr = chr_id;
+    }
+
     if ( !brec )
     {
         bcf_translate(args->out_hdr, args->files->readers[0].header, arec);
         if ( args->nswap )
             phase_update(args, args->out_hdr, arec);
+        bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
         bcf_write(args->out_fh, args->out_hdr, arec);
         return;
     }
 
-    int i, m = args->mbuf;
+    int m = args->mbuf;
     args->nbuf += 2;
     hts_expand(bcf1_t*,args->nbuf,args->mbuf,args->buf);
     for (i=m; i<args->mbuf; i++)
@@ -397,6 +421,7 @@ static void usage(args_t *args)
 	fprintf(stderr, "   -a, --allow-overlaps           Combine overlapping files. Requires indexed files.\n");
 	fprintf(stderr, "   -l, --file-list <file>         Read the list of files from a file.\n");
 	fprintf(stderr, "   -p, --phased-concat            Concatenate phased files.\n");
+	fprintf(stderr, "   -q, --min-PQ <int>             Brake phase set if phasing quality is lower than <int> [30]\n");
 	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
@@ -409,6 +434,7 @@ int main_vcfconcat(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->output_type = FT_VCF;
+    args->min_PQ  = 30;
 
     static struct option loptions[] = 
     {
@@ -416,11 +442,13 @@ int main_vcfconcat(int argc, char *argv[])
         {"phased-concat",1,0,'p'},
         {"output-type",1,0,'O'},
         {"file-list",1,0,'l'},
+        {"min-PQ",1,0,'q'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:l:ap",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?O:l:apq:",loptions,NULL)) >= 0) 
     {
         switch (c) {
+    	    case 'q': args->min_PQ = atoi(optarg); break;
     	    case 'a': args->allow_overlaps = 1; break;
     	    case 'p': args->phased_concat = 1; break;
     	    case 'l': args->file_list = optarg; break;

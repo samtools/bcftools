@@ -678,6 +678,8 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             continue; 
         }
 
+        for (i=0; i<ngts; i++) gls[i] = -HUGE_VAL;
+
         double sum_lk  = 0;
         double best_lk = 0;
         for (ia=0; ia<nals; ia++)
@@ -714,12 +716,9 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
                     }
                 }
             }
-            for (i=0; i<ngts; i++)
-                gls[i] = log(gls[i]/sum_lk);
         }
-        else
-            for (i=0; i<nals; i++)
-                gls[i] = log(gls[i]/sum_lk);
+        for (i=0; i<ngts; i++)
+            if ( gls[i]!=-HUGE_VAL ) gls[i] = log(gls[i]/sum_lk);
     }
 
     // Set novel mutation rate for this site: using first ALT allele for simplicity.
@@ -780,6 +779,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
                 double *gl = call->GLs + ngts*ismpl;
                 if ( gl[0]==1 ) continue;
                 int igt = trio[itr]>>((2-i)*4) & 0xf;
+                assert( !call->ploidy || call->ploidy[ismpl]>0 );
                 if ( igt==GT_SKIP ) continue;
                 lk += gl[igt];
                 npresent++;
@@ -901,7 +901,7 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
 {
     int ngts  = nals*(nals+1)/2;
     int npls_src = ngts, npls_dst = nout_als*(nout_als+1)/2;     // number of PL values in diploid samples, ori and new
-    if ( npls_src == npls_dst ) return;
+    if ( call->all_diploid && npls_src == npls_dst ) return;
 
     int *pls_src = call->PLs, *pls_dst = call->PLs;
 
@@ -913,7 +913,9 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
         if ( ploidy==2 )
         {
             for (ia=0; ia<npls_dst; ia++)
+            {
                 pls_dst[ia] =  pls_src[ call->pl_map[ia] ];
+            }
         }
         else
         {

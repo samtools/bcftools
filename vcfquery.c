@@ -467,7 +467,7 @@ static void init_data(args_t *args)
         {
             // the sample ordering may be different if not negated
             int n;
-            char **smpls = hts_readlines(args->sample_names, &n);
+            char **smpls = hts_readlist(args->sample_names, &n);
             if ( !smpls ) error("Could not parse %s\n", args->sample_names);
             if ( n!=bcf_hdr_nsamples(args->files->readers[0].header) ) 
                 error("The number of samples does not match, perhaps some are present multiple times?\n");
@@ -651,7 +651,7 @@ static void usage(void)
 	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit \n");
 	fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
-	fprintf(stderr, "    -s, --samples <list|file>         samples to include: comma-separated list or one name per line in a file\n");
+	fprintf(stderr, "    -s, --samples <list|:file>        comma-separated list of samples to include or one name per line in a file\n");
 	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
 	fprintf(stderr, "Expressions:\n");
     fprintf(stderr, "\t%%CHROM          The CHROM column (similarly also other columns, such as POS, ID, QUAL, etc.)\n");

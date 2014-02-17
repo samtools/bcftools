@@ -50,14 +50,14 @@ typedef struct _args_t
     int mwin;
     smpl_t *smpl;
     int32_t *PLs, *AN, *ACs;
-    double *AFs;
+    float *AFs;
     double pl2p[256], *pdg;
     int mPLs, mAFs, mAN, mACs, mpdg;
     int ntot, nused;
     int prev_rid, skip_rid;
     double unseen_PL;
 
-    char **argv, *targets_fname, *regions_fname, *samples_fname;
+    char **argv, *targets_fname, *regions_fname, *samples_fname, *af_fname, *af_tag;
     char *genmap_fname;
     int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only, snps_only, estimate_AF;
 }
@@ -74,6 +74,19 @@ static void init_data(args_t *args)
 {
     args->prev_rid = args->skip_rid = -1;
     args->hdr = args->files->readers[0].header;
+    if ( args->samples_fname && args->estimate_AF!=1 && !args->files->readers[0].file->is_bin )
+    {
+        // speedup: reading from VCF + only some samples are needed + we do not need to recalculate AC,AN
+        // this speeds up the parsing 3x (1.1k samples, 148MB vcf.gz, 38,010 sites)
+        int ret = bcf_hdr_set_samples(args->hdr, args->samples_fname);
+        if ( ret<0 ) error("Error parsing the list of samples: %s\n", args->samples_fname);
+        else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
+    }
+
+    if ( args->af_tag )
+        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) ) 
+            error("No such INFO tag in the VCF: %s\n", args->af_tag);
+
     if ( !args->samples_fname ) args->samples_fname = "-";
     if ( !bcf_sr_set_samples(args->files, args->samples_fname) )
         error("Error: could not set the samples %s\n", args->samples_fname);
@@ -294,7 +307,7 @@ static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
     for (i=1; i<=n; i++)
     {
         ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : (smpl->pos[ir] - smpl->last_pos + 1)*1e-8;
         smpl->last_pos = smpl->pos[ir];
 
         // P_{i+1}(AZ) = oAZ * [(1-tHW) * (1-ci) * AZ{i-1} + tAZ * ci * (1-AZ{i-1})]
@@ -312,7 +325,7 @@ static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
     for (i=1; i<=n; i++)
     {
         ir  = rbuf_kth(&smpl->rbuf, n-i);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir], last_pos) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir], last_pos) : (last_pos - smpl->pos[ir] + 1)*1e-8;
         last_pos = smpl->pos[ir];
 
         pAZ = smpl->oaz[ir] * ( (1-args->tHW) * (1-ci) * args->bwd[i-1] + args->tAZ * ci * (1-args->bwd[i-1]) );
@@ -348,7 +361,7 @@ static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
     for (i=1; i<=n; i++)
     {
         ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : 0.5;
+        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : (smpl->pos[ir] - smpl->last_pos + 1)*1e-8;
         //printf("ci %d-%d: %e\n", smpl->last_pos, smpl->pos[ir], ci);
         smpl->last_pos = smpl->pos[ir];
 
@@ -411,13 +424,53 @@ static void flush_buffer(args_t *args, int ismpl, int n)
     else flush_buffer_viterbi(args, ismpl, n);
 }
 
-void set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
+// returns 0 on success or positive value if AF could not be set
+static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
 {
     int i, j;
-    hts_expand(double, line->n_allele, args->mAFs, args->AFs);
+    hts_expand(float, line->n_allele, args->mAFs, args->AFs);
 
     // Get the allele frequencies
-    if ( !args->estimate_AF )
+    if ( args->af_tag )
+    {
+        int ret = bcf_get_info_float(args->hdr, line, args->af_tag, &args->AFs, &args->mAFs);
+        if ( ret==-2 )
+            error("Type mismatch for INFO/%s tag at %s:%d\n", args->af_tag, bcf_seqname(args->hdr,line), line->pos+1);
+        if ( ret!=line->n_allele-1 ) return 1;          // this will skip multiallelic sites if AFs in the file do not reflect this
+        float sum = 0;
+        for (i=0; i<ret; i++) sum += args->AFs[i];
+        if (sum<0 || sum>1 ) error("The AF values out of bounds at %s:%d, the sum of %s is %f\n", bcf_seqname(args->hdr,line), line->pos+1,args->af_tag,sum);
+        for (i=ret; i>0; i--) args->AFs[i] = args->AFs[i-1];
+        args->AFs[0] = 1 - sum;
+    }
+    else if ( args->af_fname )
+    {
+        bcf_sr_regions_t *tgt = args->files->targets;
+        if ( tgt->nals != line->n_allele ) return 1;    // number of alleles does not match. possible todo: we could be smarter at multiallelic sites
+        for (i=0; i<tgt->nals; i++)
+            if ( strcmp(line->d.allele[i],tgt->als[i]) ) break; // possible todo: we could be smarter, see vcmp in mcall_constrain_alleles
+        if ( i<tgt->nals ) return 1;
+        char *tmp, *str = tgt->line.s;
+        i = 0;
+        while ( *str && i<3 ) 
+        {
+            if ( *str=='\t' ) i++;
+            str++;
+        }
+        i = 1;
+        float sum = 0;
+        do
+        {   
+            args->AFs[i] = strtof(str, &tmp);
+            sum += args->AFs[i];
+            i++;
+            str = tmp;
+        } 
+        while ( i<line->n_allele && str );
+        if (sum<0 || sum>1 ) error("The AF values out of bounds at %s:%d, the sum is %f .. %s\n", bcf_seqname(args->hdr,line), line->pos+1,sum,tgt->line.s);
+        args->AFs[0] = 1 - sum;
+    }
+    else if ( !args->estimate_AF )
     {
         if ( bcf_get_info_int(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) 
             error("No AN tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
@@ -426,7 +479,7 @@ void set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
             error("No AC tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
 
         int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
-        args->AFs[0] = (double) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
+        args->AFs[0] = (float) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
         for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i-1] / args->AN[0];  // ALT frequencies
     }
     else
@@ -468,8 +521,9 @@ void set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
             }
         }
         int ntot = 0; for (i=0; i<line->n_allele; i++) ntot += args->ACs[i]; 
-        for (i=0; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i] / ntot;  // ALT frequencies
+        for (i=0; i<line->n_allele; i++) args->AFs[i] = (float)args->ACs[i] / ntot;  // ALT frequencies
     }
+    return 0;
 }
 
 int set_pdg_from_PLs(args_t *args, bcf1_t *line)
@@ -546,8 +600,7 @@ int set_pdg_from_PLs(args_t *args, bcf1_t *line)
         *als = jmin<<4 | kmin;
     }
 
-    set_AF(args, line, NULL, 0);
-    return 0;
+    return set_AF(args, line, NULL, 0);
 }
 
 int set_pdg_from_GTs(args_t *args, bcf1_t *line)
@@ -589,8 +642,7 @@ int set_pdg_from_GTs(args_t *args, bcf1_t *line)
         int *als = &args->als[i];
         *als = a<<4 | b;
     }
-    set_AF(args, line, args->PLs, nGTs);
-    return 0;
+    return set_AF(args, line, args->PLs, nGTs);
 }
 
 static void vcfroh(args_t *args, bcf1_t *line)
@@ -636,6 +688,7 @@ static void vcfroh(args_t *args, bcf1_t *line)
 
     if ( ret )
     {
+        if ( ret>0 ) return;    // AF could not be determined, but it is a non-critical error
         if ( !args->fake_PLs ) error("Could not parse PL field at %s:%d, please run with -G option\n", bcf_seqname(args->hdr,line), line->pos+1);
         error("Could not parse GT field at %s:%d\n", bcf_seqname(args->hdr,line), line->pos+1);
     }
@@ -653,8 +706,8 @@ static void vcfroh(args_t *args, bcf1_t *line)
 
         smpl_t *smpl = &args->smpl[i];
         int idx = rbuf_add(&smpl->rbuf);
-        double raf = args->AFs[ira];
-        double aaf = args->AFs[irb];
+        float raf = args->AFs[ira];
+        float aaf = args->AFs[irb];
         smpl->oaz[idx] = pdg[0]*raf + pdg[2]*aaf;
         smpl->ohw[idx] = pdg[0]*raf*raf + pdg[2]*aaf*aaf + pdg[1]*raf*aaf*2;
         smpl->pos[idx] = line->pos;
@@ -672,6 +725,7 @@ static void usage(args_t *args)
     fprintf(stderr, "General Options:\n");
     fprintf(stderr, "    -b, --biallelic-sites              consider only bi-allelic sites\n");
     fprintf(stderr, "    -e, --estimate-AF <all|subset>     calculate AC,AN counts on the fly, using either all samples or samples given via -s\n");
+    fprintf(stderr, "    -F, --AF-tag <TAG|:file>           use TAG for allele frequency or read from file (CHR\\tPOS\\tREF,ALT\\tAF) if prefixed with ':'\n");
     fprintf(stderr, "    -f, --fwd-bwd                      run forward-backward algorithm instead of Viterbi\n");
     fprintf(stderr, "    -G, --GTs-only <float>             use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
     fprintf(stderr, "    -I, --skip-indels                  skip indels as their genotypes are enriched for errors\n");
@@ -699,6 +753,7 @@ int main_vcfroh(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
+        {"AF-tag",1,0,'F'},
         {"estimate-AF",1,0,'e'},
         {"GTs-only",1,0,'G'},
         {"counts-only",0,0,'c'},
@@ -714,8 +769,12 @@ int main_vcfroh(int argc, char *argv[])
         {"skip-indels",0,0,'I'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:bIa:e:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:bIa:e:F:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'F': 
+                if (optarg[0]==':') args->af_fname = optarg+1;
+                else args->af_tag = optarg;
+                break;
             case 'e': 
                 if (!strcmp("all",optarg)) args->estimate_AF = 1; 
                 else if (!strcmp("subset",optarg)) args->estimate_AF = 2;
@@ -739,6 +798,8 @@ int main_vcfroh(int argc, char *argv[])
         }
     }
 
+    if ( (args->af_fname || args->af_tag) && args->estimate_AF ) error("Error: The options -F and -e are mutually exclusive\n");
+    if ( args->af_fname && args->targets_fname ) error("Error: The options -F and -t are mutually exclusive\n");
     if ( argc<optind+1 ) usage(args);
     if ( args->regions_fname )
     {
@@ -749,6 +810,11 @@ int main_vcfroh(int argc, char *argv[])
     {
         if ( bcf_sr_set_targets(args->files, args->targets_fname, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets_fname);
+    }
+    if ( args->af_fname )
+    {
+        if ( bcf_sr_set_targets(args->files, args->af_fname, 3)<0 )
+            error("Failed to read the targets: %s\n", args->af_fname);
     }
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     
@@ -763,3 +829,5 @@ int main_vcfroh(int argc, char *argv[])
     free(args);
     return 0;
 }
+
+
