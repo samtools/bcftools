@@ -461,7 +461,7 @@ static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
         float sum = 0;
         do
         {   
-            args->AFs[i] = strtof(str, &tmp);
+            args->AFs[i] = strtod(str, &tmp);
             sum += args->AFs[i];
             i++;
             str = tmp;
@@ -472,9 +472,9 @@ static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
     }
     else if ( !args->estimate_AF )
     {
-        if ( bcf_get_info_int(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) 
+        if ( bcf_get_info_int32(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) 
             error("No AN tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
-        int nAC = bcf_get_info_int(args->hdr, line, "AC", &args->ACs, &args->mACs);
+        int nAC = bcf_get_info_int32(args->hdr, line, "AC", &args->ACs, &args->mACs);
         if ( nAC <= 0 ) 
             error("No AC tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
 
@@ -528,7 +528,7 @@ static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
 
 int set_pdg_from_PLs(args_t *args, bcf1_t *line)
 {
-    int nPLs = bcf_get_format_int(args->hdr, line, "PL", &args->PLs, &args->mPLs);
+    int nPLs = bcf_get_format_int32(args->hdr, line, "PL", &args->PLs, &args->mPLs);
     if ( nPLs!=bcf_hdr_nsamples(args->hdr)*line->n_allele*(line->n_allele+1)/2 ) return -1;
     nPLs /= bcf_hdr_nsamples(args->hdr);
 

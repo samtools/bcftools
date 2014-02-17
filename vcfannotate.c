@@ -83,7 +83,8 @@ typedef struct _args_t
     annot_col_t *cols;      // column indexes and setters
     int ncols;
 
-    int *tmpi, ntmpi, mtmpi, ntmpf, mtmpf, ntmps, mtmps;
+    int ntmpi, mtmpi, ntmpf, mtmpf, ntmps, mtmps;
+    int32_t *tmpi;
     float *tmpf;
     char *tmps;
 
@@ -418,7 +419,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
-    args->ntmpi = bcf_get_info_int(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
+    args->ntmpi = bcf_get_info_int32(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
     if ( args->ntmpi >=0 )
         bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,args->ntmpi);
     return 0;

@@ -267,7 +267,7 @@ int ccall(call_t *call, bcf1_t *rec)
 
     // Get the genotype likelihoods
     int nals = rec->n_allele;
-    call->nPLs = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
+    call->nPLs = bcf_get_format_int32(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
     if ( call->nPLs!=nsmpl*nals*(nals+1)/2 && call->nPLs!=nsmpl*nals )  // diploid+haploid or haploid only
         error("Wrong number of PL fields? nals=%d npl=%d\n", nals,call->nPLs);
 

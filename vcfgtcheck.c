@@ -17,7 +17,8 @@ typedef struct
 {
 	bcf_srs_t *files;           // first reader is the query VCF - single sample normally or multi-sample for cross-check
     bcf_hdr_t *gt_hdr, *sm_hdr; // VCF with genotypes to compare against and the query VCF
-    int *tmp_arr, ntmp_arr, *pl_arr, npl_arr;
+    int ntmp_arr, npl_arr;
+    int32_t *tmp_arr, *pl_arr;
     double *lks, *sites;
     int *cnts, *dps, hom_only, cross_check, all_sites;
 	char *cwd, **argv, *gt_fname, *plot, *query_sample, *target_sample;
@@ -379,7 +380,7 @@ static void check_gt(args_t *args)
         // Sample PLs
         if ( !fake_pls )
         {
-            if ( (npl=bcf_get_format_int(args->sm_hdr, sm_line, "PL", &args->pl_arr, &args->npl_arr)) <= 0 )
+            if ( (npl=bcf_get_format_int32(args->sm_hdr, sm_line, "PL", &args->pl_arr, &args->npl_arr)) <= 0 )
                 error("PL not present at %s:%d?", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
             npl /= bcf_hdr_nsamples(args->sm_hdr);
         }
@@ -494,7 +495,8 @@ static void cross_check_gts(args_t *args)
     unsigned int *dp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)), *ndp = (unsigned int*) calloc(nsamples,sizeof(unsigned int)); // this will overflow one day...
     int fake_pls = args->no_PLs, ignore_dp = 0;
 
-    int i,j,k,idx, *dp_arr = NULL, pl_warned = 0, dp_warned = 0;
+    int i,j,k,idx, pl_warned = 0, dp_warned = 0;
+    int32_t *dp_arr = NULL;
     int *is_hom = args->hom_only ? (int*) malloc(sizeof(int)*nsamples) : NULL;
     if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
     {
@@ -517,13 +519,13 @@ static void cross_check_gts(args_t *args)
         int npl;
         if ( !fake_pls )
         {
-            npl = bcf_get_format_int(args->sm_hdr, line, "PL", &args->pl_arr, &args->npl_arr);
+            npl = bcf_get_format_int32(args->sm_hdr, line, "PL", &args->pl_arr, &args->npl_arr);
             if ( npl<=0 ) { pl_warned++; continue; }
             npl /= nsamples;
         }
         else
             npl = fake_PLs(args, args->sm_hdr, line);
-        if ( !ignore_dp && bcf_get_format_int(args->sm_hdr, line, "DP", &dp_arr, &ndp_arr) <= 0 ) { dp_warned++; continue; }
+        if ( !ignore_dp && bcf_get_format_int32(args->sm_hdr, line, "DP", &dp_arr, &ndp_arr) <= 0 ) { dp_warned++; continue; }
 
         if ( args->hom_only )
         {

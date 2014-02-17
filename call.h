@@ -40,7 +40,8 @@ typedef struct
     uint16_t *trio[5][5];   //  family type, second index: allele count (2-4, first two are unused)
     double *GLs;
     float *GQs;             // VCF FORMAT genotype qualities
-    int *itmp, n_itmp;      // temporary int array, used for new PLs with CALL_CONSTR_ALLELES
+    int32_t *itmp;          // temporary int array, used for new PLs with CALL_CONSTR_ALLELES
+    int n_itmp;
     vcmp_t *vcmp;
     double trio_Pm_SNPs, trio_Pm_del, trio_Pm_ins;      // P(mendelian) for trio calling, see mcall_call_trio_genotypes()
     int32_t *ugts, *cgts;   // unconstraind and constrained GTs
@@ -62,7 +63,8 @@ typedef struct
     uint8_t *ploidy, all_diploid;
 
     double pl2p[256];       // PL to 10^(-PL/10) table
-    int *PLs, nPLs, mPLs;   // VCF PL likelihoods (rw)
+    int32_t *PLs;           // VCF PL likelihoods (rw)
+    int nPLs, mPLs;
     int32_t *gts, ac[4];    // GTs and AC (w)
     double *pdg;            // PLs converted to P(D|G)
     float *anno16; int n16; // see anno[16] in bam2bcf.h

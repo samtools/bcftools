@@ -988,11 +988,11 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
     }
 
     // update PL
-    call->nPLs = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
+    call->nPLs = bcf_get_format_int32(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
     int nsmpl  = bcf_hdr_nsamples(call->hdr);
     int npls_ori = call->nPLs / nsmpl;
     int npls_new = k;
-    hts_expand(int,npls_new*nsmpl,call->n_itmp,call->itmp);
+    hts_expand(int32_t,npls_new*nsmpl,call->n_itmp,call->itmp);
     int *ori_pl = call->PLs, *new_pl = call->itmp;
     for (i=0; i<nsmpl; i++)
     {
@@ -1028,7 +1028,7 @@ int mcall(call_t *call, bcf1_t *rec)
         error("FIXME: Not ready for more than 5 alleles at %s:%d (%d)\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1, nals);
 
     // Get the genotype likelihoods
-    call->nPLs = bcf_get_format_int(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
+    call->nPLs = bcf_get_format_int32(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
     if ( call->nPLs!=nsmpl*nals*(nals+1)/2 && call->nPLs!=nsmpl*nals )  // a mixture of diploid and haploid or haploid only
         error("Wrong number of PL fields? nals=%d npl=%d\n", nals,call->nPLs);
 
