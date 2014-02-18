@@ -392,6 +392,7 @@ int main_vcfview(int argc, char *argv[])
         {"include",1,0,'i'},
         {"trim-alt-alleles",0,0,'a'},
         {"no-update",0,0,'I'},
+        {"drop-genotypes",0,0,'G'},
         {"private",0,0,'x'},
         {"exclude-private",0,0,'X'},
         {"uncalled",0,0,'u'},
@@ -410,6 +411,8 @@ int main_vcfview(int argc, char *argv[])
         {"regions",1,0,'r'},
         {"min-ac",1,0,'c'},
         {"max-ac",1,0,'C'},
+        {"min-af",1,0,'q'},
+        {"max-af",1,0,'Q'},
         {"phased",0,0,'p'},
         {"exclude-phased",0,0,'P'},
         {0,0,0,0}
