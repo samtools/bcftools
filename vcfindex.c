@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <htslib/vcf.h>
 #include <htslib/tbx.h>
+#include <sys/stat.h>
 
 static void usage(void)
 {
@@ -84,15 +85,18 @@ int main_vcfindex(int argc, char *argv[])
 
     if (!force)
     {
-        char *fn;
-        FILE *fp;
-        fn = (char*)alloca(strlen(fname) + 5);
-        strcat(strcpy(fn, fname), min_shift <= 0 ? ".tbi" : ".csi");
-        if ((fp = fopen(fn, "rb")) != 0)
+        // Before complaining about existing index, check if the VCF file isn't newer.
+        char *idx_fname = (char*)alloca(strlen(fname) + 5);
+        strcat(strcpy(idx_fname, fname), min_shift <= 0 ? ".tbi" : ".csi");
+        struct stat stat_tbi, stat_file;
+        if ( stat(idx_fname, &stat_tbi)==0 )
         {
-            fclose(fp);
-            fprintf(stderr, "[E::%s] the index file exists; use option '-f' to overwrite\n", __func__);
-            return 1;
+            stat(fname, &stat_file);
+            if ( stat_file.st_mtime <= stat_tbi.st_mtime )
+            {
+                fprintf(stderr,"[E::%s] the index file exists. Please use '-f' to overwrite.\n", __func__);
+                return 1;
+            }
         }
     }
 
