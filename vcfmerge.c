@@ -883,6 +883,8 @@ void merge_info(args_t *args, bcf1_t *out)
             bcf_info_t *inf = &line->d.info[j];
 
             const char *key = hdr->id[BCF_DT_ID][inf->key].key;
+            if ( !strcmp("AC",key) || !strcmp("AN",key) ) continue;  // AC and AN are done in merge_format() after genotypes are done
+
             int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
             if ( id==-1 ) error("Error: The INFO field is not defined in the header: %s\n", key);
 
@@ -896,8 +898,6 @@ void merge_info(args_t *args, bcf1_t *out)
             int len = bcf_hdr_id2length(hdr,BCF_HL_INFO,inf->key);
             if ( len==BCF_VL_A || len==BCF_VL_G || len==BCF_VL_R  ) // Number=R,G,A requires special treatment
             {
-                if ( !strcmp("AC",key) ) continue;  // AC is done in merge_format() after genotypes are done
-
                 if ( kitr == kh_end(tmph) )
                 {
                     // first occurance in this reader, alloc arrays
@@ -964,21 +964,16 @@ void merge_info(args_t *args, bcf1_t *out)
     }
 }
 
-// Only existing AN, AC will be modified. If not present, the line stays unchanged
 void update_AN_AC(bcf_hdr_t *hdr, bcf1_t *line)
 {
-    bcf_info_t *AN_ptr = bcf_get_info(hdr,line,"AN");
-    bcf_info_t *AC_ptr = bcf_get_info(hdr,line,"AC");
-    if ( !AN_ptr && !AC_ptr ) return;
-
     int32_t an = 0, *tmp = (int32_t*) malloc(sizeof(int)*line->n_allele);
     int ret = bcf_calc_ac(hdr, line, tmp, BCF_UN_FMT);
     if ( ret>0 )
     {
         int i;
         for (i=0; i<line->n_allele; i++) an += tmp[i];
-        if ( AN_ptr ) bcf_update_info_int32(hdr, line, "AN", &an, 1);
-        if ( AC_ptr ) bcf_update_info_int32(hdr, line, "AC", tmp+1, line->n_allele-1);
+        bcf_update_info_int32(hdr, line, "AN", &an, 1);
+        bcf_update_info_int32(hdr, line, "AC", tmp+1, line->n_allele-1);
     }
     free(tmp);
 }
