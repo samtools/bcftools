@@ -42,9 +42,16 @@
         <ul style='list-style-type:none;margin-left:-1em;'>
             <li>git clone --branch=develop git://github.com/samtools/htslib.git
             <li>git clone git://github.com/samtools/bcftools.git
-            <li>cd bcftools
-            <li>make
+            <li>cd bcftools; make
             <li>./bcftools
+        </ul>
+        The <em>clone</em> command above is used to create a local copy of the remote repository and needs to be run only once.
+        Whenever the latest snapshot from github is needed, use instead the <em>pull</em> command:
+        <ul style='list-style-type:none;margin-left:-1em;'>
+            <li>cd htslib; git pull
+            <li>cd ../bcftools; git pull
+            <li>make clean
+            <li>make
         </ul>
       </section>
       <section>
