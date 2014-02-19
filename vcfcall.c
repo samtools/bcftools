@@ -442,7 +442,8 @@ int main_vcfcall(int argc, char *argv[])
             case 'S': 
                       if ( !strcasecmp(optarg,"snps") ) args.flag |= CF_INDEL_ONLY;
                       else if ( !strcasecmp(optarg,"indels") ) args.flag |= CF_NO_INDEL;
-                      else error("Unknown argument to -I: \"%s\"\n", optarg);
+                      else error("Unknown skip category \"%s\" (-S argument must be \"snps\" or \"indels\")\n", optarg);
+                      break;
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
             case 'p': p_arg = atof(optarg); break;
             case 'n': parse_novel_rate(&args,optarg); break;
