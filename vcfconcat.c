@@ -311,10 +311,14 @@ static void concat(args_t *args)
                 }
             }
 
-            while ( bcf_sr_next_line(args->files) )
+            int nret;
+            while ( (nret = bcf_sr_next_line(args->files)) )
             {
-                if ( !bcf_sr_has_line(args->files,0) )  // first reader is done
+                if ( !bcf_sr_has_line(args->files,0) )  // no input from the first reader
                 {
+                    // We are assuming that there is a perfect overlap, sites which are not present in both files are dropped
+                    if ( ! bcf_sr_region_done(args->files,0) ) continue;
+
                     phased_flush(args);
                     bcf_sr_remove_reader(args->files, 0);
                 }
@@ -344,7 +348,10 @@ static void concat(args_t *args)
                     continue;
                 }
 
-                phased_push(args,bcf_sr_get_line(args->files,0),args->files->nreaders>1 ? bcf_sr_get_line(args->files,1) : NULL);
+                // We are assuming that there is a perfect overlap, sites which are not present in both files are dropped
+                if ( args->files->nreaders>1 && !bcf_sr_has_line(args->files,1) && !bcf_sr_region_done(args->files,1) ) continue;
+
+                phased_push(args, bcf_sr_get_line(args->files,0), args->files->nreaders>1 ? bcf_sr_get_line(args->files,1) : NULL);
             }
             args->ifname++;
         }
