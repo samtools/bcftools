@@ -118,6 +118,8 @@ void isec_vcf(args_t *args)
         bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
         bcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
+    if ( !args->nwrite && !out_std && !args->prefix )
+        fprintf(stderr,"Note: -w option not given, printing list of sites...\n");
 
     int n;
     while ( (n=bcf_sr_next_line(files)) )
@@ -298,7 +300,6 @@ static void destroy_data(args_t *args)
 static void usage(void)
 {
 	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files.\n");
-	fprintf(stderr, "         \n");
 	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -c, --collapse <string>           treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");

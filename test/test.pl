@@ -132,7 +132,7 @@ sub test_cmd
     print "$test:\n";
     print "\t$args{cmd}\n";
 
-    my ($ret,$out) = _cmd("$args{cmd} 2>&1");
+    my ($ret,$out) = _cmd("$args{cmd}");
     if ( $ret ) { failed($opts,$test); return; }
     if ( $$opts{redo_outputs} && -e "$$opts{path}/$args{out}" )
     {
@@ -282,7 +282,7 @@ sub test_vcf_isec2
     }
     my $files = join(' ',@files);
     bgzip_tabix($opts,file=>$args{tab_in},suffix=>'tab',args=>'-s 1 -b 2 -e 3');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -t $$opts{tmp}/$args{tab_in}.tab.gz $files | grep -v ^##bcftools_isec");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -t $$opts{tmp}/$args{tab_in}.tab.gz $files 2>/dev/null | grep -v ^##bcftools_isec");
 }
 sub test_vcf_query
 {
