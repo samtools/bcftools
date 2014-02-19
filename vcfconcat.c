@@ -21,7 +21,7 @@ typedef struct _args_t
     int *start_pos, ifname;
     int *swap_phase, nswap, *nmatch, *nmism;
     bcf1_t **buf;
-    int nbuf, mbuf, prev_chr, min_PQ;
+    int nbuf, mbuf, prev_chr, min_PQ, prev_pos_check;
     int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
     char **argv, *file_list, **fnames;
@@ -198,6 +198,9 @@ static void phased_flush(args_t *args)
             phase_update(args, args->out_hdr, arec);
         bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
         bcf_write(args->out_fh, args->out_hdr, arec);
+
+        if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [1]\n", bcf_seqname(args->files->readers[0].header,arec),arec->pos+1,args->prev_pos_check+1);
+        args->prev_pos_check = arec->pos;
     }
     args->nswap = 0;
     for (j=0; j<nsmpl; j++)
@@ -236,6 +239,9 @@ static void phased_flush(args_t *args)
             phase_update(args, args->out_hdr, brec);
         bcf_update_format_int32(args->out_hdr,brec,"PS",args->phase_set,nsmpl);
         bcf_write(args->out_fh, args->out_hdr, brec);
+
+        if ( brec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [2]\n", bcf_seqname(args->files->readers[1].header,brec),brec->pos+1,args->prev_pos_check+1);
+        args->prev_pos_check = brec->pos;
     }
     args->nbuf = 0;
 }
@@ -252,6 +258,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
             args->phase_set[i] = arec->pos+1;
 
         args->prev_chr = chr_id;
+        args->prev_pos_check = -1;
     }
 
     if ( !brec )
@@ -261,6 +268,9 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
             phase_update(args, args->out_hdr, arec);
         bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
         bcf_write(args->out_fh, args->out_hdr, arec);
+
+        if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [3]\n", bcf_seqname(args->files->readers[0].header,arec), arec->pos+1,args->prev_pos_check+1);
+        args->prev_pos_check = arec->pos;
         return;
     }
 
@@ -285,6 +295,8 @@ static void concat(args_t *args)
             if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s\n", args->fnames[args->ifname]);
             args->ifname++;
             while ( args->ifname<args->nfnames && args->start_pos[args->ifname]==-2 ) args->ifname++;   // skip empty files
+            int seek_pos = -1;
+            int seek_chr = -1;
             if ( args->files->nreaders < 2 && args->ifname < args->nfnames )
             {
                 if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s\n", args->fnames[args->ifname]);
@@ -294,6 +306,8 @@ static void concat(args_t *args)
                 {
                     bcf1_t *line = bcf_sr_get_line(args->files,0);
                     bcf_sr_seek(args->files, bcf_seqname(args->files->readers[0].header,line), line->pos);
+                    seek_pos = line->pos;
+                    seek_chr = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,line));
                 }
             }
 
@@ -310,6 +324,10 @@ static void concat(args_t *args)
                     if ( bcf_sr_has_line(args->files,i) ) break;
                 bcf1_t *line = bcf_sr_get_line(args->files,i);
 
+                // This can happen after bcf_sr_seek: indel may start before the coordinate which we seek to.
+                if ( seek_chr>=0 && seek_pos>line->pos && seek_chr==bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[i].header,line)) ) continue;
+                seek_pos = seek_chr = -1;
+
                 int must_seek = 0;
                 while ( args->ifname < args->nfnames && line->pos >= args->start_pos[args->ifname] )   // overlaps with the next reader
                 {
@@ -321,6 +339,8 @@ static void concat(args_t *args)
                 if ( must_seek )
                 {
                     bcf_sr_seek(args->files, bcf_seqname(args->files->readers[i].header,line), line->pos);
+                    seek_pos = line->pos;
+                    seek_chr = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[i].header,line));
                     continue;
                 }
 
