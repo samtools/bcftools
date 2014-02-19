@@ -507,6 +507,8 @@ int main_vcfview(int argc, char *argv[])
     if ( args->uncalled > FLT_EXCLUDE ) error("Only one of -u or -U can be given.\n");
     if ( args->phased > FLT_EXCLUDE ) error("Only one of -p or -P can be given.\n");
 
+    if ( args->sample_names && args->update_info) args->calc_ac = 1;
+    
     char *fname = NULL;
     if ( optind>=argc )
     {
