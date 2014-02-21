@@ -589,19 +589,22 @@ static void do_classify(args_t *args)
 
 static void usage(void)
 {
+    fprintf(stderr, "\n");
 	fprintf(stderr, "About:   SOM (Self-Organizing Map) filtering.\n");
-	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "    bcftools som --train    [options] <annots.tab.gz>\n");
-	fprintf(stderr, "    bcftools som --classify [options]\n");
+	fprintf(stderr, "Usage:   bcftools som --train    [options] <annots.tab.gz>\n");
+	fprintf(stderr, "         bcftools som --classify [options]\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Model training options:\n");
 	fprintf(stderr, "    -f, --nfold <int>                  n-fold cross-validation (number of maps) [5]\n");
 	fprintf(stderr, "    -p, --prefix <string>              prefix of output files\n");
 	fprintf(stderr, "    -s, --size <int>                   map size [20]\n");
 	fprintf(stderr, "    -t, --train                        \n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Classifying options:\n");
 	fprintf(stderr, "    -c, --classify                     \n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Experimental training options (no reason to change):\n");
-	fprintf(stderr, "    -b, --bmu-threshold <float>        treshold for selection of best-matching unit [0.9]\n");
+	fprintf(stderr, "    -b, --bmu-threshold <float>        threshold for selection of best-matching unit [0.9]\n");
 	fprintf(stderr, "    -d, --som-dimension <int>          SOM dimension [2]\n");
 	fprintf(stderr, "    -e, --exclude-bad                  exclude bad sites from training, use for evaluation only\n");
 	fprintf(stderr, "    -l, --learning-rate <float>        learning rate [1.0]\n");

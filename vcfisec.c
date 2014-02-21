@@ -299,8 +299,10 @@ static void destroy_data(args_t *args)
 
 static void usage(void)
 {
+    fprintf(stderr, "\n");
 	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files.\n");
-	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> ...\n");
+	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -c, --collapse <string>           treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
@@ -311,6 +313,7 @@ static void usage(void)
 	fprintf(stderr, "    -r, --regions <file|reg>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -t, --targets <file|reg>          similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "    -w, --write <list>                list of files to write with -p given as 1-based indexes. By default, all files are written\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Examples:\n");
 	fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
 	fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir\n");

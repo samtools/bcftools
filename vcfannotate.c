@@ -739,7 +739,8 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Annotate and edit VCF/BCF files.\n");
-    fprintf(stderr, "Usage:   bcftools annotate [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "Usage:   bcftools annotate [options] <in.vcf.gz>\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations <file>       VCF file or tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
@@ -749,7 +750,6 @@ static void usage(args_t *args)
 	fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins. See man page for details\n");
     fprintf(stderr, "   -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "   -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
-    fprintf(stderr, "\n");
     fprintf(stderr, "\n");
     exit(1);
 }

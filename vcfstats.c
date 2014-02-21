@@ -1210,10 +1210,12 @@ static void print_stats(args_t *args)
 
 static void usage(void)
 {
-    fprintf(stderr, "\nAbout:   Parses VCF or BCF and produces stats which can be plotted using plot-vcfstats.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "About:   Parses VCF or BCF and produces stats which can be plotted using plot-vcfstats.\n");
     fprintf(stderr, "         When two files are given, the program generates separate stats for intersection\n");
     fprintf(stderr, "         and the complements.\n");
     fprintf(stderr, "Usage:   bcftools stats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -1, --1st-allele-only              include only 1st allele at multiallelic sites\n");
     fprintf(stderr, "    -c, --collapse <string>            treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");

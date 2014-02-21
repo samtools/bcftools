@@ -86,7 +86,7 @@ static cmd_t cmds[] =
     },
     { .func  = main_vcfnorm, 
       .alias = "norm",
-      .help  = "normalize indels"
+      .help  = "left-align normalize indels"
     },
     { .func  = main_vcfquery, 
       .alias = "query",
@@ -118,28 +118,20 @@ static cmd_t cmds[] =
     }
 };
 
-char *bcftools_version_string = NULL;
-
 char *bcftools_version(void)
 {
-    if ( !bcftools_version_string )
-    {
-        int len = strlen(hts_version()) + strlen(BCFTOOLS_VERSION) + 9;
-        bcftools_version_string = (char*) malloc(len);
-        snprintf(bcftools_version_string,len,"%s+htslib-%s", BCFTOOLS_VERSION,hts_version());
-    }
-    return bcftools_version_string;
+    return BCFTOOLS_VERSION;
 }
 
-static int usage(void)
+static void usage(FILE *fp)
 {
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Program: bcftools (Tools for variant calling and manipulating VCFs and BCFs)\n");
-  fprintf(stderr, "Version: %s\n", bcftools_version());
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Usage:   bcftools <command> <argument>\n");
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Commands:\n");
+    fprintf(fp, "\n");
+    fprintf(fp, "Program: bcftools (Tools for variant calling and manipulating VCFs and BCFs)\n");
+    fprintf(fp, "Version: %s (using htslib %s)\n", bcftools_version(), hts_version());
+    fprintf(fp, "\n");
+    fprintf(fp, "Usage:   bcftools <command> <argument>\n");
+    fprintf(fp, "\n");
+    fprintf(fp, "Commands:\n");
 
     int i = 0;
     const char *sep = NULL;
@@ -148,29 +140,47 @@ static int usage(void)
         if ( !cmds[i].func ) sep = cmds[i].alias;
         if ( sep )
         {
-            printf("\n -- %s\n", sep);
+            fprintf(fp, "\n -- %s\n", sep);
             sep = NULL;
         }
-        if ( cmds[i].func && cmds[i].help[0]!='-' ) printf("\t%-15s %s\n", cmds[i].alias, cmds[i].help);
+        if ( cmds[i].func && cmds[i].help[0]!='-' ) fprintf(fp, "\t%-15s %s\n", cmds[i].alias, cmds[i].help);
         i++;
     }
-
-    fprintf(stderr,"\n");
-	return 1;
+    fprintf(fp,"\n");
+    fprintf(fp,"Notes:  Most commands accept VCF, bgzipped VCF and BCF with filetype detected\n");
+    fprintf(fp,"        automatically even when streaming from a pipe. Indexed VCF and BCF\n");
+    fprintf(fp,"        will work in all situations. Un-indexed VCF and BCF and streams will\n");
+    fprintf(fp,"        work in most, but not all situations.\n");
+    fprintf(fp,"\n");
 }
 
 int main(int argc, char *argv[])
 {
-	if (argc < 2) return usage();
+    if (argc < 2) { usage(stderr); return 1; }
+
+    if (strcmp(argv[1], "version") == 0 || strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0) {
+        printf("bcftools %s\nUsing htslib %s\nCopyright (C) 2014 Genome Research Ltd.\n", bcftools_version(), hts_version());
+        return 0;
+    }
+    else if (strcmp(argv[1], "--version-only") == 0) {
+        printf("%s+htslib-%s\n", bcftools_version(), hts_version());
+        return 0;
+    }
+    else if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
+        if (argc == 2) { usage(stdout); return 0; }
+        // Otherwise change "bcftools help COMMAND [...]" to "bcftools COMMAND";
+        // main_xyz() functions by convention display the subcommand's usage
+        // when invoked without any arguments.
+        argv++;
+        argc = 2;
+    }
 
     int i = 0;
     while (cmds[i].alias)
     {
         if ( !strcmp(argv[1],cmds[i].alias) ) 
         {
-            int ret = cmds[i].func(argc-1,argv+1);
-            free(bcftools_version_string);
-            return ret;
+            return cmds[i].func(argc-1,argv+1);
         }
         i++;
     }

@@ -641,18 +641,21 @@ static int compare_header(bcf_hdr_t *hdr, char **a, int na, char **b, int nb)
 
 static void usage(void)
 {
+    fprintf(stderr, "\n");
 	fprintf(stderr, "About:   Extracts fields from VCF/BCF file and prints them in user-defined format\n");
-	fprintf(stderr, "Usage:   bcftools query [options] <file.vcf.gz> [file.vcf.gz [...]]\n");
+	fprintf(stderr, "Usage:   bcftools query [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");
 	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none>, see man page [none]\n");
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
-	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit \n");
+	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit\n");
 	fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "    -s, --samples <list|:file>        comma-separated list of samples to include or one name per line in a file\n");
 	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Expressions:\n");
     fprintf(stderr, "\t%%CHROM          The CHROM column (similarly also other columns, such as POS, ID, QUAL, etc.)\n");
     fprintf(stderr, "\t%%INFO/TAG       Any tag in the INFO column\n");
@@ -665,6 +668,7 @@ static void usage(void)
     fprintf(stderr, "\t%%LINE           Prints the whole line\n");
     fprintf(stderr, "\t%%SAMPLE         Sample name\n");
     //fprintf(stderr, "\t%*<A><B>        All format fields printed as KEY<A>VALUE<B>\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Examples:\n");
     fprintf(stderr, "\tbcftools query -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
 	fprintf(stderr, "\n");

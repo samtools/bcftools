@@ -1616,7 +1616,7 @@ void merge_buffer(args_t *args)
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd)
 {
     kstring_t str = {0,0,0};
-    ksprintf(&str,"##%sVersion=%s\n", cmd, bcftools_version());
+    ksprintf(&str,"##%sVersion=%s+htslib-%s\n", cmd, bcftools_version(), hts_version());
     bcf_hdr_append(hdr,str.s);
 
     str.l = 0;
@@ -1685,9 +1685,11 @@ void merge_vcf(args_t *args)
 
 static void usage(void)
 {
+    fprintf(stderr, "\n");
     fprintf(stderr, "About:   Merge multiple VCF or BCF files to create one multi-sample file combining compatible records\n");
     fprintf(stderr, "         into one according to the -m option.\n");
-    fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> ...\n");
+    fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "        --use-header <file>            use the provided header\n");
     fprintf(stderr, "        --print-header                 print only the merged header and exit\n");

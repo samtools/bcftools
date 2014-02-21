@@ -339,21 +339,26 @@ void parse_novel_rate(args_t *args, const char *str)
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
-    fprintf(stderr, "About: This command replaces the former \"bcftools view\" caller. Some of the original functionality has been\n");
-    fprintf(stderr, "       temporarily lost in the process of transition under htslib, but will be added back on popular demand. The original\n");
-    fprintf(stderr, "       calling model can be invoked with the -c option.\n");
-    fprintf(stderr, "Usage: bcftools call [options] <in.bcf|in.vcf|in.vcf.gz>\n");
+    fprintf(stderr, "About:   SNP/indel variant calling from VCF/BCF. To be used in conjunction with samtools mpileup.\n");
+    fprintf(stderr, "         This command replaces the former \"bcftools view\" caller. Some of the original\n");
+    fprintf(stderr, "         functionality has been temporarily lost in the process of transition to htslib,\n");
+    fprintf(stderr, "         but will be added back on popular demand. The original calling model can be\n");
+    fprintf(stderr, "         invoked with the -c option.\n");
+    fprintf(stderr, "Usage:   bcftools call [options] <in.vcf.gz>\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --regions <reg|file>        restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "   -s, --samples <list|:file>      sample list, PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
     fprintf(stderr, "   -t, --targets <reg|file>        similar to -r but streams rather than index-jumps, see man page for details\n");
-    fprintf(stderr, "\nInput/output options:\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "   -M, --keep-masked-ref           keep sites with masked reference allele (REF=N)\n");
     fprintf(stderr, "   -S, --skip <snps|indels>        skip indels/snps\n");
     fprintf(stderr, "   -v, --variants-only             output variant sites only\n");
-    fprintf(stderr, "\nConsensus/variant calling options:\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Consensus/variant calling options:\n");
     fprintf(stderr, "   -c, --consensus-caller          the original calling method (conflicts with -m)\n");
     fprintf(stderr, "   -C, --constrain <str>           one of: alleles, trio (see manual)\n");
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
