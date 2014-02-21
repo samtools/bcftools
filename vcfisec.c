@@ -301,7 +301,7 @@ static void usage(void)
 {
     fprintf(stderr, "\n");
 	fprintf(stderr, "About:   Create intersections, unions and complements of VCF files.\n");
-	fprintf(stderr, "Usage:   bcftools isec [options] <A.bcf>|<A.vcf.gz> <B.bcf>|<B.vcf.gz> [...]\n");
+	fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
     fprintf(stderr, "\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -c, --collapse <string>           treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");

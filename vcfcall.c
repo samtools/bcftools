@@ -339,12 +339,12 @@ void parse_novel_rate(args_t *args, const char *str)
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
-    fprintf(stderr, "About: SNP/indel variant calling from VCF/BCF. To be used in conjunction with samtools mpileup.\n");
-    fprintf(stderr, "       This command replaces the former \"bcftools view\" caller. Some of the original\n");
-    fprintf(stderr, "       functionality has been temporarily lost in the process of transition to htslib,\n");
-    fprintf(stderr, "       but will be added back on popular demand. The original calling model can be\n");
-    fprintf(stderr, "       invoked with the -c option.\n");
-    fprintf(stderr, "Usage: bcftools call [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "About:   SNP/indel variant calling from VCF/BCF. To be used in conjunction with samtools mpileup.\n");
+    fprintf(stderr, "         This command replaces the former \"bcftools view\" caller. Some of the original\n");
+    fprintf(stderr, "         functionality has been temporarily lost in the process of transition to htslib,\n");
+    fprintf(stderr, "         but will be added back on popular demand. The original calling model can be\n");
+    fprintf(stderr, "         invoked with the -c option.\n");
+    fprintf(stderr, "Usage:   bcftools call [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");

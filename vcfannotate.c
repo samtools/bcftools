@@ -732,7 +732,7 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Annotate and edit VCF/BCF files.\n");
-    fprintf(stderr, "Usage:   bcftools annotate [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "Usage:   bcftools annotate [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations <file>       VCF file or tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");

@@ -146,7 +146,11 @@ static void usage(FILE *fp)
         if ( cmds[i].func && cmds[i].help[0]!='-' ) fprintf(fp, "\t%-15s %s\n", cmds[i].alias, cmds[i].help);
         i++;
     }
-
+    fprintf(fp,"\n");
+    fprintf(fp,"Notes:  Most commands accept VCF, bgzipped VCF and BCF with filetype detected\n");
+    fprintf(fp,"        automatically even when streaming from a pipe. Indexed VCF and BCF\n");
+    fprintf(fp,"        will work in all situations. Un-indexed VCF and BCF and streams will\n");
+    fprintf(fp,"        work in most, but not all situations.\n");
     fprintf(fp,"\n");
 }
 

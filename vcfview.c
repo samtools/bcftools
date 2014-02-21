@@ -339,7 +339,7 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   VCF/BCF conversion, view, subset and filter VCF/BCF files.\n");
-    fprintf(stderr, "Usage:   bcftools view [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|- [region1 [...]]\n");
+    fprintf(stderr, "Usage:   bcftools view [options] <in.vcf.gz> [region1 [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Output options:\n");
     fprintf(stderr, "    -G,   --drop-genotypes              drop individual genotype information (after subsetting if -s option set)\n");

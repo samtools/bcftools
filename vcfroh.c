@@ -721,7 +721,7 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   HMM model for detecting runs of autozygosity.\n");
-    fprintf(stderr, "Usage:   bcftools roh [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "Usage:   bcftools roh [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "General Options:\n");
     fprintf(stderr, "    -b, --biallelic-sites              consider only bi-allelic sites\n");

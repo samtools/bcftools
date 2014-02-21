@@ -643,7 +643,7 @@ static void usage(void)
 {
     fprintf(stderr, "\n");
 	fprintf(stderr, "About:   Extracts fields from VCF/BCF file and prints them in user-defined format\n");
-	fprintf(stderr, "Usage:   bcftools query [options] <A.bcf>|<A.vcf>|<A.vcf.gz>|- [<B.bcf>|<B.vcf.gz> ...]\n");
+	fprintf(stderr, "Usage:   bcftools query [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
     fprintf(stderr, "\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");

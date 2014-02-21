@@ -443,7 +443,7 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   Concatenate and/or combine overlapping VCF/BCF files split e.g. by chromosome\n");
     fprintf(stderr, "         or variant type. All source files must have the same sample columns appearing\n");
     fprintf(stderr, "         in the same order.\n");
-    fprintf(stderr, "Usage:   bcftools concat [options] <A.bcf>|<A.vcf>|<A.vcf.gz> [<B.bcf>|<B.vcf>|<B.vcf.gz> ...]\n");
+    fprintf(stderr, "Usage:   bcftools concat [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
 	fprintf(stderr, "   -a, --allow-overlaps           Combine overlapping files. Requires indexed files.\n");

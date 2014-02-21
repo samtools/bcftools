@@ -279,7 +279,7 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Apply fixed-threshold filters.\n");
-    fprintf(stderr, "Usage:   bcftools filter [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "Usage:   bcftools filter [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=\"snp\" && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
