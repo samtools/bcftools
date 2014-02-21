@@ -1616,7 +1616,7 @@ void merge_buffer(args_t *args)
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd)
 {
     kstring_t str = {0,0,0};
-    ksprintf(&str,"##%sVersion=%s\n", cmd, bcftools_version());
+    ksprintf(&str,"##%sVersion=%s+htslib-%s\n", cmd, bcftools_version(), hts_version());
     bcf_hdr_append(hdr,str.s);
 
     str.l = 0;
