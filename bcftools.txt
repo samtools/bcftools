@@ -166,7 +166,11 @@ This command allows to add or remove annotations and apply user-written plugins.
 
 *-l, --list-plugins*::
     List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
-    the program which directories to search.
+    the program which directories to search:
+
+        missing2ref;; Sets missing genotypes ("./.") to ref allele ("0/0").
+
+        fill-AN-AC;;  Fills INFO fields AN and AC.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
@@ -174,8 +178,9 @@ This command allows to add or remove annotations and apply user-written plugins.
 *-p, --plugins* 'name'[,...]::
     Comma-separated list of plugins to run. The BCFTOOLS_PLUGINS environment
     variable tells the program which directories to search.
-    See the examples in plugins/*.c coming with this distribution for further
-    details and examples.
+    See the examples in plugins/\*.c coming with this distribution for further
+    details and examples. See *-l, --list-plugins* to get a list of installed
+    plugins.
 
 *-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*

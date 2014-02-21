@@ -216,6 +216,7 @@ static int list_plugins(args_t *args)
 {
     init_plugin_paths(args);
 
+    kstring_t str = {0,0,0};
     int i, nprinted = 0;
     for (i=0; i<args->nplugin_paths; i++)
     {
@@ -225,20 +226,26 @@ static int list_plugins(args_t *args)
         struct dirent *ep;
         while ( (ep=readdir(dp)) )
         {
-            char *tmp = msprintf("%s/%s", args->plugin_paths[i],ep->d_name);
-            int ret = load_plugin(args, tmp, 0);
-            free(tmp);
+            str.l = 0;
+            ksprintf(&str,"%s/%s", args->plugin_paths[i],ep->d_name);
+            int ret = load_plugin(args, str.s, 0);
             if ( ret ) continue;
-            printf("\n-- %s:\n%s", ep->d_name, args->plugins[args->nplugins-1].about());
+            str.l = 0;
+            kputs(ep->d_name, &str);
+            int l = str.l - 1;
+            while ( l>=0 && str.s[l]!='.' ) l--;
+            if ( l>=0 ) str.s[l] = 0;
+            printf("\n-- %s --\n%s", str.s, args->plugins[args->nplugins-1].about());
             nprinted++;
         }
         closedir(dp);
     }
+    free(str.s);
     if ( !nprinted ) 
         fprintf(stderr,
             "No functional bcftools plugins found:\n"
             " - is the environment variable BCFTOOLS_PLUGINS set?\n"
-            " - are shared libraries accesible? (Check with `ldd your/plugin.so`.)\n"
+            " - are shared libraries accesible? (Check with `ldd your/plugin.so`, set LD_LIBRARY_PATH.)\n"
             );
     else
         printf("\n");
@@ -736,7 +743,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations <file>       VCF file or tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
-    fprintf(stderr, "   -h, --header-lines <file>      lines which should to appended to the VCF header\n");
+    fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
 	fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
 	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
 	fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins. See man page for details\n");
