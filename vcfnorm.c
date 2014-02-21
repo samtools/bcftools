@@ -506,8 +506,10 @@ static void normalize_vcf(args_t *args)
 
 static void usage(void)
 {
+    fprintf(stderr, "\n");
 	fprintf(stderr, "About:   Left-align and normalize indels.\n");
-	fprintf(stderr, "Usage:   bcftools norm [options] -f ref.fa <file.vcf.gz>\n");
+	fprintf(stderr, "Usage:   bcftools norm [options] -f <ref.fa> <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type. [Todo: merge genotypes, don't just throw away.]\n");
 	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");

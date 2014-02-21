@@ -1685,9 +1685,11 @@ void merge_vcf(args_t *args)
 
 static void usage(void)
 {
+    fprintf(stderr, "\n");
     fprintf(stderr, "About:   Merge multiple VCF or BCF files to create one multi-sample file combining compatible records\n");
     fprintf(stderr, "         into one according to the -m option.\n");
-    fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> ...\n");
+    fprintf(stderr, "Usage:   bcftools merge [options] <A.bcf>|<A.vcf.gz> <B.bcf>|<B.vcf.gz> [...]\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "        --use-header <file>            use the provided header\n");
     fprintf(stderr, "        --print-header                 print only the merged header and exit\n");

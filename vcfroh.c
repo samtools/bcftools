@@ -721,7 +721,8 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   HMM model for detecting runs of autozygosity.\n");
-    fprintf(stderr, "Usage:   bcftools roh [OPTIONS] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "Usage:   bcftools roh [options] <in.bcf>|<in.vcf>|<in.vcf.gz>|-\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "General Options:\n");
     fprintf(stderr, "    -b, --biallelic-sites              consider only bi-allelic sites\n");
     fprintf(stderr, "    -e, --estimate-AF <all|subset>     calculate AC,AN counts on the fly, using either all samples or samples given via -s\n");
@@ -734,6 +735,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -s, --samples <list|file>          list of samples (file or comma separated list) [null]\n");
     fprintf(stderr, "    -t, --targets <reg|file>           similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "    -w, --win <int>                    maximum window length [100_000]\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-4]\n");
     fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from HW to AZ state [1e-3]\n");

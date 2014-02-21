@@ -443,14 +443,14 @@ static void usage(args_t *args)
     fprintf(stderr, "About:   Concatenate and/or combine overlapping VCF/BCF files split e.g. by chromosome\n");
     fprintf(stderr, "         or variant type. All source files must have the same sample columns appearing\n");
     fprintf(stderr, "         in the same order.\n");
-    fprintf(stderr, "Usage:   bcftools concat [OPTIONS] <file> [...]\n");
+    fprintf(stderr, "Usage:   bcftools concat [options] <A.bcf>|<A.vcf>|<A.vcf.gz> [<B.bcf>|<B.vcf>|<B.vcf.gz> ...]\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
 	fprintf(stderr, "   -a, --allow-overlaps           Combine overlapping files. Requires indexed files.\n");
 	fprintf(stderr, "   -l, --file-list <file>         Read the list of files from a file.\n");
 	fprintf(stderr, "   -p, --phased-concat            Concatenate phased files.\n");
-	fprintf(stderr, "   -q, --min-PQ <int>             Brake phase set if phasing quality is lower than <int> [30]\n");
+	fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
 	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "\n");
     fprintf(stderr, "\n");
     exit(1);
 }

@@ -651,8 +651,10 @@ static char *init_prefix(char *prefix)
 
 static void usage(void)
 {
+    fprintf(stderr, "\n");
 	fprintf(stderr, "About:   Check sample identity. With no -g VCF given, multi-sample cross-check is performed.\n");
-	fprintf(stderr, "Usage:   bcftools gtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
+	fprintf(stderr, "Usage:   bcftools gtcheck [options] [-g <genotypes.bcf>|<genotypes.vcf.gz>] <query.bcf>|<query.vcf.gz>\n");
+    fprintf(stderr, "\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --all-sites                 output comparison for all sites\n");
 	fprintf(stderr, "    -g, --genotypes <file>          genotypes to compare against\n");
