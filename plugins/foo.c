@@ -26,14 +26,14 @@ void init(bcf_hdr_t *h)
 
 /*
     Called for each VCF record after all standard annotation things are finished.
-    Return 0 on success or 1 on critical errors.
+    Return 0 on success, 1 to suppress the line from printing, -1 on critical errors.
 */
 int process(bcf1_t *rec)
 {
     int type = bcf_get_variant_types(rec);
     if ( type & VCF_SNP ) nsnps++;
     if ( type & VCF_INDEL ) nindels++;
-    return 0;
+    return 1;
 }
 
 

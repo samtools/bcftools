@@ -133,7 +133,7 @@ sub test_cmd
     print "\t$args{cmd}\n";
 
     my ($ret,$out) = _cmd("$args{cmd}");
-    if ( $ret ) { failed($opts,$test); return; }
+    if ( $ret ) { failed($opts,$test,"Non-zero status $ret"); return; }
     if ( $$opts{redo_outputs} && -e "$$opts{path}/$args{out}" )
     {
         rename("$$opts{path}/$args{out}","$$opts{path}/$args{out}.old");

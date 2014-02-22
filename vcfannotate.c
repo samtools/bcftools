@@ -18,7 +18,7 @@
 /** Plugin API */
 typedef void (*dl_init_f) (bcf_hdr_t *);
 typedef char* (*dl_about_f) (void);
-typedef void (*dl_process_f) (bcf1_t *);
+typedef int (*dl_process_f) (bcf1_t *);     // return 0:success, 1:don't print the line, -1:abort
 typedef void (*dl_destroy_f) (void);
 
 typedef struct
@@ -242,11 +242,20 @@ static int list_plugins(args_t *args)
     }
     free(str.s);
     if ( !nprinted ) 
-        fprintf(stderr,
-            "No functional bcftools plugins found:\n"
-            " - is the environment variable BCFTOOLS_PLUGINS set?\n"
-            " - are shared libraries accesible? (Check with `ldd your/plugin.so`, set LD_LIBRARY_PATH.)\n"
+    {
+        fprintf(stderr, "\nNo functional bcftools plugins were found");
+        if ( !getenv("BCFTOOLS_PLUGINS") )
+            fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set.\n\n");
+        else
+            fprintf(stderr,
+                " in BCFTOOLS_PLUGINS=\"%s\". Is the path correct?\n\n"
+                "Are all shared libraries accesible? Verify with\n"
+                "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
+                "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
+                "\n",
+                getenv("BCFTOOLS_PLUGINS")
             );
+    }
     else
         printf("\n");
     return nprinted ? 0 : 1;
@@ -684,7 +693,8 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
     }
 }
 
-static void annotate(args_t *args, bcf1_t *line)
+// returns 0:success, 1:don't print the line, -1:abort
+static int annotate(args_t *args, bcf1_t *line)
 {
     int i, j;
     for (i=0; i<args->nrm; i++)
@@ -731,8 +741,14 @@ static void annotate(args_t *args, bcf1_t *line)
                 error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
     }
 
+    int skip = 0;
     for (i=0; i<args->nplugins; i++)
-        args->plugins[i].process(line);
+    {
+        int ret = args->plugins[i].process(line);
+        if ( ret<0 ) return ret;
+        if ( ret>0 ) skip = 1;
+    }
+    return skip;
 }
 
 static void usage(args_t *args)
@@ -825,7 +841,9 @@ int main_vcfannotate(int argc, char *argv[])
         if ( !bcf_sr_has_line(args->files,0) ) continue;
         bcf1_t *line = bcf_sr_get_line(args->files,0);
         if ( line->errcode ) error("Encountered error, cannot proceed. Please check the error output above.\n");
-        annotate(args, line);
+        int ret = annotate(args, line);
+        if ( ret<0 ) break;
+        if ( ret>0 ) continue;
         bcf_write1(args->out_fh, args->hdr_out, line);
     }
     hts_close(args->out_fh);
