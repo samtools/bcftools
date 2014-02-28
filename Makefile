@@ -43,7 +43,7 @@ version.h:
 
 
 .SUFFIXES:.c .o
-.PHONY:all install lib test force plugins
+.PHONY:all clean clean-all distclean install lib tags test testclean force plugins
 
 force:
 
@@ -85,10 +85,16 @@ install: $(PROG)
 		$(INSTALL_PROGRAM) $(PROG) plot-vcfstats $(DESTDIR)$(bindir)
 		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
-cleanlocal: cleantest
+clean: testclean
 		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h plugins/*.so
 
-cleantest:
+testclean:
 		rm -fr test/*.o test/*~ $(TEST_PROG)
 
-clean:cleanlocal clean-htslib
+distclean: clean
+	-rm -f TAGS
+
+clean-all: clean clean-htslib
+
+tags:
+	ctags -f TAGS *.[ch] plugins/*.[ch]
