@@ -210,6 +210,11 @@ static void init_data(args_t *args)
         if ( *p==',' ) p++;
     }
     if ( args->nwrite>1 && !args->prefix ) error("Expected -p when mutliple output files given: --write %s\n", args->write_files);
+    if ( args->isec_op==OP_COMPLEMENT && args->nwrite )
+    {
+        if ( args->nwrite>1 ) error("Multiple files to -w make no sense with -C\n");
+        if ( !args->write[0] ) error("Only -w1 makes sense with -C\n");
+    }
 
     if ( args->prefix )
     {
