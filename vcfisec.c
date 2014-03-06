@@ -112,7 +112,6 @@ void isec_vcf(args_t *args)
     int out_std = 0;
     if ( args->nwrite==1 ) out_std = 1;
     if ( args->targets_fname && files->nreaders==1 ) out_std = 1;
-    if ( args->isec_op==OP_COMPLEMENT ) out_std = 1;
     if ( out_std ) 
     {
         out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
