@@ -82,7 +82,7 @@ bcftools: $(HTSLIB) $(OBJS)
 
 install: $(PROG)
 		mkdir -p $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
-		$(INSTALL_PROGRAM) $(PROG) plot-vcfstats $(DESTDIR)$(bindir)
+		$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
 		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
 clean: testclean
