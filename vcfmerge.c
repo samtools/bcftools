@@ -956,12 +956,6 @@ void merge_info(args_t *args, bcf1_t *out)
         AGR_info_t *agr = &ma->AGR_info[i];
         bcf_update_info(out_hdr,out,agr->hdr_tag,agr->buf,agr->nvals,agr->type);
     }
-    if ( out->d.info!=ma->inf )
-    {
-        // hacky, we rely on htslib internals: bcf_update_info() reallocated the info
-        ma->inf  = out->d.info;
-        ma->minf = out->d.m_info;
-    }
 }
 
 void update_AN_AC(bcf_hdr_t *hdr, bcf1_t *line)
@@ -1284,6 +1278,13 @@ void merge_format(args_t *args, bcf1_t *out)
         merge_GT(args, ma->fmt_map, out);
     update_AN_AC(out_hdr, out);
 
+    if ( out->d.info!=ma->inf )
+    {
+        // hacky, we rely on htslib internals: bcf_update_info() reallocated the info
+        ma->inf  = out->d.info;
+        ma->minf = out->d.m_info;
+    }
+
     for (i=1; i<=max_ifmt; i++)
         merge_format_field(args, &ma->fmt_map[i*files->nreaders], out);
     out->d.indiv_dirty = 1;
@@ -1466,8 +1467,9 @@ void merge_buffer(args_t *args)
     {
         if ( bcf_sr_has_line(files,i) )
         {
-            pos = files->readers[i].buffer[0]->pos;
-            var_type = bcf_get_variant_types(files->readers[i].buffer[0]);
+            bcf1_t *line = bcf_sr_get_line(files,i);
+            pos = line->pos;
+            var_type = bcf_get_variant_types(line);
             break;
         }
     }
