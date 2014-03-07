@@ -296,6 +296,7 @@ static void destroy_data(args_t *args)
             }
             free(args->fnames[i]);
         }
+        free(args->fh_out);
         free(args->fnames);
         if ( args->fh_sites ) fclose(args->fh_sites);
         if ( args->write ) free(args->write);
