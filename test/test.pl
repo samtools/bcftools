@@ -47,8 +47,8 @@ test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.bcf.out',do_bcf=>1,args=>'-a');
-test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.c','concat.3.d'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-p');
-test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.c','concat.3.d'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-p');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.c','concat.3.d'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-l');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.c','concat.3.d'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-l');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
