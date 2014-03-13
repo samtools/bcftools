@@ -362,6 +362,8 @@ static void init_stats(args_t *args)
     {
         if ( !bcf_sr_set_samples(args->files,args->samples_fname) )
         {
+            if ( !bcf_hdr_nsamples(args->files->readers[0].header) )
+                error("No sample columns in %s\n", args->files->readers[0].fname);
             if ( args->samples_fname[0]!=':' ) 
                 error("No such sample(s), please prefix with ':' to indicate file name: \"%s\"\n", args->samples_fname);
             else
