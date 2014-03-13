@@ -75,7 +75,7 @@ typedef struct
 {
     maux_t *maux;
     int header_only, collapse, output_type;
-    char *header_fname, *regions_fname, *info_rules;
+    char *header_fname, *regions_fname, *info_rules, *file_list;
     info_rule_t *rules;
     int nrules;
     strdict_t *tmph;
@@ -1697,6 +1697,7 @@ static void usage(void)
     fprintf(stderr, "        --print-header                 print only the merged header and exit\n");
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
+    fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
     fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <reg|file>           merge in the given regions only\n");
@@ -1716,6 +1717,7 @@ int main_vcfmerge(int argc, char *argv[])
     {
         {"help",0,0,'h'},
         {"merge",1,0,'m'},
+        {"file-list",1,0,'l'},
         {"apply-filters",1,0,'f'},
         {"use-header",1,0,1},
         {"print-header",0,0,2},
@@ -1724,8 +1726,9 @@ int main_vcfmerge(int argc, char *argv[])
         {"info-rules",1,0,'i'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:1:2O:i:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:1:2O:i:l:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;
             case 'O': 
                 switch (optarg[0]) {
@@ -1755,8 +1758,8 @@ int main_vcfmerge(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if (argc == optind) usage();
-    if ( argc-optind<2 ) usage();
+    if ( argc==optind && !args->file_list ) usage();
+    if ( argc-optind<2 && !args->file_list ) usage();
 
     args->files->require_index = 1;
     if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
@@ -1766,6 +1769,16 @@ int main_vcfmerge(int argc, char *argv[])
     {
         if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open: %s\n", argv[optind]);
         optind++;
+    }
+    if ( args->file_list )
+    {
+        int nfiles, i;
+        char **files = hts_readlines(args->file_list, &nfiles);
+        if ( !files ) error("Failed to read from %s\n", args->file_list);
+        for (i=0;i<nfiles; i++)
+            if ( !bcf_sr_add_reader(args->files, files[i]) ) error("Failed to open: %s\n", files[i]);
+        for (i=0; i<nfiles; i++) free(files[i]);
+        free(files);
     }
     merge_vcf(args);
     bcf_sr_destroy(args->files);

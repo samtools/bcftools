@@ -27,6 +27,11 @@ Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.
 
+Most commands accept VCF, bgzipped VCF and BCF with filetype detected
+automatically even when streaming from a pipe. Indexed VCF and BCF
+will work in all situations. Un-indexed VCF and BCF and streams will
+work in most, but not all situations.
+
 Bcftools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
@@ -40,10 +45,11 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *index*                ..  index VCF/BCF
 - *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations, apply user plugins
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
+- *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
 - *<<isec,isec>>*        ..  intersections of VCF/BCF files
-- *<<merge,merge>>*      ..  merge VCF/BCF files to create multi-sample file
+- *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
 - *<<norm,norm>>*        ..  normalize indels
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
@@ -271,6 +277,31 @@ demand. The original calling model can be invoked with the *-c* option.
 *-Y, --chromosome-Y*::
     haploid output for males and skips females (requires PED file with *-s*)
 
+[[concat]]
+=== bcftools concat '[OPTIONS]' 'FILE1' 'FILE2' [...]
+
+Concatenate or combine VCF/BCF files. All source files must have the same sample
+columns appearing in the same order. Can be used, for example, to
+concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
+VCF into one. The input files must be sorted by chr and position. The files
+must be given in the correct order to produce sorted VCF on output unless
+the *-a, --allow-overlaps* option is specified.
+
+*-a, --allow-overlaps*::
+    First coordinate of the next file can precede last record of the current file.
+
+*-f, --file-list* 'FILE'::
+    Read the list of files from a file.
+
+*-l, --ligate*::
+    Ligate phased VCFs by matching phase at overlapping haplotypes
+
+*-q, --min-PQ* 'INT'::
+    Break phase set if phasing quality is lower than 'INT'
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
 
 [[filter]]
 === bcftools filter '[OPTIONS]' 'FILE'
@@ -454,10 +485,11 @@ Extract records private to A or B comparing by position only
 
 [[merge]]
 === bcftools merge ['OPTIONS'] 'A.vcf.gz' 'B.vcf.gz' [...]
-Merge multiple VCF or BCF files to create one multi-sample file. For example,
-when merging file 'A.vcf.gz' containing samples 'S1', 'S2' and 'S3' and file
-'B.vcf.gz' containing samples 'S3' and 'S4', the output file will contain
-four samples named 'S1', 'S2', 'S3', '2:S3' and 'S4'.
+Merge multiple VCF/BCF files from non-overlapping sample sets to create one
+multi-sample file.  For example, when merging file 'A.vcf.gz' containing
+samples 'S1', 'S2' and 'S3' and file 'B.vcf.gz' containing samples 'S3' and
+'S4', the output file will contain four samples named 'S1', 'S2', 'S3', '2:S3'
+and 'S4'.
 
 Note that it is responsibility of the user to ensure that the sample names are
 unique across all files. If they are not, the program will create a unique
@@ -479,6 +511,9 @@ can be also given explicitly using the *--print-header* and
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::
     Rules for merging INFO fields (scalars or vectors) or '-' to disable the
     default rules.  'METHOD' is one of 'sum', 'avg', 'min', 'max', 'join'.
+
+*-l, --file-list* 'FILE'::
+    read file names from 'FILE'
 
 *-m, --merge* 'snps'|'indels'|'both'|'all'|'none'::
     Defines  merging behaviour, similar to *-c, --collapse*. For example, to
