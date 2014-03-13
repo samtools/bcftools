@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25157120"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25069168"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
-transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Bcftools is designed to work on a stream. It regards an input file "-" as the
+transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
+automatically even when streaming from a pipe. Indexed VCF and BCF
+will work in all situations. Un-indexed VCF and BCF and streams will
+work in most, but not all situations.</p><p>Bcftools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.</p></div><div class="refsect1" title="LIST OF COMMANDS"><a id="_list_of_commands"></a><h2>LIST OF COMMANDS</h2><p>For a full list of available commands, run <span class="strong"><strong>bcftools</strong></span> without arguments. For a full
 list of available options, run <span class="strong"><strong>bcftools</strong></span> <span class="emphasis"><em>COMMAND</em></span> without arguments.</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
@@ -12,13 +15,15 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">call</a></strong></span>        ..  SNP/indel calling (former "view")
 </li><li class="listitem">
+<span class="strong"><strong><a class="link" href="#concat" title="bcftools concat [OPTIONS] FILE1 FILE2 […]">concat</a></strong></span>    ..  concatenate VCF/BCF files from the same set of samples
+</li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span>    ..  filter VCF/BCF files using fixed thresholds
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#gtcheck" title="bcftools gtcheck [OPTIONS] [-g genotypes.vcf.gz] query.vcf.gz">gtcheck</a></strong></span>  ..  check sample concordance, detect sample swaps and contamination
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#isec" title="bcftools isec [OPTIONS] A.vcf.gz B.vcf.gz […]">isec</a></strong></span>        ..  intersections of VCF/BCF files
 </li><li class="listitem">
-<span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">merge</a></strong></span>      ..  merge VCF/BCF files to create multi-sample file
+<span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">merge</a></strong></span>      ..  merge VCF/BCF files files from non-overlapping sample sets
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz">norm</a></strong></span>        ..  normalize indels
 </li><li class="listitem">
@@ -257,7 +262,32 @@ demand. The original calling model can be invoked with the <span class="strong">
 <span class="strong"><strong>-Y, --chromosome-Y</strong></span>
 </span></dt><dd>
     haploid output for males and skips females (requires PED file with <span class="strong"><strong>-s</strong></span>)
-</dd></dl></div></div></div><div class="refsect2" title="bcftools filter [OPTIONS] FILE"><a id="filter"></a><h3>bcftools filter <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>Apply fixed-threshold filters.</p><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div></div><div class="refsect2" title="bcftools concat [OPTIONS] FILE1 FILE2 […]"><a id="concat"></a><h3>bcftools concat <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE1</em></span> <span class="emphasis"><em>FILE2</em></span> […]</h3><p>Concatenate or combine VCF/BCF files. All source files must have the same sample
+columns appearing in the same order. Can be used, for example, to
+concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
+VCF into one. The input files must be sorted by chr and position. The files
+must be given in the correct order to produce sorted VCF on output unless
+the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is specified.</p><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-a, --allow-overlaps</strong></span>
+</span></dt><dd>
+    First coordinate of the next file can precede last record of the current file.
+</dd><dt><span class="term">
+<span class="strong"><strong>-f, --file-list</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    Read the list of files from a file.
+</dd><dt><span class="term">
+<span class="strong"><strong>-l, --ligate</strong></span>
+</span></dt><dd>
+    Ligate phased VCFs by matching phase at overlapping haplotypes
+</dd><dt><span class="term">
+<span class="strong"><strong>-q, --min-PQ</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Break phase set if phasing quality is lower than <span class="emphasis"><em>INT</em></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd></dl></div></div><div class="refsect2" title="bcftools filter [OPTIONS] FILE"><a id="filter"></a><h3>bcftools filter <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>Apply fixed-threshold filters.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
@@ -417,10 +447,11 @@ in the other files.</p><div class="variablelist"><dl><dt><span class="term">
 </span></dt><dd>
     list of input files to output given as 1-based indices. With <span class="strong"><strong>-p</strong></span> and no
     <span class="strong"><strong>-w</strong></span>, all files are written.
-</dd></dl></div><div class="refsect3" title="Examples:"><a id="_examples"></a><h4>Examples:</h4><p>Create intersection and complements of two sets saving the output in dir/*</p><pre class="screen">    bcftools isec -p dir A.vcf.gz B.vcf.gz</pre><p>Extract and write records from A shared by both A and B using exact allele match</p><pre class="screen">    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz</pre><p>Extract records private to A or B comparing by position only</p><pre class="screen">    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz</pre></div></div><div class="refsect2" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]"><a id="merge"></a><h3>bcftools merge [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Merge multiple VCF or BCF files to create one multi-sample file. For example,
-when merging file <span class="emphasis"><em>A.vcf.gz</em></span> containing samples <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span> and <span class="emphasis"><em>S3</em></span> and file
-<span class="emphasis"><em>B.vcf.gz</em></span> containing samples <span class="emphasis"><em>S3</em></span> and <span class="emphasis"><em>S4</em></span>, the output file will contain
-four samples named <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span>, <span class="emphasis"><em>S3</em></span>, <span class="emphasis"><em>2:S3</em></span> and <span class="emphasis"><em>S4</em></span>.</p><p>Note that it is responsibility of the user to ensure that the sample names are
+</dd></dl></div><div class="refsect3" title="Examples:"><a id="_examples"></a><h4>Examples:</h4><p>Create intersection and complements of two sets saving the output in dir/*</p><pre class="screen">    bcftools isec -p dir A.vcf.gz B.vcf.gz</pre><p>Extract and write records from A shared by both A and B using exact allele match</p><pre class="screen">    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz</pre><p>Extract records private to A or B comparing by position only</p><pre class="screen">    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz</pre></div></div><div class="refsect2" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]"><a id="merge"></a><h3>bcftools merge [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Merge multiple VCF/BCF files from non-overlapping sample sets to create one
+multi-sample file.  For example, when merging file <span class="emphasis"><em>A.vcf.gz</em></span> containing
+samples <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span> and <span class="emphasis"><em>S3</em></span> and file <span class="emphasis"><em>B.vcf.gz</em></span> containing samples <span class="emphasis"><em>S3</em></span> and
+<span class="emphasis"><em>S4</em></span>, the output file will contain four samples named <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span>, <span class="emphasis"><em>S3</em></span>, <span class="emphasis"><em>2:S3</em></span>
+and <span class="emphasis"><em>S4</em></span>.</p><p>Note that it is responsibility of the user to ensure that the sample names are
 unique across all files. If they are not, the program will create a unique
 sample name by prepending index of the file as it appeared on the command line
 to the conflicting sample name (see <span class="emphasis"><em>2:S3</em></span> in the above example). Sample names
@@ -442,6 +473,10 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 </span></dt><dd>
     Rules for merging INFO fields (scalars or vectors) or <span class="emphasis"><em>-</em></span> to disable the
     default rules.  <span class="emphasis"><em>METHOD</em></span> is one of <span class="emphasis"><em>sum</em></span>, <span class="emphasis"><em>avg</em></span>, <span class="emphasis"><em>min</em></span>, <span class="emphasis"><em>max</em></span>, <span class="emphasis"><em>join</em></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-l, --file-list</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    read file names from <span class="emphasis"><em>FILE</em></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-m, --merge</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>none</em></span>
 </span></dt><dd>
