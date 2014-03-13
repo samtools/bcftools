@@ -52,21 +52,49 @@ static cmd_t cmds[] =
       .alias = "tabix",
       .help = "-tabix for BGZF'd BED, GFF, SAM, VCF and more" // do not advertise; only keep here for testing
     },
+
     { .func  = NULL, 
-      .alias = "Core VCF/BCF tools:",
+      .alias = "VCF/BCF manipulation:",
       .help  = NULL
     },
+
     { .func  = main_vcfannotate,  
       .alias = "annotate", 
       .help  = "annotate and edit VCF/BCF files",
     },
-    { .func  = main_vcfcall,  
-      .alias = "call", 
-      .help  = "SNP/indel calling (former \"view\")"
-    },
     { .func  = main_vcfconcat,  
       .alias = "concat", 
-      .help  = "-combine VCF/BCF files (one-sample files yield one-sample file)"    // do not advertise yet
+      .help  = "concatenate VCF/BCF files from the same set of samples"
+    },
+    { .func  = main_vcfisec,  
+      .alias = "isec", 
+      .help  = "intersections of VCF/BCF files"
+    },
+    { .func  = main_vcfmerge, 
+      .alias = "merge",
+      .help  = "merge VCF/BCF files files from non-overlapping sample sets"
+    },
+    { .func  = main_vcfnorm, 
+      .alias = "norm",
+      .help  = "left-align and normalize indels"
+    },
+    { .func  = main_vcfquery, 
+      .alias = "query",
+      .help  = "transform VCF/BCF into user-defined formats"
+    },
+    { .func  = main_vcfview,  
+      .alias = "view", 
+      .help  = "VCF/BCF conversion, view, subset and filter VCF/BCF files"
+    },
+
+    { .func  = NULL, 
+      .alias = "VCF/BCF analysis:",
+      .help  = NULL
+    },
+
+    { .func  = main_vcfcall,  
+      .alias = "call", 
+      .help  = "SNP/indel calling"
     },
     { .func  = main_vcffilter, 
       .alias = "filter",
@@ -76,41 +104,18 @@ static cmd_t cmds[] =
       .alias = "gtcheck",
       .help  = "check sample concordance, detect sample swaps and contamination"
     },
-    { .func  = main_vcfisec,  
-      .alias = "isec", 
-      .help  = "intersections of VCF/BCF files"
-    },
-    { .func  = main_vcfmerge, 
-      .alias = "merge",
-      .help  = "merge VCF/BCF files (one-sample files yield multi-sample file)"
-    },
-    { .func  = main_vcfnorm, 
-      .alias = "norm",
-      .help  = "left-align normalize indels"
-    },
-    { .func  = main_vcfquery, 
-      .alias = "query",
-      .help  = "transform VCF/BCF into user-defined formats"
-    },
-    { .func  = main_vcfstats, 
-      .alias = "stats",
-      .help  = "produce VCF/BCF stats (former vcfcheck)"
-    },
-    { .func  = main_vcfview,  
-      .alias = "view", 
-      .help  = "VCF/BCF conversion, view, subset and filter VCF/BCF files"
-    },
-    { .func  = NULL, 
-      .alias = "Other/Experimental tools:" ,
-      .help  = NULL
-    },
     { .func  = main_vcfroh, 
       .alias = "roh",
       .help  = "identify runs of autozygosity (HMM)",
     },
+    { .func  = main_vcfstats, 
+      .alias = "stats",
+      .help  = "produce VCF/BCF stats"
+    },
+
     { .func  = main_vcfsom, 
       .alias = "som",
-      .help  = "filter using Self-Organized Maps (experimental)"
+      .help  = "-filter using Self-Organized Maps (experimental)"   // do not advertise
     },
     { .func  = NULL,
       .alias = NULL,

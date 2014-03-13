@@ -440,15 +440,18 @@ static void concat(args_t *args)
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
-    fprintf(stderr, "About:   Concatenate and/or combine overlapping VCF/BCF files split e.g. by chromosome\n");
-    fprintf(stderr, "         or variant type. All source files must have the same sample columns appearing\n");
-    fprintf(stderr, "         in the same order.\n");
+    fprintf(stderr, "About:   Concatenate or combine VCF/BCF files. All source files must have the same sample\n");
+    fprintf(stderr, "         columns appearing in the same order. Can be used, for example, to\n");
+    fprintf(stderr, "         concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel\n");
+    fprintf(stderr, "         VCF into one. The input files must be sorted by chr and position. The files\n");
+    fprintf(stderr, "         must be given in the correct order to produce sorted VCF on output unless\n");
+    fprintf(stderr, "         the -a, --allow-overlaps option is specified.\n");
     fprintf(stderr, "Usage:   bcftools concat [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-	fprintf(stderr, "   -a, --allow-overlaps           Combine overlapping files. Requires indexed files.\n");
-	fprintf(stderr, "   -l, --file-list <file>         Read the list of files from a file.\n");
-	fprintf(stderr, "   -p, --phased-concat            Concatenate phased files.\n");
+	fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
+	fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
+	fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
 	fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
 	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
@@ -466,19 +469,19 @@ int main_vcfconcat(int argc, char *argv[])
     static struct option loptions[] = 
     {
         {"allow-overlap",1,0,'a'},
-        {"phased-concat",1,0,'p'},
+        {"ligate",1,0,'l'},
         {"output-type",1,0,'O'},
-        {"file-list",1,0,'l'},
+        {"file-list",1,0,'f'},
         {"min-PQ",1,0,'q'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:l:apq:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?O:f:alq:",loptions,NULL)) >= 0) 
     {
         switch (c) {
     	    case 'q': args->min_PQ = atoi(optarg); break;
     	    case 'a': args->allow_overlaps = 1; break;
-    	    case 'p': args->phased_concat = 1; break;
-    	    case 'l': args->file_list = optarg; break;
+    	    case 'l': args->phased_concat = 1; break;
+    	    case 'f': args->file_list = optarg; break;
     	    case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
