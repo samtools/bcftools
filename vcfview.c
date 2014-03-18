@@ -20,6 +20,13 @@
 #define ALLELE_MINOR 2
 #define ALLELE_ALT1 3
 
+#define GT_NEED_HOM 1
+#define GT_NEED_HET 2
+#define GT_NO_HOM   3
+#define GT_NO_HET   4
+#define GT_NEED_MISSING 5
+#define GT_NO_MISSING 6 
+
 typedef struct _args_t
 {
     filter_t *filter;
@@ -31,7 +38,8 @@ typedef struct _args_t
     char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
     int argc, clevel, output_type, print_header, update_info, header_only, n_samples, *imap, calc_ac;
     int trim_alts, sites_only, known, novel, min_alleles, max_alleles, private_vars, uncalled, phased;
-    int min_ac, min_ac_type, max_ac, max_ac_type, min_af_type, max_af_type;
+    int min_ac, min_ac_type, max_ac, max_ac_type, min_af_type, max_af_type, gt_type;
+    int *ac, mac;
     float min_af, max_af;
     char *fn_ref, *fn_out, **samples;
     char *include_types, *exclude_types;
@@ -170,6 +178,7 @@ static void destroy_data(args_t *args)
     if (args->hsub) bcf_hdr_destroy(args->hsub);
     if ( args->filter )
         filter_destroy(args->filter);
+    free(args->ac);
 }
 
 // true if all samples are phased.
@@ -239,13 +248,14 @@ int subset_vcf(args_t *args, bcf1_t *line)
         else if ( ret ) return 0;
     }
 
-    int i, an = 0, non_ref_ac = 0, *ac = (int*) calloc(line->n_allele,sizeof(int));
+    hts_expand(int, line->n_allele, args->mac, args->ac);
+    int i, an = 0, non_ref_ac = 0;
     if (args->calc_ac) {
-        bcf_calc_ac(args->hdr, line, ac, BCF_UN_INFO|BCF_UN_FMT); // get original AC and AN values from INFO field if available, otherwise calculate
+        bcf_calc_ac(args->hdr, line, args->ac, BCF_UN_INFO|BCF_UN_FMT); // get original AC and AN values from INFO field if available, otherwise calculate
         for (i=1; i<line->n_allele; i++)
-            non_ref_ac += ac[i];
+            non_ref_ac += args->ac[i];
         for (i=0; i<line->n_allele; i++)
-            an+=ac[i];
+            an += args->ac[i];
     }
 
     if (args->n_samples)
@@ -256,58 +266,86 @@ int subset_vcf(args_t *args, bcf1_t *line)
             bcf_calc_ac(args->hsub, line, ac_sub, BCF_UN_FMT); // recalculate AC and AN
             an = 0;
             for (i=0; i<line->n_allele; i++) {
-                ac[i] = ac_sub[i];
-                an+=ac_sub[i];
+                args->ac[i] = ac_sub[i];
+                an += ac_sub[i];
             }
             for (i=1; i<line->n_allele; i++)
                 non_ref_ac_sub += ac_sub[i];
             if (args->private_vars) {
-                if (args->private_vars == FLT_INCLUDE && !(non_ref_ac_sub > 0 && non_ref_ac == non_ref_ac_sub)) { free(ac); free(ac_sub); return 0; } // select private sites
-                if (args->private_vars == FLT_EXCLUDE && non_ref_ac_sub > 0 && non_ref_ac == non_ref_ac_sub) { free(ac); free(ac_sub); return 0; } // exclude private sites
+                if (args->private_vars == FLT_INCLUDE && !(non_ref_ac_sub > 0 && non_ref_ac == non_ref_ac_sub)) { free(ac_sub); return 0; } // select private sites
+                if (args->private_vars == FLT_EXCLUDE && non_ref_ac_sub > 0 && non_ref_ac == non_ref_ac_sub) { free(ac_sub); return 0; } // exclude private sites
             }
             non_ref_ac = non_ref_ac_sub;
         }
         free(ac_sub);
     }
-    int minor_ac = ac[0];
+
+    bcf_fmt_t *gt_fmt;
+    if ( args->gt_type && (gt_fmt=bcf_get_fmt(args->hdr,line,"GT")) )
+    {
+        int nhet = 0, nhom = 0, nmiss = 0;
+        for (i=0; i<bcf_hdr_nsamples(args->hdr); i++)
+        {
+            int type = bcf_gt_type(gt_fmt,i,NULL,NULL);
+            if ( type==GT_HET_RA || type==GT_HET_AA )
+            {
+                if ( args->gt_type==GT_NO_HET ) return 0;
+                nhet = 1;
+            }
+            else if ( type==GT_UNKN )
+            {
+                if ( args->gt_type==GT_NO_MISSING ) return 0;
+                nmiss = 1;
+            }
+            else
+            {
+                if ( args->gt_type==GT_NO_HOM ) return 0;
+                nhom = 1;
+            }
+        }
+        if ( args->gt_type==GT_NEED_HOM && !nhom ) return 0;
+        else if ( args->gt_type==GT_NEED_HET && !nhet ) return 0;
+        else if ( args->gt_type==GT_NEED_MISSING && !nmiss ) return 0;
+    }
+
+    int minor_ac = args->ac[0];
     for (i=1; i<line->n_allele; i++)
-        if (ac[i]<minor_ac) { minor_ac = ac[i]; }
+        if (args->ac[i]<minor_ac) { minor_ac = args->ac[i]; }
 
     if (args->min_ac)
     {
-        if (args->min_ac_type == ALLELE_NONREF && args->min_ac>non_ref_ac) { free(ac); return 0; } // min AC
-        else if (args->min_ac_type == ALLELE_MINOR && args->min_ac>minor_ac) { free(ac); return 0; } // min minor AC
-        else if (args->min_ac_type == ALLELE_ALT1 && args->min_ac>ac[1]) { free(ac); return 0; } // min 1st alternate AC
+        if (args->min_ac_type == ALLELE_NONREF && args->min_ac>non_ref_ac) return 0; // min AC
+        else if (args->min_ac_type == ALLELE_MINOR && args->min_ac>minor_ac) return 0; // min minor AC
+        else if (args->min_ac_type == ALLELE_ALT1 && args->min_ac>args->ac[1]) return 0; // min 1st alternate AC
     }
     if (args->max_ac)
     {
-        if (args->max_ac_type == ALLELE_NONREF && args->max_ac<non_ref_ac) { free(ac); return 0; } // max AC
-        else if (args->max_ac_type == ALLELE_MINOR && args->max_ac<minor_ac) { free(ac); return 0; } // max minor AC
-        else if (args->max_ac_type == ALLELE_ALT1 && args->max_ac<ac[1]) { free(ac); return 0; } // max 1st alternate AC
+        if (args->max_ac_type == ALLELE_NONREF && args->max_ac<non_ref_ac) return 0; // max AC
+        else if (args->max_ac_type == ALLELE_MINOR && args->max_ac<minor_ac) return 0; // max minor AC
+        else if (args->max_ac_type == ALLELE_ALT1 && args->max_ac<args->ac[1]) return 0; // max 1st alternate AC
     }
     if (args->min_af)
     {
-        if (an == 0) { free(ac); return 0; } // freq not defined, skip site
-        if (args->min_af_type == ALLELE_NONREF && args->min_af>non_ref_ac/(double)an) { free(ac); return 0; } // min AF
-        else if (args->min_af_type == ALLELE_MINOR && args->min_af>minor_ac/(double)an) { free(ac); return 0; } // min minor AF
-        else if (args->min_af_type == ALLELE_ALT1 && args->min_af>ac[1]/(double)an) { free(ac); return 0; } // min 1st alternate AF
+        if (an == 0) return 0; // freq not defined, skip site
+        if (args->min_af_type == ALLELE_NONREF && args->min_af>non_ref_ac/(double)an) return 0; // min AF
+        else if (args->min_af_type == ALLELE_MINOR && args->min_af>minor_ac/(double)an) return 0; // min minor AF
+        else if (args->min_af_type == ALLELE_ALT1 && args->min_af>args->ac[1]/(double)an) return 0; // min 1st alternate AF
     }
     if (args->max_af)
     {
-        if (an == 0) { free(ac); return 0; } // freq not defined, skip site
-        if (args->max_af_type == ALLELE_NONREF && args->max_af<non_ref_ac/(double)an) { free(ac); return 0; } // max AF
-        else if (args->max_af_type == ALLELE_MINOR && args->max_af<minor_ac/(double)an) { free(ac); return 0; } // max minor AF
-        else if (args->max_af_type == ALLELE_ALT1 && args->max_af<ac[1]/(double)an) { free(ac); return 0; } // max 1st alternate AF
+        if (an == 0) return 0; // freq not defined, skip site
+        if (args->max_af_type == ALLELE_NONREF && args->max_af<non_ref_ac/(double)an) return 0; // max AF
+        else if (args->max_af_type == ALLELE_MINOR && args->max_af<minor_ac/(double)an) return 0; // max minor AF
+        else if (args->max_af_type == ALLELE_ALT1 && args->max_af<args->ac[1]/(double)an) return 0; // max 1st alternate AF
     }
     if (args->uncalled) {
-        if (args->uncalled == FLT_INCLUDE && an > 0) { free(ac); return 0; } // select uncalled
-        if (args->uncalled == FLT_EXCLUDE && an == 0) { free(ac); return 0; } // skip if uncalled
+        if (args->uncalled == FLT_INCLUDE && an > 0) return 0; // select uncalled
+        if (args->uncalled == FLT_EXCLUDE && an == 0) return 0; // skip if uncalled
     }
     if (args->calc_ac && args->update_info) {
-        bcf_update_info_int32(args->hdr, line, "AC", &ac[1], line->n_allele-1);
+        bcf_update_info_int32(args->hdr, line, "AC", &args->ac[1], line->n_allele-1);
         bcf_update_info_int32(args->hdr, line, "AN", &an, 1);
     }
-    free(ac);
     if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
     if (args->phased) {
         int phased = bcf_all_phased(args->hdr, line);
@@ -358,6 +396,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Filter options:\n");
     fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -g,   --genotype [^]<hom|het|miss>          require one or more hom/het/missing genotype or, if prefixed with \"^\", exclude sites with hom/het/missing genotypes\n");
     fprintf(stderr, "    -i/e, --include/--exclude <expr>            select/exclude sites for which the expression is true (see below for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                       select known/novel sites only (ID is not/is '.')\n");
     fprintf(stderr, "    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in REF and ALT (e.g. -m2 -M2 for biallelic sites)\n");
@@ -385,6 +424,7 @@ int main_vcfview(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
+        {"genotype",1,0,'g'},
         {"compression-level",1,0,'l'},
         {"header-only",1,0,'h'},
         {"no-header",1,0,'H'},
@@ -417,7 +457,7 @@ int main_vcfview(int argc, char *argv[])
         {"exclude-phased",0,0,'P'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:t:r:o:O:s:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "l:t:r:o:O:s:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:g:",loptions,NULL)) >= 0)
     {
         char allele_type[8] = "nref";
         switch (c)
@@ -497,6 +537,17 @@ int main_vcfview(int argc, char *argv[])
             case 'U': args->uncalled |= FLT_EXCLUDE; args->calc_ac = 1; break;
             case 'p': args->phased |= FLT_INCLUDE; break; // phased
             case 'P': args->phased |= FLT_EXCLUDE; break; // exclude-phased
+            case 'g': 
+            {
+                if ( !strcasecmp(optarg,"hom") ) args->gt_type = GT_NEED_HOM;
+                else if ( !strcasecmp(optarg,"het") ) args->gt_type = GT_NEED_HET;
+                else if ( !strcasecmp(optarg,"miss") ) args->gt_type = GT_NEED_MISSING;
+                else if ( !strcasecmp(optarg,"^hom") ) args->gt_type = GT_NO_HOM;
+                else if ( !strcasecmp(optarg,"^het") ) args->gt_type = GT_NO_HET;
+                else if ( !strcasecmp(optarg,"^miss") ) args->gt_type = GT_NO_MISSING;
+                else error("The argument to -g not recognised. Expected one of hom/het/^hom/^het, got \"%s\".\n", optarg);
+                break;
+            }
             case '?': usage(args);
             default: error("Unknown argument: %s\n", optarg);
         }

@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 03/13/2014
+.\"      Date: 03/18/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "03/13/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "03/18/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -766,35 +766,57 @@ see
 \fBOutput files format:\fR
 .RS 4
 .PP
-CN
+CN, Discordance
 .RS 4
-This field lists pairwise discordance for all possible sample pairs\&. It is calculated as
+Pairwise discordance for all sample pairs is calculated as
 .RE
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-        \esum_s { min_{G} \e{ PL_i + PL_j \e} },
+        \esum_s { min_G { PL_a(G) + PL_b(G) } },
 .fi
 .if n \{\
 .RE
 .\}
 .PP
 .RS 4
-where the sum is over all sites
+where the sum runs over all sites
 \fIs\fR
-and genotype
-\fIG\fR
-is selected to maximize likelihood for samples
-\fIi\fR
 and
-\fIj\fR\&. When PL field is not present, a constant value
+\fIG\fR
+is the the most likely genotype shared by both samples
+\fIa\fR
+and
+\fIb\fR\&. When PL field is not present, a constant value
 \fI99\fR
 is used for the unseen genotypes\&. With
 \fB\-G\fR, the value
 \fI1\fR
-can be used instead, the discordance value then gives exactly the number of differing genotypes\&.
+can be used instead; the discordance value then gives exactly the number of differing genotypes\&.
+.RE
+.PP
+SM, Average Discordance
+.RS 4
+Average discordance between sample
+\fIa\fR
+and all other samples\&.
+.RE
+.PP
+SM, Average Depth
+.RS 4
+Average depth at evaluated sites, or 1 if FORMAT/DP field is not present\&.
+.RE
+.PP
+SM, Average Number of sites
+.RS 4
+The average number of sites used to calculate the discordance\&. In other words, the average number of non\-missing PLs/genotypes seen both samples\&.
+.RE
+.PP
+MD, Maximum Deviation
+.RS 4
+The maximum absolute deviation from average score of the sample most dissimilar to the rest\&.
 .RE
 .RE
 .SS "bcftools index [\fIOPTIONS\fR] \fI<in\&.bcf>|<in\&.vcf\&.gz>\fR"
@@ -1435,6 +1457,14 @@ see
 \fBCommon Options\fR
 .RE
 .PP
+\fB\-g, \-\-genotypes\fR [^][\fIhom\fR|\fIhet\fR|\fImiss\fR]
+.RS 4
+include only sites with one or more homozygous (\fIhom\fR), heterozygous (\fIhet\fR) or missing (\fImiss\fR) genotypes\&. When prefixed with
+\fI^\fR, the logic is reversed; thus
+\fI^het\fR
+excludes sites with heterozygous genotypes\&.
+.RE
+.PP
 \fB\-i, \-\-include\fR \fIEXPRESSION\fR
 .RS 4
 include sites for which
@@ -1651,6 +1681,8 @@ HTSlib GitHub website: http://github\&.com/samtools/htslib
 File format specifications: http://samtools\&.github\&.io/hts\-specs
 .sp
 Bcftools documentation: http://samtools\&.github\&.io/bcftools
+.sp
+Bcftools wiki page: https://github\&.com/samtools/bcftools/wiki
 .SH "COPYING"
 .sp
 The MIT License\&. Copyright (c) Genome Research Ltd\&.
