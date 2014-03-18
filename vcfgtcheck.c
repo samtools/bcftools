@@ -535,7 +535,7 @@ static void cross_check_gts(args_t *args)
 
         double sum = 0; int nsum = 0;
         idx = 0;
-        for (i=1; i<nsamples; i++)
+        for (i=0; i<nsamples; i++)
         {
             int *ipl = &args->pl_arr[i*npl];
             if ( *ipl==-1 ) { idx += i; continue; } // missing genotype
@@ -589,34 +589,39 @@ static void cross_check_gts(args_t *args)
     if ( dp_warned ) fprintf(stderr, "[W::%s] DP was not found at %d site(s)\n", __func__, dp_warned);
 
     // Output samples sorted by average discordance
-    double *score = (double*) calloc(nsamples,sizeof(double));
+    double *score  = (double*) calloc(nsamples,sizeof(double));
+    args->sites = (double*) calloc(nsamples,sizeof(double));
     idx = 0;
-    for (i=1; i<nsamples; i++)
+    for (i=0; i<nsamples; i++)
     {
         for (j=0; j<i; j++)
         {
-            score[i] += args->cnts[idx] ? (double)args->lks[idx]/args->cnts[idx] : 0;
-            score[j] += args->cnts[idx] ? (double)args->lks[idx]/args->cnts[idx] : 0;
+            score[i] += args->lks[idx];
+            score[j] += args->lks[idx];
+            args->sites[i] += args->cnts[idx];
+            args->sites[j] += args->cnts[idx];
             idx++;
         }
     }
+    for (i=0; i<nsamples; i++) 
+        if ( args->sites[i] ) score[i] /= args->sites[i];
     double **p = (double**) malloc(sizeof(double*)*nsamples), avg_score = 0;
     for (i=0; i<nsamples; i++) p[i] = &score[i];
     qsort(p, nsamples, sizeof(int*), cmp_doubleptr);
-    fprintf(fp, "# [1]SM\t[2]Average Discordance/Number of sites\t[3]Average depth\t[4]Average number of sites\t[5]Sample\t[6]Sample ID\n");
+    // The average discordance gives the number of differing sites in % with -G1
+    fprintf(fp, "# [1]SM\t[2]Average Discordance\t[3]Average depth\t[4]Average number of sites\t[5]Sample\t[6]Sample ID\n");
     for (i=0; i<nsamples; i++)
     {
         idx = p[i] - score;
         double adp = ndp[idx] ? (double)dp[idx]/ndp[idx] : 0;
-        double tmp = (double)score[idx]/nsamples;
-        double nsites = (double)ndp[idx]*2/(nsamples*(nsamples+1));
-        avg_score += tmp;
-        fprintf(fp, "SM\t%e\t%.3lf\t%.1lf\t%s\t%d\n", tmp, adp, nsites, args->sm_hdr->samples[idx],i);
+        double nsites = args->sites[idx]/(nsamples-1);
+        avg_score += score[idx];
+        fprintf(fp, "SM\t%f\t%.2lf\t%.0lf\t%s\t%d\n", score[idx]*100., adp, nsites, args->sm_hdr->samples[idx],i);
     }
 
     // Overall score: maximum absolute deviation from the average score
     fprintf(fp, "# [1] MD\t[2]Maximum deviation\t[3]The culprit\n");
-    fprintf(fp, "MD\t%e\t%s\n", (double)score[idx]/nsamples - avg_score/nsamples, args->sm_hdr->samples[idx]);    // idx still set
+    fprintf(fp, "MD\t%f\t%s\n", (score[idx] - avg_score/nsamples)*100., args->sm_hdr->samples[idx]);    // idx still set
     free(p);
     free(score);
     free(dp);
@@ -624,14 +629,12 @@ static void cross_check_gts(args_t *args)
 
     // Pairwise discordances
     fprintf(fp, "# [1]CN\t[2]Discordance\t[3]Number of sites\t[4]Average minimum depth\t[5]Sample i\t[6]Sample j\n");
-    double avg = 0;
     idx = 0;
     for (i=0; i<nsamples; i++)
     {
         for (j=0; j<i; j++)
         {
-            avg += args->lks[idx];
-            fprintf(fp, "CN\t%.0f\t%d\t%.6f\t%s\t%s\n", args->lks[idx], args->cnts[idx], args->cnts[idx]?(double)args->dps[idx]/args->cnts[idx]:0.0, 
+            fprintf(fp, "CN\t%.0f\t%d\t%.2f\t%s\t%s\n", args->lks[idx], args->cnts[idx], args->cnts[idx]?(double)args->dps[idx]/args->cnts[idx]:0.0, 
                     args->sm_hdr->samples[i],args->sm_hdr->samples[j]);
             idx++;
         }
