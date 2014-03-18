@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
     int i = 0;
     while (cmds[i].alias)
     {
-        if ( !strcmp(argv[1],cmds[i].alias) ) 
+        if (cmds[i].func && strcmp(argv[1],cmds[i].alias)==0)
         {
             return cmds[i].func(argc-1,argv+1);
         }
