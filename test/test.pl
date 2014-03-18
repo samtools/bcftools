@@ -375,10 +375,9 @@ sub test_usage
 	    $have_version = 1;
 	} elsif ( $section =~ m/^command/i ) {
 	    $have_subcommands = 1;
-	    $section =~ s/^[[:word:]]+[[:punct:][:space:]]*//;
-	    $section =~ s/^[[:space:]]+//mg;
-	    $section =~ s/^[[:punct:]]+.*?\n//msg;
-	    @subcommands = ($section =~ m/^([[:word:]]+)[[:space:]].*/mg);
+	    foreach my $line (split /\n/, $section) {
+		push @subcommands, $1 if $line =~ /^\s+(\w+)/;
+	    }
 	}
     }
     
