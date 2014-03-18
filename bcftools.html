@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25069168"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25163376"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -384,18 +384,37 @@ And similarly here, the second is filtered:
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div><div class="refsect3" title="Output files format:"><a id="_output_files_format"></a><h4>Output files format:</h4><div class="variablelist"><dl><dt><span class="term">
-CN
+CN, Discordance
 </span></dt><dd>
-        This field lists pairwise discordance for all possible sample pairs.
-        It is calculated as
-</dd></dl></div><pre class="screen">        \sum_s { min_{G} \{ PL_i + PL_j \} },</pre><div class="variablelist"><dl><dt><span class="term">
+        Pairwise discordance for all sample pairs is calculated as
+</dd></dl></div><pre class="screen">        \sum_s { min_G { PL_a(G) + PL_b(G) } },</pre><div class="variablelist"><dl><dt><span class="term">
  
 </span></dt><dd>
-        where the sum is over all sites <span class="emphasis"><em>s</em></span> and genotype <span class="emphasis"><em>G</em></span> is selected
-        to maximize likelihood for samples <span class="emphasis"><em>i</em></span> and <span class="emphasis"><em>j</em></span>. When PL field is not
-        present, a constant value <span class="emphasis"><em>99</em></span> is used for the unseen genotypes.
-        With <span class="strong"><strong>-G</strong></span>, the value <span class="emphasis"><em>1</em></span> can be used instead, the discordance value
-        then gives exactly the number of differing genotypes.
+        where the sum runs over all sites <span class="emphasis"><em>s</em></span> and <span class="emphasis"><em>G</em></span> is the the most likely
+        genotype shared by both samples <span class="emphasis"><em>a</em></span> and <span class="emphasis"><em>b</em></span>.  When PL field is not
+        present, a constant value <span class="emphasis"><em>99</em></span> is used for the unseen genotypes.  With
+        <span class="strong"><strong>-G</strong></span>, the value <span class="emphasis"><em>1</em></span> can be used instead; the discordance value then
+        gives exactly the number of differing genotypes.
+</dd><dt><span class="term">
+SM, Average Discordance
+</span></dt><dd>
+        Average discordance between sample <span class="emphasis"><em>a</em></span> and all other samples.
+</dd><dt><span class="term">
+SM, Average Depth
+</span></dt><dd>
+        Average depth at evaluated sites, or 1 if FORMAT/DP field is not
+        present.
+</dd><dt><span class="term">
+SM, Average Number of sites
+</span></dt><dd>
+        The average number of sites used to calculate the discordance.  In
+        other words, the average number of non-missing PLs/genotypes seen
+        both samples.
+</dd><dt><span class="term">
+MD, Maximum Deviation
+</span></dt><dd>
+        The maximum absolute deviation from average score of the sample
+        most dissimilar to the rest.
 </dd></dl></div></div></div><div class="refsect2" title="bcftools index [OPTIONS] &lt;in.bcf&gt;|&lt;in.vcf.gz&gt;"><a id="index"></a><h3>bcftools index [<span class="emphasis"><em>OPTIONS</em></span>]  <span class="emphasis"><em>&lt;in.bcf&gt;|&lt;in.vcf.gz&gt;</em></span></h3><p>Creates index for bgzip compressed VCF/BCF files for random access. Note
 that the old tabix (.tbi) index can be invoked by setting -m0. Otherwise
 the new coordinate-sorted (.csi) index is created.</p><div class="variablelist"><dl><dt><span class="term">
@@ -755,6 +774,12 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
+<span class="strong"><strong>-g, --genotypes</strong></span> [^][<span class="emphasis"><em>hom</em></span>|<span class="emphasis"><em>het</em></span>|<span class="emphasis"><em>miss</em></span>]
+</span></dt><dd>
+    include only sites with one or more homozygous (<span class="emphasis"><em>hom</em></span>), heterozygous
+    (<span class="emphasis"><em>het</em></span>) or missing (<span class="emphasis"><em>miss</em></span>) genotypes. When prefixed with <span class="emphasis"><em>^</em></span>, the logic
+    is reversed; thus <span class="emphasis"><em>^het</em></span> excludes sites with heterozygous genotypes.
+</dd><dt><span class="term">
 <span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     include sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
@@ -910,4 +935,4 @@ samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
 BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
 and further developing bcftools.  Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
-providing patches, testing and reporting bugs. We thank them all.</p></div><div class="refsect1" title="RESOURCES"><a id="_resources"></a><h2>RESOURCES</h2><p>Bcftools GitHub website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p><p>Samtools GitHub website: <a class="ulink" href="http://github.com/samtools/samtools" target="_top">http://github.com/samtools/samtools</a></p><p>HTSlib GitHub website: <a class="ulink" href="http://github.com/samtools/htslib" target="_top">http://github.com/samtools/htslib</a></p><p>File format specifications: <a class="ulink" href="http://samtools.github.io/hts-specs" target="_top">http://samtools.github.io/hts-specs</a></p><p>Bcftools documentation: <a class="ulink" href="http://samtools.github.io/bcftools" target="_top">http://samtools.github.io/bcftools</a></p></div><div class="refsect1" title="COPYING"><a id="_copying"></a><h2>COPYING</h2><p>The MIT License. Copyright (c) Genome Research Ltd.</p></div></div></body></html>
+providing patches, testing and reporting bugs. We thank them all.</p></div><div class="refsect1" title="RESOURCES"><a id="_resources"></a><h2>RESOURCES</h2><p>Bcftools GitHub website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p><p>Samtools GitHub website: <a class="ulink" href="http://github.com/samtools/samtools" target="_top">http://github.com/samtools/samtools</a></p><p>HTSlib GitHub website: <a class="ulink" href="http://github.com/samtools/htslib" target="_top">http://github.com/samtools/htslib</a></p><p>File format specifications: <a class="ulink" href="http://samtools.github.io/hts-specs" target="_top">http://samtools.github.io/hts-specs</a></p><p>Bcftools documentation: <a class="ulink" href="http://samtools.github.io/bcftools" target="_top">http://samtools.github.io/bcftools</a></p><p>Bcftools wiki page: <a class="ulink" href="https://github.com/samtools/bcftools/wiki" target="_top">https://github.com/samtools/bcftools/wiki</a></p></div><div class="refsect1" title="COPYING"><a id="_copying"></a><h2>COPYING</h2><p>The MIT License. Copyright (c) Genome Research Ltd.</p></div></div></body></html>
