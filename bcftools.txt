@@ -346,10 +346,11 @@ And similarly here, the second is filtered:
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
-*-m, --mode* '+'|'x'::
+*-m, --mode* ['+x']::
     what to do with the existing FILTER annotations: use '+' for appending
-    to FILTER instead of replacing the existing annotations, and 'x' to 
-    reset filters at sites which pass.
+    to FILTER instead of replacing the filter, and 'x' to reset filters at
+    sites which pass.  The default is to replace the FILTER column of sites
+    which fail and leave the FILTER of sites which pass untouched.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*

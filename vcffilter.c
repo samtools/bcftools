@@ -286,7 +286,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -g, --SnpGap <int>            filter SNPs within <int> base pairs of an indel\n");
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
-    fprintf(stderr, "    -m, --mode <+|x>              \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
+    fprintf(stderr, "    -m, --mode [+x]               \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <reg|file>      restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
@@ -394,7 +394,7 @@ int main_vcffilter(int argc, char *argv[])
         {
             if ( pass ) 
             {
-                if ( (args->annot_mode & ANNOT_RESET) || (args->annot_mode & ANNOT_ADD) ) bcf_add_filter(args->hdr, line, args->flt_pass);
+                if ( args->annot_mode & ANNOT_RESET ) bcf_add_filter(args->hdr, line, args->flt_pass);
             }
             else
             {
