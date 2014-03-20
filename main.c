@@ -41,7 +41,7 @@ cmd_t;
 static cmd_t cmds[] =
 {
     { .func  = NULL, 
-      .alias = "Indexing:",
+      .alias = "Indexing",
       .help  = NULL
     },
     { .func = main_vcfindex,   
@@ -54,7 +54,7 @@ static cmd_t cmds[] =
     },
 
     { .func  = NULL, 
-      .alias = "VCF/BCF manipulation:",
+      .alias = "VCF/BCF manipulation",
       .help  = NULL
     },
 
@@ -88,7 +88,7 @@ static cmd_t cmds[] =
     },
 
     { .func  = NULL, 
-      .alias = "VCF/BCF analysis:",
+      .alias = "VCF/BCF analysis",
       .help  = NULL
     },
 
@@ -145,17 +145,18 @@ static void usage(FILE *fp)
         if ( !cmds[i].func ) sep = cmds[i].alias;
         if ( sep )
         {
-            fprintf(fp, "\n -- %s\n", sep);
+            fprintf(fp, "\n[ %s ]\n", sep);
             sep = NULL;
         }
-        if ( cmds[i].func && cmds[i].help[0]!='-' ) fprintf(fp, "\t%-15s %s\n", cmds[i].alias, cmds[i].help);
+        if ( cmds[i].func && cmds[i].help[0]!='-' ) fprintf(fp, "    %-12s %s\n", cmds[i].alias, cmds[i].help);
         i++;
     }
     fprintf(fp,"\n");
-    fprintf(fp,"Notes:  Most commands accept VCF, bgzipped VCF and BCF with filetype detected\n");
-    fprintf(fp,"        automatically even when streaming from a pipe. Indexed VCF and BCF\n");
-    fprintf(fp,"        will work in all situations. Un-indexed VCF and BCF and streams will\n");
-    fprintf(fp,"        work in most, but not all situations.\n");
+    fprintf(fp,
+"Most commands accept VCF, bgzipped VCF, and BCF with the file type detected\n"
+"automatically even when streaming from a pipe. Indexed VCF and BCF will work\n"
+"in all situations. Un-indexed VCF and BCF and streams will work in most but\n"
+"not all situations.\n");
     fprintf(fp,"\n");
 }
 
@@ -183,7 +184,7 @@ int main(int argc, char *argv[])
     int i = 0;
     while (cmds[i].alias)
     {
-        if ( !strcmp(argv[1],cmds[i].alias) ) 
+        if (cmds[i].func && strcmp(argv[1],cmds[i].alias)==0)
         {
             return cmds[i].func(argc-1,argv+1);
         }
