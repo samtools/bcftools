@@ -394,7 +394,7 @@ int main_vcffilter(int argc, char *argv[])
         {
             if ( pass ) 
             {
-                if ( args->annot_mode & ANNOT_RESET ) bcf_add_filter(args->hdr, line, args->flt_pass);
+                if ( args->annot_mode & ANNOT_RESET || !line->d.n_flt ) bcf_add_filter(args->hdr, line, args->flt_pass);
             }
             else
             {

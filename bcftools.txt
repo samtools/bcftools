@@ -347,10 +347,12 @@ And similarly here, the second is filtered:
     *<<expressions,EXPRESSIONS>>*.
 
 *-m, --mode* ['+x']::
-    what to do with the existing FILTER annotations: use '+' for appending
-    to FILTER instead of replacing the filter, and 'x' to reset filters at
-    sites which pass.  The default is to replace the FILTER column of sites
-    which fail and leave the FILTER of sites which pass untouched.
+    define behaviour at sites with existing FILTER annotations. The default
+    mode replaces existing filters of failed sites with a new FILTER string
+    while leaving sites which pass untouched when non-empty and setting to
+    "PASS" when the FILTER string is absent. The "+" mode appends new FILTER
+    strings of failed sites instead of replacing them. The "x" mode resets
+    filters of sites which pass to "PASS". Modes "+" and "x" can both be set.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
