@@ -11,7 +11,8 @@ use File::Temp qw/ tempfile tempdir /;
 
 my $opts = parse_params();
 
-test_usage($opts,cmd=>'bcftools');
+# This turns out to be quite restrictive, turning off for now.
+#   test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_tabix($opts,in=>'large_chrom_tbi_limit',reg=>'chr11:1-536870912',out=>'large_chrom_tbi_limit.20.1.536870912.out'); # 536870912 (1<<29) is the current limit for tbi. cannot retrieve regions larger than that
