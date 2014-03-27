@@ -167,8 +167,16 @@ This command allows to add or remove annotations and apply user-written plugins.
     CHROM,FROM,TO,REF,ALT,-,INFO/TAG
 ----
 
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-h, --header-lines* 'file'::
     Header lines to appended to the VCF header.
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
 
 *-l, --list-plugins*::
     List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
@@ -576,11 +584,19 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
     see *<<common_options,Common Options>>*
 
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-f, --format* 'FORMAT'::
     learn by example, see below
 
 *-H, --print-header*::
     print header
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
 
 *-l, --list-samples*::
     list sample names and exit
