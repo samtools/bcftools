@@ -19,6 +19,6 @@ void filter_destroy(filter_t *filter);
   */
 int filter_test(filter_t *filter, bcf1_t *rec);
 
-void filter_expression_info();
+void filter_expression_info(FILE *fp);
 
 #endif

@@ -292,7 +292,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
     fprintf(stderr, "    -t, --targets <reg|file>      similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\n");
-    filter_expression_info();
+    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }

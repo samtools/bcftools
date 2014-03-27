@@ -14,6 +14,7 @@
 #include <dlfcn.h>
 #include "bcftools.h"
 #include "vcmp.h"
+#include "filter.h"
 
 /** Plugin API */
 typedef void (*dl_init_f) (bcf_hdr_t *);
@@ -61,6 +62,10 @@ typedef struct _annot_col_t
 }
 annot_col_t;
 
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
+
 typedef struct _args_t
 {
     bcf_srs_t *files;
@@ -68,6 +73,10 @@ typedef struct _args_t
     htsFile *out_fh;
     int output_type;
     bcf_sr_regions_t *tgts;
+
+    filter_t *filter;
+    char *filter_str;
+    int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
 
     plugin_t *plugins;      // user plugins
     int nplugins, nplugin_paths;
@@ -581,6 +590,9 @@ static void init_data(args_t *args)
     if ( args->columns ) init_columns(args);
     init_plugins(args);
 
+    if ( args->filter_str )
+        args->filter = filter_init(args->hdr, args->filter_str);
+
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
 }
@@ -618,6 +630,8 @@ static void destroy_data(args_t *args)
     free(args->tmpi);
     free(args->tmpf);
     free(args->tmps);
+    if ( args->filter )
+        filter_destroy(args->filter);
 }
 
 static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
@@ -760,12 +774,16 @@ static void usage(args_t *args)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations <file>       VCF file or tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
+    fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see below for details)\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
-	fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
-	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-	fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins. See man page for details\n");
+    fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
+    fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins. See man page for details\n");
     fprintf(stderr, "   -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "   -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
+    fprintf(stderr, "\n");
+    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -785,6 +803,8 @@ int main_vcfannotate(int argc, char *argv[])
     {
         {"output-type",1,0,'O'},
         {"annotations",1,0,'a'},
+        {"include",1,0,'i'},
+        {"exclude",1,0,'e'},
         {"plugin",1,0,'p'},
         {"list-plugins",0,0,'l'},
         {"regions",1,0,'r'},
@@ -793,11 +813,11 @@ int main_vcfannotate(int argc, char *argv[])
         {"header-lines",1,0,'h'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:r:a:p:R:c:l",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?O:r:a:p:R:c:li:e:",loptions,NULL)) >= 0) 
     {
         switch (c) {
-    	    case 'c': args->columns = optarg; break;
-    	    case 'O': 
+            case 'c': args->columns = optarg; break;
+            case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -806,6 +826,8 @@ int main_vcfannotate(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 };
                 break;
+            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'R': args->remove_annots = optarg; break;
             case 'a': args->targets_fname = optarg; break;
             case 'r': args->regions_fname = optarg; break;
@@ -841,6 +863,12 @@ int main_vcfannotate(int argc, char *argv[])
         if ( !bcf_sr_has_line(args->files,0) ) continue;
         bcf1_t *line = bcf_sr_get_line(args->files,0);
         if ( line->errcode ) error("Encountered error, cannot proceed. Please check the error output above.\n");
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) continue;
+        }
         int ret = annotate(args, line);
         if ( ret<0 ) break;
         if ( ret>0 ) continue;

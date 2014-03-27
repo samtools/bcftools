@@ -406,7 +406,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private           select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
     fprintf(stderr, "\n");
-    filter_expression_info();
+    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }
