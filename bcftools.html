@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25163376"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25040048"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -143,9 +143,19 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     INFO tags can be written both as INFO/TAG or simply TAG. Unused columns can
     be indicated by <span class="emphasis"><em>-</em></span>.  For example:
 </dd></dl></div><pre class="screen">    CHROM,FROM,TO,REF,ALT,-,INFO/TAG</pre><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
 <span class="strong"><strong>-h, --header-lines</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     Header lines to appended to the VCF header.
+</dd><dt><span class="term">
+<span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --list-plugins</strong></span>
 </span></dt><dd><p class="simpara">
@@ -324,11 +334,14 @@ And similarly here, the second is filtered:
     include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
     <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
 </dd><dt><span class="term">
-<span class="strong"><strong>-m, --mode</strong></span> <span class="emphasis"><em>+</em></span>|<span class="emphasis"><em>x</em></span>
+<span class="strong"><strong>-m, --mode</strong></span> [<span class="emphasis"><em>+x</em></span>]
 </span></dt><dd>
-    what to do with the existing FILTER annotations: use <span class="emphasis"><em>+</em></span> for appending
-    to FILTER instead of replacing the existing annotations, and <span class="emphasis"><em>x</em></span> to
-    reset filters at sites which pass.
+    define behaviour at sites with existing FILTER annotations. The default
+    mode replaces existing filters of failed sites with a new FILTER string
+    while leaving sites which pass untouched when non-empty and setting to
+    "PASS" when the FILTER string is absent. The "<code class="literal">" mode appends new FILTER
+    strings of failed sites instead of replacing them. The "x" mode resets
+    filters of sites which pass to "PASS". Modes "</code>" and "x" can both be set.
 </dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
@@ -540,6 +553,11 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
+<span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
 <span class="strong"><strong>-f, --format</strong></span> <span class="emphasis"><em>FORMAT</em></span>
 </span></dt><dd>
     learn by example, see below
@@ -547,6 +565,11 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 <span class="strong"><strong>-H, --print-header</strong></span>
 </span></dt><dd>
     print header
+</dd><dt><span class="term">
+<span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --list-samples</strong></span>
 </span></dt><dd>
