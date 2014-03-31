@@ -72,7 +72,19 @@ static void init_data(args_t *args)
             }
             while ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,id) );
         }
-        bcf_hdr_printf(args->hdr, "##FILTER=<ID=%s,Description=\"Set if %s: %s\">", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", args->filter_str);
+        // escape quotes
+        kstring_t tmp = {0,0,0};
+        char *t = args->filter_str;
+        while ( *t )
+        {
+            if ( *t=='"' ) kputc('\\',&tmp);
+            kputc(*t,&tmp);
+            t++;
+        }
+        int ret = bcf_hdr_printf(args->hdr, "##FILTER=<ID=%s,Description=\"Set if %s: %s\">", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", tmp.s);
+        if ( ret!=0 )
+            error("Failed to append header line: ##FILTER=<ID=%s,Description=\"Set if %s: %s\">\n", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", tmp.s);
+        free(tmp.s);
 
         args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
         args->flt_fail = bcf_hdr_id2int(args->hdr,BCF_DT_ID,flt_name.s); assert( args->flt_fail>=0 );
@@ -437,7 +449,7 @@ int main_vcffilter(int argc, char *argv[])
         {
             if ( pass ) 
             {
-                if ( args->annot_mode & ANNOT_RESET ) bcf_add_filter(args->hdr, line, args->flt_pass);
+                if ( args->annot_mode & ANNOT_RESET || !line->d.n_flt ) bcf_add_filter(args->hdr, line, args->flt_pass);
             }
             else if ( args->soft_filter )
             {

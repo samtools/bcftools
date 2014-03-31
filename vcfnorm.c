@@ -12,6 +12,10 @@
 #include "bcftools.h"
 #include "rbuf.h"
 
+#define CHECK_REF_EXIT 0
+#define CHECK_REF_WARN 1
+#define CHECK_REF_SKIP 2
+
 typedef struct
 {
     int32_t dir:4, val:28;
@@ -40,7 +44,8 @@ typedef struct
     bcf_hdr_t *hdr;
     faidx_t *fai;
 	char **argv, *ref_fname, *vcf_fname, *region;
-	int argc, rmdup, output_type;
+	int argc, rmdup, output_type, check_ref;
+    int nchanged, nskipped, ntotal;
 }
 args_t;
 
@@ -290,7 +295,21 @@ int realign(args_t *args, bcf1_t *line)
         tmp = line->d.allele[i];
         while (*tmp) { *tmp = toupper(*tmp); tmp++; }
     }
-    if ( len==1 ) return 0;    // SNP
+
+    int ref_winlen;
+    char *ref = NULL;
+    if ( len==1 ) 
+    {
+        // SNP
+        ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos, &ref_winlen);
+        if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
+        if ( ref[0]==line->d.allele[0][0] ) return 0;
+        if ( args->check_ref==CHECK_REF_EXIT )
+            error("Reference allele mismatch at %s:%d .. '%c' vs '%c'\n", bcf_seqname(args->hdr,line),line->pos+1,ref[0],line->d.allele[0][0]);
+        if ( args->check_ref & CHECK_REF_WARN )
+            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+        return -1;
+    }
 
     // Sanity check: exclude broken VCFs with long stretches of N's
     if ( len>1000 )
@@ -306,8 +325,7 @@ int realign(args_t *args, bcf1_t *line)
         args->mseq = len*(line->n_allele-1);
         args->seq  = (char*) realloc(args->seq, sizeof(char)*args->mseq);
     }
-    int ref_winlen;
-    char *ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-win, line->pos+ref_len, &ref_winlen);
+    ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-win, line->pos+ref_len, &ref_winlen);
     if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-win);
     assert( ref_winlen==ref_len+win+1 );
 
@@ -318,8 +336,12 @@ int realign(args_t *args, bcf1_t *line)
     {
         for (i=0; i<ref_len; i++)
             if ( ref[win+i]!=line->d.allele[0][i] ) break;
-        error("\nSanity check failed, the reference sequence differs at %s:%d[%d] .. '%c' vs '%c'\n", 
-            args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, i+1,ref[win+i],line->d.allele[0][i]);
+        if ( args->check_ref==CHECK_REF_EXIT )
+            error("\nSanity check failed, the reference sequence differs at %s:%d[%d] .. '%c' vs '%c'\n", 
+                    args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, i+1,ref[win+i],line->d.allele[0][i]);
+        if ( args->check_ref & CHECK_REF_WARN )
+            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+        return -1;
     }
 
     if ( args->aln.m_arr < line->n_allele )
@@ -407,6 +429,8 @@ int realign(args_t *args, bcf1_t *line)
         if ( nsuffix ) kputsn_(&ref[iref[k]], nsuffix, &str);
         kputc_(0, &str);
     }
+    if ( memcmp(str.s,line->d.als,str.l) ) args->nchanged++;
+
     // create new block of alleles 
     char *rmme = line->d.als;
     line->d.allele[0] = line->d.als = str.s;
@@ -473,8 +497,14 @@ static void normalize_vcf(args_t *args)
 
     while ( bcf_sr_next_line(args->files) )
     {
+        args->ntotal++;
+
         bcf1_t *line = args->files->readers[0].buffer[0];
-        if ( realign(args, line)<0 ) continue;   // exclude broken VCF lines
+        if ( realign(args, line)<0 && args->check_ref & CHECK_REF_SKIP ) 
+        {
+            args->nskipped++;
+            continue;   // exclude broken VCF lines
+        }
 
         // still on the same chromosome?
         int i, j, ilast = rbuf_last(&args->rbuf); 
@@ -502,16 +532,19 @@ static void normalize_vcf(args_t *args)
     }
     flush_buffer(args, out, args->rbuf.n);
     hts_close(out);
+
+    fprintf(stderr,"Lines total/modified/skipped:\t%d/%d/%d\n", args->ntotal,args->nchanged,args->nskipped);
 }
 
 static void usage(void)
 {
     fprintf(stderr, "\n");
-	fprintf(stderr, "About:   Left-align and normalize indels.\n");
+	fprintf(stderr, "About:   Left-align and normalize indels, check if REF alleles match the reference.\n");
 	fprintf(stderr, "Usage:   bcftools norm [options] -f <ref.fa> <in.vcf.gz>\n");
     fprintf(stderr, "\n");
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type. [Todo: merge genotypes, don't just throw away.]\n");
+	fprintf(stderr, "    -c, --check-ref <e|w|x>           check REF alleles and exit (e), warn (w), exclude (x) bad sites [e]\n");
+	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
 	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
     fprintf(stderr, "    -O, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
 	fprintf(stderr, "    -r, --regions <file|reg>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
@@ -537,10 +570,16 @@ int main_vcfnorm(int argc, char *argv[])
 		{"win",1,0,'w'},
 		{"remove-duplicates",0,0,'D'},
         {"output-type",1,0,'O'},
+        {"check-ref",1,0,'c'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hr:f:w:DO:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hr:f:w:DO:c:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'c':
+                if ( strchr(optarg,'w') ) args->check_ref |= CHECK_REF_WARN;
+                if ( strchr(optarg,'x') ) args->check_ref |= CHECK_REF_SKIP;
+                if ( strchr(optarg,'e') ) args->check_ref = CHECK_REF_EXIT; // overrides the above
+                break;
             case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;

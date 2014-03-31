@@ -167,10 +167,10 @@ static void phased_flush(args_t *args)
 
         int nGTs = bcf_get_genotypes(ahdr, arec, &args->GTa, &args->mGTa);
         if ( nGTs < 0 ) error("GT is not present at %s:%d\n", bcf_seqname(ahdr,arec), arec->pos+1);
-        if ( nGTs != 2*nsmpl ) error("TODO: Not diploid at %s:%d?\n", bcf_seqname(ahdr,arec), arec->pos+1);
+        if ( nGTs != 2*nsmpl ) continue;    // not diploid
         nGTs = bcf_get_genotypes(bhdr, brec, &args->GTb, &args->mGTb);
         if ( nGTs < 0 ) error("GT is not present at %s:%d\n", bcf_seqname(bhdr,brec), brec->pos+1);
-        if ( nGTs != 2*nsmpl ) error("TODO: Not diploid at %s:%d?\n", bcf_seqname(bhdr,brec), brec->pos+1);
+        if ( nGTs != 2*nsmpl ) continue;    // not diploid
 
         for (j=0; j<nsmpl; j++)
         {

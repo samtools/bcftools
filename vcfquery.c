@@ -10,6 +10,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include "bcftools.h"
+#include "filter.h"
 
 #define T_CHROM   1
 #define T_POS     2
@@ -42,8 +43,15 @@ typedef struct _fmt_t
 }
 fmt_t;
 
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
+
 struct _args_t
 {
+    filter_t *filter;
+    char *filter_str;
+    int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
     fmt_t *fmt;
     int nfmt, mfmt;
 	bcf_srs_t *files;
@@ -493,6 +501,9 @@ static void init_data(args_t *args)
         args->samples = (int*) malloc(sizeof(int)*args->nsamples);
         for (i=0; i<args->nsamples; i++) args->samples[i] = i;
     }
+
+    if ( args->filter_str )
+        args->filter = filter_init(args->header, args->filter_str);
 }
 
 static void destroy_data(args_t *args)
@@ -503,6 +514,8 @@ static void destroy_data(args_t *args)
     if ( args->mfmt ) free(args->fmt);
     args->nfmt = args->mfmt = 0;
     args->fmt = NULL;
+    if ( args->filter )
+        filter_destroy(args->filter);
     free(args->samples);
 }
 
@@ -568,6 +581,13 @@ static void query_vcf(args_t *args)
         if ( !bcf_sr_has_line(args->files,0) ) continue;
         bcf1_t *line = args->files->readers[0].buffer[0];
         bcf_unpack(line, args->files->max_unpack);
+
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) continue;
+        }
 
         int i, ir;
         str.l = 0;
@@ -648,15 +668,17 @@ static void usage(void)
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");
 	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none>, see man page [none]\n");
+	fprintf(stderr, "    -e, --exclude <expr>              exclude sites for which the expression is true (see below for details)\n");
 	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
 	fprintf(stderr, "    -H, --print-header                print header\n");
+	fprintf(stderr, "    -i, --include <expr>              select sites for which the expression is true (see below for details)\n");
 	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit\n");
 	fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
 	fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
 	fprintf(stderr, "    -s, --samples <list|:file>        comma-separated list of samples to include or one name per line in a file\n");
 	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Expressions:\n");
+	fprintf(stderr, "Format expressions:\n");
     fprintf(stderr, "\t%%CHROM          The CHROM column (similarly also other columns, such as POS, ID, QUAL, etc.)\n");
     fprintf(stderr, "\t%%INFO/TAG       Any tag in the INFO column\n");
     fprintf(stderr, "\t%%TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)\n");
@@ -668,6 +690,8 @@ static void usage(void)
     fprintf(stderr, "\t%%LINE           Prints the whole line\n");
     fprintf(stderr, "\t%%SAMPLE         Sample name\n");
     //fprintf(stderr, "\t%*<A><B>        All format fields printed as KEY<A>VALUE<B>\n");
+    fprintf(stderr, "\n");
+    filter_expression_info(stderr);
     fprintf(stderr, "\n");
 	fprintf(stderr, "Examples:\n");
     fprintf(stderr, "\tbcftools query -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
@@ -685,6 +709,8 @@ int main_vcfquery(int argc, char *argv[])
 	{
 		{"help",0,0,'h'},
 		{"list-samples",0,0,'l'},
+		{"include",1,0,'i'},
+		{"exclude",1,0,'e'},
 		{"format",1,0,'f'},
 		{"regions",1,0,'r'},
 		{"targets",1,0,'t'},
@@ -695,7 +721,7 @@ int main_vcfquery(int argc, char *argv[])
 		{"vcf-list",1,0,'v'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hlr:f:a:s:Ht:c:v:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hlr:f:a:s:Ht:c:v:i:e:",loptions,NULL)) >= 0) {
 		switch (c) {
 			case 'f': args->format = strdup(optarg); break;
 			case 'H': args->print_header = 1; break;
@@ -726,6 +752,8 @@ int main_vcfquery(int argc, char *argv[])
                     args->format = str.s;
                     break;
                 }
+            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
 			case 'r': args->regions_fname = optarg; break;
 			case 't': args->targets_fname = optarg; break;
 			case 'l': args->list_columns = 1; break;

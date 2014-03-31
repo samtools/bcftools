@@ -167,8 +167,16 @@ This command allows to add or remove annotations and apply user-written plugins.
     CHROM,FROM,TO,REF,ALT,-,INFO/TAG
 ----
 
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-h, --header-lines* 'file'::
     Header lines to appended to the VCF header.
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
 
 *-l, --list-plugins*::
     List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
@@ -347,10 +355,12 @@ And similarly here, the second is filtered:
     *<<expressions,EXPRESSIONS>>*.
 
 *-m, --mode* ['+x']::
-    what to do with the existing FILTER annotations: use '+' for appending
-    to FILTER instead of replacing the filter, and 'x' to reset filters at
-    sites which pass.  The default is to replace the FILTER column of sites
-    which fail and leave the FILTER of sites which pass untouched.
+    define behaviour at sites with existing FILTER annotations. The default
+    mode replaces existing filters of failed sites with a new FILTER string
+    while leaving sites which pass untouched when non-empty and setting to
+    "PASS" when the FILTER string is absent. The "+" mode appends new FILTER
+    strings of failed sites instead of replacing them. The "x" mode resets
+    filters of sites which pass to "PASS". Modes "+" and "x" can both be set.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
@@ -361,6 +371,9 @@ And similarly here, the second is filtered:
 *-s, --soft-filter* 'STRING'|'+'::
     annotate FILTER column with 'STRING' or, with '+', a unique filter name generated
     by the program ("Filter%d").
+
+*-S, --set-GTs* '.'|'0'::
+    set genotypes of failed samples to missing value ('.') or reference allele ('0')
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -574,11 +587,19 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
     see *<<common_options,Common Options>>*
 
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-f, --format* 'FORMAT'::
     learn by example, see below
 
 *-H, --print-header*::
     print header
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
 
 *-l, --list-samples*::
     list sample names and exit
@@ -908,44 +929,49 @@ These filtering expressions are accepted by *<<filter,filter>>* and
 
 .Valid expressions may contain:
 
-arithmetic perators: ::
-    +, *, -, /
-    
-logical operators: ::
-    && (same as &),  || (same as |)
-    
-comparison operators: ::
+numerical constants and string constants ::
+    1, 1.0, 1e-4
+    "String"
+
+arithmetic operators ::
+    +,*,-,/
+
+comparison operators ::
     == (same as =), >, >=, <=, <, !=
-    
-parentheses: ::
+
+parentheses ::
     (, )
-    
-array subscripts to access vector subfields: ::
-    e.g. AC[0]
-    
-double quotes for string values: ::
-    e.g. %FILTER="PASS"
-    
-'1' (or '0') for testing the presence (or absence) of a flag: ::
-    e.g. FlagA=1 && FlagB=0
-    
-'TAG' or INFO/'TAG' for INFO fields: ::
-    e.g. DP<800 or INFO/DP<800
-    
-%'COLUMN' for column names (not all columns are supported yet): ::
-    e.g. %QUAL>10 && %FILTER="PASS"
-    
-%TYPE for testing variant type ('indel', 'snp', 'mnp', 'other'): ::
-    e.g. %TYPE="snp"
-    
-%'FUNC'('TAG') where 'FUNC' is one of 'MAX', 'MIN', 'AVG' and 'TAG' is one of the FORMAT fields: ::
-    e.g. %MIN(DP)>10 && %MIN(DV)>3
 
-A few more examples:
+logical operators :: 
+    && (same as &), ||,  |
 
+INFO tags, FORMAT tags, column names ::
+    INFO/DP or DP
+    FORMAT/DV, FMT/DV, or DV
+    %FILTER, %QUAL
+
+1 (or 0) to test the presence (or absence) of a flag ::
+    FlagA=1 && FlagB=0
+
+%TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other) ::
+    %TYPE="indel" | %TYPE="snp"
+
+array subscripts ::
+    (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
+
+functions on FORMAT fields ::
+    MAX, MIN, AVG
+
+
+.Examples
+
+    %MIN(DV)>5
+    %MIN(DV/DP)>0.3
+    %MIN(DP)>10 & %MIN(DV)>3
+    %%QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
+    %%QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
     %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
     %MIN(DP)>35 && %AVG(GQ)>50
-    ...
 
 
 PERFORMANCE

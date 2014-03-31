@@ -145,7 +145,7 @@ static void usage(FILE *fp)
         if ( !cmds[i].func ) sep = cmds[i].alias;
         if ( sep )
         {
-            fprintf(fp, "\n[ %s ]\n", sep);
+            fprintf(fp, "\n -- %s\n", sep);
             sep = NULL;
         }
         if ( cmds[i].func && cmds[i].help[0]!='-' ) fprintf(fp, "    %-12s %s\n", cmds[i].alias, cmds[i].help);
@@ -153,10 +153,10 @@ static void usage(FILE *fp)
     }
     fprintf(fp,"\n");
     fprintf(fp,
-"Most commands accept VCF, bgzipped VCF, and BCF with the file type detected\n"
-"automatically even when streaming from a pipe. Indexed VCF and BCF will work\n"
-"in all situations. Un-indexed VCF and BCF and streams will work in most but\n"
-"not all situations.\n");
+            " Most commands accept VCF, bgzipped VCF, and BCF with the file type detected\n"
+            " automatically even when streaming from a pipe. Indexed VCF and BCF will work\n"
+            " in all situations. Un-indexed VCF and BCF and streams will work in most but\n"
+            " not all situations.\n");
     fprintf(fp,"\n");
 }
 
