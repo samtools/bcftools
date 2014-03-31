@@ -22,16 +22,22 @@
 #define ANNOT_ADD   1
 #define ANNOT_RESET 2
 
+// Set genotypes of filtered samples
+#define SET_GTS_MISSING 1
+#define SET_GTS_REF 2
+
 typedef struct _args_t
 {
     filter_t *filter;
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+    const uint8_t *smpl_pass;
+    int set_gts;
     char *soft_filter;  // drop failed sites or annotate FILTER column?
     int annot_mode;     // add to existing FILTER annotation or replace? Otherwise reset FILTER to PASS or leave as it is?
     int flt_fail, flt_pass;     // BCF ids of fail and pass filters
     int snp_gap, indel_gap, IndelGap_id, SnpGap_id;
-    int ntmpi, *tmpi;
+    int32_t ntmpi, *tmpi;
     rbuf_t rbuf;
     bcf1_t **rbuf_lines;
 
@@ -274,6 +280,36 @@ static void buffered_filters(args_t *args, bcf1_t *line)
     flush_buffer(args, j_flush < k_flush ? j_flush : k_flush);
 }
 
+static void set_genotypes(args_t *args, bcf1_t *line)
+{
+    if ( !bcf_hdr_nsamples(args->hdr) || !args->smpl_pass ) { args->set_gts = 0; return; }
+
+    int i,j, npass = 0;
+    for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) npass += args->smpl_pass[i];
+
+    // return if all samples pass
+    if ( npass==bcf_hdr_nsamples(args->hdr) && (args->filter_logic & FLT_INCLUDE) ) return;
+    if ( npass==0 && (args->filter_logic & FLT_EXCLUDE) ) return;
+
+    int new_gt = 0, ngts = bcf_get_format_int32(args->hdr, line, "GT", &args->tmpi, &args->ntmpi);
+    ngts /= bcf_hdr_nsamples(args->hdr);
+    if ( args->set_gts==SET_GTS_MISSING ) new_gt = bcf_gt_missing;
+    else if ( args->set_gts==SET_GTS_REF ) new_gt = bcf_gt_unphased(0);
+    else error("todo: set_gts=%d\n", args->set_gts);
+    for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) 
+    {
+        int pass = args->smpl_pass[i];
+        if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+        if ( pass ) continue;
+        int32_t *gts = args->tmpi + ngts*i;
+        for (j=0; j<ngts; j++)
+        {
+            if ( gts[j]==bcf_int32_vector_end ) break;
+            gts[j] = new_gt;
+        }
+    }
+    bcf_update_genotypes(args->hdr,line,args->tmpi,ngts*bcf_hdr_nsamples(args->hdr));
+}
 
 static void usage(args_t *args)
 {
@@ -290,9 +326,10 @@ static void usage(args_t *args)
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <reg|file>      restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
+    fprintf(stderr, "    -S, --set-GTs <.|0>           set genotypes of failed samples to missing (.) or ref (0)\n");
     fprintf(stderr, "    -t, --targets <reg|file>      similar to -r but streams rather than index-jumps, see man page for details\n");
     fprintf(stderr, "\n");
-    filter_expression_info();
+    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -307,6 +344,7 @@ int main_vcffilter(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
+        {"set-GTs",1,0,'S'},
         {"mode",1,0,'m'},
         {"soft-filter",1,0,'s'},
         {"exclude",1,0,'e'},
@@ -318,7 +356,7 @@ int main_vcffilter(int argc, char *argv[])
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:O:g:G:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:O:g:G:S:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'g': args->snp_gap = atoi(optarg); break;
             case 'G': args->indel_gap = atoi(optarg); break;
@@ -340,6 +378,11 @@ int main_vcffilter(int argc, char *argv[])
             case 'r': args->regions_fname = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'S': 
+                if ( !strcmp(".",optarg) ) args->set_gts = SET_GTS_MISSING; 
+                else if ( !strcmp("0",optarg) ) args->set_gts = SET_GTS_REF;
+                else error("The argument to -S not recognised: %s\n", optarg);
+                break;
             case 'h':
             case '?': usage(args);
             default: error("Unknown argument: %s\n", optarg);
@@ -387,20 +430,21 @@ int main_vcffilter(int argc, char *argv[])
         int pass = 1;
         if ( args->filter )
         {
-            pass = filter_test(args->filter, line);
+            pass = filter_test(args->filter, line, &args->smpl_pass);
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
         }
-        if ( args->soft_filter || pass )
+        if ( args->soft_filter || args->set_gts || pass )
         {
             if ( pass ) 
             {
                 if ( args->annot_mode & ANNOT_RESET ) bcf_add_filter(args->hdr, line, args->flt_pass);
             }
-            else
+            else if ( args->soft_filter )
             {
                 if ( (args->annot_mode & ANNOT_ADD) ) bcf_add_filter(args->hdr, line, args->flt_fail);
                 else bcf_update_filter(args->hdr, line, &args->flt_fail, 1);
             }
+            if ( args->set_gts ) set_genotypes(args, line);
             if ( !args->rbuf_lines )
                 bcf_write1(args->out_fh, args->hdr, line);
             else
