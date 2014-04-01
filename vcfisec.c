@@ -23,7 +23,7 @@ typedef struct
 	bcf_srs_t *files;
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
-	char **argv, *prefix, **fnames, *write_files, *targets_fname, *regions_fname;
+	char **argv, *prefix, **fnames, *write_files, *targets_list, *regions_list;
 	int argc;
 }
 args_t;
@@ -111,7 +111,7 @@ void isec_vcf(args_t *args)
     // When only one VCF is output, print VCF to stdout
     int out_std = 0;
     if ( args->nwrite==1 ) out_std = 1;
-    if ( args->targets_fname && files->nreaders==1 ) out_std = 1;
+    if ( args->targets_list && files->nreaders==1 ) out_std = 1;
     if ( out_std ) 
     {
         out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
@@ -316,8 +316,10 @@ static void usage(void)
 	fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
 	fprintf(stderr, "    -O, --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
 	fprintf(stderr, "    -p, --prefix <dir>                if given, subset each of the input files accordingly, see also -w\n");
-	fprintf(stderr, "    -r, --regions <file|reg>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-	fprintf(stderr, "    -t, --targets <file|reg>          similar to -r but streams rather than index-jumps, see man page for details\n");
+	fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>         restrict to regions listed in a file\n");
+    fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
 	fprintf(stderr, "    -w, --write <list>                list of files to write with -p given as 1-based indexes. By default, all files are written\n");
     fprintf(stderr, "\n");
 	fprintf(stderr, "Examples:\n");
@@ -340,6 +342,7 @@ int main_vcfisec(int argc, char *argv[])
     args->files  = bcf_sr_init();
 	args->argc   = argc; args->argv = argv;
     args->output_type = FT_VCF;
+    int targets_is_file = 0, regions_is_file = 0;
 
 	static struct option loptions[] = 
 	{
@@ -351,11 +354,13 @@ int main_vcfisec(int argc, char *argv[])
 		{"prefix",1,0,'p'},
 		{"write",1,0,'w'},
 		{"targets",1,0,'t'},
+		{"targets-file",1,0,'T'},
 		{"regions",1,0,'r'},
+		{"regions-file",1,0,'R'},
 		{"output-type",1,0,'O'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hc:r:p:n:w:t:Cf:O:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:O:",loptions,NULL)) >= 0) {
 		switch (c) {
 			case 'O': 
                 switch (optarg[0]) {
@@ -378,8 +383,10 @@ int main_vcfisec(int argc, char *argv[])
 				break;
 			case 'f': args->files->apply_filters = optarg; break;
 			case 'C': args->isec_op = OP_COMPLEMENT; break;
-			case 'r': args->regions_fname = optarg; break;
-			case 't': args->targets_fname = optarg; break;
+			case 'r': args->regions_list = optarg; break;
+			case 'R': args->regions_list = optarg; regions_is_file = 1; break;
+			case 't': args->targets_list = optarg; break;
+			case 'T': args->targets_list = optarg; targets_is_file = 1; break;
 			case 'p': args->prefix = optarg; break;
 			case 'w': args->write_files = optarg; break;
 			case 'n': 
@@ -399,16 +406,16 @@ int main_vcfisec(int argc, char *argv[])
 		}
 	}
 	if ( argc-optind<1 ) usage();   // no file given
-    if ( args->targets_fname && bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
-        error("Failed to read the targets: %s\n", args->targets_fname);
-    if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-        error("Failed to read the regions: %s\n", args->regions_fname);
+    if ( args->targets_list && bcf_sr_set_targets(args->files, args->targets_list, targets_is_file,0)<0 )
+        error("Failed to read the targets: %s\n", args->targets_list);
+    if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+        error("Failed to read the regions: %s\n", args->regions_list);
     if ( argc-optind==2 && !args->isec_op ) 
     {
         args->isec_op = OP_VENN;
         if ( !args->prefix ) error("Expected the -p option\n");
     }
-    if ( !args->targets_fname )
+    if ( !args->targets_list )
     {
         if ( argc-optind<2  ) error("Expected multiple files or the --targets option\n");
         if ( !args->isec_op ) error("Expected two file names or one of the options --complement, --nfiles or --targets\n");

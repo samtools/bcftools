@@ -664,10 +664,12 @@ static void usage(void)
 	fprintf(stderr, "    -G, --GTs-only <int>            use GTs, ignore PLs, using <int> for unseen genotypes [99]\n");
 	fprintf(stderr, "    -H, --homs-only                 homozygous genotypes only (useful for low coverage data)\n");
 	fprintf(stderr, "    -p, --plot <prefix>             plot\n");
-    fprintf(stderr, "    -r, --regions <file|reg>        restrict to list of regions or regions listed in a file, see man page for details\n");
+    fprintf(stderr, "    -r, --regions <region>          restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>       restrict to regions listed in a file\n");
 	fprintf(stderr, "    -s, --query-sample <string>     query sample (by default the first sample is checked)\n");
 	fprintf(stderr, "    -S, --target-sample <string>    target sample in the -g file (used only for plotting)\n");
-    fprintf(stderr, "    -t, --targets <reg|file>        similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -t, --targets <region>          similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n");
 	fprintf(stderr, "\n");
 	exit(1);
 }
@@ -679,6 +681,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     args->files  = bcf_sr_init();
 	args->argc   = argc; args->argv = argv; set_cwd(args);
     char *regions = NULL, *targets = NULL;
+    int regions_is_file = 0, targets_is_file = 0;
 
 	static struct option loptions[] = 
 	{
@@ -691,10 +694,12 @@ int main_vcfgtcheck(int argc, char *argv[])
 		{"target-sample",1,0,'S'},
 		{"query-sample",1,0,'s'},
         {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:at:G:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:R:at:T:G:",loptions,NULL)) >= 0) {
 		switch (c) {
 			case 'G': args->no_PLs = atoi(optarg); break;
 			case 'a': args->all_sites = 1; break;
@@ -704,7 +709,9 @@ int main_vcfgtcheck(int argc, char *argv[])
 			case 'S': args->target_sample = optarg; break;
 			case 's': args->query_sample = optarg; break;
             case 'r': regions = optarg; break;
+            case 'R': regions = optarg; regions_is_file = 1; break;
             case 't': targets = optarg; break;
+            case 'T': targets = optarg; targets_is_file = 1; break;
 			case 'h': 
 			case '?': usage();
 			default: error("Unknown argument: %s\n", optarg);
@@ -713,8 +720,8 @@ int main_vcfgtcheck(int argc, char *argv[])
     if ( argc==optind || argc>optind+1 )  usage();  // none or too many files given
     if ( !args->gt_fname ) args->cross_check = 1;   // no genotype file, run in cross-check mode
     else args->files->require_index = 1;
-    if ( regions && bcf_sr_set_regions(args->files, regions)<0 ) error("Failed to read the regions: %s\n", regions);
-    if ( targets && bcf_sr_set_targets(args->files, targets,0)<0 ) error("Failed to read the targets: %s\n", targets);
+    if ( regions && bcf_sr_set_regions(args->files, regions, regions_is_file)<0 ) error("Failed to read the regions: %s\n", regions);
+    if ( targets && bcf_sr_set_targets(args->files, targets, targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n", targets);
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
     if ( args->gt_fname && !bcf_sr_add_reader(args->files, args->gt_fname) ) error("Failed to open or the file not indexed: %s\n", args->gt_fname);
     args->files->collapse = COLLAPSE_SNPS|COLLAPSE_INDELS;

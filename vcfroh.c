@@ -57,9 +57,10 @@ typedef struct _args_t
     int prev_rid, skip_rid;
     double unseen_PL;
 
-    char **argv, *targets_fname, *regions_fname, *samples_fname, *af_fname, *af_tag;
+    char **argv, *targets_list, *regions_list, *samples_list, *af_fname, *af_tag;
     char *genmap_fname;
     int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only, snps_only, estimate_AF;
+    int sample_is_file;
 }
 args_t;
 
@@ -74,12 +75,12 @@ static void init_data(args_t *args)
 {
     args->prev_rid = args->skip_rid = -1;
     args->hdr = args->files->readers[0].header;
-    if ( args->samples_fname && args->estimate_AF!=1 && !args->files->readers[0].file->is_bin )
+    if ( args->samples_list && args->estimate_AF!=1 && !args->files->readers[0].file->is_bin )
     {
         // speedup: reading from VCF + only some samples are needed + we do not need to recalculate AC,AN
         // this speeds up the parsing 3x (1.1k samples, 148MB vcf.gz, 38,010 sites)
-        int ret = bcf_hdr_set_samples(args->hdr, args->samples_fname);
-        if ( ret<0 ) error("Error parsing the list of samples: %s\n", args->samples_fname);
+        int ret = bcf_hdr_set_samples(args->hdr, args->samples_list, args->sample_is_file);
+        if ( ret<0 ) error("Error parsing the list of samples: %s\n", args->samples_list);
         else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
     }
 
@@ -87,9 +88,9 @@ static void init_data(args_t *args)
         if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) ) 
             error("No such INFO tag in the VCF: %s\n", args->af_tag);
 
-    if ( !args->samples_fname ) args->samples_fname = "-";
-    if ( !bcf_sr_set_samples(args->files, args->samples_fname) )
-        error("Error: could not set the samples %s\n", args->samples_fname);
+    if ( !args->samples_list ) args->samples_list = "-";
+    if ( !bcf_sr_set_samples(args->files, args->samples_list, args->sample_is_file) )
+        error("Error: could not set the samples %s\n", args->samples_list);
     args->nsmpl = args->files->n_smpl;
     args->ismpl = args->files->readers[0].samples;
 
@@ -731,9 +732,12 @@ static void usage(args_t *args)
     fprintf(stderr, "    -G, --GTs-only <float>             use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
     fprintf(stderr, "    -I, --skip-indels                  skip indels as their genotypes are enriched for errors\n");
     fprintf(stderr, "    -m, --genetic-map <file>           genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
-    fprintf(stderr, "    -r, --regions <reg|file>           restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "    -s, --samples <list|file>          list of samples (file or comma separated list) [null]\n");
-    fprintf(stderr, "    -t, --targets <reg|file>           similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "    -s, --samples <list>               list of samples for sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -S, --samples-file <file>          file of samples to include\n");
+    fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -w, --win <int>                    maximum window length [100_000]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
@@ -752,6 +756,7 @@ int main_vcfroh(int argc, char *argv[])
     args->tAZ     = 1e-4;
     args->tHW     = 1e-3;
     args->mwin    = (int)1e5;   // maximum number of sites that can be processed in one go
+    int regions_is_file = 0, targets_is_file = 0;
 
     static struct option loptions[] = 
     {
@@ -761,17 +766,20 @@ int main_vcfroh(int argc, char *argv[])
         {"counts-only",0,0,'c'},
         {"win",1,0,'w'},
         {"samples",1,0,'s'},
+        {"samples-file",1,0,'S'},
         {"hw-to-az",1,0,'a'},
         {"az-to-hw",1,0,'H'},
         {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
         {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"genetic-map",1,0,'m'},
         {"fwd-bwd",1,0,'f'},
         {"biallelic-sites",0,0,'b'},
         {"skip-indels",0,0,'I'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?r:t:H:a:w:s:cm:fG:bIa:e:F:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:w:s:S:cm:fG:bIa:e:F:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'F': 
                 if (optarg[0]==':') args->af_fname = optarg+1;
@@ -788,12 +796,15 @@ int main_vcfroh(int argc, char *argv[])
             case 'm': args->genmap_fname = optarg; break;
             case 'c': args->counts_only = 1; break;
             case 'f': args->fwd_bwd = 1; break;
-            case 's': args->samples_fname = optarg; break;
+            case 's': args->samples_list = optarg; break;
+            case 'S': args->samples_list = optarg; args->sample_is_file = 1; break;
             case 'w': args->mwin = (int)atof(optarg); break;
             case 'a': args->tAZ = atof(optarg); break;
             case 'H': args->tHW = atof(optarg); break;
-            case 't': args->targets_fname = optarg; break;
-            case 'r': args->regions_fname = optarg; break;
+            case 't': args->targets_list = optarg; break;
+            case 'T': args->targets_list = optarg; targets_is_file = 1; break;
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'h': 
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
@@ -801,21 +812,21 @@ int main_vcfroh(int argc, char *argv[])
     }
 
     if ( (args->af_fname || args->af_tag) && args->estimate_AF ) error("Error: The options -F and -e are mutually exclusive\n");
-    if ( args->af_fname && args->targets_fname ) error("Error: The options -F and -t are mutually exclusive\n");
+    if ( args->af_fname && args->targets_list ) error("Error: The options -F and -t are mutually exclusive\n");
     if ( argc<optind+1 ) usage(args);
-    if ( args->regions_fname )
+    if ( args->regions_list )
     {
-        if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-            error("Failed to read the regions: %s\n", args->regions_fname);
+        if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->regions_list);
     }
-    if ( args->targets_fname )
+    if ( args->targets_list )
     {
-        if ( bcf_sr_set_targets(args->files, args->targets_fname, 0)<0 )
-            error("Failed to read the targets: %s\n", args->targets_fname);
+        if ( bcf_sr_set_targets(args->files, args->targets_list, targets_is_file, 0)<0 )
+            error("Failed to read the targets: %s\n", args->targets_list);
     }
     if ( args->af_fname )
     {
-        if ( bcf_sr_set_targets(args->files, args->af_fname, 3)<0 )
+        if ( bcf_sr_set_targets(args->files, args->af_fname, targets_is_file, 3)<0 )
             error("Failed to read the targets: %s\n", args->af_fname);
     }
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);

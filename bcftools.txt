@@ -111,7 +111,10 @@ OPTIONS
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    Comma-separated list of regions, see also *-R, --regions-file*.
+
+*-R, --regions-file* 'FILE'::
     Regions can be specified either on command line or in a VCF, BED, or
     tab-delimited file (the default).  The columns of the tab-delimited file
     are: CHROM, POS, and,  optionally,  POS_TO,  where positions are 1-based
@@ -120,23 +123,28 @@ OPTIONS
     sequence names must match exactly, "chr20" is not the same as "20".  This
     option requires indexed VCF/BCF files.
 
-*-s, --samples* 'LIST'|':FILE'::
-    Comma-separated list of samples to include or, when prefixed with colon
-    ':', read sample names from 'FILE' with one sample per line.
+*-s, --samples* 'LIST'::
+    Comma-separated list of samples to include
+
+*-S, --samples-file* ':FILE'::
+    File of sample names to include, one sample per line.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Same as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
     and *-t* discards positions which are not in the targets.  Another difference
     between the two is that *-r* checks both start and end positions of indels,
-    whereas *-t* checks start positions only.  With the call *-C* 'alleles' command,
-    third column of the targets file must be comma-separated list of alleles,
-    starting with the reference allele. Such a file can be easily created from
-    a VCF with:
+    whereas *-t* checks start positions only. 
+
+*-T, --targets-file* 'FILE'::
+    Same *-t, --targets*, but reads regions from a file. With the *call -C*
+    'alleles' command, third column of the targets file must be comma-separated
+    list of alleles, starting with the reference allele. Such a file can be
+    easily created from a VCF with:
 ----
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf
 ----
@@ -196,10 +204,13 @@ This command allows to add or remove annotations and apply user-written plugins.
     details and examples. See *-l, --list-plugins* to get a list of installed
     plugins.
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-R, --remove* 'list':: 
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-x, --remove* 'list':: 
     List of annotations to remove. Use 'FILTER' to remove all filters or
     'FILTER/SomeFilter' to remove a specific filter. More examples:
 ----
@@ -221,10 +232,22 @@ demand. The original calling model can be invoked with the *-c* option.
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'FILE'|'LIST'::
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
 ==== Input/output options:
@@ -236,7 +259,7 @@ demand. The original calling model can be invoked with the *-c* option.
 *-M, --keep-masked-ref*::
     output sites where REF allele is N
 
-*-S, --skip* 'snps'|'indels'::
+*-V, --skip-variants* 'snps'|'indels'::
     skip indel/SNP sites
 
 *-v, --variants-only*::
@@ -284,6 +307,7 @@ demand. The original calling model can be invoked with the *-c* option.
 
 *-Y, --chromosome-Y*::
     haploid output for males and skips females (requires PED file with *-s*)
+
 
 [[concat]]
 === bcftools concat '[OPTIONS]' 'FILE1' 'FILE2' [...]
@@ -365,7 +389,10 @@ And similarly here, the second is filtered:
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
 *-s, --soft-filter* 'STRING'|'+'::
@@ -375,7 +402,10 @@ And similarly here, the second is filtered:
 *-S, --set-GTs* '.'|'0'::
     set genotypes of failed samples to missing value ('.') or reference allele ('0')
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
 
@@ -402,7 +432,10 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
 *-p, --plot* 'PREFIX'::
     produce plots
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
 *-s, --query-sample* 'STRING'::
@@ -411,7 +444,10 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
 *-S, --target-sample* 'STRING'::
     target sample in the *-g* file, used only for plotting, not for analysis
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
 ==== Output files format:
@@ -483,10 +519,16 @@ in the other files.
 *-p, --prefix* 'DIR'::
     if given, subset each of the input files accordingly. See also *-w*.
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
 *-w, --write* 'LIST'::
@@ -551,7 +593,10 @@ can be also given explicitly using the *--print-header* and
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
 
@@ -569,7 +614,10 @@ Left-align and normalize indels.
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
 *-w, --win* 'INT','INT'::
@@ -604,13 +652,22 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-l, --list-samples*::
     list sample names and exit
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'LIST'|':FILE'::
+*-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
 *-v, --vcf-list* 'FILE'::
@@ -699,13 +756,22 @@ Transition probabilities:
     be a single file or a file mask, where string "{CHROM}" is replaced with
     chromosome name.
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'LIST'|':FILE'::
+*-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
 *-w, --win* 'INT'::
@@ -757,13 +823,22 @@ the program generates separate stats for intersection and the complements.
     collect stats separately for sites which have the ID column set ("known
     sites") or which do not have the ID column set ("novel sites").
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'LIST'|':FILE'::
+*-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
 
@@ -795,10 +870,16 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-o, --output-file* 'FILE':
     output file name. If not present, the default is to print to standard output (stdout).
 
-*-r, --regions* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
-*-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
 
@@ -809,7 +890,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-I, --no-update*::
     do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
 
-*-s, --samples* 'FILE'|'LIST'::
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
 
@@ -927,51 +1011,60 @@ EXPRESSIONS
 These filtering expressions are accepted by *<<filter,filter>>* and
 *<<view,view>>* commands.
 
-.Valid expressions may contain:
+.Valid expressions may contain: 
 
-numerical constants and string constants ::
-    1, 1.0, 1e-4
-    "String"
+    ;;
+    numerical constants and string constants ::
+        1, 1.0, 1e-4
+        "String"
+    
+    arithmetic operators ::
+        +,*,-,/
+    
+    comparison operators ::
+        == (same as =), >, >=, <=, <, !=
+    
+    parentheses ::
+        (, )
+    
+    logical operators :: 
+        && (same as &), ||,  |
+    
+    INFO tags, FORMAT tags, column names ::
+        INFO/DP or DP
+        FORMAT/DV, FMT/DV, or DV
+        %FILTER, %QUAL
+    
+    1 (or 0) to test the presence (or absence) of a flag ::
+        FlagA=1 && FlagB=0
+    
+    %TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other) ::
+        %TYPE="indel" | %TYPE="snp"
+    
+    array subscripts ::
+        (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
+    
+    functions on FORMAT fields ::
+        MAX, MIN, AVG
 
-arithmetic operators ::
-    +,*,-,/
 
-comparison operators ::
-    == (same as =), >, >=, <=, <, !=
+*Examples:*
 
-parentheses ::
-    (, )
-
-logical operators :: 
-    && (same as &), ||,  |
-
-INFO tags, FORMAT tags, column names ::
-    INFO/DP or DP
-    FORMAT/DV, FMT/DV, or DV
-    %FILTER, %QUAL
-
-1 (or 0) to test the presence (or absence) of a flag ::
-    FlagA=1 && FlagB=0
-
-%TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other) ::
-    %TYPE="indel" | %TYPE="snp"
-
-array subscripts ::
-    (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
-
-functions on FORMAT fields ::
-    MAX, MIN, AVG
-
-
-.Examples
-
+--
     %MIN(DV)>5
+                
     %MIN(DV/DP)>0.3
+        
     %MIN(DP)>10 & %MIN(DV)>3
+    
     %%QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
+    
     %%QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
+    
     %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
+    
     %MIN(DP)>35 && %AVG(GQ)>50
+--
 
 
 PERFORMANCE

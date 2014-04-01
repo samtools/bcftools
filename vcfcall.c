@@ -45,6 +45,7 @@ typedef struct
     char **samples;             // for subsampling and ploidy
     int nsamples, *samples_map;
     char *regions, *targets;    // regions to process
+    int regions_is_file, targets_is_file;
 
     call_t aux;     // parameters and temporary data
 
@@ -176,10 +177,10 @@ static char **parse_ped_samples(call_t *call, char **vals, int _n)
  *  Returns an array of sample names, where the byte value just after \0
  *  indicates the ploidy.
  */
-static char **read_samples(call_t *call, const char *fn, int *_n)
+static char **read_samples(call_t *call, const char *fn, int is_file, int *_n)
 {
     int i, n;
-    char **vals = hts_readlist(fn, &n);
+    char **vals = hts_readlist(fn, is_file, &n);
     if ( !vals ) error("Could not read the file: %s\n", fn);
 
     char **smpls = parse_ped_samples(call, vals, n);
@@ -220,12 +221,12 @@ static void init_data(args_t *args)
     // Open files for input and output, initialize structures
     if ( args->targets )
     {
-        if ( bcf_sr_set_targets(args->aux.srs, args->targets, args->aux.flag&CALL_CONSTR_ALLELES ? 3 : 0)<0 )
+        if ( bcf_sr_set_targets(args->aux.srs, args->targets, args->targets_is_file, args->aux.flag&CALL_CONSTR_ALLELES ? 3 : 0)<0 )
             error("Failed to read the targets: %s\n", args->targets);
     }
     if ( args->regions )
     {
-        if ( bcf_sr_set_regions(args->aux.srs, args->regions)<0 )
+        if ( bcf_sr_set_regions(args->aux.srs, args->regions, args->regions_is_file)<0 )
             error("Failed to read the targets: %s\n", args->regions);
     }
     
@@ -348,14 +349,17 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "File format options:\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "   -r, --regions <reg|file>        restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "   -s, --samples <list|:file>      sample list, PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
-    fprintf(stderr, "   -t, --targets <reg|file>        similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "   -r, --regions <region>          restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file <file>       restrict to regions listed in a file\n");
+    fprintf(stderr, "   -s, --samples <list>            list of samples for sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "   -S, --samples-file <file>       file of samples to include\n");
+    fprintf(stderr, "   -t, --targets <region>          similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "   -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "   -M, --keep-masked-ref           keep sites with masked reference allele (REF=N)\n");
-    fprintf(stderr, "   -S, --skip <snps|indels>        skip indels/snps\n");
+    fprintf(stderr, "   -V, --skip-variants <type>      skip indels/snps\n");
     fprintf(stderr, "   -v, --variants-only             output variant sites only\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Consensus/variant calling options:\n");
@@ -395,19 +399,22 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
 
     float p_arg = -1;
-    int i, c;
+    int i, c, samples_is_file = 0;
 
     static struct option loptions[] = 
     {
         {"help",0,0,'h'},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"samples",1,0,'s'},
+        {"samples-file",1,0,'S'},
         {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
         {"keep-alts",0,0,'A'},
         {"skip-Ns",0,0,'N'},            // now the new default
         {"keep-masked-refs",0,0,'M'},
-        {"skip",1,0,'S'},
+        {"skip-variants",1,0,'V'},
         {"variants-only",0,0,'v'},
         {"consensus-caller",0,0,'c'},
         {"constrain",1,0,'C'},
@@ -419,7 +426,7 @@ int main_vcfcall(int argc, char *argv[])
         {0,0,0,0}
     };
 
-	while ((c = getopt_long(argc, argv, "h?O:r:s:t:ANMS:vcmp:C:XYn:", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
@@ -444,7 +451,7 @@ int main_vcfcall(int argc, char *argv[])
                       break;
             case 'X': args.aux.flag |= CALL_CHR_X; break;
             case 'Y': args.aux.flag |= CALL_CHR_Y; break;
-            case 'S': 
+            case 'V': 
                       if ( !strcasecmp(optarg,"snps") ) args.flag |= CF_INDEL_ONLY;
                       else if ( !strcasecmp(optarg,"indels") ) args.flag |= CF_NO_INDEL;
                       else error("Unknown skip category \"%s\" (-S argument must be \"snps\" or \"indels\")\n", optarg);
@@ -453,8 +460,11 @@ int main_vcfcall(int argc, char *argv[])
             case 'p': p_arg = atof(optarg); break;
             case 'n': parse_novel_rate(&args,optarg); break;
             case 'r': args.regions = optarg; break;
+            case 'R': args.regions = optarg; args.regions_is_file = 1; break;
             case 't': args.targets = optarg; break;
+            case 'T': args.targets = optarg; args.targets_is_file = 1; break;
             case 's': samples_fname = optarg; break;
+            case 'S': samples_fname = optarg; samples_is_file = 1; break;
             default: usage(&args);
         }
     }
@@ -468,7 +478,7 @@ int main_vcfcall(int argc, char *argv[])
     // Sanity check options and initialize
     if ( samples_fname )
     {
-        args.samples = read_samples(&args.aux, samples_fname, &args.nsamples);
+        args.samples = read_samples(&args.aux, samples_fname, samples_is_file, &args.nsamples);
         args.aux.ploidy = (uint8_t*) calloc(args.nsamples+1, 1);
         args.aux.all_diploid = 1;
         for (i=0; i<args.nsamples; i++) 

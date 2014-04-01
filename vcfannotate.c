@@ -97,7 +97,7 @@ typedef struct _args_t
     float *tmpf;
     char *tmps;
 
-    char **argv, *targets_fname, *regions_fname, *header_fname;
+    char **argv, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns;
     int argc;
 }
@@ -579,7 +579,7 @@ static void init_data(args_t *args)
         }
         else
         {
-            args->tgts = bcf_sr_regions_init(args->targets_fname,args->chr_idx,args->from_idx,args->to_idx);
+            args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->from_idx,args->to_idx);
             if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
             if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
             args->vcmp = vcmp_init();
@@ -780,8 +780,9 @@ static void usage(args_t *args)
     fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins. See man page for details\n");
-    fprintf(stderr, "   -r, --regions <reg|file>       restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "   -R, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
+    fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
+    fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
     fprintf(stderr, "\n");
     filter_expression_info(stderr);
     fprintf(stderr, "\n");
@@ -797,7 +798,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
-    int plist_only = 0;
+    int plist_only = 0, regions_is_file = 0;
 
     static struct option loptions[] = 
     {
@@ -808,12 +809,13 @@ int main_vcfannotate(int argc, char *argv[])
         {"plugin",1,0,'p'},
         {"list-plugins",0,0,'l'},
         {"regions",1,0,'r'},
-        {"remove",1,0,'R'},
+        {"regions-file",1,0,'R'},
+        {"remove",1,0,'x'},
         {"columns",1,0,'c'},
         {"header-lines",1,0,'h'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:r:a:p:R:c:li:e:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?O:r:R:a:p:x:c:li:e:",loptions,NULL)) >= 0) 
     {
         switch (c) {
             case 'c': args->columns = optarg; break;
@@ -828,9 +830,10 @@ int main_vcfannotate(int argc, char *argv[])
                 break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-            case 'R': args->remove_annots = optarg; break;
+            case 'x': args->remove_annots = optarg; break;
             case 'a': args->targets_fname = optarg; break;
-            case 'r': args->regions_fname = optarg; break;
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'p': load_plugin(args, optarg, 1); break;
             case 'l': plist_only = 1; break;
             case 'h': args->header_fname = optarg; break;
@@ -848,10 +851,10 @@ int main_vcfannotate(int argc, char *argv[])
     }
     else fname = argv[optind];
 
-    if ( args->regions_fname )
+    if ( args->regions_list )
     {
-        if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-            error("Failed to read the regions: %s\n", args->regions_fname);
+        if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->regions_list);
     }
     if ( args->targets_fname && hts_file_type(args->targets_fname) & (FT_VCF|FT_BCF) ) args->files->require_index = 1;
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);

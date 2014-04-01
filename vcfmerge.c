@@ -75,7 +75,7 @@ typedef struct
 {
     maux_t *maux;
     int header_only, collapse, output_type;
-    char *header_fname, *regions_fname, *info_rules, *file_list;
+    char *header_fname, *regions_list, *info_rules, *file_list;
     info_rule_t *rules;
     int nrules;
     strdict_t *tmph;
@@ -1700,7 +1700,8 @@ static void usage(void)
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
     fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <reg|file>           merge in the given regions only\n");
+	fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1712,6 +1713,7 @@ int main_vcfmerge(int argc, char *argv[])
     args->files  = bcf_sr_init();
     args->argc   = argc; args->argv = argv;
     args->collapse = COLLAPSE_BOTH;
+    int regions_is_file = 0;
 
     static struct option loptions[] = 
     {
@@ -1723,10 +1725,11 @@ int main_vcfmerge(int argc, char *argv[])
         {"print-header",0,0,2},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"info-rules",1,0,'i'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:1:2O:i:l:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:1:2O:i:l:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;
@@ -1750,7 +1753,8 @@ int main_vcfmerge(int argc, char *argv[])
                 else error("The -m type \"%s\" is not recognised.\n", optarg);
                 break;
             case 'f': args->files->apply_filters = optarg; break;
-            case 'r': args->regions_fname = optarg; break;
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case 'h': 
@@ -1762,8 +1766,8 @@ int main_vcfmerge(int argc, char *argv[])
     if ( argc-optind<2 && !args->file_list ) usage();
 
     args->files->require_index = 1;
-    if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-        error("Failed to read the regions: %s\n", args->regions_fname);
+    if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+        error("Failed to read the regions: %s\n", args->regions_list);
 
     while (optind<argc)
     {

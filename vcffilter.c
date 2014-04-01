@@ -46,7 +46,7 @@ typedef struct _args_t
     htsFile *out_fh;
     int output_type;
 
-    char **argv, *targets_fname, *regions_fname;
+    char **argv, *targets_list, *regions_list;
     int argc;
 }
 args_t;
@@ -336,10 +336,12 @@ static void usage(args_t *args)
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
     fprintf(stderr, "    -m, --mode [+x]               \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <reg|file>      restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+    fprintf(stderr, "    -r, --regions <region>        restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>     restrict to regions listed in a file\n");
     fprintf(stderr, "    -s, --soft-filter <string>    annotate FILTER column with <string> or unique filter name (\"Filter%%d\") made up by the program (\"+\")\n");
     fprintf(stderr, "    -S, --set-GTs <.|0>           set genotypes of failed samples to missing (.) or ref (0)\n");
-    fprintf(stderr, "    -t, --targets <reg|file>      similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "\n");
     filter_expression_info(stderr);
     fprintf(stderr, "\n");
@@ -353,6 +355,7 @@ int main_vcffilter(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
     args->output_type = FT_VCF;
+    int regions_is_file = 0, targets_is_file = 0;
 
     static struct option loptions[] = 
     {
@@ -362,13 +365,15 @@ int main_vcffilter(int argc, char *argv[])
         {"exclude",1,0,'e'},
         {"include",1,0,'i'},
         {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
         {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"output-type",1,0,'O'},
         {"SnpGap",1,0,'g'},
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "e:i:t:r:h?s:m:O:g:G:S:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:O:g:G:S:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'g': args->snp_gap = atoi(optarg); break;
             case 'G': args->indel_gap = atoi(optarg); break;
@@ -386,8 +391,10 @@ int main_vcffilter(int argc, char *argv[])
                 if ( strchr(optarg,'x') ) args->annot_mode |= ANNOT_RESET; 
                 if ( strchr(optarg,'+') ) args->annot_mode |= ANNOT_ADD; 
                 break;
-            case 't': args->targets_fname = optarg; break;
-            case 'r': args->regions_fname = optarg; break;
+            case 't': args->targets_list = optarg; break;
+            case 'T': args->targets_list = optarg; targets_is_file = 1; break;
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'S': 
@@ -411,11 +418,11 @@ int main_vcffilter(int argc, char *argv[])
     else fname = argv[optind];
 
     // read in the regions from the command line
-    if ( args->regions_fname )
+    if ( args->regions_list )
     {
         args->files->require_index = 1;
-        if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-            error("Failed to read the regions: %s\n", args->regions_fname);
+        if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->regions_list);
     }
     else if ( optind+1 < argc ) 
     {
@@ -424,13 +431,13 @@ int main_vcffilter(int argc, char *argv[])
         kputs(argv[optind+1],&tmp);
         for (i=optind+2; i<argc; i++) { kputc(',',&tmp); kputs(argv[i],&tmp); }
         args->files->require_index = 1;
-        if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-            error("Failed to read the regions: %s\n", args->regions_fname);
+        if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->regions_list);
     }
-    if ( args->targets_fname )
+    if ( args->targets_list )
     {
-        if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
-            error("Failed to read the targets: %s\n", args->targets_fname);
+        if ( bcf_sr_set_targets(args->files, args->targets_list,targets_is_file, 0)<0 )
+            error("Failed to read the targets: %s\n", args->targets_list);
     }
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open: %s\n", fname);
     

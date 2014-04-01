@@ -547,7 +547,8 @@ static void usage(void)
 	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
 	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
     fprintf(stderr, "    -O, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-	fprintf(stderr, "    -r, --regions <file|reg>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
+    fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>         restrict to regions listed in a file\n");
 	fprintf(stderr, "    -w, --win <int,int>               alignment window and buffer window [50,1000]\n");
 	fprintf(stderr, "\n");
 	exit(1);
@@ -561,19 +562,21 @@ int main_vcfnorm(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->aln_win = 50;
     args->buf_win = 1000;
+    int region_is_file = 0;
 
 	static struct option loptions[] = 
 	{
 		{"help",0,0,'h'},
 		{"fasta-ref",1,0,'f'},
 		{"regions",1,0,'r'},
+		{"regions-file",1,0,'R'},
 		{"win",1,0,'w'},
 		{"remove-duplicates",0,0,'D'},
         {"output-type",1,0,'O'},
         {"check-ref",1,0,'c'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hr:f:w:DO:c:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hr:R:f:w:DO:c:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'c':
                 if ( strchr(optarg,'w') ) args->check_ref |= CHECK_REF_WARN;
@@ -592,6 +595,7 @@ int main_vcfnorm(int argc, char *argv[])
 			case 'D': args->rmdup = 1; break;
 			case 'f': args->ref_fname = optarg; break;
 			case 'r': args->region = optarg; break;
+			case 'R': args->region = optarg; region_is_file = 1; break;
             case 'w': { if (sscanf(optarg,"%d,%d",&args->aln_win,&args->buf_win)!=2) error("Could not parse --win %s\n", optarg); break; }
 			case 'h': 
 			case '?': usage();
@@ -609,7 +613,8 @@ int main_vcfnorm(int argc, char *argv[])
 
     if ( args->region )
     {
-        if ( bcf_sr_set_targets(args->files, args->region,0)<0 ) error("Failed to read the targets: %s\n", args->region);
+        if ( bcf_sr_set_targets(args->files, args->region,region_is_file, 0)<0 )
+            error("Failed to read the targets: %s\n", args->region);
     }
 
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);

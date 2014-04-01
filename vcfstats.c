@@ -104,8 +104,8 @@ typedef struct
     // other
     bcf_srs_t *files;
     bcf_sr_regions_t *exons;
-    char **argv, *exons_fname, *regions_fname, *samples_fname, *targets_fname;
-    int argc, debug, first_allele_only;
+    char **argv, *exons_fname, *regions_list, *samples_list, *targets_list;
+    int argc, debug, first_allele_only, samples_is_file;
     int split_by_id, nstats;
 }
 args_t;
@@ -358,16 +358,16 @@ static void init_stats(args_t *args)
         args->naf_hwe = 100;
     #endif
 
-    if ( args->samples_fname )
+    if ( args->samples_list )
     {
-        if ( !bcf_sr_set_samples(args->files,args->samples_fname) )
+        if ( !bcf_sr_set_samples(args->files,args->samples_list,args->samples_is_file) )
         {
             if ( !bcf_hdr_nsamples(args->files->readers[0].header) )
                 error("No sample columns in %s\n", args->files->readers[0].fname);
-            if ( args->samples_fname[0]!=':' ) 
-                error("No such sample(s), please prefix with ':' to indicate file name: \"%s\"\n", args->samples_fname);
+            if ( args->samples_list[0]!=':' ) 
+                error("No such sample(s), please prefix with ':' to indicate file name: \"%s\"\n", args->samples_list);
             else
-                error("Unable to parse the file: \"%s\"\n", args->samples_fname);
+                error("Unable to parse the samples: \"%s\"\n", args->samples_list);
         }
         args->af_gts_snps     = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
         args->af_gts_indels   = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
@@ -412,7 +412,7 @@ static void init_stats(args_t *args)
 
     if ( args->exons_fname )
     {
-        args->exons = bcf_sr_regions_init(args->exons_fname,0,1,2);
+        args->exons = bcf_sr_regions_init(args->exons_fname,1,0,1,2);
         if ( !args->exons )
             error("Error occurred while reading, was the file compressed with bgzip: %s?\n", args->exons_fname);
     }
@@ -484,7 +484,7 @@ static void init_iaf(args_t *args, bcf_sr_t *reader)
     }
     // tmp_iaf is first filled with AC counts in calc_ac and then transformed to
     //  an index to af_gts_snps
-    int i, ret = bcf_calc_ac(reader->header, line, args->tmp_iaf, args->samples_fname ? BCF_UN_INFO|BCF_UN_FMT : BCF_UN_INFO);
+    int i, ret = bcf_calc_ac(reader->header, line, args->tmp_iaf, args->samples_list ? BCF_UN_INFO|BCF_UN_FMT : BCF_UN_INFO);
     if ( ret )
     {
         int an=0;
@@ -1227,9 +1227,12 @@ static void usage(void)
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --fasta-ref <file>             faidx indexed reference sequence file to determine INDEL context\n");
     fprintf(stderr, "    -i, --split-by-ID                  collect stats for sites with ID separately (known vs novel)\n");
-    fprintf(stderr, "    -r, --regions <reg|file>           restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-    fprintf(stderr, "    -s, --samples <list|:file>         produce sample stats, \"-\" to include all samples\n");
-    fprintf(stderr, "    -t, --targets <reg|file>           similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "    -s, --samples <list>               list of samples for sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -S, --samples-file <file>          file of samples to include\n");
+    fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -u, --user-tstv <TAG[:min:max:n]>  collect Ts/Tv stats for any tag using the given binning [0:1,100]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1242,29 +1245,35 @@ int main_vcfstats(int argc, char *argv[])
     args->files  = bcf_sr_init();
     args->argc   = argc; args->argv = argv;
     args->dp_min = 0; args->dp_max = 500; args->dp_step = 1;
+    int regions_is_file = 0, targets_is_file = 0;
 
     static struct option loptions[] = 
     {
         {"1st-allele-only",0,0,'1'},
         {"help",0,0,'h'},
         {"collapse",1,0,'c'},
+        {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"debug",0,0,1},
         {"depth",1,0,'d'},
         {"apply-filters",1,0,'f'},
         {"exons",1,0,'e'},
         {"samples",1,0,'s'},
+        {"samples-file",1,0,'S'},
         {"split-by-ID",1,0,'i'},
         {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
         {"fasta-ref",1,0,'F'},
         {"user-tstv",1,0,'u'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hc:r:e:s:d:i1t:F:f:1u:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:i1t:T:F:f:1u:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'u': add_user_stats(args,optarg); break;
             case '1': args->first_allele_only = 1; break;
             case 'F': args->ref_fname = optarg; break;
-            case 't': args->targets_fname = optarg; break;
+            case 't': args->targets_list = optarg; break;
+            case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'c':
                 if ( !strcmp(optarg,"snps") ) args->files->collapse |= COLLAPSE_SNPS;
                 else if ( !strcmp(optarg,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
@@ -1282,9 +1291,11 @@ int main_vcfstats(int argc, char *argv[])
                     error("Is this a typo? --depth %s\n", optarg);
                 break;
             case 'f': args->files->apply_filters = optarg; break;
-            case 'r': args->regions_fname = optarg; break;
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'e': args->exons_fname = optarg; break;
-            case 's': args->samples_fname = optarg; break;
+            case 's': args->samples_list = optarg; break;
+            case 'S': args->samples_list = optarg; args->samples_is_file = 1; break;
             case 'i': args->split_by_id = 1; break;
             case 'h': 
             case '?': usage();
@@ -1305,11 +1316,11 @@ int main_vcfstats(int argc, char *argv[])
         args->files->require_index = 1;
         if ( args->split_by_id ) error("Only one file can be given with -i.\n");
     }
-    if ( !args->samples_fname ) args->files->max_unpack = BCF_UN_INFO;
-    if ( args->targets_fname && bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
-        error("Failed to read the targets: %s\n", args->targets_fname);
-    if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-        error("Failed to read the regions: %s\n", args->regions_fname);
+    if ( !args->samples_list ) args->files->max_unpack = BCF_UN_INFO;
+    if ( args->targets_list && bcf_sr_set_targets(args->files, args->targets_list, targets_is_file, 0)<0 )
+        error("Failed to read the targets: %s\n", args->targets_list);
+    if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+        error("Failed to read the regions: %s\n", args->regions_list);
     while (fname)
     {
         if ( !bcf_sr_add_reader(args->files, fname) ) 

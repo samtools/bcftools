@@ -56,8 +56,8 @@ struct _args_t
     int nfmt, mfmt;
 	bcf_srs_t *files;
     bcf_hdr_t *header;
-    int nsamples, *samples;
-	char **argv, *format, *sample_names, *targets_fname, *regions_fname, *vcf_list;
+    int nsamples, *samples, sample_is_file;
+	char **argv, *format, *sample_list, *targets_list, *regions_list, *vcf_list;
 	int argc, list_columns, print_header;
 };
 
@@ -462,21 +462,21 @@ static void init_data(args_t *args)
         }
     }
     int i;
-    if ( args->sample_names && strcmp("-",args->sample_names) )
+    if ( args->sample_list && strcmp("-",args->sample_list) )
     {
         for (i=0; i<args->files->nreaders; i++)
         {
-            int ret = bcf_hdr_set_samples(args->files->readers[i].header,args->sample_names);
+            int ret = bcf_hdr_set_samples(args->files->readers[i].header,args->sample_list,args->sample_is_file);
             if ( ret<0 ) error("Error parsing the sample list\n");
             else if ( ret>0 ) error("Sample name mismatch: %d-th sample not found in the header\n", ret);
         }
 
-        if ( args->sample_names[0]!='^' )
+        if ( args->sample_list[0]!='^' )
         {
             // the sample ordering may be different if not negated
             int n;
-            char **smpls = hts_readlist(args->sample_names, &n);
-            if ( !smpls ) error("Could not parse %s\n", args->sample_names);
+            char **smpls = hts_readlist(args->sample_list, args->sample_is_file, &n);
+            if ( !smpls ) error("Could not parse %s\n", args->sample_list);
             if ( n!=bcf_hdr_nsamples(args->files->readers[0].header) ) 
                 error("The number of samples does not match, perhaps some are present multiple times?\n");
             args->nsamples = bcf_hdr_nsamples(args->files->readers[0].header);
@@ -673,9 +673,12 @@ static void usage(void)
 	fprintf(stderr, "    -H, --print-header                print header\n");
 	fprintf(stderr, "    -i, --include <expr>              select sites for which the expression is true (see below for details)\n");
 	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit\n");
-	fprintf(stderr, "    -r, --regions <reg|file>          restrict to comma-separated list of regions or regions listed in a file, see man page for details\n");
-	fprintf(stderr, "    -t, --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
-	fprintf(stderr, "    -s, --samples <list|:file>        comma-separated list of samples to include or one name per line in a file\n");
+    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "    -s, --samples <list>               list of samples for sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -S, --samples-file <file>          file of samples to include\n");
+    fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
 	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
     fprintf(stderr, "\n");
 	fprintf(stderr, "Format expressions:\n");
@@ -704,6 +707,7 @@ int main_vcfquery(int argc, char *argv[])
 	int c, collapse = 0;
 	args_t *args = (args_t*) calloc(1,sizeof(args_t));
 	args->argc   = argc; args->argv = argv;
+    int regions_is_file = 0, targets_is_file = 0;
 
 	static struct option loptions[] = 
 	{
@@ -713,15 +717,18 @@ int main_vcfquery(int argc, char *argv[])
 		{"exclude",1,0,'e'},
 		{"format",1,0,'f'},
 		{"regions",1,0,'r'},
+		{"regions-file",1,0,'R'},
 		{"targets",1,0,'t'},
+		{"targets-file",1,0,'T'},
 		{"annots",1,0,'a'},
 		{"samples",1,0,'s'},
+		{"samples-file",1,0,'S'},
 		{"print-header",0,0,'H'},
 		{"collapse",1,0,'c'},
 		{"vcf-list",1,0,'v'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hlr:f:a:s:Ht:c:v:i:e:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hlr:R:f:a:s:S:Ht:T:c:v:i:e:",loptions,NULL)) >= 0) {
 		switch (c) {
 			case 'f': args->format = strdup(optarg); break;
 			case 'H': args->print_header = 1; break;
@@ -754,10 +761,13 @@ int main_vcfquery(int argc, char *argv[])
                 }
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-			case 'r': args->regions_fname = optarg; break;
-			case 't': args->targets_fname = optarg; break;
+			case 'r': args->regions_list = optarg; break;
+			case 'R': args->regions_list = optarg; regions_is_file = 1; break;
+			case 't': args->targets_list = optarg; break;
+			case 'T': args->targets_list = optarg; targets_is_file = 1; break;
 			case 'l': args->list_columns = 1; break;
-			case 's': args->sample_names = optarg; break;
+			case 's': args->sample_list = optarg; break;
+			case 'S': args->sample_list = optarg; args->sample_is_file = 1; break;
 			case 'h': 
 			case '?': usage();
 			default: error("Unknown argument: %s\n", optarg);
@@ -789,12 +799,12 @@ int main_vcfquery(int argc, char *argv[])
         args->files = bcf_sr_init();
         args->files->collapse = collapse;
         if ( optind+1 < argc ) args->files->require_index = 1;
-        if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-            error("Failed to read the regions: %s\n", args->regions_fname);
-        if ( args->targets_fname )
+        if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->regions_list);
+        if ( args->targets_list )
         {
-            if ( bcf_sr_set_targets(args->files, args->targets_fname, 0)<0 )
-                error("Failed to read the targets: %s\n", args->targets_fname);
+            if ( bcf_sr_set_targets(args->files, args->targets_list, targets_is_file, 0)<0 )
+                error("Failed to read the targets: %s\n", args->targets_list);
         }
         while ( fname )
         {
@@ -819,13 +829,13 @@ int main_vcfquery(int argc, char *argv[])
     {
         args->files = bcf_sr_init();
         args->files->collapse = collapse;
-        if ( args->regions_fname && bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-            error("Failed to read the regions: %s\n", args->regions_fname);
+        if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->regions_list);
         if ( optind < argc ) args->files->require_index = 1;
-        if ( args->targets_fname )
+        if ( args->targets_list )
         {
-            if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
-                error("Failed to read the targets: %s\n", args->targets_fname);
+            if ( bcf_sr_set_targets(args->files, args->targets_list,targets_is_file, 0)<0 )
+                error("Failed to read the targets: %s\n", args->targets_list);
         }
         if ( !bcf_sr_add_reader(args->files, fnames[i]) ) error("Failed to open or the file not indexed: %s\n", fnames[i]);
         for (k=optind; k<argc; k++) 

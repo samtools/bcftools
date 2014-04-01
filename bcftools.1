@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 03/31/2014
+.\"      Date: 04/01/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "03/31/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "04/01/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -289,24 +289,32 @@ Skip sites where FILTER column does not contain any of the strings listed in
 Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fIz\fR), uncompressed VCF (\fIv\fR)\&.
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+Comma\-separated list of regions, see also
+\fB\-R, \-\-regions\-file\fR\&.
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIFILE\fR
 .RS 4
 Regions can be specified either on command line or in a VCF, BED, or tab\-delimited file (the default)\&. The columns of the tab\-delimited file are: CHROM, POS, and, optionally, POS_TO, where positions are 1\-based and inclusive\&. Uncompressed files are stored in memory, while bgzip\-compressed and tabix\-indexed region files are streamed\&. Note that sequence names must match exactly, "chr20" is not the same as "20"\&. This option requires indexed VCF/BCF files\&.
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
+\fB\-s, \-\-samples\fR \fILIST\fR
 .RS 4
-Comma\-separated list of samples to include or, when prefixed with colon
-\fI:\fR, read sample names from
-\fIFILE\fR
-with one sample per line\&. The command
+Comma\-separated list of samples to include
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fI:FILE\fR
+.RS 4
+File of sample names to include, one sample per line\&. The command
 \fBbcftools call\fR
 accepts an optional second column indicating ploidy (0, 1 or 2) and can parse also PED files\&. With
 \fBbcftools call\fR\fB \-C\fR
 \fItrio\fR, PED file is expected\&.
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 Same as
 \fB\-r, \-\-regions\fR, but the next position is accessed by streaming the whole VCF/BCF rather than using the tbi/csi index\&. Both
@@ -321,8 +329,14 @@ discards positions which are not in the targets\&. Another difference between th
 \fB\-r\fR
 checks both start and end positions of indels, whereas
 \fB\-t\fR
-checks start positions only\&. With the call
-\fB\-C\fR
+checks start positions only\&.
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIFILE\fR
+.RS 4
+Same
+\fB\-t, \-\-targets\fR, but reads regions from a file\&. With the
+\fBcall \-C\fR
 \fIalleles\fR
 command, third column of the targets file must be comma\-separated list of alleles, starting with the reference allele\&. Such a file can be easily created from a VCF with:
 .RE
@@ -416,13 +430,19 @@ Comma\-separated list of plugins to run\&. The BCFTOOLS_PLUGINS environment vari
 to get a list of installed plugins\&.
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-R, \-\-remove\fR \fIlist\fR
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-x, \-\-remove\fR \fIlist\fR
 .RS 4
 List of annotations to remove\&. Use
 \fIFILTER\fR
@@ -458,13 +478,37 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fIFILE\fR|\fILIST\fR
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-s, \-\-samples\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIFILE\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -489,7 +533,7 @@ output all alternate alleles present in the alignments even if they do not appea
 output sites where REF allele is N
 .RE
 .PP
-\fB\-S, \-\-skip\fR \fIsnps\fR|\fIindels\fR
+\fB\-V, \-\-skip\-variants\fR \fIsnps\fR|\fIindels\fR
 .RS 4
 skip indel/SNP sites
 .RE
@@ -691,7 +735,13 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -705,7 +755,18 @@ or, with
 \fI+\fR, a unique filter name generated by the program ("Filter%d")\&.
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-S, \-\-set\-GTs\fR \fI\&.\fR|\fI0\fR
+.RS 4
+set genotypes of failed samples to missing value (\fI\&.\fR) or reference allele (\fI0\fR)
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -745,7 +806,13 @@ VCF\&. This may be useful with low coverage data\&.
 produce plots
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -764,7 +831,13 @@ target sample in the
 file, used only for plotting, not for analysis
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-t, \-\-targets\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -882,13 +955,25 @@ if given, subset each of the input files accordingly\&. See also
 \fB\-w\fR\&.
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1005,7 +1090,13 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1030,7 +1121,13 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1090,19 +1187,37 @@ is true\&. For valid expressions see
 list sample names and exit
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-s, \-\-samples\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1258,19 +1373,37 @@ genetic map in the format required also by IMPUTE2\&. Only the first and third c
 can chromosome name\&.
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-s, \-\-samples\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1356,19 +1489,37 @@ faidx indexed reference sequence file to determine INDEL context
 collect stats separately for sites which have the ID column set ("known sites") or which do not have the ID column set ("novel sites")\&.
 .RE
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR|\fI:FILE\fR
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-s, \-\-samples\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1415,13 +1566,25 @@ see
 .sp
 \fB\-o, \-\-output\-file\fR \fIFILE\fR: output file name\&. If not present, the default is to print to standard output (stdout)\&.
 .PP
-\fB\-r, \-\-regions\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1446,7 +1609,13 @@ trim alternate alleles not seen in subset\&. Type A, G and R INFO and FORMAT fie
 do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fIFILE\fR|\fILIST\fR
+\fB\-s, \-\-samples\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
 .RS 4
 see
 \fBCommon Options\fR
@@ -1621,6 +1790,8 @@ These filtering expressions are accepted by \fBfilter\fR and \fBview\fR commands
 .PP
 \fBValid expressions may contain:\fR
 .PP
+.RS 4
+.PP
 numerical constants and string constants
 .RS 4
 1, 1\&.0, 1e\-4 "String"
@@ -1670,26 +1841,79 @@ functions on FORMAT fields
 .RS 4
 MAX, MIN, AVG
 .RE
-.PP
-\fBExamples\fR. 
+.RE
+.sp
+\fBExamples:\fR
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
 %MIN(DV)>5
-%MIN(DV/DP)>0\&.3
-%MIN(DP)>10 & %MIN(DV)>3
-%%QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
-%%QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
-%TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
-%MIN(DP)>35 && %AVG(GQ)>50
-\&.\&.\&.
 .fi
 .if n \{\
 .RE
 .\}
 .sp
+.if n \{\
+.RS 4
+.\}
+.nf
+%MIN(DV/DP)>0\&.3
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+%MIN(DP)>10 & %MIN(DV)>3
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+%%QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+%%QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+%TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+%MIN(DP)>35 && %AVG(GQ)>50
+.fi
+.if n \{\
+.RE
+.\}
 .SH "PERFORMANCE"
 .sp
 HTSlib was designed with BCF format in mind\&. When parsing VCF files, all records are internally converted into BCF representation\&. Simple operations, like removing a single column from a VCF file, can be therefore done much faster with standard UNIX commands, such as \fBawk\fR or \fBcut\fR\&. Therefore it is recommended to use BCF as input/output format whenever possible to avoid large overhead of the VCF → BCF → VCF conversion\&.

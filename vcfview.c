@@ -35,13 +35,14 @@ typedef struct _args_t
 
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
-    char **argv, *format, *sample_names, *subset_fname, *targets_fname, *regions_fname;
+    char **argv, *format, *sample_names, *subset_fname, *targets_list, *regions_list;
     int argc, clevel, output_type, print_header, update_info, header_only, n_samples, *imap, calc_ac;
     int trim_alts, sites_only, known, novel, min_alleles, max_alleles, private_vars, uncalled, phased;
     int min_ac, min_ac_type, max_ac, max_ac_type, min_af_type, max_af_type, gt_type;
     int *ac, mac;
     float min_af, max_af;
     char *fn_ref, *fn_out, **samples;
+    int sample_is_file;
     char *include_types, *exclude_types;
     int include, exclude;
     htsFile *out;
@@ -62,32 +63,7 @@ static void init_data(args_t *args)
 
     // setup sample data    
     if (args->sample_names)
-    {
-        struct stat sbuf;
-        if ( stat(args->sample_names, &sbuf) == 0  )
-            args->samples = hts_readlines(args->sample_names, &args->n_samples);
-        else
-        {
-            int m = 0, n = 0;
-            char **s = 0;
-            const char *q, *p;
-            for (q = p = args->sample_names;; ++p) {
-                if (*p == ',' || *p == 0) {
-                    if (m == n) {
-                        m = m? m<<1 : 16;
-                        s = (char**)realloc(s, m * sizeof(char*));
-                    }
-                    s[n] = (char*)calloc(p - q + 1, 1);
-                    strncpy(s[n++], q, p - q);
-                    q = p + 1;
-                    if (*p == 0) break;
-                }
-            }
-            s = (char**)realloc(s, n * sizeof(char*));
-            args->samples = s;
-            args->n_samples = n;
-        }
-    }
+        args->samples = hts_readlist(args->sample_names,args->sample_is_file,&args->n_samples);
     
     if (args->n_samples)
         args->imap = (int*)malloc(args->n_samples * sizeof(int));
@@ -385,13 +361,16 @@ static void usage(args_t *args)
     fprintf(stderr, "    -l,   --compression-level [0-9]     compression level: 0 uncompressed, 1 best speed, 9 best compression [%d]\n", args->clevel);
     fprintf(stderr, "    -o,   --output-file <file>          output file name [stdout]\n");
     fprintf(stderr, "    -O,   --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r,   --regions <reg|file>          restrict to comma-separated list of regions or regions in a file, see man page for details\n");
-    fprintf(stderr, "    -t,   --targets <reg|file>          similar to -r but streams rather than index-jumps, see man page for details\n");
+    fprintf(stderr, "    -r, --regions <region>              restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>           restrict to regions listed in a file\n");
+    fprintf(stderr, "    -t, --targets <region>              similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>           similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in the subset\n");
     fprintf(stderr, "    -I, --no-update             do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)\n");
-    fprintf(stderr, "    -s, --samples STR/FILE      list of samples (FILE or comma separated list STR) [null]\n");
+    fprintf(stderr, "    -s, --samples <list>        list of samples for sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -S, --samples-file <file>   file of samples to include\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Filter options:\n");
     fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
@@ -421,6 +400,7 @@ int main_vcfview(int argc, char *argv[])
     args->print_header = 1;
     args->update_info = 1;
     args->output_type = FT_VCF;
+    int targets_is_file = 0, regions_is_file = 0;
 
     static struct option loptions[] = 
     {
@@ -443,12 +423,15 @@ int main_vcfview(int argc, char *argv[])
         {"min-alleles",0,0,'m'},
         {"max-alleles",0,0,'M'},
         {"samples",1,0,'s'},
+        {"samples-file",1,0,'S'},
         {"output-type",1,0,'O'},
         {"output-file",1,0,'o'},
         {"types",1,0,'v'},
         {"exclude-types",1,0,'V'},
         {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
         {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"min-ac",1,0,'c'},
         {"max-ac",1,0,'C'},
         {"min-af",1,0,'q'},
@@ -457,7 +440,7 @@ int main_vcfview(int argc, char *argv[])
         {"exclude-phased",0,0,'P'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "l:t:r:o:O:s:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:g:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "l:t:T:r:R:o:O:s:S:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:g:",loptions,NULL)) >= 0)
     {
         char allele_type[8] = "nref";
         switch (c)
@@ -476,10 +459,13 @@ int main_vcfview(int argc, char *argv[])
             case 'H': args->print_header = 0; break;
             case 'h': args->header_only = 1; break;
             
-            case 't': args->targets_fname = optarg; break;
-            case 'r': args->regions_fname = optarg; break;
+            case 't': args->targets_list = optarg; break;
+            case 'T': args->targets_list = optarg; targets_is_file = 1; break;
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             
             case 's': args->sample_names = optarg; break;
+            case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;
             case 'a': args->trim_alts = 1; args->calc_ac = 1; break;
             case 'I': args->update_info = 0; break;
             case 'G': args->sites_only = 1; break;
@@ -569,10 +555,10 @@ int main_vcfview(int argc, char *argv[])
     else fname = argv[optind];
 
     // read in the regions from the command line
-    if ( args->regions_fname )
+    if ( args->regions_list )
     {
-        if ( bcf_sr_set_regions(args->files, args->regions_fname)<0 )
-            error("Failed to read the regions: %s\n", args->regions_fname);
+        if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->regions_list);
     }
     else if ( optind+1 < argc ) 
     {
@@ -580,14 +566,14 @@ int main_vcfview(int argc, char *argv[])
         kstring_t tmp = {0,0,0};
         kputs(argv[optind+1],&tmp);
         for (i=optind+2; i<argc; i++) { kputc(',',&tmp); kputs(argv[i],&tmp); }
-        if ( bcf_sr_set_regions(args->files, tmp.s)<0 )
+        if ( bcf_sr_set_regions(args->files, tmp.s, 0)<0 )
             error("Failed to read the regions: %s\n", tmp.s);
         free(tmp.s);
     }
-    if ( args->targets_fname )
+    if ( args->targets_list )
     {
-        if ( bcf_sr_set_targets(args->files, args->targets_fname,0)<0 )
-            error("Failed to read the targets: %s\n", args->targets_fname);
+        if ( bcf_sr_set_targets(args->files, args->targets_list, targets_is_file, 0)<0 )
+            error("Failed to read the targets: %s\n", args->targets_list);
     }
 
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
