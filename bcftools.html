@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25040048"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25132416"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -93,7 +93,11 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </span></dt><dd>
     Output compressed BCF (<span class="emphasis"><em>b</em></span>), uncompressed BCF (<span class="emphasis"><em>u</em></span>), compressed VCF (<span class="emphasis"><em>z</em></span>), uncompressed VCF (<span class="emphasis"><em>v</em></span>).
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    Comma-separated list of regions, see also <span class="strong"><strong>-R, --regions-file</strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     Regions can be specified either on command line or in a VCF, BED, or
     tab-delimited file (the default).  The columns of the tab-delimited file
@@ -103,25 +107,32 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     sequence names must match exactly, "chr20" is not the same as "20".  This
     option requires indexed VCF/BCF files.
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>|<span class="emphasis"><em>:FILE</em></span>
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
-    Comma-separated list of samples to include or, when prefixed with colon
-    <span class="emphasis"><em>:</em></span>, read sample names from <span class="emphasis"><em>FILE</em></span> with one sample per line.
+    Comma-separated list of samples to include
+</dd><dt><span class="term">
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>:FILE</em></span>
+</span></dt><dd>
+    File of sample names to include, one sample per line.
     The command <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a></strong></span> accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a> -C</strong></span> <span class="emphasis"><em>trio</em></span>, PED file is expected.
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     Same as <span class="strong"><strong>-r, --regions</strong></span>, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both <span class="strong"><strong>-r</strong></span> and <span class="strong"><strong>-t</strong></span> options
     can be applied simultaneously: <span class="strong"><strong>-r</strong></span>  uses  the index  to  jump  to  a  region
     and <span class="strong"><strong>-t</strong></span> discards positions which are not in the targets.  Another difference
     between the two is that <span class="strong"><strong>-r</strong></span> checks both start and end positions of indels,
-    whereas <span class="strong"><strong>-t</strong></span> checks start positions only.  With the call <span class="strong"><strong>-C</strong></span> <span class="emphasis"><em>alleles</em></span> command,
-    third column of the targets file must be comma-separated list of alleles,
-    starting with the reference allele. Such a file can be easily created from
-    a VCF with:
+    whereas <span class="strong"><strong>-t</strong></span> checks start positions only.
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    Same <span class="strong"><strong>-t, --targets</strong></span>, but reads regions from a file. With the <span class="strong"><strong>call -C</strong></span>
+    <span class="emphasis"><em>alleles</em></span> command, third column of the targets file must be comma-separated
+    list of alleles, starting with the reference allele. Such a file can be
+    easily created from a VCF with:
 </dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf</pre></div><div class="refsect2" title="bcftools annotate [OPTIONS] FILE"><a id="annotate"></a><h3>bcftools annotate <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command allows to add or remove annotations and apply user-written plugins.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annotations</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
@@ -182,11 +193,15 @@ Fills INFO fields AN and AC.
     details and examples. See <span class="strong"><strong>-l, --list-plugins</strong></span> to get a list of installed
     plugins.
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-R, --remove</strong></span> <span class="emphasis"><em>list</em></span>
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-x, --remove</strong></span> <span class="emphasis"><em>list</em></span>
 </span></dt><dd>
     List of annotations to remove. Use <span class="emphasis"><em>FILTER</em></span> to remove all filters or
     <span class="emphasis"><em>FILTER/SomeFilter</em></span> to remove a specific filter. More examples:
@@ -198,11 +213,27 @@ demand. The original calling model can be invoked with the <span class="strong">
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>FILE</em></span>|<span class="emphasis"><em>LIST</em></span>
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>LIST</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect3" title="Input/output options:"><a id="_input_output_options"></a><h4>Input/output options:</h4><div class="variablelist"><dl><dt><span class="term">
@@ -215,7 +246,7 @@ demand. The original calling model can be invoked with the <span class="strong">
 </span></dt><dd>
     output sites where REF allele is N
 </dd><dt><span class="term">
-<span class="strong"><strong>-S, --skip</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>
+<span class="strong"><strong>-V, --skip-variants</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>
 </span></dt><dd>
     skip indel/SNP sites
 </dd><dt><span class="term">
@@ -347,7 +378,11 @@ And similarly here, the second is filtered:
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
@@ -356,7 +391,15 @@ And similarly here, the second is filtered:
     annotate FILTER column with <span class="emphasis"><em>STRING</em></span> or, with <span class="emphasis"><em>+</em></span>, a unique filter name generated
     by the program ("Filter%d").
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-S, --set-GTs</strong></span> <span class="emphasis"><em>.</em></span>|<span class="emphasis"><em>0</em></span>
+</span></dt><dd>
+    set genotypes of failed samples to missing value (<span class="emphasis"><em>.</em></span>) or reference allele (<span class="emphasis"><em>0</em></span>)
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect2" title="bcftools gtcheck [OPTIONS] [-g genotypes.vcf.gz] query.vcf.gz"><a id="gtcheck"></a><h3>bcftools gtcheck [<span class="emphasis"><em>OPTIONS</em></span>] [<span class="strong"><strong>-g</strong></span> <span class="emphasis"><em>genotypes.vcf.gz</em></span>] <span class="emphasis"><em>query.vcf.gz</em></span></h3><p>Checks sample identity or, without <span class="strong"><strong>-g</strong></span>, multi-sample cross-check is performed.</p><div class="variablelist"><dl><dt><span class="term">
@@ -381,7 +424,11 @@ And similarly here, the second is filtered:
 </span></dt><dd>
     produce plots
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
@@ -393,7 +440,11 @@ And similarly here, the second is filtered:
 </span></dt><dd>
     target sample in the <span class="strong"><strong>-g</strong></span> file, used only for plotting, not for analysis
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div><div class="refsect3" title="Output files format:"><a id="_output_files_format"></a><h4>Output files format:</h4><div class="variablelist"><dl><dt><span class="term">
@@ -467,11 +518,19 @@ in the other files.</p><div class="variablelist"><dl><dt><span class="term">
 </span></dt><dd>
     if given, subset each of the input files accordingly. See also <span class="strong"><strong>-w</strong></span>.
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
@@ -520,7 +579,11 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect2" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="strong"><strong>-f</strong></span> <span class="emphasis"><em>ref.fa</em></span> <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels.</p><div class="variablelist"><dl><dt><span class="term">
@@ -536,7 +599,11 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
@@ -575,15 +642,27 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 </span></dt><dd>
     list sample names and exit
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>|<span class="emphasis"><em>:FILE</em></span>
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
@@ -660,15 +739,27 @@ Transition probabilities:
     third column are used (position and Genetic_Map(cM)). The <span class="emphasis"><em>FILE</em></span> can
     chromosome name.
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>|<span class="emphasis"><em>:FILE</em></span>
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
@@ -721,15 +812,27 @@ the program generates separate stats for intersection and the complements.</p><d
     collect stats separately for sites which have the ID column set ("known
     sites") or which do not have the ID column set ("novel sites").
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>|<span class="emphasis"><em>:FILE</em></span>
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect2" title="bcftools view OPTIONS file.vcf.gz [REGION […]]"><a id="view"></a><h3>bcftools view <span class="emphasis"><em>OPTIONS</em></span> <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>REGION</em></span> […]]</h3><p>View, subset and filter VCF or BCF files by position and filtering expression.
@@ -756,11 +859,19 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div><p><span class="strong"><strong>-o, --output-file</strong></span> <span class="emphasis"><em>FILE</em></span>:
     output file name. If not present, the default is to print to standard output (stdout).</p><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>file</em></span>|<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect3" title="Subset options:"><a id="_subset_options"></a><h4>Subset options:</h4><div class="variablelist"><dl><dt><span class="term">
@@ -772,7 +883,11 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </span></dt><dd>
     do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>FILE</em></span>|<span class="emphasis"><em>LIST</em></span>
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect3" title="Filter options:"><a id="_filter_options"></a><h4>Filter options:</h4><div class="variablelist"><dl><dt><span class="term">
@@ -903,52 +1018,51 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
     Main title for the PDF.
 </dd></dl></div></div></div><div class="refsect1" title="EXPRESSIONS"><a id="expressions"></a><h2>EXPRESSIONS</h2><p>These filtering expressions are accepted by <span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span> and
 <span class="strong"><strong><a class="link" href="#view" title="bcftools view OPTIONS file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="variablelist" title="Valid expressions may contain:"><p class="title"><strong>Valid expressions may contain:</strong></p><dl><dt><span class="term">
-arithmetic perators: 
+ 
+</span></dt><dd><div class="variablelist"><dl><dt><span class="term">
+numerical constants and string constants 
 </span></dt><dd>
-    +, *, -, /
+        1, 1.0, 1e-4
+        "String"
 </dd><dt><span class="term">
-logical operators: 
+arithmetic operators 
 </span></dt><dd>
-    &amp;&amp; (same as &amp;),  || (same as |)
+        +,*,-,/
 </dd><dt><span class="term">
-comparison operators: 
+comparison operators 
 </span></dt><dd>
-    == (same as =), &gt;, &gt;=, ⇐, &lt;, !=
+        == (same as =), &gt;, &gt;=, ⇐, &lt;, !=
 </dd><dt><span class="term">
-parentheses: 
+parentheses 
 </span></dt><dd>
-    (, )
+        (, )
 </dd><dt><span class="term">
-array subscripts to access vector subfields: 
+logical operators 
 </span></dt><dd>
-    e.g. AC[0]
+        &amp;&amp; (same as &amp;), ||,  |
 </dd><dt><span class="term">
-double quotes for string values: 
+INFO tags, FORMAT tags, column names 
 </span></dt><dd>
-    e.g. %FILTER="PASS"
+        INFO/DP or DP
+        FORMAT/DV, FMT/DV, or DV
+        %FILTER, %QUAL
 </dd><dt><span class="term">
-<span class="emphasis"><em>1</em></span> (or <span class="emphasis"><em>0</em></span>) for testing the presence (or absence) of a flag: 
+1 (or 0) to test the presence (or absence) of a flag 
 </span></dt><dd>
-    e.g. FlagA=1 &amp;&amp; FlagB=0
+        FlagA=1 &amp;&amp; FlagB=0
 </dd><dt><span class="term">
-<span class="emphasis"><em>TAG</em></span> or INFO/<span class="emphasis"><em>TAG</em></span> for INFO fields: 
+%TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other) 
 </span></dt><dd>
-    e.g. DP&lt;800 or INFO/DP&lt;800
+        %TYPE="indel" | %TYPE="snp"
 </dd><dt><span class="term">
-%<span class="emphasis"><em>COLUMN</em></span> for column names (not all columns are supported yet): 
+array subscripts 
 </span></dt><dd>
-    e.g. %QUAL&gt;10 &amp;&amp; %FILTER="PASS"
+        (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) &gt; 0.3
 </dd><dt><span class="term">
-%TYPE for testing variant type (<span class="emphasis"><em>indel</em></span>, <span class="emphasis"><em>snp</em></span>, <span class="emphasis"><em>mnp</em></span>, <span class="emphasis"><em>other</em></span>): 
+functions on FORMAT fields 
 </span></dt><dd>
-    e.g. %TYPE="snp"
-</dd><dt><span class="term">
-%<span class="emphasis"><em>FUNC</em></span>(<span class="emphasis"><em>TAG</em></span>) where <span class="emphasis"><em>FUNC</em></span> is one of <span class="emphasis"><em>MAX</em></span>, <span class="emphasis"><em>MIN</em></span>, <span class="emphasis"><em>AVG</em></span> and <span class="emphasis"><em>TAG</em></span> is one of the FORMAT fields: 
-</span></dt><dd>
-    e.g. %MIN(DP)&gt;10 &amp;&amp; %MIN(DV)&gt;3
-</dd></dl></div><p>A few more examples:</p><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)
-%MIN(DP)&gt;35 &amp;&amp; %AVG(GQ)&gt;50
-...</pre></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+        MAX, MIN, AVG
+</dd></dl></div></dd></dl></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">%MIN(DV)&gt;5</pre><pre class="literallayout">%MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">%MIN(DP)&gt;10 &amp; %MIN(DV)&gt;3</pre><pre class="literallayout">%%QUAL&gt;10 |  FMT/GQ&gt;10   .. selects only GQ&gt;10 samples</pre><pre class="literallayout">%%QUAL&gt;10 || FMT/GQ&gt;10   .. selects all samples at QUAL&gt;10 sites</pre><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">%MIN(DP)&gt;35 &amp;&amp; %AVG(GQ)&gt;50</pre></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
 are internally converted into BCF representation. Simple operations, like removing
 a single column from a VCF file, can be therefore done much faster with standard
 UNIX commands, such as <span class="strong"><strong>awk</strong></span> or <span class="strong"><strong>cut</strong></span>.
