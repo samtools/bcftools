@@ -759,7 +759,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -m, --genetic-map <file>           genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
-    fprintf(stderr, "    -s, --samples <list>               list of samples for sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -s, --samples <list>               list of samples to include\n");
     fprintf(stderr, "    -S, --samples-file <file>          file of samples to include\n");
     fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");

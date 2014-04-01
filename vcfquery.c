@@ -698,12 +698,12 @@ static void usage(void)
 	fprintf(stderr, "    -H, --print-header                print header\n");
 	fprintf(stderr, "    -i, --include <expr>              select sites for which the expression is true (see below for details)\n");
 	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit\n");
-    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
-    fprintf(stderr, "    -s, --samples <list>               list of samples for sample stats, \"-\" to include all samples\n");
-    fprintf(stderr, "    -S, --samples-file <file>          file of samples to include\n");
-    fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>         restrict to regions listed in a file\n");
+    fprintf(stderr, "    -s, --samples <list>              list of samples to include\n");
+    fprintf(stderr, "    -S, --samples-file <file>         file of samples to include\n");
+    fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
 	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
     fprintf(stderr, "\n");
 	fprintf(stderr, "Format expressions:\n");

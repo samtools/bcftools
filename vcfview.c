@@ -394,7 +394,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in the subset\n");
     fprintf(stderr, "    -I, --no-update             do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)\n");
-    fprintf(stderr, "    -s, --samples <list>        list of samples for sample stats, \"-\" to include all samples\n");
+    fprintf(stderr, "    -s, --samples <list>        list of samples to include\n");
     fprintf(stderr, "    -S, --samples-file <file>   file of samples to include\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Filter options:\n");
