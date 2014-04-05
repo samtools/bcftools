@@ -152,7 +152,7 @@ sub parse_params
             },
             { 
                 id=>'GCsS',  
-                header=>'GCcS, Genotype concordance by sample (SNPs)', 
+                header=>'GCsS, Genotype concordance by sample (SNPs)', 
                 exp=>"# GCsS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches" 
             },
             { 
