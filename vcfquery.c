@@ -493,7 +493,7 @@ static void init_data(args_t *args)
         {
             int ret = bcf_hdr_set_samples(args->files->readers[i].header,args->sample_list,args->sample_is_file);
             if ( ret<0 ) error("Error parsing the sample list\n");
-            else if ( ret>0 ) error("Sample name mismatch: %d-th sample not found in the header\n", ret);
+            else if ( ret>0 ) error("Sample name mismatch: sample #%d not found in the header\n", ret);
         }
 
         if ( args->sample_list[0]!='^' )

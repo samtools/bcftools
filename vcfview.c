@@ -160,7 +160,15 @@ static void init_data(args_t *args)
     if (args->sites_only)
         args->hnull = bcf_hdr_subset(args->hdr, 0, 0, 0);
     if (args->n_samples > 0)
+    {
         args->hsub = bcf_hdr_subset(args->hdr, args->n_samples, args->samples, args->imap);
+        if ( args->n_samples != bcf_hdr_nsamples(args->hsub) )
+        {
+            int i;
+            for (i=0; i<args->n_samples; i++)
+                if ( args->imap[i]<0 ) error("Error: No such sample: \"%s\"\n", args->samples[i]);
+        }
+    }
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
