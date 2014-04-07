@@ -43,7 +43,7 @@ typedef struct _args_t
     int *seen_seq;
 
     // phasing
-    int *start_pos, ifname;
+    int *start_pos, start_tid, ifname;
     int *swap_phase, nswap, *nmatch, *nmism;
     bcf1_t **buf;
     int nbuf, mbuf, prev_chr, min_PQ, prev_pos_check;
@@ -90,7 +90,7 @@ static void init_data(args_t *args)
         if ( args->phased_concat )
         {
             int ret = bcf_read(fp, hdr, line);
-            if ( ret!=0 ) args->start_pos[i] = -2;
+            if ( ret!=0 ) args->start_pos[i] = -2;  // empty file
             else
             {
                 int chrid = bcf_hdr_id2int(args->out_hdr,BCF_DT_CTG,bcf_seqname(hdr,line));
@@ -106,7 +106,6 @@ static void init_data(args_t *args)
 
     args->seen_seq = (int*) calloc(args->out_hdr->n[BCF_DT_CTG],sizeof(int));
 
-    // We do not output PS in order to save on VCF size. We can make a command line option if people need it.
     if ( args->phased_concat )
     {
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PQ,Number=1,Type=Integer,Description=\"Phasing Quality (bigger is better)\">");
@@ -125,6 +124,27 @@ static void init_data(args_t *args)
     }
     else if ( args->phased_concat )
     {
+        // Remove empty files from the list
+        int nok = 0;
+        while (1)
+        {
+            while ( nok<args->nfnames && args->start_pos[nok]!=-2 ) nok++;
+            if ( nok==args->nfnames ) break;
+
+            i = nok;
+            while ( i<args->nfnames && args->start_pos[i]==-2 ) i++;
+            if ( i==args->nfnames ) break;
+
+            int tmp = args->start_pos[nok]; args->start_pos[nok] = args->start_pos[i]; args->start_pos[i] = tmp;
+            char *str = args->fnames[nok]; args->fnames[nok] = args->fnames[i]; args->fnames[i] = str;
+        }
+        for (i=nok; i<args->nfnames; i++) free(args->fnames[i]);
+        args->nfnames = nok;
+
+        for (i=1; i<args->nfnames; i++)
+            if ( args->start_pos[i-1]!=-1 && args->start_pos[i]!=-1 && args->start_pos[i]<args->start_pos[i-1] )
+                error("The files not in ascending order: %d in %s, %d in %s\n", args->start_pos[i-1]+1,args->fnames[i-1],args->start_pos[i]+1,args->fnames[i]);
+
         args->prev_chr = -1;
         args->swap_phase = (int*) calloc(bcf_hdr_nsamples(args->out_hdr),sizeof(int));
         args->nmatch = (int*) calloc(bcf_hdr_nsamples(args->out_hdr),sizeof(int));
@@ -134,7 +154,6 @@ static void init_data(args_t *args)
         args->files = bcf_sr_init();
         args->files->require_index = 1;
         args->ifname = 0;
-        while ( args->ifname<args->nfnames && args->start_pos[args->ifname]==-2 ) args->ifname++;   // skip empty files
     }
 }
 
@@ -282,6 +301,8 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
         for (i=0; i<nsmpl; i++) 
             args->phase_set[i] = arec->pos+1;
 
+        if ( args->seen_seq[chr_id] ) error("The chromosome block %s is not contiguous\n", bcf_seqname(args->files->readers[0].header,arec));
+        args->seen_seq[chr_id] = 1;
         args->prev_chr = chr_id;
         args->prev_pos_check = -1;
     }
@@ -294,7 +315,8 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
         bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
         bcf_write(args->out_fh, args->out_hdr, arec);
 
-        if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [3]\n", bcf_seqname(args->files->readers[0].header,arec), arec->pos+1,args->prev_pos_check+1);
+        if ( arec->pos < args->prev_pos_check )
+            error("FIXME, disorder: %s:%d in %s vs %d written  [3]\n", bcf_seqname(args->files->readers[0].header,arec), arec->pos+1,args->files->readers[0].fname, args->prev_pos_check+1);
         args->prev_pos_check = arec->pos;
         return;
     }
@@ -317,24 +339,29 @@ static void concat(args_t *args)
         // keep only two open files at a time
         while ( args->ifname < args->nfnames )
         {
-            if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s\n", args->fnames[args->ifname]);
-            args->ifname++;
-            while ( args->ifname<args->nfnames && args->start_pos[args->ifname]==-2 ) args->ifname++;   // skip empty files
-            int seek_pos = -1;
-            int seek_chr = -1;
-            if ( args->files->nreaders < 2 && args->ifname < args->nfnames )
+            int new_file = 0;
+            while ( args->files->nreaders < 2 && args->ifname < args->nfnames )
             {
                 if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s\n", args->fnames[args->ifname]);
+                new_file = 1;
+
                 args->ifname++;
-                while ( args->ifname<args->nfnames && args->start_pos[args->ifname]==-2 ) args->ifname++;   // skip empty files
-                if ( bcf_sr_has_line(args->files,0) )
-                {
-                    bcf1_t *line = bcf_sr_get_line(args->files,0);
-                    bcf_sr_seek(args->files, bcf_seqname(args->files->readers[0].header,line), line->pos);
-                    seek_pos = line->pos;
-                    seek_chr = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,line));
-                }
+                if ( args->start_pos[args->ifname-1]==-1 ) break;   // new chromosome, start with only one file open
+                if ( args->ifname < args->nfnames && args->start_pos[args->ifname]==-1 ) break; // next file starts on a different chromosome
             }
+
+            // is there a line from the previous run? Seek the newly opened reader to that position
+            int seek_pos = -1;
+            int seek_chr = -1;
+            if ( bcf_sr_has_line(args->files,0) )
+            {
+                bcf1_t *line = bcf_sr_get_line(args->files,0);
+                bcf_sr_seek(args->files, bcf_seqname(args->files->readers[0].header,line), line->pos);
+                seek_pos = line->pos;
+                seek_chr = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,line));
+            }
+            else if ( new_file ) 
+                bcf_sr_seek(args->files,NULL,0);  // set to start
 
             int nret;
             while ( (nret = bcf_sr_next_line(args->files)) )
@@ -348,7 +375,7 @@ static void concat(args_t *args)
                     bcf_sr_remove_reader(args->files, 0);
                 }
 
-                // Set chromosome, the IDs may be different across the files
+                // Get a line to learn about current position
                 for (i=0; i<args->files->nreaders; i++)
                     if ( bcf_sr_has_line(args->files,i) ) break;
                 bcf1_t *line = bcf_sr_get_line(args->files,i);
@@ -357,13 +384,13 @@ static void concat(args_t *args)
                 if ( seek_chr>=0 && seek_pos>line->pos && seek_chr==bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[i].header,line)) ) continue;
                 seek_pos = seek_chr = -1;
 
+                //  Check if the position overlaps with the next, yet unopened, reader
                 int must_seek = 0;
-                while ( args->ifname < args->nfnames && line->pos >= args->start_pos[args->ifname] )   // overlaps with the next reader
+                while ( args->ifname < args->nfnames && args->start_pos[args->ifname]!=-1 && line->pos >= args->start_pos[args->ifname] )
                 {
                     must_seek = 1;
                     bcf_sr_add_reader(args->files,args->fnames[args->ifname]);
                     args->ifname++;
-                    while ( args->ifname<args->nfnames && args->start_pos[args->ifname]==-2 ) args->ifname++;   // skip empty files
                 }
                 if ( must_seek )
                 {
@@ -378,7 +405,13 @@ static void concat(args_t *args)
 
                 phased_push(args, bcf_sr_get_line(args->files,0), args->files->nreaders>1 ? bcf_sr_get_line(args->files,1) : NULL);
             }
-            args->ifname++;
+
+            if ( args->files->nreaders )
+            {
+                phased_flush(args);
+                while ( args->files->nreaders )
+                    bcf_sr_remove_reader(args->files, 0);
+            }
         }
     }
     else if ( args->files )  // combining overlapping files, using synced reader 
