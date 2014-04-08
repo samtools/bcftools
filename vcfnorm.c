@@ -263,7 +263,19 @@ static int align(args_t *args, aln_aux_t *aux)
     i = k/(nref+1);             // seq[nseq-i]
     j = k - i*(nref+1);         // ref[nref-j]
 
-    if ( !i && !j ) return -1;  // this is a legitimate case, consider MNPs
+    if ( !i && !j ) 
+    {
+        // no gaps: this is a legitimate case, consider MNPs
+        int l = 0;
+        while ( l<nseq && l<nref && ref[l]==seq[l] ) l++;
+        if ( l==nseq || l==nref ) return -2;    // ALT is identical to REF
+        assert( l>0 );
+        while ( ipos>l && ref[ipos]==seq[ipos] ) ipos--;
+        aux->ipos = l;          // position of the last matching base (buffer coordinates)
+        aux->lref = ipos + 1;   // position of the first base in the suffix
+        aux->lseq = ipos + 1;
+        return 0;   
+    }
     assert(i>0 && j>0);
 
     int l = k, nout_ref = ipos, nout_seq = ipos, nsuffix = 0;
@@ -323,16 +335,22 @@ int realign(args_t *args, bcf1_t *line)
 
     int ref_winlen;
     char *ref = NULL;
-    if ( len==1 ) 
+    if ( len==1 || line->n_allele==1 )
     {
         // SNP
-        ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos, &ref_winlen);
+        int reflen = strlen(line->d.allele[0]);
+        ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &ref_winlen);
         if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
-        if ( ref[0]==line->d.allele[0][0] ) return 0;
+        if ( !strncmp(ref,line->d.allele[0],reflen) ) 
+        {
+            free(ref);
+            return 0;
+        }
         if ( args->check_ref==CHECK_REF_EXIT )
             error("Reference allele mismatch at %s:%d .. '%c' vs '%c'\n", bcf_seqname(args->hdr,line),line->pos+1,ref[0],line->d.allele[0][0]);
         if ( args->check_ref & CHECK_REF_WARN )
             fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+        free(ref);
         return -1;
     }
 
@@ -366,6 +384,7 @@ int realign(args_t *args, bcf1_t *line)
                     args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, i+1,ref[win+i],line->d.allele[0][i]);
         if ( args->check_ref & CHECK_REF_WARN )
             fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+        free(ref);
         return -1;
     }
 
@@ -397,11 +416,18 @@ int realign(args_t *args, bcf1_t *line)
         args->aln.nref = ref_winlen;
         args->aln.nseq = i;
 
-        if ( align(args, &args->aln)<0 ) 
+        int ret = align(args, &args->aln);
+        if ( ret<0 )
         {
-            // something went wrong - output the original line
             free(ref);
-            return 0;
+            if ( ret==-1 ) 
+            {
+                // todo: better error analysis, see 2:1 in test/norm.vcf
+                // fprintf(stderr,"Warning: The -w alignment window too small for %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+                return 0;   // leave as is
+            }
+            if ( ret==-2 ) fprintf(stderr,"Warning: REF allele is identical to ALT at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+            return -1;
         }
 
         // fprintf(stderr, "%s  \t nref=%d\n", ref, ref_winlen);
