@@ -1050,7 +1050,7 @@ int mcall(call_t *call, bcf1_t *rec)
     int nsmpl = bcf_hdr_nsamples(call->hdr);
     int nals  = rec->n_allele;
     if ( nals>5 )
-        error("FIXME: Not ready for more than 5 alleles at %s:%d (%d)\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1, nals);
+        error("FIXME: Not ready for more than 5 alleles at %s:%d (%d)\n", bcf_seqname(call->hdr,rec),rec->pos+1, nals);
 
     // Get the genotype likelihoods
     call->nPLs = bcf_get_format_int32(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
@@ -1064,8 +1064,15 @@ int mcall(call_t *call, bcf1_t *rec)
 
     // Get sum of qualities
     int i, nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
-    assert( nals<=call->nqsum );
-    for (i=nqs; i<nals; i++) call->qsum[i] = 0;
+    if ( nqs<=0 ) error("The QS annotation not present at %s:%d\n", bcf_seqname(call->hdr,rec),rec->pos+1);
+    if ( nqs < nals )
+    {
+        // Some of the listed alleles do not have the corresponding QS field. This is
+        // typically ref-only site with X in ALT.
+
+        hts_expand(float,nals,call->nqsum,call->qsum);
+        for (i=nqs; i<nals; i++) call->qsum[i] = 0;
+    }
 
     // Find the best combination of alleles
     int out_als, nout =  mcall_find_best_alleles(call, nals, &out_als);
