@@ -47,7 +47,7 @@ version.h:
 
 force:
 
-.c.o:
+%.o: %.c $(HTSDIR)/htslib/vcf.h
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
 test: $(PROG) plugins test/test-rbuf
@@ -62,7 +62,7 @@ plugins: $(PLUGINS)
 	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ -L$(HTSDIR) $< -lhts
 
 main.o: version.h $(HTSDIR)/version.h bcftools.h
-vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h $(HTSDIR)/htslib/vcf.h bcftools.h
+vcfcall.o: vcfcall.c call.h mcall.c prob1.h $(HTSDIR)/htslib/kfunc.h bcftools.h
 mcall.o ccall.o: call.h vcmp.h bcftools.h
 vcffilter.o: bcftools.h filter.h
 vcfsubset.o: bcftools.h filter.h
