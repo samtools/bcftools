@@ -615,6 +615,8 @@ int main_vcfview(int argc, char *argv[])
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);
     if (args->print_header)
         bcf_hdr_write(args->out, out_hdr);
+    else if ( args->output_type & FT_BCF ) 
+        error("BCF output requires header, cannot proceed with -H\n");
     if (!args->header_only) 
     {
         while ( bcf_sr_next_line(args->files) )
