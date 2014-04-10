@@ -267,6 +267,13 @@ static int filters_cmp_filter(token_t *atok, token_t *btok, int op_type, bcf1_t 
         if ( atok->hdr_id==line->d.flt[i] ) return 1;
     return 0;
 }
+static int filters_cmp_id(token_t *atok, token_t *btok, int op_type, bcf1_t *line)
+{
+    // multiple IDs not supported yet
+    if ( op_type==TOK_EQ ) return !strcmp(btok->str_value,line->d.id);
+    return strcmp(btok->str_value,line->d.id);
+    return 0;
+}
 
 /**
  *  bcf_get_info_value() - get single INFO value, int or float
@@ -580,7 +587,6 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
 #define CMP_VECTORS(atok,btok,CMP_OP,ret) \
 { \
     int i, has_values = 0, pass_site = 0; \
-/*fprintf(stderr,"%d: cmp_vectors %s .. nsamples=%d %d   nvalues=%d %d\n",line->pos+1,atok->tag?atok->tag:(btok->tag?btok->tag:"xx"),atok->nsamples,btok->nsamples,atok->nvalues,btok->nvalues);*/ \
     if ( !(atok)->nvalues || !(btok)->nvalues ) { (atok)->nvalues = 0; (atok)->nsamples = 0; (ret) = 0; } \
     else \
     { \
@@ -727,6 +733,12 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
             tok->comparator = filters_cmp_filter;
             tok->tag = strdup("%FILTER");
             filter->max_unpack |= BCF_UN_FLT;
+            return 0;
+        }
+        else if ( !strncmp(str,"%ID",len) )
+        {
+            tok->comparator = filters_cmp_id;
+            tok->tag = strdup("%ID");
             return 0;
         }
     }
@@ -1185,7 +1197,7 @@ void filter_expression_info(FILE *fp)
     fprintf(fp, "    - INFO tags, FORMAT tags, column names\n");
     fprintf(fp, "        .. INFO/DP or DP\n");
     fprintf(fp, "        .. FORMAT/DV, FMT/DV, or DV\n");
-    fprintf(fp, "        .. %%FILTER, %%QUAL\n");
+    fprintf(fp, "        .. %%FILTER==\"PASS\", %%QUAL>10, %%ID!=\".\"\n");
     fprintf(fp, "    - 1 (or 0) to test the presence (or absence) of a flag\n");
     fprintf(fp, "        .. FlagA=1 && FlagB=0\n");
     fprintf(fp, "    - %%TYPE for variant type in REF,ALT columns: indel,snp,mnp,ref,other\n");
