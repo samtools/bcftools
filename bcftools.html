@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25132416"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25137584"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -111,7 +111,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </span></dt><dd>
     Comma-separated list of samples to include
 </dd><dt><span class="term">
-<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>:FILE</em></span>
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     File of sample names to include, one sample per line.
     The command <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a></strong></span> accepts an optional second
@@ -173,22 +173,34 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
     the program which directories to search:
 </p><div class="variablelist"><dl><dt><span class="term">
-missing2ref
+counts
 </span></dt><dd>
-Sets missing genotypes ("./.") to ref allele ("0/0").
+A minimal plugin which counts number of SNPs, Indels, and
+        total number of sites.
+</dd><dt><span class="term">
+dosage
+</span></dt><dd>
+Prints genotype dosage determined from tags requested
+        by the user. By default the plugin searches for PL, GL and
+        GT (in that order), therefore running <span class="strong"><strong>-p dosage</strong></span> is equivalent to <span class="strong"><strong>-p
+        dosage:tags=PL,GL,GT</strong></span>.
 </dd><dt><span class="term">
 fill-AN-AC
 </span></dt><dd>
 Fills INFO fields AN and AC.
+</dd><dt><span class="term">
+missing2ref
+</span></dt><dd>
+Sets missing genotypes ("./.") to ref allele ("0/0").
 </dd></dl></div></dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-p, --plugins</strong></span> <span class="emphasis"><em>name</em></span>[,…]
+<span class="strong"><strong>-p, --plugins</strong></span> <span class="emphasis"><em>name</em></span>[:'key'=<span class="emphasis"><em>val</em></span>]
 </span></dt><dd>
-    Comma-separated list of plugins to run. The BCFTOOLS_PLUGINS environment
-    variable tells the program which directories to search.
+    Dynamically loaded plugin to run with optional parameters.
+    The BCFTOOLS_PLUGINS environment variable tells the program which directories to search.
     See the examples in plugins/*.c coming with this distribution for further
     details and examples. See <span class="strong"><strong>-l, --list-plugins</strong></span> to get a list of installed
     plugins.
@@ -205,7 +217,11 @@ Fills INFO fields AN and AC.
 </span></dt><dd>
     List of annotations to remove. Use <span class="emphasis"><em>FILTER</em></span> to remove all filters or
     <span class="emphasis"><em>FILTER/SomeFilter</em></span> to remove a specific filter. More examples:
-</dd></dl></div><pre class="screen">    ID,INFO/DP,FORMAT/DP</pre></div><div class="refsect2" title="bcftools call [OPTIONS] FILE"><a id="call"></a><h3>bcftools call <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command replaces the former <span class="strong"><strong>bcftools view</strong></span> caller. Some of the original
+</dd></dl></div><pre class="screen">    ID,INFO/DP,FORMAT/DP</pre><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-v, --verbose</strong></span> 
+</span></dt><dd>
+    print debugging information on plugin failure
+</dd></dl></div></div><div class="refsect2" title="bcftools call [OPTIONS] FILE"><a id="call"></a><h3>bcftools call <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command replaces the former <span class="strong"><strong>bcftools view</strong></span> caller. Some of the original
 functionality has been temporarily lost in the process of transition under
 <a class="ulink" href="http://github.com/samtools/htslib" target="_top">htslib</a>, but will be added back on popular
 demand. The original calling model can be invoked with the <span class="strong"><strong>-c</strong></span> option.</p><div class="refsect3" title="File format options:"><a id="_file_format_options"></a><h4>File format options:</h4><div class="variablelist"><dl><dt><span class="term">
