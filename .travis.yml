@@ -8,7 +8,7 @@ compiler:
 env:
   global:
     - HTSDIR=./htslib
-    - PATH=$TRAVIS_BUILD_DIR/tabix:$PATH
+    - PATH=$TRAVIS_BUILD_DIR/htslib:$PATH
 
 matrix:
   include:
@@ -18,6 +18,5 @@ matrix:
 
 before_script:
   - git clone --depth=5 --branch=bcftools+calling git://github.com/samtools/htslib.git
-  - git clone --depth=5 git://github.com/samtools/tabix.git && cd tabix && make && cd ..
 
 script: make -e && make -e test
