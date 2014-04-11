@@ -3,24 +3,28 @@
 #include <htslib/vcf.h>
 
 bcf_hdr_t *hdr;
-int nsnps, nindels;
+int nsnps, nindels, nsites;
 
 /* 
     This short description is used to generate the output of `bcftools annotate -l`.
 */
 const char *about(void)
 {
-    return "A minimal plugin which counts number of SNPs and Indels and prints the result to STDERR.\n";
+    return 
+        "A minimal plugin which counts number of SNPs, Indels, and\n"
+        "total number of sites.\n";
 }
 
 
 /* 
-    Called once at startup allows to initialize any local variables.
+    Called once at startup, allows to initialize local variables.
+    Return 1 to suppress VCF/BCF header from printing, 0 otherwise.
 */
-void init(bcf_hdr_t *h)
+int init(bcf_hdr_t *h)
 {
     hdr = h;
-    nsnps = nindels = 0;
+    nsnps = nindels = nsites = 0;
+    return 1;
 }
 
 
@@ -33,6 +37,7 @@ int process(bcf1_t *rec)
     int type = bcf_get_variant_types(rec);
     if ( type & VCF_SNP ) nsnps++;
     if ( type & VCF_INDEL ) nindels++;
+    nsites++;
     return 1;
 }
 
@@ -42,8 +47,9 @@ int process(bcf1_t *rec)
 */
 void destroy(void)
 {
-    fprintf(stderr,"Number of SNPs:    %d\n", nsnps);
-    fprintf(stderr,"Number of Indels:  %d\n", nindels);
+    printf("Number of SNPs:    %d\n", nsnps);
+    printf("Number of Indels:  %d\n", nindels);
+    printf("Number of sites:   %d\n", nsites);
 }
 
 

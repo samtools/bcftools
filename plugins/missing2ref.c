@@ -12,9 +12,10 @@ const char *about(void)
     return "Set missing genotypes (\"./.\") to ref allele (\"0/0\").\n";
 }
 
-void init(bcf_hdr_t *h)
+int init(bcf_hdr_t *h)
 {
     hdr = h;
+    return 0;
 }
 
 int process(bcf1_t *rec)

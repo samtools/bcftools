@@ -12,11 +12,12 @@ const char *about(void)
     return "Fill INFO fields AN and AC.\n";
 }
 
-void init(bcf_hdr_t *h)
+int init(bcf_hdr_t *h)
 {
     hdr = h;
     bcf_hdr_append(hdr, "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
     bcf_hdr_append(hdr, "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
+    return 0;
 }
 
 int process(bcf1_t *rec)

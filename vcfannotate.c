@@ -42,7 +42,7 @@
 #include "filter.h"
 
 /** Plugin API */
-typedef void (*dl_init_f) (bcf_hdr_t *);
+typedef int (*dl_init_f) (bcf_hdr_t *);
 typedef char* (*dl_about_f) (void);
 typedef int (*dl_process_f) (bcf1_t *);     // return 0:success, 1:don't print the line, -1:abort
 typedef void (*dl_destroy_f) (void);
@@ -124,7 +124,7 @@ typedef struct _args_t
 
     char **argv, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns;
-    int argc;
+    int argc, drop_header;
 }
 args_t;
 
@@ -166,7 +166,7 @@ static void *dlopen_plugin(args_t *args, const char *fname)
     for (i=0; i<args->nplugin_paths; i++)
     {
         tmp = msprintf("%s/%s.so", args->plugin_paths[i],fname);
-        handle = dlopen(tmp, RTLD_NOW);
+        handle = dlopen(tmp, RTLD_NOW); // valgrind complains, not our problem though
         free(tmp);
         if ( handle ) return handle;
     }
@@ -190,6 +190,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error)
         if ( !handle )
         {
             if ( exit_on_error ) error("Could not load %s: %s\n", ss, dlerror());
+            free(rmme);
             return -1;
         }
 
@@ -205,6 +206,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error)
         if ( ret ) 
         {
             if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            free(rmme);
             return -1;
         }
 
@@ -213,6 +215,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error)
         if ( ret ) 
         {
             if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            free(rmme);
             return -1;
         }
 
@@ -221,6 +224,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error)
         if ( ret ) 
         {
             if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            free(rmme);
             return -1;
         }
 
@@ -229,6 +233,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error)
         if ( ret ) 
         {
             if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+            free(rmme);
             return -1;
         }
 
@@ -243,7 +248,14 @@ static void init_plugins(args_t *args)
 {
     int i;
     for (i=0; i<args->nplugins; i++)
-        args->plugins[i].init(args->hdr);
+        args->drop_header += args->plugins[i].init(args->hdr);
+}
+
+static int cmp_plugin_name(const void *p1, const void *p2)
+{
+    plugin_t *a = (plugin_t*) p1;
+    plugin_t *b = (plugin_t*) p2;
+    return strcmp(a->name,b->name);
 }
 
 static int list_plugins(args_t *args)
@@ -251,7 +263,7 @@ static int list_plugins(args_t *args)
     init_plugin_paths(args);
 
     kstring_t str = {0,0,0};
-    int i, nprinted = 0;
+    int i;
     for (i=0; i<args->nplugin_paths; i++)
     {
         DIR *dp = opendir(args->plugin_paths[i]);
@@ -262,20 +274,26 @@ static int list_plugins(args_t *args)
         {
             str.l = 0;
             ksprintf(&str,"%s/%s", args->plugin_paths[i],ep->d_name);
-            int ret = load_plugin(args, str.s, 0);
-            if ( ret ) continue;
+            if ( load_plugin(args, str.s, 0) < 0 ) continue;
             str.l = 0;
             kputs(ep->d_name, &str);
             int l = str.l - 1;
             while ( l>=0 && str.s[l]!='.' ) l--;
             if ( l>=0 ) str.s[l] = 0;
-            printf("\n-- %s --\n%s", str.s, args->plugins[args->nplugins-1].about());
-            nprinted++;
+            free(args->plugins[args->nplugins-1].name);
+            args->plugins[args->nplugins-1].name = strdup(str.s);  // use a short name
         }
         closedir(dp);
     }
-    free(str.s);
-    if ( !nprinted ) 
+    if ( args->nplugins )
+    {
+        qsort(args->plugins, args->nplugins, sizeof(args->plugins[0]), cmp_plugin_name);
+
+        for (i=0; i<args->nplugins; i++)
+            printf("\n-- %s --\n%s", args->plugins[i].name, args->plugins[i].about());
+        printf("\n");
+    }
+    else
     {
         fprintf(stderr, "\nNo functional bcftools plugins were found");
         if ( !getenv("BCFTOOLS_PLUGINS") )
@@ -290,9 +308,8 @@ static int list_plugins(args_t *args)
                 getenv("BCFTOOLS_PLUGINS")
             );
     }
-    else
-        printf("\n");
-    return nprinted ? 0 : 1;
+    free(str.s);
+    return args->nplugins ? 0 : 1;
 }
 
 void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
@@ -619,7 +636,11 @@ static void init_data(args_t *args)
         args->filter = filter_init(args->hdr, args->filter_str);
 
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
-    args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
+    if ( !args->drop_header )
+    {
+        args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
+        bcf_hdr_write(args->out_fh, args->hdr_out);
+    }
 }
 
 static void destroy_data(args_t *args)
@@ -634,7 +655,7 @@ static void destroy_data(args_t *args)
     free(args->plugins);
     for (i=0; i<args->nrm; i++) free(args->rm[i].key);
     free(args->rm);
-    bcf_hdr_destroy(args->hdr_out);
+    if ( args->hdr_out ) bcf_hdr_destroy(args->hdr_out);
     if ( args->nplugin_paths>0 )
     {   
         free(args->plugin_paths[0]);
@@ -657,6 +678,7 @@ static void destroy_data(args_t *args)
     free(args->tmps);
     if ( args->filter )
         filter_destroy(args->filter);
+    if (args->out_fh) hts_close(args->out_fh);
 }
 
 static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
@@ -866,7 +888,7 @@ int main_vcfannotate(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( plist_only ) return list_plugins(args);
+    if ( plist_only )  return list_plugins(args);
 
     char *fname = NULL;
     if ( optind>=argc )
@@ -885,7 +907,6 @@ int main_vcfannotate(int argc, char *argv[])
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
     
     init_data(args);
-    bcf_hdr_write(args->out_fh, args->hdr_out);
     while ( bcf_sr_next_line(args->files) )
     {
         if ( !bcf_sr_has_line(args->files,0) ) continue;
@@ -902,7 +923,6 @@ int main_vcfannotate(int argc, char *argv[])
         if ( ret>0 ) continue;
         bcf_write1(args->out_fh, args->hdr_out, line);
     }
-    hts_close(args->out_fh);
     destroy_data(args);
     bcf_sr_destroy(args->files);
     free(args);
