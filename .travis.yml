@@ -17,6 +17,6 @@ matrix:
       env: CFLAGS="-std=gnu99 -O0"
 
 before_script:
-  - git clone --depth=5 --branch=bcftools+calling git://github.com/samtools/htslib.git
+  - git clone --depth=5 --branch=bcftools+calling git://github.com/samtools/htslib.git && cd htslib && make && cd ..
 
 script: make -e && make -e test
