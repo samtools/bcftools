@@ -126,7 +126,7 @@ OPTIONS
 *-s, --samples* 'LIST'::
     Comma-separated list of samples to include
 
-*-S, --samples-file* ':FILE'::
+*-S, --samples-file* 'FILE'::
     File of sample names to include, one sample per line.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
@@ -190,16 +190,24 @@ This command allows to add or remove annotations and apply user-written plugins.
     List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
     the program which directories to search:
 
-        missing2ref;; Sets missing genotypes ("./.") to ref allele ("0/0").
+        counts;;  A minimal plugin which counts number of SNPs, Indels, and
+        total number of sites.
+
+        dosage;; Prints genotype dosage determined from tags requested
+        by the user. By default the plugin searches for PL, GL and
+        GT (in that order), therefore running *-p dosage* is equivalent to *-p
+        dosage:tags=PL,GL,GT*.
 
         fill-AN-AC;;  Fills INFO fields AN and AC.
+
+        missing2ref;; Sets missing genotypes ("./.") to ref allele ("0/0").
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-p, --plugins* 'name'[,...]::
-    Comma-separated list of plugins to run. The BCFTOOLS_PLUGINS environment
-    variable tells the program which directories to search.
+*-p, --plugins* 'name'[:'key'='val']::
+    Dynamically loaded plugin to run with optional parameters.
+    The BCFTOOLS_PLUGINS environment variable tells the program which directories to search.
     See the examples in plugins/\*.c coming with this distribution for further
     details and examples. See *-l, --list-plugins* to get a list of installed
     plugins.
@@ -217,6 +225,8 @@ This command allows to add or remove annotations and apply user-written plugins.
     ID,INFO/DP,FORMAT/DP
 ----
 
+*-v, --verbose* :: 
+    print debugging information on plugin failure
 
 
 [[call]]

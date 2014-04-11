@@ -41,22 +41,24 @@
 #include "vcmp.h"
 #include "filter.h"
 
+typedef struct _plugin_t plugin_t;
+
 /** Plugin API */
-typedef int (*dl_init_f) (bcf_hdr_t *);
+typedef int (*dl_init_f) (const char *, bcf_hdr_t *);
 typedef char* (*dl_about_f) (void);
 typedef int (*dl_process_f) (bcf1_t *);     // return 0:success, 1:don't print the line, -1:abort
 typedef void (*dl_destroy_f) (void);
 
-typedef struct
+struct _plugin_t
 {
-    char *name;
+    char *name, *opts;
     dl_init_f init;
     dl_about_f about;
     dl_process_f process;
     dl_destroy_f destroy;
     void *handle;
-}
-plugin_t;
+};
+
 
 struct _args_t;
 
@@ -124,7 +126,7 @@ typedef struct _args_t
 
     char **argv, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns;
-    int argc, drop_header;
+    int argc, drop_header, verbose;
 }
 args_t;
 
@@ -166,81 +168,77 @@ static void *dlopen_plugin(args_t *args, const char *fname)
     for (i=0; i<args->nplugin_paths; i++)
     {
         tmp = msprintf("%s/%s.so", args->plugin_paths[i],fname);
-        handle = dlopen(tmp, RTLD_NOW); // valgrind complains, not our problem though
+        handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
+        if ( !handle && args->verbose ) fprintf(stderr,"%s: %s\n", tmp, dlerror());
         free(tmp);
         if ( handle ) return handle;
     }
 
     handle = dlopen(fname, RTLD_NOW);
     if ( handle ) return handle;
+    if ( args->verbose ) fprintf(stderr,"%s: %s\n", fname, dlerror());
 
     return NULL;
 }
 
-static int load_plugin(args_t *args, const char *fname, int exit_on_error)
+static int load_plugin(args_t *args, const char *name, int exit_on_error)
 {
-    char *ss, *rmme;
-    ss = rmme = strdup(fname);
-    while ( ss )
+    char *fname = strdup(name), *opts = fname;
+    while ( *opts && *opts!=':' ) opts++;
+    if ( *opts ) { *opts = 0; opts++; }
+
+    void *handle = dlopen_plugin(args, fname);
+    if ( !handle )
     {
-        char *se = strchr(ss,',');
-        if ( se ) *se = 0;
-
-        void *handle = dlopen_plugin(args, ss);
-        if ( !handle )
-        {
-            if ( exit_on_error ) error("Could not load %s: %s\n", ss, dlerror());
-            free(rmme);
-            return -1;
-        }
-
-        args->nplugins++;
-        args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
-        plugin_t *plugin = &args->plugins[args->nplugins-1];
-        plugin->handle = handle;
-        plugin->name   = strdup(ss);
-
-        dlerror();
-        plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
-        char *ret = dlerror();
-        if ( ret ) 
-        {
-            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
-            free(rmme);
-            return -1;
-        }
-
-        plugin->about = (dl_about_f) dlsym(plugin->handle, "about");
-        ret = dlerror();
-        if ( ret ) 
-        {
-            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
-            free(rmme);
-            return -1;
-        }
-
-        plugin->process = (dl_process_f) dlsym(plugin->handle, "process");
-        ret = dlerror();
-        if ( ret ) 
-        {
-            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
-            free(rmme);
-            return -1;
-        }
-
-        plugin->destroy = (dl_destroy_f) dlsym(plugin->handle, "destroy");
-        ret = dlerror();
-        if ( ret ) 
-        {
-            if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
-            free(rmme);
-            return -1;
-        }
-
-        if ( se ) { *se = ','; ss = se+1; }
-        else ss = NULL;
+        if ( exit_on_error ) error("Could not load \"%s\".\n", fname);
+        free(fname);
+        return -1;
     }
-    free(rmme);
+
+    args->nplugins++;
+    args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
+    plugin_t *plugin = &args->plugins[args->nplugins-1];
+    plugin->handle = handle;
+    plugin->name   = fname;
+    plugin->opts   = opts;
+
+    dlerror();
+    plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
+    char *ret = dlerror();
+    if ( ret ) 
+    {
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        free(fname);
+        return -1;
+    }
+
+    plugin->about = (dl_about_f) dlsym(plugin->handle, "about");
+    ret = dlerror();
+    if ( ret ) 
+    {
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        free(fname);
+        return -1;
+    }
+
+    plugin->process = (dl_process_f) dlsym(plugin->handle, "process");
+    ret = dlerror();
+    if ( ret ) 
+    {
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        free(fname);
+        return -1;
+    }
+
+    plugin->destroy = (dl_destroy_f) dlsym(plugin->handle, "destroy");
+    ret = dlerror();
+    if ( ret ) 
+    {
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        free(fname);
+        return -1;
+    }
+
     return 0;
 }
 
@@ -248,7 +246,11 @@ static void init_plugins(args_t *args)
 {
     int i;
     for (i=0; i<args->nplugins; i++)
-        args->drop_header += args->plugins[i].init(args->hdr);
+    {
+        int ret = args->plugins[i].init(args->plugins[i].opts,args->hdr);
+        if ( ret<0 ) error("The plugin exited with an error: %s\n", args->plugins[i].name);
+        args->drop_header += ret;
+    }
 }
 
 static int cmp_plugin_name(const void *p1, const void *p2)
@@ -826,10 +828,11 @@ static void usage(args_t *args)
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see below for details)\n");
     fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -p, --plugins <name|...>       comma-separated list of dynamically loaded user-defined plugins. See man page for details\n");
+    fprintf(stderr, "   -p, --plugin <name[:key=val]>  dynamically loaded user-defined plugin, see man page for details\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
+    fprintf(stderr, "   -v, --verbose                  print debugging information on plugin failure\n");
     fprintf(stderr, "\n");
     filter_expression_info(stderr);
     fprintf(stderr, "\n");
@@ -849,6 +852,7 @@ int main_vcfannotate(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
+        {"verbose",0,0,'v'},
         {"output-type",1,0,'O'},
         {"annotations",1,0,'a'},
         {"include",1,0,'i'},
@@ -862,9 +866,10 @@ int main_vcfannotate(int argc, char *argv[])
         {"header-lines",1,0,'h'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:r:R:a:p:x:c:li:e:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?O:r:R:a:p:x:c:li:e:v",loptions,NULL)) >= 0) 
     {
         switch (c) {
+            case 'v': args->verbose = 1; break;
             case 'c': args->columns = optarg; break;
             case 'O': 
                 switch (optarg[0]) {

@@ -12,7 +12,7 @@ const char *about(void)
     return "Fill INFO fields AN and AC.\n";
 }
 
-int init(bcf_hdr_t *h)
+int init(const char *opts, bcf_hdr_t *h)
 {
     hdr = h;
     bcf_hdr_append(hdr, "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
