@@ -99,8 +99,8 @@ static void plot_check(args_t *args, char *target_sample, char *query_sample)
             "\n"
             "fig,ax1 = plt.subplots(figsize=(8,5))\n"
             "ax2 = ax1.twinx()\n"
-            "plots  = ax1.plot([x[0] for x in dat],'o-', ms=3, color='g', mec='g', label='Concordance')\n"
-            "plots += ax1.plot([x[1] for x in dat], '^', ms=3, color='r', mec='r', label='Concordance/nSites')\n"
+            "plots  = ax1.plot([x[0] for x in dat],'o-', ms=3, color='g', mec='g', label='Discordance (total)')\n"
+            "plots += ax1.plot([x[1] for x in dat], '^', ms=3, color='r', mec='r', label='Discordance (per site)')\n"
             "plots += ax2.plot([x[2] for x in dat],'v', ms=3, color='k', label='Number of sites')\n"
             "if iq!=-1:\n"
             "   ax1.plot([iq],[dat[iq][0]],'o',color='orange', ms=9)\n"
@@ -108,17 +108,18 @@ static void plot_check(args_t *args, char *target_sample, char *query_sample)
             "   ax1.plot([iq],[dat[iq][1]],'^',color='red', ms=5)\n"
             "for tl in ax1.get_yticklabels(): tl.set_color('g')\n"
             "for tl in ax2.get_yticklabels(): tl.set_color('k'); tl.set_fontsize(9)\n"
-            "ax1.set_title('Concordance with %s')\n"
-            "ax1.set_xlim(-0.05*len(dat))\n"
+            "ax1.set_title('Discordance with %s')\n"
+            "ax1.set_xlim(-0.05*len(dat),1.05*(len(dat)-1))\n"
             "ax1.set_xlabel('Sample ID')\n"
             "plt.subplots_adjust(left=0.1,right=0.9,bottom=0.1,top=0.9)\n"
             "if sample_ids:\n"
             "   ax1.set_xticks(range(len(dat)))\n"
             "   ax1.set_xticklabels([x[4] for x in dat],**{'rotation':45, 'ha':'right', 'fontsize':8})\n"
             "   plt.subplots_adjust(bottom=0.2)\n"
-            "ax1.set_ylabel('Concordance',color='g')\n"
+            "ax1.set_ylabel('Discordance',color='g')\n"
             "ax2.set_ylabel('Number of sites',color='k')\n"
             "ax2.ticklabel_format(style='sci', scilimits=(-3,2), axis='y')\n"
+            "ax1.ticklabel_format(style='sci', scilimits=(-3,2), axis='y')\n"
             "labels = [l.get_label() for l in plots]\n"
             "plt.legend(plots,labels,numpoints=1,markerscale=1,loc='best',prop={'size':10},frameon=False)\n"
             "plt.savefig('%s.png')\n"
@@ -375,9 +376,11 @@ static void check_gt(args_t *args)
         if ( query_isample<0 ) error("No such sample in %s: [%s]\n", args->files->readers[0].fname, args->query_sample);
     }
     if ( args->all_sites )
-        fprintf(fp, "# [1]SC, Site by Site Comparison\t[2]Chromosome\t[3]Position\t[4]-g alleles\t[5]-g GT (%s)\t[6]Coverage\t[7]Query alleles\t[8-]Query PLs (%s)\n", args->gt_hdr->samples[tgt_isample],args->sm_hdr->samples[query_isample]);
+        fprintf(fp, "# [1]SC, Site by Site Comparison\t[2]Chromosome\t[3]Position\t[4]-g alleles\t[5]-g GT (%s)\t[6]match log LK\t[7]Query alleles\t[8-]Query PLs (%s)\n",
+                args->gt_hdr->samples[tgt_isample],args->sm_hdr->samples[query_isample]);
 
     // Main loop
+    float prev_lk = 0;
     while ( (ret=bcf_sr_next_line(args->files)) )
     {
         if ( ret!=2 ) continue;
@@ -416,7 +419,7 @@ static void check_gt(args_t *args)
 
         // For faster access to genotype likelihoods (PLs) of the query sample
         int max_ipl, *pl_ptr = args->pl_arr + query_isample*npl;
-        double sum_pl = 0;  // for converting PLs to probs
+        double sum_pl = 0; // for converting PLs to probs
         for (max_ipl=0; max_ipl<npl; max_ipl++) 
         {
             if ( pl_ptr[max_ipl]==bcf_int32_vector_end ) break;
@@ -424,6 +427,7 @@ static void check_gt(args_t *args)
             sum_pl += pow(10, -0.1*pl_ptr[max_ipl]);
         }
         if ( sum_pl==0 ) continue; // no PLs present
+        if ( fake_pls && args->no_PLs==1 ) sum_pl = -1;
 
         // The main stats: concordance of the query sample with the target -g samples
         for (i=0; i<bcf_hdr_nsamples(args->gt_hdr); i++)
@@ -437,7 +441,7 @@ static void check_gt(args_t *args)
             int igt_tgt = igt_tgt = bcf_alleles2gt(a,b); // genotype index in the target file
             int igt_qry = gt2ipl[igt_tgt];  // corresponding genotype in query file
             if ( igt_qry>=max_ipl || pl_ptr[igt_qry]<0 ) continue;   // genotype not present in query sample: haploid or missing
-            args->lks[i] += log(pow(10, -0.1*pl_ptr[igt_qry])/sum_pl); 
+            args->lks[i] += sum_pl<0 ? -pl_ptr[igt_qry] : log(pow(10, -0.1*pl_ptr[igt_qry])/sum_pl); 
             args->sites[i]++; 
         }
         if ( args->all_sites )
@@ -451,6 +455,8 @@ static void check_gt(args_t *args)
             fprintf(fp, "SC\t%s\t%d", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
             for (i=0; i<gt_line->n_allele; i++) fprintf(fp, "%c%s", i==0?'\t':',', gt_line->d.allele[i]);
             fprintf(fp, "\t%s/%s", a>=0 ? gt_line->d.allele[a] : ".", b>=0 ? gt_line->d.allele[b] : ".");
+            fprintf(fp, "\t%f", args->lks[query_isample]-prev_lk);
+            prev_lk = args->lks[query_isample];
 
             int igt, *pl_ptr = args->pl_arr + query_isample*npl; // PLs of the query sample
             for (i=0; i<sm_line->n_allele; i++) fprintf(fp, "%c%s", i==0?'\t':',', sm_line->d.allele[i]); 
@@ -466,16 +472,14 @@ static void check_gt(args_t *args)
     free(args->pl_arr);
     free(args->tmp_arr);
 
-    // Scale LKs and certainties
+    // To be able to plot total discordance (=number of mismatching GTs with -G1) in the same
+    // plot as discordance per site, the latter must be scaled to the same range
     int nsamples = bcf_hdr_nsamples(args->gt_hdr);
-    double min = args->lks[0];
-    for (i=1; i<nsamples; i++) if ( min>args->lks[i] ) min = args->lks[i];
-    for (i=0; i<nsamples; i++) args->lks[i] = min ? args->lks[i] / min : 0;
-    double max_avg = args->sites[0] ? args->lks[0]/args->sites[0] : 0;
-    for (i=1; i<nsamples; i++) 
+    double extreme_lk = 0, extreme_lk_per_site = 0;
+    for (i=0; i<nsamples; i++)
     {
-        double val = args->sites[i] ? args->lks[i]/args->sites[i] : 0;
-        if ( max_avg<val ) max_avg = val;
+        if ( args->lks[i] < extreme_lk ) extreme_lk = args->lks[i];
+        if ( args->sites[i] && args->lks[i]/args->sites[i] < extreme_lk_per_site ) extreme_lk_per_site = args->lks[i]/args->sites[i];
     }
 
     // Sorted output
@@ -483,12 +487,17 @@ static void check_gt(args_t *args)
     for (i=0; i<nsamples; i++) p[i] = &args->lks[i];
     qsort(p, nsamples, sizeof(int*), cmp_doubleptr);
 
-    fprintf(fp, "# [1]CN\t[2]Concordance with %s (total)\t[3]Concordance (average)\t[4]Number of sites compared\t[5]Sample\t[6]Sample ID\n", args->sm_hdr->samples[query_isample]);
+    fprintf(fp, "# [1]CN\t[2]Discordance with %s (total)\t[3]Discordance (score per site)\t[4]Number of sites compared\t[5]Sample\t[6]Sample ID\n", args->sm_hdr->samples[query_isample]);
     for (i=0; i<nsamples; i++)
     {
         int idx = p[i] - args->lks;
-        double avg = args->sites[idx] ? args->lks[idx]/args->sites[idx] : 0;
-        fprintf(fp, "CN\t%e\t%e\t%.0f\t%s\t%d\n", 1-args->lks[idx], 1-avg/max_avg, args->sites[idx], args->gt_hdr->samples[idx], i);
+        double per_site = 0;
+        if ( args->sites[idx] )
+        {
+            per_site = -args->lks[idx]/args->sites[idx];
+            per_site *= extreme_lk / extreme_lk_per_site;
+        }
+        fprintf(fp, "CN\t%e\t%e\t%.0f\t%s\t%d\n", -args->lks[idx], per_site, args->sites[idx], args->gt_hdr->samples[idx], i);
     }
 
     if ( args->plot )
