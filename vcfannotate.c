@@ -143,7 +143,7 @@ typedef struct _args_t
 
     char **argv, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns;
-    int argc, drop_header, verbose;
+    int argc, drop_header, verbose, tgts_is_vcf;
 }
 args_t;
 
@@ -576,7 +576,7 @@ static void init_columns(args_t *args)
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
-            col->setter = args->tgts ? setter_id : vcf_setter_id;
+            col->setter = args->tgts_is_vcf ? vcf_setter_id : setter_id;
             col->hdr_key = strdup(str.s);
         }
         else if ( !strcasecmp("QUAL",str.s) )
@@ -584,7 +584,7 @@ static void init_columns(args_t *args)
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
-            col->setter = args->tgts ? setter_qual : vcf_setter_qual;
+            col->setter = args->tgts_is_vcf ? vcf_setter_qual : setter_qual;
             col->hdr_key = strdup(str.s);
         }
         else 
@@ -612,10 +612,10 @@ static void init_columns(args_t *args)
             col->hdr_key = strdup(str.s);
             switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
             {
-                case BCF_HT_FLAG:   col->setter = args->tgts ? setter_info_flag : vcf_setter_info_flag; break;
-                case BCF_HT_INT:    col->setter = args->tgts ? setter_info_int  : vcf_setter_info_int; break;
-                case BCF_HT_REAL:   col->setter = args->tgts ? setter_info_real : vcf_setter_info_real; break;
-                case BCF_HT_STR:    col->setter = args->tgts ? setter_info_str  : vcf_setter_info_str; break;
+                case BCF_HT_FLAG:   col->setter = args->tgts_is_vcf ? vcf_setter_info_flag : setter_info_flag; break;
+                case BCF_HT_INT:    col->setter = args->tgts_is_vcf ? vcf_setter_info_int  : setter_info_int; break;
+                case BCF_HT_REAL:   col->setter = args->tgts_is_vcf ? vcf_setter_info_real : setter_info_real; break;
+                case BCF_HT_STR:    col->setter = args->tgts_is_vcf ? vcf_setter_info_str  : setter_info_str; break;
                 default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id));
             }
         }
@@ -632,24 +632,29 @@ static void init_data(args_t *args)
     args->hdr = args->files->readers[0].header;
     args->hdr_out = bcf_hdr_dup(args->hdr);
 
+    if ( args->remove_annots ) init_remove_annots(args);
+    if ( args->header_fname ) init_header_lines(args);
+    if ( args->columns ) init_columns(args);
     if ( args->targets_fname )
     {
-        if ( args->files->require_index )   // reading annots from a VCF
+        if ( args->tgts_is_vcf )   // reading annots from a VCF
         {
             if ( !bcf_sr_add_reader(args->files, args->targets_fname) )
                 error("Failed to open or the file not indexed: %s\n", args->targets_fname);
         }
         else
         {
+            if ( !args->columns ) error("The -c option not given\n");
+            if ( args->chr_idx==-1 ) error("The -c CHROM option not given\n");
+            if ( args->from_idx==-1 ) error("The -c POS option not given\n");
+            if ( args->to_idx==-1 ) args->to_idx = -args->from_idx - 1; 
+
             args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->from_idx,args->to_idx);
             if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
             if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
             args->vcmp = vcmp_init();
         }
     }
-    if ( args->remove_annots ) init_remove_annots(args);
-    if ( args->header_fname ) init_header_lines(args);
-    if ( args->columns ) init_columns(args);
     init_plugins(args);
 
     if ( args->filter_str )
@@ -926,7 +931,11 @@ int main_vcfannotate(int argc, char *argv[])
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }
-    if ( args->targets_fname && hts_file_type(args->targets_fname) & (FT_VCF|FT_BCF) ) args->files->require_index = 1;
+    if ( args->targets_fname && hts_file_type(args->targets_fname) & (FT_VCF|FT_BCF) )
+    {
+        args->tgts_is_vcf = 1;
+        args->files->require_index = 1;
+    }
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
     
     init_data(args);
