@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <htslib/vcf.h>
 
-bcf_hdr_t *hdr;
 int nsnps, nindels, nsites;
 
 /* 
@@ -20,9 +19,8 @@ const char *about(void)
     Called once at startup, allows to initialize local variables.
     Return 1 to suppress VCF/BCF header from printing, 0 otherwise.
 */
-int init(const char *opts, bcf_hdr_t *h)
+int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
 {
-    hdr  = h;
     nsnps = nindels = nsites = 0;
     return 1;
 }

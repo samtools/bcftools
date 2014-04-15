@@ -43,10 +43,27 @@
 
 typedef struct _plugin_t plugin_t;
 
-/** Plugin API */
-typedef int (*dl_init_f) (const char *, bcf_hdr_t *);
+/** 
+ *   Plugin API:
+ *   ----------
+ *   const char *about(void)   
+ *      - short description used by 'bcftools annotate -l'
+ *
+ *   int init(const char *opts, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
+ *      - called once at startup, allows to initialize local variables.
+ *      Return 1 to suppress normal VCF/BCF header output, 0 otherwise.
+ *
+ *   int process(bcf1_t *rec)
+ *      - called for each VCF record after all built-in annotations have
+ *      finished. Return 0 on success, 1 to suppress the line from printing, -1
+ *      on critical errors.
+ *
+ *   void destroy(void)
+ *      - called after all lines have been processed to clean up
+ */
+typedef int (*dl_init_f) (const char *, bcf_hdr_t *, bcf_hdr_t *);
 typedef char* (*dl_about_f) (void);
-typedef int (*dl_process_f) (bcf1_t *);     // return 0:success, 1:don't print the line, -1:abort
+typedef int (*dl_process_f) (bcf1_t *);
 typedef void (*dl_destroy_f) (void);
 
 struct _plugin_t
@@ -186,6 +203,7 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
     char *fname = strdup(name), *opts = fname;
     while ( *opts && *opts!=':' ) opts++;
     if ( *opts ) { *opts = 0; opts++; }
+    else opts = NULL;
 
     void *handle = dlopen_plugin(args, fname);
     if ( !handle )
@@ -247,7 +265,7 @@ static void init_plugins(args_t *args)
     int i;
     for (i=0; i<args->nplugins; i++)
     {
-        int ret = args->plugins[i].init(args->plugins[i].opts,args->hdr);
+        int ret = args->plugins[i].init(args->plugins[i].opts,args->hdr,args->hdr_out);
         if ( ret<0 ) error("The plugin exited with an error: %s\n", args->plugins[i].name);
         args->drop_header += ret;
     }
@@ -407,7 +425,7 @@ static void init_remove_annots(args_t *args)
         ss = *se ? se+1 : se;
     }
     free(str.s);
-    if ( !args->nrm ) error("No matching tag in -R %s\n", args->remove_annots);
+    if ( !args->nrm ) error("No matching tag in -x %s\n", args->remove_annots);
 }
 static void init_header_lines(args_t *args)
 {

@@ -17,7 +17,7 @@ const char *about(void)
 }
 
 
-bcf_hdr_t *hdr = NULL;
+bcf_hdr_t *in_hdr = NULL;
 int pl_type = 0, gl_type = 0;
 uint8_t *buf = NULL;
 int nbuf = 0;   // NB: number of elements, not bytes
@@ -31,7 +31,7 @@ int nhandlers = 0;
 
 int calc_dosage_PL(bcf1_t *rec)
 {
-    int i, j, nret = bcf_get_format_values(hdr,rec,"PL",(void**)&buf,&nbuf,pl_type);
+    int i, j, nret = bcf_get_format_values(in_hdr,rec,"PL",(void**)&buf,&nbuf,pl_type);
     if ( nret<0 ) return -1;
 
     nret /= rec->n_sample;
@@ -62,7 +62,7 @@ int calc_dosage_PL(bcf1_t *rec)
 
 int calc_dosage_GL(bcf1_t *rec)
 {
-    int i, j, nret = bcf_get_format_values(hdr,rec,"GL",(void**)&buf,&nbuf,pl_type);
+    int i, j, nret = bcf_get_format_values(in_hdr,rec,"GL",(void**)&buf,&nbuf,pl_type);
     if ( nret<0 ) return -1;
 
     nret /= rec->n_sample;
@@ -93,7 +93,7 @@ int calc_dosage_GL(bcf1_t *rec)
 
 int calc_dosage_GT(bcf1_t *rec)
 {
-    int i, j, nret = bcf_get_genotypes(hdr,rec,(void**)&buf,&nbuf);
+    int i, j, nret = bcf_get_genotypes(in_hdr,rec,(void**)&buf,&nbuf);
     if ( nret<0 ) return -1;
 
     nret /= rec->n_sample;
@@ -119,20 +119,20 @@ int calc_dosage_GT(bcf1_t *rec)
     Return 1 to suppress VCF/BCF header from printing, 0 for standard
     VCF/BCF output and -1 on critical errors.
 */
-int init(const char *opts, bcf_hdr_t *_hdr)
+int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     int i, id;
 
-    hdr  = _hdr;
+    in_hdr = in;
     tags = config_get_list(opts ? opts : "tags=PL,GL,GT","tags", &ntags);
     for (i=0; i<ntags; i++)
     {
         if ( !strcmp("PL",tags[i]) )
         {
-            id = bcf_hdr_id2int(hdr,BCF_DT_ID,"PL");
-            if ( bcf_hdr_idinfo_exists(hdr,BCF_HL_FMT,id) ) 
+            id = bcf_hdr_id2int(in_hdr,BCF_DT_ID,"PL");
+            if ( bcf_hdr_idinfo_exists(in_hdr,BCF_HL_FMT,id) ) 
             {
-                pl_type = bcf_hdr_id2type(hdr,BCF_HL_FMT,id);
+                pl_type = bcf_hdr_id2type(in_hdr,BCF_HL_FMT,id);
                 if ( pl_type!=BCF_HT_INT && pl_type!=BCF_HT_REAL ) 
                 {
                     fprintf(stderr,"Expected numeric type of FORMAT/PL\n");
@@ -144,10 +144,10 @@ int init(const char *opts, bcf_hdr_t *_hdr)
         }
         else if ( !strcmp("GL",tags[i]) )
         {
-            id = bcf_hdr_id2int(hdr,BCF_DT_ID,"GL");
-            if ( bcf_hdr_idinfo_exists(hdr,BCF_HL_FMT,id) )
+            id = bcf_hdr_id2int(in_hdr,BCF_DT_ID,"GL");
+            if ( bcf_hdr_idinfo_exists(in_hdr,BCF_HL_FMT,id) )
             {
-                gl_type = bcf_hdr_id2type(hdr,BCF_HL_FMT,id);
+                gl_type = bcf_hdr_id2type(in_hdr,BCF_HL_FMT,id);
                 if ( gl_type!=BCF_HT_INT && gl_type!=BCF_HT_REAL ) 
                 {
                     fprintf(stderr,"Expected numeric type of FORMAT/GL\n");
@@ -172,7 +172,7 @@ int init(const char *opts, bcf_hdr_t *_hdr)
     free(tags);
 
     printf("#[1]CHROM\t[2]POS\t[3]REF\t[4]ALT");
-    for (i=0; i<bcf_hdr_nsamples(hdr); i++) printf("\t[%d]%s", i+5,hdr->samples[i]);
+    for (i=0; i<bcf_hdr_nsamples(in_hdr); i++) printf("\t[%d]%s", i+5,in_hdr->samples[i]);
     printf("\n");
 
     return 1;
@@ -187,7 +187,7 @@ int process(bcf1_t *rec)
 {
     int i, ret;
 
-    printf("%s\t%d\t%s\t%s", bcf_seqname(hdr,rec),rec->pos+1,rec->d.allele[0],rec->n_allele>1 ? rec->d.allele[1] : ".");
+    printf("%s\t%d\t%s\t%s", bcf_seqname(in_hdr,rec),rec->pos+1,rec->d.allele[0],rec->n_allele>1 ? rec->d.allele[1] : ".");
     if ( rec->n_allele==1 )
     {
         for (i=0; i<rec->n_sample; i++) printf("\t0.0");

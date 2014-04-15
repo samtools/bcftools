@@ -47,6 +47,7 @@ test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'%QUAL==59.2 
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
+test_vcf_annotate_plugins($opts,in=>'plugin',out=>'plugin.out',args=>'-p missing2ref -p fill-AN-AC -p dosage');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
@@ -437,6 +438,12 @@ sub test_vcf_annotate
     my ($opts,%args) = @_;
     bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -a $$opts{tmp}/$args{tab}.tab.gz -h $$opts{path}/$args{in}.hdr $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_annotate");
+}
+sub test_vcf_annotate_plugins
+{
+    my ($opts,%args) = @_;
+    $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $args{args} $$opts{path}/$args{in}.vcf 2>/dev/null");
 }
 sub test_vcf_concat
 {
