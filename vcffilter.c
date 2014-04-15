@@ -317,16 +317,20 @@ static void buffered_filters(args_t *args, bcf1_t *line)
     flush_buffer(args, j_flush < k_flush ? j_flush : k_flush);
 }
 
-static void set_genotypes(args_t *args, bcf1_t *line)
+static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
 {
-    if ( !bcf_hdr_nsamples(args->hdr) || !args->smpl_pass ) { args->set_gts = 0; return; }
+    int i,j;
+    if ( !bcf_hdr_nsamples(args->hdr) ) return; 
+    if ( args->smpl_pass )
+    {
+        int npass = 0;
+        for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) npass += args->smpl_pass[i];
 
-    int i,j, npass = 0;
-    for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) npass += args->smpl_pass[i];
-
-    // return if all samples pass
-    if ( npass==bcf_hdr_nsamples(args->hdr) && (args->filter_logic & FLT_INCLUDE) ) return;
-    if ( npass==0 && (args->filter_logic & FLT_EXCLUDE) ) return;
+        // return if all samples pass
+        if ( npass==bcf_hdr_nsamples(args->hdr) && (args->filter_logic & FLT_INCLUDE) ) return;
+        if ( npass==0 && (args->filter_logic & FLT_EXCLUDE) ) return;
+    }
+    else if ( pass_site ) return;
 
     int new_gt = 0, ngts = bcf_get_format_int32(args->hdr, line, "GT", &args->tmpi, &args->ntmpi);
     ngts /= bcf_hdr_nsamples(args->hdr);
@@ -335,9 +339,12 @@ static void set_genotypes(args_t *args, bcf1_t *line)
     else error("todo: set_gts=%d\n", args->set_gts);
     for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) 
     {
-        int pass = args->smpl_pass[i];
-        if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-        if ( pass ) continue;
+        if ( args->smpl_pass )
+        {
+            int pass = args->smpl_pass[i];
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( pass ) continue;
+        }
         int32_t *gts = args->tmpi + ngts*i;
         for (j=0; j<ngts; j++)
         {
@@ -488,7 +495,7 @@ int main_vcffilter(int argc, char *argv[])
                 if ( (args->annot_mode & ANNOT_ADD) ) bcf_add_filter(args->hdr, line, args->flt_fail);
                 else bcf_update_filter(args->hdr, line, &args->flt_fail, 1);
             }
-            if ( args->set_gts ) set_genotypes(args, line);
+            if ( args->set_gts ) set_genotypes(args, line, pass);
             if ( !args->rbuf_lines )
                 bcf_write1(args->out_fh, args->hdr, line);
             else
