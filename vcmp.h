@@ -36,6 +36,13 @@ void vcmp_destroy(vcmp_t *vcmp);
  *  Returns 0 on success or -1 if alleles not compatible
  */
 int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2);
+
+/*
+ *  vcmp_find_allele()
+ *  @als1:  alternate alleles to ref1 above
+ *  @al2:   alternate allele to ref2 above
+ *  Returns -1 if not found or 0-based index to als1 of matching allele
+ */
 int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2);
 
 #endif

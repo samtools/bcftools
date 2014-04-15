@@ -25,6 +25,9 @@ test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.any.out',args=>'-n =2 
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.C.out',args=>'-C -c any');
 test_vcf_isec2($opts,vcf_in=>['isec.a'],tab_in=>'isec',out=>'isec.tab.out',args=>'');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.out');
+test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.none.out',args=>'-m none');
+test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.both.out',args=>'-m both');
+test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.all.out',args=>'-m all');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
@@ -262,8 +265,9 @@ sub test_vcf_merge
         bgzip_tabix_vcf($opts,$file);
         push @files, "$$opts{tmp}/$file.vcf.gz";
     }
+    my $args  = exists($args{args}) ? $args{args} : '';
     my $files = join(' ',@files);
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge $files | grep -v ^##bcftools_merge");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge $args $files | grep -v ^##bcftools_merge");
 }
 sub test_vcf_isec
 {
@@ -443,8 +447,7 @@ sub test_vcf_annotate_plugins
 {
     my ($opts,%args) = @_;
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
-    system("$$opts{bin}/bcftools annotate -lv"); # travis does not like the plugins, see what's going on
-    #test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $args{args} $$opts{path}/$args{in}.vcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $args{args} $$opts{path}/$args{in}.vcf");
 }
 sub test_vcf_concat
 {

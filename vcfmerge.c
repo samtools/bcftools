@@ -30,6 +30,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include "bcftools.h"
+#include "vcmp.h"
 
 #include <htslib/khash.h>
 KHASH_MAP_INIT_STR(strdict, int)
@@ -98,6 +99,7 @@ maux_t;
 
 typedef struct
 {
+    vcmp_t *vcmp;
     maux_t *maux;
     int header_only, collapse, output_type;
     char *header_fname, *regions_list, *info_rules, *file_list;
@@ -1507,7 +1509,7 @@ void merge_buffer(args_t *args)
     {
         bcf_sr_t *reader = &files->readers[i];
         if ( !reader->buffer ) continue;
-        int j;
+        int j, k;
         for (j=0; j<=reader->nbuffer; j++)
         {
             bcf1_t *line = reader->buffer[j];
@@ -1520,13 +1522,23 @@ void merge_buffer(args_t *args)
                 if ( j==0 ) maux->d[i][j].skip |= SKIP_DONE; // left from previous run, force to ignore
                 continue; 
             }
-            if ( args->collapse==COLLAPSE_NONE && var_type!=line->d.var_type ) continue;
+            if ( args->collapse==COLLAPSE_NONE && maux->nals )
+            {
+                // All alleles of the tested record must be present in the
+                // selected maux record plus variant types must be the same
+                if ( var_type!=line->d.var_type ) continue;
+                if ( vcmp_set_ref(args->vcmp,maux->als[0],line->d.allele[0]) < 0 ) continue;   // refs not compatible
+                for (k=1; k<line->n_allele; k++)
+                {
+                    if ( vcmp_find_allele(args->vcmp,maux->als+1,maux->nals-1,line->d.allele[k])>=0 ) break;
+                }
+                if ( k==line->n_allele ) continue;  // no matching allele
+            }
             if ( var_type&VCF_SNP && !(line_type&VCF_SNP) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
             if ( var_type&VCF_INDEL && !(line_type&VCF_INDEL) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
             maux->d[i][j].skip = 0;
 
             hts_expand(int, line->n_allele, maux->d[i][j].mmap, maux->d[i][j].map);
-            int k;
             if ( !maux->nals )    // first record, copy the alleles to the output
             {
                 maux->nals = line->n_allele;
@@ -1693,6 +1705,7 @@ void merge_vcf(args_t *args)
         return;
     }
 
+    if ( args->collapse==COLLAPSE_NONE ) args->vcmp = vcmp_init();
     args->maux = maux_init(args->files);
     args->out_line = bcf_init1();
     args->tmph = kh_init(strdict);
@@ -1708,6 +1721,7 @@ void merge_vcf(args_t *args)
     bcf_destroy1(args->out_line);
     kh_destroy(strdict, args->tmph);
     if ( args->tmps.m ) free(args->tmps.s);
+    if ( args->vcmp ) vcmp_destroy(args->vcmp);
 }
 
 static void usage(void)
