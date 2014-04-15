@@ -9,6 +9,7 @@ env:
   global:
     - HTSDIR=./htslib
     - PATH=$TRAVIS_BUILD_DIR/htslib:$PATH
+    - BCFTOOLS_PLUGINS=$TRAVIS_BUILD_DIR/plugins
 
 matrix:
   include:

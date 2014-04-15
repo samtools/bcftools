@@ -443,7 +443,7 @@ sub test_vcf_annotate_plugins
 {
     my ($opts,%args) = @_;
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $args{args} $$opts{path}/$args{in}.vcf 2>/dev/null");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $args{args} $$opts{path}/$args{in}.vcf");
 }
 sub test_vcf_concat
 {
