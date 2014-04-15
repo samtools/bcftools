@@ -373,7 +373,7 @@ int main_vcfisec(int argc, char *argv[])
 	{
 		{"help",0,0,'h'},
 		{"collapse",1,0,'c'},
-		{"complement",1,0,'C'},
+		{"complement",0,0,'C'},
 		{"apply-filters",1,0,'f'},
 		{"nfiles",1,0,'n'},
 		{"prefix",1,0,'p'},
