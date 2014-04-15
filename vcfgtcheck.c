@@ -494,10 +494,15 @@ static void check_gt(args_t *args)
         double per_site = 0;
         if ( args->sites[idx] )
         {
-            per_site = -args->lks[idx]/args->sites[idx];
-            per_site *= extreme_lk / extreme_lk_per_site;
+            if ( args->sites[idx] && extreme_lk_per_site )
+            {
+                per_site = args->lks[idx]/args->sites[idx];
+                per_site *= extreme_lk / extreme_lk_per_site;
+            }
+            else
+                per_site = 0;
         }
-        fprintf(fp, "CN\t%e\t%e\t%.0f\t%s\t%d\n", -args->lks[idx], per_site, args->sites[idx], args->gt_hdr->samples[idx], i);
+        fprintf(fp, "CN\t%e\t%e\t%.0f\t%s\t%d\n", fabs(args->lks[idx]), fabs(per_site), args->sites[idx], args->gt_hdr->samples[idx], i);
     }
 
     if ( args->plot )
