@@ -173,7 +173,8 @@ void isec_vcf(args_t *args)
 
         if ( out_std )
         {
-            bcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0]);
+            if ( bcf_sr_has_line(files,args->iwrite) )
+                bcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0]);
             continue;
         }
         else if ( args->fh_sites )
