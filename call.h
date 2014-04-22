@@ -72,7 +72,7 @@ typedef struct
     int32_t *ugts, *cgts;   // unconstraind and constrained GTs
 
     // ccall only
-    double indel_frac, theta, min_lrt, min_perm_p; 
+    double indel_frac, min_lrt, min_perm_p; 
     double prior_type, pref;
     double ref_lk, lk_sum;
     int ngrp1_samples, n_perm;
@@ -93,6 +93,7 @@ typedef struct
     int32_t *gts, ac[4];    // GTs and AC (w)
     double *pdg;            // PLs converted to P(D|G)
     float *anno16; int n16; // see anno[16] in bam2bcf.h
+    double theta;           // prior
 }
 call_t;
 

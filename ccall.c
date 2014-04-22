@@ -167,6 +167,7 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     {
         tmpi = p1->cons_llr;
         bcf_update_info_int32(call->hdr, rec, "CLR", &tmpi, 1);
+        // todo: trio calling with -c
 		if (p1->cons_gt > 0)
         {
             char tmp[4];
@@ -301,7 +302,7 @@ int ccall(call_t *call, bcf1_t *rec)
     hts_expand(double, 3*nsmpl, call->npdg, call->pdg);
     set_pdg3(call->pl2p, call->PLs, call->pdg, nsmpl, ngts);
 
-    double em[10];
+    double em[10] = {-1.,-1.,-1.,-1.,-1.,-1.,-1.,-1.,-1.,-1.};
     int ret = bcf_em1(call, rec, call->ngrp1_samples, 0x1ff, em);
 
     bcf_p1rst_t pr;

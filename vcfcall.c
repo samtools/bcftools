@@ -393,6 +393,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
     fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
+    fprintf(stderr, "   -P, --prior <float>             mutation rate, 0 for no prior [1e-3]\n");
     fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
     fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
 
@@ -445,13 +446,14 @@ int main_vcfcall(int argc, char *argv[])
         {"constrain",1,0,'C'},
         {"multiallelic-caller",0,0,'m'},
         {"pval-threshold",1,0,'p'},
+        {"prior",1,0,'P'},
         {"chromosome-X",0,0,'X'},
         {"chromosome-Y",0,0,'Y'},
         {"novel-rate",1,0,'n'},
         {0,0,0,0}
     };
 
-	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
@@ -483,6 +485,7 @@ int main_vcfcall(int argc, char *argv[])
                       break;
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
             case 'p': p_arg = atof(optarg); break;
+            case 'P': args.aux.theta = atof(optarg); break;
             case 'n': parse_novel_rate(&args,optarg); break;
             case 'r': args.regions = optarg; break;
             case 'R': args.regions = optarg; args.regions_is_file = 1; break;

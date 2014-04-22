@@ -253,6 +253,21 @@ void mcall_init(call_t *call)
     bcf_hdr_append(call->hdr,"##INFO=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Average mapping quality\">");
 
+    // init the prior
+    if ( call->theta>0 )
+    {
+        int i, n = 0;
+        if ( !call->ploidy ) n = 2*bcf_hdr_nsamples(call->hdr); // all are diploid
+        else
+        {
+            for (i=0; i<bcf_hdr_nsamples(call->hdr); i++)
+                n += call->ploidy[i];
+        }
+        double aM = 0;  // watterson factor
+        for (i=1; i<n; i++) aM += 1./i;
+        call->theta = log(call->theta*aM);
+    }
+
     return; 
 }
 
@@ -441,6 +456,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
             pdg += ngts;
         }
         if ( ia==0 ) ref_lk = lk_tot;   // likelihood of 0/0 for all samples
+        else lk_tot += call->theta; // the prior
         UPDATE_MAX_LKs(1<<ia);
     }
 
@@ -471,6 +487,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                     if ( val ) { lk_tot += log(val); lk_tot_set = 1; }
                     pdg += ngts;
                 }
+                if ( ia!=0 || ib!=0 ) lk_tot += call->theta;    // the prior
                 UPDATE_MAX_LKs(1<<ia|1<<ib);
             }
         }
@@ -510,6 +527,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                         if ( val ) { lk_tot += log(val); lk_tot_set = 1; }
                         pdg += ngts;
                     }
+                    if ( ia!=0 || ib!=0 || ic!=0 ) lk_tot += call->theta;    // the prior
                     UPDATE_MAX_LKs(1<<ia|1<<ib|1<<ic);
                 }
             }
