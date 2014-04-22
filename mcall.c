@@ -264,7 +264,7 @@ void mcall_init(call_t *call)
                 n += call->ploidy[i];
         }
         double aM = 0;  // watterson factor
-        for (i=1; i<n; i++) aM += 1./i;
+        for (i=1; i<=n; i++) aM += 1./i;
         call->theta = log(call->theta*aM);
     }
 
