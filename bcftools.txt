@@ -141,10 +141,12 @@ OPTIONS
     whereas *-t* checks start positions only. 
 
 *-T, --targets-file* 'FILE'::
-    Same *-t, --targets*, but reads regions from a file. With the *call -C*
-    'alleles' command, third column of the targets file must be comma-separated
-    list of alleles, starting with the reference allele. Such a file can be
-    easily created from a VCF with:
+    Same *-t, --targets*, but reads regions from a file.
+
+    ::
+    With the *call -C* 'alleles' command, third column of the targets file must
+    be comma-separated list of alleles, starting with the reference allele.
+    Such a file can be easily created from a VCF using:
 ----
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf
 ----
@@ -187,30 +189,34 @@ This command allows to add or remove annotations and apply user-written plugins.
     *<<expressions,EXPRESSIONS>>*.
 
 *-l, --list-plugins*::
-    List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
-    the program which directories to search:
+    List of available plugins. If not installed systemwide, set the environment
+    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
+    directory where *libths.so* is located.  The BCFTOOLS_PLUGINS
+    environment variable tells the program which directories to search.
 
-        counts;;  A minimal plugin which counts number of SNPs, Indels, and
+    ::
+    List of plugins coming with the distribution:
+
+        *counts*;;  A minimal plugin which counts number of SNPs, Indels, and
         total number of sites.
 
-        dosage;; Prints genotype dosage determined from tags requested
+        *dosage*;; Prints genotype dosage determined from tags requested
         by the user. By default the plugin searches for PL, GL and
         GT (in that order), therefore running *-p dosage* is equivalent to *-p
         dosage:tags=PL,GL,GT*.
 
-        fill-AN-AC;;  Fills INFO fields AN and AC.
+        *fill-AN-AC*;;  Fills INFO fields AN and AC.
 
-        missing2ref;; Sets missing genotypes ("./.") to ref allele ("0/0").
+        *frameshifts*;; Annotate frameshift indels. Run as *-p frameshifts:exons=path/to/file.tab.gz*.
+        See the usage of *--targets-file* above for file format description.
+
+        *missing2ref*;; Sets missing genotypes ("./.") to ref allele ("0/0").
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
 *-p, --plugins* 'name'[:'key'='val']::
-    Dynamically loaded plugin to run with optional parameters.
-    The BCFTOOLS_PLUGINS environment variable tells the program which directories to search.
-    See the examples in plugins/\*.c coming with this distribution for further
-    details and examples. See *-l, --list-plugins* to get a list of installed
-    plugins.
+    Dynamically loaded plugin to run with optional parameters, see also *-l, --list-plugins*.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*

@@ -28,7 +28,7 @@
 #include <htslib/kstring.h>
 #include "config.h"
 
-static char *get_tag(const char *haystack, const char *needle)
+char *config_get_string(const char *haystack, char *needle)
 {
     kstring_t str = {0,0,0};
     ksprintf(&str,"%s=", needle);
@@ -55,7 +55,7 @@ static char *get_tag(const char *haystack, const char *needle)
 
 char **config_get_list(const char *opts, char *key, int *_n)
 {
-    char *list = get_tag(opts,key);
+    char *list = config_get_string(opts,key);
     if ( !list ) return NULL;
     char *ss = list, **out;
     int n = 1;

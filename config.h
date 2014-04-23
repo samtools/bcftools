@@ -28,8 +28,10 @@
 
 /*
  *  Parser of plugin command line options: 
+ *      plugin_conf_get_string  .. returns a string value (free ret)
  *      plugin_conf_get_list    .. list of strings (free ret and ret[0])
  */
+char *config_get_string(const char *opts, char *key);
 char **config_get_list(const char *opts, char *key, int *n);
 
 #endif
