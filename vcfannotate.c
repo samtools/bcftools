@@ -51,7 +51,8 @@ typedef struct _plugin_t plugin_t;
  *
  *   int init(const char *opts, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
  *      - called once at startup, allows to initialize local variables.
- *      Return 1 to suppress normal VCF/BCF header output, 0 otherwise.
+ *      Return 1 to suppress normal VCF/BCF header output, -1 on critical
+ *      errors, 0 otherwise.
  *
  *   int process(bcf1_t *rec)
  *      - called for each VCF record after all built-in annotations have
@@ -61,6 +62,7 @@ typedef struct _plugin_t plugin_t;
  *   void destroy(void)
  *      - called after all lines have been processed to clean up
  */
+typedef void (*dl_version_f) (const char **, const char **);
 typedef int (*dl_init_f) (const char *, bcf_hdr_t *, bcf_hdr_t *);
 typedef char* (*dl_about_f) (void);
 typedef int (*dl_process_f) (bcf1_t *);
@@ -69,6 +71,7 @@ typedef void (*dl_destroy_f) (void);
 struct _plugin_t
 {
     char *name, *opts;
+    dl_version_f version;
     dl_init_f init;
     dl_about_f about;
     dl_process_f process;
@@ -205,68 +208,91 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
     if ( *opts ) { *opts = 0; opts++; }
     else opts = NULL;
 
-    void *handle = dlopen_plugin(args, fname);
-    if ( !handle )
+    plugin_t plugin;
+    plugin.name   = fname;
+    plugin.opts   = opts;
+
+    plugin.handle = dlopen_plugin(args, fname);
+    if ( !plugin.handle )
     {
         if ( exit_on_error ) error("Could not load \"%s\".\n", fname);
         free(fname);
         return -1;
     }
 
-    args->nplugins++;
-    args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
-    plugin_t *plugin = &args->plugins[args->nplugins-1];
-    plugin->handle = handle;
-    plugin->name   = fname;
-    plugin->opts   = opts;
-
     dlerror();
-    plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
+    plugin.init = (dl_init_f) dlsym(plugin.handle, "init");
     char *ret = dlerror();
     if ( ret ) 
     {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
         return -1;
     }
 
-    plugin->about = (dl_about_f) dlsym(plugin->handle, "about");
+    plugin.version = (dl_version_f) dlsym(plugin.handle, "version");
     ret = dlerror();
     if ( ret ) 
     {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
         return -1;
     }
 
-    plugin->process = (dl_process_f) dlsym(plugin->handle, "process");
+    plugin.about = (dl_about_f) dlsym(plugin.handle, "about");
     ret = dlerror();
     if ( ret ) 
     {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
         return -1;
     }
 
-    plugin->destroy = (dl_destroy_f) dlsym(plugin->handle, "destroy");
+    plugin.process = (dl_process_f) dlsym(plugin.handle, "process");
     ret = dlerror();
     if ( ret ) 
     {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
         return -1;
     }
+
+    plugin.destroy = (dl_destroy_f) dlsym(plugin.handle, "destroy");
+    ret = dlerror();
+    if ( ret ) 
+    {
+        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
+        free(fname);
+        return -1;
+    }
+
+    args->nplugins++;
+    args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
+    args->plugins[args->nplugins-1] = plugin;
 
     return 0;
 }
 
 static void init_plugins(args_t *args)
 {
+    static int warned_bcftools = 0, warned_htslib = 0;
     int i;
     for (i=0; i<args->nplugins; i++)
     {
         int ret = args->plugins[i].init(args->plugins[i].opts,args->hdr,args->hdr_out);
         if ( ret<0 ) error("The plugin exited with an error: %s\n", args->plugins[i].name);
+        const char *bver, *hver;
+        args->plugins[i].version(&bver, &hver);
+        if ( strcmp(bver,bcftools_version()) && !warned_bcftools ) 
+        {
+            fprintf(stderr,"WARNING: bcftools version mismatch .. bcftools at %s, the plugin \"%s\" at %s\n", bcftools_version(),args->plugins[i].name,bver);
+            warned_bcftools = 1;
+        }
+        if ( strcmp(hver,hts_version()) && !warned_htslib ) 
+        {
+            fprintf(stderr,"WARNING: htslib version mismatch .. bcftools at %s, the plugin \"%s\" at %s\n", hts_version(),args->plugins[i].name,hver);
+            warned_htslib = 1;
+        }
         args->drop_header += ret;
     }
 }
@@ -320,10 +346,14 @@ static int list_plugins(args_t *args)
             fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set.\n\n");
         else
             fprintf(stderr,
-                " in BCFTOOLS_PLUGINS=\"%s\". Is the path correct?\n\n"
-                "Are all shared libraries accesible? Verify with\n"
+                " in BCFTOOLS_PLUGINS=\"%s\".\n\n"
+                "- Is the plugin path correct?\n\n"
+                "- Are all shared libraries, namely libths.so, accesible? Verify with\n"
                 "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
                 "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
+                "\n"
+                "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
+                "DYLD_LIBRARY_PATH (mac) to include directory where *libths.so* is located.\n"
                 "\n",
                 getenv("BCFTOOLS_PLUGINS")
             );
