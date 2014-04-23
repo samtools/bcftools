@@ -81,6 +81,7 @@ typedef struct
     int in_frame, out_frame, na_frame, in_frame_alt1, out_frame_alt1, na_frame_alt1;
     int subst[15];
     int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl;
+    int *smpl_frm_shifts; // not-applicable, in-frame, out-frame
     unsigned long int *smpl_dp;
     idist_t dp;
     int nusr;
@@ -114,7 +115,8 @@ typedef struct
 {
     // stats
     stats_t stats[3];
-    int *tmp_iaf, ntmp_iaf, m_af, m_qual, naf_hwe;
+    int *tmp_iaf, ntmp_iaf, m_af, m_qual, naf_hwe, mtmp_frm;
+    uint8_t *tmp_frm;
     int dp_min, dp_max, dp_step;
     gtcmp_t *af_gts_snps, *af_gts_indels, *smpl_gts_snps, *smpl_gts_indels; // first bin of af_* stats are singletons
 
@@ -430,6 +432,8 @@ static void init_stats(args_t *args)
             #if HWE_STATS
                 stats->af_hwe  = (int*) calloc(args->m_af*args->naf_hwe,sizeof(int));
             #endif
+            if ( args->exons_fname )
+                stats->smpl_frm_shifts = (int*) calloc(args->files->n_smpl*3,sizeof(int));
         }
         idist_init(&stats->dp, args->dp_min,args->dp_max,args->dp_step);
         init_user_stats(args, i!=1 ? args->files->readers[0].header : args->files->readers[1].header, stats);
@@ -487,9 +491,11 @@ static void destroy_stats(args_t *args)
             free(stats->usr[j].val);
         }
         free(stats->usr);
+        if ( args->exons ) free(stats->smpl_frm_shifts);
     }
     for (j=0; j<args->nusr; j++) free(args->usr[j].tag);
     free(args->usr);
+    free(args->tmp_frm);
     if (args->tmp_iaf) free(args->tmp_iaf);
     if (args->exons) bcf_sr_regions_destroy(args->exons);
     if (args->af_gts_snps) free(args->af_gts_snps);
@@ -556,10 +562,17 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     #endif
 
     // Check if the indel is near an exon for the frameshift statistics
-    int exon_overlap = 0;
-    if ( args->exons && !bcf_sr_regions_overlap(args->exons, bcf_seqname(reader->header,line),line->pos,line->pos) ) exon_overlap = 1;
+    int i, exon_overlap = 0;
+    if ( args->exons )
+    {
+        if ( !bcf_sr_regions_overlap(args->exons, bcf_seqname(reader->header,line),line->pos,line->pos) ) exon_overlap = 1;
+        if ( args->files->n_smpl )
+        {
+            hts_expand(uint8_t,line->n_allele,args->mtmp_frm,args->tmp_frm);
+            for (i=0; i<line->n_allele; i++) args->tmp_frm[i] = 0;
+        }
+    }
 
-    int i;
     for (i=1; i<line->n_allele; i++)
     {
         if ( args->first_allele_only && i>1 ) break;
@@ -619,8 +632,8 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
         }
         if ( tlen )     // there are some deleted/inserted bases in the exon
         {
-            if ( tlen%3 ) stats->out_frame++;
-            else stats->in_frame++;
+            if ( tlen%3 ) { stats->out_frame++; args->tmp_frm[i] = 2; }
+            else { stats->in_frame++; args->tmp_frm[i] = 1; }
 
             if ( i==1 )
             {
@@ -737,9 +750,18 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         int is, n_nref = 0, i_nref = 0;
         for (is=0; is<args->files->n_smpl; is++)
         {
-            int ial;
-            int gt = bcf_gt_type(fmt_ptr, reader->samples[is], &ial, NULL);
-            if ( gt==GT_UNKN || gt==GT_HAPL_R || gt==GT_HAPL_A ) continue;
+            int ial, jal;
+            int gt = bcf_gt_type(fmt_ptr, reader->samples[is], &ial, &jal);
+            if ( gt==GT_UNKN ) continue;
+            if ( gt==GT_HAPL_R || gt==GT_HAPL_A ) 
+            {
+                if ( stats->smpl_frm_shifts )
+                {
+                    assert( ial<line->n_allele );
+                    stats->smpl_frm_shifts[is*3 + args->tmp_frm[ial]]++;
+                }
+                continue;
+            }
             if ( gt != GT_HOM_RR ) { n_nref++; i_nref = is; }
             #if HWE_STATS
                 switch (gt)
@@ -769,6 +791,12 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             if ( line_type&VCF_INDEL )
             {
                 if ( gt != GT_HOM_RR ) stats->smpl_indels[is]++;
+                if ( stats->smpl_frm_shifts )
+                {
+                    assert( ial<line->n_allele && jal<line->n_allele );
+                    stats->smpl_frm_shifts[is*3 + args->tmp_frm[ial]]++;
+                    stats->smpl_frm_shifts[is*3 + args->tmp_frm[jal]]++;
+                }
             }
         }
         if ( n_nref==1 ) stats->smpl_sngl[i_nref]++;
@@ -1174,6 +1202,23 @@ static void print_stats(args_t *args)
                 printf("PSC\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%d\n", id,args->files->samples[i], 
                     stats->smpl_homRR[i], stats->smpl_homAA[i], stats->smpl_hets[i], stats->smpl_ts[i], 
                     stats->smpl_tv[i], stats->smpl_indels[i],dp, stats->smpl_sngl[i]);
+            }
+        }
+
+
+        if ( args->exons )
+        {
+            printf("# PSI, Per-Sample Indels\n# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio\n");
+            for (id=0; id<args->nstats; id++)
+            {
+                stats_t *stats = &args->stats[id];
+                for (i=0; i<args->files->n_smpl; i++)
+                {
+                    int na  = stats->smpl_frm_shifts[i*3 + 0];
+                    int in  = stats->smpl_frm_shifts[i*3 + 1];
+                    int out = stats->smpl_frm_shifts[i*3 + 2];
+                    printf("PSI\t%d\t%s\t%d\t%d\t%d\t%.2f\n", id,args->files->samples[i], in,out,na,in+out?1.0*out/(in+out):0);
+                }
             }
         }
 
