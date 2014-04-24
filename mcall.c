@@ -279,21 +279,85 @@ void mcall_destroy(call_t *call)
 // depth, missing PLs are all zero. In this case, pdg's are set to 0
 // so that the corresponding genotypes can be set as missing and the
 // qual calculation is not affected.
+// Missing values are replaced by generic likelihoods when X (unseen allele) is
+// present.
 // NB: While the -m callig model uses the pdgs in canonical order, 
 // the original samtools -c calling code uses pdgs in reverse order (AA comes
 // first, RR last).
-void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt)
+void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unseen)
 {
-    int i, j;
+    int i, j, nals;
+    
+    // find out the number of alleles, expecting diploid genotype likelihoods
+    bcf_gt2alleles(n_gt-1, &i, &nals);
+    assert( i==nals );
+    nals++;
+
     for (i=0; i<n_smpl; i++)
     {
         double sum = 0;
         for (j=0; j<n_gt; j++)
         {
+            assert( PLs[j]!=bcf_int32_vector_end ); // expecting diploid genotype likelihoods
+            if ( PLs[j]==bcf_int32_missing ) break;
             assert( PLs[j]<256 );
             pdg[j] = pl2p[ PLs[j] ];
             sum += pdg[j];
         }
+
+        if ( j==0 )
+        {
+            // First value is missing (LK of RR), this indicates that
+            // all values are missing. 
+            j = sum = n_gt;
+        }
+        else if ( j<n_gt && unseen<0 )
+        {
+            // Some of the values are missing and the unseen allele LK is not
+            // available
+            sum = 0;
+            for (j=0; j<n_gt; j++)
+            {
+                assert( PLs[j]!=bcf_int32_vector_end );
+                if ( PLs[j]==bcf_int32_missing ) PLs[j] = 255;
+                assert( PLs[j]<256 );
+                pdg[j] = pl2p[ PLs[j] ];
+                sum += pdg[j];
+            }
+        }
+        if ( j<n_gt )
+        {
+            // Missing values present, fill with unseen allele LK. This can be only
+            // as good as the merge was.
+            int ia,ib, k;
+            j = 0;
+            sum = 0;
+            for (ia=0; ia<nals; ia++)
+            {
+                for (ib=0; ib<=ia; ib++)
+                {
+                    if ( PLs[j]==bcf_int32_missing )
+                    {
+                        k = bcf_alleles2gt(ia,unseen);
+                        if ( PLs[k]==bcf_int32_missing ) k = bcf_alleles2gt(ib,unseen);
+                        if ( PLs[k]==bcf_int32_missing ) k = bcf_alleles2gt(unseen,unseen);
+                        assert( PLs[k]!=bcf_int32_missing || ia==unseen || ib==unseen );
+
+                        // The unseen allele X may bot be reported in one of the merged
+                        // files because all alleles were seen. In such a case,
+                        // we set LK of unseen value to be very small.
+                        if ( PLs[k]==bcf_int32_missing )
+                            PLs[j] = 255;
+                        else
+                            PLs[j] = PLs[k];
+                    }
+                    pdg[j] = pl2p[ PLs[j] ];
+                    sum += pdg[j];
+                    j++;
+                }
+            }
+        }
+
         // Normalize: sum_i pdg_i = 1
         if ( sum!=n_gt )
             for (j=0; j<n_gt; j++) pdg[j] /= sum;
@@ -1049,8 +1113,8 @@ int mcall(call_t *call, bcf1_t *rec)
 
     int nsmpl = bcf_hdr_nsamples(call->hdr);
     int nals  = rec->n_allele;
-    if ( nals>5 )
-        error("FIXME: Not ready for more than 5 alleles at %s:%d (%d)\n", bcf_seqname(call->hdr,rec),rec->pos+1, nals);
+    hts_expand(int,nals,call->nals_map,call->als_map);
+    hts_expand(int,nals*(nals+1)/2,call->npl_map,call->pl_map);
 
     // Get the genotype likelihoods
     call->nPLs = bcf_get_format_int32(call->hdr, rec, "PL", &call->PLs, &call->mPLs);
@@ -1058,12 +1122,15 @@ int mcall(call_t *call, bcf1_t *rec)
         error("Wrong number of PL fields? nals=%d npl=%d\n", nals,call->nPLs);
 
     // Convert PLs to probabilities
+    int i, unseen = -1;
+    for (i=1; i<rec->n_allele; i++) 
+        if ( rec->d.allele[i][0]=='X' ) unseen = i;
     int ngts = nals*(nals+1)/2;
     hts_expand(double, call->nPLs, call->npdg, call->pdg);
-    set_pdg(call->pl2p, call->PLs, call->pdg, nsmpl, ngts);
+    set_pdg(call->pl2p, call->PLs, call->pdg, nsmpl, ngts, unseen);
 
     // Get sum of qualities
-    int i, nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
+    int nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
     if ( nqs<=0 ) error("The QS annotation not present at %s:%d\n", bcf_seqname(call->hdr,rec),rec->pos+1);
     if ( nqs < nals )
     {
@@ -1073,6 +1140,9 @@ int mcall(call_t *call, bcf1_t *rec)
         hts_expand(float,nals,call->nqsum,call->qsum);
         for (i=nqs; i<nals; i++) call->qsum[i] = 0;
     }
+    float qsum_tot = 0;
+    for (i=0; i<nals; i++) qsum_tot += call->qsum[i];
+    if ( qsum_tot ) for (i=0; i<nals; i++) call->qsum[i] /= qsum_tot;
 
     // Find the best combination of alleles
     int out_als, nout =  mcall_find_best_alleles(call, nals, &out_als);
