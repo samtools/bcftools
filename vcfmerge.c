@@ -29,6 +29,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <math.h>
 #include "bcftools.h"
 #include "vcmp.h"
 
@@ -57,10 +58,11 @@ typedef struct _info_rule_t
 {
     char *hdr_tag;
     void (*merger)(bcf_hdr_t *hdr, bcf1_t *line, struct _info_rule_t *rule);
-    int type;
-    int nvalues, mvalues, ncounts, mcounts;
-    int *counts;
-    void *values;
+    int type;           // one of BCF_HT_*
+    int block_size;     // number of values in a block
+    int nblocks;        // number of blocks in nvals (the number of merged files)
+    int nvals, mvals;   // used and total size of vals array
+    void *vals;         // the info tag values
 }
 info_rule_t;
 
@@ -87,6 +89,7 @@ typedef struct
     bcf_info_t *inf;// out_line's INFO fields
     bcf_fmt_t **fmt_map; // i-th output FORMAT field corresponds in j-th reader to i*nreader+j, first row is reserved for GT
     int nfmt_map;        // number of rows in the fmt_map array
+    int *agr_map, nagr_map, magr_map;   // mapping between Number=AGR element indexes
     void *tmp_arr;
     int ntmp_arr;
     maux1_t **d;    // d[i][j] i-th reader, j-th buffer line
@@ -118,105 +121,116 @@ args_t;
 
 static void info_rules_merge_sum(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
 {
-    if ( !rule->nvalues ) return;
-    int i, j, ndim = rule->counts[0];
-    #define BRANCH(src_type_t,dst_type_t) { \
-        for (i=1; i<rule->ncounts; i++) \
+    if ( !rule->nvals ) return;
+    int i, j, ndim = rule->block_size;
+    #define BRANCH(type_t,is_missing) { \
+        type_t *ptr = (type_t*) rule->vals; \
+        for (i=0; i<rule->nvals; i++) if ( is_missing ) ptr[i] = 0; \
+        for (i=1; i<rule->nblocks; i++) \
         { \
-            assert( rule->counts[i]==ndim ); \
-            for (j=0; j<ndim; j++) ((dst_type_t*)rule->values)[j] += ((src_type_t*)rule->values)[j+i*ndim]; \
+            for (j=0; j<ndim; j++) ptr[j] += ptr[j+i*ndim]; \
         } \
     }
     switch (rule->type) {
-        case BCF_HT_INT:  BRANCH(int, int32_t); break;
-        case BCF_HT_REAL: BRANCH(float, float); break;
+        case BCF_HT_INT:  BRANCH(int32_t, ptr[i]==bcf_int32_missing); break;
+        case BCF_HT_REAL: BRANCH(float, bcf_float_is_missing(ptr[i])); break;
         default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
     }
     #undef BRANCH
 
-    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->vals,ndim,rule->type);
 }
 static void info_rules_merge_avg(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
 {
-    if ( !rule->nvalues ) return;
-    int i, j, ndim = rule->counts[0];
-    #define BRANCH(src_type_t,dst_type_t) { \
+    if ( !rule->nvals ) return;
+    int i, j, ndim = rule->block_size;
+    #define BRANCH(type_t,is_missing) { \
+        type_t *ptr = (type_t*) rule->vals; \
+        for (i=0; i<rule->nvals; i++) if ( is_missing ) ptr[i] = 0; \
         for (j=0; j<ndim; j++) \
         { \
             double sum = 0; \
-            for (i=0; i<rule->ncounts; i++) sum += ((src_type_t*)rule->values)[j+i*ndim]; \
-            ((dst_type_t*)rule->values)[j] = sum / rule->ncounts; \
+            for (i=0; i<rule->nblocks; i++) sum += ptr[j+i*ndim]; \
+            ptr[j] = sum / rule->nblocks; \
         } \
     }
     switch (rule->type) {
-        case BCF_HT_INT:  BRANCH(int, int32_t); break;
-        case BCF_HT_REAL: BRANCH(float, float); break;
+        case BCF_HT_INT:  BRANCH(int32_t, ptr[i]==bcf_int32_missing); break;
+        case BCF_HT_REAL: BRANCH(float, bcf_float_is_missing(ptr[i])); break;
         default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
     }
     #undef BRANCH
 
-    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->vals,ndim,rule->type);
 }
 static void info_rules_merge_min(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
 {
-    if ( !rule->nvalues ) return;
-    int i, j, ndim = rule->counts[0];
-    #define BRANCH(src_type_t,dst_type_t) { \
-        for (i=1; i<rule->ncounts; i++) \
+    if ( !rule->nvals ) return;
+    int i, j, ndim = rule->block_size;
+    #define BRANCH(type_t,is_missing,set_missing,huge_val) { \
+        type_t *ptr = (type_t*) rule->vals; \
+        for (i=0; i<rule->nvals; i++) if ( is_missing ) ptr[i] = huge_val; \
+        for (i=1; i<rule->nblocks; i++) \
         { \
-            assert( rule->counts[i]==ndim ); \
-            for (j=0; j<ndim; j++) \
-            { \
-                if ( ((dst_type_t*)rule->values)[j] > ((src_type_t*)rule->values)[j+i*ndim] ) \
-                    ((dst_type_t*)rule->values)[j] = ((src_type_t*)rule->values)[j+i*ndim]; \
-            } \
+            for (j=0; j<ndim; j++) if ( ptr[j] > ptr[j+i*ndim] ) ptr[j] = ptr[j+i*ndim]; \
         } \
+        for (i=0; i<rule->nvals; i++) if ( ptr[i]==huge_val ) set_missing; \
     }
     switch (rule->type) {
-        case BCF_HT_INT:  BRANCH(int, int32_t); break;
-        case BCF_HT_REAL: BRANCH(float, float); break;
+        case BCF_HT_INT:  BRANCH(int32_t, ptr[i]==bcf_int32_missing, ptr[i]=bcf_int32_missing, INT32_MAX); break;
+        case BCF_HT_REAL: BRANCH(float, bcf_float_is_missing(ptr[i]), bcf_float_set_missing(ptr[i]), HUGE_VAL); break;
         default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
     }
     #undef BRANCH
 
-    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->vals,ndim,rule->type);
 }
 static void info_rules_merge_max(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
 {
-    if ( !rule->nvalues ) return;
-    int i, j, ndim = rule->counts[0];
-    #define BRANCH(src_type_t,dst_type_t) { \
-        for (i=1; i<rule->ncounts; i++) \
+    if ( !rule->nvals ) return;
+    int i, j, ndim = rule->block_size;
+    #define BRANCH(type_t,is_missing,set_missing,huge_val) { \
+        type_t *ptr = (type_t*) rule->vals; \
+        for (i=0; i<rule->nvals; i++) if ( is_missing ) ptr[i] = huge_val; \
+        for (i=1; i<rule->nblocks; i++) \
         { \
-            assert( rule->counts[i]==ndim ); \
-            for (j=0; j<ndim; j++) \
-            { \
-                if ( ((dst_type_t*)rule->values)[j] < ((src_type_t*)rule->values)[j+i*ndim] ) \
-                    ((dst_type_t*)rule->values)[j] = ((src_type_t*)rule->values)[j+i*ndim]; \
-            } \
+            for (j=0; j<ndim; j++) if ( ptr[j] < ptr[j+i*ndim] ) ptr[j] = ptr[j+i*ndim]; \
         } \
+        for (i=0; i<rule->nvals; i++) if ( ptr[i]==huge_val ) set_missing; \
     }
     switch (rule->type) {
-        case BCF_HT_INT:  BRANCH(int, int32_t); break;
-        case BCF_HT_REAL: BRANCH(float, float); break;
+        case BCF_HT_INT:  BRANCH(int32_t, ptr[i]==bcf_int32_missing, ptr[i]=bcf_int32_missing, INT32_MIN); break;
+        case BCF_HT_REAL: BRANCH(float, bcf_float_is_missing(ptr[i]), bcf_float_set_missing(ptr[i]), -HUGE_VAL); break;
         default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
     }
     #undef BRANCH
 
-    bcf_update_info(hdr,line,rule->hdr_tag,rule->values,ndim,rule->type);
+    bcf_update_info(hdr,line,rule->hdr_tag,rule->vals,ndim,rule->type);
 }
 static void info_rules_merge_join(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
 {
-    if ( !rule->nvalues ) return;
+    if ( !rule->nvals ) return;
     if ( rule->type==BCF_HT_STR )
     {
-        ((char*)rule->values)[rule->nvalues] = 0;
-        bcf_update_info_string(hdr,line,rule->hdr_tag,rule->values);
+        ((char*)rule->vals)[rule->nvals] = 0;
+        bcf_update_info_string(hdr,line,rule->hdr_tag,rule->vals);
     }
     else
-        bcf_update_info(hdr,line,rule->hdr_tag,rule->values,rule->nvalues,rule->type);
+        bcf_update_info(hdr,line,rule->hdr_tag,rule->vals,rule->nvals,rule->type);
 }
 
+static int info_rules_comp_key2(const void *a, const void *b)
+{
+    info_rule_t *rule1 = (info_rule_t*) a; 
+    info_rule_t *rule2 = (info_rule_t*) b; 
+    return strcmp(rule1->hdr_tag, rule2->hdr_tag);
+}
+static int info_rules_comp_key(const void *a, const void *b)
+{
+    char *key = (char*) a;
+    info_rule_t *rule = (info_rule_t*) b; 
+    return strcmp(key, rule->hdr_tag);
+}
 static void info_rules_init(args_t *args)
 {
     if ( args->info_rules && !strcmp("-",args->info_rules) ) return;
@@ -251,7 +265,7 @@ static void info_rules_init(args_t *args)
     while ( n < args->nrules )
     {
         info_rule_t *rule = &args->rules[n];
-        rule->hdr_tag = ss;
+        rule->hdr_tag = strdup(ss);
         int id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, rule->hdr_tag);
         if ( !bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,id) ) error("The tag is not defined in the header: \"%s\"\n", rule->hdr_tag);
         rule->type = bcf_hdr_id2type(args->out_hdr,BCF_HL_INFO,id);
@@ -270,12 +284,25 @@ static void info_rules_init(args_t *args)
 
         if ( !is_join && rule->type==BCF_HT_STR )
             error("Numeric operation \"%s\" requested on non-numeric field: %s\n", ss, rule->hdr_tag);
-        if ( !is_join && bcf_hdr_id2number(args->out_hdr,BCF_HL_INFO,id)==0xfffff )
-            error("Only fixed-length vectors are supported with \"%s\", cannot run with %s\n", ss, rule->hdr_tag);
+        if ( bcf_hdr_id2number(args->out_hdr,BCF_HL_INFO,id)==0xfffff )
+        {
+            int is_agr = (
+                    bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_A ||
+                    bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_G ||
+                    bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_R 
+                    ) ? 1 : 0;
+            if ( is_join && is_agr )
+                error("Cannot -i %s:join on Number=[AGR] tags is not supported.\n", rule->hdr_tag);
+            if ( !is_join && !is_agr )
+                error("Only fixed-length vectors are supported with -i %s:%s\n", ss, rule->hdr_tag);
+        }
 
         while ( *ss ) ss++; ss++; n++;
     }
     free(str.s);
+    free(tmp);
+
+    qsort(args->rules, args->nrules, sizeof(*args->rules), info_rules_comp_key2);
 }
 static void info_rules_destroy(args_t *args)
 {
@@ -283,9 +310,8 @@ static void info_rules_destroy(args_t *args)
     for (i=0; i<args->nrules; i++)
     {
         info_rule_t *rule = &args->rules[i];
-        if ( i==0 ) free(rule->hdr_tag);
-        free(rule->counts);
-        free(rule->values);
+        free(rule->hdr_tag);
+        free(rule->vals);
     }
     free(args->rules);
 }
@@ -293,48 +319,100 @@ static void info_rules_reset(args_t *args)
 {
     int i;
     for (i=0; i<args->nrules; i++)
-        args->rules[i].ncounts = args->rules[i].nvalues = 0;
+        args->rules[i].nblocks = args->rules[i].nvals = args->rules[i].block_size = 0;
 }
-static int info_rules_comp_key(const void *a, const void *b)
-{
-    char *key = (char*) a;
-    info_rule_t *rule = (info_rule_t*) b; 
-    return strcmp(key, rule->hdr_tag);
-}
-static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule)
+static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rule, maux1_t *als, int var_len)
 {
     int ret = bcf_get_info_values(hdr, line, rule->hdr_tag, &args->maux->tmp_arr, &args->maux->ntmp_arr, rule->type);
     if ( ret<=0 ) error("FIXME: error parsing %s at %s:%d .. %d\n", rule->hdr_tag,bcf_seqname(hdr,line),line->pos+1,ret);
-    rule->ncounts++;
-    hts_expand0(int,rule->ncounts,rule->mcounts,rule->counts);
-    rule->counts[rule->ncounts-1] = ret;
+
+    rule->nblocks++;
 
     if ( rule->type==BCF_HT_STR )
     {
-        int need_comma = rule->nvalues==0 ? 0 : 1;
-        hts_expand(char,rule->nvalues+ret+need_comma+1,rule->mvalues,rule->values);            // 1 for null-termination
-        char *tmp = (char*) rule->values + rule->nvalues;
-        if ( rule->nvalues>0 ) { *tmp = ','; tmp++; }
+        int need_comma = rule->nblocks==1 ? 0 : 1;
+        hts_expand(char,rule->nvals+ret+need_comma+1,rule->mvals,rule->vals);            // 1 for null-termination
+        char *tmp = (char*) rule->vals + rule->nvals;
+        if ( rule->nvals>0 ) { *tmp = ','; tmp++; }
         strncpy(tmp,(char*)args->maux->tmp_arr,ret);
-        rule->nvalues += ret + need_comma;
+        rule->nvals += ret + need_comma;
+        return 1;
+    }
+
+    int i, j;
+    if ( var_len==BCF_VL_A )
+    {
+        assert( ret==line->n_allele-1 );
+        args->maux->nagr_map = ret;
+        hts_expand(int,args->maux->nagr_map,args->maux->magr_map,args->maux->agr_map);
+        // create mapping from source file ALT indexes to dst file indexes
+        for (i=0; i<ret; i++) args->maux->agr_map[i] = als->map[i+1] - 1;
+        rule->block_size = args->maux->nout_als - 1;
+    }
+    else if ( var_len==BCF_VL_R )
+    {
+        assert( ret==line->n_allele );
+        args->maux->nagr_map = ret;
+        hts_expand(int,args->maux->nagr_map,args->maux->magr_map,args->maux->agr_map);
+        for (i=0; i<ret; i++) args->maux->agr_map[i] = als->map[i];
+        rule->block_size = args->maux->nout_als;
+    }
+    else if ( var_len==BCF_VL_G )
+    {
+        args->maux->nagr_map = bcf_alleles2gt(line->n_allele-1,line->n_allele-1)+1;
+        assert( ret==line->n_allele || ret==args->maux->nagr_map );
+        if ( ret==line->n_allele ) // haploid
+        {
+            args->maux->nagr_map = line->n_allele;
+            hts_expand(int,args->maux->nagr_map,args->maux->magr_map,args->maux->agr_map);
+            for (i=0; i<ret; i++) args->maux->agr_map[i] = als->map[i];
+            rule->block_size = args->maux->nout_als;
+        }
+        else
+        {
+            hts_expand(int,args->maux->nagr_map,args->maux->magr_map,args->maux->agr_map);
+            int k_src = 0;
+            for (i=0; i<line->n_allele; i++) 
+            {
+                for (j=0; j<=i; j++)
+                {
+                    args->maux->agr_map[k_src] = bcf_alleles2gt(als->map[i],als->map[j]);
+                    k_src++;
+                }
+            }
+            rule->block_size = bcf_alleles2gt(args->maux->nout_als-1,args->maux->nout_als-1)+1;
+        }
     }
     else
     {
-        #define BRANCH(src_type_t,dst_type_t) { \
-            src_type_t *src = (src_type_t *) args->maux->tmp_arr; \
-            hts_expand0(dst_type_t,(rule->nvalues+ret),rule->mvalues,rule->values); \
-            dst_type_t *dst = (dst_type_t *) rule->values + rule->nvalues; \
-            rule->nvalues += ret; \
-            int i; \
-            for (i=0; i<ret; i++) dst[i] = src[i]; \
-        }
-        switch (rule->type) {
-            case BCF_HT_INT:   BRANCH(int, int32_t); break;
-            case BCF_HT_REAL: BRANCH(float, float); break;
-            default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
-        }
-        #undef BRANCH
+        if ( rule->nblocks>1 && ret!=rule->block_size )
+            error("Mismatch in number of values for INFO/%s at %s:%d\n", rule->hdr_tag,bcf_seqname(hdr,line),line->pos+1);
+        rule->block_size = ret;
+        args->maux->nagr_map = 0;
     }
+
+    #define BRANCH(src_type_t,dst_type_t,set_missing) { \
+        src_type_t *src = (src_type_t *) args->maux->tmp_arr; \
+        hts_expand0(dst_type_t,(rule->nvals+rule->block_size),rule->mvals,rule->vals); \
+        dst_type_t *dst = (dst_type_t *) rule->vals + rule->nvals; \
+        rule->nvals += rule->block_size; \
+        if ( !args->maux->nagr_map ) \
+        { \
+            for (i=0; i<ret; i++) dst[i] = src[i]; \
+        } \
+        else \
+        { \
+            for (i=0; i<rule->block_size; i++) set_missing; \
+            for (i=0; i<ret; i++) dst[args->maux->agr_map[i]] = src[i]; \
+        } \
+    }
+    switch (rule->type) {
+        case BCF_HT_INT:  BRANCH(int, int32_t, dst[i] = bcf_int32_missing); break;
+        case BCF_HT_REAL: BRANCH(float, float, bcf_float_set_missing(dst[i])); break;
+        default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
+    }
+    #undef BRANCH
+
     return 1;
 }
 
@@ -515,6 +593,7 @@ void maux_destroy(maux_t *ma)
     }
     for (i=0; i<ma->mAGR_info; i++)
         free(ma->AGR_info[i].buf);
+    free(ma->agr_map);
     free(ma->AGR_info);
     if (ma->ntmp_arr) free(ma->tmp_arr);
     if (ma->nfmt_map) free(ma->fmt_map);
@@ -915,14 +994,20 @@ void merge_info(args_t *args, bcf1_t *out)
             int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
             if ( id==-1 ) error("Error: The INFO field is not defined in the header: %s\n", key);
 
-            if ( args->nrules )
-            {
-                info_rule_t *rule = (info_rule_t*) bsearch(key, args->rules, args->nrules, sizeof(info_rule_t), info_rules_comp_key);
-                if ( rule && info_rules_add_values(args, hdr, line, rule) ) continue;
-            }
-
             kitr = kh_get(strdict, tmph, key);  // have we seen the tag in one of the readers?
             int len = bcf_hdr_id2length(hdr,BCF_HL_INFO,inf->key);
+            if ( args->nrules )
+            {
+                info_rule_t *rule = (info_rule_t*) bsearch(key, args->rules, args->nrules, sizeof(*args->rules), info_rules_comp_key);
+                if ( rule ) 
+                {
+                    maux1_t *als = ( len==BCF_VL_A || len==BCF_VL_G || len==BCF_VL_R ) ? &ma->d[i][0] : NULL;
+                    if ( info_rules_add_values(args, hdr, line, rule, als, len) ) continue;
+                }
+            }
+
+            // Todo: Number=AGR tags should use the newer info_rules_* functions (info_rules_merge_first to be added)
+            // and merge_AGR_info_tag to be made obsolete.
             if ( len==BCF_VL_A || len==BCF_VL_G || len==BCF_VL_R  ) // Number=R,G,A requires special treatment
             {
                 if ( kitr == kh_end(tmph) )
@@ -1091,13 +1176,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         }
         #undef BRANCH
     }
-
     bcf_update_format_int32(out_hdr, out, "GT", (int32_t*)ma->tmp_arr, nsamples*nsize);
-    for (i=0; i<nsamples; i++)
-    {
-        assert( ma->smpl_ploidy[i]>0 && ma->smpl_ploidy[i]<=2 );
-        ma->smpl_nGsize[i] = ma->smpl_ploidy[i]==1 ?  out->n_allele : out->n_allele*(out->n_allele + 1)/2;
-    }
 }
 
 void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
@@ -1178,7 +1257,8 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                 for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
-                    for (l=0; l<ma->smpl_nGsize[ismpl+j]; l++) { tgt_set_missing; tgt++; } \
+                    int ngsize = ma->smpl_ploidy[ismpl+j]==1 ? out->n_allele : out->n_allele*(out->n_allele + 1)/2; \
+                    for (l=0; l<ngsize; l++) { tgt_set_missing; tgt++; } \
                     for (; l<nsize; l++) { tgt_set_vector_end; tgt++; } \
                     int iori,jori, inew,jnew; \
                     for (iori=0; iori<line->n_allele; iori++) \
