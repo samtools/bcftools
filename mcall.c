@@ -1022,7 +1022,7 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
     bcf_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*nsmpl);
 }
 
-static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
+static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
 {
     bcf_sr_regions_t *tgt = call->srs->targets;
     if ( tgt->nals>5 ) error("Maximum accepted number of alleles is 5, got %d\n", tgt->nals);
@@ -1054,10 +1054,10 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
         {
             // There is a new allele in targets which is not present in VCF.
             // We use the X allele to estimate PLs. Note that X may not be
-            // present at multiallelic indels sites, but we use the last allele
-            // anyway, because the least likely allele comes last in mpileup's
-            // ALT output.  I don't know of a better solution.
-            call->als_map[nals] = rec->n_allele - 1;
+            // present at multiallelic indels sites. In that case we use the
+            // last allele anyway, because the least likely allele comes last
+            // in mpileup's ALT output.
+            call->als_map[nals] = unseen>=0 ? unseen : rec->n_allele - 1;
             has_new = 1;
         }
         nals++;
@@ -1108,8 +1108,12 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec)
   */
 int mcall(call_t *call, bcf1_t *rec)
 {
+    int i, unseen = -1;
+    for (i=1; i<rec->n_allele; i++) 
+        if ( rec->d.allele[i][0]=='X' ) unseen = i;
+
     // Force alleles when calling genotypes given alleles was requested
-    if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec);
+    if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec, unseen);
 
     int nsmpl = bcf_hdr_nsamples(call->hdr);
     int nals  = rec->n_allele;
@@ -1122,9 +1126,6 @@ int mcall(call_t *call, bcf1_t *rec)
         error("Wrong number of PL fields? nals=%d npl=%d\n", nals,call->nPLs);
 
     // Convert PLs to probabilities
-    int i, unseen = -1;
-    for (i=1; i<rec->n_allele; i++) 
-        if ( rec->d.allele[i][0]=='X' ) unseen = i;
     int ngts = nals*(nals+1)/2;
     hts_expand(double, call->nPLs, call->npdg, call->pdg);
     set_pdg(call->pl2p, call->PLs, call->pdg, nsmpl, ngts, unseen);
