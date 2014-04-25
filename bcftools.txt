@@ -307,7 +307,10 @@ demand. The original calling model can be invoked with the *-c* option.
     given, the same mutation rate Pn is used for SNPs and indels.
 
 *-p, --pval-threshold* 'float'::
-    with *-c*, accept variant if P(ref|D) < 'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'
+    with *-c*, accept variant if P(ref|D) < 'float'.
+
+*-P, --prior* 'float'::
+    expected substitution rate, or 0 to disable the prior.
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
