@@ -166,6 +166,11 @@ sub parse_params
                 exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons" 
             },
             { 
+                id=>'PSI',
+                header=>'PSI, Per-sample Indels', 
+                exp=>"# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio" 
+            },
+            { 
                 id=>'DP',    
                 header=>'DP, Depth distribution', 
                 exp=>"# DP\t[2]id\t[3]bin\t[4]number of genotypes\t[5]fraction of genotypes (%)" 
@@ -372,6 +377,13 @@ sub merge_PSC
     for (my $i=0; $i<@$a; $i++) { $$a[$i][7] /= $n+1; }
 }
 
+sub merge_PSI
+{
+    my ($a,$b,$n) = @_;
+    add_to_sample_values($a,$b);
+    for (my $i=0; $i<@$b; $i++) { $$a[$i][4] = sprintf "%.2f", ($$a[$i][1]+$$a[$i][2] ? $$a[$i][2]/($$a[$i][1]+$$a[$i][2]) : 0); }
+}
+
 sub rglob
 {
     my ($a,$b) = @_;
@@ -558,6 +570,7 @@ sub parse_vcfstats1
             elsif ( $a eq 'GCiAF' ) { merge_GCsAF($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'ST' ) { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_str); }
             elsif ( $a eq 'PSC') { merge_PSC($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
+            elsif ( $a eq 'PSI') { merge_PSI($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'IDD') { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_num); }
             elsif ( $a eq 'FS') { merge_FS($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
             elsif ( $a eq 'ICS') { merge_ICS($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
