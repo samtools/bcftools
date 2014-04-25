@@ -132,7 +132,7 @@ typedef struct
     bcf_srs_t *files;
     bcf_sr_regions_t *exons;
     char **argv, *exons_fname, *regions_list, *samples_list, *targets_list;
-    int argc, debug, first_allele_only, samples_is_file;
+    int argc, verbose_sites, first_allele_only, samples_is_file;
     int split_by_id, nstats;
 }
 args_t;
@@ -892,7 +892,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             af_stats[iaf].r2n++;
         }
 
-        if ( args->debug )
+        if ( args->verbose_sites )
         {
             for (is=0; is<files->n_smpl; is++)
             {
@@ -982,6 +982,12 @@ static void print_header(args_t *args)
         printf("ID\t0\t%s\n", fname0);
         printf("ID\t1\t%s\n", fname1);
         printf("ID\t2\t%s\t%s\n", fname0,fname1);
+
+        if ( args->verbose_sites )
+            printf(
+                    "# Verbose per-site and per-sample output. Genotype codes: %d:HomRefRef, %d:HomAltAlt, %d:HetAltRef, %d:HetAltAlt, %d:haploidRef, %d:haploidAlt\n"
+                    "# DBG\t[2]CHROM\t[3]POS\t[4]Sample\t[5]GT in %s\t[6]GT in %s\n", 
+                    GT_HOM_RR, GT_HOM_AA, GT_HET_RA, GT_HET_AA, GT_HAPL_R, GT_HAPL_A, fname0,fname1);
     }
 }
 
@@ -1292,7 +1298,6 @@ static void usage(void)
     fprintf(stderr, "    -1, --1st-allele-only              include only 1st allele at multiallelic sites\n");
     fprintf(stderr, "    -c, --collapse <string>            treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
     fprintf(stderr, "    -d, --depth <int,int,int>          depth distribution: min,max,bin size [0,500,1]\n");
-    fprintf(stderr, "        --debug                        produce verbose per-site and per-sample output\n");
     fprintf(stderr, "    -e, --exons <file.gz>              tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --fasta-ref <file>             faidx indexed reference sequence file to determine INDEL context\n");
@@ -1304,6 +1309,7 @@ static void usage(void)
     fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -u, --user-tstv <TAG[:min:max:n]>  collect Ts/Tv stats for any tag using the given binning [0:1,100]\n");
+    fprintf(stderr, "    -v, --verbose                      produce verbose per-site and per-sample output\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1324,7 +1330,7 @@ int main_vcfstats(int argc, char *argv[])
         {"collapse",1,0,'c'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
-        {"debug",0,0,1},
+        {"verbose",0,0,'v'},
         {"depth",1,0,'d'},
         {"apply-filters",1,0,'f'},
         {"exons",1,0,'e'},
@@ -1337,7 +1343,7 @@ int main_vcfstats(int argc, char *argv[])
         {"user-tstv",1,0,'u'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:i1t:T:F:f:1u:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:i1t:T:F:f:1u:v",loptions,NULL)) >= 0) {
         switch (c) {
             case 'u': add_user_stats(args,optarg); break;
             case '1': args->first_allele_only = 1; break;
@@ -1353,7 +1359,7 @@ int main_vcfstats(int argc, char *argv[])
 				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;
-            case  1 : args->debug = 1; break;
+            case 'v': args->verbose_sites = 1; break;
             case 'd': 
                 if ( sscanf(optarg,"%d,%d,%d",&args->dp_min,&args->dp_max,&args->dp_step)!=3 )
                     error("Could not parse --depth %s\n", optarg); 
