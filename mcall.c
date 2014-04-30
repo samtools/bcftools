@@ -343,7 +343,7 @@ void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unse
         else if ( j<n_gt && unseen<0 )
         {
             // Some of the values are missing and the unseen allele LK is not
-            // available
+            // available. In such a case, we set LK to a very small value.
             sum = 0;
             for (j=0; j<n_gt; j++)
             {
@@ -370,15 +370,8 @@ void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unse
                         k = bcf_alleles2gt(ia,unseen);
                         if ( PLs[k]==bcf_int32_missing ) k = bcf_alleles2gt(ib,unseen);
                         if ( PLs[k]==bcf_int32_missing ) k = bcf_alleles2gt(unseen,unseen);
-                        assert( PLs[k]!=bcf_int32_missing || ia==unseen || ib==unseen );
-
-                        // The unseen allele X may bot be reported in one of the merged
-                        // files because all alleles were seen. In such a case,
-                        // we set LK of unseen value to be very small.
-                        if ( PLs[k]==bcf_int32_missing )
-                            PLs[j] = 255;
-                        else
-                            PLs[j] = PLs[k];
+                        assert( PLs[k]!=bcf_int32_missing );
+                        PLs[j] = PLs[k];
                     }
                     pdg[j] = pl2p[ PLs[j] ];
                     sum += pdg[j];
@@ -1155,7 +1148,21 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
     int *ori_pl = call->PLs, *new_pl = call->itmp;
     for (i=0; i<nsmpl; i++)
     {
-        for (k=0; k<npls_new; k++) new_pl[k] = ori_pl[call->pl_map[k]];
+        for (k=0; k<npls_new; k++) 
+        {   
+            new_pl[k] = ori_pl[call->pl_map[k]];
+            if ( new_pl[k]==bcf_int32_missing && unseen>=0 )
+            {
+                // missing value, and there is an unseen allele: identify the
+                // alleles and use the lk of either AX or XX
+                int k_ori = call->pl_map[k], ia, ib;
+                bcf_gt2alleles(k_ori, &ia, &ib);
+                k_ori = bcf_alleles2gt(ia,unseen);
+                if ( ori_pl[k_ori]==bcf_int32_missing ) k_ori = bcf_alleles2gt(ib,unseen);
+                if ( ori_pl[k_ori]==bcf_int32_missing ) k_ori = bcf_alleles2gt(unseen,unseen);
+                new_pl[k] = ori_pl[k_ori];
+            }
+        }
         ori_pl += npls_ori;
         new_pl += npls_new;
     }
