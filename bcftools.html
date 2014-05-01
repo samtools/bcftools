@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25137584"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp162384"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -129,10 +129,13 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </dd><dt><span class="term">
 <span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
-    Same <span class="strong"><strong>-t, --targets</strong></span>, but reads regions from a file. With the <span class="strong"><strong>call -C</strong></span>
-    <span class="emphasis"><em>alleles</em></span> command, third column of the targets file must be comma-separated
-    list of alleles, starting with the reference allele. Such a file can be
-    easily created from a VCF with:
+    Same <span class="strong"><strong>-t, --targets</strong></span>, but reads regions from a file.
+</dd><dt><span class="term">
+ 
+</span></dt><dd>
+    With the <span class="strong"><strong>call -C</strong></span> <span class="emphasis"><em>alleles</em></span> command, third column of the targets file must
+    be comma-separated list of alleles, starting with the reference allele.
+    Such a file can be easily created from a VCF using:
 </dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf</pre></div><div class="refsect2" title="bcftools annotate [OPTIONS] FILE"><a id="annotate"></a><h3>bcftools annotate <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command allows to add or remove annotations and apply user-written plugins.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annotations</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
@@ -169,27 +172,38 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --list-plugins</strong></span>
+</span></dt><dd>
+    List of available plugins. If not installed systemwide, set the environment
+    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
+    directory where <span class="strong"><strong>libths.so</strong></span> is located.  The BCFTOOLS_PLUGINS
+    environment variable tells the program which directories to search.
+</dd><dt><span class="term">
+ 
 </span></dt><dd><p class="simpara">
-    List of available plugins. The BCFTOOLS_PLUGINS environment variable tells
-    the program which directories to search:
+    List of plugins coming with the distribution:
 </p><div class="variablelist"><dl><dt><span class="term">
-counts
+<span class="strong"><strong>counts</strong></span>
 </span></dt><dd>
 A minimal plugin which counts number of SNPs, Indels, and
         total number of sites.
 </dd><dt><span class="term">
-dosage
+<span class="strong"><strong>dosage</strong></span>
 </span></dt><dd>
 Prints genotype dosage determined from tags requested
         by the user. By default the plugin searches for PL, GL and
         GT (in that order), therefore running <span class="strong"><strong>-p dosage</strong></span> is equivalent to <span class="strong"><strong>-p
         dosage:tags=PL,GL,GT</strong></span>.
 </dd><dt><span class="term">
-fill-AN-AC
+<span class="strong"><strong>fill-AN-AC</strong></span>
 </span></dt><dd>
 Fills INFO fields AN and AC.
 </dd><dt><span class="term">
-missing2ref
+<span class="strong"><strong>frameshifts</strong></span>
+</span></dt><dd>
+Annotate frameshift indels. Run as <span class="strong"><strong>-p frameshifts:exons=path/to/file.tab.gz</strong></span>.
+        See the usage of <span class="strong"><strong>--targets-file</strong></span> above for file format description.
+</dd><dt><span class="term">
+<span class="strong"><strong>missing2ref</strong></span>
 </span></dt><dd>
 Sets missing genotypes ("./.") to ref allele ("0/0").
 </dd></dl></div></dd><dt><span class="term">
@@ -199,11 +213,7 @@ Sets missing genotypes ("./.") to ref allele ("0/0").
 </dd><dt><span class="term">
 <span class="strong"><strong>-p, --plugins</strong></span> <span class="emphasis"><em>name</em></span>[:'key'=<span class="emphasis"><em>val</em></span>]
 </span></dt><dd>
-    Dynamically loaded plugin to run with optional parameters.
-    The BCFTOOLS_PLUGINS environment variable tells the program which directories to search.
-    See the examples in plugins/*.c coming with this distribution for further
-    details and examples. See <span class="strong"><strong>-l, --list-plugins</strong></span> to get a list of installed
-    plugins.
+    Dynamically loaded plugin to run with optional parameters, see also <span class="strong"><strong>-l, --list-plugins</strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
@@ -602,7 +612,9 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 <span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div></div><div class="refsect2" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="strong"><strong>-f</strong></span> <span class="emphasis"><em>ref.fa</em></span> <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels.</p><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div><div class="refsect2" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="strong"><strong>-f</strong></span> <span class="emphasis"><em>ref.fa</em></span> <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels,  check if REF alleles match the reference,
+split multiallelic sites into multiple rows; recover multiallelics from
+multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-D, --remove-duplicates</strong></span>
 </span></dt><dd>
     remove duplicate lines of the same type
@@ -610,6 +622,16 @@ can be also given explicitly using the <span class="strong"><strong>--print-head
 <span class="strong"><strong>-f, --fasta-ref</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     reference sequence
+</dd><dt><span class="term">
+<span class="strong"><strong>-m, --multiallelics</strong></span> ←|+&gt;[<span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>any</em></span>]
+</span></dt><dd>
+    split multiallelic sites into biallelic records (<span class="emphasis"><em>-</em></span>) or join
+    biallelic sites into multiallelic records (<span class="emphasis"><em>+</em></span>). An optional type string
+    can follow which controls variant types which should be split or merged
+    together: If only SNP records should be split or merged, specify <span class="emphasis"><em>snps</em></span>; if
+    both SNPs and indels should be merged separately into two records, specify
+    <span class="emphasis"><em>both</em></span>; if SNPs and indels should be merged into a single record, specify
+    <span class="emphasis"><em>any</em></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
