@@ -730,7 +730,7 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     tmp_str->l = 0;
 }
 
-static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
+void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
 {
     int ith_src = 0, start_src = 0;    // i-th field in src string
     while ( ith_src<isrc && start_src<src_len )
@@ -757,11 +757,14 @@ static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t
 
     if ( end_dst - start_dst>1 || dst->s[start_dst]!='.' ) return;   // do not overwrite non-empty values
 
+    // Now start_dst and end_dst are indexes to the destination memory area
+    // which needs to be replaced with nsrc_cpy
+    // source bytes, end_dst points just after.
     int ndst_shift = nsrc_cpy - (end_dst - start_dst);
-    int ndst_move  = dst->l - end_dst + 1;  // including \0
+    int ndst_move  = dst->l - end_dst + 1;  // how many bytes must be moved (including \0)
     if ( ndst_shift )
     {
-        ks_resize(dst, dst->l + ndst_shift);
+        ks_resize(dst, dst->l + ndst_shift + 1);    // plus \0
         memmove(dst->s+end_dst+ndst_shift, dst->s+end_dst, ndst_move);
     }
     memcpy(dst->s+start_dst, src+start_src, nsrc_cpy);

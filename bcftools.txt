@@ -619,13 +619,24 @@ can be also given explicitly using the *--print-header* and
 
 [[norm]]
 === bcftools norm ['OPTIONS'] *-f* 'ref.fa' 'file.vcf.gz'
-Left-align and normalize indels.
+Left-align and normalize indels,  check if REF alleles match the reference,
+split multiallelic sites into multiple rows; recover multiallelics from
+multiple rows.
 
 *-D, --remove-duplicates*::
     remove duplicate lines of the same type
 
 *-f, --fasta-ref* 'FILE'::
     reference sequence
+
+*-m, --multiallelics* <-|+>['snps'|'indels'|'both'|'any']::
+    split multiallelic sites into biallelic records ('-') or join
+    biallelic sites into multiallelic records ('+'). An optional type string
+    can follow which controls variant types which should be split or merged
+    together: If only SNP records should be split or merged, specify 'snps'; if
+    both SNPs and indels should be merged separately into two records, specify
+    'both'; if SNPs and indels should be merged into a single record, specify
+    'any'.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*

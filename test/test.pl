@@ -30,6 +30,8 @@ test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.both.out',args=
 test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.all.out',args=>'-m all');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
+test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
+test_vcf_norm($opts,in=>'norm.merge',out=>'norm.merge.out',args=>'-m+');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
@@ -304,7 +306,10 @@ sub test_vcf_norm
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -f $$opts{path}/$args{fai}.fa $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_norm");
+    my $params = '';
+    if ( exists($args{args}) ) { $params .= " $args{args}"; }
+    if ( exists($args{fai} ) ) { $params .= " -f $$opts{path}/$args{fai}.fa"; }
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm $params $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_norm");
 }
 sub test_vcf_view
 {
