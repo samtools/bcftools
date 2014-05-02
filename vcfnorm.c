@@ -1386,6 +1386,7 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
         args->maps[i].nals = lines[i]->n_allele;
         hts_expand(int,args->maps[i].nals,args->maps[i].mals,args->maps[i].map);
         args->als = merge_alleles(lines[i]->d.allele, lines[i]->n_allele, args->maps[i].map, args->als, &args->nals, &args->mals);
+        if ( !args->als ) error("Failed to merge alleles at %s:%d\n", bcf_seqname(args->hdr,dst),dst->pos+1);
     }
     bcf_update_alleles(args->hdr, dst, (const char**)args->als, args->nals);
     for (i=0; i<args->nals; i++) free(args->als[i]);
@@ -1415,19 +1416,25 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
     }
 }
 
-static void mrows_schedule(args_t *args, bcf1_t *line)
+#define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
+static void mrows_schedule(args_t *args, bcf1_t **line)
 {
-    if ( args->mrows_collapse==COLLAPSE_ANY ||  bcf_get_variant_types(line)&COLLAPSE_SNPS )
+    int i,m;
+    if ( args->mrows_collapse==COLLAPSE_ANY ||  bcf_get_variant_types(*line)&COLLAPSE_SNPS )
     {
         args->nalines++;
+        m = args->malines;
         hts_expand(bcf1_t*,args->nalines,args->malines,args->alines);
-        args->alines[args->nalines-1] = line;
+        for (i=m; i<args->malines; i++) args->alines[i] = bcf_init1();
+        SWAP(bcf1_t*, args->alines[args->nalines-1], *line);
     }
     else
     {
         args->nblines++;
+        m = args->mblines;
         hts_expand(bcf1_t*,args->nblines,args->mblines,args->blines);
-        args->blines[args->nblines-1] = line;
+        for (i=m; i<args->mblines; i++) args->blines[i] = bcf_init1();
+        SWAP(bcf1_t*, args->blines[args->nblines-1], *line);
     }
 }
 static int mrows_ready_to_flush(args_t *args, bcf1_t *line)
@@ -1440,6 +1447,11 @@ static bcf1_t *mrows_flush(args_t *args)
 {
     if ( args->nalines )
     {
+        if ( args->nalines==1 )
+        {
+            args->nalines = 0;
+            return args->alines[0];
+        }
         bcf_clear(args->mrow_out);
         merge_biallelics_to_multiallelic(args, args->mrow_out, args->alines, args->nalines);
         args->nalines = 0;
@@ -1447,6 +1459,11 @@ static bcf1_t *mrows_flush(args_t *args)
     }
     else if ( args->nblines )
     {
+        if ( args->nblines==1 )
+        {
+            args->nblines = 0;
+            return args->blines[0];
+        }
         bcf_clear(args->mrow_out);
         merge_biallelics_to_multiallelic(args, args->mrow_out, args->blines, args->nblines);
         args->nblines = 0;
@@ -1490,7 +1507,7 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
             }
             if ( merge )
             {
-                mrows_schedule(args, args->lines[k]);
+                mrows_schedule(args, &args->lines[k]);
                 continue;
             }
         }
@@ -1538,7 +1555,11 @@ static void destroy_data(args_t *args)
     for (i=0; i<args->mtmp_lines; i++)
         bcf_destroy1(args->tmp_lines[i]);
     free(args->tmp_lines);
+    for (i=0; i<args->nalines; i++)
+        bcf_destroy1(args->alines[i]);
     free(args->alines);
+    for (i=0; i<args->nblines; i++)
+        bcf_destroy1(args->blines[i]);
     free(args->blines);
     for (i=0; i<args->mmaps; i++)
         free(args->maps[i].map);
@@ -1559,7 +1580,6 @@ static void destroy_data(args_t *args)
 }
 
 
-#define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 static void normalize_vcf(args_t *args)
 {
     htsFile *out = hts_open("-", hts_bcf_wmode(args->output_type));

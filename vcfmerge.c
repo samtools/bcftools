@@ -412,8 +412,8 @@ void normalize_alleles(char **als, int nals)
  * @nb:     number of $b alleles
  * @mb:     size of $b
  *
- * Returns $b expanded to incorporate $a alleles and sets $map. Best explained 
- * on an example:
+ * Returns NULL on error or $b expanded to incorporate $a alleles and sets
+ * $map. Best explained on an example:
  *      In:     REF   ALT
  *           a: ACG,  AC,A    (1bp and 2bp deletion)
  *           b: ACGT, A       (3bp deletion)
@@ -439,7 +439,11 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
     }
 
     // Sanity check: reference prefixes must be identical
-    if ( strncmp(a[0],b[0],rla<rlb?rla:rlb) ) error("The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
+    if ( strncmp(a[0],b[0],rla<rlb?rla:rlb) )
+    {
+        fprintf(stderr, "The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
+        return NULL;
+    }
 
     int n = *nb + na;
     hts_expand0(char*,n,*mb,b);
@@ -1559,6 +1563,7 @@ void merge_buffer(args_t *args)
 
             // normalize alleles
             maux->als = merge_alleles(line->d.allele, line->n_allele, maux->d[i][j].map, maux->als, &maux->nals, &maux->mals);
+            if ( !maux->als ) error("Failed to merge alleles at %s:%d\n",bcf_seqname(args->out_hdr,line),line->pos+1);
             hts_expand0(int, maux->nals, maux->ncnt, maux->cnt);
             for (k=1; k<line->n_allele; k++)
                 maux->cnt[ maux->d[i][j].map[k] ]++;    // how many times an allele appears in the files
