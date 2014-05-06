@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp162384"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25039168"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -226,7 +226,10 @@ Sets missing genotypes ("./.") to ref allele ("0/0").
 <span class="strong"><strong>-x, --remove</strong></span> <span class="emphasis"><em>list</em></span>
 </span></dt><dd>
     List of annotations to remove. Use <span class="emphasis"><em>FILTER</em></span> to remove all filters or
-    <span class="emphasis"><em>FILTER/SomeFilter</em></span> to remove a specific filter. More examples:
+    <span class="emphasis"><em>FILTER/SomeFilter</em></span> to remove a specific filter. Similarly, <span class="emphasis"><em>INFO</em></span> can
+    be used to remove all INFO tags and <span class="emphasis"><em>FORMAT</em></span> to remove all FORMAT tags
+    except GT. <span class="emphasis"><em>INFO</em></span> can be abbreviated to <span class="emphasis"><em>INF</em></span> and <span class="emphasis"><em>FORMAT</em></span> to <span class="emphasis"><em>FMT</em></span>.
+    A few examples:
 </dd></dl></div><pre class="screen">    ID,INFO/DP,FORMAT/DP</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-v, --verbose</strong></span> 
 </span></dt><dd>
@@ -1058,10 +1061,11 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
 <span class="strong"><strong><a class="link" href="#view" title="bcftools view OPTIONS file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="variablelist" title="Valid expressions may contain:"><p class="title"><strong>Valid expressions may contain:</strong></p><dl><dt><span class="term">
  
 </span></dt><dd><div class="variablelist"><dl><dt><span class="term">
-numerical constants and string constants 
+numerical constants, string constants, file names 
 </span></dt><dd>
         1, 1.0, 1e-4
         "String"
+        @file_name
 </dd><dt><span class="term">
 arithmetic operators 
 </span></dt><dd>
@@ -1083,7 +1087,7 @@ INFO tags, FORMAT tags, column names
 </span></dt><dd>
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        %FILTER, %QUAL
+        %FILTER, %QUAL, %ID
 </dd><dt><span class="term">
 1 (or 0) to test the presence (or absence) of a flag 
 </span></dt><dd>
@@ -1100,7 +1104,7 @@ array subscripts
 functions on FORMAT fields 
 </span></dt><dd>
         MAX, MIN, AVG
-</dd></dl></div></dd></dl></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">%MIN(DV)&gt;5</pre><pre class="literallayout">%MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">%MIN(DP)&gt;10 &amp; %MIN(DV)&gt;3</pre><pre class="literallayout">%%QUAL&gt;10 |  FMT/GQ&gt;10   .. selects only GQ&gt;10 samples</pre><pre class="literallayout">%%QUAL&gt;10 || FMT/GQ&gt;10   .. selects all samples at QUAL&gt;10 sites</pre><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">%MIN(DP)&gt;35 &amp;&amp; %AVG(GQ)&gt;50</pre></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+</dd></dl></div></dd></dl></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">%MIN(DV)&gt;5</pre><pre class="literallayout">%MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">%MIN(DP)&gt;10 &amp; %MIN(DV)&gt;3</pre><pre class="literallayout">%%QUAL&gt;10 |  FMT/GQ&gt;10   .. selects only GQ&gt;10 samples</pre><pre class="literallayout">%%QUAL&gt;10 || FMT/GQ&gt;10   .. selects all samples at QUAL&gt;10 sites</pre><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">%MIN(DP)&gt;35 &amp;&amp; %AVG(GQ)&gt;50</pre><pre class="literallayout">%ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">%ID!=@~/file    .. skip lines with ID present in the ~/file</pre></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
 are internally converted into BCF representation. Simple operations, like removing
 a single column from a VCF file, can be therefore done much faster with standard
 UNIX commands, such as <span class="strong"><strong>awk</strong></span> or <span class="strong"><strong>cut</strong></span>.
