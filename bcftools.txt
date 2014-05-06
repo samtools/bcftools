@@ -226,7 +226,10 @@ This command allows to add or remove annotations and apply user-written plugins.
 
 *-x, --remove* 'list':: 
     List of annotations to remove. Use 'FILTER' to remove all filters or
-    'FILTER/SomeFilter' to remove a specific filter. More examples:
+    'FILTER/SomeFilter' to remove a specific filter. Similarly, 'INFO' can
+    be used to remove all INFO tags and 'FORMAT' to remove all FORMAT tags
+    except GT. 'INFO' can be abbreviated to 'INF' and 'FORMAT' to 'FMT'.
+    A few examples:
 ----
     ID,INFO/DP,FORMAT/DP
 ----
@@ -1041,9 +1044,10 @@ These filtering expressions are accepted by *<<filter,filter>>* and
 .Valid expressions may contain: 
 
     ;;
-    numerical constants and string constants ::
+    numerical constants, string constants, file names ::
         1, 1.0, 1e-4
         "String"
+        @file_name
     
     arithmetic operators ::
         +,*,-,/
@@ -1060,7 +1064,7 @@ These filtering expressions are accepted by *<<filter,filter>>* and
     INFO tags, FORMAT tags, column names ::
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        %FILTER, %QUAL
+        %FILTER, %QUAL, %ID
     
     1 (or 0) to test the presence (or absence) of a flag ::
         FlagA=1 && FlagB=0
@@ -1091,6 +1095,11 @@ These filtering expressions are accepted by *<<filter,filter>>* and
     %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
     
     %MIN(DP)>35 && %AVG(GQ)>50
+
+    %ID=@file       .. selects lines with ID present in the file
+
+    %ID!=@~/file    .. skip lines with ID present in the ~/file
+
 --
 
 
