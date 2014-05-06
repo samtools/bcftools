@@ -391,10 +391,7 @@ static void init_stats(args_t *args)
         {
             if ( !bcf_hdr_nsamples(args->files->readers[0].header) )
                 error("No sample columns in %s\n", args->files->readers[0].fname);
-            if ( args->samples_list[0]!=':' ) 
-                error("No such sample(s), please prefix with ':' to indicate file name: \"%s\"\n", args->samples_list);
-            else
-                error("Unable to parse the samples: \"%s\"\n", args->samples_list);
+            error("Unable to parse the samples: \"%s\"\n", args->samples_list);
         }
         args->af_gts_snps     = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
         args->af_gts_indels   = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
