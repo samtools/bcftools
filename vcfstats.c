@@ -752,7 +752,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             if ( gt==GT_UNKN ) continue;
             if ( gt==GT_HAPL_R || gt==GT_HAPL_A ) 
             {
-                if ( stats->smpl_frm_shifts )
+                if ( line_type&VCF_INDEL && stats->smpl_frm_shifts )
                 {
                     assert( ial<line->n_allele );
                     stats->smpl_frm_shifts[is*3 + args->tmp_frm[ial]]++;
