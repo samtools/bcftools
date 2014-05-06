@@ -392,6 +392,19 @@ void remove_format_tag(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
     bcf_update_format(args->hdr, line, tag->key, NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
 }
+void remove_format(args_t *args, bcf1_t *line, rm_tag_t *tag)
+{
+    // remove all FORMAT fields except GT
+    if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
+
+    int i;
+    for (i=0; i<line->n_fmt; i++)
+    {
+        const char *key = bcf_hdr_int2id(args->hdr,BCF_DT_ID,line->d.fmt[i].id);
+        if ( key[0]=='G' && key[1]=='T' && !key[2] ) continue;
+        bcf_update_format(args->hdr, line, key, NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
+    }
+}
 
 static void init_remove_annots(args_t *args)
 {
@@ -443,6 +456,7 @@ static void init_remove_annots(args_t *args)
         else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
         else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
         else if ( !strcmp("INFO",str.s) ) tag->handler = remove_info;
+        else if ( !strcmp("FMT",str.s) || !strcmp("FORMAT",str.s) ) tag->handler = remove_format;
         else if ( str.l )
         {
             if ( str.s[0]=='#' && str.s[1]=='#' )

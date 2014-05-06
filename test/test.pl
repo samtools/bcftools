@@ -17,7 +17,7 @@ test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.ou
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_tabix($opts,in=>'large_chrom_tbi_limit',reg=>'chr11:1-536870912',out=>'large_chrom_tbi_limit.20.1.536870912.out'); # 536870912 (1<<29) is the current limit for tbi. cannot retrieve regions larger than that
 test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this 
-# test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20',out=>'large_chrom.20.1.2147483647.out'); # this fails until bug resolved
+test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20',out=>'large_chrom.20.1.2147483647.out'); # this fails until bug resolved
 test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -31,6 +31,8 @@ test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.all.out',args=>
 test_vcf_merge($opts,in=>['merge.3.a','merge.3.b'],out=>'merge.3.out',args=>'-i TR:sum,TA:sum,TG:sum');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
+test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
+test_vcf_norm($opts,in=>'norm.merge',out=>'norm.merge.out',args=>'-m+');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
@@ -305,7 +307,10 @@ sub test_vcf_norm
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -f $$opts{path}/$args{fai}.fa $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_norm");
+    my $params = '';
+    if ( exists($args{args}) ) { $params .= " $args{args}"; }
+    if ( exists($args{fai} ) ) { $params .= " -f $$opts{path}/$args{fai}.fa"; }
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm $params $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_norm");
 }
 sub test_vcf_view
 {

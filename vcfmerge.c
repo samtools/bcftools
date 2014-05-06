@@ -490,8 +490,8 @@ void normalize_alleles(char **als, int nals)
  * @nb:     number of $b alleles
  * @mb:     size of $b
  *
- * Returns $b expanded to incorporate $a alleles and sets $map. Best explained 
- * on an example:
+ * Returns NULL on error or $b expanded to incorporate $a alleles and sets
+ * $map. Best explained on an example:
  *      In:     REF   ALT
  *           a: ACG,  AC,A    (1bp and 2bp deletion)
  *           b: ACGT, A       (3bp deletion)
@@ -517,7 +517,11 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
     }
 
     // Sanity check: reference prefixes must be identical
-    if ( strncmp(a[0],b[0],rla<rlb?rla:rlb) ) error("The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
+    if ( strncmp(a[0],b[0],rla<rlb?rla:rlb) )
+    {
+        fprintf(stderr, "The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
+        return NULL;
+    }
 
     int n = *nb + na;
     hts_expand0(char*,n,*mb,b);
@@ -809,7 +813,7 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     tmp_str->l = 0;
 }
 
-static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
+void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
 {
     int ith_src = 0, start_src = 0;    // i-th field in src string
     while ( ith_src<isrc && start_src<src_len )
@@ -836,11 +840,14 @@ static inline void copy_string_field(char *src, int isrc, int src_len, kstring_t
 
     if ( end_dst - start_dst>1 || dst->s[start_dst]!='.' ) return;   // do not overwrite non-empty values
 
+    // Now start_dst and end_dst are indexes to the destination memory area
+    // which needs to be replaced with nsrc_cpy
+    // source bytes, end_dst points just after.
     int ndst_shift = nsrc_cpy - (end_dst - start_dst);
-    int ndst_move  = dst->l - end_dst + 1;  // including \0
+    int ndst_move  = dst->l - end_dst + 1;  // how many bytes must be moved (including \0)
     if ( ndst_shift )
     {
-        ks_resize(dst, dst->l + ndst_shift);
+        ks_resize(dst, dst->l + ndst_shift + 1);    // plus \0
         memmove(dst->s+end_dst+ndst_shift, dst->s+end_dst, ndst_move);
     }
     memcpy(dst->s+start_dst, src+start_src, nsrc_cpy);
@@ -1636,6 +1643,7 @@ void merge_buffer(args_t *args)
 
             // normalize alleles
             maux->als = merge_alleles(line->d.allele, line->n_allele, maux->d[i][j].map, maux->als, &maux->nals, &maux->mals);
+            if ( !maux->als ) error("Failed to merge alleles at %s:%d\n",bcf_seqname(args->out_hdr,line),line->pos+1);
             hts_expand0(int, maux->nals, maux->ncnt, maux->cnt);
             for (k=1; k<line->n_allele; k++)
                 maux->cnt[ maux->d[i][j].map[k] ]++;    // how many times an allele appears in the files
@@ -1777,6 +1785,7 @@ void merge_vcf(args_t *args)
     }
     info_rules_init(args);
 
+    bcf_hdr_set_version(args->out_hdr, bcf_hdr_get_version(args->files->readers[0].header));
     bcf_hdr_write(args->out_fh, args->out_hdr);
     if ( args->header_only )
     {

@@ -226,7 +226,10 @@ This command allows to add or remove annotations and apply user-written plugins.
 
 *-x, --remove* 'list':: 
     List of annotations to remove. Use 'FILTER' to remove all filters or
-    'FILTER/SomeFilter' to remove a specific filter. More examples:
+    'FILTER/SomeFilter' to remove a specific filter. Similarly, 'INFO' can
+    be used to remove all INFO tags and 'FORMAT' to remove all FORMAT tags
+    except GT. 'INFO' can be abbreviated to 'INF' and 'FORMAT' to 'FMT'.
+    A few examples:
 ----
     ID,INFO/DP,FORMAT/DP
 ----
@@ -622,13 +625,24 @@ can be also given explicitly using the *--print-header* and
 
 [[norm]]
 === bcftools norm ['OPTIONS'] *-f* 'ref.fa' 'file.vcf.gz'
-Left-align and normalize indels.
+Left-align and normalize indels,  check if REF alleles match the reference,
+split multiallelic sites into multiple rows; recover multiallelics from
+multiple rows.
 
 *-D, --remove-duplicates*::
     remove duplicate lines of the same type
 
 *-f, --fasta-ref* 'FILE'::
     reference sequence
+
+*-m, --multiallelics* <-|+>['snps'|'indels'|'both'|'any']::
+    split multiallelic sites into biallelic records ('-') or join
+    biallelic sites into multiallelic records ('+'). An optional type string
+    can follow which controls variant types which should be split or merged
+    together: If only SNP records should be split or merged, specify 'snps'; if
+    both SNPs and indels should be merged separately into two records, specify
+    'both'; if SNPs and indels should be merged into a single record, specify
+    'any'.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
@@ -1033,9 +1047,10 @@ These filtering expressions are accepted by *<<filter,filter>>* and
 .Valid expressions may contain: 
 
     ;;
-    numerical constants and string constants ::
+    numerical constants, string constants, file names ::
         1, 1.0, 1e-4
         "String"
+        @file_name
     
     arithmetic operators ::
         +,*,-,/
@@ -1052,7 +1067,7 @@ These filtering expressions are accepted by *<<filter,filter>>* and
     INFO tags, FORMAT tags, column names ::
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        %FILTER, %QUAL
+        %FILTER, %QUAL, %ID
     
     1 (or 0) to test the presence (or absence) of a flag ::
         FlagA=1 && FlagB=0
@@ -1083,6 +1098,11 @@ These filtering expressions are accepted by *<<filter,filter>>* and
     %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
     
     %MIN(DP)>35 && %AVG(GQ)>50
+
+    %ID=@file       .. selects lines with ID present in the file
+
+    %ID!=@~/file    .. skip lines with ID present in the ~/file
+
 --
 
 
