@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <math.h>
+#include <wordexp.h>
+#include <htslib/khash_str2int.h>
 #include "filter.h"
 #include "bcftools.h"
 
@@ -41,6 +43,7 @@ typedef struct _token_t
     int idx;            // 1-based index to VCF vector
     void (*setter)(filter_t *, bcf1_t *, struct _token_t *);
     int (*comparator)(struct _token_t *, struct _token_t *, int op_type, bcf1_t *);
+    void *hash;         // test presence of str value in the hash via comparator
 
     // modified on filter evaluation at each VCF line
     float *values;      // In case str_value is set, values[0] is one sample's string length
@@ -116,6 +119,13 @@ static int filters_next_token(char **str, int *len)
     if ( !strncmp(tmp,"INFO/",5) ) tmp += 5;
     if ( !strncmp(tmp,"FORMAT/",7) ) tmp += 7;
     if ( !strncmp(tmp,"FMT/",4) ) tmp += 4;
+
+    if ( tmp[0]=='@' )  // file name
+    {
+        while ( *tmp && !isspace(*tmp) && *tmp!='=' && *tmp!='!' ) tmp++;
+        *len = tmp - (*str);
+        return TOK_VAL;
+    }
 
     while ( tmp[0] )
     {
@@ -269,7 +279,19 @@ static int filters_cmp_filter(token_t *atok, token_t *btok, int op_type, bcf1_t 
 }
 static int filters_cmp_id(token_t *atok, token_t *btok, int op_type, bcf1_t *line)
 {
-    // multiple IDs not supported yet
+    // multiple IDs not supported yet (easy to add though)
+
+    if ( btok->hash )
+    {
+        token_t *tmp = atok; atok = btok; btok = tmp;
+    }
+    if ( atok->hash )
+    {
+        int ret = khash_str2int_has_key(atok->hash, line->d.id);
+        if ( op_type==TOK_EQ ) return ret;
+        return ret ? 0 : 1;
+    }
+
     if ( op_type==TOK_EQ ) return !strcmp(btok->str_value,line->d.id);
     return strcmp(btok->str_value,line->d.id);
     return 0;
@@ -711,6 +733,31 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
         return 0;
     }
 
+    // is it a file?
+    if ( str[0]=='@' )
+    {
+        tok->tag = (char*) calloc(len+1,sizeof(char));
+        memcpy(tok->tag,str,len);
+        tok->tag[len] = 0;
+        wordexp_t wexp;
+        wordexp(tok->tag+1, &wexp, 0);
+        if ( !wexp.we_wordc ) error("No such file: %s\n", tok->tag+1);
+        int i, n;
+        char **list = hts_readlist(wexp.we_wordv[0], 1, &n);
+        if ( !list ) error("Could not read: %s\n", wexp.we_wordv[0]);
+        wordfree(&wexp);
+        tok->hash = khash_str2int_init();
+        for (i=0; i<n; i++)
+        {
+            char *se = list[i];
+            while ( *se && !isspace(*se) ) se++;
+            *se = 0;
+            khash_str2int_inc(tok->hash,list[i]);
+        }
+        free(list);
+        return 0;
+    }
+
     int is_fmt = -1;
     if ( !strncmp(str,"FMT/",4) || !strncmp(str,"FORMAT/",4) ) { str += 4; len -= 4; is_fmt = 1; }
     else
@@ -1034,6 +1081,7 @@ void filter_destroy(filter_t *filter)
         free(filter->filters[i].tag);
         free(filter->filters[i].values);
         free(filter->filters[i].pass_samples);
+        if (filter->filters[i].hash) khash_str2int_destroy_free(filter->filters[i].hash);
     }
     free(filter->filters);
     free(filter->flt_stack);
@@ -1187,9 +1235,10 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
 void filter_expression_info(FILE *fp)
 {
     fprintf(fp, "Filter expressions may contain:\n");
-    fprintf(fp, "    - numerical constants and string constants\n");
+    fprintf(fp, "    - numerical constants, string constants, file names\n");
     fprintf(fp, "        .. 1, 1.0, 1e-4\n");
     fprintf(fp, "        .. \"String\"\n");
+    fprintf(fp, "        .. @file_name\n");
     fprintf(fp, "    - arithmetic operators: +,*,-,/\n");
     fprintf(fp, "    - comparison operators: == (same as =), >, >=, <=, <, !=\n");
     fprintf(fp, "    - parentheses: (, )\n");
@@ -1198,6 +1247,7 @@ void filter_expression_info(FILE *fp)
     fprintf(fp, "        .. INFO/DP or DP\n");
     fprintf(fp, "        .. FORMAT/DV, FMT/DV, or DV\n");
     fprintf(fp, "        .. %%FILTER==\"PASS\", %%QUAL>10, %%ID!=\".\"\n");
+    fprintf(fp, "        .. %%ID=@file, %%ID!=@file  .. selects IDs present/absent in the file\n");
     fprintf(fp, "    - 1 (or 0) to test the presence (or absence) of a flag\n");
     fprintf(fp, "        .. FlagA=1 && FlagB=0\n");
     fprintf(fp, "    - %%TYPE for variant type in REF,ALT columns: indel,snp,mnp,ref,other\n");
