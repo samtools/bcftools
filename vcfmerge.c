@@ -1705,6 +1705,7 @@ void merge_vcf(args_t *args)
     }
     info_rules_init(args);
 
+    bcf_hdr_set_version(args->out_hdr, bcf_hdr_get_version(args->files->readers[0].header));
     bcf_hdr_write(args->out_fh, args->out_hdr);
     if ( args->header_only )
     {
