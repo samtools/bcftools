@@ -31,6 +31,7 @@
 #include <htslib/khash_str2int.h>
 #include "filter.h"
 #include "bcftools.h"
+#include <htslib/hts_defs.h>
 
 typedef struct _token_t
 {
@@ -104,7 +105,7 @@ static int filters_next_token(char **str, int *len)
     // test for doubles: d.ddde[+-]dd
     if ( isdigit(*str[0]) || *str[0]=='.' )   // strtod would eat +/-
     {
-        double val_unused v = strtod(*str, &tmp);
+        double HTS_UNUSED v = strtod(*str, &tmp);
         if ( *str!=tmp && (!tmp[0] || !isalnum(tmp[0])) )
         {
             *len = tmp - (*str);
