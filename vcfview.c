@@ -439,8 +439,8 @@ int main_vcfview(int argc, char *argv[])
     {
         {"genotype",1,0,'g'},
         {"compression-level",1,0,'l'},
-        {"header-only",1,0,'h'},
-        {"no-header",1,0,'H'},
+        {"header-only",0,0,'h'},
+        {"no-header",0,0,'H'},
         {"exclude",1,0,'e'},
         {"include",1,0,'i'},
         {"trim-alt-alleles",0,0,'a'},

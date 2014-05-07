@@ -1333,14 +1333,14 @@ int main_vcfstats(int argc, char *argv[])
         {"exons",1,0,'e'},
         {"samples",1,0,'s'},
         {"samples-file",1,0,'S'},
-        {"split-by-ID",1,0,'i'},
+        {"split-by-ID",0,0,'i'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"fasta-ref",1,0,'F'},
         {"user-tstv",1,0,'u'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:i1t:T:F:f:1u:v",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:it:T:F:f:1u:v",loptions,NULL)) >= 0) {
         switch (c) {
             case 'u': add_user_stats(args,optarg); break;
             case '1': args->first_allele_only = 1; break;

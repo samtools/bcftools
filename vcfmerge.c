@@ -1777,7 +1777,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"info-rules",1,0,'i'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:1:2O:i:l:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:O:i:l:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;

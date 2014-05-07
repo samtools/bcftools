@@ -526,8 +526,8 @@ int main_vcfconcat(int argc, char *argv[])
 
     static struct option loptions[] = 
     {
-        {"allow-overlaps",1,0,'a'},
-        {"ligate",1,0,'l'},
+        {"allow-overlaps",0,0,'a'},
+        {"ligate",0,0,'l'},
         {"output-type",1,0,'O'},
         {"file-list",1,0,'f'},
         {"min-PQ",1,0,'q'},

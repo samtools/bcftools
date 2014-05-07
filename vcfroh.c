@@ -799,7 +799,7 @@ int main_vcfroh(int argc, char *argv[])
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"genetic-map",1,0,'m'},
-        {"fwd-bwd",1,0,'f'},
+        {"fwd-bwd",0,0,'f'},
         {"biallelic-sites",0,0,'b'},
         {"skip-indels",0,0,'I'},
         {0,0,0,0}
