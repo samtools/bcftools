@@ -28,7 +28,7 @@
 
 typedef struct _vcmp_t vcmp_t;
 
-vcmp_t *vcmp_init();
+vcmp_t *vcmp_init(void);
 void vcmp_destroy(vcmp_t *vcmp);
 
 /*
