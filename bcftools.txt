@@ -275,6 +275,11 @@ demand. The original calling model can be invoked with the *-c* option.
     output all alternate alleles present in the alignments even if they do not
     appear in any of the genotypes 
 
+*-f, --format-fields* 'list'::
+    comma-separated list of FORMAT fields to output for each sample. Currently
+    GQ and GP fields are supported. For convenience, the fields can be given
+    as lower case letters.
+
 *-M, --keep-masked-ref*::
     output sites where REF allele is N
 
