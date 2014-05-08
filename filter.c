@@ -752,7 +752,10 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
             char *se = list[i];
             while ( *se && !isspace(*se) ) se++;
             *se = 0;
-            khash_str2int_inc(tok->hash,list[i]);
+            if ( !khash_str2int_has_key(tok->hash,list[i]) )
+                khash_str2int_inc(tok->hash,list[i]);
+            else
+                free(list[i]);
         }
         free(list);
         return 0;
