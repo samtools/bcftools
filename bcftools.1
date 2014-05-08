@@ -644,8 +644,12 @@ calling\&. The trio genotype calling maximizes likelihood of a particular combin
 .RS 4
 with
 \fB\-c\fR, accept variant if P(ref|D) <
-\fIfloat\fR\&. With
-\fB\-m\fR, accept another ALT allele if P(chi^2)>=1\-\fIfloat\fR
+\fIfloat\fR\&.
+.RE
+.PP
+\fB\-P, \-\-prior\fR \fIfloat\fR
+.RS 4
+expected substitution rate, or 0 to disable the prior\&.
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIfile\fR|\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -772,7 +776,7 @@ is true\&. For valid expressions see
 .PP
 \fB\-m, \-\-mode\fR [\fI+x\fR]
 .RS 4
-define behaviour at sites with existing FILTER annotations\&. The default mode replaces existing filters of failed sites with a new FILTER string while leaving sites which pass untouched when non\-empty and setting to "PASS" when the FILTER string is absent\&. The "" mode appends new FILTER strings of failed sites instead of replacing them\&. The "x" mode resets filters of sites which pass to "PASS"\&. Modes "" and "x" can both be set\&.
+define behaviour at sites with existing FILTER annotations\&. The default mode replaces existing filters of failed sites with a new FILTER string while leaving sites which pass untouched when non\-empty and setting to "PASS" when the FILTER string is absent\&. The "+" mode appends new FILTER strings of failed sites instead of replacing them\&. The "x" mode resets filters of sites which pass to "PASS"\&. Modes "+" and "x" can both be set\&.
 .RE
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
@@ -1933,7 +1937,7 @@ MAX, MIN, AVG
 .RS 4
 .\}
 .nf
-%%QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
+%QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
 .fi
 .if n \{\
 .RE
@@ -1943,7 +1947,7 @@ MAX, MIN, AVG
 .RS 4
 .\}
 .nf
-%%QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
+%QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
 .fi
 .if n \{\
 .RE

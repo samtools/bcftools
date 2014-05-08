@@ -81,7 +81,7 @@ typedef struct
 	//  uint32_t *trio_aux;
 	//  char *prior_file, **subsam;
 	//  uint8_t *ploidy;
-	//  double theta, pref, indel_frac, min_smpl_frac, min_lrt, min_ma_lrt;
+	//  double theta, pref, indel_frac, min_smpl_frac, min_lrt;
     // Permutation tests
     //  int n_perm, *seeds;
     //  double min_perm_p;
@@ -362,6 +362,28 @@ void parse_novel_rate(args_t *args, const char *str)
     else error("Could not parse --novel-rate %s\n", str);
 }
 
+static int parse_format_flag(const char *str)
+{
+    int flag = 0;
+    const char *ss = str;
+    while ( *ss )
+    {
+        const char *se = ss;
+        while ( *se && *se!=',' ) se++;
+        if ( !strncasecmp(ss,"GQ",se-ss) ) flag |= CALL_FMT_GQ;
+        else if ( !strncasecmp(ss,"GP",se-ss) ) flag |= CALL_FMT_GP;
+        else 
+        {
+            fprintf(stderr,"Could not parse \"%s\"\n", str);
+            exit(1);
+        }
+        if ( !*se ) break;
+        ss = se + 1;
+    }
+    return flag;
+}
+
+
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
@@ -383,6 +405,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
+    fprintf(stderr, "   -f, --format-fields <list>      output format fields: GQ,GP (lowercase allowed) []\n");
     fprintf(stderr, "   -M, --keep-masked-ref           keep sites with masked reference allele (REF=N)\n");
     fprintf(stderr, "   -V, --skip-variants <type>      skip indels/snps\n");
     fprintf(stderr, "   -v, --variants-only             output variant sites only\n");
@@ -392,7 +415,8 @@ static void usage(args_t *args)
     fprintf(stderr, "   -C, --constrain <str>           one of: alleles, trio (see manual)\n");
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
     fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
-    fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5] or another allele accepted if P(chi^2)>=1-FLOAT with -m [1e-2]\n");
+    fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5]\n");
+    fprintf(stderr, "   -P, --prior <float>             mutation rate [1e-3]\n");
     fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
     fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
 
@@ -418,17 +442,16 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.pref       = 0.5;
     args.aux.min_perm_p = 0.01;
     args.aux.min_lrt    = 1;
-    args.aux.min_ma_lrt = 1 - 1e-2;
     args.flag           = CF_ACGT_ONLY;
     args.aux.trio_Pm_SNPs = 1 - 1e-8;
     args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
 
-    float p_arg = -1;
     int i, c, samples_is_file = 0;
 
     static struct option loptions[] = 
     {
         {"help",0,0,'h'},
+        {"format-fields",1,0,'f'},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
@@ -445,16 +468,19 @@ int main_vcfcall(int argc, char *argv[])
         {"constrain",1,0,'C'},
         {"multiallelic-caller",0,0,'m'},
         {"pval-threshold",1,0,'p'},
+        {"prior",1,0,'P'},
         {"chromosome-X",0,0,'X'},
         {"chromosome-Y",0,0,'Y'},
         {"novel-rate",1,0,'n'},
         {0,0,0,0}
     };
 
-	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:", loptions, NULL)) >= 0) 
+    char *tmp = NULL;
+	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
+            case 'f': args.aux.output_tags |= parse_format_flag(optarg); break;
             case 'M': args.flag &= ~CF_ACGT_ONLY; break;     // keep sites where REF is N
             case 'N': args.flag |= CF_ACGT_ONLY; break;      // omit sites where first base in REF is N (the new default)
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
@@ -482,7 +508,10 @@ int main_vcfcall(int argc, char *argv[])
                       else error("Unknown skip category \"%s\" (-S argument must be \"snps\" or \"indels\")\n", optarg);
                       break;
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
-            case 'p': p_arg = atof(optarg); break;
+            case 'p': args.aux.pref = atof(optarg); break;
+            case 'P': args.aux.theta = strtod(optarg,&tmp);
+                      if ( *tmp ) error("Could not parse, expected float argument: -P %s\n", optarg);
+                      break;
             case 'n': parse_novel_rate(&args,optarg); break;
             case 'r': args.regions = optarg; break;
             case 'R': args.regions = optarg; args.regions_is_file = 1; break;
@@ -515,7 +544,6 @@ int main_vcfcall(int argc, char *argv[])
     if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c or -m options can be given\n");
     if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected -c or -m option\n");
 	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
-    if ( p_arg!=-1 ) { args.aux.pref = p_arg; args.aux.min_ma_lrt = 1 - p_arg; }  // only one is actually used
     if ( args.aux.flag & CALL_CONSTR_ALLELES )
     {
         if ( !args.targets ) error("Expected -t with \"-C alleles\"\n");

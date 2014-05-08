@@ -36,6 +36,8 @@
 #define CALL_CONSTR_ALLELES (1<<3)
 #define CALL_CHR_X          (1<<4)
 #define CALL_CHR_Y          (1<<5)
+#define CALL_FMT_GQ         (1<<6)
+#define CALL_FMT_GP         (1<<7)
 
 #define FATHER 0
 #define MOTHER 1
@@ -52,7 +54,6 @@ typedef struct _ccall_t ccall_t;
 typedef struct
 {
     // mcall only
-    double min_ma_lrt;  // variant accepted if P(chi^2)>=FLOAT [0.99]
     float *qsum;            // QS(sum) values
     int nqsum, npdg;
     int *als_map, nals_map; // mapping from full set of alleles to trimmed set of alleles (old -> new)
@@ -64,15 +65,17 @@ typedef struct
     int ntrio[5][5];        // possible trio genotype combinations and their counts; first idx:
     uint16_t *trio[5][5];   //  family type, second index: allele count (2-4, first two are unused)
     double *GLs;
-    float *GQs;             // VCF FORMAT genotype qualities
+    float *GPs;             // FORMAT/GP: posterior probabilities
+    int32_t *GQs;           // FORMAT/GQ: genotype qualities
     int32_t *itmp;          // temporary int array, used for new PLs with CALL_CONSTR_ALLELES
-    int n_itmp;
+    int n_itmp, nGPs;
     vcmp_t *vcmp;
     double trio_Pm_SNPs, trio_Pm_del, trio_Pm_ins;      // P(mendelian) for trio calling, see mcall_call_trio_genotypes()
     int32_t *ugts, *cgts;   // unconstraind and constrained GTs
+    uint32_t output_tags;
 
     // ccall only
-    double indel_frac, theta, min_lrt, min_perm_p; 
+    double indel_frac, min_perm_p, min_lrt; 
     double prior_type, pref;
     double ref_lk, lk_sum;
     int ngrp1_samples, n_perm;
@@ -93,6 +96,7 @@ typedef struct
     int32_t *gts, ac[4];    // GTs and AC (w)
     double *pdg;            // PLs converted to P(D|G)
     float *anno16; int n16; // see anno[16] in bam2bcf.h
+    double theta;           // prior
 }
 call_t;
 

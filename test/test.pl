@@ -28,6 +28,7 @@ test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.out');
 test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.none.out',args=>'-m none');
 test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.both.out',args=>'-m both');
 test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.all.out',args=>'-m all');
+test_vcf_merge($opts,in=>['merge.3.a','merge.3.b'],out=>'merge.3.out',args=>'-i TR:sum,TA:sum,TG:sum');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');

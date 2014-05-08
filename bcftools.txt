@@ -316,7 +316,10 @@ demand. The original calling model can be invoked with the *-c* option.
     given, the same mutation rate Pn is used for SNPs and indels.
 
 *-p, --pval-threshold* 'float'::
-    with *-c*, accept variant if P(ref|D) < 'float'. With *-m*, accept another ALT allele if P(chi^2)>=1-'float'
+    with *-c*, accept variant if P(ref|D) < 'float'.
+
+*-P, --prior* 'float'::
+    expected substitution rate, or 0 to disable the prior.
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -401,7 +404,7 @@ And similarly here, the second is filtered:
     define behaviour at sites with existing FILTER annotations. The default
     mode replaces existing filters of failed sites with a new FILTER string
     while leaving sites which pass untouched when non-empty and setting to
-    "PASS" when the FILTER string is absent. The "+" mode appends new FILTER
+    "PASS" when the FILTER string is absent. The "\+" mode appends new FILTER
     strings of failed sites instead of replacing them. The "x" mode resets
     filters of sites which pass to "PASS". Modes "+" and "x" can both be set.
 
@@ -1088,9 +1091,9 @@ These filtering expressions are accepted by *<<filter,filter>>* and
         
     %MIN(DP)>10 & %MIN(DV)>3
     
-    %%QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
+    %QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
     
-    %%QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
+    %QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
     
     %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
     
