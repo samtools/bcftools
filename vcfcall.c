@@ -46,7 +46,7 @@ void error(const char *format, ...);
 #endif
 
 #define CF_NO_GENO      1
-//                      (1<<1)
+#define CF_INS_MISSED   (1<<1)
 #define CF_CCALL        (1<<2)
 //                      (1<<3)
 //                      (1<<4)
@@ -72,6 +72,7 @@ typedef struct
     char *regions, *targets;    // regions to process
     int regions_is_file, targets_is_file;
 
+    bcf1_t *missed_line;
     call_t aux;     // parameters and temporary data
 
     int argc;
@@ -238,6 +239,40 @@ static char **read_samples(call_t *call, const char *fn, int is_file, int *_n)
     return smpls;
 }
 
+static void init_missed_line(args_t *args)
+{
+    int i;
+    for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++)
+    {
+        args->aux.gts[i*2]   = bcf_gt_missing;
+        args->aux.gts[i*2+1] = bcf_int32_vector_end;
+    }
+    args->missed_line = bcf_init1();
+    bcf_update_genotypes(args->aux.hdr, args->missed_line, args->aux.gts, 2*bcf_hdr_nsamples(args->aux.hdr));
+    bcf_float_set_missing(args->missed_line->qual);
+}
+
+static void print_missed_line(struct _bcf_sr_regions_t *regs, void *data)
+{
+    args_t *args = (args_t*) data;
+    call_t *call = &args->aux;
+    bcf1_t *missed = args->missed_line;
+
+    char *ss = regs->line.s;
+    int i = 0;
+    while ( i<args->aux.srs->targets_als-1 && *ss )
+    {
+        if ( *ss=='\t' ) i++;
+        ss++;
+    }
+    if ( !*ss ) error("Could not parse: [%s] (%d)\n", regs->line.s,args->aux.srs->targets_als);
+
+    missed->rid  = bcf_hdr_name2id(call->hdr,regs->seq_names[regs->prev_seq]);
+    missed->pos  = regs->start;
+    bcf_update_alleles_str(call->hdr, missed,ss);
+
+    bcf_write1(args->out_fh, call->hdr, missed);
+}
 
 static void init_data(args_t *args)
 {
@@ -248,6 +283,12 @@ static void init_data(args_t *args)
     {
         if ( bcf_sr_set_targets(args->aux.srs, args->targets, args->targets_is_file, args->aux.flag&CALL_CONSTR_ALLELES ? 3 : 0)<0 )
             error("Failed to read the targets: %s\n", args->targets);
+
+        if ( args->aux.flag&CALL_CONSTR_ALLELES && args->flag&CF_INS_MISSED )
+        {
+            args->aux.srs->targets->missed_reg_handler = print_missed_line;
+            args->aux.srs->targets->missed_reg_data = args;
+        }
     }
     if ( args->regions )
     {
@@ -318,6 +359,8 @@ static void init_data(args_t *args)
 
     bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
     bcf_hdr_write(args->out_fh, args->aux.hdr);
+
+    if ( args->flag&CF_INS_MISSED ) init_missed_line(args);
 }
 
 static void destroy_data(args_t *args)
@@ -332,6 +375,7 @@ static void destroy_data(args_t *args)
         for (i=0; i<args->aux.nfams; i++) free(args->aux.fams[i].name);
         free(args->aux.fams);
     }
+    if ( args->missed_line ) bcf_destroy(args->missed_line);
     free(args->samples);
     free(args->samples_map);
     free(args->aux.ploidy);
@@ -406,6 +450,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "   -f, --format-fields <list>      output format fields: GQ,GP (lowercase allowed) []\n");
+    fprintf(stderr, "   -i, --insert-missed             output also sites missed by mpileup but present in -T\n");
     fprintf(stderr, "   -M, --keep-masked-ref           keep sites with masked reference allele (REF=N)\n");
     fprintf(stderr, "   -V, --skip-variants <type>      skip indels/snps\n");
     fprintf(stderr, "   -v, --variants-only             output variant sites only\n");
@@ -460,6 +505,7 @@ int main_vcfcall(int argc, char *argv[])
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"keep-alts",0,0,'A'},
+        {"insert-missed",0,0,'i'},
         {"skip-Ns",0,0,'N'},            // now the new default
         {"keep-masked-refs",0,0,'M'},
         {"skip-variants",1,0,'V'},
@@ -476,7 +522,7 @@ int main_vcfcall(int argc, char *argv[])
     };
 
     char *tmp = NULL;
-	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:i", loptions, NULL)) >= 0) 
     {
 		switch (c) 
         {
@@ -485,6 +531,7 @@ int main_vcfcall(int argc, char *argv[])
             case 'N': args.flag |= CF_ACGT_ONLY; break;      // omit sites where first base in REF is N (the new default)
             case 'A': args.aux.flag |= CALL_KEEPALT; break;
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
+            case 'i': args.flag |= CF_INS_MISSED; break;
             case 'v': args.aux.flag |= CALL_VARONLY; break;
             case 'O': 
                       switch (optarg[0]) {
@@ -546,11 +593,11 @@ int main_vcfcall(int argc, char *argv[])
 	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
     if ( args.aux.flag & CALL_CONSTR_ALLELES )
     {
-        if ( !args.targets ) error("Expected -T with \"-C alleles\"\n");
+        if ( !args.targets ) error("Expected -t or -T with \"-C alleles\"\n");
         if ( !(args.flag & CF_MCALL) ) error("The \"-C alleles\" mode requires -m\n");
     }
     if ( args.aux.flag & CALL_CHR_X && args.aux.flag & CALL_CHR_Y ) error("Only one of -X or -Y should be given\n");
-
+    if ( args.flag & CF_INS_MISSED && !(args.aux.flag&CALL_CONSTR_ALLELES) ) error("The -i option requires -C alleles\n");
     init_data(&args);
 
     while ( bcf_sr_next_line(args.aux.srs) )
@@ -591,6 +638,7 @@ int main_vcfcall(int argc, char *argv[])
         // Output
         bcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
     }
+    if ( args.flag & CF_INS_MISSED ) bcf_sr_regions_flush(args.aux.srs->targets);
     destroy_data(&args);
 	return 0;
 }

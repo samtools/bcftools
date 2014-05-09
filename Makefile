@@ -47,7 +47,7 @@ version.h:
 
 force:
 
-%.o: %.c $(HTSDIR)/htslib/vcf.h
+%.o: %.c $(HTSDIR)/htslib/vcf.h $(HTSDIR)/htslib/synced_bcf_reader.h
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
 test: $(PROG) plugins test/test-rbuf
