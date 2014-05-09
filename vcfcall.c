@@ -546,7 +546,7 @@ int main_vcfcall(int argc, char *argv[])
 	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
     if ( args.aux.flag & CALL_CONSTR_ALLELES )
     {
-        if ( !args.targets ) error("Expected -t with \"-C alleles\"\n");
+        if ( !args.targets ) error("Expected -T with \"-C alleles\"\n");
         if ( !(args.flag & CF_MCALL) ) error("The \"-C alleles\" mode requires -m\n");
     }
     if ( args.aux.flag & CALL_CHR_X && args.aux.flag & CALL_CHR_Y ) error("Only one of -X or -Y should be given\n");
