@@ -1201,8 +1201,24 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         if ( !fmt_map[i] ) continue;
         if ( !key ) key = files->readers[i].header->id[BCF_DT_ID][fmt_map[i]->id].key;
         type = fmt_map[i]->type;
-        if ( IS_VL_G(files->readers[i].header, fmt_map[i]->id) ) { length = BCF_VL_G; nsize = out->n_allele*(out->n_allele + 1)/2; break; }
-        if ( IS_VL_A(files->readers[i].header, fmt_map[i]->id) ) { length = BCF_VL_A; nsize = out->n_allele - 1; break; }
+        if ( IS_VL_G(files->readers[i].header, fmt_map[i]->id) )
+        { 
+            length = BCF_VL_G; 
+            nsize = out->n_allele*(out->n_allele + 1)/2; 
+            int nals_ori = files->readers[i].buffer[0]->n_allele;
+            if ( fmt_map[i]->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori ) 
+                error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
+            break; 
+        }
+        if ( IS_VL_A(files->readers[i].header, fmt_map[i]->id) )
+        {
+            length = BCF_VL_A;
+            nsize = out->n_allele - 1;
+            int nals_ori = files->readers[i].buffer[0]->n_allele;
+            if ( fmt_map[i]->n != nals_ori-1 ) 
+                error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
+            break;
+        }
         if ( fmt_map[i]->n > nsize ) nsize = fmt_map[i]->n;
     }
 
@@ -1236,7 +1252,6 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                 continue; \
             } \
             assert( ma->has_line[i] ); \
-            /* if ( !ma->has_line[i] ) continue; */ \
             bcf1_t *line    = reader->buffer[0]; \
             src_type_t *src = (src_type_t*) fmt_ori->p; \
             if ( (length!=BCF_VL_G && length!=BCF_VL_A) || (line->n_allele==out->n_allele && !ma->d[i][0].als_differ) ) \
@@ -1252,7 +1267,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                         tgt++; src++; \
                     } \
                     for (k=l; k<nsize; k++) { tgt_set_vector_end; tgt++; } \
-                    for (k=l; k<fmt_ori->n; k++) { src++; } \
+                    src += fmt_ori->n - l; \
                 } \
                 ismpl += bcf_hdr_nsamples(hdr); \
                 continue; \
