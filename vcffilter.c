@@ -79,9 +79,11 @@ args_t;
 static void init_data(args_t *args)
 {
     args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
-
     args->hdr = args->files->readers[0].header;
-    if ( args->soft_filter )
+    args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
+
+    // -i or -e: append FILTER line
+    if ( args->soft_filter && args->filter_logic )
     {
         kstring_t flt_name = {0,0,0};
         if ( strcmp(args->soft_filter,"+") )
@@ -109,15 +111,26 @@ static void init_data(args_t *args)
         int ret = bcf_hdr_printf(args->hdr, "##FILTER=<ID=%s,Description=\"Set if %s: %s\">", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", tmp.s);
         if ( ret!=0 )
             error("Failed to append header line: ##FILTER=<ID=%s,Description=\"Set if %s: %s\">\n", flt_name.s,args->filter_logic & FLT_INCLUDE ? "not true" : "true", tmp.s);
-        free(tmp.s);
-
-        args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
         args->flt_fail = bcf_hdr_id2int(args->hdr,BCF_DT_ID,flt_name.s); assert( args->flt_fail>=0 );
         free(flt_name.s);
+        free(tmp.s);
     }
 
     if ( args->snp_gap || args->indel_gap )
     {
+        if ( !args->filter_logic && args->soft_filter && strcmp(args->soft_filter,"+") )
+        {
+            kstring_t tmp = {0,0,0};
+            if ( args->snp_gap ) kputs("\"SnpGap\"", &tmp);
+            if ( args->indel_gap ) 
+            {
+                if ( tmp.s ) kputs(" and ", &tmp);
+                kputs("\"IndelGap\"", &tmp);
+            }
+            fprintf(stderr,"Warning: using %s filter name instead of \"%s\"\n", tmp.s,args->soft_filter);
+            free(tmp.s);
+        }
+
         rbuf_init(&args->rbuf, 100);
         args->rbuf_lines = (bcf1_t**) calloc(args->rbuf.m, sizeof(bcf1_t*));
         if ( args->snp_gap )
@@ -212,6 +225,8 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid ) 
             flush_buffer(args, args->rbuf.n); // new chromosome, flush everything
 
+        assert( args->rbuf.n<args->rbuf.m );
+
         // Insert the new record in the buffer. The line would be overwritten in
         // the next bcf_sr_next_line call, therefore we need to swap it with an
         // unused one
@@ -237,9 +252,10 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         line->d.var[0].n = len;
     }
 
-    int k_flush = 0;
+    int k_flush = 1;
     if ( args->indel_gap )
     {
+        k_flush = 0;
         // Find indels which are too close to each other
         int last_to = -1;
         for (i=-1; rbuf_next(&args->rbuf,&i); )
@@ -289,9 +305,10 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         return;
     }
 
-    int j_flush = 0;
+    int j_flush = 1;
     if ( args->snp_gap )
     {
+        j_flush = 0;
         int last_from = line->pos;
         for (i=-1; rbuf_next(&args->rbuf,&i); )
         {
