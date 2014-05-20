@@ -37,6 +37,10 @@
 // genotypes is reported instead.
 #define FLAT_PDG_FOR_MISSING 0
 
+// Estimate QS (combined quality and allele frequencies) from PLs
+#define QS_FROM_PDG 0
+
+
 void qcall_init(call_t *call) { return; }
 void qcall_destroy(call_t *call) { return; }
 int qcall(call_t *call, bcf1_t *rec) 
@@ -413,6 +417,37 @@ void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unse
         PLs += n_gt;
         pdg += n_gt;
     }
+}
+
+void estimate_qsum(call_t *call, bcf1_t *rec)
+{
+    double *pdg  = call->pdg;
+    int ngts = rec->n_allele*(rec->n_allele+1)/2;
+    int i,k, nsmpl = bcf_hdr_nsamples(call->hdr);
+
+    int nsum = 0;
+    hts_expand(float,2*rec->n_allele,call->nqsum,call->qsum);
+    for (i=0; i<rec->n_allele; i++) call->qsum[i] = 0;
+
+    for (i=0; i<nsmpl; i++)
+    {
+        float sum = 0;
+        for (k=0; k<rec->n_allele; k++)
+        {
+            int idx = bcf_alleles2gt(k,k);
+            sum += pdg[idx];
+            call->qsum[rec->n_allele + k] = pdg[idx];   // second part of the array used as temp storage
+        }
+        if ( sum!=0 )
+        {
+            nsum++;
+            for (k=0; k<rec->n_allele; k++)
+                call->qsum[k] += call->qsum[rec->n_allele + k]/sum;
+        }
+        pdg += ngts;
+    }
+    if ( nsum )
+        for (k=0; k<rec->n_allele; k++) call->qsum[k] /= nsum;
 }
 
 // Create mapping between old and new (trimmed) alleles
@@ -1240,29 +1275,33 @@ int mcall(call_t *call, bcf1_t *rec)
     hts_expand(double, call->nPLs, call->npdg, call->pdg);
     set_pdg(call->pl2p, call->PLs, call->pdg, nsmpl, ngts, unseen);
 
-    // Get sum of qualities
-    int nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
-    if ( nqs<=0 ) error("The QS annotation not present at %s:%d\n", bcf_seqname(call->hdr,rec),rec->pos+1);
-    if ( nqs < nals )
-    {
-        // Some of the listed alleles do not have the corresponding QS field. This is
-        // typically ref-only site with X in ALT.
+    #if QS_FROM_PDG
+        estimate_qsum(call, rec);
+    #else
+        // Get sum of qualities
+        int nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
+        if ( nqs<=0 ) error("The QS annotation not present at %s:%d\n", bcf_seqname(call->hdr,rec),rec->pos+1);
+        if ( nqs < nals )
+        {
+            // Some of the listed alleles do not have the corresponding QS field. This is
+            // typically ref-only site with X in ALT.
 
-        hts_expand(float,nals,call->nqsum,call->qsum);
-        for (i=nqs; i<nals; i++) call->qsum[i] = 0;
-    }
-    float qsum_tot = 0;
-    for (i=0; i<nals; i++) qsum_tot += call->qsum[i];
-    if ( !call->qsum[0] ) 
-    {
-        // As P(RR)!=0 even for QS(ref)=0, we set QS(ref) to a small value
-        // which is equivalent to a single high-quality reference read (BQ=32).
-        // We do this for mpileup outputs with unscaled QS values; if this is
-        // output from older mpileup, we use an arbitrary small value (1e-3)
-        call->qsum[0] = qsum_tot>2 ? 32 : 1e-3;
-        qsum_tot += call->qsum[0];
-    }
-    if ( qsum_tot ) for (i=0; i<nals; i++) call->qsum[i] /= qsum_tot;
+            hts_expand(float,nals,call->nqsum,call->qsum);
+            for (i=nqs; i<nals; i++) call->qsum[i] = 0;
+        }
+        float qsum_tot = 0;
+        for (i=0; i<nals; i++) qsum_tot += call->qsum[i];
+        if ( !call->qsum[0] ) 
+        {
+            // As P(RR)!=0 even for QS(ref)=0, we set QS(ref) to a small value
+            // which is equivalent to a single high-quality reference read (BQ=32).
+            // We do this for mpileup outputs with unscaled QS values; if this is
+            // output from older mpileup, we use an arbitrary small value (1e-3)
+            call->qsum[0] = qsum_tot>2 ? 32 : 1e-3;
+            qsum_tot += call->qsum[0];
+        }
+        if ( qsum_tot ) for (i=0; i<nals; i++) call->qsum[i] /= qsum_tot;
+    #endif
 
     // Find the best combination of alleles
     int out_als, nout =  mcall_find_best_alleles(call, nals, &out_als);
