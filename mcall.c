@@ -278,8 +278,9 @@ void mcall_init(call_t *call)
             for (i=0; i<bcf_hdr_nsamples(call->hdr); i++)
                 n += call->ploidy[i];
         }
-        double aM = 0;  // watterson factor
-        for (i=1; i<=n+1; i++) aM += 1./i;
+        // Watterson factor, here aM_1 = aM_2 = 1
+        double aM = 1;
+        for (i=2; i<n; i++) aM += 1./i;
         call->theta *= aM;
         if ( call->theta >= 1 )
         {
