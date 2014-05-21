@@ -99,15 +99,14 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
     char *seq = aux->seq; 
     int nref  = aux->nref;
     int nseq  = aux->nseq;
-    int nlen  = nref>nseq ? nref : nseq;
     int k     = (nref+1)*(nseq+1)-1;
     int kd    = nref+2;
     int i = k/(nref+1);
     int j = k - i*(nref+1);
     assert(i>0 && j>0);
     int l = k, ialn = 0, nout_ref = 0, nout_seq = 0, ipos = 0;
-    char *aln_ref = (char*) malloc(sizeof(char)*(nlen+1));
-    char *aln_seq = (char*) malloc(sizeof(char)*(nlen+1));
+    char *aln_ref = (char*) malloc(sizeof(char)*(k+1));
+    char *aln_seq = (char*) malloc(sizeof(char)*(k+1));
     while ( l>0 )
     {
         if ( j<=0 || mat[l].dir==1 )    // i
@@ -128,7 +127,7 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
             l--;
             j--;
         }
-        else     // m
+        else     // match or mismatch
         {
             aln_ref[ialn] = ref[nref-j];
             aln_seq[ialn] = seq[nseq-i]; 
@@ -276,7 +275,7 @@ static int align(args_t *args, aln_aux_t *aux)
     k = (nref+1)*(nseq+1)-1;
     int kmin = nref>nseq ? 2*(nref+1) - nseq : (nseq-nref)*(nref+1);    // skip the first row and column of the matrix, which are 0s
     int ipos = 0;
-    while (k>kmin && mat[k].dir==DM) { k -= kd; ipos++; }
+    while (k>kmin && mat[k].dir==DM && ref[ipos]==seq[ipos]) { k -= kd; ipos++; }
 
     i = k/(nref+1);             // seq[nseq-i]
     j = k - i*(nref+1);         // ref[nref-j]
@@ -431,8 +430,8 @@ int realign(args_t *args, bcf1_t *line)
 
         args->aln.ref  = ref;
         args->aln.seq  = args->tseq;
-        args->aln.nref = ref_winlen;
-        args->aln.nseq = i;
+        args->aln.nref = ref_winlen;    // reflen which goes into realignment: VCF ref + #win bases which precede
+        args->aln.nseq = i;             // same as reflen but for alt
 
         int ret = align(args, &args->aln);
         if ( ret<0 )
@@ -448,14 +447,16 @@ int realign(args_t *args, bcf1_t *line)
             return -1;
         }
 
-        // fprintf(stderr, "%s  \t nref=%d\n", ref, ref_winlen);
-        // fprintf(stderr, "%s  \t nseq=%d\n", args->tseq, i);
-        // fprintf(stderr, "pos=%d win=%d  ipos=%d lref=%d lseq=%d\n", line->pos+1, win, args->aln.ipos, args->aln.lref, args->aln.lseq);
-        // fprintf(stderr, "-> "); for (k=args->aln.ipos; k<args->aln.lref; k++) fprintf(stderr, "%c", ref[k]); fprintf(stderr, "\n");
-        // fprintf(stderr, "-> "); for (k=args->aln.ipos; k<args->aln.lseq; k++) fprintf(stderr, "%c", args->tseq[k]); fprintf(stderr, "\n");
-        // fprintf(stderr, "\n"); 
+        #if 0
+            fprintf(stderr, "%s  \t nref=%d\n", ref, ref_winlen);
+            fprintf(stderr, "%s  \t nseq=%d\n", args->tseq, i);
+            fprintf(stderr, "pos=%d win=%d  ipos=%d lref=%d lseq=%d\n", line->pos+1, win, args->aln.ipos, args->aln.lref, args->aln.lseq);
+            fprintf(stderr, "-> "); for (k=args->aln.ipos; k<args->aln.lref; k++) fprintf(stderr, "%c", ref[k]); fprintf(stderr, "\n");
+            fprintf(stderr, "-> "); for (k=args->aln.ipos; k<args->aln.lseq; k++) fprintf(stderr, "%c", args->tseq[k]); fprintf(stderr, "\n");
+            fprintf(stderr, "\n"); 
+        #endif
 
-        ipos[j] = args->aln.ipos;   // position before the first difference (w.r.t. the window)
+        ipos[j] = args->aln.ipos;   // 0-based position before the first difference (w.r.t. the window)
         iref[j] = args->aln.lref;   // length of the REF alignment (or the index after the last aligned position)
         iseq[j] = args->aln.lseq;
         if ( max_ref < iref[j] ) max_ref = iref[j];
