@@ -33,18 +33,18 @@
       </header>
       <section>
         <p>This is the official development repository for BCFtools. It
-        contains all the vcf* commands which previously lived in the htslib
+        contains all the "vcf..." commands which previously lived in the htslib
         repository (such as vcfcheck, vcfmerge, vcfisec, etc.) and the samtools
         BCF calling from bcftools subdirectory of samtools. BCFtools are meant
-        as a faster replacement for most of the <a href="http://vcftools.sourceforge.net/perl_module.html">perl VCFtools</a> commands</p>
+        as a faster replacement for most of the <a href="http://vcftools.sourceforge.net/perl_module.html">perl VCFtools</a> commands</p>.
       </section>
       <section>
         <h3>Download and compiling</h3>
         The most up to date version of BCFtools can be obtain from github
         using these commands:
         <ul style='list-style-type:none;margin-left:-1em;'>
-            <li>git clone --branch=bcftools+calling git://github.com/samtools/htslib.git
-            <li>git clone git://github.com/samtools/bcftools.git
+            <li>git clone --branch=develop git://github.com/samtools/htslib.git
+            <li>git clone --branch=develop git://github.com/samtools/bcftools.git
             <li>cd bcftools; make
             <li>./bcftools
         </ul>
