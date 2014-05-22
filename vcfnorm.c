@@ -80,18 +80,21 @@ typedef struct
     uint8_t *tmp_arr1, *tmp_arr2;
     int ntmp_arr1, ntmp_arr2;
     kstring_t *tmp_str;
+    kstring_t *tmp_als, tmp_als_str;
+    int ntmp_als;
     rbuf_t rbuf;
     int buf_win;            // maximum distance between two records to consider
     int aln_win;            // the realignment window size (maximum repeat size)
     bcf_srs_t *files;       // using the synced reader only for -r option
     bcf_hdr_t *hdr;
     faidx_t *fai;
-	char **argv, *ref_fname, *vcf_fname, *region;
-	int argc, rmdup, output_type, check_ref;
-    int nchanged, nskipped, ntotal, mrows_op, mrows_collapse;
+    char **argv, *ref_fname, *vcf_fname, *region, *targets;
+    int argc, rmdup, output_type, check_ref;
+    int nchanged, nskipped, ntotal, mrows_op, mrows_collapse, parsimonious;
 }
 args_t;
 
+#if OLD_WAY
 void _vcfnorm_debug_print(aln_aux_t *aux)
 {
     cell_t *mat = aux->mat;
@@ -417,6 +420,7 @@ int realign(args_t *args, bcf1_t *line)
     int *iseq = args->aln.lseq_arr;
     int min_pos = INT_MAX, max_ref = 0;
 
+    static int aln_win_warned = 0;
     int j, k;
     for (j=1; j<line->n_allele; j++)
     {
@@ -455,7 +459,13 @@ int realign(args_t *args, bcf1_t *line)
             fprintf(stderr, "-> "); for (k=args->aln.ipos; k<args->aln.lseq; k++) fprintf(stderr, "%c", args->tseq[k]); fprintf(stderr, "\n");
             fprintf(stderr, "\n"); 
         #endif
-
+        
+        if ( !args->aln.ipos && !aln_win_warned ) 
+        {
+            fprintf(stderr,"Warning: bigger -w is needed [todo: improve me, %s:%d %s,%s]\n",
+                    bcf_seqname(args->hdr,line),line->pos+1, line->d.allele[0],line->d.allele[j]);
+            aln_win_warned = 1;
+        }
         ipos[j] = args->aln.ipos;   // 0-based position before the first difference (w.r.t. the window)
         iref[j] = args->aln.lref;   // length of the REF alignment (or the index after the last aligned position)
         iseq[j] = args->aln.lseq;
@@ -470,51 +480,189 @@ int realign(args_t *args, bcf1_t *line)
     // strong, consider cases like GATG -> GACT 
     //  assert( nmv>=0 );
     line->pos -= nmv;
-
-    // todo: 
-    //      - modify the alleles only if needed. For now redoing always to catch errors
-    //      - in some cases the realignment does not really improve things, see the case at 2:114 in test/norm.vcf
-
+    
+    hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
     // REF
-    kstring_t str = {0,0,0};
-    kputsn_(&ref[min_pos], max_ref-min_pos, &str); 
-    kputc_(0, &str);
+    args->tmp_als[0].l = 0;
+    kputsn(&ref[min_pos], max_ref-min_pos, &args->tmp_als[0]); 
     // ALTs
+    int min_len = args->tmp_als[0].l;
     for (k=1; k<line->n_allele; k++)
     {
+        args->tmp_als[k].l = 0;
+
         // prefix the sequence with REF bases if the other alleles were aligned more to the left
         int nprefix = ipos[k] - min_pos;
-        if ( nprefix ) kputsn_(&ref[min_pos], nprefix, &str);
+        if ( nprefix ) kputsn(&ref[min_pos], nprefix, &args->tmp_als[k]);
 
         // the ALT sequence 
         int nseq = iseq[k] - ipos[k];
         if ( nseq )
         {
             char *alt = args->seq + (k-1)*len + ipos[k];
-            kputsn_(alt, nseq, &str);
+            kputsn(alt, nseq, &args->tmp_als[k]);
         }
 
         // suffix invoked by other deletions which must be added to match the REF
         int nsuffix = max_ref - iref[k];
-        if ( nsuffix ) kputsn_(&ref[iref[k]], nsuffix, &str);
-        kputc_(0, &str);
+        if ( nsuffix ) kputsn(&ref[iref[k]], nsuffix, &args->tmp_als[k]);
+
+        if ( min_len > args->tmp_als[k].l ) min_len = args->tmp_als[k].l;
     }
-    if ( memcmp(str.s,line->d.als,str.l) ) args->nchanged++;
+    free(ref);
 
     // create new block of alleles 
-    char *rmme = line->d.als;
-    line->d.allele[0] = line->d.als = str.s;
-    line->d.m_als = str.m;
-    char *t = str.s;
-    for (k=1; k<line->n_allele; k++)
+    args->tmp_als_str.l = 0;
+    if ( args->parsimonious )
     {
-        while (*t) t++;
-        line->d.allele[k] = ++t;
+        // check if we can trim from the left
+        for (i=0; i<args->tmp_als[0].l; i++)
+        {
+            for (k=1; k<line->n_allele; k++) 
+                if ( args->tmp_als[0].s[i]!=args->tmp_als[k].s[i] ) break;
+            if ( k!=line->n_allele ) break;
+        }
+        if ( i>=min_len ) i = min_len - 1;
+        if ( i>0 )  // can be left trimmed
+        {
+            for (k=0; k<line->n_allele; k++)
+            {
+                if (k>0) kputc(',',&args->tmp_als_str);
+                kputsn(args->tmp_als[k].s+i,args->tmp_als[k].l-i,&args->tmp_als_str);
+            }
+            kputc(0,&args->tmp_als_str);
+            line->pos += i;
+        }
+        // if REF allele has not changed, ALTs must be unchanged as well
+        else if ( !strcmp(line->d.allele[0],args->tmp_als[0].s) ) return 1;
     }
-    free(rmme);
-    free(ref);
+    else if ( !strcmp(line->d.allele[0],args->tmp_als[0].s) ) return 1;
+    if ( !args->tmp_als_str.l )
+    {
+        for (k=0; k<line->n_allele; k++)
+        {
+            if (k>0) kputc(',',&args->tmp_als_str);
+            kputsn(args->tmp_als[k].s,args->tmp_als[k].l,&args->tmp_als_str);
+        }
+    }
+    args->nchanged++;
+    bcf_update_alleles_str(args->hdr,line,args->tmp_als_str.s);
+
     return 1;
 }
+#else
+
+static int realign(args_t *args, bcf1_t *line)
+{
+    bcf_unpack(line, BCF_UN_STR);
+
+    // Sanity check REF
+    int nref, reflen = strlen(line->d.allele[0]);
+    char *ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
+    if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
+    if ( strcasecmp(ref,line->d.allele[0]) )
+    {
+        if ( args->check_ref==CHECK_REF_EXIT )
+            error("Reference allele mismatch at %s:%d .. '%s' vs '%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
+        if ( args->check_ref & CHECK_REF_WARN )
+            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+        free(ref);
+        return -1;
+    }
+    free(ref);
+    ref = NULL;
+
+    if ( line->n_allele == 1 ) return 0;    // a REF
+
+    // make a copy of each allele for trimming
+    int i;
+    hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
+    kstring_t *als = args->tmp_als;
+    for (i=0; i<line->n_allele; i++)
+    {
+        als[i].l = 0;
+        kputs(line->d.allele[i], &als[i]);
+    }
+
+
+    // trim from right
+    int ori_pos = line->pos;
+    while (1)
+    {
+        // is the rightmost base identical in all alleles?
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( als[0].s[ als[0].l-1 ]!=als[i].s[ als[i].l-1 ] ) break;
+        }
+        if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed
+
+        int pad_from_left = 0;
+        for (i=0; i<line->n_allele; i++) // trim all alleles
+        {
+            als[i].l--;
+            if ( !als[i].l ) pad_from_left = 1;
+        }
+        if ( pad_from_left )
+        {
+            int npad = line->pos >= args->aln_win ? args->aln_win : line->pos;
+            free(ref);
+            ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-npad, line->pos-1, &nref);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-npad+1);
+            for (i=0; i<line->n_allele; i++)
+            {
+                ks_resize(&als[i], als[i].l + npad);
+                if ( als[i].l ) memmove(als[i].s+npad,als[i].s,als[i].l);
+                memcpy(als[i].s,ref,npad);
+                als[i].l += npad;
+            }
+            line->pos -= npad;
+        }
+    }
+    free(ref);
+
+    // trim from left
+    int ntrim_left = 0;
+    while (1)
+    {
+        // is the first base identical in all alleles?
+        int min_len = als[0].l - ntrim_left;
+        for (i=1; i<line->n_allele; i++)
+        {
+            if ( als[0].s[ntrim_left]!=als[i].s[ntrim_left] ) break;
+            if ( min_len > als[i].l - ntrim_left ) min_len = als[i].l - ntrim_left;
+        }
+        if ( i!=line->n_allele || min_len==1 ) break; // there are differences, cannot be trimmed
+        ntrim_left++;
+    }
+    if ( ntrim_left )
+    {
+        for (i=0; i<line->n_allele; i++)
+        {
+            memmove(als[i].s,als[i].s+ntrim_left,als[i].l-ntrim_left);
+            als[i].l -= ntrim_left;
+        }
+        line->pos += ntrim_left;
+    }
+
+    // Have the alleles changed?
+    als[0].s[ als[0].l ] = 0;  // in order for strcmp to work
+    if ( ori_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return 1;
+
+    // Create new block of alleles and update
+    args->tmp_als_str.l = 0;
+    for (i=0; i<line->n_allele; i++)
+    {
+        if (i>0) kputc(',',&args->tmp_als_str);
+        kputsn(als[i].s,als[i].l,&args->tmp_als_str);
+    }
+    args->tmp_als_str.s[ args->tmp_als_str.l ] = 0;
+    bcf_update_alleles_str(args->hdr,line,args->tmp_als_str.s);
+    args->nchanged++;
+
+    return 1;
+}
+
+#endif
 
 static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int ialt, bcf1_t *dst)
 {
@@ -1569,6 +1717,10 @@ static void destroy_data(args_t *args)
     free(args->blines);
     for (i=0; i<args->mmaps; i++)
         free(args->maps[i].map);
+    for (i=0; i<args->ntmp_als; i++)
+        free(args->tmp_als[i].s);
+    free(args->tmp_als);
+    free(args->tmp_als_str.s);
     if ( args->tmp_str )
     {
         for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) free(args->tmp_str[i].s);
@@ -1639,49 +1791,54 @@ static void normalize_vcf(args_t *args)
 static void usage(void)
 {
     fprintf(stderr, "\n");
-	fprintf(stderr, "About:   Left-align and normalize indels; check if REF alleles match the reference;\n");
-	fprintf(stderr, "         split multiallelic sites into multiple rows; recover multiallelics from\n");
-	fprintf(stderr, "         multiple rows.\n");
-	fprintf(stderr, "Usage:   bcftools norm [options] -f <ref.fa> <in.vcf.gz>\n");
+    fprintf(stderr, "About:   Left-align and normalize indels; check if REF alleles match the reference;\n");
+    fprintf(stderr, "         split multiallelic sites into multiple rows; recover multiallelics from\n");
+    fprintf(stderr, "         multiple rows.\n");
+    fprintf(stderr, "Usage:   bcftools norm [options] -f <ref.fa> <in.vcf.gz>\n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -c, --check-ref <e|w|x>           check REF alleles and exit (e), warn (w), exclude (x) bad sites [e]\n");
-	fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
-	fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
-	fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -c, --check-ref <e|w|x>           check REF alleles and exit (e), warn (w), exclude (x) bad sites [e]\n");
+    fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
+    fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
+    fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "    -O, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>         restrict to regions listed in a file\n");
-	fprintf(stderr, "    -w, --win <int,int>               alignment window and buffer window [50,1000]\n");
-	fprintf(stderr, "\n");
-	exit(1);
+    fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -w, --site-win <int>              buffer for sorting lines which changed position during realignment [1000]\n");
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
 int main_vcfnorm(int argc, char *argv[])
 {
-	int c;
-	args_t *args  = (args_t*) calloc(1,sizeof(args_t));
-	args->argc    = argc; args->argv = argv;
+    int c;
+    args_t *args  = (args_t*) calloc(1,sizeof(args_t));
+    args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
-    args->aln_win = 50;
+    args->aln_win = 100;
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
-    int region_is_file = 0;
+    int region_is_file  = 0;
+    int targets_is_file = 0;
 
-	static struct option loptions[] = 
-	{
-		{"help",0,0,'h'},
-		{"fasta-ref",1,0,'f'},
-		{"multiallelics",1,0,'m'},
-		{"regions",1,0,'r'},
-		{"regions-file",1,0,'R'},
-		{"win",1,0,'w'},
-		{"remove-duplicates",0,0,'D'},
+    static struct option loptions[] = 
+    {
+        {"help",0,0,'h'},
+        {"fasta-ref",1,0,'f'},
+        {"multiallelics",1,0,'m'},
+        {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
+        {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
+        {"site-win",1,0,'W'},
+        {"remove-duplicates",0,0,'D'},
         {"output-type",1,0,'O'},
         {"check-ref",1,0,'c'},
-		{0,0,0,0}
-	};
-	while ((c = getopt_long(argc, argv, "hr:R:f:w:DO:c:m:",loptions,NULL)) >= 0) {
+        {0,0,0,0}
+    };
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:DO:c:m:t:T:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'm':
                 if ( optarg[0]=='-' ) args->mrows_op = MROWS_SPLIT;
@@ -1710,16 +1867,18 @@ int main_vcfnorm(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 }
                 break;
-			case 'D': args->rmdup = 1; break;
-			case 'f': args->ref_fname = optarg; break;
-			case 'r': args->region = optarg; break;
-			case 'R': args->region = optarg; region_is_file = 1; break;
-            case 'w': { if (sscanf(optarg,"%d,%d",&args->aln_win,&args->buf_win)!=2) error("Could not parse --win %s\n", optarg); break; }
-			case 'h': 
-			case '?': usage();
-			default: error("Unknown argument: %s\n", optarg);
-		}
-	}
+            case 'D': args->rmdup = 1; break;
+            case 'f': args->ref_fname = optarg; break;
+            case 'r': args->region = optarg; break;
+            case 'R': args->region = optarg; region_is_file = 1; break;
+            case 't': args->targets = optarg; break;
+            case 'T': args->targets = optarg; targets_is_file = 1; break;
+            case 'w': args->buf_win = atoi(optarg); break;
+            case 'h': 
+            case '?': usage();
+            default: error("Unknown argument: %s\n", optarg);
+        }
+    }
     if ( argc>optind+1 ) usage();
     if ( !args->ref_fname && !args->mrows_op && !args->rmdup ) usage();
     char *fname = NULL;
@@ -1732,8 +1891,13 @@ int main_vcfnorm(int argc, char *argv[])
 
     if ( args->region )
     {
-        if ( bcf_sr_set_targets(args->files, args->region,region_is_file, 0)<0 )
-            error("Failed to read the targets: %s\n", args->region);
+        if ( bcf_sr_set_regions(args->files, args->region,region_is_file)<0 )
+            error("Failed to read the regions: %s\n", args->region);
+    }
+    if ( args->targets )
+    {
+        if ( bcf_sr_set_targets(args->files, args->targets,targets_is_file, 0)<0 )
+            error("Failed to read the targets: %s\n", args->targets);
     }
 
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
@@ -1742,7 +1906,7 @@ int main_vcfnorm(int argc, char *argv[])
     normalize_vcf(args);
     destroy_data(args);
     bcf_sr_destroy(args->files);
-	free(args);
-	return 0;
+    free(args);
+    return 0;
 }
 
