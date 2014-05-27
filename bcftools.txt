@@ -658,8 +658,15 @@ multiple rows.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-w, --win* 'INT','INT'::
-    alignment window and buffer window [50,1000]
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-w, --site-win* 'INT'::
+    maximum distance between two records to consider when locally
+    sorting variants which changed position during the realignment
 
 
 [[query]]

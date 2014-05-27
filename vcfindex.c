@@ -104,7 +104,7 @@ int main_vcfindex(int argc, char *argv[])
     {
         if ( bcf_index_build(fname, min_shift) != 0 ) 
         {
-            fprintf(stderr,"[E::%s] bcf_index_build failed: Is the BCF compressed?\n", __func__);
+            fprintf(stderr,"[E::%s] bcf_index_build failed: %s\n", __func__, fname);
             return 1;
         }        
     }
@@ -112,7 +112,7 @@ int main_vcfindex(int argc, char *argv[])
     {
         if ( tbx_index_build(fname, min_shift, &tbx_conf_vcf) != 0 )
         {
-            fprintf(stderr,"[E::%s] tbx_index_build failed: Is the file bgzip-compressed?\n", __func__);
+            fprintf(stderr,"[E::%s] tbx_index_build failed for %s\n", __func__, fname);
             return 1;
         }
     }

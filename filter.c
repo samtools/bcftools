@@ -763,7 +763,8 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
     }
 
     int is_fmt = -1;
-    if ( !strncmp(str,"FMT/",4) || !strncmp(str,"FORMAT/",4) ) { str += 4; len -= 4; is_fmt = 1; }
+    if ( !strncmp(str,"FMT/",4) ) { str += 4; len -= 4; is_fmt = 1; }
+    else if ( !strncmp(str,"FORMAT/",7) ) { str += 7; len -= 7; is_fmt = 1; }
     else
     {
         if ( !strncmp(str,"INFO/",5) ) { is_fmt = 0; str += 5; len -= 5; }
