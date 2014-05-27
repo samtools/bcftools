@@ -337,7 +337,12 @@ void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unse
         double sum = 0;
         for (j=0; j<n_gt; j++)
         {
-            assert( PLs[j]!=bcf_int32_vector_end ); // expecting diploid genotype likelihoods
+            if ( PLs[j]==bcf_int32_vector_end ) 
+            { 
+                // We expect diploid genotype likelihoods. If not diploid, treat as missing
+                j = 0;
+                break;
+            }
             if ( PLs[j]==bcf_int32_missing ) break;
             assert( PLs[j]<256 );
             pdg[j] = pl2p[ PLs[j] ];
