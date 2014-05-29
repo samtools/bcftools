@@ -424,6 +424,12 @@ void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unse
     }
 }
 
+/*
+    Allele frequency estimated as:
+        #A  = \sum_i (2*P_AA + P_AB)
+        F_A = #A / ( #A + #B )
+    where i runs across all samples
+*/
 void estimate_qsum(call_t *call, bcf1_t *rec)
 {
     double *pdg  = call->pdg;
