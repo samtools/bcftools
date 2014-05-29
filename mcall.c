@@ -428,31 +428,28 @@ void estimate_qsum(call_t *call, bcf1_t *rec)
 {
     double *pdg  = call->pdg;
     int ngts = rec->n_allele*(rec->n_allele+1)/2;
-    int i,k, nsmpl = bcf_hdr_nsamples(call->hdr);
+    int i,nsmpl = bcf_hdr_nsamples(call->hdr);
 
-    int nsum = 0;
-    hts_expand(float,2*rec->n_allele,call->nqsum,call->qsum);
+    hts_expand(float,rec->n_allele,call->nqsum,call->qsum);
     for (i=0; i<rec->n_allele; i++) call->qsum[i] = 0;
 
     for (i=0; i<nsmpl; i++)
     {
-        float sum = 0;
-        for (k=0; k<rec->n_allele; k++)
+        int a, b, k = 0;
+        for (a=0; a<rec->n_allele; a++)
         {
-            int idx = bcf_alleles2gt(k,k);
-            sum += pdg[idx];
-            call->qsum[rec->n_allele + k] = pdg[idx];   // second part of the array used as temp storage
-        }
-        if ( sum!=0 )
-        {
-            nsum++;
-            for (k=0; k<rec->n_allele; k++)
-                call->qsum[k] += call->qsum[rec->n_allele + k]/sum;
+            for (b=0; b<=a; b++)
+            {
+                call->qsum[a] += pdg[k];
+                call->qsum[b] += pdg[k];
+                k++;
+            }
         }
         pdg += ngts;
     }
-    if ( nsum )
-        for (k=0; k<rec->n_allele; k++) call->qsum[k] /= nsum;
+    float sum = 0;
+    for (i=0; i<rec->n_allele; i++) sum += call->qsum[i];
+    if ( sum ) for (i=0; i<rec->n_allele; i++) call->qsum[i] /= sum;
 }
 
 // Create mapping between old and new (trimmed) alleles
