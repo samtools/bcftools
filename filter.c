@@ -41,7 +41,7 @@ typedef struct _token_t
     char *tag;          // for debugging and printout only, VCF tag name
     float threshold;    // filtering threshold
     int hdr_id;         // BCF header lookup ID
-    int idx;            // 1-based index to VCF vector
+    int idx;            // 0-based index to VCF vectors
     void (*setter)(filter_t *, bcf1_t *, struct _token_t *);
     int (*comparator)(struct _token_t *, struct _token_t *, int op_type, bcf1_t *);
     void *hash;         // test presence of str value in the hash via comparator
@@ -302,7 +302,7 @@ static int filters_cmp_id(token_t *atok, token_t *btok, int op_type, bcf1_t *lin
  *  bcf_get_info_value() - get single INFO value, int or float
  *  @line:      BCF line
  *  @info_id:   tag ID, as returned by bcf_hdr_id2int
- *  @ivec:      0-based index to retrieve
+ *  @ivec:      0-based index to retrieve, -1 when single value is expected
  *  @vptr:      pointer to memory location of sufficient size to accomodate
  *              info_id's type
  *
@@ -323,6 +323,8 @@ static int bcf_get_info_value(bcf1_t *line, int info_id, int ivec, void *value)
         else if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 ) *((int*)value) = info->v1.i;
         return 1;
     }
+
+    if ( ivec<0 ) ivec = 0;
 
     #define BRANCH(type_t, is_missing, is_vector_end, out_type_t) { \
         type_t *p = (type_t *) info->vptr; \
@@ -398,6 +400,19 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
             }
         }
         if ( is_missing ) tok->nvalues = 0;
+        else if ( tok->idx >= 0 )
+        {
+            int nsmpl = bcf_hdr_nsamples(flt->hdr);
+            int nvals = tok->nvalues / nsmpl;
+            if ( tok->idx >= nvals )
+                tok->nvalues = 0;  // the index is too big
+            else
+            {
+                for (i=0; i<nsmpl; i++)
+                    tok->values[i] = tok->values[i*nvals+tok->idx];
+                tok->nvalues = nsmpl;
+            }
+        }
     }
     tok->nsamples = tok->nvalues;
 }
@@ -405,20 +420,95 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     if ( (tok->nvalues=bcf_get_format_float(flt->hdr,line,tok->tag,&tok->values,&tok->mvalues))<=0 ) 
         tok->nvalues = tok->nsamples = 0;   // missing values
+    else if ( tok->idx >= 0 )
+    {
+        int i, nsmpl, nvals;
+        nsmpl = bcf_hdr_nsamples(flt->hdr);
+        nvals = tok->nvalues / nsmpl;
+        if ( tok->idx >= nvals )
+            tok->nsamples = tok->nvalues = 0;  // the index is too big
+        else
+        {
+            for (i=0; i<nsmpl; i++)
+                tok->values[i] = tok->values[i*nvals+tok->idx];
+            tok->nsamples = tok->nvalues = nsmpl;
+        }
+    }
 }
 static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     int ndim = 0;
     bcf_get_format_char(flt->hdr,line,tok->tag,&tok->str_value,&ndim);
     if ( !ndim ) 
-        tok->nvalues = tok->nsamples = 0;
-    else
     {
-        tok->nvalues = tok->nsamples = bcf_hdr_nsamples(flt->hdr);
-        tok->values[0] = ndim;
+        tok->nvalues = tok->nsamples = 0;
+        return;
     }
-}
 
+    int nsmpl = bcf_hdr_nsamples(flt->hdr);
+    if ( tok->idx < 0 ) // scalar
+    {
+        tok->nvalues = tok->nsamples = nsmpl;
+        tok->values[0] = ndim;
+        return;
+    }
+
+    // vector
+    int i; 
+    int blen = ndim/nsmpl;
+    for (i=0; i<nsmpl; i++)
+    {
+        char *ss = tok->str_value + i*blen;
+        int is = 0, ivec = 0;
+        while ( ivec<tok->idx && is<blen && ss[is] )
+        {
+            if ( ss[is]==',' ) ivec++;
+            is++;
+        }
+        if ( ivec!=tok->idx || is==blen || !ss[is] )
+        {
+            ndim = 0;
+            break;
+        }
+        int ie = is;
+        while ( ie<blen && ss[ie] && ss[ie]!=',' ) ie++;
+        if ( is ) memmove(ss,&ss[is],ie-is);
+        if ( blen-(ie-is) ) memset(ss+ie-is,0,blen-(ie-is));
+    }
+    if ( !ndim ) 
+    {
+        tok->nvalues = tok->nsamples = 0;
+        return;
+    }
+    tok->nvalues = tok->nsamples = nsmpl;
+    tok->values[0] = ndim;
+}
+static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    bcf_fmt_t *fmt = bcf_get_fmt(flt->hdr, line, "GT");
+    if ( !fmt )
+    {
+        tok->nvalues = tok->nsamples = 0;
+        return;
+    }
+    int i, blen = 3, nsmpl = bcf_hdr_nsamples(flt->hdr);
+    kstring_t str; str.s = tok->str_value; str.m = tok->values[0] * nsmpl; str.l = 0;
+    for (i=0; i<nsmpl; i++)
+    {
+        int plen = str.l;
+        bcf_format_gt(fmt, i, &str);
+        assert( str.l - plen <= blen ); // increase blen if this fails
+        plen = str.l - plen;
+        while ( plen<blen ) 
+        {
+            kputc_(0, &str);
+            plen++;
+        }
+    }
+    tok->nvalues = tok->nsamples = nsmpl;
+    tok->values[0] = blen;
+    tok->str_value = str.s;
+}
 
 static void set_max(filter_t *flt, bcf1_t *line, token_t *tok) 
 { 
@@ -719,6 +809,7 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
     tok->tok_type  = TOK_VAL;
     tok->hdr_id    = -1;
     tok->pass_site = -1;
+    tok->idx       = -1;
 
     // is this a string constant?
     if ( str[0]=='"' || str[0]=='\'' )
@@ -804,7 +895,11 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
     tok->hdr_id = bcf_hdr_id2int(filter->hdr,BCF_DT_ID,tmp.s);
     if ( tok->hdr_id>=0 ) 
     {
-        if ( is_fmt )
+        if ( is_fmt && !strcmp("GT",tmp.s) )
+        {
+            tok->setter = &filters_set_genotype_string; tok->is_str = 1;
+        }
+        else if ( is_fmt )
         {
             if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
                 error("No such FORMAT field: %s\n", tmp.s);
@@ -852,8 +947,6 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
             {
                 if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
                     error("No such FORMAT field: %s\n", tmp.s);
-                if ( bcf_hdr_id2number(filter->hdr,BCF_HL_FMT,tok->hdr_id)!=1 )
-                    error("Error: Arrays must be subscripted, e.g. %s[0]\n", tmp.s);
                 switch ( bcf_hdr_id2type(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
                 {
                     case BCF_HT_INT:  tok->setter = &filters_set_format_int; break;
@@ -873,8 +966,10 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
                     case BCF_HT_STR:  error("fixme: String vectors not supported yet\n"); break;
                     default: error("[%s:%d %s] FIXME\n", __FILE__,__LINE__,__FUNCTION__);
                 }
+                filter->max_unpack |= BCF_UN_INFO;
             }
             tok->idx = atoi(&tmp.s[i+1]);
+            tok->tag = strdup(tmp.s);
             if ( tmp.s ) free(tmp.s);
             return 0;
         }
@@ -1059,7 +1154,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         if ( out[i].tok_type==TOK_MAX )      { out[i].setter = set_max; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_MIN ) { out[i].setter = set_min; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_AVG ) { out[i].setter = set_avg; out[i].tok_type = TOK_FUNC; }
-        hts_expand(float,1,out[i].mvalues,out[i].values);
+        hts_expand0(float,1,out[i].mvalues,out[i].values);
         if ( filter->nsamples )
         {
             out[i].pass_samples = (uint8_t*)malloc(filter->nsamples);

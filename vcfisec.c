@@ -249,7 +249,7 @@ static void init_data(args_t *args)
         if ( !args->fh_log ) error("%s/README.txt: %s\n", args->prefix, strerror(errno));
 
         fprintf(args->fh_log,"This file was produced by vcfisec.\n");
-        fprintf(args->fh_log,"The command line was:\thtscmd %s ", args->argv[0]);
+        fprintf(args->fh_log,"The command line was:\tbcftools %s ", args->argv[0]);
         int i;
         for (i=1; i<args->argc; i++) fprintf(args->fh_log," %s",args->argv[i]);
         fprintf(args->fh_log,"\n\nUsing the following file names:\n");
