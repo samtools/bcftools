@@ -563,11 +563,8 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     if ( args->exons )
     {
         if ( !bcf_sr_regions_overlap(args->exons, bcf_seqname(reader->header,line),line->pos,line->pos) ) exon_overlap = 1;
-        if ( args->files->n_smpl )
-        {
-            hts_expand(uint8_t,line->n_allele,args->mtmp_frm,args->tmp_frm);
-            for (i=0; i<line->n_allele; i++) args->tmp_frm[i] = 0;
-        }
+        hts_expand(uint8_t,line->n_allele,args->mtmp_frm,args->tmp_frm);
+        for (i=0; i<line->n_allele; i++) args->tmp_frm[i] = 0;
     }
 
     for (i=1; i<line->n_allele; i++)
