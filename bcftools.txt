@@ -589,18 +589,22 @@ samples 'S1', 'S2' and 'S3' and file 'B.vcf.gz' containing samples 'S3' and
 and 'S4'.
 
 Note that it is responsibility of the user to ensure that the sample names are
-unique across all files. If they are not, the program will create a unique
-sample name by prepending index of the file as it appeared on the command line
-to the conflicting sample name (see '2:S3' in the above example). Sample names
-can be also given explicitly using the *--print-header* and
-*--use-header* options.
+unique across all files. If they are not, the program will exit with an error
+unless the option *--force-samples* is given.  Note that sample names can be
+also given explicitly using the *--print-header* and *--use-header* options.
 
 
-*--use-header* 'FILE'::
-    use the VCF header in the provided text 'FILE'
+*--force-samples*::
+    if the merged files contain duplicate samples names, proceed anyway.
+    Duplicate sample names will be resolved by prepending index of the file
+    as it appeared on the command line to the conflicting sample name (see
+    '2:S3' in the above example).
 
 *--print-header*::
     print only merged header and exit
+
+*--use-header* 'FILE'::
+    use the VCF header in the provided text 'FILE'
 
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*

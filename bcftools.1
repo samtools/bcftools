@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 05/22/2014
+.\"      Date: 06/05/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "05/22/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "06/05/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -1090,17 +1090,24 @@ Extract records private to A or B comparing by position only
 .sp
 Merge multiple VCF/BCF files from non\-overlapping sample sets to create one multi\-sample file\&. For example, when merging file \fIA\&.vcf\&.gz\fR containing samples \fIS1\fR, \fIS2\fR and \fIS3\fR and file \fIB\&.vcf\&.gz\fR containing samples \fIS3\fR and \fIS4\fR, the output file will contain four samples named \fIS1\fR, \fIS2\fR, \fIS3\fR, \fI2:S3\fR and \fIS4\fR\&.
 .sp
-Note that it is responsibility of the user to ensure that the sample names are unique across all files\&. If they are not, the program will create a unique sample name by prepending index of the file as it appeared on the command line to the conflicting sample name (see \fI2:S3\fR in the above example)\&. Sample names can be also given explicitly using the \fB\-\-print\-header\fR and \fB\-\-use\-header\fR options\&.
+Note that it is responsibility of the user to ensure that the sample names are unique across all files\&. If they are not, the program will exit with an error unless the option \fB\-\-force\-samples\fR is given\&. Note that sample names can be also given explicitly using the \fB\-\-print\-header\fR and \fB\-\-use\-header\fR options\&.
 .PP
-\fB\-\-use\-header\fR \fIFILE\fR
+\fB\-\-force\-samples\fR
 .RS 4
-use the VCF header in the provided text
-\fIFILE\fR
+if the merged files contain duplicate samples names, proceed anyway\&. Duplicate sample names will be resolved by prepending index of the file as it appeared on the command line to the conflicting sample name (see
+\fI2:S3\fR
+in the above example)\&.
 .RE
 .PP
 \fB\-\-print\-header\fR
 .RS 4
 print only merged header and exit
+.RE
+.PP
+\fB\-\-use\-header\fR \fIFILE\fR
+.RS 4
+use the VCF header in the provided text
+\fIFILE\fR
 .RE
 .PP
 \fB\-f, \-\-apply\-filters\fR \fILIST\fR

@@ -104,7 +104,7 @@ typedef struct
 {
     vcmp_t *vcmp;
     maux_t *maux;
-    int header_only, collapse, output_type;
+    int header_only, collapse, output_type, force_samples;
     char *header_fname, *regions_list, *info_rules, *file_list;
     info_rule_t *rules;
     int nrules;
@@ -418,7 +418,7 @@ static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, inf
 
 int bcf_hdr_sync(bcf_hdr_t *h);
 
-void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix)
+void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix, int force_samples)
 {
     // header lines
     bcf_hdr_combine(hw, hr);
@@ -431,6 +431,8 @@ void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix)
         if ( bcf_hdr_id2int(hw, BCF_DT_SAMPLE, name)!=-1 )
         {
             // there is a sample with the same name
+            if ( !force_samples ) error("Error: Duplicate sample names (%s), use --force-samples to proceed anyway.\n", name);
+
             int len = strlen(hr->samples[i]) + strlen(clash_prefix) + 1;
             name = (char*) malloc(sizeof(char)*(len+1));
             sprintf(name,"%s:%s",clash_prefix,hr->samples[i]);
@@ -1793,7 +1795,7 @@ void merge_vcf(args_t *args)
         for (i=0; i<args->files->nreaders; i++)
         {
             char buf[10]; snprintf(buf,10,"%d",i+1);
-            bcf_hdr_merge(args->out_hdr, args->files->readers[i].header,buf);
+            bcf_hdr_merge(args->out_hdr, args->files->readers[i].header,buf,args->force_samples);
         }
         bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_merge");
         bcf_hdr_sync(args->out_hdr);
@@ -1836,8 +1838,9 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "        --use-header <file>            use the provided header\n");
+    fprintf(stderr, "        --force-samples                resolve duplicate sample names\n");
     fprintf(stderr, "        --print-header                 print only the merged header and exit\n");
+    fprintf(stderr, "        --use-header <file>            use the provided header\n");
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
@@ -1866,6 +1869,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"apply-filters",1,0,'f'},
         {"use-header",1,0,1},
         {"print-header",0,0,2},
+        {"force-samples",0,0,3},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
@@ -1900,6 +1904,7 @@ int main_vcfmerge(int argc, char *argv[])
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
+            case  3 : args->force_samples = 1; break;
             case 'h': 
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
