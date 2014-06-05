@@ -349,7 +349,8 @@ static void check_gt(args_t *args)
     {
         if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
             error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
-        fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
+        if ( !args->no_PLs )
+            fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
         fake_pls = 1;
     }
 
@@ -541,7 +542,8 @@ static void cross_check_gts(args_t *args)
     {
         if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
             error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
-        fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
+        if ( !args->no_PLs )
+            fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
         fake_pls = 1;
     }
     if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "DP")<0 ) ignore_dp = 1;
