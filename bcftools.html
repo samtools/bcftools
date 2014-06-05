@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp143936"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp211280"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -274,7 +274,8 @@ demand. The original calling model can be invoked with the <span class="strong">
 <span class="strong"><strong>-f, --format-fields</strong></span> <span class="emphasis"><em>list</em></span>
 </span></dt><dd>
     comma-separated list of FORMAT fields to output for each sample. Currently
-    GQ and GP fields are supported.
+    GQ and GP fields are supported. For convenience, the fields can be given
+    as lower case letters.
 </dd><dt><span class="term">
 <span class="strong"><strong>-M, --keep-masked-ref</strong></span>
 </span></dt><dd>
@@ -581,18 +582,23 @@ multi-sample file.  For example, when merging file <span class="emphasis"><em>A.
 samples <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span> and <span class="emphasis"><em>S3</em></span> and file <span class="emphasis"><em>B.vcf.gz</em></span> containing samples <span class="emphasis"><em>S3</em></span> and
 <span class="emphasis"><em>S4</em></span>, the output file will contain four samples named <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span>, <span class="emphasis"><em>S3</em></span>, <span class="emphasis"><em>2:S3</em></span>
 and <span class="emphasis"><em>S4</em></span>.</p><p>Note that it is responsibility of the user to ensure that the sample names are
-unique across all files. If they are not, the program will create a unique
-sample name by prepending index of the file as it appeared on the command line
-to the conflicting sample name (see <span class="emphasis"><em>2:S3</em></span> in the above example). Sample names
-can be also given explicitly using the <span class="strong"><strong>--print-header</strong></span> and
-<span class="strong"><strong>--use-header</strong></span> options.</p><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>--use-header</strong></span> <span class="emphasis"><em>FILE</em></span>
+unique across all files. If they are not, the program will exit with an error
+unless the option <span class="strong"><strong>--force-samples</strong></span> is given.  Note that sample names can be
+also given explicitly using the <span class="strong"><strong>--print-header</strong></span> and <span class="strong"><strong>--use-header</strong></span> options.</p><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>--force-samples</strong></span>
 </span></dt><dd>
-    use the VCF header in the provided text <span class="emphasis"><em>FILE</em></span>
+    if the merged files contain duplicate samples names, proceed anyway.
+    Duplicate sample names will be resolved by prepending index of the file
+    as it appeared on the command line to the conflicting sample name (see
+    <span class="emphasis"><em>2:S3</em></span> in the above example).
 </dd><dt><span class="term">
 <span class="strong"><strong>--print-header</strong></span>
 </span></dt><dd>
     print only merged header and exit
+</dd><dt><span class="term">
+<span class="strong"><strong>--use-header</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    use the VCF header in the provided text <span class="emphasis"><em>FILE</em></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-f, --apply-filters</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
@@ -657,9 +663,18 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-w, --win</strong></span> <span class="emphasis"><em>INT</em></span>,<span class="emphasis"><em>INT</em></span>
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
-    alignment window and buffer window [50,1000]
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-w, --site-win</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    maximum distance between two records to consider when locally
+    sorting variants which changed position during the realignment
 </dd></dl></div></div><div class="refsect2" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]"><a id="query"></a><h3>bcftools query [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>file.vcf.gz</em></span> […]]</h3><p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annots</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
