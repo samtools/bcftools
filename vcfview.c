@@ -317,9 +317,13 @@ int subset_vcf(args_t *args, bcf1_t *line)
         else if ( args->gt_type==GT_NEED_MISSING && !nmiss ) return 0;
     }
 
-    int minor_ac = args->ac[0];
-    for (i=1; i<line->n_allele; i++)
-        if (args->ac[i]<minor_ac) { minor_ac = args->ac[i]; }
+    int minor_ac = 0;
+    if ( args->calc_ac )
+    {
+        minor_ac = args->ac[0];
+        for (i=1; i<line->n_allele; i++)
+            if (args->ac[i]<minor_ac) { minor_ac = args->ac[i]; }
+    }
 
     if (args->min_ac)
     {
