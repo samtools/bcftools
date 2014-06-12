@@ -1057,8 +1057,8 @@ chromosome separately), plots graphs and creates a PDF presentation.
 EXPRESSIONS
 -----------
 
-These filtering expressions are accepted by *<<filter,filter>>* and
-*<<view,view>>* commands.
+These filtering expressions are accepted by *<<annotate,annotate>>*,
+*<<filter,filter>>*, *<<query,query>>* and *<<view,view>>* commands.
 
 .Valid expressions may contain: 
 
@@ -1120,6 +1120,7 @@ These filtering expressions are accepted by *<<filter,filter>>* and
     %ID!=@~/file    .. skip lines with ID present in the ~/file
 
 --
+
 
 
 PERFORMANCE

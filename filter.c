@@ -48,11 +48,11 @@ typedef struct _token_t
 
     // modified on filter evaluation at each VCF line
     float *values;      // In case str_value is set, values[0] is one sample's string length
-    char *str_value;    //  and values[0]*nvalues gives the total length;
+    char *str_value;    //  and values[0]*nsamples gives the total length;
     int is_str;
     int pass_site;          // -1 not applicable, 0 fails, >0 pass
     uint8_t *pass_samples;  // status of individual samples
-    int nsamples;           // 0 for scalars, otherwise number of samples
+    int nsamples;           // number of samples
     int nvalues, mvalues;   // number of used values, n=0 for missing values, n=1 for scalars
 }
 token_t;
@@ -237,8 +237,12 @@ static void filters_set_info(filter_t *flt, bcf1_t *line, token_t *tok)
         tok->nvalues = 0;
     else if ( line->d.info[i].type==BCF_BT_CHAR )
     {
-        tok->str_value = (char*)line->d.info[i].vptr;       // string is typically not null-terminated
-        tok->values[0] = line->d.info[i].len;
+        int n = line->d.info[i].len;
+        int m = (int)tok->values[0];
+        hts_expand(char,n+1,m,tok->str_value);
+        memcpy(tok->str_value,line->d.info[i].vptr,n);
+        tok->str_value[n] = 0;
+        tok->values[0] = m;
         tok->nvalues   = 1;
     }
     else if ( line->d.info[i].type==BCF_BT_FLOAT )
@@ -437,51 +441,49 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
 }
 static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    int ndim = 0;
-    bcf_get_format_char(flt->hdr,line,tok->tag,&tok->str_value,&ndim);
-    if ( !ndim ) 
-    {
-        tok->nvalues = tok->nsamples = 0;
-        return;
-    }
+    int ndim = tok->nsamples * (int)tok->values[0];
+    int ret = bcf_get_format_char(flt->hdr,line,tok->tag,&tok->str_value,&ndim);
 
     int nsmpl = bcf_hdr_nsamples(flt->hdr);
+    ndim /= nsmpl;
+    tok->values[0] = ndim;
+
+    if ( ret<=0 ) return;
+
     if ( tok->idx < 0 ) // scalar
     {
         tok->nvalues = tok->nsamples = nsmpl;
-        tok->values[0] = ndim;
         return;
     }
 
     // vector
     int i; 
-    int blen = ndim/nsmpl;
     for (i=0; i<nsmpl; i++)
     {
-        char *ss = tok->str_value + i*blen;
+        char *ss = tok->str_value + i*ndim;
         int is = 0, ivec = 0;
-        while ( ivec<tok->idx && is<blen && ss[is] )
+        while ( ivec<tok->idx && is<ndim && ss[is] )
         {
             if ( ss[is]==',' ) ivec++;
             is++;
         }
-        if ( ivec!=tok->idx || is==blen || !ss[is] )
+        if ( ivec!=tok->idx || is==ndim || !ss[is] )
         {
-            ndim = 0;
-            break;
+            ss[0] = '.';
+            ss[1] = 0;
+            continue;
         }
         int ie = is;
-        while ( ie<blen && ss[ie] && ss[ie]!=',' ) ie++;
+        while ( ie<ndim && ss[ie] && ss[ie]!=',' ) ie++;
         if ( is ) memmove(ss,&ss[is],ie-is);
-        if ( blen-(ie-is) ) memset(ss+ie-is,0,blen-(ie-is));
+        if ( ndim-(ie-is) ) memset(ss+ie-is,0,ndim-(ie-is));
     }
     if ( !ndim ) 
     {
-        tok->nvalues = tok->nsamples = 0;
+        tok->nvalues = 0;
         return;
     }
     tok->nvalues = tok->nsamples = nsmpl;
-    tok->values[0] = ndim;
 }
 static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
@@ -764,11 +766,12 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
     if ( !atok->nvalues ) { atok->nsamples = 0; return 0; }
     if ( !btok->nvalues ) { atok->nsamples = atok->nvalues = 0; return 0; }
     int i, pass_site = 0;
-    if ( atok->nvalues==btok->nvalues )
+    if ( atok->nsamples && atok->nsamples==btok->nsamples )
     {
-        char *astr = atok->str_value, *bstr = btok->str_value;
-        for (i=0; i<atok->nvalues; i++)
+        for (i=0; i<atok->nsamples; i++)
         {
+            char *astr = atok->str_value + i*(int)atok->values[0];
+            char *bstr = btok->str_value + i*(int)btok->values[0];
             char *aend = astr + (int)atok->values[0], *a = astr;
             while ( a<aend && *a ) a++;
             char *bend = bstr + (int)btok->values[0], *b = bstr;
@@ -776,31 +779,32 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
             if ( a-astr != b-bstr ) atok->pass_samples[i] = logic==TOK_EQ ? 0 : 1;
             else atok->pass_samples[i] = logic==TOK_EQ ? !strncmp(astr,bstr,a-astr) : strncmp(astr,bstr,a-astr);
             if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
-            while ( astr<aend && !*astr ) astr++;
-            while ( bstr<bend && !*bstr ) bstr++;
         }
         if ( !atok->nsamples ) atok->nsamples = btok->nsamples;
     }
-    else if ( !atok->nsamples || !btok->nsamples )
+    else if ( !atok->nsamples && !btok->nsamples )
+    {
+        pass_site = logic==TOK_EQ ? !strcmp(atok->str_value,btok->str_value) : strcmp(atok->str_value,btok->str_value);
+    }
+    else
     {
         token_t *xtok, *ytok;
         if ( !atok->nsamples ) { xtok = atok; ytok = btok; }
         else { xtok = btok; ytok = atok; }
-        char *xstr = xtok->str_value, *ystr = ytok->str_value;
+        char *xstr = xtok->str_value;
         char *xend = xstr + (int)xtok->values[0], *x = xstr;
         while ( x<xend && *x ) x++;
-        for (i=0; i<ytok->nvalues; i++)
+        for (i=0; i<ytok->nsamples; i++)
         {
+            char *ystr = ytok->str_value + i*(int)ytok->values[0];
             char *yend = ystr + (int)ytok->values[0], *y = ystr;
             while ( y<yend && *y ) y++;
             if ( x-xstr != y-ystr ) atok->pass_samples[i] = logic==TOK_EQ ? 0 : 1;
             else atok->pass_samples[i] = logic==TOK_EQ ? !strncmp(xstr,ystr,x-xstr) : strncmp(xstr,ystr,x-xstr);
             if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
-            while ( ystr<yend && !*ystr ) ystr++;
         }
         if ( !atok->nsamples ) atok->nvalues = atok->nsamples = btok->nsamples;
     }
-    else error("[%s:%d %s] todo: Cannot compare vectors of different length\n", __FILE__,__LINE__,__FUNCTION__);
     return pass_site;
 }
 
@@ -1177,6 +1181,7 @@ void filter_destroy(filter_t *filter)
     int i;
     for (i=0; i<filter->nfilters; i++)
     {
+        //if ( filter->filters[i].key ) free(filter->filters[i].key);
         free(filter->filters[i].str_value);
         free(filter->filters[i].tag);
         free(filter->filters[i].values);
