@@ -297,9 +297,8 @@ static int filters_cmp_id(token_t *atok, token_t *btok, int op_type, bcf1_t *lin
         return ret ? 0 : 1;
     }
 
-    if ( op_type==TOK_EQ ) return !strcmp(btok->str_value,line->d.id);
-    return strcmp(btok->str_value,line->d.id);
-    return 0;
+    if ( op_type==TOK_EQ ) return strcmp(btok->str_value,line->d.id) ? 0 : 1;
+    return strcmp(btok->str_value,line->d.id) ? 1 : 0;
 }
 
 /**
@@ -448,7 +447,11 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
     ndim /= nsmpl;
     tok->values[0] = ndim;
 
-    if ( ret<=0 ) return;
+    if ( ret<=0 ) 
+    {
+        tok->nvalues = 0;
+        return;
+    }
 
     if ( tok->idx < 0 ) // scalar
     {
@@ -763,8 +766,8 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
 }
 static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // logic: TOK_EQ or TOK_NE
 {
-    if ( !atok->nvalues ) { atok->nsamples = 0; return 0; }
-    if ( !btok->nvalues ) { atok->nsamples = atok->nvalues = 0; return 0; }
+    if ( !atok->nvalues ) { return 0; }
+    if ( !btok->nvalues ) { atok->nvalues = 0; return 0; }
     int i, pass_site = 0;
     if ( atok->nsamples && atok->nsamples==btok->nsamples )
     {
@@ -784,7 +787,8 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
     }
     else if ( !atok->nsamples && !btok->nsamples )
     {
-        pass_site = logic==TOK_EQ ? !strcmp(atok->str_value,btok->str_value) : strcmp(atok->str_value,btok->str_value);
+        pass_site = strcmp(atok->str_value,btok->str_value) ? 0 : 1;
+        if ( logic!=TOK_EQ ) pass_site = pass_site ? 0 : 1;
     }
     else
     {

@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 06/05/2014
+.\"      Date: 06/12/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "06/05/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "06/12/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -1868,7 +1868,7 @@ Main title for the PDF\&.
 .RE
 .SH "EXPRESSIONS"
 .sp
-These filtering expressions are accepted by \fBfilter\fR and \fBview\fR commands\&.
+These filtering expressions are accepted by \fBannotate\fR, \fBfilter\fR, \fBquery\fR and \fBview\fR commands\&.
 .PP
 \fBValid expressions may contain:\fR
 .PP
@@ -2012,6 +2012,20 @@ MAX, MIN, AVG
 .\}
 .nf
 %ID!=@~/file    \&.\&. skip lines with ID present in the ~/file
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+\fBShell expansion:\fR
+.sp
+Note that expressions must often be quoted because some characters have special meaning in the shell\&. Please refer to the documentation of your shell for details\&. An example of expression enclosed in single quotes which cause that the whole expression is passed to the program as intended:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+bcftools view \-i \*(Aq%ID!="\&." & MAF[0]<0\&.01\*(Aq
 .fi
 .if n \{\
 .RE

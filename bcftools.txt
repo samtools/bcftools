@@ -1121,6 +1121,17 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
 --
 
+*Shell expansion:*
+
+Note that expressions must often be quoted because some characters 
+have special meaning in the shell.
+Please refer to the documentation of your shell for details.
+An example of expression enclosed in single quotes which cause
+that the whole expression is passed to the program as intended:
+
+--
+    bcftools view -i '%ID!="." & MAF[0]<0.01' 
+--
 
 
 PERFORMANCE
