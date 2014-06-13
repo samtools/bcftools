@@ -120,8 +120,13 @@ OPTIONS
     are: CHROM, POS, and,  optionally,  POS_TO,  where positions are 1-based
     and inclusive.  Uncompressed files are stored in memory, while
     bgzip-compressed and tabix-indexed region files are streamed.  Note that
-    sequence names must match exactly, "chr20" is not the same as "20".  This
-    option requires indexed VCF/BCF files.
+    sequence names must match exactly, "chr20" is not the same as "20".
+    Also note that chromosome ordering in 'FILE' will be respected,
+    the VCF will be processed in the order in which chromosomes first appear
+    in 'FILE'. However, within chromosomes, the VCF will always be
+    processed in ascending genomic coordinate order no matter what order they
+    appear in 'FILE'.
+    This option requires indexed VCF/BCF files. 
 
 *-s, --samples* 'LIST'::
     Comma-separated list of samples to include
