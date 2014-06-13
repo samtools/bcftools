@@ -1301,12 +1301,15 @@ int mcall(call_t *call, bcf1_t *rec)
         for (i=0; i<nals; i++) qsum_tot += call->qsum[i];
         if ( !call->qsum[0] ) 
         {
-            // As P(RR)!=0 even for QS(ref)=0, we set QS(ref) to a small value
-            // which is equivalent to a single high-quality reference read (BQ=32).
-            // We do this for mpileup outputs with unscaled QS values; if this is
-            // output from older mpileup, we use an arbitrary small value (1e-3)
-            call->qsum[0] = qsum_tot>2 ? 32 : 1e-3;
-            qsum_tot += call->qsum[0];
+            // As P(RR)!=0 even for QS(ref)=0, we set QS(ref) to a small value,
+            // an equivalent of a single reference read.
+            if ( bcf_get_info_int32(call->hdr, rec, "DP", &call->itmp, &call->n_itmp)!=1 ) 
+                error("Could not read DP at %s:%d\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1);
+            if ( call->itmp[0] )
+            {
+                call->qsum[0] = 1.0 / call->itmp[0] / nsmpl;
+                qsum_tot += call->qsum[0];
+            }
         }
         if ( qsum_tot ) for (i=0; i<nals; i++) call->qsum[i] /= qsum_tot;
     #endif
