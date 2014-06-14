@@ -269,6 +269,7 @@ sub test_vcf_check
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools stats -s - $$opts{tmp}/$args{in}.vcf.gz | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools stats -s - | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
 }
 sub test_vcf_merge
 {
@@ -281,7 +282,8 @@ sub test_vcf_merge
     }
     my $args  = exists($args{args}) ? $args{args} : '';
     my $files = join(' ',@files);
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge $args $files | grep -v ^##bcftools_merge");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge $args $files | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge -Ob $args $files | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_isec
 {
@@ -294,6 +296,7 @@ sub test_vcf_isec
     }
     my $files = join(' ',@files);
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} $files");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec -Ob $args{args} $files");
 }
 sub test_vcf_isec2
 {
@@ -306,13 +309,15 @@ sub test_vcf_isec2
     }
     my $files = join(' ',@files);
     bgzip_tabix($opts,file=>$args{tab_in},suffix=>'tab',args=>'-s 1 -b 2 -e 3');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -T $$opts{tmp}/$args{tab_in}.tab.gz $files 2>/dev/null | grep -v ^##bcftools_isec");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} -T $$opts{tmp}/$args{tab_in}.tab.gz $files 2>/dev/null | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec -Ob $args{args} -T $$opts{tmp}/$args{tab_in}.tab.gz $files 2>/dev/null | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_query
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools query $args{args} $$opts{tmp}/$args{in}.vcf.gz");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query $args{args}");
 }
 sub test_vcf_norm
 {
@@ -321,29 +326,36 @@ sub test_vcf_norm
     my $params = '';
     if ( exists($args{args}) ) { $params .= " $args{args}"; }
     if ( exists($args{fai} ) ) { $params .= " -f $$opts{path}/$args{fai}.fa"; }
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm $params $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_norm");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm $params $$opts{tmp}/$args{in}.vcf.gz | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools norm -Ob $params $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_view
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_view");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | grep -v ^##bcftools_");
+    unless ($args{args} =~ /-H/) {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
+    }
 }
 sub test_vcf_call
 {
     my ($opts,%args) = @_;
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_call");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_call_cAls
 {
     my ($opts,%args) = @_;
     bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -mA -C alleles -T $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_call");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -mA -C alleles -T $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -Ob -mA -C alleles -T $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_filter
 {
     my ($opts,%args) = @_;
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_filter");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_regions
 {
@@ -353,23 +365,27 @@ sub test_vcf_regions
     # regions vs targets, holding tab in memory
     my $query = q[%CHROM %POS %REF,%ALT\n];
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{path}/$args{in}.tab],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 
     # regions vs targets, reading tabix-ed tab
     cmd(qq[cat $$opts{path}/$args{in}.tab | bgzip -c > $$opts{tmp}/$args{in}.tab.gz]);
     cmd(qq[$$opts{bin}/bcftools tabix -f -s1 -b2 -e3 $$opts{tmp}/$args{in}.tab.gz]);
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.tab.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 
     # regions vs targets, holding bed in memory
     cmd(qq[cat $$opts{path}/$args{in}.tab | awk '{OFS="\\t"}{print \$1,\$2-1,\$3}' > $$opts{tmp}/$args{in}.bed]);
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 
     # regions vs targets, reading tabix-ed bed
     cmd(qq[cat $$opts{tmp}/$args{in}.bed | bgzip -c > $$opts{tmp}/$args{in}.bed.gz]);
     cmd(qq[$$opts{bin}/bcftools tabix -f -p bed $$opts{tmp}/$args{in}.bed.gz]);
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
+    test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 }
 sub test_usage
@@ -458,13 +474,15 @@ sub test_vcf_annotate
 {
     my ($opts,%args) = @_;
     bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -a $$opts{tmp}/$args{tab}.tab.gz -h $$opts{path}/$args{in}.hdr $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_annotate");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -a $$opts{tmp}/$args{tab}.tab.gz -h $$opts{path}/$args{in}.hdr $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -Ob -a $$opts{tmp}/$args{tab}.tab.gz -h $$opts{path}/$args{in}.hdr $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_annotate_plugins
 {
     my ($opts,%args) = @_;
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $args{args} $$opts{path}/$args{in}.vcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -Ob $args{args} $$opts{path}/$args{in}.vcf");
 }
 sub test_vcf_concat
 {
@@ -485,4 +503,5 @@ sub test_vcf_concat
         }
     }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat $args{args} $files | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools concat -Ob $args{args} $files | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
