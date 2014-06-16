@@ -637,7 +637,7 @@ static void init_columns(args_t *args)
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
             if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) )
             {
-                if ( args->files->require_index ) // reading annotations from a VCF, add a new header line
+                if ( args->tgts_is_vcf ) // reading annotations from a VCF, add a new header line
                 {
                     bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_INFO, str.s);
                     if ( !hrec ) error("The tag \"%s\" is not defined in %s\n", str.s,args->files->readers[1].fname);
@@ -678,26 +678,24 @@ static void init_data(args_t *args)
 
     if ( args->remove_annots ) init_remove_annots(args);
     if ( args->header_fname ) init_header_lines(args);
-    if ( args->columns ) init_columns(args);
-    if ( args->targets_fname )
+    if ( args->targets_fname && args->tgts_is_vcf ) 
     {
-        if ( args->tgts_is_vcf )   // reading annots from a VCF
-        {
-            if ( !bcf_sr_add_reader(args->files, args->targets_fname) )
-                error("Failed to open or the file not indexed: %s\n", args->targets_fname);
-        }
-        else
-        {
-            if ( !args->columns ) error("The -c option not given\n");
-            if ( args->chr_idx==-1 ) error("The -c CHROM option not given\n");
-            if ( args->from_idx==-1 ) error("The -c POS option not given\n");
-            if ( args->to_idx==-1 ) args->to_idx = -args->from_idx - 1; 
+        // reading annots from a VCF
+        if ( !bcf_sr_add_reader(args->files, args->targets_fname) )
+            error("Failed to open or the file not indexed: %s\n", args->targets_fname);
+    }
+    if ( args->columns ) init_columns(args);
+    if ( args->targets_fname && !args->tgts_is_vcf )
+    {
+        if ( !args->columns ) error("The -c option not given\n");
+        if ( args->chr_idx==-1 ) error("The -c CHROM option not given\n");
+        if ( args->from_idx==-1 ) error("The -c POS option not given\n");
+        if ( args->to_idx==-1 ) args->to_idx = -args->from_idx - 1; 
 
-            args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->from_idx,args->to_idx);
-            if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
-            if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
-            args->vcmp = vcmp_init();
-        }
+        args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->from_idx,args->to_idx);
+        if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
+        if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
+        args->vcmp = vcmp_init();
     }
     init_plugins(args);
 
