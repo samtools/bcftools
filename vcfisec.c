@@ -135,7 +135,7 @@ void isec_vcf(args_t *args)
 
     // When only one VCF is output, print VCF to stdout
     int out_std = 0;
-    if ( args->nwrite==1 ) out_std = 1;
+    if ( args->nwrite==1 && !args->prefix ) out_std = 1;
     if ( args->targets_list && files->nreaders==1 ) out_std = 1;
     if ( out_std ) 
     {
@@ -440,6 +440,11 @@ int main_vcfisec(int argc, char *argv[])
     {
         args->isec_op = OP_VENN;
         if ( !args->prefix ) error("Expected the -p option\n");
+        if ( args->write_files ) 
+        {
+            fprintf(stderr,"Note: The -n option not given, ignoring -w when creating Venn-like sets\n");
+            args->write_files = NULL;
+        }
     }
     if ( !args->targets_list )
     {
