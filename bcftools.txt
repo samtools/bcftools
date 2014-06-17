@@ -5,6 +5,9 @@
 //  a2x --doctype manpage --format manpage bcftools.txt 
 //  a2x --doctype manpage --format xhtml bcftools.txt
 //
+// Contributions are welcome, simply edit this file and send
+// a pull request or email the modified file directly.
+//
 
 bcftools(1)
 ===========
@@ -125,7 +128,8 @@ OPTIONS
     the VCF will be processed in the order in which chromosomes first appear
     in 'FILE'. However, within chromosomes, the VCF will always be
     processed in ascending genomic coordinate order no matter what order they
-    appear in 'FILE'.
+    appear in 'FILE'. Note that overlapping regions in 'FILE' can result in
+    duplicated out of order positions in the output.
     This option requires indexed VCF/BCF files. 
 
 *-s, --samples* 'LIST'::
@@ -164,7 +168,7 @@ This command allows to add or remove annotations and apply user-written plugins.
 *-a, --annotations* 'file'::
     Bgzip-compressed and tabix-indexed file with annotations. The file 
     can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
-    (or, alternatively, FROM, TO), optional columns REF and ALT, and arbitrary
+    (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary
     number of annotation columns. In case of tab-delimited file, the
     coordinates POS, FROM and TO are one-based and inclusive.
     When REF and ALT are present, only matching VCF records will be annotated.
@@ -174,10 +178,16 @@ This command allows to add or remove annotations and apply user-written plugins.
     See also *-c, --columns* and *-h, --header-lines*.
 
 *-c, --columns* 'list'::
-    Comma-separated list of columns present in the annotation file and defined
-    in the header file (see also *-a, --annotations* and *-h, --header-lines*).
-    INFO tags can be written both as INFO/TAG or simply TAG. Unused columns can
-    be indicated by '-'.  For example:
+    Comma-separated list of columns or tags to carry over from the annotation file
+    (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
+    'list' describes the columns of the annotation file and must include CHROM,
+    POS (or, alternatively, FROM and TO), and optionally REF and ALT.  Unused
+    columns which should be ignored can be indicated by "-". If the annotation
+    file is a VCF/BCF, only the edited columns/tags must be present and
+    their order does not matter. Currently the columns ID, QUAL, FILTER and INFO
+    can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG". 
+    If the annotation file is not a VCF/BCF, all new annotations must be defined
+    via *-h, --header-lines*.  For example:
 ----
     CHROM,FROM,TO,REF,ALT,-,INFO/TAG
 ----
@@ -187,7 +197,10 @@ This command allows to add or remove annotations and apply user-written plugins.
     *<<expressions,EXPRESSIONS>>*.
 
 *-h, --header-lines* 'file'::
-    Header lines to appended to the VCF header.
+    Lines to append to the VCF header. For example:
+----
+    ##INFO=<ID=TAG,Number=1,Type=Integer,Description="Example header line">
+----
 
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
@@ -284,6 +297,11 @@ demand. The original calling model can be invoked with the *-c* option.
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
     as lower case letters.
+
+*-g, --gvcf* 'INT'::
+    output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
+    minimum per-sample depth required to include a site in the non-variant
+    block.
 
 *-M, --keep-masked-ref*::
     output sites where REF allele is N

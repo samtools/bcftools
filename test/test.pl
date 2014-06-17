@@ -64,7 +64,7 @@ test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'%QUAL==59.2 
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
-test_vcf_annotate($opts,in=>'annotate',vcf=>'annots',out=>'annotate3.out',args=>'-c STR,ID');
+test_vcf_annotate($opts,in=>'annotate',vcf=>'annots',out=>'annotate3.out',args=>'-c STR,ID,QUAL,FILTER');
 test_vcf_annotate_plugins($opts,in=>'plugin',out=>'plugin.out',args=>'-p missing2ref -p fill-AN-AC -p dosage');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
