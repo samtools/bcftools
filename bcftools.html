@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25069984"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25162384"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -109,7 +109,8 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     the VCF will be processed in the order in which chromosomes first appear
     in <span class="emphasis"><em>FILE</em></span>. However, within chromosomes, the VCF will always be
     processed in ascending genomic coordinate order no matter what order they
-    appear in <span class="emphasis"><em>FILE</em></span>.
+    appear in <span class="emphasis"><em>FILE</em></span>. Note that overlapping regions in <span class="emphasis"><em>FILE</em></span> can result in
+    duplicated out of order positions in the output.
     This option requires indexed VCF/BCF files.
 </dd><dt><span class="term">
 <span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
@@ -146,7 +147,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </span></dt><dd>
     Bgzip-compressed and tabix-indexed file with annotations. The file
     can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
-    (or, alternatively, FROM, TO), optional columns REF and ALT, and arbitrary
+    (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary
     number of annotation columns. In case of tab-delimited file, the
     coordinates POS, FROM and TO are one-based and inclusive.
     When REF and ALT are present, only matching VCF records will be annotated.
@@ -157,10 +158,16 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </dd><dt><span class="term">
 <span class="strong"><strong>-c, --columns</strong></span> <span class="emphasis"><em>list</em></span>
 </span></dt><dd>
-    Comma-separated list of columns present in the annotation file and defined
-    in the header file (see also <span class="strong"><strong>-a, --annotations</strong></span> and <span class="strong"><strong>-h, --header-lines</strong></span>).
-    INFO tags can be written both as INFO/TAG or simply TAG. Unused columns can
-    be indicated by <span class="emphasis"><em>-</em></span>.  For example:
+    Comma-separated list of columns or tags to carry over from the annotation file
+    (see also <span class="strong"><strong>-a, --annotations</strong></span>). If the annotation file is not a VCF/BCF,
+    <span class="emphasis"><em>list</em></span> describes the columns of the annotation file and must include CHROM,
+    POS (or, alternatively, FROM and TO), and optionally REF and ALT.  Unused
+    columns which should be ignored can be indicated by "-". If the annotation
+    file is a VCF/BCF, only the edited columns/tags must be present and
+    their order does not matter. Currently the columns ID, QUAL, FILTER and INFO
+    can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG".
+    If the annotation file is not a VCF/BCF, all new annotations must be defined
+    via <span class="strong"><strong>-h, --header-lines</strong></span>.  For example:
 </dd></dl></div><pre class="screen">    CHROM,FROM,TO,REF,ALT,-,INFO/TAG</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
@@ -169,8 +176,8 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </dd><dt><span class="term">
 <span class="strong"><strong>-h, --header-lines</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
-    Header lines to appended to the VCF header.
-</dd><dt><span class="term">
+    Lines to append to the VCF header. For example:
+</dd></dl></div><pre class="screen">    ##INFO=&lt;ID=TAG,Number=1,Type=Integer,Description="Example header line"&gt;</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
@@ -281,6 +288,12 @@ demand. The original calling model can be invoked with the <span class="strong">
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
     as lower case letters.
+</dd><dt><span class="term">
+<span class="strong"><strong>-g, --gvcf</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    output also gVCF blocks of homozygous REF calls. The parameter <span class="emphasis"><em>INT</em></span> is the
+    minimum per-sample depth required to include a site in the non-variant
+    block.
 </dd><dt><span class="term">
 <span class="strong"><strong>-M, --keep-masked-ref</strong></span>
 </span></dt><dd>
