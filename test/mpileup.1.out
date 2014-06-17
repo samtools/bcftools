@@ -1,7 +1,5 @@
 ##fileformat=VCFv4.2
 ##FILTER=<ID=PASS,Description="All filters passed">
-##samtoolsVersion=0.2.0-rc7-101-g90f7ac5+htslib-0.2.0-rc7-84-g9db893a
-##samtoolsCommand=samtools mpileup -uvDV -b xxx//mpileup.bam.list -f xxx//mpileup.ref.fa.gz
 ##reference=file://xxx//mpileup.ref.fa.gz
 ##contig=<ID=17,length=81195210>
 ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">

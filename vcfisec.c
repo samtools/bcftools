@@ -135,7 +135,7 @@ void isec_vcf(args_t *args)
 
     // When only one VCF is output, print VCF to stdout
     int out_std = 0;
-    if ( args->nwrite==1 ) out_std = 1;
+    if ( args->nwrite==1 && !args->prefix ) out_std = 1;
     if ( args->targets_list && files->nreaders==1 ) out_std = 1;
     if ( out_std ) 
     {
@@ -202,7 +202,17 @@ void isec_vcf(args_t *args)
         if ( args->prefix )
         {
             if ( args->isec_op==OP_VENN )
-                bcf_write1(args->fh_out[ret-1], reader->header, line);
+            {
+                if ( !args->nwrite || ret==3 || args->write[ret-1] )
+                {
+                    if ( args->write && !args->write[0] )
+                    {
+                        reader = &files->readers[1];
+                        line = files->readers[1].buffer[0];
+                    }
+                    bcf_write1(args->fh_out[ret-1], reader->header, line);
+                }
+            }
             else
             {
                 for (i=0; i<files->nreaders; i++)
@@ -262,7 +272,7 @@ static void init_data(args_t *args)
         if ( args->isec_op==OP_VENN )
         {
             args->fh_out = (htsFile**) malloc(sizeof(htsFile*)*3);
-            args->fnames = (char**) malloc(sizeof(char*)*3);
+            args->fnames = (char**) calloc(3,sizeof(char*));
 
             #define OPEN_FILE(i,j) { \
                 open_file(&args->fnames[i], NULL, "%s/%04d.%s", args->prefix, i, suffix); \
@@ -271,12 +281,26 @@ static void init_data(args_t *args)
                 bcf_hdr_append_version(args->files->readers[j].header,args->argc,args->argv,"bcftools_isec"); \
                 bcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
             }
-            OPEN_FILE(0,0);
-            fprintf(args->fh_log,"%s\tfor records private to\t%s\n", args->fnames[0], args->files->readers[0].fname);
-            OPEN_FILE(1,1);
-            fprintf(args->fh_log,"%s\tfor records private to\t%s\n", args->fnames[1], args->files->readers[1].fname);
-            OPEN_FILE(2,0);
-            fprintf(args->fh_log,"%s\tfor records shared by both\t%s %s\n", args->fnames[2], args->files->readers[0].fname, args->files->readers[1].fname);
+            if ( !args->nwrite || args->write[0] )
+            {
+                OPEN_FILE(0,0);
+                fprintf(args->fh_log,"%s\tfor records private to\t%s\n", args->fnames[0], args->files->readers[0].fname);
+            }
+            if ( !args->nwrite || args->write[1] )
+            {
+                OPEN_FILE(1,1);
+                fprintf(args->fh_log,"%s\tfor records private to\t%s\n", args->fnames[1], args->files->readers[1].fname);
+            }
+            if ( !args->nwrite || args->write[0] )
+            {
+                OPEN_FILE(2,0);
+                fprintf(args->fh_log,"%s\tfor records shared by both\t%s %s\n", args->fnames[2], args->files->readers[0].fname, args->files->readers[1].fname);
+            }
+            else if ( args->nwrite && args->write[1] )
+            {
+                OPEN_FILE(2,1);
+                fprintf(args->fh_log,"%s\tfor records shared by both\t%s %s\n", args->fnames[2], args->files->readers[1].fname, args->files->readers[0].fname);
+            }
         }
         else
         {

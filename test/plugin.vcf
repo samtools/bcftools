@@ -19,10 +19,6 @@
 ##readme=BBBBBB
 ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
 ##INFO=<ID=STR,Number=1,Type=String,Description="Test string type">
-##bcftools_annotateVersion=0.2.0-rc7-40-g7889fca-dirty+htslib-0.2.0-rc7-36-g6e2ebc4
-##bcftools_annotateCommand=annotate -x INFO/AN,INFO/AC test/annotate.vcf
-##bcftools_filterVersion=0.2.0-rc7-40-g7889fca-dirty+htslib-0.2.0-rc7-36-g6e2ebc4
-##bcftools_filterCommand=filter -e%FILTER="PASS" -S.
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
 1	3000150	.	C	T	59.2	PASS	.	GT:GQ	./.:245	./.:245
 1	3000151	.	C	T	59.2	PASS	.	GT:DP:GQ	./.:32:245	./.:32:245
