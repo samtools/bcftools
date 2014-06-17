@@ -483,6 +483,27 @@ static void init_header_lines(args_t *args)
     hts_close(file);
     free(str.s);
 }
+static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    annot_line_t *tab = (annot_line_t*) data;
+    hts_expand(int,1,args->mtmpi,args->tmpi);
+    args->tmpi[0] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, tab->cols[col->icol]);
+    if ( args->tmpi[0]<0 ) error("The FILTER is not defined in the header: %s\n", tab->cols[col->icol]);
+    return bcf_update_filter(args->hdr_out,line,args->tmpi,1);
+}
+static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
+    hts_expand(int,rec->d.n_flt,args->mtmpi,args->tmpi);
+    int i;
+    for (i=0; i<rec->d.n_flt; i++)
+    {
+        const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
+        args->tmpi[i] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, flt);
+    }
+    return bcf_update_filter(args->hdr_out,line,args->tmpi,rec->d.n_flt);
+}
 static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
@@ -621,6 +642,14 @@ static void init_columns(args_t *args)
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
             col->setter = args->tgts_is_vcf ? vcf_setter_id : setter_id;
+            col->hdr_key = strdup(str.s);
+        }
+        else if ( !strcasecmp("FILTER",str.s) )
+        {
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            col->icol = i;
+            col->setter = args->tgts_is_vcf ? vcf_setter_filter : setter_filter;
             col->hdr_key = strdup(str.s);
         }
         else if ( !strcasecmp("QUAL",str.s) )
