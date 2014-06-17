@@ -50,6 +50,15 @@ typedef struct
 }
 family_t;
 
+typedef struct
+{
+    int min_dp, mdp;    // minimum per-sample depth of a gVCF block
+    int32_t rid, start, end, *gt, *dp;
+    char ref[2];        // reference base at start position
+    bcf1_t *line;
+}
+gvcf_t;
+
 typedef struct _ccall_t ccall_t;
 typedef struct
 {
@@ -120,5 +129,8 @@ void qcall_destroy(call_t *call);
 
 void call_init_pl2p(call_t *call);
 uint32_t *call_trio_prep(int is_x, int is_son);
+
+/** gVCF */
+void gvcf_write(htsFile *fh, gvcf_t *gvcf, bcf_hdr_t *hdr, bcf1_t *rec, int is_ref);
 
 #endif
