@@ -360,7 +360,11 @@ int subset_vcf(args_t *args, bcf1_t *line)
         bcf_update_info_int32(args->hdr, line, "AC", &args->ac[1], line->n_allele-1);
         bcf_update_info_int32(args->hdr, line, "AN", &an, 1);
     }
-    if (args->trim_alts) bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
+    if (args->trim_alts) 
+    {
+        int ret = bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
+        if ( ret==-1 ) error("Error: some GT index is out of bounds at %s:%d\n", bcf_seqname(args->hsub ? args->hsub : args->hdr, line), line->pos+1);
+    }
     if (args->phased) {
         int phased = bcf_all_phased(args->hdr, line);
         if (args->phased == FLT_INCLUDE && !phased) { return 0; } // skip unphased
