@@ -24,7 +24,7 @@ void gvcf_write(htsFile *fh, gvcf_t *gvcf, bcf_hdr_t *hdr, bcf1_t *rec, int is_r
         }
     }
 
-    if ( gvcf->rid!=-1 && (!rec || gvcf->rid!=rec->rid || !is_ref) )
+    if ( gvcf->rid!=-1 && (!rec || gvcf->rid!=rec->rid || !is_ref || rec->pos > gvcf->end+1) )
     {
         // mpileup can output two records with the same position, SNP and
         // indel. Make sure the end position does not include the non-variant

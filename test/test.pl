@@ -58,6 +58,7 @@ test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.9.out',args=>q[-S. -e'
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.10.out',args=>q[-S. -e'FMT/FGS[4]="EE"'],reg=>'');
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.11.out',args=>q[-S. -e'FMT/STR="XX"'],reg=>'');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
+test_vcf_call($opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mvg0');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter.1',out=>'filter.1.out',args=>'-mx -g2 -G2');
 test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'%QUAL==59.2 || (INDEL=0 & (FMT/GQ=25 | FMT/DP=10))' -sModified -S.]);
