@@ -210,12 +210,12 @@ static void print_plugin_usage_hint(void)
         fprintf(stderr,
                 " in BCFTOOLS_PLUGINS=\"%s\".\n\n"
                 "- Is the plugin path correct?\n\n"
-                "- Are all shared libraries, namely libths.so, accesible? Verify with\n"
+                "- Are all shared libraries, namely libhts.so, accessible? Verify with\n"
                 "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
                 "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
                 "\n"
                 "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
-                "DYLD_LIBRARY_PATH (mac) to include directory where *libths.so* is located.\n"
+                "DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.\n"
                 "\n",
                 getenv("BCFTOOLS_PLUGINS")
                );
