@@ -201,6 +201,26 @@ static void *dlopen_plugin(args_t *args, const char *fname)
     return NULL;
 }
 
+static void print_plugin_usage_hint(void)
+{
+    fprintf(stderr, "\nNo functional bcftools plugins were found");
+    if ( !getenv("BCFTOOLS_PLUGINS") )
+        fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set.\n\n");
+    else
+        fprintf(stderr,
+                " in BCFTOOLS_PLUGINS=\"%s\".\n\n"
+                "- Is the plugin path correct?\n\n"
+                "- Are all shared libraries, namely libths.so, accesible? Verify with\n"
+                "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
+                "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
+                "\n"
+                "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
+                "DYLD_LIBRARY_PATH (mac) to include directory where *libths.so* is located.\n"
+                "\n",
+                getenv("BCFTOOLS_PLUGINS")
+               );
+}
+
 static int load_plugin(args_t *args, const char *name, int exit_on_error)
 {
     char *fname = strdup(name), *opts = fname;
@@ -215,7 +235,11 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
     plugin.handle = dlopen_plugin(args, fname);
     if ( !plugin.handle )
     {
-        if ( exit_on_error ) error("Could not load \"%s\".\n", fname);
+        if ( exit_on_error ) 
+        {
+            print_plugin_usage_hint();
+            error("Could not load \"%s\".\n\n", fname);
+        }
         free(fname);
         return -1;
     }
@@ -340,24 +364,7 @@ static int list_plugins(args_t *args)
         printf("\n");
     }
     else
-    {
-        fprintf(stderr, "\nNo functional bcftools plugins were found");
-        if ( !getenv("BCFTOOLS_PLUGINS") )
-            fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set.\n\n");
-        else
-            fprintf(stderr,
-                " in BCFTOOLS_PLUGINS=\"%s\".\n\n"
-                "- Is the plugin path correct?\n\n"
-                "- Are all shared libraries, namely libths.so, accesible? Verify with\n"
-                "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
-                "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
-                "\n"
-                "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
-                "DYLD_LIBRARY_PATH (mac) to include directory where *libths.so* is located.\n"
-                "\n",
-                getenv("BCFTOOLS_PLUGINS")
-            );
-    }
+        print_plugin_usage_hint();
     free(str.s);
     return args->nplugins ? 0 : 1;
 }
