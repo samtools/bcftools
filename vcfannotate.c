@@ -144,7 +144,7 @@ typedef struct _args_t
     float *tmpf;
     char *tmps;
 
-    char **argv, *targets_fname, *regions_list, *header_fname;
+    char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns;
     int argc, drop_header, verbose, tgts_is_vcf;
 }
@@ -741,7 +741,8 @@ static void init_data(args_t *args)
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     if ( !args->drop_header )
     {
-        args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
+        args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+        if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         bcf_hdr_write(args->out_fh, args->hdr_out);
     }
 }
@@ -928,6 +929,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see below for details)\n");
     fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
+    fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "   -p, --plugin <name[:key=val]>  run user-defined plugin, see man page for details\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
@@ -946,6 +948,7 @@ int main_vcfannotate(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
+    args->output_fname = "-";
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
@@ -954,6 +957,7 @@ int main_vcfannotate(int argc, char *argv[])
     static struct option loptions[] = 
     {
         {"verbose",0,0,'v'},
+        {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"annotations",1,0,'a'},
         {"include",1,0,'i'},
@@ -967,11 +971,12 @@ int main_vcfannotate(int argc, char *argv[])
         {"header-lines",1,0,'h'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:r:R:a:p:x:c:li:e:v",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:p:x:c:li:e:v",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'v': args->verbose = 1; break;
             case 'c': args->columns = optarg; break;
+            case 'o': args->output_fname = optarg; break;
             case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;

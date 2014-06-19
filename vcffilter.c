@@ -71,14 +71,16 @@ typedef struct _args_t
     htsFile *out_fh;
     int output_type;
 
-    char **argv, *targets_list, *regions_list;
+    char **argv, *output_fname, *targets_list, *regions_list;
     int argc;
 }
 args_t;
 
 static void init_data(args_t *args)
 {
-    args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+    if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+
     args->hdr = args->files->readers[0].header;
     args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
 
@@ -384,6 +386,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
     fprintf(stderr, "    -m, --mode [+x]               \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
+    fprintf(stderr, "    -o, --output <file>           write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>        restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>     restrict to regions listed in a file\n");
@@ -403,6 +406,7 @@ int main_vcffilter(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
+    args->output_fname = "-";
     args->output_type = FT_VCF;
     int regions_is_file = 0, targets_is_file = 0;
 
@@ -417,15 +421,17 @@ int main_vcffilter(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"SnpGap",1,0,'g'},
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:O:g:G:S:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:o:O:g:G:S:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'g': args->snp_gap = atoi(optarg); break;
             case 'G': args->indel_gap = atoi(optarg); break;
+            case 'o': args->output_fname = optarg; break;
             case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;

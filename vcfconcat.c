@@ -49,7 +49,7 @@ typedef struct _args_t
     int nbuf, mbuf, prev_chr, min_PQ, prev_pos_check;
     int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
-    char **argv, *file_list, **fnames;
+    char **argv, *output_fname, *file_list, **fnames;
     int argc, nfnames, allow_overlaps, phased_concat;
 }
 args_t;
@@ -112,7 +112,9 @@ static void init_data(args_t *args)
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase Set\">");
     }
     bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
-    args->out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+    if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+
     bcf_hdr_write(args->out_fh, args->out_hdr);
 
     if ( args->allow_overlaps ) 
@@ -516,6 +518,7 @@ static void usage(args_t *args)
 	fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
 	fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
 	fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
+	fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
 	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -526,6 +529,7 @@ int main_vcfconcat(int argc, char *argv[])
     int c;
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
+    args->output_fname = "-";
     args->output_type = FT_VCF;
     args->min_PQ  = 30;
 
@@ -533,18 +537,20 @@ int main_vcfconcat(int argc, char *argv[])
     {
         {"allow-overlaps",0,0,'a'},
         {"ligate",0,0,'l'},
+        {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"file-list",1,0,'f'},
         {"min-PQ",1,0,'q'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?O:f:alq:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:",loptions,NULL)) >= 0)
     {
         switch (c) {
     	    case 'q': args->min_PQ = atoi(optarg); break;
     	    case 'a': args->allow_overlaps = 1; break;
     	    case 'l': args->phased_concat = 1; break;
     	    case 'f': args->file_list = optarg; break;
+            case 'o': args->output_fname = optarg; break;
     	    case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
