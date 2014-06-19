@@ -1013,6 +1013,7 @@ int main_vcfannotate(int argc, char *argv[])
     {
         args->tgts_is_vcf = 1;
         args->files->require_index = 1;
+        args->files->collapse |= COLLAPSE_SOME;
     }
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
     
