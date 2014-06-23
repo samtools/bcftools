@@ -929,7 +929,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see below for details)\n");
     fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -p, --plugin <name[:key=val]>  dynamically loaded user-defined plugin, see man page for details\n");
+    fprintf(stderr, "   -p, --plugin <name[:key=val]>  run user-defined plugin, see man page for details\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
