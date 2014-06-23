@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25162384"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25136848"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -185,10 +185,11 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --list-plugins</strong></span>
 </span></dt><dd>
-    List of available plugins. If not installed systemwide, set the environment
+    List all available plugins. If not installed systemwide, set the environment
     variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
     directory where <span class="strong"><strong>libths.so</strong></span> is located.  The BCFTOOLS_PLUGINS
     environment variable tells the program which directories to search.
+    See also <span class="strong"><strong>-p, --plugin</strong></span>.
 </dd><dt><span class="term">
  
 </span></dt><dd><p class="simpara">
@@ -223,9 +224,11 @@ Sets missing genotypes ("./.") to ref allele ("0/0").
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-p, --plugins</strong></span> <span class="emphasis"><em>name</em></span>[:'key'=<span class="emphasis"><em>val</em></span>]
+<span class="strong"><strong>-p, --plugin</strong></span> <span class="emphasis"><em>name</em></span>[:'key'=<span class="emphasis"><em>val</em></span>]
 </span></dt><dd>
-    Dynamically loaded plugin to run with optional parameters, see also <span class="strong"><strong>-l, --list-plugins</strong></span>.
+    Run a plugin with optional parameters. The option can be given multiple times,
+    the plugins will be executed in the same order as they appeared on the command line.
+    See also <span class="strong"><strong>-l, --list-plugins</strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
