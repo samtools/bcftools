@@ -15,7 +15,7 @@ DFLAGS=
 OBJS=		main.o vcfindex.o tabix.o \
 			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
             vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
-            vcfcall.o mcall.o vcmp.o gvcf.o \
+            vcfcall.o mcall.o vcmp.o gvcf.o HMM.o \
             ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES=	-I. -I$(HTSDIR)
 
@@ -68,7 +68,7 @@ vcffilter.o: bcftools.h filter.h
 vcfsubset.o: bcftools.h filter.h
 vcfnorm.o: bcftools.h rbuf.h
 vcffilter.o: bcftools.h rbuf.h
-vcfroh.o: bcftools.h rbuf.h
+vcfroh.o: bcftools.h rbuf.h HMM.h
 vcfannotate.o: bcftools.h vcmp.h $(HTSDIR)/htslib/kseq.h
 vcfconcat.o: bcftools.h
 test/test-rbuf.o: rbuf.h test/test-rbuf.c
