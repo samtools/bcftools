@@ -48,9 +48,32 @@ struct _hmm_t
     void *set_tprob_data;
 };
 
+/**
+ *   hmm_init() - initialize HMM
+ *   @nstates:  number of states
+ *   @tprob:    transition probabilities matrix (nstates x nstates), for elements ordering
+ *              see the MAT macro above.
+ *   @ntprob:   number of precalculated tprob matrices or 0 for constant probs, independent
+ *              of distance
+ */
 hmm_t *hmm_init(int nstates, double *tprob, int ntprob);
 void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob);
+
+/**
+ *   hmm_set_tprob_func() - custom setter of transition probabilities
+ */
 void hmm_set_tprob_func(hmm_t *hmm, set_tprob_f set_tprob, void *data);
+
+/**
+ *   hmm_run_viterbi() - run Viterbi algorithm
+ *   @nsites:   number of sites 
+ *   @eprob:    emission probabilities for each site and state (nsites x nstates)
+ *   @sites:    list of positions
+ *
+ *   When done, hmm->vpath[] contains the calculated Viterbi path. The states
+ *   are indexed starting from 0, a state at i-th site can be accessed as
+ *   vpath[nstates*i].
+ */
 void hmm_run_viterbi(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
 void hmm_destroy(hmm_t *hmm);
 
