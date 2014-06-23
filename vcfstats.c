@@ -951,7 +951,7 @@ static void do_vcf_stats(args_t *args)
 static void print_header(args_t *args)
 {
     int i;
-    printf("# This file was produced by vcfstats(%s) and can be plotted using plot-vcfstats.\n", bcftools_version());
+    printf("# This file was produced by bcftools stats (%s+htslib-%s) and can be plotted using plot-vcfstats.\n", bcftools_version(),hts_version());
     printf("# The command line was:\tbcftools %s ", args->argv[0]);
     for (i=1; i<args->argc; i++)
         printf(" %s",args->argv[i]);

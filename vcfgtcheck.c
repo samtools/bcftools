@@ -289,7 +289,7 @@ static void set_cwd(args_t *args)
 
 static void print_header(args_t *args, FILE *fp)
 {
-    fprintf(fp, "# This file was produced by bcftools (%s), the command line was:\n", bcftools_version());
+    fprintf(fp, "# This file was produced by bcftools (%s+htslib-%s), the command line was:\n", bcftools_version(), hts_version());
     fprintf(fp, "# \t bcftools %s ", args->argv[0]);
     int i;
     for (i=1; i<args->argc; i++)
