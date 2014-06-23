@@ -292,6 +292,11 @@ static void phased_flush(args_t *args)
 
 static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
 {
+    if ( arec && arec->errcode )
+        error("Parse error at %s:%d, cannot proceed: %s\n", bcf_seqname(args->files->readers[0].header,arec),arec->pos+1, args->files->readers[0].fname);
+    if ( brec && brec->errcode )
+        error("Parse error at %s:%d, cannot proceed: %s\n", bcf_seqname(args->files->readers[1].header,brec),brec->pos+1, args->files->readers[1].fname);
+
     int i, nsmpl = bcf_hdr_nsamples(args->out_hdr);
     int chr_id = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,arec));
     if ( args->prev_chr<0 || args->prev_chr!=chr_id )
@@ -561,6 +566,7 @@ int main_vcfconcat(int argc, char *argv[])
         args->fnames[args->nfnames-1] = strdup(argv[optind]);
         optind++;
     }
+    if ( args->allow_overlaps && args->phased_concat ) args->allow_overlaps = 0;
     if ( args->file_list )
     {
         if ( args->nfnames ) error("Cannot combine -l with file names on command line.\n");
