@@ -421,7 +421,8 @@ int bcf_hdr_sync(bcf_hdr_t *h);
 void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix, int force_samples)
 {
     // header lines
-    bcf_hdr_combine(hw, hr);
+    int ret = bcf_hdr_combine(hw, hr);
+    if ( ret!=0 ) error("Error occurred while merging the headers.\n");
 
     // samples
     int i;
@@ -1038,7 +1039,7 @@ void merge_info(args_t *args, bcf1_t *out)
                 }
                 kitr = kh_get(strdict, tmph, key);
                 int idx = kh_val(tmph, kitr);
-                assert( idx>=0 );
+                if ( idx<0 ) error("Error occurred while processing INFO tag \"%s\" at %s:%d\n", key,bcf_seqname(hdr,line),line->pos+1);
                 merge_AGR_info_tag(line,inf,len,&ma->d[i][0],&ma->AGR_info[idx]);
                 continue;
             }
