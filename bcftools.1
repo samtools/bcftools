@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 06/23/2014
+.\"      Date: 06/24/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "06/23/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "06/24/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -322,7 +322,7 @@ accepts an optional second column indicating ploidy (0, 1 or 2) and can parse al
 .PP
 \fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
-Same as
+Similar as
 \fB\-r, \-\-regions\fR, but the next position is accessed by streaming the whole VCF/BCF rather than using the tbi/csi index\&. Both
 \fB\-r\fR
 and
@@ -331,7 +331,8 @@ options can be applied simultaneously:
 \fB\-r\fR
 uses the index to jump to a region and
 \fB\-t\fR
-discards positions which are not in the targets\&. Another difference between the two is that
+discards positions which are not in the targets\&. Unlike
+\fB\-r\fR, targets can be prefixed with "^" to request logical complement\&. For example, "^X,Y,MT" indicates that sequences X, Y and MT should be skipped\&. Yet another difference between the two is that
 \fB\-r\fR
 checks both start and end positions of indels, whereas
 \fB\-t\fR

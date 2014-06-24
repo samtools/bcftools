@@ -142,12 +142,14 @@ OPTIONS
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
-    Same as *-r, --regions*, but the next position is accessed by streaming the
+    Similar as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
-    and *-t* discards positions which are not in the targets.  Another difference
-    between the two is that *-r* checks both start and end positions of indels,
-    whereas *-t* checks start positions only. 
+    and *-t* discards positions which are not in the targets. Unlike *-r*, targets
+    can be prefixed with "\^" to request logical complement. For example, "^X,Y,MT" 
+    indicates that sequences X, Y and MT should be skipped.
+    Yet another difference between the two is that *-r* checks both start and
+    end positions of indels, whereas *-t* checks start positions only.
 
 *-T, --targets-file* 'FILE'::
     Same *-t, --targets*, but reads regions from a file.
