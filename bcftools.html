@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25136848"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25139072"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -126,12 +126,14 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </dd><dt><span class="term">
 <span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
-    Same as <span class="strong"><strong>-r, --regions</strong></span>, but the next position is accessed by streaming the
+    Similar as <span class="strong"><strong>-r, --regions</strong></span>, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both <span class="strong"><strong>-r</strong></span> and <span class="strong"><strong>-t</strong></span> options
     can be applied simultaneously: <span class="strong"><strong>-r</strong></span>  uses  the index  to  jump  to  a  region
-    and <span class="strong"><strong>-t</strong></span> discards positions which are not in the targets.  Another difference
-    between the two is that <span class="strong"><strong>-r</strong></span> checks both start and end positions of indels,
-    whereas <span class="strong"><strong>-t</strong></span> checks start positions only.
+    and <span class="strong"><strong>-t</strong></span> discards positions which are not in the targets. Unlike <span class="strong"><strong>-r</strong></span>, targets
+    can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
+    indicates that sequences X, Y and MT should be skipped.
+    Yet another difference between the two is that <span class="strong"><strong>-r</strong></span> checks both start and
+    end positions of indels, whereas <span class="strong"><strong>-t</strong></span> checks start positions only.
 </dd><dt><span class="term">
 <span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
