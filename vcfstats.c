@@ -1119,7 +1119,7 @@ static void print_stats(args_t *args)
     }
     if ( args->files->nreaders>1 && args->files->n_smpl )
     {
-        printf("SN\t%d\tNumber of samples:\t%d\n", 2, args->files->n_smpl);
+        printf("SN\t%d\tnumber of samples:\t%d\n", 2, args->files->n_smpl);
 
         int x;
         for (x=0; x<2; x++)

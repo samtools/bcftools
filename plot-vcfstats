@@ -560,7 +560,7 @@ sub parse_vcfstats1
             if ( !exists($$opts{dat}{$a}{$b}) ) { $$opts{dat}{$a}{$b} = $dat{$a}{$b}; next; } # copy all, first occurance
 
             if ( $a eq 'ID' ) { merge_id($opts,$$opts{dat}{$a},$dat{$a},$b); }
-            elsif ( ref($dat{$a}{$b}) ne 'ARRAY' ) {$$opts{dat}{$a}{$b} += $dat{$a}{$b} unless $b eq 'number of samples:'; } # SN, Summary numbers, do not sum sample counts
+            elsif ( ref($dat{$a}{$b}) ne 'ARRAY' ) { $$opts{dat}{$a}{$b} += $dat{$a}{$b} unless $b eq 'number of samples:'; } # SN, Summary numbers, do not sum sample counts
             elsif ( $a eq 'NRDs' ) { add_to_avg($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'NRDi' ) { add_to_avg($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'DP' ) { merge_dp($$opts{dat}{$a}{$b},$dat{$a}{$b}); }
@@ -1862,7 +1862,7 @@ sub create_pdf
 		my $rr  = sprintf "%.2f", $vals[0][1];
 		my $ra  = sprintf "%.2f", $vals[0][2];
 		my $aa  = sprintf "%.2f", $vals[0][3];
-		my $nsamples = get_value($opts,2,'Number of samples:');
+		my $nsamples = get_value($opts,2,'number of samples:');
 		my $table = qq[%
 			{\\small
 			\\rowcolors*{1}{row2}{row1}\\arrayrulecolor{black}
