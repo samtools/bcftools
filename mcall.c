@@ -1262,8 +1262,11 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
 int mcall(call_t *call, bcf1_t *rec)
 {
     int i, unseen = -1;
-    for (i=1; i<rec->n_allele; i++) 
-        if ( rec->d.allele[i][0]=='X' ) unseen = i;
+    for (i=1; i<rec->n_allele; i++)
+    {
+        if ( rec->d.allele[i][0]=='X' ) { unseen = i; break; }  // old X
+        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // new <X>
+    }
 
     // Force alleles when calling genotypes given alleles was requested
     if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec, unseen);
@@ -1322,7 +1325,12 @@ int mcall(call_t *call, bcf1_t *rec)
     {
         nout = 0;
         for (i=0; i<nals; i++)
-            if ( rec->d.allele[i][0]!='X' ) { out_als |= 1<<i; nout++; }
+        {
+            if ( rec->d.allele[i][0]=='X' ) continue;   // old version of unseen allele "X"
+            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' ) continue;   // new version of unseen allele, "<X>"
+            out_als |= 1<<i;
+            nout++;
+        }
     }
     // Make sure the REF allele is always present
     else if ( !(out_als&1) )
