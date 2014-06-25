@@ -137,6 +137,8 @@ typedef struct
 }
 args_t;
 
+// GT_HOM_RR, GT_HOM_AA, GT_HET_RA, GT_HET_AA, GT_HAPL_R, GT_HAPL_A
+static int type2dosage[6] = {0,2,1,2,0,1};
 
 static void idist_init(idist_t *d, int min, int max, int step)
 {
@@ -845,43 +847,44 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         gtcmp_t *smpl_stats = line_type&VCF_SNP ? args->smpl_gts_snps : args->smpl_gts_indels;
 
         int r2n = 0;
-        float r2a2 = 0, r2a = 0, r2b2 = 0, r2b = 0, r2ab = 0;
+        float x = 0, y = 0, xy = 0, x2 = 0, y2 = 0;
         for (is=0; is<files->n_smpl; is++)
         {
             // Simplified comparison: only 0/0, 0/1, 1/1 is looked at as the identity of 
             //  actual alleles can be enforced by running without the -c option.
-            int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
-            if ( gt == GT_UNKN ) continue;
+            int gt0 = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
+            if ( gt0 == GT_UNKN ) continue;
 
-            int match = 1;
-            int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
-            if ( gt2 == GT_UNKN ) match = -1;
-            else if ( gt != gt2 ) match = 0;
+            int gt1 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
+            if ( gt1 == GT_UNKN ) continue;
 
-            if ( match == -1 ) continue;
-            if ( gt == GT_HET_AA ) gt = GT_HOM_AA;  // rare case, treat as AA hom
-            if ( gt2 == GT_HET_AA ) gt2 = GT_HOM_AA;
-            if ( match ) 
+            if ( (gt0>3 && gt1<=3) || (gt0<=3 && gt1>3) ) continue;   // cannot compare diploid and haploid genotypes
+
+            if ( gt0==gt1 ) 
             {
-                af_stats[iaf].m[gt]++;
-                smpl_stats[is].m[gt]++;
+                af_stats[iaf].m[gt0]++;
+                smpl_stats[is].m[gt0]++;
             }
             else 
             {
-                af_stats[iaf].mm[gt]++;
-                smpl_stats[is].mm[gt]++;
+                af_stats[iaf].mm[gt0]++;
+                smpl_stats[is].mm[gt0]++;
             }
-            r2a2 += gt*gt;
-            r2a  += gt;
-            r2b2 += gt2*gt2;
-            r2b  += gt2;
-            r2ab += gt*gt2;
-            r2n++;
+
+            gt0 = type2dosage[gt0];
+            gt1 = type2dosage[gt1];
+            x  += gt0;
+            x2 += gt0*gt0;
+            y  += gt1;
+            y2 += gt1*gt1;
+            xy += gt0*gt1;
+            r2n += gt0<=3 ? 2 : 1;
         }
         if ( r2n )
         {
-            float cov  = r2ab - r2a*r2b/r2n;
-            float var2 = (r2a2 - r2a*r2a/r2n) * (r2b2 - r2b*r2b/r2n);
+            x /= r2n; y /= r2n; x2 /= r2n; y2 /= r2n; xy /= r2n;
+            float cov  = xy - x*y;
+            float var2 = (x2 - x*x) * (y2 - y*y);
             af_stats[iaf].r2sum += var2==0 ? 1 : cov*cov/var2;
             af_stats[iaf].r2n++;
         }
