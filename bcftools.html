@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25139072"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp161376"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -88,6 +88,11 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     Skip sites where FILTER column does not contain any of the strings listed
     in <span class="emphasis"><em>LIST</em></span>. For example, to include only sites which have no filters set,
     use <span class="strong"><strong>-f</strong></span> <span class="emphasis"><em>.,PASS</em></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    When output consists of a single stream, write it to <span class="emphasis"><em>FILE</em></span> rather than
+    to standard output, where it is written by default.
 </dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
@@ -222,6 +227,10 @@ Annotate frameshift indels. Run as <span class="strong"><strong>-p frameshifts:e
 </span></dt><dd>
 Sets missing genotypes ("./.") to ref allele ("0/0").
 </dd></dl></div></dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -303,6 +312,10 @@ demand. The original calling model can be invoked with the <span class="strong">
 <span class="strong"><strong>-M, --keep-masked-ref</strong></span>
 </span></dt><dd>
     output sites where REF allele is N
+</dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-V, --skip-variants</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>
 </span></dt><dd>
@@ -387,6 +400,10 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 </span></dt><dd>
     Break phase set if phasing quality is lower than <span class="emphasis"><em>INT</em></span>
 </dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -435,6 +452,10 @@ And similarly here, the second is filtered:
     "PASS" when the FILTER string is absent. The "+" mode appends new FILTER
     strings of failed sites instead of replacing them. The "x" mode resets
     filters of sites which pass to "PASS". Modes "+" and "x" can both be set.
+</dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
@@ -572,6 +593,11 @@ in the other files.</p><div class="variablelist"><dl><dt><span class="term">
     output positions present in this many (=), this many or more (+), or this
     many or fewer (-) files
 </dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>.  When several files are being
+    output, their names are controlled via <span class="strong"><strong>-p</strong></span> instead.
+</dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -642,6 +668,10 @@ also given explicitly using the <span class="strong"><strong>--print-header</str
     prevent merging of SNPs and indels into one record, use <span class="strong"><strong>-m</strong></span> <span class="emphasis"><em>both</em></span>. To
     prevent creation of multi-allelic records altogether, use <span class="strong"><strong>-m</strong></span> <span class="emphasis"><em>none</em></span>.
 </dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -673,6 +703,10 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
     both SNPs and indels should be merged separately into two records, specify
     <span class="emphasis"><em>both</em></span>; if SNPs and indels should be merged into a single record, specify
     <span class="emphasis"><em>any</em></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
