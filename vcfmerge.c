@@ -24,6 +24,8 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <htslib/vcf.h>
@@ -105,7 +107,7 @@ typedef struct
     vcmp_t *vcmp;
     maux_t *maux;
     int header_only, collapse, output_type, force_samples;
-    char *header_fname, *regions_list, *info_rules, *file_list;
+    char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     info_rule_t *rules;
     int nrules;
     strdict_t *tmph;
@@ -1783,7 +1785,8 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
 
 void merge_vcf(args_t *args)
 {
-    args->out_fh  = hts_open("-", hts_bcf_wmode(args->output_type));
+    args->out_fh  = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+    if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     args->out_hdr = bcf_hdr_init("w");
 
     if ( args->header_fname )
@@ -1846,6 +1849,7 @@ static void usage(void)
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
     fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
+    fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
 	fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
@@ -1859,6 +1863,8 @@ int main_vcfmerge(int argc, char *argv[])
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->files  = bcf_sr_init();
     args->argc   = argc; args->argv = argv;
+    args->output_fname = "-";
+    args->output_type = FT_VCF;
     args->collapse = COLLAPSE_BOTH;
     int regions_is_file = 0;
 
@@ -1871,16 +1877,18 @@ int main_vcfmerge(int argc, char *argv[])
         {"use-header",1,0,1},
         {"print-header",0,0,2},
         {"force-samples",0,0,3},
+        {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"info-rules",1,0,'i'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:O:i:l:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;
+            case 'o': args->output_fname = optarg; break;
             case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;

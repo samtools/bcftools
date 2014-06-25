@@ -48,7 +48,7 @@ typedef struct
 	bcf_srs_t *files;
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
-	char **argv, *prefix, **fnames, *write_files, *targets_list, *regions_list;
+	char **argv, *prefix, *output_fname, **fnames, *write_files, *targets_list, *regions_list;
 	int argc;
 }
 args_t;
@@ -133,13 +133,14 @@ void isec_vcf(args_t *args)
     kstring_t str = {0,0,0};
     htsFile *out_fh = NULL;
 
-    // When only one VCF is output, print VCF to stdout
+    // When only one VCF is output, print VCF to stdout or -o file
     int out_std = 0;
     if ( args->nwrite==1 && !args->prefix ) out_std = 1;
     if ( args->targets_list && files->nreaders==1 ) out_std = 1;
     if ( out_std ) 
     {
-        out_fh = hts_open("-",hts_bcf_wmode(args->output_type));
+        out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode(args->output_type));
+        if ( out_fh == NULL ) error("Can't write to %s: %s\n", args->output_fname? args->output_fname : "standard output", strerror(errno));
         bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
         bcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
@@ -321,8 +322,14 @@ static void init_data(args_t *args)
             if ( !args->fh_sites ) error("%s/sites.txt: %s\n", args->prefix, strerror(errno));
         }
     }
-    else
-        args->fh_sites = stdout;
+    else {
+        if (args->output_fname) {
+            args->fh_sites = fopen(args->output_fname, "w");
+            if ( args->fh_sites == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+        }
+        else
+            args->fh_sites = stdout;
+    }
 }
 
 static void destroy_data(args_t *args)
@@ -364,6 +371,7 @@ static void usage(void)
 	fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
     fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
 	fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
+	fprintf(stderr, "    -o, --output <file>               write output to a file [standard output]\n");
 	fprintf(stderr, "    -O, --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
 	fprintf(stderr, "    -p, --prefix <dir>                if given, subset each of the input files accordingly, see also -w\n");
 	fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
@@ -391,6 +399,7 @@ int main_vcfisec(int argc, char *argv[])
 	args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->files  = bcf_sr_init();
 	args->argc   = argc; args->argv = argv;
+    args->output_fname = NULL;
     args->output_type = FT_VCF;
     int targets_is_file = 0, regions_is_file = 0;
 
@@ -407,11 +416,13 @@ int main_vcfisec(int argc, char *argv[])
 		{"targets-file",1,0,'T'},
 		{"regions",1,0,'r'},
 		{"regions-file",1,0,'R'},
+		{"output",1,0,'o'},
 		{"output-type",1,0,'O'},
 		{0,0,0,0}
 	};
-	while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:O:",loptions,NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:",loptions,NULL)) >= 0) {
 		switch (c) {
+			case 'o': args->output_fname = optarg; break;
 			case 'O': 
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
