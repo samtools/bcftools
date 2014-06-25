@@ -649,9 +649,13 @@ int main_vcfcall(int argc, char *argv[])
         if ( args.aux.flag & CALL_VARONLY )
         {
             int is_ref = 0;
-            if ( bcf_rec->n_allele==1 ) is_ref = 1;                                          // not a variant
-            else if ( bcf_rec->n_allele==2 && bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;     // second allele is mpileup's X, not a variant
-
+            if ( bcf_rec->n_allele==1 ) is_ref = 1;     // not a variant
+            else if ( bcf_rec->n_allele==2 ) 
+            {
+                // second allele is mpileup's X, not a variant
+                if ( bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;
+                else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='X' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
+            }
             if ( is_ref )
             {
                 // gVCF output
