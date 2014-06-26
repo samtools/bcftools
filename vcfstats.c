@@ -137,8 +137,7 @@ typedef struct
 }
 args_t;
 
-// GT_HOM_RR, GT_HOM_AA, GT_HET_RA, GT_HET_AA, GT_HAPL_R, GT_HAPL_A
-static int type2dosage[6] = {0,2,1,2,0,1};
+static int type2dosage[6], type2ploidy[6], type2stats[6];
 
 static void idist_init(idist_t *d, int min, int max, int step)
 {
@@ -449,6 +448,28 @@ static void init_stats(args_t *args)
     if ( args->ref_fname )
         args->indel_ctx = indel_ctx_init(args->ref_fname);
     #endif
+
+    type2dosage[GT_HOM_RR] = 0;
+    type2dosage[GT_HET_RA] = 1;
+    type2dosage[GT_HOM_AA] = 2;
+    type2dosage[GT_HET_AA] = 2;
+    type2dosage[GT_HAPL_R] = 0;
+    type2dosage[GT_HAPL_A] = 1;
+
+    type2ploidy[GT_HOM_RR] = 1;
+    type2ploidy[GT_HET_RA] = 1;
+    type2ploidy[GT_HOM_AA] = 1;
+    type2ploidy[GT_HET_AA] = 1;
+    type2ploidy[GT_HAPL_R] = -1;
+    type2ploidy[GT_HAPL_A] = -1;
+
+    type2stats[GT_HOM_RR] = 0;
+    type2stats[GT_HET_RA] = 1;
+    type2stats[GT_HOM_AA] = 2;
+    type2stats[GT_HET_AA] = 1;
+    type2stats[GT_HAPL_R] = 0;
+    type2stats[GT_HAPL_A] = 2;
+    
 }
 static void destroy_stats(args_t *args)
 {
@@ -858,18 +879,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             int gt1 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
             if ( gt1 == GT_UNKN ) continue;
 
-            if ( (gt0>3 && gt1<=3) || (gt0<=3 && gt1>3) ) continue;   // cannot compare diploid and haploid genotypes
-
-            if ( gt0==gt1 ) 
-            {
-                af_stats[iaf].m[gt0]++;
-                smpl_stats[is].m[gt0]++;
-            }
-            else 
-            {
-                af_stats[iaf].mm[gt0]++;
-                smpl_stats[is].mm[gt0]++;
-            }
+            if ( type2ploidy[gt0]*type2ploidy[gt1] == -1 ) continue;   // cannot compare diploid and haploid genotypes
 
             gt0 = type2dosage[gt0];
             gt1 = type2dosage[gt1];
@@ -879,6 +889,20 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             y2 += gt1*gt1;
             xy += gt0*gt1;
             r2n += gt0<=3 ? 2 : 1;
+
+            if ( gt0==gt1 ) 
+            {
+                int idx = type2stats[gt0];
+                af_stats[iaf].m[idx]++;
+                smpl_stats[is].m[idx]++;
+            }
+            else 
+            {
+                int idx = type2stats[gt0];
+                af_stats[iaf].mm[idx]++;
+                smpl_stats[is].mm[idx]++;
+            }
+
         }
         if ( r2n )
         {
