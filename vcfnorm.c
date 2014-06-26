@@ -580,6 +580,8 @@ static int realign(args_t *args, bcf1_t *line)
     kstring_t *als = args->tmp_als;
     for (i=0; i<line->n_allele; i++)
     {
+        if ( line->d.allele[i][0]=='<' ) return 0;  // symbolic allele
+
         als[i].l = 0;
         kputs(line->d.allele[i], &als[i]);
     }
