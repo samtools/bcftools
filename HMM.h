@@ -43,8 +43,13 @@ struct _hmm_t
     int nsites;
 
     int ntprob_arr;             // number of pre-calculated tprob matrices
-    double *tprob, *tprob_arr;  // array of transition matrices, precalculated to ntprob_arr positions
-    set_tprob_f set_tprob;      // optional user function to set / modify transition probabilities
+    double *curr_tprob, *tmp;   // Temporary arrays; curr_tprob is short lived, valid only for
+                                //  one site (that is, one step of Viterbi algorithm)
+    double *tprob_arr;          // Array of transition matrices, precalculated to ntprob_arr
+                                //  positions. The first matrix is the initial tprob matrix
+                                //  set by hmm_init() or hmm_set_tprob()
+    set_tprob_f set_tprob;      // Optional user function to set / modify transition probabilities
+                                //  at each site (one step of Viterbi algorithm)
     void *set_tprob_data;
 };
 

@@ -30,11 +30,11 @@
 #include <htslib/hts.h>
 #include "HMM.h"
 
-static inline void multiply_matrix(int n, double *a, double *b, double *dst)
+static inline void multiply_matrix(int n, double *a, double *b, double *dst, double *tmp)
 {
     double *out = dst;
     if ( a==dst || b==dst )
-        out = (double*) malloc(sizeof(double)*n*n);
+        out = tmp;
 
     int i,j,k;
     for (i=0; i<n; i++)
@@ -47,17 +47,15 @@ static inline void multiply_matrix(int n, double *a, double *b, double *dst)
         }
     }
     if ( out!=dst )
-    {
         memcpy(dst,out,sizeof(double)*n*n);
-        free(out);
-    }
 }
 
 hmm_t *hmm_init(int nstates, double *tprob, int ntprob)
 {
     hmm_t *hmm = (hmm_t*) calloc(1,sizeof(hmm_t));
     hmm->nstates = nstates;
-    hmm->tprob = (double*) malloc(sizeof(double)*nstates*nstates);
+    hmm->curr_tprob = (double*) malloc(sizeof(double)*nstates*nstates);
+    hmm->tmp = (double*) malloc(sizeof(double)*nstates*nstates);
 
     hmm_set_tprob(hmm, tprob, ntprob);
 
@@ -76,7 +74,7 @@ void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob)
 
     int i;
     for (i=1; i<ntprob; i++)
-        multiply_matrix(hmm->nstates, hmm->tprob_arr, hmm->tprob_arr+(i-1)*hmm->nstates*hmm->nstates, hmm->tprob_arr+i*hmm->nstates*hmm->nstates);
+        multiply_matrix(hmm->nstates, hmm->tprob_arr, hmm->tprob_arr+(i-1)*hmm->nstates*hmm->nstates, hmm->tprob_arr+i*hmm->nstates*hmm->nstates, hmm->tmp);
 }
 
 void hmm_set_tprob_func(hmm_t *hmm, set_tprob_f set_tprob, void *data)
@@ -92,13 +90,13 @@ static void _set_tprob(hmm_t *hmm, int pos_diff)
     int i, n;
 
     n = hmm->ntprob_arr ? pos_diff % hmm->ntprob_arr : 0;  // n-th precalculated matrix
-    memcpy(hmm->tprob, hmm->tprob_arr+n*hmm->nstates*hmm->nstates, sizeof(*hmm->tprob)*hmm->nstates*hmm->nstates);
+    memcpy(hmm->curr_tprob, hmm->tprob_arr+n*hmm->nstates*hmm->nstates, sizeof(*hmm->curr_tprob)*hmm->nstates*hmm->nstates);
 
     if ( hmm->ntprob_arr > 0  )
     {
         n = pos_diff / hmm->ntprob_arr;  // number of full blocks to jump
         for (i=0; i<n; i++)
-            multiply_matrix(hmm->nstates, hmm->tprob_arr+(hmm->ntprob_arr-1)*hmm->nstates*hmm->nstates, hmm->tprob, hmm->tprob);
+            multiply_matrix(hmm->nstates, hmm->tprob_arr+(hmm->ntprob_arr-1)*hmm->nstates*hmm->nstates, hmm->curr_tprob, hmm->curr_tprob, hmm->tmp);
     }
 }
 
@@ -122,6 +120,13 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
     for (i=0; i<nstates; i++) hmm->vprob[i] = 1./nstates;
 
 
+    //fprintf(stderr,"DEBUG: ");
+    //for (i=0; i<2; i++)
+    //{
+    //    for (j=0; j<2; j++) fprintf(stderr," %e", MAT(hmm->tprob_arr,2,i,j));
+    //}
+    //fprintf(stderr,"\n");
+
     // Run Viterbi
     uint32_t prev_pos = sites[0];
     for (i=0; i<n; i++)
@@ -141,7 +146,7 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
             int k, k_vmax = 0;
             for (k=0; k<nstates; k++)
             {
-                double pval = hmm->vprob[k] * MAT(hmm->tprob,hmm->nstates,j,k);
+                double pval = hmm->vprob[k] * MAT(hmm->curr_tprob,hmm->nstates,j,k);
                 if ( vmax < pval ) { vmax = pval; k_vmax = k; }
             }
             vpath[j] = k_vmax;
@@ -162,7 +167,7 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
             for (j=0; j<nstates; j++) 
             {
                 int k;
-                for (k=0; k<nstates; k++) fprintf(stderr," %f", MAT(hmm->tprob,hmm->nstates,j,k));
+                for (k=0; k<nstates; k++) fprintf(stderr," %f", MAT(hmm->curr_tprob,hmm->nstates,j,k));
             }
             fprintf(stderr,"\t %d\n", pos_diff);
         #endif
@@ -188,7 +193,8 @@ void hmm_destroy(hmm_t *hmm)
 {
     free(hmm->vprob);
     free(hmm->vpath);
-    free(hmm->tprob);
+    free(hmm->curr_tprob);
+    free(hmm->tmp);
     free(hmm->tprob_arr);
     free(hmm);
 }

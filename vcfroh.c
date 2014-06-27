@@ -206,7 +206,7 @@ static int load_genmap(args_t *args, bcf1_t *line)
         // skip second column
         tmp++;
         while ( *tmp && !isspace(*tmp) ) tmp++;
-        
+
         // read the genetic map in cM
         gm->rate = strtod(tmp+1, &end);
         if ( tmp+1==end ) error("Could not parse %s: %s\n", fname, str.s);
@@ -252,31 +252,32 @@ void set_tprob(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
 {
     args_t *args = (args_t*) data;
     double ci = get_genmap_rate(args, pos - prev_pos, pos);
-    MAT(hmm->tprob,2,STATE_HW,STATE_HW) *= 1-ci;
-    MAT(hmm->tprob,2,STATE_HW,STATE_AZ) *= ci;
-    MAT(hmm->tprob,2,STATE_AZ,STATE_HW) *= ci;
-    MAT(hmm->tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
 }
 
 void update_tprobs(hmm_t *hmm)
 {
-    memset(hmm->tprob,0,sizeof(*hmm->tprob)*hmm->nstates*hmm->nstates); 
+    memset(hmm->tmp,0,sizeof(*hmm->tmp)*hmm->nstates*hmm->nstates); 
 
     int i, j;
     for (i=1; i<hmm->nsites; i++)
     {
+        // count the number of transitions
         int prev_state = hmm->vpath[hmm->nstates*(i-1)];
         int curr_state = hmm->vpath[hmm->nstates*i];
-        MAT(hmm->tprob,hmm->nstates,curr_state,prev_state) += 1;
+        MAT(hmm->tmp,hmm->nstates,curr_state,prev_state) += 1;
     }
     for (i=0; i<hmm->nstates; i++)
     {
         int n = 0;
-        for (j=0; j<hmm->nstates; j++) n += MAT(hmm->tprob,hmm->nstates,i,j);
-        assert( n );
-        for (j=0; j<hmm->nstates; j++) MAT(hmm->tprob,hmm->nstates,i,j) /= n;
+        for (j=0; j<hmm->nstates; j++) n += MAT(hmm->tmp,hmm->nstates,i,j);
+        assert( n );    // todo: i-th state was not observed at all
+        for (j=0; j<hmm->nstates; j++) MAT(hmm->tmp,hmm->nstates,i,j) /= n;
     }
-    hmm_set_tprob(hmm, hmm->tprob, 10000);
+    hmm_set_tprob(hmm, hmm->tmp, 10000);
 }
 
 
@@ -316,20 +317,26 @@ static void flush_viterbi(args_t *args)
     else
     {
         double t2az_prev, t2hw_prev;
+        double deltaz, delthw;
+        int i,j;
+        int niter = 0;
         do
         {
-            t2az_prev = args->t2AZ;
-            t2hw_prev = args->t2HW;
+            t2az_prev = MAT(args->hmm->tprob_arr,2,0,1); //args->t2AZ;
+            t2hw_prev = MAT(args->hmm->tprob_arr,2,1,0); //args->t2HW;
             hmm_run_viterbi(args->hmm, args->nsites, args->eprob, args->sites);
             update_tprobs(args->hmm);
-            int i,j;
             for (i=0; i<2; i++)
             {
-                for (j=0; j<2; j++) fprintf(stderr," %f", MAT(args->hmm->tprob,2,i,j));
+                for (j=0; j<2; j++) fprintf(stderr," %f", MAT(args->hmm->tprob_arr,2,i,j));
             }
             fprintf(stderr,"\n");
+            deltaz = fabs(MAT(args->hmm->tprob_arr,2,0,1)-t2az_prev);
+            delthw = fabs(MAT(args->hmm->tprob_arr,2,1,0)-t2hw_prev);
+            fprintf(stderr,"delta %d: %f %f\n", niter, deltaz, delthw);
+            niter++;
         }
-        while ( 1 ) ; //fabs(args->t2az-t2az_prev)>t2az_prev*1e-5 || fabs(args->t2hw-t2hw_prev)>t2hw_prev*1e-5 );
+        while ( deltaz > 0.0 || delthw > 0.0 );
     }
 
     const char *chr = bcf_hdr_id2name(args->hdr,args->prev_rid);
@@ -664,7 +671,7 @@ int main_vcfroh(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->af_fname);
     }
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
-    
+
     init_data(args);
     while ( bcf_sr_next_line(args->files) )
     {
