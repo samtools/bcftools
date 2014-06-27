@@ -137,6 +137,7 @@ typedef struct
 }
 args_t;
 
+static int type2dosage[6], type2ploidy[6], type2stats[6];
 
 static void idist_init(idist_t *d, int min, int max, int step)
 {
@@ -447,6 +448,28 @@ static void init_stats(args_t *args)
     if ( args->ref_fname )
         args->indel_ctx = indel_ctx_init(args->ref_fname);
     #endif
+
+    type2dosage[GT_HOM_RR] = 0;
+    type2dosage[GT_HET_RA] = 1;
+    type2dosage[GT_HOM_AA] = 2;
+    type2dosage[GT_HET_AA] = 2;
+    type2dosage[GT_HAPL_R] = 0;
+    type2dosage[GT_HAPL_A] = 1;
+
+    type2ploidy[GT_HOM_RR] = 1;
+    type2ploidy[GT_HET_RA] = 1;
+    type2ploidy[GT_HOM_AA] = 1;
+    type2ploidy[GT_HET_AA] = 1;
+    type2ploidy[GT_HAPL_R] = -1;
+    type2ploidy[GT_HAPL_A] = -1;
+
+    type2stats[GT_HOM_RR] = 0;
+    type2stats[GT_HET_RA] = 1;
+    type2stats[GT_HOM_AA] = 2;
+    type2stats[GT_HET_AA] = 1;
+    type2stats[GT_HAPL_R] = 0;
+    type2stats[GT_HAPL_A] = 2;
+    
 }
 static void destroy_stats(args_t *args)
 {
@@ -845,43 +868,47 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         gtcmp_t *smpl_stats = line_type&VCF_SNP ? args->smpl_gts_snps : args->smpl_gts_indels;
 
         int r2n = 0;
-        float r2a2 = 0, r2a = 0, r2b2 = 0, r2b = 0, r2ab = 0;
+        float x = 0, y = 0, xy = 0, x2 = 0, y2 = 0;
         for (is=0; is<files->n_smpl; is++)
         {
             // Simplified comparison: only 0/0, 0/1, 1/1 is looked at as the identity of 
             //  actual alleles can be enforced by running without the -c option.
-            int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
-            if ( gt == GT_UNKN ) continue;
+            int gt0 = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
+            if ( gt0 == GT_UNKN ) continue;
 
-            int match = 1;
-            int gt2 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
-            if ( gt2 == GT_UNKN ) match = -1;
-            else if ( gt != gt2 ) match = 0;
+            int gt1 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
+            if ( gt1 == GT_UNKN ) continue;
 
-            if ( match == -1 ) continue;
-            if ( gt == GT_HET_AA ) gt = GT_HOM_AA;  // rare case, treat as AA hom
-            if ( gt2 == GT_HET_AA ) gt2 = GT_HOM_AA;
-            if ( match ) 
+            if ( type2ploidy[gt0]*type2ploidy[gt1] == -1 ) continue;   // cannot compare diploid and haploid genotypes
+
+            gt0 = type2dosage[gt0];
+            gt1 = type2dosage[gt1];
+            x  += gt0;
+            x2 += gt0*gt0;
+            y  += gt1;
+            y2 += gt1*gt1;
+            xy += gt0*gt1;
+            r2n += gt0<=3 ? 2 : 1;
+
+            if ( gt0==gt1 ) 
             {
-                af_stats[iaf].m[gt]++;
-                smpl_stats[is].m[gt]++;
+                int idx = type2stats[gt0];
+                af_stats[iaf].m[idx]++;
+                smpl_stats[is].m[idx]++;
             }
             else 
             {
-                af_stats[iaf].mm[gt]++;
-                smpl_stats[is].mm[gt]++;
+                int idx = type2stats[gt0];
+                af_stats[iaf].mm[idx]++;
+                smpl_stats[is].mm[idx]++;
             }
-            r2a2 += gt*gt;
-            r2a  += gt;
-            r2b2 += gt2*gt2;
-            r2b  += gt2;
-            r2ab += gt*gt2;
-            r2n++;
+
         }
         if ( r2n )
         {
-            float cov  = r2ab - r2a*r2b/r2n;
-            float var2 = (r2a2 - r2a*r2a/r2n) * (r2b2 - r2b*r2b/r2n);
+            x /= r2n; y /= r2n; x2 /= r2n; y2 /= r2n; xy /= r2n;
+            float cov  = xy - x*y;
+            float var2 = (x2 - x*x) * (y2 - y*y);
             af_stats[iaf].r2sum += var2==0 ? 1 : cov*cov/var2;
             af_stats[iaf].r2n++;
         }
@@ -1119,7 +1146,7 @@ static void print_stats(args_t *args)
     }
     if ( args->files->nreaders>1 && args->files->n_smpl )
     {
-        printf("SN\t%d\tNumber of samples:\t%d\n", 2, args->files->n_smpl);
+        printf("SN\t%d\tnumber of samples:\t%d\n", 2, args->files->n_smpl);
 
         int x;
         for (x=0; x<2; x++)

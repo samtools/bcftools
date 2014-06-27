@@ -111,6 +111,10 @@ OPTIONS
     in 'LIST'. For example, to include only sites which have no filters set,
     use *-f* '.,PASS'.
 
+*-o, --output* 'FILE'::
+    When output consists of a single stream, write it to 'FILE' rather than
+    to standard output, where it is written by default.
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
 
@@ -142,12 +146,14 @@ OPTIONS
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
-    Same as *-r, --regions*, but the next position is accessed by streaming the
+    Similar as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
-    and *-t* discards positions which are not in the targets.  Another difference
-    between the two is that *-r* checks both start and end positions of indels,
-    whereas *-t* checks start positions only. 
+    and *-t* discards positions which are not in the targets. Unlike *-r*, targets
+    can be prefixed with "\^" to request logical complement. For example, "^X,Y,MT" 
+    indicates that sequences X, Y and MT should be skipped.
+    Yet another difference between the two is that *-r* checks both start and
+    end positions of indels, whereas *-t* checks start positions only.
 
 *-T, --targets-file* 'FILE'::
     Same *-t, --targets*, but reads regions from a file.
@@ -231,6 +237,9 @@ This command allows to add or remove annotations and apply user-written plugins.
 
         *missing2ref*;; Sets missing genotypes ("./.") to ref allele ("0/0").
 
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
@@ -309,6 +318,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *-M, --keep-masked-ref*::
     output sites where REF allele is N
 
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
 *-V, --skip-variants* 'snps'|'indels'::
     skip indel/SNP sites
 
@@ -384,6 +396,9 @@ the *-a, --allow-overlaps* option is specified.
 *-q, --min-PQ* 'INT'::
     Break phase set if phasing quality is lower than 'INT'
 
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
@@ -438,6 +453,9 @@ And similarly here, the second is filtered:
     "PASS" when the FILTER string is absent. The "\+" mode appends new FILTER
     strings of failed sites instead of replacing them. The "x" mode resets
     filters of sites which pass to "PASS". Modes "+" and "x" can both be set.
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
@@ -566,6 +584,10 @@ in the other files.
     output positions present in this many (=), this many or more (+), or this
     many or fewer (-) files
 
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*.  When several files are being
+    output, their names are controlled via *-p* instead.
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
@@ -647,6 +669,9 @@ also given explicitly using the *--print-header* and *--use-header* options.
     prevent merging of SNPs and indels into one record, use *-m* 'both'. To
     prevent creation of multi-allelic records altogether, use *-m* 'none'.
 
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
@@ -678,6 +703,9 @@ multiple rows.
     both SNPs and indels should be merged separately into two records, specify
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*

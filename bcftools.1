@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 06/23/2014
+.\"      Date: 06/25/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "06/23/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "06/25/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -284,6 +284,13 @@ Skip sites where FILTER column does not contain any of the strings listed in
 \fI\&.,PASS\fR\&.
 .RE
 .PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+When output consists of a single stream, write it to
+\fIFILE\fR
+rather than to standard output, where it is written by default\&.
+.RE
+.PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
 .RS 4
 Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fIz\fR), uncompressed VCF (\fIv\fR)\&.
@@ -322,7 +329,7 @@ accepts an optional second column indicating ploidy (0, 1 or 2) and can parse al
 .PP
 \fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
-Same as
+Similar as
 \fB\-r, \-\-regions\fR, but the next position is accessed by streaming the whole VCF/BCF rather than using the tbi/csi index\&. Both
 \fB\-r\fR
 and
@@ -331,7 +338,8 @@ options can be applied simultaneously:
 \fB\-r\fR
 uses the index to jump to a region and
 \fB\-t\fR
-discards positions which are not in the targets\&. Another difference between the two is that
+discards positions which are not in the targets\&. Unlike
+\fB\-r\fR, targets can be prefixed with "^" to request logical complement\&. For example, "^X,Y,MT" indicates that sequences X, Y and MT should be skipped\&. Yet another difference between the two is that
 \fB\-r\fR
 checks both start and end positions of indels, whereas
 \fB\-t\fR
@@ -463,6 +471,12 @@ above for file format description\&.
 .RS 4
 Sets missing genotypes ("\&./\&.") to ref allele ("0/0")\&.
 .RE
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
 .RE
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
@@ -608,6 +622,12 @@ is the minimum per\-sample depth required to include a site in the non\-variant 
 output sites where REF allele is N
 .RE
 .PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
 \fB\-V, \-\-skip\-variants\fR \fIsnps\fR|\fIindels\fR
 .RS 4
 skip indel/SNP sites
@@ -724,6 +744,12 @@ Break phase set if phasing quality is lower than
 \fIINT\fR
 .RE
 .PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
 .RS 4
 see
@@ -806,6 +832,12 @@ is true\&. For valid expressions see
 \fB\-m, \-\-mode\fR [\fI+x\fR]
 .RS 4
 define behaviour at sites with existing FILTER annotations\&. The default mode replaces existing filters of failed sites with a new FILTER string while leaving sites which pass untouched when non\-empty and setting to "PASS" when the FILTER string is absent\&. The "+" mode appends new FILTER strings of failed sites instead of replacing them\&. The "x" mode resets filters of sites which pass to "PASS"\&. Modes "+" and "x" can both be set\&.
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
 .RE
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
@@ -1022,6 +1054,14 @@ see
 output positions present in this many (=), this many or more (+), or this many or fewer (\-) files
 .RE
 .PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR\&. When several files are being output, their names are controlled via
+\fB\-p\fR
+instead\&.
+.RE
+.PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
 .RS 4
 see
@@ -1170,6 +1210,12 @@ Defines merging behaviour, similar to
 \fInone\fR\&.
 .RE
 .PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
 .RS 4
 see
@@ -1207,6 +1253,12 @@ split multiallelic sites into biallelic records (\fI\-\fR) or join biallelic sit
 \fIsnps\fR; if both SNPs and indels should be merged separately into two records, specify
 \fIboth\fR; if SNPs and indels should be merged into a single record, specify
 \fIany\fR\&.
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
 .RE
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR

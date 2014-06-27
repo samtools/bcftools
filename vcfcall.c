@@ -24,6 +24,8 @@
  */
 
 #include <stdarg.h>
+#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <math.h>
@@ -66,7 +68,7 @@ typedef struct
     int flag;   // combination of CF_* flags above
     int output_type;
     htsFile *bcf_in, *out_fh;
-    char *bcf_fname;
+    char *bcf_fname, *output_fname;
     char **samples;             // for subsampling and ploidy
     int nsamples, *samples_map;
     char *regions, *targets;    // regions to process
@@ -348,7 +350,8 @@ static void init_data(args_t *args)
         args->aux.ploidy = ploidy;
     }
 
-    args->out_fh = hts_open("-", hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+    if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
 
     if ( args->flag & CF_QCALL ) 
         return;
@@ -457,6 +460,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools call [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "File format options:\n");
+    fprintf(stderr, "   -o, --output <file>             write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --regions <region>          restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>       restrict to regions listed in a file\n");
@@ -507,6 +511,8 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.min_perm_p = 0.01;
     args.aux.min_lrt    = 1;
     args.flag           = CF_ACGT_ONLY;
+    args.output_fname   = "-";
+    args.output_type    = FT_VCF;
     args.aux.trio_Pm_SNPs = 1 - 1e-8;
     args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
 
@@ -517,6 +523,7 @@ int main_vcfcall(int argc, char *argv[])
         {"help",0,0,'h'},
         {"gvcf",1,0,'g'},
         {"format-fields",1,0,'f'},
+        {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
@@ -542,7 +549,7 @@ int main_vcfcall(int argc, char *argv[])
     };
 
     char *tmp = NULL;
-	while ((c = getopt_long(argc, argv, "h?O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:ig:", loptions, NULL)) >= 0) 
+	while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:ig:", loptions, NULL)) >= 0)
     {
 		switch (c) 
         {
@@ -558,6 +565,7 @@ int main_vcfcall(int argc, char *argv[])
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'i': args.flag |= CF_INS_MISSED; break;
             case 'v': args.aux.flag |= CALL_VARONLY; break;
+            case 'o': args.output_fname = optarg; break;
             case 'O': 
                       switch (optarg[0]) {
                           case 'b': args.output_type = FT_BCF_GZ; break;
@@ -641,9 +649,13 @@ int main_vcfcall(int argc, char *argv[])
         if ( args.aux.flag & CALL_VARONLY )
         {
             int is_ref = 0;
-            if ( bcf_rec->n_allele==1 ) is_ref = 1;                                          // not a variant
-            else if ( bcf_rec->n_allele==2 && bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;     // second allele is mpileup's X, not a variant
-
+            if ( bcf_rec->n_allele==1 ) is_ref = 1;     // not a variant
+            else if ( bcf_rec->n_allele==2 ) 
+            {
+                // second allele is mpileup's X, not a variant
+                if ( bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;
+                else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='X' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
+            }
             if ( is_ref )
             {
                 // gVCF output

@@ -88,7 +88,7 @@ typedef struct
     bcf_srs_t *files;       // using the synced reader only for -r option
     bcf_hdr_t *hdr;
     faidx_t *fai;
-    char **argv, *ref_fname, *vcf_fname, *region, *targets;
+    char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, check_ref;
     int nchanged, nskipped, ntotal, mrows_op, mrows_collapse, parsimonious;
 }
@@ -580,6 +580,8 @@ static int realign(args_t *args, bcf1_t *line)
     kstring_t *als = args->tmp_als;
     for (i=0; i<line->n_allele; i++)
     {
+        if ( line->d.allele[i][0]=='<' ) return 0;  // symbolic allele
+
         als[i].l = 0;
         kputs(line->d.allele[i], &als[i]);
     }
@@ -1740,7 +1742,8 @@ static void destroy_data(args_t *args)
 
 static void normalize_vcf(args_t *args)
 {
-    htsFile *out = hts_open("-", hts_bcf_wmode(args->output_type));
+    htsFile *out = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+    if ( out == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
     bcf_hdr_write(out, args->hdr);
 
@@ -1801,6 +1804,7 @@ static void usage(void)
     fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
     fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
     fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
+    fprintf(stderr, "    -o, --output <file>               write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>         restrict to regions listed in a file\n");
@@ -1817,6 +1821,8 @@ int main_vcfnorm(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
+    args->output_fname = "-";
+    args->output_type = FT_VCF;
     args->aln_win = 100;
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
@@ -1834,11 +1840,12 @@ int main_vcfnorm(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {"site-win",1,0,'W'},
         {"remove-duplicates",0,0,'D'},
+        {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"check-ref",1,0,'c'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:DO:c:m:t:T:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Do:O:c:m:t:T:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'm':
                 if ( optarg[0]=='-' ) args->mrows_op = MROWS_SPLIT;
@@ -1867,6 +1874,7 @@ int main_vcfnorm(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 }
                 break;
+            case 'o': args->output_fname = optarg; break;
             case 'D': args->rmdup = 1; break;
             case 'f': args->ref_fname = optarg; break;
             case 'r': args->region = optarg; break;
