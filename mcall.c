@@ -1161,6 +1161,59 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
     bcf_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*nsmpl);
 }
 
+static void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
+{
+    int i, ret;
+
+    // only DPR so far, we may generalize to arbitrary Number=R if necessary
+    ret = bcf_get_info_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
+    if ( ret>0 )
+    {
+        assert( ret==nals );
+        if ( out_als==1 )
+        {
+            bcf_update_info_int32(call->hdr, rec, "DPR", call->itmp, 1);
+            return;
+        }
+
+        for (i=0; i<nals; i++)
+        {
+            if ( call->als_map[i]==-1 ) continue;   // to be dropped
+            call->PLs[ call->als_map[i] ] = call->itmp[i]; // reusing PLs storage which is not used at this point
+        }
+        bcf_update_info_int32(call->hdr, rec, "DPR", call->PLs, nout_als);
+    }
+
+    ret = bcf_get_format_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
+    if ( ret>0 )
+    {
+        int nsmpl = bcf_hdr_nsamples(call->hdr);
+        int ndp = ret / nsmpl;
+        assert( ndp==nals );
+        if ( out_als==1 )
+        {
+            for (i=0; i<nsmpl; i++)
+                call->PLs[i] = call->itmp[i*ndp];
+
+            bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl);
+            return;
+        }
+
+        int j;
+        for (i=0; i<nsmpl; i++)
+        {
+            int32_t *dp_dst = call->PLs + i*nout_als;
+            int32_t *dp_src = call->itmp + i*ndp;
+            for (j=0; j<nals; j++)
+            {
+                if ( call->als_map[j]==-1 ) continue;   // to be dropped
+                dp_dst[ call->als_map[j] ] = dp_src[j]; // reusing PLs storage which is not used at this point
+            }
+        }
+        bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl*nout_als);
+    }
+}
+
 static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
 {
     bcf_sr_regions_t *tgt = call->srs->targets;
@@ -1364,6 +1417,7 @@ int mcall(call_t *call, bcf1_t *rec)
         if ( !nAC && call->flag & CALL_VARONLY ) return 0;
         mcall_trim_PLs(call, rec, nals, nout, out_als);
     }
+    if ( nals!=nout ) mcall_trim_numberR(call, rec, nals, nout, out_als);
 
     // Set QUAL and calculate HWE-related annotations
     if ( nAC ) 
