@@ -55,11 +55,13 @@ typedef struct _args_t
     char *genmap_fname;
     genmap_t *genmap;
     int ngenmap, mgenmap, igenmap;
+    double rec_rate;        // constant recombination rate if > 0
 
     hmm_t *hmm;
     double *eprob;          // emission probs [2*nsites,msites]
     uint32_t *sites;        // positions [nsites,msites]
     int nsites, msites;
+    int nrids, *rids, *rid_offs;    // multiple chroms with vi_training
 
     int32_t *itmp;
     int nitmp, mitmp;
@@ -77,7 +79,8 @@ typedef struct _args_t
 }
 args_t;
 
-void set_tprob(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
 
 void *smalloc(size_t size)
 {
@@ -143,7 +146,13 @@ static void init_data(args_t *args)
     if ( args->genmap_fname ) 
     {
         args->hmm = hmm_init(2, tprob, 0);
-        hmm_set_tprob_func(args->hmm, set_tprob, args);
+        hmm_set_tprob_func(args->hmm, set_tprob_genmap, args);
+    }
+    else if ( args->rec_rate > 0 )
+    {
+        args->hmm = hmm_init(2, tprob, 0);
+        hmm_set_tprob_func(args->hmm, set_tprob_recrate, args);
+
     }
     else
         args->hmm = hmm_init(2, tprob, 10000);
@@ -159,6 +168,8 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    free(args->rids);
+    free(args->rid_offs);
     hmm_destroy(args->hmm);
     bcf_sr_destroy(args->files);
     free(args->itmp); free(args->AFs); free(args->pdg);
@@ -248,7 +259,7 @@ static double get_genmap_rate(args_t *args, int start, int end)
     return rate;
 }
 
-void set_tprob(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
 {
     args_t *args = (args_t*) data;
     double ci = get_genmap_rate(args, pos - prev_pos, pos);
@@ -258,26 +269,14 @@ void set_tprob(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
     MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
 }
 
-void update_tprobs(hmm_t *hmm)
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
 {
-    memset(hmm->tmp,0,sizeof(*hmm->tmp)*hmm->nstates*hmm->nstates); 
-
-    int i, j;
-    for (i=1; i<hmm->nsites; i++)
-    {
-        // count the number of transitions
-        int prev_state = hmm->vpath[hmm->nstates*(i-1)];
-        int curr_state = hmm->vpath[hmm->nstates*i];
-        MAT(hmm->tmp,hmm->nstates,curr_state,prev_state) += 1;
-    }
-    for (i=0; i<hmm->nstates; i++)
-    {
-        int n = 0;
-        for (j=0; j<hmm->nstates; j++) n += MAT(hmm->tmp,hmm->nstates,i,j);
-        assert( n );    // todo: i-th state was not observed at all
-        for (j=0; j<hmm->nstates; j++) MAT(hmm->tmp,hmm->nstates,i,j) /= n;
-    }
-    hmm_set_tprob(hmm, hmm->tmp, 10000);
+    args_t *args = (args_t*) data;
+    double ci = (pos - prev_pos) * args->rec_rate;
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
 }
 
 
@@ -310,42 +309,95 @@ void update_tprobs(hmm_t *hmm)
 
 static void flush_viterbi(args_t *args)
 {
+    int i,j;
+
     if ( !args->nsites ) return; 
 
     if ( !args->vi_training )
+    {
+        // single viterbi pass, one chromsome
         hmm_run_viterbi(args->hmm, args->nsites, args->eprob, args->sites);
-    else
-    {
-        double t2az_prev, t2hw_prev;
-        double deltaz, delthw;
-        int i,j;
-        int niter = 0;
-        do
+
+        const char *chr = bcf_hdr_id2name(args->hdr,args->prev_rid);
+        for (i=0; i<args->nsites; i++)
         {
-            t2az_prev = MAT(args->hmm->tprob_arr,2,0,1); //args->t2AZ;
-            t2hw_prev = MAT(args->hmm->tprob_arr,2,1,0); //args->t2HW;
-            hmm_run_viterbi(args->hmm, args->nsites, args->eprob, args->sites);
-            update_tprobs(args->hmm);
-            for (i=0; i<2; i++)
-            {
-                for (j=0; j<2; j++) fprintf(stderr," %f", MAT(args->hmm->tprob_arr,2,i,j));
-            }
-            fprintf(stderr,"\n");
-            deltaz = fabs(MAT(args->hmm->tprob_arr,2,0,1)-t2az_prev);
-            delthw = fabs(MAT(args->hmm->tprob_arr,2,1,0)-t2hw_prev);
-            fprintf(stderr,"delta %d: %f %f\n", niter, deltaz, delthw);
-            niter++;
+            printf("%s\t%d\t%d\t..\n", chr,args->sites[i]+1,args->hmm->vpath[i*2]==STATE_AZ ? 1 : 0);
         }
-        while ( deltaz > 0.0 || delthw > 0.0 );
+        return;
     }
 
-    const char *chr = bcf_hdr_id2name(args->hdr,args->prev_rid);
-
-    int i;
-    for (i=0; i<args->nsites; i++)
+    // viterbi training, multiple chromosomes
+    double t2az_prev, t2hw_prev;
+    double deltaz, delthw;
+    int niter = 0;
+    do
     {
-        printf("%s\t%d\t%d\t..\n", chr,args->sites[i]+1,args->hmm->vpath[i*2]==STATE_AZ ? 1 : 0);
+        t2az_prev = MAT(args->hmm->tprob_arr,2,1,0); //args->t2AZ;
+        t2hw_prev = MAT(args->hmm->tprob_arr,2,0,1); //args->t2HW;
+        double tcounts[] = { 0,0,0,0 };
+        for (i=0; i<args->nrids; i++)
+        {
+            // run viterbi for each chromosomes. eprob and sites contain
+            // multiple chromosomes, rid_offs mark the boundaries
+            int ioff = args->rid_offs[i];
+            int nsites = (i+1==args->nrids ? args->nsites : args->rid_offs[i+1]) - ioff;
+            hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
+
+            // what transitions were observed: add to the total counts
+            for (j=1; j<args->nsites; j++)
+            {
+                // count the number of transitions
+                int prev_state = args->hmm->vpath[2*(j-1)];
+                int curr_state = args->hmm->vpath[2*j];
+                MAT(tcounts,2,curr_state,prev_state) += 1;
+            }
+        }
+
+        // update the transition matrix tprob
+        for (i=0; i<2; i++)
+        {
+            int n = 0;
+            for (j=0; j<2; j++) n += MAT(tcounts,2,i,j);
+            assert( n );    // todo: i-th state was not observed at all
+            for (j=0; j<2; j++) MAT(tcounts,2,i,j) /= n;
+        }
+        if ( args->rec_rate > 0 )
+            hmm_set_tprob(args->hmm, tcounts, 0);
+        else
+            hmm_set_tprob(args->hmm, tcounts, 10000);
+
+        deltaz = fabs(MAT(args->hmm->tprob_arr,2,1,0)-t2az_prev);
+        delthw = fabs(MAT(args->hmm->tprob_arr,2,0,1)-t2hw_prev);
+        niter++;
+
+        fprintf(stderr,"%d: %f %f\n", niter,deltaz,delthw);
     }
+    while ( deltaz > 0.0 || delthw > 0.0 );
+    fprintf(stderr, "Viterbi training converged in %d iterations\n", niter);
+
+    
+    // output the results
+    for (i=0; i<args->nrids; i++)
+    {
+        int ioff = args->rid_offs[i];
+        int nsites = (i+1==args->nrids ? args->nsites : args->rid_offs[i+1]) - ioff;
+        hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
+
+        const char *chr = bcf_hdr_id2name(args->hdr,args->rids[i]);
+        for (j=0; j<nsites; j++)
+        {
+            printf("%s\t%d\t%d\t..\n", chr,args->sites[ioff+j]+1,args->hmm->vpath[j*2]==STATE_AZ ? 1 : 0);
+        }
+    }
+}
+
+static void push_rid(args_t *args, int rid)
+{
+    args->nrids++;
+    args->rids = (int*) realloc(args->rids, args->nrids*sizeof(int));
+    args->rid_offs = (int*) realloc(args->rid_offs, args->nrids*sizeof(int));
+    args->rids[ args->nrids-1 ] = rid;
+    args->rid_offs[ args->nrids-1 ] = args->nsites;
 }
 
 static int read_AF(args_t *args, bcf1_t *line, double *alt_freq)
@@ -526,13 +578,19 @@ static void vcfroh(args_t *args, bcf1_t *line)
         args->prev_rid = line->rid;
         args->prev_pos = line->pos;
         skip_rid = load_genmap(args, line);
+        if ( !skip_rid && args->vi_training ) push_rid(args, line->rid);
     }
 
     // New chromosome?
     if ( args->prev_rid!=line->rid )
     {
-        flush_viterbi(args);
         skip_rid = load_genmap(args, line);
+        if ( args->vi_training )
+        {
+            if ( !skip_rid ) push_rid(args, line->rid);
+        }
+        else
+            flush_viterbi(args);
         args->prev_rid = line->rid;
         args->prev_pos = line->pos;
     }
@@ -583,6 +641,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -G, --GTs-only <float>             use GTs, ignore PLs, use <float> for PL of unseen genotypes. Safe value to use is 30 to account for GT errors.\n");
     fprintf(stderr, "    -I, --skip-indels                  skip indels as their genotypes are enriched for errors\n");
     fprintf(stderr, "    -m, --genetic-map <file>           genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
+    fprintf(stderr, "    -M, --rec-rate <float>             constant recombination rate per bp\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
     fprintf(stderr, "    -s, --sample <sample>              sample to analyze\n");
@@ -603,8 +662,9 @@ int main_vcfroh(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
-    args->t2AZ    = 1e-8;
-    args->t2HW    = 1e-7;
+    args->t2AZ    = 1e-1;
+    args->t2HW    = 1e-1;
+    args->rec_rate = 0;
     int regions_is_file = 0, targets_is_file = 0;
 
     static struct option loptions[] = 
@@ -622,12 +682,13 @@ int main_vcfroh(int argc, char *argv[])
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"genetic-map",1,0,'m'},
+        {"rec-rate",1,0,'M'},
         {"skip-indels",0,0,'I'},
         {0,0,0,0}
     };
 
     int naf_opts = 0;
-    while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:s:m:G:Ia:e:V",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:s:m:M:G:Ia:e:V",loptions,NULL)) >= 0) {
         switch (c) {
             case 0: args->af_tag = optarg; naf_opts++; break;
             case 1: args->af_fname = optarg; naf_opts++; break;
@@ -635,6 +696,7 @@ int main_vcfroh(int argc, char *argv[])
             case 'I': args->snps_only = 1; break;
             case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
             case 'm': args->genmap_fname = optarg; break;
+            case 'M': args->rec_rate = atof(optarg); break;
             case 's': args->sample = optarg; break;
             case 'a': args->t2AZ = atof(optarg); break;
             case 'H': args->t2HW = atof(optarg); break;
