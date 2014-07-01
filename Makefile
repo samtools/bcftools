@@ -15,7 +15,7 @@ DFLAGS=
 OBJS=		main.o vcfindex.o tabix.o \
 			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
             vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
-            vcfcall.o mcall.o vcmp.o gvcf.o \
+            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o \
             ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES=	-I. -I$(HTSDIR)
 

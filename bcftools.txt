@@ -55,6 +55,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
 - *<<norm,norm>>*        ..  normalize indels
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
+- *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
 - *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
 - *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
@@ -145,7 +146,7 @@ OPTIONS
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
-*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* \[^]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Similar as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
@@ -155,7 +156,7 @@ OPTIONS
     Yet another difference between the two is that *-r* checks both start and
     end positions of indels, whereas *-t* checks start positions only.
 
-*-T, --targets-file* 'FILE'::
+*-T, --targets-file* \[^]'FILE'::
     Same *-t, --targets*, but reads regions from a file.
 
     ::
@@ -793,8 +794,21 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
     bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz
 
+
+[[reheader]]
+=== bcftools reheader ['OPTIONS'] 'file.vcf.gz'
+Modify header of VCF/BCF files, change sample names.
+
+*-h, --header* 'FILE'::
+    new VCF header
+
+*-s, --samples* 'FILE'::
+    new sample names, one name per line
+
+
+
 [[roh]]
-=== bcftools roh 'OPTIONS' 'FILE'
+=== bcftools roh ['OPTIONS'] 'FILE'
 A program for detecting runs of homo/autozygosity.
 
 ==== The HMM model:
@@ -891,7 +905,7 @@ Transition probabilities:
 
 
 [[stats]]
-=== bcftools stats 'OPTIONS' 'A.vcf.gz' ['B.vcf.gz']
+=== bcftools stats ['OPTIONS'] 'A.vcf.gz' ['B.vcf.gz']
 Parses VCF or BCF and produces text file stats which is suitable for machine
 processing and can be plotted using *<<plot-vcfstats,plot-vcfstats>>*.  When two files are given,
 the program generates separate stats for intersection and the complements.
@@ -948,7 +962,7 @@ the program generates separate stats for intersection and the complements.
 
 
 [[view]]
-=== bcftools view 'OPTIONS' 'file.vcf.gz' ['REGION' [...]]
+=== bcftools view ['OPTIONS'] 'file.vcf.gz' ['REGION' [...]]
 View, subset and filter VCF or BCF files by position and filtering expression.
 Convert between VCF and BCF. Former *bcftools subset*.
 
@@ -1078,7 +1092,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 
 [[plot-vcfstats]]
-=== plot-vcfstats 'OPTIONS' 'file.vchk' [...]
+=== plot-vcfstats ['OPTIONS'] 'file.vchk' [...]
 Script for processing output of *<<stats,bcftools stats>>*. It can merge
 results from multiple outputs (useful when running the stats for each
 chromosome separately), plots graphs and creates a PDF presentation. 

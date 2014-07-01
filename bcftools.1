@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 06/25/2014
+.\"      Date: 07/01/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "06/25/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "07/01/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -182,6 +182,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .IP \(bu 2.3
 .\}
 
+\fBreheader\fR
+\&.\&. modify VCF/BCF header, change sample names
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
 \fBroh\fR
 \&.\&. identify runs of homo/auto\-zygosity
 .RE
@@ -327,7 +340,7 @@ accepts an optional second column indicating ploidy (0, 1 or 2) and can parse al
 \fItrio\fR, PED file is expected\&.
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-t, \-\-targets\fR [^]\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 Similar as
 \fB\-r, \-\-regions\fR, but the next position is accessed by streaming the whole VCF/BCF rather than using the tbi/csi index\&. Both
@@ -346,7 +359,7 @@ checks both start and end positions of indels, whereas
 checks start positions only\&.
 .RE
 .PP
-\fB\-T, \-\-targets\-file\fR \fIFILE\fR
+\fB\-T, \-\-targets\-file\fR [^]\fIFILE\fR
 .RS 4
 Same
 \fB\-t, \-\-targets\fR, but reads regions from a file\&.
@@ -1432,7 +1445,20 @@ bcftools query \-f \*(Aq%CHROM\et%POS\et%REF\et%ALT[\et%SAMPLE=%GT]\en\*(Aq file
 .RE
 .\}
 .RE
-.SS "bcftools roh \fIOPTIONS\fR \fIFILE\fR"
+.SS "bcftools reheader [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
+.sp
+Modify header of VCF/BCF files, change sample names\&.
+.PP
+\fB\-h, \-\-header\fR \fIFILE\fR
+.RS 4
+new VCF header
+.RE
+.PP
+\fB\-s, \-\-samples\fR \fIFILE\fR
+.RS 4
+new sample names, one name per line
+.RE
+.SS "bcftools roh [\fIOPTIONS\fR] \fIFILE\fR"
 .sp
 A program for detecting runs of homo/autozygosity\&.
 .sp
@@ -1591,7 +1617,7 @@ P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy\-Weinberg) sta
 P(HW|AZ) transition probability from HW to AZ state
 .RE
 .RE
-.SS "bcftools stats \fIOPTIONS\fR \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"
+.SS "bcftools stats [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"
 .sp
 Parses VCF or BCF and produces text file stats which is suitable for machine processing and can be plotted using \fBplot\-vcfstats\fR\&. When two files are given, the program generates separate stats for intersection and the complements\&.
 .PP
@@ -1682,7 +1708,7 @@ see
 see
 \fBCommon Options\fR
 .RE
-.SS "bcftools view \fIOPTIONS\fR \fIfile\&.vcf\&.gz\fR [\fIREGION\fR [\&...]]"
+.SS "bcftools view [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR [\fIREGION\fR [\&...]]"
 .sp
 View, subset and filter VCF or BCF files by position and filtering expression\&. Convert between VCF and BCF\&. Former \fBbcftools subset\fR\&.
 .sp
@@ -1902,7 +1928,7 @@ print sites where only the subset samples carry an non\-reference allele
 exclude sites where only the subset samples carry an non\-reference allele
 .RE
 .RE
-.SS "plot\-vcfstats \fIOPTIONS\fR \fIfile\&.vchk\fR [\&...]"
+.SS "plot\-vcfstats [\fIOPTIONS\fR] \fIfile\&.vchk\fR [\&...]"
 .sp
 Script for processing output of \fBbcftools stats\fR\&. It can merge results from multiple outputs (useful when running the stats for each chromosome separately), plots graphs and creates a PDF presentation\&.
 .PP

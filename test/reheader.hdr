@@ -1,0 +1,19 @@
+##fileformat=VCFv4.2
+##INFO=<ID=DP2,Number=2,Type=Integer,Description="Depth">
+##FILTER=<ID=Test,Description="Test filter">
+##FORMAT=<ID=DP2,Number=2,Type=Integer,Description="Depth">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled likelihood">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">
+##contig=<ID=12,length=123456789>
+##contig=<ID=20,length=2147483647>
+##contig=<ID=5,length=2147483647>
+##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
+##contig=<ID=3,length=2147483647>
+##contig=<ID=4,length=2147483647>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	AAA0001	BBB0002
