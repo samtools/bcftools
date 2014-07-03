@@ -675,7 +675,7 @@ static void init_columns(args_t *args)
             {
                 if ( args->tgts_is_vcf ) // reading annotations from a VCF, add a new header line
                 {
-                    bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_INFO, str.s);
+                    bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_INFO, "ID", str.s, NULL);
                     if ( !hrec ) error("The tag \"%s\" is not defined in %s\n", str.s,args->files->readers[1].fname);
                     tmp.l = 0;
                     bcf_hrec_format(hrec, &tmp);

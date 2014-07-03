@@ -9,6 +9,9 @@
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##contig=<ID=2,length=62435964>
 ##contig=<ID=1,length=62435964>
+##samtoolsVersion=0.2.0-rc10+htslib-0.2.0-rc10
+##samtoolsCommand=samtools mpileup -t INFO/DPR -C50 -pm3 -F0.2 -d10000 -ug -r 1:1-1000000 -b mpileup.2014-07-03//lists/chr1-pooled.list -f human_g1k_v37.fasta
+##ALT=<ID=X,Description="Represents allele(s) other than observed.">
 ##contig=<ID=3,length=62435964>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
 1	100	.	GTTT	G	1806	q10	XX=11;DP=35	GT:GQ:DP	0/1:409:35

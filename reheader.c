@@ -249,7 +249,7 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
         if ( src_hrec->type==BCF_HL_FLT || src_hrec->type==BCF_HL_INFO || src_hrec->type==BCF_HL_FMT || src_hrec->type== BCF_HL_CTG )
         {
             int j = bcf_hrec_find_key(src_hrec, "ID");
-            dst_hrec = bcf_hdr_get_hrec(dst, src_hrec->type, src_hrec->vals[j]);
+            dst_hrec = bcf_hdr_get_hrec(dst, src_hrec->type, "ID", src_hrec->vals[j], NULL);
             if ( !dst_hrec ) continue;
 
             tmp = bcf_hrec_dup(dst_hrec);
@@ -271,7 +271,7 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
         if ( dst_hrec->type==BCF_HL_FLT || dst_hrec->type==BCF_HL_INFO || dst_hrec->type==BCF_HL_FMT || dst_hrec->type== BCF_HL_CTG )
         {
             int j = bcf_hrec_find_key(dst_hrec, "ID");
-            tmp = bcf_hdr_get_hrec(out, dst_hrec->type, dst_hrec->vals[j]);
+            tmp = bcf_hdr_get_hrec(out, dst_hrec->type, "ID", dst_hrec->vals[j], NULL);
             if ( !tmp )
                 bcf_hdr_add_hrec(out, bcf_hrec_dup(dst_hrec));
         }
