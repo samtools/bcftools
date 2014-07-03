@@ -779,8 +779,9 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
             while ( a<aend && *a ) a++;
             char *bend = bstr + (int)btok->values[0], *b = bstr;
             while ( b<bend && *b ) b++;
-            if ( a-astr != b-bstr ) atok->pass_samples[i] = logic==TOK_EQ ? 0 : 1;
-            else atok->pass_samples[i] = logic==TOK_EQ ? !strncmp(astr,bstr,a-astr) : strncmp(astr,bstr,a-astr);
+            if ( a-astr != b-bstr ) atok->pass_samples[i] = 0;
+            else atok->pass_samples[i] = strncmp(astr,bstr,a-astr)==0 ? 1 : 0;
+            if ( logic!=TOK_EQ ) pass_site = pass_site ? 0 : 1;
             if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
         }
         if ( !atok->nsamples ) atok->nsamples = btok->nsamples;
@@ -803,8 +804,9 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
             char *ystr = ytok->str_value + i*(int)ytok->values[0];
             char *yend = ystr + (int)ytok->values[0], *y = ystr;
             while ( y<yend && *y ) y++;
-            if ( x-xstr != y-ystr ) atok->pass_samples[i] = logic==TOK_EQ ? 0 : 1;
-            else atok->pass_samples[i] = logic==TOK_EQ ? !strncmp(xstr,ystr,x-xstr) : strncmp(xstr,ystr,x-xstr);
+            if ( x-xstr != y-ystr ) atok->pass_samples[i] = 0;
+            else atok->pass_samples[i] = strncmp(xstr,ystr,x-xstr)==0 ? 1 : 0;
+            if ( logic!=TOK_EQ ) pass_site = pass_site ? 0 : 1;
             if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
         }
         if ( !atok->nsamples ) atok->nvalues = atok->nsamples = btok->nsamples;

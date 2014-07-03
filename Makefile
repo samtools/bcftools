@@ -61,7 +61,7 @@ plugins: $(PLUGINS)
 %.so: %.c version.h version.c config.c config.h vcfannotate.c $(HTSDIR)/libhts.so
 	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ config.c version.c $< -L$(HTSDIR) -lhts
 
-main.o: version.h $(HTSDIR)/version.h bcftools.h
+main.o: version.h bcftools.h
 vcfcall.o: vcfcall.c call.h mcall.c gvcf.c prob1.h $(HTSDIR)/htslib/kfunc.h bcftools.h
 mcall.o ccall.o: call.h vcmp.h bcftools.h
 vcffilter.o: bcftools.h filter.h
