@@ -344,7 +344,7 @@ static void flush_viterbi(args_t *args)
             hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
 
             // what transitions were observed: add to the total counts
-            for (j=1; j<args->nsites; j++)
+            for (j=1; j<nsites; j++)
             {
                 // count the number of transitions
                 int prev_state = args->hmm->vpath[2*(j-1)];
