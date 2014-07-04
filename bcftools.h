@@ -23,12 +23,11 @@
 
  */
 
-#ifndef __BCFTOOLS_H__
-#define __BCFTOOLS_H__
+#ifndef BCFTOOLS_H
+#define BCFTOOLS_H
 
 #include <stdarg.h>
 #include <htslib/vcf.h>
-#include "version.h"
 
 char *bcftools_version(void);
 void error(const char *format, ...);
