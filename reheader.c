@@ -413,6 +413,9 @@ int main_reheader(int argc, char *argv[])
     }
     else args->fname = argv[optind];
 
+    if ( !args->samples_fname && !args->header_fname ) usage(args);
+    if ( !args->fname ) usage(args);
+
     init_data(args);
 
     if ( args->file_type & FT_VCF ) 
