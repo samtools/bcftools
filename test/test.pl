@@ -34,6 +34,10 @@ test_vcf_query($opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i
 test_vcf_query($opts,in=>'view.filter',out=>'query.3.out',args=>q[-f'%XRF\\n' -i'XRF[*]=2e6']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[5]="PQR"']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[*]="GHI"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[2]~"H"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[3]!~"H"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[*]~"H"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[*]~"HI,JK"']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.merge',out=>'norm.merge.out',args=>'-m+');

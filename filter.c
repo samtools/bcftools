@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <math.h>
 #include <wordexp.h>
+#include <regex.h>
 #include <htslib/khash_str2int.h>
 #include "filter.h"
 #include "bcftools.h"
@@ -45,6 +46,7 @@ typedef struct _token_t
     void (*setter)(filter_t *, bcf1_t *, struct _token_t *);
     int (*comparator)(struct _token_t *, struct _token_t *, int op_type, bcf1_t *);
     void *hash;         // test presence of str value in the hash via comparator
+    regex_t *regex;     // precompiled regex for string comparison
 
     // modified on filter evaluation at each VCF line
     float *values;      // In case str_value is set, values[0] is one sample's string length
@@ -89,12 +91,14 @@ struct _filter_t
 #define TOK_AVG     17
 #define TOK_AND_VEC 18      // &&   (operator applied in samples)
 #define TOK_OR_VEC  19      // ||   (operator applied in samples)
-#define TOK_FUNC    20
+#define TOK_LIKE    20      //  ~ regular expression
+#define TOK_NLIKE   21      // !~ regular expression
+#define TOK_FUNC    22
 
-//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
-//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2};
-#define TOKEN_STRING "x()[<=>]!|&+-*/MmaAOf"
+//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21
+//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5};
+#define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^f"
 
 static int filters_next_token(char **str, int *len)
 {
@@ -147,6 +151,7 @@ static int filters_next_token(char **str, int *len)
         if ( tmp[0]=='*' && (tmp==*str || tmp[-1]!='[') ) break;
         if ( tmp[0]=='-' ) break;
         if ( tmp[0]=='/' ) break;
+        if ( tmp[0]=='~' ) break;
         tmp++;
     }
     if ( tmp > *str )
@@ -166,6 +171,7 @@ static int filters_next_token(char **str, int *len)
     if ( tmp[0]=='!' )
     {
         if ( tmp[1]=='=' ) { (*str) += 2; return TOK_NE; }
+        if ( tmp[1]=='~' ) { (*str) += 2; return TOK_NLIKE; }
     }
     if ( tmp[0]=='<' )
     {
@@ -192,6 +198,7 @@ static int filters_next_token(char **str, int *len)
     if ( tmp[0]=='-' ) { (*str) += 1; return TOK_SUB; }
     if ( tmp[0]=='*' ) { (*str) += 1; return TOK_MULT; }
     if ( tmp[0]=='/' ) { (*str) += 1; return TOK_DIV; }
+    if ( tmp[0]=='~' ) { (*str) += 1; return TOK_LIKE; }
 
     *len = tmp - (*str);
     return TOK_VAL;
@@ -861,7 +868,6 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
         }
         else
             pass_site = strcmp(atok->str_value,btok->str_value) ? 0 : 1;
-
         if ( logic!=TOK_EQ ) pass_site = pass_site ? 0 : 1;
     }
     else
@@ -886,6 +892,11 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
             atok->nvalues = atok->nsamples = btok->nsamples; // is it a bug? not sure if atok->nvalues should be set
     }
     return pass_site;
+}
+static int regex_vector_strings(token_t *atok, token_t *btok)
+{
+    int ret = regexec(btok->regex, atok->str_value, 0,NULL,0);
+    return ret==0 ? 1 : 0;
 }
 
 static int filters_init1(filter_t *filter, char *str, int len, int inside_func, token_t *tok)
@@ -989,7 +1000,7 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
             if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
                 error("No such FORMAT field: %s\n", tmp.s);
             if ( bcf_hdr_id2number(filter->hdr,BCF_HL_FMT,tok->hdr_id)!=1 )
-                error("Error: Arrays must be subscripted, e.g. %s[0]\n", tmp.s);
+                error("Error: Arrays must be subscripted, e.g. %s[0] or %s[*]\n", tmp.s);
             switch ( bcf_hdr_id2type(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
             {
                 case BCF_HT_INT:  tok->setter = &filters_set_format_int; break;
@@ -1197,10 +1208,20 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     // In the special cases of %TYPE and %FILTER the BCF header IDs are yet unknown. Walk through the
     // list of operators and convert the strings (e.g. "PASS") to BCF ids. The string value token must be
     // just before or after the %FILTER token and they must be followed with a comparison operator.
+    // At this point we also initialize regex expressions which, in RPN, must preceed the LIKE/NLIKE operator.
     // This code is fragile: improve me.
     int i;
     for (i=0; i<nout; i++)
     {
+        if ( out[i].tok_type==TOK_LIKE || out[i].tok_type==TOK_NLIKE )
+        {
+            int j = i-1;
+            if ( !out[j].key )
+                error("Could not parse the expression, wrong value for regex operator: %s\n", filter->str);
+            out[j].regex = (regex_t *) malloc(sizeof(regex_t));
+            if ( regcomp(out[j].regex, out[j].key, REG_ICASE|REG_NOSUB) )
+                error("Could not compile the regex expression \"%s\": %s\n", out[j].key,filter->str);
+        }
         if ( out[i].tok_type!=TOK_VAL ) continue;
         if ( !out[i].tag ) continue;
         if ( !strcmp(out[i].tag,"%TYPE") )
@@ -1223,7 +1244,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         {
             if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
             int j = i+1;
-            if ( out[j].tok_type==TOK_EQ || out[j].tok_type==TOK_NE ) j = i - 1;
+            if ( out[j].tok_type==TOK_EQ || out[j].tok_type==TOK_NE || out[j].tok_type==TOK_LIKE ) j = i - 1;
             if ( out[j].tok_type!=TOK_VAL || !out[j].key )
                 error("[%s:%d %s] Could not parse the expression, an unquoted string value perhaps? %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
             if ( strcmp(".",out[j].key) )
@@ -1275,6 +1296,11 @@ void filter_destroy(filter_t *filter)
         free(filter->filters[i].values);
         free(filter->filters[i].pass_samples);
         if (filter->filters[i].hash) khash_str2int_destroy_free(filter->filters[i].hash);
+        if (filter->filters[i].regex) 
+        {
+            regfree(filter->filters[i].regex);
+            free(filter->filters[i].regex);
+        }
     }
     free(filter->filters);
     free(filter->flt_stack);
@@ -1396,6 +1422,16 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
             else
                 CMP_VECTORS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],!=,is_true);
         }
+        else if ( filter->filters[i].tok_type == TOK_LIKE || filter->filters[i].tok_type == TOK_NLIKE )
+        {
+            if ( is_str==2 )
+            {
+                is_true = regex_vector_strings(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1]);
+                if ( filter->filters[i].tok_type == TOK_NLIKE ) is_true = is_true ? 0 : 1;
+            }
+            else
+                error("The regex operator can be used on strings only: %s\n", filter->str);
+        }
         else if ( is_str>0 )
             error("Wrong operator in string comparison: %s [%s,%s]\n", filter->str, filter->flt_stack[nstack-1]->str_value, filter->flt_stack[nstack-2]->str_value);
         else if ( filter->filters[i].tok_type == TOK_LE )
@@ -1434,6 +1470,8 @@ void filter_expression_info(FILE *fp)
     fprintf(fp, "        .. @file_name\n");
     fprintf(fp, "    - arithmetic operators: +,*,-,/\n");
     fprintf(fp, "    - comparison operators: == (same as =), >, >=, <=, <, !=\n");
+    fprintf(fp, "    - regex operator for string comparison: ~, !~\n");
+    fprintf(fp, "        .. INFO/HAYSTACK ~ \"needle\"\n");
     fprintf(fp, "    - parentheses for grouping: (, )\n");
     fprintf(fp, "    - logical operators: &&, &, ||, |\n");
     fprintf(fp, "    - INFO tags, FORMAT tags, column names\n");

@@ -43,7 +43,7 @@ version.h:
 
 
 .SUFFIXES:.c .o
-.PHONY:all clean clean-all distclean install lib tags test testclean force plugins
+.PHONY:all clean clean-all distclean install lib tags test testclean force plugins docs
 
 force:
 
@@ -100,6 +100,13 @@ test/test-rbuf: test/test-rbuf.o
 bcftools: $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl
 
+bcftools.1: bcftools.txt
+		a2x --doctype manpage --format manpage bcftools.txt
+
+bcftools.html: bcftools.txt
+		a2x --doctype manpage --format xhtml bcftools.txt
+
+docs: bcftools.html bcftools.1
 
 install: $(PROG)
 		mkdir -p $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
