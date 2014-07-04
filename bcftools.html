@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25162384"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25205488"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -1149,57 +1149,44 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
 </span></dt><dd>
     Main title for the PDF.
 </dd></dl></div></div></div><div class="refsect1" title="EXPRESSIONS"><a id="expressions"></a><h2>EXPRESSIONS</h2><p>These filtering expressions are accepted by <span class="strong"><strong><a class="link" href="#annotate" title="bcftools annotate [OPTIONS] FILE">annotate</a></strong></span>,
-<span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span>, <span class="strong"><strong><a class="link" href="#query" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]">query</a></strong></span> and <span class="strong"><strong><a class="link" href="#view" title="bcftools view [OPTIONS] file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="variablelist" title="Valid expressions may contain:"><p class="title"><strong>Valid expressions may contain:</strong></p><dl><dt><span class="term">
- 
-</span></dt><dd><div class="variablelist"><dl><dt><span class="term">
-numerical constants, string constants, file names 
-</span></dt><dd>
-        1, 1.0, 1e-4
-        "String"
-        @file_name
-</dd><dt><span class="term">
-arithmetic operators 
-</span></dt><dd>
-        +,*,-,/
-</dd><dt><span class="term">
-comparison operators 
-</span></dt><dd>
-        == (same as =), &gt;, &gt;=, ⇐, &lt;, !=
-</dd><dt><span class="term">
-parentheses 
-</span></dt><dd>
-        (, )
-</dd><dt><span class="term">
-logical operators 
-</span></dt><dd>
-        &amp;&amp; (same as &amp;), ||,  |
-</dd><dt><span class="term">
-INFO tags, FORMAT tags, column names 
-</span></dt><dd>
-        INFO/DP or DP
-        FORMAT/DV, FMT/DV, or DV
-        %FILTER, %QUAL, %ID
-</dd><dt><span class="term">
-1 (or 0) to test the presence (or absence) of a flag 
-</span></dt><dd>
-        FlagA=1 &amp;&amp; FlagB=0
-</dd><dt><span class="term">
-%TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other) 
-</span></dt><dd>
-        %TYPE="indel" | %TYPE="snp"
-</dd><dt><span class="term">
-array subscripts 
-</span></dt><dd>
-        (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) &gt; 0.3
-</dd><dt><span class="term">
-functions on FORMAT fields 
-</span></dt><dd>
-        MAX, MIN, AVG
-</dd></dl></div></dd></dl></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">%MIN(DV)&gt;5</pre><pre class="literallayout">%MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">%MIN(DP)&gt;10 &amp; %MIN(DV)&gt;3</pre><pre class="literallayout">%QUAL&gt;10 |  FMT/GQ&gt;10   .. selects only GQ&gt;10 samples</pre><pre class="literallayout">%QUAL&gt;10 || FMT/GQ&gt;10   .. selects all samples at QUAL&gt;10 sites</pre><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">%MIN(DP)&gt;35 &amp;&amp; %AVG(GQ)&gt;50</pre><pre class="literallayout">%ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">%ID!=@~/file    .. skip lines with ID present in the ~/file</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
+<span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span>, <span class="strong"><strong><a class="link" href="#query" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]">query</a></strong></span> and <span class="strong"><strong><a class="link" href="#view" title="bcftools view [OPTIONS] file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="itemizedlist" title="Valid expressions may contain:"><p class="title"><strong>Valid expressions may contain:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem"><p class="simpara">
+numerical constants, string constants, file names
+</p><pre class="literallayout">1, 1.0, 1e-4
+"String"
+@file_name</pre></li><li class="listitem"><p class="simpara">
+arithmetic operators
+</p><pre class="literallayout">+,*,-,/</pre></li><li class="listitem"><p class="simpara">
+comparison operators
+</p><pre class="literallayout">== (same as =), &gt;, &gt;=, &lt;=, &lt;, !=</pre></li><li class="listitem"><p class="simpara">
+regex operators "~" and its negation "!~"
+</p><pre class="literallayout">INFO/HAYSTACK ~ "needle"</pre></li><li class="listitem"><p class="simpara">
+parentheses
+</p><pre class="literallayout">(, )</pre></li><li class="listitem"><p class="simpara">
+logical operators
+</p><pre class="literallayout">&amp;&amp; (same as &amp;), ||,  |</pre></li><li class="listitem"><p class="simpara">
+INFO tags, FORMAT tags, column names
+</p><pre class="literallayout">INFO/DP or DP
+FORMAT/DV, FMT/DV, or DV
+%FILTER, %QUAL, %ID</pre></li><li class="listitem"><p class="simpara">
+1 (or 0) to test the presence (or absence) of a flag
+</p><pre class="literallayout">FlagA=1 &amp;&amp; FlagB=0</pre></li><li class="listitem"><p class="simpara">
+%TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
+</p><pre class="literallayout">%TYPE="indel" | %TYPE="snp"</pre></li><li class="listitem"><p class="simpara">
+array subscripts, "*" for any field
+</p><pre class="literallayout">(DP4[0]+DP4[1])/(DP4[2]+DP4[3]) &gt; 0.3
+DP4[*] == 0
+CSQ[*] ~ "missense_variant.*deleterious"</pre></li><li class="listitem"><p class="simpara">
+functions on FORMAT fields
+</p><pre class="literallayout">MAX, MIN, AVG</pre></li></ul></div><div class="itemizedlist" title="Notes:"><p class="title"><strong>Notes:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem">
+String comparisons and regular expressions are case-insensitive
+</li><li class="listitem">
+If the subscript "*" is used in regular expression search, the
+whole field is treated as one string. For example, the regex STR[*]~"B,C" will be
+true for the string vector INFO/STR=AB,CD.
+</li></ul></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">%MIN(DV)&gt;5</pre><pre class="literallayout">%MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">%MIN(DP)&gt;10 &amp; %MIN(DV)&gt;3</pre><pre class="literallayout">%QUAL&gt;10 |  FMT/GQ&gt;10   .. selects only GQ&gt;10 samples</pre><pre class="literallayout">%QUAL&gt;10 || FMT/GQ&gt;10   .. selects all samples at QUAL&gt;10 sites</pre><pre class="literallayout">%TYPE="snp" &amp;&amp; %QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">%MIN(DP)&gt;35 &amp;&amp; %AVG(GQ)&gt;50</pre><pre class="literallayout">%ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">%ID!=@~/file    .. skip lines with ID present in the ~/file</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
 have special meaning in the shell.
-Please refer to the documentation of your shell for details.
 An example of expression enclosed in single quotes which cause
-that the whole expression is passed to the program as intended:</p><pre class="literallayout">bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+that the whole expression is passed to the program as intended:</p><pre class="literallayout">bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre><p>Please refer to the documentation of your shell for details.</p></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
 are internally converted into BCF representation. Simple operations, like removing
 a single column from a VCF file, can be therefore done much faster with standard
 UNIX commands, such as <span class="strong"><strong>awk</strong></span> or <span class="strong"><strong>cut</strong></span>.
