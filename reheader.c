@@ -80,9 +80,11 @@ static void set_samples(char **samples, int nsamples, kstring_t *hdr)
         if ( hdr->s[i]=='\t' ) ncols++;
         i--;
     }
-    if ( i<0 ) error("Could not parse the header\n");
+    if ( i<0 ) error("Could not parse the header: %s\n", hdr->s);
     if ( ncols!=nsamples+8 )
+    {
         fprintf(stderr,"Warning: different number of samples: %d vs %d\n", nsamples,ncols-8);
+    }
 
     ncols = 0;
     while ( ncols!=9 ) 
@@ -108,36 +110,35 @@ static void reheader_vcf_gz(args_t *args)
 
     kstring_t hdr = {0,0,0};
     char *buffer = (char*) fp->uncompressed_block;
-    int skip_until = 0;     // end of the header in the current uncompressed block
 
     // Read the header and find the position of the data block
-    if ( buffer[0]=='#' )
+    if ( buffer[0]!='#' ) error("Could not parse the header, expected '#', found '%c'\n", buffer[0]);
+
+    int skip_until = 1;     // end of the header in the current uncompressed block
+    while (1)
     {
-        skip_until = 1;
-        while (1)
+        if ( buffer[skip_until]=='\n' )
         {
-            if ( buffer[skip_until]=='\n' )
-            {
-                skip_until++;
-                if ( skip_until>=fp->block_length )
-                {
-                    kputsn(buffer,skip_until,&hdr);
-                    if ( bgzf_read_block(fp) != 0 || !fp->block_length ) error("FIXME: No body in the file: %s\n", args->fname);
-                    skip_until = 0;
-                }
-                // The header has finished
-                if ( buffer[skip_until]!='#' ) 
-                {
-                    kputsn(buffer,skip_until,&hdr);
-                    break;
-                }
-            }
             skip_until++;
             if ( skip_until>=fp->block_length )
             {
-                if (bgzf_read_block(fp) != 0 || !fp->block_length) error("FIXME: No body in the file: %s\n", args->fname);
+                kputsn(buffer,skip_until,&hdr);
+                if ( bgzf_read_block(fp) != 0 || !fp->block_length ) error("FIXME: No body in the file: %s\n", args->fname);
                 skip_until = 0;
             }
+            // The header has finished
+            if ( buffer[skip_until]!='#' ) 
+            {
+                kputsn(buffer,skip_until,&hdr);
+                break;
+            }
+        }
+        skip_until++;
+        if ( skip_until>=fp->block_length )
+        {
+            kputsn(buffer,fp->block_length,&hdr);
+            if (bgzf_read_block(fp) != 0 || !fp->block_length) error("FIXME: No body in the file: %s\n", args->fname);
+            skip_until = 0;
         }
     }
 
