@@ -587,7 +587,7 @@ static void set_avg(filter_t *flt, bcf1_t *line, token_t *tok)
     float val = 0;
     int i, n = 0;
     for (i=0; i<tok->nvalues; i++) 
-        if ( !bcf_float_is_missing(tok->values[i]) ) val += tok->values[i];
+        if ( !bcf_float_is_missing(tok->values[i]) ) { val += tok->values[i]; n++; }
     tok->values[0] = n ? val / n : 0;
     tok->nvalues   = 1;
     tok->nsamples  = 0;
