@@ -36,6 +36,7 @@
 #include <htslib/bgzf.h>
 #include <htslib/kseq.h>
 #include "bcftools.h"
+#include "khash_str2str.h"
 
 typedef struct _args_t
 {
@@ -72,19 +73,84 @@ static void read_header_file(char *fname, kstring_t *hdr)
     kputc('\n',hdr);
 }
 
+static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int idx)
+{
+    int i, j, n;
+
+    // Are these samples "old-name new-name" pairs?
+    void *hash = khash_str2str_init();
+    for (i=0; i<nsamples; i++)
+    {
+        char *key, *value;
+        key = value = samples[i];
+        while ( *value && !isspace(*value) ) value++;
+        if ( !*value ) break;
+        *value = 0; value++;
+        while ( isspace(*value) ) value++;
+        khash_str2str_set(hash,key,value);
+    }
+    if ( i!=nsamples )  // not "old-name new-name" pairs
+    {
+        khash_str2str_destroy(hash);
+        return 0;
+    }
+
+    while ( hdr->l>0 && isspace(hdr->s[hdr->l-1]) ) hdr->l--;  // remove trailing newlines
+    hdr->s[hdr->l] = 0;
+
+    kstring_t tmp = {0,0,0};
+    i = j = n = 0;
+    while ( hdr->s[idx+i] && hdr->s[idx+i])
+    {
+        if ( hdr->s[idx+i]=='\t' ) 
+        {
+            hdr->s[idx+i] = 0;
+
+            if ( ++n>9 )
+            {
+                char *ori = khash_str2str_get(hash,hdr->s+idx+j);
+                kputs(ori ? ori : hdr->s+idx+j, &tmp);
+            }
+            else
+                kputs(hdr->s+idx+j, &tmp);
+                
+            kputc('\t',&tmp);
+
+            j = ++i;
+            continue;
+        }
+        i++;
+    }
+    char *ori = khash_str2str_get(hash,hdr->s+idx+j);
+    kputs(ori ? ori : hdr->s+idx+j, &tmp);
+
+    if ( hash ) khash_str2str_destroy(hash);
+
+    hdr->l = idx;
+    kputs(tmp.s, hdr);
+    kputc('\n', hdr);
+    free(tmp.s);
+
+    return 1;
+}
+
 static void set_samples(char **samples, int nsamples, kstring_t *hdr)
 {
+    // Find the beginning of the #CHROM line
     int i = hdr->l - 2, ncols = 0;
     while ( i>=0 && hdr->s[i]!='\n' )
     {
         if ( hdr->s[i]=='\t' ) ncols++;
         i--;
     }
-    if ( i<0 ) error("Could not parse the header: %s\n", hdr->s);
+    if ( i<0 || strncmp(hdr->s+i+1,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT",45) ) error("Could not parse the header: %s\n", hdr->s);
+
+    // Are the samples "old-sample new-sample" pairs?
+    if ( set_sample_pairs(samples,nsamples,hdr, i+1) ) return;
+
+    // Replace all samples
     if ( ncols!=nsamples+8 )
-    {
-        fprintf(stderr,"Warning: different number of samples: %d vs %d\n", nsamples,ncols-8);
-    }
+        fprintf(stderr, "Warning: different number of samples: %d vs %d\n", nsamples,ncols-8);
 
     ncols = 0;
     while ( ncols!=9 ) 
