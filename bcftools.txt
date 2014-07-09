@@ -137,11 +137,13 @@ OPTIONS
     duplicated out of order positions in the output.
     This option requires indexed VCF/BCF files. 
 
-*-s, --samples* 'LIST'::
-    Comma-separated list of samples to include
+*-s, --samples* \[^]'LIST'::
+    Comma-separated list of samples to include or exclude if prefixed 
+    with "\^".
 
-*-S, --samples-file* 'FILE'::
-    File of sample names to include, one sample per line.
+*-S, --samples-file* \[^]'FILE'::
+    File of sample names to include or exclude if prefixed with "\^".
+    One sample per line.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.

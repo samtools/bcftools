@@ -51,6 +51,7 @@ test_vcf_view($opts,in=>'view',out=>'view.7.out',args=>q[-hm2 -M2 -q0.3 -Q0.7],r
 test_vcf_view($opts,in=>'view',out=>'view.8.out',args=>q[-Hu],reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.9.out',args=>q[-GVsnps],reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.10.out',args=>q[-ne 'INDEL=1 || PV4[0]<0.006'],reg=>'');
+test_vcf_view($opts,in=>'view',out=>'view.exclude.out',args=>'-s ^NA00003',reg=>'');
 test_vcf_view($opts,in=>'view.omitgenotypes',out=>'view.omitgenotypes.out',args=>'',reg=>'');
 test_vcf_view($opts,in=>'view.vectors',out=>'view.vectors.A.out',args=>'-asA',reg=>'');
 test_vcf_view($opts,in=>'view.vectors',out=>'view.vectors.B.out',args=>'-asB',reg=>'');

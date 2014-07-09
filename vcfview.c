@@ -37,6 +37,7 @@
 #include <htslib/vcfutils.h>
 #include "bcftools.h"
 #include "filter.h"
+#include "htslib/khash_str2int.h"
 
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
@@ -67,7 +68,7 @@ typedef struct _args_t
     int *ac, mac;
     float min_af, max_af;
     char *fn_ref, *fn_out, **samples;
-    int sample_is_file;
+    int sample_is_file, force_samples;
     char *include_types, *exclude_types;
     int include, exclude;
     htsFile *out;
@@ -88,7 +89,65 @@ static void init_data(args_t *args)
 
     // setup sample data    
     if (args->sample_names)
-        args->samples = hts_readlist(args->sample_names,args->sample_is_file,&args->n_samples);
+    {
+        void *hdr_samples = khash_str2int_init();
+        for (i=0; i<bcf_hdr_nsamples(args->hdr); i++)
+            khash_str2int_inc(hdr_samples, bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,i));
+
+        void *exclude = (args->sample_names[0]=='^') ? khash_str2int_init() : NULL;
+        int nsmpl;
+        char **smpl = NULL;
+        args->samples = NULL; args->n_samples = 0;
+        smpl = hts_readlist(exclude ? &args->sample_names[1] : args->sample_names, args->sample_is_file, &nsmpl);
+        if ( !smpl ) 
+        {
+            error("Could not read the list: \"%s\"\n", exclude ? &args->sample_names[1] : args->sample_names);
+        }
+
+        if ( exclude )
+        {
+            for (i=0; i<nsmpl; i++) {
+                if (!khash_str2int_has_key(hdr_samples,smpl[i])) {
+                    if (args->force_samples) {
+                        fprintf(stderr, "Warn: exclude called for sample that does not exist in header: \"%s\"... skipping\n", smpl[i]);
+                    } else {
+                        error("Error: exclude called for sample that does not exist in header: \"%s\". Use \"--force-samples\" to ignore this error.\n", smpl[i]);
+                    }
+                }
+                khash_str2int_inc(exclude, smpl[i]);
+            }
+
+            for (i=0; i<bcf_hdr_nsamples(args->hdr); i++)
+            {
+                if ( exclude && khash_str2int_has_key(exclude,bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,i))  ) continue;
+                args->samples = (char**) realloc(args->samples, (args->n_samples+1)*sizeof(const char*));
+                args->samples[args->n_samples++] = strdup(bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,i));
+            }
+            khash_str2int_destroy(exclude);
+        }
+        else
+        {
+            for (i=0; i<nsmpl; i++) {
+                if (!khash_str2int_has_key(hdr_samples,smpl[i])) {
+                    if (args->force_samples) {
+                        fprintf(stderr, "Warn: subset called for sample that does not exist in header: \"%s\"... skipping\n", smpl[i]);
+                        continue;
+                    } else {
+                        error("Error: subset called for sample that does not exist in header: \"%s\". Use \"--force-samples\" to ignore this error.\n", smpl[i]);
+                    }
+                }
+                args->samples = (char**) realloc(args->samples, (args->n_samples+1)*sizeof(const char*));
+                args->samples[args->n_samples++] = strdup(smpl[i]);
+            }
+        }
+        for (i=0; i<nsmpl; i++) free(smpl[i]);
+        free(smpl);
+        khash_str2int_destroy(hdr_samples);
+        if (args->n_samples == 0) {
+            fprintf(stderr, "Warn: subsetting has removed all samples\n");
+            args->sites_only = 1;
+        }
+    }
     
     if (args->n_samples)
         args->imap = (int*)malloc(args->n_samples * sizeof(int));
@@ -405,14 +464,15 @@ static void usage(args_t *args)
     fprintf(stderr, "    -O,   --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>              restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>           restrict to regions listed in a file\n");
-    fprintf(stderr, "    -t, --targets <region>              similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "    -T, --targets-file <file>           similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -t, --targets [^]<region>           similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
+    fprintf(stderr, "    -T, --targets-file [^]<file>        similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
-    fprintf(stderr, "    -a, --trim-alt-alleles      trim alternate alleles not seen in the subset\n");
-    fprintf(stderr, "    -I, --no-update             do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)\n");
-    fprintf(stderr, "    -s, --samples <list>        list of samples to include\n");
-    fprintf(stderr, "    -S, --samples-file <file>   file of samples to include\n");
+    fprintf(stderr, "    -a, --trim-alt-alleles        trim alternate alleles not seen in the subset\n");
+    fprintf(stderr, "    -I, --no-update               do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)\n");
+    fprintf(stderr, "    -s, --samples [^]<list>       comma separated list of samples to include (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "    -S, --samples-file [^]<file>  file of samples to include (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "        --force-samples           only warn about unknown subset samples\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Filter options:\n");
     fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
@@ -466,6 +526,7 @@ int main_vcfview(int argc, char *argv[])
         {"max-alleles",1,0,'M'},
         {"samples",1,0,'s'},
         {"samples-file",1,0,'S'},
+        {"force-samples",0,0,1},
         {"output-type",1,0,'O'},
         {"output-file",1,0,'o'},
         {"types",1,0,'v'},
@@ -508,6 +569,7 @@ int main_vcfview(int argc, char *argv[])
             
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;
+            case  1 : args->force_samples = 1; break;
             case 'a': args->trim_alts = 1; args->calc_ac = 1; break;
             case 'I': args->update_info = 0; break;
             case 'G': args->sites_only = 1; break;
