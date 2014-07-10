@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp150288"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp144944"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -120,13 +120,15 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     duplicated out of order positions in the output.
     This option requires indexed VCF/BCF files.
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
+<span class="strong"><strong>-s, --samples</strong></span> [^]<span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
-    Comma-separated list of samples to include
+    Comma-separated list of samples to include or exclude if prefixed
+    with "\^".
 </dd><dt><span class="term">
-<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+<span class="strong"><strong>-S, --samples-file</strong></span> [^]<span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
-    File of sample names to include, one sample per line.
+    File of sample names to include or exclude if prefixed with "\^".
+    One sample per line.
     The command <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a></strong></span> accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a> -C</strong></span> <span class="emphasis"><em>trio</em></span>, PED file is expected.
@@ -1047,7 +1049,7 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-g, --genotypes</strong></span> [^][<span class="emphasis"><em>hom</em></span>|<span class="emphasis"><em>het</em></span>|<span class="emphasis"><em>miss</em></span>]
+<span class="strong"><strong>-g, --genotype</strong></span> [^][<span class="emphasis"><em>hom</em></span>|<span class="emphasis"><em>het</em></span>|<span class="emphasis"><em>miss</em></span>]
 </span></dt><dd>
     include only sites with one or more homozygous (<span class="emphasis"><em>hom</em></span>), heterozygous
     (<span class="emphasis"><em>het</em></span>) or missing (<span class="emphasis"><em>miss</em></span>) genotypes. When prefixed with <span class="emphasis"><em>^</em></span>, the logic
