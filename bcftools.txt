@@ -1037,7 +1037,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
-*-g, --genotypes* [^]['hom'|'het'|'miss']::
+*-g, --genotype* [^]['hom'|'het'|'miss']::
     include only sites with one or more homozygous ('hom'), heterozygous
     ('het') or missing ('miss') genotypes. When prefixed with '\^', the logic
     is reversed; thus '^het' excludes sites with heterozygous genotypes.
