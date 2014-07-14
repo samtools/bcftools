@@ -259,12 +259,11 @@ void mcall_init(call_t *call)
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     if ( call->output_tags & CALL_FMT_GQ )
-    {
         bcf_hdr_append(call->hdr,"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Phred-scaled Genotype Quality\">");
-        call->GQs = (int32_t*) malloc(sizeof(int32_t)*bcf_hdr_nsamples(call->hdr));
-    }
     if ( call->output_tags & CALL_FMT_GP )
         bcf_hdr_append(call->hdr,"##FORMAT=<ID=GP,Number=G,Type=Float,Description=\"Phred-scaled genotype posterior probabilities\">");
+    if ( call->output_tags & (CALL_FMT_GQ|CALL_FMT_GP) )
+        call->GQs = (int32_t*) malloc(sizeof(int32_t)*bcf_hdr_nsamples(call->hdr));
     bcf_hdr_append(call->hdr,"##INFO=<ID=ICB,Number=1,Type=Float,Description=\"Inbreeding Coefficient Binomial test (bigger is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=HOB,Number=1,Type=Float,Description=\"Bias in the number of HOMs number (smaller is better)\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes for each ALT allele, in the same order as listed\">");
@@ -742,6 +741,7 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
     for (isample = 0; isample < nsmpl; isample++) 
     {
         int ploidy = call->ploidy ? call->ploidy[isample] : 2;
+        assert( ploidy>=0 && ploidy<=2 );
 
         pdg += ngts;
         gts += 2;
@@ -783,7 +783,7 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
             #if USE_PRIOR_FOR_GTS
                 if ( ia!=0 ) lk *= prior;
             #endif
-            int igt  = bcf_alleles2gt(call->als_map[ia],call->als_map[ia]);
+            int igt  = ploidy==2 ? bcf_alleles2gt(call->als_map[ia],call->als_map[ia]) : ia;
             gps[igt] = lk;
             if ( best_lk < lk ) 
             { 
@@ -831,15 +831,30 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
         for (isample=0; isample<nsmpl; isample++)
         {
             gps = call->GPs + isample*nout_gts;
+
+            int nmax;
+            if ( call->ploidy )
+            {
+                if ( call->ploidy[isample]==2 ) nmax = nout_gts;
+                else if ( call->ploidy[isample]==1 ) nmax = nout_als;
+                else nmax = 0;
+            }
+            else nmax = nout_gts;
+
             max = gps[0];
             if ( max<0 ) 
             {
-                if ( call->output_tags & CALL_FMT_GP ) for (i=0; i<nout_gts; i++) gps[i] = 0;
+                // no call
+                if ( call->output_tags & CALL_FMT_GP ) 
+                {
+                    for (i=0; i<nmax; i++) gps[i] = 0;
+                    if ( nmax < nout_gts ) bcf_float_set_vector_end(gps[nmax]);
+                }
                 call->GQs[isample] = 0;
                 continue;
             }
             sum = gps[0];
-            for (i=1; i<nout_gts; i++)
+            for (i=1; i<nmax; i++)
             {
                 if ( max < gps[i] ) max = gps[i];
                 sum += gps[i];
@@ -849,7 +864,8 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
             if ( call->output_tags & CALL_FMT_GP ) 
             {
                 assert( max );
-                for (i=0; i<nout_gts; i++) gps[i] = (int)(-4.34294*log(gps[i]/sum));
+                for (i=0; i<nmax; i++) gps[i] = (int)(-4.34294*log(gps[i]/sum));
+                if ( nmax < nout_gts ) bcf_float_set_vector_end(gps[nmax]);
             }
         }
     }
