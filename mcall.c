@@ -240,10 +240,10 @@ void mcall_init(call_t *call)
     call_init_pl2p(call);
 
     call->nqsum = 5;
-    call->qsum  = (float*) malloc(sizeof(float)*call->nqsum); 
+    call->qsum  = (float*) malloc(sizeof(float)*call->nqsum); // will be expanded later if ncessary
     call->nals_map = 5;
     call->als_map  = (int*) malloc(sizeof(int)*call->nals_map);
-    call->npl_map  = 5*(5+1)/2;
+    call->npl_map  = 5*(5+1)/2;     // will be expanded later if necessary  
     call->pl_map   = (int*) malloc(sizeof(int)*call->npl_map);
     call->gts  = (int32_t*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int32_t));   // assuming at most diploid everywhere
 
@@ -755,9 +755,9 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
             continue;
         }
 
-        for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
         #if !FLAT_PDG_FOR_MISSING
             // Skip samples with zero depth, they have all pdg's equal to 0
+            for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
             if ( i==ngts ) 
             {
                 gts[0] = bcf_gt_missing;
@@ -783,7 +783,7 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
             #if USE_PRIOR_FOR_GTS
                 if ( ia!=0 ) lk *= prior;
             #endif
-            int igt  = ploidy==2 ? bcf_alleles2gt(call->als_map[ia],call->als_map[ia]) : ia;
+            int igt  = ploidy==2 ? bcf_alleles2gt(call->als_map[ia],call->als_map[ia]) : call->als_map[ia];
             gps[igt] = lk;
             if ( best_lk < lk ) 
             { 
@@ -842,12 +842,13 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
             else nmax = nout_gts;
 
             max = gps[0];
-            if ( max<0 ) 
+            if ( max<0 || nmax==0 )
             {
                 // no call
                 if ( call->output_tags & CALL_FMT_GP ) 
                 {
                     for (i=0; i<nmax; i++) gps[i] = 0;
+                    if ( nmax==0 ) { bcf_float_set_missing(gps[i]); nmax++; }
                     if ( nmax < nout_gts ) bcf_float_set_vector_end(gps[nmax]);
                 }
                 call->GQs[isample] = 0;
@@ -1157,19 +1158,21 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
         if ( ploidy==2 )
         {
             for (ia=0; ia<npls_dst; ia++)
-            {
                 pls_dst[ia] =  pls_src[ call->pl_map[ia] ];
-            }
         }
-        else
+        else if ( ploidy==1 )
         {
             for (ia=0; ia<nout_als; ia++)
             {
-                int isrc = call->pl_map[ia]; 
-                isrc = (isrc+1)*(isrc+2)/2-1;
-                pls_dst[ia] = pls_src[isrc];
+                int isrc = (ia+1)*(ia+2)/2-1;
+                pls_dst[ia] = pls_src[ call->pl_map[isrc] ];
             }
             if ( ia<npls_dst ) pls_dst[ia] = bcf_int32_vector_end;
+        }
+        else
+        {
+            pls_dst[0] = bcf_int32_missing;
+            pls_dst[1] = bcf_int32_vector_end;  // relying on nout_als>1 in mcall()
         }
         pls_src += npls_src;
         pls_dst += npls_dst;
