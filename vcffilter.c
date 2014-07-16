@@ -486,8 +486,9 @@ int main_vcffilter(int argc, char *argv[])
         kputs(argv[optind+1],&tmp);
         for (i=optind+2; i<argc; i++) { kputc(',',&tmp); kputs(argv[i],&tmp); }
         args->files->require_index = 1;
-        if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
+        if ( bcf_sr_set_regions(args->files, tmp.s, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
+        free(tmp.s);
     }
     if ( args->targets_list )
     {
