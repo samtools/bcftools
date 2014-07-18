@@ -114,10 +114,11 @@ install: $(PROG)
 		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
 clean: testclean
-		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h plugins/*.so
+	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so
+	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
 
 testclean:
-		rm -fr test/*.o test/*~ $(TEST_PROG)
+	-rm -f test/*.o test/*~ $(TEST_PROG)
 
 distclean: clean
 	-rm -f TAGS
