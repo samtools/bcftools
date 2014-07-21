@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp144944"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp151344"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>Bcftools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -45,7 +45,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     is interpreted as standard input. Some tools may require tabix- or
     CSI-indexed files.
 </dd><dt><span class="term">
-<span class="strong"><strong>-c, --collapse</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>some</em></span>|<span class="emphasis"><em>none</em></span>
+<span class="strong"><strong>-c, --collapse</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>some</em></span>|<span class="emphasis"><em>none</em></span>|<span class="emphasis"><em>id</em></span>
 </span></dt><dd><p class="simpara">
     Controls  how to treat records with duplicate positions and defines compatible
     records across multiple input files. Here by "compatible" we mean records which
@@ -84,6 +84,11 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 <span class="emphasis"><em>both</em></span>
 </span></dt><dd>
             abbreviation of "<span class="strong"><strong>-c</strong></span> <span class="emphasis"><em>indels</em></span>  <span class="strong"><strong>-c</strong></span> <span class="emphasis"><em>snps</em></span>"
+</dd><dt><span class="term">
+<span class="emphasis"><em>id</em></span>
+</span></dt><dd>
+            only records with identical ID column are compatible.
+            Supported by <span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">bcftools merge</a></strong></span> only.
 </dd></dl></div></dd><dt><span class="term">
 <span class="strong"><strong>-f, --apply-filters</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
