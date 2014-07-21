@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 07/10/2014
+.\"      Date: 07/21/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "07/10/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "07/21/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -246,7 +246,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 Files can be both VCF or BCF, uncompressed or BGZF\-compressed\&. The file "\-" is interpreted as standard input\&. Some tools may require tabix\- or CSI\-indexed files\&.
 .RE
 .PP
-\fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR
+\fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR|\fIid\fR
 .RS 4
 Controls how to treat records with duplicate positions and defines compatible records across multiple input files\&. Here by "compatible" we mean records which should be considered as identical by the tools\&. For example, when performing line intersections, the desire may be to consider as identical all sites with matching positions (\fBbcftools isec \-c\fR
 \fIall\fR), or only sites with matching variant type (\fBbcftools isec \-c\fR
@@ -286,6 +286,13 @@ abbreviation of "\fB\-c\fR
 \fIindels\fR\ \&
 \fB\-c\fR
 \fIsnps\fR"
+.RE
+.PP
+\fIid\fR
+.RS 4
+only records with identical ID column are compatible\&. Supported by
+\fBbcftools merge\fR
+only\&.
 .RE
 .RE
 .PP

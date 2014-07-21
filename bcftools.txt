@@ -73,7 +73,7 @@ OPTIONS
     is interpreted as standard input. Some tools may require tabix- or
     CSI-indexed files.
 
-*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'|'id'::
     Controls  how to treat records with duplicate positions and defines compatible
     records across multiple input files. Here by "compatible" we mean records which
     should be considered as identical by the tools. For example, when performing
@@ -106,6 +106,10 @@ OPTIONS
 
         'both';;
             abbreviation of "*-c* 'indels'{nbsp} *-c* 'snps'"
+
+        'id';;
+            only records with identical ID column are compatible.
+            Supported by *<<merge,bcftools merge>>* only.
 
 *-f, --apply-filters* 'LIST'::
     Skip sites where FILTER column does not contain any of the strings listed

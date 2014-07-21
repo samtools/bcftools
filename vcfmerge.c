@@ -106,7 +106,7 @@ typedef struct
 {
     vcmp_t *vcmp;
     maux_t *maux;
-    int header_only, collapse, output_type, force_samples;
+    int header_only, collapse, output_type, force_samples, merge_by_id;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     info_rule_t *rules;
     int nrules;
@@ -1593,6 +1593,7 @@ void merge_buffer(args_t *args)
 {
     bcf_srs_t *files = args->files;
     int i, pos = -1, var_type = 0;
+    char *id = NULL;
     maux_t *maux = args->maux;
     maux_reset(maux);
 
@@ -1604,6 +1605,7 @@ void merge_buffer(args_t *args)
             bcf1_t *line = bcf_sr_get_line(files,i);
             pos = line->pos;
             var_type = bcf_get_variant_types(line);
+            id = line->d.id;
             break;
         }
     }
@@ -1617,7 +1619,7 @@ void merge_buffer(args_t *args)
         bcf_sr_t *reader = &files->readers[i];
         if ( !reader->buffer ) continue;
         int j, k;
-        for (j=0; j<=reader->nbuffer; j++)
+        for (j=0; j<=reader->nbuffer; j++)  
         {
             bcf1_t *line = reader->buffer[j];
             int line_type = bcf_get_variant_types(line);
@@ -1629,20 +1631,27 @@ void merge_buffer(args_t *args)
                 if ( j==0 ) maux->d[i][j].skip |= SKIP_DONE; // left from previous run, force to ignore
                 continue; 
             }
-            if ( args->collapse==COLLAPSE_NONE && maux->nals )
+            if ( args->merge_by_id )
             {
-                // All alleles of the tested record must be present in the
-                // selected maux record plus variant types must be the same
-                if ( var_type!=line->d.var_type ) continue;
-                if ( vcmp_set_ref(args->vcmp,maux->als[0],line->d.allele[0]) < 0 ) continue;   // refs not compatible
-                for (k=1; k<line->n_allele; k++)
-                {
-                    if ( vcmp_find_allele(args->vcmp,maux->als+1,maux->nals-1,line->d.allele[k])>=0 ) break;
-                }
-                if ( k==line->n_allele ) continue;  // no matching allele
+                if ( strcmp(id,line->d.id) ) continue;
             }
-            if ( var_type&VCF_SNP && !(line_type&VCF_SNP) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
-            if ( var_type&VCF_INDEL && !(line_type&VCF_INDEL) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
+            else
+            {
+                if ( args->collapse==COLLAPSE_NONE && maux->nals )
+                {
+                    // All alleles of the tested record must be present in the
+                    // selected maux record plus variant types must be the same
+                    if ( var_type!=line->d.var_type ) continue;
+                    if ( vcmp_set_ref(args->vcmp,maux->als[0],line->d.allele[0]) < 0 ) continue;   // refs not compatible
+                    for (k=1; k<line->n_allele; k++)
+                    {
+                        if ( vcmp_find_allele(args->vcmp,maux->als+1,maux->nals-1,line->d.allele[k])>=0 ) break;
+                    }
+                    if ( k==line->n_allele ) continue;  // no matching allele
+                }
+                if ( var_type&VCF_SNP && !(line_type&VCF_SNP) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
+                if ( var_type&VCF_INDEL && !(line_type&VCF_INDEL) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
+            }
             maux->d[i][j].skip = 0;
 
             hts_expand(int, line->n_allele, maux->d[i][j].mmap, maux->d[i][j].map);
@@ -1848,7 +1857,7 @@ static void usage(void)
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
-    fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none>, see man page for details [both]\n");
+    fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none|id>, see man page for details [both]\n");
     fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
 	fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
@@ -1906,6 +1915,7 @@ int main_vcfmerge(int argc, char *argv[])
                 else if ( !strcmp(optarg,"any") ) args->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"all") ) args->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"none") ) args->collapse = COLLAPSE_NONE;
+                else if ( !strcmp(optarg,"id") ) { args->collapse = COLLAPSE_NONE; args->merge_by_id = 1; }
                 else error("The -m type \"%s\" is not recognised.\n", optarg);
                 break;
             case 'f': args->files->apply_filters = optarg; break;
