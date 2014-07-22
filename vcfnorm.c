@@ -1525,7 +1525,20 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
 
     dst->rid  = lines[0]->rid;
     dst->pos  = lines[0]->pos;
-    dst->qual = lines[0]->qual;
+    // take average for QUAL
+    float qsum = 0.0;
+    int nqsum = 0;
+    for (i=0; i<nlines; i++) {
+        if (bcf_float_is_missing(lines[i]->qual)) continue;
+        qsum += lines[i]->qual;
+        nqsum++;
+    }
+    if (nqsum)
+        dst->qual = qsum / nqsum;
+    else
+        bcf_float_set_missing(dst->qual);
+
+    bcf_update_id(args->hdr, dst, lines[0]->d.id);
 
     // Merge and set the alleles, create a mapping from source allele indexes to dst idxs
     hts_expand0(map_t,nlines,args->mmaps,args->maps);   // a mapping for each line
@@ -1539,6 +1552,15 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
     }
     for (i=1; i<nlines; i++) 
     {
+        if (lines[i]->d.id[0]!='.') {
+            kstring_t tmp = {0,0,0};
+            if (dst->d.id[0]=='.')
+                kputs(lines[i]->d.id, &tmp);
+            else
+                ksprintf(&tmp, "%s;%s", dst->d.id, lines[i]->d.id);
+            bcf_update_id(args->hdr, dst, tmp.s);
+            free(tmp.s);
+        }
         args->maps[i].nals = lines[i]->n_allele;
         hts_expand(int,args->maps[i].nals,args->maps[i].mals,args->maps[i].map);
         args->als = merge_alleles(lines[i]->d.allele, lines[i]->n_allele, args->maps[i].map, args->als, &args->nals, &args->mals);
@@ -1548,6 +1570,13 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
     for (i=0; i<args->nals; i++) free(args->als[i]);
 
     if ( lines[0]->d.n_flt ) bcf_update_filter(args->hdr, dst, lines[0]->d.flt, lines[0]->d.n_flt);
+    int j;
+    for (i=1; i<nlines; i++) {
+        for (j=0; j<lines[i]->d.n_flt; j++) {
+            if (lines[i]->d.flt[j] == bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PASS")) continue;
+            bcf_add_filter(args->hdr, dst, lines[i]->d.flt[j]);
+        }
+    }
 
     // merge info
     for (i=0; i<lines[0]->n_info; i++)
