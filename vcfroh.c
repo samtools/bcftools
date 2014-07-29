@@ -541,9 +541,9 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
         args->nitmp /= args->nsmpl;
 
         int32_t *pl = &args->itmp[args->ismpl*args->nitmp];
-        pdg[0] = args->pl2p[ pl[0] ];
-        pdg[1] = args->pl2p[ pl[1] ];
-        pdg[2] = args->pl2p[ pl[2] ];
+        pdg[0] = pl[0] < 256 ? args->pl2p[ pl[0] ] : 1.0;
+        pdg[1] = pl[1] < 256 ? args->pl2p[ pl[1] ] : 1.0;
+        pdg[2] = pl[2] < 256 ? args->pl2p[ pl[2] ] : 1.0;
 
         double sum = pdg[0] + pdg[1] + pdg[2];
         if ( !sum ) return -1;
