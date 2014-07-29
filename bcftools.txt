@@ -49,6 +49,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations, apply user plugins
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
+- *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
 - *<<isec,isec>>*        ..  intersections of VCF/BCF files
@@ -406,6 +407,63 @@ the *-a, --allow-overlaps* option is specified.
     see *<<common_options,Common Options>>*
 
 
+[[convert]]
+=== bcftools convert '[OPTIONS]' 'FILE'
+
+==== VCF input options:
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+
+==== gen/sample options:
+*-g, --gensample* 'prefix' or 'gen-file','sample-file'::
+    convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .gen file format are ID1,ID2,POS,A,B followed by three
+    genotype probabilities P(AA), P(AB), P(BB) for each sample.
+    In order to prevent strand swaps, the program uses IDs of the form
+    "CHROM:POS_REF_ALT".  For example:
+----
+  .gen
+  ----
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .sample
+  -------
+  ID_1 ID_2 missing
+  0 0 0
+  sample1 sample1 0
+  sample2 sample2 0
+----
+
+*--tag* 'STRING'::
+    tag to take values for .gen file: GT,PL,GL,GP
+
+
 [[filter]]
 === bcftools filter '[OPTIONS]' 'FILE'
 
@@ -734,10 +792,6 @@ multiple rows.
 === bcftools query ['OPTIONS'] 'file.vcf.gz' ['file.vcf.gz' [...]]
 Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
-*-a, --annots* 'LIST'::
-    alias for -f '%CHROM\t%POS\t%MASK\t%REF\t%ALT\t%TYPE\t' and tab-separated
-    'LIST' of tags
-
 *-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
     see *<<common_options,Common Options>>*
 
@@ -757,6 +811,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
 *-l, --list-samples*::
     list sample names and exit
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
