@@ -31,6 +31,8 @@
 #include <htslib/tbx.h>
 #include <sys/stat.h>
 
+#define BCF_LIDX_SHIFT    14
+
 static void usage(void)
 {
     fprintf(stderr, "\n");
@@ -38,37 +40,45 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools index [options] <in.bcf>|<in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -c, --csi             generate CSI-format index for VCF/BCF files [default]\n");
     fprintf(stderr, "    -f, --force           overwrite index if it already exists\n");
-    fprintf(stderr, "    -m, --min-shift INT   set the minimal interval size to 1<<INT [14]\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Notes: The old tabix (.tbi) index can be invoked by setting -m0.\n");
-    fprintf(stderr, "       Otherwise the new coordinate-sorted (.csi) index is created.\n");
+    fprintf(stderr, "    -m, --min-shift INT   set minimal interval size for CSI indices to 2^INT [14]\n");
+    fprintf(stderr, "    -t, --tbi             generate TBI-format index for VCF files\n");
     fprintf(stderr, "\n");
     exit(1);
 }
 
 int main_vcfindex(int argc, char *argv[])
 {
-    int c, min_shift = 14, force = 0;
+    int c, force = 0, tbi = 0;
+    int min_shift = BCF_LIDX_SHIFT;
 
     static struct option loptions[] = 
     {
-        {"help",0,0,'h'},
-        {"force",0,0,'f'},
-        {"min-shift",1,0,'m'},
-        {0,0,0,0}
+        {"csi",no_argument,NULL,'c'},
+        {"tbi",no_argument,NULL,'t'},
+        {"force",no_argument,NULL,'f'},
+        {"min-shift",required_argument,NULL,'m'},
+        {NULL, 0, NULL, 0}
     };
 
-    while ((c = getopt_long(argc, argv, "h?fm:", loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "ctfm:", loptions, NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'c': tbi = 0; break;
+            case 't': tbi = 1; min_shift = 0; break;
             case 'f': force = 1; break;
             case 'm': min_shift = atoi(optarg); break;
             default: usage();
         }
     }
     if ( optind==argc ) usage();
+    if (tbi && min_shift>0)
+    {
+        fprintf(stderr, "[E::%s] min-shift option only expected for CSI indices \n", __func__);
+        return 1;
+    }
     if (min_shift < 0 || min_shift > 30)
     {
         fprintf(stderr, "[E::%s] expected min_shift in range [0,30] (%d)\n", __func__, min_shift);
@@ -77,17 +87,34 @@ int main_vcfindex(int argc, char *argv[])
 
     char *fname = argv[optind];
     int ftype = hts_file_type(fname);
-    if (!ftype)
+    if (!ftype || (ftype != FT_BCF_GZ && ftype != FT_VCF_GZ))
     {
-        fprintf(stderr, "[E::%s] unknown filetype; expected .vcf.gz or .bcf\n", __func__);
+        fprintf(stderr, "[E::%s] unknown filetype; expected bgzip compressed VCF or BCF\n", __func__);
+        if (!(ftype & FT_GZ))
+            fprintf(stderr, "[E::%s] was the VCF/BCF compressed with bgzip?\n", __func__);
         return 1;
+    }
+    if (tbi && ftype == FT_BCF_GZ)
+    {
+        fprintf(stderr, "[Warning] TBI-index does not work for BCF files. Generating CSI instead.\n");
+        tbi = 0; min_shift = BCF_LIDX_SHIFT;
+    }
+    if (min_shift == 0 && ftype == FT_BCF_GZ)
+    {
+        fprintf(stderr, "[E::%s] Require min_shift>0 for BCF files.\n", __func__);
+        return 1;
+    }
+    if (!tbi && ftype == FT_VCF_GZ && min_shift == 0)
+    {
+        fprintf(stderr, "[Warning] min-shift set to 0 for VCF file. Generating TBI file.\n");
+        tbi = 1;
     }
 
     if (!force)
     {
         // Before complaining about existing index, check if the VCF file isn't newer.
         char *idx_fname = (char*)alloca(strlen(fname) + 5);
-        strcat(strcpy(idx_fname, fname), min_shift <= 0 ? ".tbi" : ".csi");
+        strcat(strcpy(idx_fname, fname), tbi ? ".tbi" : ".csi");
         struct stat stat_tbi, stat_file;
         if ( stat(idx_fname, &stat_tbi)==0 )
         {
@@ -104,11 +131,11 @@ int main_vcfindex(int argc, char *argv[])
     {
         if ( bcf_index_build(fname, min_shift) != 0 ) 
         {
-            fprintf(stderr,"[E::%s] bcf_index_build failed: %s\n", __func__, fname);
+            fprintf(stderr,"[E::%s] bcf_index_build failed for %s\n", __func__, fname);
             return 1;
         }        
     }
-    else if (ftype == FT_VCF_GZ)
+    else
     {
         if ( tbx_index_build(fname, min_shift, &tbx_conf_vcf) != 0 )
         {

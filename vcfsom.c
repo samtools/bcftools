@@ -33,7 +33,6 @@
 #include <sys/types.h>
 #include <math.h>
 #include <time.h>
-#include <htslib/bgzf.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>

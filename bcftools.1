@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 07/01/2014
+.\"      Date: 07/21/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "07/01/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "07/21/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -246,7 +246,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 Files can be both VCF or BCF, uncompressed or BGZF\-compressed\&. The file "\-" is interpreted as standard input\&. Some tools may require tabix\- or CSI\-indexed files\&.
 .RE
 .PP
-\fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR
+\fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR|\fIid\fR
 .RS 4
 Controls how to treat records with duplicate positions and defines compatible records across multiple input files\&. Here by "compatible" we mean records which should be considered as identical by the tools\&. For example, when performing line intersections, the desire may be to consider as identical all sites with matching positions (\fBbcftools isec \-c\fR
 \fIall\fR), or only sites with matching variant type (\fBbcftools isec \-c\fR
@@ -287,6 +287,13 @@ abbreviation of "\fB\-c\fR
 \fB\-c\fR
 \fIsnps\fR"
 .RE
+.PP
+\fIid\fR
+.RS 4
+only records with identical ID column are compatible\&. Supported by
+\fBbcftools merge\fR
+only\&.
+.RE
 .RE
 .PP
 \fB\-f, \-\-apply\-filters\fR \fILIST\fR
@@ -326,14 +333,14 @@ will be respected, the VCF will be processed in the order in which chromosomes f
 can result in duplicated out of order positions in the output\&. This option requires indexed VCF/BCF files\&.
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR
+\fB\-s, \-\-samples\fR [^]\fILIST\fR
 .RS 4
-Comma\-separated list of samples to include
+Comma\-separated list of samples to include or exclude if prefixed with "\e^"\&.
 .RE
 .PP
-\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+\fB\-S, \-\-samples\-file\fR [^]\fIFILE\fR
 .RS 4
-File of sample names to include, one sample per line\&. The command
+File of sample names to include or exclude if prefixed with "\e^"\&. One sample per line\&. The command
 \fBbcftools call\fR
 accepts an optional second column indicating ploidy (0, 1 or 2) and can parse also PED files\&. With
 \fBbcftools call\fR\fB \-C\fR
@@ -1456,7 +1463,7 @@ new VCF header
 .PP
 \fB\-s, \-\-samples\fR \fIFILE\fR
 .RS 4
-new sample names, one name per line
+new sample names, one name per line, in the same order as they appear in the VCF file\&. Alternatively, only samples which need to be renamed can be listed as "old_name new_name\en" pairs separated by whitespaces, each on separate line\&.
 .RE
 .SS "bcftools roh [\fIOPTIONS\fR] \fIFILE\fR"
 .sp
@@ -1838,7 +1845,7 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-g, \-\-genotypes\fR [^][\fIhom\fR|\fIhet\fR|\fImiss\fR]
+\fB\-g, \-\-genotype\fR [^][\fIhom\fR|\fIhet\fR|\fImiss\fR]
 .RS 4
 include only sites with one or more homozygous (\fIhom\fR), heterozygous (\fIhet\fR) or missing (\fImiss\fR) genotypes\&. When prefixed with
 \fI^\fR, the logic is reversed; thus
@@ -1973,58 +1980,266 @@ Main title for the PDF\&.
 These filtering expressions are accepted by \fBannotate\fR, \fBfilter\fR, \fBquery\fR and \fBview\fR commands\&.
 .PP
 \fBValid expressions may contain:\fR
-.PP
+.sp
 .RS 4
-.PP
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 numerical constants, string constants, file names
+.sp
+.if n \{\
 .RS 4
-1, 1\&.0, 1e\-4 "String" @file_name
+.\}
+.nf
+1, 1\&.0, 1e\-4
+"String"
+@file_name
+.fi
+.if n \{\
 .RE
-.PP
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 arithmetic operators
+.sp
+.if n \{\
 .RS 4
+.\}
+.nf
 +,*,\-,/
+.fi
+.if n \{\
 .RE
-.PP
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 comparison operators
+.sp
+.if n \{\
 .RS 4
-== (same as =), >, >=, ⇐, <, !=
+.\}
+.nf
+== (same as =), >, >=, <=, <, !=
+.fi
+.if n \{\
 .RE
-.PP
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+regex operators "~" and its negation "!~"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+INFO/HAYSTACK ~ "needle"
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 parentheses
+.sp
+.if n \{\
 .RS 4
+.\}
+.nf
 (, )
+.fi
+.if n \{\
 .RE
-.PP
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 logical operators
+.sp
+.if n \{\
 .RS 4
-&& (same as &), ||, |
+.\}
+.nf
+&& (same as &), ||,  |
+.fi
+.if n \{\
 .RE
-.PP
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 INFO tags, FORMAT tags, column names
+.sp
+.if n \{\
 .RS 4
-INFO/DP or DP FORMAT/DV, FMT/DV, or DV %FILTER, %QUAL, %ID
+.\}
+.nf
+INFO/DP or DP
+FORMAT/DV, FMT/DV, or DV
+%FILTER, %QUAL, %ID
+.fi
+.if n \{\
 .RE
-.PP
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 1 (or 0) to test the presence (or absence) of a flag
+.sp
+.if n \{\
 .RS 4
+.\}
+.nf
 FlagA=1 && FlagB=0
+.fi
+.if n \{\
 .RE
-.PP
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 %TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
+.sp
+.if n \{\
 .RS 4
+.\}
+.nf
 %TYPE="indel" | %TYPE="snp"
+.fi
+.if n \{\
 .RE
-.PP
-array subscripts
+.\}
+.RE
+.sp
 .RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+array subscripts, "*" for any field
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0\&.3
+DP4[*] == 0
+CSQ[*] ~ "missense_variant\&.*deleterious"
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+functions on FORMAT fields
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+MAX, MIN, AVG
+.fi
+.if n \{\
+.RE
+.\}
 .RE
 .PP
-functions on FORMAT fields
+\fBNotes:\fR
+.sp
 .RS 4
-MAX, MIN, AVG
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+String comparisons and regular expressions are case\-insensitive
 .RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+If the subscript "*" is used in regular expression search, the whole field is treated as one string\&. For example, the regex STR[*]~"B,C" will be true for the string vector INFO/STR=AB,CD\&.
 .RE
 .sp
 \fBExamples:\fR
@@ -2121,7 +2336,7 @@ MAX, MIN, AVG
 .sp
 \fBShell expansion:\fR
 .sp
-Note that expressions must often be quoted because some characters have special meaning in the shell\&. Please refer to the documentation of your shell for details\&. An example of expression enclosed in single quotes which cause that the whole expression is passed to the program as intended:
+Note that expressions must often be quoted because some characters have special meaning in the shell\&. An example of expression enclosed in single quotes which cause that the whole expression is passed to the program as intended:
 .sp
 .if n \{\
 .RS 4
@@ -2132,6 +2347,8 @@ bcftools view \-i \*(Aq%ID!="\&." & MAF[0]<0\&.01\*(Aq
 .if n \{\
 .RE
 .\}
+.sp
+Please refer to the documentation of your shell for details\&.
 .SH "PERFORMANCE"
 .sp
 HTSlib was designed with BCF format in mind\&. When parsing VCF files, all records are internally converted into BCF representation\&. Simple operations, like removing a single column from a VCF file, can be therefore done much faster with standard UNIX commands, such as \fBawk\fR or \fBcut\fR\&. Therefore it is recommended to use BCF as input/output format whenever possible to avoid large overhead of the VCF → BCF → VCF conversion\&.

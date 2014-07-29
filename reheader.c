@@ -36,6 +36,7 @@
 #include <htslib/bgzf.h>
 #include <htslib/kseq.h>
 #include "bcftools.h"
+#include "khash_str2str.h"
 
 typedef struct _args_t
 {
@@ -72,17 +73,84 @@ static void read_header_file(char *fname, kstring_t *hdr)
     kputc('\n',hdr);
 }
 
+static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int idx)
+{
+    int i, j, n;
+
+    // Are these samples "old-name new-name" pairs?
+    void *hash = khash_str2str_init();
+    for (i=0; i<nsamples; i++)
+    {
+        char *key, *value;
+        key = value = samples[i];
+        while ( *value && !isspace(*value) ) value++;
+        if ( !*value ) break;
+        *value = 0; value++;
+        while ( isspace(*value) ) value++;
+        khash_str2str_set(hash,key,value);
+    }
+    if ( i!=nsamples )  // not "old-name new-name" pairs
+    {
+        khash_str2str_destroy(hash);
+        return 0;
+    }
+
+    while ( hdr->l>0 && isspace(hdr->s[hdr->l-1]) ) hdr->l--;  // remove trailing newlines
+    hdr->s[hdr->l] = 0;
+
+    kstring_t tmp = {0,0,0};
+    i = j = n = 0;
+    while ( hdr->s[idx+i] && hdr->s[idx+i])
+    {
+        if ( hdr->s[idx+i]=='\t' ) 
+        {
+            hdr->s[idx+i] = 0;
+
+            if ( ++n>9 )
+            {
+                char *ori = khash_str2str_get(hash,hdr->s+idx+j);
+                kputs(ori ? ori : hdr->s+idx+j, &tmp);
+            }
+            else
+                kputs(hdr->s+idx+j, &tmp);
+                
+            kputc('\t',&tmp);
+
+            j = ++i;
+            continue;
+        }
+        i++;
+    }
+    char *ori = khash_str2str_get(hash,hdr->s+idx+j);
+    kputs(ori ? ori : hdr->s+idx+j, &tmp);
+
+    if ( hash ) khash_str2str_destroy(hash);
+
+    hdr->l = idx;
+    kputs(tmp.s, hdr);
+    kputc('\n', hdr);
+    free(tmp.s);
+
+    return 1;
+}
+
 static void set_samples(char **samples, int nsamples, kstring_t *hdr)
 {
+    // Find the beginning of the #CHROM line
     int i = hdr->l - 2, ncols = 0;
     while ( i>=0 && hdr->s[i]!='\n' )
     {
         if ( hdr->s[i]=='\t' ) ncols++;
         i--;
     }
-    if ( i<0 ) error("Could not parse the header\n");
+    if ( i<0 || strncmp(hdr->s+i+1,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT",45) ) error("Could not parse the header: %s\n", hdr->s);
+
+    // Are the samples "old-sample new-sample" pairs?
+    if ( set_sample_pairs(samples,nsamples,hdr, i+1) ) return;
+
+    // Replace all samples
     if ( ncols!=nsamples+8 )
-        fprintf(stderr,"Warning: different number of samples: %d vs %d\n", nsamples,ncols-8);
+        fprintf(stderr, "Warning: different number of samples: %d vs %d\n", nsamples,ncols-8);
 
     ncols = 0;
     while ( ncols!=9 ) 
@@ -108,36 +176,35 @@ static void reheader_vcf_gz(args_t *args)
 
     kstring_t hdr = {0,0,0};
     char *buffer = (char*) fp->uncompressed_block;
-    int skip_until = 0;     // end of the header in the current uncompressed block
 
     // Read the header and find the position of the data block
-    if ( buffer[0]=='#' )
+    if ( buffer[0]!='#' ) error("Could not parse the header, expected '#', found '%c'\n", buffer[0]);
+
+    int skip_until = 1;     // end of the header in the current uncompressed block
+    while (1)
     {
-        skip_until = 1;
-        while (1)
+        if ( buffer[skip_until]=='\n' )
         {
-            if ( buffer[skip_until]=='\n' )
-            {
-                skip_until++;
-                if ( skip_until>=fp->block_length )
-                {
-                    kputsn(buffer,skip_until,&hdr);
-                    if ( bgzf_read_block(fp) != 0 || !fp->block_length ) error("FIXME: No body in the file: %s\n", args->fname);
-                    skip_until = 0;
-                }
-                // The header has finished
-                if ( buffer[skip_until]!='#' ) 
-                {
-                    kputsn(buffer,skip_until,&hdr);
-                    break;
-                }
-            }
             skip_until++;
             if ( skip_until>=fp->block_length )
             {
-                if (bgzf_read_block(fp) != 0 || !fp->block_length) error("FIXME: No body in the file: %s\n", args->fname);
+                kputsn(buffer,skip_until,&hdr);
+                if ( bgzf_read_block(fp) != 0 || !fp->block_length ) error("FIXME: No body in the file: %s\n", args->fname);
                 skip_until = 0;
             }
+            // The header has finished
+            if ( buffer[skip_until]!='#' ) 
+            {
+                kputsn(buffer,skip_until,&hdr);
+                break;
+            }
+        }
+        skip_until++;
+        if ( skip_until>=fp->block_length )
+        {
+            kputsn(buffer,fp->block_length,&hdr);
+            if (bgzf_read_block(fp) != 0 || !fp->block_length) error("FIXME: No body in the file: %s\n", args->fname);
+            skip_until = 0;
         }
     }
 
@@ -249,7 +316,7 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
         if ( src_hrec->type==BCF_HL_FLT || src_hrec->type==BCF_HL_INFO || src_hrec->type==BCF_HL_FMT || src_hrec->type== BCF_HL_CTG )
         {
             int j = bcf_hrec_find_key(src_hrec, "ID");
-            dst_hrec = bcf_hdr_get_hrec(dst, src_hrec->type, src_hrec->vals[j]);
+            dst_hrec = bcf_hdr_get_hrec(dst, src_hrec->type, "ID", src_hrec->vals[j], NULL);
             if ( !dst_hrec ) continue;
 
             tmp = bcf_hrec_dup(dst_hrec);
@@ -271,7 +338,7 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
         if ( dst_hrec->type==BCF_HL_FLT || dst_hrec->type==BCF_HL_INFO || dst_hrec->type==BCF_HL_FMT || dst_hrec->type== BCF_HL_CTG )
         {
             int j = bcf_hrec_find_key(dst_hrec, "ID");
-            tmp = bcf_hdr_get_hrec(out, dst_hrec->type, dst_hrec->vals[j]);
+            tmp = bcf_hdr_get_hrec(out, dst_hrec->type, "ID", dst_hrec->vals[j], NULL);
             if ( !tmp )
                 bcf_hdr_add_hrec(out, bcf_hrec_dup(dst_hrec));
         }
@@ -412,6 +479,9 @@ int main_reheader(int argc, char *argv[])
         else usage(args);
     }
     else args->fname = argv[optind];
+
+    if ( !args->samples_fname && !args->header_fname ) usage(args);
+    if ( !args->fname ) usage(args);
 
     init_data(args);
 

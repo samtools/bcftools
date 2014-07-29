@@ -29,6 +29,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <htslib/hts.h>
+#include "version.h"
 #include "bcftools.h"
 
 void error(const char *format, ...)

@@ -43,11 +43,11 @@ version.h:
 
 
 .SUFFIXES:.c .o
-.PHONY:all clean clean-all distclean install lib tags test testclean force plugins
+.PHONY:all clean clean-all distclean install lib tags test testclean force plugins docs
 
 force:
 
-%.o: %.c $(HTSDIR)/htslib/vcf.h $(HTSDIR)/htslib/synced_bcf_reader.h
+.c.o:
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
 test: $(PROG) plugins test/test-rbuf
@@ -61,17 +61,38 @@ plugins: $(PLUGINS)
 %.so: %.c version.h version.c config.c config.h vcfannotate.c $(HTSDIR)/libhts.so
 	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ config.c version.c $< -L$(HTSDIR) -lhts
 
-main.o: version.h bcftools.h
-vcfcall.o: vcfcall.c call.h mcall.c gvcf.c prob1.h $(HTSDIR)/htslib/kfunc.h bcftools.h
-mcall.o ccall.o: call.h vcmp.h bcftools.h
-vcffilter.o: bcftools.h filter.h
-vcfsubset.o: bcftools.h filter.h
-vcfnorm.o: bcftools.h rbuf.h
-vcffilter.o: bcftools.h rbuf.h
-vcfroh.o: bcftools.h rbuf.h HMM.h
-vcfannotate.o: bcftools.h vcmp.h $(HTSDIR)/htslib/kseq.h
-vcfconcat.o: bcftools.h
-test/test-rbuf.o: rbuf.h test/test-rbuf.c
+bcftools_h = bcftools.h $(htslib_vcf_h)
+call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
+filter_h = filter.h $(htslib_vcf_h)
+prob1_h = prob1.h $(htslib_vcf_h) $(call_h)
+
+main.o: main.c $(htslib_hts_h) version.h $(bcftools_h)
+vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
+vcfcall.o: vcfcall.c $(htslib_vcf_h) $(HTSDIR)/htslib/kfunc.h $(htslib_synced_bcf_reader_h) $(bcftools_h) $(call_h) $(prob1_h)
+vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
+vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h
+vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
+vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h)
+vcfisec.o: vcfisec.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
+vcfmerge.o: vcfmerge.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) vcmp.h $(HTSDIR)/htslib/khash.h
+vcfnorm.o: vcfnorm.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_faidx_h) $(bcftools_h) rbuf.h
+vcfquery.o: vcfquery.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h)
+vcfroh.o: vcfroh.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kstring.h $(HTSDIR)/htslib/kseq.h $(bcftools_h) rbuf.h
+vcfsom.o: vcfsom.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
+vcfstats.o: vcfstats.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) $(bcftools_h)
+vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h)
+reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
+tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
+ccall.o: ccall.c $(HTSDIR)/htslib/kfunc.h $(call_h) kmin.h $(prob1_h)
+em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)
+filter.o: filter.c $(HTSDIR)/htslib/khash_str2int.h $(filter_h) $(bcftools_h) $(htslib_hts_defs_h)
+gvcf.o: gvcf.c $(call_h)
+kmin.o: kmin.c kmin.h
+mcall.o: mcall.c $(HTSDIR)/htslib/kfunc.h $(call_h)
+prob1.o: prob1.c $(prob1_h)
+vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
+
+test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
 		$(CC) $(CFLAGS) -o $@ -lm -ldl $<
@@ -79,6 +100,13 @@ test/test-rbuf: test/test-rbuf.o
 bcftools: $(HTSLIB) $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl
 
+bcftools.1: bcftools.txt
+		a2x --doctype manpage --format manpage bcftools.txt
+
+bcftools.html: bcftools.txt
+		a2x --doctype manpage --format xhtml bcftools.txt
+
+docs: bcftools.html bcftools.1
 
 install: $(PROG)
 		mkdir -p $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
@@ -86,10 +114,11 @@ install: $(PROG)
 		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
 clean: testclean
-		rm -fr gmon.out *.o a.out *.dSYM *~ $(PROG) version.h plugins/*.so
+	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so
+	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
 
 testclean:
-		rm -fr test/*.o test/*~ $(TEST_PROG)
+	-rm -f test/*.o test/*~ $(TEST_PROG)
 
 distclean: clean
 	-rm -f TAGS
