@@ -308,7 +308,7 @@ static void init_data(args_t *args)
         args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
         args->aux.hdr = bcf_hdr_subset(args->aux.srs->readers[0].header, args->nsamples, args->samples, args->samples_map);
         for (i=0; i<args->nsamples; i++)
-            if ( args->samples_map[i]<0 ) error("No such sample \"%s\", please prefix with ':' to indicate file name\n", args->samples[i]);
+            if ( args->samples_map[i]<0 ) error("No such sample: %s\n", args->samples[i]);
         if ( !bcf_hdr_nsamples(args->aux.hdr) ) error("No matching sample found\n");
     }
     else
@@ -316,7 +316,7 @@ static void init_data(args_t *args)
         args->aux.hdr = bcf_hdr_dup(args->aux.srs->readers[0].header);
         for (i=0; i<args->nsamples; i++)
             if ( bcf_hdr_id2int(args->aux.hdr,BCF_DT_SAMPLE,args->samples[i])<0 ) 
-                error("No such sample \"%s\", please prefix with ':' to indicate file name\n", args->samples[i]);
+                error("No such sample: %s\n", args->samples[i]);
     }
 
     // Reorder ploidy and family indexes to match mpileup's output and exclude samples which are not available
@@ -328,7 +328,7 @@ static void init_data(args_t *args)
             for (j=0; j<3; j++)
             {
                 int k = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[ args->aux.fams[i].sample[j] ]);
-                if ( k<0 ) error("No such sample \"%s\", please prefix with ':' to indicate file name\n", args->samples[ args->aux.fams[i].sample[j] ]);
+                if ( k<0 ) error("No such sample: %s\n", args->samples[ args->aux.fams[i].sample[j] ]);
                 args->aux.fams[i].sample[j] = k;
             }
         }
