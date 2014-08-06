@@ -123,10 +123,11 @@ sub error
 }
 sub parse_params
 {
-    my $opts = { keep_files=>0, nok=>0, nfailed=>0 };
+    my $opts = { bgzip=>"bgzip", keep_files=>0, nok=>0, nfailed=>0, tabix=>"tabix" };
     my $help;
     Getopt::Long::Configure('bundling');
     my $ret = GetOptions (
+            'e|exec=s' => sub { my ($tool, $path) = split /=/, $_[1]; $$opts{$tool} = $path if $path },
             't|temp-dir:s' => \$$opts{keep_files}, 
             'r|redo-outputs' => \$$opts{redo_outputs}, 
             'h|?|help' => \$help
@@ -252,11 +253,11 @@ sub bgzip_tabix
     my $file = "$args{file}.$args{suffix}";
     if ( $$opts{redo_outputs} or !-e "$$opts{tmp}/$file.gz" or is_file_newer("$$opts{path}/$file","$$opts{tmp}/$file.gz") )
     {
-        cmd("cat $$opts{path}/$file | bgzip -c > $$opts{tmp}/$file.gz");
+        cmd("cat $$opts{path}/$file | $$opts{bgzip} -c > $$opts{tmp}/$file.gz");
     }
     if ( $$opts{redo_outputs} or !-e "$$opts{tmp}/$file.gz.tbi" or is_file_newer("$$opts{tmp}/$file.gz","$$opts{tmp}/$file.gz.tbi") )
     {
-        cmd("$$opts{bin}/bcftools tabix -f $args{args} $$opts{tmp}/$file.gz");
+        cmd("$$opts{tabix} -f $args{args} $$opts{tmp}/$file.gz");
     }
 }
 sub bgzip_tabix_vcf
@@ -272,7 +273,7 @@ sub test_tabix
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
+    test_cmd($opts,%args,cmd=>"$$opts{tabix} $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
@@ -399,8 +400,8 @@ sub test_vcf_regions
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 
     # regions vs targets, reading tabix-ed tab
-    cmd(qq[cat $$opts{path}/$args{in}.tab | bgzip -c > $$opts{tmp}/$args{in}.tab.gz]);
-    cmd(qq[$$opts{bin}/bcftools tabix -f -s1 -b2 -e3 $$opts{tmp}/$args{in}.tab.gz]);
+    cmd(qq[cat $$opts{path}/$args{in}.tab | $$opts{bgzip} -c > $$opts{tmp}/$args{in}.tab.gz]);
+    cmd(qq[$$opts{tabix} -f -s1 -b2 -e3 $$opts{tmp}/$args{in}.tab.gz]);
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.tab.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
@@ -412,8 +413,8 @@ sub test_vcf_regions
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 
     # regions vs targets, reading tabix-ed bed
-    cmd(qq[cat $$opts{tmp}/$args{in}.bed | bgzip -c > $$opts{tmp}/$args{in}.bed.gz]);
-    cmd(qq[$$opts{bin}/bcftools tabix -f -p bed $$opts{tmp}/$args{in}.bed.gz]);
+    cmd(qq[cat $$opts{tmp}/$args{in}.bed | $$opts{bgzip} -c > $$opts{tmp}/$args{in}.bed.gz]);
+    cmd(qq[$$opts{tabix} -f -p bed $$opts{tmp}/$args{in}.bed.gz]);
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
