@@ -8,6 +8,8 @@ all: $(PROG) $(TEST_PROG)
 HTSDIR = ../htslib
 include $(HTSDIR)/htslib.mk
 HTSLIB = $(HTSDIR)/libhts.a
+BGZIP  = $(HTSDIR)/bgzip
+TABIX  = $(HTSDIR)/tabix
 
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
@@ -50,8 +52,8 @@ force:
 .c.o:
 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
-test: $(PROG) plugins test/test-rbuf
-		./test/test.pl
+test: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
+		./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
 
 PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
 PLUGINS = $(PLUGINC:.c=.so)
