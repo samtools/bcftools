@@ -1,7 +1,8 @@
-/* The MIT License
+/*  vcfview.c -- VCF/BCF conversion, view, subset and filter VCF/BCF files.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
+
+    Author: Shane McCarthy <sm15@sanger.ac.uk>
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal

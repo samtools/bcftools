@@ -1,6 +1,8 @@
-/* The MIT License
+/*  vcfindex.c -- Index bgzip compressed VCF/BCF files for random access.
 
-   Copyright (c) 2014 Genome Research Ltd (GRL).
+    Copyright (C) 2014 Genome Research Ltd.
+
+    Author: Shane McCarthy <sm15@sanger.ac.uk>
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
