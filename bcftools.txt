@@ -1175,15 +1175,15 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        %FILTER, %QUAL, %ID
+        FILTER, QUAL, ID, REF, ALT[0]
     
 * 1 (or 0) to test the presence (or absence) of a flag
 
         FlagA=1 && FlagB=0
     
-* %TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
 
-        %TYPE="indel" | %TYPE="snp"
+        TYPE="indel" | TYPE="snp"
     
 * array subscripts, "*" for any field
 
@@ -1191,9 +1191,13 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
         DP4[*] == 0
         CSQ[*] ~ "missense_variant.*deleterious"
     
-* functions on FORMAT fields
+* function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
-        MAX, MIN, AVG
+        MAX, MIN, AVG, SUM, STRLEN, ABS
+
+* variables: number of alternate alleles, number of samples
+
+        N_ALT, N_SAMPLES
 
 
 .Notes:
@@ -1202,28 +1206,31 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 * If the subscript "\*" is used in regular expression search, the
 whole field is treated as one string. For example, the regex STR[*]~"B,C" will be
 true for the string vector INFO/STR=AB,CD.
+* Variables and function names are case-insensitive, but not tag names. For example,
+"qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
+not "dp" instead of "DP".
 
 
 *Examples:*
 
 --
-    %MIN(DV)>5
+    MIN(DV)>5
                 
-    %MIN(DV/DP)>0.3
+    MIN(DV/DP)>0.3
         
-    %MIN(DP)>10 & %MIN(DV)>3
+    MIN(DP)>10 & MIN(DV)>3
     
-    %QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
+    QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
     
-    %QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
+    QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
     
-    %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
+    TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
     
-    %MIN(DP)>35 && %AVG(GQ)>50
+    MIN(DP)>35 && AVG(GQ)>50
 
-    %ID=@file       .. selects lines with ID present in the file
+    ID=@file       .. selects lines with ID present in the file
 
-    %ID!=@~/file    .. skip lines with ID present in the ~/file
+    ID!=@~/file    .. skip lines with ID present in the ~/file
 
 --
 

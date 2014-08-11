@@ -925,9 +925,9 @@ static void usage(args_t *args)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations <file>       VCF file or tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
-    fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
-    fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man pagee for details)\n");
     fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
@@ -936,8 +936,6 @@ static void usage(args_t *args)
     fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
     fprintf(stderr, "   -v, --verbose                  print debugging information on plugin failure\n");
-    fprintf(stderr, "\n");
-    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }
