@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 07/21/2014
+.\"      Date: 08/11/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "07/21/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "08/11/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,27 +34,30 @@ bcftools \- utilities for variant calling and manipulating VCFs and BCFs
 \fBbcftools\fR [\fICOMMAND\fR] [\fIOPTIONS\fR]
 .SH "DESCRIPTION"
 .sp
-Bcftools is a set of utilities that manipulate variant calls in the Variant Call Format (VCF) and its binary counterpart BCF\&. All commands work transparently with both VCFs and BCFs, both uncompressed and BGZF\-compressed\&.
+BCFtools is a set of utilities that manipulate variant calls in the Variant Call Format (VCF) and its binary counterpart BCF\&. All commands work transparently with both VCFs and BCFs, both uncompressed and BGZF\-compressed\&.
 .sp
 Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatically even when streaming from a pipe\&. Indexed VCF and BCF will work in all situations\&. Un\-indexed VCF and BCF and streams will work in most, but not all situations\&.
 .sp
-Bcftools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
+BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
+.SS "BCF1"
+.sp
+The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    samtools\-0\&.1\&.19/bcftools/bcftools view file\&.bcf1 | bcftools view
+.fi
+.if n \{\
+.RE
+.\}
+.SS "VARIANT CALLING"
+.sp
+See \fIbcftools call\fR for variant calling from the output of the \fIsamtools mpileup\fR command\&. In versions of samtools <= 0\&.1\&.19 calling was done with \fIbcftools view\fR\&. Users are now required to choose between the old samtools calling model (\fI\-c/\-\-consensus\-caller\fR) and the new multiallelic calling model (\fI\-m/\-\-multiallelic\-caller\fR)\&. The multiallelic calling model is recommended for most tasks\&.
 .SH "LIST OF COMMANDS"
 .sp
 For a full list of available commands, run \fBbcftools\fR without arguments\&. For a full list of available options, run \fBbcftools\fR \fICOMMAND\fR without arguments\&.
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-
-\fBindex\fR
-\&.\&. index VCF/BCF
-.RE
 .sp
 .RS 4
 .ie n \{\
@@ -119,6 +122,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBgtcheck\fR
 \&.\&. check sample concordance, detect sample swaps and contamination
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBindex\fR
+\&.\&. index VCF/BCF
 .RE
 .sp
 .RS 4
@@ -224,6 +240,9 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 \fBview\fR
 \&.\&. subset, filter and convert VCF and BCF files
 .RE
+.SH "LIST OF SCRIPTS"
+.sp
+Some helper scripts are bundled with the bcftools code\&.
 .sp
 .RS 4
 .ie n \{\
@@ -238,7 +257,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 \&.\&. plots the output of
 \fBstats\fR
 .RE
-.SH "OPTIONS"
+.SH "COMMANDS AND OPTIONS"
 .SS "Common Options"
 .PP
 \fIFILE\fR
@@ -1037,7 +1056,12 @@ The maximum absolute deviation from average score of the sample most dissimilar 
 .RE
 .SS "bcftools index [\fIOPTIONS\fR] \fI<in\&.bcf>|<in\&.vcf\&.gz>\fR"
 .sp
-Creates index for bgzip compressed VCF/BCF files for random access\&. Note that the old tabix (\&.tbi) index can be invoked by setting \-m0\&. Otherwise the new coordinate\-sorted (\&.csi) index is created\&.
+Creates index for bgzip compressed VCF/BCF files for random access\&. CSI (coordinate\-sorted index) is created by default\&. The CSI format supports indexing of chromosomes up to length 2^31\&. TBI (tabix index) index files, which support chromosome lengths up to 2^29, can be created by using the \fI\-t/\-\-tbi\fR option or using the \fItabix\fR program packaged with htslib\&. When loading an index file, bcftools will try the CSI first and then the TBI\&.
+.PP
+\fB\-c, \-\-csi\fR
+.RS 4
+generate CSI\-format index for VCF/BCF files [default]
+.RE
 .PP
 \fB\-f, \-\-force\fR
 .RS 4
@@ -1046,7 +1070,12 @@ overwrite index if it already exists
 .PP
 \fB\-m, \-\-min\-shift \fR\fB\fIINT\fR\fR
 .RS 4
-set the minimal interval size to 1<<INT; default: 14
+set minimal interval size for CSI indices to 2^INT; default: 14
+.RE
+.PP
+\fB\-t, \-\-tbi\fR
+.RS 4
+generate TBI\-format index for VCF files
 .RE
 .SS "bcftools isec [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR \fIB\&.vcf\&.gz\fR [\&...]"
 .sp
@@ -1887,12 +1916,12 @@ print novel sites only (ID column is "\&.")
 .PP
 \fB\-p, \-\-phased\fR
 .RS 4
-print sites where not all samples are phased\&. Haploid genotypes are considered phased\&. Missing genotypes considered unphased unless the phased bit is set\&.
+print sites where all samples are phased\&. Haploid genotypes are considered phased\&. Missing genotypes considered unphased unless the phased bit is set\&.
 .RE
 .PP
 \fB\-P, \-\-exclude\-phased\fR
 .RS 4
-exclude sites where not all samples are phased
+exclude sites where all samples are phased
 .RE
 .PP
 \fB\-q, \-\-min\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR]
@@ -1934,46 +1963,6 @@ print sites where only the subset samples carry an non\-reference allele
 .RS 4
 exclude sites where only the subset samples carry an non\-reference allele
 .RE
-.RE
-.SS "plot\-vcfstats [\fIOPTIONS\fR] \fIfile\&.vchk\fR [\&...]"
-.sp
-Script for processing output of \fBbcftools stats\fR\&. It can merge results from multiple outputs (useful when running the stats for each chromosome separately), plots graphs and creates a PDF presentation\&.
-.PP
-\fB\-m, \-\-merge\fR
-.RS 4
-Merge vcfstats files to STDOUT, skip plotting\&.
-.RE
-.PP
-\fB\-p, \-\-prefix\fR \fIPATH\fR
-.RS 4
-The output files prefix, add a slash to create new directory\&.
-.RE
-.PP
-\fB\-P, \-\-no\-PDF\fR
-.RS 4
-Skip the PDF creation step\&.
-.RE
-.PP
-\fB\-r, \-\-rasterize\fR
-.RS 4
-Rasterize PDF images for faster rendering\&.
-.RE
-.PP
-\fB\-s, \-\-sample\-names\fR
-.RS 4
-Use sample names for xticks rather than numeric IDs\&.
-.RE
-.PP
-\fB\-t, \-\-title\fR \fISTRING\fR
-.RS 4
-Identify files by these titles in plots\&. The option can be given multiple times, for each ID in the
-\fBbcftools stats\fR
-output\&. If not present, the script will use abbreviated source file names for the titles\&.
-.RE
-.PP
-\fB\-T, \-\-main\-title\fR \fISTRING\fR
-.RS 4
-Main title for the PDF\&.
 .RE
 .SH "EXPRESSIONS"
 .sp
@@ -2349,6 +2338,47 @@ bcftools view \-i \*(Aq%ID!="\&." & MAF[0]<0\&.01\*(Aq
 .\}
 .sp
 Please refer to the documentation of your shell for details\&.
+.SH "SCRIPTS AND OPTIONS"
+.SS "plot\-vcfstats [\fIOPTIONS\fR] \fIfile\&.vchk\fR [\&...]"
+.sp
+Script for processing output of \fBbcftools stats\fR\&. It can merge results from multiple outputs (useful when running the stats for each chromosome separately), plots graphs and creates a PDF presentation\&.
+.PP
+\fB\-m, \-\-merge\fR
+.RS 4
+Merge vcfstats files to STDOUT, skip plotting\&.
+.RE
+.PP
+\fB\-p, \-\-prefix\fR \fIPATH\fR
+.RS 4
+The output files prefix, add a slash to create new directory\&.
+.RE
+.PP
+\fB\-P, \-\-no\-PDF\fR
+.RS 4
+Skip the PDF creation step\&.
+.RE
+.PP
+\fB\-r, \-\-rasterize\fR
+.RS 4
+Rasterize PDF images for faster rendering\&.
+.RE
+.PP
+\fB\-s, \-\-sample\-names\fR
+.RS 4
+Use sample names for xticks rather than numeric IDs\&.
+.RE
+.PP
+\fB\-t, \-\-title\fR \fISTRING\fR
+.RS 4
+Identify files by these titles in plots\&. The option can be given multiple times, for each ID in the
+\fBbcftools stats\fR
+output\&. If not present, the script will use abbreviated source file names for the titles\&.
+.RE
+.PP
+\fB\-T, \-\-main\-title\fR \fISTRING\fR
+.RS 4
+Main title for the PDF\&.
+.RE
 .SH "PERFORMANCE"
 .sp
 HTSlib was designed with BCF format in mind\&. When parsing VCF files, all records are internally converted into BCF representation\&. Simple operations, like removing a single column from a VCF file, can be therefore done much faster with standard UNIX commands, such as \fBawk\fR or \fBcut\fR\&. Therefore it is recommended to use BCF as input/output format whenever possible to avoid large overhead of the VCF → BCF → VCF conversion\&.
@@ -2360,7 +2390,7 @@ Please report any bugs you encounter on the github website: http://github\&.com/
 Heng Li from the Sanger Institute wrote the original C version of htslib, samtools and bcftools\&. Bob Handsaker from the Broad Institute implemented the BGZF library\&. Petr Danecek, Shane McCarthy and John Marshall are maintaining and further developing bcftools\&. Many other people contributed to the program and to the file format specifications, both directly and indirectly by providing patches, testing and reporting bugs\&. We thank them all\&.
 .SH "RESOURCES"
 .sp
-Bcftools GitHub website: http://github\&.com/samtools/bcftools
+BCFtools GitHub website: http://github\&.com/samtools/bcftools
 .sp
 Samtools GitHub website: http://github\&.com/samtools/samtools
 .sp
@@ -2368,9 +2398,9 @@ HTSlib GitHub website: http://github\&.com/samtools/htslib
 .sp
 File format specifications: http://samtools\&.github\&.io/hts\-specs
 .sp
-Bcftools documentation: http://samtools\&.github\&.io/bcftools
+BCFtools documentation: http://samtools\&.github\&.io/bcftools
 .sp
-Bcftools wiki page: https://github\&.com/samtools/bcftools/wiki
+BCFtools wiki page: https://github\&.com/samtools/bcftools/wiki
 .SH "COPYING"
 .sp
 The MIT License\&. Copyright (c) Genome Research Ltd\&.
