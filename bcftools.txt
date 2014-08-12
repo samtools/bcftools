@@ -1195,9 +1195,12 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
         MAX, MIN, AVG, SUM, STRLEN, ABS
 
-* variables: number of alternate alleles, number of samples
+* variables calculated on the fly if not present: number of alternate alleles,
+number of samples, number of alternate alleles, minor allele count (similar to
+AC but is always smaller than 0.5), frequency of alternate alleles (AF=AC/AN),
+frequency of minor alleles (MAF=MAC/AN)
 
-        N_ALT, N_SAMPLES
+        N_ALT, N_SAMPLES, AC, MAC, AF, MAF
 
 
 .Notes:
@@ -1231,6 +1234,8 @@ not "dp" instead of "DP".
     ID=@file       .. selects lines with ID present in the file
 
     ID!=@~/file    .. skip lines with ID present in the ~/file
+
+    MAF[0]<0.05    .. select rare variants at 5% cutoff
 
 --
 

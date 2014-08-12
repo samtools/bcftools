@@ -44,6 +44,10 @@ test_vcf_query($opts,in=>'query',out=>'query.6.out',args=>q[-f'%POS %REF %ALT\\n
 test_vcf_query($opts,in=>'query',out=>'query.7.out',args=>q[-f'%POS %AN\\n' -i'AN!=2*N_SAMPLES']);
 test_vcf_query($opts,in=>'query',out=>'query.8.out',args=>q[-f'%POS[ %GL]\\n' -i'min(abs(GL[0]))=10']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.9.out',args=>q[-f'%POS %CIGAR\\n' -i'strlen(CIGAR[*])=4']);
+test_vcf_query($opts,in=>'query',out=>'query.10.out',args=>q[-f'%POS[ %GT]\\n' -i'AC[0]=3']);
+test_vcf_query($opts,in=>'query',out=>'query.10.out',args=>q[-f'%POS[ %GT]\\n' -i'AF[0]=3/4']);
+test_vcf_query($opts,in=>'query',out=>'query.11.out',args=>q[-f'%POS[ %GT]\\n' -i'MAC[0]=1']);
+test_vcf_query($opts,in=>'query',out=>'query.11.out',args=>q[-f'%POS[ %GT]\\n' -i'MAF[0]=1/4']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.merge',out=>'norm.merge.out',args=>'-m+');

@@ -33,6 +33,7 @@
 #include "filter.h"
 #include "bcftools.h"
 #include <htslib/hts_defs.h>
+#include <htslib/vcfutils.h>
 
 typedef struct _token_t
 {
@@ -42,7 +43,7 @@ typedef struct _token_t
     char *tag;          // for debugging and printout only, VCF tag name
     float threshold;    // filtering threshold
     int hdr_id;         // BCF header lookup ID
-    int idx;            // 0-based index to VCF vectors
+    int idx;            // 0-based index to VCF vectors, -1: not a vector, -2: any field ([*])
     void (*setter)(filter_t *, bcf1_t *, struct _token_t *);
     int (*comparator)(struct _token_t *, struct _token_t *, int op_type, bcf1_t *);
     void *hash;         // test presence of str value in the hash via comparator
@@ -606,6 +607,62 @@ static void filters_set_nalt(filter_t *flt, bcf1_t *line, token_t *tok)
     tok->nvalues = 1;
     tok->values[0] = line->n_allele - 1;
 }
+static void filters_set_ac(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    hts_expand(int32_t, line->n_allele, flt->mtmpi, flt->tmpi);
+    if ( !bcf_calc_ac(flt->hdr, line, flt->tmpi, BCF_UN_INFO|BCF_UN_FMT) )
+    {
+        tok->nvalues = 0;
+        return;
+    }
+    int i, an = flt->tmpi[0];
+    for (i=1; i<line->n_allele; i++) an += flt->tmpi[i];
+    if ( !an )
+    {
+        tok->nvalues = 0;
+        return;
+    }
+    flt->tmpi[0] = an;  // for filters_set_[mac|af|maf]
+    if ( tok->idx>=0 )
+    {
+        tok->nvalues = 1;
+        tok->values[0] = flt->tmpi[tok->idx+1];
+    }
+    else
+    {
+        hts_expand(float,line->n_allele,tok->mvalues,tok->values);
+        for (i=1; i<line->n_allele; i++)
+            tok->values[i-1] = flt->tmpi[i];
+        tok->nvalues = line->n_allele - 1;
+    }
+}
+static void filters_set_mac(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    filters_set_ac(flt,line,tok);
+    if ( !tok->nvalues ) return;
+    int i, an = flt->tmpi[0];
+    for (i=0; i<tok->nvalues; i++)
+        if ( tok->values[i] > an*0.5 ) tok->values[i] = an - tok->values[i];
+}
+static void filters_set_af(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    filters_set_ac(flt,line,tok);
+    if ( !tok->nvalues ) return;
+    int i, an = flt->tmpi[0];
+    for (i=0; i<tok->nvalues; i++)
+        tok->values[i] /= (float)an;
+}
+static void filters_set_maf(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    filters_set_ac(flt,line,tok);
+    if ( !tok->nvalues ) return;
+    int i, an = flt->tmpi[0];
+    for (i=0; i<tok->nvalues; i++)
+    {
+        tok->values[i] /= (float)an;
+        if ( tok->values[i] > 0.5 ) tok->values[i] = 1 - tok->values[i];
+    }
+}
 
 static void set_max(filter_t *flt, bcf1_t *line, token_t *tok) 
 { 
@@ -1102,12 +1159,10 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         }
     }
 
-    // is this one of the VCF tags? For now do only INFO and QUAL
+    // does it have array subscript?
+    int is_array = 0;
     kstring_t tmp = {0,0,0};
     kputsn(str, len, &tmp);
-
-    // an array subscript?
-    int is_array = 0;
     if ( tmp.s[tmp.l-1] == ']' )
     {
         int i;
@@ -1185,50 +1240,41 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         if ( tmp.s ) free(tmp.s);
         return 0;
     }
-
-    // is it a substrict VCF vector tag?
-    if ( is_array )
+    else if ( !strcasecmp(tmp.s,"ALT") )
     {
-        tok->hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, tmp.s);
-        if ( tok->hdr_id>=0 )
-        {
-            if ( is_fmt )
-            {
-                if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
-                    error("No such FORMAT field: %s\n", tmp.s);
-                switch ( bcf_hdr_id2type(filter->hdr,BCF_HL_FMT,tok->hdr_id) )
-                {
-                    case BCF_HT_INT:  tok->setter = &filters_set_format_int; break;
-                    case BCF_HT_REAL: tok->setter = &filters_set_format_float; break;
-                    case BCF_HT_STR:  tok->setter = &filters_set_format_string; tok->is_str = 1; break;
-                    default: error("[%s:%d %s] FIXME\n", __FILE__,__LINE__,__FUNCTION__);
-                }
-            }
-            else if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_INFO,tok->hdr_id) )
-                error("No such INFO field: %s\n", tmp.s);
-            else
-            {
-                switch ( bcf_hdr_id2type(filter->hdr,BCF_HL_INFO,tok->hdr_id) )
-                {
-                    case BCF_HT_INT:  tok->setter = &filters_set_info_int; break;
-                    case BCF_HT_REAL: tok->setter = &filters_set_info_float; break;
-                    case BCF_HT_STR:  tok->setter = &filters_set_info_string; tok->is_str = 1; break;
-                    default: error("[%s:%d %s] FIXME\n", __FILE__,__LINE__,__FUNCTION__);
-                }
-                filter->max_unpack |= BCF_UN_INFO;
-            }
-            tok->tag = strdup(tmp.s);
-            if ( tmp.s ) free(tmp.s);
-            return 0;
-        }
-        else if ( !strncmp(str,"ALT",4) )
-        {
-            tok->setter = &filters_set_alt_string;
-            tok->is_str = 1;
-            tok->tag = strdup(tmp.s);
-            if ( tmp.s ) free(tmp.s);
-            return 0;
-        }
+        tok->setter = &filters_set_alt_string;
+        tok->is_str = 1;
+        tok->tag = strdup(tmp.s);
+        free(tmp.s);
+        return 0;
+    }
+    else if ( !strcasecmp(tmp.s,"AC") )
+    {
+        tok->setter = &filters_set_ac;
+        tok->tag = strdup("AC");
+        free(tmp.s);
+        return 0;
+    }
+    else if ( !strcasecmp(tmp.s,"MAC") )
+    {
+        tok->setter = &filters_set_mac;
+        tok->tag = strdup("MAC");
+        free(tmp.s);
+        return 0;
+    }
+    else if ( !strcasecmp(tmp.s,"AF") )
+    {
+        tok->setter = &filters_set_af;
+        tok->tag = strdup("AF");
+        free(tmp.s);
+        return 0;
+    }
+    else if ( !strcasecmp(tmp.s,"MAF") )
+    {
+        tok->setter = &filters_set_maf;
+        tok->tag = strdup("MAF");
+        free(tmp.s);
+        return 0;
     }
 
     // is it a value?
@@ -1613,38 +1659,5 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         }
     }
     return filter->flt_stack[0]->pass_site;
-}
-
-void filter_expression_info(FILE *fp)
-{
-    fprintf(fp, "Filter expressions may contain:\n");
-    fprintf(fp, "    - numerical constants, string constants, file names\n");
-    fprintf(fp, "        .. 1, 1.0, 1e-4\n");
-    fprintf(fp, "        .. \"String\"\n");
-    fprintf(fp, "        .. @file_name\n");
-    fprintf(fp, "    - arithmetic operators: +,*,-,/\n");
-    fprintf(fp, "    - comparison operators: == (same as =), >, >=, <=, <, !=\n");
-    fprintf(fp, "    - regex operator for string comparison: ~, !~\n");
-    fprintf(fp, "        .. INFO/HAYSTACK ~ \"needle\"\n");
-    fprintf(fp, "    - parentheses for grouping: (, )\n");
-    fprintf(fp, "    - logical operators: &&, &, ||, |\n");
-    fprintf(fp, "    - INFO tags, FORMAT tags, column names\n");
-    fprintf(fp, "        .. INFO/DP or DP\n");
-    fprintf(fp, "        .. FORMAT/DV, FMT/DV, or DV\n");
-    fprintf(fp, "        .. FILTER==\"PASS\", QUAL>10, ID!=\".\"\n");
-    fprintf(fp, "        .. ID=@file, ID!=@file  .. selects IDs present/absent in the file\n");
-    fprintf(fp, "    - 1 (or 0) to test the presence (or absence) of a flag\n");
-    fprintf(fp, "        .. FlagA=1 && FlagB=0\n");
-    fprintf(fp, "    - TYPE for variant type in REF,ALT columns: indel,snp,mnp,ref,other\n");
-    fprintf(fp, "        .. TYPE=\"indel\" | TYPE=\"snp\"\n");
-    fprintf(fp, "    - array subscripts, * for any field:\n");
-    fprintf(fp, "        .. (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3\n");
-    fprintf(fp, "        .. DP4[*]==0\n");
-    fprintf(fp, "    - operations on FORMAT fields: MAX, MIN, AVG\n");
-    fprintf(fp, "        .. MIN(DV)>5\n");
-    fprintf(fp, "        .. MIN(DV/DP)>0.3\n");
-    fprintf(fp, "        .. MIN(DP)>10 & MIN(DV)>3\n");
-    fprintf(fp, "        .. QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples\n");
-    fprintf(fp, "        .. QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites\n");
 }
 
