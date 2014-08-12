@@ -96,6 +96,7 @@ test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');
+test_rename_chrs($opts,in=>'annotate',out=>'rename.out');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -181,46 +182,48 @@ sub test_cmd
     print "$test:\n";
     print "\t$args{cmd}\n";
 
+    my $out_fname = -e $args{out} ? $args{out} : "$$opts{path}/$args{out}";
+
     my ($ret,$out) = _cmd("$args{cmd}");
     if ( $ret ) { failed($opts,$test,"Non-zero status $ret"); return; }
-    if ( $$opts{redo_outputs} && -e "$$opts{path}/$args{out}" )
+    if ( $$opts{redo_outputs} && -e $out_fname )
     {
-        rename("$$opts{path}/$args{out}","$$opts{path}/$args{out}.old");
-        open(my $fh,'>',"$$opts{path}/$args{out}") or error("$$opts{path}/$args{out}: $!");
+        rename($out_fname,"$out_fname.old");
+        open(my $fh,'>',$out_fname) or error("$out_fname: $!");
         print $fh $out;
         close($fh);
-        my ($ret,$out) = _cmd("diff -q $$opts{path}/$args{out} $$opts{path}/$args{out}.old");
-        if ( !$ret && $out eq '' ) { unlink("$$opts{path}/$args{out}.old"); }
+        my ($ret,$out) = _cmd("diff -q $out_fname $out_fname.old");
+        if ( !$ret && $out eq '' ) { unlink("$out_fname.old"); }
         else
         {
             print "\tthe expected output changed, saving:\n";
-            print "\t  old .. $$opts{path}/$args{out}.old\n";
-            print "\t  new .. $$opts{path}/$args{out}\n";
+            print "\t  old .. $out_fname.old\n";
+            print "\t  new .. $out_fname\n";
         }
     }
     my $exp = '';
-    if ( open(my $fh,'<',"$$opts{path}/$args{out}") )
+    if ( open(my $fh,'<',$out_fname) )
     {
         my @exp = <$fh>;
         $exp = join('',@exp);
         close($fh);
     }
-    elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
+    elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$out_fname: $!"); return; }
 
     if ( $exp ne $out ) 
     { 
-        open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new");
+        open(my $fh,'>',"$out_fname.new") or error("$out_fname.new");
         print $fh $out;
         close($fh);
-        if ( !-e "$$opts{path}/$args{out}" )
+        if ( !-e $out_fname )
         {
-            rename("$$opts{path}/$args{out}.new","$$opts{path}/$args{out}") or error("rename $$opts{path}/$args{out}.new $$opts{path}/$args{out}: $!");
+            rename("$out_fname.new",$out_fname) or error("rename $out_fname.new $out_fname: $!");
             print "\tthe file with expected output does not exist, creating new one:\n";
-            print "\t\t$$opts{path}/$args{out}\n";
+            print "\t\t$out_fname\n";
         }
         else
         {
-            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new"); 
+            failed($opts,$test,"The outputs differ:\n\t\t$out_fname\n\t\t$out_fname.new"); 
         }
         return; 
     }
@@ -564,4 +567,18 @@ sub test_vcf_reheader
         test_cmd($opts,%args,%bcf_args,cmd=>"$$opts{bin}/bcftools reheader $arg $file | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
     }
 }
+sub test_rename_chrs
+{
+    my ($opts,%args) = @_;
+    cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools query -f'chr%CHROM\\t%POS\\n' $$opts{path}/$args{in}.vcf > $$opts{tmp}/rename.out");
+    cmd("$$opts{bin}/bcftools query -f'%CHROM\\tchr%CHROM\\n' $$opts{path}/$args{in}.vcf | uniq > $$opts{tmp}/rename.map");
+    for my $file ("$$opts{tmp}/$args{in}.bcf","$$opts{path}/$args{in}.vcf")
+    {
+        test_cmd($opts,%args,out=>"$$opts{tmp}/rename.out",cmd=>"$$opts{bin}/bcftools annotate --rename-chrs $$opts{tmp}/rename.map -Ov $file | $$opts{bin}/bcftools query -f'%CHROM\\t%POS\\n'");
+        test_cmd($opts,%args,out=>"$$opts{tmp}/rename.out",cmd=>"$$opts{bin}/bcftools annotate --rename-chrs $$opts{tmp}/rename.map -Ob $file | $$opts{bin}/bcftools query -f'%CHROM\\t%POS\\n'");
+    }
+}
+
+
 
