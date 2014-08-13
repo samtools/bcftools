@@ -1,7 +1,9 @@
-/* The MIT License
+/*  ccall.c -- consensus variant calling.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
+    Portions copyright (C) 2010 Broad Institute.
+
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
