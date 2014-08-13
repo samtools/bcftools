@@ -559,10 +559,9 @@ static inline double logsumexp2(double a, double b)
         return log(1 + exp(a-b)) + b;
 }
 
-// Macro to set the most likely and second most likely alleles
+// Macro to set the most likely alleles
 #define UPDATE_MAX_LKs(als) { \
-     if ( max_lk<lk_tot ) { max_lk2 = max_lk; max_lk = lk_tot; max_als = (als); } \
-     else if ( max_lk2<lk_tot ) { max_lk2 = lk_tot; } \
+     if ( max_lk<lk_tot ) { max_lk = lk_tot; max_als = (als); } \
      if ( lk_tot_set ) lk_sum = logsumexp2(lk_tot,lk_sum); \
 }
 
@@ -574,7 +573,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
 {
     int ia,ib,ic;   // iterators over up to three alleles
     int max_als=0;  // most likely combination of alleles
-    double ref_lk = 0, max_lk = INT_MIN, max_lk2 = INT_MIN; // likelihood of the reference and of most likely combination of alleles
+    double ref_lk = 0, max_lk = -HUGE_VAL; // likelihood of the reference and of most likely combination of alleles
     double lk_sum = -HUGE_VAL;    // for normalizing the likelihoods
     int nsmpl = bcf_hdr_nsamples(call->hdr);
     int ngts  = nals*(nals+1)/2;
@@ -1447,8 +1446,8 @@ int mcall(call_t *call, bcf1_t *rec)
         float hob = calc_HOB(call->ac[0],nAC, call->nhets, call->ndiploid);
         if ( hob != HUGE_VAL ) bcf_update_info_float(call->hdr, rec, "HOB", &hob, 1);
 
-        // Quality of a variant site
-        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : -4.343*(call->ref_lk - call->lk_sum);
+        // Quality of a variant site. fabs() to avoid negative zeros in VCF output when CALL_KEEPALT is set
+        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : fabs(-4.343*(call->ref_lk - call->lk_sum));
     }
     else
     {
