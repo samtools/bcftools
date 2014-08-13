@@ -659,7 +659,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
 
     maux_t *ma = args->maux;
     int *al_idxs = (int*) calloc(ma->nals,sizeof(int));
-    out->qual = 0;
+    bcf_float_set_missing(out->qual);
 
     // CHROM, POS, ID, QUAL
     out->pos = -1;
@@ -698,7 +698,10 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         }
 
         // set QUAL to the max qual value. Not exactly correct, but good enough for now
-        if ( out->qual < files->readers[i].buffer[0]->qual ) out->qual = files->readers[i].buffer[0]->qual;
+        if ( !bcf_float_is_missing(files->readers[i].buffer[0]->qual) )
+        {
+            if ( bcf_float_is_missing(out->qual) || out->qual < files->readers[i].buffer[0]->qual ) out->qual = files->readers[i].buffer[0]->qual;
+        }
     }
 
     // set ID
