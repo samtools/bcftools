@@ -213,8 +213,9 @@ This command allows to add or remove annotations and apply user-written plugins.
     When REF and ALT are present, only matching VCF records will be annotated.
     When multiple ALT alleles are present in the annotation file (given as
     comma-separated list of alleles), at least one must match one of the
-    alleles in the corresponding VCF record.
-    See also *-c, --columns* and *-h, --header-lines*.
+    alleles in the corresponding VCF record. Similarly, at least one 
+    alternate allele from a multi-allelic VCF record must be present in the
+    annotation file.  See also *-c, --columns* and *-h, --header-lines*.
 
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file

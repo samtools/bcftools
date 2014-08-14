@@ -846,7 +846,7 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
                 {
                     tmp->nals++;
                     hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
-                    tmp->als[tmp->nals-1] = s;
+                    tmp->als[tmp->nals-1] = s+1;
                     *s = 0;
                 }
                 s++;
