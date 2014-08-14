@@ -59,7 +59,7 @@ int process(bcf1_t *rec)
     return 0;
 }
 
-void destroy(void) 
+void destroy(void)
 {
     free(arr);
 }

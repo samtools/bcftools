@@ -30,7 +30,7 @@ DEALINGS IN THE SOFTWARE.  */
 KHASH_MAP_INIT_STR(str2str, const char*)
 
 /*
- *  Wrappers for khash dictionaries used by mpileup. 
+ *  Wrappers for khash dictionaries used by mpileup.
  */
 
 static inline void *khash_str2str_init(void)
@@ -40,7 +40,7 @@ static inline void *khash_str2str_init(void)
 
 /*
  *  Destroy the hash structure, but not the keys
- */ 
+ */
 static inline void khash_str2str_destroy(void *_hash)
 {
     khash_t(str2str) *hash = (khash_t(str2str)*)_hash;
@@ -49,7 +49,7 @@ static inline void khash_str2str_destroy(void *_hash)
 
 /*
  *  Destroys both the hash structure and the keys
- */ 
+ */
 static inline void khash_str2str_destroy_free(void *_hash)
 {
     khash_t(str2str) *hash = (khash_t(str2str)*)_hash;

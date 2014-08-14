@@ -42,10 +42,10 @@ THE SOFTWARE.  */
 
 typedef struct _plugin_t plugin_t;
 
-/** 
+/**
  *   Plugin API:
  *   ----------
- *   const char *about(void)   
+ *   const char *about(void)
  *      - short description used by 'bcftools annotate -l'
  *
  *   int init(const char *opts, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
@@ -161,10 +161,10 @@ static void init_plugin_paths(args_t *args)
         args->nplugin_paths = 1;
         args->plugin_paths  = (char**) malloc(sizeof(char*));
         char *ss = args->plugin_paths[0] = strdup(path);
-        while ( *ss ) 
-        { 
-            if ( *ss==':' ) 
-            {   
+        while ( *ss )
+        {
+            if ( *ss==':' )
+            {
                 *ss = 0;
                 args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
                 args->plugin_paths[args->nplugin_paths] = ss+1;
@@ -234,7 +234,7 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
     plugin.handle = dlopen_plugin(args, fname);
     if ( !plugin.handle )
     {
-        if ( exit_on_error ) 
+        if ( exit_on_error )
         {
             print_plugin_usage_hint();
             error("Could not load \"%s\".\n\n", fname);
@@ -246,7 +246,7 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
     dlerror();
     plugin.init = (dl_init_f) dlsym(plugin.handle, "init");
     char *ret = dlerror();
-    if ( ret ) 
+    if ( ret )
     {
         if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
@@ -255,7 +255,7 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
 
     plugin.version = (dl_version_f) dlsym(plugin.handle, "version");
     ret = dlerror();
-    if ( ret ) 
+    if ( ret )
     {
         if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
@@ -264,7 +264,7 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
 
     plugin.about = (dl_about_f) dlsym(plugin.handle, "about");
     ret = dlerror();
-    if ( ret ) 
+    if ( ret )
     {
         if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
@@ -273,7 +273,7 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
 
     plugin.process = (dl_process_f) dlsym(plugin.handle, "process");
     ret = dlerror();
-    if ( ret ) 
+    if ( ret )
     {
         if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
@@ -282,7 +282,7 @@ static int load_plugin(args_t *args, const char *name, int exit_on_error)
 
     plugin.destroy = (dl_destroy_f) dlsym(plugin.handle, "destroy");
     ret = dlerror();
-    if ( ret ) 
+    if ( ret )
     {
         if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
         free(fname);
@@ -306,12 +306,12 @@ static void init_plugins(args_t *args)
         if ( ret<0 ) error("The plugin exited with an error: %s\n", args->plugins[i].name);
         const char *bver, *hver;
         args->plugins[i].version(&bver, &hver);
-        if ( strcmp(bver,bcftools_version()) && !warned_bcftools ) 
+        if ( strcmp(bver,bcftools_version()) && !warned_bcftools )
         {
             fprintf(stderr,"WARNING: bcftools version mismatch .. bcftools at %s, the plugin \"%s\" at %s\n", bcftools_version(),args->plugins[i].name,bver);
             warned_bcftools = 1;
         }
-        if ( strcmp(hver,hts_version()) && !warned_htslib ) 
+        if ( strcmp(hver,hts_version()) && !warned_htslib )
         {
             fprintf(stderr,"WARNING: htslib version mismatch .. bcftools at %s, the plugin \"%s\" at %s\n", hts_version(),args->plugins[i].name,hver);
             warned_htslib = 1;
@@ -437,7 +437,7 @@ static void init_remove_annots(args_t *args)
         if ( type!= BCF_HL_GEN )
         {
             int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,str.s);
-            if ( !bcf_hdr_idinfo_exists(args->hdr,type,id) ) 
+            if ( !bcf_hdr_idinfo_exists(args->hdr,type,id) )
             {
                 fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
                 args->nrm--;
@@ -451,9 +451,9 @@ static void init_remove_annots(args_t *args)
             }
         }
         else if ( !strcmp("ID",str.s) ) tag->handler = remove_id;
-        else if ( !strncmp("FILTER/",str.s,7) ) 
-        { 
-            tag->handler = remove_filter; 
+        else if ( !strncmp("FILTER/",str.s,7) )
+        {
+            tag->handler = remove_filter;
             tag->key = strdup(str.s+7);
             tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
             if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
@@ -482,7 +482,7 @@ static void init_header_lines(args_t *args)
     htsFile *file = hts_open(args->header_fname, "rb");
     if ( !file ) error("Error reading %s\n", args->header_fname);
     kstring_t str = {0,0,0};
-    while ( hts_getline(file, KS_SEP_LINE, &str) > 0 ) 
+    while ( hts_getline(file, KS_SEP_LINE, &str) > 0 )
     {
         if ( bcf_hdr_append(args->hdr_out,str.s) ) error("Could not parse %s: %s\n", args->header_fname, str.s);
     }
@@ -527,7 +527,7 @@ static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
     line->qual = strtod(str, &str);
-    if ( str == tab->cols[col->icol] ) 
+    if ( str == tab->cols[col->icol] )
         error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
     return 0;
 }
@@ -555,8 +555,8 @@ static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, vo
     bcf_update_info_flag(args->hdr_out,line,col->hdr_key,NULL,flag);
     return 0;
 }
-static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data) 
-{ 
+static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
@@ -583,7 +583,7 @@ static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, voi
     return 0;
 }
 static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
-{ 
+{
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
@@ -609,7 +609,7 @@ static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, vo
         bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,args->ntmpf);
     return 0;
 }
-static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data) 
+static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
     return bcf_update_info_string(args->hdr_out,line,col->hdr_key,tab->cols[col->icol]);
@@ -666,7 +666,7 @@ static void init_columns(args_t *args)
             col->setter = args->tgts_is_vcf ? vcf_setter_qual : setter_qual;
             col->hdr_key = strdup(str.s);
         }
-        else 
+        else
         {
             if ( !strncasecmp("INFO/",str.s,5) ) { memmove(str.s,str.s+5,str.l-4); }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
@@ -713,7 +713,7 @@ static void init_data(args_t *args)
 
     if ( args->remove_annots ) init_remove_annots(args);
     if ( args->header_fname ) init_header_lines(args);
-    if ( args->targets_fname && args->tgts_is_vcf ) 
+    if ( args->targets_fname && args->tgts_is_vcf )
     {
         // reading annots from a VCF
         if ( !bcf_sr_add_reader(args->files, args->targets_fname) )
@@ -725,7 +725,7 @@ static void init_data(args_t *args)
         if ( !args->columns ) error("The -c option not given\n");
         if ( args->chr_idx==-1 ) error("The -c CHROM option not given\n");
         if ( args->from_idx==-1 ) error("The -c POS option not given\n");
-        if ( args->to_idx==-1 ) args->to_idx = -args->from_idx - 1; 
+        if ( args->to_idx==-1 ) args->to_idx = -args->from_idx - 1;
 
         args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->from_idx,args->to_idx);
         if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
@@ -760,7 +760,7 @@ static void destroy_data(args_t *args)
     free(args->rm);
     if ( args->hdr_out ) bcf_hdr_destroy(args->hdr_out);
     if ( args->nplugin_paths>0 )
-    {   
+    {
         free(args->plugin_paths[0]);
         free(args->plugin_paths);
     }
@@ -893,7 +893,7 @@ static int annotate(args_t *args, bcf1_t *line)
         if ( i<args->nalines )
         {
             for (j=0; j<args->ncols; j++)
-                if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) ) 
+                if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) )
                     error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
         }
     }
@@ -901,7 +901,7 @@ static int annotate(args_t *args, bcf1_t *line)
     {
         bcf1_t *aline = bcf_sr_get_line(args->files,1);
         for (j=0; j<args->ncols; j++)
-            if ( args->cols[j].setter(args,line,&args->cols[j],aline) ) 
+            if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
                 error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
     }
 
@@ -953,7 +953,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
     int plist_only = 0, regions_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"verbose",0,0,'v'},
         {"output",1,0,'o'},
@@ -976,7 +976,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'v': args->verbose = 1; break;
             case 'c': args->columns = optarg; break;
             case 'o': args->output_fname = optarg; break;
-            case 'O': 
+            case 'O':
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -1020,7 +1020,7 @@ int main_vcfannotate(int argc, char *argv[])
         args->files->collapse |= COLLAPSE_SOME;
     }
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
-    
+
     init_data(args);
     while ( bcf_sr_next_line(args->files) )
     {

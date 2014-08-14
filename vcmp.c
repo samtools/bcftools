@@ -100,7 +100,7 @@ int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2)
             if ( j!=vcmp->ndref || a[j] ) continue;
             break;  // found
         }
-        
+
         if ( vcmp->ndref>0 ) continue;
         for (j=0; j<-vcmp->ndref; j++)
             if ( !b[j] || b[j]!=vcmp->dref[j] ) break;

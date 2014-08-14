@@ -28,18 +28,18 @@ DEALINGS IN THE SOFTWARE.  */
 
 int nsnps, nindels, nsites;
 
-/* 
+/*
     This short description is used to generate the output of `bcftools annotate -l`.
 */
 const char *about(void)
 {
-    return 
+    return
         "A minimal plugin which counts number of SNPs, Indels, and\n"
         "total number of sites.\n";
 }
 
 
-/* 
+/*
     Called once at startup, allows to initialize local variables.
     Return 1 to suppress VCF/BCF header from printing, 0 otherwise.
 */

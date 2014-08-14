@@ -118,7 +118,7 @@ static inline int rbuf_add(rbuf_t *rbuf)
     }
 
     rbuf->f++;
-    if ( rbuf->f >= rbuf->m ) 
+    if ( rbuf->f >= rbuf->m )
     {
         rbuf->f = 0;
         return rbuf->m - 1;
@@ -147,7 +147,7 @@ static inline int rbuf_shift(rbuf_t *rbuf)
  */
 static inline void rbuf_shift_n(rbuf_t *rbuf, int n)
 {
-    if ( n >= rbuf->n ) 
+    if ( n >= rbuf->n )
     {
         rbuf->n = rbuf->f = 0;
         return;

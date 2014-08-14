@@ -78,11 +78,11 @@ struct _args_t
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
     fmt_t *fmt;
     int nfmt, mfmt;
-	bcf_srs_t *files;
+    bcf_srs_t *files;
     bcf_hdr_t *header;
     int nsamples, *samples, sample_is_file;
-	char **argv, *format, *sample_list, *targets_list, *regions_list, *vcf_list;
-	int argc, list_columns, print_header;
+    char **argv, *format, *sample_list, *targets_list, *regions_list, *vcf_list;
+    int argc, list_columns, print_header;
 };
 
 /**
@@ -145,8 +145,8 @@ static void process_chrom(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, k
 static void process_pos(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+1, str); }
 static void process_id(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(line->d.id, str); }
 static void process_ref(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(line->d.allele[0], str); }
-static void process_alt(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
-{ 
+static void process_alt(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
     int i;
     if ( line->n_allele==1 )
     {
@@ -156,25 +156,25 @@ static void process_alt(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kst
     for (i=1; i<line->n_allele; i++)
     {
         if ( i>1 ) kputc(',', str);
-        kputs(line->d.allele[i], str); 
+        kputs(line->d.allele[i], str);
     }
 }
-static void process_qual(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
-{  
+static void process_qual(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
     if ( bcf_float_is_missing(line->qual) ) kputc('.', str);
     else ksprintf(str, "%g", line->qual);
 }
-static void process_filter(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
-{ 
+static void process_filter(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
     int i;
-    if ( line->d.n_flt ) 
+    if ( line->d.n_flt )
     {
-        for (i=0; i<line->d.n_flt; i++) 
+        for (i=0; i<line->d.n_flt; i++)
         {
             if (i) kputc(';', str);
             kputs(args->header->id[BCF_DT_ID][line->d.flt[i]].key, str);
         }
-    } 
+    }
     else kputc('.', str);
 }
 static int bcf_array_ivalue(void *bcf_array, int type, int idx)
@@ -183,7 +183,7 @@ static int bcf_array_ivalue(void *bcf_array, int type, int idx)
     if ( type==BCF_BT_INT16 ) return ((int16_t*)bcf_array)[idx];
     return ((int32_t*)bcf_array)[idx];
 }
-static void process_info(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
+static void process_info(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
     int i;
     for (i=0; i<line->n_info; i++)
@@ -213,7 +213,7 @@ static void process_info(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, ks
     }
     else if ( fmt->subscript >=0 )
     {
-        if ( info->len <= fmt->subscript ) 
+        if ( info->len <= fmt->subscript )
         {
             kputc('.', str);
             return;
@@ -222,7 +222,7 @@ static void process_info(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, ks
         else if ( info->type != BCF_BT_CHAR ) kputw(bcf_array_ivalue(info->vptr,info->type,fmt->subscript), str);
         else error("TODO: %s:%d .. info->type=%d\n", __FILE__,__LINE__, info->type);
     }
-    else 
+    else
         bcf_fmt_array(str, info->len, info->type, info->vptr);
 }
 static void init_format(args_t *args, bcf1_t *line, fmt_t *fmt)
@@ -231,7 +231,7 @@ static void init_format(args_t *args, bcf1_t *line, fmt_t *fmt)
     if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: FORMAT/%s\n", fmt->key);
     fmt->fmt = NULL;
     int i;
-    for (i=0; i<(int)line->n_fmt; i++)  
+    for (i=0; i<(int)line->n_fmt; i++)
         if ( line->d.fmt[i].id==fmt->id ) { fmt->fmt = &line->d.fmt[i]; break; }
     fmt->ready = 1;
 }
@@ -277,27 +277,27 @@ static void process_tgt(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kst
     for (l = 0; l < fmt->fmt->n && x[l] != bcf_int8_vector_end; ++l)
     {
         if (l) kputc("/|"[x[l]&1], str);
-        if (x[l]>>1) 
+        if (x[l]>>1)
         {
             int ial = (x[l]>>1) - 1;
             kputs(line->d.allele[ial], str);
         }
-        else 
+        else
             kputc('.', str);
     }
     if (l == 0) kputc('.', str);
 }
-static void process_sample(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
-{  
+static void process_sample(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
     kputs(args->header->samples[isample], str);
 }
 static void process_sep(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { if (fmt->key) kputs(fmt->key, str); }
-static void process_is_ts(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) 
-{ 
+static void process_is_ts(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
     int is_ts = 0;
-    if ( bcf_get_variant_types(line) & (VCF_SNP|VCF_MNP) ) 
+    if ( bcf_get_variant_types(line) & (VCF_SNP|VCF_MNP) )
         is_ts = abs(bcf_acgt2int(*line->d.allele[0])-bcf_acgt2int(*line->d.allele[1])) == 2 ? 1 : 0;
-    kputc(is_ts ? '1' : '0', str); 
+    kputc(is_ts ? '1' : '0', str);
 }
 static void process_type(args_t *args, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
@@ -321,7 +321,7 @@ static fmt_t *register_tag(args_t *args, int type, char *key, int is_gtf)
     {
         args->mfmt += 10;
         args->fmt   = (fmt_t*) realloc(args->fmt, args->mfmt*sizeof(fmt_t));
-            
+
     }
     fmt_t *fmt = &args->fmt[ args->nfmt-1 ];
     fmt->type  = type;
@@ -342,9 +342,9 @@ static fmt_t *register_tag(args_t *args, int type, char *key, int is_gtf)
             else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
             else if ( !strcmp("QUAL",key) ) { fmt->type = T_QUAL; }
             else if ( !strcmp("FILTER",key) ) { fmt->type = T_FILTER; }
-            else if ( id>=0 && bcf_hdr_idinfo_exists(args->header,BCF_HL_INFO,id) ) 
-            { 
-                fmt->type = T_INFO; 
+            else if ( id>=0 && bcf_hdr_idinfo_exists(args->header,BCF_HL_INFO,id) )
+            {
+                fmt->type = T_INFO;
                 fprintf(stderr,"Warning: Assuming INFO/%s\n", key);
             }
         }
@@ -406,7 +406,7 @@ static char *parse_tag(args_t *args, char *p, int is_gtf)
         if ( !strcmp(str.s, "SAMPLE") ) register_tag(args, T_SAMPLE, "SAMPLE", is_gtf);
         else if ( !strcmp(str.s, "GT") ) register_tag(args, T_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "TGT") ) register_tag(args, T_TGT, "GT", is_gtf);
-        else 
+        else
         {
             fmt_t *fmt = register_tag(args, T_FORMAT, str.s, is_gtf);
             fmt->subscript = parse_subscript(&q);
@@ -426,7 +426,7 @@ static char *parse_tag(args_t *args, char *p, int is_gtf)
         else if ( !strcmp(str.s, "TYPE") ) register_tag(args, T_TYPE, str.s, is_gtf);
         else if ( !strcmp(str.s, "MASK") ) register_tag(args, T_MASK, str.s, is_gtf);
         else if ( !strcmp(str.s, "LINE") ) register_tag(args, T_LINE, str.s, is_gtf);
-        else if ( !strcmp(str.s, "INFO") ) 
+        else if ( !strcmp(str.s, "INFO") )
         {
             if ( *q!='/' ) error("Could not parse format string: %s\n", args->format);
             p = ++q;
@@ -437,7 +437,7 @@ static char *parse_tag(args_t *args, char *p, int is_gtf)
             fmt_t *fmt = register_tag(args, T_INFO, str.s, is_gtf);
             fmt->subscript = parse_subscript(&q);
         }
-        else 
+        else
         {
             fmt_t *fmt = register_tag(args, T_INFO, str.s, is_gtf);
             fmt->subscript = parse_subscript(&q);
@@ -453,7 +453,7 @@ static char *parse_sep(args_t *args, char *p, int is_gtf)
     kstring_t str = {0,0,0};
     while ( *q && *q!='[' && *q!=']' && *q!='%' )
     {
-        if ( *q=='\\' ) 
+        if ( *q=='\\' )
         {
             q++;
             if ( *q=='n' ) kputc('\n', &str);
@@ -477,7 +477,7 @@ static void init_data(args_t *args)
     while ( *p )
     {
         //fprintf(stderr,"<%s>\n", p);
-        switch (*p) 
+        switch (*p)
         {
             case '[': is_gtf = 1; p++; break;
             case ']': is_gtf = 0; register_tag(args, T_SEP, NULL, 0); p++; break;
@@ -501,11 +501,11 @@ static void init_data(args_t *args)
             int n;
             char **smpls = hts_readlist(args->sample_list, args->sample_is_file, &n);
             if ( !smpls ) error("Could not parse %s\n", args->sample_list);
-            if ( n!=bcf_hdr_nsamples(args->files->readers[0].header) ) 
+            if ( n!=bcf_hdr_nsamples(args->files->readers[0].header) )
                 error("The number of samples does not match, perhaps some are present multiple times?\n");
             args->nsamples = bcf_hdr_nsamples(args->files->readers[0].header);
             args->samples = (int*) malloc(sizeof(int)*args->nsamples);
-            for (i=0; i<n; i++) 
+            for (i=0; i<n; i++)
             {
                 args->samples[i] = bcf_hdr_id2int(args->files->readers[0].header, BCF_DT_SAMPLE,smpls[i]);
                 free(smpls[i]);
@@ -554,7 +554,7 @@ static void print_header(args_t *args, kstring_t *str)
         if ( args->fmt[i].type == T_LINE ) break;
     if ( i!=args->nfmt )
         return;
-    
+
     kputs("# ", str);
     for (i=0; i<args->nfmt; i++)
     {
@@ -621,7 +621,7 @@ static void query_vcf(args_t *args)
             if ( args->fmt[i].is_gt_field )
             {
                 int j = i, js, k;
-                while ( args->fmt[j].is_gt_field ) 
+                while ( args->fmt[j].is_gt_field )
                 {
                     args->fmt[j].ready = 0;
                     j++;
@@ -633,7 +633,7 @@ static void query_vcf(args_t *args)
                     {
                         if ( args->fmt[k].type == T_MASK )
                         {
-                            for (ir=0; ir<args->files->nreaders; ir++) 
+                            for (ir=0; ir<args->files->nreaders; ir++)
                                 kputc(bcf_sr_has_line(args->files,ir)?'1':'0', &str);
                         }
                         else if ( args->fmt[k].handler )
@@ -646,7 +646,7 @@ static void query_vcf(args_t *args)
             // Fixed fields
             if ( args->fmt[i].type == T_MASK )
             {
-                for (ir=0; ir<args->files->nreaders; ir++) 
+                for (ir=0; ir<args->files->nreaders; ir++)
                     kputc(bcf_sr_has_line(args->files,ir)?'1':'0', &str);
             }
             else if ( args->fmt[i].handler )
@@ -686,26 +686,26 @@ static int compare_header(bcf_hdr_t *hdr, char **a, int na, char **b, int nb)
 static void usage(void)
 {
     fprintf(stderr, "\n");
-	fprintf(stderr, "About:   Extracts fields from VCF/BCF file and prints them in user-defined format\n");
-	fprintf(stderr, "Usage:   bcftools query [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
+    fprintf(stderr, "About:   Extracts fields from VCF/BCF file and prints them in user-defined format\n");
+    fprintf(stderr, "Usage:   bcftools query [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");
-	fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none>, see man page [none]\n");
-	fprintf(stderr, "    -e, --exclude <expr>              exclude sites for which the expression is true (see below for details)\n");
-	fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
-	fprintf(stderr, "    -H, --print-header                print header\n");
-	fprintf(stderr, "    -i, --include <expr>              select sites for which the expression is true (see below for details)\n");
-	fprintf(stderr, "    -l, --list-samples                print the list of samples and exit\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -a, --annots <list>               alias for -f '%%CHROM\\t%%POS\\t%%MASK\\t%%REF\\t%%ALT\\t%%TYPE\\t' + tab-separated <list> of tags\n");
+    fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none>, see man page [none]\n");
+    fprintf(stderr, "    -e, --exclude <expr>              exclude sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "    -f, --format <string>             learn by example, see below\n");
+    fprintf(stderr, "    -H, --print-header                print header\n");
+    fprintf(stderr, "    -i, --include <expr>              select sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "    -l, --list-samples                print the list of samples and exit\n");
     fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>         restrict to regions listed in a file\n");
     fprintf(stderr, "    -s, --samples <list>              list of samples to include\n");
     fprintf(stderr, "    -S, --samples-file <file>         file of samples to include\n");
     fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
-	fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
+    fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Format expressions:\n");
+    fprintf(stderr, "Format expressions:\n");
     fprintf(stderr, "\t%%CHROM          The CHROM column (similarly also other columns, such as POS, ID, QUAL, etc.)\n");
     fprintf(stderr, "\t%%INFO/TAG       Any tag in the INFO column\n");
     fprintf(stderr, "\t%%TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)\n");
@@ -720,60 +720,60 @@ static void usage(void)
     fprintf(stderr, "\n");
     filter_expression_info(stderr);
     fprintf(stderr, "\n");
-	fprintf(stderr, "Examples:\n");
+    fprintf(stderr, "Examples:\n");
     fprintf(stderr, "\tbcftools query -f '%%CHROM\\t%%POS\\t%%REF\\t%%ALT[\\t%%SAMPLE=%%GT]\\n' file.vcf.gz\n");
-	fprintf(stderr, "\n");
-	exit(1);
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
 int main_vcfquery(int argc, char *argv[])
 {
-	int c, collapse = 0;
-	args_t *args = (args_t*) calloc(1,sizeof(args_t));
-	args->argc   = argc; args->argv = argv;
+    int c, collapse = 0;
+    args_t *args = (args_t*) calloc(1,sizeof(args_t));
+    args->argc   = argc; args->argv = argv;
     int regions_is_file = 0, targets_is_file = 0;
 
-	static struct option loptions[] = 
-	{
-		{"help",0,0,'h'},
-		{"list-samples",0,0,'l'},
-		{"include",1,0,'i'},
-		{"exclude",1,0,'e'},
-		{"format",1,0,'f'},
-		{"regions",1,0,'r'},
-		{"regions-file",1,0,'R'},
-		{"targets",1,0,'t'},
-		{"targets-file",1,0,'T'},
-		{"annots",1,0,'a'},
-		{"samples",1,0,'s'},
-		{"samples-file",1,0,'S'},
-		{"print-header",0,0,'H'},
-		{"collapse",1,0,'c'},
-		{"vcf-list",1,0,'v'},
-		{0,0,0,0}
-	};
-	while ((c = getopt_long(argc, argv, "hlr:R:f:a:s:S:Ht:T:c:v:i:e:",loptions,NULL)) >= 0) {
-		switch (c) {
-			case 'f': args->format = strdup(optarg); break;
-			case 'H': args->print_header = 1; break;
+    static struct option loptions[] =
+    {
+        {"help",0,0,'h'},
+        {"list-samples",0,0,'l'},
+        {"include",1,0,'i'},
+        {"exclude",1,0,'e'},
+        {"format",1,0,'f'},
+        {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
+        {"targets",1,0,'t'},
+        {"targets-file",1,0,'T'},
+        {"annots",1,0,'a'},
+        {"samples",1,0,'s'},
+        {"samples-file",1,0,'S'},
+        {"print-header",0,0,'H'},
+        {"collapse",1,0,'c'},
+        {"vcf-list",1,0,'v'},
+        {0,0,0,0}
+    };
+    while ((c = getopt_long(argc, argv, "hlr:R:f:a:s:S:Ht:T:c:v:i:e:",loptions,NULL)) >= 0) {
+        switch (c) {
+            case 'f': args->format = strdup(optarg); break;
+            case 'H': args->print_header = 1; break;
             case 'v': args->vcf_list = optarg; break;
             case 'c':
-				if ( !strcmp(optarg,"snps") ) collapse |= COLLAPSE_SNPS;
-				else if ( !strcmp(optarg,"indels") ) collapse |= COLLAPSE_INDELS;
-				else if ( !strcmp(optarg,"both") ) collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
-				else if ( !strcmp(optarg,"any") ) collapse |= COLLAPSE_ANY;
-				else if ( !strcmp(optarg,"all") ) collapse |= COLLAPSE_ANY;
-				else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
+                if ( !strcmp(optarg,"snps") ) collapse |= COLLAPSE_SNPS;
+                else if ( !strcmp(optarg,"indels") ) collapse |= COLLAPSE_INDELS;
+                else if ( !strcmp(optarg,"both") ) collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
+                else if ( !strcmp(optarg,"any") ) collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"all") ) collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
-				break;
-			case 'a': 
+                break;
+            case 'a':
                 {
                     kstring_t str = {0,0,0};
                     kputs("%CHROM\t%POS\t%MASK\t%REF\t%ALT\t%", &str);
                     char *p = optarg;
                     while ( *p )
                     {
-                        if ( *p==',' ) 
+                        if ( *p==',' )
                             kputs("\t%", &str);
                         else
                             kputc(*p, &str);
@@ -785,18 +785,18 @@ int main_vcfquery(int argc, char *argv[])
                 }
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-			case 'r': args->regions_list = optarg; break;
-			case 'R': args->regions_list = optarg; regions_is_file = 1; break;
-			case 't': args->targets_list = optarg; break;
-			case 'T': args->targets_list = optarg; targets_is_file = 1; break;
-			case 'l': args->list_columns = 1; break;
-			case 's': args->sample_list = optarg; break;
-			case 'S': args->sample_list = optarg; args->sample_is_file = 1; break;
-			case 'h': 
-			case '?': usage();
-			default: error("Unknown argument: %s\n", optarg);
-		}
-	}
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; regions_is_file = 1; break;
+            case 't': args->targets_list = optarg; break;
+            case 'T': args->targets_list = optarg; targets_is_file = 1; break;
+            case 'l': args->list_columns = 1; break;
+            case 's': args->sample_list = optarg; break;
+            case 'S': args->sample_list = optarg; args->sample_is_file = 1; break;
+            case 'h':
+            case '?': usage();
+            default: error("Unknown argument: %s\n", optarg);
+        }
+    }
 
     char *fname = NULL;
     if ( optind>=argc )
@@ -862,15 +862,15 @@ int main_vcfquery(int argc, char *argv[])
                 error("Failed to read the targets: %s\n", args->targets_list);
         }
         if ( !bcf_sr_add_reader(args->files, fnames[i]) ) error("Failed to open or the file not indexed: %s\n", fnames[i]);
-        for (k=optind; k<argc; k++) 
+        for (k=optind; k<argc; k++)
             if ( !bcf_sr_add_reader(args->files, argv[k]) ) error("Failed to open or the file not indexed: %s\n", argv[k]);
         init_data(args);
-        if ( i==0 ) 
+        if ( i==0 )
             prev_samples = copy_header(args->header, args->files->readers[0].header->samples, bcf_hdr_nsamples(args->files->readers[0].header));
         else
         {
             args->print_header = 0;
-            if ( compare_header(args->header, args->files->readers[0].header->samples, bcf_hdr_nsamples(args->files->readers[0].header), prev_samples, prev_nsamples) ) 
+            if ( compare_header(args->header, args->files->readers[0].header->samples, bcf_hdr_nsamples(args->files->readers[0].header), prev_samples, prev_nsamples) )
                 error("Different samples in %s and %s\n", fnames[i-1],fnames[i]);
         }
         query_vcf(args);
@@ -880,8 +880,8 @@ int main_vcfquery(int argc, char *argv[])
     destroy_list(fnames, nfiles);
     destroy_list(prev_samples, prev_nsamples);
     free(args->format);
-	free(args);
-	return 0;
+    free(args);
+    return 0;
 }
 
 

@@ -22,7 +22,7 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-PROG=		bcftools
+PROG=       bcftools
 TEST_PROG=  test/test-rbuf
 
 
@@ -35,15 +35,15 @@ HTSLIB = $(HTSDIR)/libhts.a
 BGZIP  = $(HTSDIR)/bgzip
 TABIX  = $(HTSDIR)/tabix
 
-CC=			gcc
-CFLAGS=		-g -Wall -Wc++-compat -O2
-DFLAGS=
-OBJS=		main.o vcfindex.o tabix.o \
-			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
-            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
-            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o \
-            ccall.o em.o prob1.o kmin.o # the original samtools calling
-INCLUDES=	-I. -I$(HTSDIR)
+CC       = gcc
+CFLAGS   = -g -Wall -Wc++-compat -O2
+DFLAGS   =
+OBJS     = main.o vcfindex.o tabix.o \
+           vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
+           vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
+           vcfcall.o mcall.o vcmp.o gvcf.o reheader.o \
+           ccall.o em.o prob1.o kmin.o # the original samtools calling
+INCLUDES = -I. -I$(HTSDIR)
 
 prefix      = /usr/local
 exec_prefix = $(prefix)
@@ -74,10 +74,10 @@ version.h:
 force:
 
 .c.o:
-		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
+	$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
 
 test: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
-		./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
+	./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
 
 PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
 PLUGINS = $(PLUGINC:.c=.so)
@@ -121,23 +121,23 @@ vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
-		$(CC) $(CFLAGS) -o $@ -lm -ldl $<
+	$(CC) $(CFLAGS) -o $@ -lm -ldl $<
 
 bcftools: $(HTSLIB) $(OBJS)
-		$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl
 
 bcftools.1: bcftools.txt
-		a2x --doctype manpage --format manpage bcftools.txt
+	a2x --doctype manpage --format manpage bcftools.txt
 
 bcftools.html: bcftools.txt
-		a2x --doctype manpage --format xhtml bcftools.txt
+	a2x --doctype manpage --format xhtml bcftools.txt
 
 docs: bcftools.html bcftools.1
 
 install: $(PROG)
-		mkdir -p $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
-		$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
-		$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
+	mkdir -p $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
+	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
+	$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
 clean: testclean
 	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so

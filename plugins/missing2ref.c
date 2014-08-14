@@ -50,7 +50,7 @@ int process(bcf1_t *rec)
     int i, changed = 0;
     for (i=0; i<ngts; i++)
     {
-        if ( gts[i]==bcf_gt_missing ) 
+        if ( gts[i]==bcf_gt_missing )
         {
             gts[i] = bcf_gt_unphased(0);
             changed++;
@@ -61,7 +61,7 @@ int process(bcf1_t *rec)
     return 0;
 }
 
-void destroy(void) 
+void destroy(void)
 {
     fprintf(stderr,"Filled %"PRId64" REF alleles\n", nchanged);
     free(gts);

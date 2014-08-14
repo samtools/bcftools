@@ -38,7 +38,7 @@ my $opts = parse_params();
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_tabix($opts,in=>'large_chrom_tbi_limit',reg=>'chr11:1-536870912',out=>'large_chrom_tbi_limit.20.1.536870912.out'); # 536870912 (1<<29) is the current limit for tbi. cannot retrieve regions larger than that
-test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this 
+test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this
 test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20',out=>'large_chrom.20.1.2147483647.out'); # this fails until bug resolved
 test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
@@ -133,7 +133,7 @@ sub error
 {
     my (@msg) = @_;
     if ( scalar @msg ) { confess @msg; }
-    print 
+    print
         "About: htslib consistency test script\n",
         "Usage: test.pl [OPTIONS]\n",
         "Options:\n",
@@ -150,8 +150,8 @@ sub parse_params
     Getopt::Long::Configure('bundling');
     my $ret = GetOptions (
             'e|exec=s' => sub { my ($tool, $path) = split /=/, $_[1]; $$opts{$tool} = $path if $path },
-            't|temp-dir:s' => \$$opts{keep_files}, 
-            'r|redo-outputs' => \$$opts{redo_outputs}, 
+            't|temp-dir:s' => \$$opts{keep_files},
+            'r|redo-outputs' => \$$opts{redo_outputs},
             'h|?|help' => \$help
             );
     if ( !$ret or $help ) { error(); }
@@ -169,14 +169,14 @@ sub _cmd
     my @out;
     my $pid = open($kid_io, "-|");
     if ( !defined $pid ) { error("Cannot fork: $!"); }
-    if ($pid) 
+    if ($pid)
     {
         # parent
         @out = <$kid_io>;
         close($kid_io);
-    } 
-    else 
-    {      
+    }
+    else
+    {
         # child
         exec('/bin/bash', '-o','pipefail','-c', $cmd) or error("Cannot execute the command [/bin/sh -o pipefail -c $cmd]: $!");
     }
@@ -229,8 +229,8 @@ sub test_cmd
     }
     elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
 
-    if ( $exp ne $out ) 
-    { 
+    if ( $exp ne $out )
+    {
         open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new");
         print $fh $out;
         close($fh);
@@ -242,9 +242,9 @@ sub test_cmd
         }
         else
         {
-            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new"); 
+            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new");
         }
-        return; 
+        return;
     }
     passed($opts,$test);
 }
@@ -448,47 +448,47 @@ sub test_usage
     my $test = "test_usage";
     print "$test:\n";
     print "\t$args{cmd}\n";
-    
+
     my $command = $args{cmd};
     my $commandpath = $$opts{bin}."/".$command;
     my ($ret,$out) = _cmd("$commandpath 2>&1");
     if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
-    
+
     my $have_usage = 0;
     my $have_version = 0;
     my $have_subcommands = 0;
     my $usage = "";
     my @subcommands = ();
     foreach my $section (@sections) {
-	if ( $section =~ m/^usage/i ) {
-	    $have_usage = 1;
-	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
-	    $usage = $section;
-	} elsif ( $section =~ m/^version/i ) {
-	    $have_version = 1;
-	} elsif ( $section =~ m/^command/i ) {
-	    $have_subcommands = 1;
-	    foreach my $line (split /\n/, $section) {
-		push @subcommands, $1 if $line =~ /^\s+(\w+)/;
-	    }
-	}
+        if ( $section =~ m/^usage/i ) {
+            $have_usage = 1;
+            $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+            $usage = $section;
+        } elsif ( $section =~ m/^version/i ) {
+            $have_version = 1;
+        } elsif ( $section =~ m/^command/i ) {
+            $have_subcommands = 1;
+            foreach my $line (split /\n/, $section) {
+                push @subcommands, $1 if $line =~ /^\s+(\w+)/;
+            }
+        }
     }
-    
+
     if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
     if ( !$have_version ) { failed($opts,$test,"did not have Version:"); return; }
     if ( !$have_subcommands ) { failed($opts,$test,"did not have Commands:"); return; }
 
-    if ( !($usage =~ m/$command/) ) { failed($opts,$test,"usage did not mention $command"); return; } 
-    
+    if ( !($usage =~ m/$command/) ) { failed($opts,$test,"usage did not mention $command"); return; }
+
     if ( scalar(@subcommands) < 1 ) { failed($opts,$test,"could not parse subcommands"); return; }
-    
+
     passed($opts,$test);
-    
+
     # now test subcommand usage as well
     foreach my $subcommand (@subcommands) {
-	test_usage_subcommand($opts,%args,subcmd=>$subcommand);
+        test_usage_subcommand($opts,%args,subcmd=>$subcommand);
     }
 }
 sub test_usage_subcommand
@@ -506,21 +506,21 @@ sub test_usage_subcommand
     if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath $subcommand: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
-    
+
     my $have_usage = 0;
     my $usage = "";
     foreach my $section (@sections) {
-	if ( $section =~ m/^usage/i ) {
-	    $have_usage = 1;
-	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
-	    $usage = $section;
-	}
+        if ( $section =~ m/^usage/i ) {
+            $have_usage = 1;
+            $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+            $usage = $section;
+        }
     }
-    
+
     if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
 
-    if ( !($usage =~ m/$command[[:space:]]+$subcommand/) ) { failed($opts,$test,"usage did not mention $command $subcommand"); return; } 
-    
+    if ( !($usage =~ m/$command[[:space:]]+$subcommand/) ) { failed($opts,$test,"usage did not mention $command $subcommand"); return; }
+
     passed($opts,$test);
 }
 sub test_vcf_annotate
@@ -554,8 +554,8 @@ sub test_vcf_concat
 {
     my ($opts,%args) = @_;
     my $files;
-    for my $file (@{$args{in}}) 
-    { 
+    for my $file (@{$args{in}})
+    {
         if ( $args{do_bcf} )
         {
             cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$file.vcf.gz > $$opts{tmp}/$file.bcf");
@@ -564,7 +564,7 @@ sub test_vcf_concat
         }
         else
         {
-            bgzip_tabix_vcf($opts,$file); 
+            bgzip_tabix_vcf($opts,$file);
             $files .= " $$opts{tmp}/$file.vcf.gz";
         }
     }

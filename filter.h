@@ -42,7 +42,7 @@ void filter_destroy(filter_t *filter);
   *  @samples:  if not NULL, a pointer to an array with samples statuses is
   *             stored in the location referenced by @samples. The pointer
   *             will be set to NULL if the FORMAT fields were not queried.
-  *  Returns 1 if the expression is true and 0 if false. 
+  *  Returns 1 if the expression is true and 0 if false.
   */
 int filter_test(filter_t *filter, bcf1_t *rec, const uint8_t **samples);
 

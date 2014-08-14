@@ -83,7 +83,7 @@ typedef struct
     uint32_t output_tags;
 
     // ccall only
-    double indel_frac, min_perm_p, min_lrt; 
+    double indel_frac, min_perm_p, min_lrt;
     double prior_type, pref;
     double ref_lk, lk_sum;
     int ngrp1_samples, n_perm;

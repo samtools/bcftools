@@ -35,7 +35,7 @@ int32_t *frm = NULL, nfrm = 0;
 
 const char *about(void)
 {
-    return 
+    return
         "Annotate frameshift indels. Run as \"-p frameshifts:exons=path/to/file.tab.gz\",\n"
         "see the \"--targets-file\" man page entry for file format description.\n";
 }
@@ -47,7 +47,7 @@ int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
     out_hdr = out;
 
     int ret = bcf_hdr_append(out_hdr,"##INFO=<ID=OOF,Number=A,Type=Integer,Description=\"Frameshift Indels: out-of-frame (1), in-frame (0), not-applicable (-1 or missing)\">");
-    if ( ret!=0 ) 
+    if ( ret!=0 )
     {
         fprintf(stderr,"Error updating the header\n");
         return -1;
@@ -62,7 +62,7 @@ int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
 
     wordexp_t wexp;
     wordexp(fname, &wexp, 0);
-    if ( !wexp.we_wordc ) 
+    if ( !wexp.we_wordc )
     {
         fprintf(stderr,"No such file: %s\n", fname);
         return -1;

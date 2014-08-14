@@ -52,7 +52,7 @@ int main_vcfindex(int argc, char *argv[])
     int c, force = 0, tbi = 0;
     int min_shift = BCF_LIDX_SHIFT;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"csi",no_argument,NULL,'c'},
         {"tbi",no_argument,NULL,'t'},
@@ -63,7 +63,7 @@ int main_vcfindex(int argc, char *argv[])
 
     while ((c = getopt_long(argc, argv, "ctfm:", loptions, NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'c': tbi = 0; break;
             case 't': tbi = 1; min_shift = 0; break;
@@ -128,11 +128,11 @@ int main_vcfindex(int argc, char *argv[])
 
     if (ftype == FT_BCF_GZ)
     {
-        if ( bcf_index_build(fname, min_shift) != 0 ) 
+        if ( bcf_index_build(fname, min_shift) != 0 )
         {
             fprintf(stderr,"[E::%s] bcf_index_build failed for %s\n", __func__, fname);
             return 1;
-        }        
+        }
     }
     else
     {

@@ -38,9 +38,9 @@ void gvcf_write(htsFile *fh, gvcf_t *gvcf, bcf_hdr_t *hdr, bcf1_t *rec, int is_r
         ret = bcf_get_format_int32(hdr, rec, "DP", &gvcf->dp, &gvcf->mdp);
         if ( ret==nsmpl )
         {
-            for (i=0; i<nsmpl; i++) 
+            for (i=0; i<nsmpl; i++)
                 if ( gvcf->dp[i] < gvcf->min_dp ) break;
-            if ( i<nsmpl ) 
+            if ( i<nsmpl )
             {
                 is_ref = 0;  // the depth is too low
                 rec = NULL;

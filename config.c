@@ -35,11 +35,11 @@ char *config_get_string(const char *haystack, char *needle)
     while ( *haystack && (ret = strstr(haystack,str.s)) )
     {
         if ( !ret ) break;
-        if ( ret!=haystack && ret[-1]!=':' ) 
+        if ( ret!=haystack && ret[-1]!=':' )
         {
             // shared prefix
             haystack = ret+1;
-            continue;  
+            continue;
         }
         ret += str.l;
         char *se = ret;
@@ -58,7 +58,7 @@ char **config_get_list(const char *opts, char *key, int *_n)
     if ( !list ) return NULL;
     char *ss = list, **out;
     int n = 1;
-    while ( *ss ) 
+    while ( *ss )
     {
         if ( *ss==',' ) n++;
         ss++;
@@ -67,9 +67,9 @@ char **config_get_list(const char *opts, char *key, int *_n)
     n = 0;
     out[n++] = list;
     ss = list;
-    while ( *ss ) 
+    while ( *ss )
     {
-        if ( *ss==',' ) 
+        if ( *ss==',' )
         {
             *ss = 0;
             out[n++] = ss+1;

@@ -59,7 +59,7 @@ typedef struct _token_t
 }
 token_t;
 
-struct _filter_t 
+struct _filter_t
 {
     bcf_hdr_t *hdr;
     char *str;
@@ -226,7 +226,7 @@ static void filters_set_info(filter_t *flt, bcf1_t *line, token_t *tok)
     for (i=0; i<line->n_info; i++)
         if ( line->d.info[i].key == tok->hdr_id ) break;
 
-    if ( i==line->n_info ) 
+    if ( i==line->n_info )
         tok->nvalues = 0;
     else if ( line->d.info[i].type==BCF_BT_CHAR )
     {
@@ -256,7 +256,7 @@ static int filters_cmp_filter(token_t *atok, token_t *btok, int op_type, bcf1_t 
     int i;
     if ( op_type==TOK_NE )  // AND logic: none of the filters can match
     {
-        if ( !line->d.n_flt ) 
+        if ( !line->d.n_flt )
         {
             if ( atok->hdr_id==-1 ) return 0;   // missing value
             return 1; // no filter present, eval to true
@@ -266,7 +266,7 @@ static int filters_cmp_filter(token_t *atok, token_t *btok, int op_type, bcf1_t 
         return 1;
     }
     // TOK_EQ with OR logic: at least one of the filters must match
-    if ( !line->d.n_flt ) 
+    if ( !line->d.n_flt )
     {
         if ( atok->hdr_id==-1 ) return 1;
         return 0; // no filter present, eval to false
@@ -397,8 +397,8 @@ static void filters_set_info_string(filter_t *flt, bcf1_t *line, token_t *tok)
         // get ith field (i=tok->idx)
         int i = 0;
         char *ss = tok->str_value, *se = tok->str_value + n;
-        while ( ss<se && i<tok->idx ) 
-        { 
+        while ( ss<se && i<tok->idx )
+        {
             if ( *ss==',' ) i++;
             ss++;
         }
@@ -406,7 +406,7 @@ static void filters_set_info_string(filter_t *flt, bcf1_t *line, token_t *tok)
         se = ss;
         while ( se-tok->str_value<n && *se!=',' ) se++;
         if ( ss==tok->str_value ) *se = 0;
-        else 
+        else
         {
             memmove(tok->str_value,ss,se-ss);
             tok->str_value[se-ss] = 0;
@@ -463,7 +463,7 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
 }
 static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
 {
-    if ( (tok->nvalues=bcf_get_format_float(flt->hdr,line,tok->tag,&tok->values,&tok->mvalues))<=0 ) 
+    if ( (tok->nvalues=bcf_get_format_float(flt->hdr,line,tok->tag,&tok->values,&tok->mvalues))<=0 )
         tok->nvalues = tok->nsamples = 0;   // missing values
     else if ( tok->idx >= 0 )
     {
@@ -489,7 +489,7 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
     ndim /= nsmpl;
     tok->values[0] = ndim;
 
-    if ( ret<=0 ) 
+    if ( ret<=0 )
     {
         tok->nvalues = 0;
         return;
@@ -502,7 +502,7 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
     }
 
     // vector
-    int i; 
+    int i;
     for (i=0; i<nsmpl; i++)
     {
         char *ss = tok->str_value + i*ndim;
@@ -523,7 +523,7 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
         if ( is ) memmove(ss,&ss[is],ie-is);
         if ( ndim-(ie-is) ) memset(ss+ie-is,0,ndim-(ie-is));
     }
-    if ( !ndim ) 
+    if ( !ndim )
     {
         tok->nvalues = 0;
         return;
@@ -547,7 +547,7 @@ static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *to
         bcf_format_gt(fmt, i, &str);
         assert( str.l - plen <= blen ); // increase blen if this fails
         plen = str.l - plen;
-        while ( plen<blen ) 
+        while ( plen<blen )
         {
             kputc_(0, &str);
             plen++;
@@ -559,11 +559,11 @@ static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *to
     tok->str_value = str.s;
 }
 
-static void set_max(filter_t *flt, bcf1_t *line, token_t *tok) 
-{ 
+static void set_max(filter_t *flt, bcf1_t *line, token_t *tok)
+{
     float val = -HUGE_VAL;
     int i;
-    for (i=0; i<tok->nvalues; i++) 
+    for (i=0; i<tok->nvalues; i++)
     {
         if ( !bcf_float_is_missing(tok->values[i]) && val < tok->values[i] ) val = tok->values[i];
     }
@@ -571,21 +571,21 @@ static void set_max(filter_t *flt, bcf1_t *line, token_t *tok)
     tok->nvalues   = 1;
     tok->nsamples  = 0;
 }
-static void set_min(filter_t *flt, bcf1_t *line, token_t *tok) 
-{ 
+static void set_min(filter_t *flt, bcf1_t *line, token_t *tok)
+{
     float val = HUGE_VAL;
     int i;
-    for (i=0; i<tok->nvalues; i++) 
+    for (i=0; i<tok->nvalues; i++)
         if ( !bcf_float_is_missing(tok->values[i]) && val > tok->values[i] ) val = tok->values[i];
     tok->values[0] = val;
     tok->nvalues   = 1;
     tok->nsamples  = 0;
 }
-static void set_avg(filter_t *flt, bcf1_t *line, token_t *tok) 
-{ 
+static void set_avg(filter_t *flt, bcf1_t *line, token_t *tok)
+{
     float val = 0;
     int i, n = 0;
-    for (i=0; i<tok->nvalues; i++) 
+    for (i=0; i<tok->nvalues; i++)
         if ( !bcf_float_is_missing(tok->values[i]) ) { val += tok->values[i]; n++; }
     tok->values[0] = n ? val / n : 0;
     tok->nvalues   = 1;
@@ -691,7 +691,7 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
     }
     if ( !atok->nvalues ) // missing value in a
     {
-        for (i=0; i<btok->nsamples; i++) 
+        for (i=0; i<btok->nsamples; i++)
             atok->pass_samples[i] = btok->pass_samples[i];
         atok->nsamples = btok->nsamples;
         return btok->pass_site;
@@ -700,11 +700,11 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         return atok->pass_site;
 
     if ( !atok->nsamples && !btok->nsamples ) return atok->pass_site || btok->pass_site;
-    if ( !atok->nsamples ) 
+    if ( !atok->nsamples )
     {
         if ( or_type==TOK_OR )
         {
-            for (i=0; i<btok->nsamples; i++) 
+            for (i=0; i<btok->nsamples; i++)
             {
                 atok->pass_samples[i] = btok->pass_samples[i];
                 if ( atok->pass_site || atok->pass_samples[i] ) pass_site = 1;
@@ -712,7 +712,7 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         }
         else
         {
-            for (i=0; i<btok->nsamples; i++) 
+            for (i=0; i<btok->nsamples; i++)
             {
                 atok->pass_samples[i] = atok->pass_site || btok->pass_samples[i];
                 if ( atok->pass_samples[i] ) pass_site = 1;
@@ -725,12 +725,12 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
     {
         if ( or_type==TOK_OR )
         {
-            for (i=0; i<atok->nsamples; i++) 
+            for (i=0; i<atok->nsamples; i++)
                 if ( btok->pass_site || atok->pass_samples[i] ) pass_site = 1;
         }
         else
         {
-            for (i=0; i<atok->nsamples; i++) 
+            for (i=0; i<atok->nsamples; i++)
             {
                 atok->pass_samples[i] = atok->pass_samples[i] || btok->pass_site;
                 if ( atok->pass_samples[i] ) pass_site = 1;
@@ -738,7 +738,7 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         }
         return pass_site;
     }
-    for (i=0; i<atok->nsamples; i++) 
+    for (i=0; i<atok->nsamples; i++)
     {
         atok->pass_samples[i] = atok->pass_samples[i] || btok->pass_samples[i];
         if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
@@ -844,7 +844,7 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
         if ( atok->idx==-2 || btok->idx==-2 )
         {
             // any field can match: [*]
-            if ( atok->idx==-2 && btok->idx==-2 ) 
+            if ( atok->idx==-2 && btok->idx==-2 )
                 error("fixme: Expected at least one scalar value [%s %s %s]\n", atok->tag ? atok->tag : btok->tag, atok->str_value,btok->str_value);
             token_t *xtok, *ytok;   // xtok is scalar, ytok array
             if ( btok->idx==-2 ) { xtok = atok; ytok = btok; }
@@ -988,7 +988,7 @@ static int filters_init1(filter_t *filter, char *str, int len, int inside_func, 
     kputsn(str, len, &tmp);
 
     tok->hdr_id = bcf_hdr_id2int(filter->hdr,BCF_DT_ID,tmp.s);
-    if ( tok->hdr_id>=0 ) 
+    if ( tok->hdr_id>=0 )
     {
         if ( is_fmt && !strcmp("GT",tmp.s) )
         {
@@ -1181,7 +1181,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             ops[nops-1] = ret;
             if ( ops[nops-1]==TOK_MAX || ops[nops-1]==TOK_MIN || ops[nops-1]==TOK_AVG ) nfunc++;
         }
-        else if ( !len ) 
+        else if ( !len )
         {
             if ( *tmp && !isspace(*tmp) ) error("Could not parse the expression: [%s]\n", str);
             break;     // all tokens read
@@ -1295,7 +1295,7 @@ void filter_destroy(filter_t *filter)
         free(filter->filters[i].values);
         free(filter->filters[i].pass_samples);
         if (filter->filters[i].hash) khash_str2int_destroy_free(filter->filters[i].hash);
-        if (filter->filters[i].regex) 
+        if (filter->filters[i].regex)
         {
             regfree(filter->filters[i].regex);
             free(filter->filters[i].regex);
@@ -1343,14 +1343,14 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
             filter->filters[i].setter(filter, line, filter->flt_stack[nstack-1]);
             continue;
         }
-        if ( nstack<2 ) 
+        if ( nstack<2 )
             error("Error occurred while processing the filter \"%s\" (1:%d)\n", filter->str,nstack);  // too few values left on the stack
 
         int is_str  = filter->flt_stack[nstack-1]->is_str + filter->flt_stack[nstack-2]->is_str;
 
         if ( filter->filters[i].tok_type == TOK_OR || filter->filters[i].tok_type == TOK_OR_VEC )
         {
-            if ( filter->flt_stack[nstack-1]->pass_site<0 || filter->flt_stack[nstack-2]->pass_site<0 ) 
+            if ( filter->flt_stack[nstack-1]->pass_site<0 || filter->flt_stack[nstack-2]->pass_site<0 )
                 error("Error occurred while processing the filter \"%s\" (%d %d OR)\n", filter->str,filter->flt_stack[nstack-2]->pass_site,filter->flt_stack[nstack-1]->pass_site);
             filter->flt_stack[nstack-2]->pass_site = vector_logic_or(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1], filter->filters[i].tok_type);
             nstack--;
@@ -1358,7 +1358,7 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         }
         if ( filter->filters[i].tok_type == TOK_AND || filter->filters[i].tok_type == TOK_AND_VEC )
         {
-            if ( filter->flt_stack[nstack-1]->pass_site<0 || filter->flt_stack[nstack-2]->pass_site<0 ) 
+            if ( filter->flt_stack[nstack-1]->pass_site<0 || filter->flt_stack[nstack-2]->pass_site<0 )
                 error("Error occurred while processing the filter \"%s\" (%d %d AND)\n", filter->str,filter->flt_stack[nstack-2]->pass_site,filter->flt_stack[nstack-1]->pass_site);
             filter->flt_stack[nstack-2]->pass_site = vector_logic_and(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1]);
             nstack--;
@@ -1403,14 +1403,14 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
                 is_true = filter->flt_stack[nstack-2]->comparator(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],TOK_EQ,line);
             else if ( is_str==2 )   // both are strings
                 is_true = cmp_vector_strings(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],TOK_EQ);
-            else if ( is_str==1 ) 
+            else if ( is_str==1 )
                 error("Comparing string to numeric value: %s\n", filter->str);
             else
                 CMP_VECTORS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],==,is_true);
         }
         else if ( filter->filters[i].tok_type == TOK_NE )
         {
-            if ( filter->flt_stack[nstack-1]->comparator ) 
+            if ( filter->flt_stack[nstack-1]->comparator )
                 is_true = filter->flt_stack[nstack-1]->comparator(filter->flt_stack[nstack-1],filter->flt_stack[nstack-2],TOK_NE,line);
             else if ( filter->flt_stack[nstack-2]->comparator )
                 is_true = filter->flt_stack[nstack-2]->comparator(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],TOK_NE,line);
@@ -1448,11 +1448,11 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         nstack--;
     }
     if ( nstack>1 ) error("Error occurred while processing the filter \"%s\" (2:%d)\n", filter->str,nstack);    // too few values left on the stack
-    if ( samples ) 
+    if ( samples )
     {
         *samples = filter->max_unpack&BCF_UN_FMT ? filter->flt_stack[0]->pass_samples : NULL;
         if ( *samples && !filter->flt_stack[0]->nsamples )
-        { 
+        {
             for (i=0; i<filter->nsamples; i++)
                 filter->flt_stack[0]->pass_samples[i] = filter->flt_stack[0]->pass_site;
         }

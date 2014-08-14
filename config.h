@@ -26,7 +26,7 @@ THE SOFTWARE.  */
 #define __CONFIG_H__
 
 /*
- *  Parser of plugin command line options: 
+ *  Parser of plugin command line options:
  *      plugin_conf_get_string  .. returns a string value (free ret)
  *      plugin_conf_get_list    .. list of strings (free ret and ret[0])
  */

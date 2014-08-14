@@ -50,7 +50,7 @@ THE SOFTWARE.  */
 #define GT_NO_HOM   3
 #define GT_NO_HET   4
 #define GT_NEED_MISSING 5
-#define GT_NO_MISSING 6 
+#define GT_NO_MISSING 6
 
 typedef struct _args_t
 {
@@ -78,7 +78,7 @@ static void init_data(args_t *args)
 {
     int i;
     args->hdr = args->files->readers[0].header;
-    
+
     if (args->calc_ac && args->update_info)
     {
         bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
@@ -86,7 +86,7 @@ static void init_data(args_t *args)
     }
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_view");
 
-    // setup sample data    
+    // setup sample data
     if (args->sample_names)
     {
         void *hdr_samples = khash_str2int_init();
@@ -98,7 +98,7 @@ static void init_data(args_t *args)
         char **smpl = NULL;
         args->samples = NULL; args->n_samples = 0;
         smpl = hts_readlist(exclude ? &args->sample_names[1] : args->sample_names, args->sample_is_file, &nsmpl);
-        if ( !smpl ) 
+        if ( !smpl )
         {
             error("Could not read the list: \"%s\"\n", exclude ? &args->sample_names[1] : args->sample_names);
         }
@@ -147,10 +147,10 @@ static void init_data(args_t *args)
             args->sites_only = 1;
         }
     }
-    
+
     if (args->n_samples)
         args->imap = (int*)malloc(args->n_samples * sizeof(int));
-    
+
     // determine variant types to include/exclude
     if (args->include_types || args->exclude_types) {
         if (args->include_types && args->exclude_types) {
@@ -214,7 +214,7 @@ static void init_data(args_t *args)
     else if (args->output_type & FT_GZ) strcat(modew,"z");      // compressed VCF
     args->out = hts_open(args->fn_out ? args->fn_out : "-", modew);
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
- 
+
     // headers: hdr=full header, hsub=subset header, hnull=sites only header
     if (args->sites_only)
         args->hnull = bcf_hdr_subset(args->hdr, 0, 0, 0);
@@ -251,7 +251,7 @@ static void destroy_data(args_t *args)
 
 // true if all samples are phased.
 // haploid genotypes are considered phased
-// ./. => not phased, .|. => phased 
+// ./. => not phased, .|. => phased
 int bcf_all_phased(const bcf_hdr_t *header, bcf1_t *line)
 {
     bcf_unpack(line, BCF_UN_FMT);
@@ -301,7 +301,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if ( args->novel && (line->d.id[0]!='.' || line->d.id[1]!=0) ) return 0; // skip sites which are known, ID != '.'
         if ( args->known && line->d.id[0]=='.' && line->d.id[1]==0 ) return 0;  // skip sites which are novel, ID == '.'
     }
-                
+
     if (args->include || args->exclude)
     {
         int line_type = bcf_get_variant_types(line);
@@ -418,7 +418,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         bcf_update_info_int32(args->hdr, line, "AC", &args->ac[1], line->n_allele-1);
         bcf_update_info_int32(args->hdr, line, "AN", &an, 1);
     }
-    if (args->trim_alts) 
+    if (args->trim_alts)
     {
         int ret = bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
         if ( ret==-1 ) error("Error: some GT index is out of bounds at %s:%d\n", bcf_seqname(args->hsub ? args->hsub : args->hdr, line), line->pos+1);
@@ -427,7 +427,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         int phased = bcf_all_phased(args->hdr, line);
         if (args->phased == FLT_INCLUDE && !phased) { return 0; } // skip unphased
         if (args->phased == FLT_EXCLUDE && phased) { return 0; } // skip phased
-    } 
+    }
     if (args->sites_only) bcf_subset(args->hsub ? args->hsub : args->hdr, line, 0, 0);
     return 1;
 }
@@ -446,7 +446,7 @@ void set_allele_type (int *atype, char *atype_string)
     }
     else {
         error("Error: allele type (%s) not recognised. Must be one of nref|alt1|minor: %s\n", atype_string);
-    }                
+    }
 }
 
 static void usage(args_t *args)
@@ -503,7 +503,7 @@ int main_vcfview(int argc, char *argv[])
     args->output_type = FT_VCF;
     int targets_is_file = 0, regions_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"genotype",1,0,'g'},
         {"compression-level",1,0,'l'},
@@ -547,7 +547,7 @@ int main_vcfview(int argc, char *argv[])
         char allele_type[8] = "nref";
         switch (c)
         {
-    	    case 'O': 
+            case 'O':
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -560,19 +560,19 @@ int main_vcfview(int argc, char *argv[])
             case 'o': args->fn_out = optarg; break;
             case 'H': args->print_header = 0; break;
             case 'h': args->header_only = 1; break;
-            
+
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
-            
+
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;
             case  1 : args->force_samples = 1; break;
             case 'a': args->trim_alts = 1; args->calc_ac = 1; break;
             case 'I': args->update_info = 0; break;
             case 'G': args->sites_only = 1; break;
-            
+
             case 'f': args->files->apply_filters = optarg; break;
             case 'k': args->known = 1; break;
             case 'n': args->novel = 1; break;
@@ -586,7 +586,7 @@ int main_vcfview(int argc, char *argv[])
             case 'c':
             {
                 args->min_ac_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%d:%s",&args->min_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->min_ac)!=1 ) 
+                if ( sscanf(optarg,"%d:%s",&args->min_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->min_ac)!=1 )
                     error("Error: Could not parse --min-ac %s\n", optarg);
                 set_allele_type(&args->min_ac_type, allele_type);
                 args->calc_ac = 1;
@@ -595,7 +595,7 @@ int main_vcfview(int argc, char *argv[])
             case 'C':
             {
                 args->max_ac_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%d:%s",&args->max_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->max_ac)!=1 ) 
+                if ( sscanf(optarg,"%d:%s",&args->max_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->max_ac)!=1 )
                     error("Error: Could not parse --max-ac %s\n", optarg);
                 set_allele_type(&args->max_ac_type, allele_type);
                 args->calc_ac = 1;
@@ -604,7 +604,7 @@ int main_vcfview(int argc, char *argv[])
             case 'q':
             {
                 args->min_af_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%f:%s",&args->min_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 ) 
+                if ( sscanf(optarg,"%f:%s",&args->min_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 )
                     error("Error: Could not parse --min_af %s\n", optarg);
                 set_allele_type(&args->min_af_type, allele_type);
                 args->calc_ac = 1;
@@ -613,7 +613,7 @@ int main_vcfview(int argc, char *argv[])
             case 'Q':
             {
                 args->max_af_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%f:%s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->max_af)!=1 ) 
+                if ( sscanf(optarg,"%f:%s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->max_af)!=1 )
                     error("Error: Could not parse --min_af %s\n", optarg);
                 set_allele_type(&args->max_af_type, allele_type);
                 args->calc_ac = 1;
@@ -626,7 +626,7 @@ int main_vcfview(int argc, char *argv[])
             case 'U': args->uncalled |= FLT_EXCLUDE; args->calc_ac = 1; break;
             case 'p': args->phased |= FLT_INCLUDE; break; // phased
             case 'P': args->phased |= FLT_EXCLUDE; break; // exclude-phased
-            case 'g': 
+            case 'g':
             {
                 if ( !strcasecmp(optarg,"hom") ) args->gt_type = GT_NEED_HOM;
                 else if ( !strcasecmp(optarg,"het") ) args->gt_type = GT_NEED_HET;
@@ -648,7 +648,7 @@ int main_vcfview(int argc, char *argv[])
     if ( args->phased > FLT_EXCLUDE ) error("Only one of -p or -P can be given.\n");
 
     if ( args->sample_names && args->update_info) args->calc_ac = 1;
-    
+
     char *fname = NULL;
     if ( optind>=argc )
     {
@@ -663,7 +663,7 @@ int main_vcfview(int argc, char *argv[])
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }
-    else if ( optind+1 < argc ) 
+    else if ( optind+1 < argc )
     {
         int i;
         kstring_t tmp = {0,0,0};
@@ -680,14 +680,14 @@ int main_vcfview(int argc, char *argv[])
     }
 
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
-    
+
     init_data(args);
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);
     if (args->print_header)
         bcf_hdr_write(args->out, out_hdr);
-    else if ( args->output_type & FT_BCF ) 
+    else if ( args->output_type & FT_BCF )
         error("BCF output requires header, cannot proceed with -H\n");
-    if (!args->header_only) 
+    if (!args->header_only)
     {
         while ( bcf_sr_next_line(args->files) )
         {
