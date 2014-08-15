@@ -1,0 +1,36 @@
+System Requirements
+===================
+
+BCFtools and HTSlib depend on the zlib library <http://zlib.net>.  Building
+them requires zlib development files to be installed on the build machine;
+you may need to ensure a package such as zlib1g-dev (on Debian or Ubuntu Linux)
+or zlib-devel (on RPM/yum-based distributions) is installed.
+
+
+Compilation
+===========
+
+'cd' to the bcftools-1.x directory containing the package's source and type
+'make' to compile BCFtools.
+
+This BCFtools release contains a copy of HTSlib which will be used to build
+BCFtools.  If you already have a system-installed HTSlib or another HTSlib
+that you would prefer to build against, you can arrange this by overriding
+$(HTSDIR) by typing 'make HTSDIR=/path/to/htslib-source' -- see the makefile
+for details.
+
+
+Installation
+============
+
+Type 'make install' to install the bcftools executable and associated scripts
+and a manual page to /usr/local.
+
+Type 'make prefix=/path/to/dir install' to install everything under your
+choice of installation directory.  The install target also understands
+DESTDIR and the other usual installation directory variables.
+
+The bgzip and tabix utilities are provided by HTSlib.  If you have not also
+installed HTSlib separately, you may wish to install these utilities by hand
+by copying bcftools-1.x/htslib-1.x/{bgzip,tabix} to the same bin directory
+to which you have installed bcftools et al.
