@@ -51,9 +51,11 @@ bindir      = $(exec_prefix)/bin
 mandir      = $(prefix)/share/man
 man1dir     = $(mandir)/man1
 
+MKDIR_P = mkdir -p
 INSTALL = install -p
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA    = $(INSTALL) -m 644
+INSTALL_DIR     = $(MKDIR_P) -m 755
 
 
 all:$(PROG) plugins
@@ -135,7 +137,7 @@ bcftools.html: bcftools.txt
 docs: bcftools.html bcftools.1
 
 install: $(PROG)
-	mkdir -p $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
+	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
 	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
