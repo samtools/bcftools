@@ -2,12 +2,20 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+<<<<<<< HEAD
 .\"      Date: 08/14/2014
+=======
+.\"      Date: 08/12/2014
+>>>>>>> filter
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
+<<<<<<< HEAD
 .TH "BCFTOOLS" "1" "08/14/2014" "\ \&" "\ \&"
+=======
+.TH "BCFTOOLS" "1" "08/12/2014" "\ \&" "\ \&"
+>>>>>>> filter
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -2114,7 +2122,7 @@ INFO tags, FORMAT tags, column names
 .nf
 INFO/DP or DP
 FORMAT/DV, FMT/DV, or DV
-%FILTER, %QUAL, %ID
+FILTER, QUAL, ID, REF, ALT[0]
 .fi
 .if n \{\
 .RE
@@ -2150,13 +2158,13 @@ FlagA=1 && FlagB=0
 .sp -1
 .IP \(bu 2.3
 .\}
-%TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
+TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-%TYPE="indel" | %TYPE="snp"
+TYPE="indel" | TYPE="snp"
 .fi
 .if n \{\
 .RE
@@ -2194,13 +2202,34 @@ CSQ[*] ~ "missense_variant\&.*deleterious"
 .sp -1
 .IP \(bu 2.3
 .\}
-functions on FORMAT fields
+function on FORMAT tags (over samples) and INFO tags (over vector fields)
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-MAX, MIN, AVG
+MAX, MIN, AVG, SUM, STRLEN, ABS
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+variables calculated on the fly if not present: number of alternate alleles, number of samples, number of alternate alleles, minor allele count (similar to AC but is always smaller than 0\&.5), frequency of alternate alleles (AF=AC/AN), frequency of minor alleles (MAF=MAC/AN)
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+N_ALT, N_SAMPLES, AC, MAC, AF, MAF
 .fi
 .if n \{\
 .RE
@@ -2231,13 +2260,24 @@ String comparisons and regular expressions are case\-insensitive
 If the subscript "*" is used in regular expression search, the whole field is treated as one string\&. For example, the regex STR[*]~"B,C" will be true for the string vector INFO/STR=AB,CD\&.
 .RE
 .sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Variables and function names are case\-insensitive, but not tag names\&. For example, "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but not "dp" instead of "DP"\&.
+.RE
+.sp
 \fBExamples:\fR
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-%MIN(DV)>5
+MIN(DV)>5
 .fi
 .if n \{\
 .RE
@@ -2247,7 +2287,7 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%MIN(DV/DP)>0\&.3
+MIN(DV/DP)>0\&.3
 .fi
 .if n \{\
 .RE
@@ -2257,7 +2297,7 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%MIN(DP)>10 & %MIN(DV)>3
+MIN(DP)>10 & MIN(DV)>3
 .fi
 .if n \{\
 .RE
@@ -2267,7 +2307,7 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
+QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
 .fi
 .if n \{\
 .RE
@@ -2277,7 +2317,7 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
+QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
 .fi
 .if n \{\
 .RE
@@ -2287,7 +2327,7 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
+TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
 .fi
 .if n \{\
 .RE
@@ -2297,7 +2337,7 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%MIN(DP)>35 && %AVG(GQ)>50
+MIN(DP)>35 && AVG(GQ)>50
 .fi
 .if n \{\
 .RE
@@ -2307,7 +2347,7 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%ID=@file       \&.\&. selects lines with ID present in the file
+ID=@file       \&.\&. selects lines with ID present in the file
 .fi
 .if n \{\
 .RE
@@ -2317,7 +2357,17 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .RS 4
 .\}
 .nf
-%ID!=@~/file    \&.\&. skip lines with ID present in the ~/file
+ID!=@~/file    \&.\&. skip lines with ID present in the ~/file
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+MAF[0]<0\&.05    \&.\&. select rare variants at 5% cutoff
 .fi
 .if n \{\
 .RE

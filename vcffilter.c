@@ -380,10 +380,10 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools filter [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=\"snp\" && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
+    fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -g, --SnpGap <int>            filter SNPs within <int> base pairs of an indel\n");
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
-    fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
+    fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true (see man page for details\n");
     fprintf(stderr, "    -m, --mode [+x]               \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
     fprintf(stderr, "    -o, --output <file>           write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
@@ -393,8 +393,6 @@ static void usage(args_t *args)
     fprintf(stderr, "    -S, --set-GTs <.|0>           set genotypes of failed samples to missing (.) or ref (0)\n");
     fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "\n");
-    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }
