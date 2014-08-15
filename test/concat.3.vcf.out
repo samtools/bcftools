@@ -1,0 +1,269 @@
+##fileformat=VCFv4.0
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FILTER=<ID=q10,Description="Quality below 10">
+##contig=<ID=9,length=62435964>
+##contig=<ID=1,length=62435964>
+##INFO=<ID=T1,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T2,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T3,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T4,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T5,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T6,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T7,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T8,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T9,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T10,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T11,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T12,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T13,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T14,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T15,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T16,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T17,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T18,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T19,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T20,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T21,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T22,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T23,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T24,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T25,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T26,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T27,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T28,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T29,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T30,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T31,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T32,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T33,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T34,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T35,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T36,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T37,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T38,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T39,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T40,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T41,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T42,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T43,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T44,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T45,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T46,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T47,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T48,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T49,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T50,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T51,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T52,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T53,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T54,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T55,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T56,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T57,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T58,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T59,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T60,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T61,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T62,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T63,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T64,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T65,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T66,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T67,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T68,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T69,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T70,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T71,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T72,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T73,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T74,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T75,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T76,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T77,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T78,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T79,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T80,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T81,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T82,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T83,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T84,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T85,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T86,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T87,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T88,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T89,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T90,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T91,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T92,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T93,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T94,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T95,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T96,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T97,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T98,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T99,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T100,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T101,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T102,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T103,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T104,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T105,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T106,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T107,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T108,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T109,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T110,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T111,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T112,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T113,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T114,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T115,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T116,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T117,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T118,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T119,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T120,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T121,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T122,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T123,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T124,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T125,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T126,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T127,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T128,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T129,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T130,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T131,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T132,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T133,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T134,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T135,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T136,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T137,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T138,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T139,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T140,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T141,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T142,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T143,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T144,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T145,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T146,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T147,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T148,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T149,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T150,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T151,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T152,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T153,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T154,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T155,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T156,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T157,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T158,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T159,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T160,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T161,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T162,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T163,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T164,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T165,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T166,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T167,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T168,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T169,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T170,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T171,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T172,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T173,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T174,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T175,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T176,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T177,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T178,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T179,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T180,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T181,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T182,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T183,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T184,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T185,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T186,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T187,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T188,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T189,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T190,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T191,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T192,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T193,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T194,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T195,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T196,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T197,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T198,Number=1,Type=Integer,Description="Test Tag: Big header">
+##INFO=<ID=T199,Number=1,Type=Integer,Description="Test Tag: Big header">
+##contig=<ID=2,length=62435964>
+##contig=<ID=3,length=62435964>
+##FORMAT=<ID=PQ,Number=1,Type=Integer,Description="Phasing Quality (bigger is better)">
+##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase Set">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+9	202	.	GTTT	G	1806	q10	DP=35	GT:GQ:DP:PS	0|1:409:35:202	0|1:.:.:202
+9	212	.	C	T,G	1792	PASS	DP=32	GT:GQ:DP:PS	0|1:245:32:202	0|1:.:.:202
+9	212	.	CAAA	C	1792	PASS	DP=32	GT:GQ:DP:PS	0|1:245:32:202	0|1:.:.:202
+9	222	.	GA	G	628	q10	DP=21	GT:GQ:DP:PS	0|1:21:21:202	0|1:.:.:202
+9	232	.	G	T	1016	PASS	DP=22	GT:GQ:DP:PS	0|1:212:22:202	0|1:.:.:202
+9	232	.	GAA	GG	1016	PASS	DP=22	GT:GQ:DP:PS	0|1:212:22:202	0|1:.:.:202
+9	242	.	GT	G	727	PASS	DP=30	GT:GQ:DP:PS	0|1:150:30:202	0|1:.:.:202
+9	252	.	TAAAA	TA,T	246	PASS	DP=10	GT:GQ:DP:PS	0|1:12:10:202	0|1:.:.:202
+9	262	.	TAAAA	TA,T	246	PASS	DP=10	GT:GQ:DP:PS	0|1:12:10:202	0|1:.:.:202
+1	100	.	GTTT	G	1806	q10	DP=35	GT:GQ:DP:PS	0|1:409:35:100	0|1:.:.:100
+1	110	.	C	T,G	1792	PASS	DP=32	GT:GQ:DP:PS	0|1:245:32:100	0|1:.:.:100
+1	110	.	CAAA	C	1792	PASS	DP=32	GT:GQ:DP:PS	0|1:245:32:100	0|1:.:.:100
+1	120	.	GA	G	628	q10	DP=21	GT:GQ:DP:PS	0|1:21:21:100	0|1:.:.:100
+1	130	.	G	T	1016	PASS	DP=22	GT:GQ:DP:PS	0|1:212:22:100	0|1:.:.:100
+1	130	.	GAA	GG	1016	PASS	DP=22	GT:GQ:DP:PS	0|1:212:22:100	0|1:.:.:100
+1	140	.	GT	G	727	PASS	DP=30	GT:GQ:DP:PS	0|1:150:30:100	0|1:.:.:100
+1	150	.	TAAAA	TA,T	246	PASS	DP=10	GT:GQ:DP:PS	0|1:12:10:100	0|1:.:.:100
+1	160	.	TAAAA	TA,T	246	PASS	DP=10	GT:GQ:DP:PS	0|1:12:10:100	0|1:.:.:100
+2	170	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	180	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	190	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	200	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	210	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	220	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	230	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	240	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	250	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	260	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	270	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	280	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	290	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	300	.	T	A	246	PASS	DP=10	GT:PS	1|0:170	0|1:170
+2	310	.	T	A	246	PASS	DP=10	GT:PQ:PS	1|0:3:310	0|1:28:310
+2	320	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	330	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	340	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	350	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	360	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	370	.	T	A	246	PASS	DP=10	GT:PQ:PS	1|0:99:310	0|1:99:310
+2	380	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	390	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	490	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	500	.	T	A	246	PASS	DP=10	GT:PS	1|0:310	0|1:310
+2	510	.	T	A	246	PASS	DP=10	GT:PQ:PS	1|0:99:310	0|1:99:310
+3	380	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	390	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	400	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	410	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	420	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	430	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	440	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	450	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	460	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	470	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	480	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380
+3	490	.	T	A	246	PASS	DP=10	GT:PS	0|1:380	1|0:380

@@ -1,0 +1,20 @@
+##fileformat=VCFv4.2
+##reference=file:///seq/references/long_chrom.fasta
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=TABIX,Description="Bigger than 2^29-1, not indexable with tabix">
+##contig=<ID=chr11,length=116870911>
+##contig=<ID=chr20,length=536870913>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr11	2343543	.	A	.	999	PASS	.
+chr11	5464562	.	C	T	999	PASS	.
+chr11	116870911	.	C	G	999	PASS	.
+chr20	76962	.	T	C	999	PASS	.
+chr20	126310	.	ACC	A	999	PASS	.
+chr20	138125	.	G	T	999	PASS	.
+chr20	138148	.	C	T	999	PASS	.
+chr20	271225	.	T	TTTA,TA	999	PASS	.
+chr20	304568	.	C	T	999	PASS	.
+chr20	220255100	.	AG	T	999	PASS	.
+chr20	230255200	.	G	C	999	PASS	.
+chr20	536870912	.	A	T	999	PASS	.
+chr20	536870913	.	A	T	999	TABIX	.

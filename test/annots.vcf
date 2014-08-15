@@ -1,0 +1,37 @@
+##fileformat=VCFv4.1
+##INFO=<ID=TEST,Number=1,Type=Integer,Description="Testing Tag">
+##FORMAT=<ID=TT,Number=A,Type=Integer,Description="Testing Tag, with commas and \"escapes\" and escaped escapes combined with \\\"quotes\\\\\"">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype Likelihood">
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=test,Description="Testing filter">
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+##contig=<ID=3,assembly=b37,length=198022430>
+##contig=<ID=4,assembly=b37,length=191154276>
+##test=<ID=4,IE=5>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##readme=AAAAAA
+##readme=BBBBBB
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=STR,Number=1,Type=String,Description="Test string type">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3000150	id1	C	T	99	PASS	STR=id1;AN=4;AC=0	GT:GQ	0|0:999	0|0:999
+1	3000151	id2	C	T	99	PASS	STR=id2;AN=4;AC=0	GT:DP:GQ	0|0:99:999	0|0:99:999
+1	3062915	idIndel	GTTT	G	99	PASS	DP4=1,2,3,4;AN=4;AC=0;INDEL;STR=testIndel	GT:GQ:DP:GL	0|0:999:99:-99,-9,-99	0|0:999:99:-99,-9,-99
+1	3062915	idSNP	G	T,C	99	PASS	STR=testSNP;TEST=5;DP4=1,2,3,4;AN=3;AC=0,0	GT:TT:GQ:DP:GL	0|0:9,9:999:99:-99,-9,-99,-99,-9,-99	0:9,9:999:99:-99,-9,-99
+1	3106154	id4	CAAA	C	99	PASS	STR=id4;AN=4;AC=0	GT:GQ:DP	0|0:999:99	0|0:999:99
+1	3106154	id5	C	CT	99	PASS	STR=id5;AN=4;AC=0	GT:GQ:DP	0|0:999:99	0|0:999:99
+1	3157410	id6	GA	GC,G	99	PASS	STR=id6;AN=4;AC=0	GT:GQ:DP	0|0:99:99	0|0:99:99
+1	3162006	id7	GAA	GG	99	PASS	STR=id7;AN=4;AC=0	GT:GQ:DP	0|0:999:99	0|0:999:99
+1	3177144	id8	G	T	99	PASS	STR=id8;AN=4;AC=0	GT:GQ:DP	0|0:999:99	0|0:999:99
+1	3177144	id9	G	.	99	PASS	STR=id9;AN=4;AC=0	GT:GQ:DP	0|0:999:99	0|0:999:99
+1	3184885	id10	TAAAA	TA,T	99	PASS	STR=id10;AN=4;AC=0,0	GT:GQ:DP	0|0:99:99	0|0:99:99
+2	3199812	id11	G	GTT,GT	99	PASS	STR=id11;AN=4;AC=0,0	GT:GQ:DP	0|0:999:99	0|0:999:99
+3	3212016	id12	CTT	C,CT	99	PASS	STR=id12;AN=4;AC=0,0	GT:GQ:DP	0|0:99:99	0|0:99:99
+4	3258448	id13	TACACACAC	T	99	PASS	STR=id13;AN=4;AC=0	GT:GQ:DP	0|0:999:99	0|0:999:99

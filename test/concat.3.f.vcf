@@ -1,0 +1,20 @@
+##fileformat=VCFv4.0
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FILTER=<ID=q10,Description="Quality below 10">
+##contig=<ID=3,length=62435964>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+3	380	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	390	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	400	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	410	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	420	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	430	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	440	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	450	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	460	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	470	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	480	.	T	A	246	PASS	DP=10	GT	1|0	1|0
+3	490	.	T	A	246	PASS	DP=10	GT	1|0	1|0

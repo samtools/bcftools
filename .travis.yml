@@ -5,4 +5,18 @@ compiler:
   - clang
   - gcc
 
-script: make -e
+env:
+  global:
+    - HTSDIR=./htslib
+    - LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/htslib:$LD_LIBRARY_PATH
+
+matrix:
+  include:
+    # An unoptimised C99 build, for detecting non-static inline functions
+    - compiler: gcc
+      env: CFLAGS="-std=gnu99 -O0"
+
+before_script:
+  - git clone --depth=5 --branch=develop git://github.com/samtools/htslib.git
+
+script: make -e && make -e test

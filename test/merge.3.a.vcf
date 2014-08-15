@@ -1,0 +1,26 @@
+##fileformat=VCFv4.1
+##INFO=<ID=TEST,Number=1,Type=Integer,Description="Testing Tag">
+##FORMAT=<ID=TT,Number=A,Type=Integer,Description="Testing Tag, with commas and \"escapes\" and escaped escapes combined with \\\"quotes\\\\\"">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=TR,Number=R,Type=Float,Description="Test tag">
+##INFO=<ID=TA,Number=A,Type=Float,Description="Test tag">
+##INFO=<ID=TG,Number=G,Type=Float,Description="Test tag">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype Likelihood">
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=test,Description="Testing filter">
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+##contig=<ID=3,assembly=b37,length=198022430>
+##contig=<ID=4,assembly=b37,length=191154276>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##readme=AAAAAA
+##readme=BBBBBB
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=STR,Number=1,Type=String,Description="Test string type">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3000000	.	C	CCG	59.2	PASS	AN=4;AC=2;TR=1,2;TA=1;TG=1,2,3	GT:GQ	0/1:245	0/1:245
