@@ -311,6 +311,11 @@ This command allows to add or remove annotations and apply user-written plugins.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--rename-chrs* 'file'::
+    rename chromosomes according to the map in 'file', with
+    "old_name new_name\n" pairs separated by whitespaces, each on a separate
+    line.
+
 *-x, --remove* 'list'::
     List of annotations to remove. Use 'FILTER' to remove all filters or
     'FILTER/SomeFilter' to remove a specific filter. Similarly, 'INFO' can

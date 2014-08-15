@@ -144,7 +144,7 @@ typedef struct _args_t
     char *tmps;
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
-    char *remove_annots, *columns;
+    char *remove_annots, *columns, *rename_chrs;
     int argc, drop_header, verbose, tgts_is_vcf;
 }
 args_t;
@@ -706,6 +706,35 @@ static void init_columns(args_t *args)
     if ( args->to_idx==-1 ) args->to_idx = args->from_idx;
 }
 
+static void rename_chrs(args_t *args, char *fname)
+{
+    int n, i;
+    char **map = hts_readlist(fname, 1, &n);
+    if ( !map ) error("Could not read: %s\n", fname);
+    for (i=0; i<n; i++)
+    {
+        char *ss = map[i];
+        while ( *ss && !isspace(*ss) ) ss++;
+        if ( !*ss ) error("Could not parse: %s\n", fname);
+        *ss = 0;
+        int rid = bcf_hdr_name2id(args->hdr_out, map[i]);
+        bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, BCF_HL_CTG, "ID", map[i], NULL);
+        if ( !hrec ) continue;  // the sequence not present
+        int j = bcf_hrec_find_key(hrec, "ID");
+        assert( j>=0 );
+        free(hrec->vals[j]);
+        ss++;
+        while ( *ss && isspace(*ss) ) ss++;
+        char *se = ss;
+        while ( *se && !isspace(*se) ) se++;
+        *se = 0;
+        hrec->vals[j] = strdup(ss);
+        args->hdr_out->id[BCF_DT_CTG][rid].key = hrec->vals[j];
+    }
+    for (i=0; i<n; i++) free(map[i]);
+    free(map);
+}
+
 static void init_data(args_t *args)
 {
     args->hdr = args->files->readers[0].header;
@@ -740,6 +769,8 @@ static void init_data(args_t *args)
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     if ( !args->drop_header )
     {
+        if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);
+
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         bcf_hdr_write(args->out_fh, args->hdr_out);
@@ -933,6 +964,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -p, --plugin <name[:key=val]>  run user-defined plugin, see man page for details\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
+    fprintf(stderr, "       --rename-chrs <file>       rename sequences according to map file: from\\tto\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
     fprintf(stderr, "   -v, --verbose                  print debugging information on plugin failure\n");
     fprintf(stderr, "\n");
@@ -965,6 +997,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"regions-file",1,0,'R'},
         {"remove",1,0,'x'},
         {"columns",1,0,'c'},
+        {"rename-chrs",1,0,1},
         {"header-lines",1,0,'h'},
         {0,0,0,0}
     };
@@ -992,6 +1025,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'p': load_plugin(args, optarg, 1); break;
             case 'l': plist_only = 1; break;
             case 'h': args->header_fname = optarg; break;
+            case  1 : args->rename_chrs = optarg; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
