@@ -4,6 +4,7 @@
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 .\"      Date: 08/14/2014
 =======
 .\"      Date: 08/12/2014
@@ -11,10 +12,17 @@
 =======
 .\"      Date: 08/12/2014
 >>>>>>> rename-chrs
+=======
+.\"      Date: 07/28/2014
+=======
+.\"      Date: 07/21/2014
+>>>>>>> develop
+>>>>>>> convert
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 .TH "BCFTOOLS" "1" "08/14/2014" "\ \&" "\ \&"
@@ -24,6 +32,12 @@
 =======
 .TH "BCFTOOLS" "1" "08/12/2014" "\ \&" "\ \&"
 >>>>>>> rename-chrs
+=======
+.TH "BCFTOOLS" "1" "07/28/2014" "\ \&" "\ \&"
+=======
+.TH "BCFTOOLS" "1" "07/21/2014" "\ \&" "\ \&"
+>>>>>>> develop
+>>>>>>> convert
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -112,6 +126,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBconcat\fR
 \&.\&. concatenate VCF/BCF files from the same set of samples
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBconvert\fR
+\&.\&. convert VCF/BCF to other formats and back
 .RE
 .sp
 .RS 4
@@ -816,6 +843,107 @@ see
 see
 \fBCommon Options\fR
 .RE
+.SS "bcftools convert \fI[OPTIONS]\fR \fIFILE\fR"
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBVCF input options:\fR
+.RS 4
+.PP
+\fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
+.RS 4
+exclude sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-i, \-\-include\fR \fIEXPRESSION\fR
+.RS 4
+include only sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-s, \-\-samples\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBgen/sample options:\fR
+.RS 4
+.PP
+\fB\-g, \-\-gensample\fR \fIprefix\fR or \fIgen\-file\fR,\fIsample\-file\fR
+.RS 4
+convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT\&. The columns of \&.gen file format are ID1,ID2,POS,A,B followed by three genotype probabilities P(AA), P(AB), P(BB) for each sample\&. In order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT"\&. For example:
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+  \&.gen
+  \-\-\-\-
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  \&.sample
+  \-\-\-\-\-\-\-
+  ID_1 ID_2 missing
+  0 0 0
+  sample1 sample1 0
+  sample2 sample2 0
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fB\-\-tag\fR
+.RS 4
+tag to take values for \&.gen file: GT,PL,GL,GP
+.RE
+.RE
 .SS "bcftools filter \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
 Apply fixed\-threshold filters\&.
@@ -1370,15 +1498,6 @@ maximum distance between two records to consider when locally sorting variants w
 .sp
 Extracts fields from VCF or BCF files and outputs them in user\-defined format\&.
 .PP
-\fB\-a, \-\-annots\fR \fILIST\fR
-.RS 4
-alias for \-f
-\fI%CHROM\et%POS\et%MASK\et%REF\et%ALT\et%TYPE\et\fR
-and tab\-separated
-\fILIST\fR
-of tags
-.RE
-.PP
 \fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR
 .RS 4
 see
@@ -1414,6 +1533,12 @@ is true\&. For valid expressions see
 \fB\-l, \-\-list\-samples\fR
 .RS 4
 list sample names and exit
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
 .RE
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]

@@ -56,6 +56,7 @@ int main_vcfannotate(int argc, char *argv[]);
 int main_vcfroh(int argc, char *argv[]);
 int main_vcfconcat(int argc, char *argv[]);
 int main_reheader(int argc, char *argv[]);
+int main_vcfconvert(int argc, char *argv[]);
 
 typedef struct
 {
@@ -91,6 +92,10 @@ static cmd_t cmds[] =
     { .func  = main_vcfconcat,
       .alias = "concat",
       .help  = "concatenate VCF/BCF files from the same set of samples"
+    },
+    { .func  = main_vcfconvert,  
+      .alias = "convert", 
+      .help  = "convert VCF/BCF files to different formats and back"
     },
     { .func  = main_vcfisec,
       .alias = "isec",
