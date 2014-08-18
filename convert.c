@@ -60,8 +60,6 @@
 #define T_PL_TO_PROB3  20   // not publicly advertised
 #define T_FIRST_ALT    21   // not publicly advertised
 
-typedef struct _convert_t convert_t;
-
 typedef struct _fmt_t
 {
     int type, id, is_gt_field, ready, subscript;
