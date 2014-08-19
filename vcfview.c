@@ -477,7 +477,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -g,   --genotype [^]<hom|het|miss>          require one or more hom/het/missing genotype or, if prefixed with \"^\", exclude sites with hom/het/missing genotypes\n");
-    fprintf(stderr, "    -i/e, --include/--exclude <expr>            select/exclude sites for which the expression is true (see below for details)\n");
+    fprintf(stderr, "    -i/e, --include/--exclude <expr>            select/exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                       select known/novel sites only (ID is not/is '.')\n");
     fprintf(stderr, "    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in REF and ALT (e.g. -m2 -M2 for biallelic sites)\n");
     fprintf(stderr, "    -p/P, --phased/--exclude-phased             select/exclude sites where all samples are phased\n");
@@ -485,8 +485,6 @@ static void usage(args_t *args)
     fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled         select/exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private           select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
-    fprintf(stderr, "\n");
-    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }
