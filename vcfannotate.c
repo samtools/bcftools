@@ -715,8 +715,9 @@ static void init_columns(args_t *args)
                     bcf_hdr_append(args->hdr_out, tmp.s);
                     hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
                 }
-                if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) )
-                    error("The column not recognised: [%s] .. %d\n", str.s, hdr_id);
+                else
+                    error("The tag \"%s\" is not defined in %s\n", str.s, args->targets_fname);
+                assert( bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) );
             }
 
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
