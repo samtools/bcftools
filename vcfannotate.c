@@ -412,6 +412,28 @@ void remove_format(args_t *args, bcf1_t *line, rm_tag_t *tag)
     }
 }
 
+static void remove_hdr_lines(bcf_hdr_t *hdr, int type)
+{
+    int i = 0, nrm = 0;
+    while ( i<hdr->nhrec )
+    {
+        if ( hdr->hrec[i]->type!=type ) { i++; continue; }
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if ( type==BCF_HL_FMT )
+        {
+            // everything except FORMAT/GT
+            int id = bcf_hrec_find_key(hrec, "ID");
+            if ( id>=0 && !strcmp(hrec->vals[id],"GT") ) { i++; continue; }
+        }
+        nrm++;
+        hdr->nhrec--;
+        if ( i < hdr->nhrec )
+            memmove(&hdr->hrec[i],&hdr->hrec[i+1],(hdr->nhrec-i)*sizeof(bcf_hrec_t*));
+        bcf_hrec_destroy(hrec);
+    }
+    if ( nrm ) bcf_hdr_sync(hdr);
+}
+
 static void init_remove_annots(args_t *args)
 {
     kstring_t str = {0,0,0};
@@ -459,10 +481,22 @@ static void init_remove_annots(args_t *args)
             if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
             bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
         }
-        else if ( !strcmp("FILTER",str.s) ) tag->handler = remove_filter;
+        else if ( !strcmp("FILTER",str.s) )
+        {
+            tag->handler = remove_filter;
+            remove_hdr_lines(args->hdr_out,BCF_HL_FLT);
+        }
         else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
-        else if ( !strcmp("INFO",str.s) ) tag->handler = remove_info;
-        else if ( !strcmp("FMT",str.s) || !strcmp("FORMAT",str.s) ) tag->handler = remove_format;
+        else if ( !strcmp("INFO",str.s) ) 
+        {
+            tag->handler = remove_info;
+            remove_hdr_lines(args->hdr_out,BCF_HL_INFO);
+        }
+        else if ( !strcmp("FMT",str.s) || !strcmp("FORMAT",str.s) )
+        {
+            tag->handler = remove_format;
+            remove_hdr_lines(args->hdr_out,BCF_HL_FMT);
+        }
         else if ( str.l )
         {
             if ( str.s[0]=='#' && str.s[1]=='#' )
