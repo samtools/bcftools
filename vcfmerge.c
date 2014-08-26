@@ -1289,24 +1289,42 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                     int ngsize = ma->smpl_ploidy[ismpl+j]==1 ? out->n_allele : out->n_allele*(out->n_allele + 1)/2; \
                     for (l=0; l<ngsize; l++) { tgt_set_missing; tgt++; } \
                     for (; l<nsize; l++) { tgt_set_vector_end; tgt++; } \
-                    int iori,jori, inew,jnew; \
-                    for (iori=0; iori<line->n_allele; iori++) \
+                    if ( ma->smpl_ploidy[ismpl+j]==1 ) \
                     { \
-                        inew = ma->d[i][0].map[iori]; \
-                        for (jori=0; jori<=iori; jori++) \
+                        /* Haploid */ \
+                        int iori, inew; \
+                        for (iori=0; iori<line->n_allele; iori++) \
                         { \
-                            jnew = ma->d[i][0].map[jori]; \
-                            int kori = iori*(iori+1)/2 + jori; \
-                            int knew = inew>jnew ? inew*(inew+1)/2 + jnew : jnew*(jnew+1)/2 + inew; \
-                            src = (src_type_t*) fmt_ori->p + j*fmt_ori->n + kori; \
-                            tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize + knew; \
-                            if ( src_is_vector_end ) \
-                            { \
-                                iori = line->n_allele; \
-                                break; \
-                            } \
+                            inew = ma->d[i][0].map[iori]; \
+                            src = (src_type_t*) fmt_ori->p + j*fmt_ori->n + iori; \
+                            tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize + inew; \
+                            if ( src_is_vector_end ) break; \
                             if ( src_is_missing ) tgt_set_missing; \
                             else *tgt = *src; \
+                        } \
+                    } \
+                    else \
+                    { \
+                        /* Diploid */ \
+                        int iori,jori, inew,jnew; \
+                        for (iori=0; iori<line->n_allele; iori++) \
+                        { \
+                            inew = ma->d[i][0].map[iori]; \
+                            for (jori=0; jori<=iori; jori++) \
+                            { \
+                                jnew = ma->d[i][0].map[jori]; \
+                                int kori = iori*(iori+1)/2 + jori; \
+                                int knew = inew>jnew ? inew*(inew+1)/2 + jnew : jnew*(jnew+1)/2 + inew; \
+                                src = (src_type_t*) fmt_ori->p + j*fmt_ori->n + kori; \
+                                tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize + knew; \
+                                if ( src_is_vector_end ) \
+                                { \
+                                    iori = line->n_allele; \
+                                    break; \
+                                } \
+                                if ( src_is_missing ) tgt_set_missing; \
+                                else *tgt = *src; \
+                            } \
                         } \
                     } \
                 } \
