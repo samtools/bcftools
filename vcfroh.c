@@ -367,7 +367,7 @@ static void flush_viterbi(args_t *args)
         {
             int n = 0;
             for (j=0; j<2; j++) n += MAT(tcounts,2,i,j);
-            assert( n );    // todo: i-th state was not observed at all
+            error("fixme: state %d not observed\n", i+1);
             for (j=0; j<2; j++) MAT(tcounts,2,i,j) /= n;
         }
         if ( args->genmap_fname || args->rec_rate > 0 )
@@ -600,7 +600,10 @@ static void vcfroh(args_t *args, bcf1_t *line)
             if ( !skip_rid ) push_rid(args, line->rid);
         }
         else
+        {
             flush_viterbi(args);
+            args->nsites = 0;
+        }
         args->prev_rid = line->rid;
         args->prev_pos = line->pos;
     }
