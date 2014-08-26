@@ -1,4 +1,26 @@
 #!/usr/bin/env perl
+#
+#   Copyright (C) 2012-2014 Genome Research Ltd.
+#
+#   Author: Petr Danecek <pd3@sanger.ac.uk>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
 
 use strict;
 use warnings;
@@ -16,7 +38,7 @@ my $opts = parse_params();
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_tabix($opts,in=>'large_chrom_tbi_limit',reg=>'chr11:1-536870912',out=>'large_chrom_tbi_limit.20.1.536870912.out'); # 536870912 (1<<29) is the current limit for tbi. cannot retrieve regions larger than that
-test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this 
+test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this
 test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20',out=>'large_chrom.20.1.2147483647.out'); # this fails until bug resolved
 test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
@@ -39,13 +61,22 @@ test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i
 test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[3]!~"H"']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[*]~"H"']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[*]~"HI,JK"']);
+test_vcf_query($opts,in=>'query',out=>'query.5.out',args=>q[-f'%POS %REF %ALT\\n' -i'REF~"C" && ALT~"CT"']);
+test_vcf_query($opts,in=>'query',out=>'query.6.out',args=>q[-f'%POS %REF %ALT\\n' -i'N_ALT=2']);
+test_vcf_query($opts,in=>'query',out=>'query.7.out',args=>q[-f'%POS %AN\\n' -i'AN!=2*N_SAMPLES']);
+test_vcf_query($opts,in=>'query',out=>'query.8.out',args=>q[-f'%POS[ %GL]\\n' -i'min(abs(GL[0]))=10']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.9.out',args=>q[-f'%POS %CIGAR\\n' -i'strlen(CIGAR[*])=4']);
+test_vcf_query($opts,in=>'query',out=>'query.10.out',args=>q[-f'%POS[ %GT]\\n' -i'AC[0]=3']);
+test_vcf_query($opts,in=>'query',out=>'query.10.out',args=>q[-f'%POS[ %GT]\\n' -i'AF[0]=3/4']);
+test_vcf_query($opts,in=>'query',out=>'query.11.out',args=>q[-f'%POS[ %GT]\\n' -i'MAC[0]=1']);
+test_vcf_query($opts,in=>'query',out=>'query.11.out',args=>q[-f'%POS[ %GT]\\n' -i'MAF[0]=1/4']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.merge',out=>'norm.merge.out',args=>'-m+');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
-test_vcf_view($opts,in=>'view',out=>'view.4.out',args=>q[-i '%QUAL==999 && (FS<20 || FS>=41.02) && ICF>-0.1 && HWE*2>1.2'],reg=>'');
+test_vcf_view($opts,in=>'view',out=>'view.4.out',args=>q[-i 'QUAL==999 && (FS<20 || FS>=41.02) && ICF>-0.1 && HWE*2>1.2'],reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.5.out',args=>q[-p],reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.6.out',args=>q[-P],reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.7.out',args=>q[-hm2 -M2 -q0.3 -Q0.7],reg=>'');
@@ -71,7 +102,7 @@ test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mvg0');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter.1',out=>'filter.1.out',args=>'-mx -g2 -G2');
-test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'%QUAL==59.2 || (INDEL=0 & (FMT/GQ=25 | FMT/DP=10))' -sModified -S.]);
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'QUAL==59.2 || (INDEL=0 & (FMT/GQ=25 | FMT/DP=10))' -sModified -S.]);
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.3.out',args=>q[-e'DP=19'],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.4.out',args=>q[-e'DP=19' -s XX],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.5.out',args=>q[-e'DP=19' -s XX -m+],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
@@ -96,6 +127,7 @@ test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');
+test_rename_chrs($opts,in=>'annotate');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -111,7 +143,7 @@ sub error
 {
     my (@msg) = @_;
     if ( scalar @msg ) { confess @msg; }
-    print 
+    print
         "About: htslib consistency test script\n",
         "Usage: test.pl [OPTIONS]\n",
         "Options:\n",
@@ -123,12 +155,13 @@ sub error
 }
 sub parse_params
 {
-    my $opts = { keep_files=>0, nok=>0, nfailed=>0 };
+    my $opts = { bgzip=>"bgzip", keep_files=>0, nok=>0, nfailed=>0, tabix=>"tabix" };
     my $help;
     Getopt::Long::Configure('bundling');
     my $ret = GetOptions (
-            't|temp-dir:s' => \$$opts{keep_files}, 
-            'r|redo-outputs' => \$$opts{redo_outputs}, 
+            'e|exec=s' => sub { my ($tool, $path) = split /=/, $_[1]; $$opts{$tool} = $path if $path },
+            't|temp-dir:s' => \$$opts{keep_files},
+            'r|redo-outputs' => \$$opts{redo_outputs},
             'h|?|help' => \$help
             );
     if ( !$ret or $help ) { error(); }
@@ -146,14 +179,14 @@ sub _cmd
     my @out;
     my $pid = open($kid_io, "-|");
     if ( !defined $pid ) { error("Cannot fork: $!"); }
-    if ($pid) 
+    if ($pid)
     {
         # parent
         @out = <$kid_io>;
         close($kid_io);
-    } 
-    else 
-    {      
+    }
+    else
+    {
         # child
         exec('/bin/bash', '-o','pipefail','-c', $cmd) or error("Cannot execute the command [/bin/sh -o pipefail -c $cmd]: $!");
     }
@@ -206,8 +239,8 @@ sub test_cmd
     }
     elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
 
-    if ( $exp ne $out ) 
-    { 
+    if ( $exp ne $out )
+    {
         open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new");
         print $fh $out;
         close($fh);
@@ -219,9 +252,9 @@ sub test_cmd
         }
         else
         {
-            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new"); 
+            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new");
         }
-        return; 
+        return;
     }
     passed($opts,$test);
 }
@@ -252,11 +285,11 @@ sub bgzip_tabix
     my $file = "$args{file}.$args{suffix}";
     if ( $$opts{redo_outputs} or !-e "$$opts{tmp}/$file.gz" or is_file_newer("$$opts{path}/$file","$$opts{tmp}/$file.gz") )
     {
-        cmd("cat $$opts{path}/$file | bgzip -c > $$opts{tmp}/$file.gz");
+        cmd("cat $$opts{path}/$file | $$opts{bgzip} -c > $$opts{tmp}/$file.gz");
     }
     if ( $$opts{redo_outputs} or !-e "$$opts{tmp}/$file.gz.tbi" or is_file_newer("$$opts{tmp}/$file.gz","$$opts{tmp}/$file.gz.tbi") )
     {
-        cmd("$$opts{bin}/bcftools tabix -f $args{args} $$opts{tmp}/$file.gz");
+        cmd("$$opts{tabix} -f $args{args} $$opts{tmp}/$file.gz");
     }
 }
 sub bgzip_tabix_vcf
@@ -272,7 +305,7 @@ sub test_tabix
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools tabix $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
+    test_cmd($opts,%args,cmd=>"$$opts{tabix} $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
@@ -399,8 +432,8 @@ sub test_vcf_regions
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{path}/$args{in}.tab $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 
     # regions vs targets, reading tabix-ed tab
-    cmd(qq[cat $$opts{path}/$args{in}.tab | bgzip -c > $$opts{tmp}/$args{in}.tab.gz]);
-    cmd(qq[$$opts{bin}/bcftools tabix -f -s1 -b2 -e3 $$opts{tmp}/$args{in}.tab.gz]);
+    cmd(qq[cat $$opts{path}/$args{in}.tab | $$opts{bgzip} -c > $$opts{tmp}/$args{in}.tab.gz]);
+    cmd(qq[$$opts{tabix} -f -s1 -b2 -e3 $$opts{tmp}/$args{in}.tab.gz]);
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.tab.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.tab.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
@@ -412,8 +445,8 @@ sub test_vcf_regions
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.bed $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
 
     # regions vs targets, reading tabix-ed bed
-    cmd(qq[cat $$opts{tmp}/$args{in}.bed | bgzip -c > $$opts{tmp}/$args{in}.bed.gz]);
-    cmd(qq[$$opts{bin}/bcftools tabix -f -p bed $$opts{tmp}/$args{in}.bed.gz]);
+    cmd(qq[cat $$opts{tmp}/$args{in}.bed | $$opts{bgzip} -c > $$opts{tmp}/$args{in}.bed.gz]);
+    cmd(qq[$$opts{tabix} -f -p bed $$opts{tmp}/$args{in}.bed.gz]);
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query -f'$query' -T $$opts{tmp}/$args{in}.bed.gz],out=>'regions.out');
     test_cmd($opts,cmd=>qq[$$opts{bin}/bcftools query -f'$query' -R $$opts{tmp}/$args{in}.bed.gz $$opts{tmp}/$args{in}.vcf.gz],out=>'regions.out');
@@ -425,47 +458,47 @@ sub test_usage
     my $test = "test_usage";
     print "$test:\n";
     print "\t$args{cmd}\n";
-    
+
     my $command = $args{cmd};
     my $commandpath = $$opts{bin}."/".$command;
     my ($ret,$out) = _cmd("$commandpath 2>&1");
     if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
-    
+
     my $have_usage = 0;
     my $have_version = 0;
     my $have_subcommands = 0;
     my $usage = "";
     my @subcommands = ();
     foreach my $section (@sections) {
-	if ( $section =~ m/^usage/i ) {
-	    $have_usage = 1;
-	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
-	    $usage = $section;
-	} elsif ( $section =~ m/^version/i ) {
-	    $have_version = 1;
-	} elsif ( $section =~ m/^command/i ) {
-	    $have_subcommands = 1;
-	    foreach my $line (split /\n/, $section) {
-		push @subcommands, $1 if $line =~ /^\s+(\w+)/;
-	    }
-	}
+        if ( $section =~ m/^usage/i ) {
+            $have_usage = 1;
+            $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+            $usage = $section;
+        } elsif ( $section =~ m/^version/i ) {
+            $have_version = 1;
+        } elsif ( $section =~ m/^command/i ) {
+            $have_subcommands = 1;
+            foreach my $line (split /\n/, $section) {
+                push @subcommands, $1 if $line =~ /^\s+(\w+)/;
+            }
+        }
     }
-    
+
     if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
     if ( !$have_version ) { failed($opts,$test,"did not have Version:"); return; }
     if ( !$have_subcommands ) { failed($opts,$test,"did not have Commands:"); return; }
 
-    if ( !($usage =~ m/$command/) ) { failed($opts,$test,"usage did not mention $command"); return; } 
-    
+    if ( !($usage =~ m/$command/) ) { failed($opts,$test,"usage did not mention $command"); return; }
+
     if ( scalar(@subcommands) < 1 ) { failed($opts,$test,"could not parse subcommands"); return; }
-    
+
     passed($opts,$test);
-    
+
     # now test subcommand usage as well
     foreach my $subcommand (@subcommands) {
-	test_usage_subcommand($opts,%args,subcmd=>$subcommand);
+        test_usage_subcommand($opts,%args,subcmd=>$subcommand);
     }
 }
 sub test_usage_subcommand
@@ -483,21 +516,21 @@ sub test_usage_subcommand
     if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath $subcommand: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
-    
+
     my $have_usage = 0;
     my $usage = "";
     foreach my $section (@sections) {
-	if ( $section =~ m/^usage/i ) {
-	    $have_usage = 1;
-	    $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
-	    $usage = $section;
-	}
+        if ( $section =~ m/^usage/i ) {
+            $have_usage = 1;
+            $section =~ s/^[[:word:]]+[[:punct:]]?[[:space:]]*//;
+            $usage = $section;
+        }
     }
-    
+
     if ( !$have_usage ) { failed($opts,$test,"did not have Usage:"); return; }
 
-    if ( !($usage =~ m/$command[[:space:]]+$subcommand/) ) { failed($opts,$test,"usage did not mention $command $subcommand"); return; } 
-    
+    if ( !($usage =~ m/$command[[:space:]]+$subcommand/) ) { failed($opts,$test,"usage did not mention $command $subcommand"); return; }
+
     passed($opts,$test);
 }
 sub test_vcf_annotate
@@ -531,8 +564,8 @@ sub test_vcf_concat
 {
     my ($opts,%args) = @_;
     my $files;
-    for my $file (@{$args{in}}) 
-    { 
+    for my $file (@{$args{in}})
+    {
         if ( $args{do_bcf} )
         {
             cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$file.vcf.gz > $$opts{tmp}/$file.bcf");
@@ -541,7 +574,7 @@ sub test_vcf_concat
         }
         else
         {
-            bgzip_tabix_vcf($opts,$file); 
+            bgzip_tabix_vcf($opts,$file);
             $files .= " $$opts{tmp}/$file.vcf.gz";
         }
     }
@@ -563,4 +596,17 @@ sub test_vcf_reheader
         test_cmd($opts,%args,%bcf_args,cmd=>"$$opts{bin}/bcftools reheader $arg $file | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
     }
 }
-
+sub test_rename_chrs
+{
+    my ($opts,%args) = @_;
+    cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools query -f'chr%CHROM\\t%POS\\n' $$opts{path}/$args{in}.vcf > $$opts{path}/rename.out.tmp");
+    cmd("$$opts{bin}/bcftools query -f'%CHROM\\tchr%CHROM\\n' $$opts{path}/$args{in}.vcf | uniq > $$opts{tmp}/rename.map");
+    my $prevfailed = $$opts{nfailed};
+    for my $file ("$$opts{tmp}/$args{in}.bcf","$$opts{path}/$args{in}.vcf")
+    {
+        test_cmd($opts,%args,out=>"rename.out.tmp",cmd=>"$$opts{bin}/bcftools annotate --rename-chrs $$opts{tmp}/rename.map -Ov $file | $$opts{bin}/bcftools query -f'%CHROM\\t%POS\\n'");
+        test_cmd($opts,%args,out=>"rename.out.tmp",cmd=>"$$opts{bin}/bcftools annotate --rename-chrs $$opts{tmp}/rename.map -Ob $file | $$opts{bin}/bcftools query -f'%CHROM\\t%POS\\n'");
+    }
+    unlink "$$opts{path}/rename.out.tmp" if $$opts{nfailed} == $prevfailed;
+}

@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfsom.c -- SOM (Self-Organizing Map) filtering.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -76,8 +75,8 @@ typedef struct
     int *train_class, mtrain_class, mtrain_dat;
 
     int rand_seed, good_class, bad_class;
-	char **argv, *fname, *prefix;
-	int argc, action, train_bad, merge;
+    char **argv, *fname, *prefix;
+    int argc, action, train_bad, merge;
 }
 args_t;
 
@@ -102,7 +101,7 @@ char *msprintf(const char *fmt, ...)
 
 /*
  *  char *t, *p = str;
- *  t = column_next(p, '\t'); 
+ *  t = column_next(p, '\t');
  *  if ( strlen("<something>")==t-p && !strncmp(p,"<something>",t-p) ) printf("found!\n");
  *
  *  char *t;
@@ -129,7 +128,7 @@ int annots_reader_next(args_t *args)
     if ( !args->mvals )
     {
         t = line;
-        while ( *t ) 
+        while ( *t )
         {
             if ( *t=='\t' ) args->mvals++;
             t++;
@@ -139,7 +138,7 @@ int annots_reader_next(args_t *args)
 
     // class
     args->dclass = atoi(line);
-    t = column_next(line, '\t'); 
+    t = column_next(line, '\t');
 
     // values
     int i;
@@ -316,16 +315,16 @@ static void som_train_site(som_t *som, double *vec, int update_counts)
     {
         som_idx_to_ndim(som, i, som->b_idx);
         double dist = 0;
-        for (j=0; j<som->ndim; j++) 
+        for (j=0; j<som->ndim; j++)
             dist += (som->a_idx[j] - som->b_idx[j]) * (som->a_idx[j] - som->b_idx[j]);
-        if ( dist <= radius ) 
+        if ( dist <= radius )
         {
             double influence = exp(-dist*dist*0.5/radius) * learning_rate;
             for (k=0; k<som->kdim; k++)
                 ptr[k] += influence * (vec[k] - ptr[k]);
 
             // Bad sites may help to shape the map, but only nodes with big enough
-            // influence will be used for classification. 
+            // influence will be used for classification.
             if ( update_counts ) *cnt += influence;
         }
         ptr += som->kdim;
@@ -352,9 +351,9 @@ static som_t *som_init(args_t *args)
     som->bmu_th = args->bmu_th;
     som->size   = pow(som->nbin,som->ndim);
     som->w = (double*) malloc(sizeof(double)*som->size*som->kdim);
-    if ( !som->w ) error("Could not alloc %d bytes [nbin=%d ndim=%d kdim=%d]\n", sizeof(double)*som->size*som->kdim,som->nbin,som->ndim,som->kdim); 
+    if ( !som->w ) error("Could not alloc %d bytes [nbin=%d ndim=%d kdim=%d]\n", sizeof(double)*som->size*som->kdim,som->nbin,som->ndim,som->kdim);
     som->c = (double*) calloc(som->size,sizeof(double));
-    if ( !som->w ) error("Could not alloc %d bytes [nbin=%d ndim=%d]\n", sizeof(double)*som->size,som->nbin,som->ndim); 
+    if ( !som->w ) error("Could not alloc %d bytes [nbin=%d ndim=%d]\n", sizeof(double)*som->size,som->nbin,som->ndim);
     int i;
     for (i=0; i<som->size*som->kdim; i++)
         som->w[i] = (double)random()/RAND_MAX;
@@ -482,15 +481,15 @@ static void do_train(args_t *args)
     {
         // determine which of the nfold's SOMs to train
         int isom = 0;
-        if ( args->dclass == args->good_class ) 
-        { 
-            if ( ++igood >= args->nfold ) igood = 0; 
+        if ( args->dclass == args->good_class )
+        {
+            if ( ++igood >= args->nfold ) igood = 0;
             isom = igood;
             ngood++;
         }
         else if ( args->dclass == args->bad_class )
         {
-            if ( ++ibad >= args->nfold ) ibad = 0; 
+            if ( ++ibad >= args->nfold ) ibad = 0;
             isom = ibad;
             nbad++;
         }
@@ -516,13 +515,13 @@ static void do_train(args_t *args)
     for (i=0; i<ntrain; i++)
     {
         int is_good = args->train_class[i] & 1;
-        int isom    = args->train_class[i] >> 1; 
-        if ( is_good || args->train_bad ) 
+        int isom    = args->train_class[i] >> 1;
+        if ( is_good || args->train_bad )
             som_train_site(args->som[isom], args->train_dat+i*args->mvals, is_good);
     }
 
     // norm and create plots
-    for (i=0; i<args->nfold; i++) 
+    for (i=0; i<args->nfold; i++)
     {
         som_norm_counts(args->som[i]);
         if ( args->prefix )
@@ -569,9 +568,9 @@ static void do_train(args_t *args)
     {
         if ( igood<ngood && good[igood]==prev_score ) { igood++; continue; }
         if ( ibad<nbad && bad[ibad]==prev_score ) { ibad++; continue; }
-        if ( fp ) 
+        if ( fp )
             fprintf(fp,"%e\t%f\t%f\n", prev_score, (float)igood/ngood, (float)ibad/nbad);
-        if ( !printed && (float)igood/ngood > 0.9 ) 
+        if ( !printed && (float)igood/ngood > 0.9 )
         {
             printf("%.2f\t%.2f\t%e\t# %% of bad [1] and good [2] sites at a cutoff [3]\n", 100.*ibad/nbad,100.*igood/ngood,prev_score);
             printed = 1;
@@ -614,36 +613,36 @@ static void do_classify(args_t *args)
 static void usage(void)
 {
     fprintf(stderr, "\n");
-	fprintf(stderr, "About:   SOM (Self-Organizing Map) filtering.\n");
-	fprintf(stderr, "Usage:   bcftools som --train    [options] <annots.tab.gz>\n");
-	fprintf(stderr, "         bcftools som --classify [options]\n");
+    fprintf(stderr, "About:   SOM (Self-Organizing Map) filtering.\n");
+    fprintf(stderr, "Usage:   bcftools som --train    [options] <annots.tab.gz>\n");
+    fprintf(stderr, "         bcftools som --classify [options]\n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Model training options:\n");
-	fprintf(stderr, "    -f, --nfold <int>                  n-fold cross-validation (number of maps) [5]\n");
-	fprintf(stderr, "    -p, --prefix <string>              prefix of output files\n");
-	fprintf(stderr, "    -s, --size <int>                   map size [20]\n");
-	fprintf(stderr, "    -t, --train                        \n");
+    fprintf(stderr, "Model training options:\n");
+    fprintf(stderr, "    -f, --nfold <int>                  n-fold cross-validation (number of maps) [5]\n");
+    fprintf(stderr, "    -p, --prefix <string>              prefix of output files\n");
+    fprintf(stderr, "    -s, --size <int>                   map size [20]\n");
+    fprintf(stderr, "    -t, --train                        \n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Classifying options:\n");
-	fprintf(stderr, "    -c, --classify                     \n");
+    fprintf(stderr, "Classifying options:\n");
+    fprintf(stderr, "    -c, --classify                     \n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Experimental training options (no reason to change):\n");
-	fprintf(stderr, "    -b, --bmu-threshold <float>        threshold for selection of best-matching unit [0.9]\n");
-	fprintf(stderr, "    -d, --som-dimension <int>          SOM dimension [2]\n");
-	fprintf(stderr, "    -e, --exclude-bad                  exclude bad sites from training, use for evaluation only\n");
-	fprintf(stderr, "    -l, --learning-rate <float>        learning rate [1.0]\n");
-	fprintf(stderr, "    -m, --merge <min|max|avg>          -f merge algorithm [avg]\n");
-	fprintf(stderr, "    -n, --ntrain-sites <int>           effective number of training sites [number of good sites]\n");
-	fprintf(stderr, "    -r, --random-seed <int>            random seed, 0 for time() [1]\n");
-	fprintf(stderr, "\n");
-	exit(1);
+    fprintf(stderr, "Experimental training options (no reason to change):\n");
+    fprintf(stderr, "    -b, --bmu-threshold <float>        threshold for selection of best-matching unit [0.9]\n");
+    fprintf(stderr, "    -d, --som-dimension <int>          SOM dimension [2]\n");
+    fprintf(stderr, "    -e, --exclude-bad                  exclude bad sites from training, use for evaluation only\n");
+    fprintf(stderr, "    -l, --learning-rate <float>        learning rate [1.0]\n");
+    fprintf(stderr, "    -m, --merge <min|max|avg>          -f merge algorithm [avg]\n");
+    fprintf(stderr, "    -n, --ntrain-sites <int>           effective number of training sites [number of good sites]\n");
+    fprintf(stderr, "    -r, --random-seed <int>            random seed, 0 for time() [1]\n");
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
 int main_vcfsom(int argc, char *argv[])
 {
-	int c;
-	args_t *args     = (args_t*) calloc(1,sizeof(args_t));
-	args->argc       = argc; args->argv = argv;
+    int c;
+    args_t *args     = (args_t*) calloc(1,sizeof(args_t));
+    args->argc       = argc; args->argv = argv;
     args->nbin       = 20;
     args->learn      = 1.0;
     args->bmu_th     = 0.9;
@@ -655,27 +654,27 @@ int main_vcfsom(int argc, char *argv[])
     args->merge      = MERGE_AVG;
     args->train_bad  = 1;
 
-	static struct option loptions[] = 
-	{
-		{"help",0,0,'h'},
-		{"prefix",1,0,'p'},
-		{"ntrain-sites",1,0,'n'},
-		{"random-seed",1,0,'r'},
-		{"bmu-threshold",1,0,'b'},
-		{"exclude-bad",0,0,'e'},
-		{"learning-rate",1,0,'l'},
-		{"size",1,0,'s'},
-		{"som-dimension",1,0,'d'},
-		{"nfold",1,0,'f'},
-		{"merge",1,0,'m'},
-		{"train",0,0,'t'},
-		{"classify",0,0,'c'},
-		{0,0,0,0}
-	};
-	while ((c = getopt_long(argc, argv, "htcp:n:r:b:l:s:f:d:m:e",loptions,NULL)) >= 0) {
-		switch (c) {
+    static struct option loptions[] =
+    {
+        {"help",0,0,'h'},
+        {"prefix",1,0,'p'},
+        {"ntrain-sites",1,0,'n'},
+        {"random-seed",1,0,'r'},
+        {"bmu-threshold",1,0,'b'},
+        {"exclude-bad",0,0,'e'},
+        {"learning-rate",1,0,'l'},
+        {"size",1,0,'s'},
+        {"som-dimension",1,0,'d'},
+        {"nfold",1,0,'f'},
+        {"merge",1,0,'m'},
+        {"train",0,0,'t'},
+        {"classify",0,0,'c'},
+        {0,0,0,0}
+    };
+    while ((c = getopt_long(argc, argv, "htcp:n:r:b:l:s:f:d:m:e",loptions,NULL)) >= 0) {
+        switch (c) {
             case 'e': args->train_bad = 0; break;
-            case 'm': 
+            case 'm':
                 if ( !strcmp(optarg,"min") ) args->merge = MERGE_MIN;
                 else if ( !strcmp(optarg,"max") ) args->merge = MERGE_MAX;
                 else if ( !strcmp(optarg,"avg") ) args->merge = MERGE_AVG;
@@ -688,18 +687,18 @@ int main_vcfsom(int argc, char *argv[])
             case 'l': args->learn = atof(optarg); break;
             case 's': args->nbin = atoi(optarg); break;
             case 'f': args->nfold = atoi(optarg); break;
-            case 'd': 
-                args->ndim = atoi(optarg); 
+            case 'd':
+                args->ndim = atoi(optarg);
                 if ( args->ndim<2 ) error("Expected -d >=2, got %d\n", args->ndim);
                 if ( args->ndim>3 ) fprintf(stderr,"Warning: This will take a long time and is not going to make the results better: -d %d\n", args->ndim);
                 break;
             case 't': args->action = SOM_TRAIN; break;
             case 'c': args->action = SOM_CLASSIFY; break;
-			case 'h': 
-			case '?': usage();
-			default: error("Unknown argument: %s\n", optarg);
-		}
-	}
+            case 'h':
+            case '?': usage();
+            default: error("Unknown argument: %s\n", optarg);
+        }
+    }
 
     if ( !args->rand_seed ) args->rand_seed = time(NULL);
     if ( argc!=optind+1 ) usage();
@@ -710,7 +709,7 @@ int main_vcfsom(int argc, char *argv[])
     else if ( args->action == SOM_CLASSIFY ) do_classify(args);
 
     destroy_data(args);
-	free(args);
-	return 0;
+    free(args);
+    return 0;
 }
 

@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -124,7 +123,7 @@ static void init_data(args_t *args)
     else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
 
     if ( args->af_tag )
-        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) ) 
+        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) )
             error("No such INFO tag in the VCF: %s\n", args->af_tag);
 
     if ( !bcf_sr_set_samples(args->files, str.s, 0) )
@@ -193,14 +192,14 @@ static int load_genmap(args_t *args, bcf1_t *line)
         fname = args->genmap_fname;
 
     htsFile *fp = hts_open(fname, "rb");
-    if ( !fp ) 
+    if ( !fp )
     {
         args->ngenmap = 0;
         return -1;
     }
 
     hts_getline(fp, KS_SEP_LINE, &str);
-    if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") ) 
+    if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") )
         error("Unexpected header, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
 
     args->ngenmap = args->igenmap = 0;
@@ -246,7 +245,7 @@ static double get_genmap_rate(args_t *args, int start, int end)
     int j = i;
     while ( j+1<args->ngenmap && args->genmap[j].pos < end ) j++;
 
-    if ( i==j ) 
+    if ( i==j )
     {
         args->igenmap = i;
         return 0;
@@ -282,9 +281,9 @@ void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
 
 /**
  *  This function implements the HMM model:
- *    D = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity), 
+ *    D = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity),
  *    f = non-ref allele frequency
- * 
+ *
  *  Emission probabilities:
  *    oAZ = P_i(D|AZ) = (1-f)*P(D|RR) + f*P(D|AA)
  *    oHW = P_i(D|HW) = (1-f)^2 * P(D|RR) + f^2 * P(D|AA) + 2*f*(1-f)*P(D|RA)
@@ -298,7 +297,7 @@ void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
  *    ci  = P_i(C)    .. probability of cross-over at site i, from genetic map
  *
  *    AZi = P_i(AZ)   .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
- *    HWi = P_i(HW) 
+ *    HWi = P_i(HW)
  *
  *    P_i(AZ|AZ) = P(AZ|AZ) * (1-ci) * AZ{i-1} = (1-tHW) * (1-ci) * AZ{i-1}
  *    P_i(AZ|HW) = P(AZ|HW) * ci * HW{i-1}     = tAZ * ci * (1 - AZ{i-1})
@@ -573,7 +572,7 @@ static void vcfroh(args_t *args, bcf1_t *line)
 
     // Initialize genetic map
     int skip_rid = 0;
-    if ( args->prev_rid<0 ) 
+    if ( args->prev_rid<0 )
     {
         args->prev_rid = line->rid;
         args->prev_pos = line->pos;
@@ -667,7 +666,7 @@ int main_vcfroh(int argc, char *argv[])
     args->rec_rate = 0;
     int regions_is_file = 0, targets_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"AF-tag",1,0,0},
         {"AF-file",1,0,1},

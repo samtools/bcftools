@@ -1,27 +1,26 @@
-/* The MIT License
+/*  reheader.c -- reheader subcommand.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -57,11 +56,11 @@ static void destroy_data(args_t *args)
 static void read_header_file(char *fname, kstring_t *hdr)
 {
     kstring_t tmp = {0,0,0};
-    hdr->l = 0; 
+    hdr->l = 0;
 
     htsFile *fp = hts_open(fname, "r");
     if ( !fp ) error("Could not read: %s\n", fname);
-    while ( hts_getline(fp, KS_SEP_LINE, &tmp) > 0 ) 
+    while ( hts_getline(fp, KS_SEP_LINE, &tmp) > 0 )
     {
         kputsn(tmp.s,tmp.l,hdr);
         kputc('\n',hdr);
@@ -102,7 +101,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
     i = j = n = 0;
     while ( hdr->s[idx+i] && hdr->s[idx+i])
     {
-        if ( hdr->s[idx+i]=='\t' ) 
+        if ( hdr->s[idx+i]=='\t' )
         {
             hdr->s[idx+i] = 0;
 
@@ -113,7 +112,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
             }
             else
                 kputs(hdr->s+idx+j, &tmp);
-                
+
             kputc('\t',&tmp);
 
             j = ++i;
@@ -153,7 +152,7 @@ static void set_samples(char **samples, int nsamples, kstring_t *hdr)
         fprintf(stderr, "Warning: different number of samples: %d vs %d\n", nsamples,ncols-8);
 
     ncols = 0;
-    while ( ncols!=9 ) 
+    while ( ncols!=9 )
     {
         i++;
         if ( hdr->s[i]=='\t' ) ncols++;
@@ -193,7 +192,7 @@ static void reheader_vcf_gz(args_t *args)
                 skip_until = 0;
             }
             // The header has finished
-            if ( buffer[skip_until]!='#' ) 
+            if ( buffer[skip_until]!='#' )
             {
                 kputsn(buffer,skip_until,&hdr);
                 break;
@@ -412,7 +411,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
         }
         if ( i!=rec->n_info )
             error("The INFO tag is not defined: \"%s\"\n", bcf_hdr_int2id(hdr,BCF_DT_ID,rec->d.info[i].key));
-        
+
         for (i=0; i<rec->n_fmt; i++)
         {
             int id = rec->d.fmt[i].id;
@@ -424,7 +423,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
         }
         if ( i!=rec->n_fmt )
             error("The FORMAT tag is not defined: \"%s\"\n", bcf_hdr_int2id(hdr,BCF_DT_ID,rec->d.fmt[i].id));
-        
+
         bcf_write(fp_out,hdr_out,rec);
     }
     bcf_destroy(rec);
@@ -456,7 +455,7 @@ int main_reheader(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"header",1,0,'h'},
         {"samples",1,0,'s'},
@@ -485,7 +484,7 @@ int main_reheader(int argc, char *argv[])
 
     init_data(args);
 
-    if ( args->file_type & FT_VCF ) 
+    if ( args->file_type & FT_VCF )
     {
         if ( args->file_type & FT_GZ )
             reheader_vcf_gz(args);

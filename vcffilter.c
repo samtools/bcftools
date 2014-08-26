@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcffilter.c -- Apply fixed-threshold filters.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -124,7 +123,7 @@ static void init_data(args_t *args)
         {
             kstring_t tmp = {0,0,0};
             if ( args->snp_gap ) kputs("\"SnpGap\"", &tmp);
-            if ( args->indel_gap ) 
+            if ( args->indel_gap )
             {
                 if ( tmp.s ) kputs(" and ", &tmp);
                 kputs("\"IndelGap\"", &tmp);
@@ -198,7 +197,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
      *  positions 0 and 8 are not:
      *           0123456789
      *      ref  .G.GT..G..
-     *      del  .A.G-..A.. 
+     *      del  .A.G-..A..
      *  Here the positions 1 and 6 are filtered, 0 and 7 are not:
      *           0123-456789
      *      ref  .G.G-..G..
@@ -220,11 +219,11 @@ static void buffered_filters(args_t *args, bcf1_t *line)
     const int IndelGap_flush = VCF_OTHER<<3;
 
     int var_type = 0, i;
-    if ( line ) 
+    if ( line )
     {
         // Still on the same chromosome?
-        int ilast = rbuf_last(&args->rbuf); 
-        if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid ) 
+        int ilast = rbuf_last(&args->rbuf);
+        if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid )
             flush_buffer(args, args->rbuf.n); // new chromosome, flush everything
 
         assert( args->rbuf.n<args->rbuf.m );
@@ -300,7 +299,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         }
     }
 
-    if ( !line ) 
+    if ( !line )
     {
         // Finished: flush everything
         flush_buffer(args, args->rbuf.n);
@@ -316,7 +315,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         {
             bcf1_t *rec = args->rbuf_lines[i];
             int rec_to  = rec->pos + rec->d.var[0].n - 1;   // last position affected by the variant
-            if ( rec_to + args->snp_gap < last_from ) 
+            if ( rec_to + args->snp_gap < last_from )
                 j_flush++;
             else if ( (var_type & VCF_INDEL) && (rec->d.var_type & VCF_SNP) && !(rec->d.var_type & SnpGap_set) )
             {
@@ -339,7 +338,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
 static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
 {
     int i,j;
-    if ( !bcf_hdr_nsamples(args->hdr) ) return; 
+    if ( !bcf_hdr_nsamples(args->hdr) ) return;
     if ( args->smpl_pass )
     {
         int npass = 0;
@@ -356,7 +355,7 @@ static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
     if ( args->set_gts==SET_GTS_MISSING ) new_gt = bcf_gt_missing;
     else if ( args->set_gts==SET_GTS_REF ) new_gt = bcf_gt_unphased(0);
     else error("todo: set_gts=%d\n", args->set_gts);
-    for (i=0; i<bcf_hdr_nsamples(args->hdr); i++) 
+    for (i=0; i<bcf_hdr_nsamples(args->hdr); i++)
     {
         if ( args->smpl_pass )
         {
@@ -381,10 +380,10 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools filter [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (e.g. '%%TYPE=\"snp\" && %%QUAL>=10 && (DP4[2]+DP4[3] > 2')\n");
+    fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -g, --SnpGap <int>            filter SNPs within <int> base pairs of an indel\n");
     fprintf(stderr, "    -G, --IndelGap <int>          filter clusters of indels separated by <int> or fewer base pairs allowing only one to pass\n");
-    fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
+    fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true (see man page for details\n");
     fprintf(stderr, "    -m, --mode [+x]               \"+\": do not replace but add to existing FILTER; \"x\": reset filters at sites which pass\n");
     fprintf(stderr, "    -o, --output <file>           write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
@@ -394,8 +393,6 @@ static void usage(args_t *args)
     fprintf(stderr, "    -S, --set-GTs <.|0>           set genotypes of failed samples to missing (.) or ref (0)\n");
     fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "\n");
-    filter_expression_info(stderr);
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -410,7 +407,7 @@ int main_vcffilter(int argc, char *argv[])
     args->output_type = FT_VCF;
     int regions_is_file = 0, targets_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"set-GTs",1,0,'S'},
         {"mode",1,0,'m'},
@@ -432,7 +429,7 @@ int main_vcffilter(int argc, char *argv[])
             case 'g': args->snp_gap = atoi(optarg); break;
             case 'G': args->indel_gap = atoi(optarg); break;
             case 'o': args->output_fname = optarg; break;
-            case 'O': 
+            case 'O':
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -442,9 +439,9 @@ int main_vcffilter(int argc, char *argv[])
                 }
                 break;
             case 's': args->soft_filter = optarg; break;
-            case 'm': 
-                if ( strchr(optarg,'x') ) args->annot_mode |= ANNOT_RESET; 
-                if ( strchr(optarg,'+') ) args->annot_mode |= ANNOT_ADD; 
+            case 'm':
+                if ( strchr(optarg,'x') ) args->annot_mode |= ANNOT_RESET;
+                if ( strchr(optarg,'+') ) args->annot_mode |= ANNOT_ADD;
                 break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
@@ -452,8 +449,8 @@ int main_vcffilter(int argc, char *argv[])
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-            case 'S': 
-                if ( !strcmp(".",optarg) ) args->set_gts = SET_GTS_MISSING; 
+            case 'S':
+                if ( !strcmp(".",optarg) ) args->set_gts = SET_GTS_MISSING;
                 else if ( !strcmp("0",optarg) ) args->set_gts = SET_GTS_REF;
                 else error("The argument to -S not recognised: %s\n", optarg);
                 break;
@@ -479,7 +476,7 @@ int main_vcffilter(int argc, char *argv[])
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }
-    else if ( optind+1 < argc ) 
+    else if ( optind+1 < argc )
     {
         int i;
         kstring_t tmp = {0,0,0};
@@ -496,7 +493,7 @@ int main_vcffilter(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->targets_list);
     }
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open: %s\n", fname);
-    
+
     init_data(args);
     bcf_hdr_write(args->out_fh, args->hdr);
     while ( bcf_sr_next_line(args->files) )
@@ -510,7 +507,7 @@ int main_vcffilter(int argc, char *argv[])
         }
         if ( args->soft_filter || args->set_gts || pass )
         {
-            if ( pass ) 
+            if ( pass )
             {
                 bcf_unpack(line,BCF_UN_FLT);
                 if ( args->annot_mode & ANNOT_RESET || !line->d.n_flt ) bcf_add_filter(args->hdr, line, args->flt_pass);

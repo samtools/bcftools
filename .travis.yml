@@ -8,7 +8,6 @@ compiler:
 env:
   global:
     - HTSDIR=./htslib
-    - PATH=$TRAVIS_BUILD_DIR/htslib:$PATH
     - LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/htslib:$LD_LIBRARY_PATH
 
 matrix:
@@ -18,6 +17,6 @@ matrix:
       env: CFLAGS="-std=gnu99 -O0"
 
 before_script:
-  - git clone --depth=5 --branch=develop git://github.com/samtools/htslib.git && cd htslib && make && cd ..
+  - git clone --depth=5 --branch=develop git://github.com/samtools/htslib.git
 
 script: make -e && make -e test

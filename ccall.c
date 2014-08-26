@@ -1,27 +1,27 @@
-/* The MIT License
+/*  ccall.c -- consensus variant calling.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
+    Portions copyright (C) 2010 Broad Institute.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <math.h>
 #include <htslib/kfunc.h>
@@ -37,8 +37,8 @@ struct _ccall_t
     bcf_p1aux_t *p1;
 };
 
-void ccall_init(call_t *call) 
-{ 
+void ccall_init(call_t *call)
+{
     call->cdat = (ccall_t*) calloc(1,sizeof(ccall_t));
     call_init_pl2p(call);
     call->cdat->p1 = bcf_p1_init(bcf_hdr_nsamples(call->hdr), call->ploidy);
@@ -58,17 +58,17 @@ void ccall_init(call_t *call)
     // bcf_hdr_append(call->hdr,);
     bcf_hdr_append(call->hdr,"##INFO=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases\">");
 
-    return; 
+    return;
 }
-void ccall_destroy(call_t *call) 
-{ 
+void ccall_destroy(call_t *call)
+{
     free(call->gts);
     free(call->anno16);
     free(call->PLs);
     free(call->pdg);
     bcf_p1_destroy(call->cdat->p1);
     free(call->cdat);
-    return; 
+    return;
 }
 
 // Inits P(D|G): convert PLs from log space, only two alleles (three PLs) are used.
@@ -89,58 +89,58 @@ static void set_pdg3(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt)
 
 static double ttest(int n1, int n2, float a[4])
 {
-	extern double kf_betai(double a, double b, double x);
-	double t, v, u1, u2;
-	if (n1 == 0 || n2 == 0 || n1 + n2 < 3) return 1.0;
-	u1 = (double)a[0] / n1; u2 = (double)a[2] / n2;
-	if (u1 <= u2) return 1.;
-	t = (u1 - u2) / sqrt(((a[1] - n1 * u1 * u1) + (a[3] - n2 * u2 * u2)) / (n1 + n2 - 2) * (1./n1 + 1./n2));
-	v = n1 + n2 - 2;
-	return t < 0.? 1. : .5 * kf_betai(.5*v, .5, v/(v+t*t));
+    extern double kf_betai(double a, double b, double x);
+    double t, v, u1, u2;
+    if (n1 == 0 || n2 == 0 || n1 + n2 < 3) return 1.0;
+    u1 = (double)a[0] / n1; u2 = (double)a[2] / n2;
+    if (u1 <= u2) return 1.;
+    t = (u1 - u2) / sqrt(((a[1] - n1 * u1 * u1) + (a[3] - n2 * u2 * u2)) / (n1 + n2 - 2) * (1./n1 + 1./n2));
+    v = n1 + n2 - 2;
+    return t < 0.? 1. : .5 * kf_betai(.5*v, .5, v/(v+t*t));
 }
 
 static int test16_core(float anno[16], anno16_t *a)
 {
-	extern double kt_fisher_exact(int n11, int n12, int n21, int n22, double *_left, double *_right, double *two);
-	double left, right;
-	int i;
-	a->p[0] = a->p[1] = a->p[2] = a->p[3] = 1.;
+    extern double kt_fisher_exact(int n11, int n12, int n21, int n22, double *_left, double *_right, double *two);
+    double left, right;
+    int i;
+    a->p[0] = a->p[1] = a->p[2] = a->p[3] = 1.;
     for (i=0; i<4; i++) a->d[i] = anno[i];
-	a->depth = anno[0] + anno[1] + anno[2] + anno[3];
-	a->is_tested = (anno[0] + anno[1] > 0 && anno[2] + anno[3] > 0);
-	if (a->depth == 0) return -1;
-	a->mq = (int)(sqrt((anno[9] + anno[11]) / a->depth) + .499);
-	kt_fisher_exact(anno[0], anno[1], anno[2], anno[3], &left, &right, &a->p[0]);
-	for (i = 1; i < 4; ++i)
-		a->p[i] = ttest(anno[0] + anno[1], anno[2] + anno[3], anno+4*i);
-	return 0;
+    a->depth = anno[0] + anno[1] + anno[2] + anno[3];
+    a->is_tested = (anno[0] + anno[1] > 0 && anno[2] + anno[3] > 0);
+    if (a->depth == 0) return -1;
+    a->mq = (int)(sqrt((anno[9] + anno[11]) / a->depth) + .499);
+    kt_fisher_exact(anno[0], anno[1], anno[2], anno[3], &left, &right, &a->p[0]);
+    for (i = 1; i < 4; ++i)
+        a->p[i] = ttest(anno[0] + anno[1], anno[2] + anno[3], anno+4*i);
+    return 0;
 }
 
 int test16(float *anno16, anno16_t *a)
 {
-	a->p[0] = a->p[1] = a->p[2] = a->p[3] = 1.;
-	a->d[0] = a->d[1] = a->d[2] = a->d[3] = 0.;
-	a->mq = a->depth = a->is_tested = 0;
-	return test16_core(anno16, a);
+    a->p[0] = a->p[1] = a->p[2] = a->p[3] = 1.;
+    a->d[0] = a->d[1] = a->d[2] = a->d[3] = 0.;
+    a->mq = a->depth = a->is_tested = 0;
+    return test16_core(anno16, a);
 }
 static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double em[10])
 {
-	int has_I16, is_var;
-	float fq, r;
-	anno16_t a;
+    int has_I16, is_var;
+    float fq, r;
+    anno16_t a;
     float tmpf[4], tmpi;
 
     bcf_get_info_float(call->hdr, rec, "I16", &call->anno16, &call->n16);
 
-	has_I16 = test16(call->anno16, &a) >= 0? 1 : 0;
+    has_I16 = test16(call->anno16, &a) >= 0? 1 : 0;
 
-	// print EM
+    // print EM
     if (em[0] >= 0)
     {
         tmpf[0] = 1 - em[0];
         bcf_update_info_float(call->hdr, rec, "AF1", tmpf, 1);
     }
-    if (em[4] >= 0 && em[4] <= 0.05) 
+    if (em[4] >= 0 && em[4] <= 0.05)
     {
         tmpf[0] = em[3]; tmpf[1] = em[2]; tmpf[2] = em[1]; tmpf[3] = em[4];
         bcf_update_info_float(call->hdr, rec, "G3", tmpf, 3);
@@ -151,7 +151,7 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
         tmpf[0] = 1 - em[5]; tmpf[1] = 1 - em[6];
         bcf_update_info_float(call->hdr, rec, "AF2", tmpf, 2);
     }
-    if (em[7] >= 0) 
+    if (em[7] >= 0)
     {
         tmpf[0] = em[7];
         bcf_update_info_float(call->hdr, rec, "LRT", tmpf, 1);
@@ -163,12 +163,12 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     }
 
     bcf_p1aux_t *p1 = call->cdat->p1;
-	if (p1->cons_llr > 0) 
+    if (p1->cons_llr > 0)
     {
         tmpi = p1->cons_llr;
         bcf_update_info_int32(call->hdr, rec, "CLR", &tmpi, 1);
         // todo: trio calling with -c
-		if (p1->cons_gt > 0)
+        if (p1->cons_gt > 0)
         {
             char tmp[4];
             tmp[0] = p1->cons_gt&0xff; tmp[1] = p1->cons_gt>>8&0xff; tmp[2] = p1->cons_gt>>16&0xff; tmp[3] = 0;
@@ -176,37 +176,37 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
             tmp[0] = p1->cons_gt>>32&0xff; tmp[1] = p1->cons_gt>>40&0xff; tmp[2] = p1->cons_gt>>48&0xff;
             bcf_update_info_string(call->hdr, rec, "CGT", tmp);
         }
-	}
-	if (pr == 0) return 1;
+    }
+    if (pr == 0) return 1;
 
-	is_var = (pr->p_ref < call->pref);
-	r = is_var? pr->p_ref : pr->p_var;
+    is_var = (pr->p_ref < call->pref);
+    r = is_var? pr->p_ref : pr->p_var;
 
     bcf_update_info_int32(call->hdr, rec, "AC1", &pr->ac, 1);
     int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
     bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
     bcf_update_info_int32(call->hdr, rec, "MQ", &a.mq, 1);
 
-	fq = pr->p_ref_folded < 0.5? -4.343 * log(pr->p_ref_folded) : 4.343 * log(pr->p_var_folded);
-	if (fq < -999) fq = -999;
-	if (fq > 999) fq = 999;
+    fq = pr->p_ref_folded < 0.5? -4.343 * log(pr->p_ref_folded) : 4.343 * log(pr->p_var_folded);
+    if (fq < -999) fq = -999;
+    if (fq > 999) fq = 999;
     bcf_update_info_float(call->hdr, rec, "FQ", &fq, 1);
 
     assert( pr->cmp[0]<0 );
     // todo
-	//  if (pr->cmp[0] >= 0.) { // two sample groups
-	//  	int i, q[3];
-	//  	for (i = 1; i < 3; ++i) {
-	//  		double x = pr->cmp[i] + pr->cmp[0]/2.;
-	//  		q[i] = x == 0? 255 : (int)(-4.343 * log(x) + .499);
-	//  		if (q[i] > 255) q[i] = 255;
-	//  	}
-	//  	if (pr->perm_rank >= 0) ksprintf(&s, "PR=%d;", pr->perm_rank);
+    //  if (pr->cmp[0] >= 0.) { // two sample groups
+    //      int i, q[3];
+    //      for (i = 1; i < 3; ++i) {
+    //          double x = pr->cmp[i] + pr->cmp[0]/2.;
+    //          q[i] = x == 0? 255 : (int)(-4.343 * log(x) + .499);
+    //          if (q[i] > 255) q[i] = 255;
+    //      }
+    //      if (pr->perm_rank >= 0) ksprintf(&s, "PR=%d;", pr->perm_rank);
     //
-	//  	ksprintf(&s, "PCHI2=%.3g;PC2=%d,%d;", q[1], q[2], pr->p_chi2);
-	//  }
+    //      ksprintf(&s, "PCHI2=%.3g;PC2=%d,%d;", q[1], q[2], pr->p_chi2);
+    //  }
 
-	if (has_I16 && a.is_tested)
+    if (has_I16 && a.is_tested)
     {
         int i;
         for (i=0; i<4; i++) tmpf[i] = a.p[i];
@@ -215,8 +215,8 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     bcf_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
     bcf_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag
 
-	rec->qual = r < 1e-100? 999 : -4.343 * log(r);
-	if (rec->qual > 999) rec->qual = 999;
+    rec->qual = r < 1e-100? 999 : -4.343 * log(r);
+    if (rec->qual > 999) rec->qual = 999;
 
     // Remove unused alleles
     int nals = !is_var ? 1 : pr->rank0 < 2? 2 : pr->rank0+1;
@@ -228,7 +228,7 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
         int npls_src = call->nPLs / rec->n_sample, npls_dst = nals*(nals+1)/2;
         int *pls_src = call->PLs - npls_src, *pls_dst = call->PLs - npls_dst;
         int isample, i;
-        for (isample = 0; isample < rec->n_sample; isample++) 
+        for (isample = 0; isample < rec->n_sample; isample++)
         {
             pls_src += npls_src;
             pls_dst += npls_dst;
@@ -283,11 +283,11 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
         // GQ: todo
     }
     bcf_update_genotypes(call->hdr, rec, call->gts, rec->n_sample*2);
-	return is_var;
+    return is_var;
 }
 
 
-int ccall(call_t *call, bcf1_t *rec) 
+int ccall(call_t *call, bcf1_t *rec)
 {
     int nsmpl = bcf_hdr_nsamples(call->hdr);
 
@@ -310,6 +310,6 @@ int ccall(call_t *call, bcf1_t *rec)
     ret = bcf_p1_cal(call, rec, do_contrast, call->cdat->p1, &pr);
     if (pr.p_ref >= call->pref && (call->flag & CALL_VARONLY)) return 0;
     if (ret >= 0) ret = update_bcf1(call, rec, &pr, em);
-    return ret; 
+    return ret;
 }
 

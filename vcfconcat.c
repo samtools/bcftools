@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -73,13 +72,13 @@ static void init_data(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
-        if ( !args->out_hdr ) 
+        if ( !args->out_hdr )
             args->out_hdr = bcf_hdr_dup(hdr);
         else
         {
             bcf_hdr_combine(args->out_hdr, hdr);
 
-            if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) ) 
+            if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
                 error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
 
             int j;
@@ -117,7 +116,7 @@ static void init_data(args_t *args)
 
     bcf_hdr_write(args->out_fh, args->out_hdr);
 
-    if ( args->allow_overlaps ) 
+    if ( args->allow_overlaps )
     {
         args->files = bcf_sr_init();
         args->files->require_index = 1;
@@ -305,7 +304,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
     {
         if ( args->prev_chr>=0 ) phased_flush(args);
 
-        for (i=0; i<nsmpl; i++) 
+        for (i=0; i<nsmpl; i++)
             args->phase_set[i] = arec->pos+1;
 
         if ( args->seen_seq[chr_id] ) error("The chromosome block %s is not contiguous\n", bcf_seqname(args->files->readers[0].header,arec));
@@ -367,7 +366,7 @@ static void concat(args_t *args)
                 seek_pos = line->pos;
                 seek_chr = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,line));
             }
-            else if ( new_file ) 
+            else if ( new_file )
                 bcf_sr_seek(args->files,NULL,0);  // set to start
 
             int nret;
@@ -421,7 +420,7 @@ static void concat(args_t *args)
             }
         }
     }
-    else if ( args->files )  // combining overlapping files, using synced reader 
+    else if ( args->files )  // combining overlapping files, using synced reader
     {
         while ( bcf_sr_next_line(args->files) )
         {
@@ -455,7 +454,7 @@ static void concat(args_t *args)
                     kputsn(fp->line.s,str-fp->line.s,&tmp);
                     int chr_id = bcf_hdr_name2id(args->out_hdr, tmp.s);
                     if ( chr_id<0 ) error("FIXME: sequence name %s in %s\n", tmp.s, args->fnames[i]);
-                    if ( prev_chr_id!=chr_id ) 
+                    if ( prev_chr_id!=chr_id )
                     {
                         prev_pos = -1;
                         if ( args->seen_seq[chr_id] )
@@ -480,7 +479,7 @@ static void concat(args_t *args)
                 {
                     bcf_translate(args->out_hdr, hdr, line);
 
-                    if ( prev_chr_id!=line->rid ) 
+                    if ( prev_chr_id!=line->rid )
                     {
                         prev_pos = -1;
                         if ( args->seen_seq[line->rid] )
@@ -514,12 +513,12 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools concat [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-	fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
-	fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
-	fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
-	fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
-	fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
-	fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
+    fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
+    fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
+    fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
+    fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
+    fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -533,7 +532,7 @@ int main_vcfconcat(int argc, char *argv[])
     args->output_type = FT_VCF;
     args->min_PQ  = 30;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"allow-overlaps",0,0,'a'},
         {"ligate",0,0,'l'},
@@ -546,12 +545,12 @@ int main_vcfconcat(int argc, char *argv[])
     while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:",loptions,NULL)) >= 0)
     {
         switch (c) {
-    	    case 'q': args->min_PQ = atoi(optarg); break;
-    	    case 'a': args->allow_overlaps = 1; break;
-    	    case 'l': args->phased_concat = 1; break;
-    	    case 'f': args->file_list = optarg; break;
+            case 'q': args->min_PQ = atoi(optarg); break;
+            case 'a': args->allow_overlaps = 1; break;
+            case 'l': args->phased_concat = 1; break;
+            case 'f': args->file_list = optarg; break;
             case 'o': args->output_fname = optarg; break;
-    	    case 'O': 
+            case 'O':
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -560,13 +559,13 @@ int main_vcfconcat(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 };
                 break;
-            case 'h': 
+            case 'h':
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    while ( optind<argc ) 
-    { 
+    while ( optind<argc )
+    {
         args->nfnames++;
         args->fnames = (char **)realloc(args->fnames,sizeof(char*)*args->nfnames);
         args->fnames[args->nfnames-1] = strdup(argv[optind]);

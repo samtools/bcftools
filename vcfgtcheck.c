@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfgtcheck.c -- Check sample identity.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -40,14 +39,14 @@
 
 typedef struct
 {
-	bcf_srs_t *files;           // first reader is the query VCF - single sample normally or multi-sample for cross-check
+    bcf_srs_t *files;           // first reader is the query VCF - single sample normally or multi-sample for cross-check
     bcf_hdr_t *gt_hdr, *sm_hdr; // VCF with genotypes to compare against and the query VCF
     int ntmp_arr, npl_arr;
     int32_t *tmp_arr, *pl_arr;
     double *lks, *sites;
     int *cnts, *dps, hom_only, cross_check, all_sites;
-	char *cwd, **argv, *gt_fname, *plot, *query_sample, *target_sample;
-	int argc, no_PLs;
+    char *cwd, **argv, *gt_fname, *plot, *query_sample, *target_sample;
+    int argc, no_PLs;
 }
 args_t;
 
@@ -300,10 +299,10 @@ static void print_header(args_t *args, FILE *fp)
 
 static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
 {
-    // PLs not present, use GTs instead. 
+    // PLs not present, use GTs instead.
     int fake_PL = args->no_PLs ? args->no_PLs : 99;    // with 1, discordance is the number of non-matching GTs
     int nsm_gt, i;
-    if ( (nsm_gt=bcf_get_genotypes(hdr, line, &args->tmp_arr, &args->ntmp_arr)) <= 0 ) 
+    if ( (nsm_gt=bcf_get_genotypes(hdr, line, &args->tmp_arr, &args->ntmp_arr)) <= 0 )
         error("GT not present at %s:%d?\n", hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
     nsm_gt /= bcf_hdr_nsamples(hdr);
     int npl = line->n_allele*(line->n_allele+1)/2;
@@ -345,7 +344,7 @@ static void check_gt(args_t *args)
 
     // Initialize things: check which tags are defined in the header, sample names etc.
     if ( bcf_hdr_id2int(args->gt_hdr, BCF_DT_ID, "GT")<0 ) error("[E::%s] GT not present in the header of %s?\n", __func__, args->files->readers[1].fname);
-    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
+    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 )
     {
         if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
             error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
@@ -358,14 +357,14 @@ static void check_gt(args_t *args)
     print_header(args, fp);
 
     int tgt_isample = -1, query_isample = 0;
-    if ( args->target_sample ) 
+    if ( args->target_sample )
     {
         tgt_isample = bcf_hdr_id2int(args->gt_hdr, BCF_DT_SAMPLE, args->target_sample);
         if ( tgt_isample<0 ) error("No such sample in %s: [%s]\n", args->files->readers[1].fname, args->target_sample);
     }
     if ( args->all_sites )
     {
-        if ( tgt_isample==-1 ) 
+        if ( tgt_isample==-1 )
         {
             fprintf(stderr,"No target sample selected for comparison, using the first sample in %s: %s\n", args->gt_fname,args->gt_hdr->samples[0]);
             tgt_isample = 0;
@@ -401,7 +400,7 @@ static void check_gt(args_t *args)
 
         // Target genotypes
         int ngt, npl;
-        if ( (ngt=bcf_get_genotypes(args->gt_hdr, gt_line, &gt_arr, &ngt_arr)) <= 0 ) 
+        if ( (ngt=bcf_get_genotypes(args->gt_hdr, gt_line, &gt_arr, &ngt_arr)) <= 0 )
             error("GT not present at %s:%d?", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
         ngt /= bcf_hdr_nsamples(args->gt_hdr);
         if ( ngt!=2 ) continue; // checking only diploid genotypes
@@ -421,7 +420,7 @@ static void check_gt(args_t *args)
         // For faster access to genotype likelihoods (PLs) of the query sample
         int max_ipl, *pl_ptr = args->pl_arr + query_isample*npl;
         double sum_pl = 0; // for converting PLs to probs
-        for (max_ipl=0; max_ipl<npl; max_ipl++) 
+        for (max_ipl=0; max_ipl<npl; max_ipl++)
         {
             if ( pl_ptr[max_ipl]==bcf_int32_vector_end ) break;
             if ( pl_ptr[max_ipl]==bcf_int32_missing ) continue;
@@ -442,8 +441,8 @@ static void check_gt(args_t *args)
             int igt_tgt = igt_tgt = bcf_alleles2gt(a,b); // genotype index in the target file
             int igt_qry = gt2ipl[igt_tgt];  // corresponding genotype in query file
             if ( igt_qry>=max_ipl || pl_ptr[igt_qry]<0 ) continue;   // genotype not present in query sample: haploid or missing
-            args->lks[i] += sum_pl<0 ? -pl_ptr[igt_qry] : log(pow(10, -0.1*pl_ptr[igt_qry])/sum_pl); 
-            args->sites[i]++; 
+            args->lks[i] += sum_pl<0 ? -pl_ptr[igt_qry] : log(pow(10, -0.1*pl_ptr[igt_qry])/sum_pl);
+            args->sites[i]++;
         }
         if ( args->all_sites )
         {
@@ -460,12 +459,12 @@ static void check_gt(args_t *args)
             prev_lk = args->lks[query_isample];
 
             int igt, *pl_ptr = args->pl_arr + query_isample*npl; // PLs of the query sample
-            for (i=0; i<sm_line->n_allele; i++) fprintf(fp, "%c%s", i==0?'\t':',', sm_line->d.allele[i]); 
-            for (igt=0; igt<npl; igt++)   
+            for (i=0; i<sm_line->n_allele; i++) fprintf(fp, "%c%s", i==0?'\t':',', sm_line->d.allele[i]);
+            for (igt=0; igt<npl; igt++)
                 if ( pl_ptr[igt]==bcf_int32_vector_end ) break;
                 else if ( pl_ptr[igt]==bcf_int32_missing ) fprintf(fp, ".");
-                else fprintf(fp, "\t%d", pl_ptr[igt]); 
-            fprintf(fp, "\n"); 
+                else fprintf(fp, "\t%d", pl_ptr[igt]);
+            fprintf(fp, "\n");
         }
     }
     free(gt2ipl);
@@ -538,7 +537,7 @@ static void cross_check_gts(args_t *args)
     int i,j,k,idx, pl_warned = 0, dp_warned = 0;
     int32_t *dp_arr = NULL;
     int *is_hom = args->hom_only ? (int*) malloc(sizeof(int)*nsamples) : NULL;
-    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 ) 
+    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 )
     {
         if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
             error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
@@ -618,7 +617,7 @@ static void cross_check_gts(args_t *args)
                 idx++;
             }
         }
-        if ( args->all_sites ) 
+        if ( args->all_sites )
             fprintf(fp,"SD\t%s\t%d\t%d\t%.0f\n", args->sm_hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, nsum, nsum?sum/nsum:0);
     }
     if ( dp_arr ) free(dp_arr);
@@ -644,7 +643,7 @@ static void cross_check_gts(args_t *args)
             idx++;
         }
     }
-    for (i=0; i<nsamples; i++) 
+    for (i=0; i<nsamples; i++)
         if ( args->sites[i] ) score[i] /= args->sites[i];
     double **p = (double**) malloc(sizeof(double*)*nsamples), avg_score = 0;
     for (i=0; i<nsamples; i++) p[i] = &score[i];
@@ -675,7 +674,7 @@ static void cross_check_gts(args_t *args)
     {
         for (j=0; j<i; j++)
         {
-            fprintf(fp, "CN\t%.0f\t%d\t%.2f\t%s\t%s\n", args->lks[idx], args->cnts[idx], args->cnts[idx]?(double)args->dps[idx]/args->cnts[idx]:0.0, 
+            fprintf(fp, "CN\t%.0f\t%d\t%.2f\t%s\t%s\n", args->lks[idx], args->cnts[idx], args->cnts[idx]?(double)args->dps[idx]/args->cnts[idx]:0.0,
                     args->sm_hdr->samples[i],args->sm_hdr->samples[j]);
             idx++;
         }
@@ -696,68 +695,68 @@ static char *init_prefix(char *prefix)
 static void usage(void)
 {
     fprintf(stderr, "\n");
-	fprintf(stderr, "About:   Check sample identity. With no -g BCF given, multi-sample cross-check is performed.\n");
-	fprintf(stderr, "Usage:   bcftools gtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
+    fprintf(stderr, "About:   Check sample identity. With no -g BCF given, multi-sample cross-check is performed.\n");
+    fprintf(stderr, "Usage:   bcftools gtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
     fprintf(stderr, "\n");
-	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "    -a, --all-sites                 output comparison for all sites\n");
-	fprintf(stderr, "    -g, --genotypes <file>          genotypes to compare against\n");
-	fprintf(stderr, "    -G, --GTs-only <int>            use GTs, ignore PLs, using <int> for unseen genotypes [99]\n");
-	fprintf(stderr, "    -H, --homs-only                 homozygous genotypes only (useful for low coverage data)\n");
-	fprintf(stderr, "    -p, --plot <prefix>             plot\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -a, --all-sites                 output comparison for all sites\n");
+    fprintf(stderr, "    -g, --genotypes <file>          genotypes to compare against\n");
+    fprintf(stderr, "    -G, --GTs-only <int>            use GTs, ignore PLs, using <int> for unseen genotypes [99]\n");
+    fprintf(stderr, "    -H, --homs-only                 homozygous genotypes only (useful for low coverage data)\n");
+    fprintf(stderr, "    -p, --plot <prefix>             plot\n");
     fprintf(stderr, "    -r, --regions <region>          restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>       restrict to regions listed in a file\n");
-	fprintf(stderr, "    -s, --query-sample <string>     query sample (by default the first sample is checked)\n");
-	fprintf(stderr, "    -S, --target-sample <string>    target sample in the -g file (used only for plotting)\n");
+    fprintf(stderr, "    -s, --query-sample <string>     query sample (by default the first sample is checked)\n");
+    fprintf(stderr, "    -S, --target-sample <string>    target sample in the -g file (used only for plotting)\n");
     fprintf(stderr, "    -t, --targets <region>          similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n");
-	fprintf(stderr, "\n");
-	exit(1);
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
 int main_vcfgtcheck(int argc, char *argv[])
 {
-	int c;
-	args_t *args = (args_t*) calloc(1,sizeof(args_t));
+    int c;
+    args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->files  = bcf_sr_init();
-	args->argc   = argc; args->argv = argv; set_cwd(args);
+    args->argc   = argc; args->argv = argv; set_cwd(args);
     char *regions = NULL, *targets = NULL;
     int regions_is_file = 0, targets_is_file = 0;
 
-	static struct option loptions[] = 
-	{
-		{"GTs-only",1,0,'G'},
-		{"all-sites",0,0,'a'},
-		{"homs-only",0,0,'H'},
-		{"help",0,0,'h'},
-		{"genotypes",1,0,'g'},
-		{"plot",1,0,'p'},
-		{"target-sample",1,0,'S'},
-		{"query-sample",1,0,'s'},
+    static struct option loptions[] =
+    {
+        {"GTs-only",1,0,'G'},
+        {"all-sites",0,0,'a'},
+        {"homs-only",0,0,'H'},
+        {"help",0,0,'h'},
+        {"genotypes",1,0,'g'},
+        {"plot",1,0,'p'},
+        {"target-sample",1,0,'S'},
+        {"query-sample",1,0,'s'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
-		{0,0,0,0}
-	};
-	while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:R:at:T:G:",loptions,NULL)) >= 0) {
-		switch (c) {
-			case 'G': args->no_PLs = atoi(optarg); break;
-			case 'a': args->all_sites = 1; break;
-			case 'H': args->hom_only = 1; break;
-			case 'g': args->gt_fname = optarg; break;
-			case 'p': args->plot = optarg; break;
-			case 'S': args->target_sample = optarg; break;
-			case 's': args->query_sample = optarg; break;
+        {0,0,0,0}
+    };
+    while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:R:at:T:G:",loptions,NULL)) >= 0) {
+        switch (c) {
+            case 'G': args->no_PLs = atoi(optarg); break;
+            case 'a': args->all_sites = 1; break;
+            case 'H': args->hom_only = 1; break;
+            case 'g': args->gt_fname = optarg; break;
+            case 'p': args->plot = optarg; break;
+            case 'S': args->target_sample = optarg; break;
+            case 's': args->query_sample = optarg; break;
             case 'r': regions = optarg; break;
             case 'R': regions = optarg; regions_is_file = 1; break;
             case 't': targets = optarg; break;
             case 'T': targets = optarg; targets_is_file = 1; break;
-			case 'h': 
-			case '?': usage();
-			default: error("Unknown argument: %s\n", optarg);
-		}
-	}
+            case 'h':
+            case '?': usage();
+            default: error("Unknown argument: %s\n", optarg);
+        }
+    }
     if ( argc==optind || argc>optind+1 )  usage();  // none or too many files given
     if ( !args->gt_fname ) args->cross_check = 1;   // no genotype file, run in cross-check mode
     else args->files->require_index = 1;
@@ -773,9 +772,9 @@ int main_vcfgtcheck(int argc, char *argv[])
     else
         check_gt(args);
     destroy_data(args);
-	bcf_sr_destroy(args->files);
+    bcf_sr_destroy(args->files);
     if (args->plot) free(args->plot);
-	free(args);
-	return 0;
+    free(args);
+    return 0;
 }
 
