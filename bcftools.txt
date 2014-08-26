@@ -273,7 +273,7 @@ This command allows to add or remove annotations and apply user-written plugins.
 *-l, --list-plugins*::
     List all available plugins. If not installed systemwide, set the environment
     variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
-    directory where *libths.so* is located.  The BCFTOOLS_PLUGINS
+    directory where *libhts.so* is located.  The BCFTOOLS_PLUGINS
     environment variable tells the program which directories to search.
     See also *-p, --plugin*.
 
