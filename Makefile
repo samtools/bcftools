@@ -32,16 +32,18 @@ all: $(PROG) $(TEST_PROG)
 HTSDIR = ../htslib
 include $(HTSDIR)/htslib.mk
 HTSLIB = $(HTSDIR)/libhts.a
+BGZIP  = $(HTSDIR)/bgzip
+TABIX  = $(HTSDIR)/tabix
 
-CC=			gcc
-CFLAGS=		-g -Wall -Wc++-compat -O2
-DFLAGS=
-OBJS=		main.o vcfindex.o tabix.o \
-			vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
-            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
-            vcfcall.o mcall.o vcmp.o gvcf.o HMM.o reheader.o \
-            ccall.o em.o prob1.o kmin.o # the original samtools calling
-INCLUDES=	-I. -I$(HTSDIR)
+CC       = gcc
+CFLAGS   = -g -Wall -Wc++-compat -O2
+DFLAGS   =
+OBJS     = main.o vcfindex.o tabix.o \
+           vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
+           vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
+           vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o HMM.o \
+           ccall.o em.o prob1.o kmin.o # the original samtools calling
+INCLUDES = -I. -I$(HTSDIR)
 
 prefix      = /usr/local
 exec_prefix = $(prefix)

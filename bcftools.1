@@ -1611,9 +1611,9 @@ new VCF header
 .RS 4
 new sample names, one name per line, in the same order as they appear in the VCF file\&. Alternatively, only samples which need to be renamed can be listed as "old_name new_name\en" pairs separated by whitespaces, each on separate line\&.
 .RE
-.SS "bcftools roh [\fIOPTIONS\fR] \fIFILE\fR"
+.SS "bcftools roh [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
 .sp
-A program for detecting runs of homo/autozygosity\&.
+A program for detecting runs of homo/autozygosity\&. Only bi\-allelic sites are considered\&.
 .sp
 .it 1 an-trap
 .nr an-no-space-flag 1
@@ -1641,8 +1641,8 @@ Transition probabilities:
   P(AZ|AZ) = 1 \- P(HW|AZ) = 1 \- tHW
   P(HW|HW) = 1 \- P(AZ|HW) = 1 \- tAZ
 
-  ci  = P_i(C) \&.\&. probability of cross\-over at site i, from genetic map
-  AZi = P_i(AZ)   \&.\&. probability of site i being AZ/non\-AZ, scaled so that AZi+HWi = 1
+  ci  = P_i(C)  \&.\&. probability of cross\-over at site i, from genetic map
+  AZi = P_i(AZ) \&.\&. probability of site i being AZ/non\-AZ, scaled so that AZi+HWi = 1
   HWi = P_i(HW)
 
   P_{i+1}(AZ) = oAZ * max[(1\-tHW) * (1\-ci) * AZ{i\-1} , tAZ * ci * (1\-AZ{i\-1})]
@@ -1661,35 +1661,38 @@ Transition probabilities:
 \fBGeneral Options:\fR
 .RS 4
 .PP
-\fB\-b, \-\-biallelic\-sites\fR
-.RS 4
-skip multi\-allelic sites, consider only bi\-allelic sites
-.RE
-.PP
-\fB\-e, \-\-estimate\-AF\fR \fIall\fR|\fIsubset\fR
-.RS 4
-recalculate INFO/AC and INFO/AN on the fly, using either all samples (\fIall\fR) or samples specified via the
-\fB\-s\fR
-option (\fIsubset\fR)\&. By default, allele frequency is estimated from AC and AN counts which are already present in the INFO field\&.
-.RE
-.PP
-\fB\-F, \-\-AF\-tag\fR \fITAG\fR|\fI:FILE\fR
+\fB\-\-AF\-tag\fR \fITAG\fR
 .RS 4
 use the specified INFO tag
 \fITAG\fR
-as an allele frequency estimate instead of the defaul AC and AN tags\&. Optionally, if prefixed with
-\fI:\fR, allele frequencies will be read from a tab\-delimited file containing the columns: CHROM\etPOS\etREF,ALT\etAF\&. The file can be compressed with
-\fBbgzip\fR
-and indexed with tabix \-s1 \-b2 \-e2\&. Sites which do not have the
+as an allele frequency estimate instead of the defaul AC and AN tags\&. Sites which do not have
 \fITAG\fR
-or are not present in the
-\fIFILE\fR
-or have different reference or alternate allele will be skipped\&.
+will be skipped\&.
 .RE
 .PP
-\fB\-f, \-\-fwd\-bwd\fR
+\fB\-\-AF\-file\fR \fIFILE\fR
 .RS 4
-run forward\-backward algorithm instead of Viterbi
+Read allele frequencies from a tab\-delimited file containing the columns: CHROM\etPOS\etREF,ALT\etAF\&. The file can be compressed with
+\fBbgzip\fR
+and indexed with tabix \-s1 \-b2 \-e2\&. Sites which are not present in the
+\fIFILE\fR
+or have different reference or alternate allele will be skipped\&. Note that such a file can be easily created from a VCF using:
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools query \-f\*(Aq%CHROM\et%POS\et%REF,%ALT\et%INFO/TAG\en\*(Aq file\&.vcf | bgzip \-c > freqs\&.tab\&.gz
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fB\-e, \-\-estimate\-AF\fR \fIFILE\fR
+.RS 4
+recalculate INFO/AC and INFO/AN on the fly, using either all samples ("\-") or samples listed in
+\fIFILE\fR\&. By default, allele frequency is estimated from AC and AN counts which are already present in the INFO field\&.
 .RE
 .PP
 \fB\-G, \-\-GTs\-only\fR \fIFLOAT\fR
@@ -1722,16 +1725,9 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR
+\fB\-s, \-\-sample\fR \fIname\fR
 .RS 4
-see
-\fBCommon Options\fR
-.RE
-.PP
-\fB\-S, \-\-samples\-file\fR \fIFILE\fR
-.RS 4
-see
-\fBCommon Options\fR
+the name of sample to analyze
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -1744,11 +1740,6 @@ see
 .RS 4
 see
 \fBCommon Options\fR
-.RE
-.PP
-\fB\-w, \-\-win\fR \fIINT\fR
-.RS 4
-maximum number of sites to keep in memory
 .RE
 .RE
 .sp
@@ -1768,6 +1759,11 @@ P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy\-Weinberg) sta
 \fB\-H, \-\-az\-to\-hw\fR \fIFLOAT\fR
 .RS 4
 P(HW|AZ) transition probability from HW to AZ state
+.RE
+.PP
+\fB\-V, \-\-viterbi\-training\fR
+.RS 4
+perform Viterbi training to estimate transition probabilities
 .RE
 .RE
 .SS "bcftools stats [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"

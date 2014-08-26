@@ -93,6 +93,13 @@ static void init_data(args_t *args)
     args->prev_rid = args->skip_rid = -1;
     args->hdr = args->files->readers[0].header;
 
+    if ( !args->sample )
+    {
+        if ( bcf_hdr_nsamples(args->hdr)>1 ) error("Missing the option -s, --sample\n");
+        args->sample = strdup(args->hdr->samples[0]);
+    }
+    if ( !bcf_hdr_nsamples(args->hdr) ) error("No samples in the VCF?\n");
+
     // Set samples
     kstring_t str = {0,0,0};
     if ( args->estimate_AF && strcmp("-",args->estimate_AF) )
@@ -167,6 +174,9 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    free(args->sites);
+    free(args->eprob);
+    free(args->sample);
     free(args->rids);
     free(args->rid_offs);
     hmm_destroy(args->hmm);
@@ -360,7 +370,7 @@ static void flush_viterbi(args_t *args)
             assert( n );    // todo: i-th state was not observed at all
             for (j=0; j<2; j++) MAT(tcounts,2,i,j) /= n;
         }
-        if ( args->rec_rate > 0 )
+        if ( args->genmap_fname || args->rec_rate > 0 )
             hmm_set_tprob(args->hmm, tcounts, 0);
         else
             hmm_set_tprob(args->hmm, tcounts, 10000);
@@ -372,8 +382,9 @@ static void flush_viterbi(args_t *args)
         fprintf(stderr,"%d: %f %f\n", niter,deltaz,delthw);
     }
     while ( deltaz > 0.0 || delthw > 0.0 );
-    fprintf(stderr, "Viterbi training converged in %d iterations\n", niter);
-
+    fprintf(stderr, "Viterbi training converged in %d iterations to", niter);
+    for (i=0; i<2; i++) for (j=0; j<2; j++) fprintf(stderr, " %f", MAT(args->hmm->tprob_arr,2,i,j));
+    fprintf(stderr, "\n");
     
     // output the results
     for (i=0; i<args->nrids; i++)
@@ -696,7 +707,7 @@ int main_vcfroh(int argc, char *argv[])
             case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
             case 'm': args->genmap_fname = optarg; break;
             case 'M': args->rec_rate = atof(optarg); break;
-            case 's': args->sample = optarg; break;
+            case 's': args->sample = strdup(optarg); break;
             case 'a': args->t2AZ = atof(optarg); break;
             case 'H': args->t2HW = atof(optarg); break;
             case 't': args->targets_list = optarg; break;
@@ -715,7 +726,6 @@ int main_vcfroh(int argc, char *argv[])
     if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1]\n", args->t2HW);
     if ( naf_opts>1 ) error("Error: The options --AF-tag, --AF-file and -e are mutually exclusive\n");
     if ( args->af_fname && args->targets_list ) error("Error: The options --AF-file and -t are mutually exclusive\n");
-    if ( !args->sample ) error("Missing the option -s, --sample\n");
     if ( args->regions_list )
     {
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )

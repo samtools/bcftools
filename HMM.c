@@ -192,6 +192,7 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
 void hmm_destroy(hmm_t *hmm)
 {
     free(hmm->vprob);
+    free(hmm->vprob_tmp);
     free(hmm->vpath);
     free(hmm->curr_tprob);
     free(hmm->tmp);
