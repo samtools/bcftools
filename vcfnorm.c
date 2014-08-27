@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfnorm.c -- Left-align and normalize indels.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -99,7 +98,7 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
 {
     cell_t *mat = aux->mat;
     char *ref = aux->ref;
-    char *seq = aux->seq; 
+    char *seq = aux->seq;
     int nref  = aux->nref;
     int nseq  = aux->nseq;
     int k     = (nref+1)*(nseq+1)-1;
@@ -115,7 +114,7 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
         if ( j<=0 || mat[l].dir==1 )    // i
         {
             aln_ref[ialn] = '-';
-            aln_seq[ialn] = seq[nseq-i]; 
+            aln_seq[ialn] = seq[nseq-i];
             ipos = 0;
             nout_seq++;
             l -= kd - 1;
@@ -123,8 +122,8 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
         }
         else if ( i<=0 || mat[l].dir==-1 )  // d
         {
-            aln_ref[ialn] = ref[nref-j]; 
-            aln_seq[ialn] = '-'; 
+            aln_ref[ialn] = ref[nref-j];
+            aln_seq[ialn] = '-';
             ipos = 0;
             nout_ref++;
             l--;
@@ -133,7 +132,7 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
         else     // match or mismatch
         {
             aln_ref[ialn] = ref[nref-j];
-            aln_seq[ialn] = seq[nseq-i]; 
+            aln_seq[ialn] = seq[nseq-i];
             ipos = ref[nref-j+1]==seq[nseq-i+1] ? ipos+1 : 1;
             nout_seq++;
             nout_ref++;
@@ -145,14 +144,14 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
     }
     aln_ref[ialn] = aln_seq[ialn] = 0;
     fprintf(stderr, "ref: %s\n", ref);
-    fprintf(stderr, "seq: %s\n", seq); 
+    fprintf(stderr, "seq: %s\n", seq);
     fprintf(stderr, "-> %s\n", aln_ref);
-    fprintf(stderr, "-> %s\n", aln_seq); 
+    fprintf(stderr, "-> %s\n", aln_seq);
     free(aln_ref);
     free(aln_seq);
 
     fprintf(stderr, "      ");
-    for (j=0; j<nref; j++) fprintf(stderr, "   %c ", ref[nref-j-1]); fprintf(stderr, "\n"); 
+    for (j=0; j<nref; j++) fprintf(stderr, "   %c ", ref[nref-j-1]); fprintf(stderr, "\n");
     for (i=0; i<=nseq; i++)
     {
         fprintf(stderr, "%c", i==0 ? ' ' : seq[nseq-i]);
@@ -164,7 +163,7 @@ void _vcfnorm_debug_print(aln_aux_t *aux)
             fprintf(stderr, " %3d%c", (int)mat[i*(nref+1)+j].val, dir);
         }
         fprintf(stderr,"\n");
-    } 
+    }
 }
 
 static int align(args_t *args, aln_aux_t *aux)
@@ -179,7 +178,7 @@ static int align(args_t *args, aln_aux_t *aux)
     {
         aux->nmat = (nref+1)*(nseq+1);
         aux->mat  = (cell_t *) realloc(aux->mat, sizeof(cell_t)*aux->nmat);
-        if ( !aux->mat ) 
+        if ( !aux->mat )
             error("Could not allocate %ld bytes of memory at %d\n", sizeof(cell_t)*aux->nmat, args->files->readers[0].buffer[0]->pos+1);
     }
     const int GAP_OPEN = -1, GAP_CLOSE = -1, GAP_EXT = 0, MATCH = 1, MISM = -1, DI = 1, DD = -1, DM = 0;
@@ -208,14 +207,14 @@ static int align(args_t *args, aln_aux_t *aux)
                 if ( max < score )  { max = score; dir = DI; }
 
                 // deletion
-                score = mat[k-1].dir == DD ? mat[k-1].val + GAP_EXT : mat[k-1].val + GAP_OPEN; 
+                score = mat[k-1].dir == DD ? mat[k-1].val + GAP_EXT : mat[k-1].val + GAP_OPEN;
                 if ( max < score ) { max = score; dir = DD; }
             }
             else
             {
                 // insertion
-                max = mat[k-kd+1].dir == DI ? mat[k-kd+1].val + GAP_EXT : mat[k-kd+1].val + GAP_OPEN; 
-                dir = DI; 
+                max = mat[k-kd+1].dir == DI ? mat[k-kd+1].val + GAP_EXT : mat[k-kd+1].val + GAP_OPEN;
+                dir = DI;
 
                 // deletion
                 score = mat[k-1].dir == DD ? mat[k-1].val + GAP_EXT : mat[k-1].val + GAP_OPEN;
@@ -239,7 +238,7 @@ static int align(args_t *args, aln_aux_t *aux)
                 // match
                 max = mat[k-kd].val + MATCH;
                 if ( mat[k-kd].dir!=DM ) max += GAP_CLOSE;
-                dir = DM; 
+                dir = DM;
 
                 // deletion
                 score = mat[k-1].dir == DD ? mat[k-1].val + GAP_EXT: mat[k-1].val + GAP_OPEN;
@@ -252,7 +251,7 @@ static int align(args_t *args, aln_aux_t *aux)
             else
             {
                 // deletion
-                max = mat[k-1].dir == DD ? mat[k-1].val + GAP_EXT : mat[k-1].val + GAP_OPEN; 
+                max = mat[k-1].dir == DD ? mat[k-1].val + GAP_EXT : mat[k-1].val + GAP_OPEN;
                 dir = DD;
 
                 // insertion
@@ -283,7 +282,7 @@ static int align(args_t *args, aln_aux_t *aux)
     i = k/(nref+1);             // seq[nseq-i]
     j = k - i*(nref+1);         // ref[nref-j]
 
-    if ( !i && !j ) 
+    if ( !i && !j )
     {
         // no gaps: this is a legitimate case, consider MNPs
         int l = 0;
@@ -294,7 +293,7 @@ static int align(args_t *args, aln_aux_t *aux)
         aux->ipos = l;          // position of the last matching base (buffer coordinates)
         aux->lref = ipos + 1;   // position of the first base in the suffix
         aux->lseq = ipos + 1;
-        return 0;   
+        return 0;
     }
     assert(i>0 && j>0);
 
@@ -361,7 +360,7 @@ int realign(args_t *args, bcf1_t *line)
         int reflen = strlen(line->d.allele[0]);
         ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &ref_winlen);
         if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
-        if ( !strncmp(ref,line->d.allele[0],reflen) ) 
+        if ( !strncmp(ref,line->d.allele[0],reflen) )
         {
             free(ref);
             return 0;
@@ -383,7 +382,7 @@ int realign(args_t *args, bcf1_t *line)
 
     int win = line->pos < args->aln_win ? line->pos : args->aln_win;
     len += win + 2;
-    if ( args->mseq < len*(line->n_allele-1) ) 
+    if ( args->mseq < len*(line->n_allele-1) )
     {
         args->mseq = len*(line->n_allele-1);
         args->seq  = (char*) realloc(args->seq, sizeof(char)*args->mseq);
@@ -400,7 +399,7 @@ int realign(args_t *args, bcf1_t *line)
         for (i=0; i<ref_len; i++)
             if ( ref[win+i]!=line->d.allele[0][i] ) break;
         if ( args->check_ref==CHECK_REF_EXIT )
-            error("\nSanity check failed, the reference sequence differs at %s:%d[%d] .. '%c' vs '%c'\n", 
+            error("\nSanity check failed, the reference sequence differs at %s:%d[%d] .. '%c' vs '%c'\n",
                     args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1, i+1,ref[win+i],line->d.allele[0][i]);
         if ( args->check_ref & CHECK_REF_WARN )
             fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
@@ -441,7 +440,7 @@ int realign(args_t *args, bcf1_t *line)
         if ( ret<0 )
         {
             free(ref);
-            if ( ret==-1 ) 
+            if ( ret==-1 )
             {
                 // todo: better error analysis, see 2:1 in test/norm.vcf
                 // fprintf(stderr,"Warning: The -w alignment window too small for %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
@@ -457,10 +456,10 @@ int realign(args_t *args, bcf1_t *line)
             fprintf(stderr, "pos=%d win=%d  ipos=%d lref=%d lseq=%d\n", line->pos+1, win, args->aln.ipos, args->aln.lref, args->aln.lseq);
             fprintf(stderr, "-> "); for (k=args->aln.ipos; k<args->aln.lref; k++) fprintf(stderr, "%c", ref[k]); fprintf(stderr, "\n");
             fprintf(stderr, "-> "); for (k=args->aln.ipos; k<args->aln.lseq; k++) fprintf(stderr, "%c", args->tseq[k]); fprintf(stderr, "\n");
-            fprintf(stderr, "\n"); 
+            fprintf(stderr, "\n");
         #endif
-        
-        if ( !args->aln.ipos && !aln_win_warned ) 
+
+        if ( !args->aln.ipos && !aln_win_warned )
         {
             fprintf(stderr,"Warning: bigger -w is needed [todo: improve me, %s:%d %s,%s]\n",
                     bcf_seqname(args->hdr,line),line->pos+1, line->d.allele[0],line->d.allele[j]);
@@ -477,14 +476,14 @@ int realign(args_t *args, bcf1_t *line)
     // Check if the record's position must be changed
     int nmv = win - min_pos;
     // This assertion that we will never want align more to the right is too
-    // strong, consider cases like GATG -> GACT 
+    // strong, consider cases like GATG -> GACT
     //  assert( nmv>=0 );
     line->pos -= nmv;
-    
+
     hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
     // REF
     args->tmp_als[0].l = 0;
-    kputsn(&ref[min_pos], max_ref-min_pos, &args->tmp_als[0]); 
+    kputsn(&ref[min_pos], max_ref-min_pos, &args->tmp_als[0]);
     // ALTs
     int min_len = args->tmp_als[0].l;
     for (k=1; k<line->n_allele; k++)
@@ -495,7 +494,7 @@ int realign(args_t *args, bcf1_t *line)
         int nprefix = ipos[k] - min_pos;
         if ( nprefix ) kputsn(&ref[min_pos], nprefix, &args->tmp_als[k]);
 
-        // the ALT sequence 
+        // the ALT sequence
         int nseq = iseq[k] - ipos[k];
         if ( nseq )
         {
@@ -511,14 +510,14 @@ int realign(args_t *args, bcf1_t *line)
     }
     free(ref);
 
-    // create new block of alleles 
+    // create new block of alleles
     args->tmp_als_str.l = 0;
     if ( args->parsimonious )
     {
         // check if we can trim from the left
         for (i=0; i<args->tmp_als[0].l; i++)
         {
-            for (k=1; k<line->n_allele; k++) 
+            for (k=1; k<line->n_allele; k++)
                 if ( args->tmp_als[0].s[i]!=args->tmp_als[k].s[i] ) break;
             if ( k!=line->n_allele ) break;
         }
@@ -757,7 +756,7 @@ static void split_info_string(args_t *args, bcf1_t *src, bcf_info_t *info, int i
     else if ( len==BCF_VL_R )
     {
         char *tmp = str.s;
-        int len = 0; 
+        int len = 0;
         STR_MOVE_NTH(str.s,tmp,str.s+str.l,0,len);
         str.s[len]=','; tmp++; len++;
         STR_MOVE_NTH(&str.s[len],tmp,str.s+str.l,ialt,len);
@@ -796,7 +795,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
     int ngts = bcf_get_genotypes(args->hdr,src,&args->tmp_arr1,&ntmp);
     args->ntmp_arr1 = ntmp * 4;
     assert( ngts >0 );
-    
+
     int32_t *gt = (int32_t*) args->tmp_arr1;
     int i, j, nsmpl = bcf_hdr_nsamples(args->hdr);
     ngts /= nsmpl;
@@ -807,9 +806,9 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
             if ( gt[j]==bcf_int32_vector_end ) break;
             if ( gt[j]==bcf_int32_missing && bcf_gt_allele(gt[j])==0 ) continue;
             if ( gt[j]==0 ) continue;   // missing allele: leave as is
-            if ( bcf_gt_allele(gt[j])==ialt+1 ) 
+            if ( bcf_gt_allele(gt[j])==ialt+1 )
                 gt[j] = bcf_gt_unphased(1) | bcf_gt_is_phased(gt[j]); // set to first ALT
-            else 
+            else
                 gt[j] = bcf_gt_unphased(0) | bcf_gt_is_phased(gt[j]); // set to REF
         }
         gt += ngts;
@@ -972,7 +971,7 @@ static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int i
             {
                 char *tmp = ptr;
                 STR_MOVE_NTH(&ptr[len],tmp,ptr+blen,0,len);
-                ptr[len]=','; tmp++; len++; 
+                ptr[len]=','; tmp++; len++;
                 STR_MOVE_NTH(&ptr[len],tmp,ptr+blen,ialt,len);
                 if ( len<0 ) return;   // wrong number of fields: skip
             }
@@ -980,10 +979,10 @@ static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int i
             {
                 char *tmp = ptr;
                 STR_MOVE_NTH(&ptr[len],tmp,ptr+blen,0,len);
-                ptr[len]=','; tmp++; len++; 
+                ptr[len]=','; tmp++; len++;
                 STR_MOVE_NTH(&ptr[len],tmp,ptr+blen,i0a-1,len);
                 if ( len<0 ) return;   // wrong number of fields: skip
-                ptr[len]=','; tmp++; len++; 
+                ptr[len]=','; tmp++; len++;
                 STR_MOVE_NTH(&ptr[len],tmp,ptr+blen,iaa-i0a-1,len);
                 if ( len<0 ) return;   // wrong number of fields: skip
             }
@@ -1231,7 +1230,7 @@ static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info
 }
 static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_fmt_t *fmt, bcf1_t *dst)
 {
-    int ntmp = args->ntmp_arr1 / 4; 
+    int ntmp = args->ntmp_arr1 / 4;
     int ngts = bcf_get_genotypes(args->hdr,lines[0],&args->tmp_arr1,&ntmp);
     args->ntmp_arr1 = ntmp * 4;
     assert( ngts >0 );
@@ -1409,7 +1408,7 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
 
     int nsmpl = bcf_hdr_nsamples(args->hdr);
     for (i=0; i<nsmpl; i++) args->tmp_str[i].l = 0;
-    
+
     if ( len==BCF_VL_A || len==BCF_VL_R )
     {
         int jfrom = len==BCF_VL_A ? 1 : 0;
@@ -1447,10 +1446,10 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
                 if ( *ss==',' ) nfields++;
                 ss++;
             }
-            if ( nfields==lines[0]->n_allele ) 
-            { 
-                haploid[i] = 1; 
-                nfields = dst->n_allele; 
+            if ( nfields==lines[0]->n_allele )
+            {
+                haploid[i] = 1;
+                nfields = dst->n_allele;
             }
             else if ( nfields==lines[0]->n_allele*(lines[0]->n_allele+1)/2 )
             {
@@ -1532,12 +1531,12 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
     args->nals = args->maps[0].nals = lines[0]->n_allele;
     hts_expand(int,args->maps[0].nals,args->maps[0].mals,args->maps[0].map);
     hts_expand(char*,args->nals,args->mals,args->als);
-    for (i=0; i<args->maps[0].nals; i++) 
+    for (i=0; i<args->maps[0].nals; i++)
     {
         args->maps[0].map[i] = i;
         args->als[i] = strdup(lines[0]->d.allele[i]);
     }
-    for (i=1; i<nlines; i++) 
+    for (i=1; i<nlines; i++)
     {
         args->maps[i].nals = lines[i]->n_allele;
         hts_expand(int,args->maps[i].nals,args->maps[i].mals,args->maps[i].map);
@@ -1754,7 +1753,7 @@ static void normalize_vcf(args_t *args)
         bcf1_t *line = args->files->readers[0].buffer[0];
         if ( args->fai )
         {
-            if ( realign(args, line)<0 && args->check_ref & CHECK_REF_SKIP ) 
+            if ( realign(args, line)<0 && args->check_ref & CHECK_REF_SKIP )
             {
                 args->nskipped++;
                 continue;   // exclude broken VCF lines
@@ -1762,7 +1761,7 @@ static void normalize_vcf(args_t *args)
         }
 
         // still on the same chromosome?
-        int i, j, ilast = rbuf_last(&args->rbuf); 
+        int i, j, ilast = rbuf_last(&args->rbuf);
         if ( ilast>=0 && line->rid != args->lines[ilast]->rid ) flush_buffer(args, out, args->rbuf.n); // new chromosome
 
         // insert into sorted buffer
@@ -1829,7 +1828,7 @@ int main_vcfnorm(int argc, char *argv[])
     int region_is_file  = 0;
     int targets_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"help",0,0,'h'},
         {"fasta-ref",1,0,'f'},
@@ -1865,7 +1864,7 @@ int main_vcfnorm(int argc, char *argv[])
                 if ( strchr(optarg,'x') ) args->check_ref |= CHECK_REF_SKIP;
                 if ( strchr(optarg,'e') ) args->check_ref = CHECK_REF_EXIT; // overrides the above
                 break;
-            case 'O': 
+            case 'O':
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -1882,7 +1881,7 @@ int main_vcfnorm(int argc, char *argv[])
             case 't': args->targets = optarg; break;
             case 'T': args->targets = optarg; targets_is_file = 1; break;
             case 'w': args->buf_win = atoi(optarg); break;
-            case 'h': 
+            case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }

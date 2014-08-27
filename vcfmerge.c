@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2012-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <string.h>
@@ -69,7 +68,7 @@ typedef struct _info_rule_t
 info_rule_t;
 
 // Auxiliary merge data for selecting the right combination
-//  of buffered records across multiple readers. maux1_t 
+//  of buffered records across multiple readers. maux1_t
 //  corresponds to one buffered line.
 typedef struct
 {
@@ -223,14 +222,14 @@ static void info_rules_merge_join(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rul
 
 static int info_rules_comp_key2(const void *a, const void *b)
 {
-    info_rule_t *rule1 = (info_rule_t*) a; 
-    info_rule_t *rule2 = (info_rule_t*) b; 
+    info_rule_t *rule1 = (info_rule_t*) a;
+    info_rule_t *rule2 = (info_rule_t*) b;
     return strcmp(rule1->hdr_tag, rule2->hdr_tag);
 }
 static int info_rules_comp_key(const void *a, const void *b)
 {
     char *key = (char*) a;
-    info_rule_t *rule = (info_rule_t*) b; 
+    info_rule_t *rule = (info_rule_t*) b;
     return strcmp(key, rule->hdr_tag);
 }
 static void info_rules_init(args_t *args)
@@ -238,7 +237,7 @@ static void info_rules_init(args_t *args)
     if ( args->info_rules && !strcmp("-",args->info_rules) ) return;
 
     kstring_t str = {0,0,0};
-    if ( !args->info_rules ) 
+    if ( !args->info_rules )
     {
         if ( bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "DP")) ) kputs("DP:sum",&str);
         if ( bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "DP4")) )
@@ -253,7 +252,7 @@ static void info_rules_init(args_t *args)
     args->nrules = 1;
     char *ss = strdup(args->info_rules), *tmp = ss;
     int n = 0;
-    while ( *ss ) 
+    while ( *ss )
     {
         if ( *ss==':' ) { *ss = 0; n++; if ( n%2==0 ) error("Could not parse INFO rules: \"%s\"\n", args->info_rules); }
         else if ( *ss==',' ) { *ss = 0; args->nrules++; n++; if ( n%2==1 ) error("Could not parse INFO rules: \"%s\"\n", args->info_rules); }
@@ -291,7 +290,7 @@ static void info_rules_init(args_t *args)
             int is_agr = (
                     bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_A ||
                     bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_G ||
-                    bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_R 
+                    bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_R
                     ) ? 1 : 0;
             if ( is_join && is_agr )
                 error("Cannot -i %s:join on Number=[AGR] tags is not supported.\n", rule->hdr_tag);
@@ -374,7 +373,7 @@ static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, inf
         {
             hts_expand(int,args->maux->nagr_map,args->maux->magr_map,args->maux->agr_map);
             int k_src = 0;
-            for (i=0; i<line->n_allele; i++) 
+            for (i=0; i<line->n_allele; i++)
             {
                 for (j=0; j<=i; j++)
                 {
@@ -449,7 +448,7 @@ void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix,
 
 void debug_als(char **als, int nals)
 {
-    int k; for (k=0; k<nals; k++) fprintf(stderr,"%s ", als[k]); 
+    int k; for (k=0; k<nals; k++) fprintf(stderr,"%s ", als[k]);
     fprintf(stderr,"\n");
 }
 
@@ -503,7 +502,7 @@ void normalize_alleles(char **als, int nals)
  *      Out:
  *           b: ACGT, A,ACT,AT (3bp, 1bp and 2bp deletion)
  *           map: 0,2,3
- * Here the mapping from the original $a alleles to the new $b alleles is 0->0, 
+ * Here the mapping from the original $a alleles to the new $b alleles is 0->0,
  * 1->2, and 2->3.
  */
 char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
@@ -564,7 +563,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
         {
             map[i] = j;
             if ( rlb>rla ) free(ai);
-            continue; 
+            continue;
         }
         // new allele
         map[i] = *nb;
@@ -659,7 +658,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
 
     maux_t *ma = args->maux;
     int *al_idxs = (int*) calloc(ma->nals,sizeof(int));
-    out->qual = 0;
+    bcf_float_set_missing(out->qual);
 
     // CHROM, POS, ID, QUAL
     out->pos = -1;
@@ -673,7 +672,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
 
         // alleles
         int j;
-        for (j=1; j<line->n_allele; j++) 
+        for (j=1; j<line->n_allele; j++)
             al_idxs[ ma->d[i][0].map[j] ] = 1;
 
         // position
@@ -681,7 +680,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         {
             const char *chr = hdr->id[BCF_DT_CTG][line->rid].key;
             out->rid = bcf_hdr_name2id(out_hdr, chr);
-            if ( strcmp(chr,out_hdr->id[BCF_DT_CTG][out->rid].key) ) error("Uh\n"); 
+            if ( strcmp(chr,out_hdr->id[BCF_DT_CTG][out->rid].key) ) error("Uh\n");
             out->pos = line->pos;
         }
 
@@ -698,7 +697,10 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         }
 
         // set QUAL to the max qual value. Not exactly correct, but good enough for now
-        if ( out->qual < files->readers[i].buffer[0]->qual ) out->qual = files->readers[i].buffer[0]->qual;
+        if ( !bcf_float_is_missing(files->readers[i].buffer[0]->qual) )
+        {
+            if ( bcf_float_is_missing(out->qual) || out->qual < files->readers[i].buffer[0]->qual ) out->qual = files->readers[i].buffer[0]->qual;
+        }
     }
 
     // set ID
@@ -713,7 +715,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
         if ( !al_idxs[i] ) continue;
         ma->nout_als++;
 
-        // Adjust the indexes, the allele map could be created for multiple collapsed records, 
+        // Adjust the indexes, the allele map could be created for multiple collapsed records,
         //  some of which might be unused for this output line
         int ir, j;
         for (ir=0; ir<files->nreaders; ir++)
@@ -809,7 +811,7 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     kputsn_(ptr, info->vptr - ptr, tmp_str);
     info->vptr_off = tmp_str->l;
     kputsn_(info->vptr, info->len << bcf_type_shift[info->type], tmp_str);
-    
+
     info->vptr = (uint8_t*) tmp_str->s + info->vptr_off;
     info->vptr_free = 1;
     line->d.shared_dirty |= BCF1_DIRTY_INF;
@@ -954,14 +956,14 @@ static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t 
         if ( len==BCF_VL_A || len==BCF_VL_R )
         {
             int iori, ifrom = len==BCF_VL_A ? 1 : 0;
-            for (iori=ifrom; iori<line->n_allele; iori++) 
+            for (iori=ifrom; iori<line->n_allele; iori++)
                 copy_string_field((char*)info->vptr, iori-ifrom, info->len, &tmp, als->map[iori]-ifrom);
         }
         else
         {
             int iori,jori, inew,jnew;
             for (iori=0; iori<line->n_allele; iori++)
-            { 
+            {
                 inew = als->map[iori];
                 for (jori=0; jori<=iori; jori++)
                 {
@@ -996,7 +998,7 @@ void merge_info(args_t *args, bcf1_t *out)
         bcf_sr_t *reader = &files->readers[i];
         bcf1_t *line = reader->buffer[0];
         bcf_hdr_t *hdr = reader->header;
-        for (j=0; j<line->n_info; j++) 
+        for (j=0; j<line->n_info; j++)
         {
             bcf_info_t *inf = &line->d.info[j];
 
@@ -1011,7 +1013,7 @@ void merge_info(args_t *args, bcf1_t *out)
             if ( args->nrules )
             {
                 info_rule_t *rule = (info_rule_t*) bsearch(key, args->rules, args->nrules, sizeof(*args->rules), info_rules_comp_key);
-                if ( rule ) 
+                if ( rule )
                 {
                     maux1_t *als = ( len==BCF_VL_A || len==BCF_VL_G || len==BCF_VL_R ) ? &ma->d[i][0] : NULL;
                     if ( info_rules_add_values(args, hdr, line, rule, als, len) ) continue;
@@ -1061,7 +1063,7 @@ void merge_info(args_t *args, bcf1_t *out)
                 if ( (args->output_type & FT_BCF) && id!=bcf_hdr_id2int(hdr, BCF_DT_ID, key) )
                 {
                     // The existing packed info cannot be reused. Change the id.
-                    // Although quite hacky, it's faster than anything else given 
+                    // Although quite hacky, it's faster than anything else given
                     // the data structures
                     bcf_info_set_id(out, &ma->inf[out->n_info], id, &args->tmps);
                 }
@@ -1102,7 +1104,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     bcf_hdr_t *out_hdr = args->out_hdr;
     maux_t *ma = args->maux;
     int i, ismpl = 0, nsamples = bcf_hdr_nsamples(out_hdr);
-    
+
     int nsize = 0, msize = sizeof(int32_t);
     for (i=0; i<files->nreaders; i++)
     {
@@ -1207,20 +1209,20 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         if ( !key ) key = files->readers[i].header->id[BCF_DT_ID][fmt_map[i]->id].key;
         type = fmt_map[i]->type;
         if ( IS_VL_G(files->readers[i].header, fmt_map[i]->id) )
-        { 
-            length = BCF_VL_G; 
-            nsize = out->n_allele*(out->n_allele + 1)/2; 
+        {
+            length = BCF_VL_G;
+            nsize = out->n_allele*(out->n_allele + 1)/2;
             int nals_ori = files->readers[i].buffer[0]->n_allele;
-            if ( fmt_map[i]->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori ) 
+            if ( fmt_map[i]->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori )
                 error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
-            break; 
+            break;
         }
         if ( IS_VL_A(files->readers[i].header, fmt_map[i]->id) )
         {
             length = BCF_VL_A;
             nsize = out->n_allele - 1;
             int nals_ori = files->readers[i].buffer[0]->n_allele;
-            if ( fmt_map[i]->n != nals_ori-1 ) 
+            if ( fmt_map[i]->n != nals_ori-1 )
                 error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
             break;
         }
@@ -1354,7 +1356,7 @@ void merge_format(args_t *args, bcf1_t *out)
     bcf_srs_t *files = args->files;
     bcf_hdr_t *out_hdr = args->out_hdr;
     maux_t *ma = args->maux;
-    if ( !ma->nfmt_map ) 
+    if ( !ma->nfmt_map )
     {
         ma->nfmt_map = 2;
         ma->fmt_map  = (bcf_fmt_t**) calloc(ma->nfmt_map*files->nreaders, sizeof(bcf_fmt_t*));
@@ -1372,7 +1374,7 @@ void merge_format(args_t *args, bcf1_t *out)
         bcf_sr_t *reader = &files->readers[i];
         bcf1_t *line = reader->buffer[0];
         bcf_hdr_t *hdr = reader->header;
-        for (j=0; j<line->n_fmt; j++) 
+        for (j=0; j<line->n_fmt; j++)
         {
             // Wat this tag already seen?
             bcf_fmt_t *fmt = &line->d.fmt[j];
@@ -1386,7 +1388,7 @@ void merge_format(args_t *args, bcf1_t *out)
             {
                 // new FORMAT tag
                 if ( key[0]=='G' && key[1]=='T' && key[2]==0 ) { has_GT = 1; ifmt = 0; }
-                else 
+                else
                 {
                     ifmt = ++max_ifmt;
                     if ( max_ifmt >= ma->nfmt_map )
@@ -1479,14 +1481,14 @@ void shake_buffer(maux_t *maux, int ir, int pos)
         b--;
     }
 
-    // position $a to the after the first unfinished record 
+    // position $a to the after the first unfinished record
     while ( a<=reader->nbuffer && !(m[a].skip&SKIP_DONE) ) a++;
 
     if ( a<reader->nbuffer )
     {
         // there is a gap between the unfinished lines at the beggining and the
         // last line. The last line must be brought forward to fill the gap
-        if ( reader->buffer[reader->nbuffer]->pos != pos ) 
+        if ( reader->buffer[reader->nbuffer]->pos != pos )
         {
             SWAP(bcf1_t*, reader->buffer[a], reader->buffer[reader->nbuffer]);
             SWAP(maux1_t, m[a], m[reader->nbuffer]);
@@ -1498,17 +1500,17 @@ void shake_buffer(maux_t *maux, int ir, int pos)
     {
         // the first record is unfinished, replace it with an empty line
         // from the end of the buffer or else next_line will remove it
-        if ( reader->nbuffer + 1 >= maux->nbuf[ir] ) 
+        if ( reader->nbuffer + 1 >= maux->nbuf[ir] )
         {
             reader->nbuffer++;
             maux_expand1(maux, ir);
             reader->nbuffer--;
             m = maux->d[ir];
         }
-        if ( reader->nbuffer+1 >= reader->mbuffer ) 
+        if ( reader->nbuffer+1 >= reader->mbuffer )
             error("Uh, did not expect this: %d vs %d\n", reader->nbuffer,reader->mbuffer);
 
-        if ( reader->buffer[reader->nbuffer]->pos!=pos ) 
+        if ( reader->buffer[reader->nbuffer]->pos!=pos )
         {
             // 4way swap
             bcf1_t *tmp = reader->buffer[0];
@@ -1547,7 +1549,7 @@ void debug_maux(args_t *args, int pos, int var_type)
     int j,k,l;
 
     fprintf(stderr,"Alleles to merge at %d\n", pos+1);
-    for (j=0; j<files->nreaders; j++) 
+    for (j=0; j<files->nreaders; j++)
     {
         bcf_sr_t *reader = &files->readers[j];
         fprintf(stderr," reader %d: ", j);
@@ -1566,7 +1568,7 @@ void debug_maux(args_t *args, int pos, int var_type)
     }
     fprintf(stderr," counts: ");
     for (j=0; j<maux->nals; j++) fprintf(stderr,"%s   %dx %s", j==0?"":",",maux->cnt[j], maux->als[j]); fprintf(stderr,"\n");
-    for (j=0; j<files->nreaders; j++) 
+    for (j=0; j<files->nreaders; j++)
     {
         bcf_sr_t *reader = &files->readers[j];
         fprintf(stderr," out %d: ", j);
@@ -1619,17 +1621,17 @@ void merge_buffer(args_t *args)
         bcf_sr_t *reader = &files->readers[i];
         if ( !reader->buffer ) continue;
         int j, k;
-        for (j=0; j<=reader->nbuffer; j++)  
+        for (j=0; j<=reader->nbuffer; j++)
         {
             bcf1_t *line = reader->buffer[j];
             int line_type = bcf_get_variant_types(line);
 
             // select relevant lines
             maux->d[i][j].skip = SKIP_DIFF;
-            if ( pos!=line->pos ) 
+            if ( pos!=line->pos )
             {
                 if ( j==0 ) maux->d[i][j].skip |= SKIP_DONE; // left from previous run, force to ignore
-                continue; 
+                continue;
             }
             if ( args->merge_by_id )
             {
@@ -1691,7 +1693,7 @@ void merge_buffer(args_t *args)
     {
         // take the most frequent allele present in multiple files
         int icnt = 0;
-        for (i=1; i<maux->nals; i++) 
+        for (i=1; i<maux->nals; i++)
             if ( maux->cnt[i] > maux->cnt[icnt] ) icnt = i;
         if ( maux->cnt[icnt]<0 ) break;
 
@@ -1715,7 +1717,7 @@ void merge_buffer(args_t *args)
             }
             if ( j>reader->nbuffer )
             {
-                // no matching allele found in this file 
+                // no matching allele found in this file
                 if ( args->collapse==COLLAPSE_NONE ) continue;
 
                 for (j=0; j<=reader->nbuffer; j++)
@@ -1737,13 +1739,13 @@ void merge_buffer(args_t *args)
                     }
                 }
             }
-            if ( j<=reader->nbuffer ) 
+            if ( j<=reader->nbuffer )
             {
                 // found a suitable line for merging, place it at the beggining
-                if ( j>0 ) 
+                if ( j>0 )
                 {
-                    SWAP(bcf1_t*, reader->buffer[0], reader->buffer[j]); 
-                    SWAP(maux1_t, maux->d[i][0], maux->d[i][j]); 
+                    SWAP(bcf1_t*, reader->buffer[0], reader->buffer[j]);
+                    SWAP(maux1_t, maux->d[i][0], maux->d[i][j]);
                 }
                 // mark as finished so that it's ignored next time
                 maux->d[i][0].skip |= SKIP_DONE;
@@ -1751,7 +1753,7 @@ void merge_buffer(args_t *args)
                 nmask++;
             }
         }
-        if ( !nmask ) break;    // done, no more lines suitable for merging found 
+        if ( !nmask ) break;    // done, no more lines suitable for merging found
         merge_line(args);       // merge and output the line
         maux->cnt[icnt] = -1;   // do not pick this allele again, mark it as finished
     }
@@ -1778,7 +1780,7 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
     str.l = 0;
     ksprintf(&str,"##%sCommand=%s", cmd, argv[0]);
     int i;
-    for (i=1; i<argc; i++) 
+    for (i=1; i<argc; i++)
     {
         if ( strchr(argv[i],' ') )
             ksprintf(&str, " '%s'", argv[i]);
@@ -1860,7 +1862,7 @@ static void usage(void)
     fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none|id>, see man page for details [both]\n");
     fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-	fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1877,7 +1879,7 @@ int main_vcfmerge(int argc, char *argv[])
     args->collapse = COLLAPSE_BOTH;
     int regions_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"help",0,0,'h'},
         {"merge",1,0,'m'},
@@ -1898,7 +1900,7 @@ int main_vcfmerge(int argc, char *argv[])
             case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;
             case 'o': args->output_fname = optarg; break;
-            case 'O': 
+            case 'O':
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
@@ -1924,7 +1926,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case  3 : args->force_samples = 1; break;
-            case 'h': 
+            case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }

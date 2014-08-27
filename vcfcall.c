@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfcall.c -- SNP/indel variant calling from VCF/BCF.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdarg.h>
 #include <string.h>
@@ -63,7 +62,7 @@ void error(const char *format, ...);
 #define CF_QCNT         (1<<13)
 #define CF_INDEL_ONLY   (1<<14)
 
-typedef struct 
+typedef struct
 {
     int flag;   // combination of CF_* flags above
     int output_type;
@@ -81,15 +80,15 @@ typedef struct
     int argc;
     char **argv;
 
-	//  int flag, prior_type, n1, n_sub, *sublist, n_perm;
-	//  uint32_t *trio_aux;
-	//  char *prior_file, **subsam;
-	//  uint8_t *ploidy;
-	//  double theta, pref, indel_frac, min_smpl_frac, min_lrt;
+    //  int flag, prior_type, n1, n_sub, *sublist, n_perm;
+    //  uint32_t *trio_aux;
+    //  char *prior_file, **subsam;
+    //  uint8_t *ploidy;
+    //  double theta, pref, indel_frac, min_smpl_frac, min_lrt;
     // Permutation tests
     //  int n_perm, *seeds;
     //  double min_perm_p;
-	//  void *bed;
+    //  void *bed;
 }
 args_t;
 
@@ -108,7 +107,7 @@ static char **add_sample(char **sam, int *n, int *m, char *name, int ploidy, int
     int i;
     for (i=0; i<*n; i++)
     {
-        if ( !strcmp(sam[i], name) ) 
+        if ( !strcmp(sam[i], name) )
         {
             *ith = i;
             return sam;
@@ -137,13 +136,13 @@ static char **parse_ped_samples(call_t *call, char **vals, int _n)
         j = 0;
         while ( *tmp && j<5 )
         {
-            if ( isspace(*tmp) ) 
+            if ( isspace(*tmp) )
             {
                 *tmp = 0;
                 ++tmp;
                 while ( isspace(*tmp) ) tmp++;  // allow multiple spaces
                 col_ends[j] = tmp-1;
-                j++; 
+                j++;
                 continue;
             }
             tmp++;
@@ -158,8 +157,8 @@ static char **parse_ped_samples(call_t *call, char **vals, int _n)
             fam = &call->fams[call->nfams-1];
             fam->name = strdup(str.s);
             for (j=0; j<3; j++) fam->sample[j] = -1;
-        } 
-        
+        }
+
         int ploidy = 2;
         if ( call->flag & (CALL_CHR_X|CALL_CHR_Y) )
         {
@@ -173,12 +172,12 @@ static char **parse_ped_samples(call_t *call, char **vals, int _n)
             if ( fam->sample[CHILD]>=0 ) error("Multiple childs in %s [%s,%s]\n", str.s, sam[j],sam[fam->sample[CHILD]]);
             fam->sample[CHILD] = j;
             if ( fam->sample[FATHER]>=0 ) error("Two fathers in %s?\n", str.s);
-            sam = add_sample(sam, &n, &max, col_ends[1]+1, call->flag & (CALL_CHR_X|CALL_CHR_Y) ? 1 : 2, &fam->sample[FATHER]); 
+            sam = add_sample(sam, &n, &max, col_ends[1]+1, call->flag & (CALL_CHR_X|CALL_CHR_Y) ? 1 : 2, &fam->sample[FATHER]);
         }
         if ( strcmp(col_ends[2]+1,"0") )    // mother
         {
             if ( fam->sample[MOTHER]>=0 ) error("Two mothers in %s?\n", str.s);
-            sam = add_sample(sam, &n, &max, col_ends[2]+1, call->flag & CALL_CHR_Y ? 0 : 2, &fam->sample[MOTHER]); 
+            sam = add_sample(sam, &n, &max, col_ends[2]+1, call->flag & CALL_CHR_Y ? 0 : 2, &fam->sample[MOTHER]);
         }
     }
     free(str.s);
@@ -299,7 +298,7 @@ static void init_data(args_t *args)
         if ( bcf_sr_set_regions(args->aux.srs, args->regions, args->regions_is_file)<0 )
             error("Failed to read the targets: %s\n", args->regions);
     }
-    
+
     int i;
     if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open: %s\n", args->bcf_fname);
 
@@ -315,7 +314,7 @@ static void init_data(args_t *args)
     {
         args->aux.hdr = bcf_hdr_dup(args->aux.srs->readers[0].header);
         for (i=0; i<args->nsamples; i++)
-            if ( bcf_hdr_id2int(args->aux.hdr,BCF_DT_SAMPLE,args->samples[i])<0 ) 
+            if ( bcf_hdr_id2int(args->aux.hdr,BCF_DT_SAMPLE,args->samples[i])<0 )
                 error("No such sample: %s\n", args->samples[i]);
     }
 
@@ -336,7 +335,7 @@ static void init_data(args_t *args)
         for (i=0; i<args->nsamples; i++)    // i index in -s sample list
         {
             int j = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, args->samples[i]);     // j index in the output VCF / subset VCF
-            if ( j<0 ) 
+            if ( j<0 )
             {
                 fprintf(stderr,"Warning: no such sample: \"%s\"\n", args->samples[i]);
                 continue;
@@ -353,10 +352,10 @@ static void init_data(args_t *args)
     args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
 
-    if ( args->flag & CF_QCALL ) 
+    if ( args->flag & CF_QCALL )
         return;
 
-    if ( args->flag & CF_MCALL ) 
+    if ( args->flag & CF_MCALL )
         mcall_init(&args->aux);
 
     if ( args->flag & CF_CCALL )
@@ -437,7 +436,7 @@ static int parse_format_flag(const char *str)
         while ( *se && *se!=',' ) se++;
         if ( !strncasecmp(ss,"GQ",se-ss) ) flag |= CALL_FMT_GQ;
         else if ( !strncasecmp(ss,"GP",se-ss) ) flag |= CALL_FMT_GP;
-        else 
+        else
         {
             fprintf(stderr,"Could not parse \"%s\"\n", str);
             exit(1);
@@ -502,7 +501,7 @@ int main_vcfcall(int argc, char *argv[])
 {
     char *samples_fname = NULL;
     args_t args;
-	memset(&args, 0, sizeof(args_t));
+    memset(&args, 0, sizeof(args_t));
     args.argc = argc; args.argv = argv;
     args.aux.prior_type = -1;
     args.aux.indel_frac = -1;
@@ -518,7 +517,7 @@ int main_vcfcall(int argc, char *argv[])
 
     int i, c, samples_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"help",0,0,'h'},
         {"gvcf",1,0,'g'},
@@ -549,12 +548,12 @@ int main_vcfcall(int argc, char *argv[])
     };
 
     char *tmp = NULL;
-	while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:ig:", loptions, NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:ig:", loptions, NULL)) >= 0)
     {
-		switch (c) 
+        switch (c)
         {
-            case 'g': 
-                args.flag |= CF_GVCF; 
+            case 'g':
+                args.flag |= CF_GVCF;
                 args.gvcf.min_dp = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse, expected integer argument: -g %s\n", optarg);
                 break;
@@ -566,7 +565,7 @@ int main_vcfcall(int argc, char *argv[])
             case 'i': args.flag |= CF_INS_MISSED; break;
             case 'v': args.aux.flag |= CALL_VARONLY; break;
             case 'o': args.output_fname = optarg; break;
-            case 'O': 
+            case 'O':
                       switch (optarg[0]) {
                           case 'b': args.output_type = FT_BCF_GZ; break;
                           case 'u': args.output_type = FT_BCF; break;
@@ -575,14 +574,14 @@ int main_vcfcall(int argc, char *argv[])
                           default: error("The output type \"%s\" not recognised\n", optarg);
                       }
                       break;
-            case 'C': 
+            case 'C':
                       if ( !strcasecmp(optarg,"alleles") ) args.aux.flag |= CALL_CONSTR_ALLELES;
                       else if ( !strcasecmp(optarg,"trio") ) args.aux.flag |= CALL_CONSTR_TRIO;
                       else error("Unknown argument to -C: \"%s\"\n", optarg);
                       break;
             case 'X': args.aux.flag |= CALL_CHR_X; break;
             case 'Y': args.aux.flag |= CALL_CHR_Y; break;
-            case 'V': 
+            case 'V':
                       if ( !strcasecmp(optarg,"snps") ) args.flag |= CF_INDEL_ONLY;
                       else if ( !strcasecmp(optarg,"indels") ) args.flag |= CF_NO_INDEL;
                       else error("Unknown skip category \"%s\" (-S argument must be \"snps\" or \"indels\")\n", optarg);
@@ -615,7 +614,7 @@ int main_vcfcall(int argc, char *argv[])
         args.samples = read_samples(&args.aux, samples_fname, samples_is_file, &args.nsamples);
         args.aux.ploidy = (uint8_t*) calloc(args.nsamples+1, 1);
         args.aux.all_diploid = 1;
-        for (i=0; i<args.nsamples; i++) 
+        for (i=0; i<args.nsamples; i++)
         {
             args.aux.ploidy[i] = args.samples[i][strlen(args.samples[i]) + 1];
             if ( args.aux.ploidy[i]!=2 ) args.aux.all_diploid = 0;
@@ -624,12 +623,12 @@ int main_vcfcall(int argc, char *argv[])
     if ( args.flag & CF_GVCF )
     {
         // Force some flags to avoid unnecessary branching
-        args.aux.flag &= ~CALL_KEEPALT; 
+        args.aux.flag &= ~CALL_KEEPALT;
         args.aux.flag |= CALL_VARONLY;
     }
     if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c or -m options can be given\n");
     if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected -c or -m option\n");
-	if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
+    if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
     if ( args.aux.flag & CALL_CONSTR_ALLELES )
     {
         if ( !args.targets ) error("Expected -t or -T with \"-C alleles\"\n");
@@ -650,7 +649,7 @@ int main_vcfcall(int argc, char *argv[])
         {
             int is_ref = 0;
             if ( bcf_rec->n_allele==1 ) is_ref = 1;     // not a variant
-            else if ( bcf_rec->n_allele==2 ) 
+            else if ( bcf_rec->n_allele==2 )
             {
                 // second allele is mpileup's X, not a variant
                 if ( bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;
@@ -670,7 +669,7 @@ int main_vcfcall(int argc, char *argv[])
         bcf_unpack(bcf_rec, BCF_UN_ALL);
 
         // Various output modes: QCall output (todo)
-        if ( args.flag & CF_QCALL ) 
+        if ( args.flag & CF_QCALL )
         {
             qcall(&args.aux, bcf_rec);
             continue;
@@ -698,6 +697,6 @@ int main_vcfcall(int argc, char *argv[])
     if ( args.flag & CF_GVCF ) gvcf_write(args.out_fh, &args.gvcf, args.aux.hdr, NULL, 0);
     if ( args.flag & CF_INS_MISSED ) bcf_sr_regions_flush(args.aux.srs->targets);
     destroy_data(&args);
-	return 0;
+    return 0;
 }
 

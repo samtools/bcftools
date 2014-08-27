@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -110,7 +109,7 @@ static void init_data(args_t *args)
     }
 
     if ( args->af_tag )
-        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) ) 
+        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) )
             error("No such INFO tag in the VCF: %s\n", args->af_tag);
 
     if ( !args->samples_list ) args->samples_list = "-";
@@ -147,7 +146,7 @@ static void init_data(args_t *args)
     for (i=1; i<args->argc; i++)
         printf(" %s",args->argv[i]);
     printf("\n#\n");
-    if ( args->counts_only ) 
+    if ( args->counts_only )
         printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]HOM rate\t[5]HET rate\n");
     else if ( args->fwd_bwd )
         printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]ROH p-value\n");
@@ -192,14 +191,14 @@ static int load_genmap(args_t *args, bcf1_t *line)
         fname = args->genmap_fname;
 
     htsFile *fp = hts_open(fname, "rb");
-    if ( !fp ) 
+    if ( !fp )
     {
         args->ngenmap = 0;
         return -1;
     }
 
     hts_getline(fp, KS_SEP_LINE, &str);
-    if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") ) 
+    if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") )
         error("Unexpected header, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
 
     args->ngenmap = args->igenmap = 0;
@@ -216,7 +215,7 @@ static int load_genmap(args_t *args, bcf1_t *line)
         // skip second column
         tmp++;
         while ( *tmp && !isspace(*tmp) ) tmp++;
-        
+
         // read the genetic map in cM
         gm->rate = strtod(tmp+1, &end);
         if ( tmp+1==end ) error("Could not parse %s: %s\n", fname, str.s);
@@ -244,7 +243,7 @@ static double get_genmap_rate(args_t *args, int start, int end)
     int j = i;
     while ( j+1<args->ngenmap && args->genmap[j].pos < end ) j++;
 
-    if ( i==j ) 
+    if ( i==j )
     {
         args->igenmap = i;
         return 0;
@@ -261,7 +260,7 @@ static double get_genmap_rate(args_t *args, int start, int end)
 static void flush_counts(args_t *args, int ismpl, int n)
 {
     smpl_t *smpl = &args->smpl[ismpl];
-    
+
     int pos = smpl->pos[ smpl->rbuf.f ];
     int nhw = 0, naz = 0;
     int ir;
@@ -284,9 +283,9 @@ static void flush_counts(args_t *args, int ismpl, int n)
 
 /**
  *  This function implements the HMM model:
- *    D = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity), 
+ *    D = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity),
  *    f = non-ref allele frequency
- * 
+ *
  *  Emission probabilities:
  *    oAZ = P_i(D|AZ) = (1-f)*P(D|RR) + f*P(D|AA)
  *    oHW = P_i(D|HW) = (1-f)^2 * P(D|RR) + f^2 * P(D|AA) + 2*f*(1-f)*P(D|RA)
@@ -300,7 +299,7 @@ static void flush_counts(args_t *args, int ismpl, int n)
  *    ci  = P_i(C)    .. probability of cross-over at site i, from genetic map
  *
  *    AZi = P_i(AZ)   .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
- *    HWi = P_i(HW) 
+ *    HWi = P_i(HW)
  *
  *    P_i(AZ|AZ) = P(AZ|AZ) * (1-ci) * AZ{i-1} = (1-tHW) * (1-ci) * AZ{i-1}
  *    P_i(AZ|HW) = P(AZ|HW) * ci * HW{i-1}     = tAZ * ci * (1 - AZ{i-1})
@@ -310,9 +309,9 @@ static void flush_counts(args_t *args, int ismpl, int n)
  *
  *    ------------------------------------------------------
  *
- *    P_{i+1}(AZ) = P_{i+1}(D|AZ) * [ P_i(AZ|AZ) + P_i(AZ|HW) ] 
+ *    P_{i+1}(AZ) = P_{i+1}(D|AZ) * [ P_i(AZ|AZ) + P_i(AZ|HW) ]
  *                = oAZ * [ (1-tHW) * (1-ci) * AZ{i-1} + tAZ * ci * (1-AZ{i-1})]
- *    P_{i+1}(HW) = P_{i+1}(D|HW) * [ P_i(HW|HW) + P_i(HW|AZ) ] 
+ *    P_{i+1}(HW) = P_{i+1}(D|HW) * [ P_i(HW|HW) + P_i(HW|AZ) ]
  *                = oHW * [ (1-tAZ) * (1-ci) * (1-AZ{i-1}) + tHW * ci * AZ{i-1} ]
  */
 static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
@@ -478,7 +477,7 @@ static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
         if ( i<tgt->nals ) return 1;
         char *tmp, *str = tgt->line.s;
         i = 0;
-        while ( *str && i<3 ) 
+        while ( *str && i<3 )
         {
             if ( *str=='\t' ) i++;
             str++;
@@ -486,22 +485,22 @@ static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
         i = 1;
         float sum = 0;
         do
-        {   
+        {
             args->AFs[i] = strtod(str, &tmp);
             sum += args->AFs[i];
             i++;
             str = tmp;
-        } 
+        }
         while ( i<line->n_allele && str );
         if (sum<0 || sum>1 ) error("The AF values out of bounds at %s:%d, the sum is %f .. %s\n", bcf_seqname(args->hdr,line), line->pos+1,sum,tgt->line.s);
         args->AFs[0] = 1 - sum;
     }
     else if ( !args->estimate_AF )
     {
-        if ( bcf_get_info_int32(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 ) 
+        if ( bcf_get_info_int32(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 )
             error("No AN tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
         int nAC = bcf_get_info_int32(args->hdr, line, "AC", &args->ACs, &args->mACs);
-        if ( nAC <= 0 ) 
+        if ( nAC <= 0 )
             error("No AC tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
 
         int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
@@ -546,7 +545,7 @@ static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
                 }
             }
         }
-        int ntot = 0; for (i=0; i<line->n_allele; i++) ntot += args->ACs[i]; 
+        int ntot = 0; for (i=0; i<line->n_allele; i++) ntot += args->ACs[i];
         for (i=0; i<line->n_allele; i++) args->AFs[i] = (float)args->ACs[i] / ntot;  // ALT frequencies
     }
     return 0;
@@ -603,7 +602,7 @@ int set_pdg_from_PLs(args_t *args, bcf1_t *line)
                 jmin = 0;
             else            // RR
             {
-                // Choose ALT at multiallelic sites. Typically, the more frequent ALT will be selected as it comes first 
+                // Choose ALT at multiallelic sites. Typically, the more frequent ALT will be selected as it comes first
                 pl = &args->PLs[args->ismpl[i]*nPLs]; min = pl[2]; kmin = 1;
                 for (k=1; k<line->n_allele; k++)
                 {
@@ -675,10 +674,10 @@ static void vcfroh(args_t *args, bcf1_t *line)
 {
     int i;
     if ( !line )
-    { 
+    {
         for (i=0; i<args->nsmpl; i++)
-            flush_buffer(args, i, args->smpl[i].rbuf.n); 
-        return; 
+            flush_buffer(args, i, args->smpl[i].rbuf.n);
+        return;
     }
     if ( line->rid == args->skip_rid ) return;
     if ( line->n_allele==1 ) return;    // no ALT allele
@@ -686,7 +685,7 @@ static void vcfroh(args_t *args, bcf1_t *line)
     if ( args->snps_only && !bcf_is_snp(line) ) return;
 
     int skip_rid = 0;
-    if ( args->prev_rid<0 ) 
+    if ( args->prev_rid<0 )
     {
         args->prev_rid = line->rid;
         skip_rid = load_genmap(args, line);
@@ -705,9 +704,9 @@ static void vcfroh(args_t *args, bcf1_t *line)
     }
     args->prev_rid = line->rid;
     args->ntot++;
-    
+
     int ret;
-    if ( !args->fake_PLs ) 
+    if ( !args->fake_PLs )
         ret = set_pdg_from_PLs(args, line);
     else
         ret = set_pdg_from_GTs(args, line);
@@ -783,7 +782,7 @@ int main_vcfroh(int argc, char *argv[])
     args->mwin    = (int)1e5;   // maximum number of sites that can be processed in one go
     int regions_is_file = 0, targets_is_file = 0;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"AF-tag",1,0,'F'},
         {"estimate-AF",1,0,'e'},
@@ -806,12 +805,12 @@ int main_vcfroh(int argc, char *argv[])
     };
     while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:w:s:S:cm:fG:bIa:e:F:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'F': 
+            case 'F':
                 if (optarg[0]==':') args->af_fname = optarg+1;
                 else args->af_tag = optarg;
                 break;
-            case 'e': 
-                if (!strcmp("all",optarg)) args->estimate_AF = 1; 
+            case 'e':
+                if (!strcmp("all",optarg)) args->estimate_AF = 1;
                 else if (!strcmp("subset",optarg)) args->estimate_AF = 2;
                 else error("Expected 'all' or 'subset' with -e.\n");
                 break;
@@ -830,7 +829,7 @@ int main_vcfroh(int argc, char *argv[])
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
-            case 'h': 
+            case 'h':
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
@@ -855,7 +854,7 @@ int main_vcfroh(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->af_fname);
     }
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
-    
+
     init_data(args);
     while ( bcf_sr_next_line(args->files) )
     {

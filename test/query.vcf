@@ -11,6 +11,7 @@
 ##contig=<ID=1,assembly=b37,length=249250621>
 ##contig=<ID=3,assembly=b37,length=198022430>
 ##contig=<ID=4,assembly=b37,length=191154276>
+##contig=<ID=2,assembly=b37,length=249250621>
 ##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
 ##readme=AAAAAA
 ##readme=BBBBBB
@@ -29,3 +30,4 @@
 2	3199812	.	G	GTT,GT	291	PASS	AN=4;AC=2,2	GT:GQ:DP	1/2:322:26	1/2:122:16
 3	3212016	.	CTT	C,CT	52.5	PASS	AN=4;AC=2,2	GT:GQ:DP	1/2:91:26	1/2:11:16
 4	3258448	.	TACACACAC	T	123	PASS	AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:125:11
+4	3258449	.	A	C	123	PASS	AN=4;AC=3	GT:GQ:DP	1/1:325:31	0/1:125:11

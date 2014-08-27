@@ -1,27 +1,26 @@
-/* The MIT License
+/*  vcfindex.c -- Index bgzip compressed VCF/BCF files for random access.
 
-   Copyright (c) 2014 Genome Research Ltd (GRL).
+    Copyright (C) 2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining
-   a copy of this software and associated documentation files (the
-   "Software"), to deal in the Software without restriction, including
-   without limitation the rights to use, copy, modify, merge, publish,
-   distribute, sublicense, and/or sell copies of the Software, and to
-   permit persons to whom the Software is furnished to do so, subject to
-   the following conditions:
+    Author: Shane McCarthy <sm15@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be
-   included in all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-   BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-   SOFTWARE.
-*/
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +52,7 @@ int main_vcfindex(int argc, char *argv[])
     int c, force = 0, tbi = 0;
     int min_shift = BCF_LIDX_SHIFT;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"csi",no_argument,NULL,'c'},
         {"tbi",no_argument,NULL,'t'},
@@ -64,7 +63,7 @@ int main_vcfindex(int argc, char *argv[])
 
     while ((c = getopt_long(argc, argv, "ctfm:", loptions, NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'c': tbi = 0; break;
             case 't': tbi = 1; min_shift = 0; break;
@@ -129,11 +128,11 @@ int main_vcfindex(int argc, char *argv[])
 
     if (ftype == FT_BCF_GZ)
     {
-        if ( bcf_index_build(fname, min_shift) != 0 ) 
+        if ( bcf_index_build(fname, min_shift) != 0 )
         {
             fprintf(stderr,"[E::%s] bcf_index_build failed for %s\n", __func__, fname);
             return 1;
-        }        
+        }
     }
     else
     {

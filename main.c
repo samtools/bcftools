@@ -1,27 +1,26 @@
-/* The MIT License
+/*  main.c -- main bcftools command front-end.
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
-   Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2012-2014 Genome Research Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
- */
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,6 +56,7 @@ int main_vcfannotate(int argc, char *argv[]);
 int main_vcfroh(int argc, char *argv[]);
 int main_vcfconcat(int argc, char *argv[]);
 int main_reheader(int argc, char *argv[]);
+int main_vcfconvert(int argc, char *argv[]);
 
 typedef struct
 {
@@ -67,84 +67,88 @@ cmd_t;
 
 static cmd_t cmds[] =
 {
-    { .func  = NULL, 
+    { .func  = NULL,
       .alias = "Indexing",
       .help  = NULL
     },
-    { .func = main_vcfindex,   
+    { .func = main_vcfindex,
       .alias = "index",
       .help = "index VCF/BCF files"
     },
-    { .func = main_tabix,   
+    { .func = main_tabix,
       .alias = "tabix",
       .help = "-tabix for BGZF'd BED, GFF, SAM, VCF and more" // do not advertise; only keep here for testing
     },
 
-    { .func  = NULL, 
+    { .func  = NULL,
       .alias = "VCF/BCF manipulation",
       .help  = NULL
     },
 
-    { .func  = main_vcfannotate,  
-      .alias = "annotate", 
+    { .func  = main_vcfannotate,
+      .alias = "annotate",
       .help  = "annotate and edit VCF/BCF files",
     },
-    { .func  = main_vcfconcat,  
-      .alias = "concat", 
+    { .func  = main_vcfconcat,
+      .alias = "concat",
       .help  = "concatenate VCF/BCF files from the same set of samples"
     },
-    { .func  = main_vcfisec,  
-      .alias = "isec", 
+    { .func  = main_vcfconvert,
+      .alias = "convert",
+      .help  = "convert VCF/BCF files to different formats and back"
+    },
+    { .func  = main_vcfisec,
+      .alias = "isec",
       .help  = "intersections of VCF/BCF files"
     },
-    { .func  = main_vcfmerge, 
+    { .func  = main_vcfmerge,
       .alias = "merge",
       .help  = "merge VCF/BCF files files from non-overlapping sample sets"
     },
-    { .func  = main_vcfnorm, 
+    { .func  = main_vcfnorm,
       .alias = "norm",
       .help  = "left-align and normalize indels"
     },
-    { .func  = main_vcfquery, 
+    { .func  = main_vcfquery,
       .alias = "query",
       .help  = "transform VCF/BCF into user-defined formats"
     },
-    { .func  = main_reheader, 
+    { .func  = main_reheader,
       .alias = "reheader",
       .help  = "modify VCF/BCF header, change sample names"
     },
-    { .func  = main_vcfview,  
-      .alias = "view", 
+    { .func  = main_vcfview,
+      .alias = "view",
       .help  = "VCF/BCF conversion, view, subset and filter VCF/BCF files"
     },
 
-    { .func  = NULL, 
+    { .func  = NULL,
       .alias = "VCF/BCF analysis",
       .help  = NULL
     },
 
-    { .func  = main_vcfcall,  
-      .alias = "call", 
+    { .func  = main_vcfcall,
+      .alias = "call",
       .help  = "SNP/indel calling"
     },
-    { .func  = main_vcffilter, 
+    { .func  = main_vcffilter,
       .alias = "filter",
       .help  = "filter VCF/BCF files using fixed thresholds"
     },
-    { .func  = main_vcfgtcheck, 
+    { .func  = main_vcfgtcheck,
       .alias = "gtcheck",
       .help  = "check sample concordance, detect sample swaps and contamination"
     },
-    { .func  = main_vcfroh, 
+    { .func  = main_vcfroh,
       .alias = "roh",
       .help  = "identify runs of autozygosity (HMM)",
     },
-    { .func  = main_vcfstats, 
+    { .func  = main_vcfstats,
       .alias = "stats",
       .help  = "produce VCF/BCF stats"
     },
 
-    { .func  = main_vcfsom, 
+    { .func  = main_vcfsom,
       .alias = "som",
       .help  = "-filter using Self-Organized Maps (experimental)"   // do not advertise
     },
