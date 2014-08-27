@@ -465,29 +465,29 @@ void debug_als(char **als, int nals)
  */
 void normalize_alleles(char **als, int nals)
 {
+    if ( !als[0][1] ) return;   // ref is 1base long, we're done
+
     int j, i = 1, done = 0;
-    int lens[nals];
-    lens[0] = strlen(als[0]); // ref
-    if ( lens[0]>1 ) {
-        int k = 1;
-        for( ; k<nals; k++) lens[k]=strlen(als[k]);
-        while ( i<lens[0] )
+    int *lens = (int*) malloc(sizeof(int)*nals);
+    for (j=0; j<nals; j++) lens[j] = strlen(als[j]);
+
+    while ( i<lens[0] )
+    {
+        for (j=1; j<nals; j++)
         {
-            for (j=1; j<nals; j++)
-            {
-                if ( i>=lens[j] ) done = 1;
-                if ( als[j][lens[j]-i] != als[0][lens[0]-i] ) { done = 1; break; }
-            }
-            if ( done ) break;
-            i++;
+            if ( i>=lens[j] ) done = 1;
+            if ( als[j][lens[j]-i] != als[0][lens[0]-i] ) { done = 1; break; }
         }
-        if ( i>1 )
-        {
-            i--;
-            als[0][lens[0]-i] = 0;
-            for (j=1; j<nals; j++) als[j][lens[j]-i] = 0;
-        }
+        if ( done ) break;
+        i++;
     }
+    if ( i>1 )
+    {
+        i--;
+        als[0][lens[0]-i] = 0;
+        for (j=1; j<nals; j++) als[j][lens[j]-i] = 0;
+    }
+    free(lens);
 }
 
  /**
