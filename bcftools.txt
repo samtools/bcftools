@@ -681,6 +681,7 @@ created by using the '-t/--tbi' option or using the 'tabix' program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.
 
+==== Indexing options:
 *-c, --csi*::
     generate CSI-format index for VCF/BCF files [default]
 
@@ -693,6 +694,14 @@ the CSI first and then the TBI.
 *-t, --tbi*::
     generate TBI-format index for VCF files
 
+==== Stats options:
+*-n, --nrecords*::
+    print the number of records based on the CSI or TBI index files
+
+*-s, --stats*::
+    Print stats based on the CSI or TBI index files. Output format
+    is two tab-delimited columns listing the contig and number of 
+    records per contig. Contigs with zero counts are not printed.
 
 [[isec]]
 === bcftools isec ['OPTIONS']  'A.vcf.gz' 'B.vcf.gz' [...]
