@@ -915,6 +915,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     []              The brackets loop over all samples
     %GT             Genotype (e.g. 0/1)
     %TGT            Translated genotype (e.g. C/A)
+    %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
     %SAMPLE         Sample name
 
