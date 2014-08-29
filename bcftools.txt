@@ -699,9 +699,10 @@ the CSI first and then the TBI.
     print the number of records based on the CSI or TBI index files
 
 *-s, --stats*::
-    Print stats based on the CSI or TBI index files. Output format
-    is two tab-delimited columns listing the contig and number of 
-    records per contig. Contigs with zero counts are not printed.
+    Print per contig stats based on the CSI or TBI index files. 
+    Output format is three tab-delimited columns listing the contig 
+    name, contig length ('.' if unknown) and number of records for 
+    the contig. Contigs with zero records are not printed.
 
 [[isec]]
 === bcftools isec ['OPTIONS']  'A.vcf.gz' 'B.vcf.gz' [...]

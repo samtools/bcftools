@@ -1,3 +1,4 @@
+
 /*  vcfindex.c -- Index bgzip compressed VCF/BCF files for random access.
 
     Copyright (C) 2014 Genome Research Ltd.
@@ -48,7 +49,7 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "Stats options:\n");
     fprintf(stderr, "    -n, --nrecords       print number of records based on existing index file\n");
-    fprintf(stderr, "    -s, --stats          print per-contig stats based on existing index file\n");
+    fprintf(stderr, "    -s, --stats   print per contig stats based on existing index file\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -93,7 +94,14 @@ int vcf_index_stats(char *fname, int stats)
         hts_idx_get_stat(tbx ? tbx->idx : idx, i, &records, &v);
         sum+=records;
         if (stats&2 || !records) continue;
-        fprintf(out, "%s", seq[i]);
+        bcf_hrec_t *hrec = bcf_hdr_get_hrec(hdr, BCF_HL_CTG, "ID", seq[i], NULL);
+        int hkey = hrec ? bcf_hrec_find_key(hrec, "length") : -1;
+        if (hkey<0)
+        {
+            fprintf(stderr,"could not get contig length for %s\n", seq[i]);
+            return 1;
+        }
+        fprintf(out, "%s\t%s", seq[i], strcmp(hrec->vals[hkey], "2147483647")==0 ? "." : hrec->vals[hkey]);
         fprintf(out, "\t%" PRIu64 "\n", records);
     }
     if (!sum)
