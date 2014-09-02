@@ -497,6 +497,13 @@ the *-a, --allow-overlaps* option is specified.
 *-T, --targets-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+==== VCF output options:
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
 
 ==== gen/sample options:
 *-g, --gensample* 'prefix' or 'gen-file','sample-file'::
@@ -521,6 +528,27 @@ the *-a, --allow-overlaps* option is specified.
 
 *--tag* 'STRING'::
     tag to take values for .gen file: GT,PL,GL,GP
+
+==== tsv options:
+*--tsv2vcf* 'file'::
+    convert from TSV (tab-separated values) format to VCF. The 
+    input file fields can be tab- or space- delimited
+
+*-c, --columns* 'list'::
+    comma-separated list of fields in the input file. In the current
+    version, the fields CHROM, POS, ID, and AA are expected and 
+    can appear in arbitrary order.
+    The AA field lists alleles on the forward reference strand,
+    for example "CC" or "CT" for diploid genotypes or "C"
+    for haploid genotypes (sex chromosomes). Insertions and deletions
+    are not supported yet.
+    Columns which should be ignored in the input file can be indicated by "-".
+
+*-f, --ref* 'file'::
+    reference sequence in fasta format
+
+*-s, --sample* 'string'::
+    sample name
 
 
 [[filter]]
@@ -915,6 +943,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     []              The brackets loop over all samples
     %GT             Genotype (e.g. 0/1)
     %TGT            Translated genotype (e.g. C/A)
+    %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
     %SAMPLE         Sample name
 

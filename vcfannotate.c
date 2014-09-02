@@ -547,11 +547,13 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
 static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
+    if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0;  // don't replace with "."
     return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
 }
 static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
+    if ( rec->d.id && rec->d.id[0]=='.' && !rec->d.id[1] ) return 0;    // don't replace with "."
     return bcf_update_id(args->hdr_out,line,rec->d.id);
 }
 static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)

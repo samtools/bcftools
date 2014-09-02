@@ -63,7 +63,7 @@ idist_t;
 
 typedef struct
 {
-    int n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals;
+    int n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals, n_records;
     int *af_ts, *af_tv, *af_snps;   // first bin of af_* stats are singletons
     #if HWE_STATS
         int *af_hwe;
@@ -954,6 +954,8 @@ static void do_vcf_stats(args_t *args)
         if ( args->split_by_id && line->d.id[0]=='.' && !line->d.id[1] )
             stats = &args->stats[1];
 
+        stats->n_records++;
+
         if ( line_type&VCF_SNP )
             do_snp_stats(args, stats, reader);
         if ( line_type&VCF_INDEL )
@@ -1020,6 +1022,7 @@ static void print_stats(args_t *args)
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
+        printf("SN\t%d\tnumber of records:\t%d\n", id, stats->n_records);
         printf("SN\t%d\tnumber of SNPs:\t%d\n", id, stats->n_snps);
         printf("SN\t%d\tnumber of MNPs:\t%d\n", id, stats->n_mnps);
         printf("SN\t%d\tnumber of indels:\t%d\n", id, stats->n_indels);

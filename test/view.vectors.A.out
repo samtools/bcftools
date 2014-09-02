@@ -36,6 +36,21 @@
 ##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=IA8,Number=.,Type=Integer,Description="test">
+##INFO=<ID=IA16,Number=.,Type=Integer,Description="test">
+##INFO=<ID=IA32,Number=.,Type=Integer,Description="test">
+##INFO=<ID=IAF,Number=.,Type=Float,Description="test">
+##INFO=<ID=I8,Number=1,Type=Integer,Description="test">
+##INFO=<ID=I16,Number=1,Type=Integer,Description="test">
+##INFO=<ID=I32,Number=1,Type=Integer,Description="test">
+##INFO=<ID=IF,Number=1,Type=Float,Description="test">
+##FORMAT=<ID=F8,Number=1,Type=Integer,Description="test">
+##FORMAT=<ID=F16,Number=1,Type=Integer,Description="test">
+##FORMAT=<ID=F32,Number=1,Type=Integer,Description="test">
+##FORMAT=<ID=FF,Number=1,Type=Float,Description="test">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
 1	3162006	.	GAA	G	238	PASS	DP=19;AN=2;AC=1;XRF=1e+06,2e+06;XRI=1111,2222;XRS=ABC,DEF;XAF=1e+06;XAI=1111;XAS=ABC;XGF=1e+06,2e+06,3e+06;XGI=11,22,33;XGS=ABC,DEF,GHI;TXT=ABC,DEF,GHI	GT:GQ:DP	0/1:589:19
 1	3162007	.	TAGGG	CAGGG	238	PASS	AO=52101;CIGAR=1X4M;AC=1;AN=2	GT:FGS:FGI:FGF:FAS:FAI:FAF:FRS:FRI:FRF	0/1:AAAAAA,BBBBB,CCCC:1,2,3:0.1,0.02,0.003:AAA:1:0.1:A,BB:1,2:0.1,0.02
+1	3162008	.	TAGGG	CAGGG	238	PASS	IA8=10,.;IA16=1000,.;IA32=100000,.;IAF=0.003,.;CIGAR=1X4M;AC=1;AN=2	GT:F8:F16:F32:FF	0/1:10:1000:100000:0.003
+1	3162009	.	TAGGG	CAGGG	238	PASS	IA8=.;IA16=.;IA32=.;IAF=.;CIGAR=1X4M;AC=1;AN=2	GT:F8:F16:F32:FF	0/1:10:1000:100000:0.003
+1	3162010	.	TAGGG	CAGGG	238	PASS	I8=.;I16=.;I32=.;IF=.;CIGAR=1X4M;AC=1;AN=2	GT:F8:F16:F32:FF	0/1:10:1000:100000:0.003

@@ -985,8 +985,9 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
             while ( b<bend && *b ) b++;
             if ( a-astr != b-bstr ) atok->pass_samples[i] = 0;
             else atok->pass_samples[i] = strncmp(astr,bstr,a-astr)==0 ? 1 : 0;
-            if ( logic!=TOK_EQ ) pass_site = pass_site ? 0 : 1;
-            if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
+            if ( logic!=TOK_EQ )
+                atok->pass_samples[i] = atok->pass_samples[i] ? 0 : 1;
+            pass_site |= atok->pass_samples[i];
         }
         if ( !atok->nsamples ) atok->nsamples = btok->nsamples;
     }
@@ -1035,8 +1036,9 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
             while ( y<yend && *y ) y++;
             if ( x-xstr != y-ystr ) atok->pass_samples[i] = 0;
             else atok->pass_samples[i] = strncmp(xstr,ystr,x-xstr)==0 ? 1 : 0;
-            if ( logic!=TOK_EQ ) pass_site = pass_site ? 0 : 1;
-            if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
+            if ( logic!=TOK_EQ )
+                atok->pass_samples[i] = atok->pass_samples[i] ? 0 : 1;
+            pass_site |= atok->pass_samples[i];
         }
         if ( !atok->nsamples )
             atok->nvalues = atok->nsamples = btok->nsamples; // is it a bug? not sure if atok->nvalues should be set
