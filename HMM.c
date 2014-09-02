@@ -119,14 +119,6 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
     int i,j, nstates = hmm->nstates;
     for (i=0; i<nstates; i++) hmm->vprob[i] = 1./nstates;
 
-
-    //fprintf(stderr,"DEBUG: ");
-    //for (i=0; i<2; i++)
-    //{
-    //    for (j=0; j<2; j++) fprintf(stderr," %e", MAT(hmm->tprob_arr,2,i,j));
-    //}
-    //fprintf(stderr,"\n");
-
     // Run Viterbi
     uint32_t prev_pos = sites[0];
     for (i=0; i<n; i++)
@@ -138,6 +130,7 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
 
         _set_tprob(hmm, pos_diff);
         if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data);
+        prev_pos = sites[i];
 
         double vnorm = 0;
         for (j=0; j<nstates; j++)
@@ -155,24 +148,6 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         }
         for (j=0; j<nstates; j++) hmm->vprob_tmp[j] /= vnorm;
         double *tmp = hmm->vprob; hmm->vprob = hmm->vprob_tmp; hmm->vprob_tmp = tmp;
-
-        #if 0
-            fprintf(stderr,"%d: vprob=", sites[i]+1);
-            for (j=0; j<nstates; j++)  fprintf(stderr," %f", hmm->vprob[j]);
-            fprintf(stderr,"\teprob=");
-            for (j=0; j<nstates; j++)  fprintf(stderr," %f", eprob[j]);
-            fprintf(stderr,"\tvpath=");
-            for (j=0; j<nstates; j++)  fprintf(stderr," %d", vpath[j]);
-            fprintf(stderr,"\ttprob=");
-            for (j=0; j<nstates; j++) 
-            {
-                int k;
-                for (k=0; k<nstates; k++) fprintf(stderr," %f", MAT(hmm->curr_tprob,hmm->nstates,j,k));
-            }
-            fprintf(stderr,"\t %d\n", pos_diff);
-        #endif
-
-        prev_pos = sites[i];
     }
 
     // Find the most likely state
@@ -189,6 +164,85 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
     }
 }
 
+void hmm_run_fwd_bwd(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
+{
+    // Init arrays when run for the first time
+    if ( hmm->nsites < n )
+    {
+        hmm->nsites = n;
+        hmm->fwd = (double*) realloc(hmm->fwd, sizeof(double)*(hmm->nsites+1)*hmm->nstates);
+    }
+    if ( !hmm->fwd )
+    {
+        hmm->fwd     = (double*) malloc(sizeof(double)*hmm->nstates*(hmm->nsites+1));
+        hmm->bwd     = (double*) malloc(sizeof(double)*hmm->nstates);
+        hmm->bwd_tmp = (double*) malloc(sizeof(double)*hmm->nstates);
+    }
+
+
+    // Init all states with equal likelihood
+    int i,j,k, nstates = hmm->nstates;
+    for (i=0; i<nstates; i++) hmm->fwd[i] = 1./hmm->nstates;
+    for (i=0; i<nstates; i++) hmm->bwd[i] = 1./hmm->nstates;
+
+    // Run fwd 
+    uint32_t prev_pos = sites[0];
+    for (i=0; i<n; i++)
+    {
+        double *fwd_prev = &hmm->fwd[i*nstates];
+        double *fwd      = &hmm->fwd[(i+1)*nstates];
+        double *eprob    = &eprobs[i*nstates];
+
+        int pos_diff = sites[i] == prev_pos ? 0 : sites[i] - prev_pos - 1;
+
+        _set_tprob(hmm, pos_diff);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data);
+        prev_pos = sites[i];
+
+        double norm = 0;
+        for (j=0; j<nstates; j++)
+        {
+            double pval = 0;
+            for (k=0; k<nstates; k++)
+                pval += fwd_prev[k] * MAT(hmm->curr_tprob,hmm->nstates,j,k);
+            fwd[j] = pval * eprob[j];
+            norm += fwd[j];
+        }
+        for (j=0; j<nstates; j++) fwd[j] /= norm;
+    }
+
+    // Run bwd
+    double *bwd = hmm->bwd, *bwd_tmp = hmm->bwd_tmp;
+    prev_pos = sites[n-1];
+    for (i=0; i<n; i++)
+    {
+        double *fwd   = &hmm->fwd[(n-i)*nstates];
+        double *eprob = &eprobs[(n-i-1)*nstates];
+        
+        int pos_diff = sites[n-i-1] == prev_pos ? 0 : prev_pos - sites[n-i-1] - 1;
+
+        _set_tprob(hmm, pos_diff);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, sites[n-i-1], prev_pos, hmm->set_tprob_data);
+        prev_pos = sites[n-i-1];
+
+        double norm = 0;
+        for (j=0; j<nstates; j++)
+        {
+            double pval = 0;
+            for (k=0; k<nstates; k++)
+                pval += bwd[k] * eprob[k] * MAT(hmm->curr_tprob,hmm->nstates,k,j);
+            bwd_tmp[j] = pval;
+            norm += pval;
+        }
+        for (j=0; j<nstates; j++)
+        {
+            bwd_tmp[j] /= norm;
+            fwd[j] *= bwd_tmp[j];   // fwd now stores fwd*bwd
+        }
+        double *tmp = bwd_tmp; bwd_tmp = bwd; bwd = tmp;
+    }
+}
+
 void hmm_destroy(hmm_t *hmm)
 {
     free(hmm->vprob);
@@ -197,6 +251,9 @@ void hmm_destroy(hmm_t *hmm)
     free(hmm->curr_tprob);
     free(hmm->tmp);
     free(hmm->tprob_arr);
+    free(hmm->fwd);
+    free(hmm->bwd);
+    free(hmm->bwd_tmp);
     free(hmm);
 }
 

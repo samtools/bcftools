@@ -57,6 +57,7 @@ int main_vcfroh(int argc, char *argv[]);
 int main_vcfconcat(int argc, char *argv[]);
 int main_reheader(int argc, char *argv[]);
 int main_vcfconvert(int argc, char *argv[]);
+int main_vcfcnv(int argc, char *argv[]);
 
 typedef struct
 {
@@ -130,6 +131,10 @@ static cmd_t cmds[] =
     { .func  = main_vcfcall,
       .alias = "call",
       .help  = "SNP/indel calling"
+    },
+    { .func  = main_vcfcnv,
+      .alias = "cnv",
+      .help  = "-HMM CNV calling"    // do not advertise yet
     },
     { .func  = main_vcffilter,
       .alias = "filter",

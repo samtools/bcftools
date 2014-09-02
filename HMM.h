@@ -39,7 +39,7 @@ struct _hmm_t
     double *vprob, *vprob_tmp;  // viterbi probs [nstates]
     uint8_t *vpath;             // viterbi path [nstates*nsites]
     double *bwd, *bwd_tmp;      // bwd probs [nstates]
-    double *fwd;                // fwd probs [nsites]
+    double *fwd;                // fwd probs [nstates*(nsites+1)]
     int nsites;
 
     int ntprob_arr;             // number of pre-calculated tprob matrices
@@ -80,6 +80,17 @@ void hmm_set_tprob_func(hmm_t *hmm, set_tprob_f set_tprob, void *data);
  *   vpath[nstates*i].
  */
 void hmm_run_viterbi(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
+
+/**
+ *   hmm_run_fwd_bwd() - run the forward-backward algorithm
+ *   @nsites:   number of sites 
+ *   @eprob:    emission probabilities for each site and state (nsites x nstates)
+ *   @sites:    list of positions
+ *
+ *   When done, hmm->fwd[] contains the calculated fwd*bwd probabilities. The
+ *   probability of i-th state at j-th site can be accessed as fwd[j*nstates+i].
+ */
+void hmm_run_fwd_bwd(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
 void hmm_destroy(hmm_t *hmm);
 
 #endif
