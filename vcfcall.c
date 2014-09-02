@@ -253,7 +253,7 @@ static void init_missed_line(args_t *args)
     bcf_float_set_missing(args->missed_line->qual);
 }
 
-static void print_missed_line(struct _bcf_sr_regions_t *regs, void *data)
+static void print_missed_line(bcf_sr_regions_t *regs, void *data)
 {
     args_t *args = (args_t*) data;
     call_t *call = &args->aux;
