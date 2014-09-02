@@ -239,16 +239,20 @@ This command allows to add or remove annotations and apply user-written plugins.
     comma-separated list of alleles), at least one must match one of the
     alleles in the corresponding VCF record. Similarly, at least one
     alternate allele from a multi-allelic VCF record must be present in the
-    annotation file.  See also *-c, --columns* and *-h, --header-lines*.
+    annotation file.
+    Note that flag types, such as "INFO/FLAG", can be annotated by including
+    a field with the value "1" to set the flag, "0" to remove it, or "." to
+    keep existing flags.
+    See also *-c, --columns* and *-h, --header-lines*.
 
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
     'list' describes the columns of the annotation file and must include CHROM,
-    POS (or, alternatively, FROM and TO), and optionally REF and ALT.  Unused
+    POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
     columns which should be ignored can be indicated by "-". If the annotation
-    file is a VCF/BCF, only the edited columns/tags must be present and
-    their order does not matter. Currently the columns ID, QUAL, FILTER and INFO
+    file is a VCF/BCF, only the edited columns/tags must be present and their
+    order does not matter. Currently the columns ID, QUAL, FILTER and INFO
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG".
     If the annotation file is not a VCF/BCF, all new annotations must be defined
     via *-h, --header-lines*.  For example:

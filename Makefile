@@ -139,7 +139,7 @@ bcftools.1: bcftools.txt
 bcftools.html: bcftools.txt
 	a2x --doctype manpage --format xhtml bcftools.txt
 
-docs: bcftools.html bcftools.1
+docs: bcftools.1 bcftools.html
 
 install: $(PROG)
 	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
