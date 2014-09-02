@@ -30,13 +30,16 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <htslib/faidx.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <htslib/kseq.h>
 #include "bcftools.h"
 #include "filter.h"
 #include "convert.h"
+#include "tsv2vcf.h"
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -45,6 +48,7 @@ THE SOFTWARE.  */
 typedef struct _args_t args_t;
 struct _args_t
 {
+    faidx_t *ref;
     filter_t *filter;
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
@@ -52,9 +56,12 @@ struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *header;
     void (*convert_func)(struct _args_t *);
-    int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file;
-    char **argv, *sample_list, *targets_list, *regions_list, *tag;
-    char *outfname, *infname;
+    struct {
+        int total, skipped, hom_rr, het_ra, hom_aa, het_aa; 
+    } n;
+    int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
+    char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
+    char *outfname, *infname, *ref_fname;
     int argc;
 };
 
@@ -189,6 +196,151 @@ static void vcf_to_gensample(args_t *args)
     free(gen_fname);
 }
 
+static void bcf_hdr_set_chrs(bcf_hdr_t *hdr, faidx_t *fai)
+{
+    int i, n = faidx_nseq(fai);
+    for (i=0; i<n; i++)
+    {
+        const char *seq = faidx_iseq(fai,i);
+        int len = faidx_seq_len(fai, seq);
+        bcf_hdr_printf(hdr, "##contig=<ID=%s,length=%d>", seq,len);
+    }
+}
+static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
+{
+    args_t *args = (args_t*) usr;
+
+    rec->n_sample = bcf_hdr_nsamples(args->header);
+    assert( rec->n_sample==1 );    // 1 sample only for now
+
+    // Only SNPs
+    if ( tsv->se - tsv->ss > 2 )
+        error("Could not parse AA: %s\n", tsv->ss);
+
+    if ( tsv->ss[0]=='-' ) return -1;
+    if ( tsv->ss[0]=='I' ) return -1;
+    if ( tsv->ss[0]=='D' ) return -1;
+
+    int len;
+    char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(args->header,rec->rid), rec->pos, rec->pos, &len);
+    if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(args->header,rec->rid), rec->pos+1);
+
+    char a0 = toupper(tsv->ss[0]);
+    char a1 = tsv->ss[1] ? toupper(tsv->ss[1]) : a0;
+    ref[0]  = toupper(ref[0]);
+
+    int32_t gts[2];
+    char als[6];
+
+    als[0] = ref[0];
+    if ( ref[0]==a0 && ref[0]==a1  )
+    {
+        // hom-ref: RR
+        als[1] = 0;
+        gts[0] = gts[1] = bcf_gt_unphased(0);
+        args->n.hom_rr++;
+    }
+    else if ( ref[0]==a0 )
+    {
+        // het: RA
+        als[1] = ',';
+        als[2] = a1;
+        als[3] = 0;
+        gts[0] = bcf_gt_unphased(0);
+        gts[1] = bcf_gt_unphased(1);
+        args->n.het_ra++;
+    }
+    else if ( ref[0]==a1 )
+    {
+        // het: AR
+        als[1] = ',';
+        als[2] = a0;
+        als[3] = 0;
+        gts[0] = bcf_gt_unphased(0);
+        gts[1] = bcf_gt_unphased(1);
+        args->n.het_ra++;
+    }
+    else if ( a0==a1 )
+    {
+        // hom-alt: AA
+        als[1] = ',';
+        als[2] = a0;
+        als[3] = 0;
+        gts[0] = gts[1] = bcf_gt_unphased(1); 
+        args->n.hom_aa++;
+    }
+    else 
+    {
+        // non-ref het: AA
+        als[1] = ',';
+        als[2] = a0;
+        als[3] = ',';
+        als[4] = a1;
+        als[5] = 0;
+        gts[0] = bcf_gt_unphased(1); 
+        gts[1] = bcf_gt_unphased(2); 
+        args->n.het_aa++;
+    }
+    bcf_update_alleles_str(args->header, rec, als);
+    if ( bcf_update_genotypes(args->header,rec,gts,a1 ? 2 : 1) ) error("Could not update the GT field\n");
+
+    free(ref);
+    return 0;
+}
+static void tsv_to_vcf(args_t *args)
+{
+    if ( !args->ref_fname ) error("Missing the --ref option\n");
+    args->ref = fai_load(args->ref_fname);
+    if ( !args->ref ) error("Could not load the reference %s\n", args->ref_fname);
+
+    args->header = bcf_hdr_init("w");
+    bcf_hdr_set_chrs(args->header, args->ref);
+    bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    bcf_hdr_add_sample(args->header, args->sample_list);
+    bcf_hdr_add_sample(args->header, NULL);
+
+    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    bcf_hdr_write(out_fh,args->header);
+
+    tsv_t *tsv = tsv_init(args->columns ? args->columns : "ID,CHROM,POS,AA");
+    if ( tsv_register(tsv, "CHROM", tsv_setter_chrom, args->header) < 0 ) error("Expected CHROM column\n");
+    if ( tsv_register(tsv, "POS", tsv_setter_pos, NULL) < 0 ) error("Expected POS column\n");
+    if ( tsv_register(tsv, "ID", tsv_setter_id, args->header) < 0 ) error("Expected ID column\n");
+    if ( tsv_register(tsv, "AA", tsv_setter_aa, args) < 0 ) error("Expected AA column\n");
+
+    bcf1_t *rec = bcf_init();
+    bcf_float_set_missing(rec->qual);
+
+    kstring_t line = {0,0,0};
+    htsFile *in_fh = hts_open(args->infname, "r");
+    if ( !in_fh ) error("Could not read: %s\n", args->infname);
+    while ( hts_getline(in_fh, KS_SEP_LINE, &line) > 0 )
+    {
+        if ( line.s[0]=='#' ) continue;     // skip comments
+
+        args->n.total++;
+        if ( !tsv_parse(tsv, rec, line.s) )
+            bcf_write(out_fh, args->header, rec);
+        else
+            args->n.skipped++;
+    }
+    if ( hts_close(in_fh) ) error("Close failed: %s\n", args->infname);
+    free(line.s);
+
+    fai_destroy(args->ref);
+    bcf_hdr_destroy(args->header);
+    hts_close(out_fh);
+    tsv_destroy(tsv);
+    bcf_destroy(rec);
+
+    fprintf(stderr,"Rows total: \t%d\n", args->n.total);
+    fprintf(stderr,"Rows skipped: \t%d\n", args->n.skipped);
+    fprintf(stderr,"Hom RR: \t%d\n", args->n.hom_rr);
+    fprintf(stderr,"Het RA: \t%d\n", args->n.het_ra);
+    fprintf(stderr,"Hom AA: \t%d\n", args->n.hom_aa);
+    fprintf(stderr,"Het AA: \t%d\n", args->n.het_aa);
+}
+
 static void usage(void)
 {
     fprintf(stderr, "\n");
@@ -204,12 +356,20 @@ static void usage(void)
     fprintf(stderr, "   -S, --samples-file <file>   file of samples to include\n");
     fprintf(stderr, "   -t, --targets <region>      similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>   similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "\n");
+    fprintf(stderr, "VCF output options:\n");
+    fprintf(stderr, "   -o, --output <file>         write output to a file [standard output]\n");
+    fprintf(stderr, "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "gen/sample options:\n");
-//  fprintf(stderr, "   -G, --gensample2vcf  <prefix> or <gen-file>,<sample-file>\n");
-    fprintf(stderr, "   -g, --gensample      <prefix> or <gen-file>,<sample-file>\n");
-    fprintf(stderr, "   --tag <string>       tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
+//  fprintf(stderr, "   -G, --gensample2vcf     <prefix> or <gen-file>,<sample-file>\n");
+    fprintf(stderr, "   -g, --gensample         <prefix> or <gen-file>,<sample-file>\n");
+    fprintf(stderr, "       --tag <string>      tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
+    fprintf(stderr, "tsv options:\n");
+    fprintf(stderr, "       --tsv2vcf <file>        \n");
+    fprintf(stderr, "   -c, --columns <string>      columns of the input tsv file [CHROM,POS,ID,AA]\n");
+    fprintf(stderr, "   -f, --ref <file>            reference sequence in fasta format\n");
+    fprintf(stderr, "   -s, --sample <name>         sample name\n");
     fprintf(stderr, "\n");
+
 //    fprintf(stderr, "hap/legend/sample options:\n");
 //    fprintf(stderr, "   -h, --haplegend     <prefix> or <hap-file>,<legend-file>,<sample-file>\n");
 //    fprintf(stderr, "\n");
@@ -220,7 +380,6 @@ static void usage(void)
 //    fprintf(stderr, "\n");
 //    fprintf(stderr, "pbwt options:\n");
 //    fprintf(stderr, "   -b, --pbwt          <prefix> or <pbwt>,<sites>,<sample>,<missing>\n");
-    fprintf(stderr, "\n");
     exit(1);
 }
 
@@ -229,13 +388,16 @@ int main_vcfconvert(int argc, char *argv[])
     int c;
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
+    args->outfname = "-";
+    args->output_type = FT_VCF;
 
     static struct option loptions[] =
     {
         {"help",0,0,'h'},
         {"include",1,0,'i'},
         {"exclude",1,0,'e'},
-        {"output-file",1,0,'o'},
+        {"output",1,0,'o'},
+        {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
@@ -244,9 +406,12 @@ int main_vcfconvert(int argc, char *argv[])
         {"samples-file",1,0,'S'},
         {"gensample",1,0,'g'},
         {"tag",1,0,1},
+        {"tsv2vcf",1,0,2},
+        {"ref",1,0,'f'},
+        {"sample",1,0,'s'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "?hr:R:s:S:t:T:i:e:g:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "?hr:R:s:S:t:T:i:e:g:f:o:O:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
@@ -258,13 +423,24 @@ int main_vcfconvert(int argc, char *argv[])
             case 'S': args->sample_list = optarg; args->sample_is_file = 1; break;
             case 'g': args->convert_func = vcf_to_gensample; args->outfname = optarg; break;
             case  1 : args->tag = optarg; break;
+            case  2 : args->convert_func = tsv_to_vcf; args->infname = optarg; break;
+            case 'f': args->ref_fname = optarg; break;
+            case 'o': args->outfname = optarg; break;
+            case 'O':
+                switch (optarg[0]) {
+                    case 'b': args->output_type = FT_BCF_GZ; break;
+                    case 'u': args->output_type = FT_BCF; break;
+                    case 'z': args->output_type = FT_VCF_GZ; break;
+                    case 'v': args->output_type = FT_VCF; break;
+                    default: error("The output type \"%s\" not recognised\n", optarg);
+                }
+                break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }
     }
 
-    args->infname = NULL;
     if ( optind>=argc )
     {
         if ( !isatty(fileno((FILE *)stdin)) ) args->infname = "-";
