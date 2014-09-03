@@ -821,7 +821,14 @@ int main_vcfcnv(int argc, char *argv[])
         }
     }
 
-    if ( argc<optind+1 ) usage(args);
+    char *fname = NULL;
+    if ( optind>=argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";
+    }
+    else fname = argv[optind];
+    if ( !fname ) usage(args);
+
     if ( args->plot_th<=100 && !args->output_dir ) error("Expected -o option with -p\n");
     if ( args->regions_list )
     {
@@ -833,7 +840,7 @@ int main_vcfcnv(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->targets_list, targets_is_file, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets_list);
     }
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
     
     init_data(args);
     while ( bcf_sr_next_line(args->files) )
