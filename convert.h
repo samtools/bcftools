@@ -1,7 +1,8 @@
-The MIT License
+/*  convert.h -- functions for converting between VCF/BCF and related formats.
 
-Copyright (c) 2013-2014 Genome Research Ltd.
-Authors:  see http://github.com/samtools/bcftools/blob/master/AUTHORS
+    Copyright (C) 2014 Genome Research Ltd.
+
+    Author: Petr Danecek <pd3@sanger.ac.uk>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,5 +20,19 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+THE SOFTWARE.  */
+
+#ifndef __CONVERT_H__
+#define __CONVERT_H__
+
+#include <htslib/vcf.h>
+
+typedef struct _convert_t convert_t;
+
+convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *str);
+void convert_destroy(convert_t *convert);
+int convert_header(convert_t *convert, kstring_t *str);
+int convert_line(convert_t *convert, bcf1_t *rec, kstring_t *str);
+
+#endif
 

@@ -14,8 +14,6 @@
 ##INFO=<ID=MQSB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)">
 ##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
 ##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
-##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
-##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
 ##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of high-quality non-reference bases">

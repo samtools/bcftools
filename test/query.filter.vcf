@@ -1,0 +1,20 @@
+##fileformat=VCFv4.1
+##INFO=<ID=TEST,Number=1,Type=Integer,Description="Testing Tag">
+##FORMAT=<ID=TT,Number=A,Type=Integer,Description="Testing Tag, with commas and \"escapes\" and escaped escapes combined with \\\"quotes\\\\\"">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype Likelihood">
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=test,Description="Testing filter">
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+##contig=<ID=3,assembly=b37,length=198022430>
+##contig=<ID=4,assembly=b37,length=191154276>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3000150	.	C	T	59.2	PASS	.	GT	0	0
+1	3000151	.	C	T	59.2	PASS	.	GT	1	0
+1	3000152	.	C	T	59.2	PASS	.	GT	0	1
+1	3000153	.	C	T	59.2	PASS	.	GT	1	1
