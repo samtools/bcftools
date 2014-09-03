@@ -817,7 +817,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
 }
 static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int ialt, bcf1_t *dst)
 {
-    #define BRANCH_NUMERIC(type,type_t,is_vector_end) \
+    #define BRANCH_NUMERIC(type,type_t,is_vector_end,set_vector_end) \
     { \
         const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id); \
         int ntmp = args->ntmp_arr1 / sizeof(type_t); \
@@ -873,14 +873,14 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
                 if ( haploid ) \
                 { \
                     dst_vals[1] = src_vals[ialt+1]; \
-                    dst_vals += 2; \
+                    if ( !all_haploid ) set_vector_end; \
                 } \
                 else \
                 { \
                     dst_vals[1] = src_vals[bcf_alleles2gt(0,ialt+1)]; \
                     dst_vals[2] = src_vals[bcf_alleles2gt(ialt+1,ialt+1)]; \
-                    dst_vals += 3; \
                 } \
+                dst_vals += all_haploid ? 2 : 3; \
                 src_vals += nvals; \
             } \
             bcf_update_format_##type(args->hdr,dst,tag,vals,all_haploid ? nsmpl*2 : nsmpl*3); \
@@ -890,8 +890,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
     }
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_FMT,fmt->id))
     {
-        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[j]==bcf_int32_vector_end); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[j])); break;
+        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[j]==bcf_int32_vector_end, dst_vals[2]=bcf_int32_vector_end); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[j]), bcf_float_set_vector_end(dst_vals[2])); break;
     }
     #undef BRANCH_NUMERIC
 }
