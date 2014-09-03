@@ -31,17 +31,10 @@ THE SOFTWARE.  */
 #include <htslib/kstring.h>
 #include <htslib/kseq.h>
 #include "bcftools.h"
-#include "rbuf.h"
+#include "HMM.h"
 
-/** Buffered sites, separate for each sample to allow missing genotypes */
-typedef struct
-{
-    rbuf_t rbuf;
-    double *ohw, *oaz;  // P(D|HW) and P(D|AZ)
-    double last_az;
-    uint32_t *pos, last_pos;
-}
-smpl_t;
+#define STATE_HW 0        // normal state, follows Hardy-Weinberg allele frequencies
+#define STATE_AZ 1        // autozygous state
 
 /** Genetic map */
 typedef struct
@@ -51,42 +44,42 @@ typedef struct
 }
 genmap_t;
 
-/** Viterbi path element for two-state HMM */
-typedef struct
-{
-    double pAZ;
-    char ptr;
-}
-path_t;
-
 typedef struct _args_t
 {
     bcf_srs_t *files;
     bcf_hdr_t *hdr;
-    double tAZ, tHW;        // P(AZ|HW), P(HW|AZ)
-    double *fwd, *bwd;      // HMM forward and backward autozygosity probs scaled to hw+az=1
-    path_t *viterbi;
-
-    genmap_t *genmap;
-    int ngenmap, mgenmap, igenmap;
-
-    int nsmpl, *ismpl, *als;
-    int mwin;
-    smpl_t *smpl;
-    int32_t *PLs, *AN, *ACs;
-    float *AFs;
-    double pl2p[256], *pdg;
-    int mPLs, mAFs, mAN, mACs, mpdg;
-    int ntot, nused;
-    int prev_rid, skip_rid;
+    double t2AZ, t2HW;      // P(AZ|HW) and P(HW|AZ) parameters
     double unseen_PL;
 
-    char **argv, *targets_list, *regions_list, *samples_list, *af_fname, *af_tag;
     char *genmap_fname;
-    int argc, counts_only, fwd_bwd, fake_PLs, biallelic_only, snps_only, estimate_AF;
-    int sample_is_file;
+    genmap_t *genmap;
+    int ngenmap, mgenmap, igenmap;
+    double rec_rate;        // constant recombination rate if > 0
+
+    hmm_t *hmm;
+    double *eprob;          // emission probs [2*nsites,msites]
+    uint32_t *sites;        // positions [nsites,msites]
+    int nsites, msites;
+    int nrids, *rids, *rid_offs;    // multiple chroms with vi_training
+
+    int32_t *itmp;
+    int nitmp, mitmp;
+    float *AFs;
+    int mAFs;
+
+    double pl2p[256], *pdg;
+    int32_t skip_rid, prev_rid, prev_pos;
+
+    int ntot, nused;            // some stats to detect if things didn't go awfully wrong
+    int ismpl, nsmpl;           // index of query sample
+    char *estimate_AF, *sample; // list of samples for AF estimate and query sample
+    char **argv, *targets_list, *regions_list, *af_fname, *af_tag;
+    int argc, fake_PLs, snps_only, vi_training;
 }
 args_t;
+
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
 
 void *smalloc(size_t size)
 {
@@ -99,83 +92,101 @@ static void init_data(args_t *args)
 {
     args->prev_rid = args->skip_rid = -1;
     args->hdr = args->files->readers[0].header;
-    if ( args->samples_list && args->estimate_AF!=1 && !args->files->readers[0].file->is_bin )
+
+    if ( !args->sample )
     {
-        // speedup: reading from VCF + only some samples are needed + we do not need to recalculate AC,AN
-        // this speeds up the parsing 3x (1.1k samples, 148MB vcf.gz, 38,010 sites)
-        int ret = bcf_hdr_set_samples(args->hdr, args->samples_list, args->sample_is_file);
-        if ( ret<0 ) error("Error parsing the list of samples: %s\n", args->samples_list);
-        else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
+        if ( bcf_hdr_nsamples(args->hdr)>1 ) error("Missing the option -s, --sample\n");
+        args->sample = strdup(args->hdr->samples[0]);
     }
+    if ( !bcf_hdr_nsamples(args->hdr) ) error("No samples in the VCF?\n");
+
+    // Set samples
+    kstring_t str = {0,0,0};
+    if ( args->estimate_AF && strcmp("-",args->estimate_AF) )
+    {
+        int i, n;
+        char **smpls = hts_readlist(args->estimate_AF, 1, &n);
+
+        // Make sure the query sample is included
+        for (i=0; i<n; i++)
+            if ( !strcmp(args->sample,smpls[i]) ) break;
+
+        // Add the query sample if not present
+        if ( i!=n ) kputs(args->sample, &str);
+
+        for (i=0; i<n; i++)
+        {
+            if ( str.l ) kputc(',', &str);
+            kputs(smpls[i], &str);
+            free(smpls[i]);
+        }
+        free(smpls);
+    }
+    else
+        kputs(args->sample, &str);
+
+    int ret = bcf_hdr_set_samples(args->hdr, str.s, 0);
+    if ( ret<0 ) error("Error parsing the list of samples: %s\n", str.s);
+    else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
 
     if ( args->af_tag )
         if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) )
             error("No such INFO tag in the VCF: %s\n", args->af_tag);
 
-    if ( !args->samples_list ) args->samples_list = "-";
-    if ( !bcf_sr_set_samples(args->files, args->samples_list, args->sample_is_file) )
-        error("Error: could not set the samples %s\n", args->samples_list);
+    if ( !bcf_sr_set_samples(args->files, str.s, 0) )
+        error("Error: could not set the samples %s\n", str.s);
     args->nsmpl = args->files->n_smpl;
-    args->ismpl = args->files->readers[0].samples;
+    args->ismpl = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, args->sample);
+    free(str.s);
 
-    args->als   = (int*) smalloc(sizeof(int)*args->nsmpl);
-    args->smpl  = (smpl_t*) smalloc(sizeof(smpl_t)*args->nsmpl);
-    if ( args->fwd_bwd )
-    {
-        args->fwd   = (double*) smalloc(sizeof(double)*(args->mwin+1));
-        args->bwd   = (double*) smalloc(sizeof(double)*(args->mwin+1));
-    }
-    args->viterbi = (path_t*) smalloc(sizeof(path_t)*(args->mwin+1));
-    args->pdg = (double*) smalloc(sizeof(double)*args->nsmpl*3);
     int i;
-    for (i=0; i<args->nsmpl; i++)
+    for (i=0; i<256; i++) args->pl2p[i] = pow(10., -i/10.);
+
+    // Init transition matrix and HMM
+    double tprob[4];
+    MAT(tprob,2,STATE_HW,STATE_HW) = 1 - args->t2AZ;
+    MAT(tprob,2,STATE_HW,STATE_AZ) = args->t2HW;
+    MAT(tprob,2,STATE_AZ,STATE_HW) = args->t2AZ;
+    MAT(tprob,2,STATE_AZ,STATE_AZ) = 1 - args->t2HW; 
+
+    if ( args->genmap_fname ) 
     {
-        smpl_t *smpl = &args->smpl[i];
-        rbuf_init(&smpl->rbuf, args->mwin);
-        smpl->ohw = (double*) smalloc(sizeof(double)*args->mwin);
-        smpl->oaz = (double*) smalloc(sizeof(double)*args->mwin);
-        smpl->pos = (uint32_t*) smalloc(sizeof(uint32_t)*args->mwin);
-        smpl->last_az = -1;
+        args->hmm = hmm_init(2, tprob, 0);
+        hmm_set_tprob_func(args->hmm, set_tprob_genmap, args);
     }
-    for (i=0; i<256; i++)
-        args->pl2p[i] = pow(10., -i/10.);
+    else if ( args->rec_rate > 0 )
+    {
+        args->hmm = hmm_init(2, tprob, 0);
+        hmm_set_tprob_func(args->hmm, set_tprob_recrate, args);
+
+    }
+    else
+        args->hmm = hmm_init(2, tprob, 10000);
 
     // print header
-    printf("# This file was produced by: bcftools roh(%s)\n", bcftools_version());
+    printf("# This file was produced by: bcftools roh(%s+htslib-%s)\n", bcftools_version(),hts_version());
     printf("# The command line was:\tbcftools %s", args->argv[0]);
     for (i=1; i<args->argc; i++)
         printf(" %s",args->argv[i]);
     printf("\n#\n");
-    if ( args->counts_only )
-        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]HOM rate\t[5]HET rate\n");
-    else if ( args->fwd_bwd )
-        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]ROH p-value\n");
-    else
-        printf("# [1]Sample\t[2]Chromosome\t[3]Position\t[4]p-value\t[5]ROH\n");
+    printf("# [1]Chromosome\t[2]Position\t[3]State (0:HW, 1:AZ)\t[4]Quality\n");
 }
 
 static void destroy_data(args_t *args)
 {
+    free(args->sites);
+    free(args->eprob);
+    free(args->sample);
+    free(args->rids);
+    free(args->rid_offs);
+    hmm_destroy(args->hmm);
     bcf_sr_destroy(args->files);
-    int i;
-    for (i=0; i<args->nsmpl; i++)
-    {
-        smpl_t *smpl = &args->smpl[i];
-        free(smpl->ohw); free(smpl->oaz); free(smpl->pos);
-    }
-    free(args->als);
-    free(args->smpl);
-    free(args->fwd); free(args->bwd); free(args->viterbi);
-    free(args->PLs); free(args->AFs); free(args->pdg);
-    free(args->AN); free(args->ACs);
+    free(args->itmp); free(args->AFs); free(args->pdg);
     free(args->genmap);
 }
 
 static int load_genmap(args_t *args, bcf1_t *line)
 {
-    int i;
-    for (i=0; i<args->nsmpl; i++) args->smpl[i].last_az = -1;   // let viterbi know about new chromosome
-
     if ( !args->genmap_fname ) { args->ngenmap = 0; return 0; }
 
     kstring_t str = {0,0,0};
@@ -221,6 +232,7 @@ static int load_genmap(args_t *args, bcf1_t *line)
         if ( tmp+1==end ) error("Could not parse %s: %s\n", fname, str.s);
     }
     if ( !args->ngenmap ) error("Genetic map empty?\n");
+    int i;
     for (i=0; i<args->ngenmap; i++) args->genmap[i].rate /= args->genmap[args->ngenmap-1].rate; // scale to 1
     if ( hts_close(fp) ) error("Close failed\n");
     free(str.s);
@@ -256,30 +268,26 @@ static double get_genmap_rate(args_t *args, int start, int end)
     return rate;
 }
 
-
-static void flush_counts(args_t *args, int ismpl, int n)
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
 {
-    smpl_t *smpl = &args->smpl[ismpl];
-
-    int pos = smpl->pos[ smpl->rbuf.f ];
-    int nhw = 0, naz = 0;
-    int ir;
-
-    for (ir=-1; rbuf_next(&smpl->rbuf,&ir); )
-    {
-        if ( smpl->ohw[ir] > smpl->oaz[ir] ) nhw++;
-        else naz++;
-        if ( smpl->pos[ir] - pos + 1 >= args->mwin  )
-        {
-            double az_rate = (double)naz*args->mwin/(smpl->pos[ir] - pos + 1);
-            double hw_rate = (double)nhw*args->mwin/(smpl->pos[ir] - pos + 1);
-            printf("%s\t%s\t%d\t%e\t%e\n", args->hdr->samples[args->ismpl[ismpl]], args->hdr->id[BCF_DT_CTG][args->prev_rid].key, pos+1, az_rate, hw_rate);
-            pos = smpl->pos[ir];
-            nhw = naz = 0;
-        }
-    }
-    rbuf_shift_n(&smpl->rbuf, n);
+    args_t *args = (args_t*) data;
+    double ci = get_genmap_rate(args, pos - prev_pos, pos);
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
 }
+
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
+{
+    args_t *args = (args_t*) data;
+    double ci = (pos - prev_pos) * args->rec_rate;
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
+    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+}
+
 
 /**
  *  This function implements the HMM model:
@@ -306,344 +314,217 @@ static void flush_counts(args_t *args, int ismpl, int n)
  *
  *    P_i(HW|HW) = P(HW|HW) * (1-ci) * HW{i-1} = (1-tAZ) * (1-ci) * (1 - AZ{i-1})
  *    P_i(HW|AZ) = P(HW|AZ) * ci * AZ{i-1}     = tHW * ci * AZ{i-1}
- *
- *    ------------------------------------------------------
- *
- *    P_{i+1}(AZ) = P_{i+1}(D|AZ) * [ P_i(AZ|AZ) + P_i(AZ|HW) ]
- *                = oAZ * [ (1-tHW) * (1-ci) * AZ{i-1} + tAZ * ci * (1-AZ{i-1})]
- *    P_{i+1}(HW) = P_{i+1}(D|HW) * [ P_i(HW|HW) + P_i(HW|AZ) ]
- *                = oHW * [ (1-tAZ) * (1-ci) * (1-AZ{i-1}) + tHW * ci * AZ{i-1} ]
  */
-static void flush_buffer_fwd_bwd(args_t *args, int ismpl, int n)
+
+static void flush_viterbi(args_t *args)
 {
-    smpl_t *smpl = &args->smpl[ismpl];
-    if ( smpl->last_az < 0 )
+    int i,j;
+
+    if ( !args->nsites ) return; 
+
+    if ( !args->vi_training )
     {
-        args->fwd[0] = 0.5;
-        smpl->last_pos = smpl->pos[smpl->rbuf.f] - 1;
-    }
-    else
-        args->fwd[0] = smpl->last_az;
+        // single viterbi pass, one chromsome
+        hmm_run_viterbi(args->hmm, args->nsites, args->eprob, args->sites);
 
-    if ( args->ngenmap ) error("TODO: test fwd-bwd with genetic map\n");
-
-    int i, ir;
-    double pAZ, pHW;
-    for (i=1; i<=n; i++)
-    {
-        ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : (smpl->pos[ir] - smpl->last_pos + 1)*1e-8;
-        smpl->last_pos = smpl->pos[ir];
-
-        // P_{i+1}(AZ) = oAZ * [(1-tHW) * (1-ci) * AZ{i-1} + tAZ * ci * (1-AZ{i-1})]
-        pAZ = smpl->oaz[ir] * ( (1-args->tHW) * (1-ci) * args->fwd[i-1] + args->tAZ * ci * (1-args->fwd[i-1]) );
-
-        // P_{i+1}(HW) = oHW * [(1-tAZ) * (1-ci) * (1-AZ{i-1}) + tHW * ci * AZ{i-1}]
-        pHW = smpl->ohw[ir] * ( (1-args->tAZ) * (1-ci) * (1-args->fwd[i-1]) + args->tHW * ci * args->fwd[i-1]);
-
-        args->fwd[i] = pAZ / (pAZ+pHW);
-        // printf("fwd\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  fwd=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->fwd[i]);
-    }
-
-    int last_pos = smpl->last_pos;
-    args->bwd[0] = 0.5;
-    for (i=1; i<=n; i++)
-    {
-        ir  = rbuf_kth(&smpl->rbuf, n-i);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->pos[ir], last_pos) : (last_pos - smpl->pos[ir] + 1)*1e-8;
-        last_pos = smpl->pos[ir];
-
-        pAZ = smpl->oaz[ir] * ( (1-args->tHW) * (1-ci) * args->bwd[i-1] + args->tAZ * ci * (1-args->bwd[i-1]) );
-        pHW = smpl->ohw[ir] * ( (1-args->tAZ) * (1-ci) * (1-args->bwd[i-1]) + args->tHW * ci * args->bwd[i-1]);
-
-        args->bwd[i] = pAZ / (pAZ+pHW);
-        //printf("bwd\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  bwd=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->bwd[i]);
-    }
-
-    for (i=1; i<=n; i++)
-    {
-        ir = rbuf_kth(&smpl->rbuf, i);
-        printf("%s\t%s\t%d\t%f\n", args->hdr->samples[args->ismpl[ismpl]], args->hdr->id[BCF_DT_CTG][args->prev_rid].key, smpl->pos[ir]+1, args->fwd[i]*args->bwd[i]);
-    }
-
-    smpl->last_az = args->fwd[n]*args->bwd[n];
-    rbuf_shift_n(&smpl->rbuf, n);
-}
-
-static void flush_buffer_viterbi(args_t *args, int ismpl, int n)
-{
-    smpl_t *smpl = &args->smpl[ismpl];
-    if ( smpl->last_az < 0 )
-    {
-        args->viterbi[0].pAZ = 0.5;
-        smpl->last_pos = smpl->pos[smpl->rbuf.f] - 1;
-    }
-    else
-        args->viterbi[0].pAZ = smpl->last_az;
-
-    int i, ir;
-    double pAZ, pHW, fromAZ, fromHW;
-    for (i=1; i<=n; i++)
-    {
-        ir = rbuf_kth(&smpl->rbuf, i-1);
-        double ci = args->ngenmap ? get_genmap_rate(args, smpl->last_pos, smpl->pos[ir]) : (smpl->pos[ir] - smpl->last_pos + 1)*1e-8;
-        //printf("ci %d-%d: %e\n", smpl->last_pos, smpl->pos[ir], ci);
-        smpl->last_pos = smpl->pos[ir];
-
-        // P_{i+1}(AZ) = oAZ * max[(1-tHW) * (1-ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
-        fromAZ = (1-args->tHW) * (1-ci) * args->viterbi[i-1].pAZ;
-        fromHW = args->tAZ * ci * (1-args->viterbi[i-1].pAZ);
-        if ( fromAZ > fromHW )  // more likely to get to AZ from AZ
+        const char *chr = bcf_hdr_id2name(args->hdr,args->prev_rid);
+        for (i=0; i<args->nsites; i++)
         {
-            pAZ = smpl->oaz[ir] * fromAZ;
-            args->viterbi[i].ptr = 0;       // lower bit for from-AZ-ptr
+            printf("%s\t%d\t%d\t..\n", chr,args->sites[i]+1,args->hmm->vpath[i*2]==STATE_AZ ? 1 : 0);
         }
-        else    // more likely to get to AZ from HW
-        {
-            pAZ = smpl->oaz[ir] * fromHW;
-            args->viterbi[i].ptr = 1;
-        }
-        //printf("P XX->AZ:  fromAZ=%e fromHW=%e .. pAZ=%f\n", fromAZ,fromHW,pAZ);
-
-        // P_{i+1}(HW) = oHW * max[(1-tAZ) * (1-ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
-        fromHW = (1-args->tAZ) * (1-ci) * (1-args->viterbi[i-1].pAZ);
-        fromAZ = args->tHW * ci * args->viterbi[i-1].pAZ;
-        if ( fromAZ > fromHW )  // more likely to get to HW from AZ
-        {
-            pHW = smpl->ohw[ir] * fromAZ;   // higher bit for from-HW-ptr
-        }
-        else    // more likely to get to HW from HW
-        {
-            pHW = smpl->ohw[ir] * fromHW;
-            args->viterbi[i].ptr |= 2;
-        }
-        //printf("P XX->HW:  fromAZ=%e fromHW=%e .. pHW=%f\n", fromAZ,fromHW,pHW);
-
-        args->viterbi[i].pAZ = pAZ / (pAZ+pHW);
-        //printf("viterbi\ti=%d ir=%d  %d\t oaz=%e ohw=%e \t pAZ=%e  pHW=%e  fwd=%e \t ci=%e\n", i,ir,smpl->pos[ir]+1, smpl->oaz[ir],smpl->ohw[ir],pAZ,pHW,args->viterbi[i].pAZ, ci);
-    }
-    // traceback: set ptr to 0 for AZ or 1 for HW
-    int mask = args->viterbi[n].pAZ > 0.5 ? 1 : 2;
-    for (i=n-1; i>0; i--)
-    {
-        int ptr = mask & args->viterbi[i+1].ptr;
-        args->viterbi[i+1].ptr = ptr;
-        mask = args->viterbi[i].ptr & mask ? 2 : 1;
-    }
-    for (i=1; i<n; i++)
-    {
-        int AZ = args->viterbi[i].ptr ? 0 : 1;
-        double pAZ = AZ ? args->viterbi[i].pAZ : 1 - args->viterbi[i].pAZ;
-        ir = rbuf_kth(&smpl->rbuf, i);
-        printf("%s\t%s\t%d\t%f\t%d\n", args->hdr->samples[args->ismpl[ismpl]], args->hdr->id[BCF_DT_CTG][args->prev_rid].key, smpl->pos[ir]+1, pAZ,AZ);
+        return;
     }
 
-    smpl->last_az = args->viterbi[n].pAZ;
-    rbuf_shift_n(&smpl->rbuf, n);
-}
-
-static void flush_buffer(args_t *args, int ismpl, int n)
-{
-    if ( args->counts_only ) flush_counts(args, ismpl, n);
-    else if ( args->fwd_bwd ) flush_buffer_fwd_bwd(args, ismpl, n);
-    else flush_buffer_viterbi(args, ismpl, n);
-}
-
-// returns 0 on success or positive value if AF could not be set
-static int set_AF(args_t *args, bcf1_t *line, int32_t *GTs, int nGTs)
-{
-    int i, j;
-    hts_expand(float, line->n_allele, args->mAFs, args->AFs);
-
-    // Get the allele frequencies
-    if ( args->af_tag )
+    // viterbi training, multiple chromosomes
+    double t2az_prev, t2hw_prev;
+    double deltaz, delthw;
+    int niter = 0;
+    do
     {
-        int ret = bcf_get_info_float(args->hdr, line, args->af_tag, &args->AFs, &args->mAFs);
-        if ( ret==-2 )
-            error("Type mismatch for INFO/%s tag at %s:%d\n", args->af_tag, bcf_seqname(args->hdr,line), line->pos+1);
-        if ( ret!=line->n_allele-1 ) return 1;          // this will skip multiallelic sites if AFs in the file do not reflect this
-        float sum = 0;
-        for (i=0; i<ret; i++) sum += args->AFs[i];
-        if (sum<0 || sum>1 ) error("The AF values out of bounds at %s:%d, the sum of %s is %f\n", bcf_seqname(args->hdr,line), line->pos+1,args->af_tag,sum);
-        for (i=ret; i>0; i--) args->AFs[i] = args->AFs[i-1];
-        args->AFs[0] = 1 - sum;
-    }
-    else if ( args->af_fname )
-    {
-        bcf_sr_regions_t *tgt = args->files->targets;
-        if ( tgt->nals != line->n_allele ) return 1;    // number of alleles does not match. possible todo: we could be smarter at multiallelic sites
-        for (i=0; i<tgt->nals; i++)
-            if ( strcmp(line->d.allele[i],tgt->als[i]) ) break; // possible todo: we could be smarter, see vcmp in mcall_constrain_alleles
-        if ( i<tgt->nals ) return 1;
-        char *tmp, *str = tgt->line.s;
-        i = 0;
-        while ( *str && i<3 )
+        t2az_prev = MAT(args->hmm->tprob_arr,2,1,0); //args->t2AZ;
+        t2hw_prev = MAT(args->hmm->tprob_arr,2,0,1); //args->t2HW;
+        double tcounts[] = { 0,0,0,0 };
+        for (i=0; i<args->nrids; i++)
         {
-            if ( *str=='\t' ) i++;
-            str++;
-        }
-        i = 1;
-        float sum = 0;
-        do
-        {
-            args->AFs[i] = strtod(str, &tmp);
-            sum += args->AFs[i];
-            i++;
-            str = tmp;
-        }
-        while ( i<line->n_allele && str );
-        if (sum<0 || sum>1 ) error("The AF values out of bounds at %s:%d, the sum is %f .. %s\n", bcf_seqname(args->hdr,line), line->pos+1,sum,tgt->line.s);
-        args->AFs[0] = 1 - sum;
-    }
-    else if ( !args->estimate_AF )
-    {
-        if ( bcf_get_info_int32(args->hdr, line, "AN", &args->AN, &args->mAN) != 1 )
-            error("No AN tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
-        int nAC = bcf_get_info_int32(args->hdr, line, "AC", &args->ACs, &args->mACs);
-        if ( nAC <= 0 )
-            error("No AC tag at %s:%d? Use -e to calculate AC,AN on the fly.\n", bcf_seqname(args->hdr,line), line->pos+1);
+            // run viterbi for each chromosomes. eprob and sites contain
+            // multiple chromosomes, rid_offs mark the boundaries
+            int ioff = args->rid_offs[i];
+            int nsites = (i+1==args->nrids ? args->nsites : args->rid_offs[i+1]) - ioff;
+            hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
 
-        int nalt = 0; for (i=0; i<line->n_allele-1; i++) nalt += args->ACs[i];    // number of non-ref alleles total
-        args->AFs[0] = (float) (args->AN[0] - nalt)/args->AN[0];    // REF frequency
-        for (i=1; i<line->n_allele; i++) args->AFs[i] = (double)args->ACs[i-1] / args->AN[0];  // ALT frequencies
-    }
-    else
-    {
-        if ( !GTs )
-        {
-            nGTs = bcf_get_genotypes(args->hdr, line, &args->PLs, &args->mPLs);
-            if ( nGTs < 0 ) error("Cannot recalculate AC,AN, GT is not present at %s:%d\n", bcf_seqname(args->hdr,line), line->pos+1);
-            if ( nGTs != 2*bcf_hdr_nsamples(args->hdr) ) error("Not diploid at %s:%d?\n", bcf_seqname(args->hdr,line), line->pos+1);
-            GTs = args->PLs;
-            nGTs /= bcf_hdr_nsamples(args->hdr);
-        }
-
-        hts_expand(int32_t, line->n_allele, args->mACs, args->ACs);
-        for (i=0; i<line->n_allele; i++) args->ACs[i] = 0;
-        if ( args->estimate_AF==1 ) // all samples
-        {
-            for (i=0; i<bcf_hdr_nsamples(args->hdr); i++)
+            // what transitions were observed: add to the total counts
+            for (j=1; j<nsites; j++)
             {
-                int32_t *gt = &args->PLs[i*nGTs];
-                for (j=0; j<2; j++)
-                {
-                    if ( gt[j]==bcf_gt_missing ) continue;
-                    if ( gt[j]==bcf_int32_vector_end ) break;
-                    args->ACs[bcf_gt_allele(gt[j])]++;
-                }
+                // count the number of transitions
+                int prev_state = args->hmm->vpath[2*(j-1)];
+                int curr_state = args->hmm->vpath[2*j];
+                MAT(tcounts,2,curr_state,prev_state) += 1;
             }
         }
-        else                        // subset samples
+
+        // update the transition matrix tprob
+        for (i=0; i<2; i++)
         {
-            for (i=0; i<args->nsmpl; i++)
-            {
-                int32_t *gt = &args->PLs[args->ismpl[i]*nGTs];
-                for (j=0; j<2; j++)
-                {
-                    if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) continue;
-                    args->ACs[bcf_gt_allele(gt[0])]++;
-                }
-            }
+            int n = 0;
+            for (j=0; j<2; j++) n += MAT(tcounts,2,i,j);
+            error("fixme: state %d not observed\n", i+1);
+            for (j=0; j<2; j++) MAT(tcounts,2,i,j) /= n;
         }
-        int ntot = 0; for (i=0; i<line->n_allele; i++) ntot += args->ACs[i];
-        for (i=0; i<line->n_allele; i++) args->AFs[i] = (float)args->ACs[i] / ntot;  // ALT frequencies
+        if ( args->genmap_fname || args->rec_rate > 0 )
+            hmm_set_tprob(args->hmm, tcounts, 0);
+        else
+            hmm_set_tprob(args->hmm, tcounts, 10000);
+
+        deltaz = fabs(MAT(args->hmm->tprob_arr,2,1,0)-t2az_prev);
+        delthw = fabs(MAT(args->hmm->tprob_arr,2,0,1)-t2hw_prev);
+        niter++;
+
+        fprintf(stderr,"%d: %f %f\n", niter,deltaz,delthw);
     }
+    while ( deltaz > 0.0 || delthw > 0.0 );
+    fprintf(stderr, "Viterbi training converged in %d iterations to", niter);
+    for (i=0; i<2; i++) for (j=0; j<2; j++) fprintf(stderr, " %f", MAT(args->hmm->tprob_arr,2,i,j));
+    fprintf(stderr, "\n");
+    
+    // output the results
+    for (i=0; i<args->nrids; i++)
+    {
+        int ioff = args->rid_offs[i];
+        int nsites = (i+1==args->nrids ? args->nsites : args->rid_offs[i+1]) - ioff;
+        hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
+
+        const char *chr = bcf_hdr_id2name(args->hdr,args->rids[i]);
+        for (j=0; j<nsites; j++)
+        {
+            printf("%s\t%d\t%d\t..\n", chr,args->sites[ioff+j]+1,args->hmm->vpath[j*2]==STATE_AZ ? 1 : 0);
+        }
+    }
+}
+
+static void push_rid(args_t *args, int rid)
+{
+    args->nrids++;
+    args->rids = (int*) realloc(args->rids, args->nrids*sizeof(int));
+    args->rid_offs = (int*) realloc(args->rid_offs, args->nrids*sizeof(int));
+    args->rids[ args->nrids-1 ] = rid;
+    args->rid_offs[ args->nrids-1 ] = args->nsites;
+}
+
+static int read_AF(args_t *args, bcf1_t *line, double *alt_freq)
+{
+    bcf_sr_regions_t *tgt = args->files->targets;
+    if ( tgt->nals != line->n_allele ) return -1;    // number of alleles does not match
+
+    int i;
+    for (i=0; i<tgt->nals; i++)
+        if ( strcmp(line->d.allele[i],tgt->als[i]) ) break; // we could be smarter, see vcmp
+    if ( i<tgt->nals ) return -1;
+
+    char *tmp, *str = tgt->line.s;
+    i = 0;
+    while ( *str && i<3 ) 
+    {
+        if ( *str=='\t' ) i++;
+        str++;
+    }
+    *alt_freq = strtod(str, &tmp);
+    if ( *tmp && !isspace(*tmp) )
+    {
+        if ( str[0]=='.' && (!str[1] || isspace(str[1])) ) return -1; // missing value
+        error("Could not parse: [%s]\n", tgt->line.s);
+    }
+    if ( *alt_freq<0 || *alt_freq>1 ) error("Could not parse AF: [%s]\n", tgt->line.s);
     return 0;
 }
 
-int set_pdg_from_PLs(args_t *args, bcf1_t *line)
+int estimate_AF(args_t *args, bcf1_t *line, double *alt_freq)
 {
-    int nPLs = bcf_get_format_int32(args->hdr, line, "PL", &args->PLs, &args->mPLs);
-    if ( nPLs!=bcf_hdr_nsamples(args->hdr)*line->n_allele*(line->n_allele+1)/2 ) return -1;
-    nPLs /= bcf_hdr_nsamples(args->hdr);
-
-    // Convert PLs to probabilities
-    int i, j, k;
-    for (i=0; i<args->nsmpl; i++)
+    if ( !args->nitmp )
     {
-        int32_t *pl = &args->PLs[args->ismpl[i]*nPLs], min = pl[0];
-        int jmin = 0, kmin = 0, pl_sum = 0;
-        for (k=1; k<line->n_allele; k++)
-        {
-            for (j=0; j<=k; j++)
-            {
-                pl++;
-                if ( *pl==bcf_int32_vector_end ) { k = line->n_allele; break; }
-                if ( *pl==bcf_int32_missing ) { continue; }
-                pl_sum += *pl;
-                if ( *pl < min ) { min = *pl; jmin = j; kmin = k; }
-            }
-        }
-        double *pdg = &args->pdg[i*3];
-        if ( !pl_sum ) { pdg[0] = -1; continue; }   // missing data
-
-        pl = &args->PLs[args->ismpl[i]*nPLs];
-        double sum = 0;
-        for (j=0; j<nPLs; j++)
-        {
-            assert( pl[j]<256 );
-            sum += args->pl2p[ pl[j] ];
-        }
-        if ( sum==0 ) { pdg[0] = -1; continue; }
-
-        int *als = &args->als[i];
-        if ( line->n_allele==2 )
-        {
-            *als = 1;
-            pdg[0] = args->pl2p[ pl[0] ] / sum;
-            pdg[1] = args->pl2p[ pl[1] ] / sum;
-            pdg[2] = args->pl2p[ pl[2] ] / sum;
-            continue;
-        }
-
-        if ( jmin==kmin )   // RR or AA
-        {
-            if ( jmin!=0 )  // AA
-                jmin = 0;
-            else            // RR
-            {
-                // Choose ALT at multiallelic sites. Typically, the more frequent ALT will be selected as it comes first
-                pl = &args->PLs[args->ismpl[i]*nPLs]; min = pl[2]; kmin = 1;
-                for (k=1; k<line->n_allele; k++)
-                {
-                    for (j=0; j<=k; j++)
-                    {
-                        pl++;
-                        if ( *pl==bcf_int32_vector_end ) { k = line->n_allele; break; }
-                        if ( *pl==bcf_int32_missing ) { continue; }
-                    }
-                    if ( j==k && *pl < min ) { min = *pl; kmin = k; }
-                }
-                pl = &args->PLs[args->ismpl[i]*nPLs];
-            }
-        }
-
-        int idx;
-        idx = bcf_alleles2gt(jmin,jmin); pdg[0] = args->pl2p[ pl[idx] ] / sum;
-        idx = bcf_alleles2gt(jmin,kmin); pdg[1] = args->pl2p[ pl[idx] ] / sum;
-        idx = bcf_alleles2gt(kmin,kmin); pdg[2] = args->pl2p[ pl[idx] ] / sum;
-        *als = jmin<<4 | kmin;
+        args->nitmp = bcf_get_genotypes(args->hdr, line, &args->itmp, &args->mitmp);
+        if ( args->nitmp != 2*args->nsmpl ) return -1;     // not diploid?
+        args->nitmp /= args->nsmpl;
     }
 
-    return set_AF(args, line, NULL, 0);
-}
-
-int set_pdg_from_GTs(args_t *args, bcf1_t *line)
-{
-    // misusing PL array for GT, which is OK, only the naming is confusing
-    int nGTs = bcf_get_genotypes(args->hdr, line, &args->PLs, &args->mPLs);
-    if ( nGTs != 2*bcf_hdr_nsamples(args->hdr) ) return -1; // not diploid?
-
-    nGTs /= bcf_hdr_nsamples(args->hdr);
-
-    // Convert GTs to fake probabilities
-    int i;
+    int i, nalt = 0, nref = 0;
     for (i=0; i<args->nsmpl; i++)
     {
-        double *pdg = &args->pdg[i*3];
-        int32_t *gt = &args->PLs[args->ismpl[i]*nGTs];
+        int32_t *gt = &args->itmp[i*args->nitmp];
 
-        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) { pdg[0] = -1; continue; }
+        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) continue;
+
+        if ( bcf_gt_allele(gt[0]) ) nalt++;
+        else nref++;
+
+        if ( bcf_gt_allele(gt[1]) ) nalt++;
+        else nref++;
+    }
+    if ( !nalt && !nref ) return -1;
+
+    *alt_freq = (double)nalt / (nalt + nref);
+    return 0;
+}
+
+
+int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
+{
+    args->nitmp = 0;
+
+    // Set allele frequency
+    int ret;
+    if ( args->af_tag )
+    {
+        // Use an INFO tag provided by the user
+        ret = bcf_get_info_float(args->hdr, line, args->af_tag, &args->AFs, &args->mAFs);
+        if ( ret==1 )
+            *alt_freq = args->AFs[0];
+        if ( ret==-2 )
+            error("Type mismatch for INFO/%s tag at %s:%d\n", args->af_tag, bcf_seqname(args->hdr,line), line->pos+1);
+    }
+    else if ( args->af_fname ) 
+    {
+        // Read AF from a file
+        ret = read_AF(args, line, alt_freq);
+    }
+    else
+    {
+        // Use GTs or AC/AN: GTs when AC/AN not present or when GTs explicitly requested by --estimate-AF
+        ret = -1;
+        if ( !args->estimate_AF )
+        {
+            int AC = -1, AN = 0;
+            ret = bcf_get_info_int32(args->hdr, line, "AN", &args->itmp, &args->mitmp);
+            if ( ret==1 )
+            {
+                AN = args->itmp[0];
+                ret = bcf_get_info_int32(args->hdr, line, "AC", &args->itmp, &args->mitmp);
+                if ( ret>0 )
+                    AC = args->itmp[0];
+            }
+            if ( AN<=0 || AC<0 ) 
+                ret = -1;
+            else 
+                *alt_freq = (double) AC/AN;
+        }
+        if ( ret==-1 )
+            ret = estimate_AF(args, line, alt_freq);    // reads GTs into args->itmp
+    }
+
+    if ( ret<0 ) return ret;
+
+
+    // Set P(D|G)
+    if ( args->fake_PLs )
+    {
+        if ( !args->nitmp )
+        {
+            args->nitmp = bcf_get_genotypes(args->hdr, line, &args->itmp, &args->mitmp);
+            if ( args->nitmp != 2*args->nsmpl ) return -1;     // not diploid?
+            args->nitmp /= args->nsmpl;
+        }
+
+        int32_t *gt = &args->itmp[args->ismpl*args->nitmp];
+        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) return -1;
 
         int a = bcf_gt_allele(gt[0]);
         int b = bcf_gt_allele(gt[1]);
@@ -656,90 +537,108 @@ int set_pdg_from_GTs(args_t *args, bcf1_t *line)
         {
             pdg[0] = 1 - 2*args->unseen_PL;
             pdg[1] = pdg[2] = args->unseen_PL;
-            b = 1;
         }
         else
         {
             pdg[0] = pdg[1] = args->unseen_PL;
             pdg[2] = 1 - 2*args->unseen_PL;
-            a = 0;
         }
-        int *als = &args->als[i];
-        *als = a<<4 | b;
     }
-    return set_AF(args, line, args->PLs, nGTs);
+    else
+    {
+        args->nitmp = bcf_get_format_int32(args->hdr, line, "PL", &args->itmp, &args->mitmp);
+        if ( args->nitmp != args->nsmpl*line->n_allele*(line->n_allele+1)/2. ) return -1;     // not diploid?
+        args->nitmp /= args->nsmpl;
+
+        int32_t *pl = &args->itmp[args->ismpl*args->nitmp];
+        pdg[0] = pl[0] < 256 ? args->pl2p[ pl[0] ] : 1.0;
+        pdg[1] = pl[1] < 256 ? args->pl2p[ pl[1] ] : 1.0;
+        pdg[2] = pl[2] < 256 ? args->pl2p[ pl[2] ] : 1.0;
+
+        double sum = pdg[0] + pdg[1] + pdg[2];
+        if ( !sum ) return -1;
+        pdg[0] /= sum;
+        pdg[1] /= sum;
+        pdg[2] /= sum;
+    }
+
+    return 0;
 }
 
 static void vcfroh(args_t *args, bcf1_t *line)
 {
-    int i;
+    // Are we done?
     if ( !line )
-    {
-        for (i=0; i<args->nsmpl; i++)
-            flush_buffer(args, i, args->smpl[i].rbuf.n);
-        return;
+    { 
+        flush_viterbi(args);
+        return; 
     }
+    args->ntot++;
+
+    // Skip unwanted lines
     if ( line->rid == args->skip_rid ) return;
     if ( line->n_allele==1 ) return;    // no ALT allele
-    if ( args->biallelic_only && line->n_allele!=2 ) return;
+    if ( line->n_allele!=2 ) return;    // only biallelic sites
     if ( args->snps_only && !bcf_is_snp(line) ) return;
 
+    // Initialize genetic map
     int skip_rid = 0;
     if ( args->prev_rid<0 )
     {
         args->prev_rid = line->rid;
+        args->prev_pos = line->pos;
         skip_rid = load_genmap(args, line);
+        if ( !skip_rid && args->vi_training ) push_rid(args, line->rid);
     }
+
+    // New chromosome?
     if ( args->prev_rid!=line->rid )
     {
-        for (i=0; i<args->nsmpl; i++)
-            flush_buffer(args, i, args->smpl[i].rbuf.n);
         skip_rid = load_genmap(args, line);
+        if ( args->vi_training )
+        {
+            if ( !skip_rid ) push_rid(args, line->rid);
+        }
+        else
+        {
+            flush_viterbi(args);
+            args->nsites = 0;
+        }
+        args->prev_rid = line->rid;
+        args->prev_pos = line->pos;
     }
+
     if ( skip_rid )
     {
-        fprintf(stderr,"Skipping the sequence: %s\n", bcf_seqname(args->hdr,line));
+        fprintf(stderr,"Skipping the sequence, no genmap for %s\n", bcf_seqname(args->hdr,line));
         args->skip_rid = line->rid;
         return;
     }
+    if ( args->prev_pos > line->pos ) error("The file is not sorted?!\n");
+
     args->prev_rid = line->rid;
-    args->ntot++;
+    args->prev_pos = line->pos;
 
-    int ret;
-    if ( !args->fake_PLs )
-        ret = set_pdg_from_PLs(args, line);
-    else
-        ret = set_pdg_from_GTs(args, line);
 
-    if ( ret )
-    {
-        if ( ret>0 ) return;    // AF could not be determined, but it is a non-critical error
-        if ( !args->fake_PLs ) error("Could not parse PL field at %s:%d, please run with -G option\n", bcf_seqname(args->hdr,line), line->pos+1);
-        error("Could not parse GT field at %s:%d\n", bcf_seqname(args->hdr,line), line->pos+1);
-    }
+    // Ready for the new site
+    int m = args->msites;
+    hts_expand(uint32_t,args->nsites+1,args->msites,args->sites);
+    if ( args->msites!=m )
+        args->eprob = (double*) realloc(args->eprob,sizeof(double)*args->msites*2);
+
+    // Set likelihoods and alternate allele frequencies
+    double alt_freq, pdg[3];
+    if ( parse_line(args, line, &alt_freq, pdg)<0 ) return; // something went wrong
+
     args->nused++;
 
     // Calculate emission probabilities P(D|AZ) and P(D|HW)
-    for (i=0; i<args->nsmpl; i++)
-    {
-        double *pdg = &args->pdg[i*3];
-        if ( pdg[0]<0 ) continue;   // missing values;
+    double *eprob = &args->eprob[2*args->nsites];
+    eprob[STATE_AZ] = pdg[0]*(1-alt_freq) + pdg[2]*alt_freq;
+    eprob[STATE_HW] = pdg[0]*(1-alt_freq)*(1-alt_freq) + 2*pdg[1]*(1-alt_freq)*alt_freq + pdg[2]*alt_freq*alt_freq;
 
-        int *als = &args->als[i];
-        int ira  = (*als)>>4;
-        int irb  = (*als)&0xf;
-
-        smpl_t *smpl = &args->smpl[i];
-        int idx = rbuf_add(&smpl->rbuf);
-        float raf = args->AFs[ira];
-        float aaf = args->AFs[irb];
-        smpl->oaz[idx] = pdg[0]*raf + pdg[2]*aaf;
-        smpl->ohw[idx] = pdg[0]*raf*raf + pdg[2]*aaf*aaf + pdg[1]*raf*aaf*2;
-        smpl->pos[idx] = line->pos;
-        //printf("%d .. als:%d,%d  oaz=%e ohw=%e  raf=%e aaf=%e pdg=%e,%e,%e\n", line->pos+1,ira,irb,smpl->oaz[idx],smpl->ohw[idx],raf,aaf,pdg[0],pdg[1],pdg[2]);
-        //printf("%s\t%d\toaz=%e\tohw=%e\t%d\n", args->hdr->id[BCF_DT_CTG][args->prev_rid].key, line->pos+1,smpl->oaz[idx],smpl->ohw[idx], idx);
-        if ( smpl->rbuf.n >= args->mwin ) flush_buffer(args, i, smpl->rbuf.n);
-    }
+    args->sites[args->nsites] = line->pos;
+    args->nsites++;
 }
 
 static void usage(args_t *args)
@@ -749,24 +648,23 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools roh [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "General Options:\n");
-    fprintf(stderr, "    -b, --biallelic-sites              consider only bi-allelic sites\n");
-    fprintf(stderr, "    -e, --estimate-AF <all|subset>     calculate AC,AN counts on the fly, using either all samples or samples given via -s\n");
-    fprintf(stderr, "    -F, --AF-tag <TAG|:file>           use TAG for allele frequency or read from file (CHR\\tPOS\\tREF,ALT\\tAF) if prefixed with ':'\n");
-    fprintf(stderr, "    -f, --fwd-bwd                      run forward-backward algorithm instead of Viterbi\n");
-    fprintf(stderr, "    -G, --GTs-only <float>             use GTs, ignore PLs, set PL of unseen genotypes to <float>. Safe value to use is 30 to account for GT errors.\n");
+    fprintf(stderr, "        --AF-tag <TAG>                 use TAG for allele frequency\n");
+    fprintf(stderr, "        --AF-file <file>               read allele frequencies from file (CHR\\tPOS\\tREF,ALT\\tAF)\n");
+    fprintf(stderr, "    -e, --estimate-AF <file>           calculate AC,AN counts on the fly, using either all samples (\"-\") or samples listed in <file>\n");
+    fprintf(stderr, "    -G, --GTs-only <float>             use GTs, ignore PLs, use <float> for PL of unseen genotypes. Safe value to use is 30 to account for GT errors.\n");
     fprintf(stderr, "    -I, --skip-indels                  skip indels as their genotypes are enriched for errors\n");
     fprintf(stderr, "    -m, --genetic-map <file>           genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\" is replaced with chromosome name\n");
+    fprintf(stderr, "    -M, --rec-rate <float>             constant recombination rate per bp\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
-    fprintf(stderr, "    -s, --samples <list>               list of samples to include\n");
-    fprintf(stderr, "    -S, --samples-file <file>          file of samples to include\n");
+    fprintf(stderr, "    -s, --sample <sample>              sample to analyze\n");
     fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "    -w, --win <int>                    maximum window length [100_000]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
-    fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-4]\n");
-    fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from HW to AZ state [1e-3]\n");
+    fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-8]\n");
+    fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from HW to AZ state [1e-7]\n");
+    fprintf(stderr, "    -V, --viterbi-training             perform Viterbi training to estimate transition probabilities\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -777,67 +675,60 @@ int main_vcfroh(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
-    args->tAZ     = 1e-4;
-    args->tHW     = 1e-3;
-    args->mwin    = (int)1e5;   // maximum number of sites that can be processed in one go
+    args->t2AZ    = 1e-1;
+    args->t2HW    = 1e-1;
+    args->rec_rate = 0;
     int regions_is_file = 0, targets_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"AF-tag",1,0,'F'},
+        {"AF-tag",1,0,0},
+        {"AF-file",1,0,1},
         {"estimate-AF",1,0,'e'},
         {"GTs-only",1,0,'G'},
-        {"counts-only",0,0,'c'},
-        {"win",1,0,'w'},
-        {"samples",1,0,'s'},
-        {"samples-file",1,0,'S'},
+        {"sample",1,0,'s'},
         {"hw-to-az",1,0,'a'},
         {"az-to-hw",1,0,'H'},
+        {"viterbi-training",0,0,'V'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"genetic-map",1,0,'m'},
-        {"fwd-bwd",0,0,'f'},
-        {"biallelic-sites",0,0,'b'},
+        {"rec-rate",1,0,'M'},
         {"skip-indels",0,0,'I'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:w:s:S:cm:fG:bIa:e:F:",loptions,NULL)) >= 0) {
+
+    int naf_opts = 0;
+    while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:s:m:M:G:Ia:e:V",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'F':
-                if (optarg[0]==':') args->af_fname = optarg+1;
-                else args->af_tag = optarg;
-                break;
-            case 'e':
-                if (!strcmp("all",optarg)) args->estimate_AF = 1;
-                else if (!strcmp("subset",optarg)) args->estimate_AF = 2;
-                else error("Expected 'all' or 'subset' with -e.\n");
-                break;
-            case 'b': args->biallelic_only = 1; break;
+            case 0: args->af_tag = optarg; naf_opts++; break;
+            case 1: args->af_fname = optarg; naf_opts++; break;
+            case 'e': args->estimate_AF = optarg; naf_opts++; break;
             case 'I': args->snps_only = 1; break;
             case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
             case 'm': args->genmap_fname = optarg; break;
-            case 'c': args->counts_only = 1; break;
-            case 'f': args->fwd_bwd = 1; break;
-            case 's': args->samples_list = optarg; break;
-            case 'S': args->samples_list = optarg; args->sample_is_file = 1; break;
-            case 'w': args->mwin = (int)atof(optarg); break;
-            case 'a': args->tAZ = atof(optarg); break;
-            case 'H': args->tHW = atof(optarg); break;
+            case 'M': args->rec_rate = atof(optarg); break;
+            case 's': args->sample = strdup(optarg); break;
+            case 'a': args->t2AZ = atof(optarg); break;
+            case 'H': args->t2HW = atof(optarg); break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
-            case 'h':
+            case 'V': args->vi_training = 1; break;
+            case 'h': 
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }
 
-    if ( (args->af_fname || args->af_tag) && args->estimate_AF ) error("Error: The options -F and -e are mutually exclusive\n");
-    if ( args->af_fname && args->targets_list ) error("Error: The options -F and -t are mutually exclusive\n");
     if ( argc<optind+1 ) usage(args);
+    if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1]\n", args->t2AZ);
+    if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1]\n", args->t2HW);
+    if ( naf_opts>1 ) error("Error: The options --AF-tag, --AF-file and -e are mutually exclusive\n");
+    if ( args->af_fname && args->targets_list ) error("Error: The options --AF-file and -t are mutually exclusive\n");
     if ( args->regions_list )
     {
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
@@ -850,7 +741,7 @@ int main_vcfroh(int argc, char *argv[])
     }
     if ( args->af_fname )
     {
-        if ( bcf_sr_set_targets(args->files, args->af_fname, targets_is_file, 3)<0 )
+        if ( bcf_sr_set_targets(args->files, args->af_fname, 1, 3)<0 )
             error("Failed to read the targets: %s\n", args->af_fname);
     }
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);

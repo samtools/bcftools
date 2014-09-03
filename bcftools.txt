@@ -972,8 +972,9 @@ Modify header of VCF/BCF files, change sample names.
 
 
 [[roh]]
-=== bcftools roh ['OPTIONS'] 'FILE'
-A program for detecting runs of homo/autozygosity.
+=== bcftools roh ['OPTIONS'] 'file.vcf.gz'
+A program for detecting runs of homo/autozygosity. Only bi-allelic sites
+are considered.
 
 ==== The HMM model:
 --------------------------------------
@@ -991,9 +992,9 @@ Transition probabilities:
   P(AZ|AZ) = 1 - P(HW|AZ) = 1 - tHW
   P(HW|HW) = 1 - P(AZ|HW) = 1 - tAZ
 
-  ci  = P_i(C) .. probability of cross-over at site i, from genetic map
-  AZi = P_i(AZ)   .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
-  HWi = P_i(HW)
+  ci  = P_i(C)  .. probability of cross-over at site i, from genetic map
+  AZi = P_i(AZ) .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
+  HWi = P_i(HW) 
 
   P_{i+1}(AZ) = oAZ * max[(1-tHW) * (1-ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
   P_{i+1}(HW) = oHW * max[(1-tAZ) * (1-ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
@@ -1002,26 +1003,26 @@ Transition probabilities:
 
 ==== General Options:
 
-*-b, --biallelic-sites*::
-    skip multi-allelic sites, consider only bi-allelic sites
-
-*-e, --estimate-AF* 'all'|'subset'::
-    recalculate INFO/AC and INFO/AN on the fly, using either all samples
-    ('all') or samples specified via the *-s* option ('subset'). By default,
-    allele frequency is estimated from AC and AN counts which are already
-    present in the INFO field.
-
-*-F, --AF-tag* 'TAG'|':FILE'::
+*--AF-tag* 'TAG'::
     use the specified INFO tag 'TAG' as an allele frequency estimate
-    instead of the defaul AC and AN tags. Optionally, if prefixed with ':',
-    allele frequencies will be read from a tab-delimited file containing
+    instead of the defaul AC and AN tags. Sites which do not have 'TAG'
+    will be skipped.
+    
+*--AF-file* 'FILE'::
+    Read allele frequencies from a tab-delimited file containing
     the columns: CHROM\tPOS\tREF,ALT\tAF. The file can be compressed with
-    *bgzip* and indexed with tabix -s1 -b2 -e2.  Sites which do not have the
-    'TAG' or are not present in the 'FILE' or have different reference or
-    alternate allele will be skipped.
+    *bgzip* and indexed with tabix -s1 -b2 -e2.  Sites which are not present in
+    the 'FILE' or have different reference or alternate allele will be skipped. 
+    Note that such a file can be easily created from a VCF using:
+----
+    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\t%INFO/TAG\n' file.vcf | bgzip -c > freqs.tab.gz
+----
 
-*-f, --fwd-bwd*::
-    run forward-backward algorithm instead of Viterbi
+*-e, --estimate-AF* 'FILE'::
+    recalculate INFO/AC and INFO/AN on the fly, using either all samples
+    ("-") or samples listed in 'FILE'. By default, allele frequency is
+    estimated from AC and AN counts which are already present in the INFO
+    field.
 
 *-G, --GTs-only* 'FLOAT'::
     use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
@@ -1043,20 +1044,14 @@ Transition probabilities:
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'LIST'::
-    see *<<common_options,Common Options>>*
-
-*-S, --samples-file* 'FILE'::
-    see *<<common_options,Common Options>>*
+*-s, --sample* 'name'::
+    the name of sample to analyze
 
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
-
-*-w, --win* 'INT'::
-    maximum number of sites to keep in memory
 
 ==== HMM Options:
 
@@ -1065,6 +1060,9 @@ Transition probabilities:
 
 *-H, --az-to-hw* 'FLOAT'::
     P(HW|AZ) transition probability from HW to AZ state
+
+*-V, --viterbi-training*::
+    perform Viterbi training to estimate transition probabilities
 
 
 
