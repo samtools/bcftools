@@ -495,27 +495,33 @@ static void fit_curves(args_t *args)
         for (j=0; j<2; j++) params_cn3[j*3+1] *= params_cn3[j*3+1];
         for (j=0; j<3; j++) params_cn4[j*3+1] *= params_cn4[j*3+1];
 
-        double dx, fit_cn2, fit_cn3, fit_cn4;
+        double dx, fit_cn2, fit_cn3, fit_cn4, dy_cn3, dy_cn4;
         
         fit_cn2 = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, 1, params_cn2);
 
         // From the nature of the data, we can assume that in presence of
-        // multiple peaks they will be placed symmetrically around 0.5. We
-        // evaluate the fit with this in mind.
+        // multiple peaks they will be placed symmetrically around 0.5. Also
+        // their size should be about the same. We evaluate the fit with this
+        // in mind.
         dx = fabs(0.5 - params_cn3[0]) + fabs(params_cn3[3] - 0.5);
         params_cn3[0] = 0.5 - dx*0.5;
         params_cn3[3] = 0.5 + dx*0.5;
         fit_cn3 = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, 2, params_cn3);
+        dy_cn3  = params_cn3[1] > params_cn3[4] ? params_cn3[4]/params_cn3[1] : params_cn3[1]/params_cn3[4];
 
         dx = fabs(0.5 - params_cn4[0]) + fabs(params_cn4[6] - 0.5);
         params_cn4[0] = 0.5 - dx*0.5;
         params_cn4[6] = 0.5 + dx*0.5;
         fit_cn4 = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, 3, params_cn4);
+        dy_cn4  = params_cn4[1] > params_cn4[7] ? params_cn4[7]/params_cn4[1] : params_cn4[1]/params_cn4[7];
 
+
+        // Three peaks (CN4) are always a better fit than two (CN3) or one (CN2). Therefore
+        // check first if CN2 is better than CN3 and if the peak sizes are reasonable, within say 30%
         double cn = -1;
-        if ( fit_cn2 < fit_cn3 )
+        if ( fit_cn2 < fit_cn3 || dy_cn3 < 0.7 )
         {
-            if ( fit_cn4 < 0.7 * fit_cn2 )
+            if ( fit_cn4 < 0.7 * fit_cn2 && dy_cn4 > 0.7 )
             {
                 cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
                 save_dist(args, i, 3, params_cn4);
@@ -528,7 +534,7 @@ static void fit_curves(args_t *args)
         }
         else
         {
-            if ( fit_cn4 < 0.7 * fit_cn3 )
+            if ( fit_cn4 < 0.7 * fit_cn3 && dy_cn4 > 0.7 )
             {
                 cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
                 save_dist(args, i, 3, params_cn4);
