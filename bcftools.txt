@@ -888,6 +888,9 @@ multiple rows.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*-s, --strict-filter*::
+    when merging ('-m+'), merged site is PASS only if all sites being merged PASS
+
 *-t, --targets* 'LIST'::
     see *<<common_options,Common Options>>*
 
