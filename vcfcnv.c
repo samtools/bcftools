@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
+   Copyright (c) 2014 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -733,7 +733,7 @@ static void usage(args_t *args)
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -b, --BAF-weight <float>           relative contribution from BAF [1]\n");
     fprintf(stderr, "    -e, --err-prob <float>             probability of error [0.001]\n");
-    fprintf(stderr, "    -i, --ij-prob <float>              transition probability [1e-9]\n");
+    fprintf(stderr, "    -i, --ij-prob <float>              transition probability [1e-8]\n");
     fprintf(stderr, "    -l, --LRR-weight <float>           relative contribution from LRR [0.2]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -753,7 +753,7 @@ int main_vcfcnv(int argc, char *argv[])
     args->err_prob  = 0.001;
 
     // Transition probability to a different state
-    args->tprob_ij  = 1e-9;
+    args->tprob_ij  = 1e-8;
 
     // Squared std dev of BAF and LRR values (gaussian noise), estimated from real data (hets, one sample, one chr)
     args->baf_sigma2 = 0.08*0.08;   // illumina: 0.03

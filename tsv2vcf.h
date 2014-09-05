@@ -56,6 +56,24 @@ int tsv_register(tsv_t *tsv, const char *id, tsv_setter_t setter, void *usr);
  */
 int tsv_parse(tsv_t *tsv, bcf1_t *rec, char *str);
 
+/**
+ *  tstv_next() - position ss,se to next field; first pass with ss=se=str
+ *  Returns 0 on success, or -1 if no more fields
+ */
+static inline int tsv_next(tsv_t *tsv)
+{
+    if ( !*tsv->se ) return -1;
+    if ( tsv->ss==tsv->se )
+    {
+        while ( *tsv->se && !isspace(*tsv->se) ) tsv->se++;
+        return 0;
+    }
+    while ( *tsv->se && isspace(*tsv->se) ) tsv->se++;
+    tsv->ss = tsv->se;
+    while ( *tsv->se && !isspace(*tsv->se) ) tsv->se++;
+    return 0;
+}
+
 int tsv_setter_chrom(tsv_t *tsv, bcf1_t *rec, void *usr);
 int tsv_setter_pos(tsv_t *tsv, bcf1_t *rec, void *usr);
 int tsv_setter_id(tsv_t *tsv, bcf1_t *rec, void *usr);

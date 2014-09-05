@@ -59,6 +59,8 @@ struct _args_t
     struct {
         int total, skipped, hom_rr, het_ra, hom_aa, het_aa; 
     } n;
+    kstring_t str;
+    int32_t *gts;
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname;
@@ -206,98 +208,111 @@ static void bcf_hdr_set_chrs(bcf_hdr_t *hdr, faidx_t *fai)
         bcf_hdr_printf(hdr, "##contig=<ID=%s,length=%d>", seq,len);
     }
 }
+static inline int acgt_to_5(char base)
+{
+    if ( base=='A' ) return 0;
+    if ( base=='C' ) return 1;
+    if ( base=='G' ) return 2;
+    if ( base=='T' ) return 3;
+    return 4;
+}
+static inline int tsv_setter_aa1(args_t *args, char *ss, char *se, int alleles[], int *nals, int ref, int32_t *gts)
+{
+    if ( se - ss > 2 ) return -1;   // currently only SNPs
+
+    if ( ss[0]=='-' ) return -2;    // skip these
+    if ( ss[0]=='I' ) return -2;
+    if ( ss[0]=='D' ) return -2;
+
+    int a0 = acgt_to_5(toupper(ss[0]));
+    int a1 = ss[1] ? acgt_to_5(toupper(ss[1])) : a0;
+    if ( alleles[a0]<0 ) alleles[a0] = (*nals)++;
+    if ( alleles[a1]<0 ) alleles[a1] = (*nals)++;
+
+    gts[0] = bcf_gt_unphased(alleles[a0]); 
+    gts[1] = ss[1] ? bcf_gt_unphased(alleles[a1]) : bcf_int32_vector_end;
+
+    if ( ref==a0 && ref==a1  ) args->n.hom_rr++;    // hom ref: RR
+    else if ( ref==a0 ) args->n.het_ra++;           // het: RA
+    else if ( ref==a1 ) args->n.het_ra++;           // het: AR
+    else if ( a0==a1 ) args->n.hom_aa++;            // hom-alt: AA
+    else args->n.het_aa++;                          // non-ref het: AA
+
+    return 0;
+}
 static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
 {
     args_t *args = (args_t*) usr;
-
-    rec->n_sample = bcf_hdr_nsamples(args->header);
-    assert( rec->n_sample==1 );    // 1 sample only for now
-
-    // Only SNPs
-    if ( tsv->se - tsv->ss > 2 )
-        error("Could not parse AA: %s\n", tsv->ss);
-
-    if ( tsv->ss[0]=='-' ) return -1;
-    if ( tsv->ss[0]=='I' ) return -1;
-    if ( tsv->ss[0]=='D' ) return -1;
 
     int len;
     char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(args->header,rec->rid), rec->pos, rec->pos, &len);
     if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(args->header,rec->rid), rec->pos+1);
 
-    char a0 = toupper(tsv->ss[0]);
-    char a1 = tsv->ss[1] ? toupper(tsv->ss[1]) : a0;
-    ref[0]  = toupper(ref[0]);
+    int nals = 1, alleles[5] = { -1, -1, -1, -1, -1 };    // a,c,g,t,n
+    ref[0] = toupper(ref[0]);
+    int iref = acgt_to_5(ref[0]);
+    alleles[iref] = 0;
 
-    int32_t gts[2];
-    char als[6];
+    rec->n_sample = bcf_hdr_nsamples(args->header);
 
-    als[0] = ref[0];
-    if ( ref[0]==a0 && ref[0]==a1  )
+    int i, ret;
+    for (i=0; i<rec->n_sample; i++)
     {
-        // hom-ref: RR
-        als[1] = 0;
-        gts[0] = gts[1] = bcf_gt_unphased(0);
-        args->n.hom_rr++;
+        if ( i>0 )
+        {
+            ret = tsv_next(tsv);
+            if ( ret==-1 ) error("Too few columns for %d samples at %s:%d\n", rec->n_sample,bcf_hdr_id2name(args->header,rec->rid), rec->pos+1);
+        }
+        ret = tsv_setter_aa1(args, tsv->ss, tsv->se, alleles, &nals, iref, args->gts+i*2);
+        if ( ret==-1 ) error("Error parsing the site %s:%d, expected two characters\n", bcf_hdr_id2name(args->header,rec->rid), rec->pos+1);
+        if ( ret==-2 ) 
+        {
+            // something else than a SNP
+            free(ref);
+            return 0;
+        }
     }
-    else if ( ref[0]==a0 )
+
+    args->str.l = 0;
+    kputc(ref[0], &args->str);
+    for (i=0; i<5; i++) 
     {
-        // het: RA
-        als[1] = ',';
-        als[2] = a1;
-        als[3] = 0;
-        gts[0] = bcf_gt_unphased(0);
-        gts[1] = bcf_gt_unphased(1);
-        args->n.het_ra++;
+        if ( alleles[i]>0 )
+        {
+            kputc(',', &args->str);
+            kputc("ACGTN"[i], &args->str);
+        }
     }
-    else if ( ref[0]==a1 )
-    {
-        // het: AR
-        als[1] = ',';
-        als[2] = a0;
-        als[3] = 0;
-        gts[0] = bcf_gt_unphased(0);
-        gts[1] = bcf_gt_unphased(1);
-        args->n.het_ra++;
-    }
-    else if ( a0==a1 )
-    {
-        // hom-alt: AA
-        als[1] = ',';
-        als[2] = a0;
-        als[3] = 0;
-        gts[0] = gts[1] = bcf_gt_unphased(1); 
-        args->n.hom_aa++;
-    }
-    else 
-    {
-        // non-ref het: AA
-        als[1] = ',';
-        als[2] = a0;
-        als[3] = ',';
-        als[4] = a1;
-        als[5] = 0;
-        gts[0] = bcf_gt_unphased(1); 
-        gts[1] = bcf_gt_unphased(2); 
-        args->n.het_aa++;
-    }
-    bcf_update_alleles_str(args->header, rec, als);
-    if ( bcf_update_genotypes(args->header,rec,gts,a1 ? 2 : 1) ) error("Could not update the GT field\n");
+    bcf_update_alleles_str(args->header, rec, args->str.s);
+    if ( bcf_update_genotypes(args->header,rec,args->gts,rec->n_sample*2) ) error("Could not update the GT field\n");
 
     free(ref);
     return 0;
 }
+
 static void tsv_to_vcf(args_t *args)
 {
     if ( !args->ref_fname ) error("Missing the --ref option\n");
+    if ( !args->sample_list ) error("Missing the --samples option\n");
+
     args->ref = fai_load(args->ref_fname);
     if ( !args->ref ) error("Could not load the reference %s\n", args->ref_fname);
 
     args->header = bcf_hdr_init("w");
     bcf_hdr_set_chrs(args->header, args->ref);
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
-    bcf_hdr_add_sample(args->header, args->sample_list);
+
+    int i, n;
+    char **smpls = hts_readlist(args->sample_list, args->sample_is_file, &n);
+    if ( !smpls ) error("Could not parse %s\n", args->sample_list);
+    for (i=0; i<n; i++)
+    {
+        bcf_hdr_add_sample(args->header, smpls[i]);
+        free(smpls[i]);
+    }
+    free(smpls);
     bcf_hdr_add_sample(args->header, NULL);
+    args->gts = (int32_t *) malloc(sizeof(int32_t)*n*2);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
     bcf_hdr_write(out_fh,args->header);
@@ -332,6 +347,8 @@ static void tsv_to_vcf(args_t *args)
     hts_close(out_fh);
     tsv_destroy(tsv);
     bcf_destroy(rec);
+    free(args->str.s);
+    free(args->gts);
 
     fprintf(stderr,"Rows total: \t%d\n", args->n.total);
     fprintf(stderr,"Rows skipped: \t%d\n", args->n.skipped);
@@ -366,8 +383,9 @@ static void usage(void)
     fprintf(stderr, "tsv options:\n");
     fprintf(stderr, "       --tsv2vcf <file>        \n");
     fprintf(stderr, "   -c, --columns <string>      columns of the input tsv file [CHROM,POS,ID,AA]\n");
-    fprintf(stderr, "   -f, --ref <file>            reference sequence in fasta format\n");
-    fprintf(stderr, "   -s, --sample <name>         sample name\n");
+    fprintf(stderr, "   -f, --fasta-ref <file>      reference sequence in fasta format\n");
+    fprintf(stderr, "   -s, --samples <list>        list of sample names\n");
+    fprintf(stderr, "   -S, --samples-file <file>   file of sample names\n");
     fprintf(stderr, "\n");
 
 //    fprintf(stderr, "hap/legend/sample options:\n");
@@ -408,7 +426,6 @@ int main_vcfconvert(int argc, char *argv[])
         {"tag",1,0,1},
         {"tsv2vcf",1,0,2},
         {"ref",1,0,'f'},
-        {"sample",1,0,'s'},
         {0,0,0,0}
     };
     while ((c = getopt_long(argc, argv, "?hr:R:s:S:t:T:i:e:g:f:o:O:",loptions,NULL)) >= 0) {
