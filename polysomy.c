@@ -63,6 +63,7 @@ typedef struct
     double *xvals;
     dist_t *dist;
     char **argv, *output_dir;
+    double fit_th, peak_symmetry, cn_penalty;
     int argc, plot, verbose, regions_is_file, targets_is_file;
     char *dat_fname, *fname, *regions_list, *targets_list, *sample;
     FILE *dat_fp;
@@ -469,6 +470,7 @@ static void print_params(data_t *dat, int ngauss, double *params, float fit, cha
     }
     printf("\n");
 }
+#define min(a,b,c) (a<b?(a<c?a:c):(b<c?b:c))
 static void fit_curves(args_t *args)
 {
     int i,j;
@@ -517,14 +519,19 @@ static void fit_curves(args_t *args)
 
 
         // Three peaks (CN4) are always a better fit than two (CN3) or one (CN2). Therefore
-        // check first if CN2 is better than CN3 and if the peak sizes are reasonable, within say 30%
+        // check first if CN2 is better than CN3 and if the peak sizes are reasonable, within
+        // (1-fit_th)%
         double cn = -1;
-        if ( fit_cn2 < fit_cn3 || dy_cn3 < 0.7 )
+        if ( min(fit_cn2,fit_cn3,fit_cn4) > args->fit_th ) ;
+        else if ( fit_cn2 < fit_cn3 || dy_cn3 < 0.7 )
         {
-            if ( fit_cn4 < 0.7 * fit_cn2 && dy_cn4 > 0.7 )
+            if ( fit_cn4 < args->cn_penalty * fit_cn2 )
             {
-                cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
-                save_dist(args, i, 3, params_cn4);
+                if ( dy_cn4 > args->peak_symmetry )
+                {
+                    cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
+                    save_dist(args, i, 3, params_cn4);
+                }
             }
             else
             {
@@ -534,10 +541,13 @@ static void fit_curves(args_t *args)
         }
         else
         {
-            if ( fit_cn4 < 0.7 * fit_cn3 && dy_cn4 > 0.7 )
+            if ( fit_cn4 < args->cn_penalty * fit_cn3 )
             {
-                cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
-                save_dist(args, i, 3, params_cn4);
+                if ( dy_cn4 > args->peak_symmetry )
+                {
+                    cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
+                    save_dist(args, i, 3, params_cn4);
+                }
             }
             else
             {
@@ -554,6 +564,7 @@ static void fit_curves(args_t *args)
             print_params(&args->dist[i].dat, 3, params_cn4, fit_cn4, cn>3 ? '*' : ' ');
             printf("\n");
         }
+        if ( cn==-1 ) save_dist(args, i, 0, NULL);
         fprintf(args->dat_fp,"CN\t%s\t%.1f\n", dist->chr, cn);
     }
 }
@@ -563,14 +574,18 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Detect number of chromosomal copies from Illumina's B-allele frequency (BAF)\n");
     fprintf(stderr, "Usage:   bcftools polysomy [OPTIONS] <file.vcf>\n");
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -o, --output-dir <path>    \n");
-    fprintf(stderr, "    -r, --regions <region>     restrict to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file <file>  restrict to regions listed in a file\n");
-    fprintf(stderr, "    -s, --sample <name>        sample to analyze\n");
-    fprintf(stderr, "    -t, --targets <region>     similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "    -T, --targets-file <file>  similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "    -v, --verbose              \n");
+    fprintf(stderr, "General options:\n");
+    fprintf(stderr, "    -o, --output-dir <path>        \n");
+    fprintf(stderr, "    -r, --regions <region>         restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>      restrict to regions listed in a file\n");
+    fprintf(stderr, "    -s, --sample <name>            sample to analyze\n");
+    fprintf(stderr, "    -t, --targets <region>         similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>      similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -v, --verbose                  \n");
+    fprintf(stderr, "Algorithm options:\n");
+    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller more strict) [0.7]\n");
+    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller more strict) [3.0]\n");
+    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (smaller more strict) [0.7]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -580,10 +595,16 @@ int main_polysomy(int argc, char *argv[])
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
     args->nbins  = 150;
+    args->fit_th = 3.0;
+    args->cn_penalty = 0.7;
+    args->peak_symmetry = 0.7;
 
     static struct option loptions[] = 
     {
         {"verbose",0,0,'v'},
+        {"fit-th",1,0,'f'},
+        {"cn-penalty",1,0,'c'},
+        {"peak-symmetry",1,0,'p'},
         {"output-dir",1,0,'o'},
         {"sample",1,0,'s'},
         {"targets",1,0,'t'},
@@ -592,18 +613,29 @@ int main_polysomy(int argc, char *argv[])
         {"regions-file",1,0,'R'},
         {0,0,0,0}
     };
-    char c;
-    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:",loptions,NULL)) >= 0) 
+    char c, *tmp;
+    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:",loptions,NULL)) >= 0) 
     {
         switch (c) 
         {
+            case 'f': 
+                args->fit_th = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -f %s\n", optarg);
+                break;
+            case 'p': 
+                args->peak_symmetry = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -p %s\n", optarg);
+                break;
+            case 'c': 
+                args->cn_penalty = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -c %s\n", optarg);
+                break;
             case 's': args->sample = optarg; break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; args->targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'o': args->output_dir = optarg; break;
-            case 'p': args->plot = 1; break;
             case 'v': args->verbose = 1; break;
             default: usage(args); break;
         }
