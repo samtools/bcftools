@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 09/05/2014
+.\"      Date: 09/09/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "09/05/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "09/09/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -437,19 +437,9 @@ and
 Comma\-separated list of columns or tags to carry over from the annotation file (see also
 \fB\-a, \-\-annotations\fR)\&. If the annotation file is not a VCF/BCF,
 \fIlist\fR
-describes the columns of the annotation file and must include CHROM, POS (or, alternatively, FROM and TO), and optionally REF and ALT\&. Unused columns which should be ignored can be indicated by "\-"\&. If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their order does not matter\&. Currently the columns ID, QUAL, FILTER and INFO can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG"\&. If the annotation file is not a VCF/BCF, all new annotations must be defined via
-\fB\-h, \-\-header\-lines\fR\&. For example:
+describes the columns of the annotation file and must include CHROM, POS (or, alternatively, FROM and TO), and optionally REF and ALT\&. Unused columns which should be ignored can be indicated by "\-"\&. If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their order does not matter\&. The columns ID, QUAL, FILTER, INFO and FORMAT can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG", and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG"\&. To carry over all INFO annotations, use "INFO"\&. To add all INFO annotations except "TAG", use "^INFO/TAG"\&. By default, existing values are replaced\&. To add missing values without replacing existing annotations, use "+TAG" instead of "TAG"\&. If the annotation file is not a VCF/BCF, all new annotations must be defined via
+\fB\-h, \-\-header\-lines\fR\&.
 .RE
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-    CHROM,FROM,TO,REF,ALT,\-,INFO/TAG
-.fi
-.if n \{\
-.RE
-.\}
 .PP
 \fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
 .RS 4
@@ -561,6 +551,19 @@ rename chromosomes according to the map in
 \fIfile\fR, with "old_name new_name\en" pairs separated by whitespaces, each on a separate line\&.
 .RE
 .PP
+\fB\-s, \-\-samples\fR [^]\fILIST\fR
+.RS 4
+subset of samples to annotate, see also
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+subset of samples to annotate\&. If the samples are named differently in the target VCF and the
+\fB\-a, \-\-annotations\fR
+VCF, the name mapping can be given as "src_name dst_name\en", separated by whitespaces, each pair on a separate line\&.
+.RE
+.PP
 \fB\-x, \-\-remove\fR \fIlist\fR
 .RS 4
 List of annotations to remove\&. Use
@@ -578,23 +581,35 @@ can be abbreviated to
 and
 \fIFORMAT\fR
 to
-\fIFMT\fR\&. A few examples:
+\fIFMT\fR\&.
 .RE
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-    ID,INFO/DP,FORMAT/DP
-.fi
-.if n \{\
-.RE
-.\}
 .PP
 \fB\-v, \-\-verbose\fR
 .RS 4
 print debugging information on plugin failure
 .RE
+.sp
+\fBExamples:\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    # Remove three fields
+    bcftools annotate \-x ID,INFO/DP,FORMAT/DP file\&.vcf\&.gz
+
+    # Add ID, QUAL and INFO/TAG, not replacing TAG if already present
+    bcftools annotate \-a src\&.bcf \-c ID,QUAL,+TAG dst\&.bcf
+
+    # Carry over all INFO and FORMAT annotations except FORMAT/GT
+    bcftools annotate \-a src\&.bcf \-c INFO,^FORMAT/GT dst\&.bcf
+
+    # Annotate from a tab\-delimited file
+    bcftools annotate \-a annots\&.tab\&.gz \-h annots\&.hdr \-c CHROM,POS,REF,ALT,\-,TAG file\&.vcf
+.fi
+.if n \{\
+.RE
+.\}
 .SS "bcftools call \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
 This command replaces the former \fBbcftools view\fR caller\&. Some of the original functionality has been temporarily lost in the process of transition under htslib, but will be added back on popular demand\&. The original calling model can be invoked with the \fB\-c\fR option\&.

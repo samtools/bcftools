@@ -35,6 +35,7 @@ THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
+#include <htslib/khash_str2int.h>
 #include <dlfcn.h>
 #include "bcftools.h"
 #include "vcmp.h"
@@ -102,7 +103,7 @@ annot_line_t;
 
 typedef struct _annot_col_t
 {
-    int icol;
+    int icol, replace;
     char *hdr_key;
     int (*setter)(struct _args_t *, bcf1_t *, struct _annot_col_t *, void*);
 }
@@ -138,13 +139,16 @@ typedef struct _args_t
     annot_col_t *cols;      // column indexes and setters
     int ncols;
 
+    int *sample_map, nsample_map, sample_is_file;
     int ntmpi, mtmpi, ntmpf, mtmpf, ntmps, mtmps;
-    int32_t *tmpi;
-    float *tmpf;
-    char *tmps;
+    int mtmpi2, mtmpf2, mtmps2;
+    int mtmpi3, mtmpf3, mtmps3;
+    int32_t *tmpi, *tmpi2, *tmpi3;
+    float *tmpf, *tmpf2, *tmpf3;
+    char *tmps, *tmps2, **tmpp, **tmpp2;
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
-    char *remove_annots, *columns, *rename_chrs;
+    char *remove_annots, *columns, *rename_chrs, *sample_names;
     int argc, drop_header, verbose, tgts_is_vcf;
 }
 args_t;
@@ -529,7 +533,11 @@ static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
     hts_expand(int,1,args->mtmpi,args->tmpi);
     args->tmpi[0] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, tab->cols[col->icol]);
     if ( args->tmpi[0]<0 ) error("The FILTER is not defined in the header: %s\n", tab->cols[col->icol]);
-    return bcf_update_filter(args->hdr_out,line,args->tmpi,1);
+    if ( col->replace )
+        bcf_update_filter(args->hdr_out,line,args->tmpi,1);
+    else
+        bcf_add_filter(args->hdr_out,line,args->tmpi[0]);
+    return 0;
 }
 static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -537,30 +545,64 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
     if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
     hts_expand(int,rec->d.n_flt,args->mtmpi,args->tmpi);
     int i;
-    for (i=0; i<rec->d.n_flt; i++)
+    if ( col->replace )
     {
-        const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
-        args->tmpi[i] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, flt);
+        for (i=0; i<rec->d.n_flt; i++)
+        {
+            const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
+            args->tmpi[i] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, flt);
+        }
+        bcf_update_filter(args->hdr_out,line,args->tmpi,rec->d.n_flt);
+        return 0;
     }
-    return bcf_update_filter(args->hdr_out,line,args->tmpi,rec->d.n_flt);
+    else
+    {
+        for (i=0; i<rec->d.n_flt; i++)
+        {
+            const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
+            bcf_add_filter(args->hdr_out,line,bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, flt));
+        }
+        return 0;
+    }
 }
 static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    // possible cases:
+    //      IN  ANNOT   OUT     ACHIEVED_BY
+    //      x   y       x        -c +ID
+    //      x   y       y        -c ID
+    //      x   y       x,y      /not supported/
+    //      x   .       x        -c +ID, ID
+    //      x   .       .        -x ID
+    //      .   y       y        -c +ID, -c ID
+    //
     annot_line_t *tab = (annot_line_t*) data;
-    if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0;  // don't replace with "."
-    return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
+    if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
+    if ( col->replace ) return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
+
+    // running with +ID, only update missing ids
+    if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[0]) )
+        return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
+    return 0;
 }
 static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
     if ( rec->d.id && rec->d.id[0]=='.' && !rec->d.id[1] ) return 0;    // don't replace with "."
-    return bcf_update_id(args->hdr_out,line,rec->d.id);
+    if ( col->replace ) return bcf_update_id(args->hdr_out,line,rec->d.id);
+
+    // running with +ID, only update missing ids
+    if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[0]) )
+        return bcf_update_id(args->hdr_out,line,rec->d.id);
+    return 0;
 }
 static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol];
-    if ( str[0]=='.' && str[1]==0 ) return 0;
+    if ( str[0]=='.' && str[1]==0 ) return 0;   // empty
+
+    if ( !col->replace && !bcf_float_is_missing(line->qual) ) return 0;
 
     line->qual = strtod(str, &str);
     if ( str == tab->cols[col->icol] )
@@ -570,6 +612,8 @@ static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 static int vcf_setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
+    if ( bcf_float_is_missing(rec->qual) ) return 0;
+    if ( !col->replace && !bcf_float_is_missing(line->qual) ) return 0;
     line->qual = rec->qual;
     return 0;
 }
@@ -597,6 +641,12 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
+    if ( !col->replace )
+    {
+        int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi, &args->mtmpi);
+        if ( ret>0 && args->tmpi[0]!=bcf_int32_missing ) return 0;
+    }
+
     args->ntmpi = 0;
     while ( *end )
     {
@@ -612,6 +662,12 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 }
 static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !col->replace )
+    {
+        int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi, &args->mtmpi);
+        if ( ret>0 && args->tmpi[0]!=bcf_int32_missing ) return 0;
+    }
+
     bcf1_t *rec = (bcf1_t*) data;
     args->ntmpi = bcf_get_info_int32(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
     if ( args->ntmpi >=0 )
@@ -623,6 +679,12 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
+
+    if ( !col->replace )
+    {
+        int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf, &args->mtmpf);
+        if ( ret>0 && !bcf_float_is_missing(args->tmpf[0]) ) return 0;
+    }
 
     args->ntmpf = 0;
     while ( *end )
@@ -639,6 +701,12 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
 }
 static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !col->replace )
+    {
+        int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf, &args->mtmpf);
+        if ( ret>0 && !bcf_float_is_missing(args->tmpf[0]) ) return 0;
+    }
+
     bcf1_t *rec = (bcf1_t*) data;
     args->ntmpf = bcf_get_info_float(args->files->readers[1].header,rec,col->hdr_key,&args->tmpf,&args->mtmpf);
     if ( args->ntmpf >=0 )
@@ -647,27 +715,405 @@ static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, vo
 }
 static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !col->replace )
+    {
+        int ret = bcf_get_info_string(args->hdr,line,col->hdr_key,&args->tmps,&args->mtmps);
+        if ( ret>0 && (args->tmps[0]!='.' || args->tmps[1]) ) return 0;
+    }
     annot_line_t *tab = (annot_line_t*) data;
     return bcf_update_info_string(args->hdr_out,line,col->hdr_key,tab->cols[col->icol]);
 }
 static int vcf_setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !col->replace )
+    {
+        int ret = bcf_get_info_string(args->hdr,line,col->hdr_key,&args->tmps,&args->mtmps);
+        if ( ret>0 && (args->tmps[0]!='.' || args->tmps[1]) ) return 0;
+    }
     bcf1_t *rec = (bcf1_t*) data;
     args->ntmps = bcf_get_info_string(args->files->readers[1].header,rec,col->hdr_key,&args->tmps,&args->mtmps);
     if ( args->ntmps >=0 )
         bcf_update_info_string(args->hdr_out,line,col->hdr_key,args->tmps);
     return 0;
 }
-static void init_columns(args_t *args)
+static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    kstring_t str = {0,0,0}, tmp = {0,0,0};
-    char *ss = args->columns, *se = ss;
-    args->ncols = 0;
-    int i = -1;
-    se = ss;
+    bcf1_t *rec = (bcf1_t*) data;
+    int nsrc = bcf_get_genotypes(args->files->readers[1].header,rec,&args->tmpi,&args->mtmpi);
+    if ( nsrc==-3 ) return 0;    // the tag is not present
+    if ( nsrc<=0 ) return 1;     // error
+
+    if ( !args->sample_map )
+        return bcf_update_genotypes(args->hdr_out,line,args->tmpi,nsrc);
+
+    int i, j, ndst = bcf_get_genotypes(args->hdr,line,&args->tmpi2,&args->mtmpi2);
+    if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
+    nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
+    if ( ndst<=0 )
+    {
+        hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            int32_t *dst = args->tmpi2 + nsrc*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                dst[0] = bcf_gt_missing;
+                for (j=1; j<nsrc; j++) dst[j] = bcf_int32_vector_end;
+            }
+            else
+            {
+                int32_t *src = args->tmpi + nsrc*args->sample_map[i];
+                for (j=0; j<nsrc; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_genotypes(args->hdr_out,line,args->tmpi2,nsrc*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else if ( ndst >= nsrc )     
+    {
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            if ( args->sample_map[i]==-1 ) continue;
+            int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
+            int32_t *dst = args->tmpi2 + ndst*i;
+            for (j=0; j<nsrc; j++) dst[j] = src[j];
+            for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
+        }
+        return bcf_update_genotypes(args->hdr_out,line,args->tmpi2,ndst*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else    // ndst < nsrc
+    {
+        hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi3, args->tmpi3);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            int32_t *ori = args->tmpi2 + ndst*i;
+            int32_t *dst = args->tmpi3 + nsrc*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                for (j=0; j<nsrc; j++) dst[j] = ori[j];
+                for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
+            }
+            else
+            {
+                int32_t *src = args->tmpi + nsrc*args->sample_map[i];
+                for (j=0; j<nsrc; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_genotypes(args->hdr_out,line,args->tmpi3,nsrc*bcf_hdr_nsamples(args->hdr_out));
+    }
+}
+static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    int nsrc = bcf_get_format_int32(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
+    if ( nsrc==-3 ) return 0;    // the tag is not present
+    if ( nsrc<=0 ) return 1;     // error
+
+    if ( !args->sample_map )
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi,nsrc);
+
+    int i, j, ndst = bcf_get_format_int32(args->hdr,line,col->hdr_key,&args->tmpi2,&args->mtmpi2);
+    if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
+    nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
+    if ( ndst<=0 )
+    {
+        hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            int32_t *dst = args->tmpi2 + nsrc*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                dst[0] = bcf_int32_missing;
+                for (j=1; j<nsrc; j++) dst[j] = bcf_int32_vector_end;
+            }
+            else
+            {
+                int32_t *src = args->tmpi + nsrc*args->sample_map[i];
+                for (j=0; j<nsrc; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi2,nsrc*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else if ( ndst >= nsrc )     
+    {
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            if ( args->sample_map[i]==-1 ) continue;
+            int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
+            int32_t *dst = args->tmpi2 + ndst*i;
+            for (j=0; j<nsrc; j++) dst[j] = src[j];
+            for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
+        }
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi2,ndst*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else    // ndst < nsrc
+    {
+        hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi3, args->tmpi3);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            int32_t *ori = args->tmpi2 + ndst*i;
+            int32_t *dst = args->tmpi3 + nsrc*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                for (j=0; j<nsrc; j++) dst[j] = ori[j];
+                for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
+            }
+            else
+            {
+                int32_t *src = args->tmpi + nsrc*args->sample_map[i];
+                for (j=0; j<nsrc; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi3,nsrc*bcf_hdr_nsamples(args->hdr_out));
+    }
+}
+static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    int nsrc = bcf_get_format_float(args->files->readers[1].header,rec,col->hdr_key,&args->tmpf,&args->mtmpf);
+    if ( nsrc==-3 ) return 0;    // the tag is not present
+    if ( nsrc<=0 ) return 1;     // error
+
+    if ( !args->sample_map )
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf,nsrc);
+
+    int i, j, ndst = bcf_get_format_float(args->hdr,line,col->hdr_key,&args->tmpf2,&args->mtmpf2);
+    if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
+    nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
+    if ( ndst<=0 )
+    {
+        hts_expand(float, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpf2, args->tmpf2);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            float *dst = args->tmpf2 + nsrc*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                bcf_float_set_missing(dst[0]);
+                for (j=1; j<nsrc; j++) bcf_float_set_vector_end(dst[j]);
+            }
+            else
+            {
+                float *src = args->tmpf + nsrc*args->sample_map[i];
+                for (j=0; j<nsrc; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf2,nsrc*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else if ( ndst >= nsrc )     
+    {
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            if ( args->sample_map[i]==-1 ) continue;
+            float *src = args->tmpf  + nsrc*args->sample_map[i];
+            float *dst = args->tmpf2 + ndst*i;
+            for (j=0; j<nsrc; j++) dst[j] = src[j];
+            for (; j<ndst; j++) bcf_float_set_vector_end(dst[j]);
+        }
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf2,ndst*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else    // ndst < nsrc
+    {
+        hts_expand(float, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpf3, args->tmpf3);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            float *ori = args->tmpf2 + ndst*i;
+            float *dst = args->tmpf3 + nsrc*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                for (j=0; j<nsrc; j++) dst[j] = ori[j];
+                for (; j<ndst; j++) bcf_float_set_vector_end(dst[j]);
+            }
+            else
+            {
+                float *src = args->tmpf + nsrc*args->sample_map[i];
+                for (j=0; j<nsrc; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf3,nsrc*bcf_hdr_nsamples(args->hdr_out));
+    }
+}
+static int vcf_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    args->tmpp[0] = args->tmps;
+    int ret = bcf_get_format_string(args->files->readers[1].header,rec,col->hdr_key,&args->tmpp,&args->mtmps);
+    args->tmps = args->tmpp[0]; // tmps might be realloced
+    if ( ret==-3 ) return 0;    // the tag is not present
+    if ( ret<=0 ) return 1;     // error
+
+    if ( !args->sample_map )
+        return bcf_update_format_string(args->hdr_out,line,col->hdr_key,(const char**)args->tmpp,bcf_hdr_nsamples(args->hdr_out));
+
+    int i;
+    args->tmpp2[0] = args->tmps2;
+    ret = bcf_get_format_string(args->hdr,line,col->hdr_key,&args->tmpp2,&args->mtmps2);
+    args->tmps2 = args->tmpp2[0];   // tmps2 might be realloced
+
+    if ( ret<=0 )   // not present in dst
+    {
+        hts_expand(char,bcf_hdr_nsamples(args->hdr_out)*2,args->mtmps2,args->tmps2);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            args->tmps2[2*i]   = '.';
+            args->tmps2[2*i+1] = 0;
+            args->tmpp2[i] = args->tmps2+2*i;
+        }
+    }
+
+    for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+    {
+        int isrc = args->sample_map[i];
+        if ( isrc==-1 ) continue;
+        args->tmpp2[i] = args->tmpp[isrc];
+    }
+    return bcf_update_format_string(args->hdr_out,line,col->hdr_key,(const char**)args->tmpp2,bcf_hdr_nsamples(args->hdr_out));
+}
+static void set_samples(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
+{
+    if ( args->nsample_map ) return;
+    args->nsample_map = 1;  // so that we don't do this multiple times..
+
+    int i;
+    if ( !args->sample_names )
+    {
+        int nmatch = 0, order_ok = 1;
+        for (i=0; i<bcf_hdr_nsamples(src); i++)
+        {
+            int id = bcf_hdr_id2int(dst, BCF_DT_SAMPLE, src->samples[i]);
+            if ( id!=-1 ) 
+            {
+                nmatch++;
+                if ( i!=id ) order_ok = 0;
+            }
+        }
+        if ( bcf_hdr_nsamples(src)==bcf_hdr_nsamples(dst) && nmatch==bcf_hdr_nsamples(src) && order_ok ) 
+            return;    // the same samples in both files
+
+        if ( !nmatch ) error("No matching samples found in the source and the destination file\n");
+        if ( nmatch!=bcf_hdr_nsamples(src) || nmatch!=bcf_hdr_nsamples(dst) ) fprintf(stderr,"%d sample(s) in common\n", nmatch);
+
+        args->nsample_map = bcf_hdr_nsamples(dst);
+        args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
+        for (i=0; i<args->nsample_map; i++)
+        {
+            int id = bcf_hdr_id2int(src, BCF_DT_SAMPLE, dst->samples[i]);
+            args->sample_map[i] = id;   // idst -> isrc, -1 if not present
+        }
+        return;
+    }
+
+    args->nsample_map = bcf_hdr_nsamples(dst);
+    args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
+    for (i=0; i<args->nsample_map; i++) args->sample_map[i] = -1;
+
+    int nsamples = 0;
+    char **samples = hts_readlist(args->sample_names, args->sample_is_file, &nsamples);
+    for (i=0; i<nsamples; i++)
+    {
+        int isrc, idst;
+        char *ss = samples[i], *se = samples[i];
+        while ( *se && !isspace(*se) ) se++;
+        if ( !*se ) 
+        {
+            // only one sample name
+            isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE,ss);
+            if ( isrc==-1 ) error("Sample \"%s\" not found in the source file\n", ss);
+            idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE,ss);
+            if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", ss);
+            args->sample_map[idst] = isrc;
+            continue;
+        }
+        *se = 0;
+        isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE,ss);
+        if ( isrc==-1 ) error("Sample \"%s\" not found in the source file\n", ss);
+
+        ss = se+1;
+        while ( isspace(*ss) ) ss++;
+        se = ss;
+        while ( *se && !isspace(*se) ) se++;
+
+        idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE,ss);
+        if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", ss);
+
+        args->sample_map[idst] = isrc;
+    }
+    for (i=0; i<nsamples; i++) free(samples[i]);
+    free(samples);
+}
+static char *columns_complement(char *columns, void **skip_info, void **skip_fmt)
+{
+    kstring_t str = {0,0,0};
+    char *ss = columns, *se = ss;
     while ( *ss )
     {
         if ( *se && *se!=',' ) { se++; continue; }
+        if ( *ss!='^' )
+        {
+            if ( str.l ) kputc(',',&str);
+            kputsn(ss, se-ss, &str);
+            if ( !*se ) break;
+            ss = ++se;
+            continue;
+        }
+
+        if ( !strncasecmp("^INFO/",ss,6) )
+        {
+            if ( !*skip_info )
+            {
+                *skip_info = khash_str2int_init();
+                if ( str.l ) kputc(',',&str);
+                kputs("INFO",&str);
+            }
+            char tmp = *se; *se = 0;
+            khash_str2int_inc(*skip_info, strdup(ss+6));
+            *se = tmp;
+        }
+        else if ( !strncasecmp("^FORMAT/",ss,8) || !strncasecmp("^FMT/",ss,5) )
+        {
+            int n = !strncasecmp("^FMT/",ss,5) ? 5 : 8;
+            if ( !*skip_fmt )
+            {
+                *skip_fmt = khash_str2int_init();
+                if ( str.l ) kputc(',',&str);
+                kputs("FORMAT",&str);
+            }
+            char tmp = *se; *se = 0;
+            khash_str2int_inc(*skip_fmt, strdup(ss+n));
+            *se = tmp;
+        }
+        else
+        {
+            if ( !*skip_info )
+            {
+                *skip_info = khash_str2int_init();
+                if ( str.l ) kputc(',',&str);
+                kputs("INFO",&str);
+            }
+            char tmp = *se; *se = 0;
+            khash_str2int_inc(*skip_info, strdup(ss+1));
+            *se = tmp;
+        }
+
+        if ( !*se ) break;
+        ss = ++se;
+    }
+    free(columns);
+    return str.s;
+}
+static void init_columns(args_t *args)
+{
+    void *skip_fmt = NULL, *skip_info = NULL;
+    if ( args->tgts_is_vcf )
+        args->columns = columns_complement(args->columns, &skip_info, &skip_fmt);
+
+    kstring_t str = {0,0,0}, tmp = {0,0,0};
+    char *ss = args->columns, *se = ss;
+    args->ncols = 0;
+    int i = -1, has_fmt_str = 0;
+    while ( *ss )
+    {
+        if ( *se && *se!=',' ) { se++; continue; }
+        int replace = 1;
+        if ( *ss=='+' ) { replace = 0; ss++; }
         i++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
@@ -683,6 +1129,7 @@ static void init_columns(args_t *args)
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
+            col->replace = replace;
             col->setter = args->tgts_is_vcf ? vcf_setter_id : setter_id;
             col->hdr_key = strdup(str.s);
         }
@@ -691,16 +1138,118 @@ static void init_columns(args_t *args)
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
+            col->replace = replace;
             col->setter = args->tgts_is_vcf ? vcf_setter_filter : setter_filter;
             col->hdr_key = strdup(str.s);
+            if ( args->tgts_is_vcf )
+            {
+                bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
+                int j;
+                for (j=0; j<tgts_hdr->nhrec; j++)
+                {
+                    bcf_hrec_t *hrec = tgts_hdr->hrec[j];
+                    if ( hrec->type!=BCF_HL_FLT ) continue;
+                    int k = bcf_hrec_find_key(hrec,"ID");
+                    assert( k>=0 ); // this should always be true for valid VCFs
+                    tmp.l = 0;
+                    bcf_hrec_format(hrec, &tmp);
+                    bcf_hdr_append(args->hdr_out, tmp.s);
+                }
+            }
         }
         else if ( !strcasecmp("QUAL",str.s) )
         {
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
+            col->replace = replace;
             col->setter = args->tgts_is_vcf ? vcf_setter_qual : setter_qual;
             col->hdr_key = strdup(str.s);
+        }
+        else if ( args->tgts_is_vcf && !strcasecmp("INFO",str.s) ) // All INFO fields
+        {
+            bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
+            int j;
+            for (j=0; j<tgts_hdr->nhrec; j++)
+            {
+                bcf_hrec_t *hrec = tgts_hdr->hrec[j];
+                if ( hrec->type!=BCF_HL_INFO ) continue;
+                int k = bcf_hrec_find_key(hrec,"ID");
+                assert( k>=0 ); // this should always be true for valid VCFs
+                if ( skip_info && khash_str2int_has_key(skip_info,hrec->vals[k]) ) continue;
+                tmp.l = 0;
+                bcf_hrec_format(hrec, &tmp);
+                bcf_hdr_append(args->hdr_out, tmp.s);
+                int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                col->icol = -1;
+                col->replace = replace;
+                col->hdr_key = strdup(hrec->vals[k]);
+                switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
+                {
+                    case BCF_HT_FLAG:   col->setter = vcf_setter_info_flag; break;
+                    case BCF_HT_INT:    col->setter = vcf_setter_info_int; break;
+                    case BCF_HT_REAL:   col->setter = vcf_setter_info_real; break;
+                    case BCF_HT_STR:    col->setter = vcf_setter_info_str; break;
+                    default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id));
+                }
+            }
+        }
+        else if ( args->tgts_is_vcf && (!strcasecmp("FORMAT",str.s) || !strcasecmp("FMT",str.s)) ) // All FORMAT fields
+        {
+            if ( !replace ) error("todo: Unfortunately, +FORMAT is not supported yet, sorry!\n");
+            bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
+            set_samples(args, tgts_hdr, args->hdr);
+            int j;
+            for (j=0; j<tgts_hdr->nhrec; j++)
+            {
+                bcf_hrec_t *hrec = tgts_hdr->hrec[j];
+                if ( hrec->type!=BCF_HL_FMT) continue;
+                int k = bcf_hrec_find_key(hrec,"ID");
+                assert( k>=0 ); // this should always be true for valid VCFs
+                if ( skip_fmt && khash_str2int_has_key(skip_fmt,hrec->vals[k]) ) continue;
+                tmp.l = 0;
+                bcf_hrec_format(hrec, &tmp);
+                bcf_hdr_append(args->hdr_out, tmp.s);
+                int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                col->icol = -1;
+                col->replace = replace;
+                col->hdr_key = strdup(hrec->vals[k]);
+                if ( !strcasecmp("GT",col->hdr_key) ) col->setter = vcf_setter_format_gt;
+                else
+                    switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_FMT,hdr_id) )
+                    {
+                        case BCF_HT_INT:    col->setter = vcf_setter_format_int; break;
+                        case BCF_HT_REAL:   col->setter = vcf_setter_format_real; break;
+                        case BCF_HT_STR:    col->setter = vcf_setter_format_str; has_fmt_str = 1; break;
+                        default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_FMT,hdr_id));
+                    }
+            }
+        }
+        else if ( args->tgts_is_vcf && (!strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4)) )
+        {
+            char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
+            if ( !replace ) error("todo: Unfortunately, +FORMAT is not supported yet, sorry!\n");
+            bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
+            set_samples(args, tgts_hdr, args->hdr);
+            int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key);
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            col->icol = -1;
+            col->replace = replace;
+            col->hdr_key = strdup(key);
+            if ( !strcasecmp("GT",key) ) col->setter = vcf_setter_format_gt;
+            else
+                switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_FMT,hdr_id) )
+                {
+                    case BCF_HT_INT:    col->setter = vcf_setter_format_int; break;
+                    case BCF_HT_REAL:   col->setter = vcf_setter_format_real; break;
+                    case BCF_HT_STR:    col->setter = vcf_setter_format_str; has_fmt_str = 1; break;
+                    default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_FMT,hdr_id));
+                }
         }
         else
         {
@@ -725,6 +1274,7 @@ static void init_columns(args_t *args)
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
+            col->replace = replace;
             col->hdr_key = strdup(str.s);
             switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
             {
@@ -741,6 +1291,15 @@ static void init_columns(args_t *args)
     free(str.s);
     free(tmp.s);
     if ( args->to_idx==-1 ) args->to_idx = args->from_idx;
+    free(args->columns);
+    if ( skip_info ) khash_str2int_destroy_free(skip_info);
+    if ( skip_fmt ) khash_str2int_destroy_free(skip_fmt);
+    if ( has_fmt_str )
+    {
+        int n = bcf_hdr_nsamples(args->hdr_out) > bcf_hdr_nsamples(args->files->readers[1].header) ? bcf_hdr_nsamples(args->hdr_out) : bcf_hdr_nsamples(args->files->readers[1].header);
+        args->tmpp  = (char**)malloc(sizeof(char*)*n);
+        args->tmpp2 = (char**)malloc(sizeof(char*)*n);
+    }
 }
 
 static void rename_chrs(args_t *args, char *fname)
@@ -847,9 +1406,17 @@ static void destroy_data(args_t *args)
     free(args->tmpi);
     free(args->tmpf);
     free(args->tmps);
+    free(args->tmpp);
+    free(args->tmpi2);
+    free(args->tmpf2);
+    free(args->tmps2);
+    free(args->tmpp2);
+    free(args->tmpi3);
+    free(args->tmpf3);
     if ( args->filter )
         filter_destroy(args->filter);
     if (args->out_fh) hts_close(args->out_fh);
+    free(args->sample_map);
 }
 
 static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
@@ -1002,6 +1569,8 @@ static void usage(args_t *args)
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
     fprintf(stderr, "       --rename-chrs <file>       rename sequences according to map file: from\\tto\n");
+    fprintf(stderr, "   -s, --samples [^]<list>        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "   -S, --samples-file [^]<file>   file of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
     fprintf(stderr, "   -v, --verbose                  print debugging information on plugin failure\n");
     fprintf(stderr, "\n");
@@ -1036,13 +1605,17 @@ int main_vcfannotate(int argc, char *argv[])
         {"columns",1,0,'c'},
         {"rename-chrs",1,0,1},
         {"header-lines",1,0,'h'},
+        {"samples",1,0,'s'},
+        {"samples-file",1,0,'S'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:p:x:c:li:e:v",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:p:x:c:li:e:vS:s:",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 's': args->sample_names = optarg; break;
+            case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;
             case 'v': args->verbose = 1; break;
-            case 'c': args->columns = optarg; break;
+            case 'c': args->columns = strdup(optarg); break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {
