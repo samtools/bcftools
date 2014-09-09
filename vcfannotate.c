@@ -392,7 +392,16 @@ void remove_info(args_t *args, bcf1_t *line, rm_tag_t *tag)
 
     int i;
     for (i=0; i<line->n_info; i++)
-        bcf_update_info(args->hdr, line, bcf_hdr_int2id(args->hdr,BCF_DT_ID,line->d.info[i].key), NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
+    {
+        bcf_info_t *inf = &line->d.info[i];
+        if ( inf->vptr_free )
+        {
+            free(inf->vptr - inf->vptr_off);
+            inf->vptr_free = 0;
+        }
+        line->d.shared_dirty |= BCF1_DIRTY_INF;
+        inf->vptr = NULL;
+    }
 }
 void remove_info_tag(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
@@ -410,9 +419,17 @@ void remove_format(args_t *args, bcf1_t *line, rm_tag_t *tag)
     int i;
     for (i=0; i<line->n_fmt; i++)
     {
-        const char *key = bcf_hdr_int2id(args->hdr,BCF_DT_ID,line->d.fmt[i].id);
+        bcf_fmt_t *fmt = &line->d.fmt[i];
+        const char *key = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id);
         if ( key[0]=='G' && key[1]=='T' && !key[2] ) continue;
-        bcf_update_format(args->hdr, line, key, NULL, 0, BCF_HT_INT);  // the type does not matter with n=0
+
+        if ( fmt->p_free )
+        {
+            free(fmt->p - fmt->p_off);
+            fmt->p_free = 0;
+        }
+        line->d.indiv_dirty = 1;
+        fmt->p = NULL;
     }
 }
 
@@ -450,10 +467,10 @@ static void init_remove_annots(args_t *args)
         tag->key = NULL;
 
         int type = BCF_HL_GEN;
-        if ( !strncmp("INFO/",ss,5) ) { type = BCF_HL_INFO; ss += 5; }
-        else if ( !strncmp("INF/",ss,4) ) { type = BCF_HL_INFO; ss += 4; }
-        else if ( !strncmp("FORMAT/",ss,7) ) { type = BCF_HL_FMT; ss += 7; }
-        else if ( !strncmp("FMT/",ss,4) ) { type = BCF_HL_FMT; ss += 4; }
+        if ( !strncasecmp("INFO/",ss,5) ) { type = BCF_HL_INFO; ss += 5; }
+        else if ( !strncasecmp("INF/",ss,4) ) { type = BCF_HL_INFO; ss += 4; }
+        else if ( !strncasecmp("FORMAT/",ss,7) ) { type = BCF_HL_FMT; ss += 7; }
+        else if ( !strncasecmp("FMT/",ss,4) ) { type = BCF_HL_FMT; ss += 4; }
 
         char *se = ss;
         while ( *se && *se!=',' ) se++;
@@ -476,8 +493,8 @@ static void init_remove_annots(args_t *args)
                 bcf_hdr_remove(args->hdr_out,type,tag->key);
             }
         }
-        else if ( !strcmp("ID",str.s) ) tag->handler = remove_id;
-        else if ( !strncmp("FILTER/",str.s,7) )
+        else if ( !strcasecmp("ID",str.s) ) tag->handler = remove_id;
+        else if ( !strncasecmp("FILTER/",str.s,7) )
         {
             tag->handler = remove_filter;
             tag->key = strdup(str.s+7);
@@ -485,18 +502,18 @@ static void init_remove_annots(args_t *args)
             if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
             bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
         }
-        else if ( !strcmp("FILTER",str.s) )
+        else if ( !strcasecmp("FILTER",str.s) )
         {
             tag->handler = remove_filter;
             remove_hdr_lines(args->hdr_out,BCF_HL_FLT);
         }
-        else if ( !strcmp("QUAL",str.s) ) tag->handler = remove_qual;
-        else if ( !strcmp("INFO",str.s) ) 
+        else if ( !strcasecmp("QUAL",str.s) ) tag->handler = remove_qual;
+        else if ( !strcasecmp("INFO",str.s) ) 
         {
             tag->handler = remove_info;
             remove_hdr_lines(args->hdr_out,BCF_HL_INFO);
         }
-        else if ( !strcmp("FMT",str.s) || !strcmp("FORMAT",str.s) )
+        else if ( !strcasecmp("FMT",str.s) || !strcasecmp("FORMAT",str.s) )
         {
             tag->handler = remove_format;
             remove_hdr_lines(args->hdr_out,BCF_HL_FMT);
