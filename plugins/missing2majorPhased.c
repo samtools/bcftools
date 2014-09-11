@@ -35,6 +35,7 @@ bcf_hdr_t *in_hdr, *out_hdr;
 int *arr = NULL, marr = 0;
 int32_t *gts = NULL, mgts = 0;
 uint64_t nchanged = 0;
+uint64_t nchangedREF = 0;
 
 const char *about(void)
 {
@@ -82,6 +83,7 @@ int process(bcf1_t *rec)
     }
     nchanged += changed;
     if ( changed ) bcf_update_genotypes(out_hdr, rec, gts, ngts);
+    if ( majorAllele == 0 ) nchangedREF += changed;
 
     an += changed;
     if ( majorAllele ) *(arr+1) += changed;
@@ -96,7 +98,7 @@ int process(bcf1_t *rec)
 
 void destroy(void) 
 {
-    fprintf(stderr,"Filled %"PRId64" REF alleles\n", nchanged);
+    fprintf(stderr,"Filled %"PRId64" REF and %"PRId64" ALT alleles\n", nchangedREF, nchanged - nchangedREF);
     free(gts);
 }
 
