@@ -169,23 +169,33 @@ static void *dlopen_plugin(args_t *args, const char *fname)
 {
     init_plugin_paths(args);
 
-    char *tmp;
     void *handle;
-    int i;
-    for (i=0; i<args->nplugin_paths; i++)
+    char *tmp;
+    if ( fname[0]!='/' )    // not an absolute path
     {
-        tmp = msprintf("%s/%s.so", args->plugin_paths[i],fname);
-        handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
-        if ( !handle && args->verbose ) fprintf(stderr,"%s: %s\n", tmp, dlerror());
-        free(tmp);
-        if ( handle ) return handle;
+        int i;
+        for (i=0; i<args->nplugin_paths; i++)
+        {
+            tmp = msprintf("%s/%s.so", args->plugin_paths[i],fname);
+            handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
+            if ( args->verbose )
+            {
+                if ( !handle ) fprintf(stderr,"%s\n", dlerror());
+                else fprintf(stderr,"%s: ok\n", tmp);
+            }
+            free(tmp);
+            if ( handle ) return handle;
+        }
     }
 
     handle = dlopen(fname, RTLD_NOW);
-    if ( handle ) return handle;
-    if ( args->verbose ) fprintf(stderr,"%s: %s\n", fname, dlerror());
+    if ( args->verbose )
+    {
+        if ( !handle ) fprintf(stderr,"%s\n", dlerror());
+        else fprintf(stderr,"%s: ok\n", fname);
+    }
 
-    return NULL;
+    return handle;
 }
 
 static void print_plugin_usage_hint(void)
@@ -317,6 +327,8 @@ static int list_plugins(args_t *args)
         struct dirent *ep;
         while ( (ep=readdir(dp)) )
         {
+            int len = strlen(ep->d_name);
+            if ( strcasecmp(".so",ep->d_name+len-3) ) continue;
             str.l = 0;
             ksprintf(&str,"%s/%s", args->plugin_paths[i],ep->d_name);
             hts_expand(plugin_t, nplugins+1, mplugins, plugins);
