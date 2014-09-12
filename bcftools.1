@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 09/09/2014
+.\"      Date: 09/12/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "09/09/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "09/12/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -426,7 +426,7 @@ This command allows to add or remove annotations and apply user\-written plugins
 .PP
 \fB\-a, \-\-annotations\fR \fIfile\fR
 .RS 4
-Bgzip\-compressed and tabix\-indexed file with annotations\&. The file can be VCF, BED, or a tab\-delimited file with mandatory columns CHROM, POS (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary number of annotation columns\&. In case of tab\-delimited file, the coordinates POS, FROM and TO are one\-based and inclusive\&. When REF and ALT are present, only matching VCF records will be annotated\&. When multiple ALT alleles are present in the annotation file (given as comma\-separated list of alleles), at least one must match one of the alleles in the corresponding VCF record\&. Similarly, at least one alternate allele from a multi\-allelic VCF record must be present in the annotation file\&. Note that flag types, such as "INFO/FLAG", can be annotated by including a field with the value "1" to set the flag, "0" to remove it, or "\&." to keep existing flags\&. See also
+Bgzip\-compressed and tabix\-indexed file with annotations\&. The file can be VCF, BED, or a tab\-delimited file with mandatory columns CHROM, POS (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary number of annotation columns\&. BED files are expected to have the "\&.bed" or "\&.bed\&.gz" suffix (case\-insensitive), otherwise a tab\-delimited file is assumed\&. Note that in case of tab\-delimited file, the coordinates POS, FROM and TO are one\-based and inclusive\&. When REF and ALT are present, only matching VCF records will be annotated\&. When multiple ALT alleles are present in the annotation file (given as comma\-separated list of alleles), at least one must match one of the alleles in the corresponding VCF record\&. Similarly, at least one alternate allele from a multi\-allelic VCF record must be present in the annotation file\&. Note that flag types, such as "INFO/FLAG", can be annotated by including a field with the value "1" to set the flag, "0" to remove it, or "\&." to keep existing flags\&. See also
 \fB\-c, \-\-columns\fR
 and
 \fB\-h, \-\-header\-lines\fR\&.
