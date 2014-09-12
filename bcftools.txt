@@ -88,7 +88,7 @@ LIST OF COMMANDS
 For a full list of available commands, run *bcftools* without arguments. For a full
 list of available options, run *bcftools* 'COMMAND' without arguments.
 
-- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations, apply user plugins
+- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
 - *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
@@ -98,6 +98,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<isec,isec>>*        ..  intersections of VCF/BCF files
 - *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
 - *<<norm,norm>>*        ..  normalize indels
+- *<<plugin,plugin>>*    ..  run user-defined plugin
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
@@ -226,7 +227,7 @@ COMMANDS AND OPTIONS
 [[annotate]]
 === bcftools annotate '[OPTIONS]' 'FILE'
 
-This command allows to add or remove annotations and apply user-written plugins.
+This command allows to add or remove annotations.
 
 *-a, --annotations* 'file'::
     Bgzip-compressed and tabix-indexed file with annotations. The file
@@ -277,41 +278,12 @@ This command allows to add or remove annotations and apply user-written plugins.
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
-*-l, --list-plugins*::
-    List all available plugins. If not installed systemwide, set the environment
-    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
-    directory where *libhts.so* is located.  The BCFTOOLS_PLUGINS
-    environment variable tells the program which directories to search.
-    See also *-p, --plugin*.
-
-    ::
-    List of plugins coming with the distribution:
-
-        *counts*;;  A minimal plugin which counts number of SNPs, Indels, and
-        total number of sites.
-
-        *dosage*;; Prints genotype dosage determined from tags requested
-        by the user. By default the plugin searches for PL, GL and
-        GT (in that order), therefore running *-p dosage* is equivalent to *-p
-        dosage:tags=PL,GL,GT*.
-
-        *fill-AN-AC*;;  Fills INFO fields AN and AC.
-
-        *frameshifts*;; Annotate frameshift indels. Run as *-p frameshifts:exons=path/to/file.tab.gz*.
-        See the usage of *--targets-file* above for file format description.
-
-        *missing2ref*;; Sets missing genotypes ("./.") to ref allele ("0/0").
-
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-p, --plugin* 'name'[:'key'='val']::
-    Run a plugin with optional parameters. The option can be given multiple times,
-    the plugins will be executed in the same order as they appeared on the command line.
-    See also *-l, --list-plugins*.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -338,9 +310,6 @@ This command allows to add or remove annotations and apply user-written plugins.
     'FILTER/SomeFilter' to remove a specific filter. Similarly, 'INFO' can
     be used to remove all INFO tags and 'FORMAT' to remove all FORMAT tags
     except GT. 'INFO' can be abbreviated to 'INF' and 'FORMAT' to 'FMT'.
-
-*-v, --verbose* ::
-    print debugging information on plugin failure
 
 *Examples:*
 ----
@@ -923,6 +892,97 @@ multiple rows.
 *-w, --site-win* 'INT'::
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
+
+
+[[plugin]]
+=== bcftools plugin 'NAME' '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
+
+==== VCF input options:
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+==== VCF output options:
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+==== Plugin options:
+
+*-h, --help*::
+    list plugin's options
+
+*-l, --list-plugins*::
+    List all available plugins. If not installed systemwide, set the environment
+    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
+    directory where *libhts.so* is located.  The BCFTOOLS_PLUGINS
+    environment variable tells the program which directories to search.
+
+*-v, --verbose*::
+    print debugging information to debug plugin failure
+
+==== List of plugins coming with the distribution:
+
+*counts*::
+    a minimal plugin which counts number of SNPs, Indels, and total number of sites.
+
+*dosage*:: 
+    print genotype dosage. By default the plugin searches for PL, GL and GT, in
+    that order.
+
+*fill-AN-AC*::
+    fill INFO fields AN and AC.
+
+*frameshifts*::
+    annotate frameshift indels
+
+*missing2ref*::
+    sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
+
+
+==== Examples:
+
+----
+# List options common to all plugins
+bcftools plugin
+
+# List available plugins
+bcftools plugin -l
+
+# One can run plugins in several ways
+bcftools plugin counts in.vcf
+bcftools +counts in.vcf
+cat in.vcf | bcftools +counts
+
+# Print usage information of plugin "dosage"
+bcftools +dosage -h
+
+# Replace missing genotypes with 0/0
+bcftools +missing2ref in.vcf 
+
+# Replace missing genotypes with 0|0
+bcftools +missing2ref in.vcf -- -p
+----
 
 
 [[query]]

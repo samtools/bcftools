@@ -61,6 +61,7 @@ int main_vcfcnv(int argc, char *argv[]);
 #if PSMY
 int main_polysomy(int argc, char *argv[]);
 #endif
+int main_plugin(int argc, char *argv[]);
 
 typedef struct
 {
@@ -112,6 +113,10 @@ static cmd_t cmds[] =
     { .func  = main_vcfnorm,
       .alias = "norm",
       .help  = "left-align and normalize indels"
+    },
+    { .func  = main_plugin,
+      .alias = "plugin",
+      .help  = "user-defined plugins"
     },
     { .func  = main_vcfquery,
       .alias = "query",
@@ -165,6 +170,7 @@ static cmd_t cmds[] =
     { .func  = main_vcfsom,
       .alias = "som",
       .help  = "-filter using Self-Organized Maps (experimental)"   // do not advertise
+
     },
     { .func  = NULL,
       .alias = NULL,
@@ -228,6 +234,14 @@ int main(int argc, char *argv[])
         // when invoked without any arguments.
         argv++;
         argc = 2;
+    }
+    else if ( argv[1][0]=='+' )
+    {
+        // "bcftools plugin name" can be run as "bcftools +name"
+        argv[1]++;
+        argv[0] = "plugin";
+        argv--;
+        argc++;
     }
 
     int i = 0;

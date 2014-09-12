@@ -36,7 +36,7 @@ const char *about(void)
     return "Fill INFO fields AN and AC.\n";
 }
 
-int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
+int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     in_hdr  = in;
     out_hdr = out;
@@ -45,7 +45,7 @@ int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
     return 0;
 }
 
-int process(bcf1_t *rec)
+bcf1_t *process(bcf1_t *rec)
 {
     hts_expand(int,rec->n_allele,marr,arr);
     int ret = bcf_calc_ac(in_hdr,rec,arr,BCF_UN_FMT);
@@ -56,7 +56,7 @@ int process(bcf1_t *rec)
         bcf_update_info_int32(out_hdr, rec, "AN", &an, 1);
         bcf_update_info_int32(out_hdr, rec, "AC", arr+1, rec->n_allele-1);
     }
-    return 0;
+    return rec;
 }
 
 void destroy(void)

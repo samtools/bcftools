@@ -26,20 +26,33 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdlib.h>
 #include <htslib/vcf.h>
 #include <math.h>
-#include "config.h"
+#include <getopt.h>
 
 
 /*
-    This short description is used to generate the output of `bcftools annotate -l`.
+    This short description is used to generate the output of `bcftools plugin -l`.
 */
 const char *about(void)
 {
-    return
-        "Prints genotype dosage determined from tags requested by the user.\n"
-        "By default the plugin searches for PL, GL and GT (in that order), thus\n"
-        "running with \"-p dosage\" is equivalent to \"-p dosage:tags=PL,GL,GT\".\n";
+    return "Prints genotype dosage determined from tags requested by the user.\n";
 }
 
+const char *usage(void)
+{
+    return 
+        "\n"
+        "About: Print genotype dosage\n"
+        "Usage: bcftools +dosage [General Options] -- [Plugin Options]\n"
+        "Options:\n"
+        "   run \"bcftools plugin\" for a list of common options\n"
+        "\n"
+        "Plugin options:\n"
+        "   -t, --tags <list>   VCF tags to determine the dosage from [PL,GL,GT]\n"
+        "\n"
+        "Example:\n"
+        "   bcftools +dosage in.vcf -- -t GT\n"
+        "\n";
+}
 
 bcf_hdr_t *in_hdr = NULL;
 int pl_type = 0, gl_type = 0;
@@ -137,18 +150,48 @@ int calc_dosage_GT(bcf1_t *rec)
 }
 
 
-
-/*
-    Called once at startup, allows to initialize local variables.
-    Return 1 to suppress VCF/BCF header from printing, 0 for standard
-    VCF/BCF output and -1 on critical errors.
-*/
-int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
+char **split_list(char *str, int *nitems)
 {
-    int i, id;
+    int n = 0, done = 0;
+    char *ss = strdup(str), **out = NULL;
+    while ( !done && *ss )
+    {
+        char *se = ss;
+        while ( *se && *se!=',' ) se++;
+        if ( !*se ) done = 1;
+        *se = 0;
+        n++;
+        out = (char**) realloc(out,sizeof(char*)*n);
+        out[n-1] = ss;
+        ss = se+1;
+    }
+    *nitems = n;
+    return out;
+}
+
+int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
+{
+    int i, id, c;
+    char *tags_str = "PL,GL,GT";
+
+    static struct option loptions[] =
+    {
+        {"tags",1,0,'t'},
+        {0,0,0,0}
+    };
+    while ((c = getopt_long(argc, argv, "t:?h",loptions,NULL)) >= 0)
+    {
+        switch (c) 
+        {
+            case 't': tags_str = optarg; break;
+            case 'h':
+            case '?':
+            default: fprintf(stderr,"%s", usage()); exit(1); break;
+        }
+    }
+    tags = split_list(tags_str, &ntags);
 
     in_hdr = in;
-    tags = config_get_list(opts ? opts : "tags=PL,GL,GT","tags", &ntags);
     for (i=0; i<ntags; i++)
     {
         if ( !strcmp("PL",tags[i]) )
@@ -203,11 +246,7 @@ int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
 }
 
 
-/*
-    Called for each VCF record after all standard annotation things are finished.
-    Return 0 on success, 1 to suppress the line from printing, -1 on critical errors.
-*/
-int process(bcf1_t *rec)
+bcf1_t *process(bcf1_t *rec)
 {
     int i, ret;
 
@@ -231,13 +270,10 @@ int process(bcf1_t *rec)
     }
     printf("\n");
 
-    return 1;
+    return NULL;
 }
 
 
-/*
-    Clean up.
-*/
 void destroy(void)
 {
     free(handlers);

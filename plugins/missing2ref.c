@@ -26,24 +26,60 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdlib.h>
 #include <htslib/vcf.h>
 #include <inttypes.h>
+#include <getopt.h>
 
 bcf_hdr_t *in_hdr, *out_hdr;
 int32_t *gts = NULL, mgts = 0;
 uint64_t nchanged = 0;
+int new_gt = bcf_gt_unphased(0);
 
 const char *about(void)
 {
-    return "Set missing genotypes (\"./.\") to ref allele (\"0/0\").\n";
+    return "Set missing genotypes (\"./.\") to ref allele (\"0/0\" or \"0|0\").\n";
 }
 
-int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
+const char *usage(void)
 {
+    return 
+        "\n"
+        "About: Set missing genotypes\n"
+        "Usage: bcftools +missing2ref [General Options] -- [Plugin Options]\n"
+        "Options:\n"
+        "   run \"bcftools plugin\" for a list of common options\n"
+        "\n"
+        "Plugin options:\n"
+        "   -p, --phased       Set to \"0|0\" \n"
+        "\n"
+        "Example:\n"
+        "   bcftools +missing2ref in.vcf -- -p\n"
+        "\n";
+}
+
+
+int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
+{
+    int c;
+    static struct option loptions[] =
+    {
+        {"phased",0,0,'p'},
+        {0,0,0,0}
+    };
+    while ((c = getopt_long(argc, argv, "p?h",loptions,NULL)) >= 0)
+    {
+        switch (c) 
+        {
+            case 'p': new_gt = bcf_gt_phased(0); break;
+            case 'h':
+            case '?':
+            default: fprintf(stderr,"%s", usage()); exit(1); break;
+        }
+    }
     in_hdr  = in;
     out_hdr = out;
     return 0;
 }
 
-int process(bcf1_t *rec)
+bcf1_t *process(bcf1_t *rec)
 {
     int ngts = bcf_get_genotypes(in_hdr, rec, &gts, &mgts);
 
@@ -52,13 +88,13 @@ int process(bcf1_t *rec)
     {
         if ( gts[i]==bcf_gt_missing )
         {
-            gts[i] = bcf_gt_unphased(0);
+            gts[i] = new_gt;
             changed++;
         }
     }
     nchanged += changed;
     if ( changed ) bcf_update_genotypes(out_hdr, rec, gts, ngts);
-    return 0;
+    return rec;
 }
 
 void destroy(void)

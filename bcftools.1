@@ -69,7 +69,7 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .\}
 
 \fBannotate\fR
-\&.\&. edit VCF files, add or remove annotations, apply user plugins
+\&.\&. edit VCF files, add or remove annotations
 .RE
 .sp
 .RS 4
@@ -187,6 +187,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBnorm\fR
 \&.\&. normalize indels
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBplugin\fR
+\&.\&. run user\-defined plugin
 .RE
 .sp
 .RS 4
@@ -422,7 +435,7 @@ command, third column of the targets file must be comma\-separated list of allel
 .\}
 .SS "bcftools annotate \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
-This command allows to add or remove annotations and apply user\-written plugins\&.
+This command allows to add or remove annotations\&.
 .PP
 \fB\-a, \-\-annotations\fR \fIfile\fR
 .RS 4
@@ -472,49 +485,6 @@ is true\&. For valid expressions see
 \fBEXPRESSIONS\fR\&.
 .RE
 .PP
-\fB\-l, \-\-list\-plugins\fR
-.RS 4
-List all available plugins\&. If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include directory where
-\fBlibhts\&.so\fR
-is located\&. The BCFTOOLS_PLUGINS environment variable tells the program which directories to search\&. See also
-\fB\-p, \-\-plugin\fR\&.
-.RE
-.PP
-.RS 4
-List of plugins coming with the distribution:
-.PP
-\fBcounts\fR
-.RS 4
-A minimal plugin which counts number of SNPs, Indels, and total number of sites\&.
-.RE
-.PP
-\fBdosage\fR
-.RS 4
-Prints genotype dosage determined from tags requested by the user\&. By default the plugin searches for PL, GL and GT (in that order), therefore running
-\fB\-p dosage\fR
-is equivalent to
-\fB\-p dosage:tags=PL,GL,GT\fR\&.
-.RE
-.PP
-\fBfill\-AN\-AC\fR
-.RS 4
-Fills INFO fields AN and AC\&.
-.RE
-.PP
-\fBframeshifts\fR
-.RS 4
-Annotate frameshift indels\&. Run as
-\fB\-p frameshifts:exons=path/to/file\&.tab\&.gz\fR\&. See the usage of
-\fB\-\-targets\-file\fR
-above for file format description\&.
-.RE
-.PP
-\fBmissing2ref\fR
-.RS 4
-Sets missing genotypes ("\&./\&.") to ref allele ("0/0")\&.
-.RE
-.RE
-.PP
 \fB\-o, \-\-output\fR \fIFILE\fR
 .RS 4
 see
@@ -525,12 +495,6 @@ see
 .RS 4
 see
 \fBCommon Options\fR
-.RE
-.PP
-\fB\-p, \-\-plugin\fR \fIname\fR[:\*(Aqkey\*(Aq=\fIval\fR]
-.RS 4
-Run a plugin with optional parameters\&. The option can be given multiple times, the plugins will be executed in the same order as they appeared on the command line\&. See also
-\fB\-l, \-\-list\-plugins\fR\&.
 .RE
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -582,11 +546,6 @@ and
 \fIFORMAT\fR
 to
 \fIFMT\fR\&.
-.RE
-.PP
-\fB\-v, \-\-verbose\fR
-.RS 4
-print debugging information on plugin failure
 .RE
 .sp
 \fBExamples:\fR
@@ -1562,6 +1521,174 @@ see
 \fB\-w, \-\-site\-win\fR \fIINT\fR
 .RS 4
 maximum distance between two records to consider when locally sorting variants which changed position during the realignment
+.RE
+.SS "bcftools plugin \fINAME\fR \fI[OPTIONS]\fR \fIFILE\fR \(em \fI[PLUGIN OPTIONS]\fR"
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBVCF input options:\fR
+.RS 4
+.PP
+\fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
+.RS 4
+exclude sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-i, \-\-include\fR \fIEXPRESSION\fR
+.RS 4
+include only sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBVCF output options:\fR
+.RS 4
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBPlugin options:\fR
+.RS 4
+.PP
+\fB\-h, \-\-help\fR
+.RS 4
+list plugin\(cqs options
+.RE
+.PP
+\fB\-l, \-\-list\-plugins\fR
+.RS 4
+List all available plugins\&. If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include directory where
+\fBlibhts\&.so\fR
+is located\&. The BCFTOOLS_PLUGINS environment variable tells the program which directories to search\&.
+.RE
+.PP
+\fB\-v, \-\-verbose\fR
+.RS 4
+print debugging information to debug plugin failure
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBList of plugins coming with the distribution:\fR
+.RS 4
+.PP
+\fBcounts\fR
+.RS 4
+a minimal plugin which counts number of SNPs, Indels, and total number of sites\&.
+.RE
+.PP
+\fBdosage\fR
+.RS 4
+print genotype dosage\&. By default the plugin searches for PL, GL and GT, in that order\&.
+.RE
+.PP
+\fBfill\-AN\-AC\fR
+.RS 4
+fill INFO fields AN and AC\&.
+.RE
+.PP
+\fBframeshifts\fR
+.RS 4
+annotate frameshift indels
+.RE
+.PP
+\fBmissing2ref\fR
+.RS 4
+sets missing genotypes ("\&./\&.") to ref allele ("0/0" or "0|0")
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBExamples:\fR
+.RS 4
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# List options common to all plugins
+bcftools plugin
+
+# List available plugins
+bcftools plugin \-l
+
+# One can run plugins in several ways
+bcftools plugin counts in\&.vcf
+bcftools +counts in\&.vcf
+cat in\&.vcf | bcftools +counts
+
+# Print usage information of plugin "dosage"
+bcftools +dosage \-h
+
+# Replace missing genotypes with 0/0
+bcftools +missing2ref in\&.vcf
+
+# Replace missing genotypes with 0|0
+bcftools +missing2ref in\&.vcf \-\- \-p
+.fi
+.if n \{\
+.RE
+.\}
 .RE
 .SS "bcftools query [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR [\fIfile\&.vcf\&.gz\fR [\&...]]"
 .sp

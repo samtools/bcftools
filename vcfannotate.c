@@ -41,45 +41,6 @@ THE SOFTWARE.  */
 #include "vcmp.h"
 #include "filter.h"
 
-typedef struct _plugin_t plugin_t;
-
-/**
- *   Plugin API:
- *   ----------
- *   const char *about(void)
- *      - short description used by 'bcftools annotate -l'
- *
- *   int init(const char *opts, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
- *      - called once at startup, allows to initialize local variables.
- *      Return 1 to suppress normal VCF/BCF header output, -1 on critical
- *      errors, 0 otherwise.
- *
- *   int process(bcf1_t *rec)
- *      - called for each VCF record after all built-in annotations have
- *      finished. Return 0 on success, 1 to suppress the line from printing, -1
- *      on critical errors.
- *
- *   void destroy(void)
- *      - called after all lines have been processed to clean up
- */
-typedef void (*dl_version_f) (const char **, const char **);
-typedef int (*dl_init_f) (const char *, bcf_hdr_t *, bcf_hdr_t *);
-typedef char* (*dl_about_f) (void);
-typedef int (*dl_process_f) (bcf1_t *);
-typedef void (*dl_destroy_f) (void);
-
-struct _plugin_t
-{
-    char *name, *opts;
-    dl_version_f version;
-    dl_init_f init;
-    dl_about_f about;
-    dl_process_f process;
-    dl_destroy_f destroy;
-    void *handle;
-};
-
-
 struct _args_t;
 
 typedef struct _rm_tag_t
@@ -125,10 +86,6 @@ typedef struct _args_t
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
 
-    plugin_t *plugins;      // user plugins
-    int nplugins, nplugin_paths;
-    char **plugin_paths;
-
     rm_tag_t *rm;           // tags scheduled for removal
     int nrm;
 
@@ -149,228 +106,11 @@ typedef struct _args_t
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *sample_names;
-    int argc, drop_header, verbose, tgts_is_vcf;
+    int argc, drop_header, tgts_is_vcf;
 }
 args_t;
 
 char *msprintf(const char *fmt, ...);
-
-static void init_plugin_paths(args_t *args)
-{
-    if ( args->nplugin_paths!=-1 ) return;
-
-    char *path = getenv("BCFTOOLS_PLUGINS");
-    if ( path )
-    {
-        args->nplugin_paths = 1;
-        args->plugin_paths  = (char**) malloc(sizeof(char*));
-        char *ss = args->plugin_paths[0] = strdup(path);
-        while ( *ss )
-        {
-            if ( *ss==':' )
-            {
-                *ss = 0;
-                args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
-                args->plugin_paths[args->nplugin_paths] = ss+1;
-                args->nplugin_paths++;
-            }
-            ss++;
-        }
-    }
-    else
-        args->nplugin_paths = 0;
-}
-
-static void *dlopen_plugin(args_t *args, const char *fname)
-{
-    init_plugin_paths(args);
-
-    char *tmp;
-    void *handle;
-    int i;
-    for (i=0; i<args->nplugin_paths; i++)
-    {
-        tmp = msprintf("%s/%s.so", args->plugin_paths[i],fname);
-        handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
-        if ( !handle && args->verbose ) fprintf(stderr,"%s: %s\n", tmp, dlerror());
-        free(tmp);
-        if ( handle ) return handle;
-    }
-
-    handle = dlopen(fname, RTLD_NOW);
-    if ( handle ) return handle;
-    if ( args->verbose ) fprintf(stderr,"%s: %s\n", fname, dlerror());
-
-    return NULL;
-}
-
-static void print_plugin_usage_hint(void)
-{
-    fprintf(stderr, "\nNo functional bcftools plugins were found");
-    if ( !getenv("BCFTOOLS_PLUGINS") )
-        fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set.\n\n");
-    else
-        fprintf(stderr,
-                " in BCFTOOLS_PLUGINS=\"%s\".\n\n"
-                "- Is the plugin path correct?\n\n"
-                "- Are all shared libraries, namely libhts.so, accessible? Verify with\n"
-                "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
-                "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
-                "\n"
-                "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
-                "DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.\n"
-                "\n",
-                getenv("BCFTOOLS_PLUGINS")
-               );
-}
-
-static int load_plugin(args_t *args, const char *name, int exit_on_error)
-{
-    char *fname = strdup(name), *opts = fname;
-    while ( *opts && *opts!=':' ) opts++;
-    if ( *opts ) { *opts = 0; opts++; }
-    else opts = NULL;
-
-    plugin_t plugin;
-    plugin.name   = fname;
-    plugin.opts   = opts;
-
-    plugin.handle = dlopen_plugin(args, fname);
-    if ( !plugin.handle )
-    {
-        if ( exit_on_error )
-        {
-            print_plugin_usage_hint();
-            error("Could not load \"%s\".\n\n", fname);
-        }
-        free(fname);
-        return -1;
-    }
-
-    dlerror();
-    plugin.init = (dl_init_f) dlsym(plugin.handle, "init");
-    char *ret = dlerror();
-    if ( ret )
-    {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
-        free(fname);
-        return -1;
-    }
-
-    plugin.version = (dl_version_f) dlsym(plugin.handle, "version");
-    ret = dlerror();
-    if ( ret )
-    {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
-        free(fname);
-        return -1;
-    }
-
-    plugin.about = (dl_about_f) dlsym(plugin.handle, "about");
-    ret = dlerror();
-    if ( ret )
-    {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
-        free(fname);
-        return -1;
-    }
-
-    plugin.process = (dl_process_f) dlsym(plugin.handle, "process");
-    ret = dlerror();
-    if ( ret )
-    {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
-        free(fname);
-        return -1;
-    }
-
-    plugin.destroy = (dl_destroy_f) dlsym(plugin.handle, "destroy");
-    ret = dlerror();
-    if ( ret )
-    {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin.name, ret);
-        free(fname);
-        return -1;
-    }
-
-    args->nplugins++;
-    args->plugins = (plugin_t*) realloc(args->plugins, sizeof(plugin_t)*args->nplugins);
-    args->plugins[args->nplugins-1] = plugin;
-
-    return 0;
-}
-
-static void init_plugins(args_t *args)
-{
-    static int warned_bcftools = 0, warned_htslib = 0;
-    int i;
-    for (i=0; i<args->nplugins; i++)
-    {
-        int ret = args->plugins[i].init(args->plugins[i].opts,args->hdr,args->hdr_out);
-        if ( ret<0 ) error("The plugin exited with an error: %s\n", args->plugins[i].name);
-        const char *bver, *hver;
-        args->plugins[i].version(&bver, &hver);
-        if ( strcmp(bver,bcftools_version()) && !warned_bcftools )
-        {
-            fprintf(stderr,"WARNING: bcftools version mismatch .. bcftools at %s, the plugin \"%s\" at %s\n", bcftools_version(),args->plugins[i].name,bver);
-            warned_bcftools = 1;
-        }
-        if ( strcmp(hver,hts_version()) && !warned_htslib )
-        {
-            fprintf(stderr,"WARNING: htslib version mismatch .. bcftools at %s, the plugin \"%s\" at %s\n", hts_version(),args->plugins[i].name,hver);
-            warned_htslib = 1;
-        }
-        args->drop_header += ret;
-    }
-}
-
-static int cmp_plugin_name(const void *p1, const void *p2)
-{
-    plugin_t *a = (plugin_t*) p1;
-    plugin_t *b = (plugin_t*) p2;
-    return strcmp(a->name,b->name);
-}
-
-static int list_plugins(args_t *args)
-{
-    init_plugin_paths(args);
-
-    kstring_t str = {0,0,0};
-    int i;
-    for (i=0; i<args->nplugin_paths; i++)
-    {
-        DIR *dp = opendir(args->plugin_paths[i]);
-        if ( dp==NULL ) continue;
-
-        struct dirent *ep;
-        while ( (ep=readdir(dp)) )
-        {
-            str.l = 0;
-            ksprintf(&str,"%s/%s", args->plugin_paths[i],ep->d_name);
-            if ( load_plugin(args, str.s, 0) < 0 ) continue;
-            str.l = 0;
-            kputs(ep->d_name, &str);
-            int l = str.l - 1;
-            while ( l>=0 && str.s[l]!='.' ) l--;
-            if ( l>=0 ) str.s[l] = 0;
-            free(args->plugins[args->nplugins-1].name);
-            args->plugins[args->nplugins-1].name = strdup(str.s);  // use a short name
-        }
-        closedir(dp);
-    }
-    if ( args->nplugins )
-    {
-        qsort(args->plugins, args->nplugins, sizeof(args->plugins[0]), cmp_plugin_name);
-
-        for (i=0; i<args->nplugins; i++)
-            printf("\n-- %s --\n%s", args->plugins[i].name, args->plugins[i].about());
-        printf("\n");
-    }
-    else
-        print_plugin_usage_hint();
-    free(str.s);
-    return args->nplugins ? 0 : 1;
-}
 
 void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
@@ -1374,7 +1114,6 @@ static void init_data(args_t *args)
         if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
         args->vcmp = vcmp_init();
     }
-    init_plugins(args);
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
@@ -1393,21 +1132,9 @@ static void init_data(args_t *args)
 static void destroy_data(args_t *args)
 {
     int i;
-    for (i=0; i<args->nplugins; i++)
-    {
-        free(args->plugins[i].name);
-        args->plugins[i].destroy();
-        dlclose(args->plugins[i].handle);
-    }
-    free(args->plugins);
     for (i=0; i<args->nrm; i++) free(args->rm[i].key);
     free(args->rm);
     if ( args->hdr_out ) bcf_hdr_destroy(args->hdr_out);
-    if ( args->nplugin_paths>0 )
-    {
-        free(args->plugin_paths[0]);
-        free(args->plugin_paths);
-    }
     if (args->vcmp) vcmp_destroy(args->vcmp);
     for (i=0; i<args->ncols; i++)
         free(args->cols[i].hdr_key);
@@ -1509,8 +1236,7 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
     }
 }
 
-// returns 0:success, 1:don't print the line, -1:abort
-static int annotate(args_t *args, bcf1_t *line)
+static void annotate(args_t *args, bcf1_t *line)
 {
     int i, j;
     for (i=0; i<args->nrm; i++)
@@ -1556,15 +1282,6 @@ static int annotate(args_t *args, bcf1_t *line)
             if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
                 error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
     }
-
-    int skip = 0;
-    for (i=0; i<args->nplugins; i++)
-    {
-        int ret = args->plugins[i].process(line);
-        if ( ret<0 ) return ret;
-        if ( ret>0 ) skip = 1;
-    }
-    return skip;
 }
 
 static void usage(args_t *args)
@@ -1579,17 +1296,14 @@ static void usage(args_t *args)
     fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man pagee for details)\n");
-    fprintf(stderr, "   -l, --list-plugins             list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -p, --plugin <name[:key=val]>  run user-defined plugin, see man page for details\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
     fprintf(stderr, "       --rename-chrs <file>       rename sequences according to map file: from\\tto\n");
     fprintf(stderr, "   -s, --samples [^]<list>        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -S, --samples-file [^]<file>   file of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
-    fprintf(stderr, "   -v, --verbose                  print debugging information on plugin failure\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1602,20 +1316,16 @@ int main_vcfannotate(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_fname = "-";
     args->output_type = FT_VCF;
-    args->nplugin_paths = -1;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
-    int plist_only = 0, regions_is_file = 0;
+    int regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"verbose",0,0,'v'},
         {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"annotations",1,0,'a'},
         {"include",1,0,'i'},
         {"exclude",1,0,'e'},
-        {"plugin",1,0,'p'},
-        {"list-plugins",0,0,'l'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"remove",1,0,'x'},
@@ -1626,12 +1336,11 @@ int main_vcfannotate(int argc, char *argv[])
         {"samples-file",1,0,'S'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:p:x:c:li:e:vS:s:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;
-            case 'v': args->verbose = 1; break;
             case 'c': args->columns = strdup(optarg); break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -1649,15 +1358,12 @@ int main_vcfannotate(int argc, char *argv[])
             case 'a': args->targets_fname = optarg; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
-            case 'p': load_plugin(args, optarg, 1); break;
-            case 'l': plist_only = 1; break;
             case 'h': args->header_fname = optarg; break;
             case  1 : args->rename_chrs = optarg; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( plist_only )  return list_plugins(args);
 
     char *fname = NULL;
     if ( optind>=argc )
@@ -1692,9 +1398,7 @@ int main_vcfannotate(int argc, char *argv[])
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
             if ( !pass ) continue;
         }
-        int ret = annotate(args, line);
-        if ( ret<0 ) break;
-        if ( ret>0 ) continue;
+        annotate(args, line);
         bcf_write1(args->out_fh, args->hdr_out, line);
     }
     destroy_data(args);
