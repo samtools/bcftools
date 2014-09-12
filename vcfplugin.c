@@ -180,7 +180,7 @@ static void *dlopen_plugin(args_t *args, const char *fname)
             handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
             if ( args->verbose )
             {
-                if ( !handle ) fprintf(stderr,"%s\n", dlerror());
+                if ( !handle ) fprintf(stderr,"%s:\n\t%s\n", tmp,dlerror());
                 else fprintf(stderr,"%s: ok\n", tmp);
             }
             free(tmp);
@@ -191,7 +191,7 @@ static void *dlopen_plugin(args_t *args, const char *fname)
     handle = dlopen(fname, RTLD_NOW);
     if ( args->verbose )
     {
-        if ( !handle ) fprintf(stderr,"%s\n", dlerror());
+        if ( !handle ) fprintf(stderr,"%s:\n\t%s\n", fname,dlerror());
         else fprintf(stderr,"%s: ok\n", fname);
     }
 
