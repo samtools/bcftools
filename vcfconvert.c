@@ -57,7 +57,7 @@ struct _args_t
     bcf_hdr_t *header;
     void (*convert_func)(struct _args_t *);
     struct {
-        int total, skipped, hom_rr, het_ra, hom_aa, het_aa; 
+        int total, skipped, hom_rr, het_ra, hom_aa, het_aa, missing; 
     } n;
     kstring_t str;
     int32_t *gts;
@@ -397,8 +397,15 @@ static inline int tsv_setter_aa1(args_t *args, char *ss, char *se, int alleles[]
 {
     if ( se - ss > 2 ) return -1;   // currently only SNPs
 
-    if ( ss[0]=='-' ) return -2;    // skip these
-    if ( ss[0]=='I' ) return -2;
+    if ( ss[0]=='-' )
+    {
+        // missing GT
+        gts[0] = bcf_gt_missing;
+        gts[1] = bcf_int32_vector_end;
+        args->n.missing++;
+        return 0;
+    }
+    if ( ss[0]=='I' ) return -2;    // skip insertions/deletions for now
     if ( ss[0]=='D' ) return -2;
 
     int a0 = acgt_to_5(toupper(ss[0]));
@@ -446,7 +453,7 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
         {
             // something else than a SNP
             free(ref);
-            return 0;
+            return -1;
         }
     }
 
@@ -529,6 +536,7 @@ static void tsv_to_vcf(args_t *args)
 
     fprintf(stderr,"Rows total: \t%d\n", args->n.total);
     fprintf(stderr,"Rows skipped: \t%d\n", args->n.skipped);
+    fprintf(stderr,"Missing GTs: \t%d\n", args->n.missing);
     fprintf(stderr,"Hom RR: \t%d\n", args->n.hom_rr);
     fprintf(stderr,"Het RA: \t%d\n", args->n.het_ra);
     fprintf(stderr,"Hom AA: \t%d\n", args->n.hom_aa);

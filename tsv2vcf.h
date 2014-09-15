@@ -74,6 +74,9 @@ static inline int tsv_next(tsv_t *tsv)
     return 0;
 }
 
+/**
+ *  The setters return 0 on success or negative value if the line is to be skipped.
+ */
 int tsv_setter_chrom(tsv_t *tsv, bcf1_t *rec, void *usr);
 int tsv_setter_pos(tsv_t *tsv, bcf1_t *rec, void *usr);
 int tsv_setter_id(tsv_t *tsv, bcf1_t *rec, void *usr);
