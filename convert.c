@@ -59,6 +59,7 @@ THE SOFTWARE.  */
 #define T_PL_TO_PROB3  20   // not publicly advertised
 #define T_FIRST_ALT    21   // not publicly advertised
 #define T_IUPAC_GT     22 
+#define T_GT_TO_HAP    23   // not publicly advertised
 
 typedef struct _fmt_t
 {
@@ -478,6 +479,89 @@ static void process_pl_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
     }
 }
 
+static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    // https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#-known_haps_g
+
+    // File containing known haplotypes for the study cohort. The format
+    // is the same as the output format from IMPUTE2's -phase option:
+    // five header columns (as in the -g file) followed by two columns
+    // (haplotypes) per individual. Allowed values in the haplotype
+    // columns are 0, 1, and ?.
+
+    // If your study dataset is fully phased, you can replace the -g file
+    // with a -known_haps_g file. This will cause IMPUTE2 to perform
+    // haploid imputation, although it will still report diploid imputation
+    // probabilities in the main output file. If any genotypes are missing,
+    // they can be marked as '? ?' (two question marks separated by one
+    // space) in the input file. (The program does not allow just one
+    // allele from a diploid genotype to be missing.) If the reference
+    // panels are also phased, IMPUTE2 will perform a single, fast
+    // imputation step rather than its standard MCMC module this is how
+    // the program imputes into pre-phased GWAS haplotypes.
+
+    // The -known_haps_g file can also be used to specify study
+    // genotypes that are "partially" phased, in the sense that some
+    // genotypes are phased relative to a fixed reference point while
+    // others are not. We anticipate that this will be most useful when
+    // trying to phase resequencing data onto a scaffold of known
+    // haplotypes. To mark a known genotype as unphased, place an
+    // asterisk immediately after each allele, with no space between
+    // the allele (0/1) and the asterisk (*); e.g., "0* 1*" for a
+    // heterozygous genotype of unknown phase.
+
+    int m, n, i;
+
+    m = convert->ndat / sizeof(int32_t);
+    n = bcf_get_genotypes(convert->header, line, &convert->dat, &m);
+    convert->ndat = m * sizeof(int32_t);
+
+    if ( n<=0 )
+    {
+        // Throw an error or silently proceed?
+        //
+        // for (i=0; i<convert->nsamples; i++) kputs(" 0.33 0.33 0.33", str);
+        // return;
+
+        error("Error parsing GT tag at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+    }
+
+    n /= convert->nsamples;
+    for (i=0; i<convert->nsamples; i++)
+    {
+        int32_t *ptr = (int32_t*)convert->dat + i*n;
+        int j;
+        for (j=0; j<n; j++)
+            if ( ptr[j]==bcf_int32_vector_end ) break;
+
+        if (i>0) kputs(" ", str); // no space separation for first column
+        if ( j==2 )
+        {
+            // diploid
+            if ( ptr[0]==bcf_gt_missing || ptr[1]==bcf_gt_missing ) {
+                kputs("? ?", str);
+            }
+            else if ( bcf_gt_is_phased(ptr[1])) {
+                ksprintf(str, "%d %d", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            }
+            else {
+                ksprintf(str, "%d* %d*", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            }
+        }
+        else if ( j==1 )
+        {
+            // haploid
+            if ( ptr[0]==bcf_gt_missing )
+                kputs("? -", str);
+            else if ( bcf_gt_allele(ptr[0])==1 )
+                kputs("1 -", str);       // first ALT allele
+            else
+                kputs("0 -", str);       // REF or something else than first ALT
+        }
+        else error("FIXME: not ready for ploidy %d\n", j);
+    }
+}
+
 static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
 {
     convert->nfmt++;
@@ -538,6 +622,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_GT: fmt->handler = &process_gt; convert->max_unpack |= BCF_UN_FMT; break;
         case T_TGT: fmt->handler = &process_tgt; convert->max_unpack |= BCF_UN_FMT; break;
         case T_IUPAC_GT: fmt->handler = &process_iupac_gt; convert->max_unpack |= BCF_UN_FMT; break;
+        case T_GT_TO_HAP: fmt->handler = &process_gt_to_hap; convert->max_unpack |= BCF_UN_FMT; break;
         case T_LINE: fmt->handler = &process_line; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
@@ -601,6 +686,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "_CHROM_POS_ID") ) register_tag(convert, T_CHROM_POS_ID, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_PROB3") ) register_tag(convert, T_GT_TO_PROB3, str.s, is_gtf);
         else if ( !strcmp(str.s, "_PL_TO_PROB3") ) register_tag(convert, T_PL_TO_PROB3, str.s, is_gtf);
+        else if ( !strcmp(str.s, "_GT_TO_HAP") ) register_tag(convert, T_GT_TO_HAP, str.s, is_gtf);
         else if ( !strcmp(str.s, "INFO") )
         {
             if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);
