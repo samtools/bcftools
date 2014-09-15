@@ -516,6 +516,7 @@ static void tsv_to_vcf(args_t *args)
     while ( hts_getline(in_fh, KS_SEP_LINE, &line) > 0 )
     {
         if ( line.s[0]=='#' ) continue;     // skip comments
+        bcf_clear(rec);
 
         args->n.total++;
         if ( !tsv_parse(tsv, rec, line.s) )
