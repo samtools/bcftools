@@ -140,20 +140,13 @@ static void vcf_to_gensample(args_t *args)
     kputs("\n", &str);
     open_vcf(args,str.s);
 
-    int is_compressed = 1;
+    int ret, gen_compressed = 1, sample_compressed = 0;
     char *gen_fname = NULL, *sample_fname = NULL;
     str.l = 0;
     kputs(args->outfname,&str);
-    char *t = str.s;
-    while ( *t && *t!=',' ) t++;
-    if ( *t )
-    {
-        *t = 0;
-        gen_fname = strdup(str.s);
-        if ( strlen(gen_fname)<3 || strcasecmp(".gz",gen_fname+strlen(gen_fname)-3) ) is_compressed = 0;
-        sample_fname = strdup(t+1);
-    }
-    else
+    int n_files;
+    char **files = hts_readlist(str.s, 0, &n_files);
+    if ( n_files==1 )
     {
         int l = str.l;
         kputs(".samples",&str);
@@ -162,40 +155,224 @@ static void vcf_to_gensample(args_t *args)
         kputs(".gen.gz",&str);
         gen_fname = strdup(str.s);
     }
+    else if ( n_files==2 )
+    {
+        if (strlen(files[0]) && strcmp(files[0],".")!=0) gen_fname = strdup(files[0]);
+        if (strlen(files[1]) && strcmp(files[1],".")!=0) sample_fname = strdup(files[1]);
+    }
+    else
+    {
+        error("Error parsing --gensample filenames: %s\n", args->outfname);
+    }
+    free(files);
 
-    int i;
-    FILE *fh = fopen(sample_fname,"w");
-    if ( !fh ) error("Failed to write %s: %s\n", sample_fname,strerror(errno));
-    fprintf(fh,"ID_1 ID_2 missing\n0 0 0\n");
-    for (i=0; i<bcf_hdr_nsamples(args->header); i++)
-        fprintf(fh,"%s %s 0\n", args->header->samples[i],args->header->samples[i]);
-    fclose(fh);
+    if ( gen_fname && (strlen(gen_fname)<3 || strcasecmp(".gz",gen_fname+strlen(gen_fname)-3)) ) gen_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
 
-    BGZF *out = bgzf_open(gen_fname, is_compressed ? "w" : "wu");
-    free(sample_fname);
+    if (gen_fname) fprintf(stderr, "Gen file: %s\n", gen_fname);
+    if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
 
+    // write samples file
+    if (sample_fname) {
+        int i;
+        BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "w" : "wu");
+        str.l = 0;
+        kputs("ID_1 ID_2 missing\n0 0 0\n", &str);
+        ret = bgzf_write(sout, str.s, str.l);
+        if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
+        for (i=0; i<bcf_hdr_nsamples(args->header); i++)
+        {
+            str.l = 0;
+            ksprintf(&str, "%s %s 0\n", args->header->samples[i],args->header->samples[i]);
+            ret = bgzf_write(sout, str.s, str.l);
+            if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
+        }
+        if ( bgzf_close(sout)!=0 ) error("Error closing %s: %s\n", sample_fname, strerror(errno));
+        free(sample_fname);
+    }
+    if (!gen_fname) {
+        if ( str.m ) free(str.s);
+        return;
+    }
+
+    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "w" : "wu");
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
-        if ( line->n_allele==1 ) continue;  // alternate allele is required
+        // ALT allele is required
+        if ( line->n_allele<2 ) { no_alt++; continue; }
+        // biallelic required
+        if ( line->n_allele>2 ) {
+            if (!non_biallelic)
+                fprintf(stderr, "Warning: non-biallelic records are skipped. Consider splitting multi-allelic records into biallelic records using 'bcftools norm -m-'.\n");
+            non_biallelic++;
+            continue;
+        }
         if ( args->filter )
         {
             int pass = filter_test(args->filter, line, NULL);
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-            if ( !pass ) continue;
+            if ( !pass ) { filtered++; continue; }
         }
 
         str.l = 0;
         convert_line(args->convert, line, &str);
         if ( str.l )
         {
-            int ret = bgzf_write(out, str.s, str.l);
+            int ret = bgzf_write(gout, str.s, str.l);
             if ( ret!= str.l ) error("Error writing %s: %s\n", gen_fname,strerror(errno));
         }
     }
+    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
     if ( str.m ) free(str.s);
-    if ( bgzf_close(out)!=0 ) error("Error closing %s: %s\n", gen_fname,strerror(errno));
+    if ( bgzf_close(gout)!=0 ) error("Error closing %s: %s\n", gen_fname,strerror(errno));
     free(gen_fname);
+}
+
+static void vcf_to_haplegendsample(args_t *args)
+{
+    kstring_t str = {0,0,0};
+    kputs("%_GT_TO_HAP\n", &str);
+    open_vcf(args,str.s);
+
+    int ret, hap_compressed = 1, legend_compressed = 1, sample_compressed = 0;
+    char *hap_fname = NULL, *legend_fname = NULL, *sample_fname = NULL;
+    str.l = 0;
+    kputs(args->outfname,&str);
+    int n_files;
+    char **files = hts_readlist(str.s, 0, &n_files);
+    if ( n_files==1 )
+    {
+        int l = str.l;
+        kputs(".samples",&str);
+        sample_fname = strdup(str.s);
+        str.l = l;
+        kputs(".legend.gz",&str);
+        legend_fname = strdup(str.s);
+        str.l = l;
+        kputs(".hap.gz",&str);
+        hap_fname = strdup(str.s);
+    }
+    else if ( n_files==3 )
+    {
+        if (strlen(files[0]) && strcmp(files[0],".")!=0) hap_fname = strdup(files[0]);
+        if (strlen(files[1]) && strcmp(files[1],".")!=0) legend_fname = strdup(files[1]);
+        if (strlen(files[2]) && strcmp(files[2],".")!=0) sample_fname = strdup(files[2]);
+    }
+    else
+    {
+        error("Error parsing --hapslegendsample filenames: %s\n", args->outfname);
+    }
+    free(files);
+
+    if ( hap_fname && (strlen(hap_fname)<3 || strcasecmp(".gz",hap_fname+strlen(hap_fname)-3)) ) hap_compressed = 0;
+    if ( legend_fname && (strlen(legend_fname)<3 || strcasecmp(".gz",legend_fname+strlen(legend_fname)-3)) ) legend_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+
+    if (hap_fname) fprintf(stderr, "Haps file: %s\n", hap_fname);
+    if (legend_fname) fprintf(stderr, "Legend file: %s\n", legend_fname);
+    if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
+
+    // write samples file
+    if (sample_fname) {
+        int i;
+        BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "w" : "wu");
+        str.l = 0;
+        kputs("sample population group sex\n", &str);
+        ret = bgzf_write(sout, str.s, str.l);
+        if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
+        for (i=0; i<bcf_hdr_nsamples(args->header); i++)
+        {
+            str.l = 0;
+            ksprintf(&str, "%s %s %s 2\n", args->header->samples[i], args->header->samples[i], args->header->samples[i]);
+            ret = bgzf_write(sout, str.s, str.l);
+            if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
+        }
+        if ( bgzf_close(sout)!=0 ) error("Error closing %s: %s\n", sample_fname, strerror(errno));
+        free(sample_fname);
+    }
+    if (!hap_fname && !legend_fname) {
+        if ( str.m ) free(str.s);
+        return;
+    }
+
+    // open haps and legend outputs
+    BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "w" : "wu") : NULL;
+    BGZF *lout = legend_fname ? bgzf_open(legend_fname, legend_compressed ? "w" : "wu") : NULL;
+    if (legend_fname) {
+        str.l = 0;
+        kputs("id position a0 a1\n", &str);
+        ret = bgzf_write(lout, str.s, str.l);
+        if ( ret != str.l ) error("Error writing %s: %s\n", legend_fname, strerror(errno));
+    }
+
+    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    while ( bcf_sr_next_line(args->files) )
+    {
+        bcf1_t *line = bcf_sr_get_line(args->files,0);
+        // ALT allele is required
+        if ( line->n_allele<2 ) { no_alt++; continue; }
+        // biallelic required
+        if ( line->n_allele>2 ) {
+            if (!non_biallelic)
+                fprintf(stderr, "Warning: non-biallelic records are skipped. Consider splitting multi-allelic records into biallelic records using 'bcftools norm -m-'.\n");
+            non_biallelic++;
+            continue;
+        }
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) { filtered++; continue; }
+        }
+
+        str.l = 0;
+        convert_line(args->convert, line, &str);
+        if ( str.l )
+        {
+            // write haps file
+            if (hap_fname) {
+                ret = bgzf_write(hout, str.s, str.l); // write hap file
+                if ( ret != str.l ) error("Error writing %s: %s\n", hap_fname, strerror(errno));
+            }
+            if (legend_fname) {
+                str.l = 0;
+                if (line->d.id[0]!='.' || line->d.id[1]!=0) {
+                    ksprintf(&str, "%s %d %s %s\n", line->d.id, line->pos+1, line->d.allele[0], line->d.allele[1]);
+                }
+                else {
+                    int vartype = bcf_get_variant_types(line);
+                    if (vartype&VCF_SNP) {
+                        ksprintf(&str, "%s:%d_%s_%s %d %s %s\n", bcf_seqname(args->header, line), line->pos+1, line->d.allele[0], line->d.allele[1], line->pos+1, line->d.allele[0], line->d.allele[1]);
+                    }
+                    else {
+                        char type;
+                        if (vartype&VCF_INDEL) {
+                            if (strlen(line->d.allele[0]) > strlen(line->d.allele[1]))
+                                type = 'D';
+                            else
+                                type = 'I';
+                        }
+                        else if (vartype&VCF_MNP)
+                            type = 'M';
+                        else
+                            type = 'O';
+                        ksprintf(&str, "%s:%d_%s_%s:%c %d %s %s\n", bcf_seqname(args->header, line), line->pos+1, line->d.allele[0], line->d.allele[1], type, line->pos+1, line->d.allele[0], line->d.allele[1]);
+                    }
+                }
+                // write legend file
+                ret = bgzf_write(lout, str.s, str.l);
+                if ( ret != str.l ) error("Error writing %s: %s\n", legend_fname, strerror(errno));
+            }
+        }
+    }
+    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
+    if ( str.m ) free(str.s);
+    if ( hout && bgzf_close(hout)!=0 ) error("Error closing %s: %s\n", hap_fname, strerror(errno));
+    if ( lout && bgzf_close(lout)!=0 ) error("Error closing %s: %s\n", legend_fname, strerror(errno));
+    if (hap_fname) free(hap_fname);
+    if (legend_fname) free(legend_fname);
 }
 
 static void bcf_hdr_set_chrs(bcf_hdr_t *hdr, faidx_t *fai)
@@ -362,8 +539,10 @@ static void usage(void)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Converts VCF/BCF to other formats and back. See man page for file\n");
-    fprintf(stderr, "         formats details\n");
+    fprintf(stderr, "         formats details. When specifying output files explicitly instead\n");
+    fprintf(stderr, "         of with <prefix>, one can use '-' for stdout and '.' to suppress.\n");
     fprintf(stderr, "Usage:   bcftools convert [OPTIONS] <input_file>\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "VCF input options:\n");
     fprintf(stderr, "   -e, --exclude <expr>        exclude sites for which the expression is true\n");
     fprintf(stderr, "   -i, --include <expr>        select sites for which the expression is true\n");
@@ -373,31 +552,35 @@ static void usage(void)
     fprintf(stderr, "   -S, --samples-file <file>   file of samples to include\n");
     fprintf(stderr, "   -t, --targets <region>      similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>   similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "VCF output options:\n");
-    fprintf(stderr, "   -o, --output <file>         write output to a file [standard output]\n");
-    fprintf(stderr, "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "gen/sample options:\n");
-//  fprintf(stderr, "   -G, --gensample2vcf     <prefix> or <gen-file>,<sample-file>\n");
-    fprintf(stderr, "   -g, --gensample         <prefix> or <gen-file>,<sample-file>\n");
-    fprintf(stderr, "       --tag <string>      tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
-    fprintf(stderr, "tsv options:\n");
+    fprintf(stderr, "   -o, --output <file>      output file name [stdout]\n");
+    fprintf(stderr, "   -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "GEN/SAMPLE options:\n");
+    // fprintf(stderr, "   -G, --gensample2vcf <prefix>|<gen-file>,<sample-file>\n");
+    fprintf(stderr, "   -g, --gensample <prefix>|<gen-file>,<sample-file>\n");
+    fprintf(stderr, "       --tag <string>    tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "HAP/LEGEND/SAMPLE options:\n");
+    // fprintf(stderr, "   -H, --haplegendsample2vcf    <prefix> or <hap-file>,<legend-file>,<sample-file>\n");
+    fprintf(stderr, "   -h, --haplegendsample <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "TSV options:\n");
     fprintf(stderr, "       --tsv2vcf <file>        \n");
     fprintf(stderr, "   -c, --columns <string>      columns of the input tsv file [CHROM,POS,ID,AA]\n");
     fprintf(stderr, "   -f, --fasta-ref <file>      reference sequence in fasta format\n");
     fprintf(stderr, "   -s, --samples <list>        list of sample names\n");
     fprintf(stderr, "   -S, --samples-file <file>   file of sample names\n");
     fprintf(stderr, "\n");
-
-//    fprintf(stderr, "hap/legend/sample options:\n");
-//    fprintf(stderr, "   -h, --haplegend     <prefix> or <hap-file>,<legend-file>,<sample-file>\n");
-//    fprintf(stderr, "\n");
-//    fprintf(stderr, "plink options:\n");
-//    fprintf(stderr, "   -p, --plink         <prefix> or <ped>,<map>,<fam>/<bed>,<bim>,<fam>/<tped>,<tfam>\n");
-//    fprintf(stderr, "   --tped              make tped file instead\n");
-//    fprintf(stderr, "   --bin               make binary bed/fam/bim files\n");
-//    fprintf(stderr, "\n");
-//    fprintf(stderr, "pbwt options:\n");
-//    fprintf(stderr, "   -b, --pbwt          <prefix> or <pbwt>,<sites>,<sample>,<missing>\n");
+    // fprintf(stderr, "PLINK options:\n");
+    // fprintf(stderr, "   -p, --plink <prefix>|<ped>,<map>,<fam>|<bed>,<bim>,<fam>|<tped>,<tfam>\n");
+    // fprintf(stderr, "       --tped              make tped file instead\n");
+    // fprintf(stderr, "       --bin               make binary bed/fam/bim files\n");
+    // fprintf(stderr, "\n");
+    // fprintf(stderr, "PBWT options:\n");
+    // fprintf(stderr, "   -b, --pbwt          <prefix> or <pbwt>,<sites>,<sample>,<missing>\n");
+    // fprintf(stderr, "\n");
     exit(1);
 }
 
@@ -411,24 +594,25 @@ int main_vcfconvert(int argc, char *argv[])
 
     static struct option loptions[] =
     {
-        {"help",0,0,'h'},
-        {"include",1,0,'i'},
-        {"exclude",1,0,'e'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {"samples",1,0,'s'},
-        {"samples-file",1,0,'S'},
-        {"gensample",1,0,'g'},
-        {"tag",1,0,1},
-        {"tsv2vcf",1,0,2},
-        {"ref",1,0,'f'},
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"samples",required_argument,NULL,'s'},
+        {"samples-file",required_argument,NULL,'S'},
+        {"gensample",required_argument,NULL,'g'},
+        {"tag",required_argument,NULL,1},
+        {"haplegendsample",required_argument,NULL,'h'},
+        {"tsv2vcf",required_argument,NULL,2},
+        {"columns",required_argument,NULL,'c'},
+        {"fasta-ref",required_argument,NULL,'f'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "?hr:R:s:S:t:T:i:e:g:f:o:O:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:o:O:c:f:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
@@ -442,6 +626,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  1 : args->tag = optarg; break;
             case  2 : args->convert_func = tsv_to_vcf; args->infname = optarg; break;
             case 'f': args->ref_fname = optarg; break;
+            case 'c': args->columns = optarg; break;
             case 'o': args->outfname = optarg; break;
             case 'O':
                 switch (optarg[0]) {
@@ -452,7 +637,7 @@ int main_vcfconvert(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 }
                 break;
-            case 'h':
+            case 'h': args->convert_func = vcf_to_haplegendsample; args->outfname = optarg; break;
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }
@@ -471,5 +656,3 @@ int main_vcfconvert(int argc, char *argv[])
     free(args);
     return 0;
 }
-
-
