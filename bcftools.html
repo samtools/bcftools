@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25201136"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25134816"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -18,7 +18,7 @@ samtools calling model (<span class="emphasis"><em>-c/--consensus-caller</em></s
 calling model (<span class="emphasis"><em>-m/--multiallelic-caller</em></span>). The multiallelic calling model
 is recommended for most tasks.</p></div></div><div class="refsect1" title="LIST OF COMMANDS"><a id="_list_of_commands"></a><h2>LIST OF COMMANDS</h2><p>For a full list of available commands, run <span class="strong"><strong>bcftools</strong></span> without arguments. For a full
 list of available options, run <span class="strong"><strong>bcftools</strong></span> <span class="emphasis"><em>COMMAND</em></span> without arguments.</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
-<span class="strong"><strong><a class="link" href="#annotate" title="bcftools annotate [OPTIONS] FILE">annotate</a></strong></span>   .. edit VCF files, add or remove annotations, apply user plugins
+<span class="strong"><strong><a class="link" href="#annotate" title="bcftools annotate [OPTIONS] FILE">annotate</a></strong></span>   .. edit VCF files, add or remove annotations
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">call</a></strong></span>        ..  SNP/indel calling (former "view")
 </li><li class="listitem">
@@ -37,6 +37,8 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 <span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">merge</a></strong></span>      ..  merge VCF/BCF files files from non-overlapping sample sets
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz">norm</a></strong></span>        ..  normalize indels
+</li><li class="listitem">
+<span class="strong"><strong><a class="link" href="#plugin" title="bcftools plugin NAME [OPTIONS] FILE — [PLUGIN OPTIONS]">plugin</a></strong></span>    ..  run user-defined plugin
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#query" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]">query</a></strong></span>      ..  transform VCF/BCF into user-defined formats
 </li><li class="listitem">
@@ -169,15 +171,17 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     With the <span class="strong"><strong>call -C</strong></span> <span class="emphasis"><em>alleles</em></span> command, third column of the targets file must
     be comma-separated list of alleles, starting with the reference allele.
     Such a file can be easily created from a VCF using:
-</dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf</pre></div><div class="refsect2" title="bcftools annotate [OPTIONS] FILE"><a id="annotate"></a><h3>bcftools annotate <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command allows to add or remove annotations and apply user-written plugins.</p><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf</pre></div><div class="refsect2" title="bcftools annotate [OPTIONS] FILE"><a id="annotate"></a><h3>bcftools annotate <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command allows to add or remove annotations.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annotations</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     Bgzip-compressed and tabix-indexed file with annotations. The file
     can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
     (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary
-    number of annotation columns. In case of tab-delimited file, the
-    coordinates POS, FROM and TO are one-based and inclusive.
-    When REF and ALT are present, only matching VCF records will be annotated.
+    number of annotation columns. BED files are expected to have
+    the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
+    Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
+    one-based and inclusive.  When REF and ALT are present, only matching VCF
+    records will be annotated.
     When multiple ALT alleles are present in the annotation file (given as
     comma-separated list of alleles), at least one must match one of the
     alleles in the corresponding VCF record. Similarly, at least one
@@ -219,43 +223,6 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
     <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
 </dd><dt><span class="term">
-<span class="strong"><strong>-l, --list-plugins</strong></span>
-</span></dt><dd>
-    List all available plugins. If not installed systemwide, set the environment
-    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
-    directory where <span class="strong"><strong>libhts.so</strong></span> is located.  The BCFTOOLS_PLUGINS
-    environment variable tells the program which directories to search.
-    See also <span class="strong"><strong>-p, --plugin</strong></span>.
-</dd><dt><span class="term">
- 
-</span></dt><dd><p class="simpara">
-    List of plugins coming with the distribution:
-</p><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>counts</strong></span>
-</span></dt><dd>
-A minimal plugin which counts number of SNPs, Indels, and
-        total number of sites.
-</dd><dt><span class="term">
-<span class="strong"><strong>dosage</strong></span>
-</span></dt><dd>
-Prints genotype dosage determined from tags requested
-        by the user. By default the plugin searches for PL, GL and
-        GT (in that order), therefore running <span class="strong"><strong>-p dosage</strong></span> is equivalent to <span class="strong"><strong>-p
-        dosage:tags=PL,GL,GT</strong></span>.
-</dd><dt><span class="term">
-<span class="strong"><strong>fill-AN-AC</strong></span>
-</span></dt><dd>
-Fills INFO fields AN and AC.
-</dd><dt><span class="term">
-<span class="strong"><strong>frameshifts</strong></span>
-</span></dt><dd>
-Annotate frameshift indels. Run as <span class="strong"><strong>-p frameshifts:exons=path/to/file.tab.gz</strong></span>.
-        See the usage of <span class="strong"><strong>--targets-file</strong></span> above for file format description.
-</dd><dt><span class="term">
-<span class="strong"><strong>missing2ref</strong></span>
-</span></dt><dd>
-Sets missing genotypes ("./.") to ref allele ("0/0").
-</dd></dl></div></dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -263,12 +230,6 @@ Sets missing genotypes ("./.") to ref allele ("0/0").
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd><dt><span class="term">
-<span class="strong"><strong>-p, --plugin</strong></span> <span class="emphasis"><em>name</em></span>[:'key'=<span class="emphasis"><em>val</em></span>]
-</span></dt><dd>
-    Run a plugin with optional parameters. The option can be given multiple times,
-    the plugins will be executed in the same order as they appeared on the command line.
-    See also <span class="strong"><strong>-l, --list-plugins</strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
@@ -301,10 +262,6 @@ Sets missing genotypes ("./.") to ref allele ("0/0").
     <span class="emphasis"><em>FILTER/SomeFilter</em></span> to remove a specific filter. Similarly, <span class="emphasis"><em>INFO</em></span> can
     be used to remove all INFO tags and <span class="emphasis"><em>FORMAT</em></span> to remove all FORMAT tags
     except GT. <span class="emphasis"><em>INFO</em></span> can be abbreviated to <span class="emphasis"><em>INF</em></span> and <span class="emphasis"><em>FORMAT</em></span> to <span class="emphasis"><em>FMT</em></span>.
-</dd><dt><span class="term">
-<span class="strong"><strong>-v, --verbose</strong></span> 
-</span></dt><dd>
-    print debugging information on plugin failure
 </dd></dl></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="screen">    # Remove three fields
     bcftools annotate -x ID,INFO/DP,FORMAT/DP file.vcf.gz
 
@@ -504,7 +461,7 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div></div><div class="refsect3" title="gen/sample options:"><a id="_gen_sample_options"></a><h4>gen/sample options:</h4><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div><div class="refsect3" title="GEN/SAMPLE options:"><a id="_gen_sample_options"></a><h4>GEN/SAMPLE options:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-g, --gensample</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>gen-file</em></span>,<span class="emphasis"><em>sample-file</em></span>
 </span></dt><dd>
     convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
@@ -526,31 +483,59 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 <span class="strong"><strong>--tag</strong></span> <span class="emphasis"><em>STRING</em></span>
 </span></dt><dd>
     tag to take values for .gen file: GT,PL,GL,GP
-</dd></dl></div></div><div class="refsect3" title="tsv options:"><a id="_tsv_options"></a><h4>tsv options:</h4><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div><div class="refsect3" title="HAPS/LEGEND/SAMPLE options:"><a id="_haps_legend_sample_options"></a><h4>HAPS/LEGEND/SAMPLE options:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-h, --hapslegendsample</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,sample-file'
+</span></dt><dd>
+    convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
+    swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
+    file is quite basic at the moment with columns for population, group and
+    sex expected to be edited by the user. For example:
+</dd></dl></div><pre class="screen">  .haps
+  -----
+  0 1 0 0 1 0
+  0 1 0 0 0 1
+
+  .legend
+  -------
+  id position a0 a1
+  1:111485207_G_A 111485207 G A
+  1:111494194_C_T 111494194 C T
+
+  .sample
+  -------
+  sample population group sex
+  sample1 sample1 sample1 2
+  sample2 sample2 sample2 2</pre></div><div class="refsect3" title="TSV options:"><a id="_tsv_options"></a><h4>TSV options:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>--tsv2vcf</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
-    convert from TSV (tab-separated values) format to VCF. The
-    input file fields can be tab- or space- delimited
+    convert from TSV (tab-separated values) format (such as generated by
+    23andMe) to VCF. The input file fields can be tab- or space- delimited
 </dd><dt><span class="term">
 <span class="strong"><strong>-c, --columns</strong></span> <span class="emphasis"><em>list</em></span>
 </span></dt><dd>
     comma-separated list of fields in the input file. In the current
     version, the fields CHROM, POS, ID, and AA are expected and
-    can appear in arbitrary order.
+    can appear in arbitrary order, columns which should be ignored in the input
+    file can be indicated by "-".
     The AA field lists alleles on the forward reference strand,
     for example "CC" or "CT" for diploid genotypes or "C"
     for haploid genotypes (sex chromosomes). Insertions and deletions
-    are not supported yet.
-    Columns which should be ignored in the input file can be indicated by "-".
+    are not supported yet, missing data can be indicated with "--".
 </dd><dt><span class="term">
-<span class="strong"><strong>-f, --ref</strong></span> <span class="emphasis"><em>file</em></span>
+<span class="strong"><strong>-f, --fasta-ref</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     reference sequence in fasta format
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --sample</strong></span> <span class="emphasis"><em>string</em></span>
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
-    sample name
-</dd></dl></div></div></div><div class="refsect2" title="bcftools filter [OPTIONS] FILE"><a id="filter"></a><h3>bcftools filter <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>Apply fixed-threshold filters.</p><div class="variablelist"><dl><dt><span class="term">
+    list of sample names. See <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    file of sample names. See <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd></dl></div><p><span class="strong"><strong>Example:</strong></span></p><pre class="screen"># Convert 23andme results into VCF
+bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -Oz -o out.vcf.gz</pre></div></div><div class="refsect2" title="bcftools filter [OPTIONS] FILE"><a id="filter"></a><h3>bcftools filter <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>Apply fixed-threshold filters.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
@@ -902,7 +887,95 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
 </span></dt><dd>
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
-</dd></dl></div></div><div class="refsect2" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]"><a id="query"></a><h3>bcftools query [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>file.vcf.gz</em></span> […]]</h3><p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div><div class="refsect2" title="bcftools plugin NAME [OPTIONS] FILE — [PLUGIN OPTIONS]"><a id="plugin"></a><h3>bcftools plugin <span class="emphasis"><em>NAME</em></span> <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span> — <span class="emphasis"><em>[PLUGIN OPTIONS]</em></span></h3><div class="refsect3" title="VCF input options:"><a id="_vcf_input_options_2"></a><h4>VCF input options:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd></dl></div></div><div class="refsect3" title="VCF output options:"><a id="_vcf_output_options_2"></a><h4>VCF output options:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd></dl></div></div><div class="refsect3" title="Plugin options:"><a id="_plugin_options"></a><h4>Plugin options:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-h, --help</strong></span>
+</span></dt><dd>
+    list plugin’s options
+</dd><dt><span class="term">
+<span class="strong"><strong>-l, --list-plugins</strong></span>
+</span></dt><dd>
+    List all available plugins. If not installed systemwide, set the environment
+    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
+    directory where <span class="strong"><strong>libhts.so</strong></span> is located.  The BCFTOOLS_PLUGINS
+    environment variable tells the program which directories to search.
+</dd><dt><span class="term">
+<span class="strong"><strong>-v, --verbose</strong></span>
+</span></dt><dd>
+    print debugging information to debug plugin failure
+</dd></dl></div></div><div class="refsect3" title="List of plugins coming with the distribution:"><a id="_list_of_plugins_coming_with_the_distribution"></a><h4>List of plugins coming with the distribution:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>counts</strong></span>
+</span></dt><dd>
+    a minimal plugin which counts number of SNPs, Indels, and total number of sites.
+</dd><dt><span class="term">
+<span class="strong"><strong>dosage</strong></span>
+</span></dt><dd>
+    print genotype dosage. By default the plugin searches for PL, GL and GT, in
+    that order.
+</dd><dt><span class="term">
+<span class="strong"><strong>fill-AN-AC</strong></span>
+</span></dt><dd>
+    fill INFO fields AN and AC.
+</dd><dt><span class="term">
+<span class="strong"><strong>frameshifts</strong></span>
+</span></dt><dd>
+    annotate frameshift indels
+</dd><dt><span class="term">
+<span class="strong"><strong>missing2ref</strong></span>
+</span></dt><dd>
+    sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
+</dd></dl></div></div><div class="refsect3" title="Examples:"><a id="_examples_2"></a><h4>Examples:</h4><pre class="screen"># List options common to all plugins
+bcftools plugin
+
+# List available plugins
+bcftools plugin -l
+
+# One can run plugins in several ways
+bcftools plugin counts in.vcf
+bcftools +counts in.vcf
+cat in.vcf | bcftools +counts
+
+# Print usage information of plugin "dosage"
+bcftools +dosage -h
+
+# Replace missing genotypes with 0/0
+bcftools +missing2ref in.vcf
+
+# Replace missing genotypes with 0|0
+bcftools +missing2ref in.vcf -- -p</pre></div></div><div class="refsect2" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]"><a id="query"></a><h3>bcftools query [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>file.vcf.gz</em></span> […]]</h3><p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-c, --collapse</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>some</em></span>|<span class="emphasis"><em>none</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -970,7 +1043,7 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
 %TGT            Translated genotype (e.g. C/A)
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
 %LINE           Prints the whole line
-%SAMPLE         Sample name</pre></div><div class="refsect3" title="Examples:"><a id="_examples_2"></a><h4>Examples:</h4><pre class="literallayout">bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
+%SAMPLE         Sample name</pre></div><div class="refsect3" title="Examples:"><a id="_examples_3"></a><h4>Examples:</h4><pre class="literallayout">bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-h, --header</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     new VCF header
