@@ -501,7 +501,7 @@ the *-a, --allow-overlaps* option is specified.
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-==== gen/sample options:
+==== GEN/SAMPLE options:
 *-g, --gensample* 'prefix' or 'gen-file','sample-file'::
     convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
     The columns of .gen file format are ID1,ID2,POS,A,B followed by three
@@ -525,7 +525,33 @@ the *-a, --allow-overlaps* option is specified.
 *--tag* 'STRING'::
     tag to take values for .gen file: GT,PL,GL,GP
 
-==== tsv options:
+==== HAPS/LEGEND/SAMPLE options:
+*-h, --hapslegendsample* 'prefix' or 'haps-file','legend-file',sample-file'::
+    convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
+    swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
+    file is quite basic at the moment with columns for population, group and
+    sex expected to be edited by the user. For example:
+----
+  .haps
+  -----
+  0 1 0 0 1 0
+  0 1 0 0 0 1
+
+  .legend
+  -------
+  id position a0 a1
+  1:111485207_G_A 111485207 G A
+  1:111494194_C_T 111494194 C T
+
+  .sample
+  -------
+  sample population group sex
+  sample1 sample1 sample1 2
+  sample2 sample2 sample2 2
+----
+
+==== TSV options:
 *--tsv2vcf* 'file'::
     convert from TSV (tab-separated values) format to VCF. The 
     input file fields can be tab- or space- delimited
@@ -540,12 +566,14 @@ the *-a, --allow-overlaps* option is specified.
     are not supported yet.
     Columns which should be ignored in the input file can be indicated by "-".
 
-*-f, --ref* 'file'::
+*-f, --fasta-ref* 'file'::
     reference sequence in fasta format
 
-*-s, --sample* 'string'::
-    sample name
+*-s, --samples* 'LIST'::
+    list of sample names. See *<<common_options,Common Options>>*
 
+*-S, --samples-file* 'FILE'::
+    file of sample names. See *<<common_options,Common Options>>*
 
 [[filter]]
 === bcftools filter '[OPTIONS]' 'FILE'
