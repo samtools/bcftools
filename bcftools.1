@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 09/15/2014
+.\"      Date: 09/16/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "09/15/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "09/16/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -2614,13 +2614,13 @@ MAX, MIN, AVG, SUM, STRLEN, ABS
 .sp -1
 .IP \(bu 2.3
 .\}
-variables calculated on the fly if not present: number of alternate alleles, number of samples, number of alternate alleles, minor allele count (similar to AC but is always smaller than 0\&.5), frequency of alternate alleles (AF=AC/AN), frequency of minor alleles (MAF=MAC/AN)
+variables calculated on the fly if not present: number of alternate alleles; number of samples; number of alternate alleles; minor allele count (similar to AC but is always smaller than 0\&.5); frequency of alternate alleles (AF=AC/AN); frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-N_ALT, N_SAMPLES, AC, MAC, AF, MAF
+N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN
 .fi
 .if n \{\
 .RE

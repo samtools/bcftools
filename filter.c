@@ -635,6 +635,12 @@ static void filters_set_ac(filter_t *flt, bcf1_t *line, token_t *tok)
         tok->nvalues = line->n_allele - 1;
     }
 }
+static void filters_set_an(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    filters_set_ac(flt,line,tok);
+    tok->values[0] = tok->nvalues ? flt->tmpi[0] : 0; 
+    tok->nvalues = 1;
+}
 static void filters_set_mac(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     filters_set_ac(flt,line,tok);
@@ -1246,6 +1252,13 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         tok->setter = &filters_set_alt_string;
         tok->is_str = 1;
         tok->tag = strdup(tmp.s);
+        free(tmp.s);
+        return 0;
+    }
+    else if ( !strcasecmp(tmp.s,"AN") )
+    {
+        tok->setter = &filters_set_an;
+        tok->tag = strdup("AN");
         free(tmp.s);
         return 0;
     }
