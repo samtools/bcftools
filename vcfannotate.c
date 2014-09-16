@@ -748,11 +748,8 @@ static int vcf_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, v
     }
     return bcf_update_format_string(args->hdr_out,line,col->hdr_key,(const char**)args->tmpp2,bcf_hdr_nsamples(args->hdr_out));
 }
-static void set_samples(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
+static void set_samples(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst, int need_samples)
 {
-    if ( args->nsample_map ) return;
-    args->nsample_map = 1;  // so that we don't do this multiple times..
-
     int i;
     if ( !args->sample_names )
     {
@@ -766,7 +763,7 @@ static void set_samples(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
                 if ( i!=id ) order_ok = 0;
             }
         }
-        if ( bcf_hdr_nsamples(src)==bcf_hdr_nsamples(dst) && nmatch==bcf_hdr_nsamples(src) && order_ok ) 
+        if ( bcf_hdr_nsamples(src)==bcf_hdr_nsamples(dst) && nmatch==bcf_hdr_nsamples(src) && order_ok && !need_samples ) 
             return;    // the same samples in both files
 
         if ( !nmatch ) error("No matching samples found in the source and the destination file\n");
@@ -889,7 +886,7 @@ static void init_columns(args_t *args)
     kstring_t str = {0,0,0}, tmp = {0,0,0};
     char *ss = args->columns, *se = ss;
     args->ncols = 0;
-    int i = -1, has_fmt_str = 0;
+    int i = -1, has_fmt_str = 0, force_samples = -1;
     while ( *ss )
     {
         if ( *se && *se!=',' ) { se++; continue; }
@@ -985,7 +982,8 @@ static void init_columns(args_t *args)
         else if ( args->tgts_is_vcf && (!strcasecmp("FORMAT",str.s) || !strcasecmp("FMT",str.s)) ) // All FORMAT fields
         {
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
-            set_samples(args, tgts_hdr, args->hdr);
+            if ( force_samples<0 ) force_samples = replace;
+            if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;
             int j;
             for (j=0; j<tgts_hdr->nhrec; j++)
             {
@@ -1017,8 +1015,8 @@ static void init_columns(args_t *args)
         else if ( args->tgts_is_vcf && (!strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4)) )
         {
             char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
-            bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
-            set_samples(args, tgts_hdr, args->hdr);
+            if ( force_samples<0 ) force_samples = replace;
+            if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;;
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key);
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
@@ -1085,6 +1083,8 @@ static void init_columns(args_t *args)
         args->tmpp  = (char**)malloc(sizeof(char*)*n);
         args->tmpp2 = (char**)malloc(sizeof(char*)*n);
     }
+    if ( force_samples>=0 )
+        set_samples(args, args->files->readers[1].header, args->hdr, force_samples==REPLACE_ALL ? 0 : 1);
 }
 
 static void rename_chrs(args_t *args, char *fname)
