@@ -62,6 +62,9 @@ typedef struct
 }
 annot_line_t;
 
+#define REPLACE_MISSING  0  // replace only missing values
+#define REPLACE_ALL      1  // replace both missing and existing values
+#define REPLACE_EXISTING 2  // replace only if tgt is not missing
 typedef struct _annot_col_t
 {
     int icol, replace;
@@ -96,7 +99,7 @@ typedef struct _args_t
     annot_col_t *cols;      // column indexes and setters
     int ncols;
 
-    int *sample_map, nsample_map, sample_is_file;
+    int *sample_map, nsample_map, sample_is_file;   // map[idst] -> isrc
     int ntmpi, mtmpi, ntmpf, mtmpf, ntmps, mtmps;
     int mtmpi2, mtmpf2, mtmps2;
     int mtmpi3, mtmpf3, mtmps3;
@@ -290,7 +293,7 @@ static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
     hts_expand(int,1,args->mtmpi,args->tmpi);
     args->tmpi[0] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, tab->cols[col->icol]);
     if ( args->tmpi[0]<0 ) error("The FILTER is not defined in the header: %s\n", tab->cols[col->icol]);
-    if ( col->replace )
+    if ( col->replace!=REPLACE_MISSING )
         bcf_update_filter(args->hdr_out,line,args->tmpi,1);
     else
         bcf_add_filter(args->hdr_out,line,args->tmpi[0]);
@@ -302,7 +305,7 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
     if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
     hts_expand(int,rec->d.n_flt,args->mtmpi,args->tmpi);
     int i;
-    if ( col->replace )
+    if ( col->replace!=REPLACE_MISSING )
     {
         for (i=0; i<rec->d.n_flt; i++)
         {
@@ -335,7 +338,7 @@ static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
     //
     annot_line_t *tab = (annot_line_t*) data;
     if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
-    if ( col->replace ) return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
+    if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
 
     // running with +ID, only update missing ids
     if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[0]) )
@@ -346,7 +349,7 @@ static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
 {
     bcf1_t *rec = (bcf1_t*) data;
     if ( rec->d.id && rec->d.id[0]=='.' && !rec->d.id[1] ) return 0;    // don't replace with "."
-    if ( col->replace ) return bcf_update_id(args->hdr_out,line,rec->d.id);
+    if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,rec->d.id);
 
     // running with +ID, only update missing ids
     if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[0]) )
@@ -359,7 +362,7 @@ static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
     char *str = tab->cols[col->icol];
     if ( str[0]=='.' && str[1]==0 ) return 0;   // empty
 
-    if ( !col->replace && !bcf_float_is_missing(line->qual) ) return 0;
+    if ( col->replace==REPLACE_MISSING && !bcf_float_is_missing(line->qual) ) return 0;
 
     line->qual = strtod(str, &str);
     if ( str == tab->cols[col->icol] )
@@ -370,7 +373,7 @@ static int vcf_setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 {
     bcf1_t *rec = (bcf1_t*) data;
     if ( bcf_float_is_missing(rec->qual) ) return 0;
-    if ( !col->replace && !bcf_float_is_missing(line->qual) ) return 0;
+    if ( col->replace==REPLACE_MISSING && !bcf_float_is_missing(line->qual) ) return 0;
     line->qual = rec->qual;
     return 0;
 }
@@ -398,7 +401,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
-    if ( !col->replace )
+    if ( col->replace==REPLACE_MISSING )
     {
         int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi, &args->mtmpi);
         if ( ret>0 && args->tmpi[0]!=bcf_int32_missing ) return 0;
@@ -419,7 +422,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 }
 static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( !col->replace )
+    if ( col->replace==REPLACE_MISSING )
     {
         int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi, &args->mtmpi);
         if ( ret>0 && args->tmpi[0]!=bcf_int32_missing ) return 0;
@@ -437,7 +440,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
-    if ( !col->replace )
+    if ( col->replace==REPLACE_MISSING )
     {
         int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf, &args->mtmpf);
         if ( ret>0 && !bcf_float_is_missing(args->tmpf[0]) ) return 0;
@@ -458,7 +461,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
 }
 static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( !col->replace )
+    if ( col->replace==REPLACE_MISSING )
     {
         int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf, &args->mtmpf);
         if ( ret>0 && !bcf_float_is_missing(args->tmpf[0]) ) return 0;
@@ -472,7 +475,7 @@ static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, vo
 }
 static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( !col->replace )
+    if ( col->replace==REPLACE_MISSING )
     {
         int ret = bcf_get_info_string(args->hdr,line,col->hdr_key,&args->tmps,&args->mtmps);
         if ( ret>0 && (args->tmps[0]!='.' || args->tmps[1]) ) return 0;
@@ -482,7 +485,7 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 }
 static int vcf_setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( !col->replace )
+    if ( col->replace==REPLACE_MISSING )
     {
         int ret = bcf_get_info_string(args->hdr,line,col->hdr_key,&args->tmps,&args->mtmps);
         if ( ret>0 && (args->tmps[0]!='.' || args->tmps[1]) ) return 0;
@@ -506,8 +509,9 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
     int i, j, ndst = bcf_get_genotypes(args->hdr,line,&args->tmpi2,&args->mtmpi2);
     if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
     nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
-    if ( ndst<=0 )
+    if ( ndst<=0 )  // field not present in dst file
     {
+        if ( col->replace==REPLACE_EXISTING ) return 0;
         hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
         for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
         {
@@ -532,6 +536,8 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
             if ( args->sample_map[i]==-1 ) continue;
             int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
             int32_t *dst = args->tmpi2 + ndst*i;
+            if ( col->replace==REPLACE_EXISTING && dst[0]==bcf_gt_missing ) continue;
+            if ( col->replace==REPLACE_MISSING  && dst[0]!=bcf_gt_missing ) continue;
             for (j=0; j<nsrc; j++) dst[j] = src[j];
             for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
         }
@@ -544,10 +550,14 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
         {
             int32_t *ori = args->tmpi2 + ndst*i;
             int32_t *dst = args->tmpi3 + nsrc*i;
-            if ( args->sample_map[i]==-1 )
+            int keep_ori = 0;
+            if ( args->sample_map[i]==-1 ) keep_ori = 1;
+            else if ( col->replace==REPLACE_EXISTING && ori[0]==bcf_gt_missing ) keep_ori = 1;
+            else if ( col->replace==REPLACE_MISSING  && ori[0]!=bcf_gt_missing ) keep_ori = 1;
+            if ( keep_ori )
             {
-                for (j=0; j<nsrc; j++) dst[j] = ori[j];
-                for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
+                for (j=0; j<ndst; j++) dst[j] = ori[j];
+                for (; j<nsrc; j++) dst[j] = bcf_int32_vector_end;
             }
             else
             {
@@ -573,6 +583,7 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
     nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
     if ( ndst<=0 )
     {
+        if ( col->replace==REPLACE_EXISTING ) return 0;    // overwrite only if present
         hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
         for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
         {
@@ -597,6 +608,8 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
             if ( args->sample_map[i]==-1 ) continue;
             int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
             int32_t *dst = args->tmpi2 + ndst*i;
+            if ( col->replace==REPLACE_EXISTING && dst[0]==bcf_int32_missing ) continue;
+            if ( col->replace==REPLACE_MISSING  && dst[0]!=bcf_int32_missing ) continue;
             for (j=0; j<nsrc; j++) dst[j] = src[j];
             for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
         }
@@ -609,10 +622,14 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
         {
             int32_t *ori = args->tmpi2 + ndst*i;
             int32_t *dst = args->tmpi3 + nsrc*i;
-            if ( args->sample_map[i]==-1 )
+            int keep_ori = 0;
+            if ( args->sample_map[i]==-1 ) keep_ori = 1;
+            else if ( col->replace==REPLACE_EXISTING && ori[0]==bcf_int32_missing ) keep_ori = 1;
+            else if ( col->replace==REPLACE_MISSING  && ori[0]!=bcf_int32_missing ) keep_ori = 1;
+            if ( keep_ori )
             {
-                for (j=0; j<nsrc; j++) dst[j] = ori[j];
-                for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
+                for (j=0; j<ndst; j++) dst[j] = ori[j];
+                for (; j<nsrc; j++) dst[j] = bcf_int32_vector_end;
             }
             else
             {
@@ -638,6 +655,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
     nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
     if ( ndst<=0 )
     {
+        if ( col->replace==REPLACE_EXISTING ) return 0;    // overwrite only if present
         hts_expand(float, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpf2, args->tmpf2);
         for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
         {
@@ -662,6 +680,8 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
             if ( args->sample_map[i]==-1 ) continue;
             float *src = args->tmpf  + nsrc*args->sample_map[i];
             float *dst = args->tmpf2 + ndst*i;
+            if ( col->replace==REPLACE_EXISTING && bcf_float_is_missing(dst[0]) ) continue;
+            if ( col->replace==REPLACE_MISSING  && !bcf_float_is_missing(dst[0]) ) continue;
             for (j=0; j<nsrc; j++) dst[j] = src[j];
             for (; j<ndst; j++) bcf_float_set_vector_end(dst[j]);
         }
@@ -674,10 +694,14 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
         {
             float *ori = args->tmpf2 + ndst*i;
             float *dst = args->tmpf3 + nsrc*i;
-            if ( args->sample_map[i]==-1 )
+            int keep_ori = 0;
+            if ( args->sample_map[i]==-1 ) keep_ori = 1;
+            else if ( col->replace==REPLACE_EXISTING && bcf_float_is_missing(ori[0]) ) keep_ori = 1;
+            else if ( col->replace==REPLACE_MISSING  && !bcf_float_is_missing(ori[0]) ) keep_ori = 1;
+            if ( keep_ori )
             {
-                for (j=0; j<nsrc; j++) dst[j] = ori[j];
-                for (; j<ndst; j++) bcf_float_set_vector_end(dst[j]);
+                for (j=0; j<ndst; j++) dst[j] = ori[j];
+                for (; j<nsrc; j++) bcf_float_set_vector_end(dst[j]);
             }
             else
             {
@@ -869,8 +893,9 @@ static void init_columns(args_t *args)
     while ( *ss )
     {
         if ( *se && *se!=',' ) { se++; continue; }
-        int replace = 1;
-        if ( *ss=='+' ) { replace = 0; ss++; }
+        int replace = REPLACE_ALL;
+        if ( *ss=='+' ) { replace = REPLACE_MISSING; ss++; }
+        else if ( *ss=='-' ) { replace = REPLACE_EXISTING; ss++; }
         i++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
@@ -883,6 +908,7 @@ static void init_columns(args_t *args)
         else if ( !strcasecmp("ALT",str.s) ) args->alt_idx = i;
         else if ( !strcasecmp("ID",str.s) )
         {
+            if ( replace==REPLACE_EXISTING ) error("todo: -ID\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
@@ -892,6 +918,7 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("FILTER",str.s) )
         {
+            if ( replace==REPLACE_EXISTING ) error("todo: -FILTER\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
@@ -916,6 +943,7 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("QUAL",str.s) )
         {
+            if ( replace==REPLACE_EXISTING ) error("todo: -QUAL\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
@@ -925,6 +953,7 @@ static void init_columns(args_t *args)
         }
         else if ( args->tgts_is_vcf && !strcasecmp("INFO",str.s) ) // All INFO fields
         {
+            if ( replace==REPLACE_EXISTING ) error("todo: -INFO/TAG\n");
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
             int j;
             for (j=0; j<tgts_hdr->nhrec; j++)
@@ -955,7 +984,6 @@ static void init_columns(args_t *args)
         }
         else if ( args->tgts_is_vcf && (!strcasecmp("FORMAT",str.s) || !strcasecmp("FMT",str.s)) ) // All FORMAT fields
         {
-            if ( !replace ) error("todo: Unfortunately, +FORMAT is not supported yet, sorry!\n");
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
             set_samples(args, tgts_hdr, args->hdr);
             int j;
@@ -989,7 +1017,6 @@ static void init_columns(args_t *args)
         else if ( args->tgts_is_vcf && (!strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4)) )
         {
             char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
-            if ( !replace ) error("todo: Unfortunately, +FORMAT is not supported yet, sorry!\n");
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
             set_samples(args, tgts_hdr, args->hdr);
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key);
@@ -1010,6 +1037,7 @@ static void init_columns(args_t *args)
         }
         else
         {
+            if ( replace==REPLACE_EXISTING ) error("todo: -INFO/TAG\n");
             if ( !strncasecmp("INFO/",str.s,5) ) { memmove(str.s,str.s+5,str.l-4); }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
             if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) )
