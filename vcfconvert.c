@@ -130,6 +130,144 @@ static void open_vcf(args_t *args, const char *format_str)
         args->filter = filter_init(args->header, args->filter_str);
 }
 
+static void hapsample_to_vcf(args_t *args)
+{
+    kstring_t str = {0,0,0}, line = {0,0,0};
+
+    char *hap_fname = NULL, *sample_fname = NULL;
+    sample_fname = strchr(args->infname,',');
+    if ( !sample_fname )
+    {
+        ksprintf(&str,"%s.hap.gz", args->infname);
+        hap_fname = strdup(str.s);
+        str.l = 0;
+        ksprintf(&str,"%s.samples", args->infname);
+        sample_fname = strdup(str.s);
+    }
+    else
+    {
+        *sample_fname = 0;
+        hap_fname = strdup(args->infname);
+        sample_fname = strdup(sample_fname+1);
+    }
+    htsFile *hap_fh = hts_open(hap_fname, "r");
+    if ( !hap_fh ) error("Could not read: %s\n", hap_fname);
+    if ( hts_getline(hap_fh, KS_SEP_LINE, &line) <= 0 ) error("Empty file: %s\n", hap_fname);
+
+    // Find out the chromosome name, sample names, init and print the VCF header
+    str.l = 0;
+    char *ss, *se = strchr(line.s,':');
+    if ( !se ) error("Expected CHROM:POS_REF_ALT in first column of %s\n", hap_fname);
+    kputsn(line.s, se-line.s, &str);
+
+    args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", str.s,0x7fffffff);   // MAX_CSI_COOR
+
+    int i, nsamples;
+    char **samples = hts_readlist(sample_fname, 1, &nsamples);
+    for (i=2; i<nsamples; i++)
+    {
+        se = samples[i]; while ( *se && !isspace(*se) ) se++;
+        *se = 0;
+        bcf_hdr_add_sample(args->header,samples[i]);
+    }
+    bcf_hdr_add_sample(args->header,NULL);
+    for (i=0; i<nsamples; i++) free(samples[i]);
+    free(samples);
+
+    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    bcf_hdr_write(out_fh,args->header);
+    bcf1_t *rec = bcf_init();
+
+    nsamples -= 2;
+    args->gts = (int32_t *) malloc(sizeof(int32_t)*nsamples*2);
+
+    do
+    {
+        bcf_clear(rec);
+
+        // CHROM:POS_REF_ALT
+        ss = se = line.s;
+        while ( *se && *se!=':' ) se++;
+        if ( !*se ) error("Could not parse: %s\n", line.s);
+        char tmp = *se; *se = 0;
+        rec->rid = bcf_hdr_name2id(args->header,ss); *se = tmp;
+
+        // POS
+        rec->pos = strtol(se+1,&ss,10);
+        if ( ss==se+1 ) error("Could not parse the POS part in CHROM:POS_REF_ALT: %s\n", line.s);
+        rec->pos--;
+
+        // REF,ALT
+        str.l = 0;
+        se = ++ss;
+        while ( *se && *se!='_' ) se++; 
+        if ( !*se ) error("Could not parse: %s\n", line.s);
+        kputsn(ss,se-ss,&str);
+        ss = ++se;
+        while ( *se && !isspace(*se) ) se++;
+        if ( !*se ) error("Could not parse: %s\n", line.s);
+        kputc(',',&str);
+        kputsn(ss,se-ss,&str);
+        bcf_update_alleles_str(args->header, rec, str.s);
+
+        // ID,POS: skip
+        ss = ++se;
+        while ( *se && !isspace(*se) ) se++;
+        if ( !*se ) error("Could not parse: %s\n", line.s);
+        ss = ++se;
+        while ( *se && !isspace(*se) ) se++;
+        if ( !*se ) error("Could not parse: %s\n", line.s);
+
+        // REF,ALT
+        int rev_als = 0;
+        ss = ++se;
+        while ( *se && !isspace(*se) ) se++;
+        if ( !*se ) error("Could not parse: %s\n", line.s);
+        tmp = *se; *se = 0;
+        if ( strcmp(ss,rec->d.allele[0]) )
+        {
+            if ( strcmp(ss,rec->d.allele[1]) ) { *se = tmp; error("REF/ALT mismatch: %s\n", line.s); }
+            rev_als = 1;
+        }
+        *se = tmp;
+        ss = ++se;
+        while ( *se && !isspace(*se) ) se++;
+        if ( !*se ) error("Could not parse: %s\n", line.s);
+        tmp = *se; *se = 0;
+        if ( !rev_als && strcmp(ss,rec->d.allele[1]) ) { *se = tmp; error("REF/ALT mismatch: %s\n", line.s); }
+        else if ( rev_als && strcmp(ss,rec->d.allele[0]) ) { *se = tmp; error("REF/ALT mismatch: %s\n", line.s); }
+        *se = tmp;
+        ss = se + 1;
+
+        // Haplotypes
+        int32_t a0, a1;
+        if ( rev_als ) { a0 = bcf_gt_phased(1); a1 = bcf_gt_phased(0); }
+        else { a0 = bcf_gt_phased(0); a1 = bcf_gt_phased(1); }
+        for (i=0; i<nsamples; i++)
+        {
+            args->gts[2*i]   = ss[4*i]  =='0' ? a0 : a1;
+            args->gts[2*i+1] = ss[4*i+2]=='0' ? a0 : a1;
+        }
+
+        if ( bcf_update_genotypes(args->header,rec,args->gts,nsamples*2) ) error("Could not update GT field\n");
+        bcf_write(out_fh, args->header,rec);
+    }
+    while ( hts_getline(hap_fh, KS_SEP_LINE, &line)>0 );
+
+
+    if ( hts_close(out_fh) ) error("Close failed: %s\n", args->outfname);
+    if ( hts_close(hap_fh) ) error("Close failed: %s\n", hap_fname);
+    bcf_hdr_destroy(args->header);
+    bcf_destroy(rec);
+    free(sample_fname);
+    free(hap_fname);
+    free(str.s);
+    free(line.s);
+    free(args->gts);
+}
+
 static void vcf_to_gensample(args_t *args)
 {
     kstring_t str = {0,0,0};
@@ -144,7 +282,7 @@ static void vcf_to_gensample(args_t *args)
     char *gen_fname = NULL, *sample_fname = NULL;
     str.l = 0;
     kputs(args->outfname,&str);
-    int n_files;
+    int n_files, i;
     char **files = hts_readlist(str.s, 0, &n_files);
     if ( n_files==1 )
     {
@@ -164,6 +302,7 @@ static void vcf_to_gensample(args_t *args)
     {
         error("Error parsing --gensample filenames: %s\n", args->outfname);
     }
+    for (i=0; i<n_files; i++) free(files[i]);
     free(files);
 
     if ( gen_fname && (strlen(gen_fname)<3 || strcasecmp(".gz",gen_fname+strlen(gen_fname)-3)) ) gen_compressed = 0;
@@ -176,6 +315,7 @@ static void vcf_to_gensample(args_t *args)
     if (sample_fname) {
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "w" : "wu");
+        if ( sample_compressed ) sout->is_gzip = 1;     // impute2 can't read bgzf
         str.l = 0;
         kputs("ID_1 ID_2 missing\n0 0 0\n", &str);
         ret = bgzf_write(sout, str.s, str.l);
@@ -197,9 +337,17 @@ static void vcf_to_gensample(args_t *args)
 
     int no_alt = 0, non_biallelic = 0, filtered = 0;
     BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "w" : "wu");
+    if ( gen_compressed ) gout->is_gzip = 1;
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) { filtered++; continue; }
+        }
+
         // ALT allele is required
         if ( line->n_allele<2 ) { no_alt++; continue; }
         // biallelic required
@@ -208,12 +356,6 @@ static void vcf_to_gensample(args_t *args)
                 fprintf(stderr, "Warning: non-biallelic records are skipped. Consider splitting multi-allelic records into biallelic records using 'bcftools norm -m-'.\n");
             non_biallelic++;
             continue;
-        }
-        if ( args->filter )
-        {
-            int pass = filter_test(args->filter, line, NULL);
-            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-            if ( !pass ) { filtered++; continue; }
         }
 
         str.l = 0;
@@ -240,7 +382,7 @@ static void vcf_to_haplegendsample(args_t *args)
     char *hap_fname = NULL, *legend_fname = NULL, *sample_fname = NULL;
     str.l = 0;
     kputs(args->outfname,&str);
-    int n_files;
+    int n_files, i;
     char **files = hts_readlist(str.s, 0, &n_files);
     if ( n_files==1 )
     {
@@ -264,6 +406,7 @@ static void vcf_to_haplegendsample(args_t *args)
     {
         error("Error parsing --hapslegendsample filenames: %s\n", args->outfname);
     }
+    for (i=0; i<n_files; i++) free(files[i]);
     free(files);
 
     if ( hap_fname && (strlen(hap_fname)<3 || strcasecmp(".gz",hap_fname+strlen(hap_fname)-3)) ) hap_compressed = 0;
@@ -278,6 +421,7 @@ static void vcf_to_haplegendsample(args_t *args)
     if (sample_fname) {
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "w" : "wu");
+        if ( sample_compressed ) sout->is_gzip = 1;
         str.l = 0;
         kputs("sample population group sex\n", &str);
         ret = bgzf_write(sout, str.s, str.l);
@@ -300,6 +444,8 @@ static void vcf_to_haplegendsample(args_t *args)
     // open haps and legend outputs
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "w" : "wu") : NULL;
     BGZF *lout = legend_fname ? bgzf_open(legend_fname, legend_compressed ? "w" : "wu") : NULL;
+    if ( hout && hap_compressed ) hout->is_gzip = 1;    // impute2 can't read BGZF
+    if ( lout && legend_compressed ) lout->is_gzip = 1;
     if (legend_fname) {
         str.l = 0;
         kputs("id position a0 a1\n", &str);
@@ -311,6 +457,13 @@ static void vcf_to_haplegendsample(args_t *args)
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) { filtered++; continue; }
+        }
+
         // ALT allele is required
         if ( line->n_allele<2 ) { no_alt++; continue; }
         // biallelic required
@@ -319,12 +472,6 @@ static void vcf_to_haplegendsample(args_t *args)
                 fprintf(stderr, "Warning: non-biallelic records are skipped. Consider splitting multi-allelic records into biallelic records using 'bcftools norm -m-'.\n");
             non_biallelic++;
             continue;
-        }
-        if ( args->filter )
-        {
-            int pass = filter_test(args->filter, line, NULL);
-            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-            if ( !pass ) { filtered++; continue; }
         }
 
         str.l = 0;
@@ -563,17 +710,18 @@ static void usage(void)
     fprintf(stderr, "   -T, --targets-file <file>   similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "VCF output options:\n");
-    fprintf(stderr, "   -o, --output <file>      output file name [stdout]\n");
-    fprintf(stderr, "   -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -o, --output <file>            output file name [stdout]\n");
+    fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "GEN/SAMPLE options:\n");
-    // fprintf(stderr, "   -G, --gensample2vcf <prefix>|<gen-file>,<sample-file>\n");
-    fprintf(stderr, "   -g, --gensample <prefix>|<gen-file>,<sample-file>\n");
-    fprintf(stderr, "       --tag <string>    tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
+    fprintf(stderr, "   -g, --gensample             <prefix>|<gen-file>,<sample-file>\n");
+    fprintf(stderr, "       --tag <string>          tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "HAP/SAMPLE options (output from SHAPEIT):\n");
+    fprintf(stderr, "       --hapsample2vcf         <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE options:\n");
-    // fprintf(stderr, "   -H, --haplegendsample2vcf    <prefix> or <hap-file>,<legend-file>,<sample-file>\n");
-    fprintf(stderr, "   -h, --haplegendsample <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
+    fprintf(stderr, "   -h, --haplegendsample       <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV options:\n");
     fprintf(stderr, "       --tsv2vcf <file>        \n");
@@ -614,6 +762,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
         {"gensample",required_argument,NULL,'g'},
+        {"hapsample2vcf",required_argument,NULL,3},
         {"tag",required_argument,NULL,1},
         {"haplegendsample",required_argument,NULL,'h'},
         {"tsv2vcf",required_argument,NULL,2},
@@ -634,6 +783,7 @@ int main_vcfconvert(int argc, char *argv[])
             case 'g': args->convert_func = vcf_to_gensample; args->outfname = optarg; break;
             case  1 : args->tag = optarg; break;
             case  2 : args->convert_func = tsv_to_vcf; args->infname = optarg; break;
+            case  3 : args->convert_func = hapsample_to_vcf; args->infname = optarg; break;
             case 'f': args->ref_fname = optarg; break;
             case 'c': args->columns = optarg; break;
             case 'o': args->outfname = optarg; break;
@@ -652,11 +802,14 @@ int main_vcfconvert(int argc, char *argv[])
         }
     }
 
-    if ( optind>=argc )
+    if ( !args->infname )
     {
-        if ( !isatty(fileno((FILE *)stdin)) ) args->infname = "-";
+        if ( optind>=argc )
+        {
+            if ( !isatty(fileno((FILE *)stdin)) ) args->infname = "-";
+        }
+        else args->infname = argv[optind];
     }
-    else args->infname = argv[optind];
     if ( !args->infname || !args->convert_func ) usage();
 
     args->convert_func(args);

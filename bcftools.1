@@ -450,7 +450,7 @@ and
 Comma\-separated list of columns or tags to carry over from the annotation file (see also
 \fB\-a, \-\-annotations\fR)\&. If the annotation file is not a VCF/BCF,
 \fIlist\fR
-describes the columns of the annotation file and must include CHROM, POS (or, alternatively, FROM and TO), and optionally REF and ALT\&. Unused columns which should be ignored can be indicated by "\-"\&. If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their order does not matter\&. The columns ID, QUAL, FILTER, INFO and FORMAT can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG", and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG"\&. To carry over all INFO annotations, use "INFO"\&. To add all INFO annotations except "TAG", use "^INFO/TAG"\&. By default, existing values are replaced\&. To add missing values without replacing existing annotations, use "+TAG" instead of "TAG"\&. If the annotation file is not a VCF/BCF, all new annotations must be defined via
+describes the columns of the annotation file and must include CHROM, POS (or, alternatively, FROM and TO), and optionally REF and ALT\&. Unused columns which should be ignored can be indicated by "\-"\&. If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their order does not matter\&. The columns ID, QUAL, FILTER, INFO and FORMAT can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG", and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG"\&. To carry over all INFO annotations, use "INFO"\&. To add all INFO annotations except "TAG", use "^INFO/TAG"\&. By default, existing values are replaced\&. To add missing values without replacing existing annotations, use "+TAG" instead of "TAG"\&. To replace only existing values without modifying missing annotations, use "\-TAG"\&. If the annotation file is not a VCF/BCF, all new annotations must be defined via
 \fB\-h, \-\-header\-lines\fR\&.
 .RE
 .PP
@@ -908,6 +908,33 @@ convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT\&. The columns
 .RS 4
 tag to take values for \&.gen file: GT,PL,GL,GP
 .RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBHAPS/SAMPLE options:\fR
+.RS 4
+.PP
+\fB\-\-hapsample2vcf\fR \fIprefix\fR or \fIhaps\-file\fR,\fIsample\-file\fR
+.RS 4
+convert from haps/sample format to VCF\&. The columns of \&.haps file are similar to \&.gen file above, but there are only two haplotype columns per sample\&. Note that the first column of the haps file is expected to be in the form "CHR:POS_REF_ALT", for example:
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+  \&.haps
+  \-\-\-\-
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0
+.fi
+.if n \{\
+.RE
+.\}
 .RE
 .sp
 .it 1 an-trap

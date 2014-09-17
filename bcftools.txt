@@ -261,6 +261,7 @@ This command allows to add or remove annotations.
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
     "TAG", use "^INFO/TAG". By default, existing values are replaced. To add missing
     values without replacing existing annotations, use "+TAG" instead of "TAG".
+    To replace only existing values without modifying missing annotations, use "-TAG".
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
 
@@ -524,6 +525,19 @@ the *-a, --allow-overlaps* option is specified.
 
 *--tag* 'STRING'::
     tag to take values for .gen file: GT,PL,GL,GP
+
+==== HAPS/SAMPLE options:
+*--hapsample2vcf* 'prefix' or 'haps-file','sample-file'::
+    convert from haps/sample format to VCF. The columns of .haps file are
+    similar to .gen file above, but there are only two haplotype columns per
+    sample. Note that the first column of the haps file is expected to be in
+    the form "CHR:POS_REF_ALT", for example:
+----
+  .haps
+  ----
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0
+----
 
 ==== HAPS/LEGEND/SAMPLE options:
 *-h, --hapslegendsample* 'prefix' or 'haps-file','legend-file',sample-file'::
