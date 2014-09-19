@@ -314,8 +314,7 @@ static void vcf_to_gensample(args_t *args)
     // write samples file
     if (sample_fname) {
         int i;
-        BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "w" : "wu");
-        if ( sample_compressed ) sout->is_gzip = 1;     // impute2 can't read bgzf
+        BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
         str.l = 0;
         kputs("ID_1 ID_2 missing\n0 0 0\n", &str);
         ret = bgzf_write(sout, str.s, str.l);
@@ -336,8 +335,7 @@ static void vcf_to_gensample(args_t *args)
     }
 
     int no_alt = 0, non_biallelic = 0, filtered = 0;
-    BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "w" : "wu");
-    if ( gen_compressed ) gout->is_gzip = 1;
+    BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "wg" : "wu");
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
@@ -420,8 +418,7 @@ static void vcf_to_haplegendsample(args_t *args)
     // write samples file
     if (sample_fname) {
         int i;
-        BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "w" : "wu");
-        if ( sample_compressed ) sout->is_gzip = 1;
+        BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
         str.l = 0;
         kputs("sample population group sex\n", &str);
         ret = bgzf_write(sout, str.s, str.l);
@@ -442,10 +439,8 @@ static void vcf_to_haplegendsample(args_t *args)
     }
 
     // open haps and legend outputs
-    BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "w" : "wu") : NULL;
-    BGZF *lout = legend_fname ? bgzf_open(legend_fname, legend_compressed ? "w" : "wu") : NULL;
-    if ( hout && hap_compressed ) hout->is_gzip = 1;    // impute2 can't read BGZF
-    if ( lout && legend_compressed ) lout->is_gzip = 1;
+    BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
+    BGZF *lout = legend_fname ? bgzf_open(legend_fname, legend_compressed ? "wg" : "wu") : NULL;
     if (legend_fname) {
         str.l = 0;
         kputs("id position a0 a1\n", &str);
