@@ -1017,6 +1017,10 @@ static void init_columns(args_t *args)
             char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
             if ( force_samples<0 ) force_samples = replace;
             if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;;
+            bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_FMT, "ID", key, NULL);
+            tmp.l = 0;
+            bcf_hrec_format(hrec, &tmp);
+            bcf_hdr_append(args->hdr_out, tmp.s);
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key);
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
