@@ -896,7 +896,7 @@ static void init_columns(args_t *args)
         i++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
-        if ( !strcasecmp("-",str.s) ) ;
+        if ( !str.s[0] || !strcasecmp("-",str.s) ) ;
         else if ( !strcasecmp("CHROM",str.s) ) args->chr_idx = i;
         else if ( !strcasecmp("POS",str.s) ) args->from_idx = i;
         else if ( !strcasecmp("FROM",str.s) ) args->from_idx = i;
