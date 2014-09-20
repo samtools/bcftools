@@ -23,8 +23,8 @@
     THE SOFTWARE.
 */
 
-#ifndef __tsv2VCF_H__
-#define __tsv2VCF_H__
+#ifndef __TSV2VCF_H__
+#define __TSV2VCF_H__
 
 #include <htslib/vcf.h>
 
