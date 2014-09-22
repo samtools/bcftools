@@ -532,7 +532,8 @@ static void vcf_to_gensample(args_t *args)
         return;
     }
 
-    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    int prev_rid = -1, prev_pos = -1;
+    int no_alt = 0, non_biallelic = 0, filtered = 0, ndup = 0;
     BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "wg" : "wu");
     while ( bcf_sr_next_line(args->files) )
     {
@@ -546,6 +547,7 @@ static void vcf_to_gensample(args_t *args)
 
         // ALT allele is required
         if ( line->n_allele<2 ) { no_alt++; continue; }
+
         // biallelic required
         if ( line->n_allele>2 ) {
             if (!non_biallelic)
@@ -553,6 +555,11 @@ static void vcf_to_gensample(args_t *args)
             non_biallelic++;
             continue;
         }
+
+        // skip duplicate lines, or otherwise shapeit complains
+        if ( prev_rid==line->rid && prev_pos==line->pos ) { ndup++; continue; }
+        prev_rid = line->rid;
+        prev_pos = line->pos;
 
         str.l = 0;
         convert_line(args->convert, line, &str);
@@ -562,7 +569,9 @@ static void vcf_to_gensample(args_t *args)
             if ( ret!= str.l ) error("Error writing %s: %s\n", gen_fname,strerror(errno));
         }
     }
-    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
+    fprintf(stderr, "%d records skipped: %d/%d/%d/%d no-ALT/non-biallelic/filtered/duplicated\n", 
+        no_alt+non_biallelic+filtered+ndup, no_alt, non_biallelic, filtered, ndup);
+
     if ( str.m ) free(str.s);
     if ( bgzf_close(gout)!=0 ) error("Error closing %s: %s\n", gen_fname,strerror(errno));
     free(gen_fname);
