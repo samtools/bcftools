@@ -1,0 +1,34 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=150>
+##contig=<ID=2,length=77>
+##contig=<ID=Y,length=40>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+1	2	rs001	A	.	.	.	.	GT	0/0
+1	10	rs002	G	A	.	.	.	GT	1/0
+1	14	rs003	A	G	.	.	.	GT	0/1
+1	24	rs004	T	C	.	.	.	GT	0/1
+1	44	rs005	C	G	.	.	.	GT	0/1
+1	53	rs006	G	.	.	.	.	GT	0/0
+1	60	rs007	A	G	.	.	.	GT	1/1
+1	62	rs008	C	.	.	.	.	GT	0/0
+1	75	rs009	A	.	.	.	.	GT	0/0
+1	80	rs010	G	.	.	.	.	GT	0/0
+1	89	rs011	C	T	.	.	.	GT	1/1
+1	96	rs012	T	.	.	.	.	GT	.
+1	99	rs013	C	.	.	.	.	GT	0/0
+1	102	rs014	T	G	.	.	.	GT	1/1
+1	112	rs015	T	.	.	.	.	GT	0/0
+2	5	rs016	C	.	.	.	.	GT	0/0
+2	11	rs017	T	C	.	.	.	GT	1/0
+2	16	rs018	C	.	.	.	.	GT	0/0
+2	20	rs019	G	.	.	.	.	GT	0/0
+2	33	rs020	T	C	.	.	.	GT	1/0
+2	39	rs021	A	.	.	.	.	GT	0/0
+2	44	rs022	C	.	.	.	.	GT	0/0
+2	48	rs023	C	.	.	.	.	GT	0/0
+2	55	rs024	C	A	.	.	.	GT	1/1
+2	59	rs025	C	T	.	.	.	GT	0/1
+Y	12	rs026	G	T	.	.	.	GT	1
+Y	20	rs027	C	.	.	.	.	GT	0

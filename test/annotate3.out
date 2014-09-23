@@ -21,9 +21,6 @@
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
 ##INFO=<ID=STR,Number=1,Type=String,Description="Test string type">
-##INFO=<ID=T_STR,Number=1,Type=String,Description="Test String">
-##INFO=<ID=T_INT,Number=.,Type=Integer,Description="Test Integer">
-##INFO=<ID=T_FLOAT,Number=.,Type=Float,Description="Test Float">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
 1	3000150	id1	C	T	99	PASS	AN=4;AC=2;STR=id1	GT:GQ	0/1:245	0/1:245
 1	3000151	id2	C	T	99	PASS	AN=4;AC=2;STR=id2	GT:DP:GQ	0/1:32:245	0/1:32:245

@@ -29,7 +29,7 @@ DEALINGS IN THE SOFTWARE.  */
 int nsnps, nindels, nsites;
 
 /*
-    This short description is used to generate the output of `bcftools annotate -l`.
+    This short description is used to generate the output of `bcftools plugin -l`.
 */
 const char *about(void)
 {
@@ -43,7 +43,7 @@ const char *about(void)
     Called once at startup, allows to initialize local variables.
     Return 1 to suppress VCF/BCF header from printing, 0 otherwise.
 */
-int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
+int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     nsnps = nindels = nsites = 0;
     return 1;
@@ -51,16 +51,16 @@ int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
 
 
 /*
-    Called for each VCF record after all standard annotation things are finished.
-    Return 0 on success, 1 to suppress the line from printing, -1 on critical errors.
+    Called for each VCF record. Return rec to output the line or NULL
+    to suppress output.
 */
-int process(bcf1_t *rec)
+bcf1_t *process(bcf1_t *rec)
 {
     int type = bcf_get_variant_types(rec);
     if ( type & VCF_SNP ) nsnps++;
     if ( type & VCF_INDEL ) nindels++;
     nsites++;
-    return 1;
+    return NULL;
 }
 
 

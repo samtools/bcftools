@@ -26,8 +26,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdlib.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
-#include <wordexp.h>
-#include "config.h"
+#include <getopt.h>
 
 bcf_hdr_t *in_hdr, *out_hdr;
 bcf_sr_regions_t *exons;
@@ -36,13 +35,53 @@ int32_t *frm = NULL, nfrm = 0;
 const char *about(void)
 {
     return
-        "Annotate frameshift indels. Run as \"-p frameshifts:exons=path/to/file.tab.gz\",\n"
-        "see the \"--targets-file\" man page entry for file format description.\n";
+        "Annotate frameshift indels.\n";
+}
+
+const char *usage(void)
+{
+    return 
+        "\n"
+        "About: Annotate frameshift indels\n"
+        "Usage: bcftools +frameshifts [General Options] -- [Plugin Options]\n"
+        "Options:\n"
+        "   run \"bcftools plugin\" for a list of common options\n"
+        "\n"
+        "Plugin options:\n"
+        "   -e, --exons <file>      list of exons, see \"--targets-file\" man page entry for details\n"
+        "\n"
+        "Example:\n"
+        "   bcftools +frameshifts in.vcf -- -e exons.bed.gz\n"
+        "\n";
 }
 
 
-int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
+int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
+    int c;
+    char *fname = NULL;
+
+    static struct option loptions[] =
+    {
+        {"exons",1,0,'e'},
+        {0,0,0,0}
+    };
+    while ((c = getopt_long(argc, argv, "e:?h",loptions,NULL)) >= 0)
+    {
+        switch (c) 
+        {
+            case 'e': fname = optarg; break;
+            case 'h':
+            case '?':
+            default: fprintf(stderr,"%s", usage()); exit(1); break;
+        }
+    }
+    if ( !fname )
+    {
+        fprintf(stderr,"Missing the -e option.\n");
+        return -1;
+    }
+
     in_hdr = in;
     out_hdr = out;
 
@@ -53,23 +92,6 @@ int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
         return -1;
     }
 
-    char *fname = config_get_string(opts,"exons");
-    if ( !fname )
-    {
-        fprintf(stderr,"No exons given, please run as \"bcftools annotate -p frameshifts:exons=path/to/file.tab.gz\".\n");
-        return -1;
-    }
-
-    wordexp_t wexp;
-    wordexp(fname, &wexp, 0);
-    if ( !wexp.we_wordc )
-    {
-        fprintf(stderr,"No such file: %s\n", fname);
-        return -1;
-    }
-    free(fname);
-    fname = wexp.we_wordv[0];
-
     exons = bcf_sr_regions_init(fname,1,0,1,2);
     if ( !exons )
     {
@@ -77,24 +99,22 @@ int init(const char *opts, bcf_hdr_t *in, bcf_hdr_t *out)
         return -1;
     }
 
-    wordfree(&wexp);
     return 0;
 }
 
-
-int process(bcf1_t *rec)
+bcf1_t *process(bcf1_t *rec)
 {
-    if ( rec->n_allele<2 ) return 0;    // not a variant
+    if ( rec->n_allele<2 ) return rec;    // not a variant
 
     int type = bcf_get_variant_types(rec);
-    if ( !(type&VCF_INDEL) ) return 0;  // not an indel
+    if ( !(type&VCF_INDEL) ) return rec;  // not an indel
 
     int i, len = 0;
     for (i=1; i<rec->n_allele; i++)
         if ( len > rec->d.var[i].n ) len = rec->d.var[i].n;
 
     int pos_to = len!=0 ? rec->pos : rec->pos - len;    // len is negative
-    if ( bcf_sr_regions_overlap(exons, bcf_seqname(in_hdr,rec),rec->pos,pos_to) ) return 0;  // no overlap
+    if ( bcf_sr_regions_overlap(exons, bcf_seqname(in_hdr,rec),rec->pos,pos_to) ) return rec;  // no overlap
 
     hts_expand(int32_t,rec->n_allele-1,nfrm,frm);
     for (i=1; i<rec->n_allele; i++)
@@ -124,8 +144,8 @@ int process(bcf1_t *rec)
         else frm[i-1] = -1;             // not applicable (is outside)
     }
 
-    if ( bcf_update_info_int32(out_hdr,rec,"OOF",frm,rec->n_allele-1)<0 ) return -1;
-    return 0;
+    if ( bcf_update_info_int32(out_hdr,rec,"OOF",frm,rec->n_allele-1)<0 ) { fprintf(stderr, "Could not annotate OOF :-/\n"); exit(1); }
+    return rec;
 }
 
 

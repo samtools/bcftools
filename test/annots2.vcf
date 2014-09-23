@@ -1,0 +1,17 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=q99,Description="Quality below 10">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=FLAG,Number=0,Type=Flag,Description="Test type">
+##INFO=<ID=IINT,Number=.,Type=Integer,Description="Test type">
+##INFO=<ID=IFLT,Number=.,Type=Float,Description="Test type">
+##INFO=<ID=ISTR,Number=.,Type=String,Description="Test type">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=FINT,Number=.,Type=Integer,Description="Test type">
+##FORMAT=<ID=FFLT,Number=.,Type=Float,Description="Test type">
+##FORMAT=<ID=FSTR,Number=.,Type=String,Description="Test type">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	B	A
+1	3000001	.	C	T	.	.	.	GT	.	.
+1	3000002	id	C	T	99	q99	FLAG;IINT=88,99;IFLT=8.8,9.9;ISTR=888,999	GT:FINT:FFLT:FSTR	1|1:88,99:8.8,9.9:888,999	0|1:77:7.7:77
+1	3000003	id	C	T	99	q99	FLAG;IINT=88,99;IFLT=8.8,9.9;ISTR=888,999	GT:FINT:FFLT:FSTR	1|1:88,99:8.8,9.9:888,999	0|1:77:7.7:77
+1	3000004	id	C	T	99	q99	FLAG;IINT=88,99;IFLT=8.8,9.9;ISTR=888,999	GT:FINT:FFLT:FSTR	1|1:88,99:8.8,9.9:888,999	0|1:77:7.7:77

@@ -4,6 +4,7 @@
 # SN, Summary numbers:
 # SN	[2]id	[3]key	[4]value
 SN	0	number of samples:	2
+SN	0	number of records:	18
 SN	0	number of SNPs:	5
 SN	0	number of MNPs:	1
 SN	0	number of indels:	9

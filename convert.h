@@ -1,4 +1,4 @@
-/*  config.h -- plugin utility functions.
+/*  convert.h -- functions for converting between VCF/BCF and related formats.
 
     Copyright (C) 2014 Genome Research Ltd.
 
@@ -22,15 +22,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.  */
 
-#ifndef __CONFIG_H__
-#define __CONFIG_H__
+#ifndef __CONVERT_H__
+#define __CONVERT_H__
 
-/*
- *  Parser of plugin command line options:
- *      plugin_conf_get_string  .. returns a string value (free ret)
- *      plugin_conf_get_list    .. list of strings (free ret and ret[0])
- */
-char *config_get_string(const char *opts, char *key);
-char **config_get_list(const char *opts, char *key, int *n);
+#include <htslib/vcf.h>
+
+typedef struct _convert_t convert_t;
+
+convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *str);
+void convert_destroy(convert_t *convert);
+int convert_header(convert_t *convert, kstring_t *str);
+int convert_line(convert_t *convert, bcf1_t *rec, kstring_t *str);
 
 #endif
+

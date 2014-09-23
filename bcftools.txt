@@ -88,15 +88,17 @@ LIST OF COMMANDS
 For a full list of available commands, run *bcftools* without arguments. For a full
 list of available options, run *bcftools* 'COMMAND' without arguments.
 
-- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations, apply user plugins
+- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
+- *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
 - *<<index,index>>*      ..  index VCF/BCF
 - *<<isec,isec>>*        ..  intersections of VCF/BCF files
 - *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
 - *<<norm,norm>>*        ..  normalize indels
+- *<<plugin,plugin>>*    ..  run user-defined plugin
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
@@ -225,35 +227,43 @@ COMMANDS AND OPTIONS
 [[annotate]]
 === bcftools annotate '[OPTIONS]' 'FILE'
 
-This command allows to add or remove annotations and apply user-written plugins.
+This command allows to add or remove annotations.
 
 *-a, --annotations* 'file'::
     Bgzip-compressed and tabix-indexed file with annotations. The file
     can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
     (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary
-    number of annotation columns. In case of tab-delimited file, the
-    coordinates POS, FROM and TO are one-based and inclusive.
-    When REF and ALT are present, only matching VCF records will be annotated.
+    number of annotation columns. BED files are expected to have 
+    the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
+    Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
+    one-based and inclusive.  When REF and ALT are present, only matching VCF
+    records will be annotated.
     When multiple ALT alleles are present in the annotation file (given as
     comma-separated list of alleles), at least one must match one of the
     alleles in the corresponding VCF record. Similarly, at least one
     alternate allele from a multi-allelic VCF record must be present in the
-    annotation file.  See also *-c, --columns* and *-h, --header-lines*.
+    annotation file.
+    Note that flag types, such as "INFO/FLAG", can be annotated by including
+    a field with the value "1" to set the flag, "0" to remove it, or "." to
+    keep existing flags.
+    See also *-c, --columns* and *-h, --header-lines*.
 
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
     'list' describes the columns of the annotation file and must include CHROM,
-    POS (or, alternatively, FROM and TO), and optionally REF and ALT.  Unused
-    columns which should be ignored can be indicated by "-". If the annotation
-    file is a VCF/BCF, only the edited columns/tags must be present and
-    their order does not matter. Currently the columns ID, QUAL, FILTER and INFO
-    can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG".
-    If the annotation file is not a VCF/BCF, all new annotations must be defined
-    via *-h, --header-lines*.  For example:
-----
-    CHROM,FROM,TO,REF,ALT,-,INFO/TAG
-----
+    POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
+    columns which should be ignored can be indicated by "-".
+    If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
+    order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
+    can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
+    and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
+    To carry over all INFO annotations, use "INFO". To add all INFO annotations except
+    "TAG", use "^INFO/TAG". By default, existing values are replaced. To add missing
+    values without replacing existing annotations, use "+TAG" instead of "TAG".
+    To replace only existing values without modifying missing annotations, use "-TAG".
+    If the annotation file is not a VCF/BCF, all new annotations must be
+    defined via *-h, --header-lines*.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
@@ -269,41 +279,12 @@ This command allows to add or remove annotations and apply user-written plugins.
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
-*-l, --list-plugins*::
-    List all available plugins. If not installed systemwide, set the environment
-    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
-    directory where *libths.so* is located.  The BCFTOOLS_PLUGINS
-    environment variable tells the program which directories to search.
-    See also *-p, --plugin*.
-
-    ::
-    List of plugins coming with the distribution:
-
-        *counts*;;  A minimal plugin which counts number of SNPs, Indels, and
-        total number of sites.
-
-        *dosage*;; Prints genotype dosage determined from tags requested
-        by the user. By default the plugin searches for PL, GL and
-        GT (in that order), therefore running *-p dosage* is equivalent to *-p
-        dosage:tags=PL,GL,GT*.
-
-        *fill-AN-AC*;;  Fills INFO fields AN and AC.
-
-        *frameshifts*;; Annotate frameshift indels. Run as *-p frameshifts:exons=path/to/file.tab.gz*.
-        See the usage of *--targets-file* above for file format description.
-
-        *missing2ref*;; Sets missing genotypes ("./.") to ref allele ("0/0").
-
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-p, --plugin* 'name'[:'key'='val']::
-    Run a plugin with optional parameters. The option can be given multiple times,
-    the plugins will be executed in the same order as they appeared on the command line.
-    See also *-l, --list-plugins*.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -311,18 +292,40 @@ This command allows to add or remove annotations and apply user-written plugins.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--rename-chrs* 'file'::
+    rename chromosomes according to the map in 'file', with
+    "old_name new_name\n" pairs separated by whitespaces, each on a separate
+    line.
+
+*-s, --samples* \[^]'LIST'::
+    subset of samples to annotate, see also *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    subset of samples to annotate. If the samples are named differently in the
+    target VCF and the *-a, --annotations* VCF, the name mapping can be
+    given as "src_name dst_name\n", separated by whitespaces, each pair on a
+    separate line.
+
 *-x, --remove* 'list'::
     List of annotations to remove. Use 'FILTER' to remove all filters or
     'FILTER/SomeFilter' to remove a specific filter. Similarly, 'INFO' can
     be used to remove all INFO tags and 'FORMAT' to remove all FORMAT tags
     except GT. 'INFO' can be abbreviated to 'INF' and 'FORMAT' to 'FMT'.
-    A few examples:
-----
-    ID,INFO/DP,FORMAT/DP
-----
 
-*-v, --verbose* ::
-    print debugging information on plugin failure
+*Examples:*
+----
+    # Remove three fields
+    bcftools annotate -x ID,INFO/DP,FORMAT/DP file.vcf.gz
+
+    # Add ID, QUAL and INFO/TAG, not replacing TAG if already present
+    bcftools annotate -a src.bcf -c ID,QUAL,+TAG dst.bcf
+
+    # Carry over all INFO and FORMAT annotations except FORMAT/GT
+    bcftools annotate -a src.bcf -c INFO,^FORMAT/GT dst.bcf
+    
+    # Annotate from a tab-delimited file
+    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,POS,REF,ALT,-,TAG file.vcf
+----
 
 
 [[call]]
@@ -459,6 +462,138 @@ the *-a, --allow-overlaps* option is specified.
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
+
+[[convert]]
+=== bcftools convert '[OPTIONS]' 'FILE'
+
+==== VCF input options:
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+==== VCF output options:
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+==== GEN/SAMPLE options:
+*-g, --gensample* 'prefix' or 'gen-file','sample-file'::
+    convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .gen file format are ID1,ID2,POS,A,B followed by three
+    genotype probabilities P(AA), P(AB), P(BB) for each sample.
+    In order to prevent strand swaps, the program uses IDs of the form
+    "CHROM:POS_REF_ALT".  For example:
+----
+  .gen
+  ----
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .sample
+  -------
+  ID_1 ID_2 missing
+  0 0 0
+  sample1 sample1 0
+  sample2 sample2 0
+----
+
+*--tag* 'STRING'::
+    tag to take values for .gen file: GT,PL,GL,GP
+
+==== HAPS/SAMPLE options:
+*--hapsample2vcf* 'prefix' or 'haps-file','sample-file'::
+    convert from haps/sample format to VCF. The columns of .haps file are
+    similar to .gen file above, but there are only two haplotype columns per
+    sample. Note that the first column of the haps file is expected to be in
+    the form "CHR:POS_REF_ALT", for example:
+----
+  .haps
+  ----
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0
+----
+
+==== HAPS/LEGEND/SAMPLE options:
+*-h, --hapslegendsample* 'prefix' or 'haps-file','legend-file',sample-file'::
+    convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
+    swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
+    file is quite basic at the moment with columns for population, group and
+    sex expected to be edited by the user. For example:
+----
+  .haps
+  -----
+  0 1 0 0 1 0
+  0 1 0 0 0 1
+
+  .legend
+  -------
+  id position a0 a1
+  1:111485207_G_A 111485207 G A
+  1:111494194_C_T 111494194 C T
+
+  .sample
+  -------
+  sample population group sex
+  sample1 sample1 sample1 2
+  sample2 sample2 sample2 2
+----
+
+==== TSV options:
+*--tsv2vcf* 'file'::
+    convert from TSV (tab-separated values) format (such as generated by
+    23andMe) to VCF. The input file fields can be tab- or space- delimited
+
+*-c, --columns* 'list'::
+    comma-separated list of fields in the input file. In the current
+    version, the fields CHROM, POS, ID, and AA are expected and 
+    can appear in arbitrary order, columns which should be ignored in the input
+    file can be indicated by "-".
+    The AA field lists alleles on the forward reference strand,
+    for example "CC" or "CT" for diploid genotypes or "C"
+    for haploid genotypes (sex chromosomes). Insertions and deletions
+    are not supported yet, missing data can be indicated with "--".
+
+*-f, --fasta-ref* 'file'::
+    reference sequence in fasta format
+
+*-s, --samples* 'LIST'::
+    list of sample names. See *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    file of sample names. See *<<common_options,Common Options>>*
+
+*Example:*
+----
+# Convert 23andme results into VCF
+bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -Oz -o out.vcf.gz
+----
 
 [[filter]]
 === bcftools filter '[OPTIONS]' 'FILE'
@@ -618,6 +753,7 @@ created by using the '-t/--tbi' option or using the 'tabix' program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.
 
+==== Indexing options:
 *-c, --csi*::
     generate CSI-format index for VCF/BCF files [default]
 
@@ -630,6 +766,15 @@ the CSI first and then the TBI.
 *-t, --tbi*::
     generate TBI-format index for VCF files
 
+==== Stats options:
+*-n, --nrecords*::
+    print the number of records based on the CSI or TBI index files
+
+*-s, --stats*::
+    Print per contig stats based on the CSI or TBI index files. 
+    Output format is three tab-delimited columns listing the contig 
+    name, contig length ('.' if unknown) and number of records for 
+    the contig. Contigs with zero records are not printed.
 
 [[isec]]
 === bcftools isec ['OPTIONS']  'A.vcf.gz' 'B.vcf.gz' [...]
@@ -783,6 +928,9 @@ multiple rows.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*-s, --strict-filter*::
+    when merging ('-m+'), merged site is PASS only if all sites being merged PASS
+
 *-t, --targets* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -794,13 +942,100 @@ multiple rows.
     sorting variants which changed position during the realignment
 
 
+[[plugin]]
+=== bcftools plugin 'NAME' '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
+
+==== VCF input options:
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+==== VCF output options:
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+==== Plugin options:
+
+*-h, --help*::
+    list plugin's options
+
+*-l, --list-plugins*::
+    List all available plugins. If not installed systemwide, set the environment
+    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
+    directory where *libhts.so* is located.  The BCFTOOLS_PLUGINS
+    environment variable tells the program which directories to search.
+
+*-v, --verbose*::
+    print debugging information to debug plugin failure
+
+==== List of plugins coming with the distribution:
+
+*counts*::
+    a minimal plugin which counts number of SNPs, Indels, and total number of sites.
+
+*dosage*:: 
+    print genotype dosage. By default the plugin searches for PL, GL and GT, in
+    that order.
+
+*fill-AN-AC*::
+    fill INFO fields AN and AC.
+
+*frameshifts*::
+    annotate frameshift indels
+
+*missing2ref*::
+    sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
+
+
+==== Examples:
+
+----
+# List options common to all plugins
+bcftools plugin
+
+# List available plugins
+bcftools plugin -l
+
+# One can run plugins in several ways
+bcftools plugin counts in.vcf
+bcftools +counts in.vcf
+cat in.vcf | bcftools +counts
+
+# Print usage information of plugin "dosage"
+bcftools +dosage -h
+
+# Replace missing genotypes with 0/0
+bcftools +missing2ref in.vcf 
+
+# Replace missing genotypes with 0|0
+bcftools +missing2ref in.vcf -- -p
+----
+
+
 [[query]]
 === bcftools query ['OPTIONS'] 'file.vcf.gz' ['file.vcf.gz' [...]]
 Extracts fields from VCF or BCF files and outputs them in user-defined format.
-
-*-a, --annots* 'LIST'::
-    alias for -f '%CHROM\t%POS\t%MASK\t%REF\t%ALT\t%TYPE\t' and tab-separated
-    'LIST' of tags
 
 *-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
     see *<<common_options,Common Options>>*
@@ -821,6 +1056,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
 *-l, --list-samples*::
     list sample names and exit
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -853,6 +1091,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     []              The brackets loop over all samples
     %GT             Genotype (e.g. 0/1)
     %TGT            Translated genotype (e.g. C/A)
+    %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
     %SAMPLE         Sample name
 
@@ -877,8 +1116,9 @@ Modify header of VCF/BCF files, change sample names.
 
 
 [[roh]]
-=== bcftools roh ['OPTIONS'] 'FILE'
-A program for detecting runs of homo/autozygosity.
+=== bcftools roh ['OPTIONS'] 'file.vcf.gz'
+A program for detecting runs of homo/autozygosity. Only bi-allelic sites
+are considered.
 
 ==== The HMM model:
 --------------------------------------
@@ -896,9 +1136,9 @@ Transition probabilities:
   P(AZ|AZ) = 1 - P(HW|AZ) = 1 - tHW
   P(HW|HW) = 1 - P(AZ|HW) = 1 - tAZ
 
-  ci  = P_i(C) .. probability of cross-over at site i, from genetic map
-  AZi = P_i(AZ)   .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
-  HWi = P_i(HW)
+  ci  = P_i(C)  .. probability of cross-over at site i, from genetic map
+  AZi = P_i(AZ) .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
+  HWi = P_i(HW) 
 
   P_{i+1}(AZ) = oAZ * max[(1-tHW) * (1-ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
   P_{i+1}(HW) = oHW * max[(1-tAZ) * (1-ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
@@ -907,26 +1147,26 @@ Transition probabilities:
 
 ==== General Options:
 
-*-b, --biallelic-sites*::
-    skip multi-allelic sites, consider only bi-allelic sites
-
-*-e, --estimate-AF* 'all'|'subset'::
-    recalculate INFO/AC and INFO/AN on the fly, using either all samples
-    ('all') or samples specified via the *-s* option ('subset'). By default,
-    allele frequency is estimated from AC and AN counts which are already
-    present in the INFO field.
-
-*-F, --AF-tag* 'TAG'|':FILE'::
+*--AF-tag* 'TAG'::
     use the specified INFO tag 'TAG' as an allele frequency estimate
-    instead of the defaul AC and AN tags. Optionally, if prefixed with ':',
-    allele frequencies will be read from a tab-delimited file containing
+    instead of the defaul AC and AN tags. Sites which do not have 'TAG'
+    will be skipped.
+    
+*--AF-file* 'FILE'::
+    Read allele frequencies from a tab-delimited file containing
     the columns: CHROM\tPOS\tREF,ALT\tAF. The file can be compressed with
-    *bgzip* and indexed with tabix -s1 -b2 -e2.  Sites which do not have the
-    'TAG' or are not present in the 'FILE' or have different reference or
-    alternate allele will be skipped.
+    *bgzip* and indexed with tabix -s1 -b2 -e2.  Sites which are not present in
+    the 'FILE' or have different reference or alternate allele will be skipped. 
+    Note that such a file can be easily created from a VCF using:
+----
+    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\t%INFO/TAG\n' file.vcf | bgzip -c > freqs.tab.gz
+----
 
-*-f, --fwd-bwd*::
-    run forward-backward algorithm instead of Viterbi
+*-e, --estimate-AF* 'FILE'::
+    recalculate INFO/AC and INFO/AN on the fly, using either all samples
+    ("-") or samples listed in 'FILE'. By default, allele frequency is
+    estimated from AC and AN counts which are already present in the INFO
+    field.
 
 *-G, --GTs-only* 'FLOAT'::
     use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
@@ -948,20 +1188,14 @@ Transition probabilities:
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-s, --samples* 'LIST'::
-    see *<<common_options,Common Options>>*
-
-*-S, --samples-file* 'FILE'::
-    see *<<common_options,Common Options>>*
+*-s, --sample* 'name'::
+    the name of sample to analyze
 
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
-
-*-w, --win* 'INT'::
-    maximum number of sites to keep in memory
 
 ==== HMM Options:
 
@@ -970,6 +1204,9 @@ Transition probabilities:
 
 *-H, --az-to-hw* 'FLOAT'::
     P(HW|AZ) transition probability from HW to AZ state
+
+*-V, --viterbi-training*::
+    perform Viterbi training to estimate transition probabilities
 
 
 
@@ -1199,15 +1436,15 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        %FILTER, %QUAL, %ID
+        FILTER, QUAL, ID, REF, ALT[0]
 
 * 1 (or 0) to test the presence (or absence) of a flag
 
         FlagA=1 && FlagB=0
 
-* %TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
 
-        %TYPE="indel" | %TYPE="snp"
+        TYPE="indel" | TYPE="snp"
 
 * array subscripts, "*" for any field
 
@@ -1215,9 +1452,16 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
         DP4[*] == 0
         CSQ[*] ~ "missense_variant.*deleterious"
 
-* functions on FORMAT fields
+* function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
-        MAX, MIN, AVG
+        MAX, MIN, AVG, SUM, STRLEN, ABS
+
+* variables calculated on the fly if not present: number of alternate alleles;
+number of samples; number of alternate alleles; minor allele count (similar to
+AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes
+
+        N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN
 
 
 .Notes:
@@ -1226,28 +1470,33 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 * If the subscript "\*" is used in regular expression search, the
 whole field is treated as one string. For example, the regex STR[*]~"B,C" will be
 true for the string vector INFO/STR=AB,CD.
+* Variables and function names are case-insensitive, but not tag names. For example,
+"qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
+not "dp" instead of "DP".
 
 
 *Examples:*
 
 --
-    %MIN(DV)>5
+    MIN(DV)>5
 
-    %MIN(DV/DP)>0.3
+    MIN(DV/DP)>0.3
 
-    %MIN(DP)>10 & %MIN(DV)>3
+    MIN(DP)>10 & MIN(DV)>3
 
-    %QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
+    QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
 
-    %QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
+    QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
 
-    %TYPE="snp" && %QUAL>=10 && (DP4[2]+DP4[3] > 2)
+    TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
 
-    %MIN(DP)>35 && %AVG(GQ)>50
+    MIN(DP)>35 && AVG(GQ)>50
 
-    %ID=@file       .. selects lines with ID present in the file
+    ID=@file       .. selects lines with ID present in the file
 
-    %ID!=@~/file    .. skip lines with ID present in the ~/file
+    ID!=@~/file    .. skip lines with ID present in the ~/file
+
+    MAF[0]<0.05    .. select rare variants at 5% cutoff
 
 --
 
