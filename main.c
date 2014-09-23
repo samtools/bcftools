@@ -58,9 +58,6 @@ int main_vcfconcat(int argc, char *argv[]);
 int main_reheader(int argc, char *argv[]);
 int main_vcfconvert(int argc, char *argv[]);
 int main_vcfcnv(int argc, char *argv[]);
-#if PSMY
-int main_polysomy(int argc, char *argv[]);
-#endif
 int main_plugin(int argc, char *argv[]);
 
 typedef struct
@@ -152,12 +149,6 @@ static cmd_t cmds[] =
       .alias = "gtcheck",
       .help  = "check sample concordance, detect sample swaps and contamination"
     },
-#if PSMY
-    { .func  = main_polysomy,
-      .alias = "polysomy",
-      .help  = "-detect number of chromosomal copies",
-    },
-#endif
     { .func  = main_vcfroh,
       .alias = "roh",
       .help  = "identify runs of autozygosity (HMM)",

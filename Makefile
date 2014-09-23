@@ -46,14 +46,6 @@ OBJS     = main.o vcfindex.o tabix.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES = -I. -I$(HTSDIR)
 
-# The polysomy command is not compiled by default because it brings
-# dependency on libgsl. The command can be compiled as `make PSMY=1` 
-ifdef PSMY
-    CFLAGS += -DPSMY
-    OBJS   += polysomy.o
-    LDLIBS  = -lgsl -lcblas
-endif
-
 prefix      = /usr/local
 exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/bin
@@ -137,7 +129,6 @@ kmin.o: kmin.c kmin.h
 mcall.o: mcall.c $(HTSDIR)/htslib/kfunc.h $(call_h)
 prob1.o: prob1.c $(prob1_h)
 vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
-polysomy.o: polysomy.c $(htslib_hts_h)
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
