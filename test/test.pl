@@ -33,8 +33,7 @@ use File::Temp qw/ tempfile tempdir /;
 
 my $opts = parse_params();
 
-# This turns out to be quite restrictive, turning off for now.
-#   test_usage($opts,cmd=>'bcftools');
+test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
 test_tabix($opts,in=>'large_chrom_tbi_limit',reg=>'chr11:1-536870912',out=>'large_chrom_tbi_limit.20.1.536870912.out'); # 536870912 (1<<29) is the current limit for tbi. cannot retrieve regions larger than that
@@ -510,9 +509,23 @@ sub test_usage
     print "$test:\n";
     print "\t$args{cmd}\n";
 
+    my $tty_input;
+    if (-t) {
+        $args{redirection} = "";  # no redirection necessary
+    }
+    elsif (eval { require IO::Pty }) {
+        $tty_input = new IO::Pty;
+        # ensure stdin is a terminal, so that subcommands display their usage
+        $args{redirection} = "<'" . $tty_input->ttyname . "'";
+    }
+    else {
+        warn "$0: module IO::Pty not found; skipping usage tests\n";
+        return;
+    }
+
     my $command = $args{cmd};
     my $commandpath = $$opts{bin}."/".$command;
-    my ($ret,$out) = _cmd("$commandpath 2>&1");
+    my ($ret,$out) = _cmd("$commandpath $args{redirection} 2>&1");
     if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
@@ -532,7 +545,7 @@ sub test_usage
         } elsif ( $section =~ m/^command/i ) {
             $have_subcommands = 1;
             foreach my $line (split /\n/, $section) {
-                push @subcommands, $1 if $line =~ /^\s+(\w+)/;
+                push @subcommands, $1 if $line =~ /^\s{2,}(\w+)\s{2,}/;
             }
         }
     }
@@ -563,7 +576,7 @@ sub test_usage_subcommand
     my $command = $args{cmd};
     my $subcommand = $args{subcmd};
     my $commandpath = $$opts{bin}."/".$command;
-    my ($ret,$out) = _cmd("$commandpath $subcommand 2>&1");
+    my ($ret,$out) = _cmd("$commandpath $subcommand $args{redirection} 2>&1");
     if ( $out =~ m/\/bin\/bash.*no.*such/i ) { failed($opts,$test,"could not run $commandpath $subcommand: $out"); return; }
 
     my @sections = ($out =~ m/(^[A-Za-z]+.*?)(?:(?=^[A-Za-z]+:)|\z)/msg);
