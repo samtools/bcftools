@@ -397,8 +397,8 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Run user defined plugin\n");
-    fprintf(stderr, "Usage:   bcftools plugin <name> [OPTIONS] <file>\n");
-    fprintf(stderr, "         bcftools +name [OPTIONS] <file>\n");
+    fprintf(stderr, "Usage:   bcftools plugin <name> [OPTIONS] <file> [-- PLUGIN_OPTIONS]\n");
+    fprintf(stderr, "         bcftools +name [OPTIONS] <file>  [-- PLUGIN_OPTIONS]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "VCF input options:\n");
     fprintf(stderr, "   -e, --exclude <expr>        exclude sites for which the expression is true\n");
