@@ -46,8 +46,9 @@ OBJS     = main.o vcfindex.o tabix.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES = -I. -I$(HTSDIR)
 
-# The polysomy command is not compiled by default because it brings
-# dependency on libgsl. The command can be compiled as `make PSMY=1` 
+# The polysomy command is not compiled by default because it brings dependency
+# on libgsl. The command can be compiled wth `make PSMY=1`. See the INSTALL
+# and LICENSE documents to understand license implications.
 ifdef PSMY
     CFLAGS += -DPSMY
     OBJS   += polysomy.o
