@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25134816"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25139104"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -206,6 +206,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
     "TAG", use "^INFO/TAG". By default, existing values are replaced. To add missing
     values without replacing existing annotations, use "+TAG" instead of "TAG".
+    To replace only existing values without modifying missing annotations, use "-TAG".
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via <span class="strong"><strong>-h, --header-lines</strong></span>.
 </dd><dt><span class="term">
@@ -483,7 +484,17 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 <span class="strong"><strong>--tag</strong></span> <span class="emphasis"><em>STRING</em></span>
 </span></dt><dd>
     tag to take values for .gen file: GT,PL,GL,GP
-</dd></dl></div></div><div class="refsect3" title="HAPS/LEGEND/SAMPLE options:"><a id="_haps_legend_sample_options"></a><h4>HAPS/LEGEND/SAMPLE options:</h4><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div><div class="refsect3" title="HAPS/SAMPLE options:"><a id="_haps_sample_options"></a><h4>HAPS/SAMPLE options:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>--hapsample2vcf</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>sample-file</em></span>
+</span></dt><dd>
+    convert from haps/sample format to VCF. The columns of .haps file are
+    similar to .gen file above, but there are only two haplotype columns per
+    sample. Note that the first column of the haps file is expected to be in
+    the form "CHR:POS_REF_ALT", for example:
+</dd></dl></div><pre class="screen">  .haps
+  ----
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0</pre></div><div class="refsect3" title="HAPS/LEGEND/SAMPLE options:"><a id="_haps_legend_sample_options"></a><h4>HAPS/LEGEND/SAMPLE options:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-h, --hapslegendsample</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,sample-file'
 </span></dt><dd>
     convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
@@ -950,6 +961,10 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
 </span></dt><dd>
     fill INFO fields AN and AC.
 </dd><dt><span class="term">
+<span class="strong"><strong>fix-ploidy</strong></span>
+</span></dt><dd>
+    sets correct ploidy
+</dd><dt><span class="term">
 <span class="strong"><strong>frameshifts</strong></span>
 </span></dt><dd>
     annotate frameshift indels
@@ -975,7 +990,35 @@ bcftools +dosage -h
 bcftools +missing2ref in.vcf
 
 # Replace missing genotypes with 0|0
-bcftools +missing2ref in.vcf -- -p</pre></div></div><div class="refsect2" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]"><a id="query"></a><h3>bcftools query [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>file.vcf.gz</em></span> […]]</h3><p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p><div class="variablelist"><dl><dt><span class="term">
+bcftools +missing2ref in.vcf -- -p</pre></div><div class="refsect3" title="Plugins troubleshooting:"><a id="_plugins_troubleshooting"></a><h4>Plugins troubleshooting:</h4><p>Things to check if your plugin does not show up in the <span class="strong"><strong>bcftools plugin -l</strong></span> output:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+Run with the <span class="strong"><strong>-v</strong></span> option for verbose output: <span class="strong"><strong>bcftools plugin -lv</strong></span>
+</li><li class="listitem">
+Does the environment variable BCFTOOLS_PLUGINS include the correct path?
+</li><li class="listitem"><p class="simpara">
+Are all shared libraries, namely libhts.so, accessible? Verify with
+</p><div class="itemizedlist"><ul class="itemizedlist" type="circle"><li class="listitem">
+on Mac OS X: <span class="strong"><strong>otool -L your/plugin.so</strong></span> and set DYLD_LIBRARY_PATH if they are not
+</li><li class="listitem">
+on Linux: <span class="strong"><strong>ldd your/plugin.so</strong></span> and set LD_LIBRARY_PATH if they are not
+</li></ul></div></li><li class="listitem">
+If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or
+DYLD_LIBRARY_PATH (mac) to include directory where <span class="strong"><strong>libhts.so</strong></span> is located.
+</li></ul></div></div><div class="refsect3" title="Plugins API:"><a id="_plugins_api"></a><h4>Plugins API:</h4><pre class="screen">// Short description used by 'bcftools plugin -l'
+const char *about(void);
+
+// Longer description used by 'bcftools +name -h'
+const char *usage(void);
+
+// Called once at startup, allows to initialize local variables.
+// Return 1 to suppress normal VCF/BCF header output, -1 on critical
+// errors, 0 otherwise.
+int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr);
+
+// Called for each VCF record, return NULL to suppress the output
+bcf1_t *process(bcf1_t *rec);
+
+// Called after all lines have been processed to clean up
+void destroy(void);</pre></div></div><div class="refsect2" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]"><a id="query"></a><h3>bcftools query [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>file.vcf.gz</em></span> […]]</h3><p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-c, --collapse</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>some</em></span>|<span class="emphasis"><em>none</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -1383,11 +1426,11 @@ DP4[*] == 0
 CSQ[*] ~ "missense_variant.*deleterious"</pre></li><li class="listitem"><p class="simpara">
 function on FORMAT tags (over samples) and INFO tags (over vector fields)
 </p><pre class="literallayout">MAX, MIN, AVG, SUM, STRLEN, ABS</pre></li><li class="listitem"><p class="simpara">
-variables calculated on the fly if not present: number of alternate alleles,
-number of samples, number of alternate alleles, minor allele count (similar to
-AC but is always smaller than 0.5), frequency of alternate alleles (AF=AC/AN),
-frequency of minor alleles (MAF=MAC/AN)
-</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF</pre></li></ul></div><div class="itemizedlist" title="Notes:"><p class="title"><strong>Notes:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem">
+variables calculated on the fly if not present: number of alternate alleles;
+number of samples; number of alternate alleles; minor allele count (similar to
+AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes
+</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN</pre></li></ul></div><div class="itemizedlist" title="Notes:"><p class="title"><strong>Notes:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem">
 String comparisons and regular expressions are case-insensitive
 </li><li class="listitem">
 If the subscript "*" is used in regular expression search, the
@@ -1442,4 +1485,5 @@ samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
 BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
 and further developing bcftools.  Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
-providing patches, testing and reporting bugs. We thank them all.</p></div><div class="refsect1" title="RESOURCES"><a id="_resources"></a><h2>RESOURCES</h2><p>BCFtools GitHub website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p><p>Samtools GitHub website: <a class="ulink" href="http://github.com/samtools/samtools" target="_top">http://github.com/samtools/samtools</a></p><p>HTSlib GitHub website: <a class="ulink" href="http://github.com/samtools/htslib" target="_top">http://github.com/samtools/htslib</a></p><p>File format specifications: <a class="ulink" href="http://samtools.github.io/hts-specs" target="_top">http://samtools.github.io/hts-specs</a></p><p>BCFtools documentation: <a class="ulink" href="http://samtools.github.io/bcftools" target="_top">http://samtools.github.io/bcftools</a></p><p>BCFtools wiki page: <a class="ulink" href="https://github.com/samtools/bcftools/wiki" target="_top">https://github.com/samtools/bcftools/wiki</a></p></div><div class="refsect1" title="COPYING"><a id="_copying"></a><h2>COPYING</h2><p>The MIT License. Copyright (c) Genome Research Ltd.</p></div></div></body></html>
+providing patches, testing and reporting bugs. We thank them all.</p></div><div class="refsect1" title="RESOURCES"><a id="_resources"></a><h2>RESOURCES</h2><p>BCFtools GitHub website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p><p>Samtools GitHub website: <a class="ulink" href="http://github.com/samtools/samtools" target="_top">http://github.com/samtools/samtools</a></p><p>HTSlib GitHub website: <a class="ulink" href="http://github.com/samtools/htslib" target="_top">http://github.com/samtools/htslib</a></p><p>File format specifications: <a class="ulink" href="http://samtools.github.io/hts-specs" target="_top">http://samtools.github.io/hts-specs</a></p><p>BCFtools documentation: <a class="ulink" href="http://samtools.github.io/bcftools" target="_top">http://samtools.github.io/bcftools</a></p><p>BCFtools wiki page: <a class="ulink" href="https://github.com/samtools/bcftools/wiki" target="_top">https://github.com/samtools/bcftools/wiki</a></p></div><div class="refsect1" title="COPYING"><a id="_copying"></a><h2>COPYING</h2><p>The MIT License if compiled with default options. See the LICENSE document for
+details. Copyright (c) Genome Research Ltd.</p></div></div></body></html>
