@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 09/16/2014
+.\"      Date: 09/25/2014
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "09/16/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "09/25/2014" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -1729,6 +1729,11 @@ print genotype dosage\&. By default the plugin searches for PL, GL and GT, in th
 fill INFO fields AN and AC\&.
 .RE
 .PP
+\fBfix\-ploidy\fR
+.RS 4
+sets correct ploidy
+.RE
+.PP
 \fBframeshifts\fR
 .RS 4
 annotate frameshift indels
@@ -1771,6 +1776,126 @@ bcftools +missing2ref in\&.vcf
 
 # Replace missing genotypes with 0|0
 bcftools +missing2ref in\&.vcf \-\- \-p
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBPlugins troubleshooting:\fR
+.RS 4
+.sp
+Things to check if your plugin does not show up in the \fBbcftools plugin \-l\fR output:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Run with the
+\fB\-v\fR
+option for verbose output:
+\fBbcftools plugin \-lv\fR
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Does the environment variable BCFTOOLS_PLUGINS include the correct path?
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Are all shared libraries, namely libhts\&.so, accessible? Verify with
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+on Mac OS X:
+\fBotool \-L your/plugin\&.so\fR
+and set DYLD_LIBRARY_PATH if they are not
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+on Linux:
+\fBldd your/plugin\&.so\fR
+and set LD_LIBRARY_PATH if they are not
+.RE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (mac) to include directory where
+\fBlibhts\&.so\fR
+is located\&.
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBPlugins API:\fR
+.RS 4
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+// Short description used by \*(Aqbcftools plugin \-l\*(Aq
+const char *about(void);
+
+// Longer description used by \*(Aqbcftools +name \-h\*(Aq
+const char *usage(void);
+
+// Called once at startup, allows to initialize local variables\&.
+// Return 1 to suppress normal VCF/BCF header output, \-1 on critical
+// errors, 0 otherwise\&.
+int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr);
+
+// Called for each VCF record, return NULL to suppress the output
+bcf1_t *process(bcf1_t *rec);
+
+// Called after all lines have been processed to clean up
+void destroy(void);
 .fi
 .if n \{\
 .RE
@@ -2871,4 +2996,4 @@ BCFtools documentation: http://samtools\&.github\&.io/bcftools
 BCFtools wiki page: https://github\&.com/samtools/bcftools/wiki
 .SH "COPYING"
 .sp
-The MIT License\&. Copyright (c) Genome Research Ltd\&.
+The MIT License if compiled with default options\&. See the LICENSE document for details\&. Copyright (c) Genome Research Ltd\&.
