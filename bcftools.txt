@@ -1001,6 +1001,9 @@ multiple rows.
 *fill-AN-AC*::
     fill INFO fields AN and AC.
 
+*fix-ploidy*::
+    sets correct ploidy
+
 *frameshifts*::
     annotate frameshift indels
 
@@ -1030,6 +1033,40 @@ bcftools +missing2ref in.vcf
 
 # Replace missing genotypes with 0|0
 bcftools +missing2ref in.vcf -- -p
+----
+
+==== Plugins troubleshooting:
+
+Things to check if your plugin does not show up in the *bcftools plugin -l* output:
+
+- Run with the *-v* option for verbose output: *bcftools plugin -lv*
+- Does the environment variable BCFTOOLS_PLUGINS include the correct path?
+- Are all shared libraries, namely libhts.so, accessible? Verify with
+* on Mac OS X: *otool -L your/plugin.so* and set DYLD_LIBRARY_PATH if they are not
+* on Linux: *ldd your/plugin.so* and set LD_LIBRARY_PATH if they are not
+- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or
+DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.
+
+
+==== Plugins API:
+
+----
+// Short description used by 'bcftools plugin -l'
+const char *about(void);
+
+// Longer description used by 'bcftools +name -h'
+const char *usage(void);
+
+// Called once at startup, allows to initialize local variables.
+// Return 1 to suppress normal VCF/BCF header output, -1 on critical
+// errors, 0 otherwise.
+int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr);
+
+// Called for each VCF record, return NULL to suppress the output
+bcf1_t *process(bcf1_t *rec);
+
+// Called after all lines have been processed to clean up
+void destroy(void);
 ----
 
 
@@ -1589,5 +1626,6 @@ BCFtools wiki page: <https://github.com/samtools/bcftools/wiki>
 
 COPYING
 -------
-The MIT License. Copyright (c) Genome Research Ltd.
+The MIT License if compiled with default options. See the LICENSE document for
+details. Copyright (c) Genome Research Ltd.
 

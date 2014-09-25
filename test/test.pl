@@ -128,7 +128,10 @@ test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',arg
 test_vcf_annotate($opts,in=>'annotate',vcf=>'annots',out=>'annotate3.out',args=>'-c STR,ID,QUAL,FILTER');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate4.out',args=>'-c ID,QUAL,FILTER,INFO,FMT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate5.out',args=>'-c ID,QUAL,+FILTER,+INFO,FMT/GT -s A');
-# test_vcf_annotate_plugins($opts,in=>'plugin',out=>'plugin.out',args=>'-p missing2ref -p fill-AN-AC -p dosage');   # requires installed libhts.so
+test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref');
+test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC');
+test_vcf_plugin($opts,in=>'plugin1',out=>'dosage.out',cmd=>'+dosage');
+test_vcf_plugin($opts,in=>'fixploidy',out=>'fixploidy.out',cmd=>'+fixploidy',args=>'-- -s {PATH}/fixploidy.samples -p {PATH}/fixploidy.ploidy');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
@@ -166,6 +169,7 @@ sub error
         "About: htslib consistency test script\n",
         "Usage: test.pl [OPTIONS]\n",
         "Options:\n",
+        "   -p, --plugins                   Test also plugins, requires libhts.so.\n",
         "   -r, --redo-outputs              Recreate expected output files.\n",
         "   -t, --temp-dir <path>           When given, temporary files will not be removed.\n",
         "   -h, -?, --help                  This help message.\n",
@@ -174,12 +178,13 @@ sub error
 }
 sub parse_params
 {
-    my $opts = { bgzip=>"bgzip", keep_files=>0, nok=>0, nfailed=>0, tabix=>"tabix" };
+    my $opts = { bgzip=>"bgzip", keep_files=>0, nok=>0, nfailed=>0, tabix=>"tabix", plugins=>0 };
     my $help;
     Getopt::Long::Configure('bundling');
     my $ret = GetOptions (
             'e|exec=s' => sub { my ($tool, $path) = split /=/, $_[1]; $$opts{$tool} = $path if $path },
             't|temp-dir:s' => \$$opts{keep_files},
+            'p|plugins' => \$$opts{test_plugins},
             'r|redo-outputs' => \$$opts{redo_outputs},
             'h|?|help' => \$help
             );
@@ -619,12 +624,14 @@ sub test_vcf_annotate
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -a $annot_fname $hdr $args{args} $in_fname | grep -v ^##bcftools_");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -Ob -a $annot_fname $hdr $args{args} $in_fname | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
-sub test_vcf_annotate_plugins
+sub test_vcf_plugin
 {
     my ($opts,%args) = @_;
+    if ( !$$opts{test_plugins} ) { return; }
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $args{args} $$opts{path}/$args{in}.vcf");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -Ob $args{args} $$opts{path}/$args{in}.vcf");
+    if ( !exists($args{args}) ) { $args{args} = ''; }
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{path}/$args{in}.vcf $args{args} | grep -v ^##bcftools_");
 }
 sub test_vcf_concat
 {
