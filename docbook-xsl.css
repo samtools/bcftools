@@ -43,6 +43,7 @@ h2 { font-size: 120%; padding-top: 1em; }
 h3 { font-size: 110%; }
 
 dl.variablelist { padding-left: 2em; }
+div.refsect3 > .variablelist { padding-left: 2em; }
 
 div.toc p:first-child,
 div.list-of-figures p:first-child,
