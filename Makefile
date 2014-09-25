@@ -148,13 +148,13 @@ test/test-rbuf: test/test-rbuf.o
 bcftools: $(HTSLIB) $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(LDLIBS)
 
-bcftools.1: bcftools.txt
-	a2x --doctype manpage --format manpage bcftools.txt
+doc/bcftools.1: doc/bcftools.txt
+	cd doc && a2x --doctype manpage --format manpage bcftools.txt
 
-bcftools.html: bcftools.txt
-	a2x --doctype manpage --format xhtml bcftools.txt
+doc/bcftools.html: doc/bcftools.txt
+	cd doc && a2x --doctype manpage --format xhtml bcftools.txt
 
-docs: bcftools.1 bcftools.html
+docs: doc/bcftools.1 doc/bcftools.html
 
 install: $(PROG)
 	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
