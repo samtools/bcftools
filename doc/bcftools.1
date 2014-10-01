@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2014-10-01 09:48 BST
+.\"      Date: 2014-10-01 14:22 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2014\-10\-01 09:48 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2014\-10\-01 14:22 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -1419,10 +1419,35 @@ see
 output positions present only in the first file but missing in the others
 .RE
 .PP
+\fB\-e, \-\-exclude\fR \fI\-\fR|\fIEXPRESSION\fR
+.RS 4
+exclude sites for which
+\fIEXPRESSION\fR
+is true\&. If
+\fB\-e\fR
+(or
+\fB\-i\fR) appears only once, the same filtering expression will be applied to all input files\&. Otherwise,
+\fB\-e\fR
+or
+\fB\-i\fR
+must be given for each input file\&. To indicate that no filtering should be performed on a file, use "\-" in place of
+\fIEXPRESSION\fR, as shown in the example below\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
 \fB\-f, \-\-apply\-filters\fR \fILIST\fR
 .RS 4
 see
 \fBCommon Options\fR
+.RE
+.PP
+\fB\-i, \-\-include\fR \fIEXPRESSION\fR
+.RS 4
+include only sites for which
+\fIEXPRESSION\fR
+is true\&. See discussion of
+\fB\-e, \-\-exclude\fR
+above\&.
 .RE
 .PP
 \fB\-n, \-\-nfiles\fR [+\-=]\fIINT\fR
@@ -1497,6 +1522,18 @@ Create intersection and complements of two sets saving the output in dir/*
 .\}
 .nf
     bcftools isec \-p dir A\&.vcf\&.gz B\&.vcf\&.gz
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Filter sites in A and B (but not in C) and create intersection
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools isec \-e\*(AqMAF<0\&.01\*(Aq \-i\*(AqdbSNP=1\*(Aq \-e\- A\&.vcf\&.gz B\&.vcf\&.gz C\&.vcf\&.gz \-p dir
 .fi
 .if n \{\
 .RE
@@ -3066,4 +3103,4 @@ BCFtools wiki page: https://github\&.com/samtools/bcftools/wiki
 .sp
 The MIT License if compiled with default options\&. See the LICENSE document for details\&. Copyright (c) Genome Research Ltd\&.
 .sp
-Last updated 2014\-10\-01 09:48 BST, git version 1\&.1\-15\-g0567103+
+Last updated 2014\-10\-01 14:22 BST, git version 1\&.1\-19\-g802367c+

@@ -825,8 +825,20 @@ in the other files.
 *-C, --complement*::
     output positions present only in the first file but missing in the others
 
+*-e, --exclude* '-'|'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. If *-e* (or *-i*)
+    appears only once, the same filtering expression will be applied to all
+    input files.  Otherwise, *-e* or *-i* must be given for each input file.
+    To indicate that no filtering should be performed on a file, use "-" in
+    place of 'EXPRESSION', as shown in the example below.
+    For valid expressions see *<<expressions,EXPRESSIONS>>*.
+
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. See discussion
+    of *-e, --exclude* above.
 
 *-n, --nfiles* \[+-=]'INT'::
     output positions present in this many (=), this many or more (+), or this
@@ -863,6 +875,11 @@ in the other files.
 Create intersection and complements of two sets saving the output in dir/*
 ----
     bcftools isec -p dir A.vcf.gz B.vcf.gz
+----
+
+Filter sites in A and B (but not in C) and create intersection
+----
+    bcftools isec -e'MAF<0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -p dir
 ----
 
 Extract and write records from A shared by both A and B using exact allele match
