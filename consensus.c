@@ -80,13 +80,7 @@ static void init_data(args_t *args)
     }
     if ( args->mask_fname )
     {
-        int len = strlen(args->mask_fname);
-        if ( len>=7 && !strcasecmp(".bed.gz",args->mask_fname+len-7) )
-            args->mask = regidx_init(args->mask_fname,regidx_parse_bed,NULL,0,NULL);
-        else if ( len>=4 && !strcasecmp(".bed",args->mask_fname+len-7) )
-            args->mask = regidx_init(args->mask_fname,regidx_parse_bed,NULL,0,NULL);
-        else
-            args->mask = regidx_init(args->mask_fname,regidx_parse_tab,NULL,0,NULL);
+        args->mask = regidx_init(args->mask_fname,NULL,NULL,0,NULL);
         if ( !args->mask ) error("Failed to initialize mask regions\n");
     }
     rbuf_init(&args->vcf_rbuf, 100);
