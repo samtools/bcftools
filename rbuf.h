@@ -103,12 +103,25 @@ static inline int rbuf_prev(rbuf_t *rbuf, int *i)
     return 1;
 }
 /**
- *  rbuf_add() - register new element in the round buffer
+ *  rbuf_prepend() - register new element at the start of the round buffer
  *  @rbuf:  the rbuf_t holder
  *
  *  Returns index of the newly inserted element.
  */
-static inline int rbuf_add(rbuf_t *rbuf)
+static inline int rbuf_prepend(rbuf_t *rbuf)
+{
+    if ( rbuf->n < rbuf->m ) rbuf->n++;
+
+    rbuf->f = rbuf->f > 0 ? rbuf->f - 1 : rbuf->m - 1;
+    return rbuf->f;
+}
+/**
+ *  rbuf_append() - register new element at the end of the round buffer
+ *  @rbuf:  the rbuf_t holder
+ *
+ *  Returns index of the newly inserted element.
+ */
+static inline int rbuf_append(rbuf_t *rbuf)
 {
     if ( rbuf->n < rbuf->m )
     {

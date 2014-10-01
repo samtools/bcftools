@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25202128"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25137376"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -23,6 +23,8 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">call</a></strong></span>        ..  SNP/indel calling (former "view")
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#concat" title="bcftools concat [OPTIONS] FILE1 FILE2 […]">concat</a></strong></span>    ..  concatenate VCF/BCF files from the same set of samples
+</li><li class="listitem">
+<span class="strong"><strong><a class="link" href="#consensus" title="bcftools consensus [OPTIONS] FILE">consensus</a></strong></span>    ..  create consensus sequence by applying VCF variants
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#convert" title="bcftools convert [OPTIONS] FILE">convert</a></strong></span>  ..  convert VCF/BCF to other formats and back
 </li><li class="listitem">
@@ -420,7 +422,39 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div></div><div class="refsect2" title="bcftools convert [OPTIONS] FILE"><a id="convert"></a><h3>bcftools convert <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><div class="refsect3" title="VCF input options:"><a id="_vcf_input_options"></a><h4>VCF input options:</h4><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div><div class="refsect2" title="bcftools consensus [OPTIONS] FILE"><a id="consensus"></a><h3>bcftools consensus <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>Create consensus sequence by applying VCF variants to a reference fasta file.</p><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-f, --fasta-ref</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    reference sequence in fasta format
+</dd><dt><span class="term">
+<span class="strong"><strong>-H, --haplotype</strong></span> <span class="emphasis"><em>1</em></span>|<span class="emphasis"><em>2</em></span>
+</span></dt><dd>
+    apply variants for the given haplotype. This option requires <span class="strong"><strong>-s</strong></span>, unless
+    exactly one sample is present in the VCF
+</dd><dt><span class="term">
+<span class="strong"><strong>-i, --iupac-codes</strong></span>
+</span></dt><dd>
+    output variants in the form of IUPAC ambiguity codes
+</dd><dt><span class="term">
+<span class="strong"><strong>-m, --mask</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    BED file or TAB file with regions to be replaced with N. See discussion
+    of <span class="strong"><strong>--regions-file</strong></span> in <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span> for file
+    format details.
+</dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    write output to a file
+</dd><dt><span class="term">
+<span class="strong"><strong>-s, --sample</strong></span> <span class="emphasis"><em>NAME</em></span>
+</span></dt><dd>
+    apply variants of the given sample
+</dd></dl></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="screen">    # Apply variants present in sample "NA001", output IUPAC codes for hets
+    bcftools consensus -i -s NA001 -f in.fa in.vcf.gz &gt; out.fa
+
+    # Create consensus for one region. The fasta header lines are then expected
+    # in the form "&gt;chr:from-to".
+    samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa</pre></div><div class="refsect2" title="bcftools convert [OPTIONS] FILE"><a id="convert"></a><h3>bcftools convert <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><div class="refsect3" title="VCF input options:"><a id="_vcf_input_options"></a><h4>VCF input options:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
@@ -1486,4 +1520,4 @@ BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
 and further developing bcftools.  Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
 providing patches, testing and reporting bugs. We thank them all.</p></div><div class="refsect1" title="RESOURCES"><a id="_resources"></a><h2>RESOURCES</h2><p>BCFtools GitHub website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p><p>Samtools GitHub website: <a class="ulink" href="http://github.com/samtools/samtools" target="_top">http://github.com/samtools/samtools</a></p><p>HTSlib GitHub website: <a class="ulink" href="http://github.com/samtools/htslib" target="_top">http://github.com/samtools/htslib</a></p><p>File format specifications: <a class="ulink" href="http://samtools.github.io/hts-specs" target="_top">http://samtools.github.io/hts-specs</a></p><p>BCFtools documentation: <a class="ulink" href="http://samtools.github.io/bcftools" target="_top">http://samtools.github.io/bcftools</a></p><p>BCFtools wiki page: <a class="ulink" href="https://github.com/samtools/bcftools/wiki" target="_top">https://github.com/samtools/bcftools/wiki</a></p></div><div class="refsect1" title="COPYING"><a id="_copying"></a><h2>COPYING</h2><p>The MIT License if compiled with default options. See the LICENSE document for
-details. Copyright (c) Genome Research Ltd.</p></div></div></body></html>
+details. Copyright (c) Genome Research Ltd.</p><p>Last updated 09:33:12 BST, git version 1.1-13-g9332249+</p></div></div></body></html>

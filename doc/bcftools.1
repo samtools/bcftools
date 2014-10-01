@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 09/25/2014
+.\"      Date: 2014-10-01 09:33 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "09/25/2014" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2014\-10\-01 09:33 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -96,6 +96,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBconcat\fR
 \&.\&. concatenate VCF/BCF files from the same set of samples
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBconsensus\fR
+\&.\&. create consensus sequence by applying VCF variants
 .RE
 .sp
 .RS 4
@@ -787,6 +800,61 @@ see
 see
 \fBCommon Options\fR
 .RE
+.SS "bcftools consensus \fI[OPTIONS]\fR \fIFILE\fR"
+.sp
+Create consensus sequence by applying VCF variants to a reference fasta file\&.
+.PP
+\fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
+.RS 4
+reference sequence in fasta format
+.RE
+.PP
+\fB\-H, \-\-haplotype\fR \fI1\fR|\fI2\fR
+.RS 4
+apply variants for the given haplotype\&. This option requires
+\fB\-s\fR, unless exactly one sample is present in the VCF
+.RE
+.PP
+\fB\-i, \-\-iupac\-codes\fR
+.RS 4
+output variants in the form of IUPAC ambiguity codes
+.RE
+.PP
+\fB\-m, \-\-mask\fR \fIFILE\fR
+.RS 4
+BED file or TAB file with regions to be replaced with N\&. See discussion of
+\fB\-\-regions\-file\fR
+in
+\fBCommon Options\fR
+for file format details\&.
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+write output to a file
+.RE
+.PP
+\fB\-s, \-\-sample\fR \fINAME\fR
+.RS 4
+apply variants of the given sample
+.RE
+.sp
+\fBExamples:\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    # Apply variants present in sample "NA001", output IUPAC codes for hets
+    bcftools consensus \-i \-s NA001 \-f in\&.fa in\&.vcf\&.gz > out\&.fa
+
+    # Create consensus for one region\&. The fasta header lines are then expected
+    # in the form ">chr:from\-to"\&.
+    samtools faidx ref\&.fa 8:11870\-11890 | bcftools consensus in\&.vcf\&.gz \-o out\&.fa
+.fi
+.if n \{\
+.RE
+.\}
 .SS "bcftools convert \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
 .it 1 an-trap
@@ -2997,3 +3065,5 @@ BCFtools wiki page: https://github\&.com/samtools/bcftools/wiki
 .SH "COPYING"
 .sp
 The MIT License if compiled with default options\&. See the LICENSE document for details\&. Copyright (c) Genome Research Ltd\&.
+.sp
+Last updated 09:33:06 BST, git version 1\&.1\-13\-g9332249+

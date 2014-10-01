@@ -231,7 +231,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         // Insert the new record in the buffer. The line would be overwritten in
         // the next bcf_sr_next_line call, therefore we need to swap it with an
         // unused one
-        ilast = rbuf_add(&args->rbuf);
+        ilast = rbuf_append(&args->rbuf);
         if ( !args->rbuf_lines[ilast] ) args->rbuf_lines[ilast] = bcf_init1();
         SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->rbuf_lines[ilast]);
 

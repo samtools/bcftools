@@ -62,6 +62,7 @@ int main_vcfcnv(int argc, char *argv[]);
 int main_polysomy(int argc, char *argv[]);
 #endif
 int main_plugin(int argc, char *argv[]);
+int main_consensus(int argc, char *argv[]);
 
 typedef struct
 {
@@ -139,6 +140,10 @@ static cmd_t cmds[] =
     { .func  = main_vcfcall,
       .alias = "call",
       .help  = "SNP/indel calling"
+    },
+    { .func  = main_consensus,
+      .alias = "consensus",
+      .help  = "create consensus sequence by applying VCF variants"
     },
     { .func  = main_vcfcnv,
       .alias = "cnv",

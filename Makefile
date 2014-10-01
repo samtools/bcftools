@@ -42,7 +42,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
-           vcfcnv.o HMM.o vcfplugin.o \
+           vcfcnv.o HMM.o vcfplugin.o consensus.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES = -I. -I$(HTSDIR)
 
@@ -74,6 +74,8 @@ all:$(PROG) plugins
 PACKAGE_VERSION = 1.1
 ifneq "$(wildcard .git)" ""
 PACKAGE_VERSION := $(shell git describe --always --dirty)
+DOC_VERSION :=  $(shell git describe --always)+
+DOC_DATE := $(shell date +'%Y-%m-%d %R %Z')
 version.h: $(if $(wildcard version.h),$(if $(findstring "$(PACKAGE_VERSION)",$(shell cat version.h)),,force))
 endif
 version.h:
@@ -139,6 +141,7 @@ mcall.o: mcall.c $(HTSDIR)/htslib/kfunc.h $(call_h)
 prob1.o: prob1.c $(prob1_h)
 vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
 polysomy.o: polysomy.c $(htslib_hts_h)
+consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) $(HTSDIR)/htslib/regidx.h
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
@@ -149,10 +152,10 @@ bcftools: $(HTSLIB) $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(LDLIBS)
 
 doc/bcftools.1: doc/bcftools.txt
-	cd doc && a2x --doctype manpage --format manpage bcftools.txt
+	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
 
 doc/bcftools.html: doc/bcftools.txt
-	cd doc && a2x --doctype manpage --format xhtml bcftools.txt
+	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format xhtml bcftools.txt
 
 docs: doc/bcftools.1 doc/bcftools.html
 
