@@ -91,6 +91,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
+- *<<consensus,consensus>>*    ..  create consensus sequence by applying VCF variants
 - *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
@@ -460,6 +461,41 @@ the *-a, --allow-overlaps* option is specified.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
+
+[[consensus]]
+=== bcftools consensus '[OPTIONS]' 'FILE'
+Create consensus sequence by applying VCF variants to a reference fasta file.
+
+*-f, --fasta-ref* 'FILE'::
+    reference sequence in fasta format
+
+*-H, --haplotype* '1'|'2'::
+    apply variants for the given haplotype. This option requires *-s*, unless
+    exactly one sample is present in the VCF
+
+*-i, --iupac-codes*::
+    output variants in the form of IUPAC ambiguity codes
+
+*-m, --mask* 'FILE'::
+    BED file or TAB file with regions to be replaced with N. See discussion
+    of *--regions-file* in *<<common_options,Common Options>>* for file
+    format details.
+
+*-o, --output* 'FILE'::
+    write output to a file
+
+*-s, --sample* 'NAME'::
+    apply variants of the given sample
+
+*Examples:*
+----
+    # Apply variants present in sample "NA001", output IUPAC codes for hets
+    bcftools consensus -i -s NA001 -f in.fa in.vcf.gz > out.fa
+
+    # Create consensus for one region. The fasta header lines are then expected
+    # in the form ">chr:from-to".
+    samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa
+----
 
 
 [[convert]]

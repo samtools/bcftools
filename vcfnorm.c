@@ -1799,7 +1799,7 @@ static void normalize_vcf(args_t *args)
         if ( ilast>=0 && line->rid != args->lines[ilast]->rid ) flush_buffer(args, out, args->rbuf.n); // new chromosome
 
         // insert into sorted buffer
-        i = j = ilast = rbuf_add(&args->rbuf);
+        i = j = ilast = rbuf_append(&args->rbuf);
         if ( !args->lines[i] ) args->lines[i] = bcf_init1();
         SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->lines[i]);
         while ( rbuf_prev(&args->rbuf,&i) )

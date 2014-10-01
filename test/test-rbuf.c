@@ -42,7 +42,7 @@ int main(int argc, char **argv)
     rbuf.f = 5; // force wrapping
     for (i=0; i<9; i++)
     {
-        j = rbuf_add(&rbuf);
+        j = rbuf_append(&rbuf);
         dat[j] = i+1;
     }
     printf("Inserted 1-9 starting at offset 5:\n");
@@ -53,6 +53,14 @@ int main(int argc, char **argv)
 
     printf("Deleting 1-2:\n");
     rbuf_shift_n(&rbuf, 2);
+    debug_print(&rbuf, dat);
+
+    printf("Prepending 0-8:\n");
+    for (i=0; i<9; i++)
+    {
+        j = rbuf_prepend(&rbuf);
+        dat[j] = i;
+    }
     debug_print(&rbuf, dat);
 
     free(dat);
