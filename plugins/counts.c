@@ -26,7 +26,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdlib.h>
 #include <htslib/vcf.h>
 
-int nsnps, nindels, nsites;
+int nsamples, nsnps, nindels, nmnps, nothers, nsites;
 
 /*
     This short description is used to generate the output of `bcftools plugin -l`.
@@ -34,10 +34,9 @@ int nsnps, nindels, nsites;
 const char *about(void)
 {
     return
-        "A minimal plugin which counts number of SNPs, Indels, and\n"
-        "total number of sites.\n";
+        "A minimal plugin which counts number of samples, SNPs,\n"
+        "INDELs, MNPs and total number of sites.\n";
 }
-
 
 /*
     Called once at startup, allows to initialize local variables.
@@ -45,7 +44,8 @@ const char *about(void)
 */
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
-    nsnps = nindels = nsites = 0;
+    nsamples = bcf_hdr_nsamples(in);
+    nsnps = nindels = nmnps = nothers = nsites = 0;
     return 1;
 }
 
@@ -59,6 +59,8 @@ bcf1_t *process(bcf1_t *rec)
     int type = bcf_get_variant_types(rec);
     if ( type & VCF_SNP ) nsnps++;
     if ( type & VCF_INDEL ) nindels++;
+    if ( type & VCF_MNP ) nmnps++;
+    if ( type & VCF_OTHER ) nothers++;
     nsites++;
     return NULL;
 }
@@ -69,8 +71,11 @@ bcf1_t *process(bcf1_t *rec)
 */
 void destroy(void)
 {
+    printf("Number of samples: %d\n", nsamples);
     printf("Number of SNPs:    %d\n", nsnps);
-    printf("Number of Indels:  %d\n", nindels);
+    printf("Number of INDELs:  %d\n", nindels);
+    printf("Number of MNPs:    %d\n", nmnps);
+    printf("Number of others:  %d\n", nothers);
     printf("Number of sites:   %d\n", nsites);
 }
 
