@@ -324,6 +324,7 @@ static void gensample_to_vcf(args_t *args)
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GP,Number=G,Type=Float,Description=\"Genotype Probabilities\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
+    bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
 
     int i, nsamples;
     char **samples = hts_readlist(sample_fname, 1, &nsamples);
@@ -421,6 +422,7 @@ static void hapsample_to_vcf(args_t *args)
     args->header = bcf_hdr_init("w");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
+    bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
 
     int i, nsamples;
     char **samples = hts_readlist(sample_fname, 1, &nsamples);
@@ -829,6 +831,7 @@ static void tsv_to_vcf(args_t *args)
     args->header = bcf_hdr_init("w");
     bcf_hdr_set_chrs(args->header, args->ref);
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
 
     int i, n;
     char **smpls = hts_readlist(args->sample_list, args->sample_is_file, &n);
