@@ -827,6 +827,11 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         type_t *vals = (type_t *) args->tmp_arr1; \
         int len = bcf_hdr_id2length(args->hdr,BCF_HL_FMT,fmt->id); \
         int i, nsmpl = bcf_hdr_nsamples(args->hdr); \
+        if ( nvals==nsmpl ) /* all values are missing */ \
+        { \
+            bcf_update_format_##type(args->hdr,dst,tag,vals,nsmpl); \
+            return; \
+        } \
         if ( len==BCF_VL_A ) \
         { \
             assert( nvals==(src->n_allele-1)*nsmpl); \
@@ -856,7 +861,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         } \
         else if ( len==BCF_VL_G ) \
         { \
-            assert( nvals==src->n_allele*(src->n_allele+1)/2*nsmpl || nvals==src->n_allele*nsmpl ); \
+            if ( nvals!=src->n_allele*(src->n_allele+1)/2*nsmpl && nvals!=src->n_allele*nsmpl ) \
+                error("Error at %s:%d, the tag %s has wrong number of fields\n", bcf_seqname(args->hdr,src),src->pos+1,bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id)); \
             nvals /= nsmpl; \
             int all_haploid = nvals==src->n_allele ? 1 : 0; \
             type_t *src_vals = vals, *dst_vals = vals; \
