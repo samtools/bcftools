@@ -825,7 +825,7 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     tmp_str->l = 0;
 }
 
-void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
+int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
 {
     int ith_src = 0, start_src = 0;    // i-th field in src string
     while ( ith_src<isrc && start_src<src_len )
@@ -833,12 +833,12 @@ void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int ids
         if ( src[start_src]==',' ) { ith_src++; }
         start_src++;
     }
-    assert( ith_src==isrc ); // if ( ith_src<isrc ) return; // requested field not found
+    if ( ith_src!=isrc ) return -1; // requested field not found
     int end_src = start_src;
     while ( end_src<src_len && src[end_src]!=',' ) end_src++;
 
     int nsrc_cpy = end_src - start_src;
-    if ( nsrc_cpy==1 && src[start_src]=='.' ) return;   // don't write missing values, dst is already initialized
+    if ( nsrc_cpy==1 && src[start_src]=='.' ) return 0;   // don't write missing values, dst is already initialized
 
     int ith_dst = 0, start_dst = 0;
     while ( ith_dst<idst && start_dst<dst->l )
@@ -846,11 +846,11 @@ void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int ids
         if ( dst->s[start_dst]==',' ) { ith_dst++; }
         start_dst++;
     }
-    assert( ith_dst==idst ); // if ( ith_dst<idst ) return;
+    if ( ith_dst!=idst ) return -2;
     int end_dst = start_dst;
     while ( end_dst<dst->l && dst->s[end_dst]!=',' ) end_dst++;
 
-    if ( end_dst - start_dst>1 || dst->s[start_dst]!='.' ) return;   // do not overwrite non-empty values
+    if ( end_dst - start_dst>1 || dst->s[start_dst]!='.' ) return 0;   // do not overwrite non-empty values
 
     // Now start_dst and end_dst are indexes to the destination memory area
     // which needs to be replaced with nsrc_cpy
@@ -864,9 +864,10 @@ void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int ids
     }
     memcpy(dst->s+start_dst, src+start_src, nsrc_cpy);
     dst->l += ndst_shift;
+    return 0;
 }
 
-static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t *als, AGR_info_t *agr)
+static void merge_AGR_info_tag(bcf_hdr_t *hdr, bcf1_t *line, bcf_info_t *info, int len, maux1_t *als, AGR_info_t *agr)
 {
     int i;
     if ( !agr->nbuf )
@@ -962,7 +963,11 @@ static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t 
         {
             int iori, ifrom = len==BCF_VL_A ? 1 : 0;
             for (iori=ifrom; iori<line->n_allele; iori++)
-                copy_string_field((char*)info->vptr, iori-ifrom, info->len, &tmp, als->map[iori]-ifrom);
+            {
+                int ret = copy_string_field((char*)info->vptr, iori-ifrom, info->len, &tmp, als->map[iori]-ifrom);
+                if ( ret )
+                    error("Error at %s:%d: wrong number of fields in %s?\n", bcf_seqname(hdr,line),line->pos+1,agr->hdr_tag);
+            }
         }
         else
         {
@@ -975,7 +980,9 @@ static void merge_AGR_info_tag(bcf1_t *line, bcf_info_t *info, int len, maux1_t 
                     jnew = als->map[jori];
                     int kori = iori*(iori+1)/2 + jori;
                     int knew = bcf_alleles2gt(inew,jnew);
-                    copy_string_field((char*)info->vptr, kori, info->len, &tmp, knew);
+                    int ret  = copy_string_field((char*)info->vptr, kori, info->len, &tmp, knew);
+                    if ( ret )
+                        error("Error at %s:%d: wrong number of fields in %s?\n", bcf_seqname(hdr,line),line->pos+1,agr->hdr_tag);
                 }
             }
         }
@@ -1049,7 +1056,7 @@ void merge_info(args_t *args, bcf1_t *out)
                 kitr = kh_get(strdict, tmph, key);
                 int idx = kh_val(tmph, kitr);
                 if ( idx<0 ) error("Error occurred while processing INFO tag \"%s\" at %s:%d\n", key,bcf_seqname(hdr,line),line->pos+1);
-                merge_AGR_info_tag(line,inf,len,&ma->d[i][0],&ma->AGR_info[idx]);
+                merge_AGR_info_tag(hdr, line,inf,len,&ma->d[i][0],&ma->AGR_info[idx]);
                 continue;
             }
 
