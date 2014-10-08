@@ -1,0 +1,24 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=X,assembly=b37,length=249250621>
+##contig=<ID=Y,assembly=b37,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	MALE	FEMALE
+X	1	.	C	A	.	PASS	.	GT	1	0/1
+X	12000	.	C	A	.	PASS	.	GT	0	0/1
+X	24000	.	C	A	.	PASS	.	GT	1	0/1
+X	36000	.	C	A	.	PASS	.	GT	0	0/1
+X	48000	.	C	A	.	PASS	.	GT	1	0/1
+X	60000	.	C	A	.	PASS	.	GT	0	0/1
+X	100000	.	C	A	.	PASS	.	GT	0/1	0/1
+X	2699521	.	C	A	.	PASS	.	GT	0	0/1
+X	33145825	.	C	A	.	PASS	.	GT	1	0/1
+X	63592129	.	C	A	.	PASS	.	GT	1	0/1
+X	94038433	.	C	A	.	PASS	.	GT	0	0/1
+X	124484737	.	C	A	.	PASS	.	GT	0	0/1
+X	154931043	.	C	A	.	PASS	.	GT	0/1	0/1
+Y	1	.	C	A	.	PASS	.	GT	0	.
+Y	11874713	.	C	A	.	PASS	.	GT	0	.
+Y	23749426	.	C	A	.	PASS	.	GT	0	.
+Y	35624139	.	C	A	.	PASS	.	GT	0	.
+Y	47498852	.	C	A	.	PASS	.	GT	0	.
+Y	59373565	.	C	A	.	PASS	.	GT	0	.
