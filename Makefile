@@ -42,7 +42,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
-           vcfcnv.o HMM.o vcfplugin.o consensus.o \
+           vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o version.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES = -I. -I$(HTSDIR)
 
@@ -83,7 +83,7 @@ version.h:
 
 
 .SUFFIXES:.c .o
-.PHONY:all clean clean-all distclean install lib tags test testclean force plugins docs
+.PHONY:all clean clean-all clean-plugins distclean install lib tags test testclean force plugins docs
 
 force:
 
@@ -93,13 +93,23 @@ force:
 test: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
 	./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
 
+
+# Determine dependencies for plugins on the fly.
 PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
 PLUGINS = $(PLUGINC:.c=.so)
+PLUGINP = $(PLUGINC:.c=.P)
+
+%.P: %.c
+	@$(CC) -M $(INCLUDES) $< | sed 's,^\(.*\)\.o:*,plugins/\1.so:,' | head -c -1 > $@; \
+	if [ -e $*.dep ]; then echo ' version.c\'; cat $*.dep; else echo ' version.c'; fi >> $@; \
+	echo -e "\t\\" >> $@; \
+	echo '$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $$@ $$< version.c \' >> $@; \
+	echo '`if [ -e $*.dep ]; then cat $*.dep; fi` \' >> $@; \
+	echo '-L$(HTSDIR) -lhts' >> $@;
+
+-include $(PLUGINP)
 
 plugins: $(PLUGINS)
-
-%.so: %.c version.h version.c vcfplugin.c $(HTSDIR)/libhts.so
-	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ version.c $< -L$(HTSDIR) -lhts
 
 bcftools_h = bcftools.h $(htslib_vcf_h)
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
@@ -142,6 +152,7 @@ prob1.o: prob1.c $(prob1_h)
 vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
 polysomy.o: polysomy.c $(htslib_hts_h)
 consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) $(HTSDIR)/htslib/regidx.h
+version.o: version.h version.c
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
@@ -164,9 +175,12 @@ install: $(PROG)
 	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
 
-clean: testclean
-	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so
+clean: testclean clean-plugins
+	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so plugins/*.P
 	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
+
+clean-plugins:
+	-rm -f plugins/*.so plugins/*.P plugins/*.dSYM
 
 testclean:
 	-rm -f test/*.o test/*~ $(TEST_PROG)

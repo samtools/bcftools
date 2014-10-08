@@ -52,6 +52,11 @@ typedef struct _plugin_t plugin_t;
  *   const char *usage(void)
  *      - longer description used by 'bcftools +name -h'
  *
+ *   int run(int argc, char **argv)
+ *      - if implemented, the control is immediately handed over to the plugin,
+ *      none of the init/process/destroy functions is called.  Return 0 on
+ *      success or non-zero value on error.
+ *
  *   int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
  *      - called once at startup, allows to initialize local variables.
  *      Return 1 to suppress normal VCF/BCF header output, -1 on critical
@@ -64,6 +69,7 @@ typedef struct _plugin_t plugin_t;
  *      - called after all lines have been processed to clean up
  */
 typedef void (*dl_version_f) (const char **, const char **);
+typedef int (*dl_run_f) (int, char **);
 typedef int (*dl_init_f) (int, char **, bcf_hdr_t *, bcf_hdr_t *);
 typedef char* (*dl_about_f) (void);
 typedef char* (*dl_usage_f) (void);
@@ -75,6 +81,7 @@ struct _plugin_t
     int argc;
     char *name, **argv;
     dl_version_f version;
+    dl_run_f run;
     dl_init_f init;
     dl_about_f about;
     dl_usage_f usage;
@@ -180,8 +187,8 @@ static void *dlopen_plugin(args_t *args, const char *fname)
             handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
             if ( args->verbose )
             {
-                if ( !handle ) fprintf(stderr,"%s:\n\t%s\n", tmp,dlerror());
-                else fprintf(stderr,"%s: ok\n", tmp);
+                if ( !handle ) fprintf(stderr,"%s:\n\tdlopen   .. %s\n", tmp,dlerror());
+                else fprintf(stderr,"%s:\n\tdlopen   .. ok\n", tmp);
             }
             free(tmp);
             if ( handle ) return handle;
@@ -191,8 +198,8 @@ static void *dlopen_plugin(args_t *args, const char *fname)
     handle = dlopen(fname, RTLD_NOW);
     if ( args->verbose )
     {
-        if ( !handle ) fprintf(stderr,"%s:\n\t%s\n", fname,dlerror());
-        else fprintf(stderr,"%s: ok\n", fname);
+        if ( !handle ) fprintf(stderr,"%s:\n\tdlopen   .. %s\n", fname,dlerror());
+        else fprintf(stderr,"%s:\n\tdlopen   .. ok\n", fname);
     }
 
     return handle;
@@ -237,8 +244,21 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
     char *ret = dlerror();
     if ( ret )
+        plugin->init = NULL;
+    else 
+        if ( args->verbose ) fprintf(stderr,"\tinit     .. ok\n");
+
+    plugin->run = (dl_run_f) dlsym(plugin->handle, "run");
+    ret = dlerror();
+    if ( ret )
+        plugin->run = NULL;
+    else
+        if ( args->verbose ) fprintf(stderr,"\trun      .. ok\n");
+
+    if ( !plugin->init && !plugin->run )
     {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( exit_on_error ) error("Could not initialize %s, neither run or init found \n", plugin->name);
+        else if ( args->verbose ) fprintf(stderr,"\tinit/run .. not found\n");
         return -1;
     }
 
@@ -246,7 +266,8 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     ret = dlerror();
     if ( ret )
     {
-        if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
+        if ( exit_on_error ) error("Could not initialize %s, version string not found\n", plugin->name);
+        else if ( args->verbose ) fprintf(stderr,"\tversion  .. not found\n");
         return -1;
     }
 
@@ -262,6 +283,8 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     ret = dlerror();
     if ( ret )
         plugin->usage = plugin->about;
+
+    if ( plugin->run ) return 0;
 
     plugin->process = (dl_process_f) dlsym(plugin->handle, "process");
     ret = dlerror();
@@ -287,7 +310,7 @@ static void init_plugin(args_t *args)
     static int warned_bcftools = 0, warned_htslib = 0;
 
     int ret = args->plugin.init(args->plugin.argc,args->plugin.argv,args->hdr,args->hdr_out);
-    if ( ret<0 ) error("The plugin exited with an error: %s\n", args->plugin.name);
+    if ( ret<0 ) error("The plugin exited with an error.\n");
     const char *bver, *hver;
     args->plugin.version(&bver, &hver);
     if ( strcmp(bver,bcftools_version()) && !warned_bcftools )
@@ -380,7 +403,7 @@ static void init_data(args_t *args)
 static void destroy_data(args_t *args)
 {
     free(args->plugin.name);
-    args->plugin.destroy();
+    if ( args->plugin.destroy ) args->plugin.destroy();
     dlclose(args->plugin.handle);
     if ( args->hdr_out ) bcf_hdr_destroy(args->hdr_out);
     if ( args->nplugin_paths>0 )
@@ -423,7 +446,6 @@ int main_plugin(int argc, char *argv[])
     int c;
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
-    args->files   = bcf_sr_init();
     args->output_fname = "-";
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
@@ -476,6 +498,16 @@ int main_plugin(int argc, char *argv[])
     }
     if ( plist_only )  return list_plugins(args);
 
+    load_plugin(args, plugin_name, 1, &args->plugin);
+    if ( args->plugin.run )
+    {
+        int iopt = optind; optind = 0;
+        int ret = args->plugin.run(argc-iopt, argv+iopt);
+        destroy_data(args);
+        free(args);
+        return ret;
+    }
+
     char *fname = NULL;
     if ( optind>=argc || argv[optind][0]=='-' )
     {
@@ -492,8 +524,8 @@ int main_plugin(int argc, char *argv[])
     }
     optind = 0;
     args->plugin.argv[0] = plugin_name;
-    load_plugin(args, plugin_name, 1, &args->plugin);
 
+    args->files = bcf_sr_init();
     if ( args->regions_list )
     {
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )

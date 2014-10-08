@@ -28,31 +28,15 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <htslib/vcf.h>
-#include <htslib/regidx.h>
-#include <htslib/khash_str2int.h>
 #include <htslib/kseq.h>
+#include "bcftools.h"
+#include "ploidy.h"
 
-typedef struct
-{
-    int sex, ploidy;
-}
-sex_ploidy_t;
-
-static kstring_t tmp_str = {0,0,0};
 static bcf_hdr_t *in_hdr = NULL, *out_hdr = NULL;
-static regidx_t *idx = NULL;
 static int *sample2sex = NULL;
 static int n_sample = 0, nsex = 0, *sex2ploidy = NULL;
-static int32_t ngt_arr = 0, *gt_arr = NULL, *gt_arr2 = NULL, ngt_arr2 = 0; 
-
-void error(const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    exit(-1);
-}
+static int32_t ngt_arr = 0, *gt_arr = NULL, *gt_arr2 = NULL, ngt_arr2 = 0;
+static ploidy_t *ploidy = NULL;
 
 const char *about(void)
 {
@@ -89,44 +73,7 @@ const char *usage(void)
         "\n";
 }
 
-int ploidy_parse(const char *line, char **chr_beg, char **chr_end, reg_t *reg, void *payload, void *sex2id)
-{
-    // Fill CHR,FROM,TO
-    int i, ret = regidx_parse_tab(line,chr_beg,chr_end,reg,NULL,NULL);
-    if ( ret!=0 ) return ret;
-
-    // Skip the fields already parsed by regidx_parse_tab
-    char *ss = (char*) line;
-    while ( *ss && isspace(*ss) ) ss++;
-    for (i=0; i<3; i++)
-    {
-        while ( *ss && !isspace(*ss) ) ss++;
-        if ( !*ss ) return -2;  // wrong number of fields
-        while ( *ss && isspace(*ss) ) ss++;
-    }
-    if ( !*ss ) return -2;
-
-    // Parse the payload
-    char *se = ss;
-    while ( *se && !isspace(*se) ) se++;
-    if ( !*se || se==ss ) error("Could not parse: %s\n", line);
-    tmp_str.l = 0;
-    kputsn(ss,se-ss,&tmp_str);
-
-    sex_ploidy_t *sp = (sex_ploidy_t*) payload;
-    if ( khash_str2int_get(sex2id, tmp_str.s, &sp->sex) != 0 )
-        sp->sex = khash_str2int_inc(sex2id,strdup(tmp_str.s));
-
-    ss = se;
-    while ( *se && isspace(*se) ) se++;
-    if ( !*se ) error("Could not parse: %s\n", line);
-    sp->ploidy = strtol(ss,&se,10);
-    if ( ss==se ) error("Could not parse: %s\n", line);
-
-    return 0;
-}
-
-void set_samples(char *fname, bcf_hdr_t *hdr, void *sex2id, int *sample2sex)
+void set_samples(char *fname, bcf_hdr_t *hdr, ploidy_t *ploidy, int *sample2sex)
 {
     kstring_t tmp = {0,0,0};
 
@@ -153,10 +100,7 @@ void set_samples(char *fname, bcf_hdr_t *hdr, void *sex2id, int *sample2sex)
         while ( *se && !isspace(*se) ) se++;
         if ( se==ss ) error("Could not parse: %s\n", tmp.s);
 
-        int sex_id;
-        if ( khash_str2int_get(sex2id, ss, &sex_id)!=0 )
-            sex_id = khash_str2int_inc(sex2id, ss);
-        sample2sex[ismpl] = sex_id;
+        sample2sex[ismpl] = ploidy_add_sex(ploidy, ss);
     }
     if ( hts_close(fp) ) error("Close failed: %s\n", fname);
     free(tmp.s);
@@ -189,67 +133,42 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     }
     if ( strcasecmp("GT",tags_str) ) error("Only -t GT is currently supported, sorry\n");
 
-    void *sex2id = khash_str2int_init();
+    n_sample   = bcf_hdr_nsamples(in);
+    sample2sex = (int*) calloc(n_sample,sizeof(int));
+    in_hdr     = in;
+    out_hdr    = out;
+
     if ( ploidy_fname )
-        idx = regidx_init(ploidy_fname,ploidy_parse,NULL,sizeof(sex_ploidy_t),sex2id);
+        ploidy = ploidy_init(ploidy_fname, 2);
     else
     {
-        idx = regidx_init(NULL,ploidy_parse,NULL,sizeof(sex_ploidy_t),sex2id);
-        regidx_insert(idx,"X 1 60000 M 1");
-        regidx_insert(idx,"X 2699521 154931043 M 1");
-        regidx_insert(idx,"Y 1 59373566 M 1");
-        regidx_insert(idx,"Y 1 59373566 F 0");
-        regidx_insert(idx,"MT 1 16569 M 1");
-        regidx_insert(idx,"MT 1 16569 F 1");
-        regidx_insert(idx,NULL);
+        
+        ploidy = ploidy_init_string(
+                "X 1 60000 M 1\n"
+                "X 2699521 154931043 M 1\n"
+                "Y 1 59373566 M 1\n"
+                "Y 1 59373566 F 0\n"
+                "MT 1 16569 M 1\n"
+                "MT 1 16569 F 1\n", 2);
     }
+    if ( !ploidy ) return -1;
 
-    int dflt_sex_id = 0;
-    if ( khash_str2int_get(sex2id,"F",&dflt_sex_id)!=0 )
-        dflt_sex_id = khash_str2int_inc(sex2id, strdup("F"));
-
-    int i;
-
-    nsex = khash_str2int_size(sex2id);
+    // add default sex in case it was not included
+    int i, dflt_sex_id = ploidy_add_sex(ploidy, "F");
+    for (i=0; i<n_sample; i++) sample2sex[i] = dflt_sex_id; // by default all are F
+    if ( sex_fname ) set_samples(sex_fname, in, ploidy, sample2sex);
+    nsex = ploidy_nsex(ploidy);
     sex2ploidy = (int*) malloc(sizeof(int)*nsex);
 
-    in_hdr  = in;
-    out_hdr = out;
-    n_sample = bcf_hdr_nsamples(in);
-    sample2sex = (int*) calloc(n_sample,sizeof(int));
-    for (i=0; i<n_sample; i++) sample2sex[i] = dflt_sex_id;
-    if ( sex_fname ) set_samples(sex_fname, in, sex2id, sample2sex);
-
-    khash_str2int_destroy_free(sex2id);
     return 0;
 }
 
 
 bcf1_t *process(bcf1_t *rec)
 {
-    int i,j, max_ploidy = -1, min_ploidy = 99;
-    for (i=0; i<nsex; i++) sex2ploidy[i] = 2;
+    int i,j, max_ploidy;
 
-    regitr_t itr;
-    if ( regidx_overlap(idx, (char*)bcf_seqname(in_hdr,rec), rec->pos,rec->pos, &itr) )
-    {
-        while ( REGITR_OVERLAP(itr,rec->pos,rec->pos) )
-        {
-            int sex    = REGITR_PAYLOAD(itr,sex_ploidy_t).sex;
-            int ploidy = REGITR_PAYLOAD(itr,sex_ploidy_t).ploidy;
-            if ( ploidy!=2 ) 
-            {
-                sex2ploidy[ sex ] = ploidy;
-                if ( min_ploidy > ploidy ) min_ploidy = ploidy;
-                if ( max_ploidy < ploidy ) max_ploidy = ploidy;
-            }
-            itr.i++;
-        }
-        if ( max_ploidy==-1 ) max_ploidy = 2;
-        if ( min_ploidy==99 ) min_ploidy = 2;
-    }
-    else
-        min_ploidy = max_ploidy = 2;
+    ploidy_query(ploidy, (char*)bcf_seqname(in_hdr,rec), rec->pos, sex2ploidy,NULL,&max_ploidy);
 
     int ngts = bcf_get_genotypes(in_hdr, rec, &gt_arr, &ngt_arr);
     if ( ngts % n_sample )
@@ -300,10 +219,9 @@ void destroy(void)
 {
     free(gt_arr);
     free(gt_arr2);
-    regidx_destroy(idx);
-    free(tmp_str.s);
     free(sample2sex);
     free(sex2ploidy);
+    ploidy_destroy(ploidy);
 }
 
 

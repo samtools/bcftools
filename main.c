@@ -31,15 +31,6 @@ THE SOFTWARE.  */
 #include "version.h"
 #include "bcftools.h"
 
-void error(const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    exit(-1);
-}
-
 int main_tabix(int argc, char *argv[]);
 int main_vcfindex(int argc, char *argv[]);
 int main_vcfstats(int argc, char *argv[]);
