@@ -22,11 +22,16 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+
 // Please do not modify bcftools.1 or bcftools.html directly,
 // edit this file and convert using the following commands:
 //
-//  a2x --doctype manpage --format manpage bcftools.txt
-//  a2x --doctype manpage --format xhtml bcftools.txt
+//      make docs
+//
+// or
+//
+//      a2x --doctype manpage --format manpage bcftools.txt
+//      a2x --doctype manpage --format xhtml bcftools.txt
 //
 // Contributions are welcome, simply edit this file and send
 // a pull request or email the modified file directly.
@@ -39,7 +44,7 @@ bcftools(1)
 
 NAME
 ----
-bcftools - utilities for variant calling and manipulating VCFs and BCFs
+bcftools - utilities for variant calling and manipulating VCFs and BCFs.
 
 
 SYNOPSIS
@@ -62,6 +67,9 @@ BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 
+
+=== VERSION 
+This manual page was last updated *{date}* and refers to bcftools git version *{version}*.
 
 === BCF1
 The BCF1 format output by versions of samtools \<= 0.1.19 is *not*
@@ -1063,6 +1071,8 @@ multiple rows.
 *missing2ref*::
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
 
+*vcf2sex*::
+    determine sample sex by checking genotypes in haploid regions
 
 ==== Examples:
 
@@ -1681,7 +1691,4 @@ COPYING
 -------
 The MIT License if compiled with default options. See the LICENSE document for
 details. Copyright (c) Genome Research Ltd.
-
-
-Last updated {date}, git version {version}
 
