@@ -113,6 +113,8 @@ int process_region_precise(args_t *args, char *seq, regitr_t *itr)
                 if ( gts[igt]==bcf_gt_missing || gts[igt]==bcf_int32_missing || gts[igt]==bcf_int32_vector_end ) break;
                 else ploidy++;
             args->counts[ismpl*(args->max_ploidy+1) + ploidy]++;
+            if ( args->verbose )
+                fprintf(stderr,"%s:%d\t%s\tploidy=%d\n", seq,rec->pos+1,args->hdr->samples[ismpl],ploidy);
         }
     }
 

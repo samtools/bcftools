@@ -105,7 +105,7 @@ PLUGINP = $(PLUGINC:.c=.P)
 	echo -e "\t\\" >> $@; \
 	echo '$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $$@ $$< version.c \' >> $@; \
 	echo '`if [ -e $*.dep ]; then cat $*.dep; fi` \' >> $@; \
-	echo '-L$(HTSDIR) -lhts' >> $@;
+	echo '-L$(HTSDIR) -lhts' >> $@; cat $@
 
 -include $(PLUGINP)
 

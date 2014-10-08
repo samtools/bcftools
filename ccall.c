@@ -43,6 +43,8 @@ void ccall_init(call_t *call)
     call_init_pl2p(call);
     call->cdat->p1 = bcf_p1_init(bcf_hdr_nsamples(call->hdr), call->ploidy);
     call->gts = (int*) calloc(bcf_hdr_nsamples(call->hdr)*2,sizeof(int));   // assuming at most diploid everywhere
+    call->nals_map = 5;
+    call->als_map  = (int*) malloc(sizeof(int)*call->nals_map);
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AF1,Number=1,Type=Float,Description=\"Max-likelihood estimate of the first ALT allele frequency (assuming HWE)\">");
@@ -62,6 +64,8 @@ void ccall_init(call_t *call)
 }
 void ccall_destroy(call_t *call)
 {
+    free(call->itmp);
+    free(call->als_map);
     free(call->gts);
     free(call->anno16);
     free(call->PLs);
@@ -219,7 +223,7 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     if (rec->qual > 999) rec->qual = 999;
 
     // Remove unused alleles
-    int nals = !is_var ? 1 : pr->rank0 < 2? 2 : pr->rank0+1;
+    int nals_ori = rec->n_allele, nals = !is_var ? 1 : pr->rank0 < 2? 2 : pr->rank0+1;
     if ( nals<rec->n_allele )
     {
         bcf_update_alleles(call->hdr, rec, (const char**)rec->d.allele, nals);
@@ -283,6 +287,13 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
         // GQ: todo
     }
     bcf_update_genotypes(call->hdr, rec, call->gts, rec->n_sample*2);
+
+    // trim Number=R tags
+    int out_als = 0;
+    for (i=0; i<nals; i++) out_als |= 1<<i;
+    init_allele_trimming_maps(call, out_als, nals_ori);
+    mcall_trim_numberR(call, rec, nals_ori, nals, out_als);
+
     return is_var;
 }
 
