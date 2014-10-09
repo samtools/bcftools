@@ -94,22 +94,18 @@ test: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
 	./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
 
 
-# Determine dependencies for plugins on the fly.
+# Plugin rules
 PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
 PLUGINS = $(PLUGINC:.c=.so)
-PLUGINP = $(PLUGINC:.c=.P)
+PLUGINM = $(PLUGINC:.c=.mk)
 
-%.P: %.c
-	@$(CC) -M $(INCLUDES) $< | sed 's,^\(.*\)\.o:*,plugins/\1.so:,' | head -c -1 > $@; \
-	if [ -e $*.dep ]; then echo ' version.c\'; cat $*.dep; else echo ' version.c'; fi >> $@; \
-	echo -e "\t\\" >> $@; \
-	echo '$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $$@ $$< version.c \' >> $@; \
-	echo '`if [ -e $*.dep ]; then cat $*.dep; fi` \' >> $@; \
-	echo '-L$(HTSDIR) -lhts' >> $@; cat $@
+%.so: %.c version.h version.c
+	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ version.c $< -L$(HTSDIR) -lhts
 
--include $(PLUGINP)
+-include $(PLUGINM)
 
 plugins: $(PLUGINS)
+
 
 bcftools_h = bcftools.h $(htslib_vcf_h)
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
