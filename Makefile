@@ -99,7 +99,7 @@ PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
 PLUGINS = $(PLUGINC:.c=.so)
 PLUGINM = $(PLUGINC:.c=.mk)
 
-%.so: %.c version.h version.c
+%.so: %.c version.h version.c $(HTSDIR)/libhts.so
 	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ version.c $< -L$(HTSDIR) -lhts
 
 -include $(PLUGINM)
