@@ -124,6 +124,8 @@ test_vcf_filter($opts,in=>'filter.3',out=>'filter.4.out',args=>q[-e'FMT/GT="0/2"
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.5.out',args=>q[-e'FMT/GT="0/2"' -s XX -m+],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.6.out',args=>q[-e'FMT/GT="0/2"' -s XX -mx],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.7.out',args=>q[-e'FMT/GT="0/2"' -s XX -m+x],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.8.out',args=>q[-i'FMT/GT="0/0" && AC[*]=2'],fmt=>'%POS\\t%AC[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.8.out',args=>q[-i'AC[*]=2 && FMT/GT="0/0"'],fmt=>'%POS\\t%AC[\\t%GT]\\n');
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');

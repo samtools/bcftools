@@ -831,7 +831,7 @@ static int vector_logic_and(token_t *atok, token_t *btok)
         return pass_site;
     }
     /* atok->nsamples!=0 */
-    for (i=0; i<atok->nvalues; i++)
+    for (i=0; i<atok->nsamples; i++)
     {
         atok->pass_samples[i] = atok->pass_samples[i] && btok->pass_site;
         if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
