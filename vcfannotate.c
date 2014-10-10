@@ -286,6 +286,7 @@ static void init_header_lines(args_t *args)
     }
     hts_close(file);
     free(str.s);
+    bcf_hdr_sync(args->hdr_out);
 }
 static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {

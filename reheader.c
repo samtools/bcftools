@@ -343,7 +343,6 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
         }
     }
     for (i=0; i<dst->n[BCF_DT_SAMPLE]; i++) bcf_hdr_add_sample(out, dst->samples[i]);
-    bcf_hdr_add_sample(out, NULL);
     bcf_hdr_destroy(dst);
     return out;
 }

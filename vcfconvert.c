@@ -334,7 +334,6 @@ static void gensample_to_vcf(args_t *args)
         *se = 0;
         bcf_hdr_add_sample(args->header,samples[i]);
     }
-    bcf_hdr_add_sample(args->header,NULL);
     for (i=0; i<nsamples; i++) free(samples[i]);
     free(samples);
 
