@@ -166,10 +166,10 @@ doc/bcftools.html: doc/bcftools.txt
 
 docs: doc/bcftools.1 doc/bcftools.html
 
-install: $(PROG)
+install: $(PROG) docs
 	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
 	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
-	$(INSTALL_DATA) bcftools.1 $(DESTDIR)$(man1dir)
+	$(INSTALL_DATA) doc/bcftools.1 $(DESTDIR)$(man1dir)
 
 clean: testclean clean-plugins
 	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so plugins/*.P
