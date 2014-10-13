@@ -36,9 +36,9 @@
 
 typedef struct
 {
-    int nsites, nsex, *sex2ploidy, dflt_ploidy, max_ploidy;
-    int ncounts, *counts, guess, nsample, verbose;
-    float *sex2prob;
+    int nsites, nsex, *sex2ploidy, dflt_ploidy, max_ploidy, guess;
+    int ncounts, *counts, nsample, verbose;
+    float *sex2prob, min_hets;
     int32_t *gts, ngts;
     bcf_srs_t *sr;
     bcf_hdr_t *hdr;
@@ -60,9 +60,10 @@ const char *usage(void)
         "       in haploid regions.\n"
         "Usage: bcftools +vcf2sex <file.vcf.gz> -- [Plugin Options]\n"
         "Plugin options:\n"
-        "   -g, --guess           do not trust genotypes ploidy, count hom/hets\n"
-        "   -n, --nsites <int>    number of sites to check per region (ignored with -g) [10]\n"
-        "   -p, --ploidy <file>   space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n"
+        "   -g, --guess             do not trust genotypes ploidy, count hom/hets\n"
+        "   -m, --min-hets <float>  minimum fraction of hets in diploid regions [0.05]\n"
+        "   -n, --nsites <int>      number of sites to check per region (ignored with -g) [10]\n"
+        "   -p, --ploidy <file>     space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n"
         "\n"
         "Example:\n"
         "   # Default ploidy, if -p not given. Unlisted regions have ploidy 2\n"
@@ -146,10 +147,11 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
     memset(args->counts,0,args->ncounts*sizeof(int));
 
     if ( bcf_sr_seek(args->sr,seq,start)!=0 ) return k;   // sequence not present
+    int rid = bcf_hdr_name2id(args->hdr,seq);
     while ( bcf_sr_next_line(args->sr) )
     {
         bcf1_t *rec = bcf_sr_get_line(args->sr,0);
-        if ( rec->pos > end ) break;
+        if ( rec->rid!=rid || rec->pos > end ) break;
 
         bcf_fmt_t *fmt = bcf_get_fmt(args->hdr, rec, "GT");
         for (ismpl=0; ismpl<args->nsample; ismpl++)
@@ -165,6 +167,7 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
     {
         float sum = 0, *probs = args->sex2prob + ismpl*args->nsex;
         int i, *counts = args->counts + ismpl*(args->max_ploidy+1);
+        float fhet = (counts[1]+counts[2]) ? (float)counts[1]/(counts[1]+counts[2]) : 0;
         for (i=0; i<args->max_ploidy+1; i++) sum += counts[i];
         for (i=0; i<args->nsex; i++)
         {
@@ -176,16 +179,18 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
                 prob = sum ? counts[0] / sum : 1;   // fraction of missing sites
             else if ( ploidy==1 )
             {
-                if ( counts[2] ) prob = (float)counts[1]/counts[2] > 0.1 ? 0.1 : 0.9;
+                if ( counts[1]+counts[2] ) prob = fhet > args->min_hets ? 0.1 : 0.9;
                 prob *= sum ? 1 - counts[0] / sum : 1./args->nsex;
             }
             else 
             {
-                if ( counts[2] ) prob = (float)counts[1]/counts[2] > 0.1 ? 0.9 : 0.1;
+                if ( counts[1]+counts[2] ) prob = fhet > args->min_hets ? 0.9 : 0.1;
                 prob *= sum ? 1 - counts[0] / sum : 1./args->nsex;
             }
             probs[i] *= prob;
         }
+        if ( args->verbose )
+            printf("DBG\t%s:%d-%d\t%s\t%f\t%d\t%d\t%d\n", seq,start+1,end+1,args->hdr->samples[ismpl], fhet,counts[0],counts[1],counts[2]);
     }
 
     return k;
@@ -195,20 +200,26 @@ int run(int argc, char **argv)
 {
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->nsites = 10;
+    args->min_hets = 0.05;
     static struct option loptions[] =
     {
         {"verbose",1,0,'v'},
         {"ploidy",1,0,'p'},
         {"nsites",1,0,'n'},
         {"guess",0,0,'g'},
+        {"min-hets",1,0,'m'},
         {0,0,0,0}
     };
     char c, *tmp, *ploidy_fname = NULL;
-    while ((c = getopt_long(argc, argv, "p:n:gv",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "p:n:gm:v",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'v': args->verbose = 1; break; 
-            case 'g': args->guess = 1; break; 
+            case 'g': args->guess = 1; break;
+            case 'm': 
+                args->min_hets = strtod(optarg,&tmp); 
+                if ( *tmp ) error("Unexpected argument to --min-hets: %s\n", optarg);
+                break; 
             case 'p': ploidy_fname = optarg; break; 
             case 'n': 
                 args->nsites = strtol(optarg,&tmp,10); 
@@ -249,6 +260,9 @@ int run(int argc, char **argv)
 
     int i, nseq;
     for (i=0; i<args->nsample*args->nsex; i++) args->sex2prob[i] = 1;
+
+    if ( args->verbose && args->guess )
+        printf("# [1]DBG\t[2]Region\t[3]Sample\t[4]HET fraction\t[5]nHet\t[6]nHom\t[7]nMissing\n");
 
     regidx_t *idx = ploidy_regions(args->ploidy);
     char **seqs = regidx_seq_names(idx, &nseq);
