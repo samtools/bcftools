@@ -561,11 +561,11 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
 ----
 
 ==== HAPS/LEGEND/SAMPLE options:
-*-H, --hapslegendsample2vcf* 'prefix' or 'haps-file','legend-file',sample-file'::
+*-H, --haplegendsample2vcf* 'prefix' or 'haps-file','legend-file',sample-file'::
     convert from haps/legend/sample format used by IMPUTE2 to VCF, see
     also *-h, --hapslegendsample* below.
 
-*-h, --hapslegendsample* 'prefix' or 'haps-file','legend-file',sample-file'::
+*-h, --haplegendsample* 'prefix' or 'haps-file','legend-file',sample-file'::
     convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
     The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
     swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
@@ -589,6 +589,12 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
   sample1 sample1 sample1 2
   sample2 sample2 sample2 2
 ----
+
+*--haploid2diploid*::
+    with *-h* option converts haploid genotypes to homozygous diploid
+    genotypes. For example, the program will print '0 0' instead of the 
+    default '0 -'. This is useful for programs which do not handle haploid
+    genotypes correctly.
 
 *--vcf-ids*::
     output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
