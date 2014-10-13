@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp70224"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25200480"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-10-08 16:08 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-29-g6cfded5+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-10-13 13:20 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-38-g680720f+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -529,6 +529,11 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
   ----
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
   1:111494194_C_T rsID2 111494194 C T 0 1 0 0</pre></div><div class="refsect3" title="HAPS/LEGEND/SAMPLE options:"><a id="_haps_legend_sample_options"></a><h4>HAPS/LEGEND/SAMPLE options:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-H, --hapslegendsample2vcf</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,sample-file'
+</span></dt><dd>
+    convert from haps/legend/sample format used by IMPUTE2 to VCF, see
+    also <span class="strong"><strong>-h, --hapslegendsample</strong></span> below.
+</dd><dt><span class="term">
 <span class="strong"><strong>-h, --hapslegendsample</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,sample-file'
 </span></dt><dd>
     convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
@@ -551,7 +556,11 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
   -------
   sample population group sex
   sample1 sample1 sample1 2
-  sample2 sample2 sample2 2</pre></div><div class="refsect3" title="TSV options:"><a id="_tsv_options"></a><h4>TSV options:</h4><div class="variablelist"><dl><dt><span class="term">
+  sample2 sample2 sample2 2</pre><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>--vcf-ids</strong></span>
+</span></dt><dd>
+    output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
+</dd></dl></div></div><div class="refsect3" title="TSV options:"><a id="_tsv_options"></a><h4>TSV options:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>--tsv2vcf</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     convert from TSV (tab-separated values) format (such as generated by
