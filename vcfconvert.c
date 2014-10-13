@@ -62,7 +62,7 @@ struct _args_t
     kstring_t str;
     int32_t *gts;
     float *flt;
-    int rev_als;
+    int rev_als, output_vcf_ids;
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname;
@@ -259,7 +259,7 @@ static int tsv_setter_haps(tsv_t *tsv, bcf1_t *rec, void *usr)
     }
     if ( tsv->ss[(nsamples-1)*4+3] )
     {
-        fprintf(stderr,"Wrong number of fields ([%c]). ", tsv->ss[(nsamples-1)*4+1]);
+        fprintf(stderr,"Wrong number of fields (%d-th column = [%c]). ", nsamples*2,tsv->ss[(nsamples-1)*4+1]);
         return -1;
     }
 
@@ -367,6 +367,135 @@ static void gensample_to_vcf(args_t *args)
     free(args->gts);
     free(args->flt);
     tsv_destroy(tsv);
+
+    fprintf(stderr,"Number of processed rows: \t%d\n", args->n.total);
+}
+
+static void haplegendsample_to_vcf(args_t *args)
+{
+    /*
+     *  Convert from IMPUTE2 hap/legend/sample output files to VCF
+     *
+     *      hap:
+     *          0 1 0 1 1 1
+     *      legend:
+     *          id position a0 a1
+     *          1:186946386_G_T 186946386 G T
+     *      sample:
+     *          QTL190044
+     *          QTL190053
+     *
+     *  Output: VCF with filled GT
+     */
+    kstring_t line = {0,0,0};
+
+    char *hap_fname = NULL, *leg_fname = NULL, *sample_fname = NULL;
+    sample_fname = strchr(args->infname,',');
+    if ( !sample_fname )
+    {
+        args->str.l = 0;
+        ksprintf(&args->str,"%s.hap.gz", args->infname);
+        hap_fname = strdup(args->str.s);
+        args->str.l = 0;
+        ksprintf(&args->str,"%s.samples", args->infname);
+        sample_fname = strdup(args->str.s);
+        args->str.l = 0;
+        ksprintf(&args->str,"%s.legend.gz", args->infname);
+        leg_fname = strdup(args->str.s);
+    }
+    else
+    {
+        char *ss = sample_fname, *se = strchr(ss+1,',');
+        if ( !se ) error("Could not parse hap/legend/sample file names: %s\n", args->infname);
+        *ss = 0;
+        *se = 0;
+        hap_fname = strdup(args->infname);
+        leg_fname = strdup(ss+1);
+        sample_fname = strdup(se+1);
+    }
+    htsFile *hap_fh = hts_open(hap_fname, "r");
+    if ( !hap_fh ) error("Could not read: %s\n", hap_fname);
+
+    htsFile *leg_fh = hts_open(leg_fname,"r");
+    if ( !leg_fh ) error("Could not read: %s\n", leg_fname);
+
+    // Eat up first legend line, then determine chromosome name
+    if ( hts_getline(leg_fh, KS_SEP_LINE, &line) <= 0 ) error("Empty file: %s\n", leg_fname);
+    if ( hts_getline(leg_fh, KS_SEP_LINE, &line) <= 0 ) error("Empty file: %s\n", leg_fname);
+
+    // Find out the chromosome name, sample names, init and print the VCF header
+    args->str.l = 0;
+    char *se = strchr(line.s,':');
+    if ( !se ) error("Expected CHROM:POS_REF_ALT in first column of %s\n", leg_fname);
+    kputsn(line.s, se-line.s, &args->str);
+
+    tsv_t *leg_tsv = tsv_init("CHROM_POS_REF_ALT,POS,REF_ALT");
+    tsv_register(leg_tsv, "CHROM_POS_REF_ALT", tsv_setter_chrom_pos_ref_alt, args);
+    tsv_register(leg_tsv, "POS", tsv_setter_verify_pos, NULL);
+    tsv_register(leg_tsv, "REF_ALT", tsv_setter_verify_ref_alt, args);
+
+    tsv_t *hap_tsv = tsv_init("HAPS");
+    tsv_register(hap_tsv, "HAPS", tsv_setter_haps, args);
+
+    args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
+    bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
+
+    int i, nsamples;
+    char **samples = hts_readlist(sample_fname, 1, &nsamples);
+    for (i=0; i<nsamples; i++)
+    {
+        se = samples[i]; while ( *se && !isspace(*se) ) se++;
+        *se = 0;
+        bcf_hdr_add_sample(args->header,samples[i]);
+    }
+    bcf_hdr_add_sample(args->header,NULL);
+    for (i=0; i<nsamples; i++) free(samples[i]);
+    free(samples);
+
+    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    bcf_hdr_write(out_fh,args->header);
+    bcf1_t *rec = bcf_init();
+
+    args->gts = (int32_t *) malloc(sizeof(int32_t)*nsamples*2);
+
+    while (1)
+    {
+        bcf_clear(rec);
+        args->n.total++;
+        if ( tsv_parse(leg_tsv, rec, line.s) )
+            error("Error occurred while parsing %s: %s\n", leg_fname,line.s);
+
+        if ( hts_getline(hap_fh,  KS_SEP_LINE, &line)<=0 )
+            error("Different number of records in %s and %s?\n", leg_fname,hap_fname);
+
+        if ( tsv_parse(hap_tsv, rec, line.s) )
+            error("Error occurred while parsing %s: %s\n", hap_fname,line.s);
+
+        bcf_write(out_fh, args->header, rec);
+
+        if ( hts_getline(leg_fh, KS_SEP_LINE, &line)<=0 )
+        {
+            if ( hts_getline(hap_fh, KS_SEP_LINE, &line)>0 )
+                error("Different number of records in %s and %s?\n", leg_fname,hap_fname);
+            break;
+        }
+    }
+
+    if ( hts_close(out_fh) ) error("Close failed: %s\n", args->outfname);
+    if ( hts_close(hap_fh) ) error("Close failed: %s\n", hap_fname);
+    if ( hts_close(leg_fh) ) error("Close failed: %s\n", leg_fname);
+    bcf_hdr_destroy(args->header);
+    bcf_destroy(rec);
+    free(sample_fname);
+    free(hap_fname);
+    free(leg_fname);
+    free(args->str.s);
+    free(line.s);
+    free(args->gts);
+    tsv_destroy(hap_tsv);
+    tsv_destroy(leg_tsv);
 
     fprintf(stderr,"Number of processed rows: \t%d\n", args->n.total);
 }
@@ -688,25 +817,11 @@ static void vcf_to_haplegendsample(args_t *args)
         }
         if (legend_fname) {
             str.l = 0;
-            if (line->d.id[0]!='.' || line->d.id[1]!=0) {
+            if ( args->output_vcf_ids && (line->d.id[0]!='.' || line->d.id[1]!=0) )
                 ksprintf(&str, "%s %d %s %s\n", line->d.id, line->pos+1, line->d.allele[0], line->d.allele[1]);
-            }
-            else {
-                int vartype = bcf_get_variant_types(line);
-                if (vartype&VCF_SNP) {
-                    ksprintf(&str, "%s:%d_%s_%s %d %s %s\n", bcf_seqname(args->header, line), line->pos+1, line->d.allele[0], line->d.allele[1], line->pos+1, line->d.allele[0], line->d.allele[1]);
-                }
-                else {
-                    char type;
-                    if (vartype&VCF_INDEL)
-                        type = line->d.var[1].n<0 ? 'D' : 'I';
-                    else if (vartype&VCF_MNP)
-                        type = 'M';
-                    else
-                        type = 'O';
-                    ksprintf(&str, "%s:%d_%s_%s:%c %d %s %s\n", bcf_seqname(args->header, line), line->pos+1, line->d.allele[0], line->d.allele[1], type, line->pos+1, line->d.allele[0], line->d.allele[1]);
-                }
-            }
+            else
+                ksprintf(&str, "%s:%d_%s_%s %d %s %s\n", bcf_seqname(args->header, line), line->pos+1, line->d.allele[0], line->d.allele[1], line->pos+1, line->d.allele[0], line->d.allele[1]);
+
             // write legend file
             ret = bgzf_write(lout, str.s, str.l);
             if ( ret != str.l ) error("Error writing %s: %s\n", legend_fname, strerror(errno));
@@ -921,7 +1036,9 @@ static void usage(void)
     fprintf(stderr, "       --hapsample2vcf         <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE options:\n");
+    fprintf(stderr, "   -H, --haplegendsample2vcf   <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "   -h, --haplegendsample       <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
+    fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV options:\n");
     fprintf(stderr, "       --tsv2vcf <file>        \n");
@@ -964,14 +1081,16 @@ int main_vcfconvert(int argc, char *argv[])
         {"gensample",required_argument,NULL,'g'},
         {"gensample2vcf",required_argument,NULL,'G'},
         {"hapsample2vcf",required_argument,NULL,3},
+        {"vcf-ids",no_argument,NULL,4},
         {"tag",required_argument,NULL,1},
         {"haplegendsample",required_argument,NULL,'h'},
+        {"haplegendsample2vcf",required_argument,NULL,'H'},
         {"tsv2vcf",required_argument,NULL,2},
         {"columns",required_argument,NULL,'c'},
         {"fasta-ref",required_argument,NULL,'f'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
@@ -986,6 +1105,8 @@ int main_vcfconvert(int argc, char *argv[])
             case  1 : args->tag = optarg; break;
             case  2 : args->convert_func = tsv_to_vcf; args->infname = optarg; break;
             case  3 : args->convert_func = hapsample_to_vcf; args->infname = optarg; break;
+            case  4 : args->output_vcf_ids = 1; break;
+            case 'H': args->convert_func = haplegendsample_to_vcf; args->infname = optarg; break;
             case 'f': args->ref_fname = optarg; break;
             case 'c': args->columns = optarg; break;
             case 'o': args->outfname = optarg; break;
