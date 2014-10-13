@@ -62,7 +62,7 @@ struct _args_t
     kstring_t str;
     int32_t *gts;
     float *flt;
-    int rev_als, output_vcf_ids;
+    int rev_als, output_vcf_ids, hap2dip;
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname;
@@ -710,7 +710,10 @@ static void vcf_to_gensample(args_t *args)
 static void vcf_to_haplegendsample(args_t *args)
 {
     kstring_t str = {0,0,0};
-    kputs("%_GT_TO_HAP\n", &str);
+    if ( args->hap2dip )
+        kputs("%_GT_TO_HAP2\n", &str);
+    else
+        kputs("%_GT_TO_HAP\n", &str);
     open_vcf(args,str.s);
 
     int ret, hap_compressed = 1, legend_compressed = 1, sample_compressed = 0;
@@ -1038,6 +1041,7 @@ static void usage(void)
     fprintf(stderr, "HAP/LEGEND/SAMPLE options:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf   <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "   -h, --haplegendsample       <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
+    fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
     fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV options:\n");
@@ -1080,12 +1084,13 @@ int main_vcfconvert(int argc, char *argv[])
         {"samples-file",required_argument,NULL,'S'},
         {"gensample",required_argument,NULL,'g'},
         {"gensample2vcf",required_argument,NULL,'G'},
+        {"tag",required_argument,NULL,1},
+        {"tsv2vcf",required_argument,NULL,2},
         {"hapsample2vcf",required_argument,NULL,3},
         {"vcf-ids",no_argument,NULL,4},
-        {"tag",required_argument,NULL,1},
+        {"haploid2diploid",no_argument,NULL,5},
         {"haplegendsample",required_argument,NULL,'h'},
         {"haplegendsample2vcf",required_argument,NULL,'H'},
-        {"tsv2vcf",required_argument,NULL,2},
         {"columns",required_argument,NULL,'c'},
         {"fasta-ref",required_argument,NULL,'f'},
         {0,0,0,0}
@@ -1106,6 +1111,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  2 : args->convert_func = tsv_to_vcf; args->infname = optarg; break;
             case  3 : args->convert_func = hapsample_to_vcf; args->infname = optarg; break;
             case  4 : args->output_vcf_ids = 1; break;
+            case  5 : args->hap2dip = 1; break;
             case 'H': args->convert_func = haplegendsample_to_vcf; args->infname = optarg; break;
             case 'f': args->ref_fname = optarg; break;
             case 'c': args->columns = optarg; break;
