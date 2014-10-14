@@ -183,6 +183,9 @@ static void usage(FILE *fp)
 {
     fprintf(fp, "\n");
     fprintf(fp, "Program: bcftools (Tools for variant calling and manipulating VCFs and BCFs)\n");
+#if PSMY
+    fprintf(fp, "License: GNU GPLv3+, due to use of the GNU Scientific Library\n");
+#endif
     fprintf(fp, "Version: %s (using htslib %s)\n", bcftools_version(), hts_version());
     fprintf(fp, "\n");
     fprintf(fp, "Usage:   bcftools <command> <argument>\n");
@@ -217,6 +220,14 @@ int main(int argc, char *argv[])
 
     if (strcmp(argv[1], "version") == 0 || strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0) {
         printf("bcftools %s\nUsing htslib %s\nCopyright (C) 2014 Genome Research Ltd.\n", bcftools_version(), hts_version());
+#if PSMY
+        printf(
+"License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n"
+"This is free software: you are free to change and redistribute it.\n"
+"There is NO WARRANTY, to the extent permitted by law.\n");
+#else
+        printf("License Expat: The MIT/Expat license\n");
+#endif
         return 0;
     }
     else if (strcmp(argv[1], "--version-only") == 0) {
