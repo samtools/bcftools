@@ -90,9 +90,9 @@ stats_t;
 
 typedef struct
 {
-    int m[3], mm[3];        // number of hom, het and non-ref hom matches and mismatches
+    uint64_t m[3], mm[3];        // number of hom, het and non-ref hom matches and mismatches
     float r2sum;
-    int r2n;
+    uint32_t r2n;
 }
 gtcmp_t;
 
@@ -1165,7 +1165,7 @@ static void print_stats(args_t *args)
                 printf("# GCiAF, Genotype concordance by non-reference allele frequency (indels)\n# GCiAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites\n");
                 stats = args->af_gts_indels;
             }
-            int nrd_m[3] = {0,0,0}, nrd_mm[3] = {0,0,0};
+            uint64_t nrd_m[3] = {0,0,0}, nrd_mm[3] = {0,0,0};
             for (i=0; i<args->m_af; i++)
             {
                 int j, n = 0;
@@ -1177,17 +1177,17 @@ static void print_stats(args_t *args)
                 }
                 if ( !i || !n ) continue;   // skip singleton stats and empty bins
                 printf("GC%cAF\t2\t%f", x==0 ? 's' : 'i', 100.*(i-1)/(args->m_af-1));
-                printf("\t%d\t%d\t%d", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
-                printf("\t%d\t%d\t%d", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
-                printf("\t%f\t%d\n", stats[i].r2n ? stats[i].r2sum/stats[i].r2n : -1.0, stats[i].r2n);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
+                printf("\t%f\t%"PRId32"\n", stats[i].r2n ? stats[i].r2sum/stats[i].r2n : -1.0, stats[i].r2n);
             }
 
             if ( x==0 )
                 printf("# Non-Reference Discordance (NRD), SNPs\n# NRDs\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
             else
                 printf("# Non-Reference Discordance (NRD), indels\n# NRDi\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
-            int m  = nrd_m[T2S(GT_HET_RA)] + nrd_m[T2S(GT_HOM_AA)];
-            int mm = nrd_mm[T2S(GT_HOM_RR)] + nrd_mm[T2S(GT_HET_RA)] + nrd_mm[T2S(GT_HOM_AA)];
+            uint64_t m  = nrd_m[T2S(GT_HET_RA)] + nrd_m[T2S(GT_HOM_AA)];
+            uint64_t mm = nrd_mm[T2S(GT_HOM_RR)] + nrd_mm[T2S(GT_HET_RA)] + nrd_mm[T2S(GT_HOM_AA)];
             printf("NRD%c\t2\t%f\t%f\t%f\t%f\n", x==0 ? 's' : 'i',
                     m+mm ? mm*100.0/(m+mm) : 0,
                     nrd_m[T2S(GT_HOM_RR)]+nrd_mm[T2S(GT_HOM_RR)] ? nrd_mm[T2S(GT_HOM_RR)]*100.0/(nrd_m[T2S(GT_HOM_RR)]+nrd_mm[T2S(GT_HOM_RR)]) : 0,
@@ -1211,11 +1211,11 @@ static void print_stats(args_t *args)
             }
             for (i=0; i<args->files->n_smpl; i++)
             {
-                int m  = stats[i].m[T2S(GT_HET_RA)] + stats[i].m[T2S(GT_HOM_AA)];
-                int mm = stats[i].mm[T2S(GT_HOM_RR)] + stats[i].mm[T2S(GT_HET_RA)] + stats[i].mm[T2S(GT_HOM_AA)];
+                uint64_t m  = stats[i].m[T2S(GT_HET_RA)] + stats[i].m[T2S(GT_HOM_AA)];
+                uint64_t mm = stats[i].mm[T2S(GT_HOM_RR)] + stats[i].mm[T2S(GT_HET_RA)] + stats[i].mm[T2S(GT_HOM_AA)];
                 printf("GC%cS\t2\t%s\t%.3f",  x==0 ? 's' : 'i', args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
-                printf("\t%d\t%d\t%d", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
-                printf("\t%d\t%d\t%d\n", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"\n", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
             }
         }
     }
