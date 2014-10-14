@@ -937,6 +937,7 @@ static void init_columns(args_t *args)
                     bcf_hrec_format(hrec, &tmp);
                     bcf_hdr_append(args->hdr_out, tmp.s);
                 }
+                bcf_hdr_sync(args->hdr_out);
             }
         }
         else if ( !strcasecmp("QUAL",str.s) )
@@ -964,6 +965,7 @@ static void init_columns(args_t *args)
                 tmp.l = 0;
                 bcf_hrec_format(hrec, &tmp);
                 bcf_hdr_append(args->hdr_out, tmp.s);
+                bcf_hdr_sync(args->hdr_out);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
                 args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
                 annot_col_t *col = &args->cols[args->ncols-1];
@@ -996,6 +998,7 @@ static void init_columns(args_t *args)
                 tmp.l = 0;
                 bcf_hrec_format(hrec, &tmp);
                 bcf_hdr_append(args->hdr_out, tmp.s);
+                bcf_hdr_sync(args->hdr_out);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
                 args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
                 annot_col_t *col = &args->cols[args->ncols-1];
@@ -1022,6 +1025,7 @@ static void init_columns(args_t *args)
             tmp.l = 0;
             bcf_hrec_format(hrec, &tmp);
             bcf_hdr_append(args->hdr_out, tmp.s);
+            bcf_hdr_sync(args->hdr_out);
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key);
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
@@ -1052,6 +1056,7 @@ static void init_columns(args_t *args)
                     tmp.l = 0;
                     bcf_hrec_format(hrec, &tmp);
                     bcf_hdr_append(args->hdr_out, tmp.s);
+                    bcf_hdr_sync(args->hdr_out);
                     hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
                 }
                 else
