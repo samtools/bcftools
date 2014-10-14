@@ -170,4 +170,27 @@ static inline void rbuf_shift_n(rbuf_t *rbuf, int n)
     if ( rbuf->f >= rbuf->m ) rbuf->f -= rbuf->m;
 }
 
+/**
+ *  rbuf_expand0() - expand round buffer and set the newly allocated elements to 0
+ *  @rbuf:      the rbuf holder
+ *  @type_t:    data type
+ *  @data:      data array to be realloced
+ *
+ *  Note: The new array is linearized and leaves the rbuf.f offset untouched,
+ *  thus the size of the new buffer is determined by the current position.
+ */
+#define rbuf_expand0(rbuf,type_t,data) { \
+    int m = (rbuf)->m + (rbuf)->f + 1; \
+    m--, m|=m>>1, m|=m>>2, m|=m>>4, m|=m>>8, m|=m>>16, m++; /* kroundup32 */ \
+    data = (type_t*) realloc(data, sizeof(type_t)*m); \
+    type_t *ptr = data; \
+    memset(ptr+(rbuf)->m,0,sizeof(type_t)*(m-(rbuf)->m)); \
+    if ( (rbuf)->f ) \
+    { \
+        memcpy(ptr+(rbuf)->m,ptr,sizeof(type_t)*(rbuf)->f); \
+        memset(ptr,0,sizeof(type_t)*(rbuf)->f); \
+    } \
+    (rbuf)->m = m; \
+}
+
 #endif
