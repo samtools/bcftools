@@ -221,10 +221,11 @@ int main(int argc, char *argv[])
     if (strcmp(argv[1], "version") == 0 || strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0) {
         printf("bcftools %s\nUsing htslib %s\nCopyright (C) 2014 Genome Research Ltd.\n", bcftools_version(), hts_version());
 #if USE_GPL
-        printf("License GPLv3+: GNU GPL version 3 or later\n");
+        printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n");
 #else
         printf("License Expat: The MIT/Expat license\n");
 #endif
+        printf("This is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n");
         return 0;
     }
     else if (strcmp(argv[1], "--version-only") == 0) {
