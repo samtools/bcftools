@@ -5,6 +5,7 @@ Scientific Library (which is optional and disabled by default as explained in
 the INSTALL document), the use of this software is governed by the GPL license.
 
 
+-----------------------------------------------------------------------------
 
 The MIT/Expat License
 
@@ -40,6 +41,8 @@ that reads "Copyright (C) 2005-2012" should be interpreted as being identical
 to a notice that reads "Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010,
 2011, 2012".]
 
+
+-----------------------------------------------------------------------------
 
 
 GNU GENERAL PUBLIC LICENSE
@@ -717,4 +720,6 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html>.
 
+
+-----------------------------------------------------------------------------
 
