@@ -49,7 +49,7 @@ int main_vcfconcat(int argc, char *argv[]);
 int main_reheader(int argc, char *argv[]);
 int main_vcfconvert(int argc, char *argv[]);
 int main_vcfcnv(int argc, char *argv[]);
-#if PSMY
+#if USE_GPL
 int main_polysomy(int argc, char *argv[]);
 #endif
 int main_plugin(int argc, char *argv[]);
@@ -148,7 +148,7 @@ static cmd_t cmds[] =
       .alias = "gtcheck",
       .help  = "check sample concordance, detect sample swaps and contamination"
     },
-#if PSMY
+#if USE_GPL
     { .func  = main_polysomy,
       .alias = "polysomy",
       .help  = "-detect number of chromosomal copies",
@@ -183,7 +183,7 @@ static void usage(FILE *fp)
 {
     fprintf(fp, "\n");
     fprintf(fp, "Program: bcftools (Tools for variant calling and manipulating VCFs and BCFs)\n");
-#if PSMY
+#if USE_GPL
     fprintf(fp, "License: GNU GPLv3+, due to use of the GNU Scientific Library\n");
 #endif
     fprintf(fp, "Version: %s (using htslib %s)\n", bcftools_version(), hts_version());
