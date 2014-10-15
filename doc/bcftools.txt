@@ -1679,6 +1679,6 @@ BCFtools wiki page: <https://github.com/samtools/bcftools/wiki>
 
 COPYING
 -------
-The MIT License if compiled with default options. See the LICENSE document for
-details. Copyright (c) Genome Research Ltd.
+The MIT/Expat License or GPL License, see the LICENSE document for details.
+Copyright (c) Genome Research Ltd.
 

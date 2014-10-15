@@ -47,10 +47,10 @@ OBJS     = main.o vcfindex.o tabix.o \
 INCLUDES = -I. -I$(HTSDIR)
 
 # The polysomy command is not compiled by default because it brings dependency
-# on libgsl. The command can be compiled wth `make PSMY=1`. See the INSTALL
+# on libgsl. The command can be compiled wth `make USE_GPL=1`. See the INSTALL
 # and LICENSE documents to understand license implications.
-ifdef PSMY
-    CFLAGS += -DPSMY
+ifdef USE_GPL
+    CFLAGS += -DUSE_GPL
     OBJS   += polysomy.o
     LDLIBS  = -lgsl -lcblas
 endif
