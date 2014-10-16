@@ -54,7 +54,7 @@ const char *usage(void)
         "\n"
         "Plugin options:\n"
         "   -p, --ploidy <file>   space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n"
-        "   -s, --sex <files>     list of samples, \"NAME SEX\"\n"
+        "   -s, --sex <file>      list of samples, \"NAME SEX\"\n"
         "   -t, --tags <list>     VCF tags to fix [GT]\n"
         "\n"
         "Example:\n"
@@ -142,7 +142,6 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         ploidy = ploidy_init(ploidy_fname, 2);
     else
     {
-        
         ploidy = ploidy_init_string(
                 "X 1 60000 M 1\n"
                 "X 2699521 154931043 M 1\n"
