@@ -212,7 +212,7 @@ static void print_plugin_usage_hint(void)
         fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set.\n\n");
     else
         fprintf(stderr,
-                " in BCFTOOLS_PLUGINS=\"%s\".\n\n"
+                " in\n\tBCFTOOLS_PLUGINS=\"%s\".\n\n"
                 "- Is the plugin path correct?\n\n"
                 "- Are all shared libraries, namely libhts.so, accessible? Verify with\n"
                 "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
@@ -220,6 +220,8 @@ static void print_plugin_usage_hint(void)
                 "\n"
                 "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
                 "DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.\n"
+                "\n"
+                "- Run \"bcftools -lv\" for more detailed error output.\n"
                 "\n",
                 getenv("BCFTOOLS_PLUGINS")
                );
