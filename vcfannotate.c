@@ -1137,7 +1137,7 @@ static void init_data(args_t *args)
     {
         // reading annots from a VCF
         if ( !bcf_sr_add_reader(args->files, args->targets_fname) )
-            error("Failed to open or the file not indexed: %s\n", args->targets_fname);
+            error("Failed to open %s: %s\n", args->targets_fname,bcf_sr_strerror(args->files->errnum));
     }
     if ( args->columns ) init_columns(args);
     if ( args->targets_fname && !args->tgts_is_vcf )
@@ -1416,13 +1416,20 @@ int main_vcfannotate(int argc, char *argv[])
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }
-    if ( args->targets_fname && hts_file_type(args->targets_fname) & (FT_VCF|FT_BCF) )
+    if ( args->targets_fname )
     {
-        args->tgts_is_vcf = 1;
-        args->files->require_index = 1;
-        args->files->collapse |= COLLAPSE_SOME;
+        htsFile *fp = hts_open(args->targets_fname,"r"); 
+        htsFormat type = fp->type;
+        hts_close(fp);
+
+        if ( type.format==vcf || type.format==bcf )
+        {
+            args->tgts_is_vcf = 1;
+            args->files->require_index = 1;
+            args->files->collapse |= COLLAPSE_SOME;
+        }
     }
-    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);
     while ( bcf_sr_next_line(args->files) )

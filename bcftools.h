@@ -28,6 +28,13 @@ THE SOFTWARE.  */
 #include <stdarg.h>
 #include <htslib/vcf.h>
 
+#define FT_GZ 1
+#define FT_VCF 2
+#define FT_VCF_GZ (FT_GZ|FT_VCF)
+#define FT_BCF (1<<2)
+#define FT_BCF_GZ (FT_GZ|FT_BCF)
+#define FT_STDIN (1<<3)
+
 char *bcftools_version(void);
 void error(const char *format, ...);
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd);

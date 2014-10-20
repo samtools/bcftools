@@ -91,7 +91,7 @@ static void open_vcf(args_t *args, const char *format_str)
             error("Failed to read the targets: %s\n", args->targets_list);
     }
     if ( !bcf_sr_add_reader(args->files, args->infname) )
-        error("Failed to open or the file not indexed: %s\n", args->infname);
+        error("Failed to open %s: %s\n", args->infname,bcf_sr_strerror(args->files->errnum));
     if ( args->filter_str )
         args->filter = filter_init(args->header, args->filter_str);
 

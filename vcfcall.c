@@ -300,7 +300,7 @@ static void init_data(args_t *args)
     }
 
     int i;
-    if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open: %s\n", args->bcf_fname);
+    if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open %s: %s\n", args->bcf_fname,bcf_sr_strerror(args->aux.srs->errnum));
 
     if ( args->nsamples && args->nsamples != bcf_hdr_nsamples(args->aux.srs->readers[0].header) )
     {

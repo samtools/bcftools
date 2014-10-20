@@ -65,7 +65,7 @@ static void init_data(args_t *args)
 {
     args->files = bcf_sr_init();
     args->files->require_index = 1;
-    if ( !bcf_sr_add_reader(args->files,args->fname) ) error("Failed to open: %s\n", args->fname);
+    if ( !bcf_sr_add_reader(args->files,args->fname) ) error("Failed to open %s: %s\n", args->fname, bcf_sr_strerror(args->files->errnum));
     args->hdr = args->files->readers[0].header;
     args->isample = -1;
     if ( args->sample )

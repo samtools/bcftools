@@ -121,7 +121,7 @@ static void init_data(args_t *args)
         args->files = bcf_sr_init();
         args->files->require_index = 1;
         for (i=0; i<args->nfnames; i++)
-            if ( !bcf_sr_add_reader(args->files,args->fnames[i]) ) error("Failed to open, is the file indexed? %s\n", args->fnames[i]);
+            if ( !bcf_sr_add_reader(args->files,args->fnames[i]) ) error("Failed to open %s: %s\n", args->fnames[i],bcf_sr_strerror(args->files->errnum));
     }
     else if ( args->phased_concat )
     {
@@ -348,7 +348,7 @@ static void concat(args_t *args)
             int new_file = 0;
             while ( args->files->nreaders < 2 && args->ifname < args->nfnames )
             {
-                if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s\n", args->fnames[args->ifname]);
+                if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s: %s\n", args->fnames[args->ifname],bcf_sr_strerror(args->files->errnum));
                 new_file = 1;
 
                 args->ifname++;
@@ -395,7 +395,7 @@ static void concat(args_t *args)
                 while ( args->ifname < args->nfnames && args->start_pos[args->ifname]!=-1 && line->pos >= args->start_pos[args->ifname] )
                 {
                     must_seek = 1;
-                    bcf_sr_add_reader(args->files,args->fnames[args->ifname]);
+                    if ( !bcf_sr_add_reader(args->files,args->fnames[args->ifname]) ) error("Failed to open %s: %s\n", args->fnames[args->ifname],bcf_sr_strerror(args->files->errnum));
                     args->ifname++;
                 }
                 if ( must_seek )

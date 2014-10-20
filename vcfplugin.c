@@ -539,7 +539,7 @@ int main_plugin(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->targets_list);
         args->files->collapse |= COLLAPSE_SOME;
     }
-    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);
     while ( bcf_sr_next_line(args->files) )

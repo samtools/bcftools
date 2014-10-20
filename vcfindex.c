@@ -61,7 +61,7 @@ int vcf_index_stats(char *fname, int stats)
     out = fn_out ? fopen(fn_out, "w") : stdout;
 
     const char **seq;
-    int i, nseq, ftype = hts_file_type(fname);
+    int i, nseq;
     tbx_t *tbx = NULL;
     hts_idx_t *idx = NULL;
 
@@ -70,12 +70,12 @@ int vcf_index_stats(char *fname, int stats)
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if ( !hdr ) { fprintf(stderr,"Could not read the header: %s\n", fname); return 1; }
 
-    if ( ftype & FT_VCF || !ftype )
+    if ( fp->type.format==vcf )
     {
         tbx = tbx_index_load(fname);
         if ( !tbx ) { fprintf(stderr,"Could not load TBI index: %s\n", fname); return 1; }
     }
-    else if ( ftype & FT_BCF )
+    else if ( fp->type.format==bcf )
     {
         idx = bcf_index_load(fname);
         if ( !idx ) { fprintf(stderr,"Could not load CSI index: %s\n", fname); return 1; }
@@ -176,25 +176,29 @@ int main_vcfindex(int argc, char *argv[])
 
     char *fname = argv[optind];
     if (stats) return vcf_index_stats(fname, stats);
-    int ftype = hts_file_type(fname);
-    if (!ftype || (ftype != FT_BCF_GZ && ftype != FT_VCF_GZ))
+
+    htsFile *fp = hts_open(fname,"r"); 
+    htsFormat type = fp->type;
+    hts_close(fp);
+
+    if ( (type.format!=bcf && type.format!=vcf) || type.compression!=bgzf )
     {
         fprintf(stderr, "[E::%s] unknown filetype; expected bgzip compressed VCF or BCF\n", __func__);
-        if (!(ftype & FT_GZ))
+        if ( type.compression!=bgzf )
             fprintf(stderr, "[E::%s] was the VCF/BCF compressed with bgzip?\n", __func__);
         return 1;
     }
-    if (tbi && ftype == FT_BCF_GZ)
+    if (tbi && type.format==bcf)
     {
         fprintf(stderr, "[Warning] TBI-index does not work for BCF files. Generating CSI instead.\n");
         tbi = 0; min_shift = BCF_LIDX_SHIFT;
     }
-    if (min_shift == 0 && ftype == FT_BCF_GZ)
+    if (min_shift == 0 && type.format==bcf)
     {
         fprintf(stderr, "[E::%s] Require min_shift>0 for BCF files.\n", __func__);
         return 1;
     }
-    if (!tbi && ftype == FT_VCF_GZ && min_shift == 0)
+    if (!tbi && type.format==vcf && min_shift == 0)
     {
         fprintf(stderr, "[Warning] min-shift set to 0 for VCF file. Generating TBI file.\n");
         tbi = 1;
@@ -217,7 +221,7 @@ int main_vcfindex(int argc, char *argv[])
         }
     }
 
-    if (ftype == FT_BCF_GZ)
+    if (type.format==bcf)
     {
         if ( bcf_index_build(fname, min_shift) != 0 )
         {

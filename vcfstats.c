@@ -1424,7 +1424,7 @@ int main_vcfstats(int argc, char *argv[])
     while (fname)
     {
         if ( !bcf_sr_add_reader(args->files, fname) )
-            error("Could not read the file or the file is not indexed: %s\n", fname);
+            error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
         fname = ++optind < argc ? argv[optind] : NULL;
     }
 

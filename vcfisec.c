@@ -571,7 +571,7 @@ int main_vcfisec(int argc, char *argv[])
     args->files->require_index = 1;
     while (optind<argc)
     {
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open: %s\n", argv[optind]);
+        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
         optind++;
     }
     init_data(args);

@@ -281,7 +281,7 @@ int main_vcfquery(int argc, char *argv[])
     {
         if ( !fname ) error("Missing the VCF file name\n");
         args->files = bcf_sr_init();
-        if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
+        if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
         list_columns(args);
         bcf_sr_destroy(args->files);
         free(args);
@@ -307,7 +307,7 @@ int main_vcfquery(int argc, char *argv[])
         }
         while ( fname )
         {
-            if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
+            if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
             fname = ++optind < argc ? argv[optind] : NULL;
         }
         init_data(args);
@@ -337,9 +337,9 @@ int main_vcfquery(int argc, char *argv[])
             if ( bcf_sr_set_targets(args->files, args->targets_list,targets_is_file, 0)<0 )
                 error("Failed to read the targets: %s\n", args->targets_list);
         }
-        if ( !bcf_sr_add_reader(args->files, fnames[i]) ) error("Failed to open or the file not indexed: %s\n", fnames[i]);
+        if ( !bcf_sr_add_reader(args->files, fnames[i]) ) error("Failed to open %s: %s\n", fnames[i],bcf_sr_strerror(args->files->errnum));
         for (k=optind; k<argc; k++)
-            if ( !bcf_sr_add_reader(args->files, argv[k]) ) error("Failed to open or the file not indexed: %s\n", argv[k]);
+            if ( !bcf_sr_add_reader(args->files, argv[k]) ) error("Failed to open %s: %s\n", argv[k],bcf_sr_strerror(args->files->errnum));
         init_data(args);
         if ( i==0 )
             prev_samples = copy_header(args->header, args->files->readers[0].header->samples, bcf_hdr_nsamples(args->files->readers[0].header));

@@ -158,7 +158,7 @@ static void init_data(args_t *args)
         if ( bcf_sr_set_targets(files, args->targets_list, args->targets_is_file, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets_list);
     }
-    if ( !bcf_sr_add_reader(files, args->fname) ) error("Failed to open or the file not indexed: %s\n", args->fname);
+    if ( !bcf_sr_add_reader(files, args->fname) ) error("Failed to open %s: %s\n", args->fname,bcf_sr_strerror(files->errnum));
     bcf_hdr_t *hdr = files->readers[0].header;
     if ( !args->sample )
     {

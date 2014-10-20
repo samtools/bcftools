@@ -1970,7 +1970,7 @@ int main_vcfmerge(int argc, char *argv[])
 
     while (optind<argc)
     {
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open: %s\n", argv[optind]);
+        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
         optind++;
     }
     if ( args->file_list )
@@ -1979,7 +1979,7 @@ int main_vcfmerge(int argc, char *argv[])
         char **files = hts_readlines(args->file_list, &nfiles);
         if ( !files ) error("Failed to read from %s\n", args->file_list);
         for (i=0;i<nfiles; i++)
-            if ( !bcf_sr_add_reader(args->files, files[i]) ) error("Failed to open: %s\n", files[i]);
+            if ( !bcf_sr_add_reader(args->files, files[i]) ) error("Failed to open %s: %s\n", files[i],bcf_sr_strerror(args->files->errnum));
         for (i=0; i<nfiles; i++) free(files[i]);
         free(files);
     }
