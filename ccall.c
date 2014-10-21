@@ -47,6 +47,13 @@ void ccall_init(call_t *call)
     call->als_map  = (int*) malloc(sizeof(int)*call->nals_map);
 
     bcf_hdr_append(call->hdr,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    if ( call->output_tags & CALL_FMT_GQ )
+    {
+        bcf_hdr_append(call->hdr,"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">");
+        call->GQs = (int32_t*) malloc(sizeof(int32_t)*bcf_hdr_nsamples(call->hdr));
+    }
+    if ( call->output_tags & CALL_FMT_GP )
+        error("Sorry, -f GP is not supported with -c\n");
     bcf_hdr_append(call->hdr,"##INFO=<ID=AF1,Number=1,Type=Float,Description=\"Max-likelihood estimate of the first ALT allele frequency (assuming HWE)\">");
     // Todo: groups not migrated to 'bcftools call' yet
     bcf_hdr_append(call->hdr,"##INFO=<ID=AF2,Number=1,Type=Float,Description=\"Max-likelihood estimate of the first and second group ALT allele frequency (assuming HWE)\">");
@@ -69,6 +76,7 @@ void ccall_destroy(call_t *call)
     free(call->gts);
     free(call->anno16);
     free(call->PLs);
+    free(call->GQs);
     free(call->pdg);
     bcf_p1_destroy(call->cdat->p1);
     free(call->cdat);
@@ -277,16 +285,19 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
                 call->gts[2*i]   = bcf_gt_unphased(0);
                 call->gts[2*i+1] = bcf_gt_unphased(0);
             }
+            if ( call->output_tags & CALL_FMT_GQ ) call->GQs[i] = x>>2;
         }
         else
         {
             if ( gt==0 ) call->gts[2*i] = bcf_gt_unphased(1);
             else call->gts[2*i] = bcf_gt_unphased(0);
             call->gts[2*i+1] = bcf_int32_vector_end;
+            if ( call->output_tags & CALL_FMT_GQ ) call->GQs[i] = bcf_int32_missing;
         }
-        // GQ: todo
     }
     bcf_update_genotypes(call->hdr, rec, call->gts, rec->n_sample*2);
+    if ( call->output_tags & CALL_FMT_GQ )
+        bcf_update_format_int32(call->hdr, rec, "GQ", call->GQs, rec->n_sample);
 
     // trim Number=R tags
     int out_als = 0;
