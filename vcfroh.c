@@ -451,7 +451,7 @@ int estimate_AF(args_t *args, bcf1_t *line, double *alt_freq)
     {
         int32_t *gt = &args->itmp[i*args->nitmp];
 
-        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) continue;
+        if ( bcf_gt_is_missing(gt[0]) || bcf_gt_is_missing(gt[1]) ) continue;
 
         if ( bcf_gt_allele(gt[0]) ) nalt++;
         else nref++;
@@ -524,7 +524,7 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
         }
 
         int32_t *gt = &args->itmp[args->ismpl*args->nitmp];
-        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) return -1;
+        if ( bcf_gt_is_missing(gt[0]) || bcf_gt_is_missing(gt[1]) ) return -1;
 
         int a = bcf_gt_allele(gt[0]);
         int b = bcf_gt_allele(gt[1]);

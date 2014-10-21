@@ -189,7 +189,7 @@ static void phase_update(args_t *args, bcf_hdr_t *hdr, bcf1_t *rec)
     {
         if ( !args->swap_phase[i] ) continue;
         int *gt = &args->GTa[i*2];
-        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_int32_vector_end ) continue;
+        if ( bcf_gt_is_missing(gt[0]) || gt[1]==bcf_int32_vector_end ) continue;
         SWAP(int, gt[0], gt[1]);
         gt[1] |= 1;
     }
@@ -222,7 +222,7 @@ static void phased_flush(args_t *args)
             int *gta = &args->GTa[j*2];
             int *gtb = &args->GTb[j*2];
             if ( gta[1]==bcf_int32_vector_end || gtb[1]==bcf_int32_vector_end ) continue;
-            if ( gta[0]==bcf_gt_missing || gta[1]==bcf_gt_missing || gtb[0]==bcf_gt_missing || gtb[1]==bcf_gt_missing ) continue;
+            if ( bcf_gt_is_missing(gta[0]) || bcf_gt_is_missing(gta[1]) || bcf_gt_is_missing(gtb[0]) || bcf_gt_is_missing(gtb[1]) ) continue;
             if ( !bcf_gt_is_phased(gta[1]) || !bcf_gt_is_phased(gtb[1]) ) continue;
             if ( bcf_gt_allele(gta[0])==bcf_gt_allele(gta[1]) || bcf_gt_allele(gtb[0])==bcf_gt_allele(gtb[1]) ) continue;
             if ( bcf_gt_allele(gta[0])==bcf_gt_allele(gtb[0]) && bcf_gt_allele(gta[1])==bcf_gt_allele(gtb[1]) )

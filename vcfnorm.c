@@ -804,8 +804,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
         for (j=0; j<ngts; j++)
         {
             if ( gt[j]==bcf_int32_vector_end ) break;
-            if ( gt[j]==bcf_int32_missing && bcf_gt_allele(gt[j])==0 ) continue;
-            if ( gt[j]==0 ) continue;   // missing allele: leave as is
+            if ( bcf_gt_is_missing(gt[j]) || bcf_gt_allele(gt[j])==0 ) continue; // missing allele or ref: leave as is
             if ( bcf_gt_allele(gt[j])==ialt+1 )
                 gt[j] = bcf_gt_unphased(1) | bcf_gt_is_phased(gt[j]); // set to first ALT
             else
@@ -1260,7 +1259,7 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
             for (k=0; k<ngts; k++)
             {
                 if ( gt2[k]==bcf_int32_vector_end ) break;
-                if ( gt2[k]==bcf_int32_missing || bcf_gt_allele(gt2[k])==0 ) continue;
+                if ( bcf_gt_is_missing(gt2[k]) || bcf_gt_allele(gt2[k])==0 ) continue;
                 if ( gt2[k]==0 ) gt[k] = 0; // missing genotype
                 else
                 {

@@ -420,7 +420,7 @@ static void process_gt_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         else if ( j==1 )
         {
             // haploid
-            if ( ptr[0]==bcf_gt_missing )
+            if ( bcf_gt_is_missing(ptr[0]) )
                 kputs(" 0.5 0.0 0.5", str);
             else if ( bcf_gt_allele(ptr[0])==1 )
                 kputs(" 0 0 1", str);       // first ALT allele
@@ -539,7 +539,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
         if ( j==2 )
         {
             // diploid
-            if ( ptr[0]==bcf_gt_missing || ptr[1]==bcf_gt_missing ) {
+            if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) ) {
                 kputs("? ?", str);
             }
             else if ( bcf_gt_is_phased(ptr[1])) {
@@ -552,7 +552,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
         else if ( j==1 )
         {
             // haploid
-            if ( ptr[0]==bcf_gt_missing )
+            if ( bcf_gt_is_missing(ptr[0]) )
                 kputs("? -", str);
             else if ( bcf_gt_allele(ptr[0])==1 )
                 kputs("1 -", str);       // first ALT allele
@@ -586,7 +586,7 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
         if ( j==2 )
         {
             // diploid
-            if ( ptr[0]==bcf_gt_missing || ptr[1]==bcf_gt_missing ) {
+            if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) ) {
                 kputs("? ?", str);
             }
             else if ( bcf_gt_is_phased(ptr[1])) {
@@ -599,7 +599,7 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
         else if ( j==1 )
         {
             // haploid
-            if ( ptr[0]==bcf_gt_missing )
+            if ( bcf_gt_is_missing(ptr[0]) )
                 kputs("? ?", str);
             else if ( bcf_gt_allele(ptr[0])==1 )
                 kputs("1 1", str);       // first ALT allele

@@ -918,7 +918,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
         if ( i==ngts || !ploidy )
         {
-            gts[0] = bcf_int32_missing;
+            gts[0] = bcf_gt_missing;
             gls[0] = 1;
             continue;
         }
@@ -1056,7 +1056,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             int32_t *gts = call->cgts + ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )    // zero depth, set missing genotypes
             {
-                gts[0] = bcf_int32_missing;
+                gts[0] = bcf_gt_missing;
                 // bcf_float_set_missing(call->GQs[ismpl]);
                 continue;
             }
@@ -1106,7 +1106,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         cgts++;
         ugts++;
         gts += 2;
-        if ( ugts[0]==bcf_int32_missing )
+        if ( bcf_gt_is_missing(ugts[0]) )
         {
             gts[0] = bcf_gt_missing;
             gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;

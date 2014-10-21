@@ -263,13 +263,13 @@ int bcf_all_phased(const bcf_hdr_t *header, bcf1_t *line)
         for (isample=0; isample<line->n_sample; isample++)
         {
             int sample_phased = 0;
-            #define BRANCH_INT(type_t,missing,vector_end) { \
+            #define BRANCH_INT(type_t,vector_end) { \
                 type_t *p = (type_t*) (fmt_ptr->p + isample*fmt_ptr->size); \
                 for (i=0; i<fmt_ptr->n; i++) \
                 { \
                     if (fmt_ptr->n == 1 || (p[i] == vector_end && i == 1)) { sample_phased = 1; break; } /* haploid phased by definition */ \
                     if ( p[i] == vector_end ) { break; }; /* smaller ploidy */ \
-                    if ( !p[i] || p[i] == missing ) continue; /* missing allele */ \
+                    if ( bcf_gt_is_missing(p[i]) ) continue; /* missing allele */ \
                     if ((p[i])&1) { \
                         sample_phased = 1; \
                         break; \
@@ -277,9 +277,9 @@ int bcf_all_phased(const bcf_hdr_t *header, bcf1_t *line)
                 } \
             }
             switch (fmt_ptr->type) {
-                case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
-                case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
-                case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+                case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
+                case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
+                case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
                 default: fprintf(stderr, "[E::%s] todo: fmt_type %d\n", __func__, fmt_ptr->type); exit(1); break;
             }
             #undef BRANCH_INT

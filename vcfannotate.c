@@ -537,8 +537,8 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
             if ( args->sample_map[i]==-1 ) continue;
             int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
             int32_t *dst = args->tmpi2 + ndst*i;
-            if ( col->replace==REPLACE_EXISTING && dst[0]==bcf_gt_missing ) continue;
-            if ( col->replace==REPLACE_MISSING  && dst[0]!=bcf_gt_missing ) continue;
+            if ( col->replace==REPLACE_EXISTING && bcf_gt_is_missing(dst[0]) ) continue;
+            if ( col->replace==REPLACE_MISSING  && !bcf_gt_is_missing(dst[0]) ) continue;
             for (j=0; j<nsrc; j++) dst[j] = src[j];
             for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
         }
@@ -553,8 +553,8 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
             int32_t *dst = args->tmpi3 + nsrc*i;
             int keep_ori = 0;
             if ( args->sample_map[i]==-1 ) keep_ori = 1;
-            else if ( col->replace==REPLACE_EXISTING && ori[0]==bcf_gt_missing ) keep_ori = 1;
-            else if ( col->replace==REPLACE_MISSING  && ori[0]!=bcf_gt_missing ) keep_ori = 1;
+            else if ( col->replace==REPLACE_EXISTING && bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
+            else if ( col->replace==REPLACE_MISSING  && !bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
             if ( keep_ori )
             {
                 for (j=0; j<ndst; j++) dst[j] = ori[j];

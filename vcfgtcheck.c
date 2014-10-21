@@ -310,16 +310,15 @@ static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
     for (i=0; i<bcf_hdr_nsamples(hdr); i++)
     {
         int *gt_ptr = args->tmp_arr + i*nsm_gt;
-        int a = bcf_gt_allele(gt_ptr[0]);
-        int b = bcf_gt_allele(gt_ptr[1]);
-
         int j, *pl_ptr = args->pl_arr + i*npl;
-        if ( a<0 || b<0 ) // missing genotype
+        if ( bcf_gt_is_missing(gt_ptr[0]) || bcf_gt_is_missing(gt_ptr[1]) ) // missing genotype
         {
             for (j=0; j<npl; j++) pl_ptr[j] = -1;
         }
         else
         {
+            int a = bcf_gt_allele(gt_ptr[0]);
+            int b = bcf_gt_allele(gt_ptr[1]);
             for (j=0; j<npl; j++) pl_ptr[j] = fake_PL;
             int idx = bcf_alleles2gt(a,b);
             pl_ptr[idx] = 0;
@@ -434,9 +433,9 @@ static void check_gt(args_t *args)
         {
             int *gt_ptr = gt_arr + i*ngt;
             if ( gt_ptr[1]==bcf_int32_vector_end ) continue;    // skip haploid genotypes
+            if ( bcf_gt_is_missing(gt_ptr[0]) || bcf_gt_is_missing(gt_ptr[1]) ) continue;
             int a = bcf_gt_allele(gt_ptr[0]);
             int b = bcf_gt_allele(gt_ptr[1]);
-            if ( a<0 || b<0 ) continue; // missing genotypes
             if ( args->hom_only && a!=b ) continue; // heterozygous genotype
             int igt_tgt = igt_tgt = bcf_alleles2gt(a,b); // genotype index in the target file
             int igt_qry = gt2ipl[igt_tgt];  // corresponding genotype in query file

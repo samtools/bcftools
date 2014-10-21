@@ -214,14 +214,14 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             if ( args->haplotype > fmt->n ) error("Can't apply %d-th haplotype at %s:%d\n", args->haplotype,bcf_seqname(args->hdr,rec),rec->pos+1);
             uint8_t *ignore, *ptr = fmt->p + fmt->size*args->isample + args->haplotype - 1;
             ialt = bcf_dec_int1(ptr, fmt->type, &ignore);
-            if ( !ialt || ialt==bcf_int32_missing || ialt==bcf_int32_vector_end ) return;
+            if ( bcf_gt_is_missing(ialt) || ialt==bcf_int32_vector_end ) return;
             ialt = bcf_gt_allele(ialt);
         }
         else if ( args->output_iupac ) 
         {
             uint8_t *ignore, *ptr = fmt->p + fmt->size*args->isample;
             ialt = bcf_dec_int1(ptr, fmt->type, &ignore);
-            if ( !ialt || ialt==bcf_int32_missing || ialt==bcf_int32_vector_end ) return;
+            if ( bcf_gt_is_missing(ialt) || ialt==bcf_int32_vector_end ) return;
             ialt = bcf_gt_allele(ialt);
 
             int jalt;
@@ -229,7 +229,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             {
                 ptr = fmt->p + fmt->size*args->isample + 1;
                 jalt = bcf_dec_int1(ptr, fmt->type, &ignore);
-                if ( !jalt || jalt==bcf_int32_missing || jalt==bcf_int32_vector_end ) jalt = ialt;
+                if ( bcf_gt_is_missing(jalt) || jalt==bcf_int32_vector_end ) jalt = ialt;
                 else jalt = bcf_gt_allele(jalt);
             }
             else jalt = ialt;
@@ -247,7 +247,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             {
                 uint8_t *ignore, *ptr = fmt->p + fmt->size*args->isample + i;
                 ialt = bcf_dec_int1(ptr, fmt->type, &ignore);
-                if ( !ialt || ialt==bcf_int32_missing || ialt==bcf_int32_vector_end ) return;
+                if ( bcf_gt_is_missing(ialt) || ialt==bcf_int32_vector_end ) return;
                 ialt = bcf_gt_allele(ialt);
                 if ( ialt ) break;
             }
