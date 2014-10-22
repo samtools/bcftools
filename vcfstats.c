@@ -880,24 +880,23 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
 
             if ( type2ploidy[gt0]*type2ploidy[gt1] == -1 ) continue;   // cannot compare diploid and haploid genotypes
 
-            gt0 = type2dosage[gt0];
-            gt1 = type2dosage[gt1];
-            x  += gt0;
-            x2 += gt0*gt0;
-            y  += gt1;
-            y2 += gt1*gt1;
-            xy += gt0*gt1;
-            r2n += gt0<=3 ? 2 : 1;
+            int dsg0 = type2dosage[gt0];
+            int dsg1 = type2dosage[gt1];
+            x   += dsg0;
+            x2  += dsg0*dsg0;
+            y   += dsg1;
+            y2  += dsg1*dsg1;
+            xy  += dsg0*dsg1;
+            r2n += dsg0<=3 ? 2 : 1;
 
+            int idx = type2stats[gt0];
             if ( gt0==gt1 )
             {
-                int idx = type2stats[gt0];
                 af_stats[iaf].m[idx]++;
                 smpl_stats[is].m[idx]++;
             }
             else
             {
-                int idx = type2stats[gt0];
                 af_stats[iaf].mm[idx]++;
                 smpl_stats[is].mm[idx]++;
             }
@@ -1183,7 +1182,16 @@ static void print_stats(args_t *args)
             }
 
             if ( x==0 )
+            {
+                printf("# NRD and discordance is calculated as follows:\n");
+                printf("#   m .. number of matches\n");
+                printf("#   x .. number of mismatches\n");
+                printf("#   NRD = (xRR + xRA + xAA) / (xRR + xRA + xAA + mRA + mAA)\n");
+                printf("#   RR discordance = xRR / (xRR + mRR)\n");
+                printf("#   RA discordance = xRA / (xRA + mRA)\n");
+                printf("#   AA discordance = xAA / (xAA + mAA)\n");
                 printf("# Non-Reference Discordance (NRD), SNPs\n# NRDs\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
+            }
             else
                 printf("# Non-Reference Discordance (NRD), indels\n# NRDi\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
             uint64_t m  = nrd_m[T2S(GT_HET_RA)] + nrd_m[T2S(GT_HOM_AA)];

@@ -44,6 +44,7 @@ test_vcf_idxstats($opts,in=>'idx',args=>'-n',out=>'idx_count.out');
 test_vcf_idxstats($opts,in=>'empty',args=>'-s',out=>'empty.idx.out');
 test_vcf_idxstats($opts,in=>'empty',args=>'-n',out=>'empty.idx_count.out');
 test_vcf_check($opts,in=>'check',out=>'check.chk');
+test_vcf_stats($opts,in=>['stats.a','stats.b'],out=>'stats.chk',args=>'-s -');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.flt.out',args=>'-n =2 -i"STRLEN(REF)==2"');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -376,6 +377,17 @@ sub test_vcf_check
     bgzip_tabix_vcf($opts,$args{in});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools stats -s - $$opts{tmp}/$args{in}.vcf.gz | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools stats -s - | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
+}
+sub test_vcf_stats
+{
+    my ($opts,%args) = @_;
+    my $files = '';
+    for my $file (@{$args{in}})
+    {
+        bgzip_tabix_vcf($opts,$file);
+        $files .= " $$opts{tmp}/$file.vcf.gz";
+    }
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools stats $args{args} $files | grep -v '^#' | grep -v '^ID\t'");
 }
 sub test_vcf_merge
 {

@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C
+1	1000	.	G	A	.	PASS	.	GT	0/1	0/0	0/0
+1	1001	.	G	A	.	PASS	.	GT	0/0	0/0	0/0
+1	1002	.	G	A	.	PASS	.	GT	0/0	0/1	0/0
