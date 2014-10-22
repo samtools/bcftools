@@ -215,7 +215,7 @@ static void init_data(args_t *args)
     fprintf(args->dat_fp, "# \t bcftools %s ", args->argv[0]);
     for (i=1; i<args->argc; i++)
         fprintf(args->dat_fp, " %s",args->argv[i]);
-    fprintf(args->dat_fp,"#\n");
+    fprintf(args->dat_fp,"\n#\n");
     fprintf(args->dat_fp,"# DIST\t[2]Chrom\t[3]BAF\t[4]Normalized Count\n");
     fprintf(args->dat_fp,"# FIT\t[2]Chrom\t[3]Mean of fitted Gaussian\t[4]Scale\t[5]Sigma[6]\tMean etc.\n");
     fprintf(args->dat_fp,"# CN\t[2]Chrom\t[3]Estimated Copy Number\n");
