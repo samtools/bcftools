@@ -38,10 +38,10 @@ struct _hmm_t
     int nstates;    // number of states
 
     double *vprob, *vprob_tmp;  // viterbi probs [nstates]
-    uint8_t *vpath;             // viterbi path [nstates*nsites]
+    uint8_t *vpath;             // viterbi path [nstates*nvpath]
     double *bwd, *bwd_tmp;      // bwd probs [nstates]
-    double *fwd;                // fwd probs [nstates*(nsites+1)]
-    int nsites;
+    double *fwd;                // fwd probs [nstates*(nfwd+1)]
+    int nvpath, nfwd;
 
     int ntprob_arr;             // number of pre-calculated tprob matrices
     double *curr_tprob, *tmp;   // Temporary arrays; curr_tprob is short lived, valid only for

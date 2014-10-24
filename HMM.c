@@ -104,10 +104,10 @@ static void _set_tprob(hmm_t *hmm, int pos_diff)
 void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
 {
     // Init arrays when run for the first time
-    if ( hmm->nsites < n )
+    if ( hmm->nvpath < n )
     {
-        hmm->nsites = n;
-        hmm->vpath = (uint8_t*) realloc(hmm->vpath, sizeof(uint8_t)*hmm->nsites*hmm->nstates);
+        hmm->nvpath = n;
+        hmm->vpath  = (uint8_t*) realloc(hmm->vpath, sizeof(uint8_t)*hmm->nvpath*hmm->nstates);
     }
     if ( !hmm->vprob )
     {
@@ -168,14 +168,13 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
 void hmm_run_fwd_bwd(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
 {
     // Init arrays when run for the first time
-    if ( hmm->nsites < n )
+    if ( hmm->nfwd < n )
     {
-        hmm->nsites = n;
-        hmm->fwd = (double*) realloc(hmm->fwd, sizeof(double)*(hmm->nsites+1)*hmm->nstates);
+        hmm->nfwd = n;
+        hmm->fwd  = (double*) realloc(hmm->fwd, sizeof(double)*(hmm->nfwd+1)*hmm->nstates);
     }
-    if ( !hmm->fwd )
+    if ( !hmm->bwd )
     {
-        hmm->fwd     = (double*) malloc(sizeof(double)*hmm->nstates*(hmm->nsites+1));
         hmm->bwd     = (double*) malloc(sizeof(double)*hmm->nstates);
         hmm->bwd_tmp = (double*) malloc(sizeof(double)*hmm->nstates);
     }
