@@ -48,7 +48,7 @@ args_t;
 static void init_data(args_t *args)
 {
     htsFile *fp = hts_open(args->fname,"r");
-    args->type = fp->type;
+    args->type = *hts_get_format(fp);
     hts_close(fp);
 }
 

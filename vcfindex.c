@@ -70,12 +70,12 @@ int vcf_index_stats(char *fname, int stats)
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if ( !hdr ) { fprintf(stderr,"Could not read the header: %s\n", fname); return 1; }
 
-    if ( fp->type.format==vcf )
+    if ( hts_get_format(fp)->format==vcf )
     {
         tbx = tbx_index_load(fname);
         if ( !tbx ) { fprintf(stderr,"Could not load TBI index: %s\n", fname); return 1; }
     }
-    else if ( fp->type.format==bcf )
+    else if ( hts_get_format(fp)->format==bcf )
     {
         idx = bcf_index_load(fname);
         if ( !idx ) { fprintf(stderr,"Could not load CSI index: %s\n", fname); return 1; }
@@ -178,7 +178,7 @@ int main_vcfindex(int argc, char *argv[])
     if (stats) return vcf_index_stats(fname, stats);
 
     htsFile *fp = hts_open(fname,"r"); 
-    htsFormat type = fp->type;
+    htsFormat type = *hts_get_format(fp);
     hts_close(fp);
 
     if ( (type.format!=bcf && type.format!=vcf) || type.compression!=bgzf )
