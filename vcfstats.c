@@ -887,7 +887,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             y   += dsg1;
             y2  += dsg1*dsg1;
             xy  += dsg0*dsg1;
-            r2n += dsg0<=3 ? 2 : 1;
+            r2n++;
 
             int idx = type2stats[gt0];
             if ( gt0==gt1 )
@@ -907,8 +907,11 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             x /= r2n; y /= r2n; x2 /= r2n; y2 /= r2n; xy /= r2n;
             float cov  = xy - x*y;
             float var2 = (x2 - x*x) * (y2 - y*y);
-            af_stats[iaf].r2sum += var2==0 ? 1 : cov*cov/var2;
-            af_stats[iaf].r2n++;
+            if ( var2!=0 )
+            {
+                af_stats[iaf].r2sum += cov*cov/var2;
+                af_stats[iaf].r2n++;
+            }
         }
 
         if ( args->verbose_sites )
