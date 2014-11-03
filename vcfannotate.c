@@ -1419,7 +1419,7 @@ int main_vcfannotate(int argc, char *argv[])
     if ( args->targets_fname )
     {
         htsFile *fp = hts_open(args->targets_fname,"r"); 
-        htsFormat type = fp->type;
+        htsFormat type = *hts_get_format(fp);
         hts_close(fp);
 
         if ( type.format==vcf || type.format==bcf )
