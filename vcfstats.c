@@ -916,6 +916,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
 
         if ( args->verbose_sites )
         {
+            int nm = 0, nmm = 0, nrefm = 0;
             for (is=0; is<files->n_smpl; is++)
             {
                 int gt = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
@@ -924,10 +925,18 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                 if ( gt2 == GT_UNKN ) continue;
                 if ( gt != gt2 )
                 {
+                    nmm++;
                     bcf_sr_t *reader = &files->readers[0];
                     printf("DBG\t%s\t%d\t%s\t%d\t%d\n",reader->header->id[BCF_DT_CTG][reader->buffer[0]->rid].key,reader->buffer[0]->pos+1,files->samples[is],gt,gt2);
                 }
+                else
+                {
+                    if ( gt!=GT_HOM_RR ) nrefm++;
+                    nm++;
+                }
             }
+            float nrd = nrefm+nmm ? 100.*nmm/(nrefm+nmm) : 0;
+            printf("PSD\t%s\t%d\t%d\t%d\t%f\n", reader->header->id[BCF_DT_CTG][reader->buffer[0]->rid].key,reader->buffer[0]->pos+1,nm,nmm,nrd);
         }
     }
 }
@@ -1008,10 +1017,15 @@ static void print_header(args_t *args)
         printf("ID\t2\t%s\t%s\n", fname0,fname1);
 
         if ( args->verbose_sites )
+        {
+            printf(
+                    "# Verbose per-site discordance output.\n"
+                    "# PSD\t[2]CHROM\t[3]POS\t[4]Number of matches\t[5]Number of mismatches\t[6]NRD\n");
             printf(
                     "# Verbose per-site and per-sample output. Genotype codes: %d:HomRefRef, %d:HomAltAlt, %d:HetAltRef, %d:HetAltAlt, %d:haploidRef, %d:haploidAlt\n"
                     "# DBG\t[2]CHROM\t[3]POS\t[4]Sample\t[5]GT in %s\t[6]GT in %s\n",
                     GT_HOM_RR, GT_HOM_AA, GT_HET_RA, GT_HET_AA, GT_HAPL_R, GT_HAPL_A, fname0,fname1);
+        }
     }
 }
 
