@@ -1390,7 +1390,15 @@ int mcall(call_t *call, bcf1_t *rec)
     #endif
 
     // Find the best combination of alleles
-    int out_als, nout =  mcall_find_best_alleles(call, nals, &out_als);
+    int out_als, nout = mcall_find_best_alleles(call, nals, &out_als);
+
+    // Make sure the REF allele is always present
+    if ( !(out_als&1) )
+    {
+        out_als |= 1;
+        nout++;
+    }
+    if ( call->flag & CALL_VARONLY && nout==1 ) return 0;
 
     // With -A, keep all ALTs except X
     if ( call->flag & CALL_KEEPALT )
@@ -1404,14 +1412,7 @@ int mcall(call_t *call, bcf1_t *rec)
             nout++;
         }
     }
-    // Make sure the REF allele is always present
-    else if ( !(out_als&1) )
-    {
-        out_als |= 1;
-        nout++;
-    }
 
-    if ( call->flag & CALL_VARONLY && out_als==1 ) return 0;
     int nAC = 0;
     if ( out_als==1 )
     {
