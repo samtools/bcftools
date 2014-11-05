@@ -524,17 +524,23 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
     see *<<common_options,Common Options>>*
 
 ==== GEN/SAMPLE options:
+*-G, --gensample2vcf* 'prefix' or 'gen-file','sample-file'::
+    convert IMPUTE2 output to VCF. The second column must be of the form
+    "CHROM:POS_REF_ALT" to detect possible strand swaps; IMPUTE2 leaves the
+    first one empty ("--") when sites from reference panel are filled in. See
+    also *-g* below.
+
 *-g, --gensample* 'prefix' or 'gen-file','sample-file'::
     convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
     The columns of .gen file format are ID1,ID2,POS,A,B followed by three
-    genotype probabilities P(AA), P(AB), P(BB) for each sample.
-    In order to prevent strand swaps, the program uses IDs of the form
-    "CHROM:POS_REF_ALT".  For example:
+    genotype probabilities P(AA), P(AB), P(BB) for each sample.  In order to
+    prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
+    For example:
 ----
   .gen
   ----
-  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
-  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+  1:111485207_G_A 1:111485207_G_A 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T 1:111494194_C_T 111494194 C T 0 1 0 0 0 1
 
   .sample
   -------
