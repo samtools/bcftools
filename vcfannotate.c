@@ -91,6 +91,7 @@ typedef struct _args_t
 
     rm_tag_t *rm;           // tags scheduled for removal
     int nrm;
+    int flt_keep_pass;      // when all filters removed, reset to PASS
 
     vcmp_t *vcmp;           // for matching annotation and VCF lines by allele
     annot_line_t *alines;   // buffered annotation lines
@@ -121,8 +122,8 @@ void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
 }
 void remove_filter(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
-    if ( !tag->key ) bcf_update_filter(args->hdr, line, NULL, 0);
-    else bcf_remove_filter(args->hdr, line, tag->hdr_id, 1);
+    if ( !tag->key ) bcf_update_filter(args->hdr, line, NULL, args->flt_keep_pass);
+    else bcf_remove_filter(args->hdr, line, tag->hdr_id, args->flt_keep_pass);
 }
 void remove_qual(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
@@ -200,6 +201,8 @@ static void remove_hdr_lines(bcf_hdr_t *hdr, int type)
 
 static void init_remove_annots(args_t *args)
 {
+    int keep_info = 0, keep_fmt = 0, keep_flt = 0;
+    void *keep = khash_str2int_init();
     kstring_t str = {0,0,0};
     char *ss = args->remove_annots;
     while ( *ss )
@@ -214,18 +217,50 @@ static void init_remove_annots(args_t *args)
         else if ( !strncasecmp("INF/",ss,4) ) { type = BCF_HL_INFO; ss += 4; }
         else if ( !strncasecmp("FORMAT/",ss,7) ) { type = BCF_HL_FMT; ss += 7; }
         else if ( !strncasecmp("FMT/",ss,4) ) { type = BCF_HL_FMT; ss += 4; }
+        else if ( !strncasecmp("FILTER/",ss,7) ) { type = BCF_HL_FLT; ss += 7; }
+        else if ( !strncasecmp("^INFO/",ss,6) ) { type = BCF_HL_INFO; ss += 6; keep_info = 1; }
+        else if ( !strncasecmp("^INF/",ss,5) ) { type = BCF_HL_INFO; ss += 5; keep_info = 1; }
+        else if ( !strncasecmp("^FORMAT/",ss,8) ) { type = BCF_HL_FMT; ss += 8; keep_fmt = 1; }
+        else if ( !strncasecmp("^FMT/",ss,5) ) { type = BCF_HL_FMT; ss += 5; keep_fmt = 1; }
+        else if ( !strncasecmp("^FILTER/",ss,8) ) { type = BCF_HL_FLT; ss += 8; keep_flt = 1; }
 
         char *se = ss;
         while ( *se && *se!=',' ) se++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
 
-        if ( type!= BCF_HL_GEN )
+        if ( type==BCF_HL_FLT )
+        {
+            if ( !keep_flt )
+            {
+                args->flt_keep_pass = 1;
+                tag->handler = remove_filter;
+                tag->key = strdup(str.s);
+                tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
+                if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
+                bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
+            }
+            else
+            {
+                int value, ret = khash_str2int_get(keep, str.s, &value);
+                if ( ret==-1 ) khash_str2int_set(keep, strdup(str.s),1<<BCF_HL_FLT);
+                else khash_str2int_set(keep, str.s, value | 1<<BCF_HL_FLT);
+                args->nrm--;
+            }
+        }
+        else if ( type!=BCF_HL_GEN )
         {
             int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,str.s);
             if ( !bcf_hdr_idinfo_exists(args->hdr,type,id) )
             {
                 fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
+                args->nrm--;
+            }
+            else if ( (type==BCF_HL_FMT && keep_fmt) || (type==BCF_HL_INFO && keep_info) )
+            {
+                int value, ret = khash_str2int_get(keep, str.s, &value);
+                if ( ret==-1 ) khash_str2int_set(keep, strdup(str.s),1<<type);
+                else khash_str2int_set(keep, str.s, value | 1<<type);
                 args->nrm--;
             }
             else
@@ -237,14 +272,6 @@ static void init_remove_annots(args_t *args)
             }
         }
         else if ( !strcasecmp("ID",str.s) ) tag->handler = remove_id;
-        else if ( !strncasecmp("FILTER/",str.s,7) )
-        {
-            tag->handler = remove_filter;
-            tag->key = strdup(str.s+7);
-            tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
-            if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
-            bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
-        }
         else if ( !strcasecmp("FILTER",str.s) )
         {
             tag->handler = remove_filter;
@@ -273,7 +300,41 @@ static void init_remove_annots(args_t *args)
         ss = *se ? se+1 : se;
     }
     free(str.s);
+    if ( keep_flt || keep_info || keep_flt )
+    {
+        int j;
+        for (j=0; j<args->hdr->nhrec; j++)
+        {
+            bcf_hrec_t *hrec = args->hdr->hrec[j];
+            if ( hrec->type!=BCF_HL_FLT && hrec->type!=BCF_HL_INFO && hrec->type!=BCF_HL_FMT ) continue;
+            if ( !keep_flt && hrec->type==BCF_HL_FLT ) continue;
+            if ( !keep_info && hrec->type==BCF_HL_INFO ) continue;
+            if ( !keep_fmt && hrec->type==BCF_HL_FMT ) continue;
+            int k = bcf_hrec_find_key(hrec,"ID");
+            assert( k>=0 ); // this should always be true for valid VCFs
+            int value, ret = khash_str2int_get(keep,hrec->vals[k],&value);
+            if ( ret==0 && value>>hrec->type ) // keep
+            {
+                if ( hrec->type==BCF_HL_FLT && !strcmp("PASS",hrec->vals[k]) ) args->flt_keep_pass = 1;
+                continue;
+            }
+            args->nrm++;
+            args->rm = (rm_tag_t*) realloc(args->rm,sizeof(rm_tag_t)*args->nrm);
+            rm_tag_t *tag = &args->rm[args->nrm-1];
+            if ( hrec->type==BCF_HL_INFO ) tag->handler = remove_info_tag;
+            else if ( hrec->type==BCF_HL_FMT ) tag->handler = remove_format_tag;
+            else 
+            {
+                tag->handler = remove_filter;
+                tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, hrec->vals[k]);
+            }
+            tag->key = strdup(hrec->vals[k]);
+            bcf_hdr_remove(args->hdr_out,hrec->type,tag->key);
+        }
+    }
+    khash_str2int_destroy_free(keep);
     if ( !args->nrm ) error("No matching tag in -x %s\n", args->remove_annots);
+    bcf_hdr_sync(args->hdr_out);
 }
 static void init_header_lines(args_t *args)
 {

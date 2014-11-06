@@ -133,6 +133,7 @@ test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',arg
 test_vcf_annotate($opts,in=>'annotate',vcf=>'annots',out=>'annotate3.out',args=>'-c STR,ID,QUAL,FILTER');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate4.out',args=>'-c ID,QUAL,FILTER,INFO,FMT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate5.out',args=>'-c ID,QUAL,+FILTER,+INFO,FMT/GT -s A');
+test_vcf_annotate($opts,in=>'annotate3',out=>'annotate6.out',args=>'-x ID,QUAL,^FILTER/fltA,FILTER/fltB,^INFO/AA,INFO/BB,^FMT/GT,FMT/PL');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref');
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC');
 test_vcf_plugin($opts,in=>'plugin1',out=>'dosage.out',cmd=>'+dosage');
@@ -633,20 +634,26 @@ sub test_vcf_annotate
     if ( exists($args{tab}) )
     {
         bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
-        $annot_fname = "$$opts{tmp}/$args{tab}.tab.gz";
+        $annot_fname = "-a $$opts{tmp}/$args{tab}.tab.gz";
         $in_fname = "$$opts{path}/$args{in}.vcf";
         $hdr = "-h $$opts{path}/$args{in}.hdr";
     }
-    else
+    elsif ( exists($args{vcf}) )
     {
         bgzip_tabix_vcf($opts,"$args{in}");
         bgzip_tabix_vcf($opts,$args{vcf});
-        $annot_fname = "$$opts{tmp}/$args{vcf}.vcf.gz";
+        $annot_fname = "-a $$opts{tmp}/$args{vcf}.vcf.gz";
         $in_fname = "$$opts{tmp}/$args{in}.vcf.gz";
         $hdr = '';
     }
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -a $annot_fname $hdr $args{args} $in_fname | grep -v ^##bcftools_");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -Ob -a $annot_fname $hdr $args{args} $in_fname | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
+    else
+    {
+        $in_fname = "$$opts{path}/$args{in}.vcf";
+        $annot_fname = '';
+        $hdr = '';
+    }
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate $annot_fname $hdr $args{args} $in_fname | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools annotate -Ob $annot_fname $hdr $args{args} $in_fname | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_plugin
 {
