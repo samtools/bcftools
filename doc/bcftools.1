@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2014-11-05 08:45 GMT
+.\"      Date: 2014-11-06 15:13 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2014\-11\-05 08:45 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2014\-11\-06 15:13 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2014\-11\-05 08:45 GMT\fR and refers to bcftools git version \fB1\&.1\-64\-g86c3611+\fR\&.
+This manual page was last updated \fB2014\-11\-06 15:13 GMT\fR and refers to bcftools git version \fB1\&.1\-67\-g64053d9+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -546,22 +546,7 @@ VCF, the name mapping can be given as "src_name dst_name\en", separated by white
 .PP
 \fB\-x, \-\-remove\fR \fIlist\fR
 .RS 4
-List of annotations to remove\&. Use
-\fIFILTER\fR
-to remove all filters or
-\fIFILTER/SomeFilter\fR
-to remove a specific filter\&. Similarly,
-\fIINFO\fR
-can be used to remove all INFO tags and
-\fIFORMAT\fR
-to remove all FORMAT tags except GT\&.
-\fIINFO\fR
-can be abbreviated to
-\fIINF\fR
-and
-\fIFORMAT\fR
-to
-\fIFMT\fR\&.
+List of annotations to remove\&. Use "FILTER" to remove all filters or "FILTER/SomeFilter" to remove a specific filter\&. Similarly, "INFO" can be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags except GT\&. To remove all INFO tags except "FOO" and "BAR", use "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER)\&. "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT"\&.
 .RE
 .sp
 \fBExamples:\fR
@@ -572,6 +557,9 @@ to
 .nf
     # Remove three fields
     bcftools annotate \-x ID,INFO/DP,FORMAT/DP file\&.vcf\&.gz
+
+    # Remove all INFO fields and all FORMAT fields except for GT and PL
+    bcftools annotate \-x INFO,^FORMAT/GT,FORMAT/PL file\&.vcf
 
     # Add ID, QUAL and INFO/TAG, not replacing TAG if already present
     bcftools annotate \-a src\&.bcf \-c ID,QUAL,+TAG dst\&.bcf

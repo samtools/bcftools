@@ -293,15 +293,20 @@ This command allows to add or remove annotations.
     separate line.
 
 *-x, --remove* 'list'::
-    List of annotations to remove. Use 'FILTER' to remove all filters or
-    'FILTER/SomeFilter' to remove a specific filter. Similarly, 'INFO' can
-    be used to remove all INFO tags and 'FORMAT' to remove all FORMAT tags
-    except GT. 'INFO' can be abbreviated to 'INF' and 'FORMAT' to 'FMT'.
+    List of annotations to remove. Use "FILTER" to remove all filters or
+    "FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
+    be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
+    except GT. To remove all INFO tags except "FOO" and "BAR", use
+    "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+    "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
 *Examples:*
 ----
     # Remove three fields
     bcftools annotate -x ID,INFO/DP,FORMAT/DP file.vcf.gz
+
+    # Remove all INFO fields and all FORMAT fields except for GT and PL
+    bcftools annotate -x INFO,^FORMAT/GT,FORMAT/PL file.vcf
 
     # Add ID, QUAL and INFO/TAG, not replacing TAG if already present
     bcftools annotate -a src.bcf -c ID,QUAL,+TAG dst.bcf
