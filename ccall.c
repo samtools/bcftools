@@ -231,7 +231,14 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     if (rec->qual > 999) rec->qual = 999;
 
     // Remove unused alleles
-    int nals_ori = rec->n_allele, nals = !is_var ? 1 : pr->rank0 < 2? 2 : pr->rank0+1;
+    int nals_ori = rec->n_allele, nals = !is_var && !(call->flag & CALL_KEEPALT) ? 1 : pr->rank0 < 2? 2 : pr->rank0+1;
+    if ( call->flag & CALL_KEEPALT && nals>1 )
+    {
+        if ( rec->d.allele[nals-1][0]=='X' ) nals--;   // old version of unseen allele "X"
+        else if ( rec->d.allele[nals-1][0]=='<' && rec->d.allele[nals-1][1]=='X' && rec->d.allele[nals-1][2]=='>' ) nals--;   // old version of unseen allele, "<X>"
+        else if ( rec->d.allele[nals-1][0]=='<' && rec->d.allele[nals-1][1]=='*' && rec->d.allele[nals-1][2]=='>' ) nals--;   // new version of unseen allele, "<*>"
+    }
+    
     if ( nals<rec->n_allele )
     {
         bcf_update_alleles(call->hdr, rec, (const char**)rec->d.allele, nals);
@@ -266,7 +273,7 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
     int i;
     for (i=0; i<rec->n_sample; i++)
     {
-        int x  = bcf_p1_call_gt(p1, pr->f_exp, i);
+        int x = ( is_var || call->output_tags & CALL_FMT_GQ ) ? bcf_p1_call_gt(p1, pr->f_exp, i) : 2;
         int gt = x&3;
         if ( !call->ploidy || call->ploidy[i]==2 )
         {

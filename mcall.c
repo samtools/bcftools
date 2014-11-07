@@ -694,7 +694,7 @@ static void mcall_set_ref_genotypes(call_t *call, int nals)
     call->nhets = 0;
     call->ndiploid = 0;
 
-    // Set all genotypes to 0/0 and remove PL vector
+    // Set all genotypes to 0/0 or 0
     int *gts    = call->gts;
     double *pdg = call->pdg;
     int isample;
@@ -1337,7 +1337,8 @@ int mcall(call_t *call, bcf1_t *rec)
     for (i=1; i<rec->n_allele; i++)
     {
         if ( rec->d.allele[i][0]=='X' ) { unseen = i; break; }  // old X
-        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // new <X>
+        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // old <X>
+        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // new <*>
     }
 
     // Force alleles when calling genotypes given alleles was requested
@@ -1398,7 +1399,8 @@ int mcall(call_t *call, bcf1_t *rec)
         out_als |= 1;
         nout++;
     }
-    if ( call->flag & CALL_VARONLY && nout==1 ) return 0;
+    int is_variant = out_als==1 ? 0 : 1;
+    if ( call->flag & CALL_VARONLY && !is_variant ) return 0;
 
     // With -A, keep all ALTs except X
     if ( call->flag & CALL_KEEPALT )
@@ -1407,14 +1409,15 @@ int mcall(call_t *call, bcf1_t *rec)
         for (i=0; i<nals; i++)
         {
             if ( rec->d.allele[i][0]=='X' ) continue;   // old version of unseen allele "X"
-            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' ) continue;   // new version of unseen allele, "<X>"
+            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' ) continue;   // old version of unseen allele, "<X>"
+            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][2]=='>' ) continue;   // new version of unseen allele, "<*>"
             out_als |= 1<<i;
             nout++;
         }
     }
 
     int nAC = 0;
-    if ( out_als==1 )
+    if ( out_als==1 )   // only REF allele on output
     {
         init_allele_trimming_maps(call, 1, nals);
         mcall_set_ref_genotypes(call,nals);
@@ -1425,10 +1428,10 @@ int mcall(call_t *call, bcf1_t *rec)
         // The most likely set of alleles includes non-reference allele (or was enforced), call genotypes.
         // Note that it is a valid outcome if the called genotypes exclude some of the ALTs.
         init_allele_trimming_maps(call, out_als, nals);
-        if ( call->flag & CALL_CONSTR_TRIO )
-        {
+        if ( !is_variant )
+            mcall_set_ref_genotypes(call,nals);     // running with -A, prevent mcall_call_genotypes from putting some ALT back
+        else if ( call->flag & CALL_CONSTR_TRIO )
             mcall_call_trio_genotypes(call, rec, nals,nout,out_als);
-        }
         else
             mcall_call_genotypes(call,rec,nals,nout,out_als);
 

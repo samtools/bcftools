@@ -486,7 +486,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
     fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5]\n");
-    fprintf(stderr, "   -P, --prior <float>             mutation rate [1e-3]\n");
+    fprintf(stderr, "   -P, --prior <float>             mutation rate (use bigger for greater sensitivity) [1.1e-3]\n");
     fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
     fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
 
@@ -508,7 +508,7 @@ int main_vcfcall(int argc, char *argv[])
     args.argc = argc; args.argv = argv;
     args.aux.prior_type = -1;
     args.aux.indel_frac = -1;
-    args.aux.theta      = 1e-3;
+    args.aux.theta      = 1.1e-3;
     args.aux.pref       = 0.5;
     args.aux.min_perm_p = 0.01;
     args.aux.min_lrt    = 1;
@@ -657,6 +657,7 @@ int main_vcfcall(int argc, char *argv[])
                 // second allele is mpileup's X, not a variant
                 if ( bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;
                 else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='X' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
+                else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='*' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
             }
             if ( is_ref )
             {
