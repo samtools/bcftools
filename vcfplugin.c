@@ -221,7 +221,7 @@ static void print_plugin_usage_hint(void)
                 "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
                 "DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.\n"
                 "\n"
-                "- Run \"bcftools -lv\" for more detailed error output.\n"
+                "- Run \"bcftools plugin -lv\" for more detailed error output.\n"
                 "\n",
                 getenv("BCFTOOLS_PLUGINS")
                );
