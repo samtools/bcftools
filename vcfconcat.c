@@ -49,7 +49,7 @@ typedef struct _args_t
     int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
     char **argv, *output_fname, *file_list, **fnames;
-    int argc, nfnames, allow_overlaps, phased_concat;
+    int argc, nfnames, allow_overlaps, phased_concat, remove_dups;
 }
 args_t;
 
@@ -430,6 +430,7 @@ static void concat(args_t *args)
                 if ( !line ) continue;
                 bcf_translate(args->out_hdr, args->files->readers[i].header, line);
                 bcf_write1(args->out_fh, args->out_hdr, line);
+                if ( args->remove_dups ) break;
             }
         }
     }
@@ -514,6 +515,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
+    fprintf(stderr, "   -D, --remove-duplicates        Output only once records present in multiple files.\n");
     fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
     fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
@@ -534,6 +536,7 @@ int main_vcfconcat(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"remove-duplicates",0,0,'D'},
         {"allow-overlaps",0,0,'a'},
         {"ligate",0,0,'l'},
         {"output",1,0,'o'},
@@ -542,9 +545,10 @@ int main_vcfconcat(int argc, char *argv[])
         {"min-PQ",1,0,'q'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:D",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'D': args->remove_dups = 1; break;
             case 'q': args->min_PQ = atoi(optarg); break;
             case 'a': args->allow_overlaps = 1; break;
             case 'l': args->phased_concat = 1; break;
@@ -578,6 +582,7 @@ int main_vcfconcat(int argc, char *argv[])
         args->fnames = hts_readlines(args->file_list, &args->nfnames);
     }
     if ( !args->nfnames ) usage(args);
+    if ( args->remove_dups && !args->allow_overlaps ) error("Expected -a with -D\n");
     init_data(args);
     concat(args);
     destroy_data(args);
