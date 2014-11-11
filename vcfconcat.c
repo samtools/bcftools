@@ -48,8 +48,8 @@ typedef struct _args_t
     int nbuf, mbuf, prev_chr, min_PQ, prev_pos_check;
     int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
-    char **argv, *output_fname, *file_list, **fnames;
-    int argc, nfnames, allow_overlaps, phased_concat, remove_dups;
+    char **argv, *output_fname, *file_list, **fnames, *regions_list;
+    int argc, nfnames, allow_overlaps, phased_concat, remove_dups, regions_is_file;
 }
 args_t;
 
@@ -120,6 +120,11 @@ static void init_data(args_t *args)
     {
         args->files = bcf_sr_init();
         args->files->require_index = 1;
+        if ( args->regions_list )
+        {
+            if ( bcf_sr_set_regions(args->files, args->regions_list, args->regions_is_file)<0 )
+                error("Failed to read the regions: %s\n", args->regions_list);
+        }
         for (i=0; i<args->nfnames; i++)
             if ( !bcf_sr_add_reader(args->files,args->fnames[i]) ) error("Failed to open %s: %s\n", args->fnames[i],bcf_sr_strerror(args->files->errnum));
     }
@@ -454,7 +459,7 @@ static void concat(args_t *args)
                     tmp.l = 0;
                     kputsn(fp->line.s,str-fp->line.s,&tmp);
                     int chr_id = bcf_hdr_name2id(args->out_hdr, tmp.s);
-                    if ( chr_id<0 ) error("FIXME: sequence name %s in %s\n", tmp.s, args->fnames[i]);
+                    if ( chr_id<0 ) error("The sequence \"%s\" not defined in the header: %s\n(Quick workaround: index the file.)\n", tmp.s, args->fnames[i]);
                     if ( prev_chr_id!=chr_id )
                     {
                         prev_pos = -1;
@@ -521,6 +526,8 @@ static void usage(args_t *args)
     fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
     fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -536,6 +543,8 @@ int main_vcfconcat(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"regions",1,0,'r'},
+        {"regions-file",1,0,'R'},
         {"remove-duplicates",0,0,'D'},
         {"allow-overlaps",0,0,'a'},
         {"ligate",0,0,'l'},
@@ -545,9 +554,11 @@ int main_vcfconcat(int argc, char *argv[])
         {"min-PQ",1,0,'q'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:D",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dr:R:",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'r': args->regions_list = optarg; break;
+            case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'D': args->remove_dups = 1; break;
             case 'q': args->min_PQ = atoi(optarg); break;
             case 'a': args->allow_overlaps = 1; break;
@@ -582,7 +593,8 @@ int main_vcfconcat(int argc, char *argv[])
         args->fnames = hts_readlines(args->file_list, &args->nfnames);
     }
     if ( !args->nfnames ) usage(args);
-    if ( args->remove_dups && !args->allow_overlaps ) error("Expected -a with -D\n");
+    if ( args->remove_dups && !args->allow_overlaps ) error("The -D option is supported only with -a\n");
+    if ( args->regions_list && !args->allow_overlaps ) error("The -r/-R option is supported only with -a\n");
     init_data(args);
     concat(args);
     destroy_data(args);
