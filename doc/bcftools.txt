@@ -438,20 +438,31 @@ the *-a, --allow-overlaps* option is specified.
 *-a, --allow-overlaps*::
     First coordinate of the next file can precede last record of the current file.
 
+*-D, --remove-duplicates*::
+    If a record is present in multiple files, output it only once. Requires
+    *-a, --allow-overlaps*.
+
 *-f, --file-list* 'FILE'::
     Read the list of files from a file.
 
 *-l, --ligate*::
     Ligate phased VCFs by matching phase at overlapping haplotypes
 
-*-q, --min-PQ* 'INT'::
-    Break phase set if phasing quality is lower than 'INT'
-
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
+
+*-q, --min-PQ* 'INT'::
+    Break phase set if phasing quality is lower than 'INT'
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*. Requires *-a, --allow-overlaps*.
+
+*-R, --regions-file* 'FILE'::
+    see *<<common_options,Common Options>>*. Requires *-a, --allow-overlaps*.
+
 
 [[consensus]]
 === bcftools consensus '[OPTIONS]' 'FILE'

@@ -344,10 +344,12 @@ static void init_header_lines(args_t *args)
     while ( hts_getline(file, KS_SEP_LINE, &str) > 0 )
     {
         if ( bcf_hdr_append(args->hdr_out,str.s) ) error("Could not parse %s: %s\n", args->header_fname, str.s);
+        bcf_hdr_append(args->hdr,str.s);    // the input file may not have the header line if run with -h (and nothing else)
     }
     hts_close(file);
     free(str.s);
     bcf_hdr_sync(args->hdr_out);
+    bcf_hdr_sync(args->hdr);
 }
 static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
