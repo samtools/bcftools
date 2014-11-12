@@ -105,6 +105,9 @@ COMMANDS AND OPTIONS
 [[common_options]]
 === Common Options
 
+The following options are common to many bcftools commands. See usage for
+specific commands to see if they apply.
+
 'FILE'::
     Files can be both VCF or BCF, uncompressed or BGZF-compressed. The file "-"
     is interpreted as standard input. Some tools may require tabix- or
@@ -161,7 +164,8 @@ COMMANDS AND OPTIONS
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
-    Comma-separated list of regions, see also *-R, --regions-file*.
+    Comma-separated list of regions, see also *-R, --regions-file*. Note
+    that *-r* cannot be used in combination with *-R*.
 
 *-R, --regions-file* 'FILE'::
     Regions can be specified either on command line or in a VCF, BED, or
@@ -176,7 +180,8 @@ COMMANDS AND OPTIONS
     processed in ascending genomic coordinate order no matter what order they
     appear in 'FILE'. Note that overlapping regions in 'FILE' can result in
     duplicated out of order positions in the output.
-    This option requires indexed VCF/BCF files.
+    This option requires indexed VCF/BCF files. Note that *-R* cannot be used 
+    in combination with *-r*.
 
 *-s, --samples* \[^]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
@@ -197,11 +202,12 @@ COMMANDS AND OPTIONS
     can be prefixed with "\^" to request logical complement. For example, "^X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the two is that *-r* checks both start and
-    end positions of indels, whereas *-t* checks start positions only. *-t* cannot
-    be used in combination with *-T*.
+    end positions of indels, whereas *-t* checks start positions only. Note
+    that *-t* cannot be used in combination with *-T*.
 
 *-T, --targets-file* \[^]'FILE'::
-    Same *-t, --targets*, but reads regions from a file. *-T* cannot be used in combination with *-t*.
+    Same *-t, --targets*, but reads regions from a file. Note that *-T*
+    cannot be used in combination with *-t*.
 
     ::
     With the *call -C* 'alleles' command, third column of the targets file must
