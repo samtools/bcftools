@@ -197,10 +197,11 @@ COMMANDS AND OPTIONS
     can be prefixed with "\^" to request logical complement. For example, "^X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the two is that *-r* checks both start and
-    end positions of indels, whereas *-t* checks start positions only.
+    end positions of indels, whereas *-t* checks start positions only. *-t* cannot
+    be used in combination with *-T*.
 
 *-T, --targets-file* \[^]'FILE'::
-    Same *-t, --targets*, but reads regions from a file.
+    Same *-t, --targets*, but reads regions from a file. *-T* cannot be used in combination with *-t*.
 
     ::
     With the *call -C* 'alleles' command, third column of the targets file must
