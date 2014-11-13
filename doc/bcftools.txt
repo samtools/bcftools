@@ -321,10 +321,16 @@ This command allows to add or remove annotations.
     # Carry over all INFO and FORMAT annotations except FORMAT/GT
     bcftools annotate -a src.bcf -c INFO,^FORMAT/GT dst.bcf
     
-    # Annotate from a tab-delimited file
+    # Annotate from a tab-delimited file with six columns (the fifth is ignored),
+    # first indexing with tabix. The coordinates are 1-based.
+    tabix -s1 -b2 -e2 annots.tab.gz
     bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,POS,REF,ALT,-,TAG file.vcf
 
-    # Annotate from a tab-delimited and tabix indexed bed file
+    # Annotate from a tab-delimited file with regions (1-based coordinates, inclusive)
+    tabix -s1 -b2 -e3 annots.tab.gz 
+    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,FROM,TO,TAG inut.vcf
+
+    # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
     bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
 ----
 
