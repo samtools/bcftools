@@ -323,6 +323,9 @@ This command allows to add or remove annotations.
     
     # Annotate from a tab-delimited file
     bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,POS,REF,ALT,-,TAG file.vcf
+
+    # Annotate from a tab-delimited and tabix indexed bed file
+    bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
 ----
 
 
