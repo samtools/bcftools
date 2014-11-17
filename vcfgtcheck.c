@@ -756,12 +756,19 @@ int main_vcfgtcheck(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( argc==optind || argc>optind+1 )  usage();  // none or too many files given
+    char *fname = NULL;
+    if ( optind==argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage();   // no files given
+    }
+    else fname = argv[optind];
+    if ( argc>optind+1 )  usage();  // too many files given
     if ( !args->gt_fname ) args->cross_check = 1;   // no genotype file, run in cross-check mode
     else args->files->require_index = 1;
     if ( regions && bcf_sr_set_regions(args->files, regions, regions_is_file)<0 ) error("Failed to read the regions: %s\n", regions);
     if ( targets && bcf_sr_set_targets(args->files, targets, targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n", targets);
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
     if ( args->gt_fname && !bcf_sr_add_reader(args->files, args->gt_fname) ) error("Failed to open %s: %s\n", args->gt_fname,bcf_sr_strerror(args->files->errnum));
     args->files->collapse = COLLAPSE_SNPS|COLLAPSE_INDELS;
     if ( args->plot ) args->plot = init_prefix(args->plot);
