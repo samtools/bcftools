@@ -218,7 +218,7 @@ static void init_data(args_t *args)
     fprintf(args->dat_fp,"\n#\n");
     fprintf(args->dat_fp,"# DIST\t[2]Chrom\t[3]BAF\t[4]Normalized Count\n");
     fprintf(args->dat_fp,"# FIT\t[2]Chrom\t[3]Mean of fitted Gaussian\t[4]Scale\t[5]Sigma[6]\tMean etc.\n");
-    fprintf(args->dat_fp,"# CN\t[2]Chrom\t[3]Estimated Copy Number\n");
+    fprintf(args->dat_fp,"# CN\t[2]Chrom\t[3]Estimated Copy Number\t[4]Absolute fit deviation\n");
 
     char *fname = NULL;
     FILE *fp = open_file(&fname,"w","%s/dist.py", args->output_dir);
@@ -521,38 +521,44 @@ static void fit_curves(args_t *args)
         // Three peaks (CN4) are always a better fit than two (CN3) or one (CN2). Therefore
         // check first if CN2 is better than CN3 and if the peak sizes are reasonable, within
         // (1-fit_th)%
-        double cn = -1;
-        if ( min(fit_cn2,fit_cn3,fit_cn4) > args->fit_th ) ;
-        else if ( fit_cn2 < fit_cn3 || dy_cn3 < 0.7 )
+        double cn = -1, fit = min(fit_cn2,fit_cn3,fit_cn4);
+        if ( fit <= args->fit_th )
         {
-            if ( fit_cn4 < args->cn_penalty * fit_cn2 )
+            if ( fit_cn2 < fit_cn3 || dy_cn3 < 0.7 )
             {
-                if ( dy_cn4 > args->peak_symmetry )
+                if ( fit_cn4 < args->cn_penalty * fit_cn2 )
                 {
-                    cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
-                    save_dist(args, i, 3, params_cn4);
+                    if ( dy_cn4 > args->peak_symmetry )
+                    {
+                        fit = fit_cn4;
+                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
+                        save_dist(args, i, 3, params_cn4);
+                    }
+                }
+                else
+                {
+                    fit = fit_cn2;
+                    cn = 2;
+                    save_dist(args, i, 1, params_cn2);
                 }
             }
             else
             {
-                cn = 2;
-                save_dist(args, i, 1, params_cn2);
-            }
-        }
-        else
-        {
-            if ( fit_cn4 < args->cn_penalty * fit_cn3 )
-            {
-                if ( dy_cn4 > args->peak_symmetry )
+                if ( fit_cn4 < args->cn_penalty * fit_cn3 )
                 {
-                    cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
-                    save_dist(args, i, 3, params_cn4);
+                    if ( dy_cn4 > args->peak_symmetry )
+                    {
+                        fit = fit_cn4;
+                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
+                        save_dist(args, i, 3, params_cn4);
+                    }
                 }
-            }
-            else
-            {
-                cn = 2.0 + fabs(params_cn3[3] - params_cn3[0])*3.0;
-                save_dist(args, i, 2, params_cn3);
+                else
+                {
+                    fit = fit_cn3;
+                    cn = 2.0 + fabs(params_cn3[3] - params_cn3[0])*3.0;
+                    save_dist(args, i, 2, params_cn3);
+                }
             }
         }
 
@@ -565,7 +571,7 @@ static void fit_curves(args_t *args)
             printf("\n");
         }
         if ( cn==-1 ) save_dist(args, i, 0, NULL);
-        fprintf(args->dat_fp,"CN\t%s\t%.1f\n", dist->chr, cn);
+        fprintf(args->dat_fp,"CN\t%s\t%.1f\t%f\n", dist->chr, cn, fit);
     }
 }
 
