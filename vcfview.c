@@ -221,6 +221,7 @@ static void init_data(args_t *args)
     if (args->n_samples > 0)
     {
         args->hsub = bcf_hdr_subset(args->hdr, args->n_samples, args->samples, args->imap);
+        if ( !args->hsub ) error("Error occurred while subsetting samples\n");
         if ( args->n_samples != bcf_hdr_nsamples(args->hsub) )
         {
             int i;

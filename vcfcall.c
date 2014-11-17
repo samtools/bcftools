@@ -306,6 +306,7 @@ static void init_data(args_t *args)
     {
         args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
         args->aux.hdr = bcf_hdr_subset(args->aux.srs->readers[0].header, args->nsamples, args->samples, args->samples_map);
+        if ( !args->aux.hdr ) error("Error occurred while subsetting samples\n");
         for (i=0; i<args->nsamples; i++)
             if ( args->samples_map[i]<0 ) error("No such sample: %s\n", args->samples[i]);
         if ( !bcf_hdr_nsamples(args->aux.hdr) ) error("No matching sample found\n");
