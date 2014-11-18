@@ -602,6 +602,7 @@ static void vcf_to_gensample(args_t *args)
     kputs("%CHROM:%POS\\_%REF\\_%FIRST_ALT %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT", &str);
     if ( !args->tag || !strcmp(args->tag,"GT") ) kputs("%_GT_TO_PROB3",&str);
     else if ( !strcmp(args->tag,"PL") ) kputs("%_PL_TO_PROB3",&str);
+    else if ( !strcmp(args->tag,"GP") ) kputs("%_GP_TO_PROB3",&str);
     else error("todo: --tag %s\n", args->tag);
     kputs("\n", &str);
     open_vcf(args,str.s);

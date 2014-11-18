@@ -57,10 +57,11 @@ THE SOFTWARE.  */
 #define T_CHROM_POS_ID 18   // not publicly advertised
 #define T_GT_TO_PROB3  19   // not publicly advertised
 #define T_PL_TO_PROB3  20   // not publicly advertised
-#define T_FIRST_ALT    21   // not publicly advertised
-#define T_IUPAC_GT     22 
-#define T_GT_TO_HAP    23   // not publicly advertised
-#define T_GT_TO_HAP2   24   // not publicly advertised
+#define T_GP_TO_PROB3  21   // not publicly advertised
+#define T_FIRST_ALT    22   // not publicly advertised
+#define T_IUPAC_GT     23
+#define T_GT_TO_HAP    24   // not publicly advertised
+#define T_GT_TO_HAP2   25   // not publicly advertised
 
 typedef struct _fmt_t
 {
@@ -479,6 +480,42 @@ static void process_pl_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         }
     }
 }
+static void process_gp_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    int m,n,i;
+
+    m = convert->ndat / sizeof(float);
+    n = bcf_get_format_float(convert->header,line,"GP",&convert->dat,&m);
+    convert->ndat = m * sizeof(float);
+
+    if ( n<=0 )
+    {
+        // Throw an error or silently proceed?
+        //
+        // for (i=0; i<convert->nsamples; i++) kputs(" 0.33 0.33 0.33", str);
+        // return;
+
+        error("Error parsing GP tag at %s:%d\n", bcf_seqname(convert->header,line),line->pos+1);
+    }
+
+    n /= convert->nsamples;
+    for (i=0; i<convert->nsamples; i++)
+    {
+        float sum = 0, *ptr = (float*)convert->dat + i*n;
+        int j;
+        for (j=0; j<n; j++)
+        {
+            if ( ptr[j]==bcf_int32_vector_end ) break;
+            if ( ptr[j]==bcf_int32_missing ) { ptr[j]=0; continue; }
+            if ( ptr[j]<0 || ptr[j]>1 ) error("[%s:%d:%f] GP value outside range [0,1]; bcftools convert expects the VCF4.3+ spec for the GP field encoding genotype posterior probabilities", bcf_seqname(convert->header,line),line->pos+1,ptr[j]);
+            sum+=ptr[j];
+        }
+        if ( j==line->n_allele )
+            ksprintf(str," %f %f %f",ptr[0],0.,ptr[1]); // haploid
+        else
+            ksprintf(str," %f %f %f",ptr[0],ptr[1],ptr[2]); // diploid
+    }
+}
 
 static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
@@ -653,6 +690,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_CHROM_POS_ID: fmt->handler = &process_chrom_pos_id; break;
         case T_GT_TO_PROB3: fmt->handler = &process_gt_to_prob3; break;
         case T_PL_TO_PROB3: fmt->handler = &process_pl_to_prob3; break;
+        case T_GP_TO_PROB3: fmt->handler = &process_gp_to_prob3; break;
         case T_CHROM: fmt->handler = &process_chrom; break;
         case T_POS: fmt->handler = &process_pos; break;
         case T_ID: fmt->handler = &process_id; break;
@@ -735,6 +773,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "_CHROM_POS_ID") ) register_tag(convert, T_CHROM_POS_ID, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_PROB3") ) register_tag(convert, T_GT_TO_PROB3, str.s, is_gtf);
         else if ( !strcmp(str.s, "_PL_TO_PROB3") ) register_tag(convert, T_PL_TO_PROB3, str.s, is_gtf);
+        else if ( !strcmp(str.s, "_GP_TO_PROB3") ) register_tag(convert, T_GP_TO_PROB3, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_HAP") ) register_tag(convert, T_GT_TO_HAP, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_HAP2") ) register_tag(convert, T_GT_TO_HAP2, str.s, is_gtf);
         else if ( !strcmp(str.s, "INFO") )
