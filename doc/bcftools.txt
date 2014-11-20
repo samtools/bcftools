@@ -402,7 +402,7 @@ demand. The original calling model can be invoked with the *-c* option.
 *-C, --constrain* 'alleles'|'trio'::
 
         'alleles';;
-            call genotypes given alleles. See also *-t, --targets*.
+            call genotypes given alleles. See also *-T, --targets-file*.
 
         'trio';;
             call genotypes given the father-mother-child constraint. See also
