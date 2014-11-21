@@ -484,9 +484,11 @@ static void fit_curves(args_t *args)
             continue;
         }
 
-        // parameters (center,scale,sigma) for gaussian peaks
+        // Parameters (center,scale,sigma) for gaussian peaks. For CN3, the fitting
+        // if often more stable with peaks starting closer to the center, rather than
+        // the expected 1/3. and 2/3.
         double params_cn2[] = { 1/2.,0.5,0.05 };
-        double params_cn3[] = { 1/3.,0.5,0.05, 2/3.,0.5,0.05 };
+        double params_cn3[] = { 0.48,0.5,0.05, 0.52,0.5,0.05 };
         double params_cn4[] = { 1/3.,0.5,0.05, 1/2.,0.5,0.05, 2/3.,0.5,0.05 };
         gauss_fit(&args->dist[i],1,params_cn2);
         gauss_fit(&args->dist[i],2,params_cn3);
