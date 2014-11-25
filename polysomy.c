@@ -525,22 +525,25 @@ static void fit_curves(args_t *args)
         // (1-fit_th)%
         double cn = -1, fit = min(fit_cn2,fit_cn3,fit_cn4);
         if ( fit <= args->fit_th )
-        {
-            if ( fit_cn2 < fit_cn3 || dy_cn3 < 0.7 )
+        { 
+            if ( fit_cn2 < fit_cn3 || dy_cn3 < args->peak_symmetry )
             {
                 if ( fit_cn4 < args->cn_penalty * fit_cn2 )
                 {
-                    if ( dy_cn4 > args->peak_symmetry )
+                    if ( dy_cn4 < args->peak_symmetry )
                     {
+                        // N.B. Here we estimate contamination, not CN4, as CN4 is rare but
+                        //  contamination frequent. Hence the fraction of cells is a value 
+                        //  from [0,0.5]:  f = dx
+                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0]);
                         fit = fit_cn4;
-                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
                         save_dist(args, i, 3, params_cn4);
                     }
                 }
                 else
                 {
-                    fit = fit_cn2;
                     cn = 2;
+                    fit = fit_cn2;
                     save_dist(args, i, 1, params_cn2);
                 }
             }
@@ -548,17 +551,22 @@ static void fit_curves(args_t *args)
             {
                 if ( fit_cn4 < args->cn_penalty * fit_cn3 )
                 {
-                    if ( dy_cn4 > args->peak_symmetry )
+                    if ( dy_cn4 < args->peak_symmetry )
                     {
+                        // N.B. Here we estimate contamination, not CN4, as CN4 is rare but
+                        //  contamination frequent. Hence the fraction of cells is a value 
+                        //  from [0,0.5]:  f = dx
+                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0]);
                         fit = fit_cn4;
-                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0])*3.0;
                         save_dist(args, i, 3, params_cn4);
                     }
                 }
                 else
                 {
+                    // Estimate fraction of affected cells: f = 2*dx/(1-dx)
+                    float dx = fabs(params_cn3[3] - params_cn3[0]);
+                    cn = 2.0 + 2*dx / (1-dx);
                     fit = fit_cn3;
-                    cn = 2.0 + fabs(params_cn3[3] - params_cn3[0])*3.0;
                     save_dist(args, i, 2, params_cn3);
                 }
             }
