@@ -609,18 +609,20 @@ static int set_observed_prob(args_t *args, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fm
         return 0;
     }
 
-    double pk0, pk13, pk12, pk23, pk1;
+    double pk0, pk14, pk13, pk12, pk23, pk34, pk1;
     pk0  = exp(-baf*baf/args->baf_sigma2);
+    pk14 = exp(-(baf-1/4.)*(baf-1/4.)/args->baf_sigma2);
     pk13 = exp(-(baf-1/3.)*(baf-1/3.)/args->baf_sigma2);
     pk12 = exp(-(baf-1/2.)*(baf-1/2.)/args->baf_sigma2);
     pk23 = exp(-(baf-2/3.)*(baf-2/3.)/args->baf_sigma2);
+    pk34 = exp(-(baf-3/4.)*(baf-3/4.)/args->baf_sigma2);
     pk1  = exp(-(baf-1.0)*(baf-1.0)/args->baf_sigma2);
 
     double cn1_baf, cn2_baf, cn3_baf, cn4_baf;
     cn1_baf = pk0*(args->pRR+args->pRA/2.)  + pk1*(args->pAA+args->pRA/2.);
     cn2_baf = pk0*args->pRR + pk1*args->pAA + pk12*args->pRA;
     cn3_baf = pk0*args->pRR + pk1*args->pAA + (pk13 + pk23)*args->pRA/2.;
-    cn4_baf = pk0*args->pRR + pk1*args->pAA + (pk13 + pk23 + pk12)*args->pRA/3.;
+    cn4_baf = pk0*args->pRR + pk1*args->pAA + (pk14 + pk23 + pk34)*args->pRA/3.;
 
     double cn1_lrr, cn2_lrr, cn3_lrr, cn4_lrr;
     cn1_lrr = exp(-(lrr + 0.45)*(lrr + 0.45)/args->lrr_sigma2);
