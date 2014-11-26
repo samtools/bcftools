@@ -423,7 +423,7 @@ static double eval_fit(int nvals, double *xvals, double *yvals, int ngauss, doub
     return sum;
 }
 
-static void gauss_fit(dist_t *dist, int ngauss, double *params)
+static int gauss_fit(dist_t *dist, int ngauss, double *params)
 {
     data_t *dat = &dist->dat;
     dat->ngauss = ngauss;
@@ -457,6 +457,46 @@ static void gauss_fit(dist_t *dist, int ngauss, double *params)
         params[i] = gsl_vector_get(solver->x, i);
 
     gsl_multifit_fdfsolver_free(solver);
+    return iter>500 ? -1 : 0;
+}
+
+static double best_fit(args_t *args, dist_t *dist, int ngauss, double *params)
+{
+    if ( ngauss==1 )
+    {
+        gauss_fit(dist,ngauss,params);
+        params[1] *= params[1];
+        return eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, ngauss,params);
+    }
+
+    int i, j, n = 3;
+    int ipk = 3*(ngauss-1);
+    double delta = 0.5 * (params[ipk] - params[0]) / n;
+    double best_params[9], tmp_params[9], best_fit = HUGE_VAL;
+    for (i=0; i<n; i++)
+    {
+        memcpy(tmp_params,params,sizeof(double)*ngauss*3);
+        tmp_params[0]   += delta*i;
+        tmp_params[ipk] -= delta*i;
+        if ( gauss_fit(dist,ngauss,tmp_params)<0 ) continue;    // did not converge
+
+        for (j=0; j<ngauss; j++) tmp_params[j*3+1] *= tmp_params[j*3+1];
+
+        // From the nature of the data, we can assume that in presence of
+        // multiple peaks they will be placed symmetrically around 0.5. Also
+        // their size should be about the same. We evaluate the fit with this
+        // in mind.
+        double dx = fabs(0.5 - tmp_params[0]) + fabs(tmp_params[ipk] - 0.5);
+        tmp_params[0] = 0.5 - dx*0.5;
+        tmp_params[ipk] = 0.5 + dx*0.5;
+        double fit = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, ngauss, tmp_params);
+
+        if ( best_fit < fit ) continue;     // worse than previous
+        best_fit = fit;
+        memcpy(best_params,tmp_params,sizeof(double)*ngauss*3);
+    }
+    memcpy(params,best_params,sizeof(double)*ngauss*3);
+    return best_fit;
 }
 
 static void print_params(data_t *dat, int ngauss, double *params, float fit, char comment)
@@ -473,52 +513,28 @@ static void print_params(data_t *dat, int ngauss, double *params, float fit, cha
 #define min(a,b,c) (a<b?(a<c?a:c):(b<c?b:c))
 static void fit_curves(args_t *args)
 {
-    int i,j;
+    int i;
     for (i=0; i<args->ndist; i++)
     {
         dist_t *dist = &args->dist[i];
         if ( dist->copy_number!=0 )
         {
-            fprintf(args->dat_fp,"CN\t%s\t%.1f\n", dist->chr,(float)dist->copy_number);
+            fprintf(args->dat_fp,"CN\t%s\t%.2f\n", dist->chr,(float)dist->copy_number);
             save_dist(args, i, 0, NULL);
             continue;
         }
 
-        // Parameters (center,scale,sigma) for gaussian peaks. For CN3, the fitting
-        // if often more stable with peaks starting closer to the center, rather than
-        // the expected 1/3. and 2/3.
+        // Parameters (center,scale,sigma) for gaussian peaks.
         double params_cn2[] = { 1/2.,0.5,0.05 };
-        double params_cn3[] = { 0.48,0.5,0.05, 0.52,0.5,0.05 };
-        double params_cn4[] = { 1/3.,0.5,0.05, 1/2.,0.5,0.05, 2/3.,0.5,0.05 };
-        gauss_fit(&args->dist[i],1,params_cn2);
-        gauss_fit(&args->dist[i],2,params_cn3);
-        gauss_fit(&args->dist[i],3,params_cn4);
+        double params_cn3[] = { 1/3.,0.5,0.05, 2/3.,0.5,0.05 };
+        double params_cn4[] = { 1/4.,0.5,0.05, 1/2.,0.5,0.05, 3/4.,0.5,0.05 };
 
-        // square the scale param to assure positive value
-        for (j=0; j<1; j++) params_cn2[j*3+1] *= params_cn2[j*3+1];
-        for (j=0; j<2; j++) params_cn3[j*3+1] *= params_cn3[j*3+1];
-        for (j=0; j<3; j++) params_cn4[j*3+1] *= params_cn4[j*3+1];
+        double fit_cn2 = best_fit(args,&args->dist[i],1,params_cn2);
+        double fit_cn3 = best_fit(args,&args->dist[i],2,params_cn3);
+        double fit_cn4 = best_fit(args,&args->dist[i],3,params_cn4);
 
-        double dx, fit_cn2, fit_cn3, fit_cn4, dy_cn3, dy_cn4;
-        
-        fit_cn2 = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, 1, params_cn2);
-
-        // From the nature of the data, we can assume that in presence of
-        // multiple peaks they will be placed symmetrically around 0.5. Also
-        // their size should be about the same. We evaluate the fit with this
-        // in mind.
-        dx = fabs(0.5 - params_cn3[0]) + fabs(params_cn3[3] - 0.5);
-        params_cn3[0] = 0.5 - dx*0.5;
-        params_cn3[3] = 0.5 + dx*0.5;
-        fit_cn3 = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, 2, params_cn3);
-        dy_cn3  = params_cn3[1] > params_cn3[4] ? params_cn3[4]/params_cn3[1] : params_cn3[1]/params_cn3[4];
-
-        dx = fabs(0.5 - params_cn4[0]) + fabs(params_cn4[6] - 0.5);
-        params_cn4[0] = 0.5 - dx*0.5;
-        params_cn4[6] = 0.5 + dx*0.5;
-        fit_cn4 = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, 3, params_cn4);
-        dy_cn4  = params_cn4[1] > params_cn4[7] ? params_cn4[7]/params_cn4[1] : params_cn4[1]/params_cn4[7];
-
+        double dy_cn3  = params_cn3[1] > params_cn3[4] ? params_cn3[4]/params_cn3[1] : params_cn3[1]/params_cn3[4];
+        double dy_cn4  = params_cn4[1] > params_cn4[7] ? params_cn4[7]/params_cn4[1] : params_cn4[1]/params_cn4[7];
 
         // Three peaks (CN4) are always a better fit than two (CN3) or one (CN2). Therefore
         // check first if CN2 is better than CN3 and if the peak sizes are reasonable, within
@@ -581,7 +597,7 @@ static void fit_curves(args_t *args)
             printf("\n");
         }
         if ( cn==-1 ) save_dist(args, i, 0, NULL);
-        fprintf(args->dat_fp,"CN\t%s\t%.1f\t%f\n", dist->chr, cn, fit);
+        fprintf(args->dat_fp,"CN\t%s\t%.2f\t%f\n", dist->chr, cn, fit);
     }
 }
 
