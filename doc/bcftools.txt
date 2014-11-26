@@ -240,6 +240,12 @@ This command allows to add or remove annotations.
     a field with the value "1" to set the flag, "0" to remove it, or "." to
     keep existing flags.
     See also *-c, --columns* and *-h, --header-lines*.
+----
+    # Sample annotation file with columns CHROM, POS, STRING_TAG, NUMERIC_TAG
+    1  752566  SomeString      5
+    1  798959  SomeOtherString 6
+    # etc.
+----
 
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
@@ -263,9 +269,10 @@ This command allows to add or remove annotations.
     *<<expressions,EXPRESSIONS>>*.
 
 *-h, --header-lines* 'file'::
-    Lines to append to the VCF header. For example:
+    Lines to append to the VCF header, see also *-c, --columns* and *-a, --annotations*. For example:
 ----
-    ##INFO=<ID=TAG,Number=1,Type=Integer,Description="Example header line">
+    ##INFO=<ID=NUMERIC_TAG,Number=1,Type=Integer,Description="Example header line">
+    ##INFO=<ID=STRING_TAG,Number=1,Type=String,Description="Yet another header line">
 ----
 
 *-i, --include* 'EXPRESSION'::
