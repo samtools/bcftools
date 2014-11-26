@@ -499,10 +499,10 @@ static double best_fit(args_t *args, dist_t *dist, int ngauss, double *params)
     return best_fit;
 }
 
-static void print_params(data_t *dat, int ngauss, double *params, float fit, char comment)
+static void print_params(data_t *dat, int ngauss, double *params, float fit, int pass, char comment)
 {
     int i, j;
-    printf("\t%c fit=%f .. center,scale,sigma = ", comment,fit);
+    printf("\t%c%c fit=%f .. center,scale,sigma = ", comment,pass?'o':'x',fit);
     for (i=0; i<ngauss; i++)
     {
         if ( i!=0 ) printf("\t");
@@ -510,7 +510,6 @@ static void print_params(data_t *dat, int ngauss, double *params, float fit, cha
     }
     printf("\n");
 }
-#define min(a,b,c) (a<b?(a<c?a:c):(b<c?b:c))
 static void fit_curves(args_t *args)
 {
     int i;
@@ -533,70 +532,52 @@ static void fit_curves(args_t *args)
         double fit_cn3 = best_fit(args,&args->dist[i],2,params_cn3);
         double fit_cn4 = best_fit(args,&args->dist[i],3,params_cn4);
 
+        double dx_cn3  = fabs(params_cn3[0] - params_cn3[3]);
+        double dx_cn4  = fabs(params_cn4[0] - params_cn4[6]);
         double dy_cn3  = params_cn3[1] > params_cn3[4] ? params_cn3[4]/params_cn3[1] : params_cn3[1]/params_cn3[4];
-        double dy_cn4  = params_cn4[1] > params_cn4[7] ? params_cn4[7]/params_cn4[1] : params_cn4[1]/params_cn4[7];
+        double dy_cn4a = params_cn4[1] > params_cn4[7] ? params_cn4[7]/params_cn4[1] : params_cn4[1]/params_cn4[7];
+        double ymax = params_cn4[1] > params_cn4[7] ? params_cn4[1] : params_cn4[7];
+        double dy_cn4b = ymax > params_cn4[4] ? params_cn4[4]/ymax : ymax/params_cn4[4];
 
         // Three peaks (CN4) are always a better fit than two (CN3) or one (CN2). Therefore
-        // check first if CN2 is better than CN3 and if the peak sizes are reasonable, within
-        // (1-fit_th)%
-        double cn = -1, fit = min(fit_cn2,fit_cn3,fit_cn4);
-        if ( fit <= args->fit_th )
-        { 
-            if ( fit_cn2 < fit_cn3 || dy_cn3 < args->peak_symmetry )
-            {
-                if ( fit_cn4 < args->cn_penalty * fit_cn2 )
-                {
-                    if ( dy_cn4 < args->peak_symmetry )
-                    {
-                        // N.B. Here we estimate contamination, not CN4, as CN4 is rare but
-                        //  contamination frequent. Hence the fraction of cells is a value 
-                        //  from [0,0.5]:  f = dx
-                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0]);
-                        fit = fit_cn4;
-                        save_dist(args, i, 3, params_cn4);
-                    }
-                }
-                else
-                {
-                    cn = 2;
-                    fit = fit_cn2;
-                    save_dist(args, i, 1, params_cn2);
-                }
-            }
-            else
-            {
-                if ( fit_cn4 < args->cn_penalty * fit_cn3 )
-                {
-                    if ( dy_cn4 < args->peak_symmetry )
-                    {
-                        // N.B. Here we estimate contamination, not CN4, as CN4 is rare but
-                        //  contamination frequent. Hence the fraction of cells is a value 
-                        //  from [0,0.5]:  f = dx
-                        cn = 3.0 + fabs(params_cn4[6] - params_cn4[0]);
-                        fit = fit_cn4;
-                        save_dist(args, i, 3, params_cn4);
-                    }
-                }
-                else
-                {
-                    // Estimate fraction of affected cells: f = 2*dx/(1-dx)
-                    float dx = fabs(params_cn3[3] - params_cn3[0]);
-                    cn = 2.0 + 2*dx / (1-dx);
-                    fit = fit_cn3;
-                    save_dist(args, i, 2, params_cn3);
-                }
-            }
-        }
+        // check that peaks are well separated and that the peak sizes are reasonable
+        int cn2_pass = 1, cn3_pass = 1, cn4_pass = 1;
+        if ( fit_cn2 > args->fit_th ) cn2_pass = 0;
+
+        if ( fit_cn3 > args->fit_th ) cn3_pass = 0;
+        else if ( dx_cn3 < 0.05 ) cn3_pass = 0;         // at least ~10% of cells
+        else if ( dy_cn3 < args->peak_symmetry ) cn3_pass = 0;
+
+        if ( fit_cn4 > args->fit_th ) cn4_pass = 0;
+        else if ( dx_cn4 < 0.1 ) cn4_pass = 0;
+        else if ( dy_cn4a < args->peak_symmetry ) cn4_pass = 0;
+        else if ( dy_cn4b < args->peak_symmetry ) cn4_pass = 0;
+
+        // Estimate fraction of affected cells. For CN4 we estimate
+        // contamination (the fraction of foreign cells), which is more
+        // common than CN4; hence the value is from the interval [0,0.5].
+        //      CN3 .. f = 2*dx/(1-dx)
+        //      CN4 .. f = dx
+        dx_cn3 = 2*dx_cn3 / (1-dx_cn3);
+
+        double cn = -1, fit = fit_cn2;
+        if ( cn2_pass ) { cn = 2; fit = fit_cn2; }
+        if ( cn3_pass && fit_cn3 < args->cn_penalty * fit ) { cn = 3; fit = fit_cn3; }
+        if ( cn4_pass && fit_cn4 < args->cn_penalty * fit ) { cn = 4; fit = fit_cn4; }
+
+        if ( cn==-1 ) save_dist(args, i, 0, NULL);
+        else if ( cn==2 ) save_dist(args, i, 1, params_cn2);
+        else if ( cn==3 ) { save_dist(args, i, 2, params_cn3); cn = 2 + dx_cn3; }
+        else if ( cn==4 ) { save_dist(args, i, 3, params_cn4); cn = 3 + dx_cn4; }
 
         if ( args->verbose )
         {
             printf("%s: \n", args->dist[i].chr);
-            print_params(&args->dist[i].dat, 1, params_cn2, fit_cn2, cn==2 ? '*' : ' ');
-            print_params(&args->dist[i].dat, 2, params_cn3, fit_cn3, cn>2 && cn<=3 ? '*' : ' ');
-            print_params(&args->dist[i].dat, 3, params_cn4, fit_cn4, cn>3 ? '*' : ' ');
+            print_params(&args->dist[i].dat, 1, params_cn2, fit_cn2, cn2_pass, cn==2 ? '*' : ' ');
+            print_params(&args->dist[i].dat, 2, params_cn3, fit_cn3, cn3_pass, cn>2 && cn<=3 ? '*' : ' ');
+            print_params(&args->dist[i].dat, 3, params_cn4, fit_cn4, cn4_pass, cn>3 ? '*' : ' ');
             printf("\n");
         }
-        if ( cn==-1 ) save_dist(args, i, 0, NULL);
         fprintf(args->dat_fp,"CN\t%s\t%.2f\t%f\n", dist->chr, cn, fit);
     }
 }
