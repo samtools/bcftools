@@ -31,6 +31,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <math.h>
+#include <ctype.h>
 #include "bcftools.h"
 #include "vcmp.h"
 
@@ -515,6 +516,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
     // reference allele never changes
     map[0] = 0;
 
+    int i,j;
     int rla = !a[0][1] ? 1 : strlen(a[0]);
     int rlb = !b[0][1] ? 1 : strlen(b[0]);
 
@@ -528,15 +530,28 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
     // Sanity check: reference prefixes must be identical
     if ( strncmp(a[0],b[0],rla<rlb?rla:rlb) )
     {
-        fprintf(stderr, "The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
-        return NULL;
+        if ( strncasecmp(a[0],b[0],rla<rlb?rla:rlb) )
+        {
+            fprintf(stderr, "The REF prefixes differ: %s vs %s (%d,%d)\n", a[0],b[0],rla,rlb);
+            return NULL;
+        }
+        // Different case, change to uppercase
+        for (i=0; i<na; i++)
+        {
+            int len = strlen(a[i]);
+            for (j=0; j<len; j++) a[i][j] = toupper(a[i][j]);
+        }
+        for (i=0; i<*nb; i++)
+        {
+            int len = strlen(b[i]);
+            for (j=0; j<len; j++) b[i][j] = toupper(b[i][j]);
+        }
     }
 
     int n = *nb + na;
     hts_expand0(char*,n,*mb,b);
 
     // $b alleles need expanding
-    int i,j;
     if ( rla>rlb )
     {
         for (i=0; i<*nb; i++)
