@@ -44,6 +44,7 @@ typedef khash_t(strdict) strdict_t;
 
 #define IS_VL_G(hdr,id) (bcf_hdr_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_G)
 #define IS_VL_A(hdr,id) (bcf_hdr_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_A)
+#define IS_VL_R(hdr,id) (bcf_hdr_id2length(hdr,BCF_HL_FMT,id) == BCF_VL_R)
 
 // For merging INFO Number=A,G,R tags
 typedef struct
@@ -1253,6 +1254,15 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                 error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
             break;
         }
+        if ( IS_VL_R(files->readers[i].header, fmt_map[i]->id) )
+        {
+            length = BCF_VL_R;
+            nsize = out->n_allele;
+            int nals_ori = files->readers[i].buffer[0]->n_allele;
+            if ( fmt_map[i]->n != nals_ori )
+                error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
+            break;
+        }
         if ( fmt_map[i]->n > nsize ) nsize = fmt_map[i]->n;
     }
 
@@ -1288,7 +1298,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             assert( ma->has_line[i] ); \
             bcf1_t *line    = reader->buffer[0]; \
             src_type_t *src = (src_type_t*) fmt_ori->p; \
-            if ( (length!=BCF_VL_G && length!=BCF_VL_A) || (line->n_allele==out->n_allele && !ma->d[i][0].als_differ) ) \
+            if ( (length!=BCF_VL_G && length!=BCF_VL_A && length!=BCF_VL_R) || (line->n_allele==out->n_allele && !ma->d[i][0].als_differ) ) \
             { \
                 /* alleles unchanged, copy over */ \
                 for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
@@ -1358,15 +1368,16 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             } \
             else \
             { \
-                /* Number=A tags */ \
+                /* Number=A or Number=R tags */ \
+                int ifrom = length==BCF_VL_A ? 1 : 0; \
                 for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
                     for (l=0; l<nsize; l++) { tgt_set_missing; tgt++; } \
                     int iori,inew; \
-                    for (iori=1; iori<line->n_allele; iori++) \
+                    for (iori=ifrom; iori<line->n_allele; iori++) \
                     { \
-                        inew = ma->d[i][0].map[iori] - 1; \
+                        inew = ma->d[i][0].map[iori] - ifrom; \
                         tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize + inew; \
                         if ( src_is_vector_end ) break; \
                         if ( src_is_missing ) tgt_set_missing; \
