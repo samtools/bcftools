@@ -592,10 +592,10 @@ static int set_observed_prob(args_t *args, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fm
 {
     float baf, lrr;
     baf = ((float*)(baf_fmt->p + baf_fmt->size*smpl->idx))[0];
-    if ( bcf_float_is_missing(baf) ) baf = -0.1;    // arbitrary negative value == missing value
+    if ( bcf_float_is_missing(baf) || isnan(baf) ) baf = -0.1;    // arbitrary negative value == missing value
 
     lrr = ((float*)(lrr_fmt->p + lrr_fmt->size*smpl->idx))[0];
-    if ( bcf_float_is_missing(lrr) ) lrr = -HUGE_VAL;
+    if ( bcf_float_is_missing(lrr) || isnan(lrr) ) baf = -0.1;
 
     if ( baf>=0 )    // skip missing values
         fprintf(smpl->dat_fh,"%s\t%d\t%.3f\t%.3f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), args->sites[args->nsites-1]+1,baf,lrr);
