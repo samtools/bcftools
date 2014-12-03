@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25226832"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp162768"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-11-26 15:37 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-93-g6806bee+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-12-03 23:26 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-100-g215090c+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -146,11 +146,11 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
 <span class="strong"><strong>-s, --samples</strong></span> [^]<span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
     Comma-separated list of samples to include or exclude if prefixed
-    with "\^".
+    with "^".
 </dd><dt><span class="term">
 <span class="strong"><strong>-S, --samples-file</strong></span> [^]<span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
-    File of sample names to include or exclude if prefixed with "\^".
+    File of sample names to include or exclude if prefixed with "^".
     One sample per line.
     The command <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a></strong></span> accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
@@ -162,7 +162,7 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     whole VCF/BCF rather than using the tbi/csi index. Both <span class="strong"><strong>-r</strong></span> and <span class="strong"><strong>-t</strong></span> options
     can be applied simultaneously: <span class="strong"><strong>-r</strong></span>  uses  the index  to  jump  to  a  region
     and <span class="strong"><strong>-t</strong></span> discards positions which are not in the targets. Unlike <span class="strong"><strong>-r</strong></span>, targets
-    can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
+    can be prefixed with "<sup>" to request logical complement. For example, "</sup>X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the two is that <span class="strong"><strong>-r</strong></span> checks both start and
     end positions of indels, whereas <span class="strong"><strong>-t</strong></span> checks start positions only. Note
@@ -1456,7 +1456,7 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </dd><dt><span class="term">
 <span class="strong"><strong>-M, --max-alleles</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
-    print sites with at most <span class="emphasis"><em>INT</em></span> alleles listed in REF and ALT columns
+    print sites with at most <span class="emphasis"><em>INT</em></span> alleles listed in REF and ALT columns. Use <span class="strong"><strong>-m2 -M2 -v snps</strong></span> to only view biallelic SNPs.
 </dd><dt><span class="term">
 <span class="strong"><strong>-n, --novel</strong></span>
 </span></dt><dd>
