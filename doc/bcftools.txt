@@ -1489,7 +1489,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
     print sites with at least 'INT' alleles listed in REF and ALT columns
 
 *-M, --max-alleles* 'INT'::
-    print sites with at most 'INT' alleles listed in REF and ALT columns
+    print sites with at most 'INT' alleles listed in REF and ALT columns. Use -M 2 with -v snps to only view biallelic SNPs.
 
 *-n, --novel*::
     print novel sites only (ID column is ".")
