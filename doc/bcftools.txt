@@ -1459,15 +1459,19 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 
 ==== Filter options:
-*-c, --min-ac* 'INT'[':nref'|':alt1'|':minor']::
-    minimum allele count (INFO/AC) of sites to be printed. Specifying the
-    type of allele is optional and can be set to non-reference ('nref', the
-    default), 1st alternate  ('alt1') or minor ('minor') alleles.
+*-c, --min-ac* 'INT'[':nref'|':alt1'|':minor'|':major'|:'nonmajor']::
+    minimum allele count (INFO/AC) of sites to be printed.
+    Specifying the type of allele is optional and can be set to 
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
+    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    most frequent ('nonmajor') alleles.
 
-*-C, --max-ac* 'INT'[':nref'|':alt1'|':minor']::
-    maximum allele count (INFO/AC) of sites to be printed. Specifying the
-    type of allele is optional and can be set to non-reference ('nref', the
-    default), 1st alternate  ('alt1') or minor ('minor') alleles.
+*-C, --max-ac* 'INT'[':nref'|':alt1'|':minor'|:'major'|:'nonmajor']::
+    maximum allele count (INFO/AC) of sites to be printed.
+    Specifying the type of allele is optional and can be set to 
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
+    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    most frequent ('nonmajor') alleles.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
@@ -1505,15 +1509,19 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-P, --exclude-phased*::
     exclude sites where all samples are phased
 
-*-q, --min-af* 'FLOAT'[':nref'|':alt1'|':minor']::
+*-q, --min-af* 'FLOAT'[':nref'|':alt1'|':minor'|:'major'|:'nonmajor']::
     minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
-    Specifying the type of allele is optional and can be set to non-reference
-    ('nref', the default), 1st alternate  ('alt1') or minor ('minor') alleles.
+    Specifying the type of allele is optional and can be set to 
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
+    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    most frequent ('nonmajor') alleles.
 
-*-Q, --max-af* 'FLOAT'[':nref'|':alt1'|':minor']::
+*-Q, --max-af* 'FLOAT'[':nref'|':alt1'|':minor'|:'major'|:'nonmajor']::
     maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
-    Specifying the type of allele is optional and can be set to non-reference
-    ('nref', the default), 1st alternate  ('alt1') or minor ('minor') alleles.
+    Specifying the type of allele is optional and can be set to 
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
+    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    most frequent ('nonmajor') alleles.
 
 *-u, --uncalled*::
     print sites without a called genotype

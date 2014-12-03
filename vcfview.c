@@ -44,6 +44,8 @@ THE SOFTWARE.  */
 #define ALLELE_NONREF 1
 #define ALLELE_MINOR 2
 #define ALLELE_ALT1 3
+#define ALLELE_MAJOR 4
+#define ALLELE_NONMAJOR 5
 
 #define GT_NEED_HOM 1
 #define GT_NEED_HET 2
@@ -378,11 +380,15 @@ int subset_vcf(args_t *args, bcf1_t *line)
     }
 
     int minor_ac = 0;
+    int major_ac = 0;
     if ( args->calc_ac )
     {
         minor_ac = args->ac[0];
-        for (i=1; i<line->n_allele; i++)
-            if (args->ac[i]<minor_ac) { minor_ac = args->ac[i]; }
+        major_ac = args->ac[0];
+        for (i=1; i<line->n_allele; i++){
+            if (args->ac[i] < minor_ac) { minor_ac = args->ac[i]; }
+            if (args->ac[i] > major_ac) { major_ac = args->ac[i]; }
+        }
     }
 
     if (args->min_ac)
@@ -390,12 +396,16 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if (args->min_ac_type == ALLELE_NONREF && args->min_ac>non_ref_ac) return 0; // min AC
         else if (args->min_ac_type == ALLELE_MINOR && args->min_ac>minor_ac) return 0; // min minor AC
         else if (args->min_ac_type == ALLELE_ALT1 && args->min_ac>args->ac[1]) return 0; // min 1st alternate AC
+        else if (args->min_ac_type == ALLELE_MAJOR && args->min_ac > major_ac) return 0; // min major AC
+        else if (args->min_ac_type == ALLELE_NONMAJOR && args->min_ac > an-major_ac) return 0; // min non-major AC
     }
     if (args->max_ac)
     {
         if (args->max_ac_type == ALLELE_NONREF && args->max_ac<non_ref_ac) return 0; // max AC
         else if (args->max_ac_type == ALLELE_MINOR && args->max_ac<minor_ac) return 0; // max minor AC
         else if (args->max_ac_type == ALLELE_ALT1 && args->max_ac<args->ac[1]) return 0; // max 1st alternate AC
+        else if (args->max_ac_type == ALLELE_MAJOR && args->max_ac < major_ac) return 0; // max major AC
+        else if (args->max_ac_type == ALLELE_NONMAJOR && args->max_ac < an-major_ac) return 0; // max non-major AC
     }
     if (args->min_af)
     {
@@ -403,6 +413,8 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if (args->min_af_type == ALLELE_NONREF && args->min_af>non_ref_ac/(double)an) return 0; // min AF
         else if (args->min_af_type == ALLELE_MINOR && args->min_af>minor_ac/(double)an) return 0; // min minor AF
         else if (args->min_af_type == ALLELE_ALT1 && args->min_af>args->ac[1]/(double)an) return 0; // min 1st alternate AF
+        else if (args->min_af_type == ALLELE_MAJOR && args->min_af > major_ac/(double)an) return 0; // min major AF
+        else if (args->min_af_type == ALLELE_NONMAJOR && args->min_af > (an-major_ac)/(double)an) return 0; // min non-major AF
     }
     if (args->max_af)
     {
@@ -410,6 +422,8 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if (args->max_af_type == ALLELE_NONREF && args->max_af<non_ref_ac/(double)an) return 0; // max AF
         else if (args->max_af_type == ALLELE_MINOR && args->max_af<minor_ac/(double)an) return 0; // max minor AF
         else if (args->max_af_type == ALLELE_ALT1 && args->max_af<args->ac[1]/(double)an) return 0; // max 1st alternate AF
+        else if (args->max_af_type == ALLELE_MAJOR && args->max_af < major_ac/(double)an) return 0; // max major AF
+        else if (args->max_af_type == ALLELE_NONMAJOR && args->max_af < (an-major_ac)/(double)an) return 0; // max non-major AF
     }
     if (args->uncalled) {
         if (args->uncalled == FLT_INCLUDE && an > 0) return 0; // select uncalled
@@ -445,8 +459,14 @@ void set_allele_type (int *atype, char *atype_string)
     else if (strcmp(atype_string, "nref") == 0) {
         *atype = ALLELE_NONREF;
     }
+    else if (strcmp(atype_string, "major") == 0) {
+        *atype = ALLELE_MAJOR;
+    }
+    else if (strcmp(atype_string, "nonmajor") == 0) {
+        *atype = ALLELE_NONMAJOR;
+    }
     else {
-        error("Error: allele type (%s) not recognised. Must be one of nref|alt1|minor: %s\n", atype_string);
+        error("Error: allele type (%s) not recognised. Must be one of nref|alt1|minor|major|nonmajor: %s\n", atype_string);
     }
 }
 
@@ -475,14 +495,16 @@ static void usage(args_t *args)
     fprintf(stderr, "        --force-samples           only warn about unknown subset samples\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Filter options:\n");
-    fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
+    fprintf(stderr, "    -c/C, --min-ac/--max-ac <int>[:<type>]      minimum/maximum count for non-reference (nref), 1st alternate (alt1), least frequent\n");
+    fprintf(stderr, "                                                   (minor), most frequent (major) or sum of all but most frequent (nonmajor) alleles [nref]\n");
     fprintf(stderr, "    -f,   --apply-filters <list>                require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -g,   --genotype [^]<hom|het|miss>          require one or more hom/het/missing genotype or, if prefixed with \"^\", exclude sites with hom/het/missing genotypes\n");
     fprintf(stderr, "    -i/e, --include/--exclude <expr>            select/exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -k/n, --known/--novel                       select known/novel sites only (ID is not/is '.')\n");
     fprintf(stderr, "    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in REF and ALT (e.g. -m2 -M2 for biallelic sites)\n");
     fprintf(stderr, "    -p/P, --phased/--exclude-phased             select/exclude sites where all samples are phased\n");
-    fprintf(stderr, "    -q/Q, --min-af/--max-af <float>[:<type>]    minimum/maximum frequency for non-reference (nref), 1st alternate (alt1) or minor (minor) alleles [nref]\n");
+    fprintf(stderr, "    -q/Q, --min-af/--max-af <float>[:<type>]    minimum/maximum frequency for non-reference (nref), 1st alternate (alt1), least frequent\n");
+    fprintf(stderr, "                                                   (minor), most frequent (major) or sum of all but most frequent (nonmajor) alleles [nref]\n");
     fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled         select/exclude sites without a called genotype\n");
     fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private           select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
