@@ -1259,8 +1259,11 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             length = BCF_VL_R;
             nsize = out->n_allele;
             int nals_ori = files->readers[i].buffer[0]->n_allele;
-            if ( fmt_map[i]->n != nals_ori )
-                error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
+            if ( fmt_map[i]->n != nals_ori ){
+                if ( fmt_map[i]->n != 2 || nals_ori != 1 ){ // In case ALT = '.' but Number=R FORMAT field has len 2. TODO should also ensure that the second value is '.' or '0'
+                    error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
+                }
+            }
             break;
         }
         if ( fmt_map[i]->n > nsize ) nsize = fmt_map[i]->n;
