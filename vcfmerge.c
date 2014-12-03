@@ -1240,27 +1240,18 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         {
             length = BCF_VL_G;
             nsize = out->n_allele*(out->n_allele + 1)/2;
-            int nals_ori = files->readers[i].buffer[0]->n_allele;
-            if ( fmt_map[i]->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori )
-                error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
             break;
         }
         if ( IS_VL_A(files->readers[i].header, fmt_map[i]->id) )
         {
             length = BCF_VL_A;
             nsize = out->n_allele - 1;
-            int nals_ori = files->readers[i].buffer[0]->n_allele;
-            if ( fmt_map[i]->n != nals_ori-1 )
-                error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
             break;
         }
         if ( IS_VL_R(files->readers[i].header, fmt_map[i]->id) )
         {
             length = BCF_VL_R;
             nsize = out->n_allele;
-            int nals_ori = files->readers[i].buffer[0]->n_allele;
-            if ( fmt_map[i]->n != nals_ori )
-                error("Incorrect number of %s fields at %s:%d, cannot merge.\n", key,bcf_seqname(args->out_hdr,out),out->pos+1);
             break;
         }
         if ( fmt_map[i]->n > nsize ) nsize = fmt_map[i]->n;
@@ -1279,7 +1270,27 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         bcf_sr_t *reader = &files->readers[i];
         bcf_hdr_t *hdr = reader->header;
         bcf_fmt_t *fmt_ori = fmt_map[i];
-        if ( fmt_ori ) type = fmt_ori->type;
+        if ( fmt_ori )
+        {
+            type = fmt_ori->type;
+            int nals_ori = reader->buffer[0]->n_allele;
+            if ( length==BCF_VL_G )
+            {
+                // if all fields are missing then n==1 is valid
+                if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori )
+                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+            }
+            else if ( length==BCF_VL_A )
+            {
+                if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori-1 )
+                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+            }
+            else if ( length==BCF_VL_R )
+            {
+                if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori )
+                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+            }
+        }
 
         // set the values
         #define BRANCH(tgt_type_t, src_type_t, src_is_missing, src_is_vector_end, tgt_set_missing, tgt_set_vector_end) { \
@@ -1323,6 +1334,14 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                 for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
+                    src = (src_type_t*) fmt_ori->p + j*fmt_ori->n; \
+                    if ( (src_is_missing && fmt_ori->n==1) || (++src && src_is_vector_end) ) \
+                    { \
+                        /* tag with missing value "." */ \
+                        tgt_set_missing; \
+                        for (l=1; l<nsize; l++) { tgt++; tgt_set_vector_end; } \
+                        continue; \
+                    } \
                     int ngsize = ma->smpl_ploidy[ismpl+j]==1 ? out->n_allele : out->n_allele*(out->n_allele + 1)/2; \
                     for (l=0; l<ngsize; l++) { tgt_set_missing; tgt++; } \
                     for (; l<nsize; l++) { tgt_set_vector_end; tgt++; } \
@@ -1373,6 +1392,15 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
                 for (j=0; j<bcf_hdr_nsamples(hdr); j++) \
                 { \
                     tgt = (tgt_type_t *) ma->tmp_arr + (ismpl+j)*nsize; \
+                    src = (src_type_t*) (fmt_ori->p + j*fmt_ori->size); \
+                    if ( (src_is_missing && fmt_ori->n==1) || (++src && src_is_vector_end) ) \
+                    { \
+                        /* tag with missing value "." */ \
+                        tgt_set_missing; \
+                        for (l=1; l<nsize; l++) { tgt++; tgt_set_vector_end; } \
+                        continue; \
+                    } \
+                    src = (src_type_t*) (fmt_ori->p + j*fmt_ori->size); \
                     for (l=0; l<nsize; l++) { tgt_set_missing; tgt++; } \
                     int iori,inew; \
                     for (iori=ifrom; iori<line->n_allele; iori++) \
