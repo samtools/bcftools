@@ -293,10 +293,23 @@ int bcf_all_phased(const bcf_hdr_t *header, bcf1_t *line)
     return all_phased;
 }
 
-int subset_vcf(args_t *args, bcf1_t *line)
+// apply filtering which *might* depend on number of alleles
+// returns True if line passes
+int apply_num_alleles_filters(args_t *args, bcf1_t *line)
 {
     if ( args->min_alleles && line->n_allele < args->min_alleles ) return 0; // min alleles
     if ( args->max_alleles && line->n_allele > args->max_alleles ) return 0; // max alleles
+    if ( args->filter )
+    {
+        int ret = filter_test(args->filter, line, NULL);
+        if ( args->filter_logic==FLT_INCLUDE ) { if ( !ret ) return 0; }
+        else if ( ret ) return 0;
+    }
+    return 1;
+}
+
+int subset_vcf(args_t *args, bcf1_t *line)
+{
     if (args->novel || args->known)
     {
         if ( args->novel && (line->d.id[0]!='.' || line->d.id[1]!=0) ) return 0; // skip sites which are known, ID != '.'
@@ -310,12 +323,8 @@ int subset_vcf(args_t *args, bcf1_t *line)
         if ( args->exclude &&   line_type&args->exclude  ) return 0; // exclude given variant types
     }
 
-    if ( args->filter )
-    {
-        int ret = filter_test(args->filter, line, NULL);
-        if ( args->filter_logic==FLT_INCLUDE ) { if ( !ret ) return 0; }
-        else if ( ret ) return 0;
-    }
+    // if not trimming alts, min and max_alleles thresholds and generalized filtering now
+    if ( !(args->trim_alts) && !apply_num_alleles_filters(args, line) ){ return 0; }
 
     hts_expand(int, line->n_allele, args->mac, args->ac);
     int i, an = 0, non_ref_ac = 0;
@@ -347,6 +356,13 @@ int subset_vcf(args_t *args, bcf1_t *line)
             non_ref_ac = non_ref_ac_sub;
         }
         free(ac_sub);
+    }
+
+    if (args->trim_alts)
+    {
+        int ret = bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
+        if ( ret==-1 ) error("Error: some GT index is out of bounds at %s:%d\n", bcf_seqname(args->hsub ? args->hsub : args->hdr, line), line->pos+1);
+        if( !apply_num_alleles_filters(args, line) ){ return 0; } // filter on num alleles was delayed until after trimming alleles
     }
 
     bcf_fmt_t *gt_fmt;
@@ -418,11 +434,6 @@ int subset_vcf(args_t *args, bcf1_t *line)
     if (args->calc_ac && args->update_info) {
         bcf_update_info_int32(args->hdr, line, "AC", &args->ac[1], line->n_allele-1);
         bcf_update_info_int32(args->hdr, line, "AN", &an, 1);
-    }
-    if (args->trim_alts)
-    {
-        int ret = bcf_trim_alleles(args->hsub ? args->hsub : args->hdr, line);
-        if ( ret==-1 ) error("Error: some GT index is out of bounds at %s:%d\n", bcf_seqname(args->hsub ? args->hsub : args->hdr, line), line->pos+1);
     }
     if (args->phased) {
         int phased = bcf_all_phased(args->hdr, line);
