@@ -185,10 +185,10 @@ specific commands to see if they apply.
 
 *-s, --samples* \[^]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
-    with "\^".
+    with "^".
 
 *-S, --samples-file* \[^]'FILE'::
-    File of sample names to include or exclude if prefixed with "\^".
+    File of sample names to include or exclude if prefixed with "^".
     One sample per line.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
@@ -199,7 +199,7 @@ specific commands to see if they apply.
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
     and *-t* discards positions which are not in the targets. Unlike *-r*, targets
-    can be prefixed with "\^" to request logical complement. For example, "^X,Y,MT"
+    can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the two is that *-r* checks both start and
     end positions of indels, whereas *-t* checks start positions only. Note
@@ -1489,7 +1489,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
     print sites with at least 'INT' alleles listed in REF and ALT columns
 
 *-M, --max-alleles* 'INT'::
-    print sites with at most 'INT' alleles listed in REF and ALT columns. Use -M 2 with -v snps to only view biallelic SNPs.
+    print sites with at most 'INT' alleles listed in REF and ALT columns. Use *-m2 -M2 -v snps* to only view biallelic SNPs.
 
 *-n, --novel*::
     print novel sites only (ID column is ".")
