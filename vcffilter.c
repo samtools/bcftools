@@ -353,7 +353,10 @@ static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
 
     int an = 0, has_an = bcf_get_info_int32(args->hdr, line, "AN", &args->tmp_ac, &args->ntmp_ac);
     if ( has_an==1 ) an = args->tmp_ac[0];
+    else has_an = 0;
+
     int has_ac = bcf_get_info_int32(args->hdr, line, "AC", &args->tmp_ac, &args->ntmp_ac);
+    has_ac = has_ac==line->n_allele-1 ? 1 : 0;
 
     int new_gt = 0, ngts = bcf_get_format_int32(args->hdr, line, "GT", &args->tmpi, &args->ntmpi);
     ngts /= bcf_hdr_nsamples(args->hdr);
@@ -375,21 +378,21 @@ static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
             if ( args->set_gts==SET_GTS_MISSING && !bcf_gt_is_missing(gts[j]) )
             {
                 int ial = bcf_gt_allele(gts[j]);
-                if ( ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+                if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
                 an--;
             }
             else if ( args->set_gts==SET_GTS_REF )
             {
                 int ial = bcf_gt_allele(gts[j]);
                 if ( bcf_gt_is_missing(gts[j]) ) an++;
-                else if ( ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+                else if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
             }
             gts[j] = new_gt;
         }
     }
     bcf_update_genotypes(args->hdr,line,args->tmpi,ngts*bcf_hdr_nsamples(args->hdr));
-    if ( has_an==1 ) bcf_update_info_int32(args->hdr,line,"AN",&an,1);
-    if ( has_ac==line->n_allele-1 )  bcf_update_info_int32(args->hdr,line,"AC",args->tmp_ac,line->n_allele-1);
+    if ( has_an ) bcf_update_info_int32(args->hdr,line,"AN",&an,1);
+    if ( has_ac )  bcf_update_info_int32(args->hdr,line,"AC",args->tmp_ac,line->n_allele-1);
 }
 
 static void usage(args_t *args)
