@@ -1242,6 +1242,9 @@ Modify header of VCF/BCF files, change sample names.
 *-h, --header* 'FILE'::
     new VCF header
 
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'FILE'::
     new sample names, one name per line, in the same order as they appear
     in the VCF file. Alternatively, only samples which need to be renamed
