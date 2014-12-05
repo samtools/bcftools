@@ -992,7 +992,7 @@ also given explicitly using the *--print-header* and *--use-header* options.
 
 
 [[norm]]
-=== bcftools norm ['OPTIONS'] *-f* 'ref.fa' 'file.vcf.gz'
+=== bcftools norm ['OPTIONS'] 'file.vcf.gz'
 Left-align and normalize indels,  check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows.

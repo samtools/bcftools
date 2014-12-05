@@ -1835,7 +1835,7 @@ static void usage(void)
     fprintf(stderr, "About:   Left-align and normalize indels; check if REF alleles match the reference;\n");
     fprintf(stderr, "         split multiallelic sites into multiple rows; recover multiallelics from\n");
     fprintf(stderr, "         multiple rows.\n");
-    fprintf(stderr, "Usage:   bcftools norm [options] -f <ref.fa> <in.vcf.gz>\n");
+    fprintf(stderr, "Usage:   bcftools norm [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -c, --check-ref <e|w|x>           check REF alleles and exit (e), warn (w), exclude (x) bad sites [e]\n");
