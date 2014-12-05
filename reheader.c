@@ -376,7 +376,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
     }
 
     bcf_hdr_t *hdr_out = bcf_hdr_init("r");
-    bcf_hdr_parse(hdr_out, htxt.s);
+    if ( bcf_hdr_parse(hdr_out, htxt.s) < 0 ) error("An error occurred while parsing the header\n");
     if ( args->header_fname ) hdr_out = strip_header(hdr, hdr_out);
 
     // write the header and the body
