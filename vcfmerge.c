@@ -1709,7 +1709,6 @@ void merge_buffer(args_t *args)
         {
             bcf1_t *line = reader->buffer[j];
             int line_type = bcf_get_variant_types(line);
-
             // select relevant lines
             maux->d[i][j].skip = SKIP_DIFF;
             if ( pos!=line->pos )
@@ -1735,8 +1734,14 @@ void merge_buffer(args_t *args)
                     }
                     if ( k==line->n_allele ) continue;  // no matching allele
                 }
-                if ( var_type&VCF_SNP && !(line_type&VCF_SNP) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
-                if ( var_type&VCF_INDEL && !(line_type&VCF_INDEL) && !(args->collapse&COLLAPSE_ANY) && line_type!=VCF_REF ) continue;
+                if ( !(args->collapse&COLLAPSE_ANY) )
+                {
+                    int compatible = 0;
+                    if ( line_type==VCF_REF ) compatible = 1;   // REF can go with anything
+                    else if ( var_type&VCF_SNP && line_type&VCF_SNP ) compatible = 1;
+                    else if ( var_type&VCF_INDEL && line_type&VCF_INDEL ) compatible = 1;
+                    if ( !compatible ) continue;
+                }
             }
             maux->d[i][j].skip = 0;
 
