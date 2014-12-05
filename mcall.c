@@ -1190,17 +1190,16 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
     {
         assert( ret==nals );
         if ( out_als==1 )
-        {
             bcf_update_info_int32(call->hdr, rec, "DPR", call->itmp, 1);
-            return;
-        }
-
-        for (i=0; i<nals; i++)
+        else
         {
-            if ( call->als_map[i]==-1 ) continue;   // to be dropped
-            call->PLs[ call->als_map[i] ] = call->itmp[i]; // reusing PLs storage which is not used at this point
+            for (i=0; i<nals; i++)
+            {
+                if ( call->als_map[i]==-1 ) continue;   // to be dropped
+                call->PLs[ call->als_map[i] ] = call->itmp[i]; // reusing PLs storage which is not used at this point
+            }
+            bcf_update_info_int32(call->hdr, rec, "DPR", call->PLs, nout_als);
         }
-        bcf_update_info_int32(call->hdr, rec, "DPR", call->PLs, nout_als);
     }
 
     ret = bcf_get_format_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
@@ -1215,21 +1214,22 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
                 call->PLs[i] = call->itmp[i*ndp];
 
             bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl);
-            return;
         }
-
-        int j;
-        for (i=0; i<nsmpl; i++)
+        else
         {
-            int32_t *dp_dst = call->PLs + i*nout_als;
-            int32_t *dp_src = call->itmp + i*ndp;
-            for (j=0; j<nals; j++)
+            int j;
+            for (i=0; i<nsmpl; i++)
             {
-                if ( call->als_map[j]==-1 ) continue;   // to be dropped
-                dp_dst[ call->als_map[j] ] = dp_src[j]; // reusing PLs storage which is not used at this point
+                int32_t *dp_dst = call->PLs + i*nout_als;
+                int32_t *dp_src = call->itmp + i*ndp;
+                for (j=0; j<nals; j++)
+                {
+                    if ( call->als_map[j]==-1 ) continue;   // to be dropped
+                    dp_dst[ call->als_map[j] ] = dp_src[j]; // reusing PLs storage which is not used at this point
+                }
             }
+            bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl*nout_als);
         }
-        bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl*nout_als);
     }
 }
 
