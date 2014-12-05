@@ -462,8 +462,8 @@ the *-a, --allow-overlaps* option is specified.
     First coordinate of the next file can precede last record of the current file.
 
 *-D, --remove-duplicates*::
-    If a record is present in multiple files, output it only once. Requires
-    *-a, --allow-overlaps*.
+    If a record is present in multiple files, output only the first instance.
+    Requires *-a, --allow-overlaps*.
 
 *-f, --file-list* 'FILE'::
     Read the list of files from a file.
