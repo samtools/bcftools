@@ -267,7 +267,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         error("FIXME: %s:%d .. idx=%d, ori_pos=%d, len=%d, off=%d\n",bcf_seqname(args->hdr,rec),rec->pos+1,idx,args->fa_ori_pos,args->fa_buf.l,args->fa_mod_off);
 
     // sanity check the reference base
-    if ( strncasecmp(rec->d.allele[0],args->fa_buf.s+idx,rec->rlen) )
+    if ( strncasecmp(rec->d.allele[0],args->fa_buf.s+idx,rec->rlen) && strcasecmp(rec->d.allele[ialt], "<DEL>") )
     {
         // fprintf(stderr,"%d .. [%s], idx=%d ori=%d off=%d\n",args->fa_ori_pos,args->fa_buf.s,idx,args->fa_ori_pos,args->fa_mod_off);
         char tmp = 0;
@@ -283,6 +283,9 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             bcf_seqname(args->hdr,rec),rec->pos+1, rec->d.allele[0], args->fa_buf.s+idx, 
             tmp?tmp:' ',tmp?args->fa_buf.s+idx+rec->rlen+1:""
             );
+    }
+    if ( !strcasecmp(rec->d.allele[ialt], "<DEL>") ) {
+        rec->d.allele[ialt] = "\0";
     }
 
     int alen = strlen(rec->d.allele[ialt]);
