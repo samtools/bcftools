@@ -41,21 +41,11 @@ THE SOFTWARE.  */
 typedef struct _args_t
 {
     char **argv, *fname, *samples_fname, *header_fname, *output_fname;
+    htsFile *fp;
     htsFormat type;
     int argc;
 }
 args_t;
-
-static void init_data(args_t *args)
-{
-    htsFile *fp = hts_open(args->fname,"r");
-    args->type = *hts_get_format(fp);
-    hts_close(fp);
-}
-
-static void destroy_data(args_t *args)
-{
-}
 
 static void read_header_file(char *fname, kstring_t *hdr)
 {
@@ -171,9 +161,10 @@ static void set_samples(char **samples, int nsamples, kstring_t *hdr)
     kputc('\n', hdr);
 }
 
+BGZF *hts_get_bgzfp(htsFile *fp);
 static void reheader_vcf_gz(args_t *args)
 {
-    BGZF *fp = bgzf_open(args->fname,"r");
+    BGZF *fp = hts_get_bgzfp(args->fp);
     if ( !fp || bgzf_read_block(fp) != 0 || !fp->block_length )
         error("Failed to read %s: %s\n", args->fname, strerror(errno));
 
@@ -263,7 +254,7 @@ static void reheader_vcf_gz(args_t *args)
 static void reheader_vcf(args_t *args)
 {
     kstring_t hdr = {0,0,0};
-    htsFile *fp = hts_open(args->fname, "r"); if ( !fp ) error("Failed to open: %s\n", args->fname);
+    htsFile *fp = args->fp;
     while ( hts_getline(fp, KS_SEP_LINE, &fp->line) >=0 )
     {
         kputc('\n',&fp->line);  // hts_getline eats the newline character
@@ -359,7 +350,7 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
 
 static void reheader_bcf(args_t *args, int is_compressed)
 {
-    htsFile *fp = hts_open(args->fname, "r"); if ( !fp ) error("Failed to open: %s\n", args->fname);
+    htsFile *fp = args->fp;
     bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to read the header: %s\n", args->fname);
     kstring_t htxt = {0,0,0};
     int hlen;
@@ -495,7 +486,9 @@ int main_reheader(int argc, char *argv[])
     if ( !args->samples_fname && !args->header_fname ) usage(args);
     if ( !args->fname ) usage(args);
 
-    init_data(args);
+    args->fp = hts_open(args->fname,"r");
+    if ( !args->fp ) error("Failed to open: %s\n", args->fname);
+    args->type = *hts_get_format(args->fp);
 
     if ( args->type.format==vcf )
     {
@@ -507,7 +500,6 @@ int main_reheader(int argc, char *argv[])
     else
         reheader_bcf(args, args->type.compression==bgzf || args->type.compression==gzip);
 
-    destroy_data(args);
     free(args);
     return 0;
 }
