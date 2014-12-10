@@ -499,10 +499,10 @@ static double best_fit(args_t *args, dist_t *dist, int ngauss, double *params)
     return best_fit;
 }
 
-static void print_params(data_t *dat, int ngauss, double *params, float fit, char fail, char comment)
+static void print_params(data_t *dat, int ngauss, double *params, float fit, float frac, char fail, char comment)
 {
     int i, j;
-    printf("\t%c%c fit=%f .. center,scale,sigma = ", comment,fail?fail:'o',fit);
+    printf("\t%c%c fit=%f frac=%.2f .. center,scale,sigma = ", comment,fail?fail:'o',fit,frac);
     for (i=0; i<ngauss; i++)
     {
         if ( i!=0 ) printf("\t");
@@ -573,9 +573,9 @@ static void fit_curves(args_t *args)
         if ( args->verbose )
         {
             printf("%s: \n", args->dist[i].chr);
-            print_params(&args->dist[i].dat, 1, params_cn2, fit_cn2, cn2_fail, cn==2 ? '*' : ' ');
-            print_params(&args->dist[i].dat, 2, params_cn3, fit_cn3, cn3_fail, cn>2 && cn<=3 ? '*' : ' ');
-            print_params(&args->dist[i].dat, 3, params_cn4, fit_cn4, cn4_fail, cn>3 ? '*' : ' ');
+            print_params(&args->dist[i].dat, 1, params_cn2, fit_cn2, 1.0,    cn2_fail, cn==2 ? '*' : ' ');
+            print_params(&args->dist[i].dat, 2, params_cn3, fit_cn3, dx_cn3, cn3_fail, cn>2 && cn<=3 ? '*' : ' ');
+            print_params(&args->dist[i].dat, 3, params_cn4, fit_cn4, dx_cn4, cn4_fail, cn>3 ? '*' : ' ');
             printf("\n");
         }
         fprintf(args->dat_fp,"CN\t%s\t%.2f\t%f\n", dist->chr, cn, fit);
