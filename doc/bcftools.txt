@@ -183,29 +183,29 @@ specific commands to see if they apply.
     This option requires indexed VCF/BCF files. Note that *-R* cannot be used 
     in combination with *-r*.
 
-*-s, --samples* \[^]'LIST'::
+*-s, --samples* [&#94;]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
-    with "^".
+    with "&#94;".
 
-*-S, --samples-file* \[^]'FILE'::
-    File of sample names to include or exclude if prefixed with "^".
+*-S, --samples-file* [&#94;]'FILE'::
+    File of sample names to include or exclude if prefixed with "&#94;".
     One sample per line.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
-*-t, --targets* \[^]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* [&#94;]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Similar as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
     and *-t* discards positions which are not in the targets. Unlike *-r*, targets
-    can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
+    can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the two is that *-r* checks both start and
     end positions of indels, whereas *-t* checks start positions only. Note
     that *-t* cannot be used in combination with *-T*.
 
-*-T, --targets-file* \[^]'FILE'::
+*-T, --targets-file* [&#94;]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
     cannot be used in combination with *-t*.
 
@@ -258,7 +258,7 @@ This command allows to add or remove annotations.
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
     and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
-    "TAG", use "^INFO/TAG". By default, existing values are replaced. To add missing
+    "TAG", use "&#94;INFO/TAG". By default, existing values are replaced. To add missing
     values without replacing existing annotations, use "+TAG" instead of "TAG".
     To replace only existing values without modifying missing annotations, use "-TAG".
     If the annotation file is not a VCF/BCF, all new annotations must be
@@ -297,7 +297,7 @@ This command allows to add or remove annotations.
     "old_name new_name\n" pairs separated by whitespaces, each on a separate
     line.
 
-*-s, --samples* \[^]'LIST'::
+*-s, --samples* [&#94;]'LIST'::
     subset of samples to annotate, see also *<<common_options,Common Options>>*
 
 *-S, --samples-file* 'FILE'::
@@ -311,7 +311,7 @@ This command allows to add or remove annotations.
     "FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
     be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
     except GT. To remove all INFO tags except "FOO" and "BAR", use
-    "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+    "&#94;INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
 *Examples:*
@@ -826,8 +826,8 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
 === bcftools index ['OPTIONS']  '<in.bcf>|<in.vcf.gz>'
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate-sorted index) is created by default. The CSI format
-supports indexing of chromosomes up to length 2\^31. TBI (tabix index)
-index files, which support chromosome lengths up to 2^29, can be
+supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
+index files, which support chromosome lengths up to 2&#94;29, can be
 created by using the '-t/--tbi' option or using the 'tabix' program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.
@@ -840,7 +840,7 @@ the CSI first and then the TBI.
     overwrite index if it already exists
 
 *-m, --min-shift 'INT'*::
-    set minimal interval size for CSI indices to 2^INT; default: 14
+    set minimal interval size for CSI indices to 2&#94;INT; default: 14
 
 *-t, --tbi*::
     generate TBI-format index for VCF files
@@ -1480,10 +1480,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
-*-g, --genotype* [^]['hom'|'het'|'miss']::
+*-g, --genotype* [&#94;]['hom'|'het'|'miss']::
     include only sites with one or more homozygous ('hom'), heterozygous
-    ('het') or missing ('miss') genotypes. When prefixed with '\^', the logic
-    is reversed; thus '^het' excludes sites with heterozygous genotypes.
+    ('het') or missing ('miss') genotypes. When prefixed with '&#94;', the logic
+    is reversed; thus '&#94;het' excludes sites with heterozygous genotypes.
 
 *-i, --include* 'EXPRESSION'::
     include sites for which 'EXPRESSION' is true. For valid expressions see
