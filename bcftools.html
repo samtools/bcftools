@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp162768"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25199984"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-12-03 23:26 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-100-g215090c+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-12-12 12:32 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-115-ge93c535+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -38,7 +38,7 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">merge</a></strong></span>      ..  merge VCF/BCF files files from non-overlapping sample sets
 </li><li class="listitem">
-<span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz">norm</a></strong></span>        ..  normalize indels
+<span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] file.vcf.gz">norm</a></strong></span>        ..  normalize indels
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#plugin" title="bcftools plugin NAME [OPTIONS] FILE — [PLUGIN OPTIONS]">plugin</a></strong></span>    ..  run user-defined plugin
 </li><li class="listitem">
@@ -143,12 +143,12 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     This option requires indexed VCF/BCF files. Note that <span class="strong"><strong>-R</strong></span> cannot be used
     in combination with <span class="strong"><strong>-r</strong></span>.
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> [^]<span class="emphasis"><em>LIST</em></span>
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em><span class="^">LIST</span></em></span>
 </span></dt><dd>
     Comma-separated list of samples to include or exclude if prefixed
     with "^".
 </dd><dt><span class="term">
-<span class="strong"><strong>-S, --samples-file</strong></span> [^]<span class="emphasis"><em>FILE</em></span>
+<span class="strong"><strong>-S, --samples-file</strong></span> <span class="emphasis"><em><span class="^">FILE</span></em></span>
 </span></dt><dd>
     File of sample names to include or exclude if prefixed with "^".
     One sample per line.
@@ -156,19 +156,19 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a> -C</strong></span> <span class="emphasis"><em>trio</em></span>, PED file is expected.
 </dd><dt><span class="term">
-<span class="strong"><strong>-t, --targets</strong></span> [^]<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em><span class="^">chr</span></em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     Similar as <span class="strong"><strong>-r, --regions</strong></span>, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both <span class="strong"><strong>-r</strong></span> and <span class="strong"><strong>-t</strong></span> options
     can be applied simultaneously: <span class="strong"><strong>-r</strong></span>  uses  the index  to  jump  to  a  region
     and <span class="strong"><strong>-t</strong></span> discards positions which are not in the targets. Unlike <span class="strong"><strong>-r</strong></span>, targets
-    can be prefixed with "<sup>" to request logical complement. For example, "</sup>X,Y,MT"
+    can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the two is that <span class="strong"><strong>-r</strong></span> checks both start and
     end positions of indels, whereas <span class="strong"><strong>-t</strong></span> checks start positions only. Note
     that <span class="strong"><strong>-t</strong></span> cannot be used in combination with <span class="strong"><strong>-T</strong></span>.
 </dd><dt><span class="term">
-<span class="strong"><strong>-T, --targets-file</strong></span> [^]<span class="emphasis"><em>FILE</em></span>
+<span class="strong"><strong>-T, --targets-file</strong></span> <span class="emphasis"><em><span class="^">FILE</span></em></span>
 </span></dt><dd>
     Same <span class="strong"><strong>-t, --targets</strong></span>, but reads regions from a file. Note that <span class="strong"><strong>-T</strong></span>
     cannot be used in combination with <span class="strong"><strong>-t</strong></span>.
@@ -257,7 +257,7 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     "old_name new_name\n" pairs separated by whitespaces, each on a separate
     line.
 </dd><dt><span class="term">
-<span class="strong"><strong>-s, --samples</strong></span> [^]<span class="emphasis"><em>LIST</em></span>
+<span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em><span class="^">LIST</span></em></span>
 </span></dt><dd>
     subset of samples to annotate, see also <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
@@ -428,8 +428,8 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 </dd><dt><span class="term">
 <span class="strong"><strong>-D, --remove-duplicates</strong></span>
 </span></dt><dd>
-    If a record is present in multiple files, output it only once. Requires
-    <span class="strong"><strong>-a, --allow-overlaps</strong></span>.
+    If a record is present in multiple files, output only the first instance.
+    Requires <span class="strong"><strong>-a, --allow-overlaps</strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-f, --file-list</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -901,8 +901,9 @@ samples <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2
 <span class="emphasis"><em>S4</em></span>, the output file will contain four samples named <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span>, <span class="emphasis"><em>S3</em></span>, <span class="emphasis"><em>2:S3</em></span>
 and <span class="emphasis"><em>S4</em></span>.</p><p>Note that it is responsibility of the user to ensure that the sample names are
 unique across all files. If they are not, the program will exit with an error
-unless the option <span class="strong"><strong>--force-samples</strong></span> is given.  Note that sample names can be
-also given explicitly using the <span class="strong"><strong>--print-header</strong></span> and <span class="strong"><strong>--use-header</strong></span> options.</p><div class="variablelist"><dl><dt><span class="term">
+unless the option <span class="strong"><strong>--force-samples</strong></span> is given.  The sample names can be
+also given explicitly using the <span class="strong"><strong>--print-header</strong></span> and <span class="strong"><strong>--use-header</strong></span> options.</p><p>Note that only records from different files can be merged, never from the same file.
+For "vertical" merge take a look at <span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] file.vcf.gz">bcftools norm</a></strong></span> instead.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>--force-samples</strong></span>
 </span></dt><dd>
     if the merged files contain duplicate samples names, proceed anyway.
@@ -931,12 +932,15 @@ also given explicitly using the <span class="strong"><strong>--print-header</str
 </span></dt><dd>
     read file names from <span class="emphasis"><em>FILE</em></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-m, --merge</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>none</em></span>
+<span class="strong"><strong>-m, --merge</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>none</em></span>|<span class="emphasis"><em>id</em></span>
 </span></dt><dd>
-    Defines  merging behaviour, similar to <span class="strong"><strong>-c, --collapse</strong></span>. For example, to
-    prevent merging of SNPs and indels into one record, use <span class="strong"><strong>-m</strong></span> <span class="emphasis"><em>both</em></span>. To
-    prevent creation of multi-allelic records altogether, use <span class="strong"><strong>-m</strong></span> <span class="emphasis"><em>none</em></span>.
-</dd><dt><span class="term">
+    The option controls what types of multiallelic records can be created:
+</dd></dl></div><pre class="screen">-m none   ..  no new multiallelics, output multiple records instead
+-m snps   ..  allow multiallelic SNP records
+-m indels ..  allow multiallelic indel records
+-m both   ..  both SNP and indel records can be multiallelic
+-m all    ..  SNP records can be merged with indel records
+-m id     ..  merge by ID</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -952,7 +956,7 @@ also given explicitly using the <span class="strong"><strong>--print-header</str
 <span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div></div><div class="refsect2" title="bcftools norm [OPTIONS] -f ref.fa file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="strong"><strong>-f</strong></span> <span class="emphasis"><em>ref.fa</em></span> <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels,  check if REF alleles match the reference,
+</dd></dl></div></div><div class="refsect2" title="bcftools norm [OPTIONS] file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels,  check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-D, --remove-duplicates</strong></span>
@@ -1202,6 +1206,10 @@ void destroy(void);</pre></div></div><div class="refsect2" title="bcftools query
 </span></dt><dd>
     new VCF header
 </dd><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
 <span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     new sample names, one name per line, in the same order as they appear
@@ -1414,17 +1422,21 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect3" title="Filter options:"><a id="_filter_options"></a><h4>Filter options:</h4><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>-c, --min-ac</strong></span> <span class="emphasis"><em>INT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>]
+<span class="strong"><strong>-c, --min-ac</strong></span> <span class="emphasis"><em>INT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>|<span class="emphasis"><em>:major</em></span>|:'nonmajor']
 </span></dt><dd>
-    minimum allele count (INFO/AC) of sites to be printed. Specifying the
-    type of allele is optional and can be set to non-reference (<span class="emphasis"><em>nref</em></span>, the
-    default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>) or minor (<span class="emphasis"><em>minor</em></span>) alleles.
+    minimum allele count (INFO/AC) of sites to be printed.
+    Specifying the type of allele is optional and can be set to
+    non-reference (<span class="emphasis"><em>nref</em></span>, the default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>), the least
+    frequent (<span class="emphasis"><em>minor</em></span>), the most frequent (<span class="emphasis"><em>major</em></span>) or sum of all but the
+    most frequent (<span class="emphasis"><em>nonmajor</em></span>) alleles.
 </dd><dt><span class="term">
-<span class="strong"><strong>-C, --max-ac</strong></span> <span class="emphasis"><em>INT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>]
+<span class="strong"><strong>-C, --max-ac</strong></span> <span class="emphasis"><em>INT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>|:'major'|:'nonmajor']
 </span></dt><dd>
-    maximum allele count (INFO/AC) of sites to be printed. Specifying the
-    type of allele is optional and can be set to non-reference (<span class="emphasis"><em>nref</em></span>, the
-    default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>) or minor (<span class="emphasis"><em>minor</em></span>) alleles.
+    maximum allele count (INFO/AC) of sites to be printed.
+    Specifying the type of allele is optional and can be set to
+    non-reference (<span class="emphasis"><em>nref</em></span>, the default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>), the least
+    frequent (<span class="emphasis"><em>minor</em></span>), the most frequent (<span class="emphasis"><em>major</em></span>) or sum of all but the
+    most frequent (<span class="emphasis"><em>nonmajor</em></span>) alleles.
 </dd><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
@@ -1472,17 +1484,21 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </span></dt><dd>
     exclude sites where all samples are phased
 </dd><dt><span class="term">
-<span class="strong"><strong>-q, --min-af</strong></span> <span class="emphasis"><em>FLOAT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>]
+<span class="strong"><strong>-q, --min-af</strong></span> <span class="emphasis"><em>FLOAT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>|:'major'|:'nonmajor']
 </span></dt><dd>
     minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
-    Specifying the type of allele is optional and can be set to non-reference
-    (<span class="emphasis"><em>nref</em></span>, the default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>) or minor (<span class="emphasis"><em>minor</em></span>) alleles.
+    Specifying the type of allele is optional and can be set to
+    non-reference (<span class="emphasis"><em>nref</em></span>, the default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>), the least
+    frequent (<span class="emphasis"><em>minor</em></span>), the most frequent (<span class="emphasis"><em>major</em></span>) or sum of all but the
+    most frequent (<span class="emphasis"><em>nonmajor</em></span>) alleles.
 </dd><dt><span class="term">
-<span class="strong"><strong>-Q, --max-af</strong></span> <span class="emphasis"><em>FLOAT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>]
+<span class="strong"><strong>-Q, --max-af</strong></span> <span class="emphasis"><em>FLOAT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>|:'major'|:'nonmajor']
 </span></dt><dd>
     maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
-    Specifying the type of allele is optional and can be set to non-reference
-    (<span class="emphasis"><em>nref</em></span>, the default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>) or minor (<span class="emphasis"><em>minor</em></span>) alleles.
+    Specifying the type of allele is optional and can be set to
+    non-reference (<span class="emphasis"><em>nref</em></span>, the default), 1st alternate  (<span class="emphasis"><em>alt1</em></span>), the least
+    frequent (<span class="emphasis"><em>minor</em></span>), the most frequent (<span class="emphasis"><em>major</em></span>) or sum of all but the
+    most frequent (<span class="emphasis"><em>nonmajor</em></span>) alleles.
 </dd><dt><span class="term">
 <span class="strong"><strong>-u, --uncalled</strong></span>
 </span></dt><dd>
