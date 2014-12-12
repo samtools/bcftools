@@ -1406,6 +1406,7 @@ int main_vcfstats(int argc, char *argv[])
                 else if ( !strcmp(optarg,"any") ) args->files->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"all") ) args->files->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"some") ) args->files->collapse |= COLLAPSE_SOME;
+                else if ( !strcmp(optarg,"none") ) args->files->collapse = COLLAPSE_NONE;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;
             case 'v': args->verbose_sites = 1; break;
