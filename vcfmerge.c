@@ -1737,9 +1737,13 @@ void merge_buffer(args_t *args)
                 if ( !(args->collapse&COLLAPSE_ANY) )
                 {
                     int compatible = 0;
-                    if ( line_type==VCF_REF ) compatible = 1;   // REF can go with anything
+                    if ( line_type==var_type ) compatible = 1;
+                    else if ( line_type==VCF_REF ) compatible = 1;   // REF can go with anything
                     else if ( var_type&VCF_SNP && line_type&VCF_SNP ) compatible = 1;
                     else if ( var_type&VCF_INDEL && line_type&VCF_INDEL ) compatible = 1;
+                    else if ( var_type&VCF_MNP && line_type&VCF_MNP ) compatible = 1;
+                    else if ( var_type&VCF_SNP && line_type&VCF_MNP ) compatible = 1;
+                    else if ( var_type&VCF_MNP && line_type&VCF_SNP ) compatible = 1;
                     if ( !compatible ) continue;
                 }
             }
@@ -1948,7 +1952,7 @@ static void usage(void)
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
-    fprintf(stderr, "    -m, --merge <string>               merge sites with differing alleles for <snps|indels|both|all|none|id>, see man page for details [both]\n");
+    fprintf(stderr, "    -m, --merge <string>               allow multiallelic records for <snps|indels|both|all|none|id>, see man page for details [both]\n");
     fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");

@@ -946,8 +946,11 @@ and 'S4'.
 
 Note that it is responsibility of the user to ensure that the sample names are
 unique across all files. If they are not, the program will exit with an error
-unless the option *--force-samples* is given.  Note that sample names can be
+unless the option *--force-samples* is given.  The sample names can be
 also given explicitly using the *--print-header* and *--use-header* options.
+
+Note that only records from different files can be merged, never from the same file.
+For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 
 
 *--force-samples*::
@@ -972,10 +975,16 @@ also given explicitly using the *--print-header* and *--use-header* options.
 *-l, --file-list* 'FILE'::
     read file names from 'FILE'
 
-*-m, --merge* 'snps'|'indels'|'both'|'all'|'none'::
-    Defines  merging behaviour, similar to *-c, --collapse*. For example, to
-    prevent merging of SNPs and indels into one record, use *-m* 'both'. To
-    prevent creation of multi-allelic records altogether, use *-m* 'none'.
+*-m, --merge* 'snps'|'indels'|'both'|'all'|'none'|'id'::
+    The option controls what types of multiallelic records can be created:
+----
+-m none   ..  no new multiallelics, output multiple records instead
+-m snps   ..  allow multiallelic SNP records
+-m indels ..  allow multiallelic indel records
+-m both   ..  both SNP and indel records can be multiallelic
+-m all    ..  SNP records can be merged with indel records
+-m id     ..  merge by ID
+----
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*

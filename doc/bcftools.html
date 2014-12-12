@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25136528"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25199984"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-12-10 09:55 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-113-gd991f3f+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2014-12-12 12:32 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-115-ge93c535+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -901,8 +901,9 @@ samples <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2
 <span class="emphasis"><em>S4</em></span>, the output file will contain four samples named <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span>, <span class="emphasis"><em>S3</em></span>, <span class="emphasis"><em>2:S3</em></span>
 and <span class="emphasis"><em>S4</em></span>.</p><p>Note that it is responsibility of the user to ensure that the sample names are
 unique across all files. If they are not, the program will exit with an error
-unless the option <span class="strong"><strong>--force-samples</strong></span> is given.  Note that sample names can be
-also given explicitly using the <span class="strong"><strong>--print-header</strong></span> and <span class="strong"><strong>--use-header</strong></span> options.</p><div class="variablelist"><dl><dt><span class="term">
+unless the option <span class="strong"><strong>--force-samples</strong></span> is given.  The sample names can be
+also given explicitly using the <span class="strong"><strong>--print-header</strong></span> and <span class="strong"><strong>--use-header</strong></span> options.</p><p>Note that only records from different files can be merged, never from the same file.
+For "vertical" merge take a look at <span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] file.vcf.gz">bcftools norm</a></strong></span> instead.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>--force-samples</strong></span>
 </span></dt><dd>
     if the merged files contain duplicate samples names, proceed anyway.
@@ -931,12 +932,15 @@ also given explicitly using the <span class="strong"><strong>--print-header</str
 </span></dt><dd>
     read file names from <span class="emphasis"><em>FILE</em></span>
 </dd><dt><span class="term">
-<span class="strong"><strong>-m, --merge</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>none</em></span>
+<span class="strong"><strong>-m, --merge</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>none</em></span>|<span class="emphasis"><em>id</em></span>
 </span></dt><dd>
-    Defines  merging behaviour, similar to <span class="strong"><strong>-c, --collapse</strong></span>. For example, to
-    prevent merging of SNPs and indels into one record, use <span class="strong"><strong>-m</strong></span> <span class="emphasis"><em>both</em></span>. To
-    prevent creation of multi-allelic records altogether, use <span class="strong"><strong>-m</strong></span> <span class="emphasis"><em>none</em></span>.
-</dd><dt><span class="term">
+    The option controls what types of multiallelic records can be created:
+</dd></dl></div><pre class="screen">-m none   ..  no new multiallelics, output multiple records instead
+-m snps   ..  allow multiallelic SNP records
+-m indels ..  allow multiallelic indel records
+-m both   ..  both SNP and indel records can be multiallelic
+-m all    ..  SNP records can be merged with indel records
+-m id     ..  merge by ID</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
