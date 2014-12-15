@@ -59,6 +59,7 @@ typedef struct
     int fa_end_pos;     // region's end position in the original sequence
     int fa_length;      // region's length in the original sequence (in case end_pos not provided in the FASTA header)
     int fa_case;        // output upper case or lower case?
+    int fa_src_pos;     // last genomic coordinate read from the input fasta (0-based)
 
     rbuf_t vcf_rbuf;
     bcf1_t **vcf_buf;
@@ -164,9 +165,9 @@ static void push_chain_gap(chain_t *chain, int ref_start, int ref_len, int alt_s
 
     } else {
         // Extend the ungapped blocks, store the gap length
-        chain->block_lengths = realloc(chain->block_lengths, (num + 1) * sizeof(int));
-        chain->ref_gaps = realloc(chain->ref_gaps, (num + 1) * sizeof(int));
-        chain->alt_gaps = realloc(chain->alt_gaps, (num + 1) * sizeof(int));
+        chain->block_lengths = (int*) realloc(chain->block_lengths, (num + 1) * sizeof(int));
+        chain->ref_gaps = (int*) realloc(chain->ref_gaps, (num + 1) * sizeof(int));
+        chain->alt_gaps = (int*) realloc(chain->alt_gaps, (num + 1) * sizeof(int));
         chain->block_lengths[num] = ref_start - chain->ref_last_block_ori;
         chain->ref_gaps[num] = ref_len;
         chain->alt_gaps[num] = alt_len;
@@ -229,7 +230,7 @@ static void init_region(args_t *args, char *line)
 {
     char *ss, *se = line;
     while ( *se && !isspace(*se) && *se!=':' ) se++;
-    int from = 0, to = 0x7fffffff;
+    int from = 0, to = 0;
     char tmp, *tmp_ptr = NULL;
     if ( *se )
     {
@@ -247,11 +248,12 @@ static void init_region(args_t *args, char *line)
         }
     }
     args->rid = bcf_hdr_name2id(args->hdr,line);
-//     if ( args->rid<0 ) error("Sequence \"%s\" not in %s\n", line,args->fname);
+    if ( args->rid<0 ) fprintf(stderr,"Warning: Sequence \"%s\" not in %s\n", line,args->fname);
     args->fa_buf.l = 0;
     args->fa_length = 0;
     args->fa_end_pos = to;
     args->fa_ori_pos = from;
+    args->fa_src_pos = from;
     args->fa_mod_off = 0;
     args->fa_frz_pos = -1;
     args->fa_case    = -1;
@@ -331,9 +333,15 @@ static void apply_variant(args_t *args, bcf1_t *rec)
 
     if ( rec->pos <= args->fa_frz_pos )
     {
-        if ( !args->mask )
-            fprintf(stderr,"The site %s:%d overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        fprintf(stderr,"The site %s:%d overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),rec->pos+1);
         return;
+    }
+    if ( args->mask )
+    {
+        char *chr = (char*)bcf_hdr_id2name(args->hdr,args->rid);
+        int start = rec->pos;
+        int end   = rec->pos + rec->rlen - 1;
+        if ( regidx_overlap(args->mask, chr,start,end,NULL) ) return;
     }
 
     int i, ialt = 1;
@@ -399,7 +407,17 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         error("FIXME: %s:%d .. idx=%d, ori_pos=%d, len=%d, off=%d\n",bcf_seqname(args->hdr,rec),rec->pos+1,idx,args->fa_ori_pos,args->fa_buf.l,args->fa_mod_off);
 
     // sanity check the reference base
-    if ( strncasecmp(rec->d.allele[0],args->fa_buf.s+idx,rec->rlen) && strcasecmp(rec->d.allele[ialt], "<DEL>") )
+    int len_diff = 0, alen = 0;
+    if ( rec->d.allele[ialt][0]=='<' )
+    {
+        if ( strcasecmp(rec->d.allele[ialt], "<DEL>") )
+            error("Symbolic alleles other than <DEL> are currently not supported: %s at %s:%d\n",rec->d.allele[ialt],bcf_seqname(args->hdr,rec),rec->pos+1);
+        assert( rec->d.allele[0][1]==0 );           // todo: for now expecting strlen(REF) = 1
+        len_diff = 1-rec->rlen;
+        rec->d.allele[ialt] = rec->d.allele[0];     // according to VCF spec, REF must precede the event
+        alen = strlen(rec->d.allele[ialt]);
+    }
+    else if ( strncasecmp(rec->d.allele[0],args->fa_buf.s+idx,rec->rlen) )
     {
         // fprintf(stderr,"%d .. [%s], idx=%d ori=%d off=%d\n",args->fa_ori_pos,args->fa_buf.s,idx,args->fa_ori_pos,args->fa_mod_off);
         char tmp = 0;
@@ -417,16 +435,17 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             tmp?tmp:' ',tmp?args->fa_buf.s+idx+rec->rlen+1:""
             );
     }
-    if ( !strcasecmp(rec->d.allele[ialt], "<DEL>") ) {
-        rec->d.allele[ialt] = "\0";
+    else
+    {
+        alen = strlen(rec->d.allele[ialt]);
+        len_diff = alen - rec->rlen;
     }
-    int alen = strlen(rec->d.allele[ialt]);
+
     if ( args->fa_case )
         for (i=0; i<alen; i++) rec->d.allele[ialt][i] = toupper(rec->d.allele[ialt][i]);
     else
         for (i=0; i<alen; i++) rec->d.allele[ialt][i] = tolower(rec->d.allele[ialt][i]);
 
-    int len_diff = alen - rec->rlen;
     if ( len_diff <= 0 )
     {
         // deletion or same size event
@@ -466,8 +485,8 @@ static void apply_variant(args_t *args, bcf1_t *rec)
 static void mask_region(args_t *args, char *seq, int len)
 {
     char *chr = (char*)bcf_hdr_id2name(args->hdr,args->rid);
-    int start = args->fa_ori_pos + args->fa_buf.l;
-    int end   = start + len - 1;
+    int start = args->fa_src_pos - len;
+    int end   = args->fa_src_pos;
 
     regitr_t itr;
     if ( !regidx_overlap(args->mask, chr,start,end, &itr) ) return;
@@ -475,9 +494,8 @@ static void mask_region(args_t *args, char *seq, int len)
     int idx_start, idx_end, i;
     while ( REGITR_OVERLAP(itr,start,end) )
     {
-        if ( args->fa_frz_pos<0 || args->fa_frz_pos < REGITR_END(itr) ) args->fa_frz_pos = REGITR_END(itr);
-        idx_start = REGITR_START(itr) - args->fa_ori_pos;
-        idx_end   = REGITR_END(itr) - args->fa_ori_pos;
+        idx_start = REGITR_START(itr) - start;
+        idx_end   = REGITR_END(itr) - start;
         if ( idx_start < 0 ) idx_start = 0;
         if ( idx_end >= len ) idx_end = len - 1;
         for (i=idx_start; i<=idx_end; i++) seq[i] = 'N';
@@ -494,6 +512,7 @@ static void consensus(args_t *args)
     {
         if ( str.s[0]=='>' )
         {
+            // new sequence encountered, apply all chached variants
             while ( args->vcf_rbuf.n )
             {
                 if (args->chain) {
@@ -509,7 +528,8 @@ static void consensus(args_t *args)
             init_region(args, str.s+1);
             continue;
         }
-        args->fa_length += str.l;
+        args->fa_length  += str.l;
+        args->fa_src_pos += str.l;
 
         // determine if uppercase or lowercase is used in this fasta file
         if ( args->fa_case==-1 ) args->fa_case = toupper(str.s[0])==str.s[0] ? 1 : 0;
