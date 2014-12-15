@@ -36,7 +36,7 @@ tsv_t *tsv_init(const char *str)
     {
         if ( *se && *se!=',' ) { se++; continue; }
         tsv->ncols++;
-        tsv->cols = (tsv_col_t*) realloc(tsv->cols,sizeof(tsv_t)*tsv->ncols);
+        tsv->cols = (tsv_col_t*) realloc(tsv->cols,sizeof(tsv_col_t)*tsv->ncols);
         tsv->cols[tsv->ncols-1].name   = NULL;
         tsv->cols[tsv->ncols-1].setter = NULL;
         tmp.l = 0;
