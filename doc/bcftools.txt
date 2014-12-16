@@ -1612,7 +1612,7 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
         MAX, MIN, AVG, SUM, STRLEN, ABS
 
 * variables calculated on the fly if not present: number of alternate alleles;
-number of samples; number of alternate alleles; minor allele count (similar to
+number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes
 
