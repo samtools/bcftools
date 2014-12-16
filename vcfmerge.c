@@ -1942,7 +1942,8 @@ static void usage(void)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Merge multiple VCF/BCF files from non-overlapping sample sets to create one multi-sample file.\n");
-    fprintf(stderr, "         Compatible records are combined into one according to the -m option.\n");
+    fprintf(stderr, "         Note that only records from different files can be merged, never from the same file. For\n");
+    fprintf(stderr, "         \"vertical\" merge take a look at \"bcftools norm\" instead.\n");
     fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");

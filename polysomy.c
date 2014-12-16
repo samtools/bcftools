@@ -211,7 +211,7 @@ static void init_data(args_t *args)
         init_dist(&args->dist[idist],args->verbose);
 
     args->dat_fp = open_file(&args->dat_fname,"w","%s/dist.dat", args->output_dir);
-    fprintf(args->dat_fp, "# This file was produced by: bcftools cnv(%s+htslib-%s), the command line was:\n", bcftools_version(),hts_version());
+    fprintf(args->dat_fp, "# This file was produced by: bcftools polysomy(%s+htslib-%s), the command line was:\n", bcftools_version(),hts_version());
     fprintf(args->dat_fp, "# \t bcftools %s ", args->argv[0]);
     for (i=1; i<args->argc; i++)
         fprintf(args->dat_fp, " %s",args->argv[i]);

@@ -64,7 +64,8 @@ typedef struct _args_t
 
     int nstates;    // number of states: N_STATES for one sample, N_STATES^2 for two samples
     double baf_sigma2, lrr_sigma2;          // squared std dev of B-allele frequency and LRR distribution
-    double tprob_ij, lrr_bias, baf_bias;    // transition prob and LRR/BAF weights
+    double lrr_bias, baf_bias;              // LRR/BAF weights
+    double same_prob, ij_prob;              // prior of both samples being the same and the transition probability P(i|j)
     double err_prob;                        // constant probability of erroneous measurement
     double pRR, pRA, pAA;
 
@@ -92,22 +93,27 @@ static inline void hmm2cn_state(int nstates, int i, int *a, int *b)
     *a = i / N_STATES;
     *b = i - (*a)*N_STATES;
 }
-static double *init_tprob_matrix(int ndim, double tij)
+static double *init_tprob_matrix(int ndim, double ij_prob, double same_prob)
 {
-    double tii, *mat = (double*) malloc(sizeof(double)*ndim*ndim);
     int i,j;
+    double *mat = (double*) malloc(sizeof(double)*ndim*ndim);
 
-    tii  = 1.0 / (1.0 + tij*(ndim-1));
-    tij *= tii;
+    assert( ndim==N_STATES || ndim==N_STATES*N_STATES);
+    double pii = 1 - ij_prob*(N_STATES-1);
 
     if ( ndim==N_STATES )   // one sample
     {
-        for (i=0; i<ndim; i++)
+        if ( pii < ij_prob ) error("Error: -x set a bit too high, P(x|x) < P(x|y): %e vs %e\n", pii,ij_prob);
+        for (j=0; j<ndim; j++)
         {
             double sum = 0;
-            for (j=0; j<ndim; j++)
+            for (i=0; i<ndim; i++)
             {
-                MAT(mat,ndim,i,j) = i==j ? tii : tij;
+                // transition from j-th to i-th state
+                if ( i==j )
+                    MAT(mat,ndim,i,j) = pii;
+                else
+                    MAT(mat,ndim,i,j) = ij_prob;
                 sum += MAT(mat,ndim,i,j);
             }
             assert( fabs(sum - 1.0)<1e-15 );
@@ -115,25 +121,29 @@ static double *init_tprob_matrix(int ndim, double tij)
     }
     else    // two samples
     {
-        for (i=0; i<ndim; i++)
+        for (j=0; j<ndim; j++)
         {
-            int ia,ib;
-            hmm2cn_state(ndim, i, &ia, &ib);
+            int ja,jb;
+            hmm2cn_state(ndim, j, &ja, &jb);
 
             double sum = 0;
-            for (j=0; j<ndim; j++)
+            for (i=0; i<ndim; i++)
             {
-                int ja,jb;
-                hmm2cn_state(ndim, j, &ja, &jb);
+                int ia,ib;
+                hmm2cn_state(ndim, i, &ia, &ib);
 
-                if ( i==j ) MAT(mat,ndim,i,j) = tii*tii;
-                else if ( ia==ja && ib!=jb ) MAT(mat,ndim,i,j) = tii*tij;
-                else if ( ia!=ja && ib==jb ) MAT(mat,ndim,i,j) = tii*tij;
-                else MAT(mat,ndim,i,j) = tij*tij;
+                // transition from (ja,jb)-th to (ia,ib)-th state
+                double pa = ja==ia ? pii : ij_prob;
+                double pb = jb==ib ? pii : ij_prob;
+
+                if ( ia==ib )
+                    MAT(mat,ndim,i,j) = pa*pb - pa*pb*same_prob + sqrt(pa*pb)*same_prob;
+                else
+                    MAT(mat,ndim,i,j) = pa*pb*(1-same_prob);
 
                 sum += MAT(mat,ndim,i,j);
             }
-            for (j=0; j<ndim; j++) MAT(mat,ndim,i,j) /= sum;
+            for (i=0; i<ndim; i++) MAT(mat,ndim,i,j) /= sum;
         }
     }
     return mat;
@@ -189,7 +199,7 @@ static void init_data(args_t *args)
     args->query_sample.idx = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->query_sample.name);
     args->control_sample.idx = args->control_sample.name ? bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->control_sample.name) : -1;
     args->nstates = args->control_sample.name ? N_STATES*N_STATES : N_STATES;
-    args->tprob = init_tprob_matrix(args->nstates, args->tprob_ij);
+    args->tprob = init_tprob_matrix(args->nstates, args->ij_prob, args->same_prob);
     args->hmm = hmm_init(args->nstates, args->tprob, 10000);
 
     args->summary_fh = stdout;
@@ -347,7 +357,7 @@ static void create_plots(args_t *args)
             "           start = row[2]\n"
             "           end   = row[3]\n"
             "           qual  = float(row[6])\n"
-            "           if row[4]==row[5]: continue\n"
+            "           if row[4]==row[5] and args.plot_threshold!=0: continue\n"
             "           if chr not in dat: dat[chr] = 0.0\n"
             "           if qual > dat[chr]: dat[chr] = qual\n"
             "   out = {}\n"
@@ -622,7 +632,7 @@ static int set_observed_prob(args_t *args, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fm
     cn1_baf = pk0*(args->pRR+args->pRA/2.)  + pk1*(args->pAA+args->pRA/2.);
     cn2_baf = pk0*args->pRR + pk1*args->pAA + pk12*args->pRA;
     cn3_baf = pk0*args->pRR + pk1*args->pAA + (pk13 + pk23)*args->pRA/2.;
-    cn4_baf = pk0*args->pRR + pk1*args->pAA + (pk14 + pk23 + pk34)*args->pRA/3.;
+    cn4_baf = pk0*args->pRR + pk1*args->pAA + (pk14 + pk12 + pk34)*args->pRA/3.;
 
     double cn1_lrr, cn2_lrr, cn3_lrr, cn4_lrr;
     cn1_lrr = exp(-(lrr + 0.45)*(lrr + 0.45)/args->lrr_sigma2);
@@ -635,6 +645,8 @@ static int set_observed_prob(args_t *args, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fm
     smpl->pobs[CN2] = args->err_prob + (1 - args->baf_bias + args->baf_bias*cn2_baf)*(1 - args->lrr_bias + args->lrr_bias*cn2_lrr);
     smpl->pobs[CN3] = args->err_prob + (1 - args->baf_bias + args->baf_bias*cn3_baf)*(1 - args->lrr_bias + args->lrr_bias*cn3_lrr);
     smpl->pobs[CNx] = args->err_prob + (1 - args->baf_bias + args->baf_bias*cn4_baf)*(1 - args->lrr_bias + args->lrr_bias*cn4_lrr);
+
+    //printf("%e\t%e\t%e\t%e\n", smpl->pobs[CN1],smpl->pobs[CN2],smpl->pobs[CN3],smpl->pobs[CNx]);
 
     return 0;
 }
@@ -734,9 +746,10 @@ static void usage(args_t *args)
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -b, --BAF-weight <float>           relative contribution from BAF [1]\n");
-    fprintf(stderr, "    -e, --err-prob <float>             probability of error [0.001]\n");
-    fprintf(stderr, "    -i, --ij-prob <float>              transition probability [1e-8]\n");
+    fprintf(stderr, "    -e, --err-prob <float>             probability of error [1e-4]\n");
     fprintf(stderr, "    -l, --LRR-weight <float>           relative contribution from LRR [0.2]\n");
+    fprintf(stderr, "    -P, --prior-prob <float>           prior on both samples being the same [1e-3]\n");
+    fprintf(stderr, "    -x, --xy-prob <float>              P(x|y) transition probability [1e-8]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -752,23 +765,23 @@ int main_vcfcnv(int argc, char *argv[])
     // How much FORMAT/LRR and FORMAT/BAF matter
     args->lrr_bias  = 0.2;
     args->baf_bias  = 1.0;
-    args->err_prob  = 0.001;
+    args->err_prob  = 1e-4;
 
-    // Transition probability to a different state
-    args->tprob_ij  = 1e-8;
+    // Transition probability to a different state and the prior of both samples being the same
+    args->ij_prob   = 1e-8;
+    args->same_prob = 1e-3;
 
     // Squared std dev of BAF and LRR values (gaussian noise), estimated from real data (hets, one sample, one chr)
     args->baf_sigma2 = 0.08*0.08;   // illumina: 0.03
     args->lrr_sigma2 = 0.4*0.4; //0.20*0.20;   // illumina: 0.18
 
-    // args->pRR = 0.69;
-    // args->pRA = 0.18;
-    // args->pAA = 0.11;
-
+    // Priors for RR, RA, AA genotypes
     args->pRR = 0.76;
     args->pRA = 0.14;
     args->pAA = 0.098;
-
+    // args->pRR = 0.69;
+    // args->pRA = 0.18;
+    // args->pAA = 0.11;
 
     int regions_is_file = 0, targets_is_file = 0;
     static struct option loptions[] = 
@@ -776,7 +789,8 @@ int main_vcfcnv(int argc, char *argv[])
         {"err-prob",1,0,'e'},
         {"BAF-weight",1,0,'b'},
         {"LRR-weight",1,0,'l'},
-        {"ij-prob",1,0,'i'},
+        {"prior-prob",1,0,'P'},
+        {"xy-prob",1,0,'x'},
         {"sample",1,0,'s'},
         {"control",1,0,'c'},
         {"targets",1,0,'t'},
@@ -788,7 +802,7 @@ int main_vcfcnv(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp = NULL;
-    while ((c = getopt_long(argc, argv, "h?r:R:t:T:s:o:p:l:T:c:b:i:e:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:R:t:T:s:o:p:l:T:c:b:P:x:e:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'e': 
                 args->err_prob = strtod(optarg,&tmp);
@@ -798,9 +812,14 @@ int main_vcfcnv(int argc, char *argv[])
                 args->baf_bias = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -b %s\n", optarg);
                 break;
-            case 'i': 
-                args->tprob_ij = strtod(optarg,&tmp);
-                if ( *tmp ) error("Could not parse: -T %s\n", optarg);
+            case 'x': 
+                args->ij_prob = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -x %s\n", optarg);
+                break;
+            case 'P': 
+                args->same_prob = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -P %s\n", optarg);
+                args->same_prob = args->same_prob;
                 break;
             case 'l': 
                 args->lrr_bias = strtod(optarg,&tmp);
