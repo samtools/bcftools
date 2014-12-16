@@ -591,6 +591,7 @@ int main_vcfconcat(int argc, char *argv[])
     {
         if ( args->nfnames ) error("Cannot combine -l with file names on command line.\n");
         args->fnames = hts_readlines(args->file_list, &args->nfnames);
+        if ( !args->fnames ) error("Could not read the file: %s\n", args->file_list);
     }
     if ( !args->nfnames ) usage(args);
     if ( args->remove_dups && !args->allow_overlaps ) error("The -D option is supported only with -a\n");
