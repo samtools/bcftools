@@ -125,7 +125,7 @@ static void open_vcf(args_t *args, const char *format_str)
             free(smpls);
         }
     }
-    args->convert = convert_init(args->header, samples, nsamples, format_str);
+    if ( format_str ) args->convert = convert_init(args->header, samples, nsamples, format_str);
     free(samples);
 
     if ( args->filter_str )
@@ -1009,6 +1009,77 @@ static void tsv_to_vcf(args_t *args)
     fprintf(stderr,"Het AA: \t%d\n", args->n.het_aa);
 }
 
+static void vcf_to_vcf(args_t *args)
+{
+    open_vcf(args,NULL);
+    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( !out_fh ) error("Failed to open: %s\n", args->outfname);
+
+    bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
+    bcf_hdr_write(out_fh,hdr);
+
+    while ( bcf_sr_next_line(args->files) )
+    {
+        bcf1_t *line = bcf_sr_get_line(args->files,0);
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) continue;
+        }
+        bcf_write(out_fh,hdr,line);
+    }
+    hts_close(out_fh);
+}
+
+static void gvcf_to_vcf(args_t *args)
+{
+    open_vcf(args,NULL);
+    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( !out_fh ) error("Failed to open: %s\n", args->outfname);
+
+    bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
+    bcf_hdr_append_version(hdr, args->argc, args->argv, "bcftools_convert");
+    bcf_hdr_write(out_fh,hdr);
+
+    int32_t *itmp = NULL, nitmp = 0;
+
+    while ( bcf_sr_next_line(args->files) )
+    {
+        bcf1_t *line = bcf_sr_get_line(args->files,0);
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) continue;
+        }
+
+        if ( line->n_allele!=1 || !bcf_has_filter(hdr,line,"PASS") )
+        {
+            // Assuming that only ALT=. sites can be blocks and skipping sites which don't PASS
+            bcf_write(out_fh,hdr,line);
+            continue;
+        }
+
+        int nend = bcf_get_info_int32(hdr,line,"END",&itmp,&nitmp);
+        if ( nend!=1 )
+        {
+            // No END lineord
+            bcf_write(out_fh,hdr,line);
+            continue;
+        }
+        bcf_update_info_int32(hdr,line,"END",NULL,0);
+        int pos;
+        for (pos=line->pos; pos<=itmp[0]; pos++)
+        {
+            line->pos = pos;
+            bcf_write(out_fh,hdr,line);
+        }
+    }
+    free(itmp);
+    hts_close(out_fh);
+}
+
 static void usage(void)
 {
     fprintf(stderr, "\n");
@@ -1031,21 +1102,24 @@ static void usage(void)
     fprintf(stderr, "   -o, --output <file>            output file name [stdout]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "GEN/SAMPLE options (input/output from IMPUTE2):\n");
+    fprintf(stderr, "GEN/SAMPLE conversion (input/output from IMPUTE2):\n");
     fprintf(stderr, "   -G, --gensample2vcf         <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "   -g, --gensample             <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "       --tag <string>          tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "HAP/SAMPLE options (output from SHAPEIT):\n");
+    fprintf(stderr, "gVCF conversion:\n");
+    fprintf(stderr, "       --gvcf2vcf              \n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "HAP/SAMPLE conversion (output from SHAPEIT):\n");
     fprintf(stderr, "       --hapsample2vcf         <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "HAP/LEGEND/SAMPLE options:\n");
+    fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf   <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "   -h, --haplegendsample       <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
     fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "TSV options:\n");
+    fprintf(stderr, "TSV conversion:\n");
     fprintf(stderr, "       --tsv2vcf <file>        \n");
     fprintf(stderr, "   -c, --columns <string>      columns of the input tsv file [CHROM,POS,ID,AA]\n");
     fprintf(stderr, "   -f, --fasta-ref <file>      reference sequence in fasta format\n");
@@ -1090,6 +1164,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"hapsample2vcf",required_argument,NULL,3},
         {"vcf-ids",no_argument,NULL,4},
         {"haploid2diploid",no_argument,NULL,5},
+        {"gvcf2vcf",no_argument,NULL,6},
         {"haplegendsample",required_argument,NULL,'h'},
         {"haplegendsample2vcf",required_argument,NULL,'H'},
         {"columns",required_argument,NULL,'c'},
@@ -1113,6 +1188,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  3 : args->convert_func = hapsample_to_vcf; args->infname = optarg; break;
             case  4 : args->output_vcf_ids = 1; break;
             case  5 : args->hap2dip = 1; break;
+            case  6 : args->convert_func = gvcf_to_vcf; break;
             case 'H': args->convert_func = haplegendsample_to_vcf; args->infname = optarg; break;
             case 'f': args->ref_fname = optarg; break;
             case 'c': args->columns = optarg; break;
@@ -1140,9 +1216,10 @@ int main_vcfconvert(int argc, char *argv[])
         }
         else args->infname = argv[optind];
     }
-    if ( !args->infname || !args->convert_func ) usage();
-
-    args->convert_func(args);
+    if ( !args->infname ) usage();
+    
+    if ( args->convert_func ) args->convert_func(args);
+    else vcf_to_vcf(args);
 
     destroy_data(args);
     free(args);
