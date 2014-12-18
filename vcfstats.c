@@ -82,7 +82,7 @@ typedef struct
     int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl;
     int *smpl_frm_shifts; // not-applicable, in-frame, out-frame
     unsigned long int *smpl_dp;
-    idist_t dp;
+    idist_t dp, dp_sites;
     int nusr;
     user_stats_t *usr;
 }
@@ -433,6 +433,7 @@ static void init_stats(args_t *args)
                 stats->smpl_frm_shifts = (int*) calloc(args->files->n_smpl*3,sizeof(int));
         }
         idist_init(&stats->dp, args->dp_min,args->dp_max,args->dp_step);
+        idist_init(&stats->dp_sites, args->dp_min,args->dp_max,args->dp_step);
         init_user_stats(args, i!=1 ? args->files->readers[0].header : args->files->readers[1].header, stats);
     }
 
@@ -503,6 +504,7 @@ static void destroy_stats(args_t *args)
         if (stats->smpl_ndp) free(stats->smpl_ndp);
         if (stats->smpl_sngl) free(stats->smpl_sngl);
         idist_destroy(&stats->dp);
+        idist_destroy(&stats->dp_sites);
         for (j=0; j<stats->nusr; j++)
         {
             free(stats->usr[j].vals_ts);
@@ -984,6 +986,9 @@ static void do_vcf_stats(args_t *args)
 
         if ( files->n_smpl )
             do_sample_stats(args, stats, reader, ret);
+
+        if ( bcf_get_info_int32(reader->header,line,"DP",&args->tmp_iaf,&args->ntmp_iaf)==1 )
+            (*idist(&stats->dp_sites, args->tmp_iaf[0]))++;    
     }
 }
 
@@ -1245,6 +1250,24 @@ static void print_stats(args_t *args)
         }
     }
 
+    printf("# DP, Depth distribution\n# DP\t[2]id\t[3]bin\t[4]number of genotypes\t[5]fraction of genotypes (%%)\t[6]number of sites\t[7]fraction of sites (%%)\n");
+    for (id=0; id<args->nstats; id++)
+    {
+        stats_t *stats = &args->stats[id];
+        long unsigned int sum = 0, sum_sites = 0;
+        for (i=0; i<stats->dp.m_vals; i++) { sum += stats->dp.vals[i]; sum_sites += stats->dp_sites.vals[i]; }
+        for (i=0; i<stats->dp.m_vals; i++)
+        {
+            if ( stats->dp.vals[i]==0 && stats->dp_sites.vals[i]==0 ) continue;
+            printf("DP\t%d\t", id);
+            if ( i==0 ) printf("<%d", stats->dp.min);
+            else if ( i+1==stats->dp.m_vals ) printf(">%d", stats->dp.max);
+            else printf("%d", idist_i2bin(&stats->dp,i));
+            printf("\t%"PRId64"\t%f", stats->dp.vals[i], sum ? stats->dp.vals[i]*100./sum : 0);
+            printf("\t%"PRId64"\t%f\n", stats->dp_sites.vals[i], sum_sites ? stats->dp_sites.vals[i]*100./sum_sites : 0);
+        }
+    }
+
     if ( args->files->n_smpl )
     {
         printf("# PSC, Per-sample counts\n# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons\n");
@@ -1277,22 +1300,6 @@ static void print_stats(args_t *args)
             }
         }
 
-        printf("# DP, Depth distribution\n# DP\t[2]id\t[3]bin\t[4]number of genotypes\t[5]fraction of genotypes (%%)\n");
-        for (id=0; id<args->nstats; id++)
-        {
-            stats_t *stats = &args->stats[id];
-            long unsigned int sum = 0;
-            for (i=0; i<stats->dp.m_vals; i++) { sum += stats->dp.vals[i]; }
-            for (i=0; i<stats->dp.m_vals; i++)
-            {
-                if ( stats->dp.vals[i]==0 ) continue;
-                printf("DP\t%d\t", id);
-                if ( i==0 ) printf("<%d", stats->dp.min);
-                else if ( i+1==stats->dp.m_vals ) printf(">%d", stats->dp.max);
-                else printf("%d", idist_i2bin(&stats->dp,i));
-                printf("\t%"PRId64"\t%f\n", stats->dp.vals[i], stats->dp.vals[i]*100./sum);
-            }
-        }
         #ifdef HWE_STATS
         printf("# HWE\n# HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile\n");
         for (id=0; id<args->nstats; id++)

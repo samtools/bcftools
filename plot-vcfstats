@@ -194,7 +194,7 @@ sub parse_params
             {
                 id=>'DP',
                 header=>'DP, Depth distribution',
-                exp=>"# DP\t[2]id\t[3]bin\t[4]number of genotypes\t[5]fraction of genotypes (%)"
+                exp=>"# DP\t[2]id\t[3]bin\t[4]number of genotypes\t[5]fraction of genotypes (%)\t[6]number of sites\t[7]fraction of sites (%)"
             },
             {
                 id=>'FS',
