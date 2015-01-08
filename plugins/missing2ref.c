@@ -136,6 +136,7 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
+    free(arr);
     fprintf(stderr,"Filled %"PRId64" REF alleles\n", nchanged);
     free(gts);
 }
