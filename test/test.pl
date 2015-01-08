@@ -684,6 +684,10 @@ sub test_vcf_plugin
     $args{args} =~ s/{PATH}/$$opts{path}/g;
     bgzip_tabix_vcf($opts,"$args{in}");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} | grep -v ^##bcftools_");
+
+    cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
+    cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} | grep -v ^##bcftools_");
 }
 sub test_vcf_concat
 {
