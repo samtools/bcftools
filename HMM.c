@@ -225,22 +225,139 @@ void hmm_run_fwd_bwd(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         if ( hmm->set_tprob ) hmm->set_tprob(hmm, sites[n-i-1], prev_pos, hmm->set_tprob_data);
         prev_pos = sites[n-i-1];
 
-        double norm = 0;
+        double bwd_norm = 0;
         for (j=0; j<nstates; j++)
         {
             double pval = 0;
             for (k=0; k<nstates; k++)
                 pval += bwd[k] * eprob[k] * MAT(hmm->curr_tprob,hmm->nstates,k,j);
             bwd_tmp[j] = pval;
-            norm += pval;
+            bwd_norm += pval;
         }
+        double norm = 0;
         for (j=0; j<nstates; j++)
         {
-            bwd_tmp[j] /= norm;
+            bwd_tmp[j] /= bwd_norm;
             fwd[j] *= bwd_tmp[j];   // fwd now stores fwd*bwd
+            norm += fwd[j];
         }
+        for (j=0; j<nstates; j++) fwd[j] /= norm;
         double *tmp = bwd_tmp; bwd_tmp = bwd; bwd = tmp;
     }
+}
+
+void hmm_run_baum_welch(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
+{
+    // Init arrays when run for the first time
+    if ( hmm->nfwd < n )
+    {
+        hmm->nfwd = n;
+        hmm->fwd  = (double*) realloc(hmm->fwd, sizeof(double)*(hmm->nfwd+1)*hmm->nstates);
+    }
+    if ( !hmm->bwd )
+    {
+        hmm->bwd     = (double*) malloc(sizeof(double)*hmm->nstates);
+        hmm->bwd_tmp = (double*) malloc(sizeof(double)*hmm->nstates);
+    }
+
+    // Init all states with equal likelihood
+    int i,j,k, nstates = hmm->nstates;
+    for (i=0; i<nstates; i++) hmm->fwd[i] = 1./hmm->nstates;
+    for (i=0; i<nstates; i++) hmm->bwd[i] = 1./hmm->nstates;
+
+    // New transition matrix: temporary values
+    double *tmp_xi = (double*) calloc(nstates*nstates,sizeof(double));
+    double *tmp_gamma = (double*) calloc(nstates,sizeof(double));
+    double *fwd_bwd = (double*) malloc(sizeof(double)*nstates);
+
+    // Run fwd 
+    uint32_t prev_pos = sites[0];
+    for (i=0; i<n; i++)
+    {
+        double *fwd_prev = &hmm->fwd[i*nstates];
+        double *fwd      = &hmm->fwd[(i+1)*nstates];
+        double *eprob    = &eprobs[i*nstates];
+
+        int pos_diff = sites[i] == prev_pos ? 0 : sites[i] - prev_pos - 1;
+
+        _set_tprob(hmm, pos_diff);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data);
+        prev_pos = sites[i];
+
+        double norm = 0;
+        for (j=0; j<nstates; j++)
+        {
+            double pval = 0;
+            for (k=0; k<nstates; k++)
+                pval += fwd_prev[k] * MAT(hmm->curr_tprob,hmm->nstates,j,k);
+            fwd[j] = pval * eprob[j];
+            norm += fwd[j];
+        }
+        for (j=0; j<nstates; j++) fwd[j] /= norm;
+    }
+
+    // Run bwd
+    double *bwd = hmm->bwd, *bwd_tmp = hmm->bwd_tmp;
+    prev_pos = sites[n-1];
+    for (i=0; i<n; i++)
+    {
+        double *fwd   = &hmm->fwd[(n-i)*nstates];
+        double *eprob = &eprobs[(n-i-1)*nstates];
+        
+        int pos_diff = sites[n-i-1] == prev_pos ? 0 : prev_pos - sites[n-i-1] - 1;
+
+        _set_tprob(hmm, pos_diff);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, sites[n-i-1], prev_pos, hmm->set_tprob_data);
+        prev_pos = sites[n-i-1];
+
+        double bwd_norm = 0;
+        for (j=0; j<nstates; j++)
+        {
+            double pval = 0;
+            for (k=0; k<nstates; k++)
+                pval += bwd[k] * eprob[k] * MAT(hmm->curr_tprob,hmm->nstates,k,j);
+            bwd_tmp[j] = pval;
+            bwd_norm += pval;
+        }
+        double norm = 0;
+        for (j=0; j<nstates; j++)
+        {
+            bwd_tmp[j] /= bwd_norm;
+            fwd_bwd[j] = fwd[j]*bwd_tmp[j];
+            norm += fwd_bwd[j];
+        }
+        for (j=0; j<nstates; j++) 
+        {
+            fwd_bwd[j] /= norm;
+            tmp_gamma[j] += fwd_bwd[j];
+        }
+
+        for (j=0; j<nstates; j++)
+        {
+            for (k=0; k<nstates; k++)
+            {
+                MAT(tmp_xi,nstates,k,j) += fwd[j]*bwd[k]*MAT(hmm->tprob_arr,hmm->nstates,k,j)*eprob[k] / norm;
+            }
+        }
+
+        for (j=0; j<nstates; j++) fwd[j] = fwd_bwd[j];    // fwd now stores fwd*bwd
+
+        double *tmp = bwd_tmp; bwd_tmp = bwd; bwd = tmp;
+    }
+    for (j=0; j<nstates; j++)
+    {
+        double norm = 0;
+        for (k=0; k<nstates; k++)
+        {
+            MAT(hmm->curr_tprob,nstates,k,j) = MAT(tmp_xi,nstates,k,j) / tmp_gamma[j];
+            norm += MAT(hmm->curr_tprob,nstates,k,j);
+        }
+        for (k=0; k<nstates; k++)
+            MAT(hmm->curr_tprob,nstates,k,j) /= norm;
+    }
+    free(tmp_gamma);
+    free(tmp_xi);
+    free(fwd_bwd);
 }
 
 void hmm_destroy(hmm_t *hmm)

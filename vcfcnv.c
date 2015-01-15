@@ -67,7 +67,7 @@ typedef struct _args_t
     double lrr_bias, baf_bias;              // LRR/BAF weights
     double same_prob, ij_prob;              // prior of both samples being the same and the transition probability P(i|j)
     double err_prob;                        // constant probability of erroneous measurement
-    double pRR, pRA, pAA;
+    double pRR, pRA, pAA, pRR_dflt, pRA_dflt, pAA_dflt;
 
     double *tprob, *tprob_arr;  // array of transition matrices, precalculated up to ntprob_arr positions
     int ntprob_arr;
@@ -77,10 +77,11 @@ typedef struct _args_t
     uint32_t *sites;        // positions [nsites,msites]
     int nsites, msites;
 
+    double baum_welch_th;
     float plot_th;
     FILE *summary_fh;
     char **argv, *regions_list, *summary_fname, *output_dir;
-    char *targets_list;
+    char *targets_list, *af_fname;
     int argc;
 }
 args_t;
@@ -136,8 +137,10 @@ static double *init_tprob_matrix(int ndim, double ij_prob, double same_prob)
                 double pa = ja==ia ? pii : ij_prob;
                 double pb = jb==ib ? pii : ij_prob;
 
-                if ( ia==ib )
+                if ( ia==ib && ja==jb )
                     MAT(mat,ndim,i,j) = pa*pb - pa*pb*same_prob + sqrt(pa*pb)*same_prob;
+                else if ( ia==ib )
+                    MAT(mat,ndim,i,j) = pa*pb;
                 else
                     MAT(mat,ndim,i,j) = pa*pb*(1-same_prob);
 
@@ -173,7 +176,7 @@ static void init_data(args_t *args)
     if ( !args->query_sample.name )
     {
         if ( bcf_hdr_nsamples(args->hdr)>1 ) error("Multi-sample VCF, missing the -s option\n");
-        args->query_sample.name = args->hdr->samples[0];
+        args->query_sample.name = strdup(args->hdr->samples[0]);
     }
     else 
         if ( bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->query_sample.name)<0 ) error("The sample \"%s\" not found\n", args->query_sample.name);
@@ -498,6 +501,7 @@ static void destroy_data(args_t *args)
     free(args->eprob);
     free(args->tprob);
     free(args->summary_fname);
+    free(args->query_sample.name);
     free(args->query_sample.dat_fname);
     free(args->query_sample.cn_fname);
     free(args->query_sample.summary_fname);
@@ -521,11 +525,43 @@ static double phred_score(double prob)
     return prob>99 ? 99 : prob;
 }
 
+static double avg_ii_prob(int n, double *mat)
+{
+    int i;
+    double avg = 0;
+    for (i=0; i<n; i++) avg += MAT(mat,n,i,i);
+    return avg/n;
+}
+
 static void cnv_flush_viterbi(args_t *args)
 {
     if ( !args->nsites ) return;
 
     hmm_t *hmm = args->hmm;
+    hmm_set_tprob(args->hmm, args->tprob, 10000);
+    while ( args->baum_welch_th!=0 )
+    {
+        double ori_ii = avg_ii_prob(hmm->nstates,hmm->tprob_arr);
+        hmm_run_baum_welch(hmm, args->nsites, args->eprob, args->sites);
+        double new_ii = avg_ii_prob(hmm->nstates,hmm->tprob_arr);
+        fprintf(stderr,"%e\t%e\t%e\n", ori_ii,new_ii,new_ii-ori_ii);
+        double *tprob = init_tprob_matrix(hmm->nstates, 1-new_ii, args->same_prob);
+        hmm_set_tprob(args->hmm, tprob, 10000);
+        free(tprob);
+        if ( fabs(new_ii - ori_ii) < args->baum_welch_th )
+        {
+            int i,j;
+            for (i=0; i<hmm->nstates; i++)
+            {
+                for (j=0; j<hmm->nstates; j++)
+                {
+                    printf(" %.15f", MAT(hmm->tprob_arr,hmm->nstates,j,i));
+                }
+                printf("\n");
+            }
+            break;
+        }
+    }
     hmm_run_viterbi(hmm, args->nsites, args->eprob, args->sites);
     hmm_run_fwd_bwd(hmm, args->nsites, args->eprob, args->sites);
 
@@ -646,8 +682,6 @@ static int set_observed_prob(args_t *args, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fm
     smpl->pobs[CN3] = args->err_prob + (1 - args->baf_bias + args->baf_bias*cn3_baf)*(1 - args->lrr_bias + args->lrr_bias*cn3_lrr);
     smpl->pobs[CNx] = args->err_prob + (1 - args->baf_bias + args->baf_bias*cn4_baf)*(1 - args->lrr_bias + args->lrr_bias*cn4_lrr);
 
-    //printf("%e\t%e\t%e\t%e\n", smpl->pobs[CN1],smpl->pobs[CN2],smpl->pobs[CN3],smpl->pobs[CNx]);
-
     return 0;
 }
 
@@ -671,6 +705,8 @@ static void set_emission_prob2(args_t *args)
         }
     }
 }
+
+int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq);
 
 static void cnv_next_line(args_t *args, bcf1_t *line)
 {
@@ -703,6 +739,20 @@ static void cnv_next_line(args_t *args, bcf1_t *line)
     if ( args->msites!=m )
         args->eprob = (double*) realloc(args->eprob,sizeof(double)*args->msites*args->nstates);
     args->sites[args->nsites-1] = line->pos;
+
+    double alt_freq;
+    if ( !args->af_fname || read_AF(args->files->targets, line, &alt_freq) < 0 )
+    {
+        args->pRR = args->pRR_dflt;
+        args->pRA = args->pRA_dflt;
+        args->pAA = args->pAA_dflt;
+    }
+    else
+    {
+        args->pRR = (1 - alt_freq)*(1 - alt_freq);
+        args->pRA = 2*(1 - alt_freq)*alt_freq;
+        args->pAA = alt_freq*alt_freq;
+    }
 
     int ret = set_observed_prob(args, baf_fmt,lrr_fmt, &args->query_sample);
     if ( ret<0 ) 
@@ -737,6 +787,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools cnv [OPTIONS] <file.vcf>\n");
     fprintf(stderr, "General Options:\n");
     fprintf(stderr, "    -c, --control-sample <string>      optional control sample name to highlight differences\n");
+    fprintf(stderr, "    -f, --AF-file <file>               read allele frequencies from file (CHR\\tPOS\\tREF,ALT\\tAF)\n");
     fprintf(stderr, "    -o, --output-dir <path>            \n");
     fprintf(stderr, "    -p, --plot-threshold <float>       plot aberrant chromosomes with quality at least 'float'\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
@@ -748,7 +799,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -b, --BAF-weight <float>           relative contribution from BAF [1]\n");
     fprintf(stderr, "    -e, --err-prob <float>             probability of error [1e-4]\n");
     fprintf(stderr, "    -l, --LRR-weight <float>           relative contribution from LRR [0.2]\n");
-    fprintf(stderr, "    -P, --prior-prob <float>           prior on both samples being the same [1e-3]\n");
+    fprintf(stderr, "    -P, --same-prob <float>            prior probability of -s/-c being same [1e-1]\n");
     fprintf(stderr, "    -x, --xy-prob <float>              P(x|y) transition probability [1e-8]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -769,16 +820,16 @@ int main_vcfcnv(int argc, char *argv[])
 
     // Transition probability to a different state and the prior of both samples being the same
     args->ij_prob   = 1e-8;
-    args->same_prob = 1e-3;
+    args->same_prob = 1e-1;
 
     // Squared std dev of BAF and LRR values (gaussian noise), estimated from real data (hets, one sample, one chr)
     args->baf_sigma2 = 0.08*0.08;   // illumina: 0.03
     args->lrr_sigma2 = 0.4*0.4; //0.20*0.20;   // illumina: 0.18
 
     // Priors for RR, RA, AA genotypes
-    args->pRR = 0.76;
-    args->pRA = 0.14;
-    args->pAA = 0.098;
+    args->pRR_dflt = 0.76;
+    args->pRA_dflt = 0.14;
+    args->pAA_dflt = 0.098;
     // args->pRR = 0.69;
     // args->pRA = 0.18;
     // args->pAA = 0.11;
@@ -786,10 +837,12 @@ int main_vcfcnv(int argc, char *argv[])
     int regions_is_file = 0, targets_is_file = 0;
     static struct option loptions[] = 
     {
+        {"AF-file",1,0,'f'},
+        {"baum-welch",1,0,'W'},
         {"err-prob",1,0,'e'},
         {"BAF-weight",1,0,'b'},
         {"LRR-weight",1,0,'l'},
-        {"prior-prob",1,0,'P'},
+        {"same-prob",1,0,'P'},
         {"xy-prob",1,0,'x'},
         {"sample",1,0,'s'},
         {"control",1,0,'c'},
@@ -802,8 +855,13 @@ int main_vcfcnv(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp = NULL;
-    while ((c = getopt_long(argc, argv, "h?r:R:t:T:s:o:p:l:T:c:b:P:x:e:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:R:t:T:s:o:p:l:T:c:b:P:x:e:W:f:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'f': args->af_fname = optarg; break;
+            case 'W':
+                args->baum_welch_th = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -W %s\n", optarg);
+                break;
             case 'e': 
                 args->err_prob = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -e %s\n", optarg);
@@ -819,7 +877,6 @@ int main_vcfcnv(int argc, char *argv[])
             case 'P': 
                 args->same_prob = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -P %s\n", optarg);
-                args->same_prob = args->same_prob;
                 break;
             case 'l': 
                 args->lrr_bias = strtod(optarg,&tmp);
@@ -830,7 +887,7 @@ int main_vcfcnv(int argc, char *argv[])
                 if ( *tmp ) error("Could not parse: -p %s\n", optarg);
                 break;
             case 'o': args->output_dir = optarg; break;
-            case 's': args->query_sample.name = optarg; break;
+            case 's': args->query_sample.name = strdup(optarg); break;
             case 'c': args->control_sample.name = optarg; break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
@@ -860,6 +917,11 @@ int main_vcfcnv(int argc, char *argv[])
     {
         if ( bcf_sr_set_targets(args->files, args->targets_list, targets_is_file, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets_list);
+    }
+    if ( args->af_fname )
+    {
+        if ( bcf_sr_set_targets(args->files, args->af_fname, 1, 3)<0 )
+            error("Failed to read the targets: %s\n", args->af_fname);
     }
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
     

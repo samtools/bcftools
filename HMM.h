@@ -92,6 +92,18 @@ void hmm_run_viterbi(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
  *   probability of i-th state at j-th site can be accessed as fwd[j*nstates+i].
  */
 void hmm_run_fwd_bwd(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
+
+/**
+ *   hmm_run_baum_welch() - run one iteration of Baum-Welch algorithm
+ *   @nsites:   number of sites 
+ *   @eprob:    emission probabilities for each site and state (nsites x nstates)
+ *   @sites:    list of positions
+ *
+ *   Same as hmm_run_fwd_bwd, in addition curr_tprob contains the new
+ *   transition probabilities. In this verison, emission probabilities
+ *   are not updated.
+ */
+void hmm_run_baum_welch(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
 void hmm_destroy(hmm_t *hmm);
 
 #endif

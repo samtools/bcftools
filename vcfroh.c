@@ -410,9 +410,8 @@ static void push_rid(args_t *args, int rid)
     args->rid_offs[ args->nrids-1 ] = args->nsites;
 }
 
-static int read_AF(args_t *args, bcf1_t *line, double *alt_freq)
+int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq)
 {
-    bcf_sr_regions_t *tgt = args->files->targets;
     if ( tgt->nals != line->n_allele ) return -1;    // number of alleles does not match
 
     int i;
@@ -484,7 +483,7 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
     else if ( args->af_fname ) 
     {
         // Read AF from a file
-        ret = read_AF(args, line, alt_freq);
+        ret = read_AF(args->files->targets, line, alt_freq);
     }
     else
     {
