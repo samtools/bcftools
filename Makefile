@@ -93,6 +93,9 @@ force:
 test: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
 	./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
 
+test-plugins: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
+	./test/test.pl --plugins --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
+
 
 # Plugin rules
 PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
