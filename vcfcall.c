@@ -591,7 +591,10 @@ int main_vcfcall(int argc, char *argv[])
                       else error("Unknown skip category \"%s\" (-S argument must be \"snps\" or \"indels\")\n", optarg);
                       break;
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
-            case 'p': args.aux.pref = atof(optarg); break;
+            case 'p':
+                args.aux.pref = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: --pval-threshold %s\n", optarg);
+                break;
             case 'P': args.aux.theta = strtod(optarg,&tmp);
                       if ( *tmp ) error("Could not parse, expected float argument: -P %s\n", optarg);
                       break;

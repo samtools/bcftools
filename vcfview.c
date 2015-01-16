@@ -563,6 +563,7 @@ int main_vcfview(int argc, char *argv[])
         {"exclude-phased",0,0,'P'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "l:t:T:r:R:o:O:s:S:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:g:",loptions,NULL)) >= 0)
     {
         char allele_type[8] = "nref";
@@ -577,7 +578,11 @@ int main_vcfview(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 };
                 break;
-            case 'l': args->clevel = atoi(optarg); args->output_type |= FT_GZ; break;
+            case 'l':
+                args->clevel = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --compression-level %s\n", optarg);
+                args->output_type |= FT_GZ; 
+                break;
             case 'o': args->fn_out = optarg; break;
             case 'H': args->print_header = 0; break;
             case 'h': args->header_only = 1; break;
@@ -597,8 +602,14 @@ int main_vcfview(int argc, char *argv[])
             case 'f': args->files->apply_filters = optarg; break;
             case 'k': args->known = 1; break;
             case 'n': args->novel = 1; break;
-            case 'm': args->min_alleles = atoi(optarg); break;
-            case 'M': args->max_alleles = atoi(optarg); break;
+            case 'm':
+                args->min_alleles = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --min-alleles %s\n", optarg);
+                break;
+            case 'M': 
+                args->max_alleles = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --max-alleles %s\n", optarg);
+                break;
             case 'v': args->include_types = optarg; break;
             case 'V': args->exclude_types = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

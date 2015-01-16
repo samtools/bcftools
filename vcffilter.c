@@ -446,10 +446,17 @@ int main_vcffilter(int argc, char *argv[])
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:o:O:g:G:S:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'g': args->snp_gap = atoi(optarg); break;
-            case 'G': args->indel_gap = atoi(optarg); break;
+            case 'g': 
+                args->snp_gap = strtol(optarg,&tmp,10); 
+                if ( *tmp ) error("Could not parse argument: --SnpGap %s\n", optarg);
+                break;
+            case 'G':
+                args->indel_gap = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --IndelGap %s\n", optarg);
+                break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {

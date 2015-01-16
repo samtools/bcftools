@@ -554,13 +554,17 @@ int main_vcfconcat(int argc, char *argv[])
         {"min-PQ",1,0,'q'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dr:R:",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'D': args->remove_dups = 1; break;
-            case 'q': args->min_PQ = atoi(optarg); break;
+            case 'q': 
+                args->min_PQ = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --min-PQ %s\n", optarg);
+                break;
             case 'a': args->allow_overlaps = 1; break;
             case 'l': args->phased_concat = 1; break;
             case 'f': args->file_list = optarg; break;

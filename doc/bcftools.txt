@@ -770,7 +770,10 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
     reference genotypes to compare against
 
 *-G, --GTs-only* 'INT'::
-    ignore PLs, use GTs, setting 'INT' for the unseen genotypes
+    use genotypes (GT) instead of genotype likelihoods (PL). When set to 1, 
+    reported discordance is the number of non-matching GTs, otherwise the 
+    number 'INT' is interpreted as phred-scaled likelihood of unobserved
+    genotypes.
 
 *-H, --homs-only*::
     consider only genotypes which are homozygous in both 'genotypes' and
@@ -822,9 +825,9 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
         other words, the average number of non-missing PLs/genotypes seen
         both samples.
 
-    MD, Maximum Deviation;;
-        The maximum absolute deviation from average score of the sample
-        most dissimilar to the rest.
+//    MD, Maximum Deviation;;
+//        The maximum absolute deviation from average score of the sample
+//        most dissimilar to the rest.
 
 
 [[index]]
@@ -1369,7 +1372,9 @@ Transition probabilities:
 === bcftools stats ['OPTIONS'] 'A.vcf.gz' ['B.vcf.gz']
 Parses VCF or BCF and produces text file stats which is suitable for machine
 processing and can be plotted using *<<plot-vcfstats,plot-vcfstats>>*.  When two files are given,
-the program generates separate stats for intersection and the complements.
+the program generates separate stats for intersection and the complements. By
+default only sites are compared, *-s*/*-S* must given to include also sample
+columns.
 
 *-1, --1st-allele-only*::
     consider only 1st allele at multiallelic sites

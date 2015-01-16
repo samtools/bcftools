@@ -1885,6 +1885,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"strict-filter",0,0,'s'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "hr:R:f:w:Do:O:c:m:t:T:s",loptions,NULL)) >= 0) {
         switch (c) {
             case 'm':
@@ -1922,7 +1923,10 @@ int main_vcfnorm(int argc, char *argv[])
             case 'R': args->region = optarg; region_is_file = 1; break;
             case 't': args->targets = optarg; break;
             case 'T': args->targets = optarg; targets_is_file = 1; break;
-            case 'w': args->buf_win = atoi(optarg); break;
+            case 'w':
+                args->buf_win = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --site-win %s\n", optarg);
+                break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);

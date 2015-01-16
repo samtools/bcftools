@@ -658,9 +658,9 @@ static void cross_check_gts(args_t *args)
         fprintf(fp, "SM\t%f\t%.2lf\t%.0lf\t%s\t%d\n", score[idx]*100., adp, nsites, args->sm_hdr->samples[idx],i);
     }
 
-    // Overall score: maximum absolute deviation from the average score
-    fprintf(fp, "# [1] MD\t[2]Maximum deviation\t[3]The culprit\n");
-    fprintf(fp, "MD\t%f\t%s\n", (score[idx] - avg_score/nsamples)*100., args->sm_hdr->samples[idx]);    // idx still set
+    //  // Overall score: maximum absolute deviation from the average score
+    //  fprintf(fp, "# [1] MD\t[2]Maximum deviation\t[3]The culprit\n");
+    //  fprintf(fp, "MD\t%f\t%s\n", (score[idx] - avg_score/nsamples)*100., args->sm_hdr->samples[idx]);    // idx still set
     free(p);
     free(score);
     free(dp);
@@ -738,9 +738,13 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:R:at:T:G:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'G': args->no_PLs = atoi(optarg); break;
+            case 'G':
+                args->no_PLs = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --GTs-only %s\n", optarg);
+                break;
             case 'a': args->all_sites = 1; break;
             case 'H': args->hom_only = 1; break;
             case 'g': args->gt_fname = optarg; break;

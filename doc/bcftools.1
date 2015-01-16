@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2015-01-08 11:37 GMT
+.\"      Date: 2015-01-16 09:34 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2015\-01\-08 11:37 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2015\-01\-16 09:34 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2015\-01\-08 11:37 GMT\fR and refers to bcftools git version \fB1\&.1\-133\-g97a623a+\fR\&.
+This manual page was last updated \fB2015\-01\-16 09:34 GMT\fR and refers to bcftools git version \fB1\&.1\-135\-gf0922b6+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1329,9 +1329,9 @@ reference genotypes to compare against
 .PP
 \fB\-G, \-\-GTs\-only\fR \fIINT\fR
 .RS 4
-ignore PLs, use GTs, setting
+use genotypes (GT) instead of genotype likelihoods (PL)\&. When set to 1, reported discordance is the number of non\-matching GTs, otherwise the number
 \fIINT\fR
-for the unseen genotypes
+is interpreted as phred\-scaled likelihood of unobserved genotypes\&.
 .RE
 .PP
 \fB\-H, \-\-homs\-only\fR
@@ -1439,11 +1439,6 @@ Average depth at evaluated sites, or 1 if FORMAT/DP field is not present\&.
 SM, Average Number of sites
 .RS 4
 The average number of sites used to calculate the discordance\&. In other words, the average number of non\-missing PLs/genotypes seen both samples\&.
-.RE
-.PP
-MD, Maximum Deviation
-.RS 4
-The maximum absolute deviation from average score of the sample most dissimilar to the rest\&.
 .RE
 .RE
 .SS "bcftools index [\fIOPTIONS\fR] \fI<in\&.bcf>|<in\&.vcf\&.gz>\fR"
@@ -2433,7 +2428,7 @@ perform Viterbi training to estimate transition probabilities
 .RE
 .SS "bcftools stats [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"
 .sp
-Parses VCF or BCF and produces text file stats which is suitable for machine processing and can be plotted using \fBplot\-vcfstats\fR\&. When two files are given, the program generates separate stats for intersection and the complements\&.
+Parses VCF or BCF and produces text file stats which is suitable for machine processing and can be plotted using \fBplot\-vcfstats\fR\&. When two files are given, the program generates separate stats for intersection and the complements\&. By default only sites are compared, \fB\-s\fR/\fB\-S\fR must given to include also sample columns\&.
 .PP
 \fB\-1, \-\-1st\-allele\-only\fR
 .RS 4

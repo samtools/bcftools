@@ -1347,7 +1347,8 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Parses VCF or BCF and produces stats which can be plotted using plot-vcfstats.\n");
     fprintf(stderr, "         When two files are given, the program generates separate stats for intersection\n");
-    fprintf(stderr, "         and the complements.\n");
+    fprintf(stderr, "         and the complements. By default only sites are compared, -s/-S must given to include\n");
+    fprintf(stderr, "         also sample columns.\n");
     fprintf(stderr, "Usage:   bcftools stats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");

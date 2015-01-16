@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <sys/stat.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
+#include "bcftools.h"
 
 #define BCF_LIDX_SHIFT    14
 
@@ -144,6 +145,7 @@ int main_vcfindex(int argc, char *argv[])
         {NULL, 0, NULL, 0}
     };
 
+    char *tmp;
     while ((c = getopt_long(argc, argv, "ctfm:sn", loptions, NULL)) >= 0)
     {
         switch (c)
@@ -151,7 +153,10 @@ int main_vcfindex(int argc, char *argv[])
             case 'c': tbi = 0; break;
             case 't': tbi = 1; min_shift = 0; break;
             case 'f': force = 1; break;
-            case 'm': min_shift = atoi(optarg); break;
+            case 'm': 
+                min_shift = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --min-shift %s\n", optarg);
+                break;
             case 's': stats |= 1; break;
             case 'n': stats |= 2; break;
             default: usage();

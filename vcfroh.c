@@ -700,18 +700,33 @@ int main_vcfroh(int argc, char *argv[])
     };
 
     int naf_opts = 0;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:s:m:M:G:Ia:e:V",loptions,NULL)) >= 0) {
         switch (c) {
             case 0: args->af_tag = optarg; naf_opts++; break;
             case 1: args->af_fname = optarg; naf_opts++; break;
             case 'e': args->estimate_AF = optarg; naf_opts++; break;
             case 'I': args->snps_only = 1; break;
-            case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
+            case 'G':
+                args->fake_PLs = 1; 
+                args->unseen_PL = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -G %s\n", optarg);
+                args->unseen_PL = pow(10,-args->unseen_PL/10.); 
+                break;
             case 'm': args->genmap_fname = optarg; break;
-            case 'M': args->rec_rate = atof(optarg); break;
+            case 'M':
+                args->rec_rate = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -M %s\n", optarg);
+                break;
             case 's': args->sample = strdup(optarg); break;
-            case 'a': args->t2AZ = atof(optarg); break;
-            case 'H': args->t2HW = atof(optarg); break;
+            case 'a':
+                args->t2AZ = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -a %s\n", optarg);
+                break;
+            case 'H':
+                args->t2HW = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -H %s\n", optarg);
+                break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
