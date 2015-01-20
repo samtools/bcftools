@@ -223,17 +223,12 @@ void isec_vcf(args_t *args)
 
         if ( args->prefix )
         {
-            if ( args->isec_op==OP_VENN )
+            if ( args->isec_op==OP_VENN && ret==3 )
             {
-                if ( !args->nwrite || ret==3 || args->write[ret-1] )
-                {
-                    if ( args->write && !args->write[0] )
-                    {
-                        reader = &files->readers[1];
-                        line = files->readers[1].buffer[0];
-                    }
-                    bcf_write1(args->fh_out[ret-1], reader->header, line);
-                }
+                if ( !args->nwrite || args->write[0] )
+                    bcf_write1(args->fh_out[2], bcf_sr_get_header(files,0), bcf_sr_get_line(files,0));
+                if ( !args->nwrite || args->write[1] )
+                    bcf_write1(args->fh_out[3], bcf_sr_get_header(files,1), bcf_sr_get_line(files,1));
             }
             else
             {
@@ -338,8 +333,8 @@ static void init_data(args_t *args)
         // Open output files and write the legend
         if ( args->isec_op==OP_VENN )
         {
-            args->fh_out = (htsFile**) malloc(sizeof(htsFile*)*3);
-            args->fnames = (char**) calloc(3,sizeof(char*));
+            args->fh_out = (htsFile**) malloc(sizeof(htsFile*)*4);
+            args->fnames = (char**) calloc(4,sizeof(char*));
 
             #define OPEN_FILE(i,j) { \
                 open_file(&args->fnames[i], NULL, "%s/%04d.%s", args->prefix, i, suffix); \
@@ -361,12 +356,12 @@ static void init_data(args_t *args)
             if ( !args->nwrite || args->write[0] )
             {
                 OPEN_FILE(2,0);
-                fprintf(args->fh_log,"%s\tfor records shared by both\t%s %s\n", args->fnames[2], args->files->readers[0].fname, args->files->readers[1].fname);
+                fprintf(args->fh_log,"%s\tfor records from %s shared by both\t%s %s\n", args->fnames[2], args->files->readers[0].fname, args->files->readers[0].fname, args->files->readers[1].fname);
             }
-            else if ( args->nwrite && args->write[1] )
+            if ( !args->nwrite || args->write[1] )
             {
-                OPEN_FILE(2,1);
-                fprintf(args->fh_log,"%s\tfor records shared by both\t%s %s\n", args->fnames[2], args->files->readers[1].fname, args->files->readers[0].fname);
+                OPEN_FILE(3,1);
+                fprintf(args->fh_log,"%s\tfor records from %s shared by both\t%s %s\n", args->fnames[3], args->files->readers[1].fname, args->files->readers[0].fname, args->files->readers[1].fname);
             }
         }
         else
@@ -415,7 +410,7 @@ static void destroy_data(args_t *args)
     if ( args->prefix )
     {
         fclose(args->fh_log);
-        int n = args->isec_op==OP_VENN ? 3 : args->files->nreaders;
+        int n = args->isec_op==OP_VENN ? 4 : args->files->nreaders;
         for (i=0; i<n; i++)
         {
             if ( !args->fnames[i] ) continue;
