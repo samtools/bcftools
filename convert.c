@@ -99,6 +99,14 @@ static void process_alt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isampl
         kputc('.', str);
         return;
     }
+    if ( fmt->subscript>=0 )
+    {
+        if ( line->n_allele > fmt->subscript+1 )
+            kputs(line->d.allele[fmt->subscript+1], str);
+        else
+            kputc('.', str);
+        return;
+    }
     for (i=1; i<line->n_allele; i++)
     {
         if ( i>1 ) kputc(',', str);
@@ -761,7 +769,11 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "POS") ) register_tag(convert, T_POS, str.s, is_gtf);
         else if ( !strcmp(str.s, "ID") ) register_tag(convert, T_ID, str.s, is_gtf);
         else if ( !strcmp(str.s, "REF") ) register_tag(convert, T_REF, str.s, is_gtf);
-        else if ( !strcmp(str.s, "ALT") ) register_tag(convert, T_ALT, str.s, is_gtf);
+        else if ( !strcmp(str.s, "ALT") ) 
+        {
+            fmt_t *fmt = register_tag(convert, T_ALT, str.s, is_gtf);
+            fmt->subscript = parse_subscript(&q);
+        }
         else if ( !strcmp(str.s, "FIRST_ALT") ) register_tag(convert, T_FIRST_ALT, str.s, is_gtf);
         else if ( !strcmp(str.s, "QUAL") ) register_tag(convert, T_QUAL, str.s, is_gtf);
         else if ( !strcmp(str.s, "FILTER") ) register_tag(convert, T_FILTER, str.s, is_gtf);

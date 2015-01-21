@@ -40,6 +40,7 @@ THE SOFTWARE.  */
 #include "bcftools.h"
 #include "vcmp.h"
 #include "filter.h"
+#include "convert.h"
 
 struct _args_t;
 
@@ -99,6 +100,10 @@ typedef struct _args_t
     int ref_idx, alt_idx, chr_idx, from_idx, to_idx;   // -1 if not present
     annot_col_t *cols;      // column indexes and setters
     int ncols;
+
+    char *set_ids_fmt;
+    convert_t *set_ids;
+    int set_ids_replace;
 
     int *sample_map, nsample_map, sample_is_file;   // map[idst] -> isrc
     int mtmpi, mtmpf, mtmps;
@@ -406,7 +411,7 @@ static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
     if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
 
     // running with +ID, only update missing ids
-    if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[0]) )
+    if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[1]) )
         return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
     return 0;
 }
@@ -417,7 +422,7 @@ static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
     if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,rec->d.id);
 
     // running with +ID, only update missing ids
-    if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[0]) )
+    if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[1]) )
         return bcf_update_id(args->hdr_out,line,rec->d.id);
     return 0;
 }
@@ -1376,6 +1381,12 @@ static void init_data(args_t *args)
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
 
+    if ( args->set_ids_fmt )
+    {
+        if ( args->set_ids_fmt[0]=='+' ) { args->set_ids_replace = 0; args->set_ids_fmt++; }
+        args->set_ids = convert_init(args->hdr_out, NULL, 0, args->set_ids_fmt);
+    }
+
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     if ( !args->drop_header )
     {
@@ -1416,6 +1427,8 @@ static void destroy_data(args_t *args)
     free(args->tmpp2);
     free(args->tmpi3);
     free(args->tmpf3);
+    if ( args->set_ids )
+        convert_destroy(args->set_ids);
     if ( args->filter )
         filter_destroy(args->filter);
     if (args->out_fh) hts_close(args->out_fh);
@@ -1541,6 +1554,19 @@ static void annotate(args_t *args, bcf1_t *line)
             if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
                 error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
     }
+    if ( args->set_ids )
+    {
+        args->tmpks.l = 0;
+        convert_line(args->set_ids, line, &args->tmpks);
+        if ( args->tmpks.l )
+        {
+            int replace = 0;
+            if ( args->set_ids_replace ) replace = 1;
+            else if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[1]) ) replace = 1;
+            if ( replace )
+                bcf_update_id(args->hdr_out,line,args->tmpks.s);
+        }
+    }
 }
 
 static void usage(args_t *args)
@@ -1554,6 +1580,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
     fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
+    fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man pagee for details\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man pagee for details)\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
@@ -1576,10 +1603,12 @@ int main_vcfannotate(int argc, char *argv[])
     args->output_fname = "-";
     args->output_type = FT_VCF;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
+    args->set_ids_replace = 1;
     int regions_is_file = 0;
 
     static struct option loptions[] =
     {
+        {"set-id",1,0,'I'},
         {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"annotations",1,0,'a'},
@@ -1595,9 +1624,10 @@ int main_vcfannotate(int argc, char *argv[])
         {"samples-file",1,0,'S'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'I': args->set_ids_fmt = optarg; break;
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;
             case 'c': args->columns = strdup(optarg); break;
