@@ -183,7 +183,7 @@ specific commands to see if they apply.
     This option requires indexed VCF/BCF files. Note that *-R* cannot be used 
     in combination with *-r*.
 
-*-s, --samples* [&#94;]'LIST'::
+*-s, --samples* \[&#94;]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
     with "&#94;".
 
@@ -194,7 +194,7 @@ specific commands to see if they apply.
     column indicating ploidy (0, 1 or 2) and can parse also PED files.
     With *<<call,bcftools call>> -C* 'trio', PED file is expected.
 
-*-t, --targets* [&#94;]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* \[&#94;]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Similar as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
@@ -205,7 +205,7 @@ specific commands to see if they apply.
     end positions of indels, whereas *-t* checks start positions only. Note
     that *-t* cannot be used in combination with *-T*.
 
-*-T, --targets-file* [&#94;]'FILE'::
+*-T, --targets-file* \[&#94;]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
     cannot be used in combination with *-t*.
 
@@ -275,6 +275,15 @@ This command allows to add or remove annotations.
     ##INFO=<ID=STRING_TAG,Number=1,Type=String,Description="Yet another header line">
 ----
 
+*-I, --set-id* \[&#43;]'FORMAT'::
+    assign ID on the fly. The format is the same as in the *<<query,query>>*
+    command (see below).  By default all existing IDs are replaced. If the
+    format string is preceded by "+", only missing IDs will be set. For example,
+    one can use
+----
+    bcftools annotate --set-id +'%CHROM\_%POS\_%REF\_%FIRST_ALT' file.vcf
+----
+
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -297,7 +306,7 @@ This command allows to add or remove annotations.
     "old_name new_name\n" pairs separated by whitespaces, each on a separate
     line.
 
-*-s, --samples* [&#94;]'LIST'::
+*-s, --samples* \[&#94;]'LIST'::
     subset of samples to annotate, see also *<<common_options,Common Options>>*
 
 *-S, --samples-file* 'FILE'::
@@ -1238,11 +1247,12 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
 ==== Format:
 
-    %CHROM          The CHROM column (similarly also other columns, such as POS, ID, QUAL, etc.)
+    %CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
     %INFO/TAG       Any tag in the INFO column
     %TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)
     %MASK           Indicates presence of the site in other files (with multiple files)
     %TAG{INT}       Curly brackets to subscript vectors (0-based)
+    %FIRST_ALT      Alias for %ALT{0}
     []              The brackets loop over all samples
     %GT             Genotype (e.g. 0/1)
     %TGT            Translated genotype (e.g. C/A)
@@ -1252,6 +1262,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
 ==== Examples:
 
+    bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz
     bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz
 
 

@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2015-01-21 13:29 GMT
+.\"      Date: 2015-01-21 15:01 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2015\-01\-21 13:29 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2015\-01\-21 15:01 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2015\-01\-21 13:29 GMT\fR and refers to bcftools git version \fB1\&.1\-138\-gdbd6536+\fR\&.
+This manual page was last updated \fB2015\-01\-21 15:01 GMT\fR and refers to bcftools git version \fB1\&.1\-140\-g9b0e7cc+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -402,7 +402,7 @@ cannot be used in combination with
 \fB\-r\fR\&.
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR
+\fB\-s, \-\-samples\fR [^]\fILIST\fR
 .RS 4
 Comma\-separated list of samples to include or exclude if prefixed with "^"\&.
 .RE
@@ -416,7 +416,7 @@ accepts an optional second column indicating ploidy (0, 1 or 2) and can parse al
 \fItrio\fR, PED file is expected\&.
 .RE
 .PP
-\fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+\fB\-t, \-\-targets\fR [^]\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
 Similar as
 \fB\-r, \-\-regions\fR, but the next position is accessed by streaming the whole VCF/BCF rather than using the tbi/csi index\&. Both
@@ -438,7 +438,7 @@ cannot be used in combination with
 \fB\-T\fR\&.
 .RE
 .PP
-\fB\-T, \-\-targets\-file\fR \fIFILE\fR
+\fB\-T, \-\-targets\-file\fR [^]\fIFILE\fR
 .RS 4
 Same
 \fB\-t, \-\-targets\fR, but reads regions from a file\&. Note that
@@ -524,6 +524,23 @@ and
 .RE
 .\}
 .PP
+\fB\-I, \-\-set\-id\fR [+]\fIFORMAT\fR
+.RS 4
+assign ID on the fly\&. The format is the same as in the
+\fBquery\fR
+command (see below)\&. By default all existing IDs are replaced\&. If the format string is preceded by "+", only missing IDs will be set\&. For example, one can use
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools annotate \-\-set\-id +\*(Aq%CHROM\e_%POS\e_%REF\e_%FIRST_ALT\*(Aq file\&.vcf
+.fi
+.if n \{\
+.RE
+.\}
+.PP
 \fB\-i, \-\-include\fR \fIEXPRESSION\fR
 .RS 4
 include only sites for which
@@ -562,7 +579,7 @@ rename chromosomes according to the map in
 \fIfile\fR, with "old_name new_name\en" pairs separated by whitespaces, each on a separate line\&.
 .RE
 .PP
-\fB\-s, \-\-samples\fR \fILIST\fR
+\fB\-s, \-\-samples\fR [^]\fILIST\fR
 .RS 4
 subset of samples to annotate, see also
 \fBCommon Options\fR
@@ -2217,11 +2234,12 @@ process multiple VCFs listed in the file
 .RS 4
 .\}
 .nf
-%CHROM          The CHROM column (similarly also other columns, such as POS, ID, QUAL, etc\&.)
+%CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
 %INFO/TAG       Any tag in the INFO column
 %TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)
 %MASK           Indicates presence of the site in other files (with multiple files)
 %TAG{INT}       Curly brackets to subscript vectors (0\-based)
+%FIRST_ALT      Alias for %ALT{0}
 []              The brackets loop over all samples
 %GT             Genotype (e\&.g\&. 0/1)
 %TGT            Translated genotype (e\&.g\&. C/A)
@@ -2246,6 +2264,7 @@ process multiple VCFs listed in the file
 .RS 4
 .\}
 .nf
+bcftools query \-f \*(Aq%CHROM  %POS  %REF  %ALT{0}\en\*(Aq file\&.vcf\&.gz
 bcftools query \-f \*(Aq%CHROM\et%POS\et%REF\et%ALT[\et%SAMPLE=%GT]\en\*(Aq file\&.vcf\&.gz
 .fi
 .if n \{\
