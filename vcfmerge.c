@@ -841,6 +841,14 @@ static void bcf_info_set_id(bcf1_t *line, bcf_info_t *info, int id, kstring_t *t
     tmp_str->l = 0;
 }
 
+/*
+ *  copy_string_field() - copy a comma-separated field
+ *  @param src:     source string
+ *  @param isrc:    index of the field to copy 
+ *  @param src_len: length of source string (excluding the terminating \0) 
+ *  @param dst:     destination kstring (must be initialized)
+ *  @param idst:    index of the destination field
+ */
 int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst)
 {
     int ith_src = 0, start_src = 0;    // i-th field in src string

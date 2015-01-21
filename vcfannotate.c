@@ -67,7 +67,7 @@ annot_line_t;
 #define REPLACE_EXISTING 2  // replace only if tgt is not missing
 typedef struct _annot_col_t
 {
-    int icol, replace;
+    int icol, replace, number;  // number: one of BCF_VL_* types
     char *hdr_key;
     int (*setter)(struct _args_t *, bcf1_t *, struct _annot_col_t *, void*);
 }
@@ -101,12 +101,13 @@ typedef struct _args_t
     int ncols;
 
     int *sample_map, nsample_map, sample_is_file;   // map[idst] -> isrc
-    int ntmpi, mtmpi, ntmpf, mtmpf, ntmps, mtmps;
+    int mtmpi, mtmpf, mtmps;
     int mtmpi2, mtmpf2, mtmps2;
     int mtmpi3, mtmpf3, mtmps3;
     int32_t *tmpi, *tmpi2, *tmpi3;
     float *tmpf, *tmpf2, *tmpf3;
     char *tmps, *tmps2, **tmpp, **tmpp2;
+    kstring_t tmpks;
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *sample_names;
@@ -459,43 +460,116 @@ static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, vo
     bcf_update_info_flag(args->hdr_out,line,col->hdr_key,NULL,flag);
     return 0;
 }
+static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als, int ntmpi)
+{
+    if ( col->number==BCF_VL_A && ntmpi!=nals-1 && (ntmpi!=1 || args->tmpi[0]!=bcf_int32_missing || args->tmpi[1]!=bcf_int32_vector_end) )
+        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpi,col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+    else if ( col->number==BCF_VL_R && ntmpi!=nals && (ntmpi!=1 || args->tmpi[0]!=bcf_int32_missing || args->tmpi[1]!=bcf_int32_vector_end) )
+        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpi,col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+
+    int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
+    int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
+    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+
+    // fill in any missing values in the target VCF (or all, if not present)
+    int ntmpi2 = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpi2, &args->mtmpi2);
+    if ( ntmpi2 < ndst ) hts_expand(int32_t,ndst,args->mtmpi2,args->tmpi2);
+
+    int i;
+    for (i=0; i<ndst; i++)
+    {
+        if ( map[i]<0 )
+        {
+            if ( ntmpi2 < ndst ) args->tmpi2[i] = bcf_int32_missing;
+            continue;
+        }
+        if ( ntmpi2==ndst && col->replace==REPLACE_MISSING
+                && args->tmpi2[i]!=bcf_int32_missing
+                && args->tmpi2[i]!=bcf_int32_vector_end ) continue;
+
+        args->tmpi2[i] = args->tmpi[ map[i] ];
+    }
+    bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi2,ndst);
+    return 0;
+}
 static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
-    if ( col->replace==REPLACE_MISSING )
-    {
-        int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi, &args->mtmpi);
-        if ( ret>0 && args->tmpi[0]!=bcf_int32_missing ) return 0;
-    }
-
-    args->ntmpi = 0;
+    int ntmpi = 0;
     while ( *end )
     {
-        int val = strtol(str, &end, 10);
+        int val = strtol(str, &end, 10); 
         if ( end==str )
             error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
-        args->ntmpi++;
-        hts_expand(int,args->ntmpi,args->mtmpi,args->tmpi);
-        args->tmpi[args->ntmpi-1] = val;
+        ntmpi++;
+        hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
+        args->tmpi[ntmpi-1] = val;
         str = end+1;
     }
-    return bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,args->ntmpi);
+
+    if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
+        return setter_ARinfo_int32(args,line,col,tab->nals,tab->als,ntmpi);
+
+    if ( col->replace==REPLACE_MISSING )
+    {
+        int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi2, &args->mtmpi2);
+        if ( ret>0 && args->tmpi2[0]!=bcf_int32_missing ) return 0;
+    }
+
+    bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,ntmpi);
+    return 0;
 }
 static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    bcf1_t *rec = (bcf1_t*) data;
+    int ntmpi = bcf_get_info_int32(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
+    if ( ntmpi < 0 ) return 0;    // nothing to add
+
+    if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
+        return setter_ARinfo_int32(args,line,col,rec->n_allele,rec->d.allele,ntmpi);
+
     if ( col->replace==REPLACE_MISSING )
     {
-        int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi, &args->mtmpi);
-        if ( ret>0 && args->tmpi[0]!=bcf_int32_missing ) return 0;
+        int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key, &args->tmpi2, &args->mtmpi2);
+        if ( ret>0 && args->tmpi2[0]!=bcf_int32_missing ) return 0;
     }
 
-    bcf1_t *rec = (bcf1_t*) data;
-    args->ntmpi = bcf_get_info_int32(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
-    if ( args->ntmpi >=0 )
-        bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,args->ntmpi);
+    bcf_update_info_int32(args->hdr_out,line,col->hdr_key,args->tmpi,ntmpi);
+    return 0;
+}
+static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als, int ntmpf)
+{
+    if ( col->number==BCF_VL_A && ntmpf!=nals-1 && (ntmpf!=1 || !bcf_float_is_missing(args->tmpf[0]) || !bcf_float_is_vector_end(args->tmpf[0])) )
+        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpf,col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+    else if ( col->number==BCF_VL_R && ntmpf!=nals && (ntmpf!=1 || !bcf_float_is_missing(args->tmpf[0]) || !bcf_float_is_vector_end(args->tmpf[0])) )
+        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpf,col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+
+    int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
+    int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
+    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+
+    // fill in any missing values in the target VCF (or all, if not present)
+    int ntmpf2 = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf2, &args->mtmpf2);
+    if ( ntmpf2 < ndst ) hts_expand(float,ndst,args->mtmpf2,args->tmpf2);
+
+    int i;
+    for (i=0; i<ndst; i++)
+    {
+        if ( map[i]<0 )
+        {
+            if ( ntmpf2 < ndst ) bcf_float_set_missing(args->tmpf2[i]);
+            continue;
+        }
+        if ( ntmpf2==ndst && col->replace==REPLACE_MISSING
+                && !bcf_float_is_missing(args->tmpf2[i])
+                && !bcf_float_is_vector_end(args->tmpf2[i]) ) continue;
+
+        args->tmpf2[i] = args->tmpf[ map[i] ];
+    }
+    bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf2,ndst);
     return 0;
 }
 static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
@@ -504,60 +578,141 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
 
-    if ( col->replace==REPLACE_MISSING )
-    {
-        int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf, &args->mtmpf);
-        if ( ret>0 && !bcf_float_is_missing(args->tmpf[0]) ) return 0;
-    }
-
-    args->ntmpf = 0;
+    int ntmpf = 0;
     while ( *end )
     {
         double val = strtod(str, &end);
         if ( end==str )
             error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
-        args->ntmpf++;
-        hts_expand(float,args->ntmpf,args->mtmpf,args->tmpf);
-        args->tmpf[args->ntmpf-1] = val;
+        ntmpf++;
+        hts_expand(float,ntmpf,args->mtmpf,args->tmpf);
+        args->tmpf[ntmpf-1] = val;
         str = end+1;
     }
-    return bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,args->ntmpf);
+
+    if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
+        return setter_ARinfo_real(args,line,col,tab->nals,tab->als,ntmpf);
+
+    if ( col->replace==REPLACE_MISSING )
+    {
+        int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf2, &args->mtmpf2);
+        if ( ret>0 && !bcf_float_is_missing(args->tmpf2[0]) ) return 0;
+    }
+
+    bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,ntmpf);
+    return 0;
 }
 static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    bcf1_t *rec = (bcf1_t*) data;
+    int ntmpf = bcf_get_info_float(args->files->readers[1].header,rec,col->hdr_key,&args->tmpf,&args->mtmpf);
+    if ( ntmpf < 0 ) return 0;    // nothing to add
+
+    if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
+        return setter_ARinfo_real(args,line,col,rec->n_allele,rec->d.allele,ntmpf);
+
     if ( col->replace==REPLACE_MISSING )
     {
-        int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf, &args->mtmpf);
-        if ( ret>0 && !bcf_float_is_missing(args->tmpf[0]) ) return 0;
+        int ret = bcf_get_info_float(args->hdr, line, col->hdr_key, &args->tmpf2, &args->mtmpf2);
+        if ( ret>0 && !bcf_float_is_missing(args->tmpf2[0]) ) return 0;
     }
 
-    bcf1_t *rec = (bcf1_t*) data;
-    args->ntmpf = bcf_get_info_float(args->files->readers[1].header,rec,col->hdr_key,&args->tmpf,&args->mtmpf);
-    if ( args->ntmpf >=0 )
-        bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,args->ntmpf);
+    bcf_update_info_float(args->hdr_out,line,col->hdr_key,args->tmpf,ntmpf);
+    return 0;
+}
+int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst); // see vcfmerge.c
+static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als)
+{
+    int nsrc = 1, lsrc = 0;
+    while ( args->tmps[lsrc] )
+    {
+        if ( args->tmps[lsrc]==',' ) nsrc++;
+        lsrc++;
+    }
+    if ( col->number==BCF_VL_A && nsrc!=nals-1 && (nsrc!=1 || args->tmps[0]!='.' || args->tmps[1]!=0 ) )
+        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", nsrc,col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+    else if ( col->number==BCF_VL_R && nsrc!=nals && (nsrc!=1 || args->tmps[0]!='.' || args->tmps[1]!=0 ) )
+        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", nsrc,col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+
+    int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
+    int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
+    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+
+    // fill in any missing values in the target VCF (or all, if not present)
+    int i, empty = 0, nstr, mstr = args->tmpks.m;
+    nstr = bcf_get_info_string(args->hdr, line, col->hdr_key, &args->tmpks.s, &mstr); 
+    args->tmpks.m = mstr;
+    if ( nstr<0 || (nstr==1 && args->tmpks.s[0]=='.' && args->tmpks.s[1]==0) )
+    {
+        empty = 0;
+        args->tmpks.l = 0;
+        kputc('.',&args->tmpks);
+        for (i=1; i<ndst; i++) kputs(",.",&args->tmpks);
+    }
+    else args->tmpks.l = nstr;
+    for (i=0; i<ndst; i++)
+    {
+        if ( map[i]<0 )
+        {
+            if ( empty ) copy_string_field(".",0,1,&args->tmpks,i);
+            continue;
+        }
+        if ( col->replace==REPLACE_MISSING )
+        {
+            // Do not replace filled values. The field must be looked up again because
+            // of realloc in copy_string_field
+            int n = 0;
+            char *str = args->tmpks.s;
+            while ( *str && n<i )
+            {
+                if ( *str==',' ) n++;
+                str++;
+            }
+            if ( str[0]!='.' || (str[1]!=',' && str[1]!=0) ) continue;  // value already set
+        }
+        int ret = copy_string_field(args->tmps,map[i],lsrc,&args->tmpks,i);
+        assert( ret==0 );
+    }
+    bcf_update_info_string(args->hdr_out,line,col->hdr_key,args->tmpks.s);
     return 0;
 }
 static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    annot_line_t *tab = (annot_line_t*) data;
+    int len = strlen(tab->cols[col->icol]);
+    if ( !len ) return 0;
+    hts_expand(char,len+1,args->mtmps,args->tmps);
+    memcpy(args->tmps,tab->cols[col->icol],len+1);
+    if ( args->tmps[0]=='.' && args->tmps[1]==0 ) return 0;
+
+    if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
+        return setter_ARinfo_string(args,line,col,tab->nals,tab->als);
+
     if ( col->replace==REPLACE_MISSING )
     {
-        int ret = bcf_get_info_string(args->hdr,line,col->hdr_key,&args->tmps,&args->mtmps);
-        if ( ret>0 && (args->tmps[0]!='.' || args->tmps[1]) ) return 0;
+        int ret = bcf_get_info_string(args->hdr, line, col->hdr_key, &args->tmps2, &args->mtmps2);
+        if ( ret>0 && (args->tmps2[0]!='.' || args->tmps2[1]!=0) ) return 0;
     }
-    annot_line_t *tab = (annot_line_t*) data;
-    return bcf_update_info_string(args->hdr_out,line,col->hdr_key,tab->cols[col->icol]);
+
+    bcf_update_info_string(args->hdr_out,line,col->hdr_key,args->tmps);
+    return 0;
 }
 static int vcf_setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    bcf1_t *rec = (bcf1_t*) data;
+    int ntmps = bcf_get_info_string(args->files->readers[1].header,rec,col->hdr_key,&args->tmps,&args->mtmps);
+    if ( ntmps < 0 ) return 0;    // nothing to add
+
+    if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
+        return setter_ARinfo_string(args,line,col,rec->n_allele,rec->d.allele);
+
     if ( col->replace==REPLACE_MISSING )
     {
-        int ret = bcf_get_info_string(args->hdr,line,col->hdr_key,&args->tmps,&args->mtmps);
-        if ( ret>0 && (args->tmps[0]!='.' || args->tmps[1]) ) return 0;
+        int ret = bcf_get_info_string(args->hdr, line, col->hdr_key, &args->tmps2, &args->mtmps2);
+        if ( ret>0 && (args->tmps2[0]!='.' || args->tmps2[1]!=0) ) return 0;
     }
-    bcf1_t *rec = (bcf1_t*) data;
-    args->ntmps = bcf_get_info_string(args->files->readers[1].header,rec,col->hdr_key,&args->tmps,&args->mtmps);
-    if ( args->ntmps >=0 )
-        bcf_update_info_string(args->hdr_out,line,col->hdr_key,args->tmps);
+
+    bcf_update_info_string(args->hdr_out,line,col->hdr_key,args->tmps);
     return 0;
 }
 static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
@@ -1035,6 +1190,7 @@ static void init_columns(args_t *args)
                 col->icol = -1;
                 col->replace = replace;
                 col->hdr_key = strdup(hrec->vals[k]);
+                col->number  = bcf_hdr_id2length(args->hdr_out,BCF_HL_INFO,hdr_id);
                 switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
                 {
                     case BCF_HT_FLAG:   col->setter = vcf_setter_info_flag; break;
@@ -1132,6 +1288,7 @@ static void init_columns(args_t *args)
             col->icol = i;
             col->replace = replace;
             col->hdr_key = strdup(str.s);
+            col->number  = bcf_hdr_id2length(args->hdr_out,BCF_HL_INFO,hdr_id);
             switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
             {
                 case BCF_HT_FLAG:   col->setter = args->tgts_is_vcf ? vcf_setter_info_flag : setter_info_flag; break;
@@ -1213,8 +1370,8 @@ static void init_data(args_t *args)
         args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->from_idx,args->to_idx);
         if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
         if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
-        args->vcmp = vcmp_init();
     }
+    args->vcmp = vcmp_init();
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
@@ -1248,6 +1405,7 @@ static void destroy_data(args_t *args)
     }
     free(args->alines);
     if ( args->tgts ) bcf_sr_regions_destroy(args->tgts);
+    free(args->tmpks.s);
     free(args->tmpi);
     free(args->tmpf);
     free(args->tmps);
@@ -1315,10 +1473,10 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
         {
             assert( args->ref_idx < tmp->ncols );
             assert( args->alt_idx < tmp->ncols );
-            s = tmp->cols[args->alt_idx];
-            tmp->nals = 1;
+            tmp->nals = 2;
             hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
-            tmp->als[0] = s;
+            tmp->als[0] = tmp->cols[args->ref_idx];
+            tmp->als[1] = s = tmp->cols[args->alt_idx];
             while ( *s )
             {
                 if ( *s==',' )
@@ -1358,8 +1516,8 @@ static void annotate(args_t *args, bcf1_t *line)
             if ( line->pos > args->alines[i].end || end_pos < args->alines[i].start ) continue;
             if ( args->ref_idx != -1 )
             {
-                if ( vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].cols[args->ref_idx]) < 0 ) continue;   // refs not compatible
-                for (j=0; j<args->alines[i].nals; j++)
+                if ( vcmp_set_ref(args->vcmp, line->d.allele[0], args->alines[i].als[0]) < 0 ) continue;   // refs not compatible
+                for (j=1; j<args->alines[i].nals; j++)
                 {
                     if ( line->n_allele==1 && args->alines[i].als[j][0]=='.' && args->alines[i].als[j][1]==0 ) break;   // no ALT allele in VCF and annot file has "."
                     if ( vcmp_find_allele(args->vcmp, line->d.allele+1, line->n_allele - 1, args->alines[i].als[j]) >= 0 ) break;

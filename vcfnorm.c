@@ -1173,7 +1173,7 @@ static void merge_info_flag(args_t *args, bcf1_t **lines, int nlines, bcf_info_t
     int ret = bcf_get_info_flag(args->hdr,lines[0],tag,&args->tmp_arr1,&args->ntmp_arr1);
     bcf_update_info_flag(args->hdr,dst,tag,NULL,ret);
 }
-void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst); // see vcfmerge.c
+int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst); // see vcfmerge.c
 static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info_t *info, bcf1_t *dst)
 {
     const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,info->key);

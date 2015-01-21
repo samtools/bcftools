@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##INFO=<ID=FA,Number=A,Type=Float,Description="test">
+##INFO=<ID=FR,Number=R,Type=Float,Description="test">
+##INFO=<ID=IA,Number=A,Type=Integer,Description="test">
+##INFO=<ID=IR,Number=R,Type=Integer,Description="test">
+##INFO=<ID=SA,Number=A,Type=String,Description="test">
+##INFO=<ID=SR,Number=R,Type=String,Description="test">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1	.	C	A,T,G	.	.	FA=0,1.1,0;FR=1.1,0,2.2,0;IA=0,1,0;IR=1,0,2,0;SA=X,11,XXX;SR=1,XX,222,XXX
+1	2	.	C	T,G	.	.	FA=1.1,2.2;FR=1.1,2.2,3.3;IA=1,2;IR=1,2,3;SA=11,2;SR=111,22,3
+1	3	.	C	T	.	.	FA=1.1;FR=1.1,2.2;IA=1;IR=1,2;SA=11;SR=11,2

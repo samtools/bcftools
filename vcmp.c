@@ -33,6 +33,7 @@ struct _vcmp_t
     char *dref;
     int ndref, mdref;   // ndref: positive when ref1 longer, negative when ref2 is longer
     int nmatch;
+    int *map, mmap;
 };
 
 vcmp_t *vcmp_init()
@@ -42,6 +43,7 @@ vcmp_t *vcmp_init()
 
 void vcmp_destroy(vcmp_t *vcmp)
 {
+    free(vcmp->map);
     free(vcmp->dref);
     free(vcmp);
 }
@@ -111,4 +113,18 @@ int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2)
     return i;
 }
 
+
+int *vcmp_map_ARvalues(vcmp_t *vcmp, int n, int nals1, char **als1, int nals2, char **als2)
+{
+    if ( vcmp_set_ref(vcmp,als1[0],als2[0]) < 0 ) return NULL;
+
+    vcmp->map = (int*) realloc(vcmp->map,sizeof(int)*n);
+
+    int i, ifrom = n==nals2 ? 0 : 1;
+    for (i=ifrom; i<nals2; i++)
+    {
+        vcmp->map[i-ifrom] = vcmp_find_allele(vcmp, als1+ifrom, nals1-ifrom, als2[i]);
+    }
+    return vcmp->map;
+}
 
