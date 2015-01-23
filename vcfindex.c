@@ -44,13 +44,14 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "Indexing options:\n");
     fprintf(stderr, "    -c, --csi            generate CSI-format index for VCF/BCF files [default]\n");
+    fprintf(stderr, "        --csi-v1         same as --csi, but does not store per-bin record counts\n");
     fprintf(stderr, "    -f, --force          overwrite index if it already exists\n");
     fprintf(stderr, "    -m, --min-shift INT  set minimal interval size for CSI indices to 2^INT [14]\n");
     fprintf(stderr, "    -t, --tbi            generate TBI-format index for VCF files\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Stats options:\n");
     fprintf(stderr, "    -n, --nrecords       print number of records based on existing index file\n");
-    fprintf(stderr, "    -s, --stats   print per contig stats based on existing index file\n");
+    fprintf(stderr, "    -s, --stats          print per contig stats based on existing index file\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -131,11 +132,12 @@ int vcf_index_stats(char *fname, int stats)
 
 int main_vcfindex(int argc, char *argv[])
 {
-    int c, force = 0, tbi = 0, stats = 0;
+    int c, force = 0, tbi = 0, stats = 0, do_csi = 0;
     int min_shift = BCF_LIDX_SHIFT;
 
     static struct option loptions[] =
     {
+        {"csi-v1",no_argument,NULL,1},
         {"csi",no_argument,NULL,'c'},
         {"tbi",no_argument,NULL,'t'},
         {"force",no_argument,NULL,'f'},
@@ -150,7 +152,8 @@ int main_vcfindex(int argc, char *argv[])
     {
         switch (c)
         {
-            case 'c': tbi = 0; break;
+            case  1 : tbi = 0; do_csi = -1; break;
+            case 'c': tbi = 0; do_csi = 1; break;
             case 't': tbi = 1; min_shift = 0; break;
             case 'f': force = 1; break;
             case 'm': 
@@ -196,7 +199,7 @@ int main_vcfindex(int argc, char *argv[])
     if (tbi && type.format==bcf)
     {
         fprintf(stderr, "[Warning] TBI-index does not work for BCF files. Generating CSI instead.\n");
-        tbi = 0; min_shift = BCF_LIDX_SHIFT;
+        tbi = 0; do_csi = 1; min_shift = BCF_LIDX_SHIFT;
     }
     if (min_shift == 0 && type.format==bcf)
     {
@@ -207,6 +210,11 @@ int main_vcfindex(int argc, char *argv[])
     {
         fprintf(stderr, "[Warning] min-shift set to 0 for VCF file. Generating TBI file.\n");
         tbi = 1;
+    }
+    if ( do_csi )
+    {
+        if ( !min_shift ) min_shift = 14;
+        min_shift *= do_csi;  // positive for CSIv2, negative for CSIv1
     }
 
     if (!force)
