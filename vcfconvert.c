@@ -969,7 +969,7 @@ static void tsv_to_vcf(args_t *args)
     tsv_t *tsv = tsv_init(args->columns ? args->columns : "ID,CHROM,POS,AA");
     if ( tsv_register(tsv, "CHROM", tsv_setter_chrom, args->header) < 0 ) error("Expected CHROM column\n");
     if ( tsv_register(tsv, "POS", tsv_setter_pos, NULL) < 0 ) error("Expected POS column\n");
-    if ( tsv_register(tsv, "ID", tsv_setter_id, args->header) < 0 ) error("Expected ID column\n");
+    if ( tsv_register(tsv, "ID", tsv_setter_id, args->header) < 0 && !args->columns ) error("Expected ID column\n");
     if ( tsv_register(tsv, "AA", tsv_setter_aa, args) < 0 ) error("Expected AA column\n");
 
     bcf1_t *rec = bcf_init();
@@ -1121,7 +1121,7 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV conversion:\n");
     fprintf(stderr, "       --tsv2vcf <file>        \n");
-    fprintf(stderr, "   -c, --columns <string>      columns of the input tsv file [CHROM,POS,ID,AA]\n");
+    fprintf(stderr, "   -c, --columns <string>      columns of the input tsv file [ID,CHROM,POS,AA]\n");
     fprintf(stderr, "   -f, --fasta-ref <file>      reference sequence in fasta format\n");
     fprintf(stderr, "   -s, --samples <list>        list of sample names\n");
     fprintf(stderr, "   -S, --samples-file <file>   file of sample names\n");
