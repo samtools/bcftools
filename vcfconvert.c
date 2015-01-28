@@ -857,7 +857,7 @@ static void vcf_to_hapsample(args_t *args)
     if ( n_files==1 )
     {
         int l = str.l;
-        kputs(".samples",&str);
+        kputs(".sample",&str);
         sample_fname = strdup(str.s);
         str.l = l;
         kputs(".hap.gz",&str);
