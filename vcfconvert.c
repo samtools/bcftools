@@ -1218,6 +1218,7 @@ static void usage(void)
     fprintf(stderr, "HAP/SAMPLE conversion (output from SHAPEIT):\n");
     fprintf(stderr, "       --hapsample2vcf         <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --hapsample             <prefix>|<haps-file>,<sample-file>\n");
+    fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf   <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
