@@ -839,6 +839,111 @@ static void vcf_to_haplegendsample(args_t *args)
     if (legend_fname) free(legend_fname);
 }
 
+static void vcf_to_hapsample(args_t *args)
+{
+    kstring_t str = {0,0,0};
+    if ( args->hap2dip )
+        kputs("%_GT_TO_HAPLEG2\n", &str);
+    else
+        kputs("%_GT_TO_HAPLEG\n", &str);
+    open_vcf(args,str.s);
+
+    int ret, hap_compressed = 1, sample_compressed = 0;
+    char *hap_fname = NULL, *sample_fname = NULL;
+    str.l = 0;
+    kputs(args->outfname,&str);
+    int n_files, i;
+    char **files = hts_readlist(str.s, 0, &n_files);
+    if ( n_files==1 )
+    {
+        int l = str.l;
+        kputs(".sample",&str);
+        sample_fname = strdup(str.s);
+        str.l = l;
+        kputs(".hap.gz",&str);
+        hap_fname = strdup(str.s);
+    }
+    else if ( n_files==2 )
+    {
+        if (strlen(files[0]) && strcmp(files[0],".")!=0) hap_fname = strdup(files[0]);
+        if (strlen(files[1]) && strcmp(files[1],".")!=0) sample_fname = strdup(files[1]);
+    }
+    else
+    {
+        error("Error parsing --hapsample filenames: %s\n", args->outfname);
+    }
+    for (i=0; i<n_files; i++) free(files[i]);
+    free(files);
+
+    if ( hap_fname && (strlen(hap_fname)<3 || strcasecmp(".gz",hap_fname+strlen(hap_fname)-3)) ) hap_compressed = 0;
+    if ( sample_fname && strlen(sample_fname)>3 && strcasecmp(".gz",sample_fname+strlen(sample_fname)-3)==0 ) sample_compressed = 0;
+
+    if (hap_fname) fprintf(stderr, "Haps file: %s\n", hap_fname);
+    if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
+
+    // write samples file
+    if (sample_fname) {
+        int i;
+        BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
+        str.l = 0;
+        kputs("ID_1 ID_2 missing\n0 0 0\n", &str);
+        ret = bgzf_write(sout, str.s, str.l);
+        if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
+        for (i=0; i<bcf_hdr_nsamples(args->header); i++)
+        {
+            str.l = 0;
+            ksprintf(&str, "%s %s 0\n", args->header->samples[i], args->header->samples[i]);
+            ret = bgzf_write(sout, str.s, str.l);
+            if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
+        }
+        if ( bgzf_close(sout)!=0 ) error("Error closing %s: %s\n", sample_fname, strerror(errno));
+        free(sample_fname);
+    }
+    if (!hap_fname) {
+        if ( str.m ) free(str.s);
+        return;
+    }
+
+    // open haps output
+    BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
+
+    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    while ( bcf_sr_next_line(args->files) )
+    {
+        bcf1_t *line = bcf_sr_get_line(args->files,0);
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, line, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !pass ) { filtered++; continue; }
+        }
+
+        // ALT allele is required
+        if ( line->n_allele<2 ) { no_alt++; continue; }
+        // biallelic required
+        if ( line->n_allele>2 ) {
+            if (!non_biallelic)
+                fprintf(stderr, "Warning: non-biallelic records are skipped. Consider splitting multi-allelic records into biallelic records using 'bcftools norm -m-'.\n");
+            non_biallelic++;
+            continue;
+        }
+
+        str.l = 0;
+        convert_line(args->convert, line, &str);
+        if ( !str.l ) continue;
+
+        // write haps file
+        if (hap_fname) {
+            ret = bgzf_write(hout, str.s, str.l); // write hap file
+            if ( ret != str.l ) error("Error writing %s: %s\n", hap_fname, strerror(errno));
+        }
+    }
+    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
+    if ( str.m ) free(str.s);
+    if ( hout && bgzf_close(hout)!=0 ) error("Error closing %s: %s\n", hap_fname, strerror(errno));
+    if (hap_fname) free(hap_fname);
+}
+
 static void bcf_hdr_set_chrs(bcf_hdr_t *hdr, faidx_t *fai)
 {
     int i, n = faidx_nseq(fai);
@@ -1112,6 +1217,8 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/SAMPLE conversion (output from SHAPEIT):\n");
     fprintf(stderr, "       --hapsample2vcf         <prefix>|<haps-file>,<sample-file>\n");
+    fprintf(stderr, "       --hapsample             <prefix>|<haps-file>,<sample-file>\n");
+    fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf   <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
@@ -1161,6 +1268,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"gensample2vcf",required_argument,NULL,'G'},
         {"tag",required_argument,NULL,1},
         {"tsv2vcf",required_argument,NULL,2},
+        {"hapsample",required_argument,NULL,7},
         {"hapsample2vcf",required_argument,NULL,3},
         {"vcf-ids",no_argument,NULL,4},
         {"haploid2diploid",no_argument,NULL,5},
@@ -1189,6 +1297,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  4 : args->output_vcf_ids = 1; break;
             case  5 : args->hap2dip = 1; break;
             case  6 : args->convert_func = gvcf_to_vcf; break;
+            case  7 : args->convert_func = vcf_to_hapsample; args->outfname = optarg; break;
             case 'H': args->convert_func = haplegendsample_to_vcf; args->infname = optarg; break;
             case 'f': args->ref_fname = optarg; break;
             case 'c': args->columns = optarg; break;
