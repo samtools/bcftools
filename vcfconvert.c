@@ -62,7 +62,7 @@ struct _args_t
     kstring_t str;
     int32_t *gts;
     float *flt;
-    int rev_als, output_vcf_ids, hap2dip;
+    int rev_als, output_vcf_ids, hap2dip, output_chrom_first_col;
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname;
@@ -599,7 +599,20 @@ static void hapsample_to_vcf(args_t *args)
 static void vcf_to_gensample(args_t *args)
 {
     kstring_t str = {0,0,0};
-    kputs("%CHROM:%POS\\_%REF\\_%FIRST_ALT %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT", &str);
+
+    // insert chrom as first column if needed
+    if(args->output_chrom_first_col)
+        kputs("%CHROM ", &str);
+    else
+        kputs("%CHROM:%POS\\_%REF\\_%FIRST_ALT ", &str);
+
+    // insert rsid as second column if needed
+    if(args->output_vcf_ids)
+        kputs("%ID ", &str);
+    else
+        kputs("%CHROM:%POS\\_%REF\\_%FIRST_ALT ", &str);
+
+    kputs("%POS %REF %FIRST_ALT", &str);
     if ( !args->tag || !strcmp(args->tag,"GT") ) kputs("%_GT_TO_PROB3",&str);
     else if ( !strcmp(args->tag,"PL") ) kputs("%_PL_TO_PROB3",&str);
     else if ( !strcmp(args->tag,"GP") ) kputs("%_GP_TO_PROB3",&str);
@@ -850,7 +863,13 @@ static void vcf_to_hapsample(args_t *args)
      *
      */
     kstring_t str = {0,0,0};
-    kputs("%CHROM %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
+
+    // print ID instead of CHROM:POS_REF_ALT1
+    if ( args->output_vcf_ids )
+        kputs("%CHROM %ID %POS %REF %FIRST_ALT ", &str);
+    else
+        kputs("%CHROM %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
+    
     if ( args->hap2dip )
         kputs("%_GT_TO_HAP2\n", &str);
     else
@@ -1220,6 +1239,8 @@ static void usage(void)
     fprintf(stderr, "   -G, --gensample2vcf <...>   <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "   -g, --gensample <...>       <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "       --tag <string>          tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
+    fprintf(stderr, "       --chrom                 output chromosome in first column instead of CHROM:POS_REF_ALT\n");
+    fprintf(stderr, "       --vcf-ids               output VCF IDs in second column instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "gVCF conversion:\n");
     fprintf(stderr, "       --gvcf2vcf              \n");
@@ -1228,6 +1249,7 @@ static void usage(void)
     fprintf(stderr, "       --hapsample2vcf <...>   <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --hapsample <...>       <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
+    fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf <...>  <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
@@ -1276,6 +1298,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"gensample",required_argument,NULL,'g'},
         {"gensample2vcf",required_argument,NULL,'G'},
         {"tag",required_argument,NULL,1},
+        {"chrom",no_argument,NULL,8},        
         {"tsv2vcf",required_argument,NULL,2},
         {"hapsample",required_argument,NULL,7},
         {"hapsample2vcf",required_argument,NULL,3},
@@ -1307,6 +1330,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  5 : args->hap2dip = 1; break;
             case  6 : args->convert_func = gvcf_to_vcf; break;
             case  7 : args->convert_func = vcf_to_hapsample; args->outfname = optarg; break;
+            case  8 : args->output_chrom_first_col = 1; break;
             case 'H': args->convert_func = haplegendsample_to_vcf; args->infname = optarg; break;
             case 'f': args->ref_fname = optarg; break;
             case 'c': args->columns = optarg; break;
