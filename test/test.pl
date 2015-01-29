@@ -755,7 +755,7 @@ sub test_vcf_consensus
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     my $mask = $args{mask} ? "-m $$opts{path}/$args{mask}" : '';
-    my $chain = $args{chain} ? "-c $$opts{path}/$args{chain}" : '';
+    my $chain = $args{chain} ? "-c $$opts{tmp}/$args{chain}" : '';
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools consensus $$opts{tmp}/$args{in}.vcf.gz -f $$opts{path}/$args{fa} $args{args} $mask $chain");
 }
 sub test_vcf_consensus_chain
@@ -763,7 +763,7 @@ sub test_vcf_consensus_chain
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
     my $mask = $args{mask} ? "-m $$opts{path}/$args{mask}" : '';
-    my $chain = $args{chain} ? "-c $$opts{path}/$args{chain}.new" : '';
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools consensus $$opts{tmp}/$args{in}.vcf.gz -f $$opts{path}/$args{fa} $args{args} $mask $chain > /dev/null; cat $$opts{path}/$args{chain}.new");
+    my $chain = $args{chain} ? "-c $$opts{tmp}/$args{chain}.new" : '';
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools consensus $$opts{tmp}/$args{in}.vcf.gz -f $$opts{path}/$args{fa} $args{args} $mask $chain > /dev/null; cat $$opts{tmp}/$args{chain}.new");
 }
 
