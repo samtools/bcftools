@@ -841,11 +841,20 @@ static void vcf_to_haplegendsample(args_t *args)
 
 static void vcf_to_hapsample(args_t *args)
 {
+    /*
+     *  WTCCC style haplotypes file
+     *  see https://mathgen.stats.ox.ac.uk/genetics_software/shapeit/shapeit.html#hapsample
+     *
+     *  These are essentially the haplotypes from the impute2 format with some
+     *  legend info tacked on to the first 5 columns
+     *
+     */
     kstring_t str = {0,0,0};
+    kputs("%CHROM %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
     if ( args->hap2dip )
-        kputs("%_GT_TO_HAPLEG2\n", &str);
+        kputs("%_GT_TO_HAP2\n", &str);
     else
-        kputs("%_GT_TO_HAPLEG\n", &str);
+        kputs("%_GT_TO_HAP\n", &str);
     open_vcf(args,str.s);
 
     int ret, hap_compressed = 1, sample_compressed = 0;
@@ -1208,23 +1217,23 @@ static void usage(void)
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "GEN/SAMPLE conversion (input/output from IMPUTE2):\n");
-    fprintf(stderr, "   -G, --gensample2vcf         <prefix>|<gen-file>,<sample-file>\n");
-    fprintf(stderr, "   -g, --gensample             <prefix>|<gen-file>,<sample-file>\n");
+    fprintf(stderr, "   -G, --gensample2vcf <...>   <prefix>|<gen-file>,<sample-file>\n");
+    fprintf(stderr, "   -g, --gensample <...>       <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "       --tag <string>          tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "gVCF conversion:\n");
     fprintf(stderr, "       --gvcf2vcf              \n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/SAMPLE conversion (output from SHAPEIT):\n");
-    fprintf(stderr, "       --hapsample2vcf         <prefix>|<haps-file>,<sample-file>\n");
-    fprintf(stderr, "       --hapsample             <prefix>|<haps-file>,<sample-file>\n");
+    fprintf(stderr, "       --hapsample2vcf <...>   <prefix>|<haps-file>,<sample-file>\n");
+    fprintf(stderr, "       --hapsample <...>       <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
-    fprintf(stderr, "   -H, --haplegendsample2vcf   <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
-    fprintf(stderr, "   -h, --haplegendsample       <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
-    fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
-    fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
+    fprintf(stderr, "   -H, --haplegendsample2vcf <...>  <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
+    fprintf(stderr, "   -h, --haplegendsample <...>      <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
+    fprintf(stderr, "       --haploid2diploid            convert haploid genotypes to diploid homozygotes\n");
+    fprintf(stderr, "       --vcf-ids                    output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV conversion:\n");
     fprintf(stderr, "       --tsv2vcf <file>        \n");

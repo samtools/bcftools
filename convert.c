@@ -62,8 +62,6 @@ THE SOFTWARE.  */
 #define T_IUPAC_GT     23
 #define T_GT_TO_HAP    24   // not publicly advertised
 #define T_GT_TO_HAP2   25   // not publicly advertised
-#define T_GT_TO_HAPLEG  26  // not publicly advertised
-#define T_GT_TO_HAPLEG2 27  // not publicly advertised
 
 typedef struct _fmt_t
 {
@@ -657,35 +655,6 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
     }
 }
 
-static void process_gt_to_hapleg(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
-{
-
-    // WTCCC style haplotypes file
-    // see https://mathgen.stats.ox.ac.uk/genetics_software/shapeit/shapeit.html#hapsample
-
-    // these are essentially the haplotypes from the impute2 format with some
-    // legend info tacked on to the first 5 columns
-
-    // write out legend info
-    // the assumption here is that at least one sample will be written, hence the extra space at the end
-    ksprintf(str, "%s %s:%d_%s_%s %d %s %s ", bcf_seqname(convert->header, line), bcf_seqname(convert->header, line),
-            line->pos+1, line->d.allele[0], line->d.allele[1], line->pos+1, line->d.allele[0], line->d.allele[1]);
-
-    // and pass along arguments for writing the genotypes
-    process_gt_to_hap(convert, line, fmt, isample, str);
-}
-
-static void process_gt_to_hapleg2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
-{
-    // write out legend info
-    // the assumption here is that at least one sample will be written, hence the extra space at the end
-    ksprintf(str, "%s %s:%d_%s_%s %d %s %s ", bcf_seqname(convert->header, line), bcf_seqname(convert->header, line),
-            line->pos+1, line->d.allele[0], line->d.allele[1], line->pos+1, line->d.allele[0], line->d.allele[1]);
-
-    // and pass along arguments for writing the genotypes
-    process_gt_to_hap2(convert, line, fmt, isample, str);
-}
-
 static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
 {
     convert->nfmt++;
@@ -749,8 +718,6 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_IUPAC_GT: fmt->handler = &process_iupac_gt; convert->max_unpack |= BCF_UN_FMT; break;
         case T_GT_TO_HAP: fmt->handler = &process_gt_to_hap; convert->max_unpack |= BCF_UN_FMT; break;
         case T_GT_TO_HAP2: fmt->handler = &process_gt_to_hap2; convert->max_unpack |= BCF_UN_FMT; break;
-        case T_GT_TO_HAPLEG: fmt->handler = &process_gt_to_hapleg; convert->max_unpack |= BCF_UN_FMT; break;
-        case T_GT_TO_HAPLEG2: fmt->handler = &process_gt_to_hapleg2; convert->max_unpack |= BCF_UN_FMT; break;
         case T_LINE: fmt->handler = &process_line; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
@@ -821,8 +788,6 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "_GP_TO_PROB3") ) register_tag(convert, T_GP_TO_PROB3, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_HAP") ) register_tag(convert, T_GT_TO_HAP, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_HAP2") ) register_tag(convert, T_GT_TO_HAP2, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_GT_TO_HAPLEG") ) register_tag(convert, T_GT_TO_HAPLEG, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_GT_TO_HAPLEG2") ) register_tag(convert, T_GT_TO_HAPLEG2, str.s, is_gtf);
         else if ( !strcmp(str.s, "INFO") )
         {
             if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);
