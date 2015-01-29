@@ -850,7 +850,13 @@ static void vcf_to_hapsample(args_t *args)
      *
      */
     kstring_t str = {0,0,0};
-    kputs("%CHROM %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
+
+    // print ID instead of CHROM:POS_REF_ALT1
+    if ( args->output_vcf_ids )
+        kputs("%CHROM %ID %POS %REF %FIRST_ALT ", &str);
+    else
+        kputs("%CHROM %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
+    
     if ( args->hap2dip )
         kputs("%_GT_TO_HAP2\n", &str);
     else
@@ -1228,6 +1234,7 @@ static void usage(void)
     fprintf(stderr, "       --hapsample2vcf <...>   <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --hapsample <...>       <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
+    fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf <...>  <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
