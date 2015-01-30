@@ -30,9 +30,9 @@ Note that GSL is distributed under a GPL license, so when USE_GPL=1 is used to
 compile bcftools, the resulting program must only be distributed under terms
 compatible with that license. 
 
-In the default compilation mode the program is dual licensed and you may choose
-to be licensed under the terms of the MIT/expat license or the GNU General Public
-License (GPL).
+In the default compilation mode the program is dual licensed and you may
+choose to be licensed under the terms of the MIT/Expat license or the
+GNU General Public License (GPL).
 
 
 Installation
