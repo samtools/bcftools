@@ -310,16 +310,15 @@ static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
     for (i=0; i<bcf_hdr_nsamples(hdr); i++)
     {
         int *gt_ptr = args->tmp_arr + i*nsm_gt;
-        int a = bcf_gt_allele(gt_ptr[0]);
-        int b = bcf_gt_allele(gt_ptr[1]);
-
         int j, *pl_ptr = args->pl_arr + i*npl;
-        if ( a<0 || b<0 ) // missing genotype
+        if ( bcf_gt_is_missing(gt_ptr[0]) || bcf_gt_is_missing(gt_ptr[1]) ) // missing genotype
         {
             for (j=0; j<npl; j++) pl_ptr[j] = -1;
         }
         else
         {
+            int a = bcf_gt_allele(gt_ptr[0]);
+            int b = bcf_gt_allele(gt_ptr[1]);
             for (j=0; j<npl; j++) pl_ptr[j] = fake_PL;
             int idx = bcf_alleles2gt(a,b);
             pl_ptr[idx] = 0;
@@ -434,9 +433,9 @@ static void check_gt(args_t *args)
         {
             int *gt_ptr = gt_arr + i*ngt;
             if ( gt_ptr[1]==bcf_int32_vector_end ) continue;    // skip haploid genotypes
+            if ( bcf_gt_is_missing(gt_ptr[0]) || bcf_gt_is_missing(gt_ptr[1]) ) continue;
             int a = bcf_gt_allele(gt_ptr[0]);
             int b = bcf_gt_allele(gt_ptr[1]);
-            if ( a<0 || b<0 ) continue; // missing genotypes
             if ( args->hom_only && a!=b ) continue; // heterozygous genotype
             int igt_tgt = igt_tgt = bcf_alleles2gt(a,b); // genotype index in the target file
             int igt_qry = gt2ipl[igt_tgt];  // corresponding genotype in query file
@@ -659,9 +658,9 @@ static void cross_check_gts(args_t *args)
         fprintf(fp, "SM\t%f\t%.2lf\t%.0lf\t%s\t%d\n", score[idx]*100., adp, nsites, args->sm_hdr->samples[idx],i);
     }
 
-    // Overall score: maximum absolute deviation from the average score
-    fprintf(fp, "# [1] MD\t[2]Maximum deviation\t[3]The culprit\n");
-    fprintf(fp, "MD\t%f\t%s\n", (score[idx] - avg_score/nsamples)*100., args->sm_hdr->samples[idx]);    // idx still set
+    //  // Overall score: maximum absolute deviation from the average score
+    //  fprintf(fp, "# [1] MD\t[2]Maximum deviation\t[3]The culprit\n");
+    //  fprintf(fp, "MD\t%f\t%s\n", (score[idx] - avg_score/nsamples)*100., args->sm_hdr->samples[idx]);    // idx still set
     free(p);
     free(score);
     free(dp);
@@ -739,9 +738,13 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:R:at:T:G:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'G': args->no_PLs = atoi(optarg); break;
+            case 'G':
+                args->no_PLs = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --GTs-only %s\n", optarg);
+                break;
             case 'a': args->all_sites = 1; break;
             case 'H': args->hom_only = 1; break;
             case 'g': args->gt_fname = optarg; break;
@@ -757,13 +760,20 @@ int main_vcfgtcheck(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( argc==optind || argc>optind+1 )  usage();  // none or too many files given
+    char *fname = NULL;
+    if ( optind==argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage();   // no files given
+    }
+    else fname = argv[optind];
+    if ( argc>optind+1 )  usage();  // too many files given
     if ( !args->gt_fname ) args->cross_check = 1;   // no genotype file, run in cross-check mode
     else args->files->require_index = 1;
     if ( regions && bcf_sr_set_regions(args->files, regions, regions_is_file)<0 ) error("Failed to read the regions: %s\n", regions);
     if ( targets && bcf_sr_set_targets(args->files, targets, targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n", targets);
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
-    if ( args->gt_fname && !bcf_sr_add_reader(args->files, args->gt_fname) ) error("Failed to open or the file not indexed: %s\n", args->gt_fname);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
+    if ( args->gt_fname && !bcf_sr_add_reader(args->files, args->gt_fname) ) error("Failed to open %s: %s\n", args->gt_fname,bcf_sr_strerror(args->files->errnum));
     args->files->collapse = COLLAPSE_SNPS|COLLAPSE_INDELS;
     if ( args->plot ) args->plot = init_prefix(args->plot);
     init_data(args);

@@ -300,12 +300,13 @@ static void init_data(args_t *args)
     }
 
     int i;
-    if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open: %s\n", args->bcf_fname);
+    if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open %s: %s\n", args->bcf_fname,bcf_sr_strerror(args->aux.srs->errnum));
 
     if ( args->nsamples && args->nsamples != bcf_hdr_nsamples(args->aux.srs->readers[0].header) )
     {
         args->samples_map = (int *) malloc(sizeof(int)*args->nsamples);
         args->aux.hdr = bcf_hdr_subset(args->aux.srs->readers[0].header, args->nsamples, args->samples, args->samples_map);
+        if ( !args->aux.hdr ) error("Error occurred while subsetting samples\n");
         for (i=0; i<args->nsamples; i++)
             if ( args->samples_map[i]<0 ) error("No such sample: %s\n", args->samples[i]);
         if ( !bcf_hdr_nsamples(args->aux.hdr) ) error("No matching sample found\n");
@@ -486,7 +487,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
     fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5]\n");
-    fprintf(stderr, "   -P, --prior <float>             mutation rate [1e-3]\n");
+    fprintf(stderr, "   -P, --prior <float>             mutation rate (use bigger for greater sensitivity) [1.1e-3]\n");
     fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
     fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
 
@@ -508,7 +509,7 @@ int main_vcfcall(int argc, char *argv[])
     args.argc = argc; args.argv = argv;
     args.aux.prior_type = -1;
     args.aux.indel_frac = -1;
-    args.aux.theta      = 1e-3;
+    args.aux.theta      = 1.1e-3;
     args.aux.pref       = 0.5;
     args.aux.min_perm_p = 0.01;
     args.aux.min_lrt    = 1;
@@ -590,7 +591,10 @@ int main_vcfcall(int argc, char *argv[])
                       else error("Unknown skip category \"%s\" (-S argument must be \"snps\" or \"indels\")\n", optarg);
                       break;
             case 'm': args.flag |= CF_MCALL; break;         // multiallelic calling method
-            case 'p': args.aux.pref = atof(optarg); break;
+            case 'p':
+                args.aux.pref = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: --pval-threshold %s\n", optarg);
+                break;
             case 'P': args.aux.theta = strtod(optarg,&tmp);
                       if ( *tmp ) error("Could not parse, expected float argument: -P %s\n", optarg);
                       break;
@@ -657,6 +661,7 @@ int main_vcfcall(int argc, char *argv[])
                 // second allele is mpileup's X, not a variant
                 if ( bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;
                 else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='X' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
+                else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='*' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
             }
             if ( is_ref )
             {

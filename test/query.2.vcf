@@ -1,0 +1,11 @@
+##fileformat=VCFv4.1
+##INFO=<ID=TEST,Number=1,Type=Integer,Description="Testing Tag">
+##INFO=<ID=XX_A,Number=1,Type=Integer,Description="Testing Tag">
+##INFO=<ID=XX.A,Number=1,Type=Integer,Description="Testing Tag">
+##INFO=<ID=XX.A0,Number=1,Type=Integer,Description="Testing Tag">
+##INFO=<ID=xx.a0,Number=1,Type=Integer,Description="Testing Tag">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Testing Tag">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	C	D
+1	3062915	.	GTTT	G	48.7	.	XX_A=1;XX.A=2;XX.A0=3;xx.a0=4	GT	0/1	0/1

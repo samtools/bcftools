@@ -468,6 +468,8 @@ void init_allele_trimming_maps(call_t *call, int als, int nals)
         else call->als_map[i] = -1;
     }
 
+    if ( !call->pl_map ) return;
+
     // pl_map: new(k) -> old(l)
     int k = 0, l = 0;
     for (i=0; i<nals; i++)
@@ -692,7 +694,7 @@ static void mcall_set_ref_genotypes(call_t *call, int nals)
     call->nhets = 0;
     call->ndiploid = 0;
 
-    // Set all genotypes to 0/0 and remove PL vector
+    // Set all genotypes to 0/0 or 0
     int *gts    = call->gts;
     double *pdg = call->pdg;
     int isample;
@@ -916,7 +918,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
         if ( i==ngts || !ploidy )
         {
-            gts[0] = bcf_int32_missing;
+            gts[0] = bcf_gt_missing;
             gls[0] = 1;
             continue;
         }
@@ -1054,7 +1056,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             int32_t *gts = call->cgts + ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )    // zero depth, set missing genotypes
             {
-                gts[0] = bcf_int32_missing;
+                gts[0] = bcf_gt_missing;
                 // bcf_float_set_missing(call->GQs[ismpl]);
                 continue;
             }
@@ -1104,7 +1106,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         cgts++;
         ugts++;
         gts += 2;
-        if ( ugts[0]==bcf_int32_missing )
+        if ( bcf_gt_is_missing(ugts[0]) )
         {
             gts[0] = bcf_gt_missing;
             gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
@@ -1178,7 +1180,7 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
     bcf_update_format_int32(call->hdr, rec, "PL", call->PLs, npls_dst*nsmpl);
 }
 
-static void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
+void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
 {
     int i, ret;
 
@@ -1188,17 +1190,16 @@ static void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als
     {
         assert( ret==nals );
         if ( out_als==1 )
-        {
             bcf_update_info_int32(call->hdr, rec, "DPR", call->itmp, 1);
-            return;
-        }
-
-        for (i=0; i<nals; i++)
+        else
         {
-            if ( call->als_map[i]==-1 ) continue;   // to be dropped
-            call->PLs[ call->als_map[i] ] = call->itmp[i]; // reusing PLs storage which is not used at this point
+            for (i=0; i<nals; i++)
+            {
+                if ( call->als_map[i]==-1 ) continue;   // to be dropped
+                call->PLs[ call->als_map[i] ] = call->itmp[i]; // reusing PLs storage which is not used at this point
+            }
+            bcf_update_info_int32(call->hdr, rec, "DPR", call->PLs, nout_als);
         }
-        bcf_update_info_int32(call->hdr, rec, "DPR", call->PLs, nout_als);
     }
 
     ret = bcf_get_format_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
@@ -1213,21 +1214,22 @@ static void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als
                 call->PLs[i] = call->itmp[i*ndp];
 
             bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl);
-            return;
         }
-
-        int j;
-        for (i=0; i<nsmpl; i++)
+        else
         {
-            int32_t *dp_dst = call->PLs + i*nout_als;
-            int32_t *dp_src = call->itmp + i*ndp;
-            for (j=0; j<nals; j++)
+            int j;
+            for (i=0; i<nsmpl; i++)
             {
-                if ( call->als_map[j]==-1 ) continue;   // to be dropped
-                dp_dst[ call->als_map[j] ] = dp_src[j]; // reusing PLs storage which is not used at this point
+                int32_t *dp_dst = call->PLs + i*nout_als;
+                int32_t *dp_src = call->itmp + i*ndp;
+                for (j=0; j<nals; j++)
+                {
+                    if ( call->als_map[j]==-1 ) continue;   // to be dropped
+                    dp_dst[ call->als_map[j] ] = dp_src[j]; // reusing PLs storage which is not used at this point
+                }
             }
+            bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl*nout_als);
         }
-        bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl*nout_als);
     }
 }
 
@@ -1335,7 +1337,8 @@ int mcall(call_t *call, bcf1_t *rec)
     for (i=1; i<rec->n_allele; i++)
     {
         if ( rec->d.allele[i][0]=='X' ) { unseen = i; break; }  // old X
-        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // new <X>
+        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // old <X>
+        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // new <*>
     }
 
     // Force alleles when calling genotypes given alleles was requested
@@ -1388,7 +1391,16 @@ int mcall(call_t *call, bcf1_t *rec)
     #endif
 
     // Find the best combination of alleles
-    int out_als, nout =  mcall_find_best_alleles(call, nals, &out_als);
+    int out_als, nout = mcall_find_best_alleles(call, nals, &out_als);
+
+    // Make sure the REF allele is always present
+    if ( !(out_als&1) )
+    {
+        out_als |= 1;
+        nout++;
+    }
+    int is_variant = out_als==1 ? 0 : 1;
+    if ( call->flag & CALL_VARONLY && !is_variant ) return 0;
 
     // With -A, keep all ALTs except X
     if ( call->flag & CALL_KEEPALT )
@@ -1397,21 +1409,15 @@ int mcall(call_t *call, bcf1_t *rec)
         for (i=0; i<nals; i++)
         {
             if ( rec->d.allele[i][0]=='X' ) continue;   // old version of unseen allele "X"
-            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' ) continue;   // new version of unseen allele, "<X>"
+            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' ) continue;   // old version of unseen allele, "<X>"
+            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][2]=='>' ) continue;   // new version of unseen allele, "<*>"
             out_als |= 1<<i;
             nout++;
         }
     }
-    // Make sure the REF allele is always present
-    else if ( !(out_als&1) )
-    {
-        out_als |= 1;
-        nout++;
-    }
 
-    if ( call->flag & CALL_VARONLY && out_als==1 ) return 0;
     int nAC = 0;
-    if ( out_als==1 )
+    if ( out_als==1 )   // only REF allele on output
     {
         init_allele_trimming_maps(call, 1, nals);
         mcall_set_ref_genotypes(call,nals);
@@ -1422,10 +1428,10 @@ int mcall(call_t *call, bcf1_t *rec)
         // The most likely set of alleles includes non-reference allele (or was enforced), call genotypes.
         // Note that it is a valid outcome if the called genotypes exclude some of the ALTs.
         init_allele_trimming_maps(call, out_als, nals);
-        if ( call->flag & CALL_CONSTR_TRIO )
-        {
+        if ( !is_variant )
+            mcall_set_ref_genotypes(call,nals);     // running with -A, prevent mcall_call_genotypes from putting some ALT back
+        else if ( call->flag & CALL_CONSTR_TRIO )
             mcall_call_trio_genotypes(call, rec, nals,nout,out_als);
-        }
         else
             mcall_call_genotypes(call,rec,nals,nout,out_als);
 

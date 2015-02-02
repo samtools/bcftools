@@ -1,0 +1,87 @@
+SN	0	number of samples:	3
+SN	1	number of samples:	3
+SN	0	number of records:	0
+SN	0	number of SNPs:	0
+SN	0	number of MNPs:	0
+SN	0	number of indels:	0
+SN	0	number of others:	0
+SN	0	number of multiallelic sites:	0
+SN	0	number of multiallelic SNP sites:	0
+SN	1	number of records:	0
+SN	1	number of SNPs:	0
+SN	1	number of MNPs:	0
+SN	1	number of indels:	0
+SN	1	number of others:	0
+SN	1	number of multiallelic sites:	0
+SN	1	number of multiallelic SNP sites:	0
+SN	2	number of records:	3
+SN	2	number of SNPs:	3
+SN	2	number of MNPs:	0
+SN	2	number of indels:	0
+SN	2	number of others:	0
+SN	2	number of multiallelic sites:	0
+SN	2	number of multiallelic SNP sites:	0
+TSTV	0	0	0	0.00	0	0	0.00
+TSTV	1	0	0	0.00	0	0	0.00
+TSTV	2	3	0	0.00	3	0	0.00
+SiS	0	1	0	0	0	0	0	0	0
+SiS	1	1	0	0	0	0	0	0	0
+SiS	2	1	0	0	0	0	0	0	0
+AF	2	49.000000	3	3	0	0	0	0	0
+QUAL	2	998	3	3	0	0
+ST	0	A>C	0
+ST	0	A>G	0
+ST	0	A>T	0
+ST	0	C>A	0
+ST	0	C>G	0
+ST	0	C>T	0
+ST	0	G>A	0
+ST	0	G>C	0
+ST	0	G>T	0
+ST	0	T>A	0
+ST	0	T>C	0
+ST	0	T>G	0
+ST	1	A>C	0
+ST	1	A>G	0
+ST	1	A>T	0
+ST	1	C>A	0
+ST	1	C>G	0
+ST	1	C>T	0
+ST	1	G>A	0
+ST	1	G>C	0
+ST	1	G>T	0
+ST	1	T>A	0
+ST	1	T>C	0
+ST	1	T>G	0
+ST	2	A>C	0
+ST	2	A>G	0
+ST	2	A>T	0
+ST	2	C>A	0
+ST	2	C>G	0
+ST	2	C>T	0
+ST	2	G>A	3
+ST	2	G>C	0
+ST	2	G>T	0
+ST	2	T>A	0
+ST	2	T>C	0
+ST	2	T>G	0
+SN	2	number of samples:	3
+GCsAF	2	49.000000	2	1	0	1	2	3	0.375000	2
+NRDs	2	85.714286	33.333333	66.666667	100.000000
+NRDi	2	0.000000	0.000000	0.000000	0.000000
+GCsS	2	A	100.000	2	0	0	1	0	0
+GCsS	2	B	66.667	0	1	0	0	2	0
+GCsS	2	C	100.000	0	0	0	0	0	3
+GCiS	2	A	0.000	0	0	0	0	0	0
+GCiS	2	B	0.000	0	0	0	0	0	0
+GCiS	2	C	0.000	0	0	0	0	0	0
+PSC	0	A	0	0	0	0	0	0	0.0	0
+PSC	0	B	0	0	0	0	0	0	0.0	0
+PSC	0	C	0	0	0	0	0	0	0.0	0
+PSC	1	A	0	0	0	0	0	0	0.0	0
+PSC	1	B	0	0	0	0	0	0	0.0	0
+PSC	1	C	0	0	0	0	0	0	0.0	0
+PSC	2	A	3	0	0	0	0	0	0.0	0
+PSC	2	B	0	0	3	3	0	0	0.0	0
+PSC	2	C	0	3	0	3	0	0	0.0	0
+HWE	2	49.000000	3	0.330000	0.330000	0.330000

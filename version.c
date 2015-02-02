@@ -22,7 +22,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <htslib/hts.h>
+#include "bcftools.h"
 #include "version.h"
 
 void version(const char **bcftools_version, const char **htslib_version)
@@ -30,4 +34,14 @@ void version(const char **bcftools_version, const char **htslib_version)
     *bcftools_version = BCFTOOLS_VERSION;
     *htslib_version = hts_version();
 }
+
+void error(const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    va_end(ap);
+    exit(-1);
+}
+
 

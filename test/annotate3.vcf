@@ -1,0 +1,21 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Genotype LK">
+##FORMAT=<ID=X,Number=1,Type=Integer,Description="rmme">
+##FORMAT=<ID=Y,Number=1,Type=Integer,Description="rmme">
+##FORMAT=<ID=AA,Number=1,Type=Integer,Description="rmme">
+##INFO=<ID=AA,Number=1,Type=Integer,Description="rmme">
+##INFO=<ID=BB,Number=1,Type=Integer,Description="rmme">
+##INFO=<ID=X,Number=1,Type=Integer,Description="rmme">
+##INFO=<ID=Y,Number=1,Type=Integer,Description="rmme">
+##FILTER=<ID=fltA,Description="rmme">
+##FILTER=<ID=fltB,Description="rmme">
+##FILTER=<ID=fltX,Description="rmme">
+##FILTER=<ID=fltY,Description="rmme">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3000000	id	C	.	20	.	AA=1;BB=2;X=3;Y=4	GT:X:PL:Y:AA	0/1:1:2:3:1	0/1:1:2:3:1
+1	3000001	id	C	.	20	PASS	AA=1;BB=2;X=3;Y=4	GT:X:PL:Y:AA	0/1:1:2:3:1	0/1:1:2:3:1
+1	3000002	id	C	.	20	fltY;fltA;fltB;fltX	BB=2;X=3;Y=4;AA=1	GT:Y:X:PL:AA	0/1:3:1:2:1	0/1:3:1:2:1

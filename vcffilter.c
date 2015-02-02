@@ -61,7 +61,7 @@ typedef struct _args_t
     int annot_mode;     // add to existing FILTER annotation or replace? Otherwise reset FILTER to PASS or leave as it is?
     int flt_fail, flt_pass;     // BCF ids of fail and pass filters
     int snp_gap, indel_gap, IndelGap_id, SnpGap_id;
-    int32_t ntmpi, *tmpi;
+    int32_t ntmpi, *tmpi, ntmp_ac, *tmp_ac;
     rbuf_t rbuf;
     bcf1_t **rbuf_lines;
 
@@ -132,7 +132,7 @@ static void init_data(args_t *args)
             free(tmp.s);
         }
 
-        rbuf_init(&args->rbuf, 100);
+        rbuf_init(&args->rbuf, 64);
         args->rbuf_lines = (bcf1_t**) calloc(args->rbuf.m, sizeof(bcf1_t*));
         if ( args->snp_gap )
         {
@@ -166,6 +166,7 @@ static void destroy_data(args_t *args)
     if ( args->filter )
         filter_destroy(args->filter);
     free(args->tmpi);
+    free(args->tmp_ac);
 }
 
 static void flush_buffer(args_t *args, int n)
@@ -226,12 +227,12 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid )
             flush_buffer(args, args->rbuf.n); // new chromosome, flush everything
 
-        assert( args->rbuf.n<args->rbuf.m );
+        if ( args->rbuf.n >= args->rbuf.m ) rbuf_expand0(&args->rbuf,bcf1_t*,args->rbuf_lines);
 
         // Insert the new record in the buffer. The line would be overwritten in
         // the next bcf_sr_next_line call, therefore we need to swap it with an
         // unused one
-        ilast = rbuf_add(&args->rbuf);
+        ilast = rbuf_append(&args->rbuf);
         if ( !args->rbuf_lines[ilast] ) args->rbuf_lines[ilast] = bcf_init1();
         SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->rbuf_lines[ilast]);
 
@@ -350,6 +351,13 @@ static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
     }
     else if ( pass_site ) return;
 
+    int an = 0, has_an = bcf_get_info_int32(args->hdr, line, "AN", &args->tmp_ac, &args->ntmp_ac);
+    if ( has_an==1 ) an = args->tmp_ac[0];
+    else has_an = 0;
+
+    int has_ac = bcf_get_info_int32(args->hdr, line, "AC", &args->tmp_ac, &args->ntmp_ac);
+    has_ac = has_ac==line->n_allele-1 ? 1 : 0;
+
     int new_gt = 0, ngts = bcf_get_format_int32(args->hdr, line, "GT", &args->tmpi, &args->ntmpi);
     ngts /= bcf_hdr_nsamples(args->hdr);
     if ( args->set_gts==SET_GTS_MISSING ) new_gt = bcf_gt_missing;
@@ -367,10 +375,24 @@ static void set_genotypes(args_t *args, bcf1_t *line, int pass_site)
         for (j=0; j<ngts; j++)
         {
             if ( gts[j]==bcf_int32_vector_end ) break;
+            if ( args->set_gts==SET_GTS_MISSING && !bcf_gt_is_missing(gts[j]) )
+            {
+                int ial = bcf_gt_allele(gts[j]);
+                if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+                an--;
+            }
+            else if ( args->set_gts==SET_GTS_REF )
+            {
+                int ial = bcf_gt_allele(gts[j]);
+                if ( bcf_gt_is_missing(gts[j]) ) an++;
+                else if ( has_ac && ial>0 && ial<=line->n_allele ) args->tmp_ac[ ial-1 ]--;
+            }
             gts[j] = new_gt;
         }
     }
     bcf_update_genotypes(args->hdr,line,args->tmpi,ngts*bcf_hdr_nsamples(args->hdr));
+    if ( has_an ) bcf_update_info_int32(args->hdr,line,"AN",&an,1);
+    if ( has_ac )  bcf_update_info_int32(args->hdr,line,"AC",args->tmp_ac,line->n_allele-1);
 }
 
 static void usage(args_t *args)
@@ -424,10 +446,17 @@ int main_vcffilter(int argc, char *argv[])
         {"IndelGap",1,0,'G'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:o:O:g:G:S:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'g': args->snp_gap = atoi(optarg); break;
-            case 'G': args->indel_gap = atoi(optarg); break;
+            case 'g': 
+                args->snp_gap = strtol(optarg,&tmp,10); 
+                if ( *tmp ) error("Could not parse argument: --SnpGap %s\n", optarg);
+                break;
+            case 'G':
+                args->indel_gap = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --IndelGap %s\n", optarg);
+                break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {
@@ -492,7 +521,7 @@ int main_vcffilter(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->targets_list,targets_is_file, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets_list);
     }
-    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open: %s\n", fname);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);
     bcf_hdr_write(args->out_fh, args->hdr);

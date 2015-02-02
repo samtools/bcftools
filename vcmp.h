@@ -38,10 +38,25 @@ int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2);
 
 /*
  *  vcmp_find_allele()
- *  @als1:  alternate alleles to ref1 above
- *  @al2:   alternate allele to ref2 above
+ *  @param als1:  alternate alleles to ref1 above
+ *  @param al2:   alternate allele to ref2 above
  *  Returns -1 if not found or 0-based index to als1 of matching allele
  */
 int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2);
+
+/*
+ *  vcmp_map_ARvalues() - Create mapping for Number=A,R tag values
+ *  @param number:  nals2 for Number=R, nals2-1 for Number=A
+ *  @param nals1:   number of alleles
+ *  @param als1:    alleles
+ *
+ *  Returns pointer to an array of size nals2 with mapping from als2
+ *  to als1 or NULL if REFs (als1[0] and als2[0]) are not compatible.
+ *  If i is the index of an allele in als2, ret[i] is the index of matching
+ *  allele in als1 or -1 if als2 does not have a matching allele.
+ *  The caller must not free the array.
+ */
+int *vcmp_map_ARvalues(vcmp_t *vcmp, int number, int nals1, char **als1, int nals2, char **als2);
+
 
 #endif

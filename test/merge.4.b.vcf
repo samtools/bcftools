@@ -9,6 +9,9 @@
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
 ##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype Likelihood">
+##FORMAT=<ID=XR,Number=R,Type=Integer,Description="Some description">
+##FORMAT=<ID=XA,Number=A,Type=Integer,Description="Some description">
+##FORMAT=<ID=XG,Number=G,Type=Integer,Description="Some description">
 ##FILTER=<ID=q10,Description="Quality below 10">
 ##FILTER=<ID=test,Description="Testing filter">
 ##contig=<ID=1,assembly=b37,length=249250621>
@@ -24,7 +27,7 @@
 ##INFO=<ID=STR,Number=1,Type=String,Description="Test string type">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	C	D
 1	3000000	.	C	A	59.2	PASS	AN=4;AC=2	GT:GQ	0/1:245	0/1:245
-1	3000000	id1	C	A	59.2	PASS	AN=4;AC=2;TR=1,2;TA=1;TG=1,2,3	GT:GQ	0/1:245	0/1:245
-1	3000002	id3	C	A	59.2	PASS	AN=4;AC=2;TR=1,2;TA=1;TG=1,2,3	GT:GQ	0/1:245	0/1:245
-1	3000002	id2	C	A	59.2	PASS	AN=4;AC=2;TR=1,2;TA=1;TG=1,2,3	GT:GQ	0/1:245	0/1:245
+1	3000000	id1	C	A	59.2	PASS	AN=4;AC=2;TR=1,2;TA=1;TG=1,2,3	GT:GQ:XR:XG:XA	0/1:245:4,5:3,4,5:5	0/1:245:6,7:6,7,8:7
+1	3000002	id3	C	A	59.2	PASS	AN=4;AC=2;TR=1,2;TA=1;TG=1,2,3	GT:GQ:XR:XG:XA	0/1:245:.	0/1:245:1,2:1,2,3:2
+1	3000002	id2	C	A	59.2	PASS	AN=4;AC=2;TR=1,2;TA=1;TG=1,2,3	GT:GQ:XR:XG:XA	0/1:245:.	0/1:245:.:.:.
 1	3000002	.	C	A	59.2	PASS	AN=4;AC=2	GT:GQ	0/1:245	0/1:245

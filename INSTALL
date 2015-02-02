@@ -20,6 +20,21 @@ $(HTSDIR) by typing 'make HTSDIR=/path/to/htslib-source' -- see the makefile
 for details.
 
 
+Optional Compilation with GSL
+=============================
+
+The 'polysomy' command depends on the GNU Scientific Library (GSL) and is not
+enabled by default. In order to compile it, type 'make clean && make USE_GPL=1'.
+
+Note that GSL is distributed under a GPL license, so when USE_GPL=1 is used to
+compile bcftools, the resulting program must only be distributed under terms
+compatible with that license. 
+
+In the default compilation mode the program is dual licensed and you may
+choose to be licensed under the terms of the MIT/Expat license or the
+GNU General Public License (GPL).
+
+
 Installation
 ============
 

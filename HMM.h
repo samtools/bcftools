@@ -38,10 +38,10 @@ struct _hmm_t
     int nstates;    // number of states
 
     double *vprob, *vprob_tmp;  // viterbi probs [nstates]
-    uint8_t *vpath;             // viterbi path [nstates*nsites]
+    uint8_t *vpath;             // viterbi path [nstates*nvpath]
     double *bwd, *bwd_tmp;      // bwd probs [nstates]
-    double *fwd;                // fwd probs [nstates*(nsites+1)]
-    int nsites;
+    double *fwd;                // fwd probs [nstates*(nfwd+1)]
+    int nvpath, nfwd;
 
     int ntprob_arr;             // number of pre-calculated tprob matrices
     double *curr_tprob, *tmp;   // Temporary arrays; curr_tprob is short lived, valid only for
@@ -92,6 +92,18 @@ void hmm_run_viterbi(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
  *   probability of i-th state at j-th site can be accessed as fwd[j*nstates+i].
  */
 void hmm_run_fwd_bwd(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
+
+/**
+ *   hmm_run_baum_welch() - run one iteration of Baum-Welch algorithm
+ *   @nsites:   number of sites 
+ *   @eprob:    emission probabilities for each site and state (nsites x nstates)
+ *   @sites:    list of positions
+ *
+ *   Same as hmm_run_fwd_bwd, in addition curr_tprob contains the new
+ *   transition probabilities. In this verison, emission probabilities
+ *   are not updated.
+ */
+void hmm_run_baum_welch(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
 void hmm_destroy(hmm_t *hmm);
 
 #endif

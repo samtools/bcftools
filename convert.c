@@ -57,9 +57,11 @@ THE SOFTWARE.  */
 #define T_CHROM_POS_ID 18   // not publicly advertised
 #define T_GT_TO_PROB3  19   // not publicly advertised
 #define T_PL_TO_PROB3  20   // not publicly advertised
-#define T_FIRST_ALT    21   // not publicly advertised
-#define T_IUPAC_GT     22 
-#define T_GT_TO_HAP    23   // not publicly advertised
+#define T_GP_TO_PROB3  21   // not publicly advertised
+#define T_FIRST_ALT    22   // not publicly advertised
+#define T_IUPAC_GT     23
+#define T_GT_TO_HAP    24   // not publicly advertised
+#define T_GT_TO_HAP2   25   // not publicly advertised
 
 typedef struct _fmt_t
 {
@@ -95,6 +97,14 @@ static void process_alt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isampl
     if ( line->n_allele==1 )
     {
         kputc('.', str);
+        return;
+    }
+    if ( fmt->subscript>=0 )
+    {
+        if ( line->n_allele > fmt->subscript+1 )
+            kputs(line->d.allele[fmt->subscript+1], str);
+        else
+            kputc('.', str);
         return;
     }
     for (i=1; i<line->n_allele; i++)
@@ -419,7 +429,7 @@ static void process_gt_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         else if ( j==1 )
         {
             // haploid
-            if ( ptr[0]==bcf_gt_missing )
+            if ( bcf_gt_is_missing(ptr[0]) )
                 kputs(" 0.5 0.0 0.5", str);
             else if ( bcf_gt_allele(ptr[0])==1 )
                 kputs(" 0 0 1", str);       // first ALT allele
@@ -478,6 +488,42 @@ static void process_pl_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         }
     }
 }
+static void process_gp_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    int m,n,i;
+
+    m = convert->ndat / sizeof(float);
+    n = bcf_get_format_float(convert->header,line,"GP",&convert->dat,&m);
+    convert->ndat = m * sizeof(float);
+
+    if ( n<=0 )
+    {
+        // Throw an error or silently proceed?
+        //
+        // for (i=0; i<convert->nsamples; i++) kputs(" 0.33 0.33 0.33", str);
+        // return;
+
+        error("Error parsing GP tag at %s:%d\n", bcf_seqname(convert->header,line),line->pos+1);
+    }
+
+    n /= convert->nsamples;
+    for (i=0; i<convert->nsamples; i++)
+    {
+        float sum = 0, *ptr = (float*)convert->dat + i*n;
+        int j;
+        for (j=0; j<n; j++)
+        {
+            if ( ptr[j]==bcf_int32_vector_end ) break;
+            if ( ptr[j]==bcf_int32_missing ) { ptr[j]=0; continue; }
+            if ( ptr[j]<0 || ptr[j]>1 ) error("[%s:%d:%f] GP value outside range [0,1]; bcftools convert expects the VCF4.3+ spec for the GP field encoding genotype posterior probabilities", bcf_seqname(convert->header,line),line->pos+1,ptr[j]);
+            sum+=ptr[j];
+        }
+        if ( j==line->n_allele )
+            ksprintf(str," %f %f %f",ptr[0],0.,ptr[1]); // haploid
+        else
+            ksprintf(str," %f %f %f",ptr[0],ptr[1],ptr[2]); // diploid
+    }
+}
 
 static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
@@ -520,7 +566,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
     {
         // Throw an error or silently proceed?
         //
-        // for (i=0; i<convert->nsamples; i++) kputs(" 0.33 0.33 0.33", str);
+        // for (i=0; i<convert->nsamples; i++) kputs(" ...", str);
         // return;
 
         error("Error parsing GT tag at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
@@ -538,7 +584,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
         if ( j==2 )
         {
             // diploid
-            if ( ptr[0]==bcf_gt_missing || ptr[1]==bcf_gt_missing ) {
+            if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) ) {
                 kputs("? ?", str);
             }
             else if ( bcf_gt_is_phased(ptr[1])) {
@@ -551,12 +597,59 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
         else if ( j==1 )
         {
             // haploid
-            if ( ptr[0]==bcf_gt_missing )
+            if ( bcf_gt_is_missing(ptr[0]) )
                 kputs("? -", str);
             else if ( bcf_gt_allele(ptr[0])==1 )
                 kputs("1 -", str);       // first ALT allele
             else
                 kputs("0 -", str);       // REF or something else than first ALT
+        }
+        else error("FIXME: not ready for ploidy %d\n", j);
+    }
+}
+static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    // same as process_gt_to_hap but converts haploid genotypes into diploid
+    int m, n, i;
+
+    m = convert->ndat / sizeof(int32_t);
+    n = bcf_get_genotypes(convert->header, line, &convert->dat, &m);
+    convert->ndat = m * sizeof(int32_t);
+
+    if ( n<=0 )
+        error("Error parsing GT tag at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+
+    n /= convert->nsamples;
+    for (i=0; i<convert->nsamples; i++)
+    {
+        int32_t *ptr = (int32_t*)convert->dat + i*n;
+        int j;
+        for (j=0; j<n; j++)
+            if ( ptr[j]==bcf_int32_vector_end ) break;
+
+        if (i>0) kputs(" ", str); // no space separation for first column
+        if ( j==2 )
+        {
+            // diploid
+            if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) ) {
+                kputs("? ?", str);
+            }
+            else if ( bcf_gt_is_phased(ptr[1])) {
+                ksprintf(str, "%d %d", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            }
+            else {
+                ksprintf(str, "%d* %d*", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            }
+        }
+        else if ( j==1 )
+        {
+            // haploid
+            if ( bcf_gt_is_missing(ptr[0]) )
+                kputs("? ?", str);
+            else if ( bcf_gt_allele(ptr[0])==1 )
+                kputs("1 1", str);       // first ALT allele
+            else
+                kputs("0 0", str);       // REF or something else than first ALT
         }
         else error("FIXME: not ready for ploidy %d\n", j);
     }
@@ -605,6 +698,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_CHROM_POS_ID: fmt->handler = &process_chrom_pos_id; break;
         case T_GT_TO_PROB3: fmt->handler = &process_gt_to_prob3; break;
         case T_PL_TO_PROB3: fmt->handler = &process_pl_to_prob3; break;
+        case T_GP_TO_PROB3: fmt->handler = &process_gp_to_prob3; break;
         case T_CHROM: fmt->handler = &process_chrom; break;
         case T_POS: fmt->handler = &process_pos; break;
         case T_ID: fmt->handler = &process_id; break;
@@ -623,6 +717,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_TGT: fmt->handler = &process_tgt; convert->max_unpack |= BCF_UN_FMT; break;
         case T_IUPAC_GT: fmt->handler = &process_iupac_gt; convert->max_unpack |= BCF_UN_FMT; break;
         case T_GT_TO_HAP: fmt->handler = &process_gt_to_hap; convert->max_unpack |= BCF_UN_FMT; break;
+        case T_GT_TO_HAP2: fmt->handler = &process_gt_to_hap2; convert->max_unpack |= BCF_UN_FMT; break;
         case T_LINE: fmt->handler = &process_line; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
@@ -652,7 +747,7 @@ static int parse_subscript(char **p)
 static char *parse_tag(convert_t *convert, char *p, int is_gtf)
 {
     char *q = ++p;
-    while ( *q && (isalnum(*q) || *q=='_') ) q++;
+    while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
     kstring_t str = {0,0,0};
     if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
     kputsn(p, q-p, &str);
@@ -674,7 +769,11 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "POS") ) register_tag(convert, T_POS, str.s, is_gtf);
         else if ( !strcmp(str.s, "ID") ) register_tag(convert, T_ID, str.s, is_gtf);
         else if ( !strcmp(str.s, "REF") ) register_tag(convert, T_REF, str.s, is_gtf);
-        else if ( !strcmp(str.s, "ALT") ) register_tag(convert, T_ALT, str.s, is_gtf);
+        else if ( !strcmp(str.s, "ALT") ) 
+        {
+            fmt_t *fmt = register_tag(convert, T_ALT, str.s, is_gtf);
+            fmt->subscript = parse_subscript(&q);
+        }
         else if ( !strcmp(str.s, "FIRST_ALT") ) register_tag(convert, T_FIRST_ALT, str.s, is_gtf);
         else if ( !strcmp(str.s, "QUAL") ) register_tag(convert, T_QUAL, str.s, is_gtf);
         else if ( !strcmp(str.s, "FILTER") ) register_tag(convert, T_FILTER, str.s, is_gtf);
@@ -686,13 +785,15 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "_CHROM_POS_ID") ) register_tag(convert, T_CHROM_POS_ID, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_PROB3") ) register_tag(convert, T_GT_TO_PROB3, str.s, is_gtf);
         else if ( !strcmp(str.s, "_PL_TO_PROB3") ) register_tag(convert, T_PL_TO_PROB3, str.s, is_gtf);
+        else if ( !strcmp(str.s, "_GP_TO_PROB3") ) register_tag(convert, T_GP_TO_PROB3, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_HAP") ) register_tag(convert, T_GT_TO_HAP, str.s, is_gtf);
+        else if ( !strcmp(str.s, "_GT_TO_HAP2") ) register_tag(convert, T_GT_TO_HAP2, str.s, is_gtf);
         else if ( !strcmp(str.s, "INFO") )
         {
             if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);
             p = ++q;
             str.l = 0;
-            while ( *q && (isalnum(*q) || *q=='_') ) q++;
+            while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
             if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
             kputsn(p, q-p, &str);
             fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);

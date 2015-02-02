@@ -9,6 +9,9 @@
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=XR,Number=R,Type=Integer,Description="Some description">
+##FORMAT=<ID=XA,Number=A,Type=Integer,Description="Some description">
+##FORMAT=<ID=XG,Number=G,Type=Integer,Description="Some description">
 ##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype Likelihood">
 ##FILTER=<ID=q10,Description="Quality below 10">
 ##FILTER=<ID=test,Description="Testing filter">
@@ -24,8 +27,8 @@
 ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
 ##INFO=<ID=STR,Number=1,Type=String,Description="Test string type">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C	D
-1	3000000	id1	C	CCG,A	59.2	PASS	TR=1,2,2;TA=1,1;TG=1,2,3,2,.,3;AN=8;AC=2,2	GT:GQ	0/1:245	0/1:245	0/2:245	0/2:245
-1	3000000	.	C	CCG,A	59.2	PASS	AN=8;AC=2,2	GT:GQ	0/1:245	0/1:245	0/2:245	0/2:245
+1	3000000	id1	C	CCG,A	59.2	PASS	TR=1,2,2;TA=1,1;TG=1,2,3,2,.,3;AN=8;AC=2,2	GT:GQ:XR:XA:XG	0/1:245:0,1,.:1,.:0,1,2,.,.,.	0/1:245:1,2,.:2,.:0,1,2,.,.,.	0/2:245:4,.,5:.,5:3,.,.,4,.,5	0/2:245:6,.,7:.,7:6,.,.,7,.,8
+1	3000000	.	C	CCG,A	59.2	PASS	AN=8;AC=2,2	GT:GQ:XR:XA:XG	0/1:245:1,2,.:2,.:0,1,2,.,.,.	0/1:245:2,3,.:3,.:1,2,3,.,.,.	0/2:245:.:.:.	0/2:245:.:.:.
 1	3000002	.	C	CCG,A	59.2	PASS	AN=8;AC=2,2	GT:GQ	0/1:245	0/1:245	0/2:245	0/2:245
-1	3000002	id2	C	CCG,A	59.2	PASS	TR=1,2,2;TA=1,1;TG=1,2,3,2,.,3;AN=8;AC=2,2	GT:GQ	0/1:245	0/1:245	0/2:245	0/2:245
-1	3000002	id3	C	CCG,A	59.2	PASS	TR=1,2,2;TA=1,1;TG=1,2,3,2,.,3;AN=8;AC=2,2	GT:GQ	0/1:245	0/1:245	0/2:245	0/2:245
+1	3000002	id2	C	CCG,A	59.2	PASS	TR=1,2,2;TA=1,1;TG=1,2,3,2,.,3;AN=8;AC=2,2	GT:GL:XR:XA:XG:GQ	0/1:245,245,-1.56481e-39,.,.,.:.:.:.:.	0/1:245,-1.56481e-39,1.09706e-28,.,.,.:.:.:.:.	0/2:.:.:.:.:245	0/2:.:.:.:.:245
+1	3000002	id3	C	CCG,A	59.2	PASS	TR=1,2,2;TA=1,1;TG=1,2,3,2,.,3;AN=8;AC=2,2	GT:GL:XR:XA:XG:GQ	0/1:245,245,-1.56481e-39,.,.,.:.:.:.:.	0/1:245,-1.56481e-39,1.09706e-28,.,.,.:.:.:.:.	0/2:.:.:.:.:245	0/2:.:1,.,2:.,2:1,.,.,2,.,3:245

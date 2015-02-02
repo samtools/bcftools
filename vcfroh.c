@@ -410,9 +410,8 @@ static void push_rid(args_t *args, int rid)
     args->rid_offs[ args->nrids-1 ] = args->nsites;
 }
 
-static int read_AF(args_t *args, bcf1_t *line, double *alt_freq)
+int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq)
 {
-    bcf_sr_regions_t *tgt = args->files->targets;
     if ( tgt->nals != line->n_allele ) return -1;    // number of alleles does not match
 
     int i;
@@ -451,7 +450,7 @@ int estimate_AF(args_t *args, bcf1_t *line, double *alt_freq)
     {
         int32_t *gt = &args->itmp[i*args->nitmp];
 
-        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) continue;
+        if ( bcf_gt_is_missing(gt[0]) || bcf_gt_is_missing(gt[1]) ) continue;
 
         if ( bcf_gt_allele(gt[0]) ) nalt++;
         else nref++;
@@ -484,7 +483,7 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
     else if ( args->af_fname ) 
     {
         // Read AF from a file
-        ret = read_AF(args, line, alt_freq);
+        ret = read_AF(args->files->targets, line, alt_freq);
     }
     else
     {
@@ -524,7 +523,7 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
         }
 
         int32_t *gt = &args->itmp[args->ismpl*args->nitmp];
-        if ( gt[0]==bcf_gt_missing || gt[1]==bcf_gt_missing ) return -1;
+        if ( bcf_gt_is_missing(gt[0]) || bcf_gt_is_missing(gt[1]) ) return -1;
 
         int a = bcf_gt_allele(gt[0]);
         int b = bcf_gt_allele(gt[1]);
@@ -701,18 +700,33 @@ int main_vcfroh(int argc, char *argv[])
     };
 
     int naf_opts = 0;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:s:m:M:G:Ia:e:V",loptions,NULL)) >= 0) {
         switch (c) {
             case 0: args->af_tag = optarg; naf_opts++; break;
             case 1: args->af_fname = optarg; naf_opts++; break;
             case 'e': args->estimate_AF = optarg; naf_opts++; break;
             case 'I': args->snps_only = 1; break;
-            case 'G': args->fake_PLs = 1; args->unseen_PL = pow(10,-atof(optarg)/10.); break;
+            case 'G':
+                args->fake_PLs = 1; 
+                args->unseen_PL = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -G %s\n", optarg);
+                args->unseen_PL = pow(10,-args->unseen_PL/10.); 
+                break;
             case 'm': args->genmap_fname = optarg; break;
-            case 'M': args->rec_rate = atof(optarg); break;
+            case 'M':
+                args->rec_rate = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -M %s\n", optarg);
+                break;
             case 's': args->sample = strdup(optarg); break;
-            case 'a': args->t2AZ = atof(optarg); break;
-            case 'H': args->t2HW = atof(optarg); break;
+            case 'a':
+                args->t2AZ = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -a %s\n", optarg);
+                break;
+            case 'H':
+                args->t2HW = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -H %s\n", optarg);
+                break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
@@ -744,7 +758,7 @@ int main_vcfroh(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->af_fname, 1, 3)<0 )
             error("Failed to read the targets: %s\n", args->af_fname);
     }
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open or the file not indexed: %s\n", argv[optind]);
+    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
 
     init_data(args);
     while ( bcf_sr_next_line(args->files) )

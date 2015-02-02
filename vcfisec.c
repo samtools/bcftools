@@ -34,6 +34,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include "bcftools.h"
+#include "filter.h"
 
 #define OP_PLUS 1
 #define OP_MINUS 2
@@ -41,9 +42,16 @@ THE SOFTWARE.  */
 #define OP_VENN 4
 #define OP_COMPLEMENT 5
 
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
+
 typedef struct
 {
     int isec_op, isec_n, *write, iwrite, nwrite, output_type;
+    int nflt, *flt_logic;
+    filter_t **flt;
+    char **flt_expr;
     bcf_srs_t *files;
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
@@ -155,6 +163,20 @@ void isec_vcf(args_t *args)
         for (i=0; i<files->nreaders; i++)
         {
             if ( !bcf_sr_has_line(files,i) ) continue;
+
+            if ( args->nflt && args->flt[i] )
+            {
+                bcf1_t *rec = bcf_sr_get_line(files, i);
+                int pass = filter_test(args->flt[i], rec, NULL);
+                if ( args->flt_logic[i] & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+                if ( !pass )
+                {
+                    files->has_line[i] = 0;
+                    n--;
+                    continue;
+                }
+            }
+
             if ( !line )
             {
                 line = files->readers[i].buffer[0];
@@ -201,17 +223,12 @@ void isec_vcf(args_t *args)
 
         if ( args->prefix )
         {
-            if ( args->isec_op==OP_VENN )
+            if ( args->isec_op==OP_VENN && ret==3 )
             {
-                if ( !args->nwrite || ret==3 || args->write[ret-1] )
-                {
-                    if ( args->write && !args->write[0] )
-                    {
-                        reader = &files->readers[1];
-                        line = files->readers[1].buffer[0];
-                    }
-                    bcf_write1(args->fh_out[ret-1], reader->header, line);
-                }
+                if ( !args->nwrite || args->write[0] )
+                    bcf_write1(args->fh_out[2], bcf_sr_get_header(files,0), bcf_sr_get_line(files,0));
+                if ( !args->nwrite || args->write[1] )
+                    bcf_write1(args->fh_out[3], bcf_sr_get_header(files,1), bcf_sr_get_line(files,1));
             }
             else
             {
@@ -228,14 +245,59 @@ void isec_vcf(args_t *args)
     if ( out_fh ) hts_close(out_fh);
 }
 
+static void add_filter(args_t *args, char *expr, int logic)
+{
+    args->nflt++;
+    args->flt_expr = (char**) realloc(args->flt_expr,sizeof(char*)*args->nflt);
+    args->flt_logic = (int*) realloc(args->flt_logic,sizeof(int)*args->nflt);
+    args->flt = (filter_t**) realloc(args->flt,sizeof(filter_t*)*args->nflt);
+    if ( expr[0]=='-' && expr[1]==0 )
+    {
+        args->flt_expr[args->nflt-1] = NULL;
+        args->flt[args->nflt-1] = NULL;
+    }
+    else
+        args->flt_expr[args->nflt-1] = expr;
+    args->flt_logic[args->nflt-1] = logic;
+}
+
 static void destroy_data(args_t *args);
 static void init_data(args_t *args)
 {
+    int i;
+    if ( args->nflt )
+    {
+        if ( args->nflt > 1 && args->nflt!=args->files->nreaders )
+            error("Error: expected either one -i/-e option or as many as there are input files\n");
+        if ( args->nflt < args->files->nreaders )
+        {
+            if ( !args->flt_expr[0] ) error("Error: useless use of -i/-e\n");
+            args->nflt = args->files->nreaders;
+            args->flt_expr = (char**) realloc(args->flt_expr,sizeof(char*)*args->nflt);
+            args->flt_logic = (int*) realloc(args->flt_logic,sizeof(int)*args->nflt);
+            args->flt = (filter_t**) realloc(args->flt,sizeof(filter_t*)*args->nflt);
+            for (i=1; i<args->nflt; i++)
+            {
+                args->flt_expr[i]  = args->flt_expr[0];
+                args->flt_logic[i] = args->flt_logic[0];
+                args->flt[i] = filter_init(args->files->readers[i].header,args->flt_expr[i]);
+            }
+            args->flt[0] = filter_init(args->files->readers[0].header,args->flt_expr[0]);
+        }
+        else
+        {
+            for (i=0; i<args->files->nreaders; i++)
+            {
+                if ( !args->flt_expr[i] ) continue;
+                args->flt[i] = filter_init(args->files->readers[i].header,args->flt_expr[i]);
+            }
+        }
+    }
+
     // Which files to write: parse the string passed with -w
     char *p = args->write_files;
     while (p && *p)
     {
-        int i;
         if ( !args->write ) args->write = (int*) calloc(args->files->nreaders,sizeof(int));
         if ( sscanf(p,"%d",&i)!=1 ) error("Could not parse --write %s\n", args->write_files);
         if ( i<0 || i>args->files->nreaders ) error("The index is out of range: %d (%s)\n", i, args->write_files);
@@ -271,8 +333,8 @@ static void init_data(args_t *args)
         // Open output files and write the legend
         if ( args->isec_op==OP_VENN )
         {
-            args->fh_out = (htsFile**) malloc(sizeof(htsFile*)*3);
-            args->fnames = (char**) calloc(3,sizeof(char*));
+            args->fh_out = (htsFile**) malloc(sizeof(htsFile*)*4);
+            args->fnames = (char**) calloc(4,sizeof(char*));
 
             #define OPEN_FILE(i,j) { \
                 open_file(&args->fnames[i], NULL, "%s/%04d.%s", args->prefix, i, suffix); \
@@ -294,12 +356,12 @@ static void init_data(args_t *args)
             if ( !args->nwrite || args->write[0] )
             {
                 OPEN_FILE(2,0);
-                fprintf(args->fh_log,"%s\tfor records shared by both\t%s %s\n", args->fnames[2], args->files->readers[0].fname, args->files->readers[1].fname);
+                fprintf(args->fh_log,"%s\tfor records from %s shared by both\t%s %s\n", args->fnames[2], args->files->readers[0].fname, args->files->readers[0].fname, args->files->readers[1].fname);
             }
-            else if ( args->nwrite && args->write[1] )
+            if ( !args->nwrite || args->write[1] )
             {
-                OPEN_FILE(2,1);
-                fprintf(args->fh_log,"%s\tfor records shared by both\t%s %s\n", args->fnames[2], args->files->readers[1].fname, args->files->readers[0].fname);
+                OPEN_FILE(3,1);
+                fprintf(args->fh_log,"%s\tfor records from %s shared by both\t%s %s\n", args->fnames[3], args->files->readers[1].fname, args->files->readers[0].fname, args->files->readers[1].fname);
             }
         }
         else
@@ -333,10 +395,22 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    int i;
+    if ( args->nflt )
+    {
+        for (i=0; i<args->nflt; i++)
+        {
+            if ( !args->flt[i] ) continue;
+            filter_destroy(args->flt[i]);
+        }
+        free(args->flt_expr);
+        free(args->flt);
+        free(args->flt_logic);
+    }
     if ( args->prefix )
     {
         fclose(args->fh_log);
-        int i, n = args->isec_op==OP_VENN ? 3 : args->files->nreaders;
+        int n = args->isec_op==OP_VENN ? 4 : args->files->nreaders;
         for (i=0; i<n; i++)
         {
             if ( !args->fnames[i] ) continue;
@@ -366,22 +440,27 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools isec [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -c, --collapse <string>           treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
-    fprintf(stderr, "    -C, --complement                  output positions present only in the first file but missing in the others\n");
-    fprintf(stderr, "    -f, --apply-filters <list>        require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -n, --nfiles [+-=]<int>           output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
-    fprintf(stderr, "    -o, --output <file>               write output to a file [standard output]\n");
-    fprintf(stderr, "    -O, --output-type <b|u|z|v>       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "    -p, --prefix <dir>                if given, subset each of the input files accordingly, see also -w\n");
-    fprintf(stderr, "    -r, --regions <region>            restrict to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file <file>         restrict to regions listed in a file\n");
-    fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "    -w, --write <list>                list of files to write with -p given as 1-based indexes. By default, all files are written\n");
+    fprintf(stderr, "    -c, --collapse <string>       treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
+    fprintf(stderr, "    -C, --complement              output positions present only in the first file but missing in the others\n");
+    fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true\n");
+    fprintf(stderr, "    -f, --apply-filters <list>    require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
+    fprintf(stderr, "    -n, --nfiles [+-=]<int>       output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
+    fprintf(stderr, "    -o, --output <file>           write output to a file [standard output]\n");
+    fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -p, --prefix <dir>            if given, subset each of the input files accordingly, see also -w\n");
+    fprintf(stderr, "    -r, --regions <region>        restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>     restrict to regions listed in a file\n");
+    fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -w, --write <list>            list of files to write with -p given as 1-based indexes. By default, all files are written\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
     fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # Filter sites in A and B (but not in C) and create intersection\n");
+    fprintf(stderr, "   bcftools isec -e'MAF<0.01' -i'dbSNP=1' -e - A.vcf.gz B.vcf.gz C.vcf.gz -p dir\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "   # Extract and write records from A shared by both A and B using exact allele match\n");
     fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir -n =2 -w 1\n");
@@ -405,6 +484,8 @@ int main_vcfisec(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"help",0,0,'h'},
+        {"exclude",1,0,'e'},
+        {"include",1,0,'i'},
         {"collapse",1,0,'c'},
         {"complement",0,0,'C'},
         {"apply-filters",1,0,'f'},
@@ -419,7 +500,7 @@ int main_vcfisec(int argc, char *argv[])
         {"output-type",1,0,'O'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -449,6 +530,8 @@ int main_vcfisec(int argc, char *argv[])
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'p': args->prefix = optarg; break;
             case 'w': args->write_files = optarg; break;
+            case 'i': add_filter(args, optarg, FLT_INCLUDE); break;
+            case 'e': add_filter(args, optarg, FLT_EXCLUDE); break;
             case 'n':
                 {
                     char *p = optarg;
@@ -483,7 +566,7 @@ int main_vcfisec(int argc, char *argv[])
     args->files->require_index = 1;
     while (optind<argc)
     {
-        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open: %s\n", argv[optind]);
+        if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
         optind++;
     }
     init_data(args);

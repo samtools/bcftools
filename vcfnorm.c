@@ -804,8 +804,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
         for (j=0; j<ngts; j++)
         {
             if ( gt[j]==bcf_int32_vector_end ) break;
-            if ( gt[j]==bcf_int32_missing && bcf_gt_allele(gt[j])==0 ) continue;
-            if ( gt[j]==0 ) continue;   // missing allele: leave as is
+            if ( bcf_gt_is_missing(gt[j]) || bcf_gt_allele(gt[j])==0 ) continue; // missing allele or ref: leave as is
             if ( bcf_gt_allele(gt[j])==ialt+1 )
                 gt[j] = bcf_gt_unphased(1) | bcf_gt_is_phased(gt[j]); // set to first ALT
             else
@@ -827,6 +826,11 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         type_t *vals = (type_t *) args->tmp_arr1; \
         int len = bcf_hdr_id2length(args->hdr,BCF_HL_FMT,fmt->id); \
         int i, nsmpl = bcf_hdr_nsamples(args->hdr); \
+        if ( nvals==nsmpl ) /* all values are missing */ \
+        { \
+            bcf_update_format_##type(args->hdr,dst,tag,vals,nsmpl); \
+            return; \
+        } \
         if ( len==BCF_VL_A ) \
         { \
             assert( nvals==(src->n_allele-1)*nsmpl); \
@@ -856,7 +860,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         } \
         else if ( len==BCF_VL_G ) \
         { \
-            assert( nvals==src->n_allele*(src->n_allele+1)/2*nsmpl || nvals==src->n_allele*nsmpl ); \
+            if ( nvals!=src->n_allele*(src->n_allele+1)/2*nsmpl && nvals!=src->n_allele*nsmpl ) \
+                error("Error at %s:%d, the tag %s has wrong number of fields\n", bcf_seqname(args->hdr,src),src->pos+1,bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id)); \
             nvals /= nsmpl; \
             int all_haploid = nvals==src->n_allele ? 1 : 0; \
             type_t *src_vals = vals, *dst_vals = vals; \
@@ -1168,7 +1173,7 @@ static void merge_info_flag(args_t *args, bcf1_t **lines, int nlines, bcf_info_t
     int ret = bcf_get_info_flag(args->hdr,lines[0],tag,&args->tmp_arr1,&args->ntmp_arr1);
     bcf_update_info_flag(args->hdr,dst,tag,NULL,ret);
 }
-void copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst); // see vcfmerge.c
+int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst); // see vcfmerge.c
 static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info_t *info, bcf1_t *dst)
 {
     const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,info->key);
@@ -1254,7 +1259,7 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
             for (k=0; k<ngts; k++)
             {
                 if ( gt2[k]==bcf_int32_vector_end ) break;
-                if ( gt2[k]==bcf_int32_missing || bcf_gt_allele(gt2[k])==0 ) continue;
+                if ( bcf_gt_is_missing(gt2[k]) || bcf_gt_allele(gt2[k])==0 ) continue;
                 if ( gt2[k]==0 ) gt[k] = 0; // missing genotype
                 else
                 {
@@ -1799,7 +1804,7 @@ static void normalize_vcf(args_t *args)
         if ( ilast>=0 && line->rid != args->lines[ilast]->rid ) flush_buffer(args, out, args->rbuf.n); // new chromosome
 
         // insert into sorted buffer
-        i = j = ilast = rbuf_add(&args->rbuf);
+        i = j = ilast = rbuf_append(&args->rbuf);
         if ( !args->lines[i] ) args->lines[i] = bcf_init1();
         SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->lines[i]);
         while ( rbuf_prev(&args->rbuf,&i) )
@@ -1830,7 +1835,7 @@ static void usage(void)
     fprintf(stderr, "About:   Left-align and normalize indels; check if REF alleles match the reference;\n");
     fprintf(stderr, "         split multiallelic sites into multiple rows; recover multiallelics from\n");
     fprintf(stderr, "         multiple rows.\n");
-    fprintf(stderr, "Usage:   bcftools norm [options] -f <ref.fa> <in.vcf.gz>\n");
+    fprintf(stderr, "Usage:   bcftools norm [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -c, --check-ref <e|w|x>           check REF alleles and exit (e), warn (w), exclude (x) bad sites [e]\n");
@@ -1880,6 +1885,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"strict-filter",0,0,'s'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "hr:R:f:w:Do:O:c:m:t:T:s",loptions,NULL)) >= 0) {
         switch (c) {
             case 'm':
@@ -1917,7 +1923,10 @@ int main_vcfnorm(int argc, char *argv[])
             case 'R': args->region = optarg; region_is_file = 1; break;
             case 't': args->targets = optarg; break;
             case 'T': args->targets = optarg; targets_is_file = 1; break;
-            case 'w': args->buf_win = atoi(optarg); break;
+            case 'w':
+                args->buf_win = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --site-win %s\n", optarg);
+                break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
@@ -1944,7 +1953,7 @@ int main_vcfnorm(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->targets);
     }
 
-    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open or the file not indexed: %s\n", fname);
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
     if ( args->mrows_op&MROWS_SPLIT && args->rmdup ) error("Cannot combine -D and -m-\n");
     init_data(args);
     normalize_vcf(args);

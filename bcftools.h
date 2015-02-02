@@ -28,11 +28,36 @@ THE SOFTWARE.  */
 #include <stdarg.h>
 #include <htslib/vcf.h>
 
+#define FT_GZ 1
+#define FT_VCF 2
+#define FT_VCF_GZ (FT_GZ|FT_VCF)
+#define FT_BCF (1<<2)
+#define FT_BCF_GZ (FT_GZ|FT_BCF)
+#define FT_STDIN (1<<3)
+
 char *bcftools_version(void);
 void error(const char *format, ...);
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd);
 const char *hts_bcf_wmode(int file_type);
 
 void *smalloc(size_t size);     // safe malloc
+
+static inline char gt2iupac(char a, char b)
+{
+    static const char iupac[4][4] = { {'A','M','R','W'},{'M','C','S','Y'},{'R','S','G','K'},{'W','Y','K','T'} };
+    if ( a>='a' ) a -= 'a' - 'A';
+    if ( b>='a' ) b -= 'a' - 'A';
+    if ( a=='A' ) a = 0;
+    else if ( a=='C' ) a = 1;
+    else if ( a=='G' ) a = 2;
+    else if ( a=='T' ) a = 3;
+    else return 'N';
+    if ( b=='A' ) b = 0;
+    else if ( b=='C' ) b = 1;
+    else if ( b=='G' ) b = 2;
+    else if ( b=='T' ) b = 3;
+    else return 'N';
+    return iupac[(int)a][(int)b];
+}
 
 #endif

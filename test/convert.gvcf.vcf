@@ -1,0 +1,107 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GQX,Number=1,Type=Integer,Description="Minimum of {Genotype quality assuming variant position,Genotype quality assuming non-variant position}">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Float,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Filtered basecall depth used for site genotyping">
+##FORMAT=<ID=DPF,Number=1,Type=Integer,Description="Basecalls filtered from input prior to site genotyping">
+##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed. For indels this value only includes reads which confidently support each allele (posterior prob 0.999 or higher that read contains indicated allele vs all other intersecting indel alleles)">
+##FORMAT=<ID=DPI,Number=1,Type=Integer,Description="Read depth associated with indel, taken from the site preceding the indel.">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the region described in this record">
+##INFO=<ID=BLOCKAVG_min30p3a,Number=0,Type=Flag,Description="Non-variant site block. All sites in a block are constrained to be non-variant, have the same filter value, and have all sample values in range [x,y], y <= max(x+3,(x*1.3)). All printed site block sample values are the minimum observed in the region spanned by the block">
+##INFO=<ID=SNVSB,Number=1,Type=Float,Description="SNV site strand bias">
+##INFO=<ID=SNVHPOL,Number=1,Type=Integer,Description="SNV contextual homopolymer length">
+##INFO=<ID=CIGAR,Number=A,Type=String,Description="CIGAR alignment for each alternate indel allele">
+##INFO=<ID=RU,Number=A,Type=String,Description="Smallest repeating sequence unit extended or contracted in the indel allele relative to the reference. RUs are not reported if longer than 20 bases.">
+##INFO=<ID=REFREP,Number=A,Type=Integer,Description="Number of times RU is repeated in reference.">
+##INFO=<ID=IDREP,Number=A,Type=Integer,Description="Number of times RU is repeated in indel allele.">
+##FILTER=<ID=IndelConflict,Description="Locus is in region with conflicting indel calls">
+##FILTER=<ID=SiteConflict,Description="Site genotype conflicts with proximal indel call. This is typically a heterozygous SNV call made inside of a heterozygous deletion">
+##FILTER=<ID=LowGQX,Description="Locus GQX is less than 30 or not present">
+##FILTER=<ID=HighDPFRatio,Description="The fraction of basecalls filtered out at a site is greater than 0.3">
+##FILTER=<ID=HighSNVSB,Description="SNV strand bias value (SNVSB) exceeds 10">
+##FILTER=<ID=HighREFREP,Description="Locus contains an indel allele occurring in a homopolymer or dinucleotide track with a reference repeat greater than 8">
+##FILTER=<ID=HighDepth,Description="Locus depth is greater than 3x the mean chromosome depth">
+##reference=file:///illumina/scripts/clia/Genomes/Homo_sapiens/UCSC/hg19_rCRS/Sequence/WholeGenomeFasta/genome.fa
+##contig=<ID=chr22,length=51304566>
+##SnvTheta=0.001
+##IndelTheta=0.0001
+##MaxDepth_chr1=114.18
+##MaxDepth_chr10=131.73
+##MaxDepth_chr11=117.27
+##MaxDepth_chr12=116.97
+##MaxDepth_chr13=102.24
+##MaxDepth_chr14=101.55
+##MaxDepth_chr15=95.22
+##MaxDepth_chr16=111.33
+##MaxDepth_chr17=112.59
+##MaxDepth_chr18=121.86
+##MaxDepth_chr19=111.12
+##MaxDepth_chr2=121.83
+##MaxDepth_chr20=111.24
+##MaxDepth_chr21=98.43
+##MaxDepth_chr22=76.23
+##MaxDepth_chr3=120.09
+##MaxDepth_chr4=124.50
+##MaxDepth_chr5=119.82
+##MaxDepth_chr6=122.22
+##MaxDepth_chr7=120.27
+##MaxDepth_chr8=120.45
+##MaxDepth_chr9=102.48
+##MaxDepth_chrM=7005.66
+##MaxDepth_chrX=61.05
+##MaxDepth_chrY=37.17
+##FILTER=<ID=IndelSizeFilter,Description="Indel is outside reportable size range. Insertion range: [1,3], Deletion range: [1,11]">
+##gvcftools_version="0.16"
+##gvcftools_cmdline="/illumina/scripts/clia/workflows/IsisWorkflow/IsisWorkflow_v2.0.13/bin/set_haploid_region --ref /illumina/scripts/clia/Genomes/Homo_sapiens/UCSC/hg19_rCRS/Sequence/WholeGenomeFasta/genome.fa --region-file /illumina/scripts/clia/workflows/IsisWorkflow/IsisWorkflow_v2.0.13/bin/../data/het_mask/ncbi37/male.bed"
+##FILTER=<ID=HAPLOID_CONFLICT,Description="Locus has heterozygous genotype in a haploid region.">
+##FORMAT=<ID=OPL,Number=.,Type=Integer,Description="Original PL value before ploidy correction">
+##INFO=<ID=phastCons,Number=0,Type=Flag,Description="overlaps a phastCons element">
+##INFO=<ID=AA,Number=1,Type=String,Description="Ancestral Allele, ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/pilot_data/technical/reference/ancestral_alignments/README">
+##INFO=<ID=AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency based on AC/AN; Format: Allele:AlleleFrequency">
+##INFO=<ID=AMR_AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency for samples from AMR population based on AC/AN; Format: Allele:AlleleFrequency">
+##INFO=<ID=ASN_AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency for samples from ASN population based on AC/AN; Format: Allele:AlleleFrequency">
+##INFO=<ID=AFR_AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency for samples from AFR population based on AC/AN; Format: Allele:AlleleFrequency">
+##INFO=<ID=EUR_AF,Number=A,Type=String,Description="1000 Genomes Allele Frequency for samples from EUR population based on AC/AN; Format: Allele:AlleleFrequency">
+##INFO=<ID=CLNACC,Number=.,Type=String,Description="Accession and version number assigned by ClinVar to the genotype/phenotype relationship. Multiple entries for an allele are pipe-delimited">
+##INFO=<ID=CLNSIG,Number=.,Type=String,Description="String that describes the clinical significance. Possible values: unknown, untested, non-pathogenic, probable-non-pathogenic, probable-pathogenic, pathogenic, drug-response, histocompatibility, other. Multiple values are pipe-delimited">
+##INFO=<ID=CLNORIGIN,Number=.,Type=String,Description="String that describes the origin of the variant allele. Possible values: unknown, germline, somatic, inherited, paternal, maternal, de-novo, biparental, uniparental, not-tested, test-inconclusive, other. Multiple values for an allele are pipe-delimited">
+##INFO=<ID=CLNSRC,Number=.,Type=String,Description="Variant clinical source or channel. Multiple values for an allele are pipe-delimited">
+##INFO=<ID=CLNSRCID,Number=.,Type=String,Description="Identifier used by source defined in CLNSRC. Multiple values are pipe-delimited">
+##INFO=<ID=CLNGENEINFO,Number=.,Type=String,Description="Gene symbol(s) and NCBI GeneID(s). The gene symbol and ID are delimited by a colon and multiple such pairs are pipe-delimited, Example SYMBOL1:GeneID1|SYMBOL2:GeneID2">
+##INFO=<ID=CLNDBN,Number=.,Type=String,Description="Disease name used by the database specified by CLNSRC. Values corresponding to each CLNACC entry are pipe-delimited">
+##INFO=<ID=CLNDSDB,Number=.,Type=String,Description="Colon-delimited list of variant disease database name(s). Multiple values from a single database are pipe-delimited">
+##INFO=<ID=CLNDSDBID,Number=.,Type=String,Description="Colon-delimited list of variant disease database identifier(s). Multiple values from a single database are pipe-delimited">
+##INFO=<ID=CSQ,Number=A,Type=String,Description="Consequence type as predicted by VEP. Format: Allele|Gene|Feature|Feature_type|Consequence|cDNA_position|CDS_position|Protein_position|Amino_acids|Codons|Existing_variation|EXON|INTRON|HGNC|MOTIF_NAME|MOTIF_POS|HIGH_INF_POS|MOTIF_SCORE_CHANGE|DISTANCE|CANONICAL|SIFT|PolyPhen|GMAF|ENSP|DOMAINS|CCDS|HGVSc|HGVSp|CELL_TYPE">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE99
+chr22	1	.	N	.	0	LowGQX	END=16050039;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	.:.:0:0
+chr22	16050040	.	C	.	0	LowGQX	END=16050050;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:5:2:0
+chr22	16050051	.	C	.	0	LowGQX	END=16050056;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:10:4:0
+chr22	16050057	.	C	.	0	LowGQX	END=16050072;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:15:6:0
+chr22	16050073	.	G	.	0	LowGQX	END=16050080;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:21:8:0
+chr22	16050081	.	C	.	0	PASS	END=16050085;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:30:11:0
+chr22	16050086	.	G	.	0	PASS	END=16050102;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:42:15:0
+chr22	16050103	.	T	.	0	PASS	END=16050115;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:54:19:0
+chr22	16050116	.	G	C	23	LowGQX	SNVSB=0;SNVHPOL=2	GT:GQ:GQX:DP:DPF:AD	0/1:56:23:22:0:16,6
+chr22	16050117	.	T	.	0	PASS	END=16050131;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:69:24:0
+chr22	16050132	.	A	.	0	PASS	END=16050170;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:84:29:0
+chr22	16050171	.	G	.	0	PASS	END=16050215;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:90:31:0
+chr22	16050216	.	T	.	0	PASS	END=16050217;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:93:32:2
+chr22	16050218	.	T	.	0	PASS	END=16050234;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:102:35:0
+chr22	16050235	.	T	.	0	PASS	.	GT:GQX:DP:DPF	0/0:72:36:0
+chr22	16050236	.	T	.	0	PASS	END=16050261;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:87:30:0
+chr22	16050262	.	A	.	0	PASS	END=16050279;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:66:23:0
+chr22	16050280	.	G	.	0	PASS	END=16050287;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:87:30:0
+chr22	16050288	.	A	.	0	PASS	END=16050299;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:114:39:0
+chr22	16050300	.	G	.	0	PASS	END=16050309;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:150:51:0
+chr22	16050310	.	A	.	0	PASS	END=16050344;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:166:63:0
+chr22	16050345	.	C	.	0	PASS	END=16050346;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:220:74:0
+chr22	16050347	.	T	.	0	HighDepth	END=16050372;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:229:77:0
+chr22	16050373	.	T	.	0	HighDepth	END=16050407;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:241:81:0
+chr22	16050408	.	T	.	0	HighDepth	END=16050414;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:200:75:0
+chr22	16050415	.	G	.	0	PASS	END=16050418;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:217:73:0
+chr22	16050419	.	C	.	0	HighDepth	END=16050420;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:223:75:0
+chr22	16050421	.	T	.	0	PASS	.	GT:GQX:DP:DPF	0/0:223:75:1
+chr22	16050422	.	T	.	0	HighDepth	END=16050427;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:223:75:0
+chr22	16050428	.	T	.	0	PASS	END=16050450;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:178:60:0
+chr22	16050451	.	C	.	0	PASS	END=16050466;BLOCKAVG_min30p3a	GT:GQX:DP:DPF	0/0:142:54:0
