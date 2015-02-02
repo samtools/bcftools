@@ -71,7 +71,7 @@ INSTALL_DIR     = $(MKDIR_P) -m 755
 all:$(PROG) plugins
 
 # See htslib/Makefile
-PACKAGE_VERSION = 1.1
+PACKAGE_VERSION = 1.2
 ifneq "$(wildcard .git)" ""
 PACKAGE_VERSION := $(shell git describe --always --dirty)
 DOC_VERSION :=  $(shell git describe --always)+
