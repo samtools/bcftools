@@ -419,7 +419,9 @@ static void process_gt_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         if ( j==2 )
         {
             // diploid
-            if ( bcf_gt_allele(ptr[0])!=bcf_gt_allele(ptr[1]) )
+            if ( bcf_gt_is_missing(ptr[0]) )
+                kputs(" 0.33 0.33 0.33", str);
+            else if ( bcf_gt_allele(ptr[0])!=bcf_gt_allele(ptr[1]) )
                 kputs(" 0 1 0", str);       // HET
             else if ( bcf_gt_allele(ptr[0])==1 )
                 kputs(" 0 0 1", str);       // ALT HOM, first ALT allele
