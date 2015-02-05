@@ -170,6 +170,14 @@ static void init_plugin_paths(args_t *args)
     }
     else
         args->nplugin_paths = 0;
+
+#ifdef PKG_LIBEXEC_DIR
+    if (!args->plugin_paths)
+        args->plugin_paths = (char**) malloc(sizeof(char*));
+
+    args->plugin_paths[args->nplugin_paths] = PKG_LIBEXEC_DIR;
+    args->nplugin_paths++;
+#endif
 }
 
 static void *dlopen_plugin(args_t *args, const char *fname)
