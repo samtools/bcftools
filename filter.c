@@ -587,7 +587,7 @@ static void filters_set_alt_string(filter_t *flt, bcf1_t *line, token_t *tok)
         else
             kputc('.', &str);
     }
-    else
+    else if ( line->n_allele>1 )
     {
         kputs(line->d.allele[1], &str);
         int i;
