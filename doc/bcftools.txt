@@ -1569,7 +1569,8 @@ Convert between VCF and BCF. Former *bcftools subset*.
     comma-separated list of variant types to exclude
 
 *-x, --private*::
-    print sites where only the subset samples carry an non-reference allele
+    print sites where only the subset samples carry an non-reference allele.
+    This argument has no effect without either --samples or --samples-file.
 
 *-X, --exclude-private*::
     exclude sites where only the subset samples carry an non-reference allele
