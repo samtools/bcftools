@@ -185,6 +185,7 @@ static void init_data(args_t *args)
                 else if (strcmp(type_list[i], "other") == 0) args->include |= VCF_OTHER;
                 else {
                     fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
+                    fprintf(stderr, "Accepted types are snps, indels, mnps, other\n", type_list[i]);
                     exit(1);
                 }
             }
@@ -198,6 +199,7 @@ static void init_data(args_t *args)
                 else if (strcmp(type_list[i], "other") == 0) args->exclude |= VCF_OTHER;
                 else {
                     fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
+                    fprintf(stderr, "Accepted types are snps, indels, mnps, other\n", type_list[i]);
                     exit(1);
                 }
             }
