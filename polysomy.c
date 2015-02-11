@@ -59,7 +59,7 @@ dist_t;
 
 typedef struct
 {
-    int ndist, nbins;
+    int ndist, nbins, ra_rr_scaling;
     double *xvals;
     dist_t *dist;
     char **argv, *output_dir;
@@ -72,7 +72,7 @@ args_t;
 
 FILE *open_file(char **fname, const char *mode, const char *fmt, ...);
 
-static void init_dist(dist_t *dist, int verbose)
+static void init_dist(args_t *args, dist_t *dist, int verbose)
 {
     // isolate RR and AA peaks and rescale so that they are comparable to hets
     int i, irr, iaa, n = dist->nvals;
@@ -123,6 +123,7 @@ static void init_dist(dist_t *dist, int verbose)
     //  Y:  cn=0     ra/rr=0.008316      aa/ra=7.250000      nra=12
     //  MT: cn=0     ra/rr=0.013699      aa/ra=0.666667      nra=3
 
+    if ( !args->ra_rr_scaling ) max_ra = max_aa = max_rr;
     if ( !sra || (sra/srr<0.1 && saa/sra>1.0) )
     {
         max_ra = max_aa;
@@ -208,7 +209,7 @@ static void init_data(args_t *args)
     bcf_sr_destroy(files);
 
     for (idist=0; idist<args->ndist; idist++)
-        init_dist(&args->dist[idist],args->verbose);
+        init_dist(args, &args->dist[idist],args->verbose);
 
     args->dat_fp = open_file(&args->dat_fname,"w","%s/dist.dat", args->output_dir);
     fprintf(args->dat_fp, "# This file was produced by: bcftools polysomy(%s+htslib-%s), the command line was:\n", bcftools_version(),hts_version());
@@ -293,13 +294,18 @@ static void init_data(args_t *args)
         "   plt.savefig(outdir+'/copy-number.png')\n"
         "   plt.close()\n"
         "\n"
+        "class myParser(argparse.ArgumentParser):\n"
+        "   def error(self, message):\n"
+        "       self.print_help()\n"
+        "       sys.stderr.write('error: %%s\\n' %% message)\n"
+        "       sys.exit(2)\n"
+        "\n"
         "def main():\n"
-        "   parser = argparse.ArgumentParser()\n"
+        "   parser = myParser()\n"
         "   parser.add_argument('-a', '--all', action='store_true', help='Create all plots')\n"
         "   parser.add_argument('-c', '--copy-number', action='store_true', help='Create copy-number plot')\n"
         "   parser.add_argument('-d', '--distrib', metavar='CHR', help='Plot BAF distribution of a single chromosome')\n"
         "   args = parser.parse_args()\n"
-        "   if args.distrib==None and not args.all and not args.copy_number: parser.print_help()\n"
         "   dat = {}; fit = {}; cn = {}\n"
         "   read_dat(dat,fit,cn)\n"
         "   if args.distrib!=None:\n"
@@ -309,6 +315,8 @@ static void init_data(args_t *args)
         "       plot_copy_number(cn)\n"
         "   elif args.copy_number:\n"
         "       plot_copy_number(cn)\n"
+        "   else:\n"
+        "       for chr in dat: plot_dist(dat,fit,chr)\n"
         "\n"
         "if __name__ == '__main__':\n"
         "   main()\n",
@@ -611,9 +619,11 @@ int main_polysomy(int argc, char *argv[])
     args->fit_th = 3.0;
     args->cn_penalty = 0.7;
     args->peak_symmetry = 0.7;
+    args->ra_rr_scaling = 1;
 
     static struct option loptions[] = 
     {
+        {"ra-rr-scaling",0,0,1},    // hidden option
         {"verbose",0,0,'v'},
         {"fit-th",1,0,'f'},
         {"cn-penalty",1,0,'c'},
@@ -631,6 +641,7 @@ int main_polysomy(int argc, char *argv[])
     {
         switch (c) 
         {
+            case  1 : args->ra_rr_scaling = 0; break;
             case 'f': 
                 args->fit_th = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -f %s\n", optarg);
