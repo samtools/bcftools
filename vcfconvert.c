@@ -679,7 +679,7 @@ static void vcf_to_gensample(args_t *args)
     }
 
     int prev_rid = -1, prev_pos = -1;
-    int no_alt = 0, non_biallelic = 0, filtered = 0, ndup = 0;
+    int no_alt = 0, non_biallelic = 0, filtered = 0, ndup = 0, nok = 0;
     BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "wg" : "wu");
     while ( bcf_sr_next_line(args->files) )
     {
@@ -713,10 +713,11 @@ static void vcf_to_gensample(args_t *args)
         {
             int ret = bgzf_write(gout, str.s, str.l);
             if ( ret!= str.l ) error("Error writing %s: %s\n", gen_fname,strerror(errno));
+            nok++;
         }
     }
-    fprintf(stderr, "%d records skipped: %d/%d/%d/%d no-ALT/non-biallelic/filtered/duplicated\n", 
-        no_alt+non_biallelic+filtered+ndup, no_alt, non_biallelic, filtered, ndup);
+    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d/%d no-ALT/non-biallelic/filtered/duplicated\n", 
+        nok, no_alt+non_biallelic+filtered+ndup, no_alt, non_biallelic, filtered, ndup);
 
     if ( str.m ) free(str.s);
     if ( bgzf_close(gout)!=0 ) error("Error closing %s: %s\n", gen_fname,strerror(errno));
@@ -804,7 +805,7 @@ static void vcf_to_haplegendsample(args_t *args)
         if ( ret != str.l ) error("Error writing %s: %s\n", legend_fname, strerror(errno));
     }
 
-    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    int no_alt = 0, non_biallelic = 0, filtered = 0, nok = 0;
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
@@ -845,8 +846,9 @@ static void vcf_to_haplegendsample(args_t *args)
             ret = bgzf_write(lout, str.s, str.l);
             if ( ret != str.l ) error("Error writing %s: %s\n", legend_fname, strerror(errno));
         }
+        nok++;
     }
-    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
+    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", nok,no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
     if ( str.m ) free(str.s);
     if ( hout && bgzf_close(hout)!=0 ) error("Error closing %s: %s\n", hap_fname, strerror(errno));
     if ( lout && bgzf_close(lout)!=0 ) error("Error closing %s: %s\n", legend_fname, strerror(errno));
@@ -937,7 +939,7 @@ static void vcf_to_hapsample(args_t *args)
     // open haps output
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
 
-    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    int no_alt = 0, non_biallelic = 0, filtered = 0, nok = 0;
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
@@ -967,8 +969,9 @@ static void vcf_to_hapsample(args_t *args)
             ret = bgzf_write(hout, str.s, str.l); // write hap file
             if ( ret != str.l ) error("Error writing %s: %s\n", hap_fname, strerror(errno));
         }
+        nok++;
     }
-    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
+    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", nok, no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
     if ( str.m ) free(str.s);
     if ( hout && bgzf_close(hout)!=0 ) error("Error closing %s: %s\n", hap_fname, strerror(errno));
     if (hap_fname) free(hap_fname);
