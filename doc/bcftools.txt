@@ -162,6 +162,7 @@ specific commands to see if they apply.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
+    Using the -O u option when piping between bcftools subcommands leads to better performance.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Comma-separated list of regions, see also *-R, --regions-file*. Note
