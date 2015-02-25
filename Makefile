@@ -45,6 +45,8 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o version.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 INCLUDES = -I. -I$(HTSDIR)
+LDFLAGS  =
+LIBS     =
 
 # The polysomy command is not compiled by default because it brings dependency
 # on libgsl. The command can be compiled wth `make USE_GPL=1`. See the INSTALL
@@ -156,10 +158,10 @@ version.o: version.h version.c
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
-	$(CC) $(CFLAGS) -o $@ -lm -ldl $<
+	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $(LIBS) -lm -ldl $<
 
 bcftools: $(HTSLIB) $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LIBS) $(HTSLIB) -lpthread -lz -lm -ldl $(LDLIBS)
 
 doc/bcftools.1: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
