@@ -75,7 +75,7 @@ smpl_r_t;
 
 typedef struct
 {
-    int n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals, n_records;
+    int n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals, n_records, n_noalts;
     int *af_ts, *af_tv, *af_snps;   // first bin of af_* stats are singletons
     #if HWE_STATS
         int *af_hwe;
@@ -809,7 +809,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                     case GT_HOM_AA: nalt_tot++; break;
                 }
             #endif
-            if ( line_type&VCF_SNP )
+            if ( line_type&VCF_SNP || line_type==VCF_REF )  // count ALT=. as SNP
             {
                 if ( gt == GT_HET_RA ) stats->smpl_hets[is]++;
                 else if ( gt == GT_HET_AA ) stats->smpl_hets[is]++;
@@ -1019,6 +1019,8 @@ static void do_vcf_stats(args_t *args)
 
         stats->n_records++;
 
+        if ( line_type==VCF_REF )
+            stats->n_noalts++;
         if ( line_type&VCF_SNP )
             do_snp_stats(args, stats, reader);
         if ( line_type&VCF_INDEL )
@@ -1095,6 +1097,7 @@ static void print_stats(args_t *args)
     {
         stats_t *stats = &args->stats[id];
         printf("SN\t%d\tnumber of records:\t%d\n", id, stats->n_records);
+        printf("SN\t%d\tnumber of no-ALTs:\t%d\n", id, stats->n_noalts);
         printf("SN\t%d\tnumber of SNPs:\t%d\n", id, stats->n_snps);
         printf("SN\t%d\tnumber of MNPs:\t%d\n", id, stats->n_mnps);
         printf("SN\t%d\tnumber of indels:\t%d\n", id, stats->n_indels);

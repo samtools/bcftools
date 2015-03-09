@@ -5,6 +5,7 @@
 # SN	[2]id	[3]key	[4]value
 SN	0	number of samples:	2
 SN	0	number of records:	18
+SN	0	number of no-ALTs:	1
 SN	0	number of SNPs:	5
 SN	0	number of MNPs:	1
 SN	0	number of indels:	9
@@ -70,8 +71,8 @@ DP	0	32	4	11.111111	0	0.000000
 DP	0	35	4	11.111111	0	0.000000
 # PSC, Per-sample counts
 # PSC	[2]id	[3]sample	[4]nRefHom	[5]nNonRefHom	[6]nHets	[7]nTransitions	[8]nTransversions	[9]nIndels	[10]average depth	[11]nSingletons
-PSC	0	A	0	2	3	3	2	9	28.7	1
-PSC	0	B	1	1	3	2	2	9	28.7	0
+PSC	0	A	0	2	4	3	2	9	28.7	1
+PSC	0	B	1	1	4	2	2	9	28.7	0
 # HWE
 # HWE	[2]id	[3]1st ALT allele frequency	[4]Number of observations	[5]25th percentile	[6]median	[7]75th percentile
 HWE	0	0.000000	2	0.490000	0.490000	0.990000
