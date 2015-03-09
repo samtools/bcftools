@@ -664,7 +664,12 @@ static void filters_set_ac(filter_t *flt, bcf1_t *line, token_t *tok)
     if ( tok->idx>=0 )
     {
         tok->nvalues = 1;
-        tok->values[0] = flt->tmpi[tok->idx+1];
+        tok->values[0] = tok->idx+1<line->n_allele ? flt->tmpi[tok->idx+1] : 0;
+    }
+    else if ( line->n_allele==1 )   // no ALT
+    {
+        tok->nvalues = 1;
+        tok->values[0] = 0;
     }
     else
     {
