@@ -99,7 +99,7 @@ static void plot_check(args_t *args, char *target_sample, char *query_sample)
             "fig,ax1 = plt.subplots(figsize=(8,5))\n"
             "ax2 = ax1.twinx()\n"
             "plots  = ax1.plot([x[0] for x in dat],'o-', ms=3, color='g', mec='g', label='Discordance (total)')\n"
-            "plots += ax1.plot([x[1] for x in dat], '^', ms=3, color='r', mec='r', label='Discordance (per site)')\n"
+            "plots += ax1.plot([x[1] for x in dat], '^', ms=3, color='r', mec='r', label='Discordance (avg per site)')\n"
             "plots += ax2.plot([x[2] for x in dat],'v', ms=3, color='k', label='Number of sites')\n"
             "if iq!=-1:\n"
             "   ax1.plot([iq],[dat[iq][0]],'o',color='orange', ms=9)\n"
@@ -496,7 +496,7 @@ static void check_gt(args_t *args)
     for (i=0; i<nsamples; i++) p[i] = &args->lks[i];
     qsort(p, nsamples, sizeof(int*), cmp_doubleptr);
 
-    fprintf(fp, "# [1]CN\t[2]Discordance with %s (total)\t[3]Discordance (score per site)\t[4]Number of sites compared\t[5]Sample\t[6]Sample ID\n", args->sm_hdr->samples[query_isample]);
+    fprintf(fp, "# [1]CN\t[2]Discordance with %s (total)\t[3]Discordance (avg score per site)\t[4]Number of sites compared\t[5]Sample\t[6]Sample ID\n", args->sm_hdr->samples[query_isample]);
     for (i=0; i<nsamples; i++)
     {
         int idx = p[i] - args->lks;
