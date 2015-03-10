@@ -408,8 +408,18 @@ static void check_gt(args_t *args)
         if ( !fake_pls )
         {
             if ( (npl=bcf_get_format_int32(args->sm_hdr, sm_line, "PL", &args->pl_arr, &args->npl_arr)) <= 0 )
-                error("PL not present at %s:%d?", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
-            npl /= bcf_hdr_nsamples(args->sm_hdr);
+            {
+                if ( sm_line->n_allele==1 )
+                {
+                    // PL values may not be present when ALT=. (mpileup/bcftools output), in that case 
+                    // switch automatically to GT at these sites
+                    npl = fake_PLs(args, args->sm_hdr, sm_line);
+                }
+                else
+                    error("PL not present at %s:%d?\n", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
+            }
+            else
+                npl /= bcf_hdr_nsamples(args->sm_hdr);
         }
         else
             npl = fake_PLs(args, args->sm_hdr, sm_line);
