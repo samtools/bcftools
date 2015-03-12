@@ -35,24 +35,15 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include "bcftools.h"
+#include "peakfit.h"
 
 typedef struct
 {
-    int nvals;      // number of data points to fit against (excluding RR,AA peaks)
-    double *xvals;  // xvalues, pointer to dist_t.xvals
-    double *yvals;  // yvalues, pointer to dist_t.yvals
-    int ngauss;     // number of gaussian functions
-}
-data_t;
-
-typedef struct
-{
-    data_t dat;
     int nvals;          // all values, including RR,AA peaks
     double *xvals;      // pointer to args_t.xvals
     double *yvals;   
     int copy_number;    // heuristics to skip futile CN1 fits when no het peak is detected
-    int irr, iaa;       // chop off RR and AA peaks
+    int irr, ira, iaa;  // chop off RR and AA peaks
     char *chr;
 }
 dist_t;
@@ -63,8 +54,8 @@ typedef struct
     double *xvals;
     dist_t *dist;
     char **argv, *output_dir;
-    double fit_th, peak_symmetry, cn_penalty;
-    int argc, plot, verbose, regions_is_file, targets_is_file;
+    double fit_th, peak_symmetry, cn_penalty, bump_size, min_fraction;
+    int argc, plot, verbose, regions_is_file, targets_is_file, include_aa;
     char *dat_fname, *fname, *regions_list, *targets_list, *sample;
     FILE *dat_fp;
 }
@@ -77,9 +68,9 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     // isolate RR and AA peaks and rescale so that they are comparable to hets
     int i, irr, iaa, n = dist->nvals;
 
-    // smooth the distribution
+    // smooth the distribution, this is just to find the peaks
     double *tmp = (double*) malloc(sizeof(double)*n);
-    int win = 0.02*n < 1 ? 1 : 0.02*n;
+    int win = 0.04*n < 1 ? 1 : 0.04*n;
     double avg = 0;
     for (i=0; i<win; i++) avg += dist->yvals[i];
     for (i=0; i<n-win; i++)
@@ -94,8 +85,16 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     for (iaa=n-1,i=n-1; i>=n/2; i--) if ( tmp[i] < tmp[iaa] ) iaa = i;
     irr += win*0.5;
     iaa += win*0.5;
+    if ( iaa>=n ) iaa = n-1;
     if ( irr>=iaa ) error("FIXME: oops, dist normalization failed for %s: %d vs %d\n", dist->chr,irr,iaa); // we may need to be smarter
     free(tmp);
+
+    // clean the data: the AA peak is occasionally not centered at 1.0 but is closer to the center, chop off
+    int imax_aa = iaa;
+    for (i=iaa; i<n; i++)
+        if ( dist->yvals[imax_aa] < dist->yvals[i] ) imax_aa = i;
+    dist->nvals = imax_aa+1;
+    if ( iaa>=dist->nvals ) iaa = dist->nvals-1;
 
     // find the maximum and scale the peaks (first draft: no attempt to join the segments smootly)
     double max_rr = 0, max_aa = 0, max_ra = 0, srr = 0, saa = 0, sra = 0;
@@ -124,7 +123,7 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     //  MT: cn=0     ra/rr=0.013699      aa/ra=0.666667      nra=3
 
     if ( !args->ra_rr_scaling ) max_ra = max_aa = max_rr;
-    if ( !sra || (sra/srr<0.1 && saa/sra>1.0) )
+    if ( !sra || (sra/srr<0.1 && saa/sra>1.0) ) // too few hets, CN1
     {
         max_ra = max_aa;
         dist->copy_number = 1;
@@ -138,12 +137,14 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     if ( max_ra ) for (i=irr; i<=iaa; i++) dist->yvals[i] /= max_ra;
     if ( max_aa ) for (i=iaa+1; i<n; i++) dist->yvals[i] /= max_aa;
 
-    dist->dat.yvals = &dist->yvals[irr];
-    dist->dat.xvals = &dist->xvals[irr];
-    dist->dat.nvals = iaa - irr + 1;
+    dist->irr = irr;
+    dist->iaa = iaa;
+    dist->ira = n*0.5;
 
     if ( verbose )
-        fprintf(stderr,"%s:\t cn=%2d \t ra/rr=%f \t aa/ra=%f \t nra=%d\n", dist->chr,dist->copy_number,sra/srr,saa/sra, (int)sra);
+        fprintf(stderr,"%s:\t irr,ira,iaa=%.2f,%.2f,%.2f \t cn=%2d \t ra/rr=%f \t aa/ra=%f \t nra=%d\n", 
+            dist->chr, dist->xvals[irr],dist->xvals[dist->ira],dist->xvals[iaa],
+            dist->copy_number,sra/srr,saa/sra, (int)sra);
 }
 
 static void init_data(args_t *args)
@@ -209,7 +210,17 @@ static void init_data(args_t *args)
     bcf_sr_destroy(files);
 
     for (idist=0; idist<args->ndist; idist++)
+    {
+        #if 0
+            int j;
+            for (j=0; j<args->nbins; j++)
+            {
+                double x = args->dist[idist].xvals[j];
+                args->dist[idist].yvals[j] = exp(-(x-0.5)*(x-0.5)/1e-3);
+            }
+        #endif
         init_dist(args, &args->dist[idist],args->verbose);
+    }
 
     args->dat_fp = open_file(&args->dat_fname,"w","%s/dist.dat", args->output_dir);
     fprintf(args->dat_fp, "# This file was produced by: bcftools polysomy(%s+htslib-%s), the command line was:\n", bcftools_version(),hts_version());
@@ -218,7 +229,7 @@ static void init_data(args_t *args)
         fprintf(args->dat_fp, " %s",args->argv[i]);
     fprintf(args->dat_fp,"\n#\n");
     fprintf(args->dat_fp,"# DIST\t[2]Chrom\t[3]BAF\t[4]Normalized Count\n");
-    fprintf(args->dat_fp,"# FIT\t[2]Chrom\t[3]Mean of fitted Gaussian\t[4]Scale\t[5]Sigma[6]\tMean etc.\n");
+    fprintf(args->dat_fp,"# FIT\t[2]Goodness of Fit\t[3]iFrom\t[4]iTo\t[5]The Fitted Function\n");
     fprintf(args->dat_fp,"# CN\t[2]Chrom\t[3]Estimated Copy Number\t[4]Absolute fit deviation\n");
 
     char *fname = NULL;
@@ -230,7 +241,8 @@ static void init_data(args_t *args)
         "import matplotlib as mpl\n"
         "mpl.use('Agg')\n"
         "import matplotlib.pyplot as plt\n"
-        "import csv,math,sys,argparse\n"
+        "import csv,sys,argparse\n"
+        "from math import exp\n"
         "\n"
         "outdir = '%s'\n"
         "\n"
@@ -247,27 +259,25 @@ static void init_data(args_t *args)
         "              dat[chr].append(row)\n"
         "          elif type=='FIT':\n"
         "              if chr not in fit: fit[chr] = []\n"
-        "              fit[chr] = row[2:]\n"
+        "              fit[chr].append(row)\n"
         "          elif type=='CN':\n"
         "              cn[chr] = row[2]\n"
         "\n"
-        "def fitted_func(xvals,params):\n"
-        "   n = len(params)/3\n"
-        "   out = []\n"
-        "   for x in xvals:\n"
-        "       y = 0\n"
-        "       for i in range(n):\n"
-        "           mean  = float(params[i*3+0])\n"
-        "           scale = float(params[i*3+1])\n"
-        "           sigma = float(params[i*3+2])\n"
-        "           y += scale * math.exp(-(float(x)-mean)**2/sigma**2)\n"
-        "       out.append(y)\n"
-        "   return out\n"
-        "\n"
         "def plot_dist(dat,fit,chr):\n"
         "   fig, ax = plt.subplots(1, 1, figsize=(7,5))\n"
-        "   ax.plot([x[2] for x in dat[chr]],[x[3] for x in dat[chr]],'-',label='Distribution')\n"
-        "   ax.plot([x[2] for x in dat[chr]],fitted_func([x[2] for x in dat[chr]], fit[chr]),'-',label='Best Fit')\n"
+        "   ax.plot([x[2] for x in dat[chr]],[x[3] for x in dat[chr]],'k-',label='Distribution')\n"
+        "   if chr in fit:\n"
+        "       for i in range(len(fit[chr])):\n"
+        "           pfit = fit[chr][i]\n"
+        "           exec('def xfit(x): return '+pfit[5])\n"
+        "           istart = int(pfit[3])\n"
+        "           iend   = int(pfit[4])+1\n"
+        "           vals   = dat[chr][istart:iend]\n"
+        "           args   = {}\n"
+        "           if i==0: args = {'label':'Target to Fit'}\n"
+        "           ax.plot([x[2] for x in vals],[x[3] for x in vals],'r-',**args)\n"
+        "           if i==0: args = {'label':'Best Fit'}\n"
+        "           ax.plot([x[2] for x in vals],[xfit(float(x[2])) for x in vals],'g-',**args)\n"
         "   ax.set_title('BAF distribution, chr'+chr)\n"
         "   ax.set_xlabel('BAF')\n"
         "   ax.set_ylabel('Frequency')\n"
@@ -341,253 +351,202 @@ static void destroy_data(args_t *args)
     fclose(args->dat_fp);
 }
 
-static void save_dist(args_t *args, int idist, int ngauss, double *params)
+static void save_dist(args_t *args, dist_t *dist)
 {
     int i;
     for (i=0; i<args->nbins; i++)
-        fprintf(args->dat_fp,"DIST\t%s\t%f\t%f\n",args->dist[idist].chr,args->dist[idist].xvals[i],args->dist[idist].yvals[i]);
-    fprintf(args->dat_fp,"FIT\t%s", args->dist[idist].chr);
-    for (i=0; i<ngauss*3; i++) fprintf(args->dat_fp,"\t%f", params[i]);
-    fprintf(args->dat_fp,"\n");
-}
-
-int func_f(const gsl_vector *params, void *data, gsl_vector *yvals)
-{
-    data_t *dat = (data_t *) data;
-
-    int i, j;
-    for (i=0; i<dat->nvals; i++)
-    {
-        double xi = dat->xvals[i];
-        double yi = 0;
-        for (j=0; j<dat->ngauss; j++)
-        {
-            double center = gsl_vector_get(params,j*3 + 0);
-            double scale  = gsl_vector_get(params,j*3 + 1);
-            double sigma  = gsl_vector_get(params,j*3 + 2);
-
-            double zi = (xi - center) / sigma;
-            yi += scale*scale * exp(-zi*zi);
-        }
-        gsl_vector_set(yvals, i, (yi - dat->yvals[i])/0.1);
-    }
-    return GSL_SUCCESS;
-}
-
-int func_df(const gsl_vector *params, void *data, gsl_matrix *jacobian)
-{
-    data_t *dat = (data_t *) data;
-
-    int i, j;
-    for (i=0; i<dat->nvals; i++)
-    {
-        // Jacobian matrix J(i,j) = dfi / dxj,
-        // where fi = (Yi - yi),
-        //       Yi = scale^2 * exp(-(center - xi)^2/sigma^2)
-        //
-
-        double xi = dat->xvals[i];
-        for (j=0; j<dat->ngauss; j++)
-        {
-            double center = gsl_vector_get(params,j*3 + 0);
-            double scale  = gsl_vector_get(params,j*3 + 1);
-            double sigma  = gsl_vector_get(params,j*3 + 2);
-
-            double zi = (xi - center) / sigma;
-            double ei = exp(-zi*zi);
-
-            gsl_matrix_set(jacobian, i, j*3 + 0, 2*scale*scale*(xi-center)/(sigma*sigma)*ei);
-            gsl_matrix_set(jacobian, i, j*3 + 1, 2*scale*ei);
-            gsl_matrix_set(jacobian, i, j*3 + 2, 2*scale*scale*(xi-center)*(xi-center)/(sigma*sigma*sigma)*ei);
-        }
-    }
-    return GSL_SUCCESS;
-}
-
-int func_set(const gsl_vector *params, void *data, gsl_vector *yvals, gsl_matrix *jacobian)
-{
-    func_f(params, data, yvals);
-    func_df(params, data, jacobian);
-    return GSL_SUCCESS;
-}
-static double eval_fit(int nvals, double *xvals, double *yvals, int ngauss, double *params)
-{
-    double sum = 0;
-    int i, j;
-    for (i=0; i<nvals; i++)
-    {
-        double yval = 0;
-        for (j=0; j<ngauss; j++)
-        {
-            double center = params[j*3 + 0];
-            double scale  = params[j*3 + 1];
-            double sigma  = params[j*3 + 2];
-            
-            double zi = (xvals[i] - center) / sigma;
-            yval += scale * exp(-zi*zi);
-        }
-        sum += fabs(yval - yvals[i]);
-    }
-    return sum;
-}
-
-static int gauss_fit(dist_t *dist, int ngauss, double *params)
-{
-    data_t *dat = &dist->dat;
-    dat->ngauss = ngauss;
-
-    gsl_multifit_function_fdf mfunc;
-    mfunc.f   = &func_f;
-    mfunc.df  = &func_df;
-    mfunc.fdf = &func_set;
-    mfunc.n   = dat->nvals;
-    mfunc.p   = ngauss*3;      // number of fitting parameters
-    mfunc.params = dat;
-
-    const gsl_multifit_fdfsolver_type *solver_type;
-    gsl_multifit_fdfsolver *solver;
-    gsl_vector_view vview = gsl_vector_view_array(params, mfunc.p);
-    solver_type = gsl_multifit_fdfsolver_lmsder;
-    solver = gsl_multifit_fdfsolver_alloc(solver_type, dat->nvals, mfunc.p);
-    gsl_multifit_fdfsolver_set(solver, &mfunc, &vview.vector);
-
-    int i, status;
-    size_t iter = 0;
-    do
-    {
-        status = gsl_multifit_fdfsolver_iterate(solver);
-        if ( status ) break;
-        status = gsl_multifit_test_delta(solver->dx, solver->x, 1e-4, 1e-4);
-    }
-    while (status == GSL_CONTINUE && iter++ < 500);
-
-    for (i=0; i<mfunc.p; i++)
-        params[i] = gsl_vector_get(solver->x, i);
-
-    gsl_multifit_fdfsolver_free(solver);
-    return iter>500 ? -1 : 0;
-}
-
-static double best_fit(args_t *args, dist_t *dist, int ngauss, double *params)
-{
-    if ( ngauss==1 )
-    {
-        gauss_fit(dist,ngauss,params);
-        params[1] *= params[1];
-        return eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, ngauss,params);
-    }
-
-    int i, j, n = 3;
-    int ipk = 3*(ngauss-1);
-    double delta = 0.5 * (params[ipk] - params[0]) / n;
-    double best_params[9], tmp_params[9], best_fit = HUGE_VAL;
-    for (i=0; i<n; i++)
-    {
-        memcpy(tmp_params,params,sizeof(double)*ngauss*3);
-        tmp_params[0]   += delta*i;
-        tmp_params[ipk] -= delta*i;
-        if ( gauss_fit(dist,ngauss,tmp_params)<0 ) continue;    // did not converge
-
-        for (j=0; j<ngauss; j++) tmp_params[j*3+1] *= tmp_params[j*3+1];
-
-        // From the nature of the data, we can assume that in presence of
-        // multiple peaks they will be placed symmetrically around 0.5. Also
-        // their size should be about the same. We evaluate the fit with this
-        // in mind.
-        double dx = fabs(0.5 - tmp_params[0]) + fabs(tmp_params[ipk] - 0.5);
-        tmp_params[0] = 0.5 - dx*0.5;
-        tmp_params[ipk] = 0.5 + dx*0.5;
-        double fit = eval_fit(dist->dat.nvals, dist->dat.xvals, dist->dat.yvals, ngauss, tmp_params);
-
-        if ( best_fit < fit ) continue;     // worse than previous
-        best_fit = fit;
-        memcpy(best_params,tmp_params,sizeof(double)*ngauss*3);
-    }
-    memcpy(params,best_params,sizeof(double)*ngauss*3);
-    return best_fit;
-}
-
-static void print_params(data_t *dat, int ngauss, double *params, float fit, float frac, char fail, char comment)
-{
-    int i, j;
-    printf("\t%c%c fit=%f frac=%.2f .. center,scale,sigma = ", comment,fail?fail:'o',fit,frac);
-    for (i=0; i<ngauss; i++)
-    {
-        if ( i!=0 ) printf("\t");
-        for (j=0; j<3; j++) printf(" %f", params[i*3+j]);
-    }
-    printf("\n");
+        fprintf(args->dat_fp,"DIST\t%s\t%f\t%f\n",dist->chr,dist->xvals[i],dist->yvals[i]);
 }
 static void fit_curves(args_t *args)
 {
-    int i;
+    peakfit_t *pkf = peakfit_init();
+    peakfit_verbose(pkf,args->verbose);
+
+    int i, nmc = 50;
     for (i=0; i<args->ndist; i++)
     {
         dist_t *dist = &args->dist[i];
+        save_dist(args, &args->dist[i]);
+
         if ( dist->copy_number!=0 )
         {
             fprintf(args->dat_fp,"CN\t%s\t%.2f\n", dist->chr,(float)dist->copy_number);
-            save_dist(args, i, 0, NULL);
             continue;
         }
 
-        // Parameters (center,scale,sigma) for gaussian peaks.
-        double params_cn2[] = { 1/2.,0.5,0.05 };
-        double params_cn3[] = { 1/3.,0.5,0.05, 2/3.,0.5,0.05 };
-        double params_cn4[] = { 1/4.,0.5,0.05, 1/2.,0.5,0.05, 3/4.,0.5,0.05 };
+        if ( args->verbose )
+            fprintf(stderr,"%s:\n", dist->chr);
 
-        double fit_cn2 = best_fit(args,&args->dist[i],1,params_cn2);
-        double fit_cn3 = best_fit(args,&args->dist[i],2,params_cn3);
-        double fit_cn4 = best_fit(args,&args->dist[i],3,params_cn4);
+        int nrr_aa  = dist->iaa - dist->irr + 1;
+        int nrr_ra  = dist->ira - dist->irr + 1;
+        int naa_max = dist->nvals - dist->iaa;
+        double xrr  = dist->xvals[dist->irr], *xrr_vals = &dist->xvals[dist->irr], *yrr_vals = &dist->yvals[dist->irr];
+        double xaa  = dist->xvals[dist->iaa], *xaa_vals = &dist->xvals[dist->iaa], *yaa_vals = &dist->yvals[dist->iaa];
+        double xra  = dist->xvals[dist->ira];
+        double xmax = dist->xvals[dist->nvals-1];
 
-        double dx_cn3  = fabs(params_cn3[0] - params_cn3[3]);
-        double dx_cn4  = fabs(params_cn4[0] - params_cn4[6]);
-        double dy_cn3  = params_cn3[1] > params_cn3[4] ? params_cn3[4]/params_cn3[1] : params_cn3[1]/params_cn3[4];
-        double dy_cn4a = params_cn4[1] > params_cn4[7] ? params_cn4[7]/params_cn4[1] : params_cn4[1]/params_cn4[7]; // side peaks
-        double ymax = params_cn4[1] > params_cn4[7] ? params_cn4[1] : params_cn4[7];
-        double dy_cn4b = ymax > params_cn4[4] ? params_cn4[4]/ymax : ymax/params_cn4[4];    // middle peak
+        // cn2: cn2a=AA peak, cn2b=RA peak
+        double cn2a_fit = 0;
+        char *cn2a_func = 0;
+        double cn2_params1[3] = {1,1,1} ,cn2_params2[3];
+        if ( args->include_aa )
+        {
+            peakfit_reset(pkf);
+            peakfit_add_exp(pkf, 1.0,1.0,0.2, 5);
+            peakfit_set_mc(pkf, 0.01,0.3,2,nmc);
+            peakfit_set_mc(pkf, 0.05,1.0,0,nmc);
+            cn2a_fit  = peakfit_run(pkf, naa_max, xaa_vals, yaa_vals);
+            cn2a_func = strdup(peakfit_sprint_func(pkf));
+            peakfit_get_params(pkf,0,cn2_params1,3);
+        }
+        peakfit_reset(pkf);
+        peakfit_add_gaussian(pkf, 1.0,0.5,0.03, 5);
+        double cn2b_fit = peakfit_run(pkf, nrr_aa,xrr_vals,yrr_vals);
+        char *cn2b_func = strdup(peakfit_sprint_func(pkf));
+        peakfit_get_params(pkf,0,cn2_params2,3);
+        double cn2_fit = cn2a_fit + cn2b_fit;
 
-        // Three peaks (CN4) are always a better fit than two (CN3) or one (CN2). Therefore
-        // check that peaks are well separated and that the peak sizes are reasonable
-        char cn2_fail = 0, cn3_fail = 0, cn4_fail = 0;
-        if ( fit_cn2 > args->fit_th ) cn2_fail = 'f';
+        // cn3: cn3a=AA peak, cn3b=RA peaks
+        double cn3a_fit = cn2a_fit;
+        char *cn3a_func = cn2a_func;
+        double cn3_params1[5], cn3_params2[5], *cn3_params3 = cn2_params1;
+        double min_dx3 = 0.5 - 1./(args->min_fraction+2);
+        peakfit_reset(pkf);
+        peakfit_add_bounded_gaussian(pkf, 1.0,1/3.,0.03, xrr,xra-min_dx3, 7);
+        peakfit_set_mc(pkf, xrr,xra-min_dx3, 1,nmc);
+        peakfit_add_bounded_gaussian(pkf, 1.0,2/3.,0.03, xra+min_dx3,xaa, 7);
+        peakfit_set_mc(pkf, xra+min_dx3,xaa, 1,nmc);
+        peakfit_run(pkf, nrr_aa, xrr_vals, yrr_vals);
+        peakfit_get_params(pkf,0,cn3_params1,5);
+        peakfit_get_params(pkf,1,cn3_params2,5);
+        double cn3_dx = (0.5-cn3_params1[1] + cn3_params2[1]-0.5)*0.5;
+        peakfit_reset(pkf);
+        peakfit_add_gaussian(pkf, cn3_params1[0],0.5-cn3_dx,cn3_params1[2], 5);
+        peakfit_add_gaussian(pkf, cn3_params2[0],0.5+cn3_dx,cn3_params1[3], 5);
+        double cn3b_fit = peakfit_run(pkf, nrr_aa, xrr_vals, yrr_vals);
+        char *cn3b_func = strdup(peakfit_sprint_func(pkf));
+        double a1 = cn3_params1[0]*cn3_params1[0];
+        double a2 = cn3_params2[0]*cn3_params2[0];
+        double dy_cn3    = a1 > a2 ? a2/a1 : a1/a2;
+        double b1 = cn3_params1[1], b2 = cn3_params2[1];
+        double cn3_frac1 = (1 - 2*b1) / b1;
+        double cn3_frac2 = (2*b2 - 1) / (1 - b2);
+        double cn3_frac  = 0.5*(cn3_frac1 + cn3_frac2);
+        double cn3_fit   = cn3a_fit + cn3b_fit;
 
-        if ( fit_cn3 > args->fit_th ) cn3_fail = 'f';
-        else if ( dx_cn3 < 0.05 ) cn3_fail = 'x';         // peak separation: at least ~10% of cells
-        else if ( dy_cn3 < args->peak_symmetry ) cn3_fail = 'y';    
+        // cn4 (contaminations): cn4a=AA bump, cn4b=RA bump, params1=big peak, params2=small peak
+        // min_frac=1 is interpreted as 50-50 contamination
+        double min_dx4  = 0.25*args->min_fraction;
+        double cn4a_fit = 0;
+        char *cn4a_func = 0;
+        double cn4a_params1[3] = {1,1,1} ,cn4a_params2[3] = {1,1,1}, cn4b_params1[3], cn4b_params2[5];
+        if ( args->include_aa )
+        {
+            peakfit_reset(pkf);
+            peakfit_add_exp(pkf, 0.5,1.0,0.2, 5);
+            peakfit_set_mc(pkf, 0.01,0.3,2,nmc);
+            peakfit_add_bounded_gaussian(pkf, 0.4,(xaa+xmax)*0.5,2e-2, xaa,xmax, 7);
+            peakfit_set_mc(pkf, xaa,xmax, 1,nmc);
+            cn4a_fit  = peakfit_run(pkf, naa_max, xaa_vals,yaa_vals);
+            cn4a_func = strdup(peakfit_sprint_func(pkf));
+            peakfit_get_params(pkf,0,cn4a_params1,3);
+            peakfit_get_params(pkf,1,cn4a_params2,5);
+        }
+        peakfit_reset(pkf);
+        peakfit_add_gaussian(pkf, 1.0,0.5,0.03, 5);
+        peakfit_add_bounded_gaussian(pkf, 0.6,0.3,0.03, xrr,xra-min_dx4, 7);
+        peakfit_set_mc(pkf, xrr,xra-min_dx4,1,nmc);
+        double cn4b_fit = peakfit_run(pkf, nrr_ra , xrr_vals, yrr_vals);
+        double cn4_fit = cn4a_fit + 2*cn4b_fit;
+        char *cn4b_func = strdup(peakfit_sprint_func(pkf));
+        peakfit_get_params(pkf,0,cn4b_params1,3);
+        peakfit_get_params(pkf,1,cn4b_params2,5);
+        double cn4b_frac = 1 - 2*cn4b_params2[1];
+        double cn4a_frac = !args->include_aa ? cn4b_frac : 2*(1 - cn4a_params2[1]);
+        double cn4_frac  = (cn4a_frac + cn4b_frac)*0.5;
+        // cn4a_params1: big AA exp peak
+        // cn4a_params2: small AA exp^2 peak
+        // cn4b_params1: big RA exp^2 peak
+        // cn4b_params2: small RA exp^2 peak
+        double bump1a = cn4a_params1[0]*cn4a_params1[0];
+        double bump2a = cn4a_params2[0]*cn4a_params2[0];
+        double bump1b = cn4b_params1[0]*cn4b_params1[0];
+        double bump2b = cn4b_params2[0]*cn4b_params2[0];
+        double dy_cn4a =  args->include_aa ? (bump1a < bump2a ? bump1a/bump2a : bump2a/bump1a) : 1;
+        double dy_cn4b =  bump1b < bump2b ? bump1b/bump2b : bump2b/bump1b;
 
-        if ( fit_cn4 > args->fit_th ) cn4_fail = 'f';
-        else if ( dx_cn4 < 0.1 ) cn4_fail = 'x';            // peak separation
-        else if ( dy_cn4a < args->peak_symmetry ) cn4_fail = 'y';
-        else if ( dy_cn4b < args->peak_symmetry ) cn4_fail = 'Y';
+        char cn2_fail = '*', cn3_fail = '*', cn4_fail = '*';
+        if ( cn2_fit > args->fit_th ) cn2_fail = 'f';
 
-        // Estimate fraction of affected cells. For CN4 we estimate
-        // contamination (the fraction of foreign cells), which is more
-        // common than CN4; hence the value is from the interval [0,0.5].
-        //      CN3 .. f = 2*dx/(1-dx)
-        //      CN4 .. f = dx
-        dx_cn3 = 2*dx_cn3 / (1-dx_cn3);
+        if ( cn3_fit > args->fit_th ) cn3_fail = 'f';
+        else if ( dy_cn3 < args->peak_symmetry ) cn3_fail = 'y';    // size difference is too big
 
-        double cn = -1, fit = fit_cn2;
-        if ( !cn2_fail ) { cn = 2; fit = fit_cn2; }
-        if ( !cn3_fail && fit_cn3 < args->cn_penalty * fit ) { cn = 3; fit = fit_cn3; }
-        if ( !cn4_fail && fit_cn4 < args->cn_penalty * fit ) { cn = 4; fit = fit_cn4; }
+        if ( cn4_fit > args->fit_th ) cn4_fail = 'f';
+        else if ( 10*dy_cn4a < args->bump_size || dy_cn4b < args->bump_size ) cn4_fail = 'y';   // bump size too small (10x: the AA peak is always smaller)
 
-        if ( cn==-1 ) save_dist(args, i, 0, NULL);
-        else if ( cn==2 ) save_dist(args, i, 1, params_cn2);
-        else if ( cn==3 ) { save_dist(args, i, 2, params_cn3); cn = 2 + dx_cn3; }
-        else if ( cn==4 ) { save_dist(args, i, 3, params_cn4); cn = 3 + dx_cn4; }
+        double cn = -1, fit = cn2_fit;
+        if ( cn2_fail == '*' ) { cn = 2; fit = cn2_fit; }
+        if ( cn3_fail == '*' )
+        {
+            // use cn_penalty as a tiebreaker
+            if ( (cn<0 && cn3_fit<fit) || (cn3_fit < args->cn_penalty * fit) )
+            { 
+                cn = 2 + cn3_frac; 
+                fit = cn3_fit; 
+                if ( cn2_fail=='*' ) cn2_fail = 'p';
+            }
+            else cn3_fail = 'p';
+        }
+        if ( cn4_fail == '*' )
+        {
+            if ( (cn<0 && cn4_fit<fit) || (cn4_fit < args->cn_penalty * fit) )
+            { 
+                cn = 3 + cn4b_frac; 
+                fit = cn4_fit; 
+                if ( cn2_fail=='*' ) cn2_fail = 'p';
+                if ( cn3_fail=='*' ) cn3_fail = 'p';
+            }
+            else cn4_fail = 'p';
+        }
 
         if ( args->verbose )
         {
-            printf("%s: \n", args->dist[i].chr);
-            print_params(&args->dist[i].dat, 1, params_cn2, fit_cn2, 1.0,    cn2_fail, cn==2 ? '*' : ' ');
-            print_params(&args->dist[i].dat, 2, params_cn3, fit_cn3, dx_cn3, cn3_fail, cn>2 && cn<=3 ? '*' : ' ');
-            print_params(&args->dist[i].dat, 3, params_cn4, fit_cn4, dx_cn4, cn4_fail, cn>3 ? '*' : ' ');
-            printf("\n");
+            fprintf(stderr,"\tcn2 %c fit=%e\n", cn2_fail, cn2_fit);
+            fprintf(stderr,"\t       .. %e\t%f %f %f\n", cn2b_fit, cn2_params2[0],cn2_params2[1],cn2_params2[2]);
+            fprintf(stderr,"\t       .. %e\t%f %f %f\n", cn2a_fit, cn2_params1[0],cn2_params1[1],cn2_params1[2]);
+            fprintf(stderr,"\tcn3 %c fit=%e  frac=%f  symmetry=%f (%f %f)\n", cn3_fail, cn3_fit, cn3_frac, dy_cn3,a1,a2);
+            fprintf(stderr,"\t       .. %e\t%f %f %f\t%f %f %f\n", cn3b_fit, cn3_params1[0],cn3_params1[1],cn3_params1[2], cn3_params2[0],cn3_params2[1],cn3_params2[2]);
+            fprintf(stderr,"\t       .. %e\t%f %f %f\n",           cn3a_fit, cn3_params3[0],cn3_params3[1],cn3_params3[2]);
+            fprintf(stderr,"\tcn4 %c fit=%e  frac=%f (%f+%f)/2  bumps=%f %f\n", cn4_fail, cn4_fit, cn4_frac, cn4b_frac,cn4a_frac,dy_cn4b,dy_cn4a);
+            fprintf(stderr,"\t       .. %e\t%f %f %f\t%f %f %f\n", cn4b_fit, cn4b_params1[0],cn4b_params1[1],cn4b_params1[2], cn4b_params2[0],cn4b_params2[1],cn4b_params2[2]);
+            fprintf(stderr,"\t       .. %e\t%f %f %f\t%f %f %f\n", cn4a_fit, cn4a_params1[0],cn4a_params1[1],cn4a_params1[2], cn4a_params2[0],cn4a_params2[1],cn4a_params2[2]);
+        }
+
+        if ( cn2_fail == '*' )
+        {
+            if ( cn2a_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2a_fit,dist->iaa,dist->nvals-1,cn2a_func);
+            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2b_fit,dist->irr,dist->iaa,cn2b_func);
+        }
+        if ( cn3_fail == '*' )
+        {
+            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3b_fit,dist->irr,dist->iaa,cn3b_func);
+            if ( cn3a_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3a_fit,dist->iaa,dist->nvals-1,cn3a_func);
+        }
+        if ( cn4_fail == '*' )
+        {
+            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4b_fit,dist->irr,dist->ira,cn4b_func);
+            if ( cn4a_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4a_fit,dist->iaa,dist->nvals-1,cn4a_func);
         }
         fprintf(args->dat_fp,"CN\t%s\t%.2f\t%f\n", dist->chr, cn, fit);
+
+        free(cn2a_func);
+        free(cn2b_func);
+        free(cn3b_func);
+        free(cn4a_func);
+        free(cn4b_func);
     }
+
+    peakfit_destroy(pkf);
 }
 
 static void usage(args_t *args)
@@ -604,9 +563,12 @@ static void usage(args_t *args)
     fprintf(stderr, "    -T, --targets-file <file>      similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -v, --verbose                  \n");
     fprintf(stderr, "Algorithm options:\n");
-    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller more strict) [0.7]\n");
-    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller more strict) [3.0]\n");
-    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (bigger more strict) [0.7]\n");
+    fprintf(stderr, "    -b, --bump-size <float>        minimum bump difference (bigger more strict) [0.2]\n");
+    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller more strict) [0.25]\n");
+    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller more strict) [3.3]\n");
+    fprintf(stderr, "    -i, --include-aa               include the AA peak also in CN2 and CN3 evaluation\n");
+    fprintf(stderr, "    -m, --min-fraction <float>     minimum distinguishable fraction of aberrant cells [0.1]\n");
+    fprintf(stderr, "    -p, --peak-symmetry <float>    CN3 peak symmetry threshold (bigger more strict) [0.7]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -616,14 +578,18 @@ int main_polysomy(int argc, char *argv[])
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
     args->nbins  = 150;
-    args->fit_th = 3.0;
-    args->cn_penalty = 0.7;
+    args->fit_th = 3.3;
+    args->cn_penalty = 0.25;
     args->peak_symmetry = 0.7;
+    args->bump_size = 0.2;
     args->ra_rr_scaling = 1;
+    args->min_fraction = 0.1;
 
     static struct option loptions[] = 
     {
         {"ra-rr-scaling",0,0,1},    // hidden option
+        {"include-aa",0,0,'i'},
+        {"min-fraction",1,0,'m'},
         {"verbose",0,0,'v'},
         {"fit-th",1,0,'f'},
         {"cn-penalty",1,0,'c'},
@@ -637,11 +603,17 @@ int main_polysomy(int argc, char *argv[])
         {0,0,0,0}
     };
     char c, *tmp;
-    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:",loptions,NULL)) >= 0) 
     {
         switch (c) 
         {
             case  1 : args->ra_rr_scaling = 0; break;
+            case 'i': args->include_aa = 1; break;
+            case 'm': 
+                args->min_fraction = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -n %s\n", optarg);
+                if ( args->min_fraction<0 || args->min_fraction>1 ) error("Range error: -n %s\n", optarg);
+                break;
             case 'f': 
                 args->fit_th = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -f %s\n", optarg);
@@ -660,7 +632,7 @@ int main_polysomy(int argc, char *argv[])
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'o': args->output_dir = optarg; break;
-            case 'v': args->verbose = 1; break;
+            case 'v': args->verbose++; break;
             default: usage(args); break;
         }
     }
