@@ -900,10 +900,11 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
 static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
 {
     int ia, ib, i;
-    int nsmpl   = bcf_hdr_nsamples(call->hdr);
-    int ngts    = nals*(nals+1)/2;
-    double *gls = call->GLs - ngts;
-    double *pdg = call->pdg - ngts;
+    int nsmpl    = bcf_hdr_nsamples(call->hdr);
+    int ngts     = nals*(nals+1)/2;
+    int nout_gts = nout_als*(nout_als+1)/2;
+    double *gls  = call->GLs - nout_gts;
+    double *pdg  = call->pdg - ngts;
 
     // Calculate individuals' genotype likelihoods P(X=i)
     int isample;
@@ -912,19 +913,19 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         int ploidy = call->ploidy ? call->ploidy[isample] : 2;
         int32_t *gts = call->ugts + isample;
 
-        gls += ngts;
+        gls += nout_gts;
         pdg += ngts;
 
         // Skip samples with all pdg's equal to 1. These have zero depth.
         for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
         if ( i==ngts || !ploidy )
         {
-            gts[0] = bcf_gt_missing;
+            gts[0] = -1;
             gls[0] = 1;
             continue;
         }
 
-        for (i=0; i<ngts; i++) gls[i] = -HUGE_VAL;
+        for (i=0; i<nout_gts; i++) gls[i] = -HUGE_VAL;
 
         double sum_lk  = 0;
         double best_lk = 0;
@@ -963,7 +964,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
                 }
             }
         }
-        for (i=0; i<ngts; i++)
+        for (i=0; i<nout_gts; i++)
             if ( gls[i]!=-HUGE_VAL ) gls[i] = log(gls[i]/sum_lk);
     }
 
@@ -1002,11 +1003,11 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         for (i=0; i<3; i++)     // for father, mother, child
         {
             int ismpl = fam->sample[i];
-            double *gl = call->GLs + ngts*ismpl;
+            double *gl = call->GLs + nout_gts*ismpl;
             if ( gl[0]==1 ) continue;
             int j, jmax = 0;
             double max  = gl[0];
-            for (j=1; j<ngts; j++)
+            for (j=1; j<nout_gts; j++)
                 if ( max < gl[j] ) { max = gl[j]; jmax = j; }
             uc_lk += max;
             uc_itr |= jmax << ((2-i)*4);
@@ -1022,7 +1023,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             for (i=0; i<3; i++)     // for father, mother, child
             {
                 int ismpl = fam->sample[i];
-                double *gl = call->GLs + ngts*ismpl;
+                double *gl = call->GLs + nout_gts*ismpl;
                 if ( gl[0]==1 ) continue;
                 int igt = trio[itr]>>((2-i)*4) & 0xf;
                 assert( !call->ploidy || call->ploidy[ismpl]>0 );
@@ -1042,10 +1043,10 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         if ( !uc_is_mendelian )
         {
             uc_lk += log(1 - trio_Pm);
-            //fprintf(stderr,"c_lk=%e uc_lk=%e c_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,uc_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
+            // fprintf(stderr,"c_lk=%e uc_lk=%e c_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,uc_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
             if ( c_lk < uc_lk ) { c_lk = uc_lk; c_itr = uc_itr; }
         }
-        //fprintf(stderr,"best_lk=%e best_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
+        // fprintf(stderr,"best_lk=%e best_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
 
         // Set genotypes for father, mother, child and calculate genotype qualities
         for (i=0; i<3; i++)
@@ -1053,11 +1054,11 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             // GT
             int ismpl    = fam->sample[i];
             int igt      = c_itr>>((2-i)*4) & 0xf;
-            double *gl   = call->GLs + ngts*ismpl;
+            double *gl   = call->GLs + nout_gts*ismpl;
             int32_t *gts = call->cgts + ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )    // zero depth, set missing genotypes
             {
-                gts[0] = bcf_gt_missing;
+                gts[0] = -1;
                 // bcf_float_set_missing(call->GQs[ismpl]);
                 continue;
             }
@@ -1107,7 +1108,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         cgts++;
         ugts++;
         gts += 2;
-        if ( bcf_gt_is_missing(ugts[0]) )
+        if ( ugts[0]==-1 )
         {
             gts[0] = bcf_gt_missing;
             gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
