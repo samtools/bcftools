@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 04/22/2015
+.\"      Date: 2015-03-16 08:03 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "04/22/2015" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2015\-03\-16 08:03 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,6 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
+This manual page was last updated \fB2015\-03\-16 08:03 GMT\fR and refers to bcftools git version \fB1\&.2\-7\-g2d2f1a5+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1771,6 +1772,11 @@ see
 .SS "bcftools norm [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
 .sp
 Left\-align and normalize indels, check if REF alleles match the reference, split multiallelic sites into multiple rows; recover multiallelics from multiple rows\&.
+.PP
+\fB\-c, \-\-check\-ref\fR \fIe\fR|\fIw\fR|\fIx\fR|\fIs\fR
+.RS 4
+what to do when incorrect or missing REF allele is encountered: exit (\fIe\fR), warn (\fIw\fR), exclude (\fIx\fR), or set/fix (\fIs\fR) bad sites
+.RE
 .PP
 \fB\-D, \-\-remove\-duplicates\fR
 .RS 4

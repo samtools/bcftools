@@ -1026,6 +1026,13 @@ Left-align and normalize indels,  check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows.
 
+*-c, --check-ref* 'e'|'w'|'x'|'s':: 
+    what to do when incorrect or missing REF allele is encountered: 
+    exit ('e'), warn ('w'), exclude ('x'), or set/fix ('s') bad sites.
+    The 'w' option can be combined with 'x' and 's'. Note that 's'
+    can swap alleles and will update genotypes (GT) and AC counts, 
+    but will not attempt to fix PL or other fields.
+
 *-D, --remove-duplicates*::
     remove duplicate lines of the same type
 
