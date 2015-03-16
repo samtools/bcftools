@@ -385,61 +385,68 @@ static void fit_curves(args_t *args)
         double xra  = dist->xvals[dist->ira];
         double xmax = dist->xvals[dist->nvals-1];
 
-        // cn2: cn2a=AA peak, cn2b=RA peak
-        double cn2a_fit = 0;
-        char *cn2a_func = 0;
-        double cn2_params1[3] = {1,1,1} ,cn2_params2[3];
+
+        // CN2
+        double cn2aa_fit = 0, cn2ra_fit, cn2_fit;
+        char *cn2aa_func = 0, *cn2ra_func;
+        double cn2aa_params[3] = {1,1,1} ,cn2ra_params[3];
         if ( args->include_aa )
         {
             peakfit_reset(pkf);
             peakfit_add_exp(pkf, 1.0,1.0,0.2, 5);
             peakfit_set_mc(pkf, 0.01,0.3,2,nmc);
             peakfit_set_mc(pkf, 0.05,1.0,0,nmc);
-            cn2a_fit  = peakfit_run(pkf, naa_max, xaa_vals, yaa_vals);
-            cn2a_func = strdup(peakfit_sprint_func(pkf));
-            peakfit_get_params(pkf,0,cn2_params1,3);
+            cn2aa_fit  = peakfit_run(pkf, naa_max, xaa_vals, yaa_vals);
+            cn2aa_func = strdup(peakfit_sprint_func(pkf));
+            peakfit_get_params(pkf,0,cn2aa_params,3);
         }
         peakfit_reset(pkf);
-        peakfit_add_gaussian(pkf, 1.0,0.5,0.03, 5);
-        double cn2b_fit = peakfit_run(pkf, nrr_aa,xrr_vals,yrr_vals);
-        char *cn2b_func = strdup(peakfit_sprint_func(pkf));
-        peakfit_get_params(pkf,0,cn2_params2,3);
-        double cn2_fit = cn2a_fit + cn2b_fit;
+        peakfit_add_bounded_gaussian(pkf, 1.0,0.5,0.03, 0.45,0.55, 7);
+        peakfit_set_mc(pkf, 0.01,0.3,2,nmc);
+        peakfit_set_mc(pkf, 0.05,1.0,0,nmc);
+        cn2ra_fit  = peakfit_run(pkf, nrr_aa,xrr_vals,yrr_vals);
+        cn2ra_func = strdup(peakfit_sprint_func(pkf));
+        cn2_fit    = cn2ra_fit + cn2aa_fit;
+        peakfit_get_params(pkf,0,cn2ra_params,3);
 
-        // cn3: cn3a=AA peak, cn3b=RA peaks
-        double cn3a_fit = cn2a_fit;
-        char *cn3a_func = cn2a_func;
-        double cn3_params1[5], cn3_params2[5], *cn3_params3 = cn2_params1;
-        double min_dx3 = 0.5 - 1./(args->min_fraction+2);
+
+        // CN3: fit two peaks, then enforce the symmetry and fit again
+        double cn3rra_params[5], cn3raa_params[5], *cn3aa_params = cn2aa_params;
+        double cn3aa_fit = cn2aa_fit, cn3ra_fit;
+        char *cn3aa_func = cn2aa_func, *cn3ra_func;
+        double min_dx3   = 0.5 - 1./(args->min_fraction+2);
         peakfit_reset(pkf);
         peakfit_add_bounded_gaussian(pkf, 1.0,1/3.,0.03, xrr,xra-min_dx3, 7);
         peakfit_set_mc(pkf, xrr,xra-min_dx3, 1,nmc);
         peakfit_add_bounded_gaussian(pkf, 1.0,2/3.,0.03, xra+min_dx3,xaa, 7);
         peakfit_set_mc(pkf, xra+min_dx3,xaa, 1,nmc);
         peakfit_run(pkf, nrr_aa, xrr_vals, yrr_vals);
-        peakfit_get_params(pkf,0,cn3_params1,5);
-        peakfit_get_params(pkf,1,cn3_params2,5);
-        double cn3_dx = (0.5-cn3_params1[1] + cn3_params2[1]-0.5)*0.5;
+        // force symmetry around x=0.5
+        peakfit_get_params(pkf,0,cn3rra_params,5);
+        peakfit_get_params(pkf,1,cn3raa_params,5);
+        double cn3_dx = (0.5-cn3rra_params[1] + cn3raa_params[1]-0.5)*0.5;
         peakfit_reset(pkf);
-        peakfit_add_gaussian(pkf, cn3_params1[0],0.5-cn3_dx,cn3_params1[2], 5);
-        peakfit_add_gaussian(pkf, cn3_params2[0],0.5+cn3_dx,cn3_params1[3], 5);
-        double cn3b_fit = peakfit_run(pkf, nrr_aa, xrr_vals, yrr_vals);
-        char *cn3b_func = strdup(peakfit_sprint_func(pkf));
-        double a1 = cn3_params1[0]*cn3_params1[0];
-        double a2 = cn3_params2[0]*cn3_params2[0];
-        double dy_cn3    = a1 > a2 ? a2/a1 : a1/a2;
-        double b1 = cn3_params1[1], b2 = cn3_params2[1];
-        double cn3_frac1 = (1 - 2*b1) / b1;
-        double cn3_frac2 = (2*b2 - 1) / (1 - b2);
-        double cn3_frac  = 0.5*(cn3_frac1 + cn3_frac2);
-        double cn3_fit   = cn3a_fit + cn3b_fit;
+        peakfit_add_gaussian(pkf, cn3rra_params[0],0.5-cn3_dx,cn3rra_params[2], 5);
+        peakfit_add_gaussian(pkf, cn3raa_params[0],0.5+cn3_dx,cn3raa_params[2], 5);
+        cn3ra_fit  = peakfit_run(pkf, nrr_aa, xrr_vals, yrr_vals);
+        cn3ra_func = strdup(peakfit_sprint_func(pkf));
+        // compare peak sizes
+        peakfit_get_params(pkf,0,cn3rra_params,3);
+        peakfit_get_params(pkf,1,cn3raa_params,3);
+        double cn3rra_size = cn3rra_params[0]*cn3rra_params[0];
+        double cn3raa_size = cn3raa_params[0]*cn3raa_params[0];
+        double cn3_dy      = cn3rra_size > cn3raa_size ? cn3raa_size/cn3rra_size : cn3rra_size/cn3raa_size;
+        double cn3_frac    = (1 - 2*cn3rra_params[1]) / cn3rra_params[1];
+        double cn3_fit     = cn3ra_fit + cn3aa_fit;
 
-        // cn4 (contaminations): cn4a=AA bump, cn4b=RA bump, params1=big peak, params2=small peak
-        // min_frac=1 is interpreted as 50-50 contamination
-        double min_dx4  = 0.25*args->min_fraction;
-        double cn4a_fit = 0;
-        char *cn4a_func = 0;
-        double cn4a_params1[3] = {1,1,1} ,cn4a_params2[3] = {1,1,1}, cn4b_params1[3], cn4b_params2[5];
+
+        // CN4 (contaminations)
+        // - similarly to CN3, fit three peaks, then enforce the symmetry and fit again
+        // - min_frac=1 (resp. 0.5) is interpreted as 50:50% (rep. 75:25%) contamination
+        double cn4AAaa_params[3] = {1,1,1} ,cn4AAra_params[3] = {1,1,1}, cn4RAra_params[3], cn4RArr_params[5], cn4RAaa_params[5];
+        double cn4aa_fit = 0, cn4ra_fit;
+        char *cn4aa_func = 0, *cn4ra_func;
+        double min_dx4   = 0.25*args->min_fraction;
         if ( args->include_aa )
         {
             peakfit_reset(pkf);
@@ -447,50 +454,60 @@ static void fit_curves(args_t *args)
             peakfit_set_mc(pkf, 0.01,0.3,2,nmc);
             peakfit_add_bounded_gaussian(pkf, 0.4,(xaa+xmax)*0.5,2e-2, xaa,xmax, 7);
             peakfit_set_mc(pkf, xaa,xmax, 1,nmc);
-            cn4a_fit  = peakfit_run(pkf, naa_max, xaa_vals,yaa_vals);
-            cn4a_func = strdup(peakfit_sprint_func(pkf));
-            peakfit_get_params(pkf,0,cn4a_params1,3);
-            peakfit_get_params(pkf,1,cn4a_params2,5);
+            cn4aa_fit  = peakfit_run(pkf, naa_max, xaa_vals,yaa_vals);
+            cn4aa_func = strdup(peakfit_sprint_func(pkf));
+            peakfit_get_params(pkf,0,cn4AAaa_params,3);
+            peakfit_get_params(pkf,1,cn4AAra_params,5);
         }
         peakfit_reset(pkf);
         peakfit_add_gaussian(pkf, 1.0,0.5,0.03, 5);
         peakfit_add_bounded_gaussian(pkf, 0.6,0.3,0.03, xrr,xra-min_dx4, 7);
-        peakfit_set_mc(pkf, xrr,xra-min_dx4,1,nmc);
-        double cn4b_fit = peakfit_run(pkf, nrr_ra , xrr_vals, yrr_vals);
-        double cn4_fit = cn4a_fit + 2*cn4b_fit;
-        char *cn4b_func = strdup(peakfit_sprint_func(pkf));
-        peakfit_get_params(pkf,0,cn4b_params1,3);
-        peakfit_get_params(pkf,1,cn4b_params2,5);
-        double cn4b_frac = 1 - 2*cn4b_params2[1];
-        double cn4a_frac = !args->include_aa ? cn4b_frac : 2*(1 - cn4a_params2[1]);
-        double cn4_frac  = (cn4a_frac + cn4b_frac)*0.5;
-        // cn4a_params1: big AA exp peak
-        // cn4a_params2: small AA exp^2 peak
-        // cn4b_params1: big RA exp^2 peak
-        // cn4b_params2: small RA exp^2 peak
-        double bump1a = cn4a_params1[0]*cn4a_params1[0];
-        double bump2a = cn4a_params2[0]*cn4a_params2[0];
-        double bump1b = cn4b_params1[0]*cn4b_params1[0];
-        double bump2b = cn4b_params2[0]*cn4b_params2[0];
-        double dy_cn4a =  args->include_aa ? (bump1a < bump2a ? bump1a/bump2a : bump2a/bump1a) : 1;
-        double dy_cn4b =  bump1b < bump2b ? bump1b/bump2b : bump2b/bump1b;
+        peakfit_set_mc(pkf, xrr,xra-min_dx4,2,nmc);
+        peakfit_run(pkf, nrr_ra , xrr_vals, yrr_vals);
+        // suggest symmetry around x=0.5
+        peakfit_get_params(pkf,0,cn4RAra_params,3);
+        peakfit_get_params(pkf,1,cn4RArr_params,5);
+        double cn4_dx = 0.5-cn4RArr_params[1];
+        peakfit_reset(pkf);
+        peakfit_add_gaussian(pkf, cn4RAra_params[0],0.5,cn4RAra_params[2], 5);
+        peakfit_add_gaussian(pkf, cn4RArr_params[0],0.5-cn4_dx,cn4RArr_params[2], 7);
+        peakfit_add_gaussian(pkf, cn4RArr_params[0],0.5+cn4_dx,cn4RArr_params[2], 7);
+        peakfit_set_mc(pkf, 0.1,cn4RAra_params[0],0,nmc);
+        peakfit_set_mc(pkf, 0.01,0.1,2,nmc);
+        cn4ra_fit  = peakfit_run(pkf, nrr_aa , xrr_vals, yrr_vals);
+        cn4ra_func = strdup(peakfit_sprint_func(pkf));
+        peakfit_get_params(pkf,0,cn4RAra_params,3);
+        peakfit_get_params(pkf,1,cn4RArr_params,3);
+        peakfit_get_params(pkf,2,cn4RAaa_params,3);
+        double cn4RAra_size = cn4RAra_params[0]==0 ? HUGE_VAL : cn4RAra_params[0]*cn4RAra_params[0];
+        double cn4RArr_size = cn4RArr_params[0]*cn4RArr_params[0];
+        double cn4RAaa_size = cn4RAaa_params[0]*cn4RAaa_params[0];
+        double cn4_dy       = cn4RArr_size < cn4RAaa_size ? cn4RArr_size/cn4RAaa_size : cn4RAaa_size/cn4RArr_size;
+        double cn4_ymin     = cn4RArr_size < cn4RAaa_size ? cn4RArr_size/cn4RAra_size : cn4RAaa_size/cn4RAra_size;
+        cn4_dx              = (cn4RAaa_params[1]-0.5) - (0.5-cn4RArr_params[1]);
+        double cn4_frac     = cn4RAaa_params[1] - cn4RArr_params[1];
+        double cn4_fit      = cn4ra_fit + cn4aa_fit;
 
+
+        // Choose the best match
         char cn2_fail = '*', cn3_fail = '*', cn4_fail = '*';
         if ( cn2_fit > args->fit_th ) cn2_fail = 'f';
 
         if ( cn3_fit > args->fit_th ) cn3_fail = 'f';
-        else if ( dy_cn3 < args->peak_symmetry ) cn3_fail = 'y';    // size difference is too big
+        else if ( cn3_dy < args->peak_symmetry ) cn3_fail = 'y';    // size difference is too big
 
         if ( cn4_fit > args->fit_th ) cn4_fail = 'f';
-        else if ( 10*dy_cn4a < args->bump_size || dy_cn4b < args->bump_size ) cn4_fail = 'y';   // bump size too small (10x: the AA peak is always smaller)
+        else if ( cn4_ymin < args->bump_size ) cn4_fail = 'y';      // side peak is too small
+        else if ( cn4_dy < args->peak_symmetry ) cn4_fail = 'Y';    // size difference is too big
+        else if ( cn4_dx > 0.1 ) cn4_fail = 'x';                    // side peaks placed assymetrically
 
         double cn = -1, fit = cn2_fit;
         if ( cn2_fail == '*' ) { cn = 2; fit = cn2_fit; }
         if ( cn3_fail == '*' )
         {
             // use cn_penalty as a tiebreaker
-            if ( (cn<0 && cn3_fit<fit) || (cn3_fit < args->cn_penalty * fit) )
-            { 
+            if ( cn<0 || cn3_fit < args->cn_penalty * fit )
+            {
                 cn = 2 + cn3_frac; 
                 fit = cn3_fit; 
                 if ( cn2_fail=='*' ) cn2_fail = 'p';
@@ -499,9 +516,9 @@ static void fit_curves(args_t *args)
         }
         if ( cn4_fail == '*' )
         {
-            if ( (cn<0 && cn4_fit<fit) || (cn4_fit < args->cn_penalty * fit) )
-            { 
-                cn = 3 + cn4b_frac; 
+            if ( cn<0 || cn4_fit < args->cn_penalty * fit )
+            {
+                cn = 3 + cn4_frac; 
                 fit = cn4_fit; 
                 if ( cn2_fail=='*' ) cn2_fail = 'p';
                 if ( cn3_fail=='*' ) cn3_fail = 'p';
@@ -512,38 +529,47 @@ static void fit_curves(args_t *args)
         if ( args->verbose )
         {
             fprintf(stderr,"\tcn2 %c fit=%e\n", cn2_fail, cn2_fit);
-            fprintf(stderr,"\t       .. %e\t%f %f %f\n", cn2b_fit, cn2_params2[0],cn2_params2[1],cn2_params2[2]);
-            fprintf(stderr,"\t       .. %e\t%f %f %f\n", cn2a_fit, cn2_params1[0],cn2_params1[1],cn2_params1[2]);
-            fprintf(stderr,"\tcn3 %c fit=%e  frac=%f  symmetry=%f (%f %f)\n", cn3_fail, cn3_fit, cn3_frac, dy_cn3,a1,a2);
-            fprintf(stderr,"\t       .. %e\t%f %f %f\t%f %f %f\n", cn3b_fit, cn3_params1[0],cn3_params1[1],cn3_params1[2], cn3_params2[0],cn3_params2[1],cn3_params2[2]);
-            fprintf(stderr,"\t       .. %e\t%f %f %f\n",           cn3a_fit, cn3_params3[0],cn3_params3[1],cn3_params3[2]);
-            fprintf(stderr,"\tcn4 %c fit=%e  frac=%f (%f+%f)/2  bumps=%f %f\n", cn4_fail, cn4_fit, cn4_frac, cn4b_frac,cn4a_frac,dy_cn4b,dy_cn4a);
-            fprintf(stderr,"\t       .. %e\t%f %f %f\t%f %f %f\n", cn4b_fit, cn4b_params1[0],cn4b_params1[1],cn4b_params1[2], cn4b_params2[0],cn4b_params2[1],cn4b_params2[2]);
-            fprintf(stderr,"\t       .. %e\t%f %f %f\t%f %f %f\n", cn4a_fit, cn4a_params1[0],cn4a_params1[1],cn4a_params1[2], cn4a_params2[0],cn4a_params2[1],cn4a_params2[2]);
+            fprintf(stderr,"\t       .. %e\n", cn2ra_fit);
+            fprintf(stderr,"\t            RA:   %f %f %f\n", cn2ra_params[0],cn2ra_params[1],cn2ra_params[2]);
+            fprintf(stderr,"\t       .. %e\n", cn2aa_fit);
+            fprintf(stderr,"\t            AA:   %f %f %f\n", cn2aa_params[0],cn2aa_params[1],cn2aa_params[2]);
+            fprintf(stderr,"\tcn3 %c fit=%e  frac=%f  symmetry=%f\n", cn3_fail, cn3_fit, cn3_frac, cn3_dy);
+            fprintf(stderr,"\t       .. %e\n", cn3ra_fit);
+            fprintf(stderr,"\t            RRA:  %f %f %f\n", cn3rra_params[0],cn3rra_params[1],cn3rra_params[2]);
+            fprintf(stderr,"\t            RAA:  %f %f %f\n", cn3raa_params[0],cn3raa_params[1],cn3raa_params[2]);
+            fprintf(stderr,"\t       .. %e\n", cn3aa_fit);
+            fprintf(stderr,"\t            AAA:  %f %f %f\n", cn3aa_params[0],cn3aa_params[1],cn3aa_params[2]);
+            fprintf(stderr,"\tcn4 %c fit=%e  frac=%f  symmetry=%f ymin=%f\n", cn4_fail, cn4_fit, cn4_frac, cn4_dy, cn4_ymin);
+            fprintf(stderr,"\t       .. %e\n", cn4ra_fit);
+            fprintf(stderr,"\t            RArr:  %f %f %f\n", cn4RArr_params[0],cn4RArr_params[1],cn4RArr_params[2]);
+            fprintf(stderr,"\t            RAra:  %f %f %f\n", cn4RAra_params[0],cn4RAra_params[1],cn4RAra_params[2]);
+            fprintf(stderr,"\t            RAaa:  %f %f %f\n", cn4RAaa_params[0],cn4RAaa_params[1],cn4RAaa_params[2]);
+            fprintf(stderr,"\t       .. %e\n", cn4aa_fit);
+            fprintf(stderr,"\t            AAaa:  %f %f %f\n", cn4AAaa_params[0],cn4AAaa_params[1],cn4AAaa_params[2]);
         }
 
         if ( cn2_fail == '*' )
         {
-            if ( cn2a_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2a_fit,dist->iaa,dist->nvals-1,cn2a_func);
-            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2b_fit,dist->irr,dist->iaa,cn2b_func);
+            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2ra_fit,dist->irr,dist->iaa,cn2ra_func);
+            if ( cn2aa_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2aa_fit,dist->iaa,dist->nvals-1,cn2aa_func);
         }
         if ( cn3_fail == '*' )
         {
-            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3b_fit,dist->irr,dist->iaa,cn3b_func);
-            if ( cn3a_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3a_fit,dist->iaa,dist->nvals-1,cn3a_func);
+            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3ra_fit,dist->irr,dist->iaa,cn3ra_func);
+            if ( cn3aa_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3aa_fit,dist->iaa,dist->nvals-1,cn3aa_func);
         }
         if ( cn4_fail == '*' )
         {
-            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4b_fit,dist->irr,dist->ira,cn4b_func);
-            if ( cn4a_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4a_fit,dist->iaa,dist->nvals-1,cn4a_func);
+            fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4ra_fit,dist->irr,dist->iaa,cn4ra_func);
+            if ( cn4aa_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4aa_fit,dist->iaa,dist->nvals-1,cn4aa_func);
         }
         fprintf(args->dat_fp,"CN\t%s\t%.2f\t%f\n", dist->chr, cn, fit);
 
-        free(cn2a_func);
-        free(cn2b_func);
-        free(cn3b_func);
-        free(cn4a_func);
-        free(cn4b_func);
+        free(cn2aa_func);
+        free(cn2ra_func);
+        free(cn3ra_func);
+        free(cn4ra_func);
+        free(cn4aa_func);
     }
 
     peakfit_destroy(pkf);
@@ -563,12 +589,12 @@ static void usage(args_t *args)
     fprintf(stderr, "    -T, --targets-file <file>      similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -v, --verbose                  \n");
     fprintf(stderr, "Algorithm options:\n");
-    fprintf(stderr, "    -b, --bump-size <float>        minimum bump difference (bigger more strict) [0.2]\n");
-    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller more strict) [0.25]\n");
+    fprintf(stderr, "    -b, --bump-size <float>        minimum bump size (bigger more strict) [0.1]\n");
+    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller more strict) [0.3]\n");
     fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller more strict) [3.3]\n");
     fprintf(stderr, "    -i, --include-aa               include the AA peak also in CN2 and CN3 evaluation\n");
     fprintf(stderr, "    -m, --min-fraction <float>     minimum distinguishable fraction of aberrant cells [0.1]\n");
-    fprintf(stderr, "    -p, --peak-symmetry <float>    CN3 peak symmetry threshold (bigger more strict) [0.7]\n");
+    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (bigger more strict) [0.6]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -579,9 +605,9 @@ int main_polysomy(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->nbins  = 150;
     args->fit_th = 3.3;
-    args->cn_penalty = 0.25;
-    args->peak_symmetry = 0.7;
-    args->bump_size = 0.2;
+    args->cn_penalty = 0.3;
+    args->peak_symmetry = 0.6;
+    args->bump_size = 0.1;
     args->ra_rr_scaling = 1;
     args->min_fraction = 0.1;
 
