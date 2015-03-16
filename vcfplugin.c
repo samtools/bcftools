@@ -451,7 +451,7 @@ int main_plugin(int argc, char *argv[])
     args->output_fname = "-";
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
-    int regions_is_file = 0, targets_is_file = 0, plist_only = 0;
+    int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0;
 
     if ( argc==1 ) usage(args);
     char *plugin_name = NULL;
@@ -494,13 +494,24 @@ int main_plugin(int argc, char *argv[])
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'l': plist_only = 1; break;
             case '?':
-            case 'h': load_plugin(args, plugin_name, 1, &args->plugin); fprintf(stderr,"%s",args->plugin.usage()); return 0; break;
+            case 'h': usage_only = 1; break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }
     if ( plist_only )  return list_plugins(args);
+    if ( usage_only && ! plugin_name ) usage(args);
 
     load_plugin(args, plugin_name, 1, &args->plugin);
+
+    if ( usage_only )
+    {
+        if ( args->plugin.usage )
+            fprintf(stderr,"%s",args->plugin.usage());
+        else
+            fprintf(stderr,"Usage: bcftools +%s [General Options] -- [Plugin Options]\n",plugin_name);
+        return 0;
+    }
+
     if ( args->plugin.run )
     {
         int iopt = optind; optind = 0;
