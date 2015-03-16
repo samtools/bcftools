@@ -50,6 +50,7 @@ typedef struct _args_t
 
     char **argv, *output_fname, *file_list, **fnames, *regions_list;
     int argc, nfnames, allow_overlaps, phased_concat, remove_dups, regions_is_file;
+    int compact_PS, phase_set_changed;
 }
 args_t;
 
@@ -246,7 +247,11 @@ static void phased_flush(args_t *args)
         bcf_translate(args->out_hdr, args->files->readers[0].header, arec);
         if ( args->nswap )
             phase_update(args, args->out_hdr, arec);
-        bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+        if ( !args->compact_PS || args->phase_set_changed )
+        {
+            bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+            args->phase_set_changed = 0;
+        }
         bcf_write(args->out_fh, args->out_hdr, arec);
 
         if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [1]\n", bcf_seqname(args->files->readers[0].header,arec),arec->pos+1,args->prev_pos_check+1);
@@ -283,11 +288,20 @@ static void phased_flush(args_t *args)
             bcf_update_format_int32(args->out_hdr,brec,"PQ",args->phase_qual,nsmpl);
             PQ_printed = 1;
             for (j=0; j<nsmpl; j++)
-                if ( args->phase_qual[j] < args->min_PQ ) args->phase_set[j] = brec->pos+1;
+                if ( args->phase_qual[j] < args->min_PQ ) 
+                {
+                    args->phase_set[j] = brec->pos+1;
+                    args->phase_set_changed = 1;
+                }
+                else if ( args->compact_PS ) args->phase_set[j] = bcf_int32_missing;
         }
         if ( args->nswap )
             phase_update(args, args->out_hdr, brec);
-        bcf_update_format_int32(args->out_hdr,brec,"PS",args->phase_set,nsmpl);
+        if ( !args->compact_PS || args->phase_set_changed )
+        {
+            bcf_update_format_int32(args->out_hdr,brec,"PS",args->phase_set,nsmpl);
+            args->phase_set_changed = 0;
+        }
         bcf_write(args->out_fh, args->out_hdr, brec);
 
         if ( brec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [2]\n", bcf_seqname(args->files->readers[1].header,brec),brec->pos+1,args->prev_pos_check+1);
@@ -311,6 +325,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
 
         for (i=0; i<nsmpl; i++)
             args->phase_set[i] = arec->pos+1;
+        args->phase_set_changed = 1;
 
         if ( args->seen_seq[chr_id] ) error("The chromosome block %s is not contiguous\n", bcf_seqname(args->files->readers[0].header,arec));
         args->seen_seq[chr_id] = 1;
@@ -323,7 +338,11 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
         bcf_translate(args->out_hdr, args->files->readers[0].header, arec);
         if ( args->nswap )
             phase_update(args, args->out_hdr, arec);
-        bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+        if ( !args->compact_PS || args->phase_set_changed )
+        {
+            bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+            args->phase_set_changed = 0;
+        }
         bcf_write(args->out_fh, args->out_hdr, arec);
 
         if ( arec->pos < args->prev_pos_check )
@@ -511,7 +530,7 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Concatenate or combine VCF/BCF files. All source files must have the same sample\n");
-    fprintf(stderr, "         columns appearing in the same order. Can be used, for example, to\n");
+    fprintf(stderr, "         columns appearing in the same order. The program can be used, for example, to\n");
     fprintf(stderr, "         concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel\n");
     fprintf(stderr, "         VCF into one. The input files must be sorted by chr and position. The files\n");
     fprintf(stderr, "         must be given in the correct order to produce sorted VCF on output unless\n");
@@ -520,14 +539,15 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
-    fprintf(stderr, "   -D, --remove-duplicates        Output only once records present in multiple files.\n");
+    fprintf(stderr, "   -c, --compact-PS               Do not output PS tag at each site, only at the start of a new phase set block.\n");
+    fprintf(stderr, "   -D, --remove-duplicates        Output records present in multiple files only once.\n");
     fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
-    fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
     fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
-    fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
+    fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
+    fprintf(stderr, "   -r, --regions <region>         Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file <file>      Restrict to regions listed in a file\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -543,6 +563,7 @@ int main_vcfconcat(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"compact-PS",0,0,'c'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"remove-duplicates",0,0,'D'},
@@ -555,9 +576,10 @@ int main_vcfconcat(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dr:R:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dr:R:c",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'c': args->compact_PS = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 'D': args->remove_dups = 1; break;
@@ -591,6 +613,7 @@ int main_vcfconcat(int argc, char *argv[])
         optind++;
     }
     if ( args->allow_overlaps && args->phased_concat ) args->allow_overlaps = 0;
+    if ( args->compact_PS && !args->phased_concat ) error("The -c option is intended only with -l\n");
     if ( args->file_list )
     {
         if ( args->nfnames ) error("Cannot combine -l with file names on command line.\n");
