@@ -184,7 +184,8 @@ clean: testclean clean-plugins
 	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
 
 clean-plugins:
-	-rm -f plugins/*.so plugins/*.P plugins/*.dSYM
+	-rm -f plugins/*.so plugins/*.P
+	-rm -rf plugins/*.dSYM
 
 testclean:
 	-rm -f test/*.o test/*~ $(TEST_PROG)
