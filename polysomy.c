@@ -55,7 +55,7 @@ typedef struct
     dist_t *dist;
     char **argv, *output_dir;
     double fit_th, peak_symmetry, cn_penalty, bump_size, min_fraction;
-    int argc, plot, verbose, regions_is_file, targets_is_file, include_aa;
+    int argc, plot, verbose, regions_is_file, targets_is_file, include_aa, force_cn;
     char *dat_fname, *fname, *regions_list, *targets_list, *sample;
     FILE *dat_fp;
 }
@@ -482,7 +482,9 @@ static void fit_curves(args_t *args)
         double cn4RAra_size = cn4RAra_params[0]==0 ? HUGE_VAL : cn4RAra_params[0]*cn4RAra_params[0];
         double cn4RArr_size = cn4RArr_params[0]*cn4RArr_params[0];
         double cn4RAaa_size = cn4RAaa_params[0]*cn4RAaa_params[0];
-        double cn4_dy       = cn4RArr_size < cn4RAaa_size ? cn4RArr_size/cn4RAaa_size : cn4RAaa_size/cn4RArr_size;
+        double cn4RArr_dy   = cn4RArr_size < cn4RAra_size ? cn4RArr_size/cn4RAra_size : cn4RAra_size/cn4RArr_size;
+        double cn4RAaa_dy   = cn4RAaa_size < cn4RAra_size ? cn4RAaa_size/cn4RAra_size : cn4RAra_size/cn4RAaa_size;
+        double cn4_dy       = cn4RArr_dy < cn4RAaa_dy ? cn4RArr_dy/cn4RAaa_dy : cn4RAaa_dy/cn4RArr_dy;
         double cn4_ymin     = cn4RArr_size < cn4RAaa_size ? cn4RArr_size/cn4RAra_size : cn4RAaa_size/cn4RAra_size;
         cn4_dx              = (cn4RAaa_params[1]-0.5) - (0.5-cn4RArr_params[1]);
         double cn4_frac     = cn4RAaa_params[1] - cn4RArr_params[1];
@@ -548,17 +550,17 @@ static void fit_curves(args_t *args)
             fprintf(stderr,"\t            AAaa:  %f %f %f\n", cn4AAaa_params[0],cn4AAaa_params[1],cn4AAaa_params[2]);
         }
 
-        if ( cn2_fail == '*' )
+        if ( args->force_cn==2 || cn2_fail == '*' )
         {
             fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2ra_fit,dist->irr,dist->iaa,cn2ra_func);
             if ( cn2aa_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn2aa_fit,dist->iaa,dist->nvals-1,cn2aa_func);
         }
-        if ( cn3_fail == '*' )
+        if ( args->force_cn==3 || cn3_fail == '*' )
         {
             fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3ra_fit,dist->irr,dist->iaa,cn3ra_func);
             if ( cn3aa_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn3aa_fit,dist->iaa,dist->nvals-1,cn3aa_func);
         }
-        if ( cn4_fail == '*' )
+        if ( args->force_cn==4 || cn4_fail == '*' )
         {
             fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4ra_fit,dist->irr,dist->iaa,cn4ra_func);
             if ( cn4aa_func ) fprintf(args->dat_fp,"FIT\t%s\t%e\t%d\t%d\t%s\n", dist->chr,cn4aa_fit,dist->iaa,dist->nvals-1,cn4aa_func);
@@ -594,7 +596,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller more strict) [3.3]\n");
     fprintf(stderr, "    -i, --include-aa               include the AA peak also in CN2 and CN3 evaluation\n");
     fprintf(stderr, "    -m, --min-fraction <float>     minimum distinguishable fraction of aberrant cells [0.1]\n");
-    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (bigger more strict) [0.6]\n");
+    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (bigger more strict) [0.5]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -606,7 +608,7 @@ int main_polysomy(int argc, char *argv[])
     args->nbins  = 150;
     args->fit_th = 3.3;
     args->cn_penalty = 0.3;
-    args->peak_symmetry = 0.6;
+    args->peak_symmetry = 0.5;
     args->bump_size = 0.1;
     args->ra_rr_scaling = 1;
     args->min_fraction = 0.1;
@@ -614,6 +616,7 @@ int main_polysomy(int argc, char *argv[])
     static struct option loptions[] = 
     {
         {"ra-rr-scaling",0,0,1},    // hidden option
+        {"force-cn",1,0,2},         // hidden option
         {"include-aa",0,0,'i'},
         {"min-fraction",1,0,'m'},
         {"verbose",0,0,'v'},
@@ -634,6 +637,7 @@ int main_polysomy(int argc, char *argv[])
         switch (c) 
         {
             case  1 : args->ra_rr_scaling = 0; break;
+            case  2 : args->force_cn = atoi(optarg); break;
             case 'i': args->include_aa = 1; break;
             case 'm': 
                 args->min_fraction = strtod(optarg,&tmp);
