@@ -853,6 +853,9 @@ the CSI first and then the TBI.
 *-c, --csi*::
     generate CSI-format index for VCF/BCF files [default]
 
+*--csi-v1*::
+    same as *--csi*, but does not store per-bin record counts in the index
+
 *-f, --force*::
     overwrite index if it already exists
 
