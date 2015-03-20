@@ -1103,10 +1103,18 @@ multiple rows.
     list plugin's options
 
 *-l, --list-plugins*::
-    List all available plugins. If not installed systemwide, set the environment
-    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
-    directory where *libhts.so* is located.  The BCFTOOLS_PLUGINS
-    environment variable tells the program which directories to search.
+    List all available plugins.
++
+By default, appropriate system directories are searched for installed plugins.
+    You can override this by setting the BCFTOOLS_PLUGINS environment variable
+    to a colon-separated list of directories to search.
+    If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains
+    adjacent colons, the system directories are also searched at that position
+    in the list of directories.
++
+If htslib is not installed systemwide, set the environment variable
+    LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include the
+    directory where *libhts.so.1* is located.
 
 *-v, --verbose*::
     print debugging information to debug plugin failure

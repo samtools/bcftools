@@ -146,30 +146,55 @@ args_t;
 
 char *msprintf(const char *fmt, ...);
 
+static void add_plugin_paths(args_t *args, const char *path)
+{
+    while (1)
+    {
+        size_t len = strcspn(path, ":");
+
+        if ( len == 0 )
+        {
+#ifdef PLUGINPATH
+            add_plugin_paths(args, PLUGINPATH);
+#endif
+        }
+        else
+        {
+            char *dir = (char *) malloc(len + 1);
+            strncpy(dir, path, len);
+            dir[len] = '\0';
+
+            struct stat st;
+            if ( stat(dir, &st) == 0 )
+            {
+                args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
+                args->plugin_paths[args->nplugin_paths] = dir;
+                args->nplugin_paths++;
+                if ( args->verbose ) fprintf(stderr, "plugin directory %s .. ok\n", dir);
+            }
+            else
+            {
+                if ( args->verbose ) fprintf(stderr, "plugin directory %s .. %s\n", dir, strerror(errno));
+                free(dir);
+            }
+
+        }
+
+        path += len;
+        if ( *path == ':' ) path++;
+        else break;
+    }
+}
+
 static void init_plugin_paths(args_t *args)
 {
     if ( args->nplugin_paths!=-1 ) return;
 
+    args->nplugin_paths = 0;
+    args->plugin_paths = NULL;
+
     char *path = getenv("BCFTOOLS_PLUGINS");
-    if ( path )
-    {
-        args->nplugin_paths = 1;
-        args->plugin_paths  = (char**) malloc(sizeof(char*));
-        char *ss = args->plugin_paths[0] = strdup(path);
-        while ( *ss )
-        {
-            if ( *ss==':' )
-            {
-                *ss = 0;
-                args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
-                args->plugin_paths[args->nplugin_paths] = ss+1;
-                args->nplugin_paths++;
-            }
-            ss++;
-        }
-    }
-    else
-        args->nplugin_paths = 0;
+    add_plugin_paths(args, path ? path : "");
 }
 
 static void *dlopen_plugin(args_t *args, const char *fname)
@@ -247,7 +272,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     char *ret = dlerror();
     if ( ret )
         plugin->init = NULL;
-    else 
+    else
         if ( args->verbose ) fprintf(stderr,"\tinit     .. ok\n");
 
     plugin->run = (dl_run_f) dlsym(plugin->handle, "run");
@@ -410,7 +435,8 @@ static void destroy_data(args_t *args)
     if ( args->hdr_out ) bcf_hdr_destroy(args->hdr_out);
     if ( args->nplugin_paths>0 )
     {
-        free(args->plugin_paths[0]);
+        int i;
+        for (i=0; i<args->nplugin_paths; i++) free(args->plugin_paths[i]);
         free(args->plugin_paths);
     }
     if ( args->filter )

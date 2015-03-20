@@ -48,7 +48,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o version.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
-EXTRA_CPPFLAGS = -I. -I$(HTSDIR)
+EXTRA_CPPFLAGS = -I. -I$(HTSDIR) -DPLUGINPATH=\"$(pluginpath)\"
 GSL_LIBS       =
 
 # The polysomy command is not compiled by default because it brings dependency
@@ -63,8 +63,13 @@ endif
 prefix      = /usr/local
 exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/bin
+libdir      = $(exec_prefix)/lib
+libexecdir  = $(exec_prefix)/libexec
 mandir      = $(prefix)/share/man
 man1dir     = $(mandir)/man1
+
+plugindir   = $(libexecdir)/bcftools
+pluginpath  = $(plugindir)
 
 MKDIR_P = mkdir -p
 INSTALL = install -p
@@ -175,9 +180,10 @@ doc/bcftools.html: doc/bcftools.txt
 docs: doc/bcftools.1 doc/bcftools.html
 
 install: $(PROG) doc/bcftools.1
-	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
+	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
 	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) doc/bcftools.1 $(DESTDIR)$(man1dir)
+	$(INSTALL_PROGRAM) plugins/*.so $(DESTDIR)$(plugindir)
 
 clean: testclean clean-plugins
 	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so plugins/*.P

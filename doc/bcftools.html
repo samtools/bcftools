@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25137184"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp135936"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2015-01-21 15:01 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-140-g9b0e7cc+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2015-03-20 11:57 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.2-6-ga8d7fe9+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -1059,12 +1059,16 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
     list plugin’s options
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --list-plugins</strong></span>
-</span></dt><dd>
-    List all available plugins. If not installed systemwide, set the environment
-    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
-    directory where <span class="strong"><strong>libhts.so</strong></span> is located.  The BCFTOOLS_PLUGINS
-    environment variable tells the program which directories to search.
-</dd><dt><span class="term">
+</span></dt><dd><p class="simpara">
+    List all available plugins.
+</p><p class="simpara">By default, appropriate system directories are searched for installed plugins.
+    You can override this by setting the BCFTOOLS_PLUGINS environment variable
+    to a colon-separated list of directories to search.
+    If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains
+    adjacent colons, the system directories are also searched at that position
+    in the list of directories.</p><p class="simpara">If htslib is not installed systemwide, set the environment variable
+    LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include the
+    directory where <span class="strong"><strong>libhts.so.1</strong></span> is located.</p></dd><dt><span class="term">
 <span class="strong"><strong>-v, --verbose</strong></span>
 </span></dt><dd>
     print debugging information to debug plugin failure
