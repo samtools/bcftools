@@ -36,7 +36,7 @@ BGZIP  = $(HTSDIR)/bgzip
 TABIX  = $(HTSDIR)/tabix
 
 CC       = gcc
-CFLAGS   = -g -Wall -Wc++-compat -O2 -DPKG_LIBEXEC_DIR="\"$(pkglibexecdir)\""
+CFLAGS   = -g -Wall -Wc++-compat -O2 -DPLUGINPATH=\"$(pluginpath)\"
 DFLAGS   =
 OBJS     = main.o vcfindex.o tabix.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
@@ -58,10 +58,13 @@ endif
 prefix        = /usr/local
 exec_prefix   = $(prefix)
 bindir        = $(exec_prefix)/bin
+libdir        = $(exec_prefix)/lib
 libexecdir    = $(exec_prefix)/libexec
-pkglibexecdir = $(libexecdir)/bcftools
 mandir        = $(prefix)/share/man
 man1dir       = $(mandir)/man1
+
+plugindir   = $(libexecdir)/bcftools
+pluginpath  = $(plugindir)
 
 MKDIR_P = mkdir -p
 INSTALL = install -p
@@ -172,10 +175,10 @@ doc/bcftools.html: doc/bcftools.txt
 docs: doc/bcftools.1 doc/bcftools.html
 
 install: $(PROG) doc/bcftools.1
-	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(pkglibexecdir)
+	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
 	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) doc/bcftools.1 $(DESTDIR)$(man1dir)
-	$(INSTALL_PROGRAM) plugins/*.so $(DESTDIR)$(pkglibexecdir)
+	$(INSTALL_PROGRAM) plugins/*.so $(DESTDIR)$(plugindir)
 
 clean: testclean clean-plugins
 	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so plugins/*.P
