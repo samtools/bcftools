@@ -7,6 +7,7 @@
 ##contig=<ID=1,length=2147483647>
 ##contig=<ID=2,length=2147483647>
 ##contig=<ID=20,length=2147483647>
+##contig=<ID=21,length=2147483647>
 ##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
@@ -48,4 +49,5 @@
 20	274	.	AAAAAAAAA	AAAAAAAAAAAAAAAAAAA	999	PASS	INDEL;AN=0;AC=0	GT:PL:DP	./.:0,0,0:0	./.:0,0,0:0
 20	275	.	A	C,G	999	PASS	INDEL;AN=2;AC=0,2	GT:PL:DP:FGF:FGI:FGS:FSTR	2:0,0,0:0:1e+06,2e+06,3e+06:1111,2222,3333:A,BB,CCC:WORD	2:0,0,0:0:1e+06,2e+06,3e+06:1111,2222,3333:A,BB,CCC:WORD
 20	278	.	AAAAAAAAAAAAAAAAA	AAAAAAAAAAAAAAAAAAA	999	PASS	INDEL;AN=0;AC=0	GT:PL:DP	./.:0,0,0:0	./.:0,0,0:0
-20	300	.	A	C,G	999	PASS	INDEL;AN=0;AC=0,0	GT:PL:DP	./.:0,0,0,0,0,0:0	./.:0,0,0,0,0,0:0
+20	300	.	T	C,G	999	PASS	INDEL;AN=0;AC=0,0	GT:PL:DP	./.:0,0,0,0,0,0:0	./.:0,0,0,0,0,0:0
+21	1	id	TTTA	TTTATTATTA,TTTATTATTATTATTATTATTA,T,TTATTATTA	999	PASS	INDEL;AN=0;AC=0,0,0,0	GT:DP	./.:0	./.:0
