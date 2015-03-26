@@ -78,8 +78,8 @@ typedef struct _args_t
 }
 args_t;
 
-void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
-void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob);
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob);
 
 void *smalloc(size_t size)
 {
@@ -268,24 +268,24 @@ static double get_genmap_rate(args_t *args, int start, int end)
     return rate;
 }
 
-void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob)
 {
     args_t *args = (args_t*) data;
     double ci = get_genmap_rate(args, pos - prev_pos, pos);
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+    MAT(tprob,2,STATE_HW,STATE_HW) *= 1-ci;
+    MAT(tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
 }
 
-void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob)
 {
     args_t *args = (args_t*) data;
     double ci = (pos - prev_pos) * args->rec_rate;
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+    MAT(tprob,2,STATE_HW,STATE_HW) *= 1-ci;
+    MAT(tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
 }
 
 
@@ -328,9 +328,10 @@ static void flush_viterbi(args_t *args)
         hmm_run_viterbi(args->hmm, args->nsites, args->eprob, args->sites);
 
         const char *chr = bcf_hdr_id2name(args->hdr,args->prev_rid);
+        uint8_t *vpath = hmm_get_viterbi_path(args->hmm);
         for (i=0; i<args->nsites; i++)
         {
-            printf("%s\t%d\t%d\t..\n", chr,args->sites[i]+1,args->hmm->vpath[i*2]==STATE_AZ ? 1 : 0);
+            printf("%s\t%d\t%d\t..\n", chr,args->sites[i]+1,vpath[i*2]==STATE_AZ ? 1 : 0);
         }
         return;
     }
@@ -341,8 +342,9 @@ static void flush_viterbi(args_t *args)
     int niter = 0;
     do
     {
-        t2az_prev = MAT(args->hmm->tprob_arr,2,1,0); //args->t2AZ;
-        t2hw_prev = MAT(args->hmm->tprob_arr,2,0,1); //args->t2HW;
+        double *tprob_arr = hmm_get_tprob(args->hmm);
+        t2az_prev = MAT(tprob_arr,2,1,0); //args->t2AZ;
+        t2hw_prev = MAT(tprob_arr,2,0,1); //args->t2HW;
         double tcounts[] = { 0,0,0,0 };
         for (i=0; i<args->nrids; i++)
         {
@@ -353,14 +355,16 @@ static void flush_viterbi(args_t *args)
             hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
 
             // what transitions were observed: add to the total counts
+            uint8_t *vpath = hmm_get_viterbi_path(args->hmm);
             for (j=1; j<nsites; j++)
             {
                 // count the number of transitions
-                int prev_state = args->hmm->vpath[2*(j-1)];
-                int curr_state = args->hmm->vpath[2*j];
+                int prev_state = vpath[2*(j-1)];
+                int curr_state = vpath[2*j];
                 MAT(tcounts,2,curr_state,prev_state) += 1;
             }
         }
+
 
         // update the transition matrix tprob
         for (i=0; i<2; i++)
@@ -375,15 +379,17 @@ static void flush_viterbi(args_t *args)
         else
             hmm_set_tprob(args->hmm, tcounts, 10000);
 
-        deltaz = fabs(MAT(args->hmm->tprob_arr,2,1,0)-t2az_prev);
-        delthw = fabs(MAT(args->hmm->tprob_arr,2,0,1)-t2hw_prev);
+        tprob_arr = hmm_get_tprob(args->hmm);
+        deltaz = fabs(MAT(tprob_arr,2,1,0)-t2az_prev);
+        delthw = fabs(MAT(tprob_arr,2,0,1)-t2hw_prev);
         niter++;
 
         fprintf(stderr,"%d: %f %f\n", niter,deltaz,delthw);
     }
     while ( deltaz > 0.0 || delthw > 0.0 );
     fprintf(stderr, "Viterbi training converged in %d iterations to", niter);
-    for (i=0; i<2; i++) for (j=0; j<2; j++) fprintf(stderr, " %f", MAT(args->hmm->tprob_arr,2,i,j));
+    double *tprob_arr = hmm_get_tprob(args->hmm);
+    for (i=0; i<2; i++) for (j=0; j<2; j++) fprintf(stderr, " %f", MAT(tprob_arr,2,i,j));
     fprintf(stderr, "\n");
     
     // output the results
@@ -392,11 +398,12 @@ static void flush_viterbi(args_t *args)
         int ioff = args->rid_offs[i];
         int nsites = (i+1==args->nrids ? args->nsites : args->rid_offs[i+1]) - ioff;
         hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
+        uint8_t *vpath = hmm_get_viterbi_path(args->hmm);
 
         const char *chr = bcf_hdr_id2name(args->hdr,args->rids[i]);
         for (j=0; j<nsites; j++)
         {
-            printf("%s\t%d\t%d\t..\n", chr,args->sites[ioff+j]+1,args->hmm->vpath[j*2]==STATE_AZ ? 1 : 0);
+            printf("%s\t%d\t%d\t..\n", chr,args->sites[ioff+j]+1,vpath[j*2]==STATE_AZ ? 1 : 0);
         }
     }
 }

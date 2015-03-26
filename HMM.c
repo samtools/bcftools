@@ -31,6 +31,32 @@
 #include <htslib/hts.h>
 #include "HMM.h"
 
+struct _hmm_t
+{
+    int nstates;    // number of states
+
+    double *vprob, *vprob_tmp;  // viterbi probs [nstates]
+    uint8_t *vpath;             // viterbi path [nstates*nvpath]
+    double *bwd, *bwd_tmp;      // bwd probs [nstates]
+    double *fwd;                // fwd probs [nstates*(nfwd+1)]
+    int nvpath, nfwd;
+
+    int ntprob_arr;             // number of pre-calculated tprob matrices
+    double *curr_tprob, *tmp;   // Temporary arrays; curr_tprob is short lived, valid only for
+                                //  one site (that is, one step of Viterbi algorithm)
+    double *tprob_arr;          // Array of transition matrices, precalculated to ntprob_arr
+                                //  positions. The first matrix is the initial tprob matrix
+                                //  set by hmm_init() or hmm_set_tprob()
+    set_tprob_f set_tprob;      // Optional user function to set / modify transition probabilities
+                                //  at each site (one step of Viterbi algorithm)
+    void *set_tprob_data;
+};
+
+uint8_t *hmm_get_viterbi_path(hmm_t *hmm) { return hmm->vpath; }
+double *hmm_get_tprob(hmm_t *hmm) { return hmm->tprob_arr; }
+int hmm_get_nstates(hmm_t *hmm) { return hmm->nstates; }
+double *hmm_get_fwd_bwd_prob(hmm_t *hmm) { return hmm->fwd; }
+
 static inline void multiply_matrix(int n, double *a, double *b, double *dst, double *tmp)
 {
     double *out = dst;
@@ -130,7 +156,7 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         int pos_diff = sites[i] == prev_pos ? 0 : sites[i] - prev_pos - 1;
 
         _set_tprob(hmm, pos_diff);
-        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data, hmm->curr_tprob);
         prev_pos = sites[i];
 
         double vnorm = 0;
@@ -196,7 +222,7 @@ void hmm_run_fwd_bwd(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         int pos_diff = sites[i] == prev_pos ? 0 : sites[i] - prev_pos - 1;
 
         _set_tprob(hmm, pos_diff);
-        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data, hmm->curr_tprob);
         prev_pos = sites[i];
 
         double norm = 0;
@@ -222,7 +248,7 @@ void hmm_run_fwd_bwd(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         int pos_diff = sites[n-i-1] == prev_pos ? 0 : prev_pos - sites[n-i-1] - 1;
 
         _set_tprob(hmm, pos_diff);
-        if ( hmm->set_tprob ) hmm->set_tprob(hmm, sites[n-i-1], prev_pos, hmm->set_tprob_data);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, sites[n-i-1], prev_pos, hmm->set_tprob_data, hmm->curr_tprob);
         prev_pos = sites[n-i-1];
 
         double bwd_norm = 0;
@@ -281,7 +307,7 @@ void hmm_run_baum_welch(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         int pos_diff = sites[i] == prev_pos ? 0 : sites[i] - prev_pos - 1;
 
         _set_tprob(hmm, pos_diff);
-        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data, hmm->curr_tprob);
         prev_pos = sites[i];
 
         double norm = 0;
@@ -307,7 +333,7 @@ void hmm_run_baum_welch(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         int pos_diff = sites[n-i-1] == prev_pos ? 0 : prev_pos - sites[n-i-1] - 1;
 
         _set_tprob(hmm, pos_diff);
-        if ( hmm->set_tprob ) hmm->set_tprob(hmm, sites[n-i-1], prev_pos, hmm->set_tprob_data);
+        if ( hmm->set_tprob ) hmm->set_tprob(hmm, sites[n-i-1], prev_pos, hmm->set_tprob_data, hmm->curr_tprob);
         prev_pos = sites[n-i-1];
 
         double bwd_norm = 0;

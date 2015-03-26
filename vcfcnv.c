@@ -541,21 +541,23 @@ static void cnv_flush_viterbi(args_t *args)
     hmm_set_tprob(args->hmm, args->tprob, 10000);
     while ( args->baum_welch_th!=0 )
     {
-        double ori_ii = avg_ii_prob(hmm->nstates,hmm->tprob_arr);
+        int nstates = hmm_get_nstates(hmm);
+        double ori_ii = avg_ii_prob(nstates,hmm_get_tprob(hmm));
         hmm_run_baum_welch(hmm, args->nsites, args->eprob, args->sites);
-        double new_ii = avg_ii_prob(hmm->nstates,hmm->tprob_arr);
+        double new_ii = avg_ii_prob(nstates,hmm_get_tprob(hmm));
         fprintf(stderr,"%e\t%e\t%e\n", ori_ii,new_ii,new_ii-ori_ii);
-        double *tprob = init_tprob_matrix(hmm->nstates, 1-new_ii, args->same_prob);
+        double *tprob = init_tprob_matrix(nstates, 1-new_ii, args->same_prob);
         hmm_set_tprob(args->hmm, tprob, 10000);
+        double *tprob_arr = hmm_get_tprob(hmm);
         free(tprob);
         if ( fabs(new_ii - ori_ii) < args->baum_welch_th )
         {
             int i,j;
-            for (i=0; i<hmm->nstates; i++)
+            for (i=0; i<nstates; i++)
             {
-                for (j=0; j<hmm->nstates; j++)
+                for (j=0; j<nstates; j++)
                 {
-                    printf(" %.15f", MAT(hmm->tprob_arr,hmm->nstates,j,i));
+                    printf(" %.15f", MAT(tprob_arr,nstates,j,i));
                 }
                 printf("\n");
             }
@@ -567,12 +569,13 @@ static void cnv_flush_viterbi(args_t *args)
 
 
     // Output the results
-    double qual = 0;
-    int i,j, isite, start_cn = hmm->vpath[0], start_pos = args->sites[0], istart_pos = 0;
+    uint8_t *vpath = hmm_get_viterbi_path(hmm);
+    double qual = 0, *fwd = hmm_get_fwd_bwd_prob(hmm);
+    int i,j, isite, start_cn = vpath[0], start_pos = args->sites[0], istart_pos = 0;
     for (isite=0; isite<args->nsites; isite++)
     {
-        int state = hmm->vpath[args->nstates*isite];
-        double *pval = hmm->fwd + isite*args->nstates;
+        int state = vpath[args->nstates*isite];
+        double *pval = fwd + isite*args->nstates;
 
         qual += pval[start_cn];
 
