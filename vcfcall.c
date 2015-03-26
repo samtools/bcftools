@@ -191,6 +191,9 @@ static char **parse_ped_samples(call_t *call, char **vals, int _n)
     for (i=0; i<call->nfams; i++)
         assert( call->fams[i].sample[0]>=0 && call->fams[i].sample[1]>=0 && call->fams[i].sample[2]>=0 ); // multiple childs, not a trio
 
+    // for (i=0; i<call->nfams; i++)
+    //     fprintf(stderr,"mother=%s, father=%s, child=%s\n", sam[call->fams[i].sample[MOTHER]],sam[call->fams[i].sample[FATHER]],sam[call->fams[i].sample[CHILD]]);
+
     return sam;
 }
 
