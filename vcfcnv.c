@@ -24,6 +24,12 @@
 
  */
 
+/*
+    Known issues:
+    - The --AF-file option behaves like --targets-file, sites not listed in the AFs
+      are skipped.
+*/
+
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -76,8 +82,9 @@ typedef struct _args_t
     double lrr_bias, baf_bias;              // LRR/BAF weights
     double same_prob, ij_prob;              // prior of both samples being the same and the transition probability P(i|j)
     double err_prob;                        // constant probability of erroneous measurement
-    float *nonref_afs, nonref_af, nonref_af_dflt, fRR, fRA, fAA;
+    float *nonref_afs, nonref_af, nonref_af_dflt, fRR, fRA, fAA, *tmpf;
     unsigned long int nRR, nRA, nAA;
+    int mtmpf;
 
     double *tprob, *tprob_arr;  // array of transition matrices, precalculated up to ntprob_arr positions
     int ntprob_arr;
@@ -510,6 +517,7 @@ static void destroy_data(args_t *args)
 {
     bcf_sr_destroy(args->files);
     hmm_destroy(args->hmm);
+    free(args->tmpf);
     free(args->sites);
     free(args->eprob);
     free(args->tprob);
@@ -752,11 +760,14 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
     double mean_cn3 = 0, norm_cn3 = 0;
     double baf_dev2 = 0, baf_AA_dev2 = 0, norm_baf_AA_dev2 = 0;
 
-    int i, j;
+    // experimental: smooth CN3 probs to bias toward bigger events, this lowers
+    // the FP rate when the data is noisy
+    hts_expand(float,args->nsites,args->mtmpf,args->tmpf);
+    int i, j, k = 0;
     for (i=0; i<args->nsites; i++)
     {
         float baf = smpl->baf[i];
-        if ( baf>4/5.) { baf_AA_dev2 += (1.0-baf)*(1.0-baf); norm_baf_AA_dev2++; continue; }       // skip AA genotypes
+        if ( baf>4/5.) continue;        // skip AA genotypes
         if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
         if ( baf<1/5.) continue;        // skip RR genotypes
 
@@ -775,6 +786,18 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
             // same as above but for control sample
             for (j=0; j<N_STATES; j++) prob_cn3 += probs[CN3+j*N_STATES];
         }
+        args->tmpf[k++] = prob_cn3;
+    }
+    smooth_data(args->tmpf, k, 50);
+    k = 0;
+    for (i=0; i<args->nsites; i++)
+    {
+        float baf = smpl->baf[i];
+        if ( baf>4/5.) { baf_AA_dev2 += (1.0-baf)*(1.0-baf); norm_baf_AA_dev2++; continue; }       // skip AA genotypes
+        if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
+        if ( baf<1/5.) continue;        // skip RR genotypes
+
+        double prob_cn3 = args->tmpf[k++];
         mean_cn3 += prob_cn3 * baf;
         norm_cn3 += prob_cn3;
     }
@@ -784,27 +807,14 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
         return 1;
     }
     mean_cn3 /= norm_cn3;
+    k = 0;
     for (i=0; i<args->nsites; i++)
     {
         float baf = smpl->baf[i];
         if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
         if ( baf<1/5.) continue;        // skip RR,AA genotypes
 
-        double prob_cn3 = 0, *probs = hmm->fwd + i*hmm->nstates;
-        if ( !args->control_sample.name )
-        {
-            prob_cn3 = probs[CN3];
-        }
-        else if ( ismpl==0 )
-        {
-            // query sample: CN3 probability must be recovered from all states of the control sample
-            for (j=0; j<N_STATES; j++) prob_cn3 += probs[CN3*N_STATES+j];
-        }
-        else
-        {
-            // same as above but for control sample
-            for (j=0; j<N_STATES; j++) prob_cn3 += probs[CN3+j*N_STATES];
-        }
+        double prob_cn3 = args->tmpf[k++];
         baf_dev2 += prob_cn3 * (baf - mean_cn3)*(baf - mean_cn3);
     }
 
