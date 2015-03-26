@@ -755,6 +755,8 @@ static void set_gauss_params(args_t *args, sample_t *smpl)
 static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
 {
     hmm_t *hmm = args->hmm;
+    double *fwd = hmm_get_fwd_bwd_prob(hmm);
+    int nstates = hmm_get_nstates(hmm);
 
     // estimate the BAF mean and deviation for CN3
     double mean_cn3 = 0, norm_cn3 = 0;
@@ -771,7 +773,7 @@ static int update_sample_args(args_t *args, sample_t *smpl, int ismpl)
         if ( baf>0.5 ) baf = 1 - baf;   // the bands should be symmetric
         if ( baf<1/5.) continue;        // skip RR genotypes
 
-        double prob_cn3 = 0, *probs = hmm->fwd + i*hmm->nstates;
+        double prob_cn3 = 0, *probs = fwd + i*nstates;
         if ( !args->control_sample.name )
         {
             prob_cn3 = probs[CN3];
