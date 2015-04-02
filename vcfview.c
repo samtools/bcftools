@@ -666,7 +666,7 @@ int main_vcfview(int argc, char *argv[])
                 else if ( !strcasecmp(optarg,"^hom") ) args->gt_type = GT_NO_HOM;
                 else if ( !strcasecmp(optarg,"^het") ) args->gt_type = GT_NO_HET;
                 else if ( !strcasecmp(optarg,"^miss") ) args->gt_type = GT_NO_MISSING;
-                else error("The argument to -g not recognised. Expected one of hom/het/^hom/^het, got \"%s\".\n", optarg);
+                else error("The argument to -g not recognised. Expected one of hom/het/miss/^hom/^het/^miss, got \"%s\".\n", optarg);
                 break;
             }
             case '?': usage(args);
