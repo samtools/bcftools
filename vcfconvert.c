@@ -1203,7 +1203,7 @@ static void gvcf_to_vcf(args_t *args)
         }
         bcf_update_info_int32(hdr,line,"END",NULL,0);
         int pos;
-        for (pos=line->pos; pos<=itmp[0]; pos++)
+        for (pos=line->pos; pos<itmp[0]; pos++)
         {
             line->pos = pos;
             bcf_write(out_fh,hdr,line);
