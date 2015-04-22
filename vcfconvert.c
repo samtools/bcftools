@@ -71,6 +71,7 @@ struct _args_t
 
 static void destroy_data(args_t *args)
 {
+    if ( args->ref ) fai_destroy(args->ref);
     if ( args->convert) convert_destroy(args->convert);
     if ( args->filter ) filter_destroy(args->filter);
     free(args->samples);
@@ -1073,8 +1074,8 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
 
 static void tsv_to_vcf(args_t *args)
 {
-    if ( !args->ref_fname ) error("Missing the --ref option\n");
-    if ( !args->sample_list ) error("Missing the --samples option\n");
+    if ( !args->ref_fname ) error("--tsv2vcf requires the --fasta-ref option\n");
+    if ( !args->sample_list ) error("--tsv2vcf requires the --samples option\n");
 
     args->ref = fai_load(args->ref_fname);
     if ( !args->ref ) error("Could not load the reference %s\n", args->ref_fname);
@@ -1125,7 +1126,6 @@ static void tsv_to_vcf(args_t *args)
     if ( hts_close(in_fh) ) error("Close failed: %s\n", args->infname);
     free(line.s);
 
-    fai_destroy(args->ref);
     bcf_hdr_destroy(args->header);
     hts_close(out_fh);
     tsv_destroy(tsv);
@@ -1167,6 +1167,11 @@ static void vcf_to_vcf(args_t *args)
 
 static void gvcf_to_vcf(args_t *args)
 {
+    if ( !args->ref_fname ) error("--gvcf2vcf requires the --fasta-ref option\n");
+
+    args->ref = fai_load(args->ref_fname);
+    if ( !args->ref ) error("Could not load the fai index for reference %s\n", args->ref_fname);
+
     open_vcf(args,NULL);
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
     if ( !out_fh ) error("Failed to open: %s\n", args->outfname);
@@ -1202,10 +1207,15 @@ static void gvcf_to_vcf(args_t *args)
             continue;
         }
         bcf_update_info_int32(hdr,line,"END",NULL,0);
-        int pos;
+        int pos, len;
         for (pos=line->pos; pos<itmp[0]; pos++)
         {
             line->pos = pos;
+            char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(hdr,line->rid), line->pos, line->pos, &len);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(hdr,line->rid), line->pos+1);
+            // we have already checked above that there is only one allele,
+            // so fine to just update alleles with the ref allele from the fasta
+            bcf_update_alleles_str(hdr, line, &ref[0]);
             bcf_write(out_fh,hdr,line);
         }
     }
@@ -1243,7 +1253,8 @@ static void usage(void)
     fprintf(stderr, "       --vcf-ids               output VCF IDs in second column instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "gVCF conversion:\n");
-    fprintf(stderr, "       --gvcf2vcf              \n");
+    fprintf(stderr, "       --gvcf2vcf              expand gVCF reference blocks\n");
+    fprintf(stderr, "   -f, --fasta-ref <file>      reference sequence in fasta format\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/SAMPLE conversion (output from SHAPEIT):\n");
     fprintf(stderr, "       --hapsample2vcf <...>   <prefix>|<haps-file>,<sample-file>\n");
