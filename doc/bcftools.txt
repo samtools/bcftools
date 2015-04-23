@@ -606,6 +606,9 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
     convert gVCF to VCF, expanding REF blocks into sites. Only sites
     with FILTER set to "PASS" or "." will be expanded.
 
+*-f, --fasta-ref* 'file'::
+    reference sequence in fasta format. Must be indexed with samtools faidx
+
 ==== HAPS/SAMPLE conversion:
 *--hapsample2vcf* 'prefix' or 'haps-file','sample-file'::
     convert from haps/sample format to VCF. The columns of .haps file are
@@ -674,7 +677,7 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
     are not supported yet, missing data can be indicated with "--".
 
 *-f, --fasta-ref* 'file'::
-    reference sequence in fasta format
+    reference sequence in fasta format. Must be indexed with samtools faidx
 
 *-s, --samples* 'LIST'::
     list of sample names. See *<<common_options,Common Options>>*
