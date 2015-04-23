@@ -597,6 +597,8 @@ static void filters_set_alt_string(filter_t *flt, bcf1_t *line, token_t *tok)
             kputs(line->d.allele[i], &str);
         }
     }
+    else if ( line->n_allele==1 )
+        kputc('.', &str);
     tok->nvalues = str.l;
     tok->values[0] = str.m;
     tok->str_value = str.s;
