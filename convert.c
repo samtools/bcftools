@@ -759,6 +759,17 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "GT") ) register_tag(convert, T_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "TGT") ) register_tag(convert, T_TGT, "GT", is_gtf);
         else if ( !strcmp(str.s, "IUPACGT") ) register_tag(convert, T_IUPAC_GT, "GT", is_gtf);
+        else if ( !strcmp(str.s, "INFO") )
+        {
+            if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);
+            p = ++q;
+            str.l = 0;
+            while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
+            if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
+            kputsn(p, q-p, &str);
+            fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
+            fmt->subscript = parse_subscript(&q);
+        }
         else
         {
             fmt_t *fmt = register_tag(convert, T_FORMAT, str.s, is_gtf);
