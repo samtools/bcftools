@@ -1312,7 +1312,11 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
         if ( !args->als ) error("Failed to merge alleles at %s:%d\n", bcf_seqname(args->hdr,dst),dst->pos+1);
     }
     bcf_update_alleles(args->hdr, dst, (const char**)args->als, args->nals);
-    for (i=0; i<args->nals; i++) free(args->als[i]);
+    for (i=0; i<args->nals; i++)
+    {
+        free(args->als[i]);
+        args->als[i] = NULL;
+    }
 
     if ( lines[0]->d.n_flt ) bcf_update_filter(args->hdr, dst, lines[0]->d.flt, lines[0]->d.n_flt);
     for (i=1; i<nlines; i++) {
