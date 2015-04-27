@@ -87,6 +87,7 @@ typedef struct _args_t
     int mtmpf;
 
     double *tprob, *tprob_arr;  // array of transition matrices, precalculated up to ntprob_arr positions
+    double *iprobs;             // states' initial probabilities
     int ntprob_arr;
 
     hmm_t *hmm;
@@ -174,6 +175,41 @@ static double *init_tprob_matrix(int ndim, double ij_prob, double same_prob)
     return mat;
 }
 
+static double *init_iprobs(int ndim, double same_prob)
+{
+    int i;
+    double *probs = (double*) malloc(sizeof(double)*ndim);
+
+    assert( ndim==N_STATES || ndim==N_STATES*N_STATES);
+
+    if ( ndim==N_STATES )   
+    {
+        // one sample: prior on CN2
+        for (i=0; i<ndim; i++) 
+            probs[i] = i==CN2 ? 0.5 : 0.5/3;
+    }
+    else
+    {
+        // two samples
+        double norm = 0;
+        for (i=0; i<ndim; i++) 
+        {
+            int ia,ib;
+            hmm2cn_state(ndim, i, &ia, &ib);
+
+            double pa = ia==CN2 ? 0.5 : 0.5/3;
+            double pb = ib==CN2 ? 0.5 : 0.5/3;
+
+            probs[i] = pa*pb;
+            if ( ia!=ib ) probs[i] *= 1-same_prob;
+
+            norm += probs[i];
+        }
+        for (i=0; i<ndim; i++) probs[i] /= norm;
+    }
+    return probs;
+}
+
 static void init_sample_files(sample_t *smpl, char *dir)
 {
     smpl->dat_fh = open_file(&smpl->dat_fname,"w","%s/dat.%s.tab",dir,smpl->name);
@@ -225,8 +261,10 @@ static void init_data(args_t *args)
     args->query_sample.idx = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->query_sample.name);
     args->control_sample.idx = args->control_sample.name ? bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->control_sample.name) : -1;
     args->nstates = args->control_sample.name ? N_STATES*N_STATES : N_STATES;
-    args->tprob = init_tprob_matrix(args->nstates, args->ij_prob, args->same_prob);
+    args->tprob  = init_tprob_matrix(args->nstates, args->ij_prob, args->same_prob);
+    args->iprobs = init_iprobs(args->nstates, args->same_prob);
     args->hmm = hmm_init(args->nstates, args->tprob, 10000);
+    hmm_init_states(args->hmm, args->iprobs);
 
     args->summary_fh = stdout;
     if ( args->output_dir )
@@ -1133,7 +1171,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -l, --LRR-weight <float>           relative contribution from LRR [0.2]\n");
     fprintf(stderr, "    -L, --LRR-smooth-win <int>         window of LRR moving average smoothing [10]\n");
     fprintf(stderr, "    -O, --optimize <float>             estimate fraction of aberrant cells down to <float> [1.0]\n");
-    fprintf(stderr, "    -P, --same-prob <float>            prior probability of -s/-c being same [1e-1]\n");
+    fprintf(stderr, "    -P, --same-prob <float>            prior probability of -s/-c being the same [0.5]\n");
     fprintf(stderr, "    -x, --xy-prob <float>              P(x|y) transition probability [1e-9]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1159,7 +1197,7 @@ int main_vcfcnv(int argc, char *argv[])
 
     // Transition probability to a different state and the prior of both samples being the same
     args->ij_prob   = 1e-9;
-    args->same_prob = 1e-1;
+    args->same_prob = 0.5;
 
     // Squared std dev of BAF and LRR values (gaussian noise), estimated from real data (hets, one sample, one chr)
     args->query_sample.baf_dev2_dflt = args->control_sample.baf_dev2_dflt = 0.04*0.04; // illumina: 0.03
