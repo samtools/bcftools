@@ -167,11 +167,14 @@ bcf1_t *process(bcf1_t *rec)
 {
     int i,j, max_ploidy;
 
-    ploidy_query(ploidy, (char*)bcf_seqname(in_hdr,rec), rec->pos, sex2ploidy,NULL,&max_ploidy);
-
     int ngts = bcf_get_genotypes(in_hdr, rec, &gt_arr, &ngt_arr);
+    if ( ngts<0 )
+        return rec;     // GT field not present
+
     if ( ngts % n_sample )
         error("Error at %s:%d: wrong number of GT fields\n",bcf_seqname(in_hdr,rec),rec->pos+1);
+
+    ploidy_query(ploidy, (char*)bcf_seqname(in_hdr,rec), rec->pos, sex2ploidy,NULL,&max_ploidy);
 
     ngts /= n_sample;
     if ( ngts < max_ploidy )
