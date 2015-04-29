@@ -1,6 +1,6 @@
 /*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -201,6 +201,7 @@ int vcf_write_line(htsFile *fp, kstring_t *line);
 static void phase_update(args_t *args, bcf_hdr_t *hdr, bcf1_t *rec)
 {
     int i, nGTs = bcf_get_genotypes(hdr, rec, &args->GTa, &args->mGTa);
+    if ( nGTs <= 0 ) return;    // GT field is not present
     for (i=0; i<bcf_hdr_nsamples(hdr); i++)
     {
         if ( !args->swap_phase[i] ) continue;
@@ -220,6 +221,7 @@ static void phased_flush(args_t *args)
     bcf_hdr_t *bhdr = args->files->readers[1].header;
 
     int i, j, nsmpl = bcf_hdr_nsamples(args->out_hdr);
+    static int gt_absent_warned = 0;
 
     for (i=0; i<args->nbuf; i+=2)
     {
@@ -227,10 +229,26 @@ static void phased_flush(args_t *args)
         bcf1_t *brec = args->buf[i+1];
 
         int nGTs = bcf_get_genotypes(ahdr, arec, &args->GTa, &args->mGTa);
-        if ( nGTs < 0 ) error("GT is not present at %s:%d\n", bcf_seqname(ahdr,arec), arec->pos+1);
+        if ( nGTs < 0 ) 
+        {
+            if ( !gt_absent_warned )
+            {
+                fprintf(stderr,"GT is not present at %s:%d. (This warning is printed only once.)\n", bcf_seqname(ahdr,arec), arec->pos+1);
+                gt_absent_warned = 1;
+            }
+            continue;
+        }
         if ( nGTs != 2*nsmpl ) continue;    // not diploid
         nGTs = bcf_get_genotypes(bhdr, brec, &args->GTb, &args->mGTb);
-        if ( nGTs < 0 ) error("GT is not present at %s:%d\n", bcf_seqname(bhdr,brec), brec->pos+1);
+        if ( nGTs < 0 )
+        {
+            if ( !gt_absent_warned )
+            {
+                fprintf(stderr,"GT is not present at %s:%d. (This warning is printed only once.)\n", bcf_seqname(bhdr,brec), brec->pos+1);
+                gt_absent_warned = 1;
+            }
+            continue;
+        }
         if ( nGTs != 2*nsmpl ) continue;    // not diploid
 
         for (j=0; j<nsmpl; j++)
