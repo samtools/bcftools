@@ -48,8 +48,8 @@ typedef struct _args_t
     int nbuf, mbuf, prev_chr, min_PQ, prev_pos_check;
     int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
-    char **argv, *output_fname, *file_list, **fnames, *regions_list;
-    int argc, nfnames, allow_overlaps, phased_concat, remove_dups, regions_is_file;
+    char **argv, *output_fname, *file_list, **fnames, *remove_dups, *regions_list;
+    int argc, nfnames, allow_overlaps, phased_concat, regions_is_file;
     int compact_PS, phase_set_changed;
 }
 args_t;
@@ -125,6 +125,16 @@ static void init_data(args_t *args)
         {
             if ( bcf_sr_set_regions(args->files, args->regions_list, args->regions_is_file)<0 )
                 error("Failed to read the regions: %s\n", args->regions_list);
+        }
+        if ( args->remove_dups )
+        {
+            if ( !strcmp(args->remove_dups,"snps") ) args->files->collapse |= COLLAPSE_SNPS;
+            else if ( !strcmp(args->remove_dups,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
+            else if ( !strcmp(args->remove_dups,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
+            else if ( !strcmp(args->remove_dups,"any") ) args->files->collapse |= COLLAPSE_ANY;
+            else if ( !strcmp(args->remove_dups,"all") ) args->files->collapse |= COLLAPSE_ANY;
+            else if ( !strcmp(args->remove_dups,"none") ) args->files->collapse = COLLAPSE_NONE;
+            else error("The -D string \"%s\" not recognised.\n", args->remove_dups);
         }
         for (i=0; i<args->nfnames; i++)
             if ( !bcf_sr_add_reader(args->files,args->fnames[i]) ) error("Failed to open %s: %s\n", args->fnames[i],bcf_sr_strerror(args->files->errnum));
@@ -540,7 +550,8 @@ static void usage(args_t *args)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
     fprintf(stderr, "   -c, --compact-PS               Do not output PS tag at each site, only at the start of a new phase set block.\n");
-    fprintf(stderr, "   -D, --remove-duplicates        Output records present in multiple files only once.\n");
+    fprintf(stderr, "   -d, --rm-dups <string>         Output duplicate records present in multiple files only once: <snps|indels|both|all|none>\n");
+    fprintf(stderr, "   -D, --remove-duplicates        Alias for -d none\n");
     fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
     fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
@@ -567,6 +578,7 @@ int main_vcfconcat(int argc, char *argv[])
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"remove-duplicates",0,0,'D'},
+        {"rm-dups",1,0,'d'},
         {"allow-overlaps",0,0,'a'},
         {"ligate",0,0,'l'},
         {"output",1,0,'o'},
@@ -576,13 +588,14 @@ int main_vcfconcat(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dr:R:c",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dd:r:R:c",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'c': args->compact_PS = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
-            case 'D': args->remove_dups = 1; break;
+            case 'd': args->remove_dups = optarg; break;
+            case 'D': args->remove_dups = "none"; break;
             case 'q': 
                 args->min_PQ = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --min-PQ %s\n", optarg);
