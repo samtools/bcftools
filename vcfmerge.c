@@ -107,7 +107,7 @@ typedef struct
 {
     vcmp_t *vcmp;
     maux_t *maux;
-    int header_only, collapse, output_type, force_samples, merge_by_id;
+    int header_only, collapse, output_type, force_samples, merge_by_id, omit_index;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     info_rule_t *rules;
     int nrules;
@@ -1966,6 +1966,7 @@ static void usage(void)
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "        --omit-index                   do not require index, assume all files are sorted (no region restriction allowed).\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1990,6 +1991,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"use-header",1,0,1},
         {"print-header",0,0,2},
         {"force-samples",0,0,3},
+        {"omit-index",0,0,4},
         {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
@@ -2028,6 +2030,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case  3 : args->force_samples = 1; break;
+            case  4 : args->omit_index = 1; break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
@@ -2035,8 +2038,9 @@ int main_vcfmerge(int argc, char *argv[])
     }
     if ( argc==optind && !args->file_list ) usage();
     if ( argc-optind<2 && !args->file_list ) usage();
+    if ( args->regions_list && args->omit_index ) usage();
 
-    args->files->require_index = 1;
+    args->files->require_index = !args->omit_index;
     if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
         error("Failed to read the regions: %s\n", args->regions_list);
 
