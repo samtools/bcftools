@@ -42,6 +42,9 @@ THE SOFTWARE.  */
 KHASH_MAP_INIT_STR(strdict, int)
 typedef khash_t(strdict) strdict_t;
 
+#define FLT_LOGIC_ADD    0
+#define FLT_LOGIC_REMOVE 1
+
 #define SKIP_DONE 1     // the record was processed
 #define SKIP_DIFF 2     // not compatible, merge later
 
@@ -131,7 +134,7 @@ typedef struct
     vcmp_t *vcmp;
     maux_t *maux;
     regidx_t *regs;    // apply regions only after the blocks are expanded
-    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf;
+    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     info_rule_t *rules;
     int nrules;
@@ -807,6 +810,7 @@ void merge_chrom2qual(args_t *args, bcf1_t *out)
     {
         bcf1_t *line = maux_get_line(args, i);
         if ( !line ) continue;
+        bcf_unpack(line, BCF_UN_ALL);
 
         bcf_sr_t *reader = &files->readers[i];
         bcf_hdr_t *hdr = reader->header;
@@ -891,6 +895,24 @@ void merge_filter(args_t *args, bcf1_t *out)
     bcf_hdr_t *out_hdr = args->out_hdr;
 
     int i, ret;
+    if ( args->filter_logic == FLT_LOGIC_REMOVE )
+    {
+        for (i=0; i<files->nreaders; i++)
+        {
+            bcf1_t *line = maux_get_line(args, i);
+            if ( !line ) continue;
+            bcf_sr_t *reader = &files->readers[i];
+            bcf_hdr_t *hdr = reader->header;
+            if ( bcf_has_filter(hdr, line, "PASS") ) break;
+        }
+        if ( i<files->nreaders )
+        {
+            int flt_id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, "PASS");
+            bcf_add_filter(out_hdr, out, flt_id);
+            return;
+        }
+    }
+
     khiter_t kitr;
     strdict_t *tmph = args->tmph;
     kh_clear(strdict, tmph);
@@ -903,7 +925,6 @@ void merge_filter(args_t *args, bcf1_t *out)
 
         bcf_sr_t *reader = &files->readers[i];
         bcf_hdr_t *hdr = reader->header;
-        bcf_unpack(line, BCF_UN_ALL);
 
         int k;
         for (k=0; k<line->d.n_flt; k++)
@@ -2287,6 +2308,7 @@ static void usage(void)
     fprintf(stderr, "        --print-header                 print only the merged header and exit\n");
     fprintf(stderr, "        --use-header <file>            use the provided header\n");
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -F, --filter-logic <x|+>           remove filters if some input is PASS (\"x\"), or apply all filters (\"+\") [+]\n");
     fprintf(stderr, "    -g, --gvcf                         merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\n");
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
@@ -2331,10 +2353,16 @@ int main_vcfmerge(int argc, char *argv[])
         {"regions-file",required_argument,NULL,'R'},
         {"info-rules",required_argument,NULL,'i'},
         {"no-version",no_argument,NULL,8},
+        {"filter-logic",required_argument,NULL,'F'},
         {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:g",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:gF:",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'F': 
+                if ( !strcmp(optarg,"+") ) args->filter_logic = FLT_LOGIC_ADD;
+                else if ( !strcmp(optarg,"x") ) args->filter_logic = FLT_LOGIC_REMOVE;
+                else error("Filter logic not recognised: %s\n", optarg);
+                break;
             case 'g': args->do_gvcf = 1; break;
             case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;
