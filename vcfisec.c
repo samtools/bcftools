@@ -128,14 +128,6 @@ FILE *open_file(char **fname, const char *mode, const char *fmt, ...)
     return fp;
 }
 
-const char *hts_bcf_wmode(int file_type)
-{
-    if ( file_type == FT_BCF ) return "wbu";    // uncompressed BCF
-    if ( file_type & FT_BCF ) return "wb";      // compressed BCF
-    if ( file_type & FT_GZ ) return "wz";       // compressed VCF
-    return "w";                                 // uncompressed VCF
-}
-
 void isec_vcf(args_t *args)
 {
     bcf_srs_t *files = args->files;
