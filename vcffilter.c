@@ -227,7 +227,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid )
             flush_buffer(args, args->rbuf.n); // new chromosome, flush everything
 
-        if ( args->rbuf.n >= args->rbuf.m ) rbuf_expand0(&args->rbuf,bcf1_t*,args->rbuf_lines);
+        rbuf_expand0(&args->rbuf,bcf1_t*,args->rbuf.n,args->rbuf_lines);
 
         // Insert the new record in the buffer. The line would be overwritten in
         // the next bcf_sr_next_line call, therefore we need to swap it with an
