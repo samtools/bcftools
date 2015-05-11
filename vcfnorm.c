@@ -1877,7 +1877,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
-        {"site-win",1,0,'W'},
+        {"site-win",1,0,'w'},
         {"remove-duplicates",0,0,'D'},
         {"output",1,0,'o'},
         {"output-type",1,0,'O'},
