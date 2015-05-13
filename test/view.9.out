@@ -20,10 +20,6 @@
 ##INFO=<ID=QD,Number=1,Type=Float,Description="Variant confidence/quality by depth">
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="# high-quality bases">
-##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
 ##FILTER=<ID=StrandBias,Description="Min P-value for strand bias (INFO/PV4) [0.0001]">
 ##FILTER=<ID=BaseQualBias,Description="Min P-value for baseQ bias (INFO/PV4) [1e-100]">
 ##FILTER=<ID=MapQualBias,Description="Min P-value for mapQ bias (INFO/PV4) [0]">
