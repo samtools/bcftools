@@ -127,16 +127,24 @@ bcf1_t *process(bcf1_t *rec)
     else if ( mode==GL_TO_PL )
     {
         n = bcf_get_format_float(in_hdr,rec,"GL",&farr,&mfarr);
-
+        if(n < 0){
+            fprintf(stderr, "Could not read tag: GL\n");
+            exit(1);
+        }
+            
+        
         // create extra space to store converted data
         iarr = (int32_t*) malloc(n * sizeof(int32_t));
         if(!iarr) n = -4;
 
         for (i=0; i<n; i++)
         {
-            if ( bcf_float_is_missing(farr[i]) ||
-                 bcf_float_is_vector_end(farr[i]) ) continue;
-            iarr[i] = lroundf(-10 * farr[i]);
+            if ( bcf_float_is_missing(farr[i]) )
+                iarr[i] = bcf_int32_missing;
+            else if ( bcf_float_is_vector_end(farr[i]) )
+                iarr[i] = bcf_int32_vector_end;
+            else
+                iarr[i] = lroundf(-10 * farr[i]);
         }
         bcf_update_format_int32(out_hdr,rec,"PL",iarr,n);
         if ( drop_source_tag )
