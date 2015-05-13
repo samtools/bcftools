@@ -1396,7 +1396,7 @@ static bcf1_t *mrows_flush(args_t *args)
 static void flush_buffer(args_t *args, htsFile *file, int n)
 {
     bcf1_t *line;
-    int i, k, prev_rid = -1, prev_pos = 0, prev_type = 0;
+    int i, k;
     for (i=0; i<n; i++)
     {
         k = rbuf_shift(&args->rbuf);
@@ -1416,16 +1416,6 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
                 mrows_schedule(args, &args->lines[k]);
                 continue;
             }
-        }
-        // todo: merge with next record if POS and the type are same. For now, just discard if asked to do so.
-        if ( args->rmdup )
-        {
-            int line_type = bcf_get_variant_types(args->lines[k]);
-            if ( prev_rid>=0 && prev_rid==args->lines[k]->rid && prev_pos==args->lines[k]->pos && prev_type==line_type )
-                continue;
-            prev_rid  = args->lines[k]->rid;
-            prev_pos  = args->lines[k]->pos;
-            prev_type = line_type;
         }
         bcf_write1(file, args->hdr, args->lines[k]);
     }
@@ -1537,11 +1527,29 @@ static void normalize_vcf(args_t *args)
     bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
     bcf_hdr_write(out, args->hdr);
 
+    int prev_rid = -1, prev_pos = -1, prev_type = 0;
     while ( bcf_sr_next_line(args->files) )
     {
         args->ntotal++;
 
         bcf1_t *line = args->files->readers[0].buffer[0];
+        if ( args->rmdup )
+        {
+            int line_type = bcf_get_variant_types(line);
+            if ( prev_rid>=0 && prev_rid==line->rid && prev_pos==line->pos )
+            {
+                if ( (args->rmdup>>1)&COLLAPSE_ANY ) continue;
+                if ( (args->rmdup>>1)&COLLAPSE_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) continue;
+                if ( (args->rmdup>>1)&COLLAPSE_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) continue;
+            }
+            else
+            {
+                prev_rid  = line->rid;
+                prev_pos  = line->pos;
+                prev_type = 0;
+            }
+            prev_type |= line_type;
+        }
 
         // still on the same chromosome?
         int i,j,ilast = rbuf_last(&args->rbuf);
@@ -1597,6 +1605,7 @@ static void usage(void)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -c, --check-ref <e|w|x|s>         check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [e]\n");
     fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
+    fprintf(stderr, "    -d, --rm-dup <type>               remove duplicate snps|indels|both|any\n");
     fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
     fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "    -N, --do-not-normalize            do not normalize indels (with -m or -c s)\n");
@@ -1639,6 +1648,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {"site-win",1,0,'w'},
         {"remove-duplicates",0,0,'D'},
+        {"rm-dup",1,0,'d'},
         {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"check-ref",1,0,'c'},
@@ -1646,9 +1656,16 @@ int main_vcfnorm(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hr:R:f:w:Do:O:c:m:t:T:sN",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sN",loptions,NULL)) >= 0) {
         switch (c) {
             case 'N': args->do_indels = 0; break;
+            case 'd':
+                if ( !strcmp("snps",optarg) ) args->rmdup = COLLAPSE_SNPS<<1;
+                else if ( !strcmp("indels",optarg) ) args->rmdup = COLLAPSE_INDELS<<1;
+                else if ( !strcmp("both",optarg) ) args->rmdup = COLLAPSE_BOTH<<1;
+                else if ( !strcmp("any",optarg) ) args->rmdup = COLLAPSE_ANY<<1;
+                else error("The argument to -d not recognised: %s\n", optarg);
+                break;
             case 'm':
                 if ( optarg[0]=='-' ) args->mrows_op = MROWS_SPLIT;
                 else if ( optarg[0]=='+' ) args->mrows_op = MROWS_MERGE;
@@ -1678,7 +1695,10 @@ int main_vcfnorm(int argc, char *argv[])
                 }
                 break;
             case 'o': args->output_fname = optarg; break;
-            case 'D': args->rmdup = 1; break;
+            case 'D':
+                fprintf(stderr,"Warning: `-D` is functional but deprecated, replaced by `-d both`.\n"); 
+                args->rmdup = COLLAPSE_NONE<<1;
+                break;
             case 's': args->strict_filter = 1; break;
             case 'f': args->ref_fname = optarg; break;
             case 'r': args->region = optarg; break;
