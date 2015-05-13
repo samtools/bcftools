@@ -1,6 +1,6 @@
 /*  vcfstats.c -- Produces stats which can be plotted using plot-vcfstats.
 
-    Copyright (C) 2012-2014 Genome Research Ltd.
+    Copyright (C) 2012-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -38,6 +38,11 @@ THE SOFTWARE.  */
 #include <htslib/faidx.h>
 #include <inttypes.h>
 #include "bcftools.h"
+#include "filter.h"
+
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
 
 #define HWE_STATS 1
 #define QUAL_STATS 1
@@ -146,6 +151,11 @@ typedef struct
     char **argv, *exons_fname, *regions_list, *samples_list, *targets_list;
     int argc, verbose_sites, first_allele_only, samples_is_file;
     int split_by_id, nstats;
+
+    filter_t *filter[2];
+    char *filter_str;
+    int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+
     // Per Sample r working data arrays of size equal to number of samples
     smpl_r_t* smpl_r_snps;
     smpl_r_t* smpl_r_indels;
@@ -388,6 +398,13 @@ static void init_stats(args_t *args)
     args->nstats = args->files->nreaders==1 ? 1 : 3;
     if ( args->split_by_id ) args->nstats = 2;
 
+    if ( args->filter_str )
+    {
+        args->filter[0] = filter_init(bcf_sr_get_header(args->files,0), args->filter_str);
+        if ( args->files->nreaders==2 )
+            args->filter[1] = filter_init(bcf_sr_get_header(args->files,1), args->filter_str);
+    }
+
     // AF corresponds to AC but is more robust for mixture of haploid and diploid GTs
     args->m_af = 101;
     for (i=0; i<args->files->nreaders; i++)
@@ -548,6 +565,8 @@ static void destroy_stats(args_t *args)
     free(args->smpl_r_snps);
     free(args->smpl_r_indels);
     if (args->indel_ctx) indel_ctx_destroy(args->indel_ctx);
+    if (args->filter[0]) filter_destroy(args->filter[0]);
+    if (args->filter[1]) filter_destroy(args->filter[1]);
 }
 
 static void init_iaf(args_t *args, bcf_sr_t *reader)
@@ -1011,15 +1030,26 @@ static void do_vcf_stats(args_t *args)
     {
         bcf_sr_t *reader = NULL;
         bcf1_t *line = NULL;
-        int ret = 0, i;
+        int ret = 0, i, pass = 1;
         for (i=0; i<files->nreaders; i++)
         {
             if ( !bcf_sr_has_line(files,i) ) continue;
+            if ( args->filter[i] )
+            {
+                int is_ok = filter_test(args->filter[i], bcf_sr_get_line(files,i), NULL);
+                if ( args->filter_logic & FLT_EXCLUDE ) is_ok = is_ok ? 0 : 1;
+                if ( !is_ok ) { pass = 0; break; }
+            }
             ret |= 1<<i;
-            if ( reader ) continue;
-            reader = &files->readers[i];
-            line = files->readers[i].buffer[0];
+            if ( !reader )
+            {
+                reader = &files->readers[i];
+                line = bcf_sr_get_line(files,i);
+            }
+
         }
+        if ( !pass ) continue;
+
         int line_type = bcf_get_variant_types(line);
         init_iaf(args, reader);
 
@@ -1441,10 +1471,12 @@ static void usage(void)
     fprintf(stderr, "    -1, --1st-allele-only              include only 1st allele at multiallelic sites\n");
     fprintf(stderr, "    -c, --collapse <string>            treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
     fprintf(stderr, "    -d, --depth <int,int,int>          depth distribution: min,max,bin size [0,500,1]\n");
-    fprintf(stderr, "    -e, --exons <file.gz>              tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
+    fprintf(stderr, "    -e, --exclude <expr>               exclude sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "    -E, --exons <file.gz>              tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)\n");
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --fasta-ref <file>             faidx indexed reference sequence file to determine INDEL context\n");
-    fprintf(stderr, "    -i, --split-by-ID                  collect stats for sites with ID separately (known vs novel)\n");
+    fprintf(stderr, "    -i, --include <expr>               select sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "    -I, --split-by-ID                  collect stats for sites with ID separately (known vs novel)\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
     fprintf(stderr, "    -s, --samples <list>               list of samples for sample stats, \"-\" to include all samples\n");
@@ -1469,6 +1501,8 @@ int main_vcfstats(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"1st-allele-only",0,0,'1'},
+        {"include",1,0,'i'},
+        {"exclude",1,0,'e'},
         {"help",0,0,'h'},
         {"collapse",1,0,'c'},
         {"regions",1,0,'r'},
@@ -1476,17 +1510,17 @@ int main_vcfstats(int argc, char *argv[])
         {"verbose",0,0,'v'},
         {"depth",1,0,'d'},
         {"apply-filters",1,0,'f'},
-        {"exons",1,0,'e'},
+        {"exons",1,0,'E'},
         {"samples",1,0,'s'},
         {"samples-file",1,0,'S'},
-        {"split-by-ID",0,0,'i'},
+        {"split-by-ID",0,0,'I'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"fasta-ref",1,0,'F'},
         {"user-tstv",1,0,'u'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:it:T:F:f:1u:v",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:i:t:T:F:f:1u:vIE:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'u': add_user_stats(args,optarg); break;
             case '1': args->first_allele_only = 1; break;
@@ -1513,10 +1547,12 @@ int main_vcfstats(int argc, char *argv[])
             case 'f': args->files->apply_filters = optarg; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
-            case 'e': args->exons_fname = optarg; break;
+            case 'E': args->exons_fname = optarg; break;
             case 's': args->samples_list = optarg; break;
             case 'S': args->samples_list = optarg; args->samples_is_file = 1; break;
-            case 'i': args->split_by_id = 1; break;
+            case 'I': args->split_by_id = 1; break;
+            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
