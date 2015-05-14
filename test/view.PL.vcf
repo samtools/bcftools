@@ -5,14 +5,12 @@
 ##contig=<ID=20,length=63025520>
 ##contig=<ID=X,length=155270560>
 ##contig=<ID=Y,length=59373566>
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
 ##FILTER=<ID=StrandBias,Description="Min P-value for strand bias (INFO/PV4) [0.0001]">
 ##FILTER=<ID=BaseQualBias,Description="Min P-value for baseQ bias (INFO/PV4) [1e-100]">
 ##FILTER=<ID=MapQualBias,Description="Min P-value for mapQ bias (INFO/PV4) [0]">
 ##FILTER=<ID=EndDistBias,Description="Min P-value for end distance bias (INFO/PV4) [0.0001]">
 ##FILTER=<ID=MinAB,Description="Minimum number of alternate bases (INFO/DP4) [2]">
-##bcftools_annotateVersion=1.2+htslib-1.2.1
-##bcftools_annotateCommand=annotate -x INFO,FORMAT/DP,FORMAT/GQ,FORMAT/GT view.vcf
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred scaled genotype likelihoods">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
 11	2343543	.	A	.	999	PASS	.	PL	0,255,255	0,255,255	0,255,255
 11	5464562	.	C	T	999	PASS	.	PL	0,0,0	0,0,0	0,0,0
