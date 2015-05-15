@@ -73,6 +73,10 @@ DP	0	35	4	11.111111	0	0.000000
 # PSC	[2]id	[3]sample	[4]nRefHom	[5]nNonRefHom	[6]nHets	[7]nTransitions	[8]nTransversions	[9]nIndels	[10]average depth	[11]nSingletons
 PSC	0	A	0	2	4	3	2	9	28.7	1
 PSC	0	B	1	1	4	2	2	9	28.7	0
+# PSI, Per-Sample Indels
+# PSI	[2]id	[3]sample	[4]in-frame	[5]out-frame	[6]not applicable	[7]out/(in+out) ratio	[8]nHets	[9]nAA
+PSI	0	A	0	0	0	0.00	9	0
+PSI	0	B	0	0	0	0.00	9	0
 # HWE
 # HWE	[2]id	[3]1st ALT allele frequency	[4]Number of observations	[5]25th percentile	[6]median	[7]75th percentile
 HWE	0	0.000000	2	0.490000	0.490000	0.990000

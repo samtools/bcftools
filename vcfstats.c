@@ -92,6 +92,7 @@ typedef struct
     int in_frame, out_frame, na_frame, in_frame_alt1, out_frame_alt1, na_frame_alt1;
     int subst[15];
     int *smpl_hets, *smpl_homRR, *smpl_homAA, *smpl_ts, *smpl_tv, *smpl_indels, *smpl_ndp, *smpl_sngl;
+    int *smpl_indel_hets, *smpl_indel_homs;
     int *smpl_frm_shifts; // not-applicable, in-frame, out-frame
     unsigned long int *smpl_dp;
     idist_t dp, dp_sites;
@@ -437,6 +438,8 @@ static void init_stats(args_t *args)
             stats->smpl_hets   = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_homAA  = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_homRR  = (int *) calloc(args->files->n_smpl,sizeof(int));
+            stats->smpl_indel_hets = (int *) calloc(args->files->n_smpl,sizeof(int));
+            stats->smpl_indel_homs = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_ts     = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_tv     = (int *) calloc(args->files->n_smpl,sizeof(int));
             stats->smpl_indels = (int *) calloc(args->files->n_smpl,sizeof(int));
@@ -514,6 +517,8 @@ static void destroy_stats(args_t *args)
         if (stats->smpl_hets) free(stats->smpl_hets);
         if (stats->smpl_homAA) free(stats->smpl_homAA);
         if (stats->smpl_homRR) free(stats->smpl_homRR);
+        if (stats->smpl_indel_homs) free(stats->smpl_indel_homs);
+        if (stats->smpl_indel_hets) free(stats->smpl_indel_hets);
         if (stats->smpl_ts) free(stats->smpl_ts);
         if (stats->smpl_tv) free(stats->smpl_tv);
         if (stats->smpl_indels) free(stats->smpl_indels);
@@ -827,7 +832,12 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             }
             if ( line_type&VCF_INDEL )
             {
-                if ( gt != GT_HOM_RR ) stats->smpl_indels[is]++;
+                if ( gt != GT_HOM_RR )
+                {
+                    stats->smpl_indels[is]++;
+                    if ( gt==GT_HET_RA || gt==GT_HET_AA ) stats->smpl_indel_hets[is]++;
+                    else if ( gt==GT_HOM_AA ) stats->smpl_indel_homs[is]++;
+                }
                 if ( stats->smpl_frm_shifts )
                 {
                     assert( ial<line->n_allele && jal<line->n_allele );
@@ -1357,19 +1367,22 @@ static void print_stats(args_t *args)
         }
 
 
-        if ( args->exons )
+        printf("# PSI, Per-Sample Indels\n# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio\t[8]nHets\t[9]nAA\n");
+        for (id=0; id<args->nstats; id++)
         {
-            printf("# PSI, Per-Sample Indels\n# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio\n");
-            for (id=0; id<args->nstats; id++)
+            stats_t *stats = &args->stats[id];
+            for (i=0; i<args->files->n_smpl; i++)
             {
-                stats_t *stats = &args->stats[id];
-                for (i=0; i<args->files->n_smpl; i++)
+                int na = 0, in = 0, out = 0;
+                if ( args->exons )
                 {
-                    int na  = stats->smpl_frm_shifts[i*3 + 0];
-                    int in  = stats->smpl_frm_shifts[i*3 + 1];
-                    int out = stats->smpl_frm_shifts[i*3 + 2];
-                    printf("PSI\t%d\t%s\t%d\t%d\t%d\t%.2f\n", id,args->files->samples[i], in,out,na,in+out?1.0*out/(in+out):0);
+                    na  = stats->smpl_frm_shifts[i*3 + 0];
+                    in  = stats->smpl_frm_shifts[i*3 + 1];
+                    out = stats->smpl_frm_shifts[i*3 + 2];
                 }
+                int nhom = stats->smpl_indel_homs[i];
+                int nhet = stats->smpl_indel_hets[i];
+                printf("PSI\t%d\t%s\t%d\t%d\t%d\t%.2f\t%d\t%d\n", id,args->files->samples[i], in,out,na,in+out?1.0*out/(in+out):0,nhet,nhom);
             }
         }
 
