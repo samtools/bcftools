@@ -96,8 +96,8 @@ static void fix_ref(args_t *args, bcf1_t *line)
     args->nref.tot++;
     if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
 
-    // is the REF allele missing?
-    if ( reflen==1 && line->d.allele[0][0]=='.' ) 
+    // is the REF allele missing or N?
+    if ( reflen==1 && (line->d.allele[0][0]=='.' || line->d.allele[0][0]=='N' || line->d.allele[0][0]=='n') ) 
     { 
         line->d.allele[0][0] = ref[0]; 
         args->nref.set++; 
