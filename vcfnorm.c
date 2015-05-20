@@ -79,6 +79,18 @@ typedef struct
 }
 args_t;
 
+static inline int replace_iupac_codes(char *seq, int nseq)
+{
+    // Replace ambiguity codes with N for now, it awaits to be seen what the VCF spec codifies in the end
+    int i, n = 0;
+    for (i=0; i<nseq; i++)
+    {
+        char c = toupper(seq[i]);
+        if ( c!='A' && c!='C' && c!='G' && c!='T' ) { seq[i] = 'N'; n++; }
+    }
+    return n;
+}
+
 static void fix_ref(args_t *args, bcf1_t *line)
 {
     int reflen = strlen(line->d.allele[0]);
@@ -91,9 +103,11 @@ static void fix_ref(args_t *args, bcf1_t *line)
 
     char *ref = faidx_fetch_seq(args->fai, (char*)bcf_seqname(args->hdr,line), line->pos, line->pos+maxlen-1, &len);
     if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+    replace_iupac_codes(ref,len);
+
+    args->nref.tot++;
 
     // is the REF different?
-    args->nref.tot++;
     if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
 
     // is the REF allele missing or N?
@@ -104,6 +118,14 @@ static void fix_ref(args_t *args, bcf1_t *line)
         free(ref);
         bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
         return;
+    }
+
+    // does REF contain non-standard bases?
+    if ( replace_iupac_codes(line->d.allele[0],strlen(line->d.allele[0])) )
+    {
+        args->nref.set++;
+        bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
+        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
     }
 
     // is it swapped?
@@ -235,13 +257,21 @@ static int realign(args_t *args, bcf1_t *line)
     bcf_unpack(line, BCF_UN_STR);
 
     // Sanity check REF
-    int nref, reflen = strlen(line->d.allele[0]);
+    int i, nref, reflen = strlen(line->d.allele[0]);
     char *ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
     if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
+    replace_iupac_codes(ref,nref);
+
+    // does REF contain non-standard bases?
+    if ( replace_iupac_codes(line->d.allele[0],reflen) )
+    {
+        args->nchanged++;
+        bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
+    }
     if ( strcasecmp(ref,line->d.allele[0]) )
     {
         if ( args->check_ref==CHECK_REF_EXIT )
-            error("Reference allele mismatch at %s:%d .. '%s' vs '%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
+            error("Reference allele mismatch at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
         if ( args->check_ref & CHECK_REF_WARN )
             fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
         free(ref);
@@ -253,7 +283,6 @@ static int realign(args_t *args, bcf1_t *line)
     if ( line->n_allele == 1 ) return ERR_OK;    // a REF
 
     // make a copy of each allele for trimming
-    int i;
     hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
     kstring_t *als = args->tmp_als;
     for (i=0; i<line->n_allele; i++)
@@ -290,6 +319,7 @@ static int realign(args_t *args, bcf1_t *line)
             free(ref);
             ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-npad, line->pos-1, &nref);
             if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-npad+1);
+            replace_iupac_codes(ref,nref);
             for (i=0; i<line->n_allele; i++)
             {
                 ks_resize(&als[i], als[i].l + npad);
