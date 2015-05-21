@@ -1026,6 +1026,13 @@ Left-align and normalize indels,  check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows.
 
+*-c, --check-ref* 'e'|'w'|'x'|'s':: 
+    what to do when incorrect or missing REF allele is encountered: 
+    exit ('e'), warn ('w'), exclude ('x'), or set/fix ('s') bad sites.
+    The 'w' option can be combined with 'x' and 's'. Note that 's'
+    can swap alleles and will update genotypes (GT) and AC counts, 
+    but will not attempt to fix PL or other fields.
+
 *-D, --remove-duplicates*::
     remove duplicate lines of the same type
 
@@ -1040,6 +1047,11 @@ multiple rows.
     both SNPs and indels should be merged separately into two records, specify
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
+
+*-N, --do-not-normalize*::
+    the '-c s' option can be used to fix or set the REF allele from the 
+    reference '-f'. The '-N' option will not turn on indel normalisation
+    as the '-f' option normally implies
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*

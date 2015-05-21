@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 04/22/2015
+.\"      Date: 05/21/2015
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "04/22/2015" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "05/21/2015" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -1772,6 +1772,18 @@ see
 .sp
 Left\-align and normalize indels, check if REF alleles match the reference, split multiallelic sites into multiple rows; recover multiallelics from multiple rows\&.
 .PP
+\fB\-c, \-\-check\-ref\fR \fIe\fR|\fIw\fR|\fIx\fR|\fIs\fR
+.RS 4
+what to do when incorrect or missing REF allele is encountered: exit (\fIe\fR), warn (\fIw\fR), exclude (\fIx\fR), or set/fix (\fIs\fR) bad sites\&. The
+\fIw\fR
+option can be combined with
+\fIx\fR
+and
+\fIs\fR\&. Note that
+\fIs\fR
+can swap alleles and will update genotypes (GT) and AC counts, but will not attempt to fix PL or other fields\&.
+.RE
+.PP
 \fB\-D, \-\-remove\-duplicates\fR
 .RS 4
 remove duplicate lines of the same type
@@ -1788,6 +1800,18 @@ split multiallelic sites into biallelic records (\fI\-\fR) or join biallelic sit
 \fIsnps\fR; if both SNPs and indels should be merged separately into two records, specify
 \fIboth\fR; if SNPs and indels should be merged into a single record, specify
 \fIany\fR\&.
+.RE
+.PP
+\fB\-N, \-\-do\-not\-normalize\fR
+.RS 4
+the
+\fI\-c s\fR
+option can be used to fix or set the REF allele from the reference
+\fI\-f\fR\&. The
+\fI\-N\fR
+option will not turn on indel normalisation as the
+\fI\-f\fR
+option normally implies
 .RE
 .PP
 \fB\-o, \-\-output\fR \fIFILE\fR
