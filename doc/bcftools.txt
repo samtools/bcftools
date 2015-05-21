@@ -1048,6 +1048,11 @@ multiple rows.
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
 
+*-N, --do-not-normalize*::
+    the '-c s' option can be used to fix or set the REF allele from the 
+    reference '-f'. The '-N' option will not turn on indel normalisation
+    as the '-f' option normally implies
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
