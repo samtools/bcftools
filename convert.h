@@ -28,9 +28,14 @@ THE SOFTWARE.  */
 #include <htslib/vcf.h>
 
 typedef struct _convert_t convert_t;
+enum convert_option
+{
+    allow_undef_tags
+};
 
 convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *str);
 void convert_destroy(convert_t *convert);
+int convert_set_option(convert_t *convert, enum convert_option opt, ...);
 int convert_header(convert_t *convert, kstring_t *str);
 int convert_line(convert_t *convert, bcf1_t *rec, kstring_t *str);
 

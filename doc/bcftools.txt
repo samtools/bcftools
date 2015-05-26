@@ -1268,6 +1268,10 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*-u, --allow-undef-tags*::
+    do not throw an error if there are undefined tags in the format string,
+    print "." instead
+
 *-v, --vcf-list* 'FILE'::
     process multiple VCFs listed in the file
 

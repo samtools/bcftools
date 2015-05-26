@@ -84,6 +84,8 @@ struct _convert_t
     int nreaders;
     void *dat;
     int ndat;
+    char *undef_info_tag;
+    int allow_undef_tags;
 };
 
 
@@ -146,6 +148,12 @@ static inline int bcf_array_ivalue(void *bcf_array, int type, int idx)
 }
 static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
+    if ( fmt->id<0 )
+    {
+        kputc('.', str);
+        return;
+    }
+
     int i;
     for (i=0; i<line->n_info; i++)
         if ( line->d.info[i].key == fmt->id ) break;
@@ -206,11 +214,16 @@ static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isamp
 static void init_format(convert_t *convert, bcf1_t *line, fmt_t *fmt)
 {
     fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, fmt->key);
-    if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: FORMAT/%s\n", fmt->key);
     fmt->fmt = NULL;
-    int i;
-    for (i=0; i<(int)line->n_fmt; i++)
-        if ( line->d.fmt[i].id==fmt->id ) { fmt->fmt = &line->d.fmt[i]; break; }
+    if ( fmt->id >= 0 )
+    {
+        int i;
+        for (i=0; i<(int)line->n_fmt; i++)
+            if ( line->d.fmt[i].id==fmt->id ) { fmt->fmt = &line->d.fmt[i]; break; }
+    }
+    else if ( !convert->allow_undef_tags )
+        error("Error: no such tag defined in the VCF header: FORMAT/%s\n", fmt->key);
+
     fmt->ready = 1;
 }
 static void process_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
@@ -728,7 +741,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         if ( fmt->type==T_INFO )
         {
             fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, key);
-            if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: INFO/%s\n", key);
+            if ( fmt->id==-1 ) convert->undef_info_tag = strdup(key);
         }
     }
     return fmt;
@@ -883,8 +896,9 @@ void convert_destroy(convert_t *convert)
 {
     int i;
     for (i=0; i<convert->nfmt; i++)
-        if ( convert->fmt[i].key ) free(convert->fmt[i].key);
-    if ( convert->mfmt ) free(convert->fmt);
+        free(convert->fmt[i].key);
+    free(convert->fmt);
+    free(convert->undef_info_tag);
     free(convert->dat);
     free(convert->samples);
     free(convert->format_str);
@@ -942,6 +956,9 @@ int convert_header(convert_t *convert, kstring_t *str)
 
 int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
 {
+    if ( !convert->allow_undef_tags && convert->undef_info_tag )
+        error("Error: no such tag defined in the VCF header: INFO/%s\n", convert->undef_info_tag);
+
     int l_ori = str->l;
     bcf_unpack(line, convert->max_unpack);
 
@@ -986,4 +1003,23 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
     }
     return str->l - l_ori;
 }
+
+int convert_set_option(convert_t *convert, enum convert_option opt, ...)
+{
+    int ret = 0;
+    va_list args;
+
+    va_start(args, opt);
+    switch (opt) 
+    {
+        case allow_undef_tags:
+            convert->allow_undef_tags = va_arg(args, int);
+            break;
+        default:
+            ret = -1;
+    }
+    va_end(args);
+    return ret;
+}
+
 

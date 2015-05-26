@@ -52,7 +52,7 @@ typedef struct
     bcf_hdr_t *header;
     int nsamples, *samples, sample_is_file;
     char **argv, *format_str, *sample_list, *targets_list, *regions_list, *vcf_list, *fn_out;
-    int argc, list_columns, print_header;
+    int argc, list_columns, print_header, allow_undef_tags;
     FILE *out;
 }
 args_t;
@@ -98,6 +98,7 @@ static void init_data(args_t *args)
         }
     }
     args->convert = convert_init(args->header, samples, nsamples, args->format_str);
+    if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
     free(samples);
 
     if ( args->filter_str )
@@ -188,6 +189,7 @@ static void usage(void)
     fprintf(stderr, "    -S, --samples-file <file>         file of samples to include\n");
     fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -u, --allow-undef-tags            print \".\" for undefined tags\n");
     fprintf(stderr, "    -v, --vcf-list <file>             process multiple VCFs listed in the file\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
@@ -221,9 +223,10 @@ int main_vcfquery(int argc, char *argv[])
         {"print-header",0,0,'H'},
         {"collapse",1,0,'c'},
         {"vcf-list",1,0,'v'},
+        {"allow-undef-tags",0,0,'u'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "hlr:R:f:a:s:S:Ht:T:c:v:i:e:o:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hlr:R:f:a:s:S:Ht:T:c:v:i:e:o:u",loptions,NULL)) >= 0) {
         switch (c) {
             case 'o': args->fn_out = optarg; break;
             case 'f': args->format_str = strdup(optarg); break;
@@ -262,6 +265,7 @@ int main_vcfquery(int argc, char *argv[])
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'l': args->list_columns = 1; break;
+            case 'u': args->allow_undef_tags = 1; break;
             case 's': args->sample_list = optarg; break;
             case 'S': args->sample_list = optarg; args->sample_is_file = 1; break;
             case 'h':
