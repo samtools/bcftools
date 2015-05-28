@@ -194,8 +194,29 @@ specific commands to see if they apply.
     File of sample names to include or exclude if prefixed with "&#94;".
     One sample per line.
     The command *<<call,bcftools call>>* accepts an optional second
-    column indicating ploidy (0, 1 or 2) and can parse also PED files.
-    With *<<call,bcftools call>> -C* 'trio', PED file is expected.
+    column indicating ploidy (0, 1 or 2) or sex (as defined by
+    *<<ploidy,--ploidy>>*, for example "F" or "M"), and can parse also PED
+    files. If the second column is not present,
+    the sex "F" is assumed.
+    With *<<call,bcftools call>> -C* 'trio', PED file is expected. File
+    formats examples:
+----
+    sample1    1
+    sample2    2
+    sample3    2
+
+  or
+
+    sample1    M
+    sample2    F
+    sample3    F
+
+  or a .ped file (here is shown a minimum working example, the first column is 
+  ignored and the last indicates sex: 1=male, 2=female)
+
+    ignored daughterA fatherA motherA 2
+    ignored sonB fatherB motherB 1
+----
 
 *-t, --targets* \[&#94;]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Similar as *-r, --regions*, but the next position is accessed by streaming the
@@ -369,6 +390,28 @@ demand. The original calling model can be invoked with the *-c* option.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
+
+*--ploidy* 'ASSEMBLY'['?'][[ploidy]]::
+    predefined ploidy, use 'list' (or any other unused word) to print a list
+    of all predefined assemblies. Append a question mark to print the actual
+    definition. See also *--ploidy-file*.
+
+*--ploidy-file* 'FILE'::
+    ploidy definition given as a space/tab-delimited list of
+    CHROM, FROM, TO, SEX, PLOIDY. The SEX codes are arbitrary and
+    correspond to the ones used by *<<samples_file,--samples-file>>*. 
+    The default ploidy can be given using the starred records (see
+    below), unlisted regions have ploidy 2. The default ploidy definition is
+----
+    X 1 60000 M 1
+    X 2699521 154931043 M 1
+    Y 1 59373566 M 1
+    Y 1 59373566 F 0
+    MT 1 16569 M 1
+    MT 1 16569 F 1
+    *  * *     M 2
+    *  * *     F 2
+----
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*

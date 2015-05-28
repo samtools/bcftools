@@ -40,13 +40,16 @@
         ploidy_destroy(pld);
 
     An example of ploidy file format follows. The coordinates are 1-based and
-    inclusive:
+    inclusive. The "*" records define the default ploidy for each sex. If not
+    present, the default_ploidy passed to ploidy_init is used instead:
         X 1 60000 M 1
         X 2699521 154931043 M 1
         Y 1 59373566 M 1
         Y 1 59373566 F 0
         MT 1 16569 M 1
         MT 1 16569 F 1
+        *  * *     M 2
+        *  * *     F 2
 */
 
 #ifndef __PLOIDY_H__
@@ -56,17 +59,10 @@
 
 typedef struct _ploidy_t ploidy_t;
 
-typedef struct
-{
-    int sex, ploidy;
-}
-sex_ploidy_t;
-
-
 /*
  *  ploidy_init()
  *  @param fname:   input file name or NULL if default ploidy from example above should be used
- *  @param dflt:    default ploidy to use for unlisted regions
+ *  @param dflt:    default ploidy to use for unlisted regions (the '* * *' records have precedence).
  *
  *  Returns new structure on success or NULL on error.
  */
