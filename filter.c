@@ -1489,7 +1489,11 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         {
             if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
             int j = i+1;
-            if ( out[j].tok_type==TOK_EQ || out[j].tok_type==TOK_NE || out[j].tok_type==TOK_LIKE ) j = i - 1;
+            if ( out[j].tok_type==TOK_EQ || out[j].tok_type==TOK_NE ) j = i - 1;    // the expression has "value"=FILTER rather than FILTER="value"
+            if ( out[j].tok_type==TOK_LIKE ) out[j].tok_type = TOK_EQ;              // for FILTER, ~ and !~ work the same way as = and !=
+            if ( out[j].tok_type==TOK_NLIKE ) out[j].tok_type = TOK_NE;
+            if ( out[j+1].tok_type==TOK_LIKE ) out[j+1].tok_type = TOK_EQ;
+            if ( out[j+1].tok_type==TOK_NLIKE ) out[j+1].tok_type = TOK_NE;
             if ( out[j].tok_type!=TOK_VAL || !out[j].key )
                 error("[%s:%d %s] Could not parse the expression, an unquoted string value perhaps? %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
             if ( strcmp(".",out[j].key) )
