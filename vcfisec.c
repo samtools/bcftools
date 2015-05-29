@@ -41,6 +41,7 @@ THE SOFTWARE.  */
 #define OP_EQUAL 3
 #define OP_VENN 4
 #define OP_COMPLEMENT 5
+#define OP_EXACT 6
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -56,6 +57,7 @@ typedef struct
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
     char **argv, *prefix, *output_fname, **fnames, *write_files, *targets_list, *regions_list;
+    char *isec_exact;
     int argc;
 }
 args_t;
@@ -190,7 +192,12 @@ void isec_vcf(args_t *args)
             case OP_COMPLEMENT: if ( n!=1 || !bcf_sr_has_line(files,0) ) continue; break;
             case OP_EQUAL: if ( n != args->isec_n ) continue; break;
             case OP_PLUS: if ( n < args->isec_n ) continue; break;
-            case OP_MINUS: if ( n > args->isec_n ) continue;
+            case OP_MINUS: if ( n > args->isec_n ) continue; break;
+            case OP_EXACT:
+                for (i=0; i<files->nreaders; i++)
+                    if ( files->has_line[i] != args->isec_exact[i] ) break;
+                if ( i<files->nreaders ) continue;
+                break;
         }
 
         if ( out_std )
@@ -292,6 +299,16 @@ static void init_data(args_t *args)
                 args->flt[i] = filter_init(args->files->readers[i].header,args->flt_expr[i]);
             }
         }
+    }
+
+    if ( args->isec_op==OP_EXACT )
+    {
+        if ( strlen(args->isec_exact)!=args->files->nreaders )
+            error("The number of files does not match the bitmask: %d vs %s\n", args->files->nreaders,args->isec_exact);
+        for (i=0; i<args->files->nreaders; i++)
+            if ( args->isec_exact[i]!='0' && args->isec_exact[i]!='1' ) error("Unexpected bitmask: %s\n",args->isec_exact);
+        for (i=0; i<args->files->nreaders; i++)
+            args->isec_exact[i] -= '0';
     }
 
     // Which files to write: parse the string passed with -w
@@ -445,7 +462,7 @@ static void usage(void)
     fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true\n");
     fprintf(stderr, "    -f, --apply-filters <list>    require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
-    fprintf(stderr, "    -n, --nfiles [+-=]<int>       output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
+    fprintf(stderr, "    -n, --nfiles [+-=~]<int>      output positions present in this many (=), this many or more (+), this many or fewer (-), the exact (~) files\n");
     fprintf(stderr, "    -o, --output <file>           write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -p, --prefix <dir>            if given, subset each of the input files accordingly, see also -w\n");
@@ -538,9 +555,11 @@ int main_vcfisec(int argc, char *argv[])
                     if ( *p=='-' ) { args->isec_op = OP_MINUS; p++; }
                     else if ( *p=='+' ) { args->isec_op = OP_PLUS; p++; }
                     else if ( *p=='=' ) { args->isec_op = OP_EQUAL; p++; }
+                    else if ( *p=='~' ) { args->isec_op = OP_EXACT; p++; }
                     else if ( isdigit(*p) ) args->isec_op = OP_EQUAL;
                     else error("Could not parse --nfiles %s\n", optarg);
-                    if ( sscanf(p,"%d",&args->isec_n)!=1 ) error("Could not parse --nfiles %s\n", optarg);
+                    if ( args->isec_op == OP_EXACT ) args->isec_exact = p;
+                    else if ( sscanf(p,"%d",&args->isec_n)!=1 ) error("Could not parse --nfiles %s\n", optarg);
                 }
                 break;
             case 'h':
