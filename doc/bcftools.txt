@@ -1648,6 +1648,10 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
         FlagA=1 && FlagB=0
 
+* "." to test missing values in INFO tags
+
+        DP=".", DP!="."
+
 * TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
 
         TYPE="indel" | TYPE="snp"
