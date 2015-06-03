@@ -32,10 +32,12 @@ DEALINGS IN THE SOFTWARE.  */
 
 
 #define GP_TO_GL 1
+#define GL_TO_PL 2
 
 static int mode = 0, drop_source_tag = 0;
 static bcf_hdr_t *in_hdr, *out_hdr;
 static float *farr = NULL;
+static int32_t *iarr = NULL;
 static int mfarr = 0;
 
 const char *about(void)
@@ -55,6 +57,7 @@ const char *usage(void)
         "Plugin options:\n"
 //todo        "       --gl-to-gp    convert FORMAT/GL to FORMAT/GP\n" 
         "       --gp-to-gl    convert FORMAT/GP to FORMAT/GL\n"
+        "       --gl-to-pl    convert FORMAT/GL to FORMAT/PL\n"
         "   -r, --replace     drop the source tag\n"
         "\n"
         "Example:\n"
@@ -77,6 +80,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     {
         {"replace",0,0,'r'},
         {"gp-to-gl",0,0,1},
+        {"gl-to-pl",0,0,2},
         {0,0,0,0}
     };
     char c;
@@ -85,6 +89,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         switch (c) 
         {
             case  1 : mode = GP_TO_GL; break;
+            case  2 : mode = GL_TO_PL; break;
             case 'r': drop_source_tag = 1; break;
             case 'h':
             case '?':
@@ -98,6 +103,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
     if ( mode==GP_TO_GL )
         init_header(out_hdr,drop_source_tag?"GP":NULL,BCF_HL_FMT,"##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihoods\">");
+    else if ( mode==GL_TO_PL )
+        init_header(out_hdr,drop_source_tag?"GL":NULL,BCF_HL_FMT,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred scaled genotype likelihoods\">");
 
     return 0;
 }
@@ -117,12 +124,39 @@ bcf1_t *process(bcf1_t *rec)
         if ( drop_source_tag )
             bcf_update_format_float(out_hdr,rec,"GP",NULL,0);
     }
+    else if ( mode==GL_TO_PL )
+    {
+        n = bcf_get_format_float(in_hdr,rec,"GL",&farr,&mfarr);
+        if(n < 0){
+            fprintf(stderr, "Could not read tag: GL\n");
+            exit(1);
+        }
+            
+        
+        // create extra space to store converted data
+        iarr = (int32_t*) malloc(n * sizeof(int32_t));
+        if(!iarr) n = -4;
+
+        for (i=0; i<n; i++)
+        {
+            if ( bcf_float_is_missing(farr[i]) )
+                iarr[i] = bcf_int32_missing;
+            else if ( bcf_float_is_vector_end(farr[i]) )
+                iarr[i] = bcf_int32_vector_end;
+            else
+                iarr[i] = lroundf(-10 * farr[i]);
+        }
+        bcf_update_format_int32(out_hdr,rec,"PL",iarr,n);
+        if ( drop_source_tag )
+            bcf_update_format_float(out_hdr,rec,"GL",NULL,0);
+    }
     return rec;
 }
 
 void destroy(void)
 {
     free(farr);
+    free(iarr);
 }
 
 

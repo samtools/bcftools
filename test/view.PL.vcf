@@ -1,0 +1,29 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///seq/references/1000Genomes-NCBI37.fasta
+##contig=<ID=11,length=135006516>
+##contig=<ID=20,length=63025520>
+##contig=<ID=X,length=155270560>
+##contig=<ID=Y,length=59373566>
+##FILTER=<ID=StrandBias,Description="Min P-value for strand bias (INFO/PV4) [0.0001]">
+##FILTER=<ID=BaseQualBias,Description="Min P-value for baseQ bias (INFO/PV4) [1e-100]">
+##FILTER=<ID=MapQualBias,Description="Min P-value for mapQ bias (INFO/PV4) [0]">
+##FILTER=<ID=EndDistBias,Description="Min P-value for end distance bias (INFO/PV4) [0.0001]">
+##FILTER=<ID=MinAB,Description="Minimum number of alternate bases (INFO/DP4) [2]">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred scaled genotype likelihoods">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
+11	2343543	.	A	.	999	PASS	.	PL	0,255,255	0,255,255	0,255,255
+11	5464562	.	C	T	999	PASS	.	PL	0,0,0	0,0,0	0,0,0
+20	76962	rs6111385	T	C	999	PASS	.	PL	255,0,255	255,255,0	255,255,0
+20	126310	.	ACC	A	999	StrandBias;EndDistBias	.	PL	255,0,132	255,0,139	255,213,0
+20	138125	rs2298108	G	T	999	PASS	.	PL	135,0,163	140,0,255	255,199,0
+20	138148	rs2298109	C	T	999	PASS	.	PL	195,0,255	192,0,255	255,235,0
+20	271225	.	T	TTTA,TA	999	StrandBias	.	PL	151,53,203,0,52,159	255,0,213,255,255,255	255,255,255,255,0,241
+20	304568	.	C	T	999	PASS	.	PL	95,0,255	192,0,255	255,95,0
+20	326891	.	A	AC	999	PASS	.	PL	255,0,132	255,0,139	.,.,.
+X	2928329	rs62584840	C	T	999	PASS	.	PL	0,56	0,81	73,0,19
+X	2933066	rs61746890	G	C	999	PASS	.	PL	0,255	0,255	255,255,255
+X	2942109	rs5939407	T	C	999	PASS	.	PL	0,255	255,0	255,157,0
+X	3048719	.	T	C	999	PASS	.	PL	0,255	255,0	255,0,157
+Y	8657215	.	C	A	999	PASS	.	PL	0,255	255,0	.
+Y	10011673	rs78249411	G	A	999	MinAB	.	PL	126,101	95,0	.
