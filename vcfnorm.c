@@ -61,7 +61,7 @@ typedef struct
     map_t *maps;     // mrow map for each buffered record
     char **als;
     int mmaps, nals, mals;
-    uint8_t *tmp_arr1, *tmp_arr2;
+    uint8_t *tmp_arr1, *tmp_arr2, *diploid;
     int ntmp_arr1, ntmp_arr2;
     kstring_t *tmp_str;
     kstring_t *tmp_als, tmp_als_str;
@@ -643,7 +643,7 @@ static void split_multiallelic_to_biallelics(args_t *args, bcf1_t *line)
     {
         args->tmp_lines = (bcf1_t **)realloc(args->tmp_lines,sizeof(bcf1_t*)*args->ntmp_lines);
         for (i=args->mtmp_lines; i<args->ntmp_lines; i++)
-            args->tmp_lines[i] = bcf_init1();
+            args->tmp_lines[i] = NULL;
         args->mtmp_lines = args->ntmp_lines;
     }
     kstring_t tmp = {0,0,0};
@@ -653,12 +653,17 @@ static void split_multiallelic_to_biallelics(args_t *args, bcf1_t *line)
     int gt_id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"GT");
     for (i=0; i<args->ntmp_lines; i++)  // for each ALT allele
     {
+        if ( !args->tmp_lines[i] ) args->tmp_lines[i] = bcf_init1();
         bcf1_t *dst = args->tmp_lines[i];
         bcf_clear(dst);
 
         dst->rid  = line->rid;
         dst->pos  = line->pos;
         dst->qual = line->qual;
+
+        // Not quite sure how to handle IDs, they can be assigned to a specific
+        // ALT.  For now we leave the ID unchanged for all.
+        bcf_update_id(args->hdr, dst, line->d.id ? line->d.id : ".");
 
         tmp.l = rlen;
         kputs(line->d.allele[i+1],&tmp);
@@ -879,7 +884,7 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
         int ngts2 = bcf_get_genotypes(args->hdr,lines[i],&args->tmp_arr2,&ntmp2);
         args->ntmp_arr2 = ntmp2 * 4;
         ngts2 /= nsmpl;
-        assert( ngts==ngts2 );
+        if ( ngts!=ngts2 ) error("Error at %s:%d: cannot combine diploid with haploid genotype\n", bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1);
 
         int32_t *gt  = (int32_t*) args->tmp_arr1;
         int32_t *gt2 = (int32_t*) args->tmp_arr2;
@@ -903,9 +908,21 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
     }
     bcf_update_genotypes(args->hdr,dst,args->tmp_arr1,ngts*nsmpl);
 }
+static int diploid_to_haploid(int size, int nsmpl, int nals, uint8_t *vals)
+{
+    int i, dsrc = size*nals*(nals+1)/2, ddst = size*nals;
+    uint8_t *src_ptr = vals + dsrc, *dst_ptr = vals + ddst;
+    for (i=1; i<nsmpl; i++)
+    {
+        memmove(dst_ptr,src_ptr,ddst);
+        dst_ptr += ddst;
+        src_ptr += dsrc;
+    }
+    return nals;
+}
 static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_fmt_t *fmt, bcf1_t *dst)
 {
-    #define BRANCH_NUMERIC(type,type_t,set_missing,is_vector_end) \
+    #define BRANCH_NUMERIC(type,type_t,set_missing,is_vector_end,set_vector_end) \
     { \
         const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id); \
         int ntmp = args->ntmp_arr1 / sizeof(type_t); \
@@ -970,8 +987,24 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
         } \
         else if ( len==BCF_VL_G ) \
         { \
-            int all_haploid = nvals_ori==lines[0]->n_allele ? 1 : 0; \
-            int nvals = all_haploid ? dst->n_allele : dst->n_allele*(dst->n_allele+1)/2; \
+            /* which samples are diploid */ \
+            memset(args->diploid,0,nsmpl); \
+            int all_haploid = 1; \
+            if ( nvals_ori > lines[0]->n_allele ) /* line possibly diploid */ \
+            { \
+                vals2 = (type_t*) args->tmp_arr1; \
+                int ndiploid = lines[0]->n_allele*(lines[0]->n_allele+1)/2; \
+                for (i=0; i<nsmpl; i++) \
+                { \
+                    if ( !args->diploid[i] ) \
+                    { \
+                        for (k=0; k<nvals_ori; k++) if ( is_vector_end ) break; \
+                        if ( k==ndiploid ) { args->diploid[i] = 1; all_haploid = 0; }\
+                    } \
+                    vals2 += nvals_ori; \
+                } \
+            } \
+            int nvals = dst->n_allele*(dst->n_allele+1)/2; \
             ENLARGE_ARRAY(type_t,set_missing,args->tmp_arr1,args->ntmp_arr1,nsmpl,nvals_ori,nvals); \
             for (i=1; i<nlines; i++) \
             { \
@@ -979,24 +1012,23 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
                 int nvals2 = bcf_get_format_##type(args->hdr,lines[i],tag,&args->tmp_arr2,&ntmp2); \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 nvals2 /= nsmpl; \
-                assert( nvals2==lines[i]->n_allele || nvals2==lines[i]->n_allele*(lines[i]->n_allele+1)/2); \
+                int ndiploid = lines[i]->n_allele*(lines[i]->n_allele+1)/2; \
+                int line_diploid = nvals2==ndiploid ? 1 : 0; \
+                assert( nvals2==1 || nvals2==lines[i]->n_allele || nvals2==lines[i]->n_allele*(lines[i]->n_allele+1)/2); \
                 vals  = (type_t*) args->tmp_arr1; \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (j=0; j<nsmpl; j++) \
                 { \
-                    int haploid = all_haploid; \
-                    if ( !haploid ) \
+                    int smpl_diploid = line_diploid; \
+                    if ( smpl_diploid ) \
                     { \
                         for (k=0; k<nvals2; k++) if ( is_vector_end ) break; \
-                        if ( k!=nvals2 ) haploid = 1; \
+                        if ( k!=ndiploid ) smpl_diploid = 0; \
                     } \
-                    if ( haploid ) \
+                    if ( smpl_diploid && !args->diploid[j] ) { args->diploid[j] = 1; all_haploid = 0; } \
+                    if ( !smpl_diploid ) \
                     { \
-                        for (k=0; k<nvals2; k++) \
-                        { \
-                            if ( is_vector_end ) break; \
-                            vals[ args->maps[i].map[k] ] = vals2[k]; \
-                        } \
+                        for (k=0; k<lines[i]->n_allele; k++) vals[args->maps[i].map[k]] = vals2[k]; \
                     } \
                     else \
                     { \
@@ -1016,6 +1048,18 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
                     vals2 += nvals2; \
                 } \
             } \
+            if ( all_haploid ) \
+                nvals = diploid_to_haploid(sizeof(type_t),nsmpl,dst->n_allele,args->tmp_arr1); \
+            else \
+            {\
+                k = dst->n_allele;\
+                vals2 = (type_t*) args->tmp_arr1;\
+                for (i=0; i<nsmpl; i++)\
+                {\
+                    if ( !args->diploid[i] ) set_vector_end;\
+                    vals2 += nvals;\
+                }\
+            }\
             bcf_update_format_##type(args->hdr,dst,tag,args->tmp_arr1,nvals*nsmpl); \
         } \
         else \
@@ -1023,8 +1067,8 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
     }
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_FMT,fmt->id))
     {
-        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, dst_ptr[k]=bcf_int32_missing, vals2[k]==bcf_int32_vector_end); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_set_missing(dst_ptr[k]), bcf_float_is_vector_end(vals2[k])); break;
+        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, dst_ptr[k]=bcf_int32_missing, vals2[k]==bcf_int32_vector_end, vals2[k]=bcf_int32_vector_end); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_set_missing(dst_ptr[k]), bcf_float_is_vector_end(vals2[k]), bcf_float_set_vector_end(vals2[k])); break;
     }
     #undef BRANCH_NUMERIC
 }
@@ -1181,15 +1225,7 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
     }
     for (i=1; i<nlines; i++)
     {
-        if (lines[i]->d.id[0]!='.' || lines[i]->d.id[1]) {
-            kstring_t tmp = {0,0,0};
-            if (dst->d.id[0]=='.' && !dst->d.id[1])
-                kputs(lines[i]->d.id, &tmp);
-            else
-                ksprintf(&tmp, "%s;%s", dst->d.id, lines[i]->d.id);
-            bcf_update_id(args->hdr, dst, tmp.s);
-            free(tmp.s);
-        }
+        if (lines[i]->d.id[0]!='.' || lines[i]->d.id[1]) bcf_add_id(args->hdr, dst, lines[i]->d.id);
         args->maps[i].nals = lines[i]->n_allele;
         hts_expand(int,args->maps[i].nals,args->maps[i].mals,args->maps[i].map);
         args->als = merge_alleles(lines[i]->d.allele, lines[i]->n_allele, args->maps[i].map, args->als, &args->nals, &args->mals);
@@ -1243,7 +1279,9 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
 static void mrows_schedule(args_t *args, bcf1_t **line)
 {
     int i,m;
-    if ( args->mrows_collapse==COLLAPSE_ANY ||  bcf_get_variant_types(*line)&COLLAPSE_SNPS )
+    if ( args->mrows_collapse==COLLAPSE_ANY         // merge all record types together
+        || bcf_get_variant_types(*line)&VCF_SNP     // SNP, put into alines
+        || bcf_get_variant_types(*line)==VCF_REF )  // ref
     {
         args->nalines++;
         m = args->malines;
@@ -1268,6 +1306,17 @@ static int mrows_ready_to_flush(args_t *args, bcf1_t *line)
 }
 static bcf1_t *mrows_flush(args_t *args)
 {
+    if ( args->nblines && args->nalines==1 && bcf_get_variant_types(args->alines[0])==VCF_REF )
+    {
+        // By default, REF lines are merged with SNPs if SNPs and indels are to be kept separately.
+        // However, if there are indels only and a single REF line, merge it with indels.
+        args->nblines++;
+        int i,m = args->mblines;
+        hts_expand(bcf1_t*,args->nblines,args->mblines,args->blines);
+        for (i=m; i<args->mblines; i++) args->blines[i] = bcf_init1();
+        SWAP(bcf1_t*, args->blines[args->nblines-1], args->alines[0]);
+        args->nalines--;
+    }
     if ( args->nalines )
     {
         if ( args->nalines==1 )
@@ -1301,22 +1350,6 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
     for (i=0; i<n; i++)
     {
         k = rbuf_shift(&args->rbuf);
-        if ( args->mrows_op==MROWS_SPLIT )
-        {
-            int split = 1;
-            if ( args->mrows_collapse!=COLLAPSE_BOTH && args->mrows_collapse!=COLLAPSE_ANY )
-            {
-                if ( !(bcf_get_variant_types(args->lines[k]) & args->mrows_collapse) ) split = 0;
-            }
-            if ( split && args->lines[k]->n_allele>2 )
-            {
-                split_multiallelic_to_biallelics(args, args->lines[k]);
-                int j;
-                for (j=0; j<args->ntmp_lines; j++)
-                    bcf_write1(file, args->hdr, args->tmp_lines[j]);
-                continue;
-            }
-        }
         if ( args->mrows_op==MROWS_MERGE )
         {
             if ( mrows_ready_to_flush(args, args->lines[k]) )
@@ -1366,6 +1399,7 @@ static void init_data(args_t *args)
     {
         args->mrow_out = bcf_init1();
         args->tmp_str = (kstring_t*) calloc(bcf_hdr_nsamples(args->hdr),sizeof(kstring_t));
+        args->diploid = (uint8_t*) malloc(bcf_hdr_nsamples(args->hdr));
     }
 }
 
@@ -1376,12 +1410,12 @@ static void destroy_data(args_t *args)
         if ( args->lines[i] ) bcf_destroy1(args->lines[i]);
     free(args->lines);
     for (i=0; i<args->mtmp_lines; i++)
-        bcf_destroy1(args->tmp_lines[i]);
+        if ( args->tmp_lines[i] ) bcf_destroy1(args->tmp_lines[i]);
     free(args->tmp_lines);
-    for (i=0; i<args->nalines; i++)
+    for (i=0; i<args->malines; i++)
         bcf_destroy1(args->alines[i]);
     free(args->alines);
-    for (i=0; i<args->nblines; i++)
+    for (i=0; i<args->mblines; i++)
         bcf_destroy1(args->blines[i]);
     free(args->blines);
     for (i=0; i<args->mmaps; i++)
@@ -1399,11 +1433,37 @@ static void destroy_data(args_t *args)
     free(args->als);
     free(args->tmp_arr1);
     free(args->tmp_arr2);
+    free(args->diploid);
     if ( args->mrow_out ) bcf_destroy1(args->mrow_out);
     if ( args->fai ) fai_destroy(args->fai);
     if ( args->mseq ) free(args->seq);
 }
 
+
+static void normalize_line(args_t *args, bcf1_t **line_ptr)
+{
+    bcf1_t *line = *line_ptr;
+    if ( args->fai )
+    {
+        if ( args->check_ref & CHECK_REF_FIX ) fix_ref(args, line);
+        if ( args->do_indels && realign(args, line)<0 && args->check_ref & CHECK_REF_SKIP )
+        {
+            args->nskipped++;
+            return;   // exclude broken VCF lines
+        }
+    }
+
+    // insert into sorted buffer
+    int i,j;
+    i = j = rbuf_append(&args->rbuf);
+    if ( !args->lines[i] ) args->lines[i] = bcf_init1();
+    SWAP(bcf1_t*, (*line_ptr), args->lines[i]);
+    while ( rbuf_prev(&args->rbuf,&i) )
+    {
+        if ( args->lines[i]->pos > args->lines[j]->pos ) SWAP(bcf1_t*, args->lines[i], args->lines[j]);
+        j = i;
+    }
+}
 
 static void normalize_vcf(args_t *args)
 {
@@ -1417,31 +1477,33 @@ static void normalize_vcf(args_t *args)
         args->ntotal++;
 
         bcf1_t *line = args->files->readers[0].buffer[0];
-        if ( args->fai )
-        {
-            if ( args->check_ref & CHECK_REF_FIX ) fix_ref(args, line);
-            if ( args->do_indels && realign(args, line)<0 && args->check_ref & CHECK_REF_SKIP )
-            {
-                args->nskipped++;
-                continue;   // exclude broken VCF lines
-            }
-        }
 
         // still on the same chromosome?
-        int i, j, ilast = rbuf_last(&args->rbuf);
+        int i,j,ilast = rbuf_last(&args->rbuf);
         if ( ilast>=0 && line->rid != args->lines[ilast]->rid ) flush_buffer(args, out, args->rbuf.n); // new chromosome
 
-        // insert into sorted buffer
-        i = j = ilast = rbuf_append(&args->rbuf);
-        if ( !args->lines[i] ) args->lines[i] = bcf_init1();
-        SWAP(bcf1_t*, args->files->readers[0].buffer[0], args->lines[i]);
-        while ( rbuf_prev(&args->rbuf,&i) )
+        int split = 0;
+        if ( args->mrows_op==MROWS_SPLIT )
         {
-            if ( args->lines[i]->pos > args->lines[j]->pos ) SWAP(bcf1_t*, args->lines[i], args->lines[j]);
-            j = i;
+            split = 1;
+            if ( args->mrows_collapse!=COLLAPSE_BOTH && args->mrows_collapse!=COLLAPSE_ANY )
+            {
+                if ( !(bcf_get_variant_types(line) & args->mrows_collapse) ) split = 0;
+            }
+            if ( split && line->n_allele>2 )
+            {
+                split_multiallelic_to_biallelics(args, line);
+                for (j=0; j<args->ntmp_lines; j++)
+                    normalize_line(args, &args->tmp_lines[j]);
+            }
+            else
+                split = 0;
         }
+        if ( !split )
+            normalize_line(args, &args->files->readers[0].buffer[0]);
 
         // find out how many sites to flush
+        ilast = rbuf_last(&args->rbuf);
         j = 0;
         for (i=-1; rbuf_next(&args->rbuf,&i); )
         {
