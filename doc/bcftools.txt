@@ -162,6 +162,9 @@ specific commands to see if they apply.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
+    Use the -Ou option when piping between bcftools subcommands to speed up
+    performance by removing unecessary compression/decompression and
+    VCF<-->BCF conversion.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Comma-separated list of regions, see also *-R, --regions-file*. Note
@@ -1592,7 +1595,8 @@ Convert between VCF and BCF. Former *bcftools subset*.
     comma-separated list of variant types to exclude
 
 *-x, --private*::
-    print sites where only the subset samples carry an non-reference allele
+    print sites where only the subset samples carry an non-reference allele.
+    Requires --samples or --samples-file.
 
 *-X, --exclude-private*::
     exclude sites where only the subset samples carry an non-reference allele
