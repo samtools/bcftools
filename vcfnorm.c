@@ -182,6 +182,54 @@ static void fix_ref(args_t *args, bcf1_t *line)
     free(str.s);
 }
 
+static void fix_dup_alt(args_t *args, bcf1_t *line)
+{
+    // update alleles, create a mapping between old and new indexes
+    hts_expand(uint8_t,line->n_allele,args->ntmp_arr1,args->tmp_arr1);
+    args->tmp_arr1[0] = 0;  // ref always unchanged
+
+    int i, j, nals = line->n_allele, nals_ori = line->n_allele;
+    for (i=1, j=1; i<line->n_allele; i++)
+    {
+        if ( strcmp(line->d.allele[0],line->d.allele[i]) )
+        {
+            args->tmp_arr1[i] = j++;
+            continue;
+        }
+        args->tmp_arr1[i] = 0;
+        nals--;
+    }
+    for (i=1, j=1; i<line->n_allele; i++)
+    {
+        if ( !args->tmp_arr1[i] ) continue;
+        line->d.allele[j++] = line->d.allele[i];
+    }
+    bcf_update_alleles(args->hdr, line, (const char**)line->d.allele, nals);
+
+
+    // update genotypes
+    int ntmp = args->ntmp_arr2 / sizeof(int32_t); // reuse tmp_arr declared as uint8_t
+    int ngts = bcf_get_genotypes(args->hdr, line, &args->tmp_arr2, &ntmp);
+    args->ntmp_arr2 = ntmp * sizeof(int32_t);
+    int32_t *gts = (int32_t*) args->tmp_arr2;
+    int changed = 0;
+    for (i=0; i<ngts; i++)
+    {
+        if ( bcf_gt_is_missing(gts[i]) || gts[i]==bcf_int32_vector_end ) continue;
+        int ial = bcf_gt_allele(gts[i]);
+        if ( ial<nals_ori && ial==args->tmp_arr1[ial] ) continue;
+        int ial_new = ial<nals_ori ? args->tmp_arr1[ial] : 0;
+        gts[i] = bcf_gt_is_phased(gts[i]) ? bcf_gt_phased(ial_new) : bcf_gt_unphased(ial_new);
+        changed = 1;
+    }
+    if ( changed ) bcf_update_genotypes(args->hdr,line,gts,ngts);
+}
+
+#define ERR_DUP_ALLELE      -2
+#define ERR_REF_MISMATCH    -1
+#define ERR_OK              0
+#define ERR_SYMBOLIC        1
+
 static int realign(args_t *args, bcf1_t *line)
 {
     bcf_unpack(line, BCF_UN_STR);
@@ -197,12 +245,12 @@ static int realign(args_t *args, bcf1_t *line)
         if ( args->check_ref & CHECK_REF_WARN )
             fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
         free(ref);
-        return -1;
+        return ERR_REF_MISMATCH;
     }
     free(ref);
     ref = NULL;
 
-    if ( line->n_allele == 1 ) return 0;    // a REF
+    if ( line->n_allele == 1 ) return ERR_OK;    // a REF
 
     // make a copy of each allele for trimming
     int i;
@@ -210,10 +258,12 @@ static int realign(args_t *args, bcf1_t *line)
     kstring_t *als = args->tmp_als;
     for (i=0; i<line->n_allele; i++)
     {
-        if ( line->d.allele[i][0]=='<' ) return 0;  // symbolic allele
+        if ( line->d.allele[i][0]=='<' ) return ERR_SYMBOLIC;  // symbolic allele
 
         als[i].l = 0;
         kputs(line->d.allele[i], &als[i]);
+
+        if ( i>0 && als[i].l==als[0].l && !strcasecmp(als[0].s,als[i].s) ) return ERR_DUP_ALLELE;
     }
 
 
@@ -278,7 +328,7 @@ static int realign(args_t *args, bcf1_t *line)
 
     // Have the alleles changed?
     als[0].s[ als[0].l ] = 0;  // in order for strcmp to work
-    if ( ori_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return 1;
+    if ( ori_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return ERR_OK;
 
     // Create new block of alleles and update
     args->tmp_als_str.l = 0;
@@ -291,7 +341,7 @@ static int realign(args_t *args, bcf1_t *line)
     bcf_update_alleles_str(args->hdr,line,args->tmp_als_str.s);
     args->nchanged++;
 
-    return 1;
+    return ERR_OK;
 }
 
 static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int ialt, bcf1_t *dst)
@@ -1446,10 +1496,25 @@ static void normalize_line(args_t *args, bcf1_t **line_ptr)
     if ( args->fai )
     {
         if ( args->check_ref & CHECK_REF_FIX ) fix_ref(args, line);
-        if ( args->do_indels && realign(args, line)<0 && args->check_ref & CHECK_REF_SKIP )
+        if ( args->do_indels )
         {
-            args->nskipped++;
-            return;   // exclude broken VCF lines
+            int ret = realign(args, line);
+
+            // exclude broken VCF lines
+            if ( ret==ERR_REF_MISMATCH && args->check_ref & CHECK_REF_SKIP )
+            {
+                args->nskipped++;
+                return;
+            }
+            if ( ret==ERR_DUP_ALLELE )
+            {
+                if ( args->check_ref & CHECK_REF_FIX )
+                    fix_dup_alt(args, line);
+                else if ( args->check_ref==CHECK_REF_EXIT )
+                    error("Duplicate alleles at %s:%d; run with -cw to turn the error into warning or with -cs to fix.\n", bcf_seqname(args->hdr,line),line->pos+1);
+                else if ( args->check_ref & CHECK_REF_WARN )
+                    fprintf(stderr,"ALT_DUP\t%s\t%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+            }
         }
     }
 
@@ -1516,9 +1581,9 @@ static void normalize_vcf(args_t *args)
     flush_buffer(args, out, args->rbuf.n);
     hts_close(out);
 
-    fprintf(stderr,"Lines total/modified/skipped:\t%d/%d/%d\n", args->ntotal,args->nchanged,args->nskipped);
+    fprintf(stderr,"Lines   total/modified/skipped:\t%d/%d/%d\n", args->ntotal,args->nchanged,args->nskipped);
     if ( args->check_ref & CHECK_REF_FIX )
-        fprintf(stderr,"REFs  total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
+        fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
 }
 
 static void usage(void)
