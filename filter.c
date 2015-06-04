@@ -41,7 +41,7 @@ typedef struct _token_t
     char *key;          // set only for string constants, otherwise NULL
     char *tag;          // for debugging and printout only, VCF tag name
     float threshold;    // filtering threshold
-    int hdr_id;         // BCF header lookup ID
+    int hdr_id, type;   // BCF header lookup ID and one of BCF_HT_* types
     int idx;            // 0-based index to VCF vectors, -1: not a vector, -2: any field ([*])
     void (*setter)(filter_t *, bcf1_t *, struct _token_t *);
     int (*comparator)(struct _token_t *, struct _token_t *, int op_type, bcf1_t *);
@@ -51,7 +51,7 @@ typedef struct _token_t
     // modified on filter evaluation at each VCF line
     float *values;      // In case str_value is set, values[0] is one sample's string length
     char *str_value;    //  and values[0]*nsamples gives the total length;
-    int is_str;
+    int is_str, is_missing; // is_missing is set only for constants, variables are controled via nvalues
     int pass_site;          // -1 not applicable, 0 fails, >0 pass
     uint8_t *pass_samples;  // status of individual samples
     int nsamples;           // number of samples
@@ -251,15 +251,25 @@ static void filters_set_info(filter_t *flt, bcf1_t *line, token_t *tok)
     }
     else if ( line->d.info[i].type==BCF_BT_FLOAT )
     {
-        tok->values[0] = line->d.info[i].v1.f;
+        if ( bcf_float_is_missing(line->d.info[i].v1.f) ) tok->nvalues = 0;
+        else
+        {
+            tok->values[0] = line->d.info[i].v1.f;
+            tok->nvalues   = 1;
+        }
         tok->str_value = NULL;
-        tok->nvalues   = 1;
     }
     else
     {
-        tok->values[0] = line->d.info[i].v1.i;
+        if ( line->d.info[i].type==BCF_BT_INT8 && line->d.info[i].v1.i==bcf_int8_missing ) tok->nvalues = 0;
+        else if ( line->d.info[i].type==BCF_BT_INT16 && line->d.info[i].v1.i==bcf_int16_missing ) tok->nvalues = 0;
+        else if ( line->d.info[i].type==BCF_BT_INT32 && line->d.info[i].v1.i==bcf_int32_missing ) tok->nvalues = 0;
+        else
+        {
+            tok->values[0] = line->d.info[i].v1.i;
+            tok->nvalues   = 1;
+        }
         tok->str_value = NULL;
-        tok->nvalues   = 1;
     }
 }
 static int filters_cmp_filter(token_t *atok, token_t *btok, int op_type, bcf1_t *line)
@@ -905,6 +915,13 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
     return pass_site;
 }
 
+#define CMP_MISSING(atok,btok,CMP_OP,ret) \
+{ \
+    if ( (atok)->nsamples || (btok)->nsamples ) error("todo: Querying of missing values in FORMAT\n"); \
+    token_t *tok = (atok)->is_missing ? (btok) : (atok); \
+    (ret) = ( tok->nvalues CMP_OP 1 ) ? 0 : 1; \
+}
+
 #define CMP_VECTORS(atok,btok,CMP_OP,ret) \
 { \
     int i, j, has_values = 0, pass_site = 0; \
@@ -1078,6 +1095,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         tok->key[len-2] = 0;
         tok->is_str = 1;
         tok->nvalues = len-2;
+        if ( !strcmp(".",tok->key) ) tok->is_missing = 1;
         return 0;
     }
 
@@ -1199,6 +1217,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         }
         if ( is_fmt==-1 ) is_fmt = 0;
     }
+    tok->type = is_fmt ? BCF_HL_FMT : BCF_HL_INFO;
     if ( is_fmt ) filter->max_unpack |= BCF_UN_FMT;
     if ( tok->hdr_id>=0 )
     {
@@ -1422,10 +1441,23 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     // list of operators and convert the strings (e.g. "PASS") to BCF ids. The string value token must be
     // just before or after the FILTER token and they must be followed with a comparison operator.
     // At this point we also initialize regex expressions which, in RPN, must preceed the LIKE/NLIKE operator.
+    // Additionally, treat "." as missing value rather than a string in numeric equalities.
     // This code is fragile: improve me.
     int i;
     for (i=0; i<nout; i++)
     {
+        if ( out[i].tok_type==TOK_EQ || out[i].tok_type==TOK_NE )
+        {
+            // Look for j="." and k numeric type
+            int j = i-1, k = i-2;
+            if ( !out[j].is_str ) { k = i-1, j = i-2; }
+            if ( out[k].hdr_id>0 && out[j].is_str && !strcmp(".",out[j].key) )
+            {
+                int type = bcf_hdr_id2type(filter->hdr,out[k].type,out[k].hdr_id);
+                if ( type==BCF_HT_INT ) { out[j].is_str = 0; out[j].is_missing = 1; }
+                if ( type==BCF_HT_REAL ) { out[j].is_str = 0; out[j].is_missing = 1; }
+            }
+        }
         if ( out[i].tok_type==TOK_LIKE || out[i].tok_type==TOK_NLIKE )
         {
             int j = i-1;
@@ -1610,7 +1642,16 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         int is_true = 0;
         if ( !filter->flt_stack[nstack-1]->nvalues || !filter->flt_stack[nstack-2]->nvalues )
         {
-            filter->flt_stack[nstack-2]->nvalues = filter->flt_stack[nstack-2]->nsamples = 0;
+            int skip = 0;
+            if ( !filter->flt_stack[nstack-2]->is_missing && !filter->flt_stack[nstack-1]->is_missing ) skip = 1;
+            if ( filter->filters[i].tok_type != TOK_EQ  && filter->filters[i].tok_type != TOK_NE ) skip = 1;
+
+            if ( skip ) 
+                filter->flt_stack[nstack-2]->nvalues = filter->flt_stack[nstack-2]->nsamples = 0;
+            else if ( filter->filters[i].tok_type == TOK_EQ )
+                CMP_MISSING(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],==,is_true)
+            else if ( filter->filters[i].tok_type == TOK_NE )
+                CMP_MISSING(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],!=,is_true)
         }
         else if ( filter->filters[i].tok_type == TOK_EQ )
         {
