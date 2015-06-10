@@ -1718,3 +1718,7 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
     return filter->flt_stack[0]->pass_site;
 }
 
+int filter_max_unpack(filter_t *flt)
+{
+    return flt->max_unpack;
+}

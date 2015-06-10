@@ -101,8 +101,13 @@ static void init_data(args_t *args)
     if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
     free(samples);
 
+    int max_unpack = convert_max_unpack(args->convert);
     if ( args->filter_str )
+    {
         args->filter = filter_init(args->header, args->filter_str);
+        max_unpack |= filter_max_unpack(args->filter);
+    }
+    args->files->max_unpack = max_unpack;
 }
 
 static void destroy_data(args_t *args)

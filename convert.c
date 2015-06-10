@@ -862,6 +862,7 @@ convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *
     convert_t *convert = (convert_t*) calloc(1,sizeof(convert_t));
     convert->header = hdr;
     convert->format_str = strdup(format_str);
+    convert->max_unpack = BCF_UN_STR;
 
     int i, is_gtf = 0;
     char *p = convert->format_str;
@@ -1022,4 +1023,8 @@ int convert_set_option(convert_t *convert, enum convert_option opt, ...)
     return ret;
 }
 
+int convert_max_unpack(convert_t *convert)
+{
+    return convert->max_unpack;
+}
 

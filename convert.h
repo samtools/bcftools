@@ -38,6 +38,7 @@ void convert_destroy(convert_t *convert);
 int convert_set_option(convert_t *convert, enum convert_option opt, ...);
 int convert_header(convert_t *convert, kstring_t *str);
 int convert_line(convert_t *convert, bcf1_t *rec, kstring_t *str);
+int convert_max_unpack(convert_t *convert);
 
 #endif
 
