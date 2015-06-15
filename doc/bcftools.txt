@@ -291,6 +291,9 @@ This command allows to add or remove annotations.
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*-m, --mark-sites* [+-]'TAG'::
+    annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
