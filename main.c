@@ -188,7 +188,7 @@ static void usage(FILE *fp)
 #endif
     fprintf(fp, "Version: %s (using htslib %s)\n", bcftools_version(), hts_version());
     fprintf(fp, "\n");
-    fprintf(fp, "Usage:   bcftools <command> <argument>\n");
+    fprintf(fp, "Usage:   bcftools [--version|--version-only] [--help] <command> <argument>\n");
     fprintf(fp, "\n");
     fprintf(fp, "Commands:\n");
 

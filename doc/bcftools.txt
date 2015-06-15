@@ -26,7 +26,7 @@ bcftools - utilities for variant calling and manipulating VCFs and BCFs.
 
 SYNOPSIS
 --------
-*bcftools* ['COMMAND'] ['OPTIONS']
+*bcftools* [--version|--version-only] [--help] ['COMMAND'] ['OPTIONS']
 
 
 DESCRIPTION
@@ -1604,6 +1604,18 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 *-X, --exclude-private*::
     exclude sites where only the subset samples carry an non-reference allele
+
+[[help]]
+=== bcftools help ['COMMAND'] | bcftools --help ['COMMAND']
+Display  a  brief usage message listing the bcftools commands available.  If the name of a command is also given, e.g., bcftools help view, the detailed usage message for that particular command is displayed.
+
+[[version]]
+=== bcftools ['--version'|'-v']
+Display the version numbers and copyright information for bcftools and the important libraries used by bcftools.
+
+[[version-only]]
+=== bcftools ['--version-only']
+Display the full bcftools version number in a machine-readable format.
 
 
 [[expressions]]
