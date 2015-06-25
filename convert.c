@@ -140,10 +140,22 @@ static void process_filter(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
     }
     else kputc('.', str);
 }
-static inline int bcf_array_ivalue(void *bcf_array, int type, int idx)
+static inline int32_t bcf_array_ivalue(void *bcf_array, int type, int idx)
 {
-    if ( type==BCF_BT_INT8 ) return ((int8_t*)bcf_array)[idx];
-    if ( type==BCF_BT_INT16 ) return ((int16_t*)bcf_array)[idx];
+    if ( type==BCF_BT_INT8 )
+    {
+        int8_t val = ((int8_t*)bcf_array)[idx];
+        if ( val==bcf_int8_missing ) return bcf_int32_missing;
+        if ( val==bcf_int8_vector_end ) return bcf_int32_vector_end;
+        return val;
+    }
+    if ( type==BCF_BT_INT16 )
+    {
+        int16_t val = ((int16_t*)bcf_array)[idx];
+        if ( val==bcf_int16_missing ) return bcf_int32_missing;
+        if ( val==bcf_int16_vector_end ) return bcf_int32_vector_end;
+        return val;
+    }
     return ((int32_t*)bcf_array)[idx];
 }
 static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
@@ -243,8 +255,22 @@ static void process_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
             kputc('.', str);
             return;
         }
-        if ( fmt->fmt->type == BCF_BT_FLOAT ) ksprintf(str, "%g", ((float*)(fmt->fmt->p + isample*fmt->fmt->size))[fmt->subscript]);
-        else if ( fmt->fmt->type != BCF_BT_CHAR ) kputw(bcf_array_ivalue(fmt->fmt->p+isample*fmt->fmt->size,fmt->fmt->type,fmt->subscript), str);
+        if ( fmt->fmt->type == BCF_BT_FLOAT )
+        {
+            float *ptr = (float*)(fmt->fmt->p + isample*fmt->fmt->size);
+            if ( bcf_float_is_missing(ptr[fmt->subscript]) || bcf_float_is_vector_end(ptr[fmt->subscript]) )
+                kputc('.', str);
+            else
+                ksprintf(str, "%g", ptr[fmt->subscript]);
+        }
+        else if ( fmt->fmt->type != BCF_BT_CHAR )
+        {
+            int32_t ival = bcf_array_ivalue(fmt->fmt->p+isample*fmt->fmt->size,fmt->fmt->type,fmt->subscript);
+            if ( ival==bcf_int32_missing || ival==bcf_int32_vector_end )
+                kputc('.', str);
+            else
+                kputw(ival, str);
+        }
         else error("TODO: %s:%d .. fmt->type=%d\n", __FILE__,__LINE__, fmt->fmt->type);
     }
     else
