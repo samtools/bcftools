@@ -151,7 +151,7 @@ static cmd_t cmds[] =
 #if USE_GPL
     { .func  = main_polysomy,
       .alias = "polysomy",
-      .help  = "-detect number of chromosomal copies",
+      .help  = "detect number of chromosomal copies",
     },
 #endif
     { .func  = main_vcfroh,
