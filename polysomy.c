@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2013-2014 Genome Research Ltd.
+   Copyright (c) 2013-2015 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -41,7 +41,7 @@ typedef struct
 {
     int nvals;          // all values, including RR,AA peaks
     double *xvals;      // pointer to args_t.xvals
-    double *yvals;   
+    double *yvals;
     int copy_number;    // heuristics to skip futile CN1 fits when no het peak is detected
     int irr, ira, iaa;  // chop off RR and AA peaks
     char *chr;
@@ -520,8 +520,8 @@ static void fit_curves(args_t *args)
         {
             if ( cn<0 || cn4_fit < args->cn_penalty * fit )
             {
-                cn = 3 + cn4_frac; 
-                fit = cn4_fit; 
+                cn = 3 + cn4_frac;
+                fit = cn4_fit;
                 if ( cn2_fail=='*' ) cn2_fail = 'p';
                 if ( cn3_fail=='*' ) cn3_fail = 'p';
             }
@@ -582,6 +582,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Detect number of chromosomal copies from Illumina's B-allele frequency (BAF)\n");
     fprintf(stderr, "Usage:   bcftools polysomy [OPTIONS] <file.vcf>\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "General options:\n");
     fprintf(stderr, "    -o, --output-dir <path>        \n");
     fprintf(stderr, "    -r, --regions <region>         restrict to comma-separated list of regions\n");
@@ -590,13 +591,14 @@ static void usage(args_t *args)
     fprintf(stderr, "    -t, --targets <region>         similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>      similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -v, --verbose                  \n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Algorithm options:\n");
-    fprintf(stderr, "    -b, --bump-size <float>        minimum bump size (bigger more strict) [0.1]\n");
-    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller more strict) [0.3]\n");
-    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller more strict) [3.3]\n");
-    fprintf(stderr, "    -i, --include-aa               include the AA peak also in CN2 and CN3 evaluation\n");
+    fprintf(stderr, "    -b, --bump-size <float>        minimum bump size (larger is stricter) [0.1]\n");
+    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller is stricter) [0.3]\n");
+    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller is stricter) [3.3]\n");
+    fprintf(stderr, "    -i, --include-aa               include the AA peak in CN2 and CN3 evaluation\n");
     fprintf(stderr, "    -m, --min-fraction <float>     minimum distinguishable fraction of aberrant cells [0.1]\n");
-    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (bigger more strict) [0.5]\n");
+    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (larger is stricter) [0.5]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -613,7 +615,7 @@ int main_polysomy(int argc, char *argv[])
     args->ra_rr_scaling = 1;
     args->min_fraction = 0.1;
 
-    static struct option loptions[] = 
+    static struct option loptions[] =
     {
         {"ra-rr-scaling",0,0,1},    // hidden option
         {"force-cn",1,0,2},         // hidden option
@@ -632,27 +634,27 @@ int main_polysomy(int argc, char *argv[])
         {0,0,0,0}
     };
     char c, *tmp;
-    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case  1 : args->ra_rr_scaling = 0; break;
             case  2 : args->force_cn = atoi(optarg); break;
             case 'i': args->include_aa = 1; break;
-            case 'm': 
+            case 'm':
                 args->min_fraction = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -n %s\n", optarg);
                 if ( args->min_fraction<0 || args->min_fraction>1 ) error("Range error: -n %s\n", optarg);
                 break;
-            case 'f': 
+            case 'f':
                 args->fit_th = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -f %s\n", optarg);
                 break;
-            case 'p': 
+            case 'p':
                 args->peak_symmetry = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -p %s\n", optarg);
                 break;
-            case 'c': 
+            case 'c':
                 args->cn_penalty = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -c %s\n", optarg);
                 break;
