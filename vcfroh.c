@@ -1,6 +1,6 @@
 /*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -272,20 +272,20 @@ void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, d
 {
     args_t *args = (args_t*) data;
     double ci = get_genmap_rate(args, pos - prev_pos, pos);
-    MAT(tprob,2,STATE_HW,STATE_HW) *= 1-ci;
     MAT(tprob,2,STATE_HW,STATE_AZ) *= ci;
     MAT(tprob,2,STATE_AZ,STATE_HW) *= ci;
-    MAT(tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+    MAT(tprob,2,STATE_AZ,STATE_AZ)  = 1 - MAT(tprob,2,STATE_HW,STATE_AZ);
+    MAT(tprob,2,STATE_HW,STATE_HW)  = 1 - MAT(tprob,2,STATE_AZ,STATE_HW);
 }
 
 void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob)
 {
     args_t *args = (args_t*) data;
     double ci = (pos - prev_pos) * args->rec_rate;
-    MAT(tprob,2,STATE_HW,STATE_HW) *= 1-ci;
     MAT(tprob,2,STATE_HW,STATE_AZ) *= ci;
     MAT(tprob,2,STATE_AZ,STATE_HW) *= ci;
-    MAT(tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+    MAT(tprob,2,STATE_AZ,STATE_AZ)  = 1 - MAT(tprob,2,STATE_HW,STATE_AZ);
+    MAT(tprob,2,STATE_HW,STATE_HW)  = 1 - MAT(tprob,2,STATE_AZ,STATE_HW);
 }
 
 
@@ -301,19 +301,17 @@ void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, 
  *  Transition probabilities:
  *    tAZ = P(AZ|HW)  .. parameter
  *    tHW = P(HW|AZ)  .. parameter
- *    P(AZ|AZ) = 1 - P(HW|AZ) = 1 - tHW
- *    P(HW|HW) = 1 - P(AZ|HW) = 1 - tAZ
  *
  *    ci  = P_i(C)    .. probability of cross-over at site i, from genetic map
  *
  *    AZi = P_i(AZ)   .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
  *    HWi = P_i(HW)
  *
- *    P_i(AZ|AZ) = P(AZ|AZ) * (1-ci) * AZ{i-1} = (1-tHW) * (1-ci) * AZ{i-1}
  *    P_i(AZ|HW) = P(AZ|HW) * ci * HW{i-1}     = tAZ * ci * (1 - AZ{i-1})
- *
- *    P_i(HW|HW) = P(HW|HW) * (1-ci) * HW{i-1} = (1-tAZ) * (1-ci) * (1 - AZ{i-1})
  *    P_i(HW|AZ) = P(HW|AZ) * ci * AZ{i-1}     = tHW * ci * AZ{i-1}
+ *    P_i(AZ|AZ) = 1 - P_i(HW|AZ)
+ *    P_i(HW|HW) = 1 - P_i(AZ|HW)
+ *
  */
 
 static void flush_viterbi(args_t *args)
@@ -668,8 +666,8 @@ static void usage(args_t *args)
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
-    fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-8]\n");
-    fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from HW to AZ state [1e-7]\n");
+    fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from HW (Hardy-Weinberg) to AZ (autozygous) state [1e-1]\n");
+    fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from AZ to HW state [1e-1]\n");
     fprintf(stderr, "    -V, --viterbi-training             perform Viterbi training to estimate transition probabilities\n");
     fprintf(stderr, "\n");
     exit(1);
