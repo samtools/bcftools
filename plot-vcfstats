@@ -1281,7 +1281,7 @@ sub plot_tstv_by_QUAL
             \\tfor row in reader:
             \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
 
-            if plot_tstv_by_qual:
+            if plot_tstv_by_qual and len(dat)>2:
             \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
             \\tax1 = fig.add_subplot(111)
             \\tax1.plot([row[1] for row in dat], [row[2] for row in dat], '^-', ms=3, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]')
