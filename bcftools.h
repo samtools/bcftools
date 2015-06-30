@@ -27,6 +27,7 @@ THE SOFTWARE.  */
 
 #include <stdarg.h>
 #include <htslib/vcf.h>
+#include <math.h>
 
 #define FT_GZ 1
 #define FT_VCF 2
@@ -58,6 +59,13 @@ static inline char gt2iupac(char a, char b)
     else if ( b=='T' ) b = 3;
     else return 'N';
     return iupac[(int)a][(int)b];
+}
+
+static inline double phred_score(double prob)
+{
+    if ( prob==0 ) return 99;
+    prob = -4.3429*log(prob);
+    return prob>99 ? 99 : prob;
 }
 
 #endif

@@ -1332,19 +1332,21 @@ Emission probabilities:
 Transition probabilities:
   tAZ = P(AZ|HW)  .. from HW to AZ, the -a parameter
   tHW = P(HW|AZ)  .. from AZ to HW, the -H parameter
-  P(AZ|AZ) = 1 - P(HW|AZ) = 1 - tHW
-  P(HW|HW) = 1 - P(AZ|HW) = 1 - tAZ
 
   ci  = P_i(C)  .. probability of cross-over at site i, from genetic map
   AZi = P_i(AZ) .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
   HWi = P_i(HW) 
 
-  P_{i+1}(AZ) = oAZ * max[(1-tHW) * (1-ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
-  P_{i+1}(HW) = oHW * max[(1-tAZ) * (1-ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
+  P_{i+1}(AZ) = oAZ * max[(1 - tAZ * ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
+  P_{i+1}(HW) = oHW * max[(1 - tHW * ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
 
 --------------------------------------
 
 ==== General Options:
+
+*--AF-dflt* 'FLOAT'::
+    in case allele frequency is not known, use the 'FLOAT'. By default, sites where
+    allele frequency cannot be determined, or is 0, are skipped.
 
 *--AF-tag* 'TAG'::
     use the specified INFO tag 'TAG' as an allele frequency estimate

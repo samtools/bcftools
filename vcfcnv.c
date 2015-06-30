@@ -518,13 +518,6 @@ static inline char copy_number_state(args_t *args, int istate, int ismpl)
     return code[idx];
 }
 
-static double phred_score(double prob)
-{
-    if ( prob==0 ) return 99;
-    prob = -4.3429*log(prob);
-    return prob>99 ? 99 : prob;
-}
-
 static double avg_ii_prob(int n, double *mat)
 {
     int i;
