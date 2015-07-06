@@ -76,6 +76,25 @@ typedef struct _args_t
 }
 args_t;
 
+// Removes all header lines of a specific header line type
+// (see htslib/vcf.h BCF_HL_*) 
+static void remove_all_hdr_lines(bcf_hdr_t *hdr, int type)
+{
+    int i = 0, nrm = 0;
+    while ( i<hdr->nhrec )
+    {
+        if ( hdr->hrec[i]->type!=type ) { i++; continue; }
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        nrm++;
+        hdr->nhrec--;
+        if ( i < hdr->nhrec )
+            memmove(&hdr->hrec[i],&hdr->hrec[i+1],(hdr->nhrec-i)*sizeof(bcf_hrec_t*));
+        bcf_hrec_destroy(hrec);
+    }
+    if ( nrm ) bcf_hdr_sync(hdr);
+}
+
+
 static void init_data(args_t *args)
 {
     int i;
@@ -220,8 +239,10 @@ static void init_data(args_t *args)
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
 
     // headers: hdr=full header, hsub=subset header, hnull=sites only header
-    if (args->sites_only)
+    if (args->sites_only){
         args->hnull = bcf_hdr_subset(args->hdr, 0, 0, 0);
+        remove_all_hdr_lines(args->hnull, BCF_HL_FMT);
+    }
     if (args->n_samples > 0)
     {
         args->hsub = bcf_hdr_subset(args->hdr, args->n_samples, args->samples, args->imap);
