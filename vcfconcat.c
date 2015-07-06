@@ -73,20 +73,15 @@ static void init_data(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
-        if ( !args->out_hdr )
-            args->out_hdr = bcf_hdr_dup(hdr);
-        else
-        {
-            bcf_hdr_combine(args->out_hdr, hdr);
+        args->out_hdr = bcf_hdr_merge(args->out_hdr,hdr);
+        if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
+            error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
 
-            if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
-                error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
+        int j;
+        for (j=0; j<bcf_hdr_nsamples(hdr); j++)
+            if ( strcmp(args->out_hdr->samples[j],hdr->samples[j]) )
+                error("Different sample names in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
 
-            int j;
-            for (j=0; j<bcf_hdr_nsamples(hdr); j++)
-                if ( strcmp(args->out_hdr->samples[j],hdr->samples[j]) )
-                    error("Different sample names in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
-        }
         if ( args->phased_concat )
         {
             int ret = bcf_read(fp, hdr, line);
