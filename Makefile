@@ -56,7 +56,7 @@ GSL_LIBS       =
 # and LICENSE documents to understand license implications.
 ifdef USE_GPL
     EXTRA_CPPFLAGS += -DUSE_GPL
-    OBJS += polysomy.o
+    OBJS += polysomy.o peakfit.o
     GSL_LIBS = -lgsl -lcblas
 endif
 
