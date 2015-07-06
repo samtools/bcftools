@@ -159,7 +159,8 @@ kmin.o: kmin.c kmin.h
 mcall.o: mcall.c $(HTSDIR)/htslib/kfunc.h $(call_h)
 prob1.o: prob1.c $(prob1_h)
 vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
-polysomy.o: polysomy.c $(htslib_hts_h)
+polysomy.o: polysomy.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(bcftools_h) peakfit.h
+peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(HTSDIR)/htslib/kstring.h
 consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) $(HTSDIR)/htslib/regidx.h
 version.o: version.h version.c
 
