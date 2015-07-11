@@ -561,12 +561,22 @@ static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *to
         return;
     }
     int i, blen = 3, nsmpl = bcf_hdr_nsamples(flt->hdr);
-    kstring_t str; str.s = tok->str_value; str.m = tok->values[0] * nsmpl; str.l = 0;
+    kstring_t str;
+
+gt_length_too_big:
+    str.s = tok->str_value; str.m = tok->values[0] * nsmpl; str.l = 0;
     for (i=0; i<nsmpl; i++)
     {
         int plen = str.l;
         bcf_format_gt(fmt, i, &str);
-        assert( str.l - plen <= blen ); // increase blen if this fails
+        if ( str.l - plen > blen )
+        {
+            // too many alternate alleles or ploidy is too large, the genotype does not fit
+            // three characters ("0/0" vs "10/10").
+            tok->str_value = str.s;
+            blen *= 2;
+            goto gt_length_too_big;
+        }
         plen = str.l - plen;
         while ( plen<blen )
         {
