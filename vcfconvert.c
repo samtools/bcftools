@@ -93,10 +93,11 @@ static void open_vcf(args_t *args, const char *format_str)
     }
     if ( !bcf_sr_add_reader(args->files, args->infname) )
         error("Failed to open %s: %s\n", args->infname,bcf_sr_strerror(args->files->errnum));
-    if ( args->filter_str )
-        args->filter = filter_init(args->header, args->filter_str);
 
     args->header = args->files->readers[0].header;
+
+    if ( args->filter_str )
+        args->filter = filter_init(args->header, args->filter_str);
 
     int i, nsamples = 0, *samples = NULL;
     if ( args->sample_list && strcmp("-",args->sample_list) )

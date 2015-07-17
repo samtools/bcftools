@@ -568,15 +568,32 @@ gt_length_too_big:
     for (i=0; i<nsmpl; i++)
     {
         int plen = str.l;
-        bcf_format_gt(fmt, i, &str);
-        if ( str.l - plen > blen )
-        {
-            // too many alternate alleles or ploidy is too large, the genotype does not fit
-            // three characters ("0/0" vs "10/10").
-            tok->str_value = str.s;
-            blen *= 2;
-            goto gt_length_too_big;
+
+        #define BRANCH(type_t) { \
+            type_t *ptr = (type_t*) (fmt->p + i*fmt->size); \
+            if ( !(ptr[0]>>1) ) kputc('.',&str); \
         }
+        switch (fmt->type) {
+            case BCF_BT_INT8:  BRANCH(int8_t); break;
+            case BCF_BT_INT16: BRANCH(int16_t); break;
+            case BCF_BT_INT32: BRANCH(int32_t); break;
+            default: fprintf(stderr,"FIXME: type %d in bcf_format_gt?\n", fmt->type); abort(); break;
+        }
+        #undef BRANCH
+
+        if ( plen==str.l )
+        {
+            bcf_format_gt(fmt, i, &str);
+            if ( str.l - plen > blen )
+            {
+                // too many alternate alleles or ploidy is too large, the genotype does not fit
+                // three characters ("0/0" vs "10/10").
+                tok->str_value = str.s;
+                blen *= 2;
+                goto gt_length_too_big;
+            }
+        }
+
         plen = str.l - plen;
         while ( plen<blen )
         {
