@@ -1240,8 +1240,11 @@ static void init_columns(args_t *args)
                     }
             }
         }
-        else if ( args->tgts_is_vcf && (!strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4)) )
+        else if ( !strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4) )
         {
+            if ( !args->tgts_is_vcf )
+                error("Error: FORMAT fields can be carried over from a VCF file only.\n");
+
             char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
             if ( force_samples<0 ) force_samples = replace;
             if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;;
