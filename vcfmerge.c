@@ -578,7 +578,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
             ai = a[i];
 
         for (j=1; j<*nb; j++)
-            if ( !strcmp(ai,b[j]) ) break;
+            if ( !strcasecmp(ai,b[j]) ) break;
 
         if ( j<*nb ) // $b already has the same allele
         {
