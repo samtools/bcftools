@@ -178,9 +178,15 @@ doc/bcftools.1: doc/bcftools.txt
 doc/bcftools.html: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format xhtml bcftools.txt
 
+# make docs target depends the a2x asciidoc program
 docs: doc/bcftools.1 doc/bcftools.html
 
-install: $(PROG) doc/bcftools.1
+# To avoid an install dependency on asciidoc, the make install target
+# does not depend on doc/bcftools.1
+# bcftools.1 is a generated file from the asciidoc bcftools.txt file.
+# Since there is no make dependency, bcftools.1 can be out-of-date and
+# make docs can be run to update if asciidoc is available
+install: $(PROG)
 	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
 	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) doc/bcftools.1 $(DESTDIR)$(man1dir)
