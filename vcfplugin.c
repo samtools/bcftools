@@ -573,7 +573,6 @@ int main_plugin(int argc, char *argv[])
         args->plugin.argv = argv + optind;
     }
     optind = 0;
-    args->plugin.argv[0] = plugin_name;
 
     args->files = bcf_sr_init();
     if ( args->regions_list )
