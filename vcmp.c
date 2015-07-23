@@ -26,6 +26,7 @@ THE SOFTWARE.  */
 #include <string.h>
 #include <stdlib.h>
 #include <htslib/hts.h>
+#include <ctype.h>
 #include "vcmp.h"
 
 struct _vcmp_t
