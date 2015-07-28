@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25137184"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25161584"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2015-01-21 15:01 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.1-140-g9b0e7cc+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2015-07-28 09:49 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.2-74-g6ccecd1+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -120,6 +120,9 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     Output compressed BCF (<span class="emphasis"><em>b</em></span>), uncompressed BCF (<span class="emphasis"><em>u</em></span>), compressed VCF (<span class="emphasis"><em>z</em></span>), uncompressed VCF (<span class="emphasis"><em>v</em></span>).
+    Use the -Ou option when piping between bcftools subcommands to speed up
+    performance by removing unecessary compression/decompression and
+    VCF←→BCF conversion.
 </dd><dt><span class="term">
 <span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
@@ -241,6 +244,10 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
 </span></dt><dd>
     include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
     <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-m, --mark-sites</strong></span> <span class="emphasis"><em><span class="+-">TAG</span></em></span>
+</span></dt><dd>
+    annotate sites which are present ("+") or absent ("-") in the <span class="strong"><strong>-a</strong></span> file with a new INFO/TAG flag
 </dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -573,6 +580,10 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 </span></dt><dd>
     convert gVCF to VCF, expanding REF blocks into sites. Only sites
     with FILTER set to "PASS" or "." will be expanded.
+</dd><dt><span class="term">
+<span class="strong"><strong>-f, --fasta-ref</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    reference sequence in fasta format. Must be indexed with samtools faidx
 </dd></dl></div></div><div class="refsect3" title="HAPS/SAMPLE conversion:"><a id="_haps_sample_conversion"></a><h4>HAPS/SAMPLE conversion:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>--hapsample2vcf</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>sample-file</em></span>
 </span></dt><dd>
@@ -641,7 +652,7 @@ the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is 
 </dd><dt><span class="term">
 <span class="strong"><strong>-f, --fasta-ref</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
-    reference sequence in fasta format
+    reference sequence in fasta format. Must be indexed with samtools faidx
 </dd><dt><span class="term">
 <span class="strong"><strong>-s, --samples</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
@@ -867,10 +878,10 @@ in the other files.</p><div class="variablelist"><dl><dt><span class="term">
     include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. See discussion
     of <span class="strong"><strong>-e, --exclude</strong></span> above.
 </dd><dt><span class="term">
-<span class="strong"><strong>-n, --nfiles</strong></span> [+-=]<span class="emphasis"><em>INT</em></span>
+<span class="strong"><strong>-n, --nfiles</strong></span> [+-=]<span class="emphasis"><em>INT</em></span>|~<span class="emphasis"><em>BITMAP</em></span>
 </span></dt><dd>
-    output positions present in this many (=), this many or more (+), or this
-    many or fewer (-) files
+    output positions present in this many (=), this many or more (+), this
+    many or fewer (-), or the exact same (~) files
 </dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -905,7 +916,7 @@ in the other files.</p><div class="variablelist"><dl><dt><span class="term">
 </span></dt><dd>
     list of input files to output given as 1-based indices. With <span class="strong"><strong>-p</strong></span> and no
     <span class="strong"><strong>-w</strong></span>, all files are written.
-</dd></dl></div><div class="refsect3" title="Examples:"><a id="_examples"></a><h4>Examples:</h4><p>Create intersection and complements of two sets saving the output in dir/*</p><pre class="screen">    bcftools isec -p dir A.vcf.gz B.vcf.gz</pre><p>Filter sites in A and B (but not in C) and create intersection</p><pre class="screen">    bcftools isec -e'MAF&lt;0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -p dir</pre><p>Extract and write records from A shared by both A and B using exact allele match</p><pre class="screen">    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz</pre><p>Extract records private to A or B comparing by position only</p><pre class="screen">    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz</pre></div></div><div class="refsect2" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]"><a id="merge"></a><h3>bcftools merge [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Merge multiple VCF/BCF files from non-overlapping sample sets to create one
+</dd></dl></div><div class="refsect3" title="Examples:"><a id="_examples"></a><h4>Examples:</h4><p>Create intersection and complements of two sets saving the output in dir/*</p><pre class="screen">    bcftools isec -p dir A.vcf.gz B.vcf.gz</pre><p>Filter sites in A and B (but not in C) and create intersection</p><pre class="screen">    bcftools isec -e'MAF&lt;0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -p dir</pre><p>Extract and write records from A shared by both A and B using exact allele match</p><pre class="screen">    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz</pre><p>Extract records private to A or B comparing by position only</p><pre class="screen">    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz</pre><p>Print a list of records which are present in A and B but not in C and D</p><pre class="screen">    bcftools isec -n~1100 -c all A.vcf.gz B.vcf.gz C.vcf.gz D.vcf.gz</pre></div></div><div class="refsect2" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]"><a id="merge"></a><h3>bcftools merge [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>A.vcf.gz</em></span> <span class="emphasis"><em>B.vcf.gz</em></span> […]</h3><p>Merge multiple VCF/BCF files from non-overlapping sample sets to create one
 multi-sample file.  For example, when merging file <span class="emphasis"><em>A.vcf.gz</em></span> containing
 samples <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span> and <span class="emphasis"><em>S3</em></span> and file <span class="emphasis"><em>B.vcf.gz</em></span> containing samples <span class="emphasis"><em>S3</em></span> and
 <span class="emphasis"><em>S4</em></span>, the output file will contain four samples named <span class="emphasis"><em>S1</em></span>, <span class="emphasis"><em>S2</em></span>, <span class="emphasis"><em>S3</em></span>, <span class="emphasis"><em>2:S3</em></span>
@@ -969,6 +980,14 @@ For "vertical" merge take a look at <span class="strong"><strong><a class="link"
 </dd></dl></div></div><div class="refsect2" title="bcftools norm [OPTIONS] file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels,  check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-c, --check-ref</strong></span> <span class="emphasis"><em>e</em></span>|<span class="emphasis"><em>w</em></span>|<span class="emphasis"><em>x</em></span>|<span class="emphasis"><em>s</em></span>
+</span></dt><dd>
+    what to do when incorrect or missing REF allele is encountered:
+    exit (<span class="emphasis"><em>e</em></span>), warn (<span class="emphasis"><em>w</em></span>), exclude (<span class="emphasis"><em>x</em></span>), or set/fix (<span class="emphasis"><em>s</em></span>) bad sites.
+    The <span class="emphasis"><em>w</em></span> option can be combined with <span class="emphasis"><em>x</em></span> and <span class="emphasis"><em>s</em></span>. Note that <span class="emphasis"><em>s</em></span>
+    can swap alleles and will update genotypes (GT) and AC counts,
+    but will not attempt to fix PL or other fields.
+</dd><dt><span class="term">
 <span class="strong"><strong>-D, --remove-duplicates</strong></span>
 </span></dt><dd>
     remove duplicate lines of the same type
@@ -986,6 +1005,12 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
     both SNPs and indels should be merged separately into two records, specify
     <span class="emphasis"><em>both</em></span>; if SNPs and indels should be merged into a single record, specify
     <span class="emphasis"><em>any</em></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>-N, --do-not-normalize</strong></span>
+</span></dt><dd>
+    the <span class="emphasis"><em>-c s</em></span> option can be used to fix or set the REF allele from the
+    reference <span class="emphasis"><em>-f</em></span>. The <span class="emphasis"><em>-N</em></span> option will not turn on indel normalisation
+    as the <span class="emphasis"><em>-f</em></span> option normally implies
 </dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -1059,12 +1084,16 @@ multiple rows.</p><div class="variablelist"><dl><dt><span class="term">
     list plugin’s options
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --list-plugins</strong></span>
-</span></dt><dd>
-    List all available plugins. If not installed systemwide, set the environment
-    variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include
-    directory where <span class="strong"><strong>libhts.so</strong></span> is located.  The BCFTOOLS_PLUGINS
-    environment variable tells the program which directories to search.
-</dd><dt><span class="term">
+</span></dt><dd><p class="simpara">
+    List all available plugins.
+</p><p class="simpara">By default, appropriate system directories are searched for installed plugins.
+    You can override this by setting the BCFTOOLS_PLUGINS environment variable
+    to a colon-separated list of directories to search.
+    If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains
+    adjacent colons, the system directories are also searched at that position
+    in the list of directories.</p><p class="simpara">If htslib is not installed systemwide, set the environment variable
+    LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include the
+    directory where <span class="strong"><strong>libhts.so.1</strong></span> is located.</p></dd><dt><span class="term">
 <span class="strong"><strong>-v, --verbose</strong></span>
 </span></dt><dd>
     print debugging information to debug plugin failure
@@ -1202,6 +1231,11 @@ void destroy(void);</pre></div></div><div class="refsect2" title="bcftools query
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
+<span class="strong"><strong>-u, --allow-undef-tags</strong></span>
+</span></dt><dd>
+    do not throw an error if there are undefined tags in the format string,
+    print "." instead
+</dd><dt><span class="term">
 <span class="strong"><strong>-v, --vcf-list</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     process multiple VCFs listed in the file
@@ -1244,15 +1278,18 @@ Emission probabilities:
 Transition probabilities:
   tAZ = P(AZ|HW)  .. from HW to AZ, the -a parameter
   tHW = P(HW|AZ)  .. from AZ to HW, the -H parameter
-  P(AZ|AZ) = 1 - P(HW|AZ) = 1 - tHW
-  P(HW|HW) = 1 - P(AZ|HW) = 1 - tAZ
 
   ci  = P_i(C)  .. probability of cross-over at site i, from genetic map
   AZi = P_i(AZ) .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
   HWi = P_i(HW)
 
-  P_{i+1}(AZ) = oAZ * max[(1-tHW) * (1-ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
-  P_{i+1}(HW) = oHW * max[(1-tAZ) * (1-ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]</pre></div><div class="refsect3" title="General Options:"><a id="_general_options"></a><h4>General Options:</h4><div class="variablelist"><dl><dt><span class="term">
+  P_{i+1}(AZ) = oAZ * max[(1 - tAZ * ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
+  P_{i+1}(HW) = oHW * max[(1 - tHW * ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]</pre></div><div class="refsect3" title="General Options:"><a id="_general_options"></a><h4>General Options:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>--AF-dflt</strong></span> <span class="emphasis"><em>FLOAT</em></span>
+</span></dt><dd>
+    in case allele frequency is not known, use the <span class="emphasis"><em>FLOAT</em></span>. By default, sites where
+    allele frequency cannot be determined, or is 0, are skipped.
+</dd><dt><span class="term">
 <span class="strong"><strong>--AF-tag</strong></span> <span class="emphasis"><em>TAG</em></span>
 </span></dt><dd>
     use the specified INFO tag <span class="emphasis"><em>TAG</em></span> as an allele frequency estimate
@@ -1536,12 +1573,13 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </dd><dt><span class="term">
 <span class="strong"><strong>-x, --private</strong></span>
 </span></dt><dd>
-    print sites where only the subset samples carry an non-reference allele
+    print sites where only the subset samples carry an non-reference allele.
+    Requires --samples or --samples-file.
 </dd><dt><span class="term">
 <span class="strong"><strong>-X, --exclude-private</strong></span>
 </span></dt><dd>
     exclude sites where only the subset samples carry an non-reference allele
-</dd></dl></div></div></div></div><div class="refsect1" title="EXPRESSIONS"><a id="expressions"></a><h2>EXPRESSIONS</h2><p>These filtering expressions are accepted by <span class="strong"><strong><a class="link" href="#annotate" title="bcftools annotate [OPTIONS] FILE">annotate</a></strong></span>,
+</dd></dl></div></div></div><div class="refsect2" title="bcftools help [COMMAND] | bcftools --help [COMMAND]"><a id="help"></a><h3>bcftools help [<span class="emphasis"><em>COMMAND</em></span>] | bcftools --help [<span class="emphasis"><em>COMMAND</em></span>]</h3><p>Display  a  brief usage message listing the bcftools commands available.  If the name of a command is also given, e.g., bcftools help view, the detailed usage message for that particular command is displayed.</p></div><div class="refsect2" title="bcftools [--version|-v]"><a id="version"></a><h3>bcftools [<span class="emphasis"><em>--version</em></span>|<span class="emphasis"><em>-v</em></span>]</h3><p>Display the version numbers and copyright information for bcftools and the important libraries used by bcftools.</p></div><div class="refsect2" title="bcftools [--version-only]"><a id="version-only"></a><h3>bcftools [<span class="emphasis"><em>--version-only</em></span>]</h3><p>Display the full bcftools version number in a machine-readable format.</p></div></div><div class="refsect1" title="EXPRESSIONS"><a id="expressions"></a><h2>EXPRESSIONS</h2><p>These filtering expressions are accepted by <span class="strong"><strong><a class="link" href="#annotate" title="bcftools annotate [OPTIONS] FILE">annotate</a></strong></span>,
 <span class="strong"><strong><a class="link" href="#filter" title="bcftools filter [OPTIONS] FILE">filter</a></strong></span>, <span class="strong"><strong><a class="link" href="#query" title="bcftools query [OPTIONS] file.vcf.gz [file.vcf.gz […]]">query</a></strong></span> and <span class="strong"><strong><a class="link" href="#view" title="bcftools view [OPTIONS] file.vcf.gz [REGION […]]">view</a></strong></span> commands.</p><div class="itemizedlist" title="Valid expressions may contain:"><p class="title"><strong>Valid expressions may contain:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem"><p class="simpara">
 numerical constants, string constants, file names
 </p><pre class="literallayout">1, 1.0, 1e-4
@@ -1563,6 +1601,8 @@ FORMAT/DV, FMT/DV, or DV
 FILTER, QUAL, ID, REF, ALT[0]</pre></li><li class="listitem"><p class="simpara">
 1 (or 0) to test the presence (or absence) of a flag
 </p><pre class="literallayout">FlagA=1 &amp;&amp; FlagB=0</pre></li><li class="listitem"><p class="simpara">
+"." to test missing values in INFO tags
+</p><pre class="literallayout">DP=".", DP!="."</pre></li><li class="listitem"><p class="simpara">
 TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
 </p><pre class="literallayout">TYPE="indel" | TYPE="snp"</pre></li><li class="listitem"><p class="simpara">
 array subscripts, "*" for any field
@@ -1630,5 +1670,5 @@ samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
 BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
 and further developing bcftools.  Many other people contributed to the program
 and to the file format specifications, both directly and indirectly by
-providing patches, testing and reporting bugs. We thank them all.</p></div><div class="refsect1" title="RESOURCES"><a id="_resources"></a><h2>RESOURCES</h2><p>BCFtools GitHub website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p><p>Samtools GitHub website: <a class="ulink" href="http://github.com/samtools/samtools" target="_top">http://github.com/samtools/samtools</a></p><p>HTSlib GitHub website: <a class="ulink" href="http://github.com/samtools/htslib" target="_top">http://github.com/samtools/htslib</a></p><p>File format specifications: <a class="ulink" href="http://samtools.github.io/hts-specs" target="_top">http://samtools.github.io/hts-specs</a></p><p>BCFtools documentation: <a class="ulink" href="http://samtools.github.io/bcftools" target="_top">http://samtools.github.io/bcftools</a></p><p>BCFtools wiki page: <a class="ulink" href="https://github.com/samtools/bcftools/wiki" target="_top">https://github.com/samtools/bcftools/wiki</a></p></div><div class="refsect1" title="COPYING"><a id="_copying"></a><h2>COPYING</h2><p>The MIT/Expat License or GPL License, see the COPYING document for details.
+providing patches, testing and reporting bugs. We thank them all.</p></div><div class="refsect1" title="RESOURCES"><a id="_resources"></a><h2>RESOURCES</h2><p>BCFtools GitHub website: <a class="ulink" href="http://github.com/samtools/bcftools" target="_top">http://github.com/samtools/bcftools</a></p><p>Samtools GitHub website: <a class="ulink" href="http://github.com/samtools/samtools" target="_top">http://github.com/samtools/samtools</a></p><p>HTSlib GitHub website: <a class="ulink" href="http://github.com/samtools/htslib" target="_top">http://github.com/samtools/htslib</a></p><p>File format specifications: <a class="ulink" href="http://samtools.github.io/hts-specs" target="_top">http://samtools.github.io/hts-specs</a></p><p>BCFtools documentation: <a class="ulink" href="http://samtools.github.io/bcftools" target="_top">http://samtools.github.io/bcftools</a></p><p>BCFtools wiki page: <a class="ulink" href="https://github.com/samtools/bcftools/wiki" target="_top">https://github.com/samtools/bcftools/wiki</a></p></div><div class="refsect1" title="COPYING"><a id="_copying"></a><h2>COPYING</h2><p>The MIT/Expat License or GPL License, see the LICENSE document for details.
 Copyright (c) Genome Research Ltd.</p></div></div></body></html>
