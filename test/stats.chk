@@ -1,6 +1,7 @@
 SN	0	number of samples:	3
 SN	1	number of samples:	3
 SN	0	number of records:	0
+SN	0	number of no-ALTs:	0
 SN	0	number of SNPs:	0
 SN	0	number of MNPs:	0
 SN	0	number of indels:	0
@@ -8,6 +9,7 @@ SN	0	number of others:	0
 SN	0	number of multiallelic sites:	0
 SN	0	number of multiallelic SNP sites:	0
 SN	1	number of records:	0
+SN	1	number of no-ALTs:	0
 SN	1	number of SNPs:	0
 SN	1	number of MNPs:	0
 SN	1	number of indels:	0
@@ -15,6 +17,7 @@ SN	1	number of others:	0
 SN	1	number of multiallelic sites:	0
 SN	1	number of multiallelic SNP sites:	0
 SN	2	number of records:	3
+SN	2	number of no-ALTs:	0
 SN	2	number of SNPs:	3
 SN	2	number of MNPs:	0
 SN	2	number of indels:	0
@@ -84,4 +87,13 @@ PSC	1	C	0	0	0	0	0	0	0.0	0
 PSC	2	A	3	0	0	0	0	0	0.0	0
 PSC	2	B	0	0	3	3	0	0	0.0	0
 PSC	2	C	0	3	0	3	0	0	0.0	0
+PSI	0	A	0	0	0	0.00	0	0
+PSI	0	B	0	0	0	0.00	0	0
+PSI	0	C	0	0	0	0.00	0	0
+PSI	1	A	0	0	0	0.00	0	0
+PSI	1	B	0	0	0	0.00	0	0
+PSI	1	C	0	0	0	0.00	0	0
+PSI	2	A	0	0	0	0.00	0	0
+PSI	2	B	0	0	0	0.00	0	0
+PSI	2	C	0	0	0	0.00	0	0
 HWE	2	49.000000	3	0.330000	0.330000	0.330000

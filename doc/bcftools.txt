@@ -1439,7 +1439,11 @@ columns.
 *--debug*::
     produce verbose per-site and per-sample output
 
-*-e, --exons* 'file.gz'::
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-E, --exons* 'file.gz'::
     tab-delimited file with exons for indel frameshifts statistics. The columns
     of the file are CHR, FROM, TO, with 1-based, inclusive, positions. The file
     is BGZF-compressed and indexed with tabix
@@ -1453,7 +1457,11 @@ columns.
 *-F, --fasta-ref* 'ref.fa'::
     faidx indexed reference sequence file to determine INDEL context
 
-*-i, --split-by-ID*::
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-I, --split-by-ID*::
     collect stats separately for sites which have the ID column set ("known
     sites") or which do not have the ID column set ("novel sites").
 
