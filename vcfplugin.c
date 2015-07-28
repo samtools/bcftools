@@ -1,6 +1,6 @@
-/*  vcfannotate.c -- Annotate and edit VCF/BCF files.
+/*  vcfplugin.c -- plugin modules for operating on VCF/BCF files.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -465,6 +465,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -h, --help                  list plugin's options\n");
     fprintf(stderr, "   -l, --list-plugins          list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
     fprintf(stderr, "   -v, --verbose               print debugging information on plugin failure\n");
+    fprintf(stderr, "   -V, --version               print version string and exit\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -477,7 +478,7 @@ int main_plugin(int argc, char *argv[])
     args->output_fname = "-";
     args->output_type = FT_VCF;
     args->nplugin_paths = -1;
-    int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0;
+    int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0, version_only = 0;
 
     if ( argc==1 ) usage(args);
     char *plugin_name = NULL;
@@ -485,6 +486,7 @@ int main_plugin(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"version",0,0,'V'},
         {"verbose",0,0,'v'},
         {"help",0,0,'h'},
         {"list-plugins",0,0,'l'},
@@ -498,9 +500,10 @@ int main_plugin(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:v",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:vV",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'V': version_only = 1; break;
             case 'v': args->verbose = 1; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -528,6 +531,14 @@ int main_plugin(int argc, char *argv[])
     if ( usage_only && ! plugin_name ) usage(args);
 
     load_plugin(args, plugin_name, 1, &args->plugin);
+    if ( version_only )
+    {
+        const char *bver, *hver;
+        args->plugin.version(&bver, &hver);
+        printf("bcftools  %s using htslib %s\n", bcftools_version(), hts_version());
+        printf("plugin at %s using htslib %s\n\n", bver, hver);
+        return 0;
+    }
 
     if ( usage_only )
     {
@@ -562,7 +573,6 @@ int main_plugin(int argc, char *argv[])
         args->plugin.argv = argv + optind;
     }
     optind = 0;
-    args->plugin.argv[0] = plugin_name;
 
     args->files = bcf_sr_init();
     if ( args->regions_list )

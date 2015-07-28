@@ -78,6 +78,9 @@ annot_col_t;
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
 
+#define MARK_LISTED   1
+#define MARK_UNLISTED 2
+
 typedef struct _args_t
 {
     bcf_srs_t *files;
@@ -115,8 +118,8 @@ typedef struct _args_t
     kstring_t tmpks;
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
-    char *remove_annots, *columns, *rename_chrs, *sample_names;
-    int argc, drop_header, tgts_is_vcf;
+    char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
+    int argc, drop_header, tgts_is_vcf, mark_sites_logic;
 }
 args_t;
 
@@ -1240,8 +1243,11 @@ static void init_columns(args_t *args)
                     }
             }
         }
-        else if ( args->tgts_is_vcf && (!strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4)) )
+        else if ( !strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4) )
         {
+            if ( !args->tgts_is_vcf )
+                error("Error: FORMAT fields can be carried over from a VCF file only.\n");
+
             char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
             if ( force_samples<0 ) force_samples = replace;
             if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;;
@@ -1385,6 +1391,14 @@ static void init_data(args_t *args)
     {
         if ( args->set_ids_fmt[0]=='+' ) { args->set_ids_replace = 0; args->set_ids_fmt++; }
         args->set_ids = convert_init(args->hdr_out, NULL, 0, args->set_ids_fmt);
+    }
+
+    if ( args->mark_sites )
+    {
+        if ( !args->targets_fname ) error("The -a option not given\n");
+        if ( args->tgts_is_vcf ) error("todo: -a is a VCF\n");  // very easy to add..
+        bcf_hdr_printf(args->hdr_out,"##INFO=<ID=%s,Number=0,Type=Flag,Description=\"Sites %slisted in %s\">",
+            args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
     }
 
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
@@ -1542,9 +1556,20 @@ static void annotate(args_t *args, bcf1_t *line)
 
         if ( i<args->nalines )
         {
+            // there is a matching line
             for (j=0; j<args->ncols; j++)
                 if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) )
                     error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+
+        }
+
+        if ( args->mark_sites )
+        {
+            // ideally, we'd like to be far more general than this in future, see https://github.com/samtools/bcftools/issues/87
+            if ( args->mark_sites_logic==MARK_LISTED )
+                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,i<args->nalines?1:0);
+            else
+                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,i<args->nalines?0:1);
         }
     }
     else if ( args->files->nreaders == 2 && bcf_sr_has_line(args->files,1) )
@@ -1582,6 +1607,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
     fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man pagee for details\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man pagee for details)\n");
+    fprintf(stderr, "   -m, --mark-sites [+-]<tag>     add INFO/tag flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
@@ -1608,6 +1634,7 @@ int main_vcfannotate(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"mark-sites",1,0,'m'},
         {"set-id",1,0,'I'},
         {"output",1,0,'o'},
         {"output-type",1,0,'O'},
@@ -1624,9 +1651,15 @@ int main_vcfannotate(int argc, char *argv[])
         {"samples-file",1,0,'S'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'm': 
+                args->mark_sites_logic = MARK_LISTED;
+                if ( optarg[0]=='+' ) args->mark_sites = optarg+1;
+                else if ( optarg[0]=='-' ) { args->mark_sites = optarg+1; args->mark_sites_logic = MARK_UNLISTED; }
+                else args->mark_sites = optarg; 
+                break;
             case 'I': args->set_ids_fmt = optarg; break;
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;

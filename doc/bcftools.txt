@@ -291,6 +291,9 @@ This command allows to add or remove annotations.
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*-m, --mark-sites* [+-]'TAG'::
+    annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -906,9 +909,9 @@ in the other files.
     include only sites for which 'EXPRESSION' is true. See discussion
     of *-e, --exclude* above.
 
-*-n, --nfiles* \[+-=]'INT'::
-    output positions present in this many (=), this many or more (+), or this
-    many or fewer (-) files
+*-n, --nfiles* \[+-=]'INT'|~'BITMAP'::
+    output positions present in this many (=), this many or more (+), this
+    many or fewer (-), or the exact same (~) files
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*.  When several files are being
@@ -956,6 +959,11 @@ Extract and write records from A shared by both A and B using exact allele match
 Extract records private to A or B comparing by position only
 ----
     bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz
+----
+
+Print a list of records which are present in A and B but not in C and D
+----
+    bcftools isec -n~1100 -c all A.vcf.gz B.vcf.gz C.vcf.gz D.vcf.gz
 ----
 
 
