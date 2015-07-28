@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2015-06-15 15:56 BST
+.\"      Date: 2015-07-28 09:49 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2015\-06\-15 15:56 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2015\-07\-28 09:49 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2015\-06\-15 15:56 BST\fR and refers to bcftools git version \fB1\&.2\-45\-g3d18e21+\fR\&.
+This manual page was last updated \fB2015\-07\-28 09:49 BST\fR and refers to bcftools git version \fB1\&.2\-74\-g6ccecd1+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -547,6 +547,13 @@ include only sites for which
 \fIEXPRESSION\fR
 is true\&. For valid expressions see
 \fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-m, \-\-mark\-sites\fR \fITAG\fR
+.RS 4
+annotate sites which are present ("+") or absent ("\-") in the
+\fB\-a\fR
+file with a new INFO/TAG flag
 .RE
 .PP
 \fB\-o, \-\-output\fR \fIFILE\fR
@@ -1561,9 +1568,9 @@ is true\&. See discussion of
 above\&.
 .RE
 .PP
-\fB\-n, \-\-nfiles\fR [+\-=]\fIINT\fR
+\fB\-n, \-\-nfiles\fR [+\-=]\fIINT\fR|~\fIBITMAP\fR
 .RS 4
-output positions present in this many (=), this many or more (+), or this many or fewer (\-) files
+output positions present in this many (=), this many or more (+), this many or fewer (\-), or the exact same (~) files
 .RE
 .PP
 \fB\-o, \-\-output\fR \fIFILE\fR
@@ -1669,6 +1676,18 @@ Extract records private to A or B comparing by position only
 .\}
 .nf
     bcftools isec \-p dir \-n\-1 \-c all A\&.vcf\&.gz B\&.vcf\&.gz
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Print a list of records which are present in A and B but not in C and D
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools isec \-n~1100 \-c all A\&.vcf\&.gz B\&.vcf\&.gz C\&.vcf\&.gz D\&.vcf\&.gz
 .fi
 .if n \{\
 .RE
@@ -2355,15 +2374,13 @@ Emission probabilities:
 Transition probabilities:
   tAZ = P(AZ|HW)  \&.\&. from HW to AZ, the \-a parameter
   tHW = P(HW|AZ)  \&.\&. from AZ to HW, the \-H parameter
-  P(AZ|AZ) = 1 \- P(HW|AZ) = 1 \- tHW
-  P(HW|HW) = 1 \- P(AZ|HW) = 1 \- tAZ
 
   ci  = P_i(C)  \&.\&. probability of cross\-over at site i, from genetic map
   AZi = P_i(AZ) \&.\&. probability of site i being AZ/non\-AZ, scaled so that AZi+HWi = 1
   HWi = P_i(HW)
 
-  P_{i+1}(AZ) = oAZ * max[(1\-tHW) * (1\-ci) * AZ{i\-1} , tAZ * ci * (1\-AZ{i\-1})]
-  P_{i+1}(HW) = oHW * max[(1\-tAZ) * (1\-ci) * (1\-AZ{i\-1}) , tHW * ci * AZ{i\-1}]
+  P_{i+1}(AZ) = oAZ * max[(1 \- tAZ * ci) * AZ{i\-1} , tAZ * ci * (1\-AZ{i\-1})]
+  P_{i+1}(HW) = oHW * max[(1 \- tHW * ci) * (1\-AZ{i\-1}) , tHW * ci * AZ{i\-1}]
 .fi
 .if n \{\
 .RE
@@ -2377,6 +2394,12 @@ Transition probabilities:
 .ps +1
 \fBGeneral Options:\fR
 .RS 4
+.PP
+\fB\-\-AF\-dflt\fR \fIFLOAT\fR
+.RS 4
+in case allele frequency is not known, use the
+\fIFLOAT\fR\&. By default, sites where allele frequency cannot be determined, or is 0, are skipped\&.
+.RE
 .PP
 \fB\-\-AF\-tag\fR \fITAG\fR
 .RS 4
