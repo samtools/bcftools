@@ -45,6 +45,14 @@ hmm_t *hmm_init(int nstates, double *tprob, int ntprob);
 void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob);
 
 /**
+ *   hmm_init_states() - initial state probabilities
+ *   @probs:  initial state probabilities or NULL to reset to default
+ *
+ *   If uncalled, all states are initialized with the same likelihood
+ */
+void hmm_init_states(hmm_t *hmm, double *probs);
+
+/**
  *   hmm_get_tprob() - return the array of transition matrices, precalculated
  *      to ntprob positions. The first matrix is the initial tprob matrix
  *      set by hmm_init() or hmm_set_tprob()
