@@ -789,7 +789,7 @@ void merge_filter(args_t *args, bcf1_t *out)
             if ( kitr == kh_end(tmph) )
             {
                 int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, flt);
-                if ( id==-1 ) error("The filter not defined: %s\n", flt);
+                if ( id==-1 ) error("Error: The filter is not defined in the header: %s\n", flt);
                 hts_expand(int,out->d.n_flt+1,ma->mflt,ma->flt);
                 ma->flt[out->d.n_flt] = id;
                 out->d.n_flt++;
