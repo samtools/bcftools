@@ -261,8 +261,11 @@ This command allows to add or remove annotations.
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
     and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
-    "TAG", use "&#94;INFO/TAG". By default, existing values are replaced. To add
-    values without overwriting existing annotations, use "+TAG" instead of "TAG".
+    "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+    To add annotations without overwriting existing values (that is, to add missing tags or
+    add values to existing tags with missing values), use "+TAG" instead of "TAG".
+    To append to existing values (rather than replacing or leaving untouched), use "=TAG"
+    (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
