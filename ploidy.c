@@ -228,6 +228,8 @@ int ploidy_add_sex(ploidy_t *ploidy, const char *sex)
     ploidy->nsex++;
     hts_expand0(char*,ploidy->nsex,ploidy->msex,ploidy->id2sex);
     ploidy->id2sex[ploidy->nsex-1] = strdup(sex);
+    ploidy->sex2dflt = (int*) realloc(ploidy->sex2dflt,sizeof(int)*ploidy->nsex);
+    ploidy->sex2dflt[ploidy->nsex-1] = ploidy->dflt;
     return khash_str2int_inc(ploidy->sex2id, ploidy->id2sex[ploidy->nsex-1]);
 }
 
