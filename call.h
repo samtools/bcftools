@@ -100,8 +100,8 @@ typedef struct
 
     double pl2p[256];       // PL to 10^(-PL/10) table
     int32_t *PLs;           // VCF PL likelihoods (rw)
-    int nPLs, mPLs;
-    int32_t *gts, ac[4];    // GTs and AC (w)
+    int nPLs, mPLs, nac;
+    int32_t *gts, *ac;      // GTs and AC (w)
     double *pdg;            // PLs converted to P(D|G)
     float *anno16; int n16; // see anno[16] in bam2bcf.h
     double theta;           // prior
