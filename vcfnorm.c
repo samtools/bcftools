@@ -803,7 +803,8 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
         int i,k,len = bcf_hdr_id2length(args->hdr,BCF_HL_INFO,info->key);  \
         if ( len==BCF_VL_A ) \
         { \
-            assert( nvals_ori==lines[0]->n_allele - 1); \
+            if (nvals_ori!=lines[0]->n_allele - 1) \
+                error("vcfnorm: number of fields in first record at position %s:%d for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele-1); \
             int nvals = dst->n_allele - 1; \
             ENLARGE_ARRAY(type_t,set_missing,args->tmp_arr1,args->ntmp_arr1,1,nvals_ori,nvals); \
             vals = (type_t*) args->tmp_arr1; \
@@ -811,8 +812,10 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
             { \
                 int ntmp2 = args->ntmp_arr2 / sizeof(type_t); \
                 int nvals2 = bcf_get_info_##type(args->hdr,lines[i],tag,&args->tmp_arr2,&ntmp2); \
+                if (nvals2<0) continue; /* info tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
-                assert( nvals2==lines[i]->n_allele-1 ); \
+                if (nvals2!=lines[i]->n_allele-1) \
+                    error("vcfnorm: could not merge INFO tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (k=0; k<nvals2; k++) \
                 { \
@@ -824,7 +827,8 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
         } \
         else if ( len==BCF_VL_R ) \
         { \
-            assert( nvals_ori==lines[0]->n_allele ); \
+            if (nvals_ori!=lines[0]->n_allele) \
+                error("vcfnorm: number of fields in first record at position %s:%d for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele); \
             int nvals = dst->n_allele; \
             ENLARGE_ARRAY(type_t,set_missing,args->tmp_arr1,args->ntmp_arr1,1,nvals_ori,nvals); \
             vals = (type_t*) args->tmp_arr1; \
@@ -832,8 +836,10 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
             { \
                 int ntmp2 = args->ntmp_arr2 / sizeof(type_t); \
                 int nvals2 = bcf_get_info_##type(args->hdr,lines[i],tag,&args->tmp_arr2,&ntmp2); \
+                if (nvals2<0) continue; /* info tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
-                assert( nvals2==lines[i]->n_allele ); \
+                if (nvals2!=lines[i]->n_allele) \
+                    error("vcfnorm: could not merge INFO tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (k=0; k<nvals2; k++) \
                 { \
@@ -845,7 +851,11 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
         } \
         else if ( len==BCF_VL_G ) \
         { \
-            assert( nvals_ori==lines[0]->n_allele*(lines[0]->n_allele+1)/2 );   /* expecting diploid gt in INFO */ \
+            /* expecting diploid gt in INFO */ \
+            if (nvals_ori!=lines[0]->n_allele*(lines[0]->n_allele+1)/2) { \
+                fprintf(stderr, "todo: merge Number=G INFO fields for haploid sites\n"); \
+                error("vcfnorm: number of fields in first record at position %s:%d for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele*(lines[0]->n_allele+1)/2); \
+            } \
             int nvals = dst->n_allele*(dst->n_allele+1)/2; \
             ENLARGE_ARRAY(type_t,set_missing,args->tmp_arr1,args->ntmp_arr1,1,nvals_ori,nvals); \
             vals = (type_t*) args->tmp_arr1; \
@@ -853,8 +863,10 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
             { \
                 int ntmp2 = args->ntmp_arr2 / sizeof(type_t); \
                 int nvals2 = bcf_get_info_##type(args->hdr,lines[i],tag,&args->tmp_arr2,&ntmp2); \
+                if (nvals2<0) continue; /* info tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
-                assert( nvals2==lines[i]->n_allele*(lines[i]->n_allele+1)/2 ); \
+                if (nvals2!=lines[i]->n_allele*(lines[i]->n_allele+1)/2) \
+                    error("vcfnorm: could not merge INFO tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
                 vals2 = (type_t*) args->tmp_arr2; \
                 int ia,ib; \
                 k = 0; \
@@ -906,6 +918,7 @@ static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info
         for (i=0; i<nlines; i++)
         {
             bcf_info_t *src = bcf_get_info(args->hdr,lines[i],tag);
+            if (!src) continue;
             for (j=jfrom; j<lines[i]->n_allele; j++)
                 copy_string_field((char*)src->vptr, j-jfrom, src->len, &str, args->maps[i].map[j]-jfrom);
         }
@@ -922,6 +935,7 @@ static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info
         for (i=0; i<nlines; i++)
         {
             bcf_info_t *src = bcf_get_info(args->hdr,lines[i],tag);
+            if (!src) continue;
             int iori, jori, kori = 0;
             for (iori=0; iori<lines[i]->n_allele; iori++)
             {
@@ -945,7 +959,6 @@ static void merge_info_string(args_t *args, bcf1_t **lines, int nlines, bcf_info
         bcf_get_info_string(args->hdr,lines[0],tag,&args->tmp_arr1,&args->ntmp_arr1);
         bcf_update_info_string(args->hdr,dst,tag,args->tmp_arr1);
     }
-
 }
 static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_fmt_t *fmt, bcf1_t *dst)
 {
@@ -1021,9 +1034,11 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
             { \
                 int ntmp2 = args->ntmp_arr2 / sizeof(type_t); \
                 int nvals2 = bcf_get_format_##type(args->hdr,lines[i],tag,&args->tmp_arr2,&ntmp2); \
+                if (nvals2<0) continue; /* format tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 nvals2 /= nsmpl; \
-                assert( nvals2==lines[i]->n_allele-1 ); \
+                if (nvals2!=lines[i]->n_allele-1) \
+                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
                 vals  = (type_t*) args->tmp_arr1; \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (j=0; j<nsmpl; j++) \
@@ -1047,9 +1062,11 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
             { \
                 int ntmp2 = args->ntmp_arr2 / sizeof(type_t); \
                 int nvals2 = bcf_get_format_##type(args->hdr,lines[i],tag,&args->tmp_arr2,&ntmp2); \
+                if (nvals2<0) continue; /* format tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 nvals2 /= nsmpl; \
-                assert( nvals2==lines[i]->n_allele ); \
+                if (nvals2!=lines[i]->n_allele) \
+                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
                 vals  = (type_t*) args->tmp_arr1; \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (j=0; j<nsmpl; j++) \
@@ -1090,11 +1107,13 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
             { \
                 int ntmp2 = args->ntmp_arr2 / sizeof(type_t); \
                 int nvals2 = bcf_get_format_##type(args->hdr,lines[i],tag,&args->tmp_arr2,&ntmp2); \
+                if (nvals2<0) continue; /* format tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 nvals2 /= nsmpl; \
                 int ndiploid = lines[i]->n_allele*(lines[i]->n_allele+1)/2; \
                 int line_diploid = nvals2==ndiploid ? 1 : 0; \
-                assert( nvals2==1 || nvals2==lines[i]->n_allele || nvals2==lines[i]->n_allele*(lines[i]->n_allele+1)/2); \
+                if (!(nvals2==1 || nvals2==lines[i]->n_allele || nvals2==lines[i]->n_allele*(lines[i]->n_allele+1)/2)) \
+                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
                 vals  = (type_t*) args->tmp_arr1; \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (j=0; j<nsmpl; j++) \
@@ -1179,6 +1198,7 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
         for (i=0; i<nlines; i++)
         {
             int nret = bcf_get_format_char(args->hdr,lines[i],tag,&args->tmp_arr1,&args->ntmp_arr1);
+            if (nret<0) continue; /* format tag does not exist in this record, skip */ \
             nret /= nsmpl;
             for (k=0; k<nsmpl; k++)
             {
@@ -1225,6 +1245,7 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
             if ( i ) // we already have a copy
             {
                 nret = bcf_get_format_char(args->hdr,lines[i],tag,&args->tmp_arr1,&args->ntmp_arr1);
+                if (nret<0) continue; /* format tag does not exist in this record, skip */ \
                 nret /= nsmpl;
             }
             for (k=0; k<nsmpl; k++)
