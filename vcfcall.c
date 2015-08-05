@@ -145,7 +145,7 @@ static ploidy_predef_t ploidy_predefs[] =
           "*  * *     F 2\n"
     },
     { .alias  = "GRCh38",
-      .about  = "Human Genome reference assembly GRCh38 / hg38, plain chromosome naming (1,2,3,..)",
+      .about  = "Human Genome reference assembly GRCh38 / hg38",
       .ploidy =
           "X 1 9999 M 1\n"
           "X 2781480 155701381 M 1\n"
