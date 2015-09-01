@@ -526,6 +526,26 @@ static int parse_format_flag(const char *str)
     return flag;
 }
 
+static void set_ploidy(args_t *args, bcf1_t *rec)
+{
+    ploidy_query(args->ploidy,(char*)bcf_seqname(args->aux.hdr,rec),rec->pos,args->sex2ploidy,NULL,NULL);
+
+    int i;
+    for (i=0; i<args->nsex; i++)
+        if ( args->sex2ploidy[i]!=args->sex2ploidy_prev[i] ) break;
+
+    if ( i==args->nsex ) return;    // ploidy same as previously
+
+    for (i=0; i<args->nsamples; i++)
+    {
+        if ( args->sample2sex[i]<0 )
+            args->aux.ploidy[i] = -1*args->sample2sex[i];
+        else
+            args->aux.ploidy[i] = args->sex2ploidy[args->sample2sex[i]];
+    }
+
+    int *tmp = args->sex2ploidy; args->sex2ploidy = args->sex2ploidy_prev; args->sex2ploidy_prev = tmp;
+}
 
 ploidy_t *init_ploidy(char *alias)
 {
@@ -788,6 +808,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( (args.flag & CF_ACGT_ONLY) && (bcf_rec->d.allele[0][0]=='N' || bcf_rec->d.allele[0][0]=='n') ) continue;   // REF[0] is 'N'
 
         bcf_unpack(bcf_rec, BCF_UN_ALL);
+        if ( args.nsex ) set_ploidy(&args, bcf_rec);
 
         // Various output modes: QCall output (todo)
         if ( args.flag & CF_QCALL )
