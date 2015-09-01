@@ -54,15 +54,26 @@ regidx_t *ploidy_regions(ploidy_t *ploidy)
 
 int ploidy_parse(const char *line, char **chr_beg, char **chr_end, reg_t *reg, void *payload, void *usr)
 {
+    int i, ret;
     ploidy_t *ploidy = (ploidy_t*) usr;
     void *sex2id = ploidy->sex2id;
 
-    // Fill CHR,FROM,TO
-    int i, ret = regidx_parse_tab(line,chr_beg,chr_end,reg,NULL,NULL);
-    if ( ret!=0 ) return ret;
+    // Check for special case of default ploidy "* * * <sex> <ploidy>"
+    int default_ploidy_def = 0;
+
+    char *ss = (char*) line;
+    while ( *ss && isspace(*ss) ) ss++;
+    if ( ss[0]=='*' && (!ss[1] || isspace(ss[1])) )
+        default_ploidy_def = 1; // definition of default ploidy, chr="*"
+    else
+    {
+        // Fill CHR,FROM,TO
+        ret = regidx_parse_tab(line,chr_beg,chr_end,reg,NULL,NULL);
+        if ( ret!=0 ) return ret;
+    }
 
     // Skip the fields already parsed by regidx_parse_tab
-    char *ss = (char*) line;
+    ss = (char*) line;
     while ( *ss && isspace(*ss) ) ss++;
     for (i=0; i<3; i++)
     {
@@ -99,9 +110,7 @@ int ploidy_parse(const char *line, char **chr_beg, char **chr_end, reg_t *reg, v
     if ( sp->ploidy > ploidy->max ) ploidy->max = sp->ploidy;
 
     // Special case, chr="*" stands for a default value
-    ss = (char*) line;
-    while ( *ss && isspace(*ss) ) ss++;
-    if ( ss[0]=='*' && (!ss[1] || isspace(ss[1])) ) 
+    if ( default_ploidy_def )
     {
         ploidy->sex2dflt[ploidy->nsex-1] = sp->ploidy;
         return -1;
