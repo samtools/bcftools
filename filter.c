@@ -500,6 +500,7 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
             tok->nsamples = tok->nvalues = nsmpl;
         }
     }
+    tok->nsamples = tok->nvalues;
 }
 static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {

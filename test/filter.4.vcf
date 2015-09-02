@@ -1,0 +1,10 @@
+##fileformat=VCFv4.1
+##contig=<ID=chr1,length=135006516>
+##INFO=<ID=TEST1,Number=1,Type=Integer,Description="Test1">
+##INFO=<ID=TEST2,Number=1,Type=Float,Description="Test2">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=TEST3,Number=1,Type=Integer,Description="Test3">
+##FORMAT=<ID=TEST4,Number=1,Type=Float,Description="Test4">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample1	sample2
+chr1	1	.	A	T	100	.	TEST1=10;TEST2=10	GT:TEST3:TEST4	0/1:10:10	0/1:30:30
+chr1	2	.	A	T	100	.	TEST1=50;TEST2=50	GT:TEST3:TEST4	0/1:20:20	0/1:40:40
