@@ -129,6 +129,8 @@ test_vcf_view($opts,in=>'view.minmaxac',out=>'view.minmaxac.2.out',args=>q[-H -c
 test_vcf_view($opts,in=>'view.minmaxac',out=>'view.minmaxac.1.out',args=>q[-H -q0.3:major],reg=>'');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mvg0');
+test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.samples');
+test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.ped');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter.1',out=>'filter.1.out',args=>'-mx -g2 -G2');
 test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'QUAL==59.2 || (INDEL=0 & (FMT/GQ=25 | FMT/DP=10))' -sModified -S.]);
@@ -541,7 +543,8 @@ sub test_vcf_view
 sub test_vcf_call
 {
     my ($opts,%args) = @_;
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
+	$args{args} =~ s/{PATH}/$$opts{path}/g;
+	test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_call_cAls
