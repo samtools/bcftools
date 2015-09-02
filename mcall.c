@@ -311,6 +311,7 @@ void mcall_destroy(call_t *call)
     free(call->gts); free(call->cgts); free(call->ugts);
     free(call->pdg);
     free(call->als);
+    free(call->ac);
     return;
 }
 
@@ -726,7 +727,7 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
     int nout_gts = nout_als*(nout_als+1)/2;
     hts_expand(float,nout_gts*nsmpl,call->nGPs,call->GPs);
 
-    for (i=0; i<4; i++) call->ac[i] = 0;
+    for (i=0; i<nout_als; i++) call->ac[i] = 0;
     call->nhets = 0;
     call->ndiploid = 0;
 
@@ -1346,6 +1347,7 @@ int mcall(call_t *call, bcf1_t *rec)
 
     int nsmpl = bcf_hdr_nsamples(call->hdr);
     int nals  = rec->n_allele;
+    hts_expand(int,nals,call->nac,call->ac);
     hts_expand(int,nals,call->nals_map,call->als_map);
     hts_expand(int,nals*(nals+1)/2,call->npl_map,call->pl_map);
 
@@ -1391,7 +1393,13 @@ int mcall(call_t *call, bcf1_t *rec)
     #endif
 
     // Find the best combination of alleles
-    int out_als, nout = mcall_find_best_alleles(call, nals, &out_als);
+    int out_als, nout;
+    if ( nals > 8*sizeof(out_als) )
+    { 
+        fprintf(stderr,"Too many alleles at %s:%d, skipping.\n", bcf_seqname(call->hdr,rec),rec->pos+1); 
+        return 0; 
+    }
+    nout = mcall_find_best_alleles(call, nals, &out_als);
 
     // Make sure the REF allele is always present
     if ( !(out_als&1) )
@@ -1431,12 +1439,20 @@ int mcall(call_t *call, bcf1_t *rec)
         if ( !is_variant )
             mcall_set_ref_genotypes(call,nals);     // running with -A, prevent mcall_call_genotypes from putting some ALT back
         else if ( call->flag & CALL_CONSTR_TRIO )
+        {
+            if ( nout>4 ) 
+            { 
+                fprintf(stderr,"Too many alleles at %s:%d, skipping.\n", bcf_seqname(call->hdr,rec),rec->pos+1); 
+                return 0; 
+            }
             mcall_call_trio_genotypes(call, rec, nals,nout,out_als);
+        }
         else
             mcall_call_genotypes(call,rec,nals,nout,out_als);
 
         // Skip the site if all samples are 0/0. This can happen occasionally.
-        nAC = call->ac[1] + call->ac[2] + call->ac[3];
+        nAC = 0;
+        for (i=1; i<nout; i++) nAC += call->ac[i];
         if ( !nAC && call->flag & CALL_VARONLY ) return 0;
         mcall_trim_PLs(call, rec, nals, nout, out_als);
     }
