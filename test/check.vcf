@@ -1,6 +1,7 @@
 ##fileformat=VCFv4.1
 ##INFO=<ID=TEST,Number=1,Type=Integer,Description="Testing Tag">
 ##FORMAT=<ID=TT,Number=A,Type=Integer,Description="Testing Tag, with commas and \"escapes\" and escaped escapes combined with \\\"quotes\\\\\"">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="read depth">
 ##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
@@ -27,9 +28,9 @@
 1	3184885	.	TAAAA	TA,T	61.5	PASS	AN=4;AC=2,2	GT:GQ:DP	1/2:12:10	1/2:12:10
 2	3199812	.	G	GTT,GT	82.7	PASS	AN=4;AC=2,2	GT:GQ:DP	1/2:322:26	1/2:322:26
 3	3212016	.	CTT	C,CT	79	PASS	AN=4;AC=2,2	GT:GQ:DP	1/2:91:26	1/2:91:26
-4	3258448	.	TACACACAC	T	59.9	PASS	AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
-4	3258449	.	GCAAA	GA,G	59.9	PASS	AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
-4	3258450	.	AAAAGAAAAAG	A,AAAAAAG	59.9	PASS	AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
+4	3258448	.	TACACACAC	T	59.9	PASS	DP=62;AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
+4	3258449	.	GCAAA	GA,G	59.9	PASS	DP=62;AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
+4	3258450	.	AAAAGAAAAAG	A,AAAAAAG	59.9	PASS	DP=60;AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
 4	3258451	.	AAA	AGT	59.9	PASS	AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
 4	3258452	.	AAA	AGA	59.9	PASS	AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31
 4	3258453	.	AACA	AGA	59.9	PASS	AN=4;AC=2	GT:GQ:DP	0/1:325:31	0/1:325:31

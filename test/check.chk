@@ -69,6 +69,8 @@ DP	0	30	2	5.555556	0	0.000000
 DP	0	31	16	44.444444	0	0.000000
 DP	0	32	4	11.111111	0	0.000000
 DP	0	35	4	11.111111	0	0.000000
+DP	0	60	0	0.000000	1	33.333333
+DP	0	62	0	0.000000	2	66.666667
 # PSC, Per-sample counts
 # PSC	[2]id	[3]sample	[4]nRefHom	[5]nNonRefHom	[6]nHets	[7]nTransitions	[8]nTransversions	[9]nIndels	[10]average depth	[11]nSingletons
 PSC	0	A	0	2	4	3	2	9	28.7	1

@@ -44,6 +44,7 @@ test_vcf_idxstats($opts,in=>'idx',args=>'-n',out=>'idx_count.out');
 test_vcf_idxstats($opts,in=>'empty',args=>'-s',out=>'empty.idx.out');
 test_vcf_idxstats($opts,in=>'empty',args=>'-n',out=>'empty.idx_count.out');
 test_vcf_check($opts,in=>'check',out=>'check.chk');
+test_vcf_check_merge($opts,in=>'check',out=>'check_merge.chk');
 test_vcf_stats($opts,in=>['stats.a','stats.b'],out=>'stats.chk',args=>'-s -');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.flt.out',args=>'-n =2 -i"STRLEN(REF)==2"');
@@ -128,8 +129,6 @@ test_vcf_view($opts,in=>'view.minmaxac',out=>'view.minmaxac.2.out',args=>q[-H -c
 test_vcf_view($opts,in=>'view.minmaxac',out=>'view.minmaxac.1.out',args=>q[-H -q0.3:major],reg=>'');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mvg0');
-test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.samples');
-test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.ped');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_filter($opts,in=>'filter.1',out=>'filter.1.out',args=>'-mx -g2 -G2');
 test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'QUAL==59.2 || (INDEL=0 & (FMT/GQ=25 | FMT/DP=10))' -sModified -S.]);
@@ -423,6 +422,18 @@ sub test_vcf_check
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools stats -s - $$opts{tmp}/$args{in}.vcf.gz | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools stats -s - | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
 }
+
+sub test_vcf_check_merge
+{
+    my ($opts,%args) = @_;
+    bgzip_tabix_vcf($opts,$args{in});
+    cmd("$$opts{bin}/bcftools stats -r 1 $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.1.chk");
+    cmd("$$opts{bin}/bcftools stats -r 2 $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.2.chk");
+    cmd("$$opts{bin}/bcftools stats -r 3 $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.3.chk");
+    cmd("$$opts{bin}/bcftools stats -r 4 $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.4.chk");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/plot-vcfstats -m $$opts{tmp}/$args{in}.1.chk $$opts{tmp}/$args{in}.2.chk $$opts{tmp}/$args{in}.3.chk $$opts{tmp}/$args{in}.4.chk | grep -v 'plot-vcfstats' | grep -v '^# The command' | grep -v '^# This' | grep -v '^ID\t'");
+}
+
 sub test_vcf_stats
 {
     my ($opts,%args) = @_;
@@ -530,7 +541,6 @@ sub test_vcf_view
 sub test_vcf_call
 {
     my ($opts,%args) = @_;
-    $args{args} =~ s/{PATH}/$$opts{path}/g;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }

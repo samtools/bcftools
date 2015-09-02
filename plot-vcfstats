@@ -474,10 +474,24 @@ sub merge_dp
 {
     my ($a,$b) = @_;
     add_to_values($a,$b,\&cmp_num_op);
-    # recalculate fraction of GTs, cannot be simply summed
-    my $sum = 0;
-    for (my $i=0; $i<@$a; $i++) { $sum += $$a[$i][1]; }
-    for (my $i=0; $i<@$a; $i++) { $$a[$i][2] = $$a[$i][1]*100./$sum; }
+    # recalculate fraction of GTs and fraction of sites, cannot be simply summed
+    my $gsum = 0; # genotype sum
+    my $ssum = 0; # site sum
+    for (my $i=0; $i<@$a; $i++)
+    {
+        $gsum += $$a[$i][1];
+        if (@{$$a[$i]}>3) {
+            $ssum += $$a[$i][3];
+        }
+        else{
+            push @{$$a[$i]}, (0,0); # older stats files will not have last 2 columns for (number of sites, fraction of sites), so fill in as zero
+        }
+    }
+    for (my $i=0; $i<@$a; $i++)
+    {
+        $$a[$i][2] = $gsum ? $$a[$i][1]*100./$gsum : 0;
+        $$a[$i][4] = $ssum ? $$a[$i][3]*100./$ssum : 0;
+    }
 }
 
 sub merge_GCsS
