@@ -190,7 +190,7 @@ specific commands to see if they apply.
     Comma-separated list of samples to include or exclude if prefixed
     with "&#94;".
 
-*-S, --samples-file* [&#94;]'FILE'::
+*-S, --samples-file* [&#94;]'FILE'[[samples_file]]::
     File of sample names to include or exclude if prefixed with "&#94;".
     One sample per line.
     The command *<<call,bcftools call>>* accepts an optional second

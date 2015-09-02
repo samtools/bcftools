@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2015-08-05 16:03 BST
+.\"      Date: 2015-09-02 15:10 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2015\-08\-05 16:03 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2015\-09\-02 15:10 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2015\-08\-05 16:03 BST\fR and refers to bcftools git version \fB1\&.2\-106\-gef11927+\fR\&.
+This manual page was last updated \fB2015\-09\-02 15:10 BST\fR and refers to bcftools git version \fB1\&.2\-119\-g0dbe41e+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -411,10 +411,35 @@ Comma\-separated list of samples to include or exclude if prefixed with "^"\&.
 .RS 4
 File of sample names to include or exclude if prefixed with "^"\&. One sample per line\&. The command
 \fBbcftools call\fR
-accepts an optional second column indicating ploidy (0, 1 or 2) and can parse also PED files\&. With
+accepts an optional second column indicating ploidy (0, 1 or 2) or sex (as defined by
+\fB\-\-ploidy\fR, for example "F" or "M"), and can parse also PED files\&. If the second column is not present, the sex "F" is assumed\&. With
 \fBbcftools call\fR\fB \-C\fR
-\fItrio\fR, PED file is expected\&.
+\fItrio\fR, PED file is expected\&. File formats examples:
 .RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    sample1    1
+    sample2    2
+    sample3    2
+
+  or
+
+    sample1    M
+    sample2    F
+    sample3    F
+
+  or a \&.ped file (here is shown a minimum working example, the first column is
+  ignored and the last indicates sex: 1=male, 2=female)
+
+    ignored daughterA fatherA motherA 2
+    ignored sonB fatherB motherB 1
+.fi
+.if n \{\
+.RE
+.\}
 .PP
 \fB\-t, \-\-targets\fR [^]\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
@@ -654,6 +679,37 @@ This command replaces the former \fBbcftools view\fR caller\&. Some of the origi
 see
 \fBCommon Options\fR
 .RE
+.PP
+\fB\-\-ploidy\fR \fIASSEMBLY\fR[\fI?\fR]
+.RS 4
+predefined ploidy, use
+\fIlist\fR
+(or any other unused word) to print a list of all predefined assemblies\&. Append a question mark to print the actual definition\&. See also
+\fB\-\-ploidy\-file\fR\&.
+.RE
+.PP
+\fB\-\-ploidy\-file\fR \fIFILE\fR
+.RS 4
+ploidy definition given as a space/tab\-delimited list of CHROM, FROM, TO, SEX, PLOIDY\&. The SEX codes are arbitrary and correspond to the ones used by
+\fB\-\-samples\-file\fR\&. The default ploidy can be given using the starred records (see below), unlisted regions have ploidy 2\&. The default ploidy definition is
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    X 1 60000 M 1
+    X 2699521 154931043 M 1
+    Y 1 59373566 M 1
+    Y 1 59373566 F 0
+    MT 1 16569 M 1
+    MT 1 16569 F 1
+    *  * *     M 2
+    *  * *     F 2
+.fi
+.if n \{\
+.RE
+.\}
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
@@ -2806,12 +2862,12 @@ print sites where all samples are phased\&. Haploid genotypes are considered pha
 exclude sites where all samples are phased
 .RE
 .PP
-\fB\-q, \-\-min\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|:\*(Aqmajor\*(Aq|:\*(Aqnonmajor\*(Aq]
+\fB\-q, \-\-min\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|\fI:major\fR|\fI:nonmajor\fR]
 .RS 4
 minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR), the least frequent (\fIminor\fR), the most frequent (\fImajor\fR) or sum of all but the most frequent (\fInonmajor\fR) alleles\&.
 .RE
 .PP
-\fB\-Q, \-\-max\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|:\*(Aqmajor\*(Aq|:\*(Aqnonmajor\*(Aq]
+\fB\-Q, \-\-max\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|\fI:major\fR|\fI:nonmajor\fR]
 .RS 4
 maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR), the least frequent (\fIminor\fR), the most frequent (\fImajor\fR) or sum of all but the most frequent (\fInonmajor\fR) alleles\&.
 .RE
@@ -2828,17 +2884,24 @@ exclude sites without a called genotype
 .PP
 \fB\-v, \-\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
 .RS 4
-comma\-separated list of variant types to select
+comma\-separated list of variant types to select\&. Site is selected if any of the ALT alleles is of the type requested\&. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags like INFO/INDEL or INFO/VT\&. Use
+\fB\-\-include\fR
+to select based on INFO tags\&.
 .RE
 .PP
 \fB\-V, \-\-exclude\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
 .RS 4
-comma\-separated list of variant types to exclude
+comma\-separated list of variant types to exclude\&. Site is excluded if any of the ALT alleles is of the type requested\&. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags like INFO/INDEL or INFO/VT\&. Use
+\fB\-\-exclude\fR
+to exclude based on INFO tags\&.
 .RE
 .PP
 \fB\-x, \-\-private\fR
 .RS 4
-print sites where only the subset samples carry an non\-reference allele\&. Requires \-\-samples or \-\-samples\-file\&.
+print sites where only the subset samples carry an non\-reference allele\&. Requires
+\fB\-\-samples\fR
+or
+\fB\-\-samples\-file\fR\&.
 .RE
 .PP
 \fB\-X, \-\-exclude\-private\fR
