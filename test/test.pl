@@ -543,8 +543,8 @@ sub test_vcf_view
 sub test_vcf_call
 {
     my ($opts,%args) = @_;
-	$args{args} =~ s/{PATH}/$$opts{path}/g;
-	test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call $args{args} $$opts{path}/$args{in}.vcf | grep -v ^##bcftools_");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_call_cAls
