@@ -1341,7 +1341,7 @@ static void print_stats(args_t *args)
                 uint64_t mm = stats[i].mm[T2S(GT_HOM_RR)] + stats[i].mm[T2S(GT_HET_RA)] + stats[i].mm[T2S(GT_HOM_AA)];
                 // Calculate r by formula 19.2 - Biostatistical Analysis 4th edition - Jerrold H. Zar
                 smpl_r_t *smpl_r = smpl_r_array + i;
-                double r = NAN;
+                double r = 0.0;
                 if (smpl_r->n) {
                     double sum_crossprod = smpl_r->xy-(smpl_r->x*smpl_r->y)/smpl_r->n;//per 17.3 machine formula
                     double x2_xx = smpl_r->x2-(smpl_r->x*smpl_r->x)/smpl_r->n;
@@ -1351,14 +1351,8 @@ static void print_stats(args_t *args)
                 printf("GC%cS\t2\t%s\t%.3f",  x==0 ? 's' : 'i', args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
-                if (isnan(r))
-                {
-                    printf("\t"NA_STRING"\n");
-                }
-                else
-                {
-                    printf("\t%f\n", r*r);
-                }
+                if (smpl_r->n && !isnan(r)) printf("\t%f\n", r*r);
+                else printf("\t"NA_STRING"\n");
             }
         }
     }
