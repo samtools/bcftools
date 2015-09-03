@@ -567,7 +567,7 @@ static void consensus(args_t *args)
             }
 
             // is the cached fasta buffer full enough? if not, read more fasta, no flushing
-            if ( args->fa_ori_pos + args->fa_buf.l - args->fa_mod_off <= rec->pos + rec->rlen )
+            if ( args->fa_ori_pos + args->fa_buf.l - args->fa_mod_off < rec->pos + rec->rlen )
             {
                 unread_vcf_line(args, rec_ptr);
                 break;
