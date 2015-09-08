@@ -169,8 +169,10 @@ int process_region_precise(args_t *args, char *seq, regitr_t *itr)
             int32_t *gts = args->gts + ngts*ismpl;
             int igt, ploidy = 0;
             for (igt=0; igt<ngts; igt++)
-                if ( gts[igt]==bcf_gt_missing || gts[igt]==bcf_int32_missing || gts[igt]==bcf_int32_vector_end ) break;
+            {
+                if ( gts[igt]==bcf_int32_vector_end || bcf_gt_is_missing(gts[igt]) ) break;
                 else ploidy++;
+            }
             args->counts[ismpl*(args->max_ploidy+1) + ploidy]++;
             if ( args->verbose )
                 fprintf(stderr,"%s:%d\t%s\tploidy=%d\n", seq,rec->pos+1,args->hdr->samples[ismpl],ploidy);
