@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2015-09-02 15:10 BST
+.\"      Date: 2015-09-15 11:42 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2015\-09\-02 15:10 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2015\-09\-15 11:42 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2015\-09\-02 15:10 BST\fR and refers to bcftools git version \fB1\&.2\-119\-g0dbe41e+\fR\&.
+This manual page was last updated \fB2015\-09\-15 11:42 BST\fR and refers to bcftools git version \fB1\&.2\-127\-g5940dc0+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1857,7 +1857,7 @@ see
 .RE
 .SS "bcftools norm [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
 .sp
-Left\-align and normalize indels, check if REF alleles match the reference, split multiallelic sites into multiple rows; recover multiallelics from multiple rows\&.
+Left\-align and normalize indels, check if REF alleles match the reference, split multiallelic sites into multiple rows; recover multiallelics from multiple rows\&. Left\-alignment and normalization will only be applied if the \fB\-\-fasta\-ref\fR option is supplied\&.
 .PP
 \fB\-c, \-\-check\-ref\fR \fIe\fR|\fIw\fR|\fIx\fR|\fIs\fR
 .RS 4
@@ -1878,7 +1878,9 @@ remove duplicate lines of the same type
 .PP
 \fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
 .RS 4
-reference sequence
+reference sequence\&. Supplying this option will turn on left\-alignment and normalization, however, see also the
+\fB\-\-do\-not\-normalize\fR
+option below\&.
 .RE
 .PP
 \fB\-m, \-\-multiallelics\fR ←|+>[\fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIany\fR]

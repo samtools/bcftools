@@ -1085,9 +1085,10 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 
 [[norm]]
 === bcftools norm ['OPTIONS'] 'file.vcf.gz'
-Left-align and normalize indels,  check if REF alleles match the reference,
+Left-align and normalize indels, check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
-multiple rows.
+multiple rows. Left-alignment and normalization will only be applied if
+the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *-c, --check-ref* 'e'|'w'|'x'|'s':: 
     what to do when incorrect or missing REF allele is encountered: 
@@ -1099,8 +1100,10 @@ multiple rows.
 *-D, --remove-duplicates*::
     remove duplicate lines of the same type
 
-*-f, --fasta-ref* 'FILE'::
-    reference sequence
+*-f, --fasta-ref* 'FILE'[[fasta_ref]]::
+    reference sequence. Supplying this option will turn on left-alignment
+    and normalization, however, see also the *<<do_not_normalize,--do-not-normalize>>*
+    option below.
 
 *-m, --multiallelics* <-|+>['snps'|'indels'|'both'|'any']::
     split multiallelic sites into biallelic records ('-') or join
@@ -1111,7 +1114,7 @@ multiple rows.
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
 
-*-N, --do-not-normalize*::
+*-N, --do-not-normalize*[[do_not_normalize]]::
     the '-c s' option can be used to fix or set the REF allele from the 
     reference '-f'. The '-N' option will not turn on indel normalisation
     as the '-f' option normally implies
