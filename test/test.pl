@@ -161,6 +161,7 @@ test_vcf_annotate($opts,in=>'annotate3',out=>'annotate7.out',args=>'-x FORMAT');
 test_vcf_annotate($opts,in=>'annotate4',vcf=>'annots4',out=>'annotate8.out',args=>'-c +INFO');
 test_vcf_annotate($opts,in=>'annotate4',tab=>'annots4',out=>'annotate8.out',args=>'-c CHROM,POS,REF,ALT,+FA,+FR,+IA,+IR,+SA,+SR');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref');
+test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT',args=>'-- -t . -n 0');
 test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args=>'-c CHROM,POS,REF,ALT,+ID');
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC');
 test_vcf_plugin($opts,in=>'plugin1',out=>'dosage.out',cmd=>'+dosage');
