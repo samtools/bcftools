@@ -1,4 +1,4 @@
-##fileformat=VCFv4.1
+##fileformat=VCFv4.2
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
