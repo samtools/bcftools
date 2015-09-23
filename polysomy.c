@@ -50,7 +50,7 @@ dist_t;
 
 typedef struct
 {
-    int ndist, nbins, ra_rr_scaling;
+    int ndist, nbins, ra_rr_scaling, smooth;
     double *xvals;
     dist_t *dist;
     char **argv, *output_dir;
@@ -70,15 +70,31 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
 
     // smooth the distribution, this is just to find the peaks
     double *tmp = (double*) malloc(sizeof(double)*n);
-    int win = 0.04*n < 1 ? 1 : 0.04*n;
-    double avg = 0;
-    for (i=0; i<win; i++) avg += dist->yvals[i];
-    for (i=0; i<n-win; i++)
+    int win  = args->smooth ? fabs(args->smooth)*2 + 1 : 7;   // must be an odd number
+    int hwin = win/2;
+    double avg = tmp[0] = dist->yvals[0];
+    for (i=1; i<hwin; i++)
     {
-        tmp[i] = avg / win;
-        avg += -dist->yvals[i] + dist->yvals[i+win];
+        avg += dist->yvals[2*i-1]; 
+        tmp[i] = avg/(2*i+1);
     }
-    for (; i<n; i++) tmp[i] = avg;
+    avg = 0;
+    for (i=0; i<n; i++)
+    {
+        avg += dist->yvals[i];
+        if ( i>=win-1 )
+        {
+            tmp[i-hwin] = avg/win;
+            avg -= dist->yvals[i-win+1];
+        }
+    }
+    for (i=n-hwin; i<n; i++)
+    {
+        avg -= dist->yvals[i-hwin];
+        hwin--;
+        tmp[i] = avg/(2*hwin+1);
+        avg -= dist->yvals[i-hwin];
+    }
 
     // find the extremes; first a simple approach: find a gap
     for (irr=0,i=0; i<n/2; i++) if ( tmp[i] < tmp[irr] ) irr = i;
@@ -87,6 +103,7 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     iaa += win*0.5;
     if ( iaa>=n ) iaa = n-1;
     if ( irr>=iaa ) error("FIXME: oops, dist normalization failed for %s: %d vs %d\n", dist->chr,irr,iaa); // we may need to be smarter
+    if ( args->smooth>0 ) for (i=0; i<n; i++) dist->yvals[i] = tmp[i];
     free(tmp);
 
     // clean the data: the AA peak is occasionally not centered at 1.0 but is closer to the center, chop off
@@ -635,11 +652,14 @@ int main_polysomy(int argc, char *argv[])
     args->min_peak_size = 0.1;
     args->ra_rr_scaling = 1;
     args->min_fraction = 0.1;
+    args->smooth = -3;
 
     static struct option loptions[] =
     {
         {"ra-rr-scaling",0,0,1},    // hidden option
         {"force-cn",1,0,2},         // hidden option
+        {"smooth",1,0,'S'},         // hidden option
+        {"nbins",1,0,'n'},          // hidden option
         {"include-aa",0,0,'i'},
         {"peak-size",1,0,'b'},
         {"min-fraction",1,0,'m'},
@@ -656,12 +676,14 @@ int main_polysomy(int argc, char *argv[])
         {0,0,0,0}
     };
     char c, *tmp;
-    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:b:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:b:n:S:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
             case  1 : args->ra_rr_scaling = 0; break;
             case  2 : args->force_cn = atoi(optarg); break;
+            case 'n': args->nbins = atoi(optarg); break;
+            case 'S': args->smooth = atoi(optarg); break;
             case 'i': args->include_aa = 1; break;
             case 'b':
                 args->min_peak_size = strtod(optarg,&tmp);
