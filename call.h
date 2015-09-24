@@ -33,8 +33,8 @@ THE SOFTWARE.  */
 #define CALL_VARONLY        (1<<1)
 #define CALL_CONSTR_TRIO    (1<<2)
 #define CALL_CONSTR_ALLELES (1<<3)
-#define CALL_CHR_X          (1<<4)
-#define CALL_CHR_Y          (1<<5)
+//
+//
 #define CALL_FMT_GQ         (1<<6)
 #define CALL_FMT_GP         (1<<7)
 
@@ -48,15 +48,6 @@ typedef struct
     int type;       // see FTYPE_* definitions in mcall.c
 }
 family_t;
-
-typedef struct
-{
-    int min_dp, mdp;    // minimum per-sample depth of a gVCF block
-    int32_t rid, start, end, *gt, *dp;
-    char ref[2];        // reference base at start position
-    bcf1_t *line;
-}
-gvcf_t;
 
 typedef struct _ccall_t ccall_t;
 typedef struct
@@ -96,7 +87,7 @@ typedef struct
     bcf1_t *rec;
     bcf_hdr_t *hdr;
     uint32_t flag;          // One or more of the CALL_* flags defined above
-    uint8_t *ploidy, all_diploid;
+    uint8_t *ploidy, all_diploid, unseen;
 
     double pl2p[256];       // PL to 10^(-PL/10) table
     int32_t *PLs;           // VCF PL likelihoods (rw)
@@ -128,9 +119,6 @@ void qcall_destroy(call_t *call);
 
 void call_init_pl2p(call_t *call);
 uint32_t *call_trio_prep(int is_x, int is_son);
-
-/** gVCF */
-void gvcf_write(htsFile *fh, gvcf_t *gvcf, bcf_hdr_t *hdr, bcf1_t *rec, int is_ref);
 
 void init_allele_trimming_maps(call_t *call, int als, int nals);
 void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als);

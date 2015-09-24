@@ -691,7 +691,7 @@ static void mcall_set_ref_genotypes(call_t *call, int nals)
     int ngts  = nals*(nals+1)/2;
     int nsmpl = bcf_hdr_nsamples(call->hdr);
 
-    for (i=0; i<4; i++) call->ac[i] = 0;
+    for (i=0; i<nals; i++) call->ac[i] = 0;
     call->nhets = 0;
     call->ndiploid = 0;
 
@@ -1335,13 +1335,7 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
   */
 int mcall(call_t *call, bcf1_t *rec)
 {
-    int i, unseen = -1;
-    for (i=1; i<rec->n_allele; i++)
-    {
-        if ( rec->d.allele[i][0]=='X' ) { unseen = i; break; }  // old X
-        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // old <X>
-        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // new <*>
-    }
+    int i, unseen = call->unseen;
 
     // Force alleles when calling genotypes given alleles was requested
     if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec, unseen);
@@ -1417,9 +1411,7 @@ int mcall(call_t *call, bcf1_t *rec)
         nout = 0;
         for (i=0; i<nals; i++)
         {
-            if ( rec->d.allele[i][0]=='X' ) continue;   // old version of unseen allele "X"
-            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' ) continue;   // old version of unseen allele, "<X>"
-            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][2]=='>' ) continue;   // new version of unseen allele, "<*>"
+            if ( i>0 && i==unseen ) continue;
             out_als |= 1<<i;
             nout++;
         }
@@ -1469,12 +1461,12 @@ int mcall(call_t *call, bcf1_t *rec)
         if ( hob != HUGE_VAL ) bcf_update_info_float(call->hdr, rec, "HOB", &hob, 1);
 
         // Quality of a variant site. fabs() to avoid negative zeros in VCF output when CALL_KEEPALT is set
-        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : fabs(-4.343*(call->ref_lk - call->lk_sum));
+        rec->qual = call->lk_sum==-HUGE_VAL || call->ref_lk==0 ? 0 : fabs(-4.343*(call->ref_lk - call->lk_sum));
     }
     else
     {
         // Set the quality of a REF site
-        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : -4.343*log(1 - exp(call->ref_lk - call->lk_sum));
+        rec->qual = call->lk_sum==-HUGE_VAL || call->ref_lk==0 ? 0 : -4.343*log(1 - exp(call->ref_lk - call->lk_sum));
     }
     if ( rec->qual>999 ) rec->qual = 999;
     if ( rec->qual>50 ) rec->qual = rint(rec->qual);
@@ -1492,13 +1484,14 @@ int mcall(call_t *call, bcf1_t *rec)
     bcf_update_genotypes(call->hdr, rec, call->gts, nsmpl*2);
 
     // DP4 tag
-    if ( bcf_get_info_float(call->hdr, rec, "I16", &call->anno16, &call->n16)!=16 )
-        error("I16 hasn't 16 fields at %s:%d\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1);
-    int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
-    bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
+    if ( bcf_get_info_float(call->hdr, rec, "I16", &call->anno16, &call->n16)==16 )
+    {
+        int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
+        bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
 
-    int32_t mq = (call->anno16[8]+call->anno16[10])/(call->anno16[0]+call->anno16[1]+call->anno16[2]+call->anno16[3]);
-    bcf_update_info_int32(call->hdr, rec, "MQ", &mq, 1);
+        int32_t mq = (call->anno16[8]+call->anno16[10])/(call->anno16[0]+call->anno16[1]+call->anno16[2]+call->anno16[3]);
+        bcf_update_info_int32(call->hdr, rec, "MQ", &mq, 1);
+    }
 
     bcf_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
     bcf_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag

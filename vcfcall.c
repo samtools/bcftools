@@ -40,6 +40,7 @@ THE SOFTWARE.  */
 #include "call.h"
 #include "prob1.h"
 #include "ploidy.h"
+#include "gvcf.h"
 
 void error(const char *format, ...);
 
@@ -51,7 +52,7 @@ void error(const char *format, ...);
 #define CF_NO_GENO      1
 #define CF_INS_MISSED   (1<<1)
 #define CF_CCALL        (1<<2)
-#define CF_GVCF         (1<<3)
+//                      (1<<3)
 //                      (1<<4)
 //                      (1<<5)
 #define CF_ACGT_ONLY    (1<<6)
@@ -71,7 +72,7 @@ typedef struct
     htsFile *bcf_in, *out_fh;
     char *bcf_fname, *output_fname;
     char **samples;             // for subsampling and ploidy
-    int nsamples, *samples_map;
+    int nsamples, *samples_map; // mapping from output sample names to original VCF
     char *regions, *targets;    // regions to process
     int regions_is_file, targets_is_file;
 
@@ -80,10 +81,10 @@ typedef struct
     int *sample2sex;    // mapping for ploidy. If negative, interpreted as -1*ploidy
     int *sex2ploidy, *sex2ploidy_prev, nsex;
     ploidy_t *ploidy;
+    gvcf_t *gvcf;
 
     bcf1_t *missed_line;
     call_t aux;     // parameters and temporary data
-    gvcf_t gvcf;
 
     int argc;
     char **argv;
@@ -145,7 +146,7 @@ static ploidy_predef_t ploidy_predefs[] =
           "*  * *     F 2\n"
     },
     { .alias  = "GRCh38",
-      .about  = "Human Genome reference assembly GRCh38 / hg38",
+      .about  = "Human Genome reference assembly GRCh38 / hg38, plain chromosome naming (1,2,3,..)",
       .ploidy =
           "X 1 9999 M 1\n"
           "X 2781480 155701381 M 1\n"
@@ -345,8 +346,6 @@ static void print_missed_line(bcf_sr_regions_t *regs, void *data)
     call_t *call = &args->aux;
     bcf1_t *missed = args->missed_line;
 
-    if ( args->flag & CF_GVCF ) error("todo: Combine --gvcf and --insert-missed\n");
-
     char *ss = regs->line.s;
     int i = 0;
     while ( i<args->aux.srs->targets_als-1 && *ss )
@@ -405,6 +404,9 @@ static void init_data(args_t *args)
         for (i=0; i<args->nsex; i++) args->sex2ploidy_prev[i] = 2;
     }
 
+    if ( args->gvcf ) 
+        gvcf_update_header(args->gvcf, args->aux.hdr);
+
     if ( args->samples_map )
     {
         args->aux.hdr = bcf_hdr_subset(bcf_sr_get_header(args->aux.srs,0), args->nsamples, args->samples, args->samples_map);
@@ -433,19 +435,6 @@ static void init_data(args_t *args)
     if ( args->flag & CF_CCALL )
         ccall_init(&args->aux);
 
-    if ( args->flag&CF_GVCF )
-    {
-        bcf_hdr_append(args->aux.hdr,"##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
-        args->gvcf.rid  = -1;
-        args->gvcf.line = bcf_init1();
-        args->gvcf.gt   = (int32_t*) malloc(2*sizeof(int32_t)*bcf_hdr_nsamples(args->aux.hdr));
-        for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++)
-        {
-            args->gvcf.gt[2*i+0] = bcf_gt_unphased(0);
-            args->gvcf.gt[2*i+1] = bcf_gt_unphased(0);
-        }
-    }
-
     bcf_hdr_remove(args->aux.hdr, BCF_HL_INFO, "QS");
     bcf_hdr_remove(args->aux.hdr, BCF_HL_INFO, "I16");
 
@@ -469,15 +458,13 @@ static void destroy_data(args_t *args)
     }
     if ( args->missed_line ) bcf_destroy(args->missed_line);
     ploidy_destroy(args->ploidy);
-    if ( args->gvcf.line ) bcf_destroy(args->gvcf.line);
-    free(args->gvcf.gt);
-    free(args->gvcf.dp);
     free(args->sex2ploidy);
     free(args->sex2ploidy_prev);
     free(args->samples);
     free(args->samples_map);
     free(args->sample2sex);
     free(args->aux.ploidy);
+    if ( args->gvcf ) gvcf_destroy(args->gvcf);
     bcf_hdr_destroy(args->aux.hdr);
     hts_close(args->out_fh);
     bcf_sr_destroy(args->aux.srs);
@@ -598,14 +585,14 @@ static void usage(args_t *args)
     fprintf(stderr, "   -r, --regions <region>          restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>       restrict to regions listed in a file\n");
     fprintf(stderr, "   -s, --samples <list>            list of samples to include [all samples]\n");
-    fprintf(stderr, "   -S, --samples-file <file>       PED file or a file with optional second column for ploidy (0, 1 or 2) [all samples]\n");
+    fprintf(stderr, "   -S, --samples-file <file>       PED file or a file with an optional column with sex (see man page for details) [all samples]\n");
     fprintf(stderr, "   -t, --targets <region>          similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "   -f, --format-fields <list>      output format fields: GQ,GP (lowercase allowed) []\n");
-    fprintf(stderr, "   -g, --gvcf <minDP>              output gVCF blocks of homozygous REF calls\n");
+    fprintf(stderr, "   -g, --gvcf <int>,[...]          group non-variant sites into gVCF blocks by minimum per-sample DP\n");
     fprintf(stderr, "   -i, --insert-missed             output also sites missed by mpileup but present in -T\n");
     fprintf(stderr, "   -M, --keep-masked-ref           keep sites with masked reference allele (REF=N)\n");
     fprintf(stderr, "   -V, --skip-variants <type>      skip indels/snps\n");
@@ -618,8 +605,6 @@ static void usage(args_t *args)
     fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5]\n");
     fprintf(stderr, "   -P, --prior <float>             mutation rate (use bigger for greater sensitivity) [1.1e-3]\n");
-    fprintf(stderr, "   -X, --chromosome-X              haploid output for male samples (requires PED file with -s)\n");
-    fprintf(stderr, "   -Y, --chromosome-Y              haploid output for males and skips females (requires PED file with -s)\n");
 
     // todo (and more)
     // fprintf(stderr, "\nContrast calling and association test options:\n");
@@ -653,8 +638,8 @@ int main_vcfcall(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"help",0,0,'h'},
-        {"gvcf",1,0,'g'},
         {"format-fields",1,0,'f'},
+        {"gvcf",1,0,'g'},
         {"output",1,0,'o'},
         {"output-type",1,0,'O'},
         {"regions",1,0,'r'},
@@ -674,24 +659,19 @@ int main_vcfcall(int argc, char *argv[])
         {"multiallelic-caller",0,0,'m'},
         {"pval-threshold",1,0,'p'},
         {"prior",1,0,'P'},
-        {"chromosome-X",0,0,'X'},
-        {"chromosome-Y",0,0,'Y'},
         {"novel-rate",1,0,'n'},
         {"ploidy",1,0,1},
         {"ploidy-file",1,0,2},
+        {"chromosome-X",1,0,'X'},
+        {"chromosome-Y",1,0,'Y'},
         {0,0,0,0}
     };
 
     char *tmp = NULL;
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:XYn:P:f:ig:", loptions, NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:n:P:f:ig:XY", loptions, NULL)) >= 0)
     {
         switch (c)
         {
-            case 'g':
-                args.flag |= CF_GVCF;
-                args.gvcf.min_dp = strtol(optarg,&tmp,10);
-                if ( *tmp ) error("Could not parse, expected integer argument: -g %s\n", optarg);
-                break;
             case  2 : ploidy_fname = optarg; break;
             case  1 : ploidy = optarg; break;
             case 'X': ploidy = "X"; fprintf(stderr,"Warning: -X will be deprecated, please use --ploidy instead.\n"); break;
@@ -703,6 +683,10 @@ int main_vcfcall(int argc, char *argv[])
             case 'c': args.flag |= CF_CCALL; break;          // the original EM based calling method
             case 'i': args.flag |= CF_INS_MISSED; break;
             case 'v': args.aux.flag |= CALL_VARONLY; break;
+            case 'g': 
+                args.gvcf = gvcf_init(optarg);
+                if ( !args.gvcf ) error("Could not parse: --gvcf %s\n", optarg);
+                break;
             case 'o': args.output_fname = optarg; break;
             case 'O':
                       switch (optarg[0]) {
@@ -759,12 +743,6 @@ int main_vcfcall(int argc, char *argv[])
     }
 
     if ( !args.ploidy ) error("Could not initialize ploidy\n");
-    if ( args.flag & CF_GVCF )
-    {
-        // Force some flags to avoid unnecessary branching
-        args.aux.flag &= ~CALL_KEEPALT;
-        args.aux.flag |= CALL_VARONLY;
-    }
     if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c or -m options can be given\n");
     if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected -c or -m option\n");
     if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
@@ -774,6 +752,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( !(args.flag & CF_MCALL) ) error("The \"-C alleles\" mode requires -m\n");
     }
     if ( args.flag & CF_INS_MISSED && !(args.aux.flag&CALL_CONSTR_ALLELES) ) error("The -i option requires -C alleles\n");
+    if ( args.aux.flag&CALL_VARONLY && args.gvcf ) error("The two options cannot be combined: --variants-only and --gvcf\n");
     init_data(&args);
 
     while ( bcf_sr_next_line(args.aux.srs) )
@@ -783,27 +762,26 @@ int main_vcfcall(int argc, char *argv[])
         bcf_unpack(bcf_rec, BCF_UN_STR);
 
         // Skip unwanted sites
-        if ( args.aux.flag & CALL_VARONLY )
+        int i, is_indel = bcf_is_snp(bcf_rec) ? 0 : 1;
+        if ( (args.flag & CF_INDEL_ONLY) && !is_indel ) continue;
+        if ( (args.flag & CF_NO_INDEL) && is_indel ) continue;
+        if ( (args.flag & CF_ACGT_ONLY) && (bcf_rec->d.allele[0][0]=='N' || bcf_rec->d.allele[0][0]=='n') ) continue;   // REF[0] is 'N'
+
+        // Which allele is symbolic? All SNPs should have it, but not indels
+        args.aux.unseen = 0;
+        for (i=1; i<bcf_rec->n_allele; i++)
         {
-            int is_ref = 0;
-            if ( bcf_rec->n_allele==1 ) is_ref = 1;     // not a variant
-            else if ( bcf_rec->n_allele==2 )
+            if ( bcf_rec->d.allele[i][0]=='X' ) { args.aux.unseen = i; break; }  // old X
+            if ( bcf_rec->d.allele[i][0]=='<' )
             {
-                // second allele is mpileup's X, not a variant
-                if ( bcf_rec->d.allele[1][0]=='X' ) is_ref = 1;
-                else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='X' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
-                else if ( bcf_rec->d.allele[1][0]=='<' && bcf_rec->d.allele[1][1]=='*' && bcf_rec->d.allele[1][2]=='>' ) is_ref = 1;
-            }
-            if ( is_ref )
-            {
-                // gVCF output
-                if ( args.flag & CF_GVCF ) gvcf_write(args.out_fh, &args.gvcf, args.aux.hdr, bcf_rec, 1);
-                continue;
+                if ( bcf_rec->d.allele[i][1]=='X' && bcf_rec->d.allele[i][2]=='>' ) { args.aux.unseen = i; break; } // old <X>
+                if ( bcf_rec->d.allele[i][1]=='*' && bcf_rec->d.allele[i][2]=='>' ) { args.aux.unseen = i; break; } // new <*>
             }
         }
-        if ( (args.flag & CF_INDEL_ONLY) && bcf_is_snp(bcf_rec) ) continue;    // not an indel
-        if ( (args.flag & CF_NO_INDEL) && !bcf_is_snp(bcf_rec) ) continue;     // not a SNP
-        if ( (args.flag & CF_ACGT_ONLY) && (bcf_rec->d.allele[0][0]=='N' || bcf_rec->d.allele[0][0]=='n') ) continue;   // REF[0] is 'N'
+        int is_ref = (bcf_rec->n_allele==1 || (bcf_rec->n_allele==2 && args.aux.unseen>0)) ? 1 : 0;
+
+        if ( is_ref && args.aux.flag&CALL_VARONLY )
+            continue;
 
         bcf_unpack(bcf_rec, BCF_UN_ALL);
         if ( args.nsex ) set_ploidy(&args, bcf_rec);
@@ -823,18 +801,14 @@ int main_vcfcall(int argc, char *argv[])
             ret = ccall(&args.aux, bcf_rec);
         if ( ret==-1 ) error("Something is wrong\n");
 
-        // gVCF output
-        if ( args.flag & CF_GVCF )
-        {
-            gvcf_write(args.out_fh, &args.gvcf, args.aux.hdr, bcf_rec, ret?0:1);
-            continue;
-        }
-
         // Normal output
-        if ( (args.aux.flag & CALL_VARONLY) && ret==0 ) continue;     // not a variant
-        bcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
+        if ( (args.aux.flag & CALL_VARONLY) && ret==0 && !args.gvcf ) continue;     // not a variant
+        if ( args.gvcf )
+            bcf_rec = gvcf_write(args.gvcf, args.out_fh, args.aux.hdr, bcf_rec, ret==1?1:0);
+        if ( bcf_rec )
+            bcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
     }
-    if ( args.flag & CF_GVCF ) gvcf_write(args.out_fh, &args.gvcf, args.aux.hdr, NULL, 0);
+    if ( args.gvcf ) gvcf_write(args.gvcf, args.out_fh, args.aux.hdr, NULL, 0);
     if ( args.flag & CF_INS_MISSED ) bcf_sr_regions_flush(args.aux.srs->targets);
     destroy_data(&args);
     return 0;
