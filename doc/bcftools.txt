@@ -1053,7 +1053,11 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::
     Rules for merging INFO fields (scalars or vectors) or '-' to disable the
-    default rules.  'METHOD' is one of 'sum', 'avg', 'min', 'max', 'join'.
+    default rules. 'METHOD' is one of 'sum', 'avg', 'min', 'max', 'join'.
+    Default is 'DP:sum,DP4:sum' if these fields exist in the input files.
+    Fields with no specified rule will take the value from the first input file.
+    The merged QUAL value is currently set to the maximum. This behaviour is 
+    not user controllable at the moment.
 
 *-l, --file-list* 'FILE'::
     read file names from 'FILE'
