@@ -158,11 +158,19 @@ static int tsv_setter_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
     if ( *se!='_' ) error("Could not parse REF in CHROM:POS_REF_ALT id: %s\n", tsv->ss);
     kputsn(ss,se-ss,&args->str);
     ss = ++se;
-    while ( se < tsv->se && *se!=':' ) se++;
-    if ( se < tsv->se && *se!=':' ) error("Could not parse ALT in CHROM:POS_REF_ALT id: %s\n", tsv->ss);
+    while ( se < tsv->se && *se!='_' && isspace(*tsv->se) ) se++;
+    if ( se < tsv->se && *se!='_' && isspace(*tsv->se) ) error("Could not parse ALT in CHROM:POS_REF_ALT id: %s\n", tsv->ss);
     kputc(',',&args->str);
     kputsn(ss,se-ss,&args->str);
     bcf_update_alleles_str(args->header, rec, args->str.s);
+
+    // END - optional
+    if (*se && *se=='_') {
+        long end = strtol(se+1,&ss,10);
+        if ( ss==se+1 ) error("Could not parse END in CHROM:POS_REF_ALT_END: %s\n", tsv->ss);
+        bcf_update_info_int32(args->header, rec, "END", &end, 1);
+    }
+
     return 0;
 }
 static int tsv_setter_verify_pos(tsv_t *tsv, bcf1_t *rec, void *usr)
@@ -357,6 +365,7 @@ static void gensample_to_vcf(args_t *args)
     tsv_register(tsv, "GT_GP", tsv_setter_gt_gp, args);
 
     args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GP,Number=G,Type=Float,Description=\"Genotype Probabilities\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
@@ -475,6 +484,7 @@ static void haplegendsample_to_vcf(args_t *args)
     tsv_register(hap_tsv, "HAPS", tsv_setter_haps, args);
 
     args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
     bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
@@ -589,6 +599,7 @@ static void hapsample_to_vcf(args_t *args)
     tsv_register(tsv, "HAPS", tsv_setter_haps, args);
 
     args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
     bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
