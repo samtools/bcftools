@@ -232,11 +232,10 @@ static int update_bcf1(call_t *call, bcf1_t *rec, const bcf_p1rst_t *pr, double 
 
     // Remove unused alleles
     int nals_ori = rec->n_allele, nals = !is_var && !(call->flag & CALL_KEEPALT) ? 1 : pr->rank0 < 2? 2 : pr->rank0+1;
-    if ( call->flag & CALL_KEEPALT && nals>1 )
+    if ( call->flag & CALL_KEEPALT && call->unseen>0 )
     {
-        if ( rec->d.allele[nals-1][0]=='X' ) nals--;   // old version of unseen allele "X"
-        else if ( rec->d.allele[nals-1][0]=='<' && rec->d.allele[nals-1][1]=='X' && rec->d.allele[nals-1][2]=='>' ) nals--;   // old version of unseen allele, "<X>"
-        else if ( rec->d.allele[nals-1][0]=='<' && rec->d.allele[nals-1][1]=='*' && rec->d.allele[nals-1][2]=='>' ) nals--;   // new version of unseen allele, "<*>"
+        assert( call->unseen==nals-1 );
+        nals--;
     }
     
     if ( nals<rec->n_allele )

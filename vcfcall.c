@@ -745,6 +745,7 @@ int main_vcfcall(int argc, char *argv[])
     if ( !args.ploidy ) error("Could not initialize ploidy\n");
     if ( (args.flag & CF_CCALL ? 1 : 0) + (args.flag & CF_MCALL ? 1 : 0) + (args.flag & CF_QCALL ? 1 : 0) > 1 ) error("Only one of -c or -m options can be given\n");
     if ( !(args.flag & CF_CCALL) && !(args.flag & CF_MCALL) && !(args.flag & CF_QCALL) ) error("Expected -c or -m option\n");
+    if ( (args.flag & CF_CCALL ? 1: 0) && args.gvcf ) error("gvcf -g option not functional with -c calling mode yet\n");
     if ( args.aux.n_perm && args.aux.ngrp1_samples<=0 ) error("Expected -1 with -U\n");    // not sure about this, please fix
     if ( args.aux.flag & CALL_CONSTR_ALLELES )
     {
