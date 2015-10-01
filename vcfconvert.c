@@ -241,27 +241,61 @@ static int tsv_setter_haps(tsv_t *tsv, bcf1_t *rec, void *usr)
     if ( args->rev_als ) { a0 = bcf_gt_phased(1); a1 = bcf_gt_phased(0); }
     else { a0 = bcf_gt_phased(0); a1 = bcf_gt_phased(1); }
 
+    // up is short for "unphased"
+    int nup = 0; 
     for (i=0; i<nsamples; i++)
     {
-        char *ss = tsv->ss + 4*i;
+        char *ss = tsv->ss + 4*i + nup;
+        int up = 0, all;
 
-        if ( !ss[0] || !ss[1] || !ss[2] )
+        for (all=0; all < 2; all++){
+            // checking for premature ending
+            if ( !ss[0] || !ss[1] || !ss[2] ||
+                 (up && (!ss[3] || !ss[4]) ) )
+            {
+                fprintf(stderr,"Wrong number of fields at %d-th sample ([%c][%c][%c]). ",i+1,ss[0],ss[1],ss[2]);
+                return -1;
+            }
+
+            switch(ss[all*2+up]){
+            case '0':
+                args->gts[2*i+all] = a0;
+                break;
+            case '1' :
+                args->gts[2*i+all] = a1;
+                break;
+            case '?' :
+                // there is no macro to express phased missing allele
+                args->gts[2*i+all] = bcf_gt_phased(-1);
+                break;
+            case '-' :
+                args->gts[2*i+all] = bcf_int32_vector_end;
+                break;
+            default :
+                fprintf(stderr,"Could not parse: [%c][%s]\n", ss[all*2+up],tsv->ss);
+                return -1; 
+            }
+            if( ss[all*2+up+1]=='*' ) up = up + 1;
+        }
+        
+        if(up && up != 2)
         {
-            fprintf(stderr,"Wrong number of fields at %d-th sample ([%c][%c][%c]). ",i+1,ss[0],ss[1],ss[2]);
+            fprintf(stderr,"Missing unphased marker '*': [%c][%s]", ss[2+up], tsv->ss);
             return -1;
         }
 
-        if ( ss[0]=='0' ) args->gts[2*i] = a0;
-        else if ( ss[0]=='1' ) args->gts[2*i] = a1;
-        else { fprintf(stderr,"Could not parse: [%c][%s]\n", ss[0],tsv->ss); return -1; }
-
-        if ( ss[2]=='0' ) args->gts[2*i+1] = a0;
-        else if ( ss[2]=='1' ) args->gts[2*i+1] = a1;
-        else { fprintf(stderr,"Could not parse: [%c][%s]\n", ss[2],tsv->ss); return -1; }
+        // change alleles to unphased if the alleles are unphased
+        if ( up )
+        {
+            args->gts[2*i] = bcf_gt_unphased(bcf_gt_allele(args->gts[2*i]));
+            args->gts[2*i+1] = bcf_gt_unphased(bcf_gt_allele(args->gts[2*i+1]));
+        }
+        nup = nup + up;
     }
-    if ( tsv->ss[(nsamples-1)*4+3] )
+    if ( tsv->ss[(nsamples-1)*4+3+nup] )
     {
-        fprintf(stderr,"Wrong number of fields (%d-th column = [%c]). ", nsamples*2,tsv->ss[(nsamples-1)*4+1]);
+        fprintf(stderr,"nup: %d", nup);
+        fprintf(stderr,"Wrong number of fields (%d-th column = [%c]). ", nsamples*2,tsv->ss[(nsamples-1)*4+nup]);
         return -1;
     }
 
@@ -379,13 +413,14 @@ static void haplegendsample_to_vcf(args_t *args)
      *  Convert from IMPUTE2 hap/legend/sample output files to VCF
      *
      *      hap:
-     *          0 1 0 1 1 1
+     *          0 1 0 1
      *      legend:
      *          id position a0 a1
      *          1:186946386_G_T 186946386 G T
      *      sample:
-     *          QTL190044
-     *          QTL190053
+     *          sample population group sex
+     *          sample1 sample1 sample1 2
+     *          sample2 sample2 sample2 2
      *
      *  Output: VCF with filled GT
      */
@@ -444,16 +479,20 @@ static void haplegendsample_to_vcf(args_t *args)
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
     bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
 
-    int i, nsamples;
-    char **samples = hts_readlist(sample_fname, 1, &nsamples);
-    for (i=0; i<nsamples; i++)
+    int i, nrows, nsamples;
+    char **samples = hts_readlist(sample_fname, 1, &nrows);
+    nsamples = nrows - 1;
+
+    // sample_fname should contain a header line, so need to ignore first row
+    // returned from hts_readlist (i=1, and not i=0)
+    for (i=1; i<nrows; i++)
     {
         se = samples[i]; while ( *se && !isspace(*se) ) se++;
         *se = 0;
         bcf_hdr_add_sample(args->header,samples[i]);
     }
     bcf_hdr_add_sample(args->header,NULL);
-    for (i=0; i<nsamples; i++) free(samples[i]);
+    for (i=0; i<nrows; i++) free(samples[i]);
     free(samples);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
