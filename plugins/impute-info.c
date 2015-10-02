@@ -1,4 +1,4 @@
-/*  plugins/info.c -- adds info metrics to a VCF file.
+/*  plugins/impute-info.c -- adds info metrics to a VCF file.
 
     Copyright (C) 2015 Genome Research Ltd.
 
@@ -66,17 +66,17 @@ The IMPUTE2 information measure is then:
 
 const char *about(void)
 {
-    return "Add information metrics to the INFO field based on selected FORMAT tags.\n";
+    return "Add imputation information metrics to the INFO field based on selected FORMAT tags.\n";
 }
 
 const char *usage(void)
 {
     return 
         "\n"
-        "About: Add information metrics to the INFO field based on selected\n"
-        "       FORMAT tags. Only the IMPUTE2 INFO metric from FORMAT/GP\n"
-        "       tags is currently available.\n"
-        "Usage: bcftools +info [General Options] -- [Plugin Options]\n"
+        "About: Add imputation information metrics to the INFO field based\n"
+        "       on selected FORMAT tags. Only the IMPUTE2 INFO metric from\n"
+        "       FORMAT/GP tags is currently available.\n"
+        "Usage: bcftools +impute-info [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
@@ -85,7 +85,7 @@ const char *usage(void)
         // "   -t, --tags <tag>    VCF tags to determine the information from [GP]\n"
         // "\n"
         "Example:\n"
-        "   bcftools +info in.vcf\n"
+        "   bcftools +impute-info in.vcf\n"
         "\n";
 }
 
@@ -108,7 +108,7 @@ bcf1_t *process(bcf1_t *rec)
     int nval = 0, i, j, nret = bcf_get_format_values(in_hdr,rec,"GP",(void**)&buf,&nbuf,gp_type);
     if ( nret<0 )
     {
-        if (!nskip_gp) fprintf(stderr, "[info.c] Warning: info tag not added to sites without GP tag\n");
+        if (!nskip_gp) fprintf(stderr, "[impute-info.c] Warning: info tag not added to sites without GP tag\n");
         nskip_gp++;
         return rec; // require FORMAT/GP tag, return site unchanged
     }
@@ -116,7 +116,7 @@ bcf1_t *process(bcf1_t *rec)
     nret /= rec->n_sample;
     if ( nret != 3 )
     {
-        if (!nskip_dip) fprintf(stderr, "[info.c] Warning: info tag not added to sites that are not biallelic diploid\n");
+        if (!nskip_dip) fprintf(stderr, "[impute-info.c] Warning: info tag not added to sites that are not biallelic diploid\n");
         nskip_dip++;
         return rec; // require biallelic diploid, return site unchanged
     }
