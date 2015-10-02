@@ -77,8 +77,7 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA    = $(INSTALL) -m 644
 INSTALL_DIR     = $(MKDIR_P) -m 755
 
-MISC_PROGRAMS = \
-	plot-vcfstats vcfutils.pl plugins/color-chrs.pl \
+MISC_PROGRAMS = plot-vcfstats vcfutils.pl plugins/color-chrs.pl
 
 all:$(PROG) plugins
 
