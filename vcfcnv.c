@@ -61,7 +61,7 @@ typedef struct
 {
     char *name;
     int idx;    // VCF sample index
-    float *lrr,*baf, baf_dev2, baf_dev2_dflt;
+    float *lrr,*baf, baf_dev2, baf_dev2_dflt, lrr_dev2;
     float cell_frac, cell_frac_dflt;
     gauss_param_t gauss_param[18];
     double pobs[N_STATES];
@@ -78,7 +78,6 @@ typedef struct _args_t
     sample_t query_sample, control_sample;
 
     int nstates;    // number of states: N_STATES for one sample, N_STATES^2 for two samples
-    double lrr_dev2;                        // squared std dev of LRR distribution
     double lrr_bias, baf_bias;              // LRR/BAF weights
     double same_prob, ij_prob;              // prior of both samples being the same and the transition probability P(i|j)
     double err_prob;                        // constant probability of erroneous measurement
@@ -608,7 +607,7 @@ static inline double norm_prob(double baf, gauss_param_t *param)
 static int set_observed_prob(args_t *args, sample_t *smpl, int isite)
 {
     float baf = smpl->baf[isite];
-    float lrr = smpl->lrr[isite];
+    float lrr = args->lrr_bias>0 ? smpl->lrr[isite] : 0;
 
     float fRR = args->fRR;
     float fRA = args->fRA;
@@ -645,9 +644,9 @@ static int set_observed_prob(args_t *args, sample_t *smpl, int isite)
     if ( args->verbose ) fprintf(stderr,"%f\t%f %f %f\n", baf,cn1_baf,cn2_baf,cn3_baf);
     #endif
 
-    double cn1_lrr = exp(-(lrr + 0.45)*(lrr + 0.45)/args->lrr_dev2);
-    double cn2_lrr = exp(-(lrr - 0.00)*(lrr - 0.00)/args->lrr_dev2);
-    double cn3_lrr = exp(-(lrr - 0.30)*(lrr - 0.30)/args->lrr_dev2);
+    double cn1_lrr = exp(-(lrr + 0.45)*(lrr + 0.45)/smpl->lrr_dev2);
+    double cn2_lrr = exp(-(lrr - 0.00)*(lrr - 0.00)/smpl->lrr_dev2);
+    double cn3_lrr = exp(-(lrr - 0.30)*(lrr - 0.30)/smpl->lrr_dev2);
 
     smpl->pobs[CN0] = 0;
     smpl->pobs[CN1] = args->err_prob + (1 - args->baf_bias + args->baf_bias*cn1_baf)*(1 - args->lrr_bias + args->lrr_bias*cn1_lrr);
@@ -915,8 +914,11 @@ static void cnv_flush_viterbi(args_t *args)
     hmm_set_tprob(args->hmm, args->tprob, 10000);
 
     // Smooth LRR values to reduce noise
-    smooth_data(args->query_sample.lrr,args->nsites, args->lrr_smooth_win);
-    if ( args->control_sample.name ) smooth_data(args->control_sample.lrr,args->nsites, args->lrr_smooth_win);
+    if ( args->lrr_bias > 0 )
+    {
+        smooth_data(args->query_sample.lrr,args->nsites, args->lrr_smooth_win);
+        if ( args->control_sample.name ) smooth_data(args->control_sample.lrr,args->nsites, args->lrr_smooth_win);
+    }
 
     // Set the BAF peak likelihoods, such as P(RRR|CN3), taking account the
     // estimated fraction of aberrant cells in the mixture. With the new chromosome,
@@ -1063,8 +1065,13 @@ static int parse_lrr_baf(sample_t *smpl, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fmt,
     *baf = ((float*)(baf_fmt->p + baf_fmt->size*smpl->idx))[0];
     if ( bcf_float_is_missing(*baf) || isnan(*baf) ) *baf = -0.1;    // arbitrary negative value == missing value
 
-    *lrr = ((float*)(lrr_fmt->p + lrr_fmt->size*smpl->idx))[0];
-    if ( bcf_float_is_missing(*lrr) || isnan(*lrr) ) { *lrr = 0; *baf = -0.1; }
+    if ( lrr_fmt )
+    {
+        *lrr = ((float*)(lrr_fmt->p + lrr_fmt->size*smpl->idx))[0];
+        if ( bcf_float_is_missing(*lrr) || isnan(*lrr) ) { *lrr = 0; *baf = -0.1; }
+    }
+    else
+        *lrr = 0;
 
     return *baf<0 ? 0 : 1;
 }
@@ -1092,9 +1099,9 @@ static void cnv_next_line(args_t *args, bcf1_t *line)
     // Process line
     args->ntot++;
 
-    bcf_fmt_t *baf_fmt, *lrr_fmt;
+    bcf_fmt_t *baf_fmt, *lrr_fmt = NULL;
     if ( !(baf_fmt = bcf_get_fmt(args->hdr, line, "BAF")) ) return; 
-    if ( !(lrr_fmt = bcf_get_fmt(args->hdr, line, "LRR")) ) return;
+    if ( args->lrr_bias>0 && !(lrr_fmt = bcf_get_fmt(args->hdr, line, "LRR")) ) return;
 
     float baf1,lrr1,baf2,lrr2;
     int ret = 0;
@@ -1168,6 +1175,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -b, --BAF-weight <float>           relative contribution from BAF [1]\n");
     fprintf(stderr, "    -d, --BAF-dev <float[,float]>      expected BAF deviation in query and control [0.04,0.04]\n"); // experimental
     fprintf(stderr, "    -e, --err-prob <float>             uniform error probability [1e-4]\n");
+    fprintf(stderr, "    -k, --LRR-dev <float[,float]>      expected LRR deviation [0.2,0.2]\n"); // experimental
     fprintf(stderr, "    -l, --LRR-weight <float>           relative contribution from LRR [0.2]\n");
     fprintf(stderr, "    -L, --LRR-smooth-win <int>         window of LRR moving average smoothing [10]\n");
     fprintf(stderr, "    -O, --optimize <float>             estimate fraction of aberrant cells down to <float> [1.0]\n");
@@ -1201,12 +1209,13 @@ int main_vcfcnv(int argc, char *argv[])
 
     // Squared std dev of BAF and LRR values (gaussian noise), estimated from real data (hets, one sample, one chr)
     args->query_sample.baf_dev2_dflt = args->control_sample.baf_dev2_dflt = 0.04*0.04; // illumina: 0.03
-    args->lrr_dev2 = 0.1*0.1; //0.20*0.20;   // illumina: 0.18
+    args->query_sample.lrr_dev2 = args->control_sample.lrr_dev2 = 0.2*0.2; //0.20*0.20;   // illumina: 0.18
 
     int regions_is_file = 0, targets_is_file = 0;
     static struct option loptions[] = 
     {
         {"BAF-dev",1,0,'d'},
+        {"LRR-dev",1,0,'k'},
         {"LRR-smooth-win",1,0,'L'},
         {"AF-file",1,0,'f'},
         {"baum-welch",1,0,'W'}, // hidden
@@ -1228,7 +1237,7 @@ int main_vcfcnv(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp = NULL;
-    while ((c = getopt_long(argc, argv, "h?r:R:t:T:s:o:p:l:T:c:b:P:x:e:O:W:f:a:L:d:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:R:t:T:s:o:p:l:T:c:b:P:x:e:O:W:f:a:L:d:k:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'L': 
                 args->lrr_smooth_win = strtol(optarg,&tmp,10);
@@ -1244,20 +1253,33 @@ int main_vcfcnv(int argc, char *argv[])
                 if ( *tmp )
                 {
                     if ( *tmp!=',') error("Could not parse: -d %s\n", optarg);
-                    args->control_sample.baf_dev2_dflt = strtod(optarg,&tmp);
-                    if ( *tmp ) error("Could not parse: -a %s\n", optarg);
+                    args->control_sample.baf_dev2_dflt = strtod(tmp+1,&tmp);
+                    if ( *tmp ) error("Could not parse: -d %s\n", optarg);
                 }
                 else
                     args->control_sample.baf_dev2_dflt = args->query_sample.baf_dev2_dflt;
                 args->query_sample.baf_dev2_dflt   *= args->query_sample.baf_dev2_dflt;
                 args->control_sample.baf_dev2_dflt *= args->control_sample.baf_dev2_dflt;
                 break;
+            case 'k':
+                args->query_sample.lrr_dev2 = strtod(optarg,&tmp);
+                if ( *tmp )
+                {
+                    if ( *tmp!=',') error("Could not parse: -k %s\n", optarg);
+                    args->control_sample.lrr_dev2 = strtod(tmp+1,&tmp);
+                    if ( *tmp ) error("Could not parse: -d %s\n", optarg);
+                }
+                else
+                    args->control_sample.lrr_dev2 = args->query_sample.lrr_dev2;
+                args->query_sample.lrr_dev2   *= args->query_sample.lrr_dev2;
+                args->control_sample.lrr_dev2 *= args->control_sample.lrr_dev2;
+                break;
             case 'a':
                 args->query_sample.cell_frac_dflt = strtod(optarg,&tmp);
                 if ( *tmp )
                 {
                     if ( *tmp!=',') error("Could not parse: -a %s\n", optarg);
-                    args->control_sample.cell_frac_dflt = strtod(optarg,&tmp);
+                    args->control_sample.cell_frac_dflt = strtod(tmp+1,&tmp);
                     if ( *tmp ) error("Could not parse: -a %s\n", optarg);
                 }
                 break;
