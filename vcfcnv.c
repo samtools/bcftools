@@ -216,7 +216,7 @@ static void init_sample_files(sample_t *smpl, char *dir)
     smpl->summary_fh = open_file(&smpl->summary_fname,"w","%s/summary.%s.tab",dir,smpl->name);
     fprintf(smpl->dat_fh,"# [1]Chromosome\t[2]Position\t[3]BAF\t[4]LRR\n");
     fprintf(smpl->cn_fh,"# [1]Chromosome\t[2]Position\t[3]CN\t[4]P(CN0)\t[5]P(CN1)\t[6]P(CN2)\t[7]P(CN3)\n");
-    fprintf(smpl->summary_fh,"# RG, Regions [2]Chromosome\t[3]Start\t[4]End\t[5]Copy Number state\t[6]Quality\n");
+    fprintf(smpl->summary_fh,"# RG, Regions [2]Chromosome\t[3]Start\t[4]End\t[5]Copy Number state\t[6]Quality\t[7]nSites\t[8]nHETs\n");
 }
 static void close_sample_files(sample_t *smpl)
 {
@@ -286,12 +286,13 @@ static void init_data(args_t *args)
     for (i=1; i<args->argc; i++) fprintf(fh, " %s",args->argv[i]);
     if ( args->control_sample.name )
         fprintf(fh, "\n#\n"
-                "# RG, Regions\t[2]Chromosome\t[3]Start\t[4]End\t[5]Copy number:%s\t[6]Copy number:%s\t[7]Quality\n",
+                "# RG, Regions\t[2]Chromosome\t[3]Start\t[4]End\t[5]Copy number:%s\t[6]Copy number:%s\t[7]Quality"
+                "\t[8]nSites in (5)\t[9]nHETs in (5)\t[10]nSites in (6)\t[11]nHETs in(6)\n",
                 args->query_sample.name,args->control_sample.name
                );
     else
         fprintf(fh, "\n#\n"
-                "# RG, Regions\t[2]Chromosome\t[3]Start\t[4]End\t[5]Copy number:%s\t[6]Quality\n",
+                "# RG, Regions\t[2]Chromosome\t[3]Start\t[4]End\t[5]Copy number:%s\t[6]Quality\t[7]nSites\t[8]nHETs\n",
                 args->query_sample.name
                );
 }
@@ -903,6 +904,9 @@ static int update_args(args_t *args)
     return converged ? 0 : 1;
 }
 
+// for an approximate estimate of the number of het genotypes in a region
+#define BAF_LIKELY_HET(val)   (val)>0.25 && (val)<0.75
+
 static void cnv_flush_viterbi(args_t *args)
 {
     if ( !args->nsites ) return;
@@ -995,6 +999,7 @@ static void cnv_flush_viterbi(args_t *args)
     uint8_t *vpath = hmm_get_viterbi_path(hmm);
     double qual = 0, *fwd = hmm_get_fwd_bwd_prob(hmm);
     int i,j, isite, start_cn = vpath[0], start_pos = args->sites[0], istart_pos = 0;
+    int ctrl_ntot = 0, smpl_ntot = 0, ctrl_nhet = 0, smpl_nhet = 0;
     for (isite=0; isite<args->nsites; isite++)
     {
         int state = vpath[args->nstates*isite];
@@ -1016,6 +1021,11 @@ static void cnv_flush_viterbi(args_t *args)
                     fprintf(args->query_sample.cn_fh, "\t%f", sum);
                 }
             fprintf(args->query_sample.cn_fh, "\n");
+            if ( args->query_sample.baf[isite]>=0 )     // if non-missing
+            {
+                if ( BAF_LIKELY_HET(args->query_sample.baf[isite]) ) smpl_nhet++;
+                smpl_ntot++;
+            }
         }
         if ( args->control_sample.cn_fh )
         {
@@ -1027,36 +1037,48 @@ static void cnv_flush_viterbi(args_t *args)
                 fprintf(args->control_sample.cn_fh, "\t%f", sum);
             }
             fprintf(args->control_sample.cn_fh, "\n");
+            if ( args->control_sample.baf[isite]>=0 )     // if non-missing
+            {
+                if ( BAF_LIKELY_HET(args->control_sample.baf[isite]) ) ctrl_nhet++;
+                ctrl_ntot++;
+            }
         }
 
         if ( start_cn != state )
         {
             char start_cn_query = copy_number_state(args,start_cn,0);
             qual = phred_score(1 - qual/(isite - istart_pos));
-            fprintf(args->query_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite],start_cn_query,qual);
+            fprintf(args->query_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\t%d\t%d\n",
+                bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite],start_cn_query,qual,smpl_ntot,smpl_nhet);
 
             if ( args->control_sample.name )
             {
                 // regions 0-based, half-open
                 char start_cn_ctrl = copy_number_state(args,start_cn,1);
-                fprintf(args->control_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite],start_cn_ctrl,qual);
-                fprintf(args->summary_fh,"RG\t%s\t%d\t%d\t%c\t%c\t%.1f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite],start_cn_query,start_cn_ctrl,qual);
+                fprintf(args->control_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\t%d\t%d\n",
+                    bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite],start_cn_ctrl,qual,ctrl_ntot,ctrl_nhet);
+                fprintf(args->summary_fh,"RG\t%s\t%d\t%d\t%c\t%c\t%.1f\t%d\t%d\t%d\t%d\n",
+                    bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite],start_cn_query,start_cn_ctrl,qual,smpl_ntot,smpl_nhet,ctrl_ntot,ctrl_nhet);
             }
 
             istart_pos = isite;
             start_pos = args->sites[isite];
             start_cn = state;
             qual = 0;
+            smpl_ntot = smpl_nhet = ctrl_ntot = ctrl_nhet = 0;
         }
     }
     qual = phred_score(1 - qual/(isite - istart_pos));
     char start_cn_query = copy_number_state(args,start_cn,0);
-    fprintf(args->query_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite-1]+1,start_cn_query,qual);
+    fprintf(args->query_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\t%d\t%d\n",
+        bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite-1]+1,start_cn_query,qual,smpl_ntot,smpl_nhet);
     if ( args->control_sample.name )
     {
         char start_cn_ctrl = copy_number_state(args,start_cn,1);
-        fprintf(args->control_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite-1]+1,start_cn_ctrl,qual);
-        fprintf(args->summary_fh,"RG\t%s\t%d\t%d\t%c\t%c\t%.1f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite-1]+1,start_cn_query,start_cn_ctrl,qual);
+        fprintf(args->control_sample.summary_fh,"RG\t%s\t%d\t%d\t%c\t%.1f\t%d\t%d\n",
+            bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite-1]+1,start_cn_ctrl,qual,ctrl_ntot,ctrl_nhet);
+        fprintf(args->summary_fh,"RG\t%s\t%d\t%d\t%c\t%c\t%.1f\t%d\t%d\t%d\t%d\n",
+            bcf_hdr_id2name(args->hdr,args->prev_rid), start_pos+1, args->sites[isite-1]+1,start_cn_query,start_cn_ctrl,qual,smpl_ntot,smpl_nhet,ctrl_ntot,ctrl_nhet);
     }
 }
 
