@@ -1,0 +1,10 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr7>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SRR1528791
+chr7	142459798	.	CCATCTCTCTGCCCA	CCATCTCTCTCCCCG	.	.	AC=2;AN=2	GT	1/1
+chr7	142459798	.	CCATCTCTCTGCCCA	CCATCTCTCTCCCCG	.	.	AC=2;AN=2	GT	1/1
+chr7	142459798	.	CCATCTCTCTGCCCA	CCATCTCTCTCCCCG	.	.	AC=2;AN=2	GT	1/1
