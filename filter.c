@@ -1282,25 +1282,25 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
             {
                 if ( bcf_hdr_id2type(filter->hdr,BCF_HL_INFO,tok->hdr_id) == BCF_HT_STR ) tok->is_str = 1;
                 if ( bcf_hdr_id2number(filter->hdr,BCF_HL_INFO,tok->hdr_id)==1 )
-                tok->setter = filters_set_info;
-            else
-            {
-                switch ( bcf_hdr_id2type(filter->hdr,BCF_HL_INFO,tok->hdr_id) )
+                    tok->setter = filters_set_info;
+                else
                 {
-                    case BCF_HT_INT:  tok->setter = &filters_set_info_int; break;
-                    case BCF_HT_REAL: tok->setter = &filters_set_info_float; break;
-                    case BCF_HT_STR:  tok->setter = &filters_set_info_string; tok->is_str = 1; break;
-                    default: error("[%s:%d %s] FIXME\n", __FILE__,__LINE__,__FUNCTION__);
+                    switch ( bcf_hdr_id2type(filter->hdr,BCF_HL_INFO,tok->hdr_id) )
+                    {
+                        case BCF_HT_INT:  tok->setter = &filters_set_info_int; break;
+                        case BCF_HT_REAL: tok->setter = &filters_set_info_float; break;
+                        case BCF_HT_STR:  tok->setter = &filters_set_info_string; tok->is_str = 1; break;
+                        default: error("[%s:%d %s] FIXME\n", __FILE__,__LINE__,__FUNCTION__);
+                    }
+                    if(!is_array) tok->idx = -2;
                 }
-                    //tok->idx = -2;
-            }
             }
             filter->max_unpack |= BCF_UN_INFO;
-            }
-            tok->tag = strdup(tmp.s);
-            if ( tmp.s ) free(tmp.s);
-            return 0;
         }
+        tok->tag = strdup(tmp.s);
+        if ( tmp.s ) free(tmp.s);
+        return 0;
+    }
     else if ( !strcasecmp(tmp.s,"ALT") )
     {
         tok->setter = &filters_set_alt_string;
