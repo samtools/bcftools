@@ -1186,51 +1186,71 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
 {
     int i, ret;
 
-    // only DPR so far, we may generalize to arbitrary Number=R if necessary
-    ret = bcf_get_info_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
-    if ( ret>0 )
+    // at the moment we have DPR,AD,ADF,ADR all Number=R,Type=Integer,
+    // so only dealing with these cases at the moment
+    for (i=0; i<rec->n_info; i++)
     {
-        assert( ret==nals );
-        if ( out_als==1 )
-            bcf_update_info_int32(call->hdr, rec, "DPR", call->itmp, 1);
-        else
-        {
-            for (i=0; i<nals; i++)
-            {
-                if ( call->als_map[i]==-1 ) continue;   // to be dropped
-                call->PLs[ call->als_map[i] ] = call->itmp[i]; // reusing PLs storage which is not used at this point
-            }
-            bcf_update_info_int32(call->hdr, rec, "DPR", call->PLs, nout_als);
-        }
-    }
+        bcf_info_t *info = &rec->d.info[i];
+        int vlen = bcf_hdr_id2length(call->hdr,BCF_HL_INFO,info->key);
+        if ( vlen!=BCF_VL_R ) continue;
+        int type = bcf_hdr_id2type(call->hdr,BCF_HL_INFO,info->key);
+        if ( type!=BCF_HT_INT ) continue;
 
-    ret = bcf_get_format_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
-    if ( ret>0 )
-    {
-        int nsmpl = bcf_hdr_nsamples(call->hdr);
-        int ndp = ret / nsmpl;
-        assert( ndp==nals );
-        if ( out_als==1 )
+        ret = bcf_get_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), &call->itmp, &call->n_itmp);
+        if ( ret>0 )
         {
-            for (i=0; i<nsmpl; i++)
-                call->PLs[i] = call->itmp[i*ndp];
-
-            bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl);
-        }
-        else
-        {
-            int j;
-            for (i=0; i<nsmpl; i++)
+            assert( ret==nals );
+            if ( out_als==1 )
+                bcf_update_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), call->itmp, 1);
+            else
             {
-                int32_t *dp_dst = call->PLs + i*nout_als;
-                int32_t *dp_src = call->itmp + i*ndp;
+                int j;
                 for (j=0; j<nals; j++)
                 {
                     if ( call->als_map[j]==-1 ) continue;   // to be dropped
-                    dp_dst[ call->als_map[j] ] = dp_src[j]; // reusing PLs storage which is not used at this point
+                    call->PLs[ call->als_map[j] ] = call->itmp[j]; // reusing PLs storage which is not used at this point
                 }
+                bcf_update_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), call->PLs, nout_als);
             }
-            bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl*nout_als);
+        }
+    }
+
+    for (i=0; i<rec->n_fmt; i++)
+    {
+        bcf_fmt_t *fmt = &rec->d.fmt[i];
+        int vlen = bcf_hdr_id2length(call->hdr,BCF_HL_FMT,fmt->id);
+        if ( vlen!=BCF_VL_R ) continue;
+        int type = bcf_hdr_id2type(call->hdr,BCF_HL_FMT,fmt->id);
+        if ( type!=BCF_HT_INT ) continue;
+
+        ret = bcf_get_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), &call->itmp, &call->n_itmp);
+        if ( ret>0 )
+        {
+            int j, nsmpl = bcf_hdr_nsamples(call->hdr);
+            int ndp = ret / nsmpl;
+            assert( ndp==nals );
+            if ( out_als==1 )
+            {
+                for (j=0; j<nsmpl; j++)
+                    call->PLs[j] = call->itmp[j*ndp];
+
+                bcf_update_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), call->PLs, nsmpl);
+            }
+            else
+            {
+                int k;
+                for (j=0; j<nsmpl; j++)
+                {
+                    int32_t *dp_dst = call->PLs + j*nout_als;
+                    int32_t *dp_src = call->itmp + j*ndp;
+                    for (k=0; k<nals; k++)
+                    {
+                        if ( call->als_map[k]==-1 ) continue;   // to be dropped
+                        dp_dst[ call->als_map[k] ] = dp_src[k]; // reusing PLs storage which is not used at this point
+                    }
+                }
+                bcf_update_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), call->PLs, nsmpl*nout_als);
+            }
         }
     }
 }
