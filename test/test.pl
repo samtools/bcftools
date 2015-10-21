@@ -92,6 +92,7 @@ test_vcf_query($opts,in=>'annotate2',out=>'query.20.out',args=>q[-e'IFLT!="."' -
 test_vcf_query($opts,in=>'annotate2',out=>'query.21.out',args=>q[-e'IFLT="."'  -f'%POS %IFLT\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
+test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split',fai=>'norm',out=>'norm.split.and.norm.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.merge',out=>'norm.merge.out',args=>'-m+');
 test_vcf_norm($opts,in=>'norm.merge.2',out=>'norm.merge.2.out',args=>'-m+');
