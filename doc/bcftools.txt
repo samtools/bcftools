@@ -75,6 +75,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 
 - *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
+- *<<cnv,cnv>>*          ..  Copy Number Variation caller
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
 - *<<consensus,consensus>>*    ..  create consensus sequence by applying VCF variants
 - *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
@@ -85,6 +86,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
 - *<<norm,norm>>*        ..  normalize indels
 - *<<plugin,plugin>>*    ..  run user-defined plugin
+- *<<polysomy,polysomy>>*   ..  detect contaminations and whole-chromosome aberrations
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
@@ -379,6 +381,91 @@ This command allows to add or remove annotations.
     # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
     bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
 ----
+
+[[cnv]]
+=== bcftools cnv '[OPTIONS]' 'FILE'
+
+Copy number variation caller, requires a VCF annotated with the Illumina's
+B-allele frequency (BAF) and Log R Ratio intensity (LRR) values. The HMM
+considers the following copy number states: CN 2 (normal), 1 (single-copy
+loss), 0 (complete loss), 3 (single-copy gain).
+
+
+==== General Options:
+
+*-c, --control-sample* 'string'::
+    optional control sample name. If given, pairwise calling is performed
+    and the *-P*  option can be used
+
+*-f, --AF-file* 'file'::
+    read allele frequencies from  a tab-delimited file with the columns CHR,POS,REF,ALT,AF
+
+*-o, --output-dir 'path'::
+    output directory 
+
+*-p, --plot-threshold 'float'::
+    call *matplotlib* to produce plots for chromosomes with quality at least 'float',
+    useful for visual inspection of the calls. With *-p 0*, plots for all chromosomes will be 
+    generated. If not given, a *matplotlib* script will be created but not called.
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-s, --query-sample* 'string'::
+    query samply name
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+==== HMM Options:
+
+*-a, --aberrant* 'float'[,'float']::
+    fraction of aberrant cells in query and control. The hallmark of
+    duplications and contaminations is the BAF value of heterozygous markers
+    which is dependent on the fraction of aberrant cells. Sensitivity to
+    smaller fractions of cells can be increased by setting *-a* to a lower value. Note
+    however, that this comes at the cost of increased false discovery rate.
+
+*-b, --BAF-weight* 'float'::
+    relative contribution from BAF
+
+*d, --BAF-dev* 'float'[,'float']::
+    expected BAF deviation in query and control, i.e. the noise observed
+    in the data.
+
+*-e, --err-prob* 'float'::
+    uniform error probability
+
+*-l, --LRR-weight* 'float'::
+    relative contribution from LRR. With noisy data, this option can have big effect
+    on the number of calls produced. In truly random noise (such as in simulated data),
+    the value should be set high (1.0), but in the presence of systematic noise
+    when LRR are not informative, lower values result in cleaner calls (0.2).
+
+*-L, --LRR-smooth-win* 'int'::
+    reduce LRR noise by applying moving average given this window size
+
+*-O, --optimize* 'float'::
+    iteratively estimate the fraction of aberrant cells, down to the given fraction.
+    Lowering this value from the default 1.0 to say, 0.3, can help discover more
+    events but also increases noise
+
+*-P, --same-prob* 'float'::
+    the prior probability of the query and the control sample being the same.
+    Setting to 0 calls both independently, setting to 1 forces the same copy
+    number state in both.
+
+*-x, --xy-prob* 'float'::
+    the HMM probability of transition to another copy number state. Increasing this
+    values leads to smaller and more frequent calls.
+
+
 
 
 [[call]]
@@ -1288,6 +1375,67 @@ bcf1_t *process(bcf1_t *rec);
 // Called after all lines have been processed to clean up
 void destroy(void);
 ----
+
+
+
+[[polysomy]]
+=== bcftools polysomy ['OPTIONS'] 'file.vcf.gz'
+Detect number of chromosomal copies in VCFs annotates with the Illumina's
+B-allele frequency (BAF) values. Note that this command is not compiled
+in by default, see the section *Optional Compilation with GSL* in the INSTALL 
+file for help.
+
+==== General options:
+
+*-o, --output-dir* 'path'::
+    output directory 
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-s, --sample* 'string'::
+    samply name
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-v, --verbose*::
+    verbose debugging output which gives hints about the thresholds and decisions made
+    by the program. Note that the exact output can change between versions.
+
+==== Algorithm options:
+
+*-b, --peak-size* 'float'::
+    the minimum peak size considered as a good match can be from the interval [0,1]
+    where larger is stricter
+
+*-c, --cn-penalty* 'float'::
+    a penalty for increasing copy number state. How this works: multiple peaks
+    are always a better fit than a single peak, therefore the program prefers 
+    a single peak (normal copy number) unless the absolute deviation of the
+    multiple peaks fit is significantly smaller. Here the meaning of
+    "significant" is given by the 'float' from the interval [0,1] where
+    larger is stricter.
+    
+*-f, --fit-th* 'float'::
+    threshold for goodness of fit (normalized absolute deviation), smaller is stricter
+
+*-i, --include-aa*::
+    include also the AA peak in CN2 and CN3 evaluation. This usually requires increasing *-f*.
+
+*-m, --min-fraction* 'float'::
+    minimum distinguishable fraction of aberrant cells. The experience shows that trustworthy
+    are estimates of 20% and more.
+
+*-p, --peak-symmetry* 'float'::
+    a heuristics to filter failed fits where the expected peak symmetry is violated.
+    The 'float' is from the interval [0,1] and larger is stricter
 
 
 [[query]]
