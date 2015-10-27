@@ -1804,6 +1804,10 @@ not "dp" instead of "DP".
 
     MIN(DP)>10 & MIN(DV)>3
 
+    FMT/DP>10  & FMT/GQ>10 .. both conditions must be satisfied within one sample
+
+    FMT/DP>10 && FMT/GQ>10 .. the conditions can be satisfied in different samples
+
     QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
 
     QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites

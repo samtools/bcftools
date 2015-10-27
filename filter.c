@@ -845,7 +845,7 @@ static void set_strlen(filter_t *flt, bcf1_t *line, token_t *tok)
     if ( !has_values ) { (atok)->nvalues = 0; (atok)->nsamples = 0; } \
 }
 
-static int vector_logic_and(token_t *atok, token_t *btok)
+static int vector_logic_and(token_t *atok, token_t *btok, int and_type)
 {
     // We are comparing either two scalars (result of INFO tag vs a threshold), two vectors (two FORMAT fields),
     // or a vector and a scalar (FORMAT field vs threshold)
@@ -858,10 +858,29 @@ static int vector_logic_and(token_t *atok, token_t *btok)
     if ( !atok->nsamples && !btok->nsamples ) return atok->pass_site && btok->pass_site;
     if ( atok->nsamples && btok->nsamples )
     {
-        for (i=0; i<atok->nsamples; i++)
+        if ( and_type==TOK_AND )
         {
-            atok->pass_samples[i] = atok->pass_samples[i] && btok->pass_samples[i];
-            if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
+            // perform AND within a sample
+            for (i=0; i<atok->nsamples; i++)
+            {
+                atok->pass_samples[i] = atok->pass_samples[i] && btok->pass_samples[i];
+                if ( !pass_site && atok->pass_samples[i] ) pass_site = 1;
+            }
+        }
+        else
+        {
+            // perform AND across samples
+            int pass_a = 0, pass_b = 0;
+            for (i=0; i<atok->nsamples; i++)
+            {
+                if ( atok->pass_samples[i] ) pass_a = 1;
+                atok->pass_samples[i] = atok->pass_samples[i] && btok->pass_samples[i];
+            }
+            for (i=0; i<btok->nsamples; i++)
+            {
+                if ( btok->pass_samples[i] ) { pass_b = 1; break; }
+            }
+            pass_site = pass_a && pass_b;
         }
         return pass_site;
     }
@@ -1646,7 +1665,7 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         {
             if ( filter->flt_stack[nstack-1]->pass_site<0 || filter->flt_stack[nstack-2]->pass_site<0 )
                 error("Error occurred while processing the filter \"%s\" (%d %d AND)\n", filter->str,filter->flt_stack[nstack-2]->pass_site,filter->flt_stack[nstack-1]->pass_site);
-            filter->flt_stack[nstack-2]->pass_site = vector_logic_and(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1]);
+            filter->flt_stack[nstack-2]->pass_site = vector_logic_and(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1], filter->filters[i].tok_type);
             nstack--;
             continue;
         }
