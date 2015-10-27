@@ -1035,11 +1035,7 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         } \
         else \
         { \
-            if ( bcf_float_is_missing((atok)->values[0]) || bcf_float_is_missing((btok)->values[0]) ) \
-            { \
-                (atok)->nvalues = 0; (atok)->nsamples = 0; (ret) = 0; \
-            } \
-            else if ( (atok)->values[0] CMP_OP (btok)->values[0] ) { pass_site = 1; } \
+            if ( (atok)->values[0] CMP_OP (btok)->values[0] ) { pass_site = 1; } \
         } \
         /*fprintf(stderr,"pass=%d\n", pass_site);*/ \
         (ret) = pass_site; \
@@ -1506,8 +1502,8 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( out[k].hdr_id>0 && out[j].is_str && !strcmp(".",out[j].key) )
             {
                 int type = bcf_hdr_id2type(filter->hdr,out[k].type,out[k].hdr_id);
-                if ( type==BCF_HT_INT ) { out[j].is_str = 0; out[j].is_missing = 1; }
-                if ( type==BCF_HT_REAL ) { out[j].is_str = 0; out[j].is_missing = 1; }
+                if ( type==BCF_HT_INT ) { out[j].is_str = 0; out[j].is_missing = 1; bcf_float_set_missing(out[j].values[0]); }
+                if ( type==BCF_HT_REAL ) { out[j].is_str = 0; out[j].is_missing = 1; bcf_float_set_missing(out[j].values[0]); }
             }
         }
         if ( out[i].tok_type==TOK_LIKE || out[i].tok_type==TOK_NLIKE )
