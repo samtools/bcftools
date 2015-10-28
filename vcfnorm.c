@@ -75,7 +75,7 @@ typedef struct
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, check_ref, strict_filter, do_indels;
-    int nchanged, nskipped, ntotal, mrows_op, mrows_collapse, parsimonious;
+    int nchanged, nskipped, nsplit, ntotal, mrows_op, mrows_collapse, parsimonious;
 }
 args_t;
 
@@ -1564,6 +1564,7 @@ static void normalize_line(args_t *args, bcf1_t **line_ptr)
     }
 
     // insert into sorted buffer
+    rbuf_expand0(&args->rbuf,bcf1_t*,args->rbuf.n+1,args->lines);
     int i,j;
     i = j = rbuf_append(&args->rbuf);
     if ( !args->lines[i] ) args->lines[i] = bcf_init1();
@@ -1620,6 +1621,7 @@ static void normalize_vcf(args_t *args)
             }
             if ( split && line->n_allele>2 )
             {
+                args->nsplit++;
                 split_multiallelic_to_biallelics(args, line);
                 for (j=0; j<args->ntmp_lines; j++)
                     normalize_line(args, &args->tmp_lines[j]);
@@ -1644,7 +1646,7 @@ static void normalize_vcf(args_t *args)
     flush_buffer(args, out, args->rbuf.n);
     hts_close(out);
 
-    fprintf(stderr,"Lines   total/modified/skipped:\t%d/%d/%d\n", args->ntotal,args->nchanged,args->nskipped);
+    fprintf(stderr,"Lines   total/split/realigned/skipped:\t%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->nchanged,args->nskipped);
     if ( args->check_ref & CHECK_REF_FIX )
         fprintf(stderr,"REF/ALT total/modified/added:  \t%d/%d/%d\n", args->nref.tot,args->nref.swap,args->nref.set);
 }

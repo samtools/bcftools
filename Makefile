@@ -77,6 +77,7 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA    = $(INSTALL) -m 644
 INSTALL_DIR     = $(MKDIR_P) -m 755
 
+MISC_PROGRAMS = plot-vcfstats vcfutils.pl plugins/color-chrs.pl
 
 all:$(PROG) plugins
 
@@ -190,7 +191,7 @@ docs: doc/bcftools.1 doc/bcftools.html
 # make docs can be run to update if asciidoc is available
 install: $(PROG)
 	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
-	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) $(PROG) $(MISC_PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) doc/bcftools.1 $(DESTDIR)$(man1dir)
 	$(INSTALL_PROGRAM) plugins/*.so $(DESTDIR)$(plugindir)
 

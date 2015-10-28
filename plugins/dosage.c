@@ -140,7 +140,7 @@ int calc_dosage_GT(bcf1_t *rec)
         float dsg = 0;
         for (j=0; j<nret; j++)
         {
-            if ( ptr[j]==bcf_int32_missing || ptr[j]==bcf_int32_vector_end || ptr[j]==bcf_gt_missing ) break;
+            if ( ptr[j]==bcf_int32_vector_end || bcf_gt_is_missing(ptr[j]) ) break;
             if ( bcf_gt_allele(ptr[j]) ) dsg += 1;
         }
         printf("\t%.1f", j>0 ? dsg : -1);

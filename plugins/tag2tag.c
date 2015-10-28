@@ -1,4 +1,4 @@
-/*  plugins/fill-AN-AC.c -- fills AN and AC INFO fields.
+/*  plugins/tag2tag.c -- Convert between similar tags, such as GL and GP.
 
     Copyright (C) 2014 Genome Research Ltd.
 

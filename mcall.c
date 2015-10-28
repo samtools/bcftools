@@ -691,7 +691,7 @@ static void mcall_set_ref_genotypes(call_t *call, int nals)
     int ngts  = nals*(nals+1)/2;
     int nsmpl = bcf_hdr_nsamples(call->hdr);
 
-    for (i=0; i<4; i++) call->ac[i] = 0;
+    for (i=0; i<nals; i++) call->ac[i] = 0;
     call->nhets = 0;
     call->ndiploid = 0;
 
@@ -900,10 +900,11 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
 static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
 {
     int ia, ib, i;
-    int nsmpl   = bcf_hdr_nsamples(call->hdr);
-    int ngts    = nals*(nals+1)/2;
-    double *gls = call->GLs - ngts;
-    double *pdg = call->pdg - ngts;
+    int nsmpl    = bcf_hdr_nsamples(call->hdr);
+    int ngts     = nals*(nals+1)/2;
+    int nout_gts = nout_als*(nout_als+1)/2;
+    double *gls  = call->GLs - nout_gts;
+    double *pdg  = call->pdg - ngts;
 
     // Calculate individuals' genotype likelihoods P(X=i)
     int isample;
@@ -912,19 +913,19 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         int ploidy = call->ploidy ? call->ploidy[isample] : 2;
         int32_t *gts = call->ugts + isample;
 
-        gls += ngts;
+        gls += nout_gts;
         pdg += ngts;
 
         // Skip samples with all pdg's equal to 1. These have zero depth.
         for (i=0; i<ngts; i++) if ( pdg[i]!=0.0 ) break;
         if ( i==ngts || !ploidy )
         {
-            gts[0] = bcf_gt_missing;
+            gts[0] = -1;
             gls[0] = 1;
             continue;
         }
 
-        for (i=0; i<ngts; i++) gls[i] = -HUGE_VAL;
+        for (i=0; i<nout_gts; i++) gls[i] = -HUGE_VAL;
 
         double sum_lk  = 0;
         double best_lk = 0;
@@ -963,7 +964,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
                 }
             }
         }
-        for (i=0; i<ngts; i++)
+        for (i=0; i<nout_gts; i++)
             if ( gls[i]!=-HUGE_VAL ) gls[i] = log(gls[i]/sum_lk);
     }
 
@@ -1002,11 +1003,11 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         for (i=0; i<3; i++)     // for father, mother, child
         {
             int ismpl = fam->sample[i];
-            double *gl = call->GLs + ngts*ismpl;
+            double *gl = call->GLs + nout_gts*ismpl;
             if ( gl[0]==1 ) continue;
             int j, jmax = 0;
             double max  = gl[0];
-            for (j=1; j<ngts; j++)
+            for (j=1; j<nout_gts; j++)
                 if ( max < gl[j] ) { max = gl[j]; jmax = j; }
             uc_lk += max;
             uc_itr |= jmax << ((2-i)*4);
@@ -1022,7 +1023,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             for (i=0; i<3; i++)     // for father, mother, child
             {
                 int ismpl = fam->sample[i];
-                double *gl = call->GLs + ngts*ismpl;
+                double *gl = call->GLs + nout_gts*ismpl;
                 if ( gl[0]==1 ) continue;
                 int igt = trio[itr]>>((2-i)*4) & 0xf;
                 assert( !call->ploidy || call->ploidy[ismpl]>0 );
@@ -1042,10 +1043,10 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         if ( !uc_is_mendelian )
         {
             uc_lk += log(1 - trio_Pm);
-            //fprintf(stderr,"c_lk=%e uc_lk=%e c_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,uc_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
+            // fprintf(stderr,"c_lk=%e uc_lk=%e c_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,uc_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
             if ( c_lk < uc_lk ) { c_lk = uc_lk; c_itr = uc_itr; }
         }
-        //fprintf(stderr,"best_lk=%e best_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
+        // fprintf(stderr,"best_lk=%e best_itr=%d%d%d uc_itr=%d%d%d\n", c_lk,c_itr>>8&0xf,c_itr>>4&0xf,c_itr&0xf,uc_itr>>8&0xf,uc_itr>>4&0xf,uc_itr&0xf);
 
         // Set genotypes for father, mother, child and calculate genotype qualities
         for (i=0; i<3; i++)
@@ -1053,11 +1054,11 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             // GT
             int ismpl    = fam->sample[i];
             int igt      = c_itr>>((2-i)*4) & 0xf;
-            double *gl   = call->GLs + ngts*ismpl;
+            double *gl   = call->GLs + nout_gts*ismpl;
             int32_t *gts = call->cgts + ismpl;
             if ( gl[0]==1 || igt==GT_SKIP )    // zero depth, set missing genotypes
             {
-                gts[0] = bcf_gt_missing;
+                gts[0] = -1;
                 // bcf_float_set_missing(call->GQs[ismpl]);
                 continue;
             }
@@ -1107,7 +1108,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
         cgts++;
         ugts++;
         gts += 2;
-        if ( bcf_gt_is_missing(ugts[0]) )
+        if ( ugts[0]==-1 )
         {
             gts[0] = bcf_gt_missing;
             gts[1] = ploidy==2 ? bcf_gt_missing : bcf_int32_vector_end;
@@ -1185,51 +1186,71 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
 {
     int i, ret;
 
-    // only DPR so far, we may generalize to arbitrary Number=R if necessary
-    ret = bcf_get_info_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
-    if ( ret>0 )
+    // at the moment we have DPR,AD,ADF,ADR all Number=R,Type=Integer,
+    // so only dealing with these cases at the moment
+    for (i=0; i<rec->n_info; i++)
     {
-        assert( ret==nals );
-        if ( out_als==1 )
-            bcf_update_info_int32(call->hdr, rec, "DPR", call->itmp, 1);
-        else
-        {
-            for (i=0; i<nals; i++)
-            {
-                if ( call->als_map[i]==-1 ) continue;   // to be dropped
-                call->PLs[ call->als_map[i] ] = call->itmp[i]; // reusing PLs storage which is not used at this point
-            }
-            bcf_update_info_int32(call->hdr, rec, "DPR", call->PLs, nout_als);
-        }
-    }
+        bcf_info_t *info = &rec->d.info[i];
+        int vlen = bcf_hdr_id2length(call->hdr,BCF_HL_INFO,info->key);
+        if ( vlen!=BCF_VL_R ) continue;
+        int type = bcf_hdr_id2type(call->hdr,BCF_HL_INFO,info->key);
+        if ( type!=BCF_HT_INT ) continue;
 
-    ret = bcf_get_format_int32(call->hdr, rec, "DPR", &call->itmp, &call->n_itmp);
-    if ( ret>0 )
-    {
-        int nsmpl = bcf_hdr_nsamples(call->hdr);
-        int ndp = ret / nsmpl;
-        assert( ndp==nals );
-        if ( out_als==1 )
+        ret = bcf_get_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), &call->itmp, &call->n_itmp);
+        if ( ret>0 )
         {
-            for (i=0; i<nsmpl; i++)
-                call->PLs[i] = call->itmp[i*ndp];
-
-            bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl);
-        }
-        else
-        {
-            int j;
-            for (i=0; i<nsmpl; i++)
+            assert( ret==nals );
+            if ( out_als==1 )
+                bcf_update_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), call->itmp, 1);
+            else
             {
-                int32_t *dp_dst = call->PLs + i*nout_als;
-                int32_t *dp_src = call->itmp + i*ndp;
+                int j;
                 for (j=0; j<nals; j++)
                 {
                     if ( call->als_map[j]==-1 ) continue;   // to be dropped
-                    dp_dst[ call->als_map[j] ] = dp_src[j]; // reusing PLs storage which is not used at this point
+                    call->PLs[ call->als_map[j] ] = call->itmp[j]; // reusing PLs storage which is not used at this point
                 }
+                bcf_update_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), call->PLs, nout_als);
             }
-            bcf_update_format_int32(call->hdr, rec, "DPR", call->PLs, nsmpl*nout_als);
+        }
+    }
+
+    for (i=0; i<rec->n_fmt; i++)
+    {
+        bcf_fmt_t *fmt = &rec->d.fmt[i];
+        int vlen = bcf_hdr_id2length(call->hdr,BCF_HL_FMT,fmt->id);
+        if ( vlen!=BCF_VL_R ) continue;
+        int type = bcf_hdr_id2type(call->hdr,BCF_HL_FMT,fmt->id);
+        if ( type!=BCF_HT_INT ) continue;
+
+        ret = bcf_get_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), &call->itmp, &call->n_itmp);
+        if ( ret>0 )
+        {
+            int j, nsmpl = bcf_hdr_nsamples(call->hdr);
+            int ndp = ret / nsmpl;
+            assert( ndp==nals );
+            if ( out_als==1 )
+            {
+                for (j=0; j<nsmpl; j++)
+                    call->PLs[j] = call->itmp[j*ndp];
+
+                bcf_update_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), call->PLs, nsmpl);
+            }
+            else
+            {
+                int k;
+                for (j=0; j<nsmpl; j++)
+                {
+                    int32_t *dp_dst = call->PLs + j*nout_als;
+                    int32_t *dp_src = call->itmp + j*ndp;
+                    for (k=0; k<nals; k++)
+                    {
+                        if ( call->als_map[k]==-1 ) continue;   // to be dropped
+                        dp_dst[ call->als_map[k] ] = dp_src[k]; // reusing PLs storage which is not used at this point
+                    }
+                }
+                bcf_update_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), call->PLs, nsmpl*nout_als);
+            }
         }
     }
 }
@@ -1334,13 +1355,7 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
   */
 int mcall(call_t *call, bcf1_t *rec)
 {
-    int i, unseen = -1;
-    for (i=1; i<rec->n_allele; i++)
-    {
-        if ( rec->d.allele[i][0]=='X' ) { unseen = i; break; }  // old X
-        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // old <X>
-        if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][1]=='>' ) { unseen = i; break; } // new <*>
-    }
+    int i, unseen = call->unseen;
 
     // Force alleles when calling genotypes given alleles was requested
     if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec, unseen);
@@ -1416,9 +1431,7 @@ int mcall(call_t *call, bcf1_t *rec)
         nout = 0;
         for (i=0; i<nals; i++)
         {
-            if ( rec->d.allele[i][0]=='X' ) continue;   // old version of unseen allele "X"
-            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='X' && rec->d.allele[i][2]=='>' ) continue;   // old version of unseen allele, "<X>"
-            if ( rec->d.allele[i][0]=='<' && rec->d.allele[i][1]=='*' && rec->d.allele[i][2]=='>' ) continue;   // new version of unseen allele, "<*>"
+            if ( i>0 && i==unseen ) continue;
             out_als |= 1<<i;
             nout++;
         }
@@ -1468,12 +1481,12 @@ int mcall(call_t *call, bcf1_t *rec)
         if ( hob != HUGE_VAL ) bcf_update_info_float(call->hdr, rec, "HOB", &hob, 1);
 
         // Quality of a variant site. fabs() to avoid negative zeros in VCF output when CALL_KEEPALT is set
-        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : fabs(-4.343*(call->ref_lk - call->lk_sum));
+        rec->qual = call->lk_sum==-HUGE_VAL || call->ref_lk==0 ? 0 : fabs(-4.343*(call->ref_lk - call->lk_sum));
     }
     else
     {
         // Set the quality of a REF site
-        rec->qual = call->lk_sum==-HUGE_VAL ? 0 : -4.343*log(1 - exp(call->ref_lk - call->lk_sum));
+        rec->qual = call->lk_sum==-HUGE_VAL || call->ref_lk==0 ? 0 : -4.343*log(1 - exp(call->ref_lk - call->lk_sum));
     }
     if ( rec->qual>999 ) rec->qual = 999;
     if ( rec->qual>50 ) rec->qual = rint(rec->qual);
@@ -1491,13 +1504,14 @@ int mcall(call_t *call, bcf1_t *rec)
     bcf_update_genotypes(call->hdr, rec, call->gts, nsmpl*2);
 
     // DP4 tag
-    if ( bcf_get_info_float(call->hdr, rec, "I16", &call->anno16, &call->n16)!=16 )
-        error("I16 hasn't 16 fields at %s:%d\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1);
-    int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
-    bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
+    if ( bcf_get_info_float(call->hdr, rec, "I16", &call->anno16, &call->n16)==16 )
+    {
+        int32_t dp[4]; dp[0] = call->anno16[0]; dp[1] = call->anno16[1]; dp[2] = call->anno16[2]; dp[3] = call->anno16[3];
+        bcf_update_info_int32(call->hdr, rec, "DP4", dp, 4);
 
-    int32_t mq = (call->anno16[8]+call->anno16[10])/(call->anno16[0]+call->anno16[1]+call->anno16[2]+call->anno16[3]);
-    bcf_update_info_int32(call->hdr, rec, "MQ", &mq, 1);
+        int32_t mq = (call->anno16[8]+call->anno16[10])/(call->anno16[0]+call->anno16[1]+call->anno16[2]+call->anno16[3]);
+        bcf_update_info_int32(call->hdr, rec, "MQ", &mq, 1);
+    }
 
     bcf_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
     bcf_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag

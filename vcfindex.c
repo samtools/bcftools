@@ -97,13 +97,7 @@ int vcf_index_stats(char *fname, int stats)
         if (stats&2 || !records) continue;
         bcf_hrec_t *hrec = bcf_hdr_get_hrec(hdr, BCF_HL_CTG, "ID", seq[i], NULL);
         int hkey = hrec ? bcf_hrec_find_key(hrec, "length") : -1;
-        if (hkey<0)
-        {
-            fprintf(stderr,"could not get contig length for %s\n", seq[i]);
-            return 1;
-        }
-        fprintf(out, "%s\t%s", seq[i], strcmp(hrec->vals[hkey], "2147483647")==0 ? "." : hrec->vals[hkey]);
-        fprintf(out, "\t%" PRIu64 "\n", records);
+        fprintf(out,"%s\t%s\t%" PRIu64 "\n", seq[i], hkey<0?".":hrec->vals[hkey], records);
     }
     if (!sum)
     {
