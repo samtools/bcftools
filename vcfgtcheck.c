@@ -88,7 +88,7 @@ static void plot_check(args_t *args, char *target_sample, char *query_sample)
             "        if row[4]=='%s': tgt = 1\n"
             "        dat.append([float(row[1]), float(row[2]), float(row[3]), tgt, row[4]])\n"
             "\n"
-            "dat = sorted(dat, reverse=True)\n"
+            "dat = sorted(dat)\n"
             "\n"
             "iq = -1; dp = 0\n"
             "for i in range(len(dat)):\n"
@@ -107,6 +107,9 @@ static void plot_check(args_t *args, char *target_sample, char *query_sample)
             "   ax1.plot([iq],[dat[iq][1]],'^',color='red', ms=5)\n"
             "for tl in ax1.get_yticklabels(): tl.set_color('g')\n"
             "for tl in ax2.get_yticklabels(): tl.set_color('k'); tl.set_fontsize(9)\n"
+            "min_dp = min([x[2] for x in dat])\n"
+            "max_dp = max([x[2] for x in dat])\n"
+            "ax2.set_ylim(min_dp-1,max_dp+1)\n"
             "ax1.set_title('Discordance with %s')\n"
             "ax1.set_xlim(-0.05*len(dat),1.05*(len(dat)-1))\n"
             "ax1.set_xlabel('Sample ID')\n"
@@ -574,7 +577,8 @@ static void cross_check_gts(args_t *args)
         }
         else
             npl = fake_PLs(args, args->sm_hdr, line);
-        if ( !ignore_dp && bcf_get_format_int32(args->sm_hdr, line, "DP", &dp_arr, &ndp_arr) <= 0 ) { dp_warned++; continue; }
+        int mdp = 0;
+        if ( !ignore_dp && (mdp=bcf_get_format_int32(args->sm_hdr, line, "DP", &dp_arr, &ndp_arr)) <= 0 ) dp_warned++;
 
         if ( args->hom_only )
         {
@@ -588,14 +592,14 @@ static void cross_check_gts(args_t *args)
         {
             int *ipl = &args->pl_arr[i*npl];
             if ( *ipl==-1 ) { idx += i; continue; } // missing genotype
-            if ( !ignore_dp && (dp_arr[i]==bcf_int32_missing || !dp_arr[i]) ) { idx += i; continue; }
+            if ( mdp>0 && (dp_arr[i]==bcf_int32_missing || !dp_arr[i]) ) { idx += i; continue; }
             if ( args->hom_only && !is_hom[i] ) { idx += i; continue; }
 
             for (j=0; j<i; j++)
             {
                 int *jpl = &args->pl_arr[j*npl];
                 if ( *jpl==-1 ) { idx++; continue; } // missing genotype
-                if ( !ignore_dp && (dp_arr[j]==bcf_int32_missing || !dp_arr[j]) ) { idx++; continue; }
+                if ( mdp>0 && (dp_arr[j]==bcf_int32_missing || !dp_arr[j]) ) { idx++; continue; }
                 if ( args->hom_only && !is_hom[j] ) { idx++; continue; }
 
                 int min_pl = INT_MAX;
@@ -611,7 +615,7 @@ static void cross_check_gts(args_t *args)
                 args->lks[idx] += min_pl;
                 args->cnts[idx]++;
 
-                if ( !ignore_dp )
+                if ( mdp>0 )
                 {
                     args->dps[idx] += dp_arr[i] < dp_arr[j] ? dp_arr[i] : dp_arr[j];
                     dp[i] += dp_arr[i]; ndp[i]++;
