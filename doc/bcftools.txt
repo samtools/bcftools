@@ -1151,7 +1151,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 
 [[plugin]]
-=== bcftools plugin 'NAME' '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
+=== bcftools [plugin 'NAME'|+'NAME'] '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
 
 ==== VCF input options:
 
@@ -1241,9 +1241,13 @@ bcftools plugin
 # List available plugins
 bcftools plugin -l
 
-# One can run plugins in several ways
+# Run a plugin
 bcftools plugin counts in.vcf
+
+# Run a plugin using the abbreviated "+" notation
 bcftools +counts in.vcf
+
+# The input VCF can be streamed just like in other commands
 cat in.vcf | bcftools +counts
 
 # Print usage information of plugin "dosage"
