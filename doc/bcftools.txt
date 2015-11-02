@@ -235,10 +235,11 @@ specific commands to see if they apply.
 
     ::
     With the *call -C* 'alleles' command, third column of the targets file must
-    be comma-separated list of alleles, starting with the reference allele.
+    be comma-separated list of alleles, starting with the reference allele. 
+    Note that the file must be compressed and index.
     Such a file can be easily created from a VCF using:
 ----
-    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf
+    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
 
 [[annotate]]
