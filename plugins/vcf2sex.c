@@ -37,6 +37,7 @@
 
 #define GUESS_GT 1
 #define GUESS_PL 2
+#define GUESS_GL 3
 
 typedef struct
 {
@@ -90,7 +91,7 @@ const char *usage(void)
         "Usage: bcftools +vcf2sex <file.vcf.gz> -- [Plugin Options]\n"
         "Plugin options:\n"
         "   -b, --background <region>   diploid region to determine normal hom/hets counts [X:60001-2699520]\n"
-        "   -g, --guess <tag>           determine ploidy by counting hom/hets (GT) or most likely genotypes (PL)\n"
+        "   -g, --guess <tag>           determine ploidy by counting hom/hets (GT) or most likely genotypes (PL or GL)\n"
         "   -m, --min-hets <float>      minimum fraction of hets in diploid regions [0.3]\n"
         "   -n, --nsites <int>          number of sites to check per region (ignored with -g) [10]\n"
         "   -p, --ploidy <file>         space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n"
@@ -251,7 +252,8 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
         }
         else    // use PLs to guess the ploidy
         {
-            int npl = bcf_get_format_int32(args->hdr,rec,"PL",&args->pls,&args->npls);
+            int gl2pl = args->guess & GUESS_PL ? 1 : -1;
+            int npl = bcf_get_format_int32(args->hdr,rec,args->guess&GUESS_PL?"PL":"GL",&args->pls,&args->npls);
             if ( npl<=0 ) continue;
             npl /= args->nsample;
             for (ismpl=0; ismpl<args->nsample; ismpl++)
@@ -261,11 +263,13 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
                 for (ial=0; ial<rec->n_allele; ial++)
                 {
                     if ( ptr[k] == bcf_int32_missing || ptr[k] == bcf_int32_vector_end )  break;
+                    ptr[k] *= gl2pl;
                     if ( phom > ptr[k] ) phom = ptr[k];
                     k++;
                     for (jal=0; jal<ial; jal++)
                     {
                         if ( ptr[k] == bcf_int32_missing || ptr[k] == bcf_int32_vector_end )  break;
+                        ptr[k] *= gl2pl;
                         if ( phet > ptr[k] ) phet = ptr[k];
                         k++;
                     }
@@ -377,7 +381,8 @@ int run(int argc, char **argv)
             case 'g':
                 if ( !strcasecmp(optarg,"GT") ) args->guess = GUESS_GT;
                 else if ( !strcasecmp(optarg,"PL") ) args->guess = GUESS_PL;
-                else error("The argument not recognised, expected --guess GT or --guess PL: %s\n", optarg);
+                else if ( !strcasecmp(optarg,"GL") ) args->guess = GUESS_GL;
+                else error("The argument not recognised, expected --guess GT, --guess PL or --guess GL: %s\n", optarg);
                 break;
             case 'm': 
                 args->min_hets = strtod(optarg,&tmp); 
