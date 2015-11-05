@@ -57,7 +57,7 @@ reg_stats_t;
 typedef struct
 {
     int nsites, nsex, *sex2ploidy, dflt_ploidy, max_ploidy, guess;
-    count_t bg_counts;          // background het/hom counts for regions with the same ploidy in all sexes
+    count_t *bg_counts;         // background het/hom counts for regions with the same ploidy in all sexes
     reg_stats_t *reg_stats;     // counts for all regions, used with -g
     int nreg_stats, nsample, verbose;
     int *counts, ncounts;       // number of observed GTs with given ploidy, used when -g is not given
@@ -202,10 +202,13 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
     uint32_t start = 0, end = INT_MAX;
     reg_stats_t *stats = NULL;
 
+    // set the start and the end position
     if ( itr )
     {
         start = itr->reg[itr->i].start;
         end   = itr->reg[itr->i].end;
+
+        // flush all records with the same coordinates
         while ( itr->i+kitr<itr->n && start==itr->reg[itr->i+kitr].start && end==itr->reg[itr->i+kitr].end ) kitr++;
 
         int min,max,ret = ploidy_query(args->ploidy, seq, start, args->sex2ploidy, &min, &max);
@@ -222,6 +225,8 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
         seq = (char*) malloc(ptr - args->background + 1);
         memcpy(seq,args->background,ptr-args->background);
         seq[ptr-args->background] = 0;
+        start = spos;
+        end   = epos;
     }
 
     if ( bcf_sr_seek(args->sr,seq,start)!=0 ) 
@@ -230,6 +235,7 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
         if ( !itr ) free(seq);
         return kitr;
     }
+
     int ismpl, rid = bcf_hdr_name2id(args->hdr,seq);
     if ( !itr ) free(seq);
 
@@ -243,7 +249,7 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
             bcf_fmt_t * fmt = bcf_get_fmt(args->hdr, rec, "GT");
             for (ismpl=0; ismpl<args->nsample; ismpl++)
             {
-                count_t *counts = stats ? &stats->counts[ismpl] : &args->bg_counts;
+                count_t *counts = stats ? &stats->counts[ismpl] : &args->bg_counts[ismpl];
                 int gt = bcf_gt_type(fmt, ismpl, NULL,NULL);
                 if ( gt==GT_UNKN ) counts->nmiss++;
                 else if ( gt==GT_HET_RA || gt==GT_HET_AA ) counts->nhet++;
@@ -274,7 +280,7 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
                         k++;
                     }
                 }
-                count_t *counts = stats ? &stats->counts[ismpl] : &args->bg_counts;
+                count_t *counts = stats ? &stats->counts[ismpl] : &args->bg_counts[ismpl];
                 if ( k == rec->n_allele ) counts->nhom++;   // haploid
                 else if ( k != rec->n_allele*(rec->n_allele+1)/2 ) counts->nmiss++;
                 else if ( phet < phom ) counts->nhet++;
@@ -288,21 +294,26 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
 void sex2prob_guess(args_t *args)
 {
     int ismpl, ireg; 
-    uint64_t nhom,nhet,nmiss;
-    float bg_het = -1;
 
+    // get numbers from the background region
     if ( args->background )
     {
         process_region_guess(args, NULL, NULL);
-        nhom  = args->bg_counts.nhom;
-        nhet  = args->bg_counts.nhet;
-        nmiss = args->bg_counts.nmiss;
-        bg_het = nhom+nhet ? (float)nhet/(nhom+nhet) : 0;
 
         if ( args->verbose )
+            printf("# [1]BGR\t[2]Region\t[3]Sample\t[4]Het fraction\t[5]nHet\t[6]nHom\t[7]nMissing\n");
+
+        for (ismpl=0; ismpl<args->nsample; ismpl++)
         {
-            printf("# [1]BGR\t[2]Region\t[3]Het fraction\t[4]nHet\t[5]nHom\t[6]nMissing\n");
-            printf("BGR\t%s\t%f\t%"PRId64"\t%"PRId64"\t%"PRId64"\n", args->background,bg_het,nhet,nhom,nmiss);
+            uint64_t nhom  = args->bg_counts[ismpl].nhom;
+            uint64_t nhet  = args->bg_counts[ismpl].nhet;
+            uint64_t nmiss = args->bg_counts[ismpl].nmiss;
+            if ( nhom+nhet==0 )
+                fprintf(stderr,"Warning: The sample %s has no variants in the background region %s\n", args->hdr->samples[ismpl],args->background);
+
+            float bg_het = (float)nhet/(nhom+nhet);
+            if ( args->verbose )
+                printf("BGR\t%s\t%s\t%f\t%"PRId64"\t%"PRId64"\t%"PRId64"\n", args->background,args->hdr->samples[ismpl],bg_het,nhet,nhom,nmiss);
         }
     }
 
@@ -315,10 +326,18 @@ void sex2prob_guess(args_t *args)
             uint64_t nhom  = stats->counts[ismpl].nhom;
             uint64_t nhet  = stats->counts[ismpl].nhet;
             uint64_t nmiss = stats->counts[ismpl].nmiss;
-            float fhet = nhom+nhet ? (float)nhet/(nhom+nhet) : 0;
+            float fhet   = nhom+nhet ? (float)nhet/(nhom+nhet) : 0;
+
+            float bg_fhet = -1;
+            if ( args->background )
+            {
+                uint64_t bg_nhom  = args->bg_counts[ismpl].nhom;
+                uint64_t bg_nhet  = args->bg_counts[ismpl].nhet;
+                bg_fhet = bg_nhom+bg_nhet ? (float)bg_nhet/(bg_nhom+bg_nhet) : 0;
+            }
 
             if ( args->verbose )
-                printf("DBG\t%s:%d-%d\t%s\t%f\t%"PRId64"\t%"PRId64"\t%"PRId64"\n", stats->chr,stats->start+1,stats->end+1,args->hdr->samples[ismpl],fhet,nhet,nhom,nmiss);
+                printf("REG\t%s:%d-%d\t%s\t%f\t%"PRId64"\t%"PRId64"\t%"PRId64"\n", stats->chr,stats->start+1,stats->end+1,args->hdr->samples[ismpl],fhet,nhet,nhom,nmiss);
 
             int i, ntot = nhom + nhet + nmiss;
             if ( !ntot ) continue;
@@ -333,18 +352,18 @@ void sex2prob_guess(args_t *args)
                 else if ( ploidy==1 )
                 {
                     // NB: these numbers (0.1,0.9) are made up, to be improved
-                    if ( bg_het<0 )
+                    if ( bg_fhet<0 )
                         prob = fhet > args->min_hets ? 0.1 : 0.9;
                     else
-                        prob = fhet > args->min_hets*bg_het ? 0.1 : 0.9;
+                        prob = fhet > args->min_hets*bg_fhet ? 0.1 : 0.9;
                     prob *= 1 - (float)nmiss / ntot;
                 }
                 else 
                 {
-                    if ( bg_het<0 )
+                    if ( bg_fhet<0 )
                         prob = fhet > args->min_hets ? 0.9 : 0.1;
                     else
-                        prob = fhet > args->min_hets*bg_het ? 0.9 : 0.1;
+                        prob = fhet > args->min_hets*bg_fhet ? 0.9 : 0.1;
                     prob *= 1 - (float)nmiss / ntot;
                 }
                 probs[i] *= prob;
@@ -425,14 +444,16 @@ int run(int argc, char **argv)
     if ( args->guess && args->max_ploidy > 2 ) error("Sorry, ploidy %d not supported with -g\n", args->max_ploidy);
     args->ncounts = args->nsample * ((args->max_ploidy>2 ? args->max_ploidy : 2)+1);
     args->counts = (int*) malloc(sizeof(int)*args->ncounts);
+    args->bg_counts = (count_t*) calloc(args->nsample,sizeof(count_t));
     args->sex2prob = (float*) calloc(args->nsample*args->nsex,sizeof(float));
 
     int i, nseq;
     for (i=0; i<args->nsample*args->nsex; i++) args->sex2prob[i] = 1;
 
     if ( args->verbose && args->guess )
-        printf("# [1]DBG\t[2]Region\t[3]Sample\t[4]HET fraction\t[5]nHet\t[6]nHom\t[7]nMissing\n");
+        printf("# [1]REG\t[2]Region\t[3]Sample\t[4]Het fraction\t[5]nHet\t[6]nHom\t[7]nMissing\n");
 
+    // First get the counts from expected haploid regions
     regidx_t *idx = ploidy_regions(args->ploidy);
     char **seqs = regidx_seq_names(idx, &nseq);
     for (i=0; i<nseq; i++)
@@ -447,6 +468,8 @@ int run(int argc, char **argv)
                 itr.i += process_region_precise(args, seqs[i], &itr);
         }
     }
+    // Get the counts from a PAR (the background diploid region) and see if the fraction
+    // of hets is different
     if ( args->guess ) sex2prob_guess(args);
 
     for (i=0; i<args->nsample; i++)
@@ -473,6 +496,7 @@ int run(int argc, char **argv)
     destroy_regs(args);
     free(args->sex2ploidy);
     free(args->counts);
+    free(args->bg_counts);
     free(args->gts);
     free(args->pls);
     free(args->sex2prob);
