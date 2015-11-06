@@ -38,7 +38,8 @@ transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.
 Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
-work in most, but not all situations.
+work in most, but not all situations. In general, whenever multiple VCFs are 
+read simultaneously, they must be indexed and therefore also compressed.
 
 BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
