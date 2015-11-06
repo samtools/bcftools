@@ -462,6 +462,9 @@ demand. The original calling model can be invoked with the *-c* option.
     minimum per-sample depth required to include a site in the non-variant
     block.
 
+*-i, --insert-missed* 'INT'::
+    output also sites missed by mpileup but present in *-T, --targets-file*.
+
 *-M, --keep-masked-ref*::
     output sites where REF allele is N
 
@@ -684,13 +687,30 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
     convert from haps/sample format to VCF. The columns of .haps file are
     similar to .gen file above, but there are only two haplotype columns per
     sample. Note that the first column of the haps file is expected to be in
-    the form "CHR:POS_REF_ALT", for example:
+    the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
+    defining the INFO/END tag when ALT is a symbolic allele, for example:
 ----
   .haps
   ----
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
   1:111494194_C_T rsID2 111494194 C T 0 1 0 0
+  1:111495231_A_<DEL>_111495784 rsID3 111495231 A <DEL> 0 0 1 0
 ----
+
+*--hapsample* 'prefix' or 'haps-file','sample-file'::
+    convert from VCF to haps/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .haps file begin with ID,RSID,POS,REF,ALT. In order to 
+    prevent strand swaps, the program uses IDs of the form 
+    "CHROM:POS_REF_ALT".
+
+*--haploid2diploid*::
+    with *-h* option converts haploid genotypes to homozygous diploid
+    genotypes. For example, the program will print '0 0' instead of the 
+    default '0 -'. This is useful for programs which do not handle haploid
+    genotypes correctly.
+
+*--vcf-ids*::
+    output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
 
 ==== HAPS/LEGEND/SAMPLE conversion:
 *-H, --haplegendsample2vcf* 'prefix' or 'haps-file','legend-file','sample-file'::
@@ -1113,8 +1133,14 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     can swap alleles and will update genotypes (GT) and AC counts, 
     but will not attempt to fix PL or other fields.
 
+*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
+    If a record is present in multiple files, output only the first instance,
+    see *--collapse* in *<<common_options,Common Options>>*.
+    Requires *-a, --allow-overlaps*.
+
 *-D, --remove-duplicates*::
-    remove duplicate lines of the same type
+    If a record is present in multiple files, output only the first instance.
+    Alias for *-d none*.  Requires *-a, --allow-overlaps*.
 
 *-f, --fasta-ref* 'FILE'[[fasta_ref]]::
     reference sequence. Supplying this option will turn on left-alignment
@@ -1215,6 +1241,9 @@ If htslib is not installed systemwide, set the environment variable
 
 *-v, --verbose*::
     print debugging information to debug plugin failure
+
+*-V, --version*::
+    print version string and exit
 
 ==== List of plugins coming with the distribution:
 
@@ -1466,6 +1495,9 @@ Transition probabilities:
     be a single file or a file mask, where string "{CHROM}" is replaced with
     chromosome name.
 
+*-M, --rec-rate* 'FLOAT'::
+    constant recombination rate per bp
+
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
@@ -1503,7 +1535,7 @@ default only sites are compared, *-s*/*-S* must given to include also sample
 columns.
 
 *-1, --1st-allele-only*::
-    consider only 1st allele at multiallelic sites
+    consider only the 1st alternate allele at multiallelic sites
 
 *-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
     see *<<common_options,Common Options>>*
@@ -1558,7 +1590,11 @@ columns.
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*-u, --user-tstv* '<TAG[:min:max:n]>'::
+    collect Ts/Tv stats for any tag using the given binning [0:1:100]
 
+*-v, --verbose*::
+    produce verbose per-site and per-sample output
 
 
 [[view]]
@@ -1603,6 +1639,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
 ==== Subset options:
 *-a, --trim-alt-alleles*::
     trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT fields will also be trimmed
+
+*--force-samples*::
+    only warn about unknown subset samples
 
 *-I, --no-update*::
     do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
