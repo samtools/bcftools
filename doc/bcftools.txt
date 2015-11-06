@@ -190,10 +190,20 @@ specific commands to see if they apply.
 *-s, --samples* \[&#94;]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
     with "&#94;".
+    Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
+    to correspond to the subset samples. *<<view,bcftools view>>* is the
+    exception where some tags will be updated (unless the *-I, --no-update*
+    option is used; see *<<view,bcftools view>>* documentation). To use updated 
+    tags for the subset in another command one can pipe from *view* into
+    that command. For example:
+----
+    bcftools view -Ou -s sample1,sample2 file.vcf | bcftools query -f %INFO/AC\t%INFO/AN\n
+----
 
 *-S, --samples-file* [&#94;]'FILE'[[samples_file]]::
     File of sample names to include or exclude if prefixed with "&#94;".
-    One sample per line.
+    One sample per line. See also the note above for the *-s, --samples*
+    option.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) or sex (as defined by
     *<<ploidy,--ploidy>>*, for example "F" or "M"), and can parse also PED
