@@ -1,6 +1,6 @@
 # Makefile for bcftools, utilities for Variant Call Format VCF/BCF files.
 #
-#   Copyright (C) 2012-2014 Genome Research Ltd.
+#   Copyright (C) 2012-2015 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -113,8 +113,16 @@ PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
 PLUGINS = $(PLUGINC:.c=.so)
 PLUGINM = $(PLUGINC:.c=.mk)
 
-%.so: %.c version.h version.c $(HTSDIR)/libhts.so
-	$(CC) -fPIC -shared $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) -L$(HTSDIR) $(LDFLAGS) -o $@ version.c $< -lhts $(LIBS)
+ifeq "$(shell uname -s)" "Darwin"
+$(PLUGINS): | bcftools
+
+PLUGIN_FLAGS = -bundle -bundle_loader bcftools
+else
+PLUGIN_FLAGS = -fPIC -shared
+endif
+
+%.so: %.c version.h version.c
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(LIBS)
 
 -include $(PLUGINM)
 
@@ -170,10 +178,10 @@ version.o: version.h version.c
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
-	$(CC) $(LDFLAGS) -o $@ $^ -lm -ldl $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ -lm $(LIBS)
 
 bcftools: $(HTSLIB) $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(GSL_LIBS) $(LIBS)
+	$(CC) -rdynamic $(LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(GSL_LIBS) $(LIBS)
 
 doc/bcftools.1: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
