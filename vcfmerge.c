@@ -118,7 +118,7 @@ typedef struct
     htsFile *out_fh;
     bcf_hdr_t *out_hdr;
     char **argv;
-    int argc;
+    int argc, n_threads;
 }
 args_t;
 
@@ -1898,6 +1898,7 @@ void merge_vcf(args_t *args)
 {
     args->out_fh  = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
     args->out_hdr = bcf_hdr_init("w");
 
     if ( args->header_fname )
@@ -1965,6 +1966,7 @@ static void usage(void)
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "        --threads <int>                number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1977,24 +1979,26 @@ int main_vcfmerge(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     args->collapse = COLLAPSE_BOTH;
     int regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"help",0,0,'h'},
-        {"merge",1,0,'m'},
-        {"file-list",1,0,'l'},
-        {"apply-filters",1,0,'f'},
-        {"use-header",1,0,1},
-        {"print-header",0,0,2},
-        {"force-samples",0,0,3},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"info-rules",1,0,'i'},
-        {0,0,0,0}
+        {"help",no_argument,NULL,'h'},
+        {"merge",required_argument,NULL,'m'},
+        {"file-list",required_argument,NULL,'l'},
+        {"apply-filters",required_argument,NULL,'f'},
+        {"use-header",required_argument,NULL,1},
+        {"print-header",no_argument,NULL,2},
+        {"force-samples",no_argument,NULL,3},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"info-rules",required_argument,NULL,'i'},
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:",loptions,NULL)) >= 0) {
         switch (c) {
@@ -2027,6 +2031,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case  3 : args->force_samples = 1; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);

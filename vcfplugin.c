@@ -129,7 +129,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hdr_out;
     htsFile *out_fh;
-    int output_type;
+    int output_type, n_threads;
 
     filter_t *filter;
     char *filter_str;
@@ -423,6 +423,7 @@ static void init_data(args_t *args)
     {
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+        if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
         bcf_hdr_write(args->out_fh, args->hdr_out);
     }
 }
@@ -461,6 +462,7 @@ static void usage(args_t *args)
     fprintf(stderr, "VCF output options:\n");
     fprintf(stderr, "   -o, --output <file>         write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "       --threads <int>         number of extra output compression threads [0]\n");
     fprintf(stderr, "Plugin options:\n");
     fprintf(stderr, "   -h, --help                  list plugin's options\n");
     fprintf(stderr, "   -l, --list-plugins          list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
@@ -477,6 +479,7 @@ int main_plugin(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     args->nplugin_paths = -1;
     int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0, version_only = 0;
 
@@ -486,19 +489,20 @@ int main_plugin(int argc, char *argv[])
 
     static struct option loptions[] =
     {
-        {"version",0,0,'V'},
-        {"verbose",0,0,'v'},
-        {"help",0,0,'h'},
-        {"list-plugins",0,0,'l'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"include",1,0,'i'},
-        {"exclude",1,0,'e'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {0,0,0,0}
+        {"version",no_argument,NULL,'V'},
+        {"verbose",no_argument,NULL,'v'},
+        {"help",no_argument,NULL,'h'},
+        {"list-plugins",no_argument,NULL,'l'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:vV",loptions,NULL)) >= 0)
     {
@@ -522,6 +526,7 @@ int main_plugin(int argc, char *argv[])
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'l': plist_only = 1; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case '?':
             case 'h': usage_only = 1; break;
             default: error("Unknown argument: %s\n", optarg);

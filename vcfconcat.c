@@ -37,7 +37,7 @@ typedef struct _args_t
 {
     bcf_srs_t *files;
     htsFile *out_fh;
-    int output_type;
+    int output_type, n_threads;
     bcf_hdr_t *out_hdr;
     int *seen_seq;
 
@@ -109,6 +109,7 @@ static void init_data(args_t *args)
     bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 
     bcf_hdr_write(args->out_fh, args->out_hdr);
 
@@ -572,6 +573,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
     fprintf(stderr, "   -r, --regions <region>         Restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file <file>      Restrict to regions listed in a file\n");
+    fprintf(stderr, "       --threads <int>            Number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -583,22 +585,24 @@ int main_vcfconcat(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     args->min_PQ  = 30;
 
     static struct option loptions[] =
     {
-        {"compact-PS",0,0,'c'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"remove-duplicates",0,0,'D'},
-        {"rm-dups",1,0,'d'},
-        {"allow-overlaps",0,0,'a'},
-        {"ligate",0,0,'l'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"file-list",1,0,'f'},
-        {"min-PQ",1,0,'q'},
-        {0,0,0,0}
+        {"compact-PS",no_argument,NULL,'c'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"remove-duplicates",no_argument,NULL,'D'},
+        {"rm-dups",required_argument,NULL,'d'},
+        {"allow-overlaps",no_argument,NULL,'a'},
+        {"ligate",no_argument,NULL,'l'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"file-list",required_argument,NULL,'f'},
+        {"min-PQ",required_argument,NULL,'q'},
+        {NULL,0,NULL,0}
     };
     char *tmp;
     while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dd:r:R:c",loptions,NULL)) >= 0)
@@ -626,6 +630,7 @@ int main_vcfconcat(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 };
                 break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);

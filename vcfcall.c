@@ -68,7 +68,7 @@ void error(const char *format, ...);
 typedef struct
 {
     int flag;   // combination of CF_* flags above
-    int output_type;
+    int output_type, n_threads;
     htsFile *bcf_in, *out_fh;
     char *bcf_fname, *output_fname;
     char **samples;             // for subsampling and ploidy
@@ -425,6 +425,7 @@ static void init_data(args_t *args)
 
     args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 
     if ( args->flag & CF_QCALL )
         return;
@@ -588,6 +589,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -S, --samples-file <file>       PED file or a file with an optional column with sex (see man page for details) [all samples]\n");
     fprintf(stderr, "   -t, --targets <region>          similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "       --threads <int>             number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
@@ -631,40 +633,42 @@ int main_vcfcall(int argc, char *argv[])
     args.flag           = CF_ACGT_ONLY;
     args.output_fname   = "-";
     args.output_type    = FT_VCF;
+    args.n_threads = 0;
     args.aux.trio_Pm_SNPs = 1 - 1e-8;
     args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
 
     int c;
     static struct option loptions[] =
     {
-        {"help",0,0,'h'},
-        {"format-fields",1,0,'f'},
-        {"gvcf",1,0,'g'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"samples",1,0,'s'},
-        {"samples-file",1,0,'S'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {"keep-alts",0,0,'A'},
-        {"insert-missed",0,0,'i'},
-        {"skip-Ns",0,0,'N'},            // now the new default
-        {"keep-masked-refs",0,0,'M'},
-        {"skip-variants",1,0,'V'},
-        {"variants-only",0,0,'v'},
-        {"consensus-caller",0,0,'c'},
-        {"constrain",1,0,'C'},
-        {"multiallelic-caller",0,0,'m'},
-        {"pval-threshold",1,0,'p'},
-        {"prior",1,0,'P'},
-        {"novel-rate",1,0,'n'},
-        {"ploidy",1,0,1},
-        {"ploidy-file",1,0,2},
-        {"chromosome-X",1,0,'X'},
-        {"chromosome-Y",1,0,'Y'},
-        {0,0,0,0}
+        {"help",no_argument,NULL,'h'},
+        {"format-fields",required_argument,NULL,'f'},
+        {"gvcf",required_argument,NULL,'g'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"samples",required_argument,NULL,'s'},
+        {"samples-file",required_argument,NULL,'S'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"threads",required_argument,NULL,9},
+        {"keep-alts",no_argument,NULL,'A'},
+        {"insert-missed",no_argument,NULL,'i'},
+        {"skip-Ns",no_argument,NULL,'N'},            // now the new default
+        {"keep-masked-refs",no_argument,NULL,'M'},
+        {"skip-variants",required_argument,NULL,'V'},
+        {"variants-only",no_argument,NULL,'v'},
+        {"consensus-caller",no_argument,NULL,'c'},
+        {"constrain",required_argument,NULL,'C'},
+        {"multiallelic-caller",no_argument,NULL,'m'},
+        {"pval-threshold",required_argument,NULL,'p'},
+        {"prior",required_argument,NULL,'P'},
+        {"novel-rate",required_argument,NULL,'n'},
+        {"ploidy",required_argument,NULL,1},
+        {"ploidy-file",required_argument,NULL,2},
+        {"chromosome-X",no_argument,NULL,'X'},
+        {"chromosome-Y",no_argument,NULL,'Y'},
+        {NULL,0,NULL,0}
     };
 
     char *tmp = NULL;
@@ -722,6 +726,7 @@ int main_vcfcall(int argc, char *argv[])
             case 'T': args.targets = optarg; args.targets_is_file = 1; break;
             case 's': args.samples_fname = optarg; break;
             case 'S': args.samples_fname = optarg; args.samples_is_file = 1; break;
+            case  9 : args.n_threads = strtol(optarg, 0, 0); break;
             default: usage(&args);
         }
     }

@@ -66,7 +66,7 @@ struct _args_t
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname;
-    int argc;
+    int argc, n_threads;
 };
 
 static void destroy_data(args_t *args)
@@ -383,6 +383,8 @@ static void gensample_to_vcf(args_t *args)
     free(samples);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
     bcf1_t *rec = bcf_init();
 
@@ -506,6 +508,8 @@ static void haplegendsample_to_vcf(args_t *args)
     free(samples);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
     bcf1_t *rec = bcf_init();
 
@@ -617,6 +621,8 @@ static void hapsample_to_vcf(args_t *args)
     free(samples);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
     bcf1_t *rec = bcf_init();
 
@@ -1152,6 +1158,8 @@ static void tsv_to_vcf(args_t *args)
     args->gts = (int32_t *) malloc(sizeof(int32_t)*n*2);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
 
     tsv_t *tsv = tsv_init(args->columns ? args->columns : "ID,CHROM,POS,AA");
@@ -1200,7 +1208,8 @@ static void vcf_to_vcf(args_t *args)
 {
     open_vcf(args,NULL);
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
-    if ( !out_fh ) error("Failed to open: %s\n", args->outfname);
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
 
     bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
     bcf_hdr_write(out_fh,hdr);
@@ -1228,7 +1237,8 @@ static void gvcf_to_vcf(args_t *args)
 
     open_vcf(args,NULL);
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
-    if ( !out_fh ) error("Failed to open: %s\n", args->outfname);
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
 
     bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
     bcf_hdr_append_version(hdr, args->argc, args->argv, "bcftools_convert");
@@ -1294,6 +1304,7 @@ static void usage(void)
     fprintf(stderr, "   -S, --samples-file <file>   file of samples to include\n");
     fprintf(stderr, "   -t, --targets <region>      similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>   similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "       --threads <int>         number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "VCF output options:\n");
     fprintf(stderr, "   -o, --output <file>            output file name [stdout]\n");
@@ -1347,6 +1358,7 @@ int main_vcfconvert(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->outfname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
 
     static struct option loptions[] =
     {
@@ -1354,6 +1366,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"exclude",required_argument,NULL,'e'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
         {"targets",required_argument,NULL,'t'},
@@ -1374,7 +1387,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"haplegendsample2vcf",required_argument,NULL,'H'},
         {"columns",required_argument,NULL,'c'},
         {"fasta-ref",required_argument,NULL,'f'},
-        {0,0,0,0}
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:",loptions,NULL)) >= 0) {
         switch (c) {
@@ -1410,6 +1423,7 @@ int main_vcfconvert(int argc, char *argv[])
                 }
                 break;
             case 'h': args->convert_func = vcf_to_haplegendsample; args->outfname = optarg; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }

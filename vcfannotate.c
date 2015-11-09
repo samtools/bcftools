@@ -87,7 +87,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hdr_out;
     htsFile *out_fh;
-    int output_type;
+    int output_type, n_threads;
     bcf_sr_regions_t *tgts;
 
     filter_t *filter;
@@ -1426,6 +1426,7 @@ static void init_data(args_t *args)
 
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+        if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
         bcf_hdr_write(args->out_fh, args->hdr_out);
     }
 }
@@ -1634,6 +1635,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -s, --samples [^]<list>        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -S, --samples-file [^]<file>   file of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
+    fprintf(stderr, "       --threads <int>            number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1646,28 +1648,30 @@ int main_vcfannotate(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
     args->set_ids_replace = 1;
     int regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"mark-sites",1,0,'m'},
-        {"set-id",1,0,'I'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"annotations",1,0,'a'},
-        {"include",1,0,'i'},
-        {"exclude",1,0,'e'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"remove",1,0,'x'},
-        {"columns",1,0,'c'},
-        {"rename-chrs",1,0,1},
-        {"header-lines",1,0,'h'},
-        {"samples",1,0,'s'},
-        {"samples-file",1,0,'S'},
-        {0,0,0,0}
+        {"mark-sites",required_argument,NULL,'m'},
+        {"set-id",required_argument,NULL,'I'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"annotations",required_argument,NULL,'a'},
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"remove",required_argument,NULL,'x'},
+        {"columns",required_argument,NULL,'c'},
+        {"rename-chrs",required_argument,NULL,1},
+        {"header-lines",required_argument,NULL,'h'},
+        {"samples",required_argument,NULL,'s'},
+        {"samples-file",required_argument,NULL,'S'},
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:",loptions,NULL)) >= 0)
     {
@@ -1700,6 +1704,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'h': args->header_fname = optarg; break;
             case  1 : args->rename_chrs = optarg; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }

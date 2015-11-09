@@ -255,6 +255,11 @@ specific commands to see if they apply.
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
 
+*--threads* 'INT'::
+    Number of output compression threads to use in addition to main thread. 
+    Only used when '--output-type' is 'b' or 'z'. Default: 0.
+
+
 [[annotate]]
 === bcftools annotate '[OPTIONS]' 'FILE'
 
@@ -358,6 +363,9 @@ This command allows to add or remove annotations.
     target VCF and the *-a, --annotations* VCF, the name mapping can be
     given as "src_name dst_name\n", separated by whitespaces, each pair on a
     separate line.
+
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-x, --remove* 'list'::
     List of annotations to remove. Use "FILTER" to remove all filters or
@@ -490,6 +498,9 @@ demand. The original calling model can be invoked with the *-c* option.
 
 ==== File format options:
 
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
@@ -533,6 +544,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *-T, --targets-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 ==== Input/output options:
 
 *-A, --keep-alts*::
@@ -554,9 +568,6 @@ demand. The original calling model can be invoked with the *-c* option.
 
 *-M, --keep-masked-ref*::
     output sites where REF allele is N
-
-*-o, --output* 'FILE'::
-    see *<<common_options,Common Options>>*
 
 *-V, --skip-variants* 'snps'|'indels'::
     skip indel/SNP sites
@@ -655,6 +666,9 @@ the *-a, --allow-overlaps* option is specified.
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*. Requires *-a, --allow-overlaps*.
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 
 [[consensus]]
 === bcftools consensus '[OPTIONS]' 'FILE'
@@ -729,6 +743,9 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
     see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
 ==== GEN/SAMPLE conversion:
@@ -1204,6 +1221,8 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 [[norm]]
@@ -1269,6 +1288,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *-T, --targets-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-w, --site-win* 'INT'::
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
@@ -1305,6 +1327,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
 ==== Plugin options:
@@ -1781,6 +1806,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
 

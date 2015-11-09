@@ -49,7 +49,7 @@ THE SOFTWARE.  */
 
 typedef struct
 {
-    int isec_op, isec_n, *write, iwrite, nwrite, output_type;
+    int isec_op, isec_n, *write, iwrite, nwrite, output_type, n_threads;
     int nflt, *flt_logic;
     filter_t **flt;
     char **flt_expr;
@@ -142,6 +142,7 @@ void isec_vcf(args_t *args)
     {
         out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode(args->output_type));
         if ( out_fh == NULL ) error("Can't write to %s: %s\n", args->output_fname? args->output_fname : "standard output", strerror(errno));
+        if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
         bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
         bcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
@@ -349,6 +350,7 @@ static void init_data(args_t *args)
                 open_file(&args->fnames[i], NULL, "%s/%04d.%s", args->prefix, i, suffix); \
                 args->fh_out[i] = hts_open(args->fnames[i], hts_bcf_wmode(args->output_type));  \
                 if ( !args->fh_out[i] ) error("Could not open %s\n", args->fnames[i]); \
+                if ( args->n_threads ) hts_set_threads(args->fh_out[i], args->n_threads); \
                 bcf_hdr_append_version(args->files->readers[j].header,args->argc,args->argv,"bcftools_isec"); \
                 bcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
             }
@@ -463,6 +465,7 @@ static void usage(void)
     fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -w, --write <list>            list of files to write with -p given as 1-based indexes. By default, all files are written\n");
+    fprintf(stderr, "        --threads <int>           number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
@@ -488,26 +491,28 @@ int main_vcfisec(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->output_fname = NULL;
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     int targets_is_file = 0, regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"help",0,0,'h'},
-        {"exclude",1,0,'e'},
-        {"include",1,0,'i'},
-        {"collapse",1,0,'c'},
-        {"complement",0,0,'C'},
-        {"apply-filters",1,0,'f'},
-        {"nfiles",1,0,'n'},
-        {"prefix",1,0,'p'},
-        {"write",1,0,'w'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {0,0,0,0}
+        {"help",no_argument,NULL,'h'},
+        {"exclude",required_argument,NULL,'e'},
+        {"include",required_argument,NULL,'i'},
+        {"collapse",required_argument,NULL,'c'},
+        {"complement",no_argument,NULL,'C'},
+        {"apply-filters",required_argument,NULL,'f'},
+        {"nfiles",required_argument,NULL,'n'},
+        {"prefix",required_argument,NULL,'p'},
+        {"write",required_argument,NULL,'w'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
@@ -554,6 +559,7 @@ int main_vcfisec(int argc, char *argv[])
                     else if ( sscanf(p,"%d",&args->isec_n)!=1 ) error("Could not parse --nfiles %s\n", optarg);
                 }
                 break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
