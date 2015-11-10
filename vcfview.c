@@ -470,7 +470,7 @@ void set_allele_type (int *atype, char *atype_string)
         *atype = ALLELE_NONMAJOR;
     }
     else {
-        error("Error: allele type (%s) not recognised. Must be one of nref|alt1|minor|major|nonmajor: %s\n", atype_string);
+        error("Error: allele type not recognised. Expected one of nref|alt1|minor|major|nonmajor, got \"%s\".\n", atype_string);
     }
 }
 
