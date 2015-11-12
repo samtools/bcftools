@@ -246,7 +246,8 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
 
         if ( args->guess & GUESS_GT )   // use GTs to guess the ploidy
         {
-            bcf_fmt_t * fmt = bcf_get_fmt(args->hdr, rec, "GT");
+            bcf_fmt_t *fmt = bcf_get_fmt(args->hdr, rec, "GT");
+            if ( !fmt ) continue;
             for (ismpl=0; ismpl<args->nsample; ismpl++)
             {
                 count_t *counts = stats ? &stats->counts[ismpl] : &args->bg_counts[ismpl];
@@ -268,10 +269,6 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
                 int phom = INT_MAX, phet = INT_MAX, ial, jal, k = 0;
                 for (ial=0; ial<rec->n_allele; ial++)
                 {
-                    if ( ptr[k] == bcf_int32_missing || ptr[k] == bcf_int32_vector_end )  break;
-                    ptr[k] *= gl2pl;
-                    if ( phom > ptr[k] ) phom = ptr[k];
-                    k++;
                     for (jal=0; jal<ial; jal++)
                     {
                         if ( ptr[k] == bcf_int32_missing || ptr[k] == bcf_int32_vector_end )  break;
@@ -279,10 +276,14 @@ int process_region_guess(args_t *args, char *seq, regitr_t *itr)
                         if ( phet > ptr[k] ) phet = ptr[k];
                         k++;
                     }
+                    if ( ptr[k] == bcf_int32_missing || ptr[k] == bcf_int32_vector_end )  break;
+                    ptr[k] *= gl2pl;
+                    if ( phom > ptr[k] ) phom = ptr[k];
+                    k++;
                 }
                 count_t *counts = stats ? &stats->counts[ismpl] : &args->bg_counts[ismpl];
                 if ( k == rec->n_allele ) counts->nhom++;   // haploid
-                else if ( k != rec->n_allele*(rec->n_allele+1)/2 ) counts->nmiss++;
+                else if ( phet == phom || k != rec->n_allele*(rec->n_allele+1)/2 ) counts->nmiss++;
                 else if ( phet < phom ) counts->nhet++;
                 else counts->nhom++;
             }
