@@ -877,7 +877,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Ts/Tv')
             \\tax1.set_ylim(min(float(row[1]) for row in dat)-0.1,max(float(row[1]) for row in dat)+0.1)
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -895,7 +895,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('nHet(RA) / nHom(AA)')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -913,7 +913,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Number of SNPs')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -931,7 +931,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Number of indels')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -949,7 +949,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Number of singletons')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -967,7 +967,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Average depth')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -1469,7 +1469,7 @@ sub plot_concordance_by_sample
             \\tax1.set_ylabel('Non-ref discordance')
             \\tax1.set_ylim(0,)
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[2] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[2] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
