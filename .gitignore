@@ -2,6 +2,7 @@ bcftools
 *.o
 /version.h
 plugins/*.so
+plugins/*.dSYM
 plugins/*.P
 
 /test/test-rbuf
