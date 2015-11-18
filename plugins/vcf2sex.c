@@ -105,8 +105,8 @@ const char *usage(void)
         "   Y 1 59373566 F 0\n"
         "   \n"
         "   bcftools +vcf2sex in.vcf.gz\n"
-        "   bcftools +vcf2sex in.vcf.gz -- -n 10\n"
-        "   bcftools +vcf2sex in.vcf.gz -- -g GT\n"
+        "   bcftools +vcf2sex -n 10 in.vcf.gz\n"
+        "   bcftools +vcf2sex -g GT in.vcf.gz\n"
         "\n";
 }
 
@@ -420,8 +420,8 @@ int run(int argc, char **argv)
 
     args->sr = bcf_sr_init();
     args->sr->require_index = 1;
-    if ( !argv[0] ) error("%s", usage());
-    if ( !bcf_sr_add_reader(args->sr,argv[0]) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
+    if ( optind==argc ) error("%s", usage());
+    if ( !bcf_sr_add_reader(args->sr,argv[optind]) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = args->sr->readers[0].header;
     args->nsample = bcf_hdr_nsamples(args->hdr);
  

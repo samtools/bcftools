@@ -239,13 +239,6 @@ static void print_plugin_usage_hint(void)
         fprintf(stderr,
                 " in\n\tBCFTOOLS_PLUGINS=\"%s\".\n\n"
                 "- Is the plugin path correct?\n\n"
-                "- Are all shared libraries, namely libhts.so, accessible? Verify with\n"
-                "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
-                "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
-                "\n"
-                "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
-                "DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.\n"
-                "\n"
                 "- Run \"bcftools plugin -lv\" for more detailed error output.\n"
                 "\n",
                 getenv("BCFTOOLS_PLUGINS")
@@ -484,8 +477,22 @@ int main_plugin(int argc, char *argv[])
     int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0, version_only = 0;
 
     if ( argc==1 ) usage(args);
+
     char *plugin_name = NULL;
-    if ( argv[1][0]!='-' ) { plugin_name = argv[1]; argc--; argv++; }
+    if ( argv[1][0]!='-' )
+    {
+        plugin_name = argv[1]; 
+        argc--; 
+        argv++; 
+        load_plugin(args, plugin_name, 1, &args->plugin);
+        if ( args->plugin.run )
+        {
+            int ret = args->plugin.run(argc, argv);
+            destroy_data(args);
+            free(args);
+            return ret;
+        }
+    }
 
     static struct option loptions[] =
     {
@@ -535,7 +542,6 @@ int main_plugin(int argc, char *argv[])
     if ( plist_only )  return list_plugins(args);
     if ( usage_only && ! plugin_name ) usage(args);
 
-    load_plugin(args, plugin_name, 1, &args->plugin);
     if ( version_only )
     {
         const char *bver, *hver;
@@ -552,15 +558,6 @@ int main_plugin(int argc, char *argv[])
         else
             fprintf(stderr,"Usage: bcftools +%s [General Options] -- [Plugin Options]\n",plugin_name);
         return 0;
-    }
-
-    if ( args->plugin.run )
-    {
-        int iopt = optind; optind = 0;
-        int ret = args->plugin.run(argc-iopt, argv+iopt);
-        destroy_data(args);
-        free(args);
-        return ret;
     }
 
     char *fname = NULL;
