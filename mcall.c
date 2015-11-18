@@ -1332,6 +1332,7 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
                 if ( ori_pl[k_ori]==bcf_int32_missing ) k_ori = bcf_alleles2gt(unseen,unseen);
                 new_pl[k] = ori_pl[k_ori];
             }
+            if ( !k && new_pl[k]==bcf_int32_vector_end ) new_pl[k]=bcf_int32_missing;
         }
         ori_pl += npls_ori;
         new_pl += npls_new;
