@@ -1,6 +1,6 @@
 /*  filter.c -- filter expressions.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -362,6 +362,12 @@ static int bcf_get_info_value(bcf1_t *line, int info_id, int ivec, void *value)
     }
     #undef BRANCH
     return -1;  // this shouldn't happen
+}
+
+static void filters_set_pos(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    tok->values[0] = line->pos+1;
+    tok->nvalues = 1;
 }
 
 static void filters_set_info_int(filter_t *flt, bcf1_t *line, token_t *tok)
@@ -1204,6 +1210,12 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         {
             tok->comparator = filters_cmp_id;
             tok->tag = strdup("ID");
+            return 0;
+        }
+        else if ( !strncasecmp(str,"POS",len) )
+        {
+            tok->setter = &filters_set_pos;
+            tok->tag = strdup("POS");
             return 0;
         }
         else if ( !strncasecmp(str,"REF",len) )
