@@ -630,7 +630,10 @@ columns appearing in the same order. Can be used, for example, to
 concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
 VCF into one. The input files must be sorted by chr and position. The files
 must be given in the correct order to produce sorted VCF on output unless
-the *-a, --allow-overlaps* option is specified.
+the *-a, --allow-overlaps* option is specified. With the --naive option, the files
+are concatenated without being recompressed, which is very fast but dangerous
+if the BCF headers differ.
+
 
 *-a, --allow-overlaps*::
     First coordinate of the next file can precede last record of the current file.
@@ -650,6 +653,13 @@ the *-a, --allow-overlaps* option is specified.
 
 *-l, --ligate*::
     Ligate phased VCFs by matching phase at overlapping haplotypes
+
+*-n, --naive*::
+    Concatenate BCF files without recompression. This is very fast but requires
+    that all files have the same headers. This is because all tags and
+    chromosome names in the BCF body rely on the implicit order of the contig
+    and tag definitions in the header. Currently no sanity checks
+    are in place and only works for compressed BCF files. Dangerous, use with caution. 
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
