@@ -1945,7 +1945,7 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        FILTER, QUAL, ID, REF, ALT[0]
+        FILTER, QUAL, ID, POS, REF, ALT[0]
 
 * 1 (or 0) to test the presence (or absence) of a flag
 
@@ -2019,6 +2019,8 @@ not "dp" instead of "DP".
     ID!=@~/file    .. skip lines with ID present in the ~/file
 
     MAF[0]<0.05    .. select rare variants at 5% cutoff
+
+    POS>=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.
 
 --
 
