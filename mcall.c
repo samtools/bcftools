@@ -1255,7 +1255,11 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
     }
 }
 
-static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
+
+// NB: in this function we temporarily use calls->als_map for a different
+// purpose to store mapping from new (target) alleles to original alleles.
+//
+static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
 {
     bcf_sr_regions_t *tgt = call->srs->targets;
     if ( tgt->nals>5 ) error("Maximum accepted number of alleles is 5, got %d\n", tgt->nals);
@@ -1278,6 +1282,8 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
         call->als[nals] = tgt->als[i];
         j = vcmp_find_allele(call->vcmp, rec->d.allele+1, rec->n_allele - 1, tgt->als[i]);
 
+        if ( j+1==*unseen ) error("Cannot constrain to %s\n",tgt->als[i]);
+        
         if ( j>=0 )
         {
             // existing allele
@@ -1290,11 +1296,18 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
             // present at multiallelic indels sites. In that case we use the
             // last allele anyway, because the least likely allele comes last
             // in mpileup's ALT output.
-            call->als_map[nals] = unseen>=0 ? unseen : rec->n_allele - 1;
+            call->als_map[nals] = (*unseen)>=0 ? *unseen : rec->n_allele - 1;
             has_new = 1;
         }
         nals++;
     }
+    if ( *unseen )
+    {
+        call->als_map[nals] = *unseen;
+        call->als[nals] = rec->d.allele[*unseen];
+        nals++;
+    }
+
     if ( !has_new && nals==rec->n_allele ) return;
     bcf_update_alleles(call->hdr, rec, (const char**)call->als, nals);
 
@@ -1321,15 +1334,15 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
         for (k=0; k<npls_new; k++)
         {
             new_pl[k] = ori_pl[call->pl_map[k]];
-            if ( new_pl[k]==bcf_int32_missing && unseen>=0 )
+            if ( new_pl[k]==bcf_int32_missing && *unseen>=0 )
             {
                 // missing value, and there is an unseen allele: identify the
                 // alleles and use the lk of either AX or XX
                 int k_ori = call->pl_map[k], ia, ib;
                 bcf_gt2alleles(k_ori, &ia, &ib);
-                k_ori = bcf_alleles2gt(ia,unseen);
-                if ( ori_pl[k_ori]==bcf_int32_missing ) k_ori = bcf_alleles2gt(ib,unseen);
-                if ( ori_pl[k_ori]==bcf_int32_missing ) k_ori = bcf_alleles2gt(unseen,unseen);
+                k_ori = bcf_alleles2gt(ia,*unseen);
+                if ( ori_pl[k_ori]==bcf_int32_missing ) k_ori = bcf_alleles2gt(ib,*unseen);
+                if ( ori_pl[k_ori]==bcf_int32_missing ) k_ori = bcf_alleles2gt(*unseen,*unseen);
                 new_pl[k] = ori_pl[k_ori];
             }
             if ( !k && new_pl[k]==bcf_int32_vector_end ) new_pl[k]=bcf_int32_missing;
@@ -1345,6 +1358,8 @@ static void mcall_constrain_alleles(call_t *call, bcf1_t *rec, int unseen)
     for (i=0; i<nals; i++)
         qsum[i] = call->als_map[i]<nqs ? call->qsum[call->als_map[i]] : 0;
     bcf_update_info_float(call->hdr, rec, "QS", qsum, nals);
+
+    if ( *unseen ) *unseen = nals-1;
 }
 
 
@@ -1359,7 +1374,7 @@ int mcall(call_t *call, bcf1_t *rec)
     int i, unseen = call->unseen;
 
     // Force alleles when calling genotypes given alleles was requested
-    if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec, unseen);
+    if ( call->flag & CALL_CONSTR_ALLELES ) mcall_constrain_alleles(call, rec, &unseen);
 
     int nsmpl = bcf_hdr_nsamples(call->hdr);
     int nals  = rec->n_allele;
