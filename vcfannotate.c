@@ -310,7 +310,7 @@ static void init_remove_annots(args_t *args)
         ss = *se ? se+1 : se;
     }
     free(str.s);
-    if ( keep_flt || keep_info || keep_flt )
+    if ( keep_flt || keep_info || keep_fmt )
     {
         int j;
         for (j=0; j<args->hdr->nhrec; j++)
