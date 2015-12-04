@@ -1,0 +1,20 @@
+# This file can be used as input to the subset plotting tools at:
+#   https://github.com/dlaehnemann/bankers2
+# Genotype intersections across samples:
+@SMPS NA00003 NA00002 NA00001
+# The first 3 lines contain the counts for missing values of each sample in the order provided
+#   in the SMPS-line above. Intersection counts only start afterwards.
+# Subset intersection counts are in global banker's sequence order.
+#   After exclusive sample counts in order of the SMPS-line, banker's sequence continues with:
+#   NA00003,NA00002   NA00003,NA00001   ...
+# [1] Number of shared non-ref genotypes 	[2] Samples sharing non-ref genotype (GT)
+4	NA00003-
+1	NA00002-
+1	NA00001-
+9	NA00003
+4	NA00002
+5	NA00001
+1	NA00003,NA00002
+0	NA00003,NA00001
+8	NA00002,NA00001
+1	NA00003,NA00002,NA00001
