@@ -124,7 +124,7 @@ sub parse_params
             {
                 id=>'SN',
                 header=>'SN, Summary numbers',
-                exp=>"# SN  [2]id   [3]key  [4]value"
+                exp=>"# SN\t[2]id\t[3]key\t[4]value"
             },
             {
                 id=>'TSTV',
@@ -221,6 +221,17 @@ sub parse_params
                 header=>'HWE',
                 exp=>"# HWE\t[2]id\t[3]1st ALT allele frequency\t[4]Number of observations\t[5]25th percentile\t[6]median\t[7]75th percentile",
             },
+        ],
+        SN_keys=>[
+            'number of samples:',
+            'number of records:',
+            'number of no-ALTs:',
+            'number of SNPs:',
+            'number of MNPs:',
+            'number of indels:',
+            'number of others:',
+            'number of multiallelic sites:',
+            'number of multiallelic SNP sites:',
         ],
     };
     for my $sec (@{$$opts{sections}}) { $$opts{exp}{$$sec{id}} = $$sec{exp}; $$opts{id2sec}{$$sec{id}} = $sec; }
@@ -474,10 +485,24 @@ sub merge_dp
 {
     my ($a,$b) = @_;
     add_to_values($a,$b,\&cmp_num_op);
-    # recalculate fraction of GTs, cannot be simply summed
-    my $sum = 0;
-    for (my $i=0; $i<@$a; $i++) { $sum += $$a[$i][1]; }
-    for (my $i=0; $i<@$a; $i++) { $$a[$i][2] = $$a[$i][1]*100./$sum; }
+    # recalculate fraction of GTs and fraction of sites, cannot be simply summed
+    my $gsum = 0; # genotype sum
+    my $ssum = 0; # site sum
+    for (my $i=0; $i<@$a; $i++)
+    {
+        $gsum += $$a[$i][1];
+        if (@{$$a[$i]}>3) {
+            $ssum += $$a[$i][3];
+        }
+        else{
+            push @{$$a[$i]}, (0,0); # older stats files will not have last 2 columns for (number of sites, fraction of sites), so fill in as zero
+        }
+    }
+    for (my $i=0; $i<@$a; $i++)
+    {
+        $$a[$i][2] = $gsum ? $$a[$i][1]*100./$gsum : 0;
+        $$a[$i][4] = $ssum ? $$a[$i][3]*100./$ssum : 0;
+    }
 }
 
 sub merge_GCsS
@@ -852,7 +877,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Ts/Tv')
             \\tax1.set_ylim(min(float(row[1]) for row in dat)-0.1,max(float(row[1]) for row in dat)+0.1)
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -870,7 +895,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('nHet(RA) / nHom(AA)')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -888,7 +913,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Number of SNPs')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -906,7 +931,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Number of indels')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -924,7 +949,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Number of singletons')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -942,7 +967,7 @@ sub plot_per_sample_stats
             \\tax1.set_ylabel('Average depth')
             \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[7] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -1281,7 +1306,7 @@ sub plot_tstv_by_QUAL
             \\tfor row in reader:
             \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
 
-            if plot_tstv_by_qual:
+            if plot_tstv_by_qual and len(dat)>2:
             \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
             \\tax1 = fig.add_subplot(111)
             \\tax1.plot([row[1] for row in dat], [row[2] for row in dat], '^-', ms=3, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]')
@@ -1444,7 +1469,7 @@ sub plot_concordance_by_sample
             \\tax1.set_ylabel('Non-ref discordance')
             \\tax1.set_ylim(0,)
             \\tif sample_names:
-            \\t\\t     plt.xticks([row[0] for row in dat],[row[2] for row in dat],**sample_font)
+            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[2] for row in dat],**sample_font)
             \\t\\t     plt.subplots_adjust(**sample_margins)
             \\telse:
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
@@ -1599,9 +1624,7 @@ sub plot_overlap_by_AF_col
 
 
     ";
-
 }
-
 
 sub plot_indel_distribution
 {
@@ -1755,6 +1778,7 @@ sub fmt_slide3v
             \\hslide{$title}{$slide}
         ];
 }
+
 sub fmt_slide3h
 {
     my ($opts, $image, $title) = @_;
@@ -2083,7 +2107,6 @@ sub create_pdf
     print STDERR "Finished: $pdf_file\n" unless !$$opts{verbose};
 }
 
-
 sub merge_vcfstats
 {
     my ($opts) = @_;
@@ -2117,8 +2140,9 @@ sub merge_vcfstats
             for my $id (keys %{$$opts{dat}})
             {
                 if ( exists($$opts{exp}{$id}) ) { next; }
-                for my $key (keys %{$$opts{dat}{$id}})
+                for my $key (@{$$opts{SN_keys}})
                 {
+                    next unless exists $$opts{dat}{$id}{$key};
                     print $fh "SN\t$id\t$key\t$$opts{dat}{$id}{$key}\n";
                 }
             }

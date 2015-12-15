@@ -1,0 +1,37 @@
+##fileformat=VCFv4.2
+##contig=<ID=11,length=2147483647>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=FL,Number=1,Type=Float,Description="Float">
+##FORMAT=<ID=FLG,Number=G,Type=Float,Description="FloatG">
+##FORMAT=<ID=FLA,Number=A,Type=Float,Description="FloatA">
+##FORMAT=<ID=FLR,Number=R,Type=Float,Description="FloatR">
+##FORMAT=<ID=INT,Number=1,Type=Float,Description="Int">
+##FORMAT=<ID=INTG,Number=G,Type=Float,Description="IntG">
+##FORMAT=<ID=INTA,Number=A,Type=Integer,Description="IntA">
+##FORMAT=<ID=INTR,Number=R,Type=Integer,Description="IntR">
+##FORMAT=<ID=ST,Number=1,Type=String,Description="String">
+##FORMAT=<ID=STA,Number=A,Type=String,Description="StringA">
+##FORMAT=<ID=STR,Number=R,Type=String,Description="StringR">
+##FORMAT=<ID=STG,Number=G,Type=String,Description="StringG">
+##INFO=<ID=FL,Number=1,Type=Float,Description="Float">
+##INFO=<ID=FLG,Number=G,Type=Float,Description="FloatG">
+##INFO=<ID=FLA,Number=A,Type=Float,Description="FloatA">
+##INFO=<ID=FLR,Number=R,Type=Float,Description="FloatR">
+##INFO=<ID=INT,Number=1,Type=Float,Description="Int">
+##INFO=<ID=INTG,Number=G,Type=Float,Description="IntG">
+##INFO=<ID=INTA,Number=A,Type=Integer,Description="IntA">
+##INFO=<ID=INTR,Number=R,Type=Integer,Description="IntR">
+##INFO=<ID=F1,Type=Flag,Description="Flag1">
+##INFO=<ID=ST,Number=1,Type=String,Description="String">
+##INFO=<ID=STA,Number=A,Type=String,Description="StringA">
+##INFO=<ID=STR,Number=R,Type=String,Description="StringR">
+##INFO=<ID=STG,Number=G,Type=String,Description="StringG">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample_1	sample_2
+11	48245184	.	C	G	.	PASS	FL=0.34;FLG=0.1,0,0.9;FLA=88.4;FLR=99.0,88.4;INT=0;INTG=0,1,9;INTA=88;INTR=99,88;F1;ST=alpha;STA=alpha;STR=alpha,beta;STG=alpha,beta,gamma	GT:FL:FLG:FLA:FLR:INT:INTG:INTA:INTR:ST:STA:STR:STG	0|0:0.34:0.1,0,0.9:88.4:99.0,88.4:0:0,1,9:88:99,88:alpha:alpha:alpha,beta:alpha,beta,gamma	0|0:0.34:0.1,0,0.9:88.4:99.0,88.4:0:0,1,9:88:99,88:alpha:alpha:alpha,beta:alpha,beta,gamma
+11	48245184	.	C	G	.	PASS	.	GT	0/0	0/0
+11	48245185	.	C	G	.	PASS	FL=0.34;FLG=0.1,0,0.9;FLA=88.4;FLR=99.0,88.4;INT=0;INTG=0,1,9;INTA=88;INTR=99,88;F1;ST=alpha;STA=alpha;STR=alpha,beta;STG=alpha,beta,gamma	GT:FL:FLG:FLA:FLR:INT:INTG:INTA:INTR:ST:STA:STR:STG	0|0:0.34:0.1,0,0.9:88.4:99.0,88.4:0:0,1,9:88:99,88:alpha:alpha:alpha,beta:alpha,beta,gamma	0|0:0.34:0.1,0,0.9:88.4:99.0,88.4:0:0,1,9:88:99,88:alpha:alpha:alpha,beta:alpha,beta,gamma
+11	48245185	.	C	T	.	PASS	.	GT	0/0	0/0
+11	48245186	.	C	G,T	.	PASS	FL=0.34;FLA=88.4,88.4;FLR=99.0,88.4,88.4;INT=0;INTA=88,11;INTR=99,88,11;F1;ST=alpha;STA=alpha,beta;STR=alpha,beta,gamma	GT:FL:FLA:FLR:INT:INTA:INTR:ST:STA:STR	0|0:0.34:88.4,11:99.0,88.4,11:0:88,11:99,88,11:alpha:alpha,beta:alpha,beta,gamma	0|0:0.34:88.4,11:99.0,88.4,11:0:88,11:99,88,11:alpha:alpha,beta:alpha,beta,gamma
+11	48245186	.	C	T	.	PASS	.	GT	0/0	0/0
+11	48245187	.	C	G	.	PASS	FL=0.34;FLA=88.4;FLR=99.0,88.4;INT=0;INTA=88;INTR=99,88;F1;ST=alpha;STA=alpha;STR=alpha,beta	GT:FL:FLG:FLA:FLR:INT:INTG:INTA:INTR:ST:STA:STR:STG	0:0.34:0.1,0:88.4:99.0,88.4:0:0,1:88:99,88:alpha:alpha:alpha,beta:alpha,beta	0:0.34:0.1,0:88.4:99.0,88.4:0:0,1:88:99,88:alpha:alpha:alpha,beta:alpha,beta
+11	48245187	.	C	T	.	PASS	.	GT	0	0

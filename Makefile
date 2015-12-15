@@ -1,6 +1,6 @@
 # Makefile for bcftools, utilities for Variant Call Format VCF/BCF files.
 #
-#   Copyright (C) 2012-2014 Genome Research Ltd.
+#   Copyright (C) 2012-2015 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -36,30 +36,40 @@ BGZIP  = $(HTSDIR)/bgzip
 TABIX  = $(HTSDIR)/tabix
 
 CC       = gcc
+CPPFLAGS =
 CFLAGS   = -g -Wall -Wc++-compat -O2
-DFLAGS   =
+LDFLAGS  =
+LIBS     =
+
 OBJS     = main.o vcfindex.o tabix.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o version.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
-INCLUDES = -I. -I$(HTSDIR)
+
+EXTRA_CPPFLAGS = -I. -I$(HTSDIR) -DPLUGINPATH=\"$(pluginpath)\"
+GSL_LIBS       =
 
 # The polysomy command is not compiled by default because it brings dependency
 # on libgsl. The command can be compiled wth `make USE_GPL=1`. See the INSTALL
 # and LICENSE documents to understand license implications.
 ifdef USE_GPL
-    CFLAGS += -DUSE_GPL
-    OBJS   += polysomy.o
-    LDLIBS  = -lgsl -lcblas
+    EXTRA_CPPFLAGS += -DUSE_GPL
+    OBJS += polysomy.o peakfit.o
+    GSL_LIBS = -lgsl -lcblas
 endif
 
 prefix      = /usr/local
 exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/bin
+libdir      = $(exec_prefix)/lib
+libexecdir  = $(exec_prefix)/libexec
 mandir      = $(prefix)/share/man
 man1dir     = $(mandir)/man1
+
+plugindir   = $(libexecdir)/bcftools
+pluginpath  = $(plugindir)
 
 MKDIR_P = mkdir -p
 INSTALL = install -p
@@ -67,11 +77,12 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA    = $(INSTALL) -m 644
 INSTALL_DIR     = $(MKDIR_P) -m 755
 
+MISC_PROGRAMS = plot-vcfstats vcfutils.pl plugins/color-chrs.pl
 
 all:$(PROG) plugins
 
 # See htslib/Makefile
-PACKAGE_VERSION = 1.2
+PACKAGE_VERSION = 1.3
 ifneq "$(wildcard .git)" ""
 PACKAGE_VERSION := $(shell git describe --always --dirty)
 DOC_VERSION :=  $(shell git describe --always)+
@@ -88,7 +99,7 @@ version.h:
 force:
 
 .c.o:
-	$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 test: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
 	./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
@@ -102,8 +113,16 @@ PLUGINC = $(foreach dir, plugins, $(wildcard $(dir)/*.c))
 PLUGINS = $(PLUGINC:.c=.so)
 PLUGINM = $(PLUGINC:.c=.mk)
 
-%.so: %.c version.h version.c $(HTSDIR)/libhts.so
-	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -shared -o $@ version.c $< -L$(HTSDIR) -lhts
+ifeq "$(shell uname -s)" "Darwin"
+$(PLUGINS): | bcftools
+
+PLUGIN_FLAGS = -bundle -bundle_loader bcftools
+else
+PLUGIN_FLAGS = -fPIC -shared
+endif
+
+%.so: %.c version.h version.c
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(LIBS)
 
 -include $(PLUGINM)
 
@@ -115,6 +134,7 @@ call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
 convert_h = convert.h $(htslib_vcf_h)
 tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h)
 filter_h = filter.h $(htslib_vcf_h)
+ploidy_h = ploidy.h $(htslib_regidx_h)
 prob1_h = prob1.h $(htslib_vcf_h) $(call_h)
 roh_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kstring.h $(HTSDIR)/htslib/kseq.h $(bcftools_h)
 cnv_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h)
@@ -122,7 +142,7 @@ cnv_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h)
 main.o: main.c $(htslib_hts_h) version.h $(bcftools_h)
 vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
 vcfplugin.o: vcfplugin.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
-vcfcall.o: vcfcall.c $(htslib_vcf_h) $(HTSDIR)/htslib/kfunc.h $(htslib_synced_bcf_reader_h) $(bcftools_h) $(call_h) $(prob1_h)
+vcfcall.o: vcfcall.c $(htslib_vcf_h) $(HTSDIR)/htslib/kfunc.h $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/khash_str2int.h $(bcftools_h) $(call_h) $(prob1_h) $(ploidy_h)
 vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
 vcfconvert.o: vcfconvert.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) $(convert_h) $(tsv2vcf_h)
 vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h
@@ -149,17 +169,19 @@ kmin.o: kmin.c kmin.h
 mcall.o: mcall.c $(HTSDIR)/htslib/kfunc.h $(call_h)
 prob1.o: prob1.c $(prob1_h)
 vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
-polysomy.o: polysomy.c $(htslib_hts_h)
+ploidy.o: ploidy.c $(htslib_regidx_h) $(HTSDIR)/htslib/khash_str2int.h $(HTSDIR)/htslib/kseq.h $(htslib_hts_h) $(bcftools_h) $(ploidy_h)
+polysomy.o: polysomy.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(bcftools_h) peakfit.h
+peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(HTSDIR)/htslib/kstring.h
 consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) $(HTSDIR)/htslib/regidx.h
 version.o: version.h version.c
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
-	$(CC) $(CFLAGS) -o $@ -lm -ldl $<
+	$(CC) $(LDFLAGS) -o $@ $^ -lm $(LIBS)
 
 bcftools: $(HTSLIB) $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(LDLIBS)
+	$(CC) -rdynamic $(LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(GSL_LIBS) $(LIBS)
 
 doc/bcftools.1: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
@@ -167,19 +189,27 @@ doc/bcftools.1: doc/bcftools.txt
 doc/bcftools.html: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format xhtml bcftools.txt
 
+# make docs target depends the a2x asciidoc program
 docs: doc/bcftools.1 doc/bcftools.html
 
-install: $(PROG) doc/bcftools.1
-	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir)
-	$(INSTALL_PROGRAM) $(PROG) plot-vcfstats vcfutils.pl $(DESTDIR)$(bindir)
+# To avoid an install dependency on asciidoc, the make install target
+# does not depend on doc/bcftools.1
+# bcftools.1 is a generated file from the asciidoc bcftools.txt file.
+# Since there is no make dependency, bcftools.1 can be out-of-date and
+# make docs can be run to update if asciidoc is available
+install: $(PROG)
+	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
+	$(INSTALL_PROGRAM) $(PROG) $(MISC_PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) doc/bcftools.1 $(DESTDIR)$(man1dir)
+	$(INSTALL_PROGRAM) plugins/*.so $(DESTDIR)$(plugindir)
 
 clean: testclean clean-plugins
 	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so plugins/*.P
 	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
 
 clean-plugins:
-	-rm -f plugins/*.so plugins/*.P plugins/*.dSYM
+	-rm -f plugins/*.so plugins/*.P
+	-rm -rf plugins/*.dSYM
 
 testclean:
 	-rm -f test/*.o test/*~ $(TEST_PROG)

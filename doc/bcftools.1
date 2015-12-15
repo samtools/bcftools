@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2015-01-21 15:01 GMT
+.\"      Date: 2015-12-15 14:02 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2015\-01\-21 15:01 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2015\-12\-15 14:02 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,17 +31,17 @@
 bcftools \- utilities for variant calling and manipulating VCFs and BCFs\&.
 .SH "SYNOPSIS"
 .sp
-\fBbcftools\fR [\fICOMMAND\fR] [\fIOPTIONS\fR]
+\fBbcftools\fR [\-\-version|\-\-version\-only] [\-\-help] [\fICOMMAND\fR] [\fIOPTIONS\fR]
 .SH "DESCRIPTION"
 .sp
 BCFtools is a set of utilities that manipulate variant calls in the Variant Call Format (VCF) and its binary counterpart BCF\&. All commands work transparently with both VCFs and BCFs, both uncompressed and BGZF\-compressed\&.
 .sp
-Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatically even when streaming from a pipe\&. Indexed VCF and BCF will work in all situations\&. Un\-indexed VCF and BCF and streams will work in most, but not all situations\&.
+Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatically even when streaming from a pipe\&. Indexed VCF and BCF will work in all situations\&. Un\-indexed VCF and BCF and streams will work in most, but not all situations\&. In general, whenever multiple VCFs are read simultaneously, they must be indexed and therefore also compressed\&.
 .sp
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2015\-01\-21 15:01 GMT\fR and refers to bcftools git version \fB1\&.1\-140\-g9b0e7cc+\fR\&.
+This manual page was last updated \fB2015\-12\-15 14:02 GMT\fR and refers to bcftools git version \fB1\&.2\-191\-g6737c5c+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -86,6 +86,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBcall\fR
 \&.\&. SNP/indel calling (former "view")
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBcnv\fR
+\&.\&. Copy Number Variation caller
 .RE
 .sp
 .RS 4
@@ -216,6 +229,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBplugin\fR
 \&.\&. run user\-defined plugin
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBpolysomy\fR
+\&.\&. detect contaminations and whole\-chromosome aberrations
 .RE
 .sp
 .RS 4
@@ -376,7 +402,7 @@ rather than to standard output, where it is written by default\&.
 .PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
 .RS 4
-Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fIz\fR), uncompressed VCF (\fIv\fR)\&.
+Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fIz\fR), uncompressed VCF (\fIv\fR)\&. Use the \-Ou option when piping between bcftools subcommands to speed up performance by removing unecessary compression/decompression and VCF←→BCF conversion\&.
 .RE
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -404,17 +430,62 @@ cannot be used in combination with
 .PP
 \fB\-s, \-\-samples\fR [^]\fILIST\fR
 .RS 4
-Comma\-separated list of samples to include or exclude if prefixed with "^"\&.
+Comma\-separated list of samples to include or exclude if prefixed with "^"\&. Note that in general tags such as INFO/AC, INFO/AN, etc are not updated to correspond to the subset samples\&.
+\fBbcftools view\fR
+is the exception where some tags will be updated (unless the
+\fB\-I, \-\-no\-update\fR
+option is used; see
+\fBbcftools view\fR
+documentation)\&. To use updated tags for the subset in another command one can pipe from
+\fBview\fR
+into that command\&. For example:
 .RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools view \-Ou \-s sample1,sample2 file\&.vcf | bcftools query \-f %INFO/AC\et%INFO/AN\en
+.fi
+.if n \{\
+.RE
+.\}
 .PP
 \fB\-S, \-\-samples\-file\fR \fIFILE\fR
 .RS 4
-File of sample names to include or exclude if prefixed with "^"\&. One sample per line\&. The command
+File of sample names to include or exclude if prefixed with "^"\&. One sample per line\&. See also the note above for the
+\fB\-s, \-\-samples\fR
+option\&. The command
 \fBbcftools call\fR
-accepts an optional second column indicating ploidy (0, 1 or 2) and can parse also PED files\&. With
+accepts an optional second column indicating ploidy (0, 1 or 2) or sex (as defined by
+\fB\-\-ploidy\fR, for example "F" or "M"), and can parse also PED files\&. If the second column is not present, the sex "F" is assumed\&. With
 \fBbcftools call\fR\fB \-C\fR
-\fItrio\fR, PED file is expected\&.
+\fItrio\fR, PED file is expected\&. File formats examples:
 .RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    sample1    1
+    sample2    2
+    sample3    2
+
+  or
+
+    sample1    M
+    sample2    F
+    sample3    F
+
+  or a \&.ped file (here is shown a minimum working example, the first column is
+  ignored and the last indicates sex: 1=male, 2=female)
+
+    ignored daughterA fatherA motherA 2
+    ignored sonB fatherB motherB 1
+.fi
+.if n \{\
+.RE
+.\}
 .PP
 \fB\-t, \-\-targets\fR [^]\fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
@@ -451,18 +522,28 @@ cannot be used in combination with
 With the
 \fBcall \-C\fR
 \fIalleles\fR
-command, third column of the targets file must be comma\-separated list of alleles, starting with the reference allele\&. Such a file can be easily created from a VCF using:
+command, third column of the targets file must be comma\-separated list of alleles, starting with the reference allele\&. Note that the file must be compressed and index\&. Such a file can be easily created from a VCF using:
 .RE
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-    bcftools query \-f\*(Aq%CHROM\et%POS\et%REF,%ALT\en\*(Aq file\&.vcf
+    bcftools query \-f\*(Aq%CHROM\et%POS\et%REF,%ALT\en\*(Aq file\&.vcf | bgzip \-c > als\&.tsv\&.gz && tabix \-s1 \-b2 \-e2 als\&.tsv\&.gz
 .fi
 .if n \{\
 .RE
 .\}
+.PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+Number of output compression threads to use in addition to main thread\&. Only used when
+\fI\-\-output\-type\fR
+is
+\fIb\fR
+or
+\fIz\fR\&. Default: 0\&.
+.RE
 .SS "bcftools annotate \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
 This command allows to add or remove annotations\&.
@@ -493,7 +574,7 @@ and
 Comma\-separated list of columns or tags to carry over from the annotation file (see also
 \fB\-a, \-\-annotations\fR)\&. If the annotation file is not a VCF/BCF,
 \fIlist\fR
-describes the columns of the annotation file and must include CHROM, POS (or, alternatively, FROM and TO), and optionally REF and ALT\&. Unused columns which should be ignored can be indicated by "\-"\&. If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their order does not matter\&. The columns ID, QUAL, FILTER, INFO and FORMAT can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG", and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG"\&. To carry over all INFO annotations, use "INFO"\&. To add all INFO annotations except "TAG", use "^INFO/TAG"\&. By default, existing values are replaced\&. To add values without overwriting existing annotations, use "+TAG" instead of "TAG"\&. To replace only existing values without modifying missing annotations, use "\-TAG"\&. If the annotation file is not a VCF/BCF, all new annotations must be defined via
+describes the columns of the annotation file and must include CHROM, POS (or, alternatively, FROM and TO), and optionally REF and ALT\&. Unused columns which should be ignored can be indicated by "\-"\&. If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their order does not matter\&. The columns ID, QUAL, FILTER, INFO and FORMAT can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG", and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG"\&. To carry over all INFO annotations, use "INFO"\&. To add all INFO annotations except "TAG", use "^INFO/TAG"\&. By default, existing values are replaced\&. To add annotations without overwriting existing values (that is, to add missing tags or add values to existing tags with missing values), use "+TAG" instead of "TAG"\&. To append to existing values (rather than replacing or leaving untouched), use "=TAG" (instead of "TAG" or "+TAG")\&. To replace only existing values without modifying missing annotations, use "\-TAG"\&. If the annotation file is not a VCF/BCF, all new annotations must be defined via
 \fB\-h, \-\-header\-lines\fR\&.
 .RE
 .PP
@@ -549,6 +630,13 @@ is true\&. For valid expressions see
 \fBEXPRESSIONS\fR\&.
 .RE
 .PP
+\fB\-m, \-\-mark\-sites\fR \fITAG\fR
+.RS 4
+annotate sites which are present ("+") or absent ("\-") in the
+\fB\-a\fR
+file with a new INFO/TAG flag
+.RE
+.PP
 \fB\-o, \-\-output\fR \fIFILE\fR
 .RS 4
 see
@@ -592,6 +680,12 @@ subset of samples to annotate\&. If the samples are named differently in the tar
 VCF, the name mapping can be given as "src_name dst_name\en", separated by whitespaces, each pair on a separate line\&.
 .RE
 .PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
 \fB\-x, \-\-remove\fR \fIlist\fR
 .RS 4
 List of annotations to remove\&. Use "FILTER" to remove all filters or "FILTER/SomeFilter" to remove a specific filter\&. Similarly, "INFO" can be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags except GT\&. To remove all INFO tags except "FOO" and "BAR", use "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER)\&. "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT"\&.
@@ -630,6 +724,131 @@ List of annotations to remove\&. Use "FILTER" to remove all filters or "FILTER/S
 .if n \{\
 .RE
 .\}
+.SS "bcftools cnv \fI[OPTIONS]\fR \fIFILE\fR"
+.sp
+Copy number variation caller, requires a VCF annotated with the Illumina\(cqs B\-allele frequency (BAF) and Log R Ratio intensity (LRR) values\&. The HMM considers the following copy number states: CN 2 (normal), 1 (single\-copy loss), 0 (complete loss), 3 (single\-copy gain)\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBGeneral Options:\fR
+.RS 4
+.PP
+\fB\-c, \-\-control\-sample\fR \fIstring\fR
+.RS 4
+optional control sample name\&. If given, pairwise calling is performed and the
+\fB\-P\fR
+option can be used
+.RE
+.PP
+\fB\-f, \-\-AF\-file\fR \fIfile\fR
+.RS 4
+read allele frequencies from a tab\-delimited file with the columns CHR,POS,REF,ALT,AF
+.RE
+.PP
+*\-o, \-\-output\-dir \fIpath\fR
+.RS 4
+output directory
+.RE
+.PP
+*\-p, \-\-plot\-threshold \fIfloat\fR
+.RS 4
+call
+\fBmatplotlib\fR
+to produce plots for chromosomes with quality at least
+\fIfloat\fR, useful for visual inspection of the calls\&. With
+\fB\-p 0\fR, plots for all chromosomes will be generated\&. If not given, a
+\fBmatplotlib\fR
+script will be created but not called\&.
+.RE
+.PP
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-s, \-\-query\-sample\fR \fIstring\fR
+.RS 4
+query samply name
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBHMM Options:\fR
+.RS 4
+.PP
+\fB\-a, \-\-aberrant\fR \fIfloat\fR[,\fIfloat\fR]
+.RS 4
+fraction of aberrant cells in query and control\&. The hallmark of duplications and contaminations is the BAF value of heterozygous markers which is dependent on the fraction of aberrant cells\&. Sensitivity to smaller fractions of cells can be increased by setting
+\fB\-a\fR
+to a lower value\&. Note however, that this comes at the cost of increased false discovery rate\&.
+.RE
+.PP
+\fB\-b, \-\-BAF\-weight\fR \fIfloat\fR
+.RS 4
+relative contribution from BAF
+.RE
+.PP
+\fBd, \-\-BAF\-dev\fR \fIfloat\fR[,\fIfloat\fR]
+.RS 4
+expected BAF deviation in query and control, i\&.e\&. the noise observed in the data\&.
+.RE
+.PP
+\fB\-e, \-\-err\-prob\fR \fIfloat\fR
+.RS 4
+uniform error probability
+.RE
+.PP
+\fB\-l, \-\-LRR\-weight\fR \fIfloat\fR
+.RS 4
+relative contribution from LRR\&. With noisy data, this option can have big effect on the number of calls produced\&. In truly random noise (such as in simulated data), the value should be set high (1\&.0), but in the presence of systematic noise when LRR are not informative, lower values result in cleaner calls (0\&.2)\&.
+.RE
+.PP
+\fB\-L, \-\-LRR\-smooth\-win\fR \fIint\fR
+.RS 4
+reduce LRR noise by applying moving average given this window size
+.RE
+.PP
+\fB\-O, \-\-optimize\fR \fIfloat\fR
+.RS 4
+iteratively estimate the fraction of aberrant cells, down to the given fraction\&. Lowering this value from the default 1\&.0 to say, 0\&.3, can help discover more events but also increases noise
+.RE
+.PP
+\fB\-P, \-\-same\-prob\fR \fIfloat\fR
+.RS 4
+the prior probability of the query and the control sample being the same\&. Setting to 0 calls both independently, setting to 1 forces the same copy number state in both\&.
+.RE
+.PP
+\fB\-x, \-\-xy\-prob\fR \fIfloat\fR
+.RS 4
+the HMM probability of transition to another copy number state\&. Increasing this values leads to smaller and more frequent calls\&.
+.RE
+.RE
 .SS "bcftools call \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
 This command replaces the former \fBbcftools view\fR caller\&. Some of the original functionality has been temporarily lost in the process of transition under htslib, but will be added back on popular demand\&. The original calling model can be invoked with the \fB\-c\fR option\&.
@@ -642,11 +861,48 @@ This command replaces the former \fBbcftools view\fR caller\&. Some of the origi
 \fBFile format options:\fR
 .RS 4
 .PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
 .RS 4
 see
 \fBCommon Options\fR
 .RE
+.PP
+\fB\-\-ploidy\fR \fIASSEMBLY\fR[\fI?\fR]
+.RS 4
+predefined ploidy, use
+\fIlist\fR
+(or any other unused word) to print a list of all predefined assemblies\&. Append a question mark to print the actual definition\&. See also
+\fB\-\-ploidy\-file\fR\&.
+.RE
+.PP
+\fB\-\-ploidy\-file\fR \fIFILE\fR
+.RS 4
+ploidy definition given as a space/tab\-delimited list of CHROM, FROM, TO, SEX, PLOIDY\&. The SEX codes are arbitrary and correspond to the ones used by
+\fB\-\-samples\-file\fR\&. The default ploidy can be given using the starred records (see below), unlisted regions have ploidy 2\&. The default ploidy definition is
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    X 1 60000 M 1
+    X 2699521 154931043 M 1
+    Y 1 59373566 M 1
+    Y 1 59373566 F 0
+    MT 1 16569 M 1
+    MT 1 16569 F 1
+    *  * *     M 2
+    *  * *     F 2
+.fi
+.if n \{\
+.RE
+.\}
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
@@ -683,6 +939,12 @@ see
 see
 \fBCommon Options\fR
 .RE
+.PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
 .RE
 .sp
 .it 1 an-trap
@@ -710,15 +972,15 @@ output also gVCF blocks of homozygous REF calls\&. The parameter
 is the minimum per\-sample depth required to include a site in the non\-variant block\&.
 .RE
 .PP
+\fB\-i, \-\-insert\-missed\fR \fIINT\fR
+.RS 4
+output also sites missed by mpileup but present in
+\fB\-T, \-\-targets\-file\fR\&.
+.RE
+.PP
 \fB\-M, \-\-keep\-masked\-ref\fR
 .RS 4
 output sites where REF allele is N
-.RE
-.PP
-\fB\-o, \-\-output\fR \fIFILE\fR
-.RS 4
-see
-\fBCommon Options\fR
 .RE
 .PP
 \fB\-V, \-\-skip\-variants\fR \fIsnps\fR|\fIindels\fR
@@ -821,10 +1083,21 @@ Concatenate or combine VCF/BCF files\&. All source files must have the same samp
 First coordinate of the next file can precede last record of the current file\&.
 .RE
 .PP
+\fB\-c, \-\-compact\-PS\fR
+.RS 4
+Do not output PS tag at each site, only at the start of a new phase set block\&.
+.RE
+.PP
+\fB\-d, \-\-rm\-dups\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR
+.RS 4
+Output duplicate records of specified type present in multiple files only once\&. Requires
+\fB\-a, \-\-allow\-overlaps\fR\&.
+.RE
+.PP
 \fB\-D, \-\-remove\-duplicates\fR
 .RS 4
-If a record is present in multiple files, output only the first instance\&. Requires
-\fB\-a, \-\-allow\-overlaps\fR\&.
+Alias for
+\fB\-d none\fR
 .RE
 .PP
 \fB\-f, \-\-file\-list\fR \fIFILE\fR
@@ -867,6 +1140,12 @@ see
 see
 \fBCommon Options\fR\&. Requires
 \fB\-a, \-\-allow\-overlaps\fR\&.
+.RE
+.PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
 .RE
 .SS "bcftools consensus \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
@@ -1005,6 +1284,12 @@ see
 see
 \fBCommon Options\fR
 .RE
+.PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
 .RE
 .sp
 .it 1 an-trap
@@ -1065,6 +1350,11 @@ tag to take values for \&.gen file: GT,PL,GL,GP
 .RS 4
 convert gVCF to VCF, expanding REF blocks into sites\&. Only sites with FILTER set to "PASS" or "\&." will be expanded\&.
 .RE
+.PP
+\fB\-f, \-\-fasta\-ref\fR \fIfile\fR
+.RS 4
+reference sequence in fasta format\&. Must be indexed with samtools faidx
+.RE
 .RE
 .sp
 .it 1 an-trap
@@ -1077,7 +1367,7 @@ convert gVCF to VCF, expanding REF blocks into sites\&. Only sites with FILTER s
 .PP
 \fB\-\-hapsample2vcf\fR \fIprefix\fR or \fIhaps\-file\fR,\fIsample\-file\fR
 .RS 4
-convert from haps/sample format to VCF\&. The columns of \&.haps file are similar to \&.gen file above, but there are only two haplotype columns per sample\&. Note that the first column of the haps file is expected to be in the form "CHR:POS_REF_ALT", for example:
+convert from haps/sample format to VCF\&. The columns of \&.haps file are similar to \&.gen file above, but there are only two haplotype columns per sample\&. Note that the first column of the haps file is expected to be in the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for defining the INFO/END tag when ALT is a symbolic allele, for example:
 .RE
 .sp
 .if n \{\
@@ -1088,10 +1378,31 @@ convert from haps/sample format to VCF\&. The columns of \&.haps file are simila
   \-\-\-\-
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
   1:111494194_C_T rsID2 111494194 C T 0 1 0 0
+  1:111495231_A_<DEL>_111495784 rsID3 111495231 A <DEL> 0 0 1 0
 .fi
 .if n \{\
 .RE
 .\}
+.PP
+\fB\-\-hapsample\fR \fIprefix\fR or \fIhaps\-file\fR,\fIsample\-file\fR
+.RS 4
+convert from VCF to haps/sample format used by IMPUTE2 and SHAPEIT\&. The columns of \&.haps file begin with ID,RSID,POS,REF,ALT\&. In order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT"\&.
+.RE
+.PP
+\fB\-\-haploid2diploid\fR
+.RS 4
+with
+\fB\-h\fR
+option converts haploid genotypes to homozygous diploid genotypes\&. For example, the program will print
+\fI0 0\fR
+instead of the default
+\fI0 \-\fR\&. This is useful for programs which do not handle haploid genotypes correctly\&.
+.RE
+.PP
+\fB\-\-vcf\-ids\fR
+.RS 4
+output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
+.RE
 .RE
 .sp
 .it 1 an-trap
@@ -1175,7 +1486,7 @@ comma\-separated list of fields in the input file\&. In the current version, the
 .PP
 \fB\-f, \-\-fasta\-ref\fR \fIfile\fR
 .RS 4
-reference sequence in fasta format
+reference sequence in fasta format\&. Must be indexed with samtools faidx
 .RE
 .PP
 \fB\-s, \-\-samples\fR \fILIST\fR
@@ -1556,9 +1867,9 @@ is true\&. See discussion of
 above\&.
 .RE
 .PP
-\fB\-n, \-\-nfiles\fR [+\-=]\fIINT\fR
+\fB\-n, \-\-nfiles\fR [+\-=]\fIINT\fR|~\fIBITMAP\fR
 .RS 4
-output positions present in this many (=), this many or more (+), or this many or fewer (\-) files
+output positions present in this many (=), this many or more (+), this many or fewer (\-), or the exact same (~) files
 .RE
 .PP
 \fB\-o, \-\-output\fR \fIFILE\fR
@@ -1668,6 +1979,18 @@ Extract records private to A or B comparing by position only
 .if n \{\
 .RE
 .\}
+.sp
+Print a list of records which are present in A and B but not in C and D
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools isec \-n~1100 \-c all A\&.vcf\&.gz B\&.vcf\&.gz C\&.vcf\&.gz D\&.vcf\&.gz
+.fi
+.if n \{\
+.RE
+.\}
 .RE
 .SS "bcftools merge [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR \fIB\&.vcf\&.gz\fR [\&...]"
 .sp
@@ -1712,7 +2035,9 @@ is one of
 \fIavg\fR,
 \fImin\fR,
 \fImax\fR,
-\fIjoin\fR\&.
+\fIjoin\fR\&. Default is
+\fIDP:sum,DP4:sum\fR
+if these fields exist in the input files\&. Fields with no specified rule will take the value from the first input file\&. The merged QUAL value is currently set to the maximum\&. This behaviour is not user controllable at the moment\&.
 .RE
 .PP
 \fB\-l, \-\-file\-list\fR \fIFILE\fR
@@ -1764,18 +2089,49 @@ see
 see
 \fBCommon Options\fR
 .RE
+.PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
 .SS "bcftools norm [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
 .sp
-Left\-align and normalize indels, check if REF alleles match the reference, split multiallelic sites into multiple rows; recover multiallelics from multiple rows\&.
+Left\-align and normalize indels, check if REF alleles match the reference, split multiallelic sites into multiple rows; recover multiallelics from multiple rows\&. Left\-alignment and normalization will only be applied if the \fB\-\-fasta\-ref\fR option is supplied\&.
+.PP
+\fB\-c, \-\-check\-ref\fR \fIe\fR|\fIw\fR|\fIx\fR|\fIs\fR
+.RS 4
+what to do when incorrect or missing REF allele is encountered: exit (\fIe\fR), warn (\fIw\fR), exclude (\fIx\fR), or set/fix (\fIs\fR) bad sites\&. The
+\fIw\fR
+option can be combined with
+\fIx\fR
+and
+\fIs\fR\&. Note that
+\fIs\fR
+can swap alleles and will update genotypes (GT) and AC counts, but will not attempt to fix PL or other fields\&.
+.RE
+.PP
+\fB\-d, \-\-rm\-dup\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR
+.RS 4
+If a record is present in multiple files, output only the first instance, see
+\fB\-\-collapse\fR
+in
+\fBCommon Options\fR\&. Requires
+\fB\-a, \-\-allow\-overlaps\fR\&.
+.RE
 .PP
 \fB\-D, \-\-remove\-duplicates\fR
 .RS 4
-remove duplicate lines of the same type
+If a record is present in multiple files, output only the first instance\&. Alias for
+\fB\-d none\fR\&. Requires
+\fB\-a, \-\-allow\-overlaps\fR\&.
 .RE
 .PP
 \fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
 .RS 4
-reference sequence
+reference sequence\&. Supplying this option will turn on left\-alignment and normalization, however, see also the
+\fB\-\-do\-not\-normalize\fR
+option below\&.
 .RE
 .PP
 \fB\-m, \-\-multiallelics\fR ←|+>[\fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIany\fR]
@@ -1784,6 +2140,18 @@ split multiallelic sites into biallelic records (\fI\-\fR) or join biallelic sit
 \fIsnps\fR; if both SNPs and indels should be merged separately into two records, specify
 \fIboth\fR; if SNPs and indels should be merged into a single record, specify
 \fIany\fR\&.
+.RE
+.PP
+\fB\-N, \-\-do\-not\-normalize\fR
+.RS 4
+the
+\fI\-c s\fR
+option can be used to fix or set the REF allele from the reference
+\fI\-f\fR\&. The
+\fI\-N\fR
+option will not turn on indel normalisation as the
+\fI\-f\fR
+option normally implies
 .RE
 .PP
 \fB\-o, \-\-output\fR \fIFILE\fR
@@ -1827,11 +2195,17 @@ see
 \fBCommon Options\fR
 .RE
 .PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
 \fB\-w, \-\-site\-win\fR \fIINT\fR
 .RS 4
 maximum distance between two records to consider when locally sorting variants which changed position during the realignment
 .RE
-.SS "bcftools plugin \fINAME\fR \fI[OPTIONS]\fR \fIFILE\fR \(em \fI[PLUGIN OPTIONS]\fR"
+.SS "bcftools [plugin \fINAME\fR|+\fINAME\fR] \fI[OPTIONS]\fR \fIFILE\fR \(em \fI[PLUGIN OPTIONS]\fR"
 .sp
 .it 1 an-trap
 .nr an-no-space-flag 1
@@ -1901,6 +2275,12 @@ see
 see
 \fBCommon Options\fR
 .RE
+.PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
 .RE
 .sp
 .it 1 an-trap
@@ -1918,14 +2298,23 @@ list plugin\(cqs options
 .PP
 \fB\-l, \-\-list\-plugins\fR
 .RS 4
-List all available plugins\&. If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include directory where
-\fBlibhts\&.so\fR
-is located\&. The BCFTOOLS_PLUGINS environment variable tells the program which directories to search\&.
+List all available plugins\&.
+.sp
+By default, appropriate system directories are searched for installed plugins\&. You can override this by setting the BCFTOOLS_PLUGINS environment variable to a colon\-separated list of directories to search\&. If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains adjacent colons, the system directories are also searched at that position in the list of directories\&.
+.sp
+If htslib is not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include the directory where
+\fBlibhts\&.so\&.1\fR
+is located\&.
 .RE
 .PP
 \fB\-v, \-\-verbose\fR
 .RS 4
 print debugging information to debug plugin failure
+.RE
+.PP
+\fB\-V, \-\-version\fR
+.RS 4
+print version string and exit
 .RE
 .RE
 .sp
@@ -1996,9 +2385,13 @@ bcftools plugin
 # List available plugins
 bcftools plugin \-l
 
-# One can run plugins in several ways
+# Run a plugin
 bcftools plugin counts in\&.vcf
+
+# Run a plugin using the abbreviated "+" notation
 bcftools +counts in\&.vcf
+
+# The input VCF can be streamed just like in other commands
 cat in\&.vcf | bcftools +counts
 
 # Print usage information of plugin "dosage"
@@ -2134,6 +2527,101 @@ void destroy(void);
 .RE
 .\}
 .RE
+.SS "bcftools polysomy [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
+.sp
+Detect number of chromosomal copies in VCFs annotates with the Illumina\(cqs B\-allele frequency (BAF) values\&. Note that this command is not compiled in by default, see the section \fBOptional Compilation with GSL\fR in the INSTALL file for help\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBGeneral options:\fR
+.RS 4
+.PP
+\fB\-o, \-\-output\-dir\fR \fIpath\fR
+.RS 4
+output directory
+.RE
+.PP
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIfile\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-s, \-\-sample\fR \fIstring\fR
+.RS 4
+samply name
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-v, \-\-verbose\fR
+.RS 4
+verbose debugging output which gives hints about the thresholds and decisions made by the program\&. Note that the exact output can change between versions\&.
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBAlgorithm options:\fR
+.RS 4
+.PP
+\fB\-b, \-\-peak\-size\fR \fIfloat\fR
+.RS 4
+the minimum peak size considered as a good match can be from the interval [0,1] where larger is stricter
+.RE
+.PP
+\fB\-c, \-\-cn\-penalty\fR \fIfloat\fR
+.RS 4
+a penalty for increasing copy number state\&. How this works: multiple peaks are always a better fit than a single peak, therefore the program prefers a single peak (normal copy number) unless the absolute deviation of the multiple peaks fit is significantly smaller\&. Here the meaning of "significant" is given by the
+\fIfloat\fR
+from the interval [0,1] where larger is stricter\&.
+.RE
+.PP
+\fB\-f, \-\-fit\-th\fR \fIfloat\fR
+.RS 4
+threshold for goodness of fit (normalized absolute deviation), smaller is stricter
+.RE
+.PP
+\fB\-i, \-\-include\-aa\fR
+.RS 4
+include also the AA peak in CN2 and CN3 evaluation\&. This usually requires increasing
+\fB\-f\fR\&.
+.RE
+.PP
+\fB\-m, \-\-min\-fraction\fR \fIfloat\fR
+.RS 4
+minimum distinguishable fraction of aberrant cells\&. The experience shows that trustworthy are estimates of 20% and more\&.
+.RE
+.PP
+\fB\-p, \-\-peak\-symmetry\fR \fIfloat\fR
+.RS 4
+a heuristics to filter failed fits where the expected peak symmetry is violated\&. The
+\fIfloat\fR
+is from the interval [0,1] and larger is stricter
+.RE
+.RE
 .SS "bcftools query [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR [\fIfile\&.vcf\&.gz\fR [\&...]]"
 .sp
 Extracts fields from VCF or BCF files and outputs them in user\-defined format\&.
@@ -2215,6 +2703,11 @@ see
 .RS 4
 see
 \fBCommon Options\fR
+.RE
+.PP
+\fB\-u, \-\-allow\-undef\-tags\fR
+.RS 4
+do not throw an error if there are undefined tags in the format string, print "\&." instead
 .RE
 .PP
 \fB\-v, \-\-vcf\-list\fR \fIFILE\fR
@@ -2317,15 +2810,13 @@ Emission probabilities:
 Transition probabilities:
   tAZ = P(AZ|HW)  \&.\&. from HW to AZ, the \-a parameter
   tHW = P(HW|AZ)  \&.\&. from AZ to HW, the \-H parameter
-  P(AZ|AZ) = 1 \- P(HW|AZ) = 1 \- tHW
-  P(HW|HW) = 1 \- P(AZ|HW) = 1 \- tAZ
 
   ci  = P_i(C)  \&.\&. probability of cross\-over at site i, from genetic map
   AZi = P_i(AZ) \&.\&. probability of site i being AZ/non\-AZ, scaled so that AZi+HWi = 1
   HWi = P_i(HW)
 
-  P_{i+1}(AZ) = oAZ * max[(1\-tHW) * (1\-ci) * AZ{i\-1} , tAZ * ci * (1\-AZ{i\-1})]
-  P_{i+1}(HW) = oHW * max[(1\-tAZ) * (1\-ci) * (1\-AZ{i\-1}) , tHW * ci * AZ{i\-1}]
+  P_{i+1}(AZ) = oAZ * max[(1 \- tAZ * ci) * AZ{i\-1} , tAZ * ci * (1\-AZ{i\-1})]
+  P_{i+1}(HW) = oHW * max[(1 \- tHW * ci) * (1\-AZ{i\-1}) , tHW * ci * AZ{i\-1}]
 .fi
 .if n \{\
 .RE
@@ -2339,6 +2830,12 @@ Transition probabilities:
 .ps +1
 \fBGeneral Options:\fR
 .RS 4
+.PP
+\fB\-\-AF\-dflt\fR \fIFLOAT\fR
+.RS 4
+in case allele frequency is not known, use the
+\fIFLOAT\fR\&. By default, sites where allele frequency cannot be determined, or is 0, are skipped\&.
+.RE
 .PP
 \fB\-\-AF\-tag\fR \fITAG\fR
 .RS 4
@@ -2390,6 +2887,11 @@ skip indels as their genotypes are usually enriched for errors
 genetic map in the format required also by IMPUTE2\&. Only the first and third column are used (position and Genetic_Map(cM))\&. The
 \fIFILE\fR
 can chromosome name\&.
+.RE
+.PP
+\fB\-M, \-\-rec\-rate\fR \fIFLOAT\fR
+.RS 4
+constant recombination rate per bp
 .RE
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -2451,7 +2953,7 @@ Parses VCF or BCF and produces text file stats which is suitable for machine pro
 .PP
 \fB\-1, \-\-1st\-allele\-only\fR
 .RS 4
-consider only 1st allele at multiallelic sites
+consider only the 1st alternate allele at multiallelic sites
 .RE
 .PP
 \fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR
@@ -2470,7 +2972,15 @@ ranges of depth distribution: min, max, and size of the bin
 produce verbose per\-site and per\-sample output
 .RE
 .PP
-\fB\-e, \-\-exons\fR \fIfile\&.gz\fR
+\fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
+.RS 4
+exclude sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-E, \-\-exons\fR \fIfile\&.gz\fR
 .RS 4
 tab\-delimited file with exons for indel frameshifts statistics\&. The columns of the file are CHR, FROM, TO, with 1\-based, inclusive, positions\&. The file is BGZF\-compressed and indexed with tabix
 .RE
@@ -2496,7 +3006,15 @@ see
 faidx indexed reference sequence file to determine INDEL context
 .RE
 .PP
-\fB\-i, \-\-split\-by\-ID\fR
+\fB\-i, \-\-include\fR \fIEXPRESSION\fR
+.RS 4
+include only sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-I, \-\-split\-by\-ID\fR
 .RS 4
 collect stats separately for sites which have the ID column set ("known sites") or which do not have the ID column set ("novel sites")\&.
 .RE
@@ -2535,6 +3053,16 @@ see
 .RS 4
 see
 \fBCommon Options\fR
+.RE
+.PP
+\fB\-u, \-\-user\-tstv\fR \fI<TAG[:min:max:n]>\fR
+.RS 4
+collect Ts/Tv stats for any tag using the given binning [0:1:100]
+.RE
+.PP
+\fB\-v, \-\-verbose\fR
+.RS 4
+produce verbose per\-site and per\-sample output
 .RE
 .SS "bcftools view [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR [\fIREGION\fR [\&...]]"
 .sp
@@ -2601,6 +3129,12 @@ see
 see
 \fBCommon Options\fR
 .RE
+.PP
+\fB\-\-threads\fR \fIINT\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
 .RE
 .sp
 .it 1 an-trap
@@ -2614,6 +3148,11 @@ see
 \fB\-a, \-\-trim\-alt\-alleles\fR
 .RS 4
 trim alternate alleles not seen in subset\&. Type A, G and R INFO and FORMAT fields will also be trimmed
+.RE
+.PP
+\fB\-\-force\-samples\fR
+.RS 4
+only warn about unknown subset samples
 .RE
 .PP
 \fB\-I, \-\-no\-update\fR
@@ -2718,12 +3257,12 @@ print sites where all samples are phased\&. Haploid genotypes are considered pha
 exclude sites where all samples are phased
 .RE
 .PP
-\fB\-q, \-\-min\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|:\*(Aqmajor\*(Aq|:\*(Aqnonmajor\*(Aq]
+\fB\-q, \-\-min\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|\fI:major\fR|\fI:nonmajor\fR]
 .RS 4
 minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR), the least frequent (\fIminor\fR), the most frequent (\fImajor\fR) or sum of all but the most frequent (\fInonmajor\fR) alleles\&.
 .RE
 .PP
-\fB\-Q, \-\-max\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|:\*(Aqmajor\*(Aq|:\*(Aqnonmajor\*(Aq]
+\fB\-Q, \-\-max\-af\fR \fIFLOAT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|\fI:major\fR|\fI:nonmajor\fR]
 .RS 4
 maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed\&. Specifying the type of allele is optional and can be set to non\-reference (\fInref\fR, the default), 1st alternate (\fIalt1\fR), the least frequent (\fIminor\fR), the most frequent (\fImajor\fR) or sum of all but the most frequent (\fInonmajor\fR) alleles\&.
 .RE
@@ -2740,17 +3279,24 @@ exclude sites without a called genotype
 .PP
 \fB\-v, \-\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
 .RS 4
-comma\-separated list of variant types to select
+comma\-separated list of variant types to select\&. Site is selected if any of the ALT alleles is of the type requested\&. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags like INFO/INDEL or INFO/VT\&. Use
+\fB\-\-include\fR
+to select based on INFO tags\&.
 .RE
 .PP
 \fB\-V, \-\-exclude\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
 .RS 4
-comma\-separated list of variant types to exclude
+comma\-separated list of variant types to exclude\&. Site is excluded if any of the ALT alleles is of the type requested\&. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags like INFO/INDEL or INFO/VT\&. Use
+\fB\-\-exclude\fR
+to exclude based on INFO tags\&.
 .RE
 .PP
 \fB\-x, \-\-private\fR
 .RS 4
-print sites where only the subset samples carry an non\-reference allele
+print sites where only the subset samples carry an non\-reference allele\&. Requires
+\fB\-\-samples\fR
+or
+\fB\-\-samples\-file\fR\&.
 .RE
 .PP
 \fB\-X, \-\-exclude\-private\fR
@@ -2758,6 +3304,15 @@ print sites where only the subset samples carry an non\-reference allele
 exclude sites where only the subset samples carry an non\-reference allele
 .RE
 .RE
+.SS "bcftools help [\fICOMMAND\fR] | bcftools \-\-help [\fICOMMAND\fR]"
+.sp
+Display a brief usage message listing the bcftools commands available\&. If the name of a command is also given, e\&.g\&., bcftools help view, the detailed usage message for that particular command is displayed\&.
+.SS "bcftools [\fI\-\-version\fR|\fI\-v\fR]"
+.sp
+Display the version numbers and copyright information for bcftools and the important libraries used by bcftools\&.
+.SS "bcftools [\fI\-\-version\-only\fR]"
+.sp
+Display the full bcftools version number in a machine\-readable format\&.
 .SH "EXPRESSIONS"
 .sp
 These filtering expressions are accepted by \fBannotate\fR, \fBfilter\fR, \fBquery\fR and \fBview\fR commands\&.
@@ -2908,7 +3463,7 @@ INFO tags, FORMAT tags, column names
 .nf
 INFO/DP or DP
 FORMAT/DV, FMT/DV, or DV
-FILTER, QUAL, ID, REF, ALT[0]
+FILTER, QUAL, ID, POS, REF, ALT[0]
 .fi
 .if n \{\
 .RE
@@ -2930,6 +3485,48 @@ FILTER, QUAL, ID, REF, ALT[0]
 .\}
 .nf
 FlagA=1 && FlagB=0
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+"\&." to test missing values
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+DP="\&.", DP!="\&.", ALT="\&."
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+missing genotypes can be matched regardless of phase and ploidy ("\&.|\&.", "\&./\&.", "\&.") using this expression
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+GT="\&."
 .fi
 .if n \{\
 .RE
@@ -3093,6 +3690,26 @@ MIN(DP)>10 & MIN(DV)>3
 .RS 4
 .\}
 .nf
+FMT/DP>10  & FMT/GQ>10 \&.\&. both conditions must be satisfied within one sample
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+FMT/DP>10 && FMT/GQ>10 \&.\&. the conditions can be satisfied in different samples
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
 QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
 .fi
 .if n \{\
@@ -3154,6 +3771,16 @@ ID!=@~/file    \&.\&. skip lines with ID present in the ~/file
 .\}
 .nf
 MAF[0]<0\&.05    \&.\&. select rare variants at 5% cutoff
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+POS>=100   \&.\&. restrict your range query, e\&.g\&. 20:100\-200 to strictly sites with POS in that range\&.
 .fi
 .if n \{\
 .RE

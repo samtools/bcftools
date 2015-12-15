@@ -84,6 +84,8 @@ struct _convert_t
     int nreaders;
     void *dat;
     int ndat;
+    char *undef_info_tag;
+    int allow_undef_tags;
 };
 
 
@@ -138,14 +140,32 @@ static void process_filter(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
     }
     else kputc('.', str);
 }
-static inline int bcf_array_ivalue(void *bcf_array, int type, int idx)
+static inline int32_t bcf_array_ivalue(void *bcf_array, int type, int idx)
 {
-    if ( type==BCF_BT_INT8 ) return ((int8_t*)bcf_array)[idx];
-    if ( type==BCF_BT_INT16 ) return ((int16_t*)bcf_array)[idx];
+    if ( type==BCF_BT_INT8 )
+    {
+        int8_t val = ((int8_t*)bcf_array)[idx];
+        if ( val==bcf_int8_missing ) return bcf_int32_missing;
+        if ( val==bcf_int8_vector_end ) return bcf_int32_vector_end;
+        return val;
+    }
+    if ( type==BCF_BT_INT16 )
+    {
+        int16_t val = ((int16_t*)bcf_array)[idx];
+        if ( val==bcf_int16_missing ) return bcf_int32_missing;
+        if ( val==bcf_int16_vector_end ) return bcf_int32_vector_end;
+        return val;
+    }
     return ((int32_t*)bcf_array)[idx];
 }
 static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
+    if ( fmt->id<0 )
+    {
+        kputc('.', str);
+        return;
+    }
+
     int i;
     for (i=0; i<line->n_info; i++)
         if ( line->d.info[i].key == fmt->id ) break;
@@ -206,11 +226,16 @@ static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isamp
 static void init_format(convert_t *convert, bcf1_t *line, fmt_t *fmt)
 {
     fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, fmt->key);
-    if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: FORMAT/%s\n", fmt->key);
     fmt->fmt = NULL;
-    int i;
-    for (i=0; i<(int)line->n_fmt; i++)
-        if ( line->d.fmt[i].id==fmt->id ) { fmt->fmt = &line->d.fmt[i]; break; }
+    if ( fmt->id >= 0 )
+    {
+        int i;
+        for (i=0; i<(int)line->n_fmt; i++)
+            if ( line->d.fmt[i].id==fmt->id ) { fmt->fmt = &line->d.fmt[i]; break; }
+    }
+    else if ( !convert->allow_undef_tags )
+        error("Error: no such tag defined in the VCF header: FORMAT/%s\n", fmt->key);
+
     fmt->ready = 1;
 }
 static void process_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
@@ -230,8 +255,22 @@ static void process_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
             kputc('.', str);
             return;
         }
-        if ( fmt->fmt->type == BCF_BT_FLOAT ) ksprintf(str, "%g", ((float*)(fmt->fmt->p + isample*fmt->fmt->size))[fmt->subscript]);
-        else if ( fmt->fmt->type != BCF_BT_CHAR ) kputw(bcf_array_ivalue(fmt->fmt->p+isample*fmt->fmt->size,fmt->fmt->type,fmt->subscript), str);
+        if ( fmt->fmt->type == BCF_BT_FLOAT )
+        {
+            float *ptr = (float*)(fmt->fmt->p + isample*fmt->fmt->size);
+            if ( bcf_float_is_missing(ptr[fmt->subscript]) || bcf_float_is_vector_end(ptr[fmt->subscript]) )
+                kputc('.', str);
+            else
+                ksprintf(str, "%g", ptr[fmt->subscript]);
+        }
+        else if ( fmt->fmt->type != BCF_BT_CHAR )
+        {
+            int32_t ival = bcf_array_ivalue(fmt->fmt->p+isample*fmt->fmt->size,fmt->fmt->type,fmt->subscript);
+            if ( ival==bcf_int32_missing || ival==bcf_int32_vector_end )
+                kputc('.', str);
+            else
+                kputw(ival, str);
+        }
         else error("TODO: %s:%d .. fmt->type=%d\n", __FILE__,__LINE__, fmt->fmt->type);
     }
     else
@@ -419,7 +458,9 @@ static void process_gt_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         if ( j==2 )
         {
             // diploid
-            if ( bcf_gt_allele(ptr[0])!=bcf_gt_allele(ptr[1]) )
+            if ( bcf_gt_is_missing(ptr[0]) )
+                kputs(" 0.33 0.33 0.33", str);
+            else if ( bcf_gt_allele(ptr[0])!=bcf_gt_allele(ptr[1]) )
                 kputs(" 0 1 0", str);       // HET
             else if ( bcf_gt_allele(ptr[0])==1 )
                 kputs(" 0 0 1", str);       // ALT HOM, first ALT allele
@@ -726,7 +767,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         if ( fmt->type==T_INFO )
         {
             fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, key);
-            if ( fmt->id==-1 ) error("Error: no such tag defined in the VCF header: INFO/%s\n", key);
+            if ( fmt->id==-1 ) convert->undef_info_tag = strdup(key);
         }
     }
     return fmt;
@@ -757,6 +798,17 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "GT") ) register_tag(convert, T_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "TGT") ) register_tag(convert, T_TGT, "GT", is_gtf);
         else if ( !strcmp(str.s, "IUPACGT") ) register_tag(convert, T_IUPAC_GT, "GT", is_gtf);
+        else if ( !strcmp(str.s, "INFO") )
+        {
+            if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);
+            p = ++q;
+            str.l = 0;
+            while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
+            if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
+            kputsn(p, q-p, &str);
+            fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
+            fmt->subscript = parse_subscript(&q);
+        }
         else
         {
             fmt_t *fmt = register_tag(convert, T_FORMAT, str.s, is_gtf);
@@ -836,6 +888,7 @@ convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *
     convert_t *convert = (convert_t*) calloc(1,sizeof(convert_t));
     convert->header = hdr;
     convert->format_str = strdup(format_str);
+    convert->max_unpack = BCF_UN_STR;
 
     int i, is_gtf = 0;
     char *p = convert->format_str;
@@ -870,8 +923,9 @@ void convert_destroy(convert_t *convert)
 {
     int i;
     for (i=0; i<convert->nfmt; i++)
-        if ( convert->fmt[i].key ) free(convert->fmt[i].key);
-    if ( convert->mfmt ) free(convert->fmt);
+        free(convert->fmt[i].key);
+    free(convert->fmt);
+    free(convert->undef_info_tag);
     free(convert->dat);
     free(convert->samples);
     free(convert->format_str);
@@ -929,6 +983,9 @@ int convert_header(convert_t *convert, kstring_t *str)
 
 int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
 {
+    if ( !convert->allow_undef_tags && convert->undef_info_tag )
+        error("Error: no such tag defined in the VCF header: INFO/%s\n", convert->undef_info_tag);
+
     int l_ori = str->l;
     bcf_unpack(line, convert->max_unpack);
 
@@ -972,5 +1029,28 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
             convert->fmt[i].handler(convert, line, &convert->fmt[i], -1, str);
     }
     return str->l - l_ori;
+}
+
+int convert_set_option(convert_t *convert, enum convert_option opt, ...)
+{
+    int ret = 0;
+    va_list args;
+
+    va_start(args, opt);
+    switch (opt) 
+    {
+        case allow_undef_tags:
+            convert->allow_undef_tags = va_arg(args, int);
+            break;
+        default:
+            ret = -1;
+    }
+    va_end(args);
+    return ret;
+}
+
+int convert_max_unpack(convert_t *convert)
+{
+    return convert->max_unpack;
 }
 

@@ -68,7 +68,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr;
     htsFile *out_fh;
-    int output_type;
+    int output_type, n_threads;
 
     char **argv, *output_fname, *targets_list, *regions_list;
     int argc;
@@ -79,6 +79,7 @@ static void init_data(args_t *args)
 {
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 
     args->hdr = args->files->readers[0].header;
     args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
@@ -227,7 +228,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         if ( ilast>=0 && line->rid != args->rbuf_lines[ilast]->rid )
             flush_buffer(args, args->rbuf.n); // new chromosome, flush everything
 
-        if ( args->rbuf.n >= args->rbuf.m ) rbuf_expand0(&args->rbuf,bcf1_t*,args->rbuf_lines);
+        rbuf_expand0(&args->rbuf,bcf1_t*,args->rbuf.n,args->rbuf_lines);
 
         // Insert the new record in the buffer. The line would be overwritten in
         // the next bcf_sr_next_line call, therefore we need to swap it with an
@@ -415,6 +416,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -S, --set-GTs <.|0>           set genotypes of failed samples to missing (.) or ref (0)\n");
     fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "        --threads <int>           number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -427,24 +429,26 @@ int main_vcffilter(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     int regions_is_file = 0, targets_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"set-GTs",1,0,'S'},
-        {"mode",1,0,'m'},
-        {"soft-filter",1,0,'s'},
-        {"exclude",1,0,'e'},
-        {"include",1,0,'i'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"SnpGap",1,0,'g'},
-        {"IndelGap",1,0,'G'},
-        {0,0,0,0}
+        {"set-GTs",required_argument,NULL,'S'},
+        {"mode",required_argument,NULL,'m'},
+        {"soft-filter",required_argument,NULL,'s'},
+        {"exclude",required_argument,NULL,'e'},
+        {"include",required_argument,NULL,'i'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"SnpGap",required_argument,NULL,'g'},
+        {"IndelGap",required_argument,NULL,'G'},
+        {NULL,0,NULL,0}
     };
     char *tmp;
     while ((c = getopt_long(argc, argv, "e:i:t:T:r:R:h?s:m:o:O:g:G:S:",loptions,NULL)) >= 0) {
@@ -483,6 +487,7 @@ int main_vcffilter(int argc, char *argv[])
                 else if ( !strcmp("0",optarg) ) args->set_gts = SET_GTS_REF;
                 else error("The argument to -S not recognised: %s\n", optarg);
                 break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage(args);
             default: error("Unknown argument: %s\n", optarg);

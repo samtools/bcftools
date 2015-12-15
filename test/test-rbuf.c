@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     debug_print(&rbuf, dat);
 
     printf("Expanding:\n");
-    rbuf_expand0(&rbuf,int,dat);
+    rbuf_expand0(&rbuf,int,rbuf.n+1,dat);
     debug_print(&rbuf, dat);
 
     free(dat);

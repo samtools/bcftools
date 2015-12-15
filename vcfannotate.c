@@ -66,6 +66,7 @@ annot_line_t;
 #define REPLACE_MISSING  0  // replace only missing values
 #define REPLACE_ALL      1  // replace both missing and existing values
 #define REPLACE_EXISTING 2  // replace only if tgt is not missing
+#define SET_OR_APPEND    3  // set new value if missing or non-existent, append otherwise
 typedef struct _annot_col_t
 {
     int icol, replace, number;  // number: one of BCF_VL_* types
@@ -78,12 +79,15 @@ annot_col_t;
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
 
+#define MARK_LISTED   1
+#define MARK_UNLISTED 2
+
 typedef struct _args_t
 {
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hdr_out;
     htsFile *out_fh;
-    int output_type;
+    int output_type, n_threads;
     bcf_sr_regions_t *tgts;
 
     filter_t *filter;
@@ -115,8 +119,8 @@ typedef struct _args_t
     kstring_t tmpks;
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
-    char *remove_annots, *columns, *rename_chrs, *sample_names;
-    int argc, drop_header, tgts_is_vcf;
+    char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
+    int argc, drop_header, tgts_is_vcf, mark_sites_logic;
 }
 args_t;
 
@@ -306,7 +310,7 @@ static void init_remove_annots(args_t *args)
         ss = *se ? se+1 : se;
     }
     free(str.s);
-    if ( keep_flt || keep_info || keep_flt )
+    if ( keep_flt || keep_info || keep_fmt )
     {
         int j;
         for (j=0; j<args->hdr->nhrec; j++)
@@ -359,34 +363,36 @@ static void init_header_lines(args_t *args)
 }
 static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    // note: so far this works only with one filter, not a list of filters
     annot_line_t *tab = (annot_line_t*) data;
+    if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
     hts_expand(int,1,args->mtmpi,args->tmpi);
     args->tmpi[0] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, tab->cols[col->icol]);
     if ( args->tmpi[0]<0 ) error("The FILTER is not defined in the header: %s\n", tab->cols[col->icol]);
+    if ( col->replace==SET_OR_APPEND ) { bcf_add_filter(args->hdr_out,line,args->tmpi[0]); return 0; }
     if ( col->replace!=REPLACE_MISSING )
+    {
+        bcf_update_filter(args->hdr_out,line,NULL,0);
+        bcf_update_filter(args->hdr_out,line,args->tmpi,1); 
+        return 0; 
+    }
+    
+    // only update missing FILTER
+    if ( !(line->unpacked & BCF_UN_FLT) ) bcf_unpack(line, BCF_UN_FLT);
+    if ( !line->d.n_flt )
         bcf_update_filter(args->hdr_out,line,args->tmpi,1);
-    else
-        bcf_add_filter(args->hdr_out,line,args->tmpi[0]);
     return 0;
 }
 static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    int i;
     bcf1_t *rec = (bcf1_t*) data;
     if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
-    hts_expand(int,rec->d.n_flt,args->mtmpi,args->tmpi);
-    int i;
-    if ( col->replace!=REPLACE_MISSING )
+    if ( !(line->unpacked & BCF_UN_FLT) ) bcf_unpack(line, BCF_UN_FLT);
+    if ( !rec->d.n_flt ) return 0;  // don't overwrite with a missing value
+    if ( col->replace==SET_OR_APPEND || col->replace==REPLACE_MISSING )
     {
-        for (i=0; i<rec->d.n_flt; i++)
-        {
-            const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
-            args->tmpi[i] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, flt);
-        }
-        bcf_update_filter(args->hdr_out,line,args->tmpi,rec->d.n_flt);
-        return 0;
-    }
-    else
-    {
+        if ( col->replace==REPLACE_MISSING && line->d.n_flt ) return 0; // only update missing FILTER
         for (i=0; i<rec->d.n_flt; i++)
         {
             const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
@@ -394,6 +400,15 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
         }
         return 0;
     }
+    hts_expand(int,rec->d.n_flt,args->mtmpi,args->tmpi);
+    for (i=0; i<rec->d.n_flt; i++)
+    {
+        const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
+        args->tmpi[i] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, flt);
+    }
+    bcf_update_filter(args->hdr_out,line,NULL,0);
+    bcf_update_filter(args->hdr_out,line,args->tmpi,rec->d.n_flt);
+    return 0;
 }
 static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -401,13 +416,14 @@ static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
     //      IN  ANNOT   OUT     ACHIEVED_BY
     //      x   y       x        -c +ID
     //      x   y       y        -c ID
-    //      x   y       x,y      /not supported/
+    //      x   y       x,y      -c =ID
     //      x   .       x        -c +ID, ID
     //      x   .       .        -x ID
     //      .   y       y        -c +ID, -c ID
     //
     annot_line_t *tab = (annot_line_t*) data;
     if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
+    if ( col->replace==SET_OR_APPEND ) return bcf_add_id(args->hdr_out,line,tab->cols[col->icol]);
     if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
 
     // running with +ID, only update missing ids
@@ -419,6 +435,7 @@ static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
 {
     bcf1_t *rec = (bcf1_t*) data;
     if ( rec->d.id && rec->d.id[0]=='.' && !rec->d.id[1] ) return 0;    // don't replace with "."
+    if ( col->replace==SET_OR_APPEND ) return bcf_add_id(args->hdr_out,line,rec->d.id);
     if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,rec->d.id);
 
     // running with +ID, only update missing ids
@@ -1117,6 +1134,7 @@ static void init_columns(args_t *args)
         int replace = REPLACE_ALL;
         if ( *ss=='+' ) { replace = REPLACE_MISSING; ss++; }
         else if ( *ss=='-' ) { replace = REPLACE_EXISTING; ss++; }
+        else if ( *ss=='=' ) { replace = SET_OR_APPEND; ss++; }
         i++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
@@ -1129,7 +1147,7 @@ static void init_columns(args_t *args)
         else if ( !strcasecmp("ALT",str.s) ) args->alt_idx = i;
         else if ( !strcasecmp("ID",str.s) )
         {
-            if ( replace==REPLACE_EXISTING ) error("todo: -ID\n");
+            if ( replace==REPLACE_EXISTING ) error("Apologies, the -ID feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
@@ -1139,7 +1157,7 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("FILTER",str.s) )
         {
-            if ( replace==REPLACE_EXISTING ) error("todo: -FILTER\n");
+            if ( replace==REPLACE_EXISTING ) error("Apologies, the -FILTER feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
@@ -1165,7 +1183,8 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("QUAL",str.s) )
         {
-            if ( replace==REPLACE_EXISTING ) error("todo: -QUAL\n");
+            if ( replace==REPLACE_EXISTING ) error("Apologies, the -QUAL feature has not been implemented yet.\n");
+            if ( replace==SET_OR_APPEND ) error("Apologies, the =QUAL feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = i;
@@ -1175,7 +1194,8 @@ static void init_columns(args_t *args)
         }
         else if ( args->tgts_is_vcf && !strcasecmp("INFO",str.s) ) // All INFO fields
         {
-            if ( replace==REPLACE_EXISTING ) error("todo: -INFO/TAG\n");
+            if ( replace==REPLACE_EXISTING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
+            if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO/TAG feature has not been implemented yet.\n");
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
             int j;
             for (j=0; j<tgts_hdr->nhrec; j++)
@@ -1240,8 +1260,11 @@ static void init_columns(args_t *args)
                     }
             }
         }
-        else if ( args->tgts_is_vcf && (!strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4)) )
+        else if ( !strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4) )
         {
+            if ( !args->tgts_is_vcf )
+                error("Error: FORMAT fields can be carried over from a VCF file only.\n");
+
             char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
             if ( force_samples<0 ) force_samples = replace;
             if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;;
@@ -1268,7 +1291,8 @@ static void init_columns(args_t *args)
         }
         else
         {
-            if ( replace==REPLACE_EXISTING ) error("todo: -INFO/TAG\n");
+            if ( replace==REPLACE_EXISTING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
+            if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO/TAG feature has not been implemented yet.\n");
             if ( !strncasecmp("INFO/",str.s,5) ) { memmove(str.s,str.s+5,str.l-4); }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
             if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) )
@@ -1387,6 +1411,14 @@ static void init_data(args_t *args)
         args->set_ids = convert_init(args->hdr_out, NULL, 0, args->set_ids_fmt);
     }
 
+    if ( args->mark_sites )
+    {
+        if ( !args->targets_fname ) error("The -a option not given\n");
+        if ( args->tgts_is_vcf ) error("Apologies, this has not been implemented yet: -a is a VCF\n");  // very easy to add..
+        bcf_hdr_printf(args->hdr_out,"##INFO=<ID=%s,Number=0,Type=Flag,Description=\"Sites %slisted in %s\">",
+            args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
+    }
+
     bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     if ( !args->drop_header )
     {
@@ -1394,6 +1426,7 @@ static void init_data(args_t *args)
 
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+        if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
         bcf_hdr_write(args->out_fh, args->hdr_out);
     }
 }
@@ -1542,9 +1575,20 @@ static void annotate(args_t *args, bcf1_t *line)
 
         if ( i<args->nalines )
         {
+            // there is a matching line
             for (j=0; j<args->ncols; j++)
                 if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) )
                     error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+
+        }
+
+        if ( args->mark_sites )
+        {
+            // ideally, we'd like to be far more general than this in future, see https://github.com/samtools/bcftools/issues/87
+            if ( args->mark_sites_logic==MARK_LISTED )
+                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,i<args->nalines?1:0);
+            else
+                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,i<args->nalines?0:1);
         }
     }
     else if ( args->files->nreaders == 2 && bcf_sr_has_line(args->files,1) )
@@ -1582,6 +1626,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
     fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man pagee for details\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man pagee for details)\n");
+    fprintf(stderr, "   -m, --mark-sites [+-]<tag>     add INFO/tag flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
@@ -1590,6 +1635,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -s, --samples [^]<list>        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -S, --samples-file [^]<file>   file of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
+    fprintf(stderr, "       --threads <int>            number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1602,31 +1648,40 @@ int main_vcfannotate(int argc, char *argv[])
     args->files   = bcf_sr_init();
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
     args->set_ids_replace = 1;
     int regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"set-id",1,0,'I'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"annotations",1,0,'a'},
-        {"include",1,0,'i'},
-        {"exclude",1,0,'e'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"remove",1,0,'x'},
-        {"columns",1,0,'c'},
-        {"rename-chrs",1,0,1},
-        {"header-lines",1,0,'h'},
-        {"samples",1,0,'s'},
-        {"samples-file",1,0,'S'},
-        {0,0,0,0}
+        {"mark-sites",required_argument,NULL,'m'},
+        {"set-id",required_argument,NULL,'I'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"annotations",required_argument,NULL,'a'},
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"remove",required_argument,NULL,'x'},
+        {"columns",required_argument,NULL,'c'},
+        {"rename-chrs",required_argument,NULL,1},
+        {"header-lines",required_argument,NULL,'h'},
+        {"samples",required_argument,NULL,'s'},
+        {"samples-file",required_argument,NULL,'S'},
+        {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'm': 
+                args->mark_sites_logic = MARK_LISTED;
+                if ( optarg[0]=='+' ) args->mark_sites = optarg+1;
+                else if ( optarg[0]=='-' ) { args->mark_sites = optarg+1; args->mark_sites_logic = MARK_UNLISTED; }
+                else args->mark_sites = optarg; 
+                break;
             case 'I': args->set_ids_fmt = optarg; break;
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;
@@ -1649,6 +1704,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'h': args->header_fname = optarg; break;
             case  1 : args->rename_chrs = optarg; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }

@@ -1,6 +1,6 @@
 /*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -49,7 +49,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr;
     double t2AZ, t2HW;      // P(AZ|HW) and P(HW|AZ) parameters
-    double unseen_PL;
+    double unseen_PL, dflt_AF;
 
     char *genmap_fname;
     genmap_t *genmap;
@@ -78,8 +78,8 @@ typedef struct _args_t
 }
 args_t;
 
-void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
-void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob);
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob);
 
 void *smalloc(size_t size)
 {
@@ -122,20 +122,21 @@ static void init_data(args_t *args)
         }
         free(smpls);
     }
-    else
+    else if ( !args->estimate_AF )
         kputs(args->sample, &str);
 
-    int ret = bcf_hdr_set_samples(args->hdr, str.s, 0);
-    if ( ret<0 ) error("Error parsing the list of samples: %s\n", str.s);
-    else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
+    if ( str.l )
+    {
+        int ret = bcf_hdr_set_samples(args->hdr, str.s, 0);
+        if ( ret<0 ) error("Error parsing the list of samples: %s\n", str.s);
+        else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
+    }
 
     if ( args->af_tag )
         if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) )
             error("No such INFO tag in the VCF: %s\n", args->af_tag);
 
-    if ( !bcf_sr_set_samples(args->files, str.s, 0) )
-        error("Error: could not set the samples %s\n", str.s);
-    args->nsmpl = args->files->n_smpl;
+    args->nsmpl = bcf_hdr_nsamples(args->hdr);
     args->ismpl = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, args->sample);
     free(str.s);
 
@@ -268,24 +269,24 @@ static double get_genmap_rate(args_t *args, int start, int end)
     return rate;
 }
 
-void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
+void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob)
 {
     args_t *args = (args_t*) data;
     double ci = get_genmap_rate(args, pos - prev_pos, pos);
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+    MAT(tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_AZ)  = 1 - MAT(tprob,2,STATE_HW,STATE_AZ);
+    MAT(tprob,2,STATE_HW,STATE_HW)  = 1 - MAT(tprob,2,STATE_AZ,STATE_HW);
 }
 
-void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
+void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob)
 {
     args_t *args = (args_t*) data;
     double ci = (pos - prev_pos) * args->rec_rate;
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_HW) *= 1-ci;
-    MAT(hmm->curr_tprob,2,STATE_HW,STATE_AZ) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_HW) *= ci;
-    MAT(hmm->curr_tprob,2,STATE_AZ,STATE_AZ) *= 1-ci;
+    MAT(tprob,2,STATE_HW,STATE_AZ) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_HW) *= ci;
+    MAT(tprob,2,STATE_AZ,STATE_AZ)  = 1 - MAT(tprob,2,STATE_HW,STATE_AZ);
+    MAT(tprob,2,STATE_HW,STATE_HW)  = 1 - MAT(tprob,2,STATE_AZ,STATE_HW);
 }
 
 
@@ -301,19 +302,17 @@ void set_tprob_recrate(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data)
  *  Transition probabilities:
  *    tAZ = P(AZ|HW)  .. parameter
  *    tHW = P(HW|AZ)  .. parameter
- *    P(AZ|AZ) = 1 - P(HW|AZ) = 1 - tHW
- *    P(HW|HW) = 1 - P(AZ|HW) = 1 - tAZ
  *
  *    ci  = P_i(C)    .. probability of cross-over at site i, from genetic map
  *
  *    AZi = P_i(AZ)   .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
  *    HWi = P_i(HW)
  *
- *    P_i(AZ|AZ) = P(AZ|AZ) * (1-ci) * AZ{i-1} = (1-tHW) * (1-ci) * AZ{i-1}
  *    P_i(AZ|HW) = P(AZ|HW) * ci * HW{i-1}     = tAZ * ci * (1 - AZ{i-1})
- *
- *    P_i(HW|HW) = P(HW|HW) * (1-ci) * HW{i-1} = (1-tAZ) * (1-ci) * (1 - AZ{i-1})
  *    P_i(HW|AZ) = P(HW|AZ) * ci * AZ{i-1}     = tHW * ci * AZ{i-1}
+ *    P_i(AZ|AZ) = 1 - P_i(HW|AZ)
+ *    P_i(HW|HW) = 1 - P_i(AZ|HW)
+ *
  */
 
 static void flush_viterbi(args_t *args)
@@ -326,11 +325,16 @@ static void flush_viterbi(args_t *args)
     {
         // single viterbi pass, one chromsome
         hmm_run_viterbi(args->hmm, args->nsites, args->eprob, args->sites);
+        hmm_run_fwd_bwd(args->hmm, args->nsites, args->eprob, args->sites);
+        double *fwd = hmm_get_fwd_bwd_prob(args->hmm);
 
         const char *chr = bcf_hdr_id2name(args->hdr,args->prev_rid);
+        uint8_t *vpath = hmm_get_viterbi_path(args->hmm);
         for (i=0; i<args->nsites; i++)
         {
-            printf("%s\t%d\t%d\t..\n", chr,args->sites[i]+1,args->hmm->vpath[i*2]==STATE_AZ ? 1 : 0);
+            int state = vpath[i*2]==STATE_AZ ? 1 : 0;
+            double *pval = fwd + i*2;
+            printf("%s\t%d\t%d\t%.1f\n", chr,args->sites[i]+1, state, phred_score(1.0-pval[state]));
         }
         return;
     }
@@ -341,8 +345,9 @@ static void flush_viterbi(args_t *args)
     int niter = 0;
     do
     {
-        t2az_prev = MAT(args->hmm->tprob_arr,2,1,0); //args->t2AZ;
-        t2hw_prev = MAT(args->hmm->tprob_arr,2,0,1); //args->t2HW;
+        double *tprob_arr = hmm_get_tprob(args->hmm);
+        t2az_prev = MAT(tprob_arr,2,1,0); //args->t2AZ;
+        t2hw_prev = MAT(tprob_arr,2,0,1); //args->t2HW;
         double tcounts[] = { 0,0,0,0 };
         for (i=0; i<args->nrids; i++)
         {
@@ -353,11 +358,12 @@ static void flush_viterbi(args_t *args)
             hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
 
             // what transitions were observed: add to the total counts
+            uint8_t *vpath = hmm_get_viterbi_path(args->hmm);
             for (j=1; j<nsites; j++)
             {
                 // count the number of transitions
-                int prev_state = args->hmm->vpath[2*(j-1)];
-                int curr_state = args->hmm->vpath[2*j];
+                int prev_state = vpath[2*(j-1)];
+                int curr_state = vpath[2*j];
                 MAT(tcounts,2,curr_state,prev_state) += 1;
             }
         }
@@ -367,7 +373,7 @@ static void flush_viterbi(args_t *args)
         {
             int n = 0;
             for (j=0; j<2; j++) n += MAT(tcounts,2,i,j);
-            error("fixme: state %d not observed\n", i+1);
+            if ( !n) error("fixme: state %d not observed\n", i+1);
             for (j=0; j<2; j++) MAT(tcounts,2,i,j) /= n;
         }
         if ( args->genmap_fname || args->rec_rate > 0 )
@@ -375,15 +381,17 @@ static void flush_viterbi(args_t *args)
         else
             hmm_set_tprob(args->hmm, tcounts, 10000);
 
-        deltaz = fabs(MAT(args->hmm->tprob_arr,2,1,0)-t2az_prev);
-        delthw = fabs(MAT(args->hmm->tprob_arr,2,0,1)-t2hw_prev);
+        tprob_arr = hmm_get_tprob(args->hmm);
+        deltaz = fabs(MAT(tprob_arr,2,1,0)-t2az_prev);
+        delthw = fabs(MAT(tprob_arr,2,0,1)-t2hw_prev);
         niter++;
 
         fprintf(stderr,"%d: %f %f\n", niter,deltaz,delthw);
     }
     while ( deltaz > 0.0 || delthw > 0.0 );
     fprintf(stderr, "Viterbi training converged in %d iterations to", niter);
-    for (i=0; i<2; i++) for (j=0; j<2; j++) fprintf(stderr, " %f", MAT(args->hmm->tprob_arr,2,i,j));
+    double *tprob_arr = hmm_get_tprob(args->hmm);
+    for (i=0; i<2; i++) for (j=0; j<2; j++) fprintf(stderr, " %f", MAT(tprob_arr,2,i,j));
     fprintf(stderr, "\n");
     
     // output the results
@@ -392,11 +400,12 @@ static void flush_viterbi(args_t *args)
         int ioff = args->rid_offs[i];
         int nsites = (i+1==args->nrids ? args->nsites : args->rid_offs[i+1]) - ioff;
         hmm_run_viterbi(args->hmm, nsites, args->eprob+ioff*2, args->sites+ioff);
+        uint8_t *vpath = hmm_get_viterbi_path(args->hmm);
 
         const char *chr = bcf_hdr_id2name(args->hdr,args->rids[i]);
         for (j=0; j<nsites; j++)
         {
-            printf("%s\t%d\t%d\t..\n", chr,args->sites[ioff+j]+1,args->hmm->vpath[j*2]==STATE_AZ ? 1 : 0);
+            printf("%s\t%d\t%d\t..\n", chr,args->sites[ioff+j]+1,vpath[j*2]==STATE_AZ ? 1 : 0);
         }
     }
 }
@@ -510,7 +519,11 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
     }
 
     if ( ret<0 ) return ret;
-
+    if ( *alt_freq==0.0 )
+    {
+        if ( args->dflt_AF==0 ) return -1;       // we skip sites with AF=0
+        *alt_freq = args->dflt_AF;
+    }
 
     // Set P(D|G)
     if ( args->fake_PLs )
@@ -647,6 +660,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools roh [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "General Options:\n");
+    fprintf(stderr, "        --AF-dflt <float>              if AF is not known, use this allele frequency [skip]\n");
     fprintf(stderr, "        --AF-tag <TAG>                 use TAG for allele frequency\n");
     fprintf(stderr, "        --AF-file <file>               read allele frequencies from file (CHR\\tPOS\\tREF,ALT\\tAF)\n");
     fprintf(stderr, "    -e, --estimate-AF <file>           calculate AC,AN counts on the fly, using either all samples (\"-\") or samples listed in <file>\n");
@@ -661,8 +675,8 @@ static void usage(args_t *args)
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
-    fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state [1e-8]\n");
-    fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from HW to AZ state [1e-7]\n");
+    fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from HW (Hardy-Weinberg) to AZ (autozygous) state [6.7e-8]\n");
+    fprintf(stderr, "    -H, --az-to-hw <float>             P(HW|AZ) transition probability from AZ to HW state [5e-9]\n");
     fprintf(stderr, "    -V, --viterbi-training             perform Viterbi training to estimate transition probabilities\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -674,8 +688,8 @@ int main_vcfroh(int argc, char *argv[])
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
     args->files   = bcf_sr_init();
-    args->t2AZ    = 1e-1;
-    args->t2HW    = 1e-1;
+    args->t2AZ    = 6.7e-8;
+    args->t2HW    = 5e-9;
     args->rec_rate = 0;
     int regions_is_file = 0, targets_is_file = 0;
 
@@ -683,6 +697,7 @@ int main_vcfroh(int argc, char *argv[])
     {
         {"AF-tag",1,0,0},
         {"AF-file",1,0,1},
+        {"AF-dflt",1,0,2},
         {"estimate-AF",1,0,'e'},
         {"GTs-only",1,0,'G'},
         {"sample",1,0,'s'},
@@ -705,6 +720,10 @@ int main_vcfroh(int argc, char *argv[])
         switch (c) {
             case 0: args->af_tag = optarg; naf_opts++; break;
             case 1: args->af_fname = optarg; naf_opts++; break;
+            case 2: 
+                args->dflt_AF = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: --AF-dflt %s\n", optarg);
+                break;
             case 'e': args->estimate_AF = optarg; naf_opts++; break;
             case 'I': args->snps_only = 1; break;
             case 'G':

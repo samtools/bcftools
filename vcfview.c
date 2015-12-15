@@ -63,7 +63,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hnull, *hsub; // original header, sites-only header, subset header
     char **argv, *format, *sample_names, *subset_fname, *targets_list, *regions_list;
-    int argc, clevel, output_type, print_header, update_info, header_only, n_samples, *imap, calc_ac;
+    int argc, clevel, n_threads, output_type, print_header, update_info, header_only, n_samples, *imap, calc_ac;
     int trim_alts, sites_only, known, novel, min_alleles, max_alleles, private_vars, uncalled, phased;
     int min_ac, min_ac_type, max_ac, max_ac_type, min_af_type, max_af_type, gt_type;
     int *ac, mac;
@@ -185,6 +185,7 @@ static void init_data(args_t *args)
                 else if (strcmp(type_list[i], "other") == 0) args->include |= VCF_OTHER;
                 else {
                     fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
+                    fprintf(stderr, "Accepted types are snps, indels, mnps, other\n");
                     exit(1);
                 }
             }
@@ -198,6 +199,7 @@ static void init_data(args_t *args)
                 else if (strcmp(type_list[i], "other") == 0) args->exclude |= VCF_OTHER;
                 else {
                     fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
+                    fprintf(stderr, "Accepted types are snps, indels, mnps, other\n");
                     exit(1);
                 }
             }
@@ -216,10 +218,13 @@ static void init_data(args_t *args)
     else if (args->output_type & FT_GZ) strcat(modew,"z");      // compressed VCF
     args->out = hts_open(args->fn_out ? args->fn_out : "-", modew);
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
+    if ( args->n_threads ) hts_set_threads(args->out, args->n_threads);
 
     // headers: hdr=full header, hsub=subset header, hnull=sites only header
-    if (args->sites_only)
+    if (args->sites_only){
         args->hnull = bcf_hdr_subset(args->hdr, 0, 0, 0);
+        bcf_hdr_remove(args->hnull, BCF_HL_FMT, NULL);
+    }
     if (args->n_samples > 0)
     {
         args->hsub = bcf_hdr_subset(args->hdr, args->n_samples, args->samples, args->imap);
@@ -466,7 +471,7 @@ void set_allele_type (int *atype, char *atype_string)
         *atype = ALLELE_NONMAJOR;
     }
     else {
-        error("Error: allele type (%s) not recognised. Must be one of nref|alt1|minor|major|nonmajor: %s\n", atype_string);
+        error("Error: allele type not recognised. Expected one of nref|alt1|minor|major|nonmajor, got \"%s\".\n", atype_string);
     }
 }
 
@@ -486,6 +491,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -R, --regions-file <file>           restrict to regions listed in a file\n");
     fprintf(stderr, "    -t, --targets [^]<region>           similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
     fprintf(stderr, "    -T, --targets-file [^]<file>        similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
+    fprintf(stderr, "        --threads <int>                 number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles        trim alternate alleles not seen in the subset\n");
@@ -522,46 +528,48 @@ int main_vcfview(int argc, char *argv[])
     args->print_header = 1;
     args->update_info = 1;
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     int targets_is_file = 0, regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"genotype",1,0,'g'},
-        {"compression-level",1,0,'l'},
-        {"header-only",0,0,'h'},
-        {"no-header",0,0,'H'},
-        {"exclude",1,0,'e'},
-        {"include",1,0,'i'},
-        {"trim-alt-alleles",0,0,'a'},
-        {"no-update",0,0,'I'},
-        {"drop-genotypes",0,0,'G'},
-        {"private",0,0,'x'},
-        {"exclude-private",0,0,'X'},
-        {"uncalled",0,0,'u'},
-        {"exclude-uncalled",0,0,'U'},
-        {"apply-filters",1,0,'f'},
-        {"known",0,0,'k'},
-        {"novel",0,0,'n'},
-        {"min-alleles",1,0,'m'},
-        {"max-alleles",1,0,'M'},
-        {"samples",1,0,'s'},
-        {"samples-file",1,0,'S'},
-        {"force-samples",0,0,1},
-        {"output-type",1,0,'O'},
-        {"output-file",1,0,'o'},
-        {"types",1,0,'v'},
-        {"exclude-types",1,0,'V'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"min-ac",1,0,'c'},
-        {"max-ac",1,0,'C'},
-        {"min-af",1,0,'q'},
-        {"max-af",1,0,'Q'},
-        {"phased",0,0,'p'},
-        {"exclude-phased",0,0,'P'},
-        {0,0,0,0}
+        {"genotype",required_argument,NULL,'g'},
+        {"compression-level",required_argument,NULL,'l'},
+        {"threads",required_argument,NULL,9},
+        {"header-only",no_argument,NULL,'h'},
+        {"no-header",no_argument,NULL,'H'},
+        {"exclude",required_argument,NULL,'e'},
+        {"include",required_argument,NULL,'i'},
+        {"trim-alt-alleles",no_argument,NULL,'a'},
+        {"no-update",no_argument,NULL,'I'},
+        {"drop-genotypes",no_argument,NULL,'G'},
+        {"private",no_argument,NULL,'x'},
+        {"exclude-private",no_argument,NULL,'X'},
+        {"uncalled",no_argument,NULL,'u'},
+        {"exclude-uncalled",no_argument,NULL,'U'},
+        {"apply-filters",required_argument,NULL,'f'},
+        {"known",no_argument,NULL,'k'},
+        {"novel",no_argument,NULL,'n'},
+        {"min-alleles",required_argument,NULL,'m'},
+        {"max-alleles",required_argument,NULL,'M'},
+        {"samples",required_argument,NULL,'s'},
+        {"samples-file",required_argument,NULL,'S'},
+        {"force-samples",no_argument,NULL,1},
+        {"output-type",required_argument,NULL,'O'},
+        {"output-file",required_argument,NULL,'o'},
+        {"types",required_argument,NULL,'v'},
+        {"exclude-types",required_argument,NULL,'V'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"min-ac",required_argument,NULL,'c'},
+        {"max-ac",required_argument,NULL,'C'},
+        {"min-af",required_argument,NULL,'q'},
+        {"max-af",required_argument,NULL,'Q'},
+        {"phased",no_argument,NULL,'p'},
+        {"exclude-phased",no_argument,NULL,'P'},
+        {NULL,0,NULL,0}
     };
     char *tmp;
     while ((c = getopt_long(argc, argv, "l:t:T:r:R:o:O:s:S:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:g:",loptions,NULL)) >= 0)
@@ -666,9 +674,10 @@ int main_vcfview(int argc, char *argv[])
                 else if ( !strcasecmp(optarg,"^hom") ) args->gt_type = GT_NO_HOM;
                 else if ( !strcasecmp(optarg,"^het") ) args->gt_type = GT_NO_HET;
                 else if ( !strcasecmp(optarg,"^miss") ) args->gt_type = GT_NO_MISSING;
-                else error("The argument to -g not recognised. Expected one of hom/het/^hom/^het, got \"%s\".\n", optarg);
+                else error("The argument to -g not recognised. Expected one of hom/het/miss/^hom/^het/^miss, got \"%s\".\n", optarg);
                 break;
             }
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case '?': usage(args);
             default: error("Unknown argument: %s\n", optarg);
         }

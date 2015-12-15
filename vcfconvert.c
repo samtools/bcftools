@@ -66,11 +66,12 @@ struct _args_t
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname;
-    int argc;
+    int argc, n_threads;
 };
 
 static void destroy_data(args_t *args)
 {
+    if ( args->ref ) fai_destroy(args->ref);
     if ( args->convert) convert_destroy(args->convert);
     if ( args->filter ) filter_destroy(args->filter);
     free(args->samples);
@@ -92,10 +93,11 @@ static void open_vcf(args_t *args, const char *format_str)
     }
     if ( !bcf_sr_add_reader(args->files, args->infname) )
         error("Failed to open %s: %s\n", args->infname,bcf_sr_strerror(args->files->errnum));
-    if ( args->filter_str )
-        args->filter = filter_init(args->header, args->filter_str);
 
     args->header = args->files->readers[0].header;
+
+    if ( args->filter_str )
+        args->filter = filter_init(args->header, args->filter_str);
 
     int i, nsamples = 0, *samples = NULL;
     if ( args->sample_list && strcmp("-",args->sample_list) )
@@ -156,11 +158,19 @@ static int tsv_setter_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
     if ( *se!='_' ) error("Could not parse REF in CHROM:POS_REF_ALT id: %s\n", tsv->ss);
     kputsn(ss,se-ss,&args->str);
     ss = ++se;
-    while ( se < tsv->se && *se!=':' ) se++;
-    if ( se < tsv->se && *se!=':' ) error("Could not parse ALT in CHROM:POS_REF_ALT id: %s\n", tsv->ss);
+    while ( se < tsv->se && *se!='_' && isspace(*tsv->se) ) se++;
+    if ( se < tsv->se && *se!='_' && isspace(*tsv->se) ) error("Could not parse ALT in CHROM:POS_REF_ALT id: %s\n", tsv->ss);
     kputc(',',&args->str);
     kputsn(ss,se-ss,&args->str);
     bcf_update_alleles_str(args->header, rec, args->str.s);
+
+    // END - optional
+    if (*se && *se=='_') {
+        long end = strtol(se+1,&ss,10);
+        if ( ss==se+1 ) error("Could not parse END in CHROM:POS_REF_ALT_END: %s\n", tsv->ss);
+        bcf_update_info_int32(args->header, rec, "END", &end, 1);
+    }
+
     return 0;
 }
 static int tsv_setter_verify_pos(tsv_t *tsv, bcf1_t *rec, void *usr)
@@ -239,27 +249,61 @@ static int tsv_setter_haps(tsv_t *tsv, bcf1_t *rec, void *usr)
     if ( args->rev_als ) { a0 = bcf_gt_phased(1); a1 = bcf_gt_phased(0); }
     else { a0 = bcf_gt_phased(0); a1 = bcf_gt_phased(1); }
 
+    // up is short for "unphased"
+    int nup = 0; 
     for (i=0; i<nsamples; i++)
     {
-        char *ss = tsv->ss + 4*i;
+        char *ss = tsv->ss + 4*i + nup;
+        int up = 0, all;
 
-        if ( !ss[0] || !ss[1] || !ss[2] )
+        for (all=0; all < 2; all++){
+            // checking for premature ending
+            if ( !ss[0] || !ss[1] || !ss[2] ||
+                 (up && (!ss[3] || !ss[4]) ) )
+            {
+                fprintf(stderr,"Wrong number of fields at %d-th sample ([%c][%c][%c]). ",i+1,ss[0],ss[1],ss[2]);
+                return -1;
+            }
+
+            switch(ss[all*2+up]){
+            case '0':
+                args->gts[2*i+all] = a0;
+                break;
+            case '1' :
+                args->gts[2*i+all] = a1;
+                break;
+            case '?' :
+                // there is no macro to express phased missing allele
+                args->gts[2*i+all] = bcf_gt_phased(-1);
+                break;
+            case '-' :
+                args->gts[2*i+all] = bcf_int32_vector_end;
+                break;
+            default :
+                fprintf(stderr,"Could not parse: [%c][%s]\n", ss[all*2+up],tsv->ss);
+                return -1; 
+            }
+            if( ss[all*2+up+1]=='*' ) up = up + 1;
+        }
+        
+        if(up && up != 2)
         {
-            fprintf(stderr,"Wrong number of fields at %d-th sample ([%c][%c][%c]). ",i+1,ss[0],ss[1],ss[2]);
+            fprintf(stderr,"Missing unphased marker '*': [%c][%s]", ss[2+up], tsv->ss);
             return -1;
         }
 
-        if ( ss[0]=='0' ) args->gts[2*i] = a0;
-        else if ( ss[0]=='1' ) args->gts[2*i] = a1;
-        else { fprintf(stderr,"Could not parse: [%c][%s]\n", ss[0],tsv->ss); return -1; }
-
-        if ( ss[2]=='0' ) args->gts[2*i+1] = a0;
-        else if ( ss[2]=='1' ) args->gts[2*i+1] = a1;
-        else { fprintf(stderr,"Could not parse: [%c][%s]\n", ss[2],tsv->ss); return -1; }
+        // change alleles to unphased if the alleles are unphased
+        if ( up )
+        {
+            args->gts[2*i] = bcf_gt_unphased(bcf_gt_allele(args->gts[2*i]));
+            args->gts[2*i+1] = bcf_gt_unphased(bcf_gt_allele(args->gts[2*i+1]));
+        }
+        nup = nup + up;
     }
-    if ( tsv->ss[(nsamples-1)*4+3] )
+    if ( tsv->ss[(nsamples-1)*4+3+nup] )
     {
-        fprintf(stderr,"Wrong number of fields (%d-th column = [%c]). ", nsamples*2,tsv->ss[(nsamples-1)*4+1]);
+        fprintf(stderr,"nup: %d", nup);
+        fprintf(stderr,"Wrong number of fields (%d-th column = [%c]). ", nsamples*2,tsv->ss[(nsamples-1)*4+nup]);
         return -1;
     }
 
@@ -321,6 +365,7 @@ static void gensample_to_vcf(args_t *args)
     tsv_register(tsv, "GT_GP", tsv_setter_gt_gp, args);
 
     args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GP,Number=G,Type=Float,Description=\"Genotype Probabilities\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
@@ -338,6 +383,8 @@ static void gensample_to_vcf(args_t *args)
     free(samples);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
     bcf1_t *rec = bcf_init();
 
@@ -377,13 +424,14 @@ static void haplegendsample_to_vcf(args_t *args)
      *  Convert from IMPUTE2 hap/legend/sample output files to VCF
      *
      *      hap:
-     *          0 1 0 1 1 1
+     *          0 1 0 1
      *      legend:
      *          id position a0 a1
      *          1:186946386_G_T 186946386 G T
      *      sample:
-     *          QTL190044
-     *          QTL190053
+     *          sample population group sex
+     *          sample1 sample1 sample1 2
+     *          sample2 sample2 sample2 2
      *
      *  Output: VCF with filled GT
      */
@@ -438,23 +486,30 @@ static void haplegendsample_to_vcf(args_t *args)
     tsv_register(hap_tsv, "HAPS", tsv_setter_haps, args);
 
     args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
     bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
 
-    int i, nsamples;
-    char **samples = hts_readlist(sample_fname, 1, &nsamples);
-    for (i=0; i<nsamples; i++)
+    int i, nrows, nsamples;
+    char **samples = hts_readlist(sample_fname, 1, &nrows);
+    nsamples = nrows - 1;
+
+    // sample_fname should contain a header line, so need to ignore first row
+    // returned from hts_readlist (i=1, and not i=0)
+    for (i=1; i<nrows; i++)
     {
         se = samples[i]; while ( *se && !isspace(*se) ) se++;
         *se = 0;
         bcf_hdr_add_sample(args->header,samples[i]);
     }
     bcf_hdr_add_sample(args->header,NULL);
-    for (i=0; i<nsamples; i++) free(samples[i]);
+    for (i=0; i<nrows; i++) free(samples[i]);
     free(samples);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
     bcf1_t *rec = bcf_init();
 
@@ -548,6 +603,7 @@ static void hapsample_to_vcf(args_t *args)
     tsv_register(tsv, "HAPS", tsv_setter_haps, args);
 
     args->header = bcf_hdr_init("w");
+    bcf_hdr_append(args->header, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant described in this record\">");
     bcf_hdr_append(args->header, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     bcf_hdr_printf(args->header, "##contig=<ID=%s,length=%d>", args->str.s,0x7fffffff);   // MAX_CSI_COOR
     bcf_hdr_append_version(args->header, args->argc, args->argv, "bcftools_convert");
@@ -565,6 +621,8 @@ static void hapsample_to_vcf(args_t *args)
     free(samples);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
     bcf1_t *rec = bcf_init();
 
@@ -677,7 +735,7 @@ static void vcf_to_gensample(args_t *args)
     }
 
     int prev_rid = -1, prev_pos = -1;
-    int no_alt = 0, non_biallelic = 0, filtered = 0, ndup = 0;
+    int no_alt = 0, non_biallelic = 0, filtered = 0, ndup = 0, nok = 0;
     BGZF *gout = bgzf_open(gen_fname, gen_compressed ? "wg" : "wu");
     while ( bcf_sr_next_line(args->files) )
     {
@@ -711,10 +769,11 @@ static void vcf_to_gensample(args_t *args)
         {
             int ret = bgzf_write(gout, str.s, str.l);
             if ( ret!= str.l ) error("Error writing %s: %s\n", gen_fname,strerror(errno));
+            nok++;
         }
     }
-    fprintf(stderr, "%d records skipped: %d/%d/%d/%d no-ALT/non-biallelic/filtered/duplicated\n", 
-        no_alt+non_biallelic+filtered+ndup, no_alt, non_biallelic, filtered, ndup);
+    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d/%d no-ALT/non-biallelic/filtered/duplicated\n", 
+        nok, no_alt+non_biallelic+filtered+ndup, no_alt, non_biallelic, filtered, ndup);
 
     if ( str.m ) free(str.s);
     if ( bgzf_close(gout)!=0 ) error("Error closing %s: %s\n", gen_fname,strerror(errno));
@@ -802,7 +861,7 @@ static void vcf_to_haplegendsample(args_t *args)
         if ( ret != str.l ) error("Error writing %s: %s\n", legend_fname, strerror(errno));
     }
 
-    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    int no_alt = 0, non_biallelic = 0, filtered = 0, nok = 0;
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
@@ -843,8 +902,9 @@ static void vcf_to_haplegendsample(args_t *args)
             ret = bgzf_write(lout, str.s, str.l);
             if ( ret != str.l ) error("Error writing %s: %s\n", legend_fname, strerror(errno));
         }
+        nok++;
     }
-    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
+    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", nok,no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
     if ( str.m ) free(str.s);
     if ( hout && bgzf_close(hout)!=0 ) error("Error closing %s: %s\n", hap_fname, strerror(errno));
     if ( lout && bgzf_close(lout)!=0 ) error("Error closing %s: %s\n", legend_fname, strerror(errno));
@@ -935,7 +995,7 @@ static void vcf_to_hapsample(args_t *args)
     // open haps output
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
 
-    int no_alt = 0, non_biallelic = 0, filtered = 0;
+    int no_alt = 0, non_biallelic = 0, filtered = 0, nok = 0;
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files,0);
@@ -965,8 +1025,9 @@ static void vcf_to_hapsample(args_t *args)
             ret = bgzf_write(hout, str.s, str.l); // write hap file
             if ( ret != str.l ) error("Error writing %s: %s\n", hap_fname, strerror(errno));
         }
+        nok++;
     }
-    fprintf(stderr, "%d records skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
+    fprintf(stderr, "%d records written, %d skipped: %d/%d/%d no-ALT/non-biallelic/filtered\n", nok, no_alt+non_biallelic+filtered, no_alt, non_biallelic, filtered);
     if ( str.m ) free(str.s);
     if ( hout && bgzf_close(hout)!=0 ) error("Error closing %s: %s\n", hap_fname, strerror(errno));
     if (hap_fname) free(hap_fname);
@@ -1073,8 +1134,8 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
 
 static void tsv_to_vcf(args_t *args)
 {
-    if ( !args->ref_fname ) error("Missing the --ref option\n");
-    if ( !args->sample_list ) error("Missing the --samples option\n");
+    if ( !args->ref_fname ) error("--tsv2vcf requires the --fasta-ref option\n");
+    if ( !args->sample_list ) error("--tsv2vcf requires the --samples option\n");
 
     args->ref = fai_load(args->ref_fname);
     if ( !args->ref ) error("Could not load the reference %s\n", args->ref_fname);
@@ -1097,6 +1158,8 @@ static void tsv_to_vcf(args_t *args)
     args->gts = (int32_t *) malloc(sizeof(int32_t)*n*2);
 
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     bcf_hdr_write(out_fh,args->header);
 
     tsv_t *tsv = tsv_init(args->columns ? args->columns : "ID,CHROM,POS,AA");
@@ -1125,7 +1188,6 @@ static void tsv_to_vcf(args_t *args)
     if ( hts_close(in_fh) ) error("Close failed: %s\n", args->infname);
     free(line.s);
 
-    fai_destroy(args->ref);
     bcf_hdr_destroy(args->header);
     hts_close(out_fh);
     tsv_destroy(tsv);
@@ -1146,7 +1208,8 @@ static void vcf_to_vcf(args_t *args)
 {
     open_vcf(args,NULL);
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
-    if ( !out_fh ) error("Failed to open: %s\n", args->outfname);
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
 
     bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
     bcf_hdr_write(out_fh,hdr);
@@ -1167,9 +1230,15 @@ static void vcf_to_vcf(args_t *args)
 
 static void gvcf_to_vcf(args_t *args)
 {
+    if ( !args->ref_fname ) error("--gvcf2vcf requires the --fasta-ref option\n");
+
+    args->ref = fai_load(args->ref_fname);
+    if ( !args->ref ) error("Could not load the fai index for reference %s\n", args->ref_fname);
+
     open_vcf(args,NULL);
     htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode(args->output_type));
-    if ( !out_fh ) error("Failed to open: %s\n", args->outfname);
+    if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
 
     bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
     bcf_hdr_append_version(hdr, args->argc, args->argv, "bcftools_convert");
@@ -1202,10 +1271,15 @@ static void gvcf_to_vcf(args_t *args)
             continue;
         }
         bcf_update_info_int32(hdr,line,"END",NULL,0);
-        int pos;
-        for (pos=line->pos; pos<=itmp[0]; pos++)
+        int pos, len;
+        for (pos=line->pos; pos<itmp[0]; pos++)
         {
             line->pos = pos;
+            char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(hdr,line->rid), line->pos, line->pos, &len);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(hdr,line->rid), line->pos+1);
+            // we have already checked above that there is only one allele,
+            // so fine to just update alleles with the ref allele from the fasta
+            bcf_update_alleles_str(hdr, line, &ref[0]);
             bcf_write(out_fh,hdr,line);
         }
     }
@@ -1230,6 +1304,7 @@ static void usage(void)
     fprintf(stderr, "   -S, --samples-file <file>   file of samples to include\n");
     fprintf(stderr, "   -t, --targets <region>      similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>   similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "       --threads <int>         number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "VCF output options:\n");
     fprintf(stderr, "   -o, --output <file>            output file name [stdout]\n");
@@ -1243,7 +1318,8 @@ static void usage(void)
     fprintf(stderr, "       --vcf-ids               output VCF IDs in second column instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "gVCF conversion:\n");
-    fprintf(stderr, "       --gvcf2vcf              \n");
+    fprintf(stderr, "       --gvcf2vcf              expand gVCF reference blocks\n");
+    fprintf(stderr, "   -f, --fasta-ref <file>      reference sequence in fasta format\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/SAMPLE conversion (output from SHAPEIT):\n");
     fprintf(stderr, "       --hapsample2vcf <...>   <prefix>|<haps-file>,<sample-file>\n");
@@ -1282,6 +1358,7 @@ int main_vcfconvert(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->outfname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
 
     static struct option loptions[] =
     {
@@ -1289,6 +1366,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"exclude",required_argument,NULL,'e'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
         {"targets",required_argument,NULL,'t'},
@@ -1309,7 +1387,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"haplegendsample2vcf",required_argument,NULL,'H'},
         {"columns",required_argument,NULL,'c'},
         {"fasta-ref",required_argument,NULL,'f'},
-        {0,0,0,0}
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:",loptions,NULL)) >= 0) {
         switch (c) {
@@ -1345,6 +1423,7 @@ int main_vcfconvert(int argc, char *argv[])
                 }
                 break;
             case 'h': args->convert_func = vcf_to_haplegendsample; args->outfname = optarg; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }

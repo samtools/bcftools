@@ -118,7 +118,7 @@ typedef struct
     htsFile *out_fh;
     bcf_hdr_t *out_hdr;
     char **argv;
-    int argc;
+    int argc, n_threads;
 }
 args_t;
 
@@ -421,11 +421,10 @@ static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, inf
 
 int bcf_hdr_sync(bcf_hdr_t *h);
 
-void bcf_hdr_merge(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix, int force_samples)
+void merge_headers(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix, int force_samples)
 {
     // header lines
-    int ret = bcf_hdr_combine(hw, hr);
-    if ( ret!=0 ) error("Error occurred while merging the headers.\n");
+    hw = bcf_hdr_merge(hw, hr);
 
     // samples
     int i;
@@ -578,7 +577,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
             ai = a[i];
 
         for (j=1; j<*nb; j++)
-            if ( !strcmp(ai,b[j]) ) break;
+            if ( !strcasecmp(ai,b[j]) ) break;
 
         if ( j<*nb ) // $b already has the same allele
         {
@@ -789,7 +788,7 @@ void merge_filter(args_t *args, bcf1_t *out)
             if ( kitr == kh_end(tmph) )
             {
                 int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, flt);
-                if ( id==-1 ) error("The filter not defined: %s\n", flt);
+                if ( id==-1 ) error("Error: The filter is not defined in the header: %s\n", flt);
                 hts_expand(int,out->d.n_flt+1,ma->mflt,ma->flt);
                 ma->flt[out->d.n_flt] = id;
                 out->d.n_flt++;
@@ -1775,7 +1774,7 @@ void merge_buffer(args_t *args)
 
             // normalize alleles
             maux->als = merge_alleles(line->d.allele, line->n_allele, maux->d[i][j].map, maux->als, &maux->nals, &maux->mals);
-            if ( !maux->als ) error("Failed to merge alleles at %s:%d in %s\n",bcf_seqname(args->out_hdr,line),line->pos+1,reader->fname);
+            if ( !maux->als ) error("Failed to merge alleles at %s:%d in %s\n",bcf_seqname(bcf_sr_get_header(args->files,j),line),line->pos+1,reader->fname);
             hts_expand0(int, maux->nals, maux->ncnt, maux->cnt);
             for (k=1; k<line->n_allele; k++)
                 maux->cnt[ maux->d[i][j].map[k] ]++;    // how many times an allele appears in the files
@@ -1899,6 +1898,7 @@ void merge_vcf(args_t *args)
 {
     args->out_fh  = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
     args->out_hdr = bcf_hdr_init("w");
 
     if ( args->header_fname )
@@ -1911,7 +1911,7 @@ void merge_vcf(args_t *args)
         for (i=0; i<args->files->nreaders; i++)
         {
             char buf[10]; snprintf(buf,10,"%d",i+1);
-            bcf_hdr_merge(args->out_hdr, args->files->readers[i].header,buf,args->force_samples);
+            merge_headers(args->out_hdr, args->files->readers[i].header,buf,args->force_samples);
         }
         bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_merge");
         bcf_hdr_sync(args->out_hdr);
@@ -1966,6 +1966,7 @@ static void usage(void)
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "        --threads <int>                number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1978,24 +1979,26 @@ int main_vcfmerge(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     args->collapse = COLLAPSE_BOTH;
     int regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"help",0,0,'h'},
-        {"merge",1,0,'m'},
-        {"file-list",1,0,'l'},
-        {"apply-filters",1,0,'f'},
-        {"use-header",1,0,1},
-        {"print-header",0,0,2},
-        {"force-samples",0,0,3},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"info-rules",1,0,'i'},
-        {0,0,0,0}
+        {"help",no_argument,NULL,'h'},
+        {"merge",required_argument,NULL,'m'},
+        {"file-list",required_argument,NULL,'l'},
+        {"apply-filters",required_argument,NULL,'f'},
+        {"use-header",required_argument,NULL,1},
+        {"print-header",no_argument,NULL,2},
+        {"force-samples",no_argument,NULL,3},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"info-rules",required_argument,NULL,'i'},
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:",loptions,NULL)) >= 0) {
         switch (c) {
@@ -2028,6 +2031,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case  3 : args->force_samples = 1; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);

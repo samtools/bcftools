@@ -138,7 +138,7 @@ static cmd_t cmds[] =
     },
     { .func  = main_vcfcnv,
       .alias = "cnv",
-      .help  = "-HMM CNV calling"    // do not advertise yet
+      .help  = "HMM CNV calling"
     },
     { .func  = main_vcffilter,
       .alias = "filter",
@@ -151,7 +151,7 @@ static cmd_t cmds[] =
 #if USE_GPL
     { .func  = main_polysomy,
       .alias = "polysomy",
-      .help  = "-detect number of chromosomal copies",
+      .help  = "detect number of chromosomal copies",
     },
 #endif
     { .func  = main_vcfroh,
@@ -188,7 +188,7 @@ static void usage(FILE *fp)
 #endif
     fprintf(fp, "Version: %s (using htslib %s)\n", bcftools_version(), hts_version());
     fprintf(fp, "\n");
-    fprintf(fp, "Usage:   bcftools <command> <argument>\n");
+    fprintf(fp, "Usage:   bcftools [--version|--version-only] [--help] <command> <argument>\n");
     fprintf(fp, "\n");
     fprintf(fp, "Commands:\n");
 

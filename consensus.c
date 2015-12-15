@@ -26,6 +26,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <getopt.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -205,11 +207,16 @@ static void init_data(args_t *args)
     if ( args->chain_fname )
     {
         args->fp_chain = fopen(args->chain_fname,"w");
+        if ( ! args->fp_chain ) error("Failed to create %s: %s\n", args->chain_fname, strerror(errno));
         args->chain_id = 0;
     }
     rbuf_init(&args->vcf_rbuf, 100);
     args->vcf_buf = (bcf1_t**) calloc(args->vcf_rbuf.m, sizeof(bcf1_t*));
-    args->fp_out = args->output_fname ? fopen(args->output_fname,"w") : stdout;
+    if ( args->output_fname ) {
+        args->fp_out = fopen(args->output_fname,"w");
+        if ( ! args->fp_out ) error("Failed to create %s: %s\n", args->output_fname, strerror(errno));
+    }
+    else args->fp_out = stdout;
 }
 
 static void destroy_data(args_t *args)
@@ -560,7 +567,7 @@ static void consensus(args_t *args)
             }
 
             // is the cached fasta buffer full enough? if not, read more fasta, no flushing
-            if ( args->fa_ori_pos + args->fa_buf.l - args->fa_mod_off <= rec->pos + rec->rlen )
+            if ( args->fa_ori_pos + args->fa_buf.l - args->fa_mod_off < rec->pos + rec->rlen )
             {
                 unread_vcf_line(args, rec_ptr);
                 break;

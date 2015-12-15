@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014 Genome Research Ltd.
+   Copyright (c) 2014-2015 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -31,28 +31,7 @@
 
 typedef struct _hmm_t hmm_t;
 
-typedef void (*set_tprob_f) (hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data);
-
-struct _hmm_t
-{
-    int nstates;    // number of states
-
-    double *vprob, *vprob_tmp;  // viterbi probs [nstates]
-    uint8_t *vpath;             // viterbi path [nstates*nvpath]
-    double *bwd, *bwd_tmp;      // bwd probs [nstates]
-    double *fwd;                // fwd probs [nstates*(nfwd+1)]
-    int nvpath, nfwd;
-
-    int ntprob_arr;             // number of pre-calculated tprob matrices
-    double *curr_tprob, *tmp;   // Temporary arrays; curr_tprob is short lived, valid only for
-                                //  one site (that is, one step of Viterbi algorithm)
-    double *tprob_arr;          // Array of transition matrices, precalculated to ntprob_arr
-                                //  positions. The first matrix is the initial tprob matrix
-                                //  set by hmm_init() or hmm_set_tprob()
-    set_tprob_f set_tprob;      // Optional user function to set / modify transition probabilities
-                                //  at each site (one step of Viterbi algorithm)
-    void *set_tprob_data;
-};
+typedef void (*set_tprob_f) (hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob);
 
 /**
  *   hmm_init() - initialize HMM
@@ -64,6 +43,22 @@ struct _hmm_t
  */
 hmm_t *hmm_init(int nstates, double *tprob, int ntprob);
 void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob);
+
+/**
+ *   hmm_init_states() - initial state probabilities
+ *   @probs:  initial state probabilities or NULL to reset to default
+ *
+ *   If uncalled, all states are initialized with the same likelihood
+ */
+void hmm_init_states(hmm_t *hmm, double *probs);
+
+/**
+ *   hmm_get_tprob() - return the array of transition matrices, precalculated
+ *      to ntprob positions. The first matrix is the initial tprob matrix
+ *      set by hmm_init() or hmm_set_tprob()
+ */
+double *hmm_get_tprob(hmm_t *hmm);
+int hmm_get_nstates(hmm_t *hmm);
 
 /**
  *   hmm_set_tprob_func() - custom setter of transition probabilities
@@ -83,15 +78,24 @@ void hmm_set_tprob_func(hmm_t *hmm, set_tprob_f set_tprob, void *data);
 void hmm_run_viterbi(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
 
 /**
+ *   hmm_get_viterbi_path() - the viterbi path: state at ith site is the
+ *      (nstates*isite)-th element
+ */
+uint8_t *hmm_get_viterbi_path(hmm_t *hmm);
+
+/**
  *   hmm_run_fwd_bwd() - run the forward-backward algorithm
  *   @nsites:   number of sites 
  *   @eprob:    emission probabilities for each site and state (nsites x nstates)
  *   @sites:    list of positions
- *
- *   When done, hmm->fwd[] contains the calculated fwd*bwd probabilities. The
- *   probability of i-th state at j-th site can be accessed as fwd[j*nstates+i].
  */
 void hmm_run_fwd_bwd(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
+
+/**
+ *   hmm_get_fwd_bwd_prob() - the probability of i-th state at j-th site can
+ *      be accessed as fwd_bwd[j*nstates+i].
+ */
+double *hmm_get_fwd_bwd_prob(hmm_t *hmm);
 
 /**
  *   hmm_run_baum_welch() - run one iteration of Baum-Welch algorithm
@@ -104,6 +108,7 @@ void hmm_run_fwd_bwd(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
  *   are not updated.
  */
 void hmm_run_baum_welch(hmm_t *hmm, int nsites, double *eprob, uint32_t *sites);
+
 void hmm_destroy(hmm_t *hmm);
 
 #endif

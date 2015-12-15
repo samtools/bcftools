@@ -41,6 +41,7 @@ THE SOFTWARE.  */
 #define OP_EQUAL 3
 #define OP_VENN 4
 #define OP_COMPLEMENT 5
+#define OP_EXACT 6
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -48,7 +49,7 @@ THE SOFTWARE.  */
 
 typedef struct
 {
-    int isec_op, isec_n, *write, iwrite, nwrite, output_type;
+    int isec_op, isec_n, *write, iwrite, nwrite, output_type, n_threads;
     int nflt, *flt_logic;
     filter_t **flt;
     char **flt_expr;
@@ -56,6 +57,7 @@ typedef struct
     FILE *fh_log, *fh_sites;
     htsFile **fh_out;
     char **argv, *prefix, *output_fname, **fnames, *write_files, *targets_list, *regions_list;
+    char *isec_exact;
     int argc;
 }
 args_t;
@@ -126,14 +128,6 @@ FILE *open_file(char **fname, const char *mode, const char *fmt, ...)
     return fp;
 }
 
-const char *hts_bcf_wmode(int file_type)
-{
-    if ( file_type == FT_BCF ) return "wbu";    // uncompressed BCF
-    if ( file_type & FT_BCF ) return "wb";      // compressed BCF
-    if ( file_type & FT_GZ ) return "wz";       // compressed VCF
-    return "w";                                 // uncompressed VCF
-}
-
 void isec_vcf(args_t *args)
 {
     bcf_srs_t *files = args->files;
@@ -148,6 +142,7 @@ void isec_vcf(args_t *args)
     {
         out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode(args->output_type));
         if ( out_fh == NULL ) error("Can't write to %s: %s\n", args->output_fname? args->output_fname : "standard output", strerror(errno));
+        if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
         bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
         bcf_hdr_write(out_fh, files->readers[args->iwrite].header);
     }
@@ -190,7 +185,12 @@ void isec_vcf(args_t *args)
             case OP_COMPLEMENT: if ( n!=1 || !bcf_sr_has_line(files,0) ) continue; break;
             case OP_EQUAL: if ( n != args->isec_n ) continue; break;
             case OP_PLUS: if ( n < args->isec_n ) continue; break;
-            case OP_MINUS: if ( n > args->isec_n ) continue;
+            case OP_MINUS: if ( n > args->isec_n ) continue; break;
+            case OP_EXACT:
+                for (i=0; i<files->nreaders; i++)
+                    if ( files->has_line[i] != args->isec_exact[i] ) break;
+                if ( i<files->nreaders ) continue;
+                break;
         }
 
         if ( out_std )
@@ -294,6 +294,16 @@ static void init_data(args_t *args)
         }
     }
 
+    if ( args->isec_op==OP_EXACT )
+    {
+        if ( strlen(args->isec_exact)!=args->files->nreaders )
+            error("The number of files does not match the bitmask: %d vs %s\n", args->files->nreaders,args->isec_exact);
+        for (i=0; i<args->files->nreaders; i++)
+            if ( args->isec_exact[i]!='0' && args->isec_exact[i]!='1' ) error("Unexpected bitmask: %s\n",args->isec_exact);
+        for (i=0; i<args->files->nreaders; i++)
+            args->isec_exact[i] -= '0';
+    }
+
     // Which files to write: parse the string passed with -w
     char *p = args->write_files;
     while (p && *p)
@@ -340,6 +350,7 @@ static void init_data(args_t *args)
                 open_file(&args->fnames[i], NULL, "%s/%04d.%s", args->prefix, i, suffix); \
                 args->fh_out[i] = hts_open(args->fnames[i], hts_bcf_wmode(args->output_type));  \
                 if ( !args->fh_out[i] ) error("Could not open %s\n", args->fnames[i]); \
+                if ( args->n_threads ) hts_set_threads(args->fh_out[i], args->n_threads); \
                 bcf_hdr_append_version(args->files->readers[j].header,args->argc,args->argv,"bcftools_isec"); \
                 bcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
             }
@@ -445,7 +456,7 @@ static void usage(void)
     fprintf(stderr, "    -e, --exclude <expr>          exclude sites for which the expression is true\n");
     fprintf(stderr, "    -f, --apply-filters <list>    require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -i, --include <expr>          include only sites for which the expression is true\n");
-    fprintf(stderr, "    -n, --nfiles [+-=]<int>       output positions present in this many (=), this many or more (+), or this many or fewer (-) files\n");
+    fprintf(stderr, "    -n, --nfiles [+-=~]<int>      output positions present in this many (=), this many or more (+), this many or fewer (-), the exact (~) files\n");
     fprintf(stderr, "    -o, --output <file>           write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "    -p, --prefix <dir>            if given, subset each of the input files accordingly, see also -w\n");
@@ -454,6 +465,7 @@ static void usage(void)
     fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -w, --write <list>            list of files to write with -p given as 1-based indexes. By default, all files are written\n");
+    fprintf(stderr, "        --threads <int>           number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Create intersection and complements of two sets saving the output in dir/*\n");
@@ -479,26 +491,28 @@ int main_vcfisec(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->output_fname = NULL;
     args->output_type = FT_VCF;
+    args->n_threads = 0;
     int targets_is_file = 0, regions_is_file = 0;
 
     static struct option loptions[] =
     {
-        {"help",0,0,'h'},
-        {"exclude",1,0,'e'},
-        {"include",1,0,'i'},
-        {"collapse",1,0,'c'},
-        {"complement",0,0,'C'},
-        {"apply-filters",1,0,'f'},
-        {"nfiles",1,0,'n'},
-        {"prefix",1,0,'p'},
-        {"write",1,0,'w'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {0,0,0,0}
+        {"help",no_argument,NULL,'h'},
+        {"exclude",required_argument,NULL,'e'},
+        {"include",required_argument,NULL,'i'},
+        {"collapse",required_argument,NULL,'c'},
+        {"complement",no_argument,NULL,'C'},
+        {"apply-filters",required_argument,NULL,'f'},
+        {"nfiles",required_argument,NULL,'n'},
+        {"prefix",required_argument,NULL,'p'},
+        {"write",required_argument,NULL,'w'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "hc:r:R:p:n:w:t:T:Cf:o:O:i:e:",loptions,NULL)) >= 0) {
         switch (c) {
@@ -538,11 +552,14 @@ int main_vcfisec(int argc, char *argv[])
                     if ( *p=='-' ) { args->isec_op = OP_MINUS; p++; }
                     else if ( *p=='+' ) { args->isec_op = OP_PLUS; p++; }
                     else if ( *p=='=' ) { args->isec_op = OP_EQUAL; p++; }
+                    else if ( *p=='~' ) { args->isec_op = OP_EXACT; p++; }
                     else if ( isdigit(*p) ) args->isec_op = OP_EQUAL;
                     else error("Could not parse --nfiles %s\n", optarg);
-                    if ( sscanf(p,"%d",&args->isec_n)!=1 ) error("Could not parse --nfiles %s\n", optarg);
+                    if ( args->isec_op == OP_EXACT ) args->isec_exact = p;
+                    else if ( sscanf(p,"%d",&args->isec_n)!=1 ) error("Could not parse --nfiles %s\n", optarg);
                 }
                 break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);

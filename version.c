@@ -44,4 +44,12 @@ void error(const char *format, ...)
     exit(-1);
 }
 
+const char *hts_bcf_wmode(int file_type)
+{
+    if ( file_type == FT_BCF ) return "wbu";    // uncompressed BCF
+    if ( file_type & FT_BCF ) return "wb";      // compressed BCF
+    if ( file_type & FT_GZ ) return "wz";       // compressed VCF
+    return "w";                                 // uncompressed VCF
+}
+
 
