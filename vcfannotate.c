@@ -1,6 +1,6 @@
 /*  vcfannotate.c -- Annotate and edit VCF/BCF files.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1517,8 +1517,10 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
         }
         if ( args->ref_idx != -1 )
         {
-            assert( args->ref_idx < tmp->ncols );
-            assert( args->alt_idx < tmp->ncols );
+            if ( args->ref_idx >= tmp->ncols ) 
+                error("Could not parse the line, expected %d+ columns, found %d:\n\t%s\n",args->ref_idx+1,tmp->ncols,args->tgts->line.s);
+            if ( args->alt_idx >= tmp->ncols )
+                error("Could not parse the line, expected %d+ columns, found %d:\n\t%s\n",args->alt_idx+1,tmp->ncols,args->tgts->line.s);
             tmp->nals = 2;
             hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
             tmp->als[0] = tmp->cols[args->ref_idx];
