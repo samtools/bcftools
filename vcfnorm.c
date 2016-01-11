@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1641,7 +1641,6 @@ static void normalize_vcf(args_t *args)
             if ( args->lines[ilast]->pos - args->lines[i]->pos < args->buf_win ) break;
             j++;
         }
-        if ( args->rbuf.n==args->rbuf.m ) j = 1;
         if ( j>0 ) flush_buffer(args, out, j);
     }
     flush_buffer(args, out, args->rbuf.n);
