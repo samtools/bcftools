@@ -1,6 +1,6 @@
 /*  vcfcall.c -- SNP/indel variant calling from VCF/BCF.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -174,6 +174,11 @@ static ploidy_predef_t ploidy_predefs[] =
       .ploidy =
           "*  * *     M 1\n"
           "*  * *     F 0\n"
+    },
+    { .alias  = "1",
+      .about  = "Treat all samples as haploid",
+      .ploidy =
+          "*  * *     * 1\n"
     },
     {
         .alias  = NULL,
@@ -396,9 +401,21 @@ static void init_data(args_t *args)
             if ( 3*args->aux.nfams!=args->nsamples ) error("Expected only trios in %s, sorry!\n", args->samples_fname);
             fprintf(stderr,"Detected %d samples in %d trio families\n", args->nsamples,args->aux.nfams);
         }
+    }
+    if ( args->ploidy  )
+    {
         args->nsex = ploidy_nsex(args->ploidy);
         args->sex2ploidy = (int*) calloc(args->nsex,sizeof(int));
         args->sex2ploidy_prev = (int*) calloc(args->nsex,sizeof(int));
+        if ( !args->nsamples )
+        {
+            args->nsamples = bcf_hdr_nsamples(args->aux.hdr);
+            args->sample2sex = (int*) malloc(sizeof(int)*args->nsamples);
+            for (i=0; i<args->nsamples; i++) args->sample2sex[i] = 0;
+        }
+    }
+    if ( args->nsamples )
+    {
         args->aux.ploidy = (uint8_t*) malloc(args->nsamples);
         for (i=0; i<args->nsamples; i++) args->aux.ploidy[i] = 2;
         for (i=0; i<args->nsex; i++) args->sex2ploidy_prev[i] = 2;
@@ -418,9 +435,12 @@ static void init_data(args_t *args)
     else
     {
         args->aux.hdr = bcf_hdr_dup(bcf_sr_get_header(args->aux.srs,0));
-        for (i=0; i<args->nsamples; i++)
-            if ( bcf_hdr_id2int(args->aux.hdr,BCF_DT_SAMPLE,args->samples[i])<0 )
-                error("No such sample: %s\n", args->samples[i]);
+        if ( args->samples )
+        {
+            for (i=0; i<args->nsamples; i++)
+                if ( bcf_hdr_id2int(args->aux.hdr,BCF_DT_SAMPLE,args->samples[i])<0 )
+                    error("No such sample: %s\n", args->samples[i]);
+        }
     }
 
     args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
@@ -451,7 +471,10 @@ static void destroy_data(args_t *args)
     else if ( args->flag & CF_MCALL ) mcall_destroy(&args->aux);
     else if ( args->flag & CF_QCALL ) qcall_destroy(&args->aux);
     int i;
-    for (i=0; i<args->nsamples; i++) free(args->samples[i]);
+    if ( args->samples )
+    {
+        for (i=0; i<args->nsamples; i++) free(args->samples[i]);
+    }
     if ( args->aux.fams )
     {
         for (i=0; i<args->aux.nfams; i++) free(args->aux.fams[i].name);
