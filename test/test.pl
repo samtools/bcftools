@@ -197,6 +197,8 @@ test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');
+test_vcf_reheader($opts,in=>'reheader',out=>'reheader.3.out',samples=>'reheader.samples3');
+test_vcf_reheader($opts,in=>'reheader',out=>'reheader.4.out',samples=>'reheader.samples4');
 test_rename_chrs($opts,in=>'annotate');
 test_vcf_convert($opts,in=>'convert',out=>'convert.gs.gt.gen',args=>'-g -,.');
 test_vcf_convert($opts,in=>'convert',out=>'convert.gs.gt.samples',args=>'-g .,-');

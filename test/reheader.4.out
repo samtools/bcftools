@@ -1,0 +1,55 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=XRF,Number=R,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAF,Number=A,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGF,Number=G,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRI,Number=R,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAI,Number=A,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGI,Number=G,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRS,Number=R,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAS,Number=A,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGS,Number=G,Type=String,Description="Test Number=AGR in INFO">
+##FORMAT=<ID=FRF,Number=R,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAF,Number=A,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGF,Number=G,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRI,Number=R,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAI,Number=A,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGI,Number=G,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRS,Number=R,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAS,Number=A,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGS,Number=G,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FSTR,Number=1,Type=String,Description="Test String in FORMAT">
+##INFO=<ID=ISTR,Number=1,Type=String,Description="Test String in INFO">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled likelihood">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">
+##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
+##contig=<ID=3,length=2147483647>
+##contig=<ID=4,length=2147483647>
+##contig=<ID=5,length=2147483647>
+##contig=<ID=20,length=2147483647>
+##FILTER=<ID=Test,Description="Test Filter">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	XY00001	BB
+2	101	.	ATTTTTTTTTTTTT	ATTTTTTTTTTTTTTT	999	PASS	INDEL;AN=4;AC=4	GT:DP	1/1:1	1/1:1
+2	114	.	TC	TTCC,TTC	999	PASS	INDEL;AN=4;AC=2,2	GT:DP	1/2:1	1/2:1
+2	115	.	C	T	999	PASS	INDEL;AN=4;AC=4	GT:DP	1/1:1	1/1:1
+20	3	.	G	CT	999	PASS	INDEL;AN=4;AC=2	GT	0/1	0/1
+20	3	.	GATG	GACT	999	PASS	INDEL;AN=4;AC=2	GT	1/0	1/0
+20	5	.	TGGG	TAC,TG,TGGGG,AC	.	PASS	INDEL;AN=4;AC=2,2,0,0	GT:PL:DP	1/2:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15:1	1/2:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15:1
+20	59	.	AG	.	999	PASS	AN=4	GT:PL:DP	0/0:0:4	0/0:0:4
+20	80	.	CACAG	CACAT	999	PASS	AN=4;AC=2	GT:PL:DP	0/1:255,0,255:13	0/1:255,0,255:13
+20	81	.	A	C	999	PASS	AN=4;AC=2	GT:PL:DP	0/1:255,0,255:13	0/1:255,0,255:13
+20	95	.	TCACCG	ACACCG	999	PASS	AN=4;AC=2	GT:PL:DP	0/1:255,0,255:13	0/1:255,0,255:13
+20	95	.	TCACCG	AAAAAA	999	Test	AN=4;AC=2	GT:PL:DP	0/1:255,0,255:13	0/1:255,0,255:13
+20	273	.	CAAAAAAAAAAAAAAAAAAAAA	CAAAAAAAAAAAAAAAAAAAAAAA,CAAAAAAAAAAAAAAAAAAAAAAAA	999	PASS	INDEL;AN=4;AC=2,2	GT:PL:DP	1/2:0,3,5,3,5,5:1	1/2:0,3,5,3,5,5:1
+20	274	.	AAAAAAAAA	AAAAAAAAAAAAAAAAAAA	999	PASS	INDEL;AN=0;AC=0	GT:PL:DP	./.:0,0,0:0	./.:0,0,0:0
+20	278	.	AAAAAAAAAAAAAAAAA	AAAAAAAAAAAAAAAAAAA	999	PASS	INDEL;AN=0;AC=0	GT:PL:DP	./.:0,0,0:0	./.:0,0,0:0
+3	10	.	GTGGAC	GTGGACACAC,GTGGACAC,GTGGACACACAC,GTGG,GTGGACACACACAC,ATGGACACACAC	999	PASS	INDEL;AN=0	GT:DP	./.:0	./.:0
+3	15	.	CACA	CAC	999	PASS	INDEL;AN=0	GT:DP	./.:0	./.:0
+4	21	.	ATTTTTTTTTTTTTTTC	ATTTTTTTTTTTTTTC,ATTTTTTTTTTTTTTTT,ATTTTTTTTTTTTTTTTC	999	PASS	INDEL;AN=0	GT:DP	./.:0	./.:0
+5	22	.	A	AGA	999	PASS	INDEL;AN=0	GT:DP	./.:0	./.:0

@@ -1,6 +1,6 @@
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014,2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -69,22 +69,41 @@ static void read_header_file(char *fname, kstring_t *hdr)
 static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int idx)
 {
     int i, j, n;
+    kstring_t key = {0,0,0};
+    kstring_t val = {0,0,0};
 
     // Are these samples "old-name new-name" pairs?
     void *hash = khash_str2str_init();
     for (i=0; i<nsamples; i++)
     {
-        char *key, *value;
-        key = value = samples[i];
-        while ( *value && !isspace(*value) ) value++;
-        if ( !*value ) break;
-        *value = 0; value++;
-        while ( isspace(*value) ) value++;
-        khash_str2str_set(hash,key,value);
+        char *ptr = samples[i];
+        key.l = val.l = 0;
+        int escaped = 0;
+        while ( *ptr )
+        {
+            if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+            if ( isspace(*ptr) && !escaped ) break;
+            kputc(*ptr, &key);
+            escaped = 0;
+            ptr++;
+        }
+        if ( !*ptr ) break;
+        ptr++;
+        while ( *ptr )
+        {
+            if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+            if ( isspace(*ptr) && !escaped ) break;
+            kputc(*ptr, &val);
+            escaped = 0;
+            ptr++;
+        }
+        khash_str2str_set(hash,strdup(key.s),strdup(val.s));
     }
+    free(key.s);
+    free(val.s);
     if ( i!=nsamples )  // not "old-name new-name" pairs
     {
-        khash_str2str_destroy(hash);
+        khash_str2str_destroy_free_all(hash);
         return 0;
     }
 
@@ -117,7 +136,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
     char *ori = khash_str2str_get(hash,hdr->s+idx+j);
     kputs(ori ? ori : hdr->s+idx+j, &tmp);
 
-    if ( hash ) khash_str2str_destroy(hash);
+    khash_str2str_destroy_free_all(hash);
 
     hdr->l = idx;
     kputs(tmp.s, hdr);
