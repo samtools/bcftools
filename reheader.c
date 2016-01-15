@@ -34,6 +34,7 @@ THE SOFTWARE.  */
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
+#include <htslib/tbx.h> // for hts_get_bgzfp()
 #include <htslib/kseq.h>
 #include "bcftools.h"
 #include "khash_str2str.h"
@@ -239,11 +240,7 @@ static void reheader_vcf_gz(args_t *args)
     }
 
     // Output the modified header
-    BGZF *bgzf_out;
-    if ( args->output_fname )
-        bgzf_out = bgzf_open(args->output_fname,"w");
-    else
-        bgzf_out = bgzf_dopen(fileno(stdout), "w");
+    BGZF *bgzf_out = bgzf_open(args->output_fname ? args->output_fname : "-","w");;
     bgzf_write(bgzf_out, hdr.s, hdr.l);
     free(hdr.s);
 
@@ -256,8 +253,8 @@ static void reheader_vcf_gz(args_t *args)
 
     // Stream the rest of the file without as it is, without decompressing
     ssize_t nread;
-    int page_size = getpagesize();
-    char *buf = (char*) valloc(page_size);
+    const size_t page_size = 32768;
+    char *buf = (char*) malloc(page_size);
     while (1)
     {
         nread = bgzf_raw_read(fp, buf, page_size);
