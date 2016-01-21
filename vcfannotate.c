@@ -120,7 +120,7 @@ typedef struct _args_t
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
-    int argc, drop_header, tgts_is_vcf, mark_sites_logic;
+    int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic;
 }
 args_t;
 
@@ -1557,7 +1557,7 @@ static void init_data(args_t *args)
             args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
     }
 
-    bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
+     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     if ( !args->drop_header )
     {
         if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);
@@ -1767,6 +1767,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man pagee for details\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man pagee for details)\n");
     fprintf(stderr, "   -m, --mark-sites [+-]<tag>     add INFO/tag flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
+    fprintf(stderr, "       --no-version               do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
@@ -1789,6 +1790,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->output_fname = "-";
     args->output_type = FT_VCF;
     args->n_threads = 0;
+    args->record_cmd_line = 1;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
     args->set_ids_replace = 1;
     int regions_is_file = 0;
@@ -1811,6 +1813,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"header-lines",required_argument,NULL,'h'},
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
+        {"no-version",no_argument,NULL,8},
         {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:",loptions,NULL)) >= 0)
@@ -1845,6 +1848,7 @@ int main_vcfannotate(int argc, char *argv[])
             case 'h': args->header_fname = optarg; break;
             case  1 : args->rename_chrs = optarg; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
+            case  8 : args->record_cmd_line = 0; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }

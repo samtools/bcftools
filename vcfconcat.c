@@ -39,7 +39,7 @@ typedef struct _args_t
 {
     bcf_srs_t *files;
     htsFile *out_fh;
-    int output_type, n_threads;
+    int output_type, n_threads, record_cmd_line;
     bcf_hdr_t *out_hdr;
     int *seen_seq;
 
@@ -108,7 +108,7 @@ static void init_data(args_t *args)
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PQ,Number=1,Type=Integer,Description=\"Phasing Quality (bigger is better)\">");
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase Set\">");
     }
-    bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
+    if (args->record_cmd_line) bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
@@ -677,6 +677,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -D, --remove-duplicates        Alias for -d none\n");
     fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
+    fprintf(stderr, "       --no-version               do not append version and command line to the header\n");
     fprintf(stderr, "   -n, --naive                    Concatenate BCF files without recompression (dangerous, use with caution)\n");
     fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
@@ -696,6 +697,7 @@ int main_vcfconcat(int argc, char *argv[])
     args->output_fname = "-";
     args->output_type = FT_VCF;
     args->n_threads = 0;
+    args->record_cmd_line = 1;
     args->min_PQ  = 30;
 
     static struct option loptions[] =
@@ -713,6 +715,7 @@ int main_vcfconcat(int argc, char *argv[])
         {"threads",required_argument,NULL,9},
         {"file-list",required_argument,NULL,'f'},
         {"min-PQ",required_argument,NULL,'q'},
+        {"no-version",no_argument,NULL,8},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -743,6 +746,7 @@ int main_vcfconcat(int argc, char *argv[])
                 };
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
+            case  8 : args->record_cmd_line = 0; break;
             case 'h':
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);

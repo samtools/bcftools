@@ -68,7 +68,7 @@ void error(const char *format, ...);
 typedef struct
 {
     int flag;   // combination of CF_* flags above
-    int output_type, n_threads;
+    int output_type, n_threads, record_cmd_line;
     htsFile *bcf_in, *out_fh;
     char *bcf_fname, *output_fname;
     char **samples;             // for subsampling and ploidy
@@ -459,7 +459,7 @@ static void init_data(args_t *args)
     bcf_hdr_remove(args->aux.hdr, BCF_HL_INFO, "QS");
     bcf_hdr_remove(args->aux.hdr, BCF_HL_INFO, "I16");
 
-    bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
+    if (args->record_cmd_line) bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
     bcf_hdr_write(args->out_fh, args->aux.hdr);
 
     if ( args->flag&CF_INS_MISSED ) init_missed_line(args);
@@ -602,6 +602,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools call [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "File format options:\n");
+    fprintf(stderr, "       --no-version                do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>             write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>     output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "       --ploidy <assembly>[?]      predefined ploidy, 'list' to print available settings, append '?' for details\n");
@@ -657,6 +658,7 @@ int main_vcfcall(int argc, char *argv[])
     args.output_fname   = "-";
     args.output_type    = FT_VCF;
     args.n_threads = 0;
+    args.record_cmd_line = 1;
     args.aux.trio_Pm_SNPs = 1 - 1e-8;
     args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
 
@@ -691,6 +693,7 @@ int main_vcfcall(int argc, char *argv[])
         {"ploidy-file",required_argument,NULL,2},
         {"chromosome-X",no_argument,NULL,'X'},
         {"chromosome-Y",no_argument,NULL,'Y'},
+        {"no-version",no_argument,NULL,8},
         {NULL,0,NULL,0}
     };
 
@@ -750,6 +753,7 @@ int main_vcfcall(int argc, char *argv[])
             case 's': args.samples_fname = optarg; break;
             case 'S': args.samples_fname = optarg; args.samples_is_file = 1; break;
             case  9 : args.n_threads = strtol(optarg, 0, 0); break;
+            case  8 : args.record_cmd_line = 0; break;
             default: usage(&args);
         }
     }
