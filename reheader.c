@@ -203,7 +203,8 @@ static void reheader_vcf_gz(args_t *args)
             if ( skip_until>=fp->block_length )
             {
                 kputsn(buffer,skip_until,&hdr);
-                if ( bgzf_read_block(fp) != 0 || !fp->block_length ) error("FIXME: No body in the file: %s\n", args->fname);
+                if ( bgzf_read_block(fp) != 0 ) error("Error reading %s\n", args->fname);
+                if ( !fp->block_length ) break;
                 skip_until = 0;
             }
             // The header has finished
@@ -217,7 +218,8 @@ static void reheader_vcf_gz(args_t *args)
         if ( skip_until>=fp->block_length )
         {
             kputsn(buffer,fp->block_length,&hdr);
-            if (bgzf_read_block(fp) != 0 || !fp->block_length) error("FIXME: No body in the file: %s\n", args->fname);
+            if ( bgzf_read_block(fp) != 0 ) error("Error reading %s\n", args->fname);
+            if ( !fp->block_length ) break;
             skip_until = 0;
         }
     }
@@ -263,8 +265,8 @@ static void reheader_vcf_gz(args_t *args)
         int count = bgzf_raw_write(bgzf_out, buf, nread);
         if (count != nread) error("Write failed, wrote %d instead of %d bytes.\n", count,(int)nread);
     }
-    if (bgzf_close(bgzf_out) < 0) error("Error: %d\n",bgzf_out->errcode);
-    if (bgzf_close(fp) < 0) error("Error: %d\n",fp->errcode);
+    if (bgzf_close(bgzf_out) < 0) error("Error closing %s: %d\n",args->output_fname ? args->output_fname : "-",bgzf_out->errcode);
+    if (hts_close(args->fp)) error("Error closing %s: %d\n",args->fname,fp->errcode);
     free(buf);
 }
 static void reheader_vcf(args_t *args)
