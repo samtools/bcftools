@@ -858,7 +858,7 @@ int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst
     }
     if ( ith_src!=isrc ) return -1; // requested field not found
     int end_src = start_src;
-    while ( end_src<src_len && src[end_src]!=',' ) end_src++;
+    while ( end_src<src_len && src[end_src] && src[end_src]!=',' ) end_src++;
 
     int nsrc_cpy = end_src - start_src;
     if ( nsrc_cpy==1 && src[start_src]=='.' ) return 0;   // don't write missing values, dst is already initialized

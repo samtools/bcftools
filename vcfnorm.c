@@ -1287,7 +1287,7 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
     {
         kstring_t *tmp = &args->tmp_str[i];
         kputsn(tmp->s,tmp->l,&str);
-        for (j=tmp->l; j<max_len; j++) kputc(0,tmp);
+        for (j=tmp->l; j<max_len; j++) kputc('\0',&str);
     }
     args->ntmp_arr2 = str.m;
     args->tmp_arr2  = (uint8_t*)str.s;
