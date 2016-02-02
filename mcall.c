@@ -1,6 +1,6 @@
 /*  mcall.c -- multiallelic and rare variant calling.
 
-    Copyright (C) 2012-2014 Genome Research Ltd.
+    Copyright (C) 2012-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1184,75 +1184,73 @@ static void mcall_trim_PLs(call_t *call, bcf1_t *rec, int nals, int nout_als, in
 
 void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int out_als)
 {
-    int i, ret;
+    if ( nals==nout_als ) return;
 
-    // at the moment we have DPR,AD,ADF,ADR all Number=R,Type=Integer,
-    // so only dealing with these cases at the moment
+    int i,j, nret, size = sizeof(float);
+
+    void *tmp_ori = call->itmp, *tmp_new = call->PLs;  // reusing PLs storage which is not used at this point
+    int ntmp_ori = call->n_itmp, ntmp_new = call->mPLs;
+
+    // INFO fields
     for (i=0; i<rec->n_info; i++)
     {
         bcf_info_t *info = &rec->d.info[i];
         int vlen = bcf_hdr_id2length(call->hdr,BCF_HL_INFO,info->key);
-        if ( vlen!=BCF_VL_R ) continue;
-        int type = bcf_hdr_id2type(call->hdr,BCF_HL_INFO,info->key);
-        if ( type!=BCF_HT_INT ) continue;
+        if ( vlen!=BCF_VL_R ) continue; // not a Number=R tag
 
-        ret = bcf_get_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), &call->itmp, &call->n_itmp);
-        if ( ret>0 )
+        int type  = bcf_hdr_id2type(call->hdr,BCF_HL_INFO,info->key);
+        const char *key = bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key);
+        nret = bcf_get_info_values(call->hdr, rec, key, &tmp_ori, &ntmp_ori, type);
+        if ( nret<=0 ) continue;
+
+        if ( nout_als==1 )
+            bcf_update_info_int32(call->hdr, rec, key, tmp_ori, 1);     // has to be the REF, the order could not change
+        else
         {
-            assert( ret==nals );
-            if ( out_als==1 )
-                bcf_update_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), call->itmp, 1);
-            else
+            for (j=0; j<nals; j++)
             {
-                int j;
-                for (j=0; j<nals; j++)
-                {
-                    if ( call->als_map[j]==-1 ) continue;   // to be dropped
-                    call->PLs[ call->als_map[j] ] = call->itmp[j]; // reusing PLs storage which is not used at this point
-                }
-                bcf_update_info_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,info->key), call->PLs, nout_als);
+                int k = call->als_map[j];
+                if ( k==-1 ) continue;   // to be dropped
+                memcpy(tmp_new+size*k, tmp_ori+size*j, size);
             }
+            bcf_update_info_int32(call->hdr, rec, key, tmp_new, nout_als);
         }
     }
 
+    // FORMAT fields
     for (i=0; i<rec->n_fmt; i++)
     {
         bcf_fmt_t *fmt = &rec->d.fmt[i];
         int vlen = bcf_hdr_id2length(call->hdr,BCF_HL_FMT,fmt->id);
-        if ( vlen!=BCF_VL_R ) continue;
+        if ( vlen!=BCF_VL_R ) continue; // not a Number=R tag
+
         int type = bcf_hdr_id2type(call->hdr,BCF_HL_FMT,fmt->id);
-        if ( type!=BCF_HT_INT ) continue;
+        const char *key = bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id);
+        nret = bcf_get_format_values(call->hdr, rec, key, &tmp_ori, &ntmp_ori, type);
+        if (nret<=0) continue;
+        int nsmpl = bcf_hdr_nsamples(call->hdr);
 
-        ret = bcf_get_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), &call->itmp, &call->n_itmp);
-        if ( ret>0 )
+        assert( nret==nals*nsmpl );
+
+        for (j=0; j<nsmpl; j++)
         {
-            int j, nsmpl = bcf_hdr_nsamples(call->hdr);
-            int ndp = ret / nsmpl;
-            assert( ndp==nals );
-            if ( out_als==1 )
+            void *ptr_src = tmp_ori + j*nals*size;
+            void *ptr_dst = tmp_new + j*nout_als*size;
+            int k;
+            for (k=0; k<nals; k++)
             {
-                for (j=0; j<nsmpl; j++)
-                    call->PLs[j] = call->itmp[j*ndp];
-
-                bcf_update_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), call->PLs, nsmpl);
-            }
-            else
-            {
-                int k;
-                for (j=0; j<nsmpl; j++)
-                {
-                    int32_t *dp_dst = call->PLs + j*nout_als;
-                    int32_t *dp_src = call->itmp + j*ndp;
-                    for (k=0; k<nals; k++)
-                    {
-                        if ( call->als_map[k]==-1 ) continue;   // to be dropped
-                        dp_dst[ call->als_map[k] ] = dp_src[k]; // reusing PLs storage which is not used at this point
-                    }
-                }
-                bcf_update_format_int32(call->hdr, rec, bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id), call->PLs, nsmpl*nout_als);
+                int l = call->als_map[k];
+                if ( l==-1 ) continue;   // to be dropped
+                memcpy(ptr_dst+size*l, ptr_src+size*k, size);
             }
         }
+        bcf_update_format_int32(call->hdr, rec, key, tmp_new, nout_als*nsmpl);
     }
+
+    call->PLs    = (int32_t*) tmp_new;
+    call->mPLs   = ntmp_new;
+    call->itmp   = (int32_t*) tmp_ori;
+    call->n_itmp = ntmp_ori;
 }
 
 
@@ -1423,6 +1421,8 @@ int mcall(call_t *call, bcf1_t *rec)
         if ( qsum_tot ) for (i=0; i<nals; i++) call->qsum[i] /= qsum_tot;
     #endif
 
+    bcf_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag
+
     // Find the best combination of alleles
     int out_als, nout;
     if ( nals > 8*sizeof(out_als) )
@@ -1530,7 +1530,6 @@ int mcall(call_t *call, bcf1_t *rec)
     }
 
     bcf_update_info_int32(call->hdr, rec, "I16", NULL, 0);     // remove I16 tag
-    bcf_update_info_int32(call->hdr, rec, "QS", NULL, 0);      // remove QS tag
 
     return nout;
 }
