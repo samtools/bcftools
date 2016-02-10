@@ -18,6 +18,7 @@
 ##INFO=<ID=ANNOVAR_DATE,Number=1,Type=String,Description="Flag the start of ANNOVAR annotation for one alternative allele">
 ##INFO=<ID=Gene.refGene,Number=.,Type=String,Description="Gene.refGene annotation provided by ANNOVAR">
 ##INFO=<ID=GeneDetail.refGene,Number=.,Type=String,Description="GeneDetail.refGene annotation provided by ANNOVAR">
+##INFO=<ID=Func.refGene,Number=.,Type=String,Description="Func.refGene annotation provided by ANNOVAR">
 ##INFO=<ID=ExonicFunc.refGene,Number=.,Type=String,Description="ExonicFunc.refGene annotation provided by ANNOVAR">
 ##INFO=<ID=AAChange.refGene,Number=.,Type=String,Description="AAChange.refGene annotation provided by ANNOVAR">
 ##INFO=<ID=Func.ensGene,Number=.,Type=String,Description="Func.ensGene annotation provided by ANNOVAR">
