@@ -76,6 +76,7 @@ typedef struct
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels;
     int nchanged, nskipped, nsplit, ntotal, mrows_op, mrows_collapse, parsimonious;
+    int record_cmd_line;
 }
 args_t;
 
@@ -1581,7 +1582,7 @@ static void normalize_vcf(args_t *args)
     htsFile *out = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( out == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(out, args->n_threads);
-    bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
+    if (args->record_cmd_line) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
     bcf_hdr_write(out, args->hdr);
 
     int prev_rid = -1, prev_pos = -1, prev_type = 0;
@@ -1665,6 +1666,7 @@ static void usage(void)
     fprintf(stderr, "    -d, --rm-dup <type>               remove duplicate snps|indels|both|any\n");
     fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
     fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
+    fprintf(stderr, "        --no-version                  do not append version and command line to the header\n");
     fprintf(stderr, "    -N, --do-not-normalize            do not normalize indels (with -m or -c s)\n");
     fprintf(stderr, "    -o, --output <file>               write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <type>          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
@@ -1673,8 +1675,8 @@ static void usage(void)
     fprintf(stderr, "    -s, --strict-filter               when merging (-m+), merged site is PASS only if all sites being merged PASS\n");
     fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "    -w, --site-win <int>              buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "        --threads <int>               number of extra output compression threads [0]\n");
+    fprintf(stderr, "    -w, --site-win <int>              buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1688,6 +1690,7 @@ int main_vcfnorm(int argc, char *argv[])
     args->output_fname = "-";
     args->output_type = FT_VCF;
     args->n_threads = 0;
+    args->record_cmd_line = 1;
     args->aln_win = 100;
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
@@ -1713,6 +1716,7 @@ int main_vcfnorm(int argc, char *argv[])
         {"threads",required_argument,NULL,9},
         {"check-ref",required_argument,NULL,'c'},
         {"strict-filter",no_argument,NULL,'s'},
+        {"no-version",no_argument,NULL,8},
         {NULL,0,NULL,0}
     };
     char *tmp;
@@ -1770,6 +1774,7 @@ int main_vcfnorm(int argc, char *argv[])
                 if ( *tmp ) error("Could not parse argument: --site-win %s\n", optarg);
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
+            case  8 : args->record_cmd_line = 0; break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
