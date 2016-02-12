@@ -38,6 +38,7 @@
 #define SET_AC_Het  (1<<3)
 #define SET_AC_Hemi (1<<4)
 #define SET_AF      (1<<5)
+#define SET_NS      (1<<6)
 
 typedef struct
 {
@@ -59,14 +60,14 @@ static args_t args;
 
 const char *about(void)
 {
-    return "Set INFO tags AF, AN, AC, AC_Hom, AC_Het, AC_Hemi.\n";
+    return "Set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n";
 }
 
 const char *usage(void)
 {
     return 
         "\n"
-        "About: Set INFO tags AF, AN, AC, AC_Hom, AC_Het, AC_Hemi.\n"
+        "About: Set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n"
         "Usage: bcftools +fill-tags [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
@@ -88,6 +89,7 @@ int parse_tags(args_t *args, const char *str)
     {
         if ( !strcasecmp(tags[i],"AN") ) flag |= SET_AN;
         else if ( !strcasecmp(tags[i],"AC") ) flag |= SET_AC;
+        else if ( !strcasecmp(tags[i],"NS") ) flag |= SET_NS;
         else if ( !strcasecmp(tags[i],"AC_Hom") ) flag |= SET_AC_Hom;
         else if ( !strcasecmp(tags[i],"AC_Het") ) flag |= SET_AC_Het;
         else if ( !strcasecmp(tags[i],"AC_Hemi") ) flag |= SET_AC_Hemi;
@@ -127,13 +129,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         }
     }
     if ( optind != argc ) error(usage());
-    if ( !args.tags ) args.tags |= SET_AN|SET_AC|SET_AC_Hom|SET_AC_Het|SET_AC_Hemi|SET_AF;
+    if ( !args.tags ) args.tags |= SET_AN|SET_AC|SET_NS|SET_AC_Hom|SET_AC_Het|SET_AC_Hemi|SET_AF;
     
     args.gt_id = bcf_hdr_id2int(args.in_hdr,BCF_DT_ID,"GT");
     if ( args.gt_id<0 ) error("Error: GT field is not present\n");
 
     if ( args.tags&SET_AN ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
     if ( args.tags&SET_AC ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
+    if ( args.tags&SET_NS ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">");
     if ( args.tags&SET_AC_Hom ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC_Hom,Number=A,Type=Integer,Description=\"Allele counts in homozygous genotypes\">");
     if ( args.tags&SET_AC_Het ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC_Het,Number=A,Type=Integer,Description=\"Allele counts in heterozygous genotypes\">");
     if ( args.tags&SET_AC_Hemi ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC_Hemi,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes\">");
@@ -144,7 +147,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
 bcf1_t *process(bcf1_t *rec)
 {
-    int i;
+    int i, ns = 0;
 
     bcf_unpack(rec, BCF_UN_FMT);
     bcf_fmt_t *fmt_gt = NULL;
@@ -174,6 +177,7 @@ bcf1_t *process(bcf1_t *rec)
                 als |= (1<<idx);  /* this breaks with too many alleles */ \
             } \
             if ( ial==0 ) continue; /* missing alleles */ \
+            ns++; \
             int is_hom  = als && !(als & (als-1)); /* only one bit is set */ \
             int is_hemi = ial==1; \
             for (ial=0; als; ial++) \
@@ -198,6 +202,11 @@ bcf1_t *process(bcf1_t *rec)
         default: error("The GT type is not recognised: %d at %s:%d\n",fmt_gt->type, bcf_seqname(args.in_hdr,rec),rec->pos+1); break;
     }
     #undef BRANCH_INT
+    if ( args.tags&SET_NS )
+    {
+        if ( bcf_update_info_int32(args.out_hdr,rec,"NS",&ns,1)!=0 )
+            error("Error occurred while updating NS at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
+    }
     if ( args.tags&SET_AN )
     {
         args.arr[0] = 0;
