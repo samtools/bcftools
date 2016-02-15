@@ -1552,7 +1552,6 @@ static void init_data(args_t *args)
     if ( args->mark_sites )
     {
         if ( !args->targets_fname ) error("The -a option not given\n");
-        if ( args->tgts_is_vcf ) error("Apologies, this has not been implemented yet: -a is a VCF\n");  // very easy to add..
         bcf_hdr_printf(args->hdr_out,"##INFO=<ID=%s,Number=0,Type=Flag,Description=\"Sites %slisted in %s\">",
             args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
     }
@@ -1731,12 +1730,20 @@ static void annotate(args_t *args, bcf1_t *line)
                 bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,i<args->nalines?0:1);
         }
     }
-    else if ( args->files->nreaders == 2 && bcf_sr_has_line(args->files,1) )
+    else if ( args->files->nreaders == 2 )
     {
-        bcf1_t *aline = bcf_sr_get_line(args->files,1);
-        for (j=0; j<args->ncols; j++)
-            if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
-                error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+        if ( bcf_sr_has_line(args->files,1) )
+        {
+            bcf1_t *aline = bcf_sr_get_line(args->files,1);
+            for (j=0; j<args->ncols; j++)
+                if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
+                    error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+
+            if ( args->mark_sites )
+                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,args->mark_sites_logic==MARK_LISTED ? 1 : 0);
+        }
+        else if ( args->mark_sites )
+            bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL, args->mark_sites_logic==MARK_UNLISTED ? 1 : 0);
     }
     if ( args->set_ids )
     {
