@@ -1764,8 +1764,8 @@ static void usage(args_t *args)
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
     fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
-    fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man pagee for details\n");
-    fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man pagee for details)\n");
+    fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man page for details\n");
+    fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "   -m, --mark-sites [+-]<tag>     add INFO/tag flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
     fprintf(stderr, "       --no-version               do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
