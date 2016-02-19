@@ -386,7 +386,7 @@ static void init_data(args_t *args)
     if ( args->regions )
     {
         if ( bcf_sr_set_regions(args->aux.srs, args->regions, args->regions_is_file)<0 )
-            error("Failed to read the targets: %s\n", args->regions);
+            error("Failed to read the regions: %s\n", args->regions);
     }
 
     if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open %s: %s\n", args->bcf_fname,bcf_sr_strerror(args->aux.srs->errnum));
