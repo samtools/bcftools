@@ -1,0 +1,25 @@
+# This file can be used as input to the subset plotting tools at:
+#   https://github.com/dlaehnemann/bankers2
+# Genotype intersections across samples:
+@SMPS NA00003 NA00002 NA00001
+# The first line of each sample contains its count of missing genotypes, with a '-' appended
+#   to the sample name.
+# Human readable output (-H) was requested. Subset intersection counts are therefore sorted by
+#   sample and repeated for each contained sample. For each sample, counts are in banker's 
+#   sequence order regarding all other samples.
+# [1] Number of shared non-ref genotypes 	[2] Samples sharing non-ref genotype (GT)
+4	NA00003-
+9	NA00003
+1	NA00003,NA00002
+0	NA00003,NA00001
+1	NA00003,NA00002,NA00001
+1	NA00002-
+4	NA00002
+1	NA00002,NA00003
+8	NA00002,NA00001
+1	NA00002,NA00003,NA00001
+1	NA00001-
+5	NA00001
+0	NA00001,NA00003
+8	NA00001,NA00002
+1	NA00001,NA00003,NA00002
