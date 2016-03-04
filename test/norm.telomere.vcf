@@ -1,0 +1,4 @@
+##fileformat=VCFv4.2
+##contig=<ID=22,length=30>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+22	17	.	NN	N	.	.	.

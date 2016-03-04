@@ -296,17 +296,19 @@ static int realign(args_t *args, bcf1_t *line)
         if ( i>0 && als[i].l==als[0].l && !strcasecmp(als[0].s,als[i].s) ) return ERR_DUP_ALLELE;
     }
 
-
     // trim from right
     int ori_pos = line->pos;
     while (1)
     {
         // is the rightmost base identical in all alleles?
+        int min_len = als[0].l;
         for (i=1; i<line->n_allele; i++)
         {
             if ( als[0].s[ als[0].l-1 ]!=als[i].s[ als[i].l-1 ] ) break;
+            if ( als[i].l < min_len ) min_len = als[i].l;
         }
         if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed
+        if ( min_len<=1 && line->pos==0 ) break;
 
         int pad_from_left = 0;
         for (i=0; i<line->n_allele; i++) // trim all alleles
@@ -344,7 +346,7 @@ static int realign(args_t *args, bcf1_t *line)
             if ( als[0].s[ntrim_left]!=als[i].s[ntrim_left] ) break;
             if ( min_len > als[i].l - ntrim_left ) min_len = als[i].l - ntrim_left;
         }
-        if ( i!=line->n_allele || min_len==1 ) break; // there are differences, cannot be trimmed
+        if ( i!=line->n_allele || min_len<=1 ) break; // there are differences, cannot be trimmed
         ntrim_left++;
     }
     if ( ntrim_left )
