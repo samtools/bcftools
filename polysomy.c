@@ -675,7 +675,8 @@ int main_polysomy(int argc, char *argv[])
         {"regions-file",1,0,'R'},
         {0,0,0,0}
     };
-    char c, *tmp;
+    char *tmp;
+    int c;
     while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:b:n:S:",loptions,NULL)) >= 0)
     {
         switch (c)

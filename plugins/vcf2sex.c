@@ -389,7 +389,8 @@ int run(int argc, char **argv)
         {"background",1,0,'b'},
         {0,0,0,0}
     };
-    char c, *tmp, *ploidy_fname = NULL;
+    char *tmp, *ploidy_fname = NULL;
+    int c;
     while ((c = getopt_long(argc, argv, "p:n:g:m:vb:",loptions,NULL)) >= 0)
     {
         switch (c) {

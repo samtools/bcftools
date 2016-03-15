@@ -83,7 +83,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"gl-to-pl",0,0,2},
         {0,0,0,0}
     };
-    char c;
+    int c;
     while ((c = getopt_long(argc, argv, "?hr",loptions,NULL)) >= 0)
     {
         switch (c) 

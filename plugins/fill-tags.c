@@ -117,7 +117,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"tags",1,0,'t'},
         {0,0,0,0}
     };
-    char c;
+    int c;
     while ((c = getopt_long(argc, argv, "?ht:T:l:cd",loptions,NULL)) >= 0)
     {
         switch (c) 
