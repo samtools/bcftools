@@ -243,7 +243,7 @@ static void reheader_vcf_gz(args_t *args)
 
     // Output the modified header
     BGZF *bgzf_out = bgzf_open(args->output_fname ? args->output_fname : "-","w");;
-    bgzf_write(bgzf_out, hdr.s, hdr.l);
+    if ( bgzf_write(bgzf_out, hdr.s, hdr.l) < 0 ) error("Can't write BGZF header (code %d)\n", bgzf_out->errcode);
     free(hdr.s);
 
     // Output all remainig data read with the header block

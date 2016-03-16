@@ -578,12 +578,12 @@ static void naive_concat(args_t *args)
             error("Failed to read %s: %s\n", args->fnames[i], strerror(errno));
 
         uint8_t magic[5];
-        if ( bgzf_read(fp, magic, 5)<0 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
+        if ( bgzf_read(fp, magic, 5) != 5 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
         if (strncmp((char*)magic, "BCF\2\2", 5) != 0) error("Invalid BCF magic string in %s\n", args->fnames[i]);
 
-        bgzf_read(fp, &tmp.l, 4);
+        if ( bgzf_read(fp, &tmp.l, 4) != 4 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
         hts_expand(char,tmp.l,tmp.m,tmp.s);
-        bgzf_read(fp, tmp.s, tmp.l);
+        if ( bgzf_read(fp, tmp.s, tmp.l) != tmp.l ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
 
         // write only the first header
         if ( i==0 )
