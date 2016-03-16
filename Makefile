@@ -129,7 +129,7 @@ endif
 plugins: $(PLUGINS)
 
 
-bcftools_h = bcftools.h $(htslib_vcf_h)
+bcftools_h = bcftools.h $(htslib_hts_defs_h) $(htslib_vcf_h)
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
 convert_h = convert.h $(htslib_vcf_h)
 tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h)
