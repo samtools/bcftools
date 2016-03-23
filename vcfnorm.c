@@ -390,18 +390,24 @@ static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int 
         int len = bcf_hdr_id2length(args->hdr,BCF_HL_INFO,info->key); \
         if ( len==BCF_VL_A ) \
         { \
-            assert( ret==src->n_allele-1); \
+            if ( ret!=src->n_allele-1 ) \
+                error("Error: wrong number of fields in INFO/%s at %s:%d, expected %d, found %d\n", \
+                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele-1,ret); \
             bcf_update_info_##type(args->hdr,dst,tag,vals+ialt,1); \
         } \
         else if ( len==BCF_VL_R ) \
         { \
-            assert( ret==src->n_allele); \
+            if ( ret!=src->n_allele ) \
+                error("Error: wrong number of fields in INFO/%s at %s:%d, expected %d, found %d\n", \
+                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele,ret); \
             if ( ialt!=0 ) vals[1] = vals[ialt+1]; \
             bcf_update_info_##type(args->hdr,dst,tag,vals,2); \
         } \
         else if ( len==BCF_VL_G ) \
         { \
-            assert( ret==src->n_allele*(src->n_allele+1)/2 ); \
+            if ( ret!=src->n_allele*(src->n_allele+1)/2 ) \
+                error("Error: wrong number of fields in INFO/%s at %s:%d, expected %d, found %d\n", \
+                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele*(src->n_allele+1)/2,ret); \
             if ( ialt!=0 ) \
             { \
                 vals[1] = vals[bcf_alleles2gt(0,ialt+1)]; \
@@ -545,7 +551,9 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         } \
         if ( len==BCF_VL_A ) \
         { \
-            assert( nvals==(src->n_allele-1)*nsmpl); \
+            if ( nvals!=(src->n_allele-1)*nsmpl ) \
+                error("Error: wrong number of fields in FMT/%s at %s:%d, expected %d, found %d\n", \
+                    tag,bcf_seqname(args->hdr,src),src->pos+1,(src->n_allele-1)*nsmpl,nvals); \
             nvals /= nsmpl; \
             type_t *src_vals = vals, *dst_vals = vals; \
             for (i=0; i<nsmpl; i++) \
@@ -558,7 +566,9 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         } \
         else if ( len==BCF_VL_R ) \
         { \
-            assert( nvals==src->n_allele*nsmpl); \
+            if ( nvals!=src->n_allele*nsmpl ) \
+                error("Error: wrong number of fields in FMT/%s at %s:%d, expected %d, found %d\n", \
+                    tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele*nsmpl,nvals); \
             nvals /= nsmpl; \
             type_t *src_vals = vals, *dst_vals = vals; \
             for (i=0; i<nsmpl; i++) \
@@ -682,7 +692,10 @@ static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int i
                 if ( *se==',' ) nfields++;
                 se++;
             }
-            assert( nfields==src->n_allele*(src->n_allele+1)/2 || nfields==src->n_allele );
+            if ( nfields!=src->n_allele*(src->n_allele+1)/2 && nfields!=src->n_allele )
+                error("Error: wrong number of fields in FMT/%s at %s:%d, expected %d or %d, found %d\n",
+                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele*(src->n_allele+1)/2,src->n_allele,nfields);
+
             int len = 0;
             if ( nfields==src->n_allele )   // haploid
             {
@@ -994,7 +1007,7 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
                 else
                 {
                     int ial = bcf_gt_allele(gt2[k]);
-                    assert( ial<args->maps[i].nals );
+                    if ( ial>=args->maps[i].nals ) error("Error at %s:%d: incorrect allele index %d\n",bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1,ial);
                     gt[k] = bcf_gt_unphased( args->maps[i].map[ial] ) | bcf_gt_is_phased(gt[k]);
                 }
             }
