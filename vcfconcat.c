@@ -555,6 +555,50 @@ static void concat(args_t *args)
     }
 }
 
+int print_vcf_gz_header(BGZF *fp, BGZF *bgzf_out, int print_header, kstring_t *tmp)
+{
+    char *buffer = (char*) fp->uncompressed_block;
+
+    // Read the header and find the position of the data block
+    if ( buffer[0]!='#' ) error("Could not parse the header, expected '#', found '%c'\n", buffer[0]);
+
+    int nskip = 1;     // end of the header in the current uncompressed block
+    while (1)
+    {
+        if ( buffer[nskip]=='\n' )
+        {
+            nskip++;
+            if ( nskip>=fp->block_length )
+            {
+                kputsn(buffer,nskip,tmp);
+                if ( bgzf_read_block(fp) != 0 ) return -1;
+                if ( !fp->block_length ) break;
+                nskip = 0;
+            }
+            // The header has finished
+            if ( buffer[nskip]!='#' )
+            {
+                kputsn(buffer,nskip,tmp);
+                break;
+            }
+        }
+        nskip++;
+        if ( nskip>=fp->block_length )
+        {
+            kputsn(buffer,fp->block_length,tmp);
+            if ( bgzf_read_block(fp) != 0 ) return -1;
+            if ( !fp->block_length ) break;
+            nskip = 0;
+        }
+    }
+    if ( print_header )
+    {
+        if ( bgzf_write(bgzf_out,tmp->s,tmp->l) != tmp->l ) error("Failed to write %d bytes\n", tmp->l);
+        tmp->l = 0;
+    }
+    return nskip;
+}
+
 static void naive_concat(args_t *args)
 {
     // only compressed BCF atm
@@ -563,38 +607,50 @@ static void naive_concat(args_t *args)
     const size_t page_size = 32768;
     char *buf = (char*) malloc(page_size);
     kstring_t tmp = {0,0,0};
-    int i;
+    int i, file_types = 0;
     for (i=0; i<args->nfnames; i++)
     {
         htsFile *hts_fp = hts_open(args->fnames[i],"r");
         if ( !hts_fp ) error("Failed to open: %s\n", args->fnames[i]);
         htsFormat type = *hts_get_format(hts_fp);
 
-        if ( type.format==vcf ) error("The --naive option currently works only for compressed BCFs, sorry :-/\n");
-        if ( type.compression!=bgzf ) error("The --naive option currently works only for compressed BCFs, sorry :-/\n");
+        if ( type.compression!=bgzf )
+            error("The --naive option works only for compressed BCFs or VCFs, sorry :-/\n");
+        file_types |= type.format==vcf ? 1 : 2;
+        if ( file_types==3 )
+            error("The --naive option works only for compressed files of the same type, all BCFs or all VCFs :-/\n");
 
         BGZF *fp = hts_get_bgzfp(hts_fp);
         if ( !fp || bgzf_read_block(fp) != 0 || !fp->block_length )
             error("Failed to read %s: %s\n", args->fnames[i], strerror(errno));
 
-        uint8_t magic[5];
-        if ( bgzf_read(fp, magic, 5) != 5 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
-        if (strncmp((char*)magic, "BCF\2\2", 5) != 0) error("Invalid BCF magic string in %s\n", args->fnames[i]);
-
-        if ( bgzf_read(fp, &tmp.l, 4) != 4 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
-        hts_expand(char,tmp.l,tmp.m,tmp.s);
-        if ( bgzf_read(fp, tmp.s, tmp.l) != tmp.l ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
-
-        // write only the first header
-        if ( i==0 )
+        int nskip;
+        if ( type.format==bcf )
         {
-            if ( bgzf_write(bgzf_out, "BCF\2\2", 5) !=5 ) error("Failed to write %d bytes to %s\n", 5,args->output_fname);
-            if ( bgzf_write(bgzf_out, &tmp.l, 4) !=4 ) error("Failed to write %d bytes to %s\n", 4,args->output_fname);
-            if ( bgzf_write(bgzf_out, tmp.s, tmp.l) != tmp.l) error("Failed to write %d bytes to %s\n", tmp.l,args->output_fname);
+            uint8_t magic[5];
+            if ( bgzf_read(fp, magic, 5) != 5 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
+            if (strncmp((char*)magic, "BCF\2\2", 5) != 0) error("Invalid BCF magic string in %s\n", args->fnames[i]);
+
+            if ( bgzf_read(fp, &tmp.l, 4) != 4 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
+            hts_expand(char,tmp.l,tmp.m,tmp.s);
+            if ( bgzf_read(fp, tmp.s, tmp.l) != tmp.l ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
+
+            // write only the first header
+            if ( i==0 )
+            {
+                if ( bgzf_write(bgzf_out, "BCF\2\2", 5) !=5 ) error("Failed to write %d bytes to %s\n", 5,args->output_fname);
+                if ( bgzf_write(bgzf_out, &tmp.l, 4) !=4 ) error("Failed to write %d bytes to %s\n", 4,args->output_fname);
+                if ( bgzf_write(bgzf_out, tmp.s, tmp.l) != tmp.l) error("Failed to write %d bytes to %s\n", tmp.l,args->output_fname);
+            }
+            nskip = fp->block_offset;
+        }
+        else
+        {
+            nskip = print_vcf_gz_header(fp, bgzf_out, i==0?1:0, &tmp);
+            if ( nskip==-1 ) error("Error reading %s\n", args->fnames[i]);
         }
 
         // Output all non-header data that were read together with the header block
-        int nskip = fp->block_offset;
         if ( fp->block_length - nskip > 0 )
         {
             if ( bgzf_write(bgzf_out, fp->uncompressed_block+nskip, fp->block_length-nskip)<0 ) error("Error: %d\n",fp->errcode);
