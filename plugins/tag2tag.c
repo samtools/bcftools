@@ -1,6 +1,6 @@
-/*  plugins/tag2tag.c -- Convert between similar tags, such as GL and GP.
+/*  plugins/tag2tag.c -- convert between similar tags
 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -33,12 +33,13 @@ DEALINGS IN THE SOFTWARE.  */
 
 #define GP_TO_GL 1
 #define GL_TO_PL 2
+#define GP_TO_GT 3
 
 static int mode = 0, drop_source_tag = 0;
 static bcf_hdr_t *in_hdr, *out_hdr;
 static float *farr = NULL;
 static int32_t *iarr = NULL;
-static int mfarr = 0;
+static int mfarr = 0, miarr = 0;
 
 const char *about(void)
 {
@@ -55,8 +56,8 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-//todo        "       --gl-to-gp    convert FORMAT/GL to FORMAT/GP\n" 
         "       --gp-to-gl    convert FORMAT/GP to FORMAT/GL\n"
+        "       --gp-to-gt    convert FORMAT/GP to FORMAT/GT by taking argmax of GP\n"
         "       --gl-to-pl    convert FORMAT/GL to FORMAT/PL\n"
         "   -r, --replace     drop the source tag\n"
         "\n"
@@ -81,6 +82,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"replace",0,0,'r'},
         {"gp-to-gl",0,0,1},
         {"gl-to-pl",0,0,2},
+        {"gp-to-gt",0,0,3},
         {0,0,0,0}
     };
     int c;
@@ -90,6 +92,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {
             case  1 : mode = GP_TO_GL; break;
             case  2 : mode = GL_TO_PL; break;
+            case  3 : mode = GP_TO_GT; break;
             case 'r': drop_source_tag = 1; break;
             case 'h':
             case '?':
@@ -105,6 +108,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         init_header(out_hdr,drop_source_tag?"GP":NULL,BCF_HL_FMT,"##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihoods\">");
     else if ( mode==GL_TO_PL )
         init_header(out_hdr,drop_source_tag?"GL":NULL,BCF_HL_FMT,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred scaled genotype likelihoods\">");
+    else if ( mode==GP_TO_GT )
+        init_header(out_hdr,drop_source_tag?"GP":NULL,BCF_HL_FMT,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
 
     return 0;
 }
@@ -131,8 +136,7 @@ bcf1_t *process(bcf1_t *rec)
             fprintf(stderr, "Could not read tag: GL\n");
             exit(1);
         }
-            
-        
+
         // create extra space to store converted data
         iarr = (int32_t*) malloc(n * sizeof(int32_t));
         if(!iarr) n = -4;
@@ -149,6 +153,58 @@ bcf1_t *process(bcf1_t *rec)
         bcf_update_format_int32(out_hdr,rec,"PL",iarr,n);
         if ( drop_source_tag )
             bcf_update_format_float(out_hdr,rec,"GL",NULL,0);
+    }
+    else if ( mode==GP_TO_GT )
+    {
+        int nals  = rec->n_allele;
+        int nsmpl = bcf_hdr_nsamples(in_hdr);
+        hts_expand(int32_t,nsmpl*2,miarr,iarr);
+
+        n = bcf_get_format_float(in_hdr,rec,"GP",&farr,&mfarr);
+        n /= nsmpl;
+        for (i=0; i<nsmpl; i++)
+        {
+            float *ptr = farr + i*n;
+            if ( bcf_float_is_missing(ptr[0]) )
+            {
+                iarr[2*i] = iarr[2*i+1] = bcf_gt_missing;
+                continue;
+            }
+
+            int j, jmax = 0;
+            for (j=1; j<n; j++)
+            {
+                if ( bcf_float_is_missing(ptr[j]) || bcf_float_is_vector_end(ptr[j]) ) break;
+                if ( ptr[j] > ptr[jmax] ) jmax = j;
+            }
+
+            // haploid genotype
+            if ( j==nals )
+            {
+                iarr[2*i]   = bcf_gt_unphased(jmax);
+                iarr[2*i+1] = bcf_int32_vector_end;
+                continue;
+            }
+
+            if ( j!=nals*(nals+1)/2 )
+                error("Wrong number of GP values for diploid genotype at %s:%d, expected %d, found %d\n",
+                    bcf_seqname(in_hdr,rec),rec->pos+1, nals*(nals+1)/2,j);
+
+            // most common case: RR
+            if ( jmax==0 )
+            {
+                iarr[2*i] = iarr[2*i+1] = bcf_gt_unphased(0);
+                continue;
+            }
+
+            int a,b;
+            bcf_gt2alleles(jmax,&a,&b);
+            iarr[2*i]   = bcf_gt_unphased(a);
+            iarr[2*i+1] = bcf_gt_unphased(b);
+        }
+        bcf_update_genotypes(out_hdr,rec,iarr,nsmpl*2);
+        if ( drop_source_tag )
+            bcf_update_format_float(out_hdr,rec,"GP",NULL,0);
     }
     return rec;
 }
