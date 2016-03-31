@@ -266,7 +266,7 @@ specific commands to see if they apply.
 [[annotate]]
 === bcftools annotate '[OPTIONS]' 'FILE'
 
-This command allows to add or remove annotations.
+Add or remove annotations.
 
 *-a, --annotations* 'file'::
     Bgzip-compressed and tabix-indexed file with annotations. The file
@@ -1472,7 +1472,7 @@ const char *about(void);
 // Longer description used by 'bcftools +name -h'
 const char *usage(void);
 
-// Called once at startup, allows to initialize local variables.
+// Called once at startup, allows initialization of local variables.
 // Return 1 to suppress normal VCF/BCF header output, -1 on critical
 // errors, 0 otherwise.
 int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr);
