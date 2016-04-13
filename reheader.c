@@ -89,7 +89,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
             ptr++;
         }
         if ( !*ptr ) break;
-        ptr++;
+        while ( *ptr && isspace(*ptr) ) ptr++;
         while ( *ptr )
         {
             if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
