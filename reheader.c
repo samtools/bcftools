@@ -1,6 +1,6 @@
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014,2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -34,6 +34,7 @@ THE SOFTWARE.  */
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
+#include <htslib/tbx.h> // for hts_get_bgzfp()
 #include <htslib/kseq.h>
 #include "bcftools.h"
 #include "khash_str2str.h"
@@ -69,22 +70,41 @@ static void read_header_file(char *fname, kstring_t *hdr)
 static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int idx)
 {
     int i, j, n;
+    kstring_t key = {0,0,0};
+    kstring_t val = {0,0,0};
 
     // Are these samples "old-name new-name" pairs?
     void *hash = khash_str2str_init();
     for (i=0; i<nsamples; i++)
     {
-        char *key, *value;
-        key = value = samples[i];
-        while ( *value && !isspace(*value) ) value++;
-        if ( !*value ) break;
-        *value = 0; value++;
-        while ( isspace(*value) ) value++;
-        khash_str2str_set(hash,key,value);
+        char *ptr = samples[i];
+        key.l = val.l = 0;
+        int escaped = 0;
+        while ( *ptr )
+        {
+            if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+            if ( isspace(*ptr) && !escaped ) break;
+            kputc(*ptr, &key);
+            escaped = 0;
+            ptr++;
+        }
+        if ( !*ptr ) break;
+        ptr++;
+        while ( *ptr )
+        {
+            if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+            if ( isspace(*ptr) && !escaped ) break;
+            kputc(*ptr, &val);
+            escaped = 0;
+            ptr++;
+        }
+        khash_str2str_set(hash,strdup(key.s),strdup(val.s));
     }
+    free(key.s);
+    free(val.s);
     if ( i!=nsamples )  // not "old-name new-name" pairs
     {
-        khash_str2str_destroy(hash);
+        khash_str2str_destroy_free_all(hash);
         return 0;
     }
 
@@ -117,7 +137,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
     char *ori = khash_str2str_get(hash,hdr->s+idx+j);
     kputs(ori ? ori : hdr->s+idx+j, &tmp);
 
-    if ( hash ) khash_str2str_destroy(hash);
+    khash_str2str_destroy_free_all(hash);
 
     hdr->l = idx;
     kputs(tmp.s, hdr);
@@ -183,7 +203,8 @@ static void reheader_vcf_gz(args_t *args)
             if ( skip_until>=fp->block_length )
             {
                 kputsn(buffer,skip_until,&hdr);
-                if ( bgzf_read_block(fp) != 0 || !fp->block_length ) error("FIXME: No body in the file: %s\n", args->fname);
+                if ( bgzf_read_block(fp) != 0 ) error("Error reading %s\n", args->fname);
+                if ( !fp->block_length ) break;
                 skip_until = 0;
             }
             // The header has finished
@@ -197,7 +218,8 @@ static void reheader_vcf_gz(args_t *args)
         if ( skip_until>=fp->block_length )
         {
             kputsn(buffer,fp->block_length,&hdr);
-            if (bgzf_read_block(fp) != 0 || !fp->block_length) error("FIXME: No body in the file: %s\n", args->fname);
+            if ( bgzf_read_block(fp) != 0 ) error("Error reading %s\n", args->fname);
+            if ( !fp->block_length ) break;
             skip_until = 0;
         }
     }
@@ -220,12 +242,8 @@ static void reheader_vcf_gz(args_t *args)
     }
 
     // Output the modified header
-    BGZF *bgzf_out;
-    if ( args->output_fname )
-        bgzf_out = bgzf_open(args->output_fname,"w");
-    else
-        bgzf_out = bgzf_dopen(fileno(stdout), "w");
-    bgzf_write(bgzf_out, hdr.s, hdr.l);
+    BGZF *bgzf_out = bgzf_open(args->output_fname ? args->output_fname : "-","w");;
+    if ( bgzf_write(bgzf_out, hdr.s, hdr.l) < 0 ) error("Can't write BGZF header (code %d)\n", bgzf_out->errcode);
     free(hdr.s);
 
     // Output all remainig data read with the header block
@@ -237,8 +255,8 @@ static void reheader_vcf_gz(args_t *args)
 
     // Stream the rest of the file without as it is, without decompressing
     ssize_t nread;
-    int page_size = getpagesize();
-    char *buf = (char*) valloc(page_size);
+    const size_t page_size = 32768;
+    char *buf = (char*) malloc(page_size);
     while (1)
     {
         nread = bgzf_raw_read(fp, buf, page_size);
@@ -247,8 +265,8 @@ static void reheader_vcf_gz(args_t *args)
         int count = bgzf_raw_write(bgzf_out, buf, nread);
         if (count != nread) error("Write failed, wrote %d instead of %d bytes.\n", count,(int)nread);
     }
-    if (bgzf_close(bgzf_out) < 0) error("Error: %d\n",bgzf_out->errcode);
-    if (bgzf_close(fp) < 0) error("Error: %d\n",fp->errcode);
+    if (bgzf_close(bgzf_out) < 0) error("Error closing %s: %d\n",args->output_fname ? args->output_fname : "-",bgzf_out->errcode);
+    if (hts_close(args->fp)) error("Error closing %s: %d\n",args->fname,fp->errcode);
     free(buf);
 }
 static void reheader_vcf(args_t *args)

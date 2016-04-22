@@ -105,8 +105,8 @@ const char *usage(void)
         "   Y 1 59373566 F 0\n"
         "   \n"
         "   bcftools +vcf2sex in.vcf.gz\n"
-        "   bcftools +vcf2sex in.vcf.gz -- -n 10\n"
-        "   bcftools +vcf2sex in.vcf.gz -- -g GT\n"
+        "   bcftools +vcf2sex -n 10 in.vcf.gz\n"
+        "   bcftools +vcf2sex -g GT in.vcf.gz\n"
         "\n";
 }
 
@@ -389,7 +389,8 @@ int run(int argc, char **argv)
         {"background",1,0,'b'},
         {0,0,0,0}
     };
-    char c, *tmp, *ploidy_fname = NULL;
+    char *tmp, *ploidy_fname = NULL;
+    int c;
     while ((c = getopt_long(argc, argv, "p:n:g:m:vb:",loptions,NULL)) >= 0)
     {
         switch (c) {
@@ -420,8 +421,8 @@ int run(int argc, char **argv)
 
     args->sr = bcf_sr_init();
     args->sr->require_index = 1;
-    if ( !argv[0] ) error("%s", usage());
-    if ( !bcf_sr_add_reader(args->sr,argv[0]) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
+    if ( optind==argc ) error("%s", usage());
+    if ( !bcf_sr_add_reader(args->sr,argv[optind]) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = args->sr->readers[0].header;
     args->nsample = bcf_hdr_nsamples(args->hdr);
  

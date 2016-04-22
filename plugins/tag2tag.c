@@ -83,7 +83,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"gl-to-pl",0,0,2},
         {0,0,0,0}
     };
-    char c;
+    int c;
     while ((c = getopt_long(argc, argv, "?hr",loptions,NULL)) >= 0)
     {
         switch (c) 
@@ -118,7 +118,7 @@ bcf1_t *process(bcf1_t *rec)
         for (i=0; i<n; i++)
         {
             if ( bcf_float_is_missing(farr[i]) || bcf_float_is_vector_end(farr[i]) ) continue;
-            farr[i] = farr[i] ? log(farr[i]) : -99;
+            farr[i] = farr[i] ? log10(farr[i]) : -99;
         }
         bcf_update_format_float(out_hdr,rec,"GL",farr,n);
         if ( drop_source_tag )

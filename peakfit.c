@@ -26,6 +26,7 @@
 
 #include "peakfit.h"
 #include <stdio.h>
+#include <gsl/gsl_version.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multifit_nlin.h>
 #include <htslib/hts.h>
@@ -550,9 +551,14 @@ double peakfit_run(peakfit_t *pkf, int nvals, double *xvals, double *yvals)
             }
             if ( ret ) break;
 
+#if GSL_MAJOR_VERSION >= 2
+            int info;
+            test1 = gsl_multifit_fdfsolver_test(solver, 1e-8,1e-8, 0.0, &info);
+#else
             gsl_multifit_gradient(solver->J, solver->f, grad);
             test1 = gsl_multifit_test_gradient(grad, 1e-8);
             test2 = gsl_multifit_test_delta(solver->dx, solver->x, 1e-8, 1e-8);
+#endif
         }
         while ((test1==GSL_CONTINUE || test2==GSL_CONTINUE) && ++niter<niter_max);
         if ( pkf->verbose >1 )

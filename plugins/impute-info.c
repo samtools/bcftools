@@ -1,6 +1,6 @@
 /*  plugins/impute-info.c -- adds info metrics to a VCF file.
 
-    Copyright (C) 2015 Genome Research Ltd.
+    Copyright (C) 2015-2016 Genome Research Ltd.
 
     Author: Shane McCarthy <sm15@sanger.ac.uk>
 
@@ -121,13 +121,13 @@ bcf1_t *process(bcf1_t *rec)
         return rec; // require biallelic diploid, return site unchanged
     }
 
-    float esum = 0, e2sum = 0, fsum = 0;
+    double esum = 0, e2sum = 0, fsum = 0;
     #define BRANCH(type_t,is_missing,is_vector_end) \
     { \
         type_t *ptr = (type_t*) buf; \
         for (i=0; i<rec->n_sample; i++) \
         { \
-            float vals[3] = {0,0,0}; \
+            double vals[3] = {0,0,0}; \
             for (j=0; j<nret; j++) \
             { \
                 if ( is_missing || is_vector_end ) break; \
@@ -147,8 +147,8 @@ bcf1_t *process(bcf1_t *rec)
     }
     #undef BRANCH
 
-    float theta = esum / (2 * (float)nval);
-    float info  = (theta>0 && theta<1) ? 1 - (fsum - e2sum) / (2 * (float)nval * theta * (1.0 - theta)) : 1;
+    double theta = esum / (2 * (double)nval);
+    float info  = (theta>0 && theta<1) ? (float)(1 - (fsum - e2sum) / (2 * (double)nval * theta * (1.0 - theta))) : 1;
 
     bcf_update_info_float(out_hdr, rec, "INFO", &info, 1);
     nrec++;

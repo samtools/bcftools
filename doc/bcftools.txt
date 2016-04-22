@@ -159,6 +159,9 @@ specific commands to see if they apply.
     in 'LIST'. For example, to include only sites which have no filters set,
     use *-f* '.,PASS'.
 
+*--no-version*::
+    Do not append version and command line information to the output VCF header.
+
 *-o, --output* 'FILE'::
     When output consists of a single stream, write it to 'FILE' rather than
     to standard output, where it is written by default.
@@ -166,7 +169,7 @@ specific commands to see if they apply.
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
     Use the -Ou option when piping between bcftools subcommands to speed up
-    performance by removing unecessary compression/decompression and
+    performance by removing unnecessary compression/decompression and
     VCF<-->BCF conversion.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
@@ -176,11 +179,15 @@ specific commands to see if they apply.
 *-R, --regions-file* 'FILE'::
     Regions can be specified either on command line or in a VCF, BED, or
     tab-delimited file (the default).  The columns of the tab-delimited file
-    are: CHROM, POS, and,  optionally,  POS_TO,  where positions are 1-based
-    and inclusive.  Uncompressed files are stored in memory, while
-    bgzip-compressed and tabix-indexed region files are streamed.  Note that
-    sequence names must match exactly, "chr20" is not the same as "20".
-    Also note that chromosome ordering in 'FILE' will be respected,
+    are: CHROM, POS, and, optionally,  POS_TO,  where positions are 1-based
+    and inclusive. The columns of the tab-delimited BED file are also
+    CHROM, POS and POS_TO (trailing columns are ignored), but coordinates
+    are 0-based, half-open.  To indicate that a file be treated as BED rather
+    than the 1-based tab-delimited file, the file must have the ".bed" or
+    ".bed.gz" suffix (case-insensitive). Uncompressed files are stored in
+    memory, while bgzip-compressed and tabix-indexed region files are streamed.
+    Note that sequence names must match exactly, "chr20" is not the same as
+    "20".  Also note that chromosome ordering in 'FILE' will be respected,
     the VCF will be processed in the order in which chromosomes first appear
     in 'FILE'. However, within chromosomes, the VCF will always be
     processed in ascending genomic coordinate order no matter what order they
@@ -263,7 +270,7 @@ specific commands to see if they apply.
 [[annotate]]
 === bcftools annotate '[OPTIONS]' 'FILE'
 
-This command allows to add or remove annotations.
+Add or remove annotations.
 
 *-a, --annotations* 'file'::
     Bgzip-compressed and tabix-indexed file with annotations. The file
@@ -336,6 +343,9 @@ This command allows to add or remove annotations.
 
 *-m, --mark-sites* [+-]'TAG'::
     annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -498,6 +508,9 @@ demand. The original calling model can be invoked with the *-c* option.
 
 ==== File format options:
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -598,7 +611,7 @@ demand. The original calling model can be invoked with the *-c* option.
     genotype calling maximizes likelihood of a particular combination of
     genotypes for father, mother and the child
     P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1-Pn).
-    By providing three values, the mutation rate Pn is set explictly for SNPs,
+    By providing three values, the mutation rate Pn is set explicitly for SNPs,
     deletions and insertions, respectively.  If two values are given, the first
     is interpreted as the mutation rate of SNPs and the second is used to
     calculate the mutation rate of indels according to their length as
@@ -630,7 +643,10 @@ columns appearing in the same order. Can be used, for example, to
 concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
 VCF into one. The input files must be sorted by chr and position. The files
 must be given in the correct order to produce sorted VCF on output unless
-the *-a, --allow-overlaps* option is specified.
+the *-a, --allow-overlaps* option is specified. With the --naive option, the files
+are concatenated without being recompressed, which is very fast but dangerous
+if the BCF headers differ.
+
 
 *-a, --allow-overlaps*::
     First coordinate of the next file can precede last record of the current file.
@@ -650,6 +666,16 @@ the *-a, --allow-overlaps* option is specified.
 
 *-l, --ligate*::
     Ligate phased VCFs by matching phase at overlapping haplotypes
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
+*-n, --naive*::
+    Concatenate BCF files without recompression. This is very fast but requires
+    that all files have the same headers. This is because all tags and
+    chromosome names in the BCF body rely on the implicit order of the contig
+    and tag definitions in the header. Currently no sanity checks
+    are in place and only works for compressed BCF files. Dangerous, use with caution. 
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -738,6 +764,9 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
     see *<<common_options,Common Options>>*
 
 ==== VCF output options:
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -936,6 +965,9 @@ And similarly here, the second is filtered:
     strings of failed sites instead of replacing them. The "x" mode resets
     filters of sites which pass to "PASS". Modes "+" and "x" can both be set.
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -961,7 +993,8 @@ And similarly here, the second is filtered:
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
-
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 
@@ -1209,6 +1242,9 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 -m id     ..  merge by ID
 ----
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -1261,6 +1297,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     both SNPs and indels should be merged separately into two records, specify
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
 
 *-N, --do-not-normalize*[[do_not_normalize]]::
     the '-c s' option can be used to fix or set the REF allele from the 
@@ -1322,6 +1361,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     see *<<common_options,Common Options>>*
 
 ==== VCF output options:
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -1434,7 +1476,7 @@ const char *about(void);
 // Longer description used by 'bcftools +name -h'
 const char *usage(void);
 
-// Called once at startup, allows to initialize local variables.
+// Called once at startup, allows initialization of local variables.
 // Return 1 to suppress normal VCF/BCF header output, -1 on critical
 // errors, 0 otherwise.
 int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr);
@@ -1467,7 +1509,7 @@ file for help.
     see *<<common_options,Common Options>>*
 
 *-s, --sample* 'string'::
-    samply name
+    sample name
 
 *-t, --targets* 'LIST'::
     see *<<common_options,Common Options>>*
@@ -1594,9 +1636,10 @@ Modify header of VCF/BCF files, change sample names.
 *-s, --samples* 'FILE'::
     new sample names, one name per line, in the same order as they appear
     in the VCF file. Alternatively, only samples which need to be renamed
-    can be listed as "old_name new_name\n" pairs separated by
-    whitespaces, each on separate line.
-
+    can be listed as "old_name new_name\n" pairs separated by whitespaces,
+    each on a separate line. If a sample name contains spaces, the
+    spaces can be escaped using the backslash character, for example
+    "Not\ a\ good\ sample\ name".
 
 
 [[roh]]
@@ -1635,7 +1678,7 @@ Transition probabilities:
 
 *--AF-tag* 'TAG'::
     use the specified INFO tag 'TAG' as an allele frequency estimate
-    instead of the defaul AC and AN tags. Sites which do not have 'TAG'
+    instead of the default AC and AN tags. Sites which do not have 'TAG'
     will be skipped.
     
 *--AF-file* 'FILE'::
@@ -1790,6 +1833,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
     compression level. 0 stands for uncompressed, 1 for best speed and 9 for
     best compression.
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
@@ -1830,6 +1876,15 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 
 ==== Filter options:
+Note that filter options below dealing with counting the number of alleles
+will, for speed, first check for the values of AC and AN in the INFO column to 
+avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
+that a filter like '--min-af 0.1' will be based `AC/AN' where AC and AN come
+from either INFO/AC and INFO/AN if available or FORMAT/GT if not. It will not
+filter on another field like INFO/AF. The '--include' and '--exclude' filter
+expressions should instead be used to explicitly filter based on fields in
+the INFO column, e.g. '--exclude AF<0.1'.
+
 *-c, --min-ac* 'INT'[':nref'|':alt1'|':minor'|':major'|:'nonmajor']::
     minimum allele count (INFO/AC) of sites to be printed.
     Specifying the type of allele is optional and can be set to 

@@ -82,7 +82,7 @@ MISC_PROGRAMS = plot-vcfstats vcfutils.pl plugins/color-chrs.pl
 all:$(PROG) plugins
 
 # See htslib/Makefile
-PACKAGE_VERSION = 1.3
+PACKAGE_VERSION = 1.3.1
 ifneq "$(wildcard .git)" ""
 PACKAGE_VERSION := $(shell git describe --always --dirty)
 DOC_VERSION :=  $(shell git describe --always)+
@@ -129,7 +129,7 @@ endif
 plugins: $(PLUGINS)
 
 
-bcftools_h = bcftools.h $(htslib_vcf_h)
+bcftools_h = bcftools.h $(htslib_hts_defs_h) $(htslib_vcf_h)
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
 convert_h = convert.h $(htslib_vcf_h)
 tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h)
@@ -143,7 +143,7 @@ main.o: main.c $(htslib_hts_h) version.h $(bcftools_h)
 vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
 vcfplugin.o: vcfplugin.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
 vcfcall.o: vcfcall.c $(htslib_vcf_h) $(HTSDIR)/htslib/kfunc.h $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/khash_str2int.h $(bcftools_h) $(call_h) $(prob1_h) $(ploidy_h)
-vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
+vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(htslib_bgzf_h) $(htslib_tbx_h) $(bcftools_h)
 vcfconvert.o: vcfconvert.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) $(convert_h) $(tsv2vcf_h)
 vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h
 vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
@@ -157,7 +157,7 @@ vcfcnv.o: vcfcnv.c $(cnv_h)
 vcfsom.o: vcfsom.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
 vcfstats.o: vcfstats.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) $(bcftools_h)
 vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h)
-reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
+reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
 tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
 ccall.o: ccall.c $(HTSDIR)/htslib/kfunc.h $(call_h) kmin.h $(prob1_h)
 convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(convert_h)
