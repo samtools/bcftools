@@ -23,8 +23,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
-#include <config.h>
-
 #include <assert.h>
 #include <ctype.h>
 #include <string.h>
@@ -59,7 +57,7 @@ void *bcf_call_add_rg(void *_hash, const char *hdtext, const char *list)
             lp = r - p;
             for (r = q; *r && *r != '\t' && *r != '\n'; ++r) { }
             lq = r - q;
-            x = calloc((lp > lq? lp : lq) + 1, 1);
+            x = (char*) calloc((lp > lq? lp : lq) + 1, 1);
             for (r = q; *r && *r != '\t' && *r != '\n'; ++r) x[r-q] = *r;
             if (strstr(list, x)) { // insert ID to the hash table
                 khint_t k;
@@ -182,7 +180,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
         bca->max_support = bca->max_frac = 0;
         int m, n_alt = 0, n_tot = 0, indel_support_ok = 0;
         uint32_t *aux;
-        aux = calloc(N + 1, 4);
+        aux = (uint32_t*) calloc(N + 1, 4);
         m = max_rd_len = 0;
         aux[m++] = MINUS_CONST; // zero indel is always a type
         for (s = 0; s < n; ++s) {
@@ -260,13 +258,13 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
         int L = right - left + 1, max_i, max2_i;
         uint32_t *cns, max, max2;
         char *ref0, *r;
-        ref_sample = calloc(n, sizeof(char*));
-        cns = calloc(L, 4);
-        ref0 = calloc(L, 1);
+        ref_sample = (char**) calloc(n, sizeof(char*));
+        cns = (uint32_t*) calloc(L, 4);
+        ref0 = (char*) calloc(L, 1);
         for (i = 0; i < right - left; ++i)
             ref0[i] = seq_nt16_table[(int)ref[i+left]];
         for (s = 0; s < n; ++s) {
-            r = ref_sample[s] = calloc(L, 1);
+            r = ref_sample[s] = (char*) calloc(L, 1);
             memset(cns, 0, sizeof(int) * L);
             // collect ref and non-ref counts
             for (i = 0; i < n_plp[s]; ++i) {
@@ -317,7 +315,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
     // construct the consensus sequence
     max_ins = types[n_types - 1];   // max_ins is at least 0
     if (max_ins > 0) {
-        int *inscns_aux = calloc(5 * n_types * max_ins, sizeof(int));
+        int *inscns_aux = (int*) calloc(5 * n_types * max_ins, sizeof(int));
         // count the number of occurrences of each base at each position for each type of insertion
         for (t = 0; t < n_types; ++t) {
             if (types[t] > 0) {
@@ -337,7 +335,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
             }
         }
         // use the majority rule to construct the consensus
-        inscns = calloc(n_types * max_ins, 1);
+        inscns = (char*) calloc(n_types * max_ins, 1);
         for (t = 0; t < n_types; ++t) {
             for (j = 0; j < types[t]; ++j) {
                 int max = 0, max_k = -1, *ia = &inscns_aux[(t*max_ins+j)*5];
@@ -352,10 +350,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
     }
     // compute the likelihood given each type of indel for each read
     max_ref2 = right - left + 2 + 2 * (max_ins > -types[0]? max_ins : -types[0]);
-    ref2  = calloc(max_ref2, 1);
-    query = calloc(right - left + max_rd_len + max_ins + 2, 1);
-    score1 = calloc(N * n_types, sizeof(int));
-    score2 = calloc(N * n_types, sizeof(int));
+    ref2  = (char*) calloc(max_ref2, 1);
+    query = (char*) calloc(right - left + max_rd_len + max_ins + 2, 1);
+    score1 = (int*) calloc(N * n_types, sizeof(int));
+    score2 = (int*) calloc(N * n_types, sizeof(int));
     bca->indelreg = 0;
     for (t = 0; t < n_types; ++t) {
         int l, ir;
@@ -404,7 +402,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                 { // do realignment; this is the bottleneck
                     const uint8_t *qual = bam_get_qual(p->b), *bq;
                     uint8_t *qq;
-                    qq = calloc(qend - qbeg, 1);
+                    qq = (uint8_t*) calloc(qend - qbeg, 1);
                     bq = (uint8_t*)bam_aux_get(p->b, "ZQ");
                     if (bq) ++bq; // skip type
                     for (l = qbeg; l < qend; ++l) {
@@ -440,8 +438,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
     free(ref2); free(query);
     { // compute indelQ
         int *sc, tmp, *sumq;
-        sc   = alloca(n_types * sizeof(int));
-        sumq = alloca(n_types * sizeof(int));
+        sc   = (int*) alloca(n_types * sizeof(int));
+        sumq = (int*) alloca(n_types * sizeof(int));
         memset(sumq, 0, sizeof(int) * n_types);
         for (s = K = 0; s < n; ++s) {
             for (i = 0; i < n_plp[s]; ++i, ++K) {
@@ -493,7 +491,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
         }
         // determine bca->indel_types[] and bca->inscns
         bca->maxins = max_ins;
-        bca->inscns = realloc(bca->inscns, bca->maxins * 4);
+        bca->inscns = (char*) realloc(bca->inscns, bca->maxins * 4);
         for (t = 0; t < n_types; ++t)
             sumq[t] = sumq[t]<<6 | t;
         for (t = 1; t < n_types; ++t) // insertion sort

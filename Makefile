@@ -46,6 +46,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o bin.o hclust.o version.o \
+           mpileup.o bam2bcf.o bam2bcf_indel.o sample.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
 EXTRA_CPPFLAGS = -I. -I$(HTSDIR) -DPLUGINPATH=\"$(pluginpath)\"
@@ -139,6 +140,9 @@ ploidy_h = ploidy.h $(htslib_regidx_h)
 prob1_h = prob1.h $(htslib_vcf_h) $(call_h)
 roh_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kstring.h $(HTSDIR)/htslib/kseq.h $(bcftools_h)
 cnv_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h)
+bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
+sam_h = sam.h $(htslib_sam_h) $(bam_h)
+sample_h = sample.h $(htslib_kstring_h)
 
 main.o: main.c $(htslib_hts_h) version.h $(bcftools_h)
 vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
@@ -175,6 +179,7 @@ polysomy.o: polysomy.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(bcftools_
 peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(HTSDIR)/htslib/kstring.h
 consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) $(HTSDIR)/htslib/regidx.h
 bin.o: bin.c $(bin_h)
+mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(htslib_regidx_h) $(bcftools_h) $(bam2bcf_h) $(sample_h)
 version.o: version.h version.c
 hclust.o: hclust.c hclust.h
 

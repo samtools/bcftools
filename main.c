@@ -54,6 +54,7 @@ int main_polysomy(int argc, char *argv[]);
 #endif
 int main_plugin(int argc, char *argv[]);
 int main_consensus(int argc, char *argv[]);
+int bam_mpileup(int argc, char *argv[]);
 
 typedef struct
 {
@@ -147,6 +148,10 @@ static cmd_t cmds[] =
     { .func  = main_vcfgtcheck,
       .alias = "gtcheck",
       .help  = "check sample concordance, detect sample swaps and contamination"
+    },
+    { .func  = bam_mpileup,
+        .alias = "mpileup",
+        .help  = "multi-way pileup producing genotype likelihoods"
     },
 #if USE_GPL
     { .func  = main_polysomy,

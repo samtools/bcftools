@@ -34,7 +34,7 @@ KHASH_MAP_INIT_STR(sm, int)
 bam_sample_t *bam_smpl_init(void)
 {
     bam_sample_t *s;
-    s = calloc(1, sizeof(bam_sample_t));
+    s = (bam_sample_t*) calloc(1, sizeof(bam_sample_t));
     s->rg2smid = kh_init(sm);
     s->sm2id = kh_init(sm);
     return s;
@@ -50,8 +50,8 @@ void bam_smpl_destroy(bam_sample_t *sm)
     free(sm->smpl);
     for (k = kh_begin(rg2smid); k != kh_end(rg2smid); ++k)
         if (kh_exist(rg2smid, k)) free((char*)kh_key(rg2smid, k));
-    kh_destroy(sm, sm->rg2smid);
-    kh_destroy(sm, sm->sm2id);
+    kh_destroy(sm, (khash_t(sm)*) sm->rg2smid);
+    kh_destroy(sm, (khash_t(sm)*) sm->sm2id);
     free(sm);
 }
 
@@ -67,7 +67,7 @@ static void add_pair(bam_sample_t *sm, khash_t(sm) *sm2id, const char *key, cons
     if (k_sm == kh_end(sm2id)) { // absent
         if (sm->n == sm->m) {
             sm->m = sm->m? sm->m<<1 : 1;
-            sm->smpl = realloc(sm->smpl, sizeof(char*) * sm->m);
+            sm->smpl = (char**) realloc(sm->smpl, sizeof(char*) * sm->m);
         }
         sm->smpl[sm->n] = strdup(val);
         k_sm = kh_put(sm, sm2id, sm->smpl[sm->n], &ret);
@@ -95,15 +95,15 @@ int bam_smpl_add(bam_sample_t *sm, const char *fn, const char *txt)
         if ((r = strstr(p, "\tSM:")) != 0) r += 4;
         if (r && q) {
             char *u, *v;
-            int oq, or;
+            int ioq, ior;
             for (u = (char*)q; *u && *u != '\t' && *u != '\n'; ++u);
             for (v = (char*)r; *v && *v != '\t' && *v != '\n'; ++v);
-            oq = *u; or = *v; *u = *v = '\0';
+            ioq = *u; ior = *v; *u = *v = '\0';
             buf.l = 0; kputs(fn, &buf); kputc('/', &buf); kputs(q, &buf);
             add_pair(sm, sm2id, buf.s, r);
             if ( !first_sm.s )
                 kputs(r,&first_sm);
-            *u = oq; *v = or;
+            *u = ioq; *v = ior;
         } else break;
         p = q > r? q : r;
         ++n;

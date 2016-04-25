@@ -23,8 +23,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
-#include <config.h>
-
 #include <math.h>
 #include <stdint.h>
 #include <assert.h>
@@ -46,7 +44,7 @@ bcf_callaux_t *bcf_call_init(double theta, int min_baseQ)
 {
     bcf_callaux_t *bca;
     if (theta <= 0.) theta = CALL_DEFTHETA;
-    bca = calloc(1, sizeof(bcf_callaux_t));
+    bca = (bcf_callaux_t*) calloc(1, sizeof(bcf_callaux_t));
     bca->capQ = 60;
     bca->openQ = 40; bca->extQ = 20; bca->tandemQ = 100;
     bca->min_baseQ = min_baseQ;
@@ -55,15 +53,15 @@ bcf_callaux_t *bcf_call_init(double theta, int min_baseQ)
     bca->min_support = 1;
     bca->per_sample_flt = 0;
     bca->npos = 100;
-    bca->ref_pos = malloc(bca->npos*sizeof(int));
-    bca->alt_pos = malloc(bca->npos*sizeof(int));
+    bca->ref_pos = (int*) malloc(bca->npos*sizeof(int));
+    bca->alt_pos = (int*) malloc(bca->npos*sizeof(int));
     bca->nqual = 60;
-    bca->ref_mq  = malloc(bca->nqual*sizeof(int));
-    bca->alt_mq  = malloc(bca->nqual*sizeof(int));
-    bca->ref_bq  = malloc(bca->nqual*sizeof(int));
-    bca->alt_bq  = malloc(bca->nqual*sizeof(int));
-    bca->fwd_mqs = malloc(bca->nqual*sizeof(int));
-    bca->rev_mqs = malloc(bca->nqual*sizeof(int));
+    bca->ref_mq  = (int*) malloc(bca->nqual*sizeof(int));
+    bca->alt_mq  = (int*) malloc(bca->nqual*sizeof(int));
+    bca->ref_bq  = (int*) malloc(bca->nqual*sizeof(int));
+    bca->alt_bq  = (int*) malloc(bca->nqual*sizeof(int));
+    bca->fwd_mqs = (int*) malloc(bca->nqual*sizeof(int));
+    bca->rev_mqs = (int*) malloc(bca->nqual*sizeof(int));
     return bca;
 }
 
