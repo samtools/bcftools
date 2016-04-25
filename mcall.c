@@ -107,6 +107,16 @@ int calc_Pkij(int fals, int mals, int kals, int fpl, int mpl, int kpl)
 //
 static void mcall_init_trios(call_t *call)
 {
+    if ( call->prior_AN )
+    {
+        int id = bcf_hdr_id2int(call->hdr,BCF_DT_ID,call->prior_AN);
+        if ( id==-1 ) error("No such tag \"%s\"\n", call->prior_AN);
+        if ( !bcf_hdr_idinfo_exists(call->hdr,BCF_HL_FMT,id) )  error("No such FORMAT tag \"%s\"\n", call->prior_AN);
+        id = bcf_hdr_id2int(call->hdr,BCF_DT_ID,call->prior_AC);
+        if ( id==-1 ) error("No such tag \"%s\"\n", call->prior_AC);
+        if ( !bcf_hdr_idinfo_exists(call->hdr,BCF_HL_FMT,id) )  error("No such FORMAT tag \"%s\"\n", call->prior_AC);
+    }
+
     // 23, 138, 478 possible diploid trio genotypes with 2, 3, 4 alleles
     call->ntrio[FTYPE_222][2] = 15; call->ntrio[FTYPE_222][3] = 78;  call->ntrio[FTYPE_222][4] = 250;
     call->ntrio[FTYPE_121][2] = 8;  call->ntrio[FTYPE_121][3] = 27;  call->ntrio[FTYPE_121][4] = 64;
@@ -1393,7 +1403,7 @@ int mcall(call_t *call, bcf1_t *rec)
     #if QS_FROM_PDG
         estimate_qsum(call, rec);
     #else
-        // Get sum of qualities
+        // Get sum of qualities, serves as an AF estimate, f_x = QS/N in Eq. 1 in call-m math notes.
         int nqs = bcf_get_info_float(call->hdr, rec, "QS", &call->qsum, &call->nqsum);
         if ( nqs<=0 ) error("The QS annotation not present at %s:%d\n", bcf_seqname(call->hdr,rec),rec->pos+1);
         if ( nqs < nals )
@@ -1404,6 +1414,27 @@ int mcall(call_t *call, bcf1_t *rec)
             hts_expand(float,nals,call->nqsum,call->qsum);
             for (i=nqs; i<nals; i++) call->qsum[i] = 0;
         }
+
+        // If available, take into account reference panel AFs
+        if ( call->prior_AN && bcf_get_info_int32(call->hdr, rec, call->prior_AN ,&call->ac, &call->nac)==1 )
+        {
+            int an = call->ac[0];
+            if ( bcf_get_info_int32(call->hdr, rec, call->prior_AC ,&call->ac, &call->nac)==nals-1 )
+            {
+                int ac0 = an;   // number of alleles in the reference population
+                for (i=0; i<nals-1; i++)
+                {
+                    if ( call->ac[i]==bcf_int32_vector_end ) break;
+                    if ( call->ac[i]==bcf_int32_missing ) continue;
+                    ac0 -= call->ac[i];
+                    call->qsum[i+1] += call->ac[i]*0.5;
+                }
+                if ( ac0<0 ) error("Incorrect %s,%s values at %s:%d\n", call->prior_AN,call->prior_AC,bcf_seqname(call->hdr,rec),rec->pos+1);
+                call->qsum[0] += ac0*0.5;
+                for (i=0; i<nals; i++) call->qsum[i] /= nsmpl + 0.5*an;
+            }
+        }
+
         float qsum_tot = 0;
         for (i=0; i<nals; i++) qsum_tot += call->qsum[i];
         if ( !call->qsum[0] )
