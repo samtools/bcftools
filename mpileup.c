@@ -1,4 +1,4 @@
-/*  bam_plcmd.c -- mpileup subcommand.
+/*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
     Copyright (C) 2008-2015 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
