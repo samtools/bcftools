@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25197440"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25136800"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -8,7 +8,7 @@ will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2016-04-18 14:18 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.3-36-g47e811c+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2016-04-26 21:06 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.3.1-6-g0848b12+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -40,6 +40,8 @@ list of available options, run <span class="strong"><strong>bcftools</strong></s
 <span class="strong"><strong><a class="link" href="#isec" title="bcftools isec [OPTIONS] A.vcf.gz B.vcf.gz […]">isec</a></strong></span>        ..  intersections of VCF/BCF files
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#merge" title="bcftools merge [OPTIONS] A.vcf.gz B.vcf.gz […]">merge</a></strong></span>      ..  merge VCF/BCF files files from non-overlapping sample sets
+</li><li class="listitem">
+<span class="strong"><strong><a class="link" href="#mpileup" title="bcftools mpileup [OPTIONS] -f ref.fa in.bam [in2.bam […]]">mpileup</a></strong></span>  ..  multi-way pileup producing genotype likelihoods
 </li><li class="listitem">
 <span class="strong"><strong><a class="link" href="#norm" title="bcftools norm [OPTIONS] file.vcf.gz">norm</a></strong></span>        ..  normalize indels
 </li><li class="listitem">
@@ -1230,7 +1232,212 @@ For "vertical" merge take a look at <span class="strong"><strong><a class="link"
 <span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div></div><div class="refsect2" title="bcftools norm [OPTIONS] file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels, check if REF alleles match the reference,
+</dd></dl></div></div><div class="refsect2" title="bcftools mpileup [OPTIONS] -f ref.fa in.bam [in2.bam […]]"><a id="mpileup"></a><h3>bcftools mpileup [<span class="emphasis"><em>OPTIONS</em></span>] <span class="strong"><strong>-f</strong></span> <span class="emphasis"><em>ref.fa</em></span> <span class="emphasis"><em>in.bam</em></span> [<span class="emphasis"><em>in2.bam</em></span> […]]</h3><p>Generate VCF or BCF containing genotype likelihoods for one or multiple
+alignment (BAM or CRAM) files. This is based on the original
+<span class="strong"><strong>samtools mpileup</strong></span> command (with the <span class="strong"><strong>-v</strong></span> or <span class="strong"><strong>-g</strong></span> options) producing
+genotype likelihoods in VCF or BCF format, but not the textual pileup
+output. The <span class="strong"><strong>mpileup</strong></span> command was transferred to bcftools in order to
+avoid errors resulting from use of incompatible versions of samtools
+and bcftools when using in the mpileup+bcftools call pipeline.</p><p>Individuals are identified from the SM tags in the @RG header lines.  Multiple
+individuals can be pooled in one alignment file, also one individual can be
+separated into multiple files.  If sample identifiers are absent, each input
+file is regarded as one sample.</p><p>Note that there are two orthogonal ways to specify locations in the
+input file; via <span class="strong"><strong>-r</strong></span> <span class="emphasis"><em>region</em></span> and <span class="strong"><strong>-l</strong></span> <span class="emphasis"><em>positions</em></span>.  The
+former uses (and requires) an index to do random access while the
+latter streams through the file contents filtering out the specified
+regions, requiring no index.  The two may be used in conjunction.  For
+example a BED file containing locations of genes in chromosome 20
+could be specified using <span class="strong"><strong>-r 20 -l chr20.bed</strong></span>, meaning that the
+index is used to find chromosome 20 and then it is filtered for the
+regions listed in the BED file.</p><div class="refsect3" title="Input options"><a id="_input_options"></a><h4>Input options</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-6, --illumina1.3+</strong></span>
+</span></dt><dd>
+    Assume the quality is in the Illumina 1.3+ encoding.
+</dd><dt><span class="term">
+<span class="strong"><strong>-A, --count-orphans</strong></span>
+</span></dt><dd>
+    Do not skip anomalous read pairs in variant calling.
+</dd><dt><span class="term">
+<span class="strong"><strong>-b, --bam-list</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    List of input alignment files, one file per line [null]
+</dd><dt><span class="term">
+<span class="strong"><strong>-B, --no-BAQ</strong></span>
+</span></dt><dd>
+    Disable probabilistic realignment for the computation of base alignment
+    quality (BAQ). BAQ is the Phred-scaled probability of a read base being
+    misaligned. Applying this option greatly helps to reduce false SNPs caused
+    by misalignments.
+</dd><dt><span class="term">
+<span class="strong"><strong>-C, --adjust-MQ</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Coefficient  for  downgrading mapping quality for reads containing
+    excessive mismatches. Given a read with a phred-scaled probability q of
+    being generated from the mapped posi- tion, the new mapping quality is
+    about sqrt((INT-q)/INT)*INT. A zero value disables this functionality; if
+    enabled, the recommended value for BWA is 50. [0]
+</dd><dt><span class="term">
+<span class="strong"><strong>-d, --max-depth</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    At a position, read maximally <span class="emphasis"><em>INT</em></span> reads per input file. Note that bcftools
+    has a minimum value of <span class="emphasis"><em>8000/n</em></span> where <span class="emphasis"><em>n</em></span> is the number of input files given
+    to mpileup.  This means the default is highly likely to be increased. Once
+    above the cross-sample minimum of 8000 the -d parameter will have an effect.
+    [250]
+</dd><dt><span class="term">
+<span class="strong"><strong>-E, --redo-BAQ</strong></span>
+</span></dt><dd>
+    Recalculate BAQ on the fly, ignore existing BQ tags
+</dd><dt><span class="term">
+<span class="strong"><strong>-f, --fasta-ref</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    The <span class="strong"><strong>faidx</strong></span>-indexed reference file in the FASTA format. The file can be
+    optionally compressed by <span class="strong"><strong>bgzip</strong></span> [null]
+</dd><dt><span class="term">
+<span class="strong"><strong>-G, --exclude-RG</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    Exclude reads from readgroups listed in FILE (one @RG-ID per line)
+</dd><dt><span class="term">
+<span class="strong"><strong>-l, --positions</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    BED or position list file containing a list of regions or sites where
+    output should be generated. Position list files contain two
+    columns (chromosome and position) and start counting from 1.  BED
+    files contain at least 3 columns (chromosome, start and end position)
+    and are 0-based half-open.
+    While it is possible to mix both position-list and BED coordinates in
+    the same file, this is strongly ill advised due to the differing
+    coordinate systems. [null]
+</dd><dt><span class="term">
+<span class="strong"><strong>-q, -min-MQ</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Minimum mapping quality for an alignment to be used [0]
+</dd><dt><span class="term">
+<span class="strong"><strong>-Q, --min-BQ</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Minimum base quality for a base to be considered [13]
+</dd><dt><span class="term">
+<span class="strong"><strong>-r, --region</strong></span> <span class="emphasis"><em>STR</em></span>
+</span></dt><dd>
+    Only generate output in region. Requires the alignment files to be
+    indexed.  If used in conjunction with -l then considers the intersection
+    of the two requests [all sites]
+</dd><dt><span class="term">
+<span class="strong"><strong>-R, --ignore-RG</strong></span>
+</span></dt><dd>
+    Ignore RG tags. Treat all reads in one alignment file as one sample.
+</dd><dt><span class="term">
+<span class="strong"><strong>--rf, --incl-flags</strong></span> <span class="emphasis"><em>STR</em></span>|<span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Required flags: skip reads with mask bits unset  [null]
+</dd><dt><span class="term">
+<span class="strong"><strong>--ff, --excl-flags</strong></span> <span class="emphasis"><em>STR</em></span>|<span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
+</dd><dt><span class="term">
+<span class="strong"><strong>-x, --ignore-overlaps</strong></span>
+</span></dt><dd>
+    Disable read-pair overlap detection.
+</dd></dl></div></div><div class="refsect3" title="Output options"><a id="_output_options"></a><h4>Output options</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    Write output to <span class="emphasis"><em>FILE</em></span>, rather than the default of standard output.
+    (The same short option is used for both <span class="strong"><strong>--open-prob</strong></span> and <span class="strong"><strong>--output</strong></span>.  If <span class="strong"><strong>-o</strong></span>'s
+    argument contains any non-digit characters other than a leading + or -
+    sign,  it  is  interpreted  as <span class="strong"><strong>--output</strong></span>.  Usually the filename extension
+    will take care of this, but to write to an entirely numeric filename use <span class="strong"><strong>-o
+    ./123</strong></span> or <span class="strong"><strong>--output 123</strong></span>.)
+</dd><dt><span class="term">
+<span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>-t, --output-tags</strong></span> <span class="emphasis"><em>LIST</em></span>
+</span></dt><dd><p class="simpara">
+    Comma-separated list of FORMAT and INFO tags to output (case-insensitive) [null]:
+</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+<span class="strong"><strong>AD</strong></span> .. Allelic depth, FORMAT
+</li><li class="listitem">
+<span class="strong"><strong>INFO/AD</strong></span> .. Total allelic depth, INFO
+</li><li class="listitem">
+<span class="strong"><strong>ADF</strong></span> .. Allelic depths on the forward strand, FORMAT
+</li><li class="listitem">
+<span class="strong"><strong>INFO/ADF</strong></span> .. Total allelic depths on the forward strand, INFO
+</li><li class="listitem">
+<span class="strong"><strong>ADR</strong></span> .. Allelic depths on the reverse strand, FORMAT
+</li><li class="listitem">
+<span class="strong"><strong>INFO/ADR</strong></span> .. Total allelic depths on the reverse strand, INFO
+</li><li class="listitem">
+<span class="strong"><strong>DP</strong></span> .. Number of high-quality bases, FORMAT
+</li><li class="listitem">
+<span class="strong"><strong>SP</strong></span> .. Phred-scaled strand bias P-value, FORMAT
+</li><li class="listitem">
+<span class="strong"><strong>DV</strong></span> .. Deprecated in favor of AD;
+              Number of high-quality non-reference bases, FORMAT
+</li><li class="listitem">
+<span class="strong"><strong>DPR</strong></span> .. Deprecated in favor of AD;
+               Number of high-quality bases for each observed allele, FORMAT
+</li><li class="listitem">
+<span class="strong"><strong>INFO/DPR</strong></span> .. Deprecated in favor of INFO/AD;
+                    Number of high-quality bases for each observed allele, INFO
+</li><li class="listitem">
+<span class="strong"><strong>DP4</strong></span> .. Deprecated in favor of ADF and ADR;
+               Number of high-quality ref-forward, ref-reverse,
+               alt-forward and alt-reverse bases, FORMAT
+</li></ul></div></dd></dl></div></div><div class="refsect3" title="Options for SNP/INDEL genotype likelihood computation"><a id="_options_for_snp_indel_genotype_likelihood_computation"></a><h4>Options for SNP/INDEL genotype likelihood computation</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-e, --ext-prob</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Phred-scaled gap extension sequencing error probability. Reducing <span class="emphasis"><em>INT</em></span>
+    leads to longer indels [20]
+</dd><dt><span class="term">
+<span class="strong"><strong>-F, --gap-frac</strong></span> <span class="emphasis"><em>FLOAT</em></span>
+</span></dt><dd>
+    Minimum fraction of gapped reads [0.002]
+</dd><dt><span class="term">
+<span class="strong"><strong>-h, --tandem-qual</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Coefficient for modeling homopolymer errors. Given an <span class="emphasis"><em>l</em></span>-long homopolymer
+    run, the sequencing error of an indel of size s is modeled as <span class="emphasis"><em>INT</em></span>*s/l [100]
+</dd><dt><span class="term">
+<span class="strong"><strong>-I, --skip-indels</strong></span>
+</span></dt><dd>
+    Do not perform INDEL calling
+</dd><dt><span class="term">
+<span class="strong"><strong>-L, --max-idepth</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Skip INDEL calling if the average per-sample depth is above <span class="emphasis"><em>INT</em></span> [250]
+</dd><dt><span class="term">
+<span class="strong"><strong>-m, --min-ireads</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Minimum number gapped reads for indel candidates <span class="emphasis"><em>INT</em></span> [1]
+</dd><dt><span class="term">
+<span class="strong"><strong>-o, --open-prob</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    Phred-scaled gap open sequencing error probability. Reducing <span class="emphasis"><em>INT</em></span> leads
+    to more indel calls. (The same short option is used for both <span class="strong"><strong>--open-prob</strong></span>
+    and <span class="strong"><strong>--output</strong></span>.  When -o’s argument contains only an optional + or - sign
+    followed by the digits 0 to 9, it is interpreted  as <span class="strong"><strong>--open-prob</strong></span>.) [40]
+</dd><dt><span class="term">
+<span class="strong"><strong>-p, --per-sample-mF</strong></span>
+</span></dt><dd>
+    Apply <span class="strong"><strong>-m</strong></span> and <span class="strong"><strong>-F</strong></span> thresholds per sample to increase sensitivity of calling.
+    By default both options are applied to reads pooled from all samples.
+</dd><dt><span class="term">
+<span class="strong"><strong>-P, --platforms</strong></span> <span class="emphasis"><em>STR</em></span>
+</span></dt><dd>
+    Comma-delimited  list  of  platforms (determined by <span class="strong"><strong>@RG-PL</strong></span>) from which
+    indel candidates are obtained. It is recommended to collect indel
+    candidates from sequencing technologies that have low indel error rate
+    such as ILLUMINA [all]
+</dd></dl></div></div><div class="refsect3" title="Examples:"><a id="_examples_2"></a><h4>Examples:</h4><p>Call SNPs and short INDELs, then mark low quality sites and sites with the read
+depth exceeding a limit. (The read depth should be adjusted to about twice the
+average read depth as higher read depths usually indicate problematic regions
+which are often enriched for artefacts.) One may consider to add <span class="strong"><strong>-C50</strong></span> to
+mpileup if mapping quality is overestimated  for reads containing  excessive
+mismatches.  Applying this option usually helps for BWA-backtrack alignments,
+but may not other aligners.</p><pre class="screen">    bcftools mpileup -Ou -f ref.fa aln.bam | \
+    bcftools call -Ou -mv | \
+    bcftools filter -s LowQual -e '%QUAL&lt;20 || DP&gt;100' &gt; var.flt.vcf</pre></div></div><div class="refsect2" title="bcftools norm [OPTIONS] file.vcf.gz"><a id="norm"></a><h3>bcftools norm [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Left-align and normalize indels, check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows. Left-alignment and normalization will only be applied if
 the <span class="strong"><strong><a class="link" href="#fasta_ref">--fasta-ref</a></strong></span> option is supplied.</p><div class="variablelist"><dl><dt><span class="term">
@@ -1413,7 +1620,7 @@ the <span class="strong"><strong><a class="link" href="#fasta_ref">--fasta-ref</
 <span class="strong"><strong>vcf2sex</strong></span>
 </span></dt><dd>
     determine sample sex by checking genotypes in haploid regions
-</dd></dl></div></div><div class="refsect3" title="Examples:"><a id="_examples_2"></a><h4>Examples:</h4><pre class="screen"># List options common to all plugins
+</dd></dl></div></div><div class="refsect3" title="Examples:"><a id="_examples_3"></a><h4>Examples:</h4><pre class="screen"># List options common to all plugins
 bcftools plugin
 
 # List available plugins
@@ -1601,7 +1808,7 @@ file for help.</p><div class="refsect3" title="General options:"><a id="_general
 %TGT            Translated genotype (e.g. C/A)
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
 %LINE           Prints the whole line
-%SAMPLE         Sample name</pre></div><div class="refsect3" title="Examples:"><a id="_examples_3"></a><h4>Examples:</h4><pre class="literallayout">bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz
+%SAMPLE         Sample name</pre></div><div class="refsect3" title="Examples:"><a id="_examples_4"></a><h4>Examples:</h4><pre class="literallayout">bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz
 bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-h, --header</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -1797,7 +2004,7 @@ columns.</p><div class="variablelist"><dl><dt><span class="term">
 </span></dt><dd>
     produce verbose per-site and per-sample output
 </dd></dl></div></div><div class="refsect2" title="bcftools view [OPTIONS] file.vcf.gz [REGION […]]"><a id="view"></a><h3>bcftools view [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span> [<span class="emphasis"><em>REGION</em></span> […]]</h3><p>View, subset and filter VCF or BCF files by position and filtering expression.
-Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset</strong></span>.</p><div class="refsect3" title="Output options"><a id="_output_options"></a><h4>Output options</h4><div class="variablelist"><dl><dt><span class="term">
+Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset</strong></span>.</p><div class="refsect3" title="Output options"><a id="_output_options_2"></a><h4>Output options</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-G, --drop-genotypes</strong></span>
 </span></dt><dd>
     drop individual genotype information (after subsetting if <span class="strong"><strong>-s</strong></span> option is set)
