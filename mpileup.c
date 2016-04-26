@@ -55,43 +55,6 @@ static inline int printw(int c, FILE *fp)
     return 0;
 }
 
-static inline void pileup_seq(FILE *fp, const bam_pileup1_t *p, int pos, int ref_len, const char *ref)
-{
-    int j;
-    if (p->is_head) {
-        putc('^', fp);
-        putc(p->b->core.qual > 93? 126 : p->b->core.qual + 33, fp);
-    }
-    if (!p->is_del) {
-        int c = p->qpos < p->b->core.l_qseq
-            ? seq_nt16_str[bam_seqi(bam_get_seq(p->b), p->qpos)]
-            : 'N';
-        if (ref) {
-            int rb = pos < ref_len? ref[pos] : 'N';
-            if (c == '=' || seq_nt16_table[c] == seq_nt16_table[rb]) c = bam_is_rev(p->b)? ',' : '.';
-            else c = bam_is_rev(p->b)? tolower(c) : toupper(c);
-        } else {
-            if (c == '=') c = bam_is_rev(p->b)? ',' : '.';
-            else c = bam_is_rev(p->b)? tolower(c) : toupper(c);
-        }
-        putc(c, fp);
-    } else putc(p->is_refskip? (bam_is_rev(p->b)? '<' : '>') : '*', fp);
-    if (p->indel > 0) {
-        putc('+', fp); printw(p->indel, fp);
-        for (j = 1; j <= p->indel; ++j) {
-            int c = seq_nt16_str[bam_seqi(bam_get_seq(p->b), p->qpos + j)];
-            putc(bam_is_rev(p->b)? tolower(c) : toupper(c), fp);
-        }
-    } else if (p->indel < 0) {
-        printw(p->indel, fp);
-        for (j = 1; j <= -p->indel; ++j) {
-            int c = (ref && (int)pos+j < ref_len)? ref[pos+j] : 'N';
-            putc(bam_is_rev(p->b)? tolower(c) : toupper(c), fp);
-        }
-    }
-    if (p->is_tail) putc('$', fp);
-}
-
 #include <assert.h>
 #include "bam2bcf.h"
 #include "sample.h"
@@ -112,7 +75,7 @@ static inline void pileup_seq(FILE *fp, const bam_pileup1_t *p, int pos, int ref
 
 typedef struct {
     int min_mq, flag, min_baseQ, capQ_thres, max_depth, max_indel_depth, fmt_flag;
-    int rflag_require, rflag_filter;
+    int rflag_require, rflag_filter, output_type;
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
     char *reg, *pl_list, *fai_fname, *output_fname;
@@ -305,7 +268,6 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
     bam_hdr_t *h = NULL; /* header of first file in input list */
     char *ref;
     void *rghash = NULL;
-    FILE *pileup_fp = NULL;
 
     bcf_callaux_t *bca = NULL;
     bcf_callret1_t *bcr = NULL;
@@ -393,137 +355,120 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
 
     fprintf(stderr, "[%s] %d samples in %d input files\n", __func__, sm->n, n);
     // write the VCF header
-    if (conf->flag & MPLP_BCF)
-    {
-        const char *mode;
-        if ( conf->flag & MPLP_VCF )
-            mode = (conf->flag&MPLP_NO_COMP)? "wu" : "wz";   // uncompressed VCF or compressed VCF
-        else
-            mode = (conf->flag&MPLP_NO_COMP)? "wub" : "wb";  // uncompressed BCF or compressed BCF
-
-        bcf_fp = bcf_open(conf->output_fname? conf->output_fname : "-", mode);
-        if (bcf_fp == NULL) {
-            fprintf(stderr, "[%s] failed to write to %s: %s\n", __func__, conf->output_fname? conf->output_fname : "standard output", strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-
-        // BCF header creation
-        bcf_hdr = bcf_hdr_init("w");
-        kstring_t str = {0,0,NULL};
-
-        ksprintf(&str, "##bcftoolsVersion=%s+htslib-%s\n",bcftools_version(),hts_version());
-        bcf_hdr_append(bcf_hdr, str.s);
-
-        str.l = 0;
-        ksprintf(&str, "##bcftoolsCommand=mpileup");
-        for (i=1; i<conf->argc; i++) ksprintf(&str, " %s", conf->argv[i]);
-        kputc('\n', &str);
-        bcf_hdr_append(bcf_hdr, str.s);
-
-        if (conf->fai_fname)
-        {
-            str.l = 0;
-            ksprintf(&str, "##reference=file://%s\n", conf->fai_fname);
-            bcf_hdr_append(bcf_hdr, str.s);
-        }
-
-        // Translate BAM @SQ tags to BCF ##contig tags
-        // todo: use/write new BAM header manipulation routines, fill also UR, M5
-        for (i=0; i<h->n_targets; i++)
-        {
-            str.l = 0;
-            ksprintf(&str, "##contig=<ID=%s,length=%d>", h->target_name[i], h->target_len[i]);
-            bcf_hdr_append(bcf_hdr, str.s);
-        }
-        free(str.s);
-        bcf_hdr_append(bcf_hdr,"##ALT=<ID=*,Description=\"Represents allele(s) other than observed.\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=INDEL,Number=0,Type=Flag,Description=\"Indicates that the variant is an INDEL.\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=IDV,Number=1,Type=Integer,Description=\"Maximum number of reads supporting an indel\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=IMF,Number=1,Type=Float,Description=\"Maximum fraction of reads supporting an indel\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Raw read depth\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=VDB,Number=1,Type=Float,Description=\"Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)\",Version=\"3\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias (bigger is better)\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
-#if CDF_MWU_TESTS
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=RPB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias [CDF] (bigger is better)\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias [CDF] (bigger is better)\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=BQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias [CDF] (bigger is better)\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQSB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias [CDF] (bigger is better)\">");
-#endif
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=SGB,Number=1,Type=Float,Description=\"Segregation based metric.\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQ0F,Number=1,Type=Float,Description=\"Fraction of MQ0 reads (smaller is better)\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=I16,Number=16,Type=Float,Description=\"Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h\">");
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=QS,Number=R,Type=Float,Description=\"Auxiliary tag used for calling\">");
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"List of Phred-scaled genotype likelihoods\">");
-        if ( conf->fmt_flag&B2B_FMT_DP )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Number of high-quality bases\">");
-        if ( conf->fmt_flag&B2B_FMT_DV )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"Number of high-quality non-reference bases\">");
-        if ( conf->fmt_flag&B2B_FMT_DPR )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
-        if ( conf->fmt_flag&B2B_INFO_DPR )
-            bcf_hdr_append(bcf_hdr,"##INFO=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
-        if ( conf->fmt_flag&B2B_FMT_DP4 )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-fwd, ref-reverse, alt-fwd and alt-reverse bases\">");
-        if ( conf->fmt_flag&B2B_FMT_SP )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=SP,Number=1,Type=Integer,Description=\"Phred-scaled strand bias P-value\">");
-        if ( conf->fmt_flag&B2B_FMT_AD )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic depths\">");
-        if ( conf->fmt_flag&B2B_FMT_ADF )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=ADF,Number=R,Type=Integer,Description=\"Allelic depths on the forward strand\">");
-        if ( conf->fmt_flag&B2B_FMT_ADR )
-            bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=ADR,Number=R,Type=Integer,Description=\"Allelic depths on the reverse strand\">");
-        if ( conf->fmt_flag&B2B_INFO_AD )
-            bcf_hdr_append(bcf_hdr,"##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Total allelic depths\">");
-        if ( conf->fmt_flag&B2B_INFO_ADF )
-            bcf_hdr_append(bcf_hdr,"##INFO=<ID=ADF,Number=R,Type=Integer,Description=\"Total allelic depths on the forward strand\">");
-        if ( conf->fmt_flag&B2B_INFO_ADR )
-            bcf_hdr_append(bcf_hdr,"##INFO=<ID=ADR,Number=R,Type=Integer,Description=\"Total allelic depths on the reverse strand\">");
-
-        for (i=0; i<sm->n; i++)
-            bcf_hdr_add_sample(bcf_hdr, sm->smpl[i]);
-        bcf_hdr_add_sample(bcf_hdr, NULL);
-        bcf_hdr_write(bcf_fp, bcf_hdr);
-        // End of BCF header creation
-
-        // Initialise the calling algorithm
-        bca = bcf_call_init(-1., conf->min_baseQ);
-        bcr = (bcf_callret1_t*) calloc(sm->n, sizeof(bcf_callret1_t));
-        bca->rghash = rghash;
-        bca->openQ = conf->openQ, bca->extQ = conf->extQ, bca->tandemQ = conf->tandemQ;
-        bca->min_frac = conf->min_frac;
-        bca->min_support = conf->min_support;
-        bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
-
-        bc.bcf_hdr = bcf_hdr;
-        bc.n = sm->n;
-        bc.PL = (int32_t*) malloc(15 * sm->n * sizeof(*bc.PL));
-        if (conf->fmt_flag)
-        {
-            assert( sizeof(float)==sizeof(int32_t) );
-            bc.DP4 = (int32_t*) malloc(sm->n * sizeof(int32_t) * 4);
-            bc.fmt_arr = (uint8_t*) malloc(sm->n * sizeof(float)); // all fmt_flag fields
-            if ( conf->fmt_flag&(B2B_INFO_DPR|B2B_FMT_DPR|B2B_INFO_AD|B2B_INFO_ADF|B2B_INFO_ADR|B2B_FMT_AD|B2B_FMT_ADF|B2B_FMT_ADR) )
-            {
-                // first B2B_MAX_ALLELES fields for total numbers, the rest per-sample
-                bc.ADR = (int32_t*) malloc((sm->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-                bc.ADF = (int32_t*) malloc((sm->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-                for (i=0; i<sm->n; i++)
-                {
-                    bcr[i].ADR = bc.ADR + (i+1)*B2B_MAX_ALLELES;
-                    bcr[i].ADF = bc.ADF + (i+1)*B2B_MAX_ALLELES;
-                }
-            }
-        }
+    bcf_fp = hts_open(conf->output_fname?conf->output_fname:"-", hts_bcf_wmode(conf->output_type));
+    if (bcf_fp == NULL) {
+        fprintf(stderr, "[%s] failed to write to %s: %s\n", __func__, conf->output_fname? conf->output_fname : "standard output", strerror(errno));
+        exit(EXIT_FAILURE);
     }
-    else {
-        pileup_fp = conf->output_fname? fopen(conf->output_fname, "w") : stdout;
 
-        if (pileup_fp == NULL) {
-            fprintf(stderr, "[%s] failed to write to %s: %s\n", __func__, conf->output_fname, strerror(errno));
-            exit(EXIT_FAILURE);
+    // BCF header creation
+    bcf_hdr = bcf_hdr_init("w");
+    kstring_t str = {0,0,NULL};
+
+    ksprintf(&str, "##bcftoolsVersion=%s+htslib-%s\n",bcftools_version(),hts_version());
+    bcf_hdr_append(bcf_hdr, str.s);
+
+    str.l = 0;
+    ksprintf(&str, "##bcftoolsCommand=mpileup");
+    for (i=1; i<conf->argc; i++) ksprintf(&str, " %s", conf->argv[i]);
+    kputc('\n', &str);
+    bcf_hdr_append(bcf_hdr, str.s);
+
+    if (conf->fai_fname)
+    {
+        str.l = 0;
+        ksprintf(&str, "##reference=file://%s\n", conf->fai_fname);
+        bcf_hdr_append(bcf_hdr, str.s);
+    }
+
+    // Translate BAM @SQ tags to BCF ##contig tags
+    // todo: use/write new BAM header manipulation routines, fill also UR, M5
+    for (i=0; i<h->n_targets; i++)
+    {
+        str.l = 0;
+        ksprintf(&str, "##contig=<ID=%s,length=%d>", h->target_name[i], h->target_len[i]);
+        bcf_hdr_append(bcf_hdr, str.s);
+    }
+    free(str.s);
+    bcf_hdr_append(bcf_hdr,"##ALT=<ID=*,Description=\"Represents allele(s) other than observed.\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=INDEL,Number=0,Type=Flag,Description=\"Indicates that the variant is an INDEL.\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=IDV,Number=1,Type=Integer,Description=\"Maximum number of reads supporting an indel\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=IMF,Number=1,Type=Float,Description=\"Maximum fraction of reads supporting an indel\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Raw read depth\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=VDB,Number=1,Type=Float,Description=\"Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)\",Version=\"3\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias (bigger is better)\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
+#if CDF_MWU_TESTS
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=RPB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias [CDF] (bigger is better)\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias [CDF] (bigger is better)\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=BQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias [CDF] (bigger is better)\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQSB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias [CDF] (bigger is better)\">");
+#endif
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=SGB,Number=1,Type=Float,Description=\"Segregation based metric.\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQ0F,Number=1,Type=Float,Description=\"Fraction of MQ0 reads (smaller is better)\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=I16,Number=16,Type=Float,Description=\"Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h\">");
+    bcf_hdr_append(bcf_hdr,"##INFO=<ID=QS,Number=R,Type=Float,Description=\"Auxiliary tag used for calling\">");
+    bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"List of Phred-scaled genotype likelihoods\">");
+    if ( conf->fmt_flag&B2B_FMT_DP )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Number of high-quality bases\">");
+    if ( conf->fmt_flag&B2B_FMT_DV )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"Number of high-quality non-reference bases\">");
+    if ( conf->fmt_flag&B2B_FMT_DPR )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
+    if ( conf->fmt_flag&B2B_INFO_DPR )
+        bcf_hdr_append(bcf_hdr,"##INFO=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
+    if ( conf->fmt_flag&B2B_FMT_DP4 )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-fwd, ref-reverse, alt-fwd and alt-reverse bases\">");
+    if ( conf->fmt_flag&B2B_FMT_SP )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=SP,Number=1,Type=Integer,Description=\"Phred-scaled strand bias P-value\">");
+    if ( conf->fmt_flag&B2B_FMT_AD )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic depths\">");
+    if ( conf->fmt_flag&B2B_FMT_ADF )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=ADF,Number=R,Type=Integer,Description=\"Allelic depths on the forward strand\">");
+    if ( conf->fmt_flag&B2B_FMT_ADR )
+        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=ADR,Number=R,Type=Integer,Description=\"Allelic depths on the reverse strand\">");
+    if ( conf->fmt_flag&B2B_INFO_AD )
+        bcf_hdr_append(bcf_hdr,"##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Total allelic depths\">");
+    if ( conf->fmt_flag&B2B_INFO_ADF )
+        bcf_hdr_append(bcf_hdr,"##INFO=<ID=ADF,Number=R,Type=Integer,Description=\"Total allelic depths on the forward strand\">");
+    if ( conf->fmt_flag&B2B_INFO_ADR )
+        bcf_hdr_append(bcf_hdr,"##INFO=<ID=ADR,Number=R,Type=Integer,Description=\"Total allelic depths on the reverse strand\">");
+
+    for (i=0; i<sm->n; i++)
+        bcf_hdr_add_sample(bcf_hdr, sm->smpl[i]);
+    bcf_hdr_add_sample(bcf_hdr, NULL);
+    bcf_hdr_write(bcf_fp, bcf_hdr);
+    // End of BCF header creation
+
+    // Initialise the calling algorithm
+    bca = bcf_call_init(-1., conf->min_baseQ);
+    bcr = (bcf_callret1_t*) calloc(sm->n, sizeof(bcf_callret1_t));
+    bca->rghash = rghash;
+    bca->openQ = conf->openQ, bca->extQ = conf->extQ, bca->tandemQ = conf->tandemQ;
+    bca->min_frac = conf->min_frac;
+    bca->min_support = conf->min_support;
+    bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
+
+    bc.bcf_hdr = bcf_hdr;
+    bc.n = sm->n;
+    bc.PL = (int32_t*) malloc(15 * sm->n * sizeof(*bc.PL));
+    if (conf->fmt_flag)
+    {
+        assert( sizeof(float)==sizeof(int32_t) );
+        bc.DP4 = (int32_t*) malloc(sm->n * sizeof(int32_t) * 4);
+        bc.fmt_arr = (uint8_t*) malloc(sm->n * sizeof(float)); // all fmt_flag fields
+        if ( conf->fmt_flag&(B2B_INFO_DPR|B2B_FMT_DPR|B2B_INFO_AD|B2B_INFO_ADF|B2B_INFO_ADR|B2B_FMT_AD|B2B_FMT_ADF|B2B_FMT_ADR) )
+        {
+            // first B2B_MAX_ALLELES fields for total numbers, the rest per-sample
+            bc.ADR = (int32_t*) malloc((sm->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            bc.ADF = (int32_t*) malloc((sm->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            for (i=0; i<sm->n; i++)
+            {
+                bcr[i].ADR = bc.ADR + (i+1)*B2B_MAX_ALLELES;
+                bcr[i].ADF = bc.ADF + (i+1)*B2B_MAX_ALLELES;
+            }
         }
     }
 
@@ -547,94 +492,30 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
         if (conf->bed && tid >= 0 && !regidx_overlap(conf->bed, h->target_name[tid], pos, pos, NULL)) continue;
         mplp_get_ref(data[0], tid, &ref, &ref_len);
         //printf("tid=%d len=%d ref=%p/%s\n", tid, ref_len, ref, ref);
-        if (conf->flag & MPLP_BCF) {
-            int total_depth, _ref0, ref16;
-            for (i = total_depth = 0; i < n; ++i) total_depth += n_plp[i];
-            group_smpl(&gplp, sm, &buf, n, fn, n_plp, plp, conf->flag & MPLP_IGNORE_RG);
-            _ref0 = (ref && pos < ref_len)? ref[pos] : 'N';
-            ref16 = seq_nt16_table[_ref0];
+        int total_depth, _ref0, ref16;
+        for (i = total_depth = 0; i < n; ++i) total_depth += n_plp[i];
+        group_smpl(&gplp, sm, &buf, n, fn, n_plp, plp, conf->flag & MPLP_IGNORE_RG);
+        _ref0 = (ref && pos < ref_len)? ref[pos] : 'N';
+        ref16 = seq_nt16_table[_ref0];
+        bcf_callaux_clean(bca, &bc);
+        for (i = 0; i < gplp.n; ++i)
+            bcf_call_glfgen(gplp.n_plp[i], gplp.plp[i], ref16, bca, bcr + i);
+        bc.tid = tid; bc.pos = pos;
+        bcf_call_combine(gplp.n, bcr, bca, ref16, &bc);
+        bcf_clear1(bcf_rec);
+        bcf_call2bcf(&bc, bcf_rec, bcr, conf->fmt_flag, 0, 0);
+        bcf_write1(bcf_fp, bcf_hdr, bcf_rec);
+        // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
+        if (!(conf->flag&MPLP_NO_INDEL) && total_depth < max_indel_depth && bcf_call_gap_prep(gplp.n, gplp.n_plp, gplp.plp, pos, bca, ref, rghash) >= 0)
+        {
             bcf_callaux_clean(bca, &bc);
             for (i = 0; i < gplp.n; ++i)
-                bcf_call_glfgen(gplp.n_plp[i], gplp.plp[i], ref16, bca, bcr + i);
-            bc.tid = tid; bc.pos = pos;
-            bcf_call_combine(gplp.n, bcr, bca, ref16, &bc);
-            bcf_clear1(bcf_rec);
-            bcf_call2bcf(&bc, bcf_rec, bcr, conf->fmt_flag, 0, 0);
-            bcf_write1(bcf_fp, bcf_hdr, bcf_rec);
-            // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
-            if (!(conf->flag&MPLP_NO_INDEL) && total_depth < max_indel_depth && bcf_call_gap_prep(gplp.n, gplp.n_plp, gplp.plp, pos, bca, ref, rghash) >= 0)
-            {
-                bcf_callaux_clean(bca, &bc);
-                for (i = 0; i < gplp.n; ++i)
-                    bcf_call_glfgen(gplp.n_plp[i], gplp.plp[i], -1, bca, bcr + i);
-                if (bcf_call_combine(gplp.n, bcr, bca, -1, &bc) >= 0) {
-                    bcf_clear1(bcf_rec);
-                    bcf_call2bcf(&bc, bcf_rec, bcr, conf->fmt_flag, bca, ref);
-                    bcf_write1(bcf_fp, bcf_hdr, bcf_rec);
-                }
+                bcf_call_glfgen(gplp.n_plp[i], gplp.plp[i], -1, bca, bcr + i);
+            if (bcf_call_combine(gplp.n, bcr, bca, -1, &bc) >= 0) {
+                bcf_clear1(bcf_rec);
+                bcf_call2bcf(&bc, bcf_rec, bcr, conf->fmt_flag, bca, ref);
+                bcf_write1(bcf_fp, bcf_hdr, bcf_rec);
             }
-        } else {
-            fprintf(pileup_fp, "%s\t%d\t%c", h->target_name[tid], pos + 1, (ref && pos < ref_len)? ref[pos] : 'N');
-            for (i = 0; i < n; ++i) {
-                int j, cnt;
-                for (j = cnt = 0; j < n_plp[i]; ++j) {
-                    const bam_pileup1_t *p = plp[i] + j;
-                    int c = p->qpos < p->b->core.l_qseq
-                             ? bam_get_qual(p->b)[p->qpos]
-                             : 0;
-                    if (c >= conf->min_baseQ) ++cnt;
-                }
-                fprintf(pileup_fp, "\t%d\t", cnt);
-                if (n_plp[i] == 0) {
-                    fputs("*\t*", pileup_fp);
-                    if (conf->flag & MPLP_PRINT_MAPQ) fputs("\t*", pileup_fp);
-                    if (conf->flag & MPLP_PRINT_POS) fputs("\t*", pileup_fp);
-                } else {
-                    for (j = 0; j < n_plp[i]; ++j) {
-                        const bam_pileup1_t *p = plp[i] + j;
-                        int c = p->qpos < p->b->core.l_qseq
-                            ? bam_get_qual(p->b)[p->qpos]
-                            : 0;
-                        if (c >= conf->min_baseQ)
-                            pileup_seq(pileup_fp, plp[i] + j, pos, ref_len, ref);
-                    }
-                    putc('\t', pileup_fp);
-                    for (j = 0; j < n_plp[i]; ++j) {
-                        const bam_pileup1_t *p = plp[i] + j;
-                        int c = p->qpos < p->b->core.l_qseq
-                            ? bam_get_qual(p->b)[p->qpos]
-                            : 0;
-                        if (c >= conf->min_baseQ) {
-                            c = c + 33 < 126? c + 33 : 126;
-                            putc(c, pileup_fp);
-                        }
-                    }
-                    if (conf->flag & MPLP_PRINT_MAPQ) {
-                        putc('\t', pileup_fp);
-                        for (j = 0; j < n_plp[i]; ++j) {
-                            const bam_pileup1_t *p = plp[i] + j;
-                            int c = bam_get_qual(p->b)[p->qpos];
-                            if ( c < conf->min_baseQ ) continue;
-                            c = plp[i][j].b->core.qual + 33;
-                            if (c > 126) c = 126;
-                            putc(c, pileup_fp);
-                        }
-                    }
-                    if (conf->flag & MPLP_PRINT_POS) {
-                        putc('\t', pileup_fp);
-                        int last = 0;
-                        for (j = 0; j < n_plp[i]; ++j) {
-                            const bam_pileup1_t *p = plp[i] + j;
-                            int c = bam_get_qual(p->b)[p->qpos];
-                            if ( c < conf->min_baseQ ) continue;
-
-                            if (last++) putc(',', pileup_fp);
-                            fprintf(pileup_fp, "%d", plp[i][j].qpos + 1); // FIXME: printf() is very slow...
-                        }
-                    }
-                }
-            }
-            putc('\n', pileup_fp);
         }
     }
 
@@ -653,7 +534,6 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
         free(bc.fmt_arr);
         free(bcr);
     }
-    if (pileup_fp && conf->output_fname) fclose(pileup_fp);
     bam_smpl_destroy(sm); free(buf.s);
     for (i = 0; i < gplp.n; ++i) free(gplp.plp[i]);
     free(gplp.plp); free(gplp.n_plp); free(gplp.m_plp);
@@ -798,19 +678,12 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "\n"
 "Output options:\n"
 "  -o, --output FILE       write output to FILE [standard output]\n"
-"  -g, --BCF               generate genotype likelihoods in BCF format\n"
-"  -v, --VCF               generate genotype likelihoods in VCF format\n"
-"\n"
-"Output options for mpileup format (without -g/-v):\n"
-"  -O, --output-BP         output base positions on reads\n"
-"  -s, --output-MQ         output mapping quality\n"
-"\n"
-"Output options for genotype likelihoods (when -g/-v is used):\n"
+"  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
+"                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
 "  -t, --output-tags LIST  optional tags to output:\n"
 "               DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR []\n"
-"  -u, --uncompressed      generate uncompressed VCF/BCF output\n"
 "\n"
-"SNP/INDEL genotype likelihoods options (effective with -g/-v):\n"
+"SNP/INDEL genotype likelihoods options:\n"
 "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
     fprintf(fp,
 "  -F, --gap-frac FLOAT    minimum fraction of gapped reads [%g]\n", mplp->min_frac);
@@ -850,6 +723,7 @@ int bam_mpileup(int argc, char *argv[])
     mplp.argc = argc; mplp.argv = argv;
     mplp.rflag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP;
     mplp.output_fname = NULL;
+    mplp.output_type = FT_VCF;
 
     static const struct option lopts[] =
     {
@@ -885,6 +759,7 @@ int bam_mpileup(int argc, char *argv[])
         {"bcf", no_argument, NULL, 'g'},
         {"VCF", no_argument, NULL, 'v'},
         {"vcf", no_argument, NULL, 'v'},
+        {"output-type", required_argument, NULL, 'O'},
         {"output-BP", no_argument, NULL, 'O'},
         {"output-bp", no_argument, NULL, 'O'},
         {"output-MQ", no_argument, NULL, 's'},
@@ -902,7 +777,7 @@ int bam_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Agf:r:l:q:Q:uRC:BDSd:L:b:P:po:e:h:Im:F:EG:6OsVvxt:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Agf:r:l:q:Q:uRC:BDSd:L:b:P:po:e:h:Im:F:EG:6O:sVvxt:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -931,9 +806,9 @@ int bam_mpileup(int argc, char *argv[])
                   break;
         case 'P': mplp.pl_list = strdup(optarg); break;
         case 'p': mplp.flag |= MPLP_PER_SAMPLE; break;
-        case 'g': mplp.flag |= MPLP_BCF; break;
-        case 'v': mplp.flag |= MPLP_BCF | MPLP_VCF; break;
-        case 'u': mplp.flag |= MPLP_NO_COMP | MPLP_BCF; break;
+        case 'g': fprintf(stderr,"[warning] bcftools mpileup `-g` is functional, but deprecated. Please swith to -O in future.\n"); mplp.flag |= MPLP_BCF; break;
+        case 'v': fprintf(stderr,"[warning] bcftools mpileup `-v` is functional, but deprecated. Please swith to -O in future.\n"); mplp.flag |= MPLP_BCF | MPLP_VCF; break;
+        case 'u': fprintf(stderr,"[warning] bcftools mpileup `-u` is functional, but deprecated. Please swith to -O in future.\n"); mplp.flag |= MPLP_NO_COMP | MPLP_BCF; break;
         case 'B': mplp.flag &= ~MPLP_REALN; break;
         case 'D': mplp.fmt_flag |= B2B_FMT_DP; fprintf(stderr, "[warning] bcftools mpileup option `-D` is functional, but deprecated. Please switch to `-t DP` in future.\n"); break;
         case 'S': mplp.fmt_flag |= B2B_FMT_SP; fprintf(stderr, "[warning] bcftools mpileup option `-S` is functional, but deprecated. Please switch to `-t SP` in future.\n"); break;
@@ -942,8 +817,16 @@ int bam_mpileup(int argc, char *argv[])
         case 'E': mplp.flag |= MPLP_REDO_BAQ; break;
         case '6': mplp.flag |= MPLP_ILLUMINA13; break;
         case 'R': mplp.flag |= MPLP_IGNORE_RG; break;
-        case 's': mplp.flag |= MPLP_PRINT_MAPQ; break;
-        case 'O': mplp.flag |= MPLP_PRINT_POS; break;
+        case 's': error("The -s option is for text based mpileup output. Please use \"samtools mpileup -s\" instead.\n"); break;
+        case 'O': 
+            switch (optarg[0]) {
+                case 'b': mplp.output_type = FT_BCF_GZ; break;
+                case 'u': mplp.output_type = FT_BCF; break;
+                case 'z': mplp.output_type = FT_VCF_GZ; break;
+                case 'v': mplp.output_type = FT_VCF; break;
+                default: error("[error] The option \"-O\" changed meaning when mpileup moved to bcftools. Did you mean: \"bcftools mpileup --output-type\" or \"samtools mpileup --output-BP\"?\n", optarg); 
+            }
+            break;
         case 'C': mplp.capQ_thres = atoi(optarg); break;
         case 'q': mplp.min_mq = atoi(optarg); break;
         case 'Q': mplp.min_baseQ = atoi(optarg); break;
@@ -980,6 +863,19 @@ int bam_mpileup(int argc, char *argv[])
         }
     }
 
+    if ( mplp.flag&(MPLP_BCF|MPLP_VCF|MPLP_NO_COMP) )
+    {
+        if ( mplp.flag&MPLP_VCF )
+        {
+            if ( mplp.flag&MPLP_NO_COMP ) mplp.output_type = FT_VCF;
+            else mplp.output_type = FT_VCF_GZ;
+        }
+        else if ( mplp.flag&MPLP_BCF )
+        {
+            if ( mplp.flag&MPLP_NO_COMP ) mplp.output_type = FT_BCF;
+            else mplp.output_type = FT_BCF_GZ;
+        }
+    }
     if ( !(mplp.flag&MPLP_REALN) && mplp.flag&MPLP_REDO_BAQ )
     {
         fprintf(stderr,"Error: The -B option cannot be combined with -E\n");
