@@ -256,6 +256,11 @@ test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.4.chain',chain=>'
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.1.out',fa=>'consensus2.fa',args=>'-H 1');
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.2.out',fa=>'consensus2.fa',args=>'-H 2');
 test_vcf_consensus($opts,in=>'empty',out=>'consensus.5.out',fa=>'consensus.fa',args=>'');
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.2.out',args=>q[-t DP,DV -r17:100-600]); # test files from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.4.out',args=>q[-t DP,DPR,DV,DP4,INFO/DPR,SP -r17:100-600]); #test files from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.5.out',args=>q[-t DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR -r17:100-600]);
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -941,3 +946,17 @@ sub test_naive_concat
     test_cmd($opts,exp=>$exp,out=>"concat.naive.vcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $vcfs | $$opts{bin}/bcftools view -H");
 }
 
+sub test_mpileup
+{
+    my ($opts,%args) = @_;
+
+    for my $fmt ('bam','cram')
+    {
+        my @files = ();
+        for my $file (@{$args{in}}) { push @files, "$$opts{path}/mpileup/mpileup.$file.$fmt"; }
+        my $files = join(' ',@files);
+        my $grep_hdr = "grep -v ^##bcftools | grep -v ^##reference";
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa $files 2>/dev/null | $grep_hdr");
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -Ob $files 2>/dev/null | $$opts{bin}/bcftools view  | $grep_hdr");
+    }
+}
