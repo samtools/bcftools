@@ -1511,7 +1511,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             // Look for j="." and k numeric type
             int j = i-1, k = i-2;
             if ( !out[j].is_str ) { k = i-1, j = i-2; }
-            if ( out[k].hdr_id>0 && out[j].is_str && !strcmp(".",out[j].key) )
+            if ( out[k].hdr_id>0 && out[j].is_str && out[j].key && !strcmp(".",out[j].key) )
             {
                 int type = bcf_hdr_id2type(filter->hdr,out[k].type,out[k].hdr_id);
                 if ( type==BCF_HT_INT ) { out[j].is_str = 0; out[j].is_missing = 1; bcf_float_set_missing(out[j].values[0]); }
