@@ -409,12 +409,27 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         rec->d.allele[1][0] = gt2iupac(ial,jal);
     }
 
+    int len_diff = 0, alen = 0;
     int idx = rec->pos - args->fa_ori_pos + args->fa_mod_off;
-    if ( idx<0 || idx>=args->fa_buf.l ) 
+    if ( idx<0 )
+    {
+        fprintf(stderr,"Warning: ignoring overlapping variant starting at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        return;
+    }
+    if ( rec->rlen > args->fa_buf.l - idx )
+    {
+        rec->rlen = args->fa_buf.l - idx;
+        alen = strlen(rec->d.allele[ialt]);
+        if ( alen > rec->rlen )
+        {
+            rec->d.allele[ialt][rec->rlen] = 0;
+            fprintf(stderr,"Warning: trimming variant starting at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        }
+    }
+    if ( idx>=args->fa_buf.l ) 
         error("FIXME: %s:%d .. idx=%d, ori_pos=%d, len=%d, off=%d\n",bcf_seqname(args->hdr,rec),rec->pos+1,idx,args->fa_ori_pos,args->fa_buf.l,args->fa_mod_off);
 
     // sanity check the reference base
-    int len_diff = 0, alen = 0;
     if ( rec->d.allele[ialt][0]=='<' )
     {
         if ( strcasecmp(rec->d.allele[ialt], "<DEL>") )
@@ -519,7 +534,7 @@ static void consensus(args_t *args)
     {
         if ( str.s[0]=='>' )
         {
-            // new sequence encountered, apply all chached variants
+            // new sequence encountered, apply all cached variants
             while ( args->vcf_rbuf.n )
             {
                 if (args->chain) {
@@ -576,7 +591,17 @@ static void consensus(args_t *args)
         }
         if ( !rec_ptr ) flush_fa_buffer(args, 60);
     }
-    if (args->chain) {
+    bcf1_t **rec_ptr = NULL;
+    while ( args->rid>=0 && (rec_ptr = next_vcf_line(args)) )
+    {
+        bcf1_t *rec = *rec_ptr;
+        if ( rec->rid!=args->rid ) break;
+        if ( args->fa_end_pos && rec->pos > args->fa_end_pos ) break;
+        if ( args->fa_ori_pos + args->fa_buf.l - args->fa_mod_off <= rec->pos ) break;
+        apply_variant(args, rec);
+    }
+    if (args->chain)
+    {
         print_chain(args);
         destroy_chain(args);
     }
