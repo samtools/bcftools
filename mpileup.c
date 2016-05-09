@@ -38,24 +38,8 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/kstring.h>
 #include <htslib/khash_str2int.h>
 #include <htslib/regidx.h>
-#include "bcftools.h"
-
-static inline int printw(int c, FILE *fp)
-{
-    char buf[16];
-    int l, x;
-    if (c == 0) return fputc('0', fp);
-    for (l = 0, x = c < 0? -c : c; x > 0; x /= 10) buf[l++] = x%10 + '0';
-    if (c < 0) buf[l++] = '-';
-    buf[l] = 0;
-    for (x = 0; x < l/2; ++x) {
-        int y = buf[x]; buf[x] = buf[l-1-x]; buf[l-1-x] = y;
-    }
-    fputs(buf, fp);
-    return 0;
-}
-
 #include <assert.h>
+#include "bcftools.h"
 #include "bam2bcf.h"
 #include "sample.h"
 
