@@ -1265,9 +1265,11 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
     Set the output record to PASS if any of the inputs is PASS ('x'),
     or apply all filters ('+'), which is the default.
 
-*-g, --gvcf*::
-    merge gVCF blocks, INFO/END tag is expected. The *--gvcf* option uses
-    the following default INFO rules: 
+*-g, --gvcf* '-'|'FILE'::
+    merge gVCF blocks, INFO/END tag is expected. If the reference fasta
+    file 'FILE' is not given and the dash ('-') is given, unknown reference
+    bases generated at gVCF block splits will be substituted with N's.
+    The *--gvcf* option uses the following default INFO rules: 
     *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max*.
 
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::

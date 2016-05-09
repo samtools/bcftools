@@ -30,6 +30,7 @@ THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <htslib/faidx.h>
 #include <math.h>
 #include <ctype.h>
 #include "bcftools.h"
@@ -136,6 +137,7 @@ typedef struct
     regidx_t *regs;    // apply regions only after the blocks are expanded
     int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
+    faidx_t *gvcf_fai;
     info_rule_t *rules;
     int nrules;
     strdict_t *tmph;
@@ -1743,6 +1745,17 @@ void gvcf_write_block(args_t *args, int start, int end)
     merge_info(args, out);
     merge_format(args, out);
 
+    if ( args->gvcf_fai && out->d.allele[0][0]=='N' )
+    {
+        int slen  = 0;
+        char *seq = faidx_fetch_seq(args->gvcf_fai,maux->chr,out->pos,out->pos,&slen);
+        if (slen)
+        {
+            out->d.allele[0][0] = seq[0];
+            free(seq);
+        }
+    }
+
     // Update END boundary
     if ( end > start )
     {
@@ -1774,7 +1787,7 @@ void gvcf_write_block(args_t *args, int start, int end)
 
 /*
     Flush staged gVCF blocks. Flush everything if there are no more lines
-    (done=1) or it there is a new chromosome. If still on the same chromosome,
+    (done=1) or if there is a new chromosome. If still on the same chromosome,
     all hanging blocks must be ended by creating new records:
         A
             1 END=10
@@ -1788,9 +1801,6 @@ void gvcf_write_block(args_t *args, int start, int end)
             6 END=7  A B .
             8 END=10 A . .
     
-    Limitation: we set N for the REF in the new gvcf block, because we don't
-    know the reference allele which follows after the last interruption. We
-    need to accept -f fasta as a parameter to fix this.
 */
 void gvcf_flush(args_t *args, int done)
 {
@@ -2311,7 +2321,7 @@ static void usage(void)
     fprintf(stderr, "    -0  --missing-to-ref               assume genotypes at missing sites are 0/0\n");
     fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
     fprintf(stderr, "    -F, --filter-logic <x|+>           remove filters if some input is PASS (\"x\"), or apply all filters (\"+\") [+]\n");
-    fprintf(stderr, "    -g, --gvcf                         merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\n");
+    fprintf(stderr, "    -g, --gvcf <-|ref.fa>              merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\n");
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
     fprintf(stderr, "    -m, --merge <string>               allow multiallelic records for <snps|indels|both|all|none|id>, see man page for details [both]\n");
@@ -2342,7 +2352,7 @@ int main_vcfmerge(int argc, char *argv[])
     {
         {"help",no_argument,NULL,'h'},
         {"merge",required_argument,NULL,'m'},
-        {"gvcf",no_argument,NULL,'g'},
+        {"gvcf",required_argument,NULL,'g'},
         {"file-list",required_argument,NULL,'l'},
         {"missing-to-ref",no_argument,NULL,'0'},
         {"apply-filters",required_argument,NULL,'f'},
@@ -2359,7 +2369,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"filter-logic",required_argument,NULL,'F'},
         {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:gF:0",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hm:f:r:R:o:O:i:l:g:F:0",loptions,NULL)) >= 0) {
         switch (c) {
             case 'F': 
                 if ( !strcmp(optarg,"+") ) args->filter_logic = FLT_LOGIC_ADD;
@@ -2367,7 +2377,14 @@ int main_vcfmerge(int argc, char *argv[])
                 else error("Filter logic not recognised: %s\n", optarg);
                 break;
             case '0': args->missing_to_ref = 1; break;
-            case 'g': args->do_gvcf = 1; break;
+            case 'g':
+                args->do_gvcf = 1;
+                if ( strcmp("-",optarg) )
+                {
+                    args->gvcf_fai = fai_load(optarg);
+                    if ( !args->gvcf_fai ) error("Failed to load the fai index: %s\n", optarg);
+                }
+                break;
             case 'l': args->file_list = optarg; break;
             case 'i': args->info_rules = optarg; break;
             case 'o': args->output_fname = optarg; break;
@@ -2441,6 +2458,7 @@ int main_vcfmerge(int argc, char *argv[])
     merge_vcf(args);
     bcf_sr_destroy(args->files);
     if ( args->regs ) regidx_destroy(args->regs);
+    if ( args->gvcf_fai ) fai_destroy(args->gvcf_fai);
     free(args);
     return 0;
 }
