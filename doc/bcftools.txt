@@ -1070,7 +1070,7 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
 
 
 [[index]]
-=== bcftools index ['OPTIONS']  '<in.bcf>|<in.vcf.gz>'
+=== bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate-sorted index) is created by default. The CSI format
 supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
@@ -1289,9 +1289,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     and normalization, however, see also the *<<do_not_normalize,--do-not-normalize>>*
     option below.
 
-*-m, --multiallelics* <-|+>['snps'|'indels'|'both'|'any']::
-    split multiallelic sites into biallelic records ('-') or join
-    biallelic sites into multiallelic records ('+'). An optional type string
+*-m, --multiallelics* *-*|*+*['snps'|'indels'|'both'|'any']::
+    split multiallelic sites into biallelic records (*-*) or join
+    biallelic sites into multiallelic records (*+*). An optional type string
     can follow which controls variant types which should be split or merged
     together: If only SNP records should be split or merged, specify 'snps'; if
     both SNPs and indels should be merged separately into two records, specify
