@@ -412,90 +412,6 @@ Add or remove annotations.
     bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
 ----
 
-[[cnv]]
-=== bcftools cnv '[OPTIONS]' 'FILE'
-
-Copy number variation caller, requires a VCF annotated with the Illumina's
-B-allele frequency (BAF) and Log R Ratio intensity (LRR) values. The HMM
-considers the following copy number states: CN 2 (normal), 1 (single-copy
-loss), 0 (complete loss), 3 (single-copy gain).
-
-
-==== General Options:
-
-*-c, --control-sample* 'string'::
-    optional control sample name. If given, pairwise calling is performed
-    and the *-P*  option can be used
-
-*-f, --AF-file* 'file'::
-    read allele frequencies from  a tab-delimited file with the columns CHR,POS,REF,ALT,AF
-
-*-o, --output-dir 'path'::
-    output directory 
-
-*-p, --plot-threshold 'float'::
-    call *matplotlib* to produce plots for chromosomes with quality at least 'float',
-    useful for visual inspection of the calls. With *-p 0*, plots for all chromosomes will be 
-    generated. If not given, a *matplotlib* script will be created but not called.
-
-*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
-    see *<<common_options,Common Options>>*
-
-*-R, --regions-file* 'file'::
-    see *<<common_options,Common Options>>*
-
-*-s, --query-sample* 'string'::
-    query samply name
-
-*-t, --targets* 'LIST'::
-    see *<<common_options,Common Options>>*
-
-*-T, --targets-file* 'FILE'::
-    see *<<common_options,Common Options>>*
-
-==== HMM Options:
-
-*-a, --aberrant* 'float'[,'float']::
-    fraction of aberrant cells in query and control. The hallmark of
-    duplications and contaminations is the BAF value of heterozygous markers
-    which is dependent on the fraction of aberrant cells. Sensitivity to
-    smaller fractions of cells can be increased by setting *-a* to a lower value. Note
-    however, that this comes at the cost of increased false discovery rate.
-
-*-b, --BAF-weight* 'float'::
-    relative contribution from BAF
-
-*d, --BAF-dev* 'float'[,'float']::
-    expected BAF deviation in query and control, i.e. the noise observed
-    in the data.
-
-*-e, --err-prob* 'float'::
-    uniform error probability
-
-*-l, --LRR-weight* 'float'::
-    relative contribution from LRR. With noisy data, this option can have big effect
-    on the number of calls produced. In truly random noise (such as in simulated data),
-    the value should be set high (1.0), but in the presence of systematic noise
-    when LRR are not informative, lower values result in cleaner calls (0.2).
-
-*-L, --LRR-smooth-win* 'int'::
-    reduce LRR noise by applying moving average given this window size
-
-*-O, --optimize* 'float'::
-    iteratively estimate the fraction of aberrant cells, down to the given fraction.
-    Lowering this value from the default 1.0 to say, 0.3, can help discover more
-    events but also increases noise
-
-*-P, --same-prob* 'float'::
-    the prior probability of the query and the control sample being the same.
-    Setting to 0 calls both independently, setting to 1 forces the same copy
-    number state in both.
-
-*-x, --xy-prob* 'float'::
-    the HMM probability of transition to another copy number state. Increasing this
-    values leads to smaller and more frequent calls.
-
-
 
 
 [[call]]
@@ -525,7 +441,7 @@ demand. The original calling model can be invoked with the *-c* option.
 *--ploidy-file* 'FILE'::
     ploidy definition given as a space/tab-delimited list of
     CHROM, FROM, TO, SEX, PLOIDY. The SEX codes are arbitrary and
-    correspond to the ones used by *<<samples_file,--samples-file>>*. 
+    correspond to the ones used by *<<samples_file,--samples-file>>*.
     The default ploidy can be given using the starred records (see
     below), unlisted regions have ploidy 2. The default ploidy definition is
 ----
@@ -570,6 +486,26 @@ demand. The original calling model can be invoked with the *-c* option.
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
     as lower case letters.
+
+*-F, --prior-freqs* 'AN','AC'::
+    take advantage of prior knowledge of population allele frequencies. The
+    workflow looks like this:
+----
+    # Extract AN,AC values from an existing VCF, such 1000Genomes
+    bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' 1000Genomes.bcf | bgzip -c > AFs.tab.gz
+
+    # If the tags AN,AC are not already present, use the +fill-AN-AC plugin
+    bcftools +fill-AN-AC 1000Genomes.bcf | bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' | bgzip -c > AFs.tab.gz
+    tabix -s1 -b2 -e2 AFs.tab.gz
+
+    # Create a VCF header description, here we name the tags REF_AN,REF_AC
+    cat AFs.hdr
+    ##INFO=<ID=REF_AN,Number=1,Type=Integer,Description="Total number of alleles in reference genotypes">
+    ##INFO=<ID=REF_AC,Number=A,Type=Integer,Description="Allele count in reference genotypes for each ALT allele">
+
+    # Now before calling, stream the raw mpileup output through `bcftools annotate` to add the frequencies
+    bcftools mpileup [...] -Ou | bcftools annotate -a AFs.tab.gz -h AFs.hdr -c CHROM,POS,REF,ALT,REF_AN,REF_AC -Ou | bcftools call -mv -F REF_AN,REF_AC [...]
+----
 
 *-g, --gvcf* 'INT'::
     output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
@@ -633,6 +569,91 @@ demand. The original calling model can be invoked with the *-c* option.
 
 *-Y, --chromosome-Y*::
     haploid output for males and skips females (requires PED file with *-s*)
+
+
+[[cnv]]
+=== bcftools cnv '[OPTIONS]' 'FILE'
+
+Copy number variation caller, requires a VCF annotated with the Illumina's
+B-allele frequency (BAF) and Log R Ratio intensity (LRR) values. The HMM
+considers the following copy number states: CN 2 (normal), 1 (single-copy
+loss), 0 (complete loss), 3 (single-copy gain).
+
+
+==== General Options:
+
+*-c, --control-sample* 'string'::
+    optional control sample name. If given, pairwise calling is performed
+    and the *-P*  option can be used
+
+*-f, --AF-file* 'file'::
+    read allele frequencies from  a tab-delimited file with the columns CHR,POS,REF,ALT,AF
+
+*-o, --output-dir 'path'::
+    output directory
+
+*-p, --plot-threshold 'float'::
+    call *matplotlib* to produce plots for chromosomes with quality at least 'float',
+    useful for visual inspection of the calls. With *-p 0*, plots for all chromosomes will be
+    generated. If not given, a *matplotlib* script will be created but not called.
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-s, --query-sample* 'string'::
+    query samply name
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+==== HMM Options:
+
+*-a, --aberrant* 'float'[,'float']::
+    fraction of aberrant cells in query and control. The hallmark of
+    duplications and contaminations is the BAF value of heterozygous markers
+    which is dependent on the fraction of aberrant cells. Sensitivity to
+    smaller fractions of cells can be increased by setting *-a* to a lower value. Note
+    however, that this comes at the cost of increased false discovery rate.
+
+*-b, --BAF-weight* 'float'::
+    relative contribution from BAF
+
+*d, --BAF-dev* 'float'[,'float']::
+    expected BAF deviation in query and control, i.e. the noise observed
+    in the data.
+
+*-e, --err-prob* 'float'::
+    uniform error probability
+
+*-l, --LRR-weight* 'float'::
+    relative contribution from LRR. With noisy data, this option can have big effect
+    on the number of calls produced. In truly random noise (such as in simulated data),
+    the value should be set high (1.0), but in the presence of systematic noise
+    when LRR are not informative, lower values result in cleaner calls (0.2).
+
+*-L, --LRR-smooth-win* 'int'::
+    reduce LRR noise by applying moving average given this window size
+
+*-O, --optimize* 'float'::
+    iteratively estimate the fraction of aberrant cells, down to the given fraction.
+    Lowering this value from the default 1.0 to say, 0.3, can help discover more
+    events but also increases noise
+
+*-P, --same-prob* 'float'::
+    the prior probability of the query and the control sample being the same.
+    Setting to 0 calls both independently, setting to 1 forces the same copy
+    number state in both.
+
+*-x, --xy-prob* 'float'::
+    the HMM probability of transition to another copy number state. Increasing this
+    values leads to smaller and more frequent calls.
+
 
 
 [[concat]]
