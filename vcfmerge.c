@@ -274,7 +274,7 @@ static void info_rules_init(args_t *args)
         rule->type = bcf_hdr_id2type(args->out_hdr,BCF_HL_INFO,id);
         if ( rule->type!=BCF_HT_INT && rule->type!=BCF_HT_REAL && rule->type!=BCF_HT_STR ) error("The type is not supported: \"%s\"\n", rule->hdr_tag);
 
-        while ( *ss ) ss++; ss++;
+        ss = strchr(ss, '\0'); ss++;
         if ( !*ss ) error("Could not parse INFO rules, missing logic of \"%s\"\n", rule->hdr_tag);
 
         int is_join = 0;
@@ -300,7 +300,8 @@ static void info_rules_init(args_t *args)
                 error("Only fixed-length vectors are supported with -i %s:%s\n", ss, rule->hdr_tag);
         }
 
-        while ( *ss ) ss++; ss++; n++;
+        ss = strchr(ss, '\0'); ss++;
+        n++;
     }
     free(str.s);
     free(tmp);
@@ -1658,7 +1659,8 @@ void debug_maux(args_t *args, int pos, int var_type)
         fprintf(stderr,"\n");
     }
     fprintf(stderr," counts: ");
-    for (j=0; j<maux->nals; j++) fprintf(stderr,"%s   %dx %s", j==0?"":",",maux->cnt[j], maux->als[j]); fprintf(stderr,"\n");
+    for (j=0; j<maux->nals; j++) fprintf(stderr,"%s   %dx %s", j==0?"":",",maux->cnt[j], maux->als[j]);
+    fprintf(stderr,"\n");
     for (j=0; j<files->nreaders; j++)
     {
         bcf_sr_t *reader = &files->readers[j];

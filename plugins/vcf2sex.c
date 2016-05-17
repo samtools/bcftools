@@ -412,7 +412,8 @@ int run(int argc, char **argv)
             case 'p': ploidy_fname = optarg; break; 
             case 'n': 
                 args->nsites = strtol(optarg,&tmp,10); 
-                if (*tmp) error("Unexpected argument to --nsites: %s\n", optarg); break; 
+                if (*tmp) error("Unexpected argument to --nsites: %s\n", optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage()); break;

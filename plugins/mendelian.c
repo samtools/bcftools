@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <getopt.h>
 #include <math.h>
 #include <htslib/hts.h>
@@ -145,18 +146,20 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         args.trios = (trio_t*) calloc(n,sizeof(trio_t));
         for (i=0; i<n; i++)
         {
-            char *ss = list[i], *se = list[i];
-            while ( *se && *se!=',' ) se++; if ( *se!=',' ) error("Could not parse %s: %s\n",trio_file, ss);
+            char *ss = list[i], *se;
+            se = strchr(ss, ',');
+            if ( !se ) error("Could not parse %s: %s\n",trio_file, ss);
             *se = 0;
             args.trios[i].imother = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, ss);
             if ( args.trios[i].imother<0 ) error("No such sample: \"%s\"\n", ss);
             ss = ++se; 
-            while ( *se && *se!=',' ) se++; if ( *se!=',' ) error("Could not parse %s\n",trio_file);
+            se = strchr(ss, ',');
+            if ( !se ) error("Could not parse %s\n",trio_file);
             *se = 0;
             args.trios[i].ifather = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, ss);
             if ( args.trios[i].ifather<0 ) error("No such sample: \"%s\"\n", ss);
             ss = ++se; 
-            while ( *se ) se++; if ( ss==se ) error("Could not parse %s\n",trio_file);
+            if ( *ss=='\0' ) error("Could not parse %s\n",trio_file);
             args.trios[i].ichild = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, ss);
             if ( args.trios[i].ichild<0 ) error("No such sample: \"%s\"\n", ss);
             free(list[i]);
