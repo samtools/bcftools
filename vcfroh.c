@@ -502,7 +502,7 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
     args->nitmp = 0;
 
     // Set allele frequency
-    int ret;
+    int ret = 0;
     if ( args->af_tag )
     {
         // Use an INFO tag provided by the user
@@ -517,36 +517,35 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
         // Read AF from a file
         ret = read_AF(args->files->targets, line, alt_freq);
     }
+    else if ( args->dflt_AF > 0 )
+    {
+        *alt_freq = args->dflt_AF;
+    }
+    else if ( args->estimate_AF )
+    {
+        // Estimate AF from GTs of all samples or samples listed in a file
+        ret = estimate_AF(args, line, alt_freq);    // reads GTs into args->itmp
+    }
     else
     {
-        // Use GTs or AC/AN: GTs when AC/AN not present or when GTs explicitly requested by --estimate-AF
-        ret = -1;
-        if ( !args->estimate_AF )
+        // Use AC/AN
+        int AC = -1, AN = 0;
+        ret = bcf_get_info_int32(args->hdr, line, "AN", &args->itmp, &args->mitmp);
+        if ( ret==1 )
         {
-            int AC = -1, AN = 0;
-            ret = bcf_get_info_int32(args->hdr, line, "AN", &args->itmp, &args->mitmp);
-            if ( ret==1 )
-            {
-                AN = args->itmp[0];
-                ret = bcf_get_info_int32(args->hdr, line, "AC", &args->itmp, &args->mitmp);
-                if ( ret>0 )
-                    AC = args->itmp[0];
-            }
-            if ( AN<=0 || AC<0 ) 
-                ret = -1;
-            else 
-                *alt_freq = (double) AC/AN;
+            AN = args->itmp[0];
+            ret = bcf_get_info_int32(args->hdr, line, "AC", &args->itmp, &args->mitmp);
+            if ( ret>0 )
+                AC = args->itmp[0];
         }
-        if ( ret==-1 )
-            ret = estimate_AF(args, line, alt_freq);    // reads GTs into args->itmp
+        if ( AN<=0 || AC<0 ) 
+            ret = -1;
+        else 
+            *alt_freq = (double) AC/AN;
     }
 
     if ( ret<0 ) return ret;
-    if ( *alt_freq==0.0 )
-    {
-        if ( args->dflt_AF==0 ) return -1;       // we skip sites with AF=0
-        *alt_freq = args->dflt_AF;
-    }
+    if ( *alt_freq==0.0 ) return -1;
 
     // Set P(D|G)
     if ( args->fake_PLs )
