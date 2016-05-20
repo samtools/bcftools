@@ -1,0 +1,80 @@
+include::header.inc[]
+
+
+Detecting runs of homozygosity (RoH)
+------------------------------------
+
+The BCFtools/RoH command detects regions of autozygosity in sequencing data, including
+exome data, using a hidden Markov model.
+
+=== Preparing input data
+
+The ``roh`` command takes on input VCF with FORMAT columns containing either
+genotype likelihoods (PL) or genotypes (GT). By default, genotype likelihoods
+are expected unless the ``-G`` option is provided.
+
+The second required information is the estimate of the alternate allele
+frequencies in the population for each site. There are two ways to obtain this
+information. One is to supply a VCF with many samples from the same population
+(preferably >100 though often it works down to just 20 individuals or
+so). This allows the frequencies to be estimated from the samples provided.
+
+Otherwise, the allele frequency information for your specific population can be
+provided from other datasets, from a custom annotation (``--AF-tag``),
+tab-delimited file (``--AF-file``), or a fixed default can be provided
+(``--AF-dflt``).
+
+Finally, a genetic map with recombination hotspots can be provided. You can
+find a version provided by impute2 here:
+https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference
+
+Note that the program considers only biallelic sites, sites with non-zero AF,
+and sites with non-missing PL/GT.
+
+=== Usage
+
+In this example, the FORMAT/PL annotation is not present, so we go with FORMAT/GT, 
+see the -G option.  Also, the VCF does not contain allele frequency information
+and there is just one sample so it cannot be estimated on the fly. Hence we use
+a default AF value 0.4.
+
+----
+bcftools roh -G30 --AF-dflt 0.4 file.vcf 
+----
+
+Please check this link:roh-calling/usage-example.tgz[usage example] for details
+and some test data to experiment with.
+
+====
+++++
+<a href="roh-calling/roh-example.png"><img src="roh-calling/roh-example.png" width="800px"></a>
+++++
+In this figure, the blue line shows heterozygosity plotted as dosage and the RoH estimate by bcftools/roh.
+====
+
+
+=== Troubleshooting
+
+If the results look unexpected, check how many sites have been ignored by the
+program, for example in this run many sites were filtered:
+
+----
+Number of lines: total/processed: 599218/37730
+----
+
+If the number of the processed sites is too low, check what was the reason for exluding
+them. This command should give the number of sites that were processed:
+
+----
+bcftools view -i'type="SNP" && AF>0' -m2 -M2 -s Indiv1 -Ou file.vcf | bcftools +counts -i'GT!="./." && GT!="."
+----
+
+
+=== References
+
+Please cite this paper if you find our software useful: http://www.ncbi.nlm.nih.gov/pubmed/26826718
+
+
+include::footer.inc[]
+
+

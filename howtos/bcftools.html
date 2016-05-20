@@ -1,0 +1,2715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>bcftools(1)</title>
+<link rel="stylesheet" href="./docbook-xsl.css">
+</head>
+<body class="manpage">
+<div id="header">
+<h1>bcftools(1) Manual Page</h1>
+<h2>NAME</h2>
+<div class="sectionbody">
+<p>bcftools - utilities for variant calling and manipulating VCFs and BCFs.</p>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>bcftools</strong> [--version|--version-only] [--help] [<em>COMMAND</em>] [<em>OPTIONS</em>]</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+Call Format (VCF) and its binary counterpart BCF. All commands work
+transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p>
+</div>
+<div class="paragraph">
+<p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
+automatically even when streaming from a pipe. Indexed VCF and BCF
+will work in all situations. Un-indexed VCF and BCF and streams will
+work in most, but not all situations.</p>
+</div>
+<div class="paragraph">
+<p>BCFtools is designed to work on a stream. It regards an input file "-" as the
+standard input (stdin) and outputs to the standard output (stdout). Several
+commands can thus be  combined  with  Unix pipes.</p>
+</div>
+<div class="sect2">
+<h3 id="_version">VERSION</h3>
+<div class="paragraph">
+<p>This manual page was last updated <strong>{date}</strong> and refers to bcftools git version <strong>{version}</strong>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_bcf1">BCF1</h3>
+<div class="paragraph">
+<p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <strong>not</strong>
+compatible with this version of bcftools. To read BCF1 files one can use
+the view command from old versions of bcftools packaged with samtools
+versions &lt;= 0.1.19 to convert to VCF, which can then be read by
+this version of bcftools.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    samtools-0.1.19/bcftools/bcftools view file.bcf1 | bcftools view</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_variant_calling">VARIANT CALLING</h3>
+<div class="paragraph">
+<p>See <em>bcftools call</em> for variant calling from the output of the
+<em>samtools mpileup</em> command. In versions of samtools &lt;= 0.1.19 calling was
+done with <em>bcftools view</em>. Users are now required to choose between the old
+samtools calling model (<em>-c/--consensus-caller</em>) and the new multiallelic
+calling model (<em>-m/--multiallelic-caller</em>). The multiallelic calling model
+is recommended for most tasks.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_list_of_commands">LIST OF COMMANDS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For a full list of available commands, run <strong>bcftools</strong> without arguments. For a full
+list of available options, run <strong>bcftools</strong> <em>COMMAND</em> without arguments.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong><a href="#annotate">annotate</a></strong>   .. edit VCF files, add or remove annotations</p>
+</li>
+<li>
+<p><strong><a href="#call">call</a></strong>        ..  SNP/indel calling (former "view")</p>
+</li>
+<li>
+<p><strong><a href="#concat">concat</a></strong>    ..  concatenate VCF/BCF files from the same set of samples</p>
+</li>
+<li>
+<p><strong><a href="#consensus">consensus</a></strong>    ..  create consensus sequence by applying VCF variants</p>
+</li>
+<li>
+<p><strong><a href="#convert">convert</a></strong>  ..  convert VCF/BCF to other formats and back</p>
+</li>
+<li>
+<p><strong><a href="#filter">filter</a></strong>    ..  filter VCF/BCF files using fixed thresholds</p>
+</li>
+<li>
+<p><strong><a href="#gtcheck">gtcheck</a></strong>  ..  check sample concordance, detect sample swaps and contamination</p>
+</li>
+<li>
+<p><strong><a href="#index">index</a></strong>      ..  index VCF/BCF</p>
+</li>
+<li>
+<p><strong><a href="#isec">isec</a></strong>        ..  intersections of VCF/BCF files</p>
+</li>
+<li>
+<p><strong><a href="#merge">merge</a></strong>      ..  merge VCF/BCF files files from non-overlapping sample sets</p>
+</li>
+<li>
+<p><strong><a href="#norm">norm</a></strong>        ..  normalize indels</p>
+</li>
+<li>
+<p><strong><a href="#plugin">plugin</a></strong>    ..  run user-defined plugin</p>
+</li>
+<li>
+<p><strong><a href="#query">query</a></strong>      ..  transform VCF/BCF into user-defined formats</p>
+</li>
+<li>
+<p><strong><a href="#reheader">reheader</a></strong>   ..  modify VCF/BCF header, change sample names</p>
+</li>
+<li>
+<p><strong><a href="#roh">roh</a></strong>          ..  identify runs of homo/auto-zygosity</p>
+</li>
+<li>
+<p><strong><a href="#stats">stats</a></strong>      ..  produce VCF/BCF stats (former vcfcheck)</p>
+</li>
+<li>
+<p><strong><a href="#view">view</a></strong>        ..  subset, filter and convert VCF and BCF files</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_list_of_scripts">LIST OF SCRIPTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Some helper scripts are bundled with the bcftools code.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong><a href="#plot-vcfstats">plot-vcfstats</a></strong>  .. plots the output of <strong><a href="#stats">stats</a></strong></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_commands_and_options">COMMANDS AND OPTIONS</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="common_options">Common Options</h3>
+<div class="paragraph">
+<p>The following options are common to many bcftools commands. See usage for
+specific commands to see if they apply.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>FILE</em></dt>
+<dd>
+<p>Files can be both VCF or BCF, uncompressed or BGZF-compressed. The file "-"
+is interpreted as standard input. Some tools may require tabix- or
+CSI-indexed files.</p>
+</dd>
+<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em>|<em>id</em></dt>
+<dd>
+<p>Controls  how to treat records with duplicate positions and defines compatible
+records across multiple input files. Here by "compatible" we mean records which
+should be considered as identical by the tools. For example, when performing
+line intersections, the desire may be to consider as identical all sites with
+matching positions (<strong>bcftools isec -c</strong> <em>all</em>), or only sites with  matching variant
+type (<strong>bcftools isec -c</strong> <em>snps</em>&#160; <strong>-c</strong> <em>indels</em>), or only sites with all alleles
+identical (<strong>bcftools isec -c</strong> <em>none</em>).</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>none</em></dt>
+<dd>
+<p>only records with identical REF and ALT alleles are compatible</p>
+</dd>
+<dt class="hdlist1"><em>some</em></dt>
+<dd>
+<p>only records where some subset of ALT alleles match are compatible</p>
+</dd>
+<dt class="hdlist1"><em>all</em></dt>
+<dd>
+<p>all records are compatible, regardless of whether the ALT alleles
+match or not. In the case of records with the same position, only
+the first will be considered and appear on output.</p>
+</dd>
+<dt class="hdlist1"><em>snps</em></dt>
+<dd>
+<p>any SNP records are compatible, regardless of whether the ALT
+alleles match or not. For duplicate positions, only the first SNP
+record will be considered and appear on output.</p>
+</dd>
+<dt class="hdlist1"><em>indels</em></dt>
+<dd>
+<p>all  indel records are compatible, regardless of whether the REF
+and ALT alleles match or not. For duplicate positions, only the
+first indel record will be considered and appear on output.</p>
+</dd>
+<dt class="hdlist1"><em>both</em></dt>
+<dd>
+<p>abbreviation of "<strong>-c</strong> <em>indels</em>&#160; <strong>-c</strong> <em>snps</em>"</p>
+</dd>
+<dt class="hdlist1"><em>id</em></dt>
+<dd>
+<p>only records with identical ID column are compatible.
+Supported by <strong><a href="#merge">bcftools merge</a></strong> only.</p>
+</dd>
+</dl>
+</div>
+</dd>
+<dt class="hdlist1"><strong>-f, --apply-filters</strong> <em>LIST</em></dt>
+<dd>
+<p>Skip sites where FILTER column does not contain any of the strings listed
+in <em>LIST</em>. For example, to include only sites which have no filters set,
+use <strong>-f</strong> <em>.,PASS</em>.</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>When output consists of a single stream, write it to <em>FILE</em> rather than
+to standard output, where it is written by default.</p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>Output compressed BCF (<em>b</em>), uncompressed BCF (<em>u</em>), compressed VCF (<em>z</em>), uncompressed VCF (<em>v</em>).
+Use the -Ou option when piping between bcftools subcommands to speed up
+performance by removing unecessary compression/decompression and
+VCF&#8592;&#8594;BCF conversion.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>Comma-separated list of regions, see also <strong>-R, --regions-file</strong>. Note
+that <strong>-r</strong> cannot be used in combination with <strong>-R</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>FILE</em></dt>
+<dd>
+<p>Regions can be specified either on command line or in a VCF, BED, or
+tab-delimited file (the default).  The columns of the tab-delimited file
+are: CHROM, POS, and,  optionally,  POS_TO,  where positions are 1-based
+and inclusive.  Uncompressed files are stored in memory, while
+bgzip-compressed and tabix-indexed region files are streamed.  Note that
+sequence names must match exactly, "chr20" is not the same as "20".
+Also note that chromosome ordering in <em>FILE</em> will be respected,
+the VCF will be processed in the order in which chromosomes first appear
+in <em>FILE</em>. However, within chromosomes, the VCF will always be
+processed in ascending genomic coordinate order no matter what order they
+appear in <em>FILE</em>. Note that overlapping regions in <em>FILE</em> can result in
+duplicated out of order positions in the output.
+This option requires indexed VCF/BCF files. Note that <strong>-R</strong> cannot be used
+in combination with <strong>-r</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> [&#94;]<em>LIST</em></dt>
+<dd>
+<p>Comma-separated list of samples to include or exclude if prefixed
+with "&#94;".</p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em class="&#94;">FILE</em><a id="samples_file"></a></dt>
+<dd>
+<p>File of sample names to include or exclude if prefixed with "&#94;".
+One sample per line.
+The command <strong><a href="#call">bcftools call</a></strong> accepts an optional second
+column indicating ploidy (0, 1 or 2) or sex (as defined by
+<strong><a href="#ploidy">--ploidy</a></strong>, for example "F" or "M"), and can parse also PED
+files. If the second column is not present,
+the sex "F" is assumed.
+With <strong><a href="#call">bcftools call</a> -C</strong> <em>trio</em>, PED file is expected. File
+formats examples:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    sample1    1
+    sample2    2
+    sample3    2
+
+  or
+
+    sample1    M
+    sample2    F
+    sample3    F
+
+  or a .ped file (here is shown a minimum working example, the first column is
+  ignored and the last indicates sex: 1=male, 2=female)
+
+    ignored daughterA fatherA motherA 2
+    ignored sonB fatherB motherB 1</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-t, --targets</strong> [&#94;]<em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>Similar as <strong>-r, --regions</strong>, but the next position is accessed by streaming the
+whole VCF/BCF rather than using the tbi/csi index. Both <strong>-r</strong> and <strong>-t</strong> options
+can be applied simultaneously: <strong>-r</strong>  uses  the index  to  jump  to  a  region
+and <strong>-t</strong> discards positions which are not in the targets. Unlike <strong>-r</strong>, targets
+can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
+indicates that sequences X, Y and MT should be skipped.
+Yet another difference between the two is that <strong>-r</strong> checks both start and
+end positions of indels, whereas <strong>-t</strong> checks start positions only. Note
+that <strong>-t</strong> cannot be used in combination with <strong>-T</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> [&#94;]<em>FILE</em></dt>
+<dd>
+<p>Same <strong>-t, --targets</strong>, but reads regions from a file. Note that <strong>-T</strong>
+cannot be used in combination with <strong>-t</strong>.</p>
+</dd>
+<dt class="hdlist1"></dt>
+<dd>
+<p>With the <strong>call -C</strong> <em>alleles</em> command, third column of the targets file must
+be comma-separated list of alleles, starting with the reference allele.
+Such a file can be easily created from a VCF using:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="annotate">bcftools annotate <em>[OPTIONS]</em> <em>FILE</em></h3>
+<div class="paragraph">
+<p>This command allows to add or remove annotations.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a, --annotations</strong> <em>file</em></dt>
+<dd>
+<p>Bgzip-compressed and tabix-indexed file with annotations. The file
+can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
+(or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary
+number of annotation columns. BED files are expected to have
+the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
+Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
+one-based and inclusive.  When REF and ALT are present, only matching VCF
+records will be annotated.
+When multiple ALT alleles are present in the annotation file (given as
+comma-separated list of alleles), at least one must match one of the
+alleles in the corresponding VCF record. Similarly, at least one
+alternate allele from a multi-allelic VCF record must be present in the
+annotation file.
+Note that flag types, such as "INFO/FLAG", can be annotated by including
+a field with the value "1" to set the flag, "0" to remove it, or "." to
+keep existing flags.
+See also <strong>-c, --columns</strong> and <strong>-h, --header-lines</strong>.</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    # Sample annotation file with columns CHROM, POS, STRING_TAG, NUMERIC_TAG
+    1  752566  SomeString      5
+    1  798959  SomeOtherString 6
+    # etc.</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c, --columns</strong> <em>list</em></dt>
+<dd>
+<p>Comma-separated list of columns or tags to carry over from the annotation file
+(see also <strong>-a, --annotations</strong>). If the annotation file is not a VCF/BCF,
+<em>list</em> describes the columns of the annotation file and must include CHROM,
+POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
+columns which should be ignored can be indicated by "-".
+If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
+order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
+can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
+and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
+To carry over all INFO annotations, use "INFO". To add all INFO annotations except
+"TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+To add annotations without overwriting existing values (that is, to add missing tags or
+add values to existing tags with missing values), use "+TAG" instead of "TAG".
+To append to existing values (rather than replacing or leaving untouched), use "=TAG"
+(instead of "TAG" or "+TAG").
+To replace only existing values without modifying missing annotations, use "-TAG".
+If the annotation file is not a VCF/BCF, all new annotations must be
+defined via <strong>-h, --header-lines</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-h, --header-lines</strong> <em>file</em></dt>
+<dd>
+<p>Lines to append to the VCF header, see also <strong>-c, --columns</strong> and <strong>-a, --annotations</strong>. For example:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    ##INFO=&lt;ID=NUMERIC_TAG,Number=1,Type=Integer,Description="Example header line"&gt;
+    ##INFO=&lt;ID=STRING_TAG,Number=1,Type=String,Description="Yet another header line"&gt;</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-I, --set-id</strong> [&#43;]<em>FORMAT</em></dt>
+<dd>
+<p>assign ID on the fly. The format is the same as in the <strong><a href="#query">query</a></strong>
+command (see below).  By default all existing IDs are replaced. If the
+format string is preceded by "+", only missing IDs will be set. For example,
+one can use</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools annotate --set-id +'%CHROM\_%POS\_%REF\_%FIRST_ALT' file.vcf</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-m, --mark-sites</strong> <em class="+-">TAG</em></dt>
+<dd>
+<p>annotate sites which are present ("+") or absent ("-") in the <strong>-a</strong> file with a new INFO/TAG flag</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--rename-chrs</strong> <em>file</em></dt>
+<dd>
+<p>rename chromosomes according to the map in <em>file</em>, with
+"old_name new_name\n" pairs separated by whitespaces, each on a separate
+line.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> [&#94;]<em>LIST</em></dt>
+<dd>
+<p>subset of samples to annotate, see also <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>subset of samples to annotate. If the samples are named differently in the
+target VCF and the <strong>-a, --annotations</strong> VCF, the name mapping can be
+given as "src_name dst_name\n", separated by whitespaces, each pair on a
+separate line.</p>
+</dd>
+<dt class="hdlist1"><strong>-x, --remove</strong> <em>list</em></dt>
+<dd>
+<p>List of annotations to remove. Use "FILTER" to remove all filters or
+"FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
+be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
+except GT. To remove all INFO tags except "FOO" and "BAR", use
+"&#94;INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+"INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>Examples:</strong></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    # Remove three fields
+    bcftools annotate -x ID,INFO/DP,FORMAT/DP file.vcf.gz
+
+    # Remove all INFO fields and all FORMAT fields except for GT and PL
+    bcftools annotate -x INFO,^FORMAT/GT,FORMAT/PL file.vcf
+
+    # Add ID, QUAL and INFO/TAG, not replacing TAG if already present
+    bcftools annotate -a src.bcf -c ID,QUAL,+TAG dst.bcf
+
+    # Carry over all INFO and FORMAT annotations except FORMAT/GT
+    bcftools annotate -a src.bcf -c INFO,^FORMAT/GT dst.bcf
+
+    # Annotate from a tab-delimited file with six columns (the fifth is ignored),
+    # first indexing with tabix. The coordinates are 1-based.
+    tabix -s1 -b2 -e2 annots.tab.gz
+    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,POS,REF,ALT,-,TAG file.vcf
+
+    # Annotate from a tab-delimited file with regions (1-based coordinates, inclusive)
+    tabix -s1 -b2 -e3 annots.tab.gz
+    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,FROM,TO,TAG inut.vcf
+
+    # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
+    bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="call">bcftools call <em>[OPTIONS]</em> <em>FILE</em></h3>
+<div class="paragraph">
+<p>This command replaces the former <strong>bcftools view</strong> caller. Some of the original
+functionality has been temporarily lost in the process of transition under
+<a href="http://github.com/samtools/htslib">htslib</a>, but will be added back on popular
+demand. The original calling model can be invoked with the <strong>-c</strong> option.</p>
+</div>
+<div class="sect3">
+<h4 id="_file_format_options">File format options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--ploidy</strong> <em>ASSEMBLY</em>[<em>?</em>]<a id="ploidy"></a></dt>
+<dd>
+<p>predefined ploidy, use <em>list</em> (or any other unused word) to print a list
+of all predefined assemblies. Append a question mark to print the actual
+definition. See also <strong>--ploidy-file</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>--ploidy-file</strong> <em>FILE</em></dt>
+<dd>
+<p>ploidy definition given as a space/tab-delimited list of
+CHROM, FROM, TO, SEX, PLOIDY. The SEX codes are arbitrary and
+correspond to the ones used by <strong><a href="#samples_file">--samples-file</a></strong>.
+The default ploidy can be given using the starred records (see
+below), unlisted regions have ploidy 2. The default ploidy definition is</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    X 1 60000 M 1
+    X 2699521 154931043 M 1
+    Y 1 59373566 M 1
+    Y 1 59373566 F 0
+    MT 1 16569 M 1
+    MT 1 16569 F 1
+    *  * *     M 2
+    *  * *     F 2</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_input_output_options">Input/output options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-A, --keep-alts</strong></dt>
+<dd>
+<p>output all alternate alleles present in the alignments even if they do not
+appear in any of the genotypes</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --format-fields</strong> <em>list</em></dt>
+<dd>
+<p>comma-separated list of FORMAT fields to output for each sample. Currently
+GQ and GP fields are supported. For convenience, the fields can be given
+as lower case letters.</p>
+</dd>
+<dt class="hdlist1"><strong>-g, --gvcf</strong> <em>INT</em></dt>
+<dd>
+<p>output also gVCF blocks of homozygous REF calls. The parameter <em>INT</em> is the
+minimum per-sample depth required to include a site in the non-variant
+block.</p>
+</dd>
+<dt class="hdlist1"><strong>-M, --keep-masked-ref</strong></dt>
+<dd>
+<p>output sites where REF allele is N</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-V, --skip-variants</strong> <em>snps</em>|<em>indels</em></dt>
+<dd>
+<p>skip indel/SNP sites</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --variants-only</strong></dt>
+<dd>
+<p>output variant sites only</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_consensus_variant_calling_options">Consensus/variant calling options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c, --consensus-caller</strong></dt>
+<dd>
+<p>the original <strong>samtools</strong>/<strong>bcftools</strong> calling method (conflicts with <strong>-m</strong>)</p>
+</dd>
+<dt class="hdlist1"><strong>-C, --constrain</strong> <em>alleles</em>|<em>trio</em></dt>
+<dd>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>alleles</em></dt>
+<dd>
+<p>call genotypes given alleles. See also <strong>-T, --targets-file</strong>.</p>
+</dd>
+<dt class="hdlist1"><em>trio</em></dt>
+<dd>
+<p>call genotypes given the father-mother-child constraint. See also
+<strong>-s, --samples</strong> and <strong>-n, --novel-rate</strong>.</p>
+</dd>
+</dl>
+</div>
+</dd>
+<dt class="hdlist1"><strong>-m, --multiallelic-caller</strong></dt>
+<dd>
+<p>alternative modelfor multiallelic and rare-variant calling designed to
+overcome known limitations in <strong>-c</strong> calling model (conflicts with <strong>-c</strong>)</p>
+</dd>
+<dt class="hdlist1"><strong>-n, --novel-rate</strong> <em>float</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>likelihood of novel mutation for constrained <strong>-C</strong> <em>trio</em> calling. The trio
+genotype calling maximizes likelihood of a particular combination of
+genotypes for father, mother and the child
+P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1-Pn).
+By providing three values, the mutation rate Pn is set explictly for SNPs,
+deletions and insertions, respectively.  If two values are given, the first
+is interpreted as the mutation rate of SNPs and the second is used to
+calculate the mutation rate of indels according to their length as
+Pn=<em>float</em>*exp(-a-b*len), where a=22.8689, b=0.2994 for insertions and
+a=21.9313, b=0.2856 for deletions [pubmed:23975140].  If only one value is
+given, the same mutation rate Pn is used for SNPs and indels.</p>
+</dd>
+<dt class="hdlist1"><strong>-p, --pval-threshold</strong> <em>float</em></dt>
+<dd>
+<p>with <strong>-c</strong>, accept variant if P(ref|D) &lt; <em>float</em>.</p>
+</dd>
+<dt class="hdlist1"><strong>-P, --prior</strong> <em>float</em></dt>
+<dd>
+<p>expected substitution rate, or 0 to disable the prior.</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>file</em>|<em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-X, --chromosome-X</strong></dt>
+<dd>
+<p>haploid output for male samples (requires PED file with <strong>-s</strong>)</p>
+</dd>
+<dt class="hdlist1"><strong>-Y, --chromosome-Y</strong></dt>
+<dd>
+<p>haploid output for males and skips females (requires PED file with <strong>-s</strong>)</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="concat">bcftools concat <em>[OPTIONS]</em> <em>FILE1</em> <em>FILE2</em> [&#8230;&#8203;]</h3>
+<div class="paragraph">
+<p>Concatenate or combine VCF/BCF files. All source files must have the same sample
+columns appearing in the same order. Can be used, for example, to
+concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
+VCF into one. The input files must be sorted by chr and position. The files
+must be given in the correct order to produce sorted VCF on output unless
+the <strong>-a, --allow-overlaps</strong> option is specified.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a, --allow-overlaps</strong></dt>
+<dd>
+<p>First coordinate of the next file can precede last record of the current file.</p>
+</dd>
+<dt class="hdlist1"><strong>-c, --compact-PS</strong></dt>
+<dd>
+<p>Do not output PS tag at each site, only at the start of a new phase set block.</p>
+</dd>
+<dt class="hdlist1"><strong>-d, --rm-dups</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>none</em></dt>
+<dd>
+<p>Output duplicate records of specified type present in multiple files only once.
+Requires <strong>-a, --allow-overlaps</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-D, --remove-duplicates</strong></dt>
+<dd>
+<p>Alias for <strong>-d none</strong></p>
+</dd>
+<dt class="hdlist1"><strong>-f, --file-list</strong> <em>FILE</em></dt>
+<dd>
+<p>Read the list of files from a file.</p>
+</dd>
+<dt class="hdlist1"><strong>-l, --ligate</strong></dt>
+<dd>
+<p>Ligate phased VCFs by matching phase at overlapping haplotypes</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-q, --min-PQ</strong> <em>INT</em></dt>
+<dd>
+<p>Break phase set if phasing quality is lower than <em>INT</em></p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong>. Requires <strong>-a, --allow-overlaps</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong>. Requires <strong>-a, --allow-overlaps</strong>.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="consensus">bcftools consensus <em>[OPTIONS]</em> <em>FILE</em></h3>
+<div class="paragraph">
+<p>Create consensus sequence by applying VCF variants to a reference fasta file.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>FILE</em></dt>
+<dd>
+<p>reference sequence in fasta format</p>
+</dd>
+<dt class="hdlist1"><strong>-H, --haplotype</strong> <em>1</em>|<em>2</em></dt>
+<dd>
+<p>apply variants for the given haplotype. This option requires <strong>-s</strong>, unless
+exactly one sample is present in the VCF</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --iupac-codes</strong></dt>
+<dd>
+<p>output variants in the form of IUPAC ambiguity codes</p>
+</dd>
+<dt class="hdlist1"><strong>-m, --mask</strong> <em>FILE</em></dt>
+<dd>
+<p>BED file or TAB file with regions to be replaced with N. See discussion
+of <strong>--regions-file</strong> in <strong><a href="#common_options">Common Options</a></strong> for file
+format details.</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>write output to a file</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --sample</strong> <em>NAME</em></dt>
+<dd>
+<p>apply variants of the given sample</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>Examples:</strong></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    # Apply variants present in sample "NA001", output IUPAC codes for hets
+    bcftools consensus -i -s NA001 -f in.fa in.vcf.gz &gt; out.fa
+
+    # Create consensus for one region. The fasta header lines are then expected
+    # in the form "&gt;chr:from-to".
+    samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="convert">bcftools convert <em>[OPTIONS]</em> <em>FILE</em></h3>
+<div class="sect3">
+<h4 id="_vcf_input_options">VCF input options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_vcf_output_options">VCF output options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_gen_sample_conversion">GEN/SAMPLE conversion:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-G, --gensample2vcf</strong> <em>prefix</em> or <em>gen-file</em>,<em>sample-file</em></dt>
+<dd>
+<p>convert IMPUTE2 output to VCF. The second column must be of the form
+"CHROM:POS_REF_ALT" to detect possible strand swaps; IMPUTE2 leaves the
+first one empty ("--") when sites from reference panel are filled in. See
+also <strong>-g</strong> below.</p>
+</dd>
+<dt class="hdlist1"><strong>-g, --gensample</strong> <em>prefix</em> or <em>gen-file</em>,<em>sample-file</em></dt>
+<dd>
+<p>convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
+The columns of .gen file format are ID1,ID2,POS,A,B followed by three
+genotype probabilities P(AA), P(AB), P(BB) for each sample.  In order to
+prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
+For example:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>  .gen
+  ----
+  1:111485207_G_A 1:111485207_G_A 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T 1:111494194_C_T 111494194 C T 0 1 0 0 0 1
+
+  .sample
+  -------
+  ID_1 ID_2 missing
+  0 0 0
+  sample1 sample1 0
+  sample2 sample2 0</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>--tag</strong> <em>STRING</em></dt>
+<dd>
+<p>tag to take values for .gen file: GT,PL,GL,GP</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_gvcf_conversion">gVCF conversion:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>--gvcf2vcf</strong></dt>
+<dd>
+<p>convert gVCF to VCF, expanding REF blocks into sites. Only sites
+with FILTER set to "PASS" or "." will be expanded.</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>file</em></dt>
+<dd>
+<p>reference sequence in fasta format. Must be indexed with samtools faidx</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_haps_sample_conversion">HAPS/SAMPLE conversion:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>--hapsample2vcf</strong> <em>prefix</em> or <em>haps-file</em>,<em>sample-file</em></dt>
+<dd>
+<p>convert from haps/sample format to VCF. The columns of .haps file are
+similar to .gen file above, but there are only two haplotype columns per
+sample. Note that the first column of the haps file is expected to be in
+the form "CHR:POS_REF_ALT", for example:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>  .haps
+  ----
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_haps_legend_sample_conversion">HAPS/LEGEND/SAMPLE conversion:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-H, --haplegendsample2vcf</strong> <em>prefix</em> or <em>haps-file</em>,<em>legend-file</em>,<em>sample-file</em></dt>
+<dd>
+<p>convert from haps/legend/sample format used by IMPUTE2 to VCF, see
+also <strong>-h, --hapslegendsample</strong> below.</p>
+</dd>
+<dt class="hdlist1"><strong>-h, --haplegendsample</strong> <em>prefix</em> or <em>haps-file</em>,<em>legend-file</em>,<em>sample-file</em></dt>
+<dd>
+<p>convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
+The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
+swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
+file is quite basic at the moment with columns for population, group and
+sex expected to be edited by the user. For example:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>  .haps
+  -----
+  0 1 0 0 1 0
+  0 1 0 0 0 1
+
+  .legend
+  -------
+  id position a0 a1
+  1:111485207_G_A 111485207 G A
+  1:111494194_C_T 111494194 C T
+
+  .sample
+  -------
+  sample population group sex
+  sample1 sample1 sample1 2
+  sample2 sample2 sample2 2</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>--haploid2diploid</strong></dt>
+<dd>
+<p>with <strong>-h</strong> option converts haploid genotypes to homozygous diploid
+genotypes. For example, the program will print <em>0 0</em> instead of the
+default <em>0 -</em>. This is useful for programs which do not handle haploid
+genotypes correctly.</p>
+</dd>
+<dt class="hdlist1"><strong>--vcf-ids</strong></dt>
+<dd>
+<p>output VCF IDs instead of "CHROM:POS_REF_ALT" IDs</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_tsv_conversion">TSV conversion:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>--tsv2vcf</strong> <em>file</em></dt>
+<dd>
+<p>convert from TSV (tab-separated values) format (such as generated by
+23andMe) to VCF. The input file fields can be tab- or space- delimited</p>
+</dd>
+<dt class="hdlist1"><strong>-c, --columns</strong> <em>list</em></dt>
+<dd>
+<p>comma-separated list of fields in the input file. In the current
+version, the fields CHROM, POS, ID, and AA are expected and
+can appear in arbitrary order, columns which should be ignored in the input
+file can be indicated by "-".
+The AA field lists alleles on the forward reference strand,
+for example "CC" or "CT" for diploid genotypes or "C"
+for haploid genotypes (sex chromosomes). Insertions and deletions
+are not supported yet, missing data can be indicated with "--".</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>file</em></dt>
+<dd>
+<p>reference sequence in fasta format. Must be indexed with samtools faidx</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
+<dd>
+<p>list of sample names. See <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>file of sample names. See <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>Example:</strong></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># Convert 23andme results into VCF
+bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -Oz -o out.vcf.gz</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="filter">bcftools filter <em>[OPTIONS]</em> <em>FILE</em></h3>
+<div class="paragraph">
+<p>Apply fixed-threshold filters.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-g, --SnpGap</strong> <em>INT</em></dt>
+<dd>
+<p>filter SNPs within <em>INT</em> base pairs of an indel. The following example
+demonstrates the logic of <strong>--SnpGap</strong> <em>3</em> applied on a deletion and
+an insertion:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>The SNPs at positions 1 and 7 are filtered, positions 0 and 8 are not:
+         0123456789
+    ref  .G.GT..G..
+    del  .A.G-..A..
+Here the positions 1 and 6 are filtered, 0 and 7 are not:
+         0123-456789
+    ref  .G.G-..G..
+    ins  .A.GT..A..</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-G, --IndelGap</strong> <em>INT</em></dt>
+<dd>
+<p>filter clusters of indels separated by <em>INT</em> or fewer base pairs allowing
+only one to pass. The following example demonstrates the logic of
+<strong>--IndelGap</strong> <em>2</em> applied on a deletion and an insertion:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>The second indel is filtered:
+         012345678901
+    ref  .GT.GT..GT..
+    del  .G-.G-..G-..
+And similarly here, the second is filtered:
+         01 23 456 78
+    ref  .A-.A-..A-..
+    ins  .AT.AT..AT..</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-m, --mode</strong> [<em>+x</em>]</dt>
+<dd>
+<p>define behaviour at sites with existing FILTER annotations. The default
+mode replaces existing filters of failed sites with a new FILTER string
+while leaving sites which pass untouched when non-empty and setting to
+"PASS" when the FILTER string is absent. The "+" mode appends new FILTER
+strings of failed sites instead of replacing them. The "x" mode resets
+filters of sites which pass to "PASS". Modes "+" and "x" can both be set.</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --soft-filter</strong> <em>STRING</em>|<em>+</em></dt>
+<dd>
+<p>annotate FILTER column with <em>STRING</em> or, with <em>+</em>, a unique filter name generated
+by the program ("Filter%d").</p>
+</dd>
+<dt class="hdlist1"><strong>-S, --set-GTs</strong> <em>.</em>|<em>0</em></dt>
+<dd>
+<p>set genotypes of failed samples to missing value (<em>.</em>) or reference allele (<em>0</em>)</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="gtcheck">bcftools gtcheck [<em>OPTIONS</em>] [<strong>-g</strong> <em>genotypes.vcf.gz</em>] <em>query.vcf.gz</em></h3>
+<div class="paragraph">
+<p>Checks sample identity or, without <strong>-g</strong>, multi-sample cross-check is performed.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a, --all-sites</strong></dt>
+<dd>
+<p>output for all sites</p>
+</dd>
+<dt class="hdlist1"><strong>-g, --genotypes</strong> <em>genotypes.vcf.gz</em></dt>
+<dd>
+<p>reference genotypes to compare against</p>
+</dd>
+<dt class="hdlist1"><strong>-G, --GTs-only</strong> <em>INT</em></dt>
+<dd>
+<p>use genotypes (GT) instead of genotype likelihoods (PL). When set to 1,
+reported discordance is the number of non-matching GTs, otherwise the
+number <em>INT</em> is interpreted as phred-scaled likelihood of unobserved
+genotypes.</p>
+</dd>
+<dt class="hdlist1"><strong>-H, --homs-only</strong></dt>
+<dd>
+<p>consider only genotypes which are homozygous in both <em>genotypes</em> and
+<em>query</em> VCF. This may be useful with low coverage data.</p>
+</dd>
+<dt class="hdlist1"><strong>-p, --plot</strong> <em>PREFIX</em></dt>
+<dd>
+<p>produce plots</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --query-sample</strong> <em>STRING</em></dt>
+<dd>
+<p>query sample in <em>query.vcf.gz</em>. By default, the first sample is checked.</p>
+</dd>
+<dt class="hdlist1"><strong>-S, --target-sample</strong> <em>STRING</em></dt>
+<dd>
+<p>target sample in the <strong>-g</strong> file, used only for plotting, not for analysis</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+<div class="sect3">
+<h4 id="_output_files_format">Output files format:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">CN, Discordance</dt>
+<dd>
+<p>Pairwise discordance for all sample pairs is calculated as</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>        \sum_s { min_G { PL_a(G) + PL_b(G) } },</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"></dt>
+<dd>
+<p>where the sum runs over all sites <em>s</em> and <em>G</em> is the the most likely
+genotype shared by both samples <em>a</em> and <em>b</em>.  When PL field is not
+present, a constant value <em>99</em> is used for the unseen genotypes.  With
+<strong>-G</strong>, the value <em>1</em> can be used instead; the discordance value then
+gives exactly the number of differing genotypes.</p>
+</dd>
+<dt class="hdlist1">SM, Average Discordance</dt>
+<dd>
+<p>Average discordance between sample <em>a</em> and all other samples.</p>
+</dd>
+<dt class="hdlist1">SM, Average Depth</dt>
+<dd>
+<p>Average depth at evaluated sites, or 1 if FORMAT/DP field is not
+present.</p>
+</dd>
+<dt class="hdlist1">SM, Average Number of sites</dt>
+<dd>
+<p>The average number of sites used to calculate the discordance.  In
+other words, the average number of non-missing PLs/genotypes seen
+both samples.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="index">bcftools index [<em>OPTIONS</em>]  <em>&lt;in.bcf&gt;|&lt;in.vcf.gz&gt;</em></h3>
+<div class="paragraph">
+<p>Creates index for bgzip compressed VCF/BCF files for random access. CSI
+(coordinate-sorted index) is created by default. The CSI format
+supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
+index files, which support chromosome lengths up to 2&#94;29, can be
+created by using the <em>-t/--tbi</em> option or using the <em>tabix</em> program
+packaged with htslib. When loading an index file, bcftools will try
+the CSI first and then the TBI.</p>
+</div>
+<div class="sect3">
+<h4 id="_indexing_options">Indexing options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c, --csi</strong></dt>
+<dd>
+<p>generate CSI-format index for VCF/BCF files [default]</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --force</strong></dt>
+<dd>
+<p>overwrite index if it already exists</p>
+</dd>
+<dt class="hdlist1"><strong>-m, --min-shift <em>INT</em></strong></dt>
+<dd>
+<p>set minimal interval size for CSI indices to 2&#94;INT; default: 14</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --tbi</strong></dt>
+<dd>
+<p>generate TBI-format index for VCF files</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_stats_options">Stats options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-n, --nrecords</strong></dt>
+<dd>
+<p>print the number of records based on the CSI or TBI index files</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --stats</strong></dt>
+<dd>
+<p>Print per contig stats based on the CSI or TBI index files.
+Output format is three tab-delimited columns listing the contig
+name, contig length (<em>.</em> if unknown) and number of records for
+the contig. Contigs with zero records are not printed.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="isec">bcftools isec [<em>OPTIONS</em>]  <em>A.vcf.gz</em> <em>B.vcf.gz</em> [&#8230;&#8203;]</h3>
+<div class="paragraph">
+<p>Creates intersections, unions and complements of VCF files. Depending
+on the options, the program can output records from one (or more) files
+which have (or do not have) corresponding records with the same position
+in the other files.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-C, --complement</strong></dt>
+<dd>
+<p>output positions present only in the first file but missing in the others</p>
+</dd>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>-</em>|<em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. If <strong>-e</strong> (or <strong>-i</strong>)
+appears only once, the same filtering expression will be applied to all
+input files.  Otherwise, <strong>-e</strong> or <strong>-i</strong> must be given for each input file.
+To indicate that no filtering should be performed on a file, use "-" in
+place of <em>EXPRESSION</em>, as shown in the example below.
+For valid expressions see <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --apply-filters</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include only sites for which <em>EXPRESSION</em> is true. See discussion
+of <strong>-e, --exclude</strong> above.</p>
+</dd>
+<dt class="hdlist1"><strong>-n, --nfiles</strong> [+-=]<em>INT</em>|~<em>BITMAP</em></dt>
+<dd>
+<p>output positions present in this many (=), this many or more (+), this
+many or fewer (-), or the exact same (~) files</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong>.  When several files are being
+output, their names are controlled via <strong>-p</strong> instead.</p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-p, --prefix</strong> <em>DIR</em></dt>
+<dd>
+<p>if given, subset each of the input files accordingly. See also <strong>-w</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-w, --write</strong> <em>LIST</em></dt>
+<dd>
+<p>list of input files to output given as 1-based indices. With <strong>-p</strong> and no
+<strong>-w</strong>, all files are written.</p>
+</dd>
+</dl>
+</div>
+<div class="sect3">
+<h4 id="_examples">Examples:</h4>
+<div class="paragraph">
+<p>Create intersection and complements of two sets saving the output in dir/*</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools isec -p dir A.vcf.gz B.vcf.gz</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Filter sites in A and B (but not in C) and create intersection</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools isec -e'MAF&lt;0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -p dir</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Extract and write records from A shared by both A and B using exact allele match</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools isec -p dir -n=2 -w1 A.vcf.gz B.vcf.gz</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Extract records private to A or B comparing by position only</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools isec -p dir -n-1 -c all A.vcf.gz B.vcf.gz</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Print a list of records which are present in A and B but not in C and D</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools isec -n~1100 -c all A.vcf.gz B.vcf.gz C.vcf.gz D.vcf.gz</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="merge">bcftools merge [<em>OPTIONS</em>] <em>A.vcf.gz</em> <em>B.vcf.gz</em> [&#8230;&#8203;]</h3>
+<div class="paragraph">
+<p>Merge multiple VCF/BCF files from non-overlapping sample sets to create one
+multi-sample file.  For example, when merging file <em>A.vcf.gz</em> containing
+samples <em>S1</em>, <em>S2</em> and <em>S3</em> and file <em>B.vcf.gz</em> containing samples <em>S3</em> and
+<em>S4</em>, the output file will contain four samples named <em>S1</em>, <em>S2</em>, <em>S3</em>, <em>2:S3</em>
+and <em>S4</em>.</p>
+</div>
+<div class="paragraph">
+<p>Note that it is responsibility of the user to ensure that the sample names are
+unique across all files. If they are not, the program will exit with an error
+unless the option <strong>--force-samples</strong> is given.  The sample names can be
+also given explicitly using the <strong>--print-header</strong> and <strong>--use-header</strong> options.</p>
+</div>
+<div class="paragraph">
+<p>Note that only records from different files can be merged, never from the same file.
+For "vertical" merge take a look at <strong><a href="#norm">bcftools norm</a></strong> instead.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>--force-samples</strong></dt>
+<dd>
+<p>if the merged files contain duplicate samples names, proceed anyway.
+Duplicate sample names will be resolved by prepending index of the file
+as it appeared on the command line to the conflicting sample name (see
+<em>2:S3</em> in the above example).</p>
+</dd>
+<dt class="hdlist1"><strong>--print-header</strong></dt>
+<dd>
+<p>print only merged header and exit</p>
+</dd>
+<dt class="hdlist1"><strong>--use-header</strong> <em>FILE</em></dt>
+<dd>
+<p>use the VCF header in the provided text <em>FILE</em></p>
+</dd>
+<dt class="hdlist1"><strong>-f, --apply-filters</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-i, --info-rules</strong> <em>-</em>|<em>TAG:METHOD</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>Rules for merging INFO fields (scalars or vectors) or <em>-</em> to disable the
+default rules.  <em>METHOD</em> is one of <em>sum</em>, <em>avg</em>, <em>min</em>, <em>max</em>, <em>join</em>.</p>
+</dd>
+<dt class="hdlist1"><strong>-l, --file-list</strong> <em>FILE</em></dt>
+<dd>
+<p>read file names from <em>FILE</em></p>
+</dd>
+<dt class="hdlist1"><strong>-m, --merge</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>none</em>|<em>id</em></dt>
+<dd>
+<p>The option controls what types of multiallelic records can be created:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>-m none   ..  no new multiallelics, output multiple records instead
+-m snps   ..  allow multiallelic SNP records
+-m indels ..  allow multiallelic indel records
+-m both   ..  both SNP and indel records can be multiallelic
+-m all    ..  SNP records can be merged with indel records
+-m id     ..  merge by ID</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="norm">bcftools norm [<em>OPTIONS</em>] <em>file.vcf.gz</em></h3>
+<div class="paragraph">
+<p>Left-align and normalize indels,  check if REF alleles match the reference,
+split multiallelic sites into multiple rows; recover multiallelics from
+multiple rows.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c, --check-ref</strong> <em>e</em>|<em>w</em>|<em>x</em>|<em>s</em></dt>
+<dd>
+<p>what to do when incorrect or missing REF allele is encountered:
+exit (<em>e</em>), warn (<em>w</em>), exclude (<em>x</em>), or set/fix (<em>s</em>) bad sites.
+The <em>w</em> option can be combined with <em>x</em> and <em>s</em>. Note that <em>s</em>
+can swap alleles and will update genotypes (GT) and AC counts,
+but will not attempt to fix PL or other fields.</p>
+</dd>
+<dt class="hdlist1"><strong>-D, --remove-duplicates</strong></dt>
+<dd>
+<p>remove duplicate lines of the same type</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --fasta-ref</strong> <em>FILE</em></dt>
+<dd>
+<p>reference sequence</p>
+</dd>
+<dt class="hdlist1"><strong>-m, --multiallelics</strong> &#8592;|+&gt;[<em>snps</em>|<em>indels</em>|<em>both</em>|<em>any</em>]</dt>
+<dd>
+<p>split multiallelic sites into biallelic records (<em>-</em>) or join
+biallelic sites into multiallelic records (<em>+</em>). An optional type string
+can follow which controls variant types which should be split or merged
+together: If only SNP records should be split or merged, specify <em>snps</em>; if
+both SNPs and indels should be merged separately into two records, specify
+<em>both</em>; if SNPs and indels should be merged into a single record, specify
+<em>any</em>.</p>
+</dd>
+<dt class="hdlist1"><strong>-N, --do-not-normalize</strong></dt>
+<dd>
+<p>the <em>-c s</em> option can be used to fix or set the REF allele from the
+reference <em>-f</em>. The <em>-N</em> option will not turn on indel normalisation
+as the <em>-f</em> option normally implies</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --strict-filter</strong></dt>
+<dd>
+<p>when merging (<em>-m+</em>), merged site is PASS only if all sites being merged PASS</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-w, --site-win</strong> <em>INT</em></dt>
+<dd>
+<p>maximum distance between two records to consider when locally
+sorting variants which changed position during the realignment</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="plugin">bcftools plugin <em>NAME</em> <em>[OPTIONS]</em> <em>FILE</em>&#8201;&#8212;&#8201;<em>[PLUGIN OPTIONS]</em></h3>
+<div class="sect3">
+<h4 id="_vcf_input_options_2">VCF input options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_vcf_output_options_2">VCF output options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_plugin_options">Plugin options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-h, --help</strong></dt>
+<dd>
+<p>list plugin&#8217;s options</p>
+</dd>
+<dt class="hdlist1"><strong>-l, --list-plugins</strong></dt>
+<dd>
+<p>List all available plugins.</p>
+<div class="paragraph">
+<p>By default, appropriate system directories are searched for installed plugins.
+    You can override this by setting the BCFTOOLS_PLUGINS environment variable
+    to a colon-separated list of directories to search.
+    If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains
+    adjacent colons, the system directories are also searched at that position
+    in the list of directories.</p>
+</div>
+<div class="paragraph">
+<p>If htslib is not installed systemwide, set the environment variable
+    LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include the
+    directory where <strong>libhts.so.1</strong> is located.</p>
+</div>
+</dd>
+<dt class="hdlist1"><strong>-v, --verbose</strong></dt>
+<dd>
+<p>print debugging information to debug plugin failure</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_list_of_plugins_coming_with_the_distribution">List of plugins coming with the distribution:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>counts</strong></dt>
+<dd>
+<p>a minimal plugin which counts number of SNPs, Indels, and total number of sites.</p>
+</dd>
+<dt class="hdlist1"><strong>dosage</strong></dt>
+<dd>
+<p>print genotype dosage. By default the plugin searches for PL, GL and GT, in
+that order.</p>
+</dd>
+<dt class="hdlist1"><strong>fill-AN-AC</strong></dt>
+<dd>
+<p>fill INFO fields AN and AC.</p>
+</dd>
+<dt class="hdlist1"><strong>fix-ploidy</strong></dt>
+<dd>
+<p>sets correct ploidy</p>
+</dd>
+<dt class="hdlist1"><strong>frameshifts</strong></dt>
+<dd>
+<p>annotate frameshift indels</p>
+</dd>
+<dt class="hdlist1"><strong>missing2ref</strong></dt>
+<dd>
+<p>sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")</p>
+</dd>
+<dt class="hdlist1"><strong>tag2tag</strong></dt>
+<dd>
+<p>Convert between similar tags, such as GL and GP.</p>
+</dd>
+<dt class="hdlist1"><strong>vcf2sex</strong></dt>
+<dd>
+<p>determine sample sex by checking genotypes in haploid regions</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_examples_2">Examples:</h4>
+<div class="listingblock">
+<div class="content">
+<pre># List options common to all plugins
+bcftools plugin
+
+# List available plugins
+bcftools plugin -l
+
+# One can run plugins in several ways
+bcftools plugin counts in.vcf
+bcftools +counts in.vcf
+cat in.vcf | bcftools +counts
+
+# Print usage information of plugin "dosage"
+bcftools +dosage -h
+
+# Replace missing genotypes with 0/0
+bcftools +missing2ref in.vcf
+
+# Replace missing genotypes with 0|0
+bcftools +missing2ref in.vcf -- -p</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_plugins_troubleshooting">Plugins troubleshooting:</h4>
+<div class="paragraph">
+<p>Things to check if your plugin does not show up in the <strong>bcftools plugin -l</strong> output:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Run with the <strong>-v</strong> option for verbose output: <strong>bcftools plugin -lv</strong></p>
+</li>
+<li>
+<p>Does the environment variable BCFTOOLS_PLUGINS include the correct path?</p>
+</li>
+<li>
+<p>Are all shared libraries, namely libhts.so, accessible? Verify with</p>
+<div class="ulist">
+<ul>
+<li>
+<p>on Mac OS X: <strong>otool -L your/plugin.so</strong> and set DYLD_LIBRARY_PATH if they are not</p>
+</li>
+<li>
+<p>on Linux: <strong>ldd your/plugin.so</strong> and set LD_LIBRARY_PATH if they are not</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or
+DYLD_LIBRARY_PATH (mac) to include directory where <strong>libhts.so</strong> is located.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_plugins_api">Plugins API:</h4>
+<div class="listingblock">
+<div class="content">
+<pre>// Short description used by 'bcftools plugin -l'
+const char *about(void);
+
+// Longer description used by 'bcftools +name -h'
+const char *usage(void);
+
+// Called once at startup, allows to initialize local variables.
+// Return 1 to suppress normal VCF/BCF header output, -1 on critical
+// errors, 0 otherwise.
+int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr);
+
+// Called for each VCF record, return NULL to suppress the output
+bcf1_t *process(bcf1_t *rec);
+
+// Called after all lines have been processed to clean up
+void destroy(void);</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="query">bcftools query [<em>OPTIONS</em>] <em>file.vcf.gz</em> [<em>file.vcf.gz</em> [&#8230;&#8203;]]</h3>
+<div class="paragraph">
+<p>Extracts fields from VCF or BCF files and outputs them in user-defined format.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --format</strong> <em>FORMAT</em></dt>
+<dd>
+<p>learn by example, see below</p>
+</dd>
+<dt class="hdlist1"><strong>-H, --print-header</strong></dt>
+<dd>
+<p>print header</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-l, --list-samples</strong></dt>
+<dd>
+<p>list sample names and exit</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-u, --allow-undef-tags</strong></dt>
+<dd>
+<p>do not throw an error if there are undefined tags in the format string,
+print "." instead</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --vcf-list</strong> <em>FILE</em></dt>
+<dd>
+<p>process multiple VCFs listed in the file</p>
+</dd>
+</dl>
+</div>
+<div class="sect3">
+<h4 id="_format">Format:</h4>
+<div class="literalblock">
+<div class="content">
+<pre>%CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
+%INFO/TAG       Any tag in the INFO column
+%TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)
+%MASK           Indicates presence of the site in other files (with multiple files)
+%TAG{INT}       Curly brackets to subscript vectors (0-based)
+%FIRST_ALT      Alias for %ALT{0}
+[]              The brackets loop over all samples
+%GT             Genotype (e.g. 0/1)
+%TGT            Translated genotype (e.g. C/A)
+%IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
+%LINE           Prints the whole line
+%SAMPLE         Sample name</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_examples_3">Examples:</h4>
+<div class="literalblock">
+<div class="content">
+<pre>bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="reheader">bcftools reheader [<em>OPTIONS</em>] <em>file.vcf.gz</em></h3>
+<div class="paragraph">
+<p>Modify header of VCF/BCF files, change sample names.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-h, --header</strong> <em>FILE</em></dt>
+<dd>
+<p>new VCF header</p>
+</dd>
+<dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>FILE</em></dt>
+<dd>
+<p>new sample names, one name per line, in the same order as they appear
+in the VCF file. Alternatively, only samples which need to be renamed
+can be listed as "old_name new_name\n" pairs separated by
+whitespaces, each on separate line.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="roh">bcftools roh [<em>OPTIONS</em>] <em>file.vcf.gz</em></h3>
+<div class="paragraph">
+<p>A program for detecting runs of homo/autozygosity. Only bi-allelic sites
+are considered.</p>
+</div>
+<div class="sect3">
+<h4 id="_the_hmm_model">The HMM model:</h4>
+<div class="listingblock">
+<div class="content">
+<pre>Notation:
+  D  = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity),
+  f  = non-ref allele frequency
+
+Emission probabilities:
+  oAZ = P_i(D|AZ) = (1-f)*P(D|RR) + f*P(D|AA)
+  oHW = P_i(D|HW) = (1-f)^2 * P(D|RR) + f^2 * P(D|AA) + 2*f*(1-f)*P(D|RA)
+
+Transition probabilities:
+  tAZ = P(AZ|HW)  .. from HW to AZ, the -a parameter
+  tHW = P(HW|AZ)  .. from AZ to HW, the -H parameter
+
+  ci  = P_i(C)  .. probability of cross-over at site i, from genetic map
+  AZi = P_i(AZ) .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
+  HWi = P_i(HW)
+
+  P_{i+1}(AZ) = oAZ * max[(1 - tAZ * ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
+  P_{i+1}(HW) = oHW * max[(1 - tHW * ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_general_options">General Options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>--AF-dflt</strong> <em>FLOAT</em></dt>
+<dd>
+<p>in case allele frequency is not known, use the <em>FLOAT</em>. By default, sites where
+allele frequency cannot be determined, or is 0, are skipped.</p>
+</dd>
+<dt class="hdlist1"><strong>--AF-tag</strong> <em>TAG</em></dt>
+<dd>
+<p>use the specified INFO tag <em>TAG</em> as an allele frequency estimate
+instead of the defaul AC and AN tags. Sites which do not have <em>TAG</em>
+will be skipped.</p>
+</dd>
+<dt class="hdlist1"><strong>--AF-file</strong> <em>FILE</em></dt>
+<dd>
+<p>Read allele frequencies from a tab-delimited file containing
+the columns: CHROM\tPOS\tREF,ALT\tAF. The file can be compressed with
+<strong>bgzip</strong> and indexed with tabix -s1 -b2 -e2.  Sites which are not present in
+the <em>FILE</em> or have different reference or alternate allele will be skipped.
+Note that such a file can be easily created from a VCF using:</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\t%INFO/TAG\n' file.vcf | bgzip -c &gt; freqs.tab.gz</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-e, --estimate-AF</strong> <em>FILE</em></dt>
+<dd>
+<p>recalculate INFO/AC and INFO/AN on the fly, using either all samples
+("-") or samples listed in <em>FILE</em>. By default, allele frequency is
+estimated from AC and AN counts which are already present in the INFO
+field.</p>
+</dd>
+<dt class="hdlist1"><strong>-G, --GTs-only</strong> <em>FLOAT</em></dt>
+<dd>
+<p>use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
+setting PL of unseen genotypes to <em>FLOAT</em>. Safe value to use is 30 to
+account for GT errors.</p>
+</dd>
+<dt class="hdlist1"><strong>-I, --skip-indels</strong></dt>
+<dd>
+<p>skip indels as their genotypes are usually enriched for errors</p>
+</dd>
+<dt class="hdlist1"><strong>-m, --genetic-map</strong> <em>FILE</em></dt>
+<dd>
+<p>genetic map in the format required also by IMPUTE2. Only the first and
+third column are used (position and Genetic_Map(cM)). The <em>FILE</em> can
+be a single file or a file mask, where string "{CHROM}" is replaced with
+chromosome name.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --sample</strong> <em>name</em></dt>
+<dd>
+<p>the name of sample to analyze</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_hmm_options">HMM Options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a, --hw-to-az</strong> <em>FLOAT</em></dt>
+<dd>
+<p>P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy-Weinberg) state</p>
+</dd>
+<dt class="hdlist1"><strong>-H, --az-to-hw</strong> <em>FLOAT</em></dt>
+<dd>
+<p>P(HW|AZ) transition probability from HW to AZ state</p>
+</dd>
+<dt class="hdlist1"><strong>-V, --viterbi-training</strong></dt>
+<dd>
+<p>perform Viterbi training to estimate transition probabilities</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="stats">bcftools stats [<em>OPTIONS</em>] <em>A.vcf.gz</em> [<em>B.vcf.gz</em>]</h3>
+<div class="paragraph">
+<p>Parses VCF or BCF and produces text file stats which is suitable for machine
+processing and can be plotted using <strong><a href="#plot-vcfstats">plot-vcfstats</a></strong>.  When two files are given,
+the program generates separate stats for intersection and the complements. By
+default only sites are compared, <strong>-s</strong>/<strong>-S</strong> must given to include also sample
+columns.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-1, --1st-allele-only</strong></dt>
+<dd>
+<p>consider only 1st allele at multiallelic sites</p>
+</dd>
+<dt class="hdlist1"><strong>-c, --collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-d, --depth</strong> <em>INT</em>,<em>INT</em>,<em>INT</em></dt>
+<dd>
+<p>ranges of depth distribution: min, max, and size of the bin</p>
+</dd>
+<dt class="hdlist1"><strong>--debug</strong></dt>
+<dd>
+<p>produce verbose per-site and per-sample output</p>
+</dd>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-E, --exons</strong> <em>file.gz</em></dt>
+<dd>
+<p>tab-delimited file with exons for indel frameshifts statistics. The columns
+of the file are CHR, FROM, TO, with 1-based, inclusive, positions. The file
+is BGZF-compressed and indexed with tabix</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    tabix -s1 -b2 -e3 file.gz</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-f, --apply-filters</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-F, --fasta-ref</strong> <em>ref.fa</em></dt>
+<dd>
+<p>faidx indexed reference sequence file to determine INDEL context</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-I, --split-by-ID</strong></dt>
+<dd>
+<p>collect stats separately for sites which have the ID column set ("known
+sites") or which do not have the ID column set ("novel sites").</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="view">bcftools view [<em>OPTIONS</em>] <em>file.vcf.gz</em> [<em>REGION</em> [&#8230;&#8203;]]</h3>
+<div class="paragraph">
+<p>View, subset and filter VCF or BCF files by position and filtering expression.
+Convert between VCF and BCF. Former <strong>bcftools subset</strong>.</p>
+</div>
+<div class="sect3">
+<h4 id="_output_options">Output options</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-G, --drop-genotypes</strong></dt>
+<dd>
+<p>drop individual genotype information (after subsetting if <strong>-s</strong> option is set)</p>
+</dd>
+<dt class="hdlist1"><strong>-h, --header-only</strong></dt>
+<dd>
+<p>output the VCF header only</p>
+</dd>
+<dt class="hdlist1"><strong>-H, --no-header</strong></dt>
+<dd>
+<p>suppress the header in VCF output</p>
+</dd>
+<dt class="hdlist1"><strong>-l, --compression-level</strong> [<em>0-9</em>]</dt>
+<dd>
+<p>compression level. 0 stands for uncompressed, 1 for best speed and 9 for
+best compression.</p>
+</dd>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-o, --output-file</strong> <em>FILE</em>:
+    output file name. If not present, the default is to print to standard output (stdout).</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_subset_options">Subset options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a, --trim-alt-alleles</strong></dt>
+<dd>
+<p>trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT fields will also be trimmed</p>
+</dd>
+<dt class="hdlist1"><strong>-I, --no-update</strong></dt>
+<dd>
+<p>do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_filter_options">Filter options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c, --min-ac</strong> <em>INT</em>[<em>:nref</em>|<em>:alt1</em>|<em>:minor</em>|<em>:major</em>|:'nonmajor']</dt>
+<dd>
+<p>minimum allele count (INFO/AC) of sites to be printed.
+Specifying the type of allele is optional and can be set to
+non-reference (<em>nref</em>, the default), 1st alternate  (<em>alt1</em>), the least
+frequent (<em>minor</em>), the most frequent (<em>major</em>) or sum of all but the
+most frequent (<em>nonmajor</em>) alleles.</p>
+</dd>
+<dt class="hdlist1"><strong>-C, --max-ac</strong> <em>INT</em>[<em>:nref</em>|<em>:alt1</em>|<em>:minor</em>|:'major'|:'nonmajor']</dt>
+<dd>
+<p>maximum allele count (INFO/AC) of sites to be printed.
+Specifying the type of allele is optional and can be set to
+non-reference (<em>nref</em>, the default), 1st alternate  (<em>alt1</em>), the least
+frequent (<em>minor</em>), the most frequent (<em>major</em>) or sum of all but the
+most frequent (<em>nonmajor</em>) alleles.</p>
+</dd>
+<dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-f, --apply-filters</strong> <em>LIST</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>-g, --genotype</strong> [&#94;][<em>hom</em>|<em>het</em>|<em>miss</em>]</dt>
+<dd>
+<p>include only sites with one or more homozygous (<em>hom</em>), heterozygous
+(<em>het</em>) or missing (<em>miss</em>) genotypes. When prefixed with <em>&#94;</em>, the logic
+is reversed; thus <em>&#94;het</em> excludes sites with heterozygous genotypes.</p>
+</dd>
+<dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
+<dd>
+<p>include sites for which <em>EXPRESSION</em> is true. For valid expressions see
+<strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-k, --known</strong></dt>
+<dd>
+<p>print known sites only (ID column is not ".")</p>
+</dd>
+<dt class="hdlist1"><strong>-m, --min-alleles</strong> <em>INT</em></dt>
+<dd>
+<p>print sites with at least <em>INT</em> alleles listed in REF and ALT columns</p>
+</dd>
+<dt class="hdlist1"><strong>-M, --max-alleles</strong> <em>INT</em></dt>
+<dd>
+<p>print sites with at most <em>INT</em> alleles listed in REF and ALT columns. Use <strong>-m2 -M2 -v snps</strong> to only view biallelic SNPs.</p>
+</dd>
+<dt class="hdlist1"><strong>-n, --novel</strong></dt>
+<dd>
+<p>print novel sites only (ID column is ".")</p>
+</dd>
+<dt class="hdlist1"><strong>-p, --phased</strong></dt>
+<dd>
+<p>print sites where all samples are phased. Haploid genotypes are
+considered phased. Missing genotypes considered unphased unless the
+phased bit is set.</p>
+</dd>
+<dt class="hdlist1"><strong>-P, --exclude-phased</strong></dt>
+<dd>
+<p>exclude sites where all samples are phased</p>
+</dd>
+<dt class="hdlist1"><strong>-q, --min-af</strong> <em>FLOAT</em>[<em>:nref</em>|<em>:alt1</em>|<em>:minor</em>|<em>:major</em>|<em>:nonmajor</em>]</dt>
+<dd>
+<p>minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
+Specifying the type of allele is optional and can be set to
+non-reference (<em>nref</em>, the default), 1st alternate  (<em>alt1</em>), the least
+frequent (<em>minor</em>), the most frequent (<em>major</em>) or sum of all but the
+most frequent (<em>nonmajor</em>) alleles.</p>
+</dd>
+<dt class="hdlist1"><strong>-Q, --max-af</strong> <em>FLOAT</em>[<em>:nref</em>|<em>:alt1</em>|<em>:minor</em>|<em>:major</em>|<em>:nonmajor</em>]</dt>
+<dd>
+<p>maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
+Specifying the type of allele is optional and can be set to
+non-reference (<em>nref</em>, the default), 1st alternate  (<em>alt1</em>), the least
+frequent (<em>minor</em>), the most frequent (<em>major</em>) or sum of all but the
+most frequent (<em>nonmajor</em>) alleles.</p>
+</dd>
+<dt class="hdlist1"><strong>-u, --uncalled</strong></dt>
+<dd>
+<p>print sites without a called genotype</p>
+</dd>
+<dt class="hdlist1"><strong>-U, --exclude-uncalled</strong></dt>
+<dd>
+<p>exclude sites without a called genotype</p>
+</dd>
+<dt class="hdlist1"><strong>-v, --types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>other</em></dt>
+<dd>
+<p>comma-separated list of variant types to select. Site is selected if
+any of the ALT alleles is of the type requested. Types are determined
+by comparing the REF and ALT alleles in the VCF record not INFO tags
+like INFO/INDEL or INFO/VT. Use <strong>--include</strong> to select based on INFO
+tags.</p>
+</dd>
+<dt class="hdlist1"><strong>-V, --exclude-types</strong> <em>snps</em>|<em>indels</em>|<em>mnps</em>|<em>other</em></dt>
+<dd>
+<p>comma-separated list of variant types to exclude. Site is excluded if
+any of the ALT alleles is of the type requested. Types are determined
+by comparing the REF and ALT alleles in the VCF record not INFO tags
+like INFO/INDEL or INFO/VT. Use <strong>--exclude</strong> to exclude based on INFO tags.</p>
+</dd>
+<dt class="hdlist1"><strong>-x, --private</strong></dt>
+<dd>
+<p>print sites where only the subset samples carry an non-reference allele.
+Requires <strong>--samples</strong> or <strong>--samples-file</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-X, --exclude-private</strong></dt>
+<dd>
+<p>exclude sites where only the subset samples carry an non-reference allele</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="help">bcftools help [<em>COMMAND</em>] | bcftools --help [<em>COMMAND</em>]</h3>
+<div class="paragraph">
+<p>Display  a  brief usage message listing the bcftools commands available.  If the name of a command is also given, e.g., bcftools help view, the detailed usage message for that particular command is displayed.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="version">bcftools [<em>--version</em>|<em>-v</em>]</h3>
+<div class="paragraph">
+<p>Display the version numbers and copyright information for bcftools and the important libraries used by bcftools.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="version-only">bcftools [<em>--version-only</em>]</h3>
+<div class="paragraph">
+<p>Display the full bcftools version number in a machine-readable format.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="expressions">EXPRESSIONS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>These filtering expressions are accepted by <strong><a href="#annotate">annotate</a></strong>,
+<strong><a href="#filter">filter</a></strong>, <strong><a href="#query">query</a></strong> and <strong><a href="#view">view</a></strong> commands.</p>
+</div>
+<div class="ulist">
+<div class="title">Valid expressions may contain:</div>
+<ul>
+<li>
+<p>numerical constants, string constants, file names</p>
+<div class="literalblock">
+<div class="content">
+<pre>1, 1.0, 1e-4
+"String"
+@file_name</pre>
+</div>
+</div>
+</li>
+<li>
+<p>arithmetic operators</p>
+<div class="literalblock">
+<div class="content">
+<pre>+,*,-,/</pre>
+</div>
+</div>
+</li>
+<li>
+<p>comparison operators</p>
+<div class="literalblock">
+<div class="content">
+<pre>== (same as =), &gt;, &gt;=, &lt;=, &lt;, !=</pre>
+</div>
+</div>
+</li>
+<li>
+<p>regex operators "\~" and its negation "!~"</p>
+<div class="literalblock">
+<div class="content">
+<pre>INFO/HAYSTACK ~ "needle"</pre>
+</div>
+</div>
+</li>
+<li>
+<p>parentheses</p>
+<div class="literalblock">
+<div class="content">
+<pre>(, )</pre>
+</div>
+</div>
+</li>
+<li>
+<p>logical operators</p>
+<div class="literalblock">
+<div class="content">
+<pre>&amp;&amp; (same as &amp;), ||,  |</pre>
+</div>
+</div>
+</li>
+<li>
+<p>INFO tags, FORMAT tags, column names</p>
+<div class="literalblock">
+<div class="content">
+<pre>INFO/DP or DP
+FORMAT/DV, FMT/DV, or DV
+FILTER, QUAL, ID, REF, ALT[0]</pre>
+</div>
+</div>
+</li>
+<li>
+<p>1 (or 0) to test the presence (or absence) of a flag</p>
+<div class="literalblock">
+<div class="content">
+<pre>FlagA=1 &amp;&amp; FlagB=0</pre>
+</div>
+</div>
+</li>
+<li>
+<p>"." to test missing values</p>
+<div class="literalblock">
+<div class="content">
+<pre>DP=".", DP!=".", ALT="."</pre>
+</div>
+</div>
+</li>
+<li>
+<p>missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".")
+using this expression</p>
+<div class="literalblock">
+<div class="content">
+<pre>GT="."</pre>
+</div>
+</div>
+</li>
+<li>
+<p>TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)</p>
+<div class="literalblock">
+<div class="content">
+<pre>TYPE="indel" | TYPE="snp"</pre>
+</div>
+</div>
+</li>
+<li>
+<p>array subscripts, "*" for any field</p>
+<div class="literalblock">
+<div class="content">
+<pre>(DP4[0]+DP4[1])/(DP4[2]+DP4[3]) &gt; 0.3
+DP4[*] == 0
+CSQ[*] ~ "missense_variant.*deleterious"</pre>
+</div>
+</div>
+</li>
+<li>
+<p>function on FORMAT tags (over samples) and INFO tags (over vector fields)</p>
+<div class="literalblock">
+<div class="content">
+<pre>MAX, MIN, AVG, SUM, STRLEN, ABS</pre>
+</div>
+</div>
+</li>
+<li>
+<p>variables calculated on the fly if not present: number of alternate alleles;
+number of samples; count of alternate alleles; minor allele count (similar to
+AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
+frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes</p>
+<div class="literalblock">
+<div class="content">
+<pre>N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN</pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Notes:</div>
+<ul>
+<li>
+<p>String comparisons and regular expressions are case-insensitive</p>
+</li>
+<li>
+<p>If the subscript "*" is used in regular expression search, the
+whole field is treated as one string. For example, the regex STR[*]~"B,C" will be
+true for the string vector INFO/STR=AB,CD.</p>
+</li>
+<li>
+<p>Variables and function names are case-insensitive, but not tag names. For example,
+"qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
+not "dp" instead of "DP".</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><strong>Examples:</strong></p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>MIN(DV)&gt;5</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>MIN(DV/DP)&gt;0.3</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>MIN(DP)&gt;10 &amp; MIN(DV)&gt;3</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>QUAL&gt;10 |  FMT/GQ&gt;10   .. selects only GQ&gt;10 samples</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>QUAL&gt;10 || FMT/GQ&gt;10   .. selects all samples at QUAL&gt;10 sites</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>TYPE="snp" &amp;&amp; QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>MIN(DP)&gt;35 &amp;&amp; AVG(GQ)&gt;50</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>ID=@file       .. selects lines with ID present in the file</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>ID!=@~/file    .. skip lines with ID present in the ~/file</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>MAF[0]&lt;0.05    .. select rare variants at 5% cutoff</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Shell expansion:</strong></p>
+</div>
+<div class="paragraph">
+<p>Note that expressions must often be quoted because some characters
+have special meaning in the shell.
+An example of expression enclosed in single quotes which cause
+that the whole expression is passed to the program as intended:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Please refer to the documentation of your shell for details.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_scripts_and_options">SCRIPTS AND OPTIONS</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="plot-vcfstats">plot-vcfstats [<em>OPTIONS</em>] <em>file.vchk</em> [&#8230;&#8203;]</h3>
+<div class="paragraph">
+<p>Script for processing output of <strong><a href="#stats">bcftools stats</a></strong>. It can merge
+results from multiple outputs (useful when running the stats for each
+chromosome separately), plots graphs and creates a PDF presentation.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-m, --merge</strong></dt>
+<dd>
+<p>Merge vcfstats files to STDOUT, skip plotting.</p>
+</dd>
+<dt class="hdlist1"><strong>-p, --prefix</strong> <em>PATH</em></dt>
+<dd>
+<p>The output files prefix, add a slash to create new directory.</p>
+</dd>
+<dt class="hdlist1"><strong>-P, --no-PDF</strong></dt>
+<dd>
+<p>Skip the PDF creation step.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, --rasterize</strong></dt>
+<dd>
+<p>Rasterize PDF images for faster rendering.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --sample-names</strong></dt>
+<dd>
+<p>Use sample names for xticks rather than numeric IDs.</p>
+</dd>
+<dt class="hdlist1"><strong>-t, --title</strong> <em>STRING</em></dt>
+<dd>
+<p>Identify files by these titles in plots. The option can be given multiple
+times, for each ID in the <strong><a href="#stats">bcftools stats</a></strong> output. If not
+present, the script will use abbreviated source file names for the titles.</p>
+</dd>
+<dt class="hdlist1"><strong>-T, --main-title</strong> <em>STRING</em></dt>
+<dd>
+<p>Main title for the PDF.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_performance">PERFORMANCE</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+are internally converted into BCF representation. Simple operations, like removing
+a single column from a VCF file, can be therefore done much faster with standard
+UNIX commands, such as <strong>awk</strong> or <strong>cut</strong>.
+Therefore it is recommended to use BCF as input/output format whenever possible to avoid
+large overhead of the VCF &#8594; BCF &#8594; VCF conversion.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_bugs">BUGS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Please report any bugs you encounter on the github website: <a href="http://github.com/samtools/bcftools" class="bare">http://github.com/samtools/bcftools</a></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_authors">AUTHORS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Heng Li from the Sanger Institute wrote the original C version of htslib,
+samtools and bcftools. Bob Handsaker from the Broad Institute implemented the
+BGZF library. Petr Danecek, Shane McCarthy and John Marshall are  maintaining
+and further developing bcftools.  Many other people contributed to the program
+and to the file format specifications, both directly and indirectly by
+providing patches, testing and reporting bugs. We thank them all.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_resources">RESOURCES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BCFtools GitHub website: <a href="http://github.com/samtools/bcftools" class="bare">http://github.com/samtools/bcftools</a></p>
+</div>
+<div class="paragraph">
+<p>Samtools GitHub website: <a href="http://github.com/samtools/samtools" class="bare">http://github.com/samtools/samtools</a></p>
+</div>
+<div class="paragraph">
+<p>HTSlib GitHub website: <a href="http://github.com/samtools/htslib" class="bare">http://github.com/samtools/htslib</a></p>
+</div>
+<div class="paragraph">
+<p>File format specifications: <a href="http://samtools.github.io/hts-specs" class="bare">http://samtools.github.io/hts-specs</a></p>
+</div>
+<div class="paragraph">
+<p>BCFtools documentation: <a href="http://samtools.github.io/bcftools" class="bare">http://samtools.github.io/bcftools</a></p>
+</div>
+<div class="paragraph">
+<p>BCFtools wiki page: <a href="https://github.com/samtools/bcftools/wiki" class="bare">https://github.com/samtools/bcftools/wiki</a></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_copying">COPYING</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The MIT/Expat License or GPL License, see the LICENSE document for details.
+Copyright (c) Genome Research Ltd.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+Last updated 2015-09-25 09:38:55 BST
+</div>
+</div>
+</body>
+</html>

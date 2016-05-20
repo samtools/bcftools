@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Detecting runs of homozygosity (RoH)</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_detecting_runs_of_homozygosity_roh">Detecting runs of homozygosity (RoH)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The BCFtools/RoH command detects regions of autozygosity in sequencing data, including
+exome data, using a hidden Markov model.</p>
+</div>
+<div class="sect2">
+<h3 id="_preparing_input_data">Preparing input data</h3>
+<div class="paragraph">
+<p>The <code>roh</code> command takes on input VCF with FORMAT columns containing either
+genotype likelihoods (PL) or genotypes (GT). By default, genotype likelihoods
+are expected unless the <code>-G</code> option is provided.</p>
+</div>
+<div class="paragraph">
+<p>The second required information is the estimate of the alternate allele
+frequencies in the population for each site. There are two ways to obtain this
+information. One is to supply a VCF with many samples from the same population
+(preferably &gt;100 though often it works down to just 20 individuals or
+so). This allows the frequencies to be estimated from the samples provided.</p>
+</div>
+<div class="paragraph">
+<p>Otherwise, the allele frequency information for your specific population can be
+provided from other datasets, from a custom annotation (<code>--AF-tag</code>),
+tab-delimited file (<code>--AF-file</code>), or a fixed default can be provided
+(<code>--AF-dflt</code>).</p>
+</div>
+<div class="paragraph">
+<p>Finally, a genetic map with recombination hotspots can be provided. You can
+find a version provided by impute2 here:
+<a href="https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference" class="bare">https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference</a></p>
+</div>
+<div class="paragraph">
+<p>Note that the program considers only biallelic sites, sites with non-zero AF,
+and sites with non-missing PL/GT.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_usage">Usage</h3>
+<div class="paragraph">
+<p>In this example, the FORMAT/PL annotation is not present, so we go with FORMAT/GT,
+see the -G option.  Also, the VCF does not contain allele frequency information
+and there is just one sample so it cannot be estimated on the fly. Hence we use
+a default AF value 0.4.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools roh -G30 --AF-dflt 0.4 file.vcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Please check this <a href="roh-calling/usage-example.tgz">usage example</a> for details
+and some test data to experiment with.</p>
+</div>
+<div class="exampleblock">
+<div class="content">
+<a href="roh-calling/roh-example.png"><img src="roh-calling/roh-example.png" width="800px"></a>
+<div class="paragraph">
+<p>In this figure, the blue line shows heterozygosity plotted as dosage and the RoH estimate by bcftools/roh.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_troubleshooting">Troubleshooting</h3>
+<div class="paragraph">
+<p>If the results look unexpected, check how many sites have been ignored by the
+program, for example in this run many sites were filtered:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Number of lines: total/processed: 599218/37730</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the number of the processed sites is too low, check what was the reason for exluding
+them. This command should give the number of sites that were processed:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools view -i'type="SNP" &amp;&amp; AF&gt;0' -m2 -M2 -s Indiv1 -Ou file.vcf | bcftools +counts -i'GT!="./." &amp;&amp; GT!="."</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_references">References</h3>
+<div class="paragraph">
+<p>Please cite this paper if you find our software useful: <a href="http://www.ncbi.nlm.nih.gov/pubmed/26826718" class="bare">http://www.ncbi.nlm.nih.gov/pubmed/26826718</a></p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

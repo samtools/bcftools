@@ -1,0 +1,75 @@
+
+include::header.inc[]
+
+Installation
+------------
+
+=== For the impatient
+
+The latest source code can be downloaded from github using:
+
+----
+git clone git://github.com/samtools/htslib.git
+git clone git://github.com/samtools/bcftools.git
+cd bcftools; make 
+----
+
+Note that if also the ``polysomy`` command should be included, the
+compilation instructions differ, see <<gsl,Optional Compilation with GSL>> below.
+
+
+=== System Requirements
+
+BCFtools and HTSlib depend on the ``zlib`` library <http://zlib.net>.  Building
+them requires ``zlib`` development files to be installed on the build machine;
+you may need to ensure a package such as ``zlib1g-dev`` (on Debian or Ubuntu Linux)
+or ``zlib-devel`` (on RPM/yum-based distributions) is installed.
+
+
+=== Compilation
+
+``cd`` to the bcftools directory containing the package's source and type
+``make`` to compile BCFtools.
+
+If you already have a system-installed HTSlib or another HTSlib
+that you would prefer to build against, you can arrange this by overriding
+``$(HTSDIR)`` by typing ``make HTSDIR=/path/to/htslib-source`` -- see the Makefile
+for details.
+
+
+[[gsl]]
+=== Optional Compilation with GSL
+
+The ``polysomy`` command depends on the GNU Scientific Library (GSL) and is not
+enabled by default. In order to compile it, type 
+
+----
+make clean && make USE_GPL=1
+----
+
+Note that GSL is distributed under a GPL license, so when ``USE_GPL=1`` is used to
+compile bcftools, the resulting program must only be distributed under terms
+compatible with that license. 
+
+In the default compilation mode the program is dual licensed and you may
+choose to be licensed under the terms of the MIT/Expat license or the
+GNU General Public License (GPL).
+
+
+=== Installation
+
+Type ``make install`` to install the bcftools executable and associated scripts
+and a manual page to ``/usr/local``.
+
+Type ``make prefix=/path/to/dir install`` to install everything under your
+choice of installation directory.  The install target also understands
+``DESTDIR`` and the other usual installation directory variables.
+
+The bgzip and tabix utilities are provided by HTSlib.  If you have not also
+installed HTSlib separately, you may wish to install these utilities by hand
+by copying ``bcftools/htslib/{bgzip,tabix}`` to the same bin directory
+to which you have installed bcftools et al.
+
+
+include::footer.inc[]
+

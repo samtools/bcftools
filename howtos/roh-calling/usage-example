@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Author: petr.danecek@sanger
+#
+# About: This script gives an example of using bcftools/roh
+#  
+
+# The FORMAT/PL annotation is not present, we go with FORMAT/GT, 
+# see the -G option.  Also, the VCF does not contain allele 
+# frequency information and there is just one sample so it 
+# cannot be estimated on the fly. Hence we use a default value
+# of 0.4.
+
+bcftools roh test.vcf.gz -G30 --AF-dflt 0.4 > out.txt
+

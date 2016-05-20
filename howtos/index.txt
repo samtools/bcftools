@@ -1,0 +1,29 @@
+include::header.inc[]
+
+BCFtools HowTo
+--------------
+
+=== About this document
+
+Blah blah.  Please help us improve this documentation by either editing
+it and sending a pull request or by opening an issue on
+https://github.com/samtools/bcftools/issues[github].
+
+
+=== About BCFtools
+
+BCFtools is  a program for variant calling and manipulating files in the
+Variant Call Format (VCF) and its binary counterpart BCF. All commands work
+transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.
+In order to avoid tedious repetion, throughout this document we will use
+"VCF" and "BCF" interchangeably, unless specifically noted.
+
+Most commands accept VCF, bgzipped VCF and BCF with filetype detected
+automatically even when streaming from a pipe. Indexed VCF and BCF
+work in all situations. Unindexed VCF and BCF and streams
+work in most, but not all situations. In general, whenever multiple VCFs are
+read simultaneously, they must be indexed and therefore also compressed. 
+
+
+include::footer.inc[]
+

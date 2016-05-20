@@ -1,0 +1,75 @@
+include::header.inc[]
+
+
+Filtering
+---------
+
+Most BCFtools commands accept the `-i, --include` and `-e, --exclude` options
+which allow advanced filtering. In the examples below, we demonstrate the
+usage on the `query` command because it allows us to show the output in
+a very compact form using the `-f` formatting option. (For details about
+the format, see the link:query.html[Extracting information] page.)
+
+
+.**Simple example: filtering by fixed columns**
+Fixed columns such as QUAL, FILTER, INFO are straightforward to filter. In this example,
+we use the `-e 'FILTER="."'` expression to exclude sites where FILTER is not set:
+----
+$ bcftools query -e'FILTER="."' -f'%CHROM %POS %FILTER\n' file.bcf | head -2
+1 3000150 PASS
+1 3000151 LowQual
+----
+In this example, we use the `-i 'QUAL>20 && DP>10'` expression to include only sites with big enough quality and depth:
+----
+$ bcftools query -i'QUAL>20 && DP>10' -f'%CHROM %POS %QUAL %DP\n' file.bcf | head -2
+1 14930 31.2757 13
+1 17538 37.9458 12
+
+todo:
+vcf=/lustre/scratch116/vr/projects/hipsci/cnv/exome-validation/mpileup/ffdm#ffdm_3.bcf
+$bt query $vcf -i'QUAL="."' -f' %CHROM %POS %QUAL\n' | head -2
+Comparing string to numeric value: QUAL="."
+----
+
+
+.**FORMAT columns**
+When filtering FORMAT tags, the OR logic is applied with multiple
+samples. For example, if we want to remove sites with an uncalled
+genotype in any sample, the expression `-i 'GT!="."'` is not going to work:
+----
+$ bcftools query -i'GT!="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
+1 30923  ./. 1/1
+1 54490  ./. 1/1
+----
+Instead, the reverse logic `-e 'GT ="."'` must be applied:
+----
+$ bcftools query -e'GT ="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
+1 69511  1/1 1/1
+1 71850  0/0 0/1
+----
+
+
+.**FORMAT columns and boolean expressions**
+Say our VCF contains the per-sample depth and genotype quality annotations
+and we want to include only sites where one or more samples have big enough coverage
+(`DP>10`) and genotype quality (`GQ>20`). The expression `-i 'FMT/DP>10 & FMT/GQ>20'` selects
+sites where the conditions are satisfied within the same sample:
+----
+$ bcftools query -i'FMT/DP>10 & FMT/GQ>20' -f'%POS[\t%SAMPLE:DP=%DP GQ=%GQ]\n' file.bcf
+49979   SampleA:DP=10 GQ=50     SampleB:DP=20 GQ=40
+----
+On the other hand, if we need to include sites where both conditions met but
+not necessarily in the same sample, we use the `&&` operator rather than `&`:
+----
+$ bcftools query -i'FMT/DP>10 && FMT/GQ>20' -f'%POS[\t%SAMPLE:DP=%DP GQ=%GQ]\n' file.bcf
+31771   SampleA:DP=10 GQ=50     SampleB:DP=40 GQ=20
+49979   SampleA:DP=10 GQ=50     SampleB:DP=20 GQ=40
+----
+
+
+.**Combining scalar and vector fields**
+The `filter -S.` example..
+
+include::footer.inc[]
+
+

@@ -1,0 +1,113 @@
+include::header.inc[]
+
+
+Variant calling
+---------------
+
+The variant calling command in its simplest form is
+
+----
+bcftools mpileup -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf
+----
+
+The first `mpileup` part generates genotype likelihoods at each genomic 
+position with coverage. The second `call` part makes the actual calls.
+The `-m` switch tells the program to use the default calling method, 
+the `-v` option asks to output only variant sites, finally the `-O` option
+selects the output format. In this example we chosen binary compressed BCF,
+which is the optimal starting format for further processing, such as filtering.
+
+
+
+=== Fine tuning
+
+However, there are a few more options one should know about.
+
+* Do not waste computer's time by making `mpileup` convert from the internal binary
+representation (BCF) to text (VCF), only to be immediately converted
+back to binary representation by `call`. Instead, use `-Ou` to work with
+uncompressed BCF output:
+
+----
+bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf
+----
+
+* The calling can be made more sensitive or restrictive by using a different prior.
+Stricter calls are obtained by using smaller value, more benevolent calls are
+obtained by using bigger value.  The default is `bcftools call -P 1.1e-3`.
+
+* Run in parallel..
+
+* Ploidy..
+
+
+
+=== Filtering variants
+
+Variant filtering is not easy. The variant callers provide a quality score
+(the QUAL) column, which gives an estimate of how likely it is to observe
+a call purely by chance. An easy way to filter low quality calls is
+
+----
+bcftools view -i '%QUAL>=20' calls.bcf
+----
+
+
+Unfortunately, the quality score does not include the effects of systematic biases.
+For example, if the sequenced genome had two copies of a region which appears
+only once in the reference genome, reads from both copies would end up aligned to
+the single reference copy. If one of the copies acquired a mutation, this would
+appear as a genuine high-quality SNP. One might argue whether the callers
+should or should not report such calls: on one hand, the call certainly
+highlights a difference between the genomes; the other hand, it certainly 
+is not a simple SNV. There are other types of artefacts one can observe in short
+reads and which we will not go into here, but the message is already clear: it is
+difficult to tell the variants and artefacts apart.
+
+
+The annotations produced by variant callers provide only indirect hints about
+which is which and an approach which worked for one dataset may not work for
+another. Nowadays most powerful seem machine learning approaches such as SVM
+(not implemented in `bcftools`), see an example of SVM filtering pipeline
+https://github.com/VertebrateResequencing/vr-codebase/blob/develop/scripts/run-filter[here].
+
+
+The least one can do is to apply a fixed-threshold filtering. One can get a feel
+for typical distributions of annotations from a set of known good calls vs all
+calls. If you don't already have a pipeline for this, use `bcftools query` to
+extract the annotations and plot manually, for example like this:
+
+----
+bcftools query -f '%MyAnnotation\n' calls.bcf | my-plotting-program
+----
+
+A good measure of the callset quality is often ts/tv, the ratio of 
+http://en.wikipedia.org/wiki/Transition_%28genetics%29[transitions and transversions].
+Try the following command with different quality thresholds. The stricter the calls,
+the bigger ts/tv value one should get:
+
+----
+bcftools filter -i'%QUAL>20' calls.vcf.gz | bcftools stats | grep TSTV
+----
+
+Other useful metrics are:
+
+* sequencing depth (DP bigger than twice the average depth indicates problematic regions and is often enriched for artefacts)
+* the minimum number of high-quality non-reference reads
+* proximity to indels (`bcftools filter -g`)
+* etc. 
+
+To give a concrete example, the following filter seemed to work quite well
+for one particular dataset (human data, exomes):
+
+----
+bcftools filter -sLowQual -g3 -G10 \
+    -e'%QUAL<10 || (RPB<0.1 && %QUAL<15) || (AC<2 && %QUAL<15) || %MAX(DV)<=3 || %MAX(DV)/%MAX(DP)<=0.3' \
+    calls.vcf.gz
+----
+
+
+
+include::footer.inc[]
+
+

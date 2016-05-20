@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Variant calling</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_variant_calling">Variant calling</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The variant calling command in its simplest form is</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools mpileup -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The first <code>mpileup</code> part generates genotype likelihoods at each genomic
+position with coverage. The second <code>call</code> part makes the actual calls.
+The <code>-m</code> switch tells the program to use the default calling method,
+the <code>-v</code> option asks to output only variant sites, finally the <code>-O</code> option
+selects the output format. In this example we chosen binary compressed BCF,
+which is the optimal starting format for further processing, such as filtering.</p>
+</div>
+<div class="sect2">
+<h3 id="_fine_tuning">Fine tuning</h3>
+<div class="paragraph">
+<p>However, there are a few more options one should know about.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Do not waste computer&#8217;s time by making <code>mpileup</code> convert from the internal binary
+representation (BCF) to text (VCF), only to be immediately converted
+back to binary representation by <code>call</code>. Instead, use <code>-Ou</code> to work with
+uncompressed BCF output:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The calling can be made more sensitive or restrictive by using a different prior.
+Stricter calls are obtained by using smaller value, more benevolent calls are
+obtained by using bigger value.  The default is <code>bcftools call -P 1.1e-3</code>.</p>
+</li>
+<li>
+<p>Run in parallel..</p>
+</li>
+<li>
+<p>Ploidy..</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_filtering_variants">Filtering variants</h3>
+<div class="paragraph">
+<p>Variant filtering is not easy. The variant callers provide a quality score
+(the QUAL) column, which gives an estimate of how likely it is to observe
+a call purely by chance. An easy way to filter low quality calls is</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools view -i '%QUAL&gt;=20' calls.bcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Unfortunately, the quality score does not include the effects of systematic biases.
+For example, if the sequenced genome had two copies of a region which appears
+only once in the reference genome, reads from both copies would end up aligned to
+the single reference copy. If one of the copies acquired a mutation, this would
+appear as a genuine high-quality SNP. One might argue whether the callers
+should or should not report such calls: on one hand, the call certainly
+highlights a difference between the genomes; the other hand, it certainly
+is not a simple SNV. There are other types of artefacts one can observe in short
+reads and which we will not go into here, but the message is already clear: it is
+difficult to tell the variants and artefacts apart.</p>
+</div>
+<div class="paragraph">
+<p>The annotations produced by variant callers provide only indirect hints about
+which is which and an approach which worked for one dataset may not work for
+another. Nowadays most powerful seem machine learning approaches such as SVM
+(not implemented in <code>bcftools</code>), see an example of SVM filtering pipeline
+<a href="https://github.com/VertebrateResequencing/vr-codebase/blob/develop/scripts/run-filter">here</a>.</p>
+</div>
+<div class="paragraph">
+<p>The least one can do is to apply a fixed-threshold filtering. One can get a feel
+for typical distributions of annotations from a set of known good calls vs all
+calls. If you don&#8217;t already have a pipeline for this, use <code>bcftools query</code> to
+extract the annotations and plot manually, for example like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools query -f '%MyAnnotation\n' calls.bcf | my-plotting-program</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A good measure of the callset quality is often ts/tv, the ratio of
+<a href="http://en.wikipedia.org/wiki/Transition_%28genetics%29">transitions and transversions</a>.
+Try the following command with different quality thresholds. The stricter the calls,
+the bigger ts/tv value one should get:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools filter -i'%QUAL&gt;20' calls.vcf.gz | bcftools stats | grep TSTV</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Other useful metrics are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>sequencing depth (DP bigger than twice the average depth indicates problematic regions and is often enriched for artefacts)</p>
+</li>
+<li>
+<p>the minimum number of high-quality non-reference reads</p>
+</li>
+<li>
+<p>proximity to indels (<code>bcftools filter -g</code>)</p>
+</li>
+<li>
+<p>etc.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To give a concrete example, the following filter seemed to work quite well
+for one particular dataset (human data, exomes):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools filter -sLowQual -g3 -G10 \
+    -e'%QUAL&lt;10 || (RPB&lt;0.1 &amp;&amp; %QUAL&lt;15) || (AC&lt;2 &amp;&amp; %QUAL&lt;15) || %MAX(DV)&lt;=3 || %MAX(DV)/%MAX(DP)&lt;=0.3' \
+    calls.vcf.gz</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

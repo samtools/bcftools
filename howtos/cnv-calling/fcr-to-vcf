@@ -1,0 +1,558 @@
+#!/usr/bin/env perl
+#
+# Author: petr.danecek@sanger
+#
+
+use strict;
+use warnings;
+use Carp;
+use FaSlice;
+
+my $opts = parse_params();
+if ( $$opts{create_map} )
+{
+    create_map_file($opts);
+}
+elsif ( $$opts{apply_map} )
+{
+    apply_map_file($opts);
+}
+else { error(); }
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print 
+        "About: A script for conversion from Illumina's CoreExome text output into VCF\n",
+        "Usage: human-core-exome.pl [OPTIONS]\n",
+        "Options:\n",
+        "   -a, --apply-map <file>          Map file to be applied on data file\n",
+        "   -b, --bcftools-exe <file>       Absolute path to the bcftools exe to use (defaults to 'bcftools')\n",
+        "   -c, --cut-assay-section         Simple preprocessing: cut out the relevant part of the manifest file\n",
+        "   -f, --ref-seq <file>            Reference sequence in fasta format\n",
+        "   -i, --manifest <file>           Illumina manifest file\n",
+        "   -k, --keep-missing              Do not discard calls with missing genotypes\n",
+        "   -m, --merge-vcfs                If multiple samples are present, merge into one VCF\n",
+        "   -M, --create-map-file           Create strand map\n",
+        "   -o, --output-prefix <path>      Output directory\n",
+        "   -s, --sample <src:dst,...>      Rename samples\n",
+        "   -h, -?, --help                  \n",
+        "\n",
+        "Examples:\n",
+        " --cut-assay-section: Simple preprocessing of the manifest file\n",
+        "   HumanCoreExome-12v1-0_A.csv | ./human-core-exome.pl -c | sort -t, -k10,10d -k11,11n | gzip -c > sorted.cvs.gz\n",
+        "\n",
+        " --create-map-file: \n",
+        "   zcat sorted.cvs.gz | ./human-core-exome.pl -M 2>map.tab.errs | bgzip -c > map.tab.gz\n",
+        "\n",
+        " --apply-map:\n",
+        "   cat coreex_hips_20140122.fcr.txt | ./human-core-exome.pl -a map.tab.gz -o outdir\n",
+        "\n";
+    exit -1;
+}
+
+
+sub parse_params
+{
+    my $opts = 
+    {
+        manifest => 'HumanCoreExome-12v1-0_A.sorted.cvs.gz',
+        refseq   => 'human_g1k_v37.fasta',
+        bcftools => 'bcftools',
+    };
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-o' || $arg eq '--output-dir' ) { $$opts{outdir} = shift(@ARGV); next; }
+        if ( $arg eq '-i' || $arg eq '--manifest' ) { $$opts{manifest} = shift(@ARGV); next; }
+        if ( $arg eq '-f' || $arg eq '--ref-seq' ) { $$opts{refseq} = shift(@ARGV); next; }
+        if ( $arg eq '-k' || $arg eq '--keep-missing' ) { $$opts{keep_missing} = 1; next; }
+        if ( $arg eq '-s' || $arg eq '--sample' ) { $$opts{sample_names} = shift(@ARGV); next; }
+        if ( $arg eq '-a' || $arg eq '--apply-map' ) { $$opts{apply_map} = shift(@ARGV); next; }
+        if ( $arg eq '-M' || $arg eq '--create-map' ) { $$opts{create_map} = 1; next; }
+        if ( $arg eq '-m' || $arg eq '--merge-vcfs' ) { $$opts{merge_vcfs} = 1; next; }
+        if ( $arg eq '-b' || $arg eq '--bcftools-exe' ) { $$opts{bcftools} = shift(@ARGV); next; }
+        if ( $arg eq '-c' || $arg eq '--cut-assay-section' ) { cut_assay_section(); exit; }
+        if ( -e $arg ) { $$opts{fname} = $arg; next; }
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    if ( exists($$opts{apply_map}) && !exists($$opts{outdir}) ) { error("Missing the -o option\n"); }
+    if ( $$opts{sample_names} )
+    {
+        my @samples = split(/,/,$$opts{sample_names});
+        for my $sample (@samples)
+        {
+            my ($src,$dst) = split(/:/,$sample);
+            $$opts{sample_map}{$src} = $dst;
+        }
+    }
+
+    return $opts;
+}
+
+sub cut_assay_section
+{
+    while (my $line=<STDIN>)
+    {
+        if ( $line=~/\[Assay/ ) { last; }  
+    }
+    <STDIN>;
+    while (my $line=<STDIN>)
+    {
+        if ( $line=~/^\[/ ) { last; } # done
+        print $line;
+    }
+}
+
+sub create_map_file
+{
+    my ($opts) = @_;
+
+    $$opts{fa} = FaSlice->new(file=>$$opts{refseq}, oob=>'N');
+
+    my $fh;
+    if ( -t ) { open($fh,"gunzip -c $$opts{manifest} |") or error("$$opts{manifest}: $!"); }
+    else { $fh = \*STDIN; }
+
+    # Read the records:
+    #    0  IlmnID                  1KG_1_100177980-0_M_R_2115812812          200610-114-0_B_F_1867864686
+    #    1  Name                    1KG_1_100177980                           200610-114
+    #    2  IlmnStrand              MINUS                                     BOT
+    #    3  SNP                     [D/I]                                     [T/C]
+    #    4  AddressA_ID             0088747340                                0069612928
+    #    5  AlleleA_ProbeSeq        TTTGGCAGTTCTTCAGCCTCTTCTGGCAG...          GTGGCTCCTTTAACCTCTCCACCCTTATCA...
+    #    6  AddressB_ID                                                       
+    #    7  AlleleB_ProbeSeq                                                  
+    #    8  GenomeBuild             37                                        37.1
+    #    9  Chr                     1                                         MT
+    #   10  MapInfo                 100177980                                 3827
+    #   11  Ploidy                  diploid                                   diploid
+    #   12  Species                 Homo sapiens                              Homo sapiens
+    #   13  Source                  Unknown                                   BGI
+    #   14  SourceVersion           0                                         0
+    #   15  SourceStrand            PLUS            *0                        BOT         *7
+    #   16  SourceSeq               Taaaa....ACCTTGGGT[-/C]CATGT....          ..CTCTGA[T/C]TACTCCTGC...
+    #   17  TopGenomicSeq           Taaaa....ACCTTGGGT[-/C]CATGT....          ..GGAGTA[A/G]TCAGAGGTG...
+    #   18  BeadSetID               837                                       837
+
+    print "# [1]chr\t[2]pos\t[3]ref/alt (top)\t[4]strand\t[5]ref-is-1st\t[6]name\n";
+    while (my $line=<$fh>)
+    {
+        if ( substr($line,0,1) eq '#' ) { next; }
+
+        my @vals = split(/,/,$line);
+        my $name       = $vals[1];
+        my $src_strand = $vals[2];
+        my $src_als    = $vals[3];
+        my $build      = $vals[8];
+        my $chr        = $vals[9];
+        my $pos        = $vals[10];
+        my $top_seq    = $vals[17];
+
+        if ( !$chr or !$pos ) { next; }     # skip records with unassigned position
+ 
+        my $ret = determine_top_strand($opts, $chr,$pos, $top_seq,$name,$build);
+        if ( !$$ret{ok} ) { next; }
+        if ( $$ret{wrong} ) { print STDERR "Wrong ref: $chr,$pos $name\n"; next; }
+
+        print "$chr\t$$ret{pos}\t$$ret{ref}/$$ret{alt}\t$$ret{strand}\t$$ret{ref_is_1st}\t$name\n";
+    }
+    close($fh) or error("close $$opts{manifest}");
+}
+
+sub determine_top_strand
+{
+    my ($opts,$chr,$pos,$seq,$name,$build) = @_;
+
+    $seq = uc($seq);
+    if ( !($seq=~/\[(.+)\]/) ) { error("Could not parse TopSeq on $chr:$pos .. $seq\n"); }
+    my $seq1 = $`;
+    my $als  = $1;
+    my $seq2 = $';
+    if ( $als=~/[-]/ ) { return (undef); }   # deletion, insertion: todo
+    my @als = split(m{/},$als);
+
+    my $len1 = length($seq1);
+    my $len2 = length($seq2);
+    my $len  = $len1<$len2 ? $len1 : $len2;
+    if ( $len > 30 ) { $len = 30; }
+    my $th  = ($len-1)/$len;
+    if ( $len < $len1 ) { substr($seq1,0,$len1-$len,''); }
+    if ( $len < $len2 ) { $seq2 = substr($seq2,0,$len); }
+
+    my $beg = $pos-$len;
+    if ( $beg<=0 ) { $beg = 1; }
+    my $end = $pos-1;
+    if ( $end<$beg ) { $end = $beg; }
+    my $before = uc($$opts{fa}->get_slice($chr,$beg,$end));
+    my $ref    = uc($$opts{fa}->get_base($chr,$pos));
+    my $after  = uc($$opts{fa}->get_slice($chr,$pos+1,$pos+$len));
+
+    my $ret = { pos=>$pos, ok=>0 };
+    test_strand($ret, $seq1,\@als,$seq2, $before,$ref,$after);
+    if ( $$ret{ok} ) 
+    {
+        if ( $$ret{wrong} ) { return $ret; }
+        $$ret{ref_is_1st} = $$ret{ref} eq $als[0] ? 1 : 0;
+        return { %$ret, strand=>'top_on_fwd' }; 
+    }
+    my $score = $$ret{score};
+
+    my $rev_seq1 = rev_strand($seq1);
+    my $rev_seq2 = rev_strand($seq2);
+    my @rev_als  = (rev_strand($als[0]),rev_strand($als[1]));
+    test_strand($ret, $rev_seq2,\@rev_als,$rev_seq1, $before,$ref,$after);
+    if ( $$ret{ok} ) 
+    { 
+        if ( $$ret{wrong} ) { return $ret; }
+        $$ret{ref} = rev_strand($$ret{ref}); $$ret{alt} = rev_strand($$ret{alt});
+        $$ret{ref_is_1st} = $$ret{ref} eq $als[0] ? 1 : 0;
+        return { %$ret, strand=>'top_on_rev' }; 
+    }
+    my $score_rev = $$ret{score};
+
+    # Does not help much:
+    #
+    #   test_strand($ret, $seq1,\@als,$seq2, $before,$ref,$after, -1);
+    #   if ( $$ret{ok} ) { return { %$ret, strand=>'top_on_fwd' }; }
+    #
+    #   test_strand($ret, $rev_seq2,\@rev_als,$rev_seq1, $before,$ref,$after, -1);
+    #   if ( $$ret{ok} ) { return { %$ret, strand=>'top_on_rev' }; }
+    #
+    #   test_strand($ret, $seq1,\@als,$seq2, $before,$ref,$after, -2);
+    #   if ( $$ret{ok} ) { return { %$ret, strand=>'top_on_fwd' }; }
+    #
+    #   test_strand($ret, $rev_seq2,\@rev_als,$rev_seq1, $before,$ref,$after, -2);
+    #   if ( $$ret{ok} ) { return { %$ret, strand=>'top_on_rev' }; }
+
+    print STDERR 
+        "Nope: chr,pos=$chr:$pos  marker=$name  build=$build\n",
+        "\t${seq1}[$als]$seq2  .. query seq ($score)\n",
+        "\t${before}[ $ref ]$after  .. ref\n",
+        "\t${rev_seq2}[$rev_als[1]/$rev_als[0]]$rev_seq1  .. rev seq ($score_rev)\n",
+        "\tflanking sequences differ, excluding marker\n";
+
+    return $ret;
+}
+
+sub test_strand
+{
+    my ($ret, $seq1,$als,$seq2, $before,$ref,$after, $shift) = @_;
+
+    if ( defined $shift && $shift==-2 )
+    {
+        print STDERR "\n\n";
+        print STDERR "aa:\t$seq1.$seq2\n";
+        print STDERR "aa:\t$before.$after\n";
+        $seq1 = substr($seq1,2);
+        $seq1 .= substr($seq2,0,2);
+        $seq2 = substr($seq2,2);
+        substr($after,-2,2,'');
+        print STDERR "xx:\t$seq1.$seq2\n";
+        print STDERR "xx:\t$before.$after\n\n";
+    }
+
+    my $match = compare_seq($before.$after, $seq1.$seq2);
+    my $th = 1 - 1/length($before.$after);
+    $$ret{score} = $match;
+
+    if ( $match < $th ) { return; }
+    elsif ( $ref eq $$als[0] ) { $$ret{ref} = $$als[0]; $$ret{alt} = $$als[1]; }
+    elsif ( $ref eq $$als[1] ) { $$ret{ref} = $$als[1]; $$ret{alt} = $$als[0]; }
+    else { $$ret{wrong} = 1; }
+
+    $$ret{ok} = 1;
+}
+
+sub rev_strand
+{
+    my ($seq) = @_;
+
+    my %map = (A=>'T',C=>'G',G=>'C',T=>'A',N=>'N');
+    my $rev;
+    my $len = length($seq);
+    for (my $i=$len-1; $i>=0; $i--)
+    {
+        my $base = substr($seq,$i,1);
+        $rev .= exists($map{$base}) ? $map{$base} : $base;
+    }
+    return $rev;
+}
+
+sub compare_seq
+{
+    my ($a,$b) = @_;
+    my $len = length($a);
+    my $n = 0;
+    for (my $i=0; $i<$len; $i++)
+    {
+        if ( substr($a,$i,1) ne substr($b,$i,1) ) { $n++; }
+    }
+    return ($len-$n)/$len;
+}
+
+sub topbot_strand
+{
+    my ($refseq,$chr,$pos,@als) = @_;
+
+    my $win = 100;
+    my $ref_slice = uc($refseq->get_slice($chr,$pos-$win,$pos+$win));
+    my $ref_base  = uc($refseq->get_base($chr,$pos));
+    if ( substr($ref_slice,$win,1) ne $ref_base ) { error("Bad slice? $chr:$pos $ref_base .. $ref_slice\n"); }
+
+    #  Unambiguous pairs: A/C, A/G, T/C, T/G
+    #       - knowledge of reference base at the SNP position is enough to 
+    #           determine the strand
+    #
+    #       TOP      REF   ->  ALLELES   TOP_ON_STRAND
+    #       -------------------------------------------
+    #       A/C     A or C      A/C         1
+    #        "      T or G      T/G        -1
+    #       A/G     A or G      A/G         1
+    #        "      T or C      T/C        -1
+    #
+    #
+    #  Ambiguous pairs:   A/T, C/G
+    #       - sequence walking must be performed (simultaneously upstream and downstream) 
+    #           until the first unambiguous pair is encountered. The 5' base determines 
+    #           the strand.
+    #
+    #       TOP    5'REF_BASE   ->  ALLELES   TOP_ON_STRAND
+    #       ------------------------------------------------
+    #       A/T    A or T             A/T          1
+    #        "     C or G             T/A         -1
+    #       C/G    A or T             C/G          1
+    #        "     C or G             G/C         -1
+    #
+    my $als = uc(join('',sort @als));
+
+    if ( $als eq 'AC' )
+    {
+        if ( $ref_base eq 'A' or $ref_base eq 'C' ) { return 1; }
+        if ( $ref_base eq 'T' or $ref_base eq 'G' ) { return -1; }
+    }
+    elsif ( $als eq 'AG' )
+    {
+        if ( $ref_base eq 'A' or $ref_base eq 'G' ) { return 1; }
+        if ( $ref_base eq 'T' or $ref_base eq 'C' ) { return -1; }
+    }
+    elsif ( $als eq 'AT' or $als eq 'CG' )
+    {
+        my $i = 1;
+        while ($i<$win)
+        {
+            my $a = substr($ref_slice,$win-$i,1);
+            my $b = substr($ref_slice,$win+$i,1);
+            my $pair = join('', sort($a,$b));
+            if ( $pair eq 'AC' or $pair eq 'AG' or $pair eq 'CT' or $pair eq 'GT' )
+            {
+                if ( $a eq 'A' or $a eq 'T' ) { return 1; }
+                if ( $a eq 'C' or $a eq 'G' ) { return -1; }
+            }
+            $i++;
+        }
+    }
+
+    return 0;
+}
+
+sub cmd
+{
+    my ($cmd) = @_;
+    print STDERR "$cmd\n";
+
+    my $kid_io;
+    my $pid = open($kid_io, "-|");
+    if ( !defined $pid ) { error("Cannot fork: $!"); }
+
+    my @out;
+    if ($pid) 
+    {
+        # parent
+        @out = <$kid_io>;
+        close($kid_io);
+    } 
+    else 
+    {      
+        # child
+        exec('/bin/bash', '-o','pipefail','-c', $cmd) or error("Failed to run the command [/bin/sh -o pipefail -c $cmd]: $!");
+    }
+
+    my $exit_status = $? >> 8;
+    my $status = 0;
+    if ( $status ne $exit_status ) { error("The command exited with $exit_status (expected $status):\n\t$cmd\n\n"); }
+    return @out;
+}
+
+sub read_map
+{
+    my ($opts) = @_;
+    open(my $fh,"gunzip -c $$opts{apply_map} |") or error("gunzip -c $$opts{apply_map}: $!");
+    while (my $line=<$fh>)
+    {
+        if ( $line=~/^#/ ) 
+        { 
+            my $exp = join("\t", '# [1]chr','[2]pos','[3]ref/alt (top)','[4]strand','[5]ref-is-1st','[6]name');
+            chomp($line);
+            if ( $line ne $exp ) { error("Could not parse map file. Expected:\n\t$exp\nFound:\n\t$line\n"); }
+            next; 
+        }
+        my ($chr,$pos,$refalt,$strand,$ref_1st,$name,@rest) = split(/\t/,$line);
+        if ( scalar @rest or $name eq '' ) { error("Could not parse map file, expected 6 columns, got: $line"); }
+        chomp($name);
+        $$opts{map}{$name} = [$chr,$pos,$refalt, $strand eq 'top_on_fwd' ? 1 : -1,$ref_1st];
+    }
+    close($fh) or error("close gunzip -c $$opts{apply_map}");
+}
+
+sub apply_map_file
+{
+    my ($opts) = @_;
+    read_map($opts);
+
+    # Eat header lines.
+    my $fh = \*STDIN;
+    if ( exists($$opts{fname}) ) { open($fh,'<',$$opts{fname}) or error("$$opts{fname}: $!"); }
+    my $line = <$fh>;
+    if ( !defined $line ) { error("Could not read from ". (exists($$opts{fname})?$$opts{fname}:'stdin')); }
+    if ( $line=~/^\[Header/ )
+    {
+        while (my $line=<$fh>)
+        {
+            if ( $line=~/^\[Data/ ) { last; }
+        }
+        <$fh>;
+    }
+
+    cmd("mkdir -p $$opts{outdir}");
+    my %flip = ( A=>'T', C=>'G', G=>'C', T=>'A' );
+
+    my %files = ();
+    while (my $line=<$fh>)
+    {
+        my ($name,$sample,$al1,$al2,$gc,$theta,$r,$x,$y,$xraw,$yraw,$baf,$lrr,@rest) = split(/\s+/,$line);
+        if ( @rest or $lrr eq '' ) { error("Could not parse FCR file: $line, [$lrr], ", scalar @rest); }
+
+        if ( !exists($$opts{map}{$name}) ) { next; }
+        my $map = $$opts{map}{$name};
+
+        # both $$map[2] and $al1,$al2 are on TOP strand
+        my ($ref,$alt) = split(m{/},$$map[2]);
+        my $gt;
+
+        if ( $al1 eq '-' or $al2 eq '-' ) 
+        { 
+            if ( !$$opts{keep_missing} ) { next; }
+            if ( lc($baf) eq 'nan' ) { next; }
+            $gt = '.';
+        }
+        else
+        {
+            if ( $al1 ne $ref && $al1 ne $alt ) { print STDERR "REF does not match, expected $$map[2] for $name at $$map[0]:$$map[1]: $line"; next; }
+            if ( $al2 ne $ref && $al2 ne $alt ) { print STDERR "ALT does not match, expected $$map[2] for $name at $$map[0]:$$map[1]: $line"; next; }
+            my @als;
+            push @als, ($al1 eq $ref ? 0 : 1);
+            push @als, ($al2 eq $ref ? 0 : 1);
+            $gt = join('/',@als);
+        }
+        chomp($lrr);
+        if ( $$map[3] < 0 )  { $ref = $flip{$ref}; $alt = $flip{$alt}; }
+        if ( $$map[4] == 0 ) { my $tmp = $x; $x = $y; $y = $tmp; $baf = 1 - $baf; }  # the alleles must be switched, ref is second
+        if ( $lrr eq 'nan' ) { $lrr = 0; }  # substitute 0 for nan
+
+        if ( exists($$opts{sample_map}) )
+        {
+            if ( !exists($$opts{sample_map}{$sample}) ) 
+            { 
+                warn("No mapping found for the sample \"$sample\"\n"); 
+                $$opts{sample_map}{$sample} = $sample;
+            }
+            $sample = $$opts{sample_map}{$sample};
+        }
+
+        if ( !exists($files{$sample}) )
+        {
+            open(my $fh,'>',"$$opts{outdir}/$sample.vcf") or error("$$opts{outdir}/$sample.vcf: $!");
+            print $fh
+                "##fileformat=VCFv4.2\n",
+                "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n",
+                "##FORMAT=<ID=GC,Number=1,Type=Float,Description=\"GenCall score\">\n",
+                "##FORMAT=<ID=IA,Number=1,Type=Float,Description=\"Intensity of the A Allele\">\n",
+                "##FORMAT=<ID=IB,Number=1,Type=Float,Description=\"Intensity of the B Allele\">\n",
+                "##FORMAT=<ID=BAF,Number=1,Type=Float,Description=\"B Allele Frequency\">\n",
+                "##FORMAT=<ID=LRR,Number=1,Type=Float,Description=\"Log R Ratio\">\n",
+                "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$sample\n";
+
+            $files{$sample} = $fh;
+        }
+        print {$files{$sample}} "$$map[0]\t$$map[1]\t$name\t$ref\t$alt\t.\t.\t.\tGT:LRR:BAF:IA:IB:GC\t$gt:$lrr:$baf:$x:$y:$gc\n";
+    }
+    if ( $$opts{fname} ) { close($fh); }
+    if ( !scalar keys %files ) { error("No files written, broken input file?\n"); }
+    for my $sample (keys %files)
+    {
+        close($files{$sample}) or error("close $$opts{outdir}/$sample.vcf");
+    }
+
+    # Sort files, remove duplicate lines, compress, tabix index and merge
+    my @files = ();
+    for my $sample (keys %files)
+    {
+        cmd("vcf-sort $$opts{outdir}/$sample.vcf > $$opts{outdir}/$sample.vcf.sorted");
+        unlink("$$opts{outdir}/$sample.vcf");
+
+        # Remove duplicate lines
+        open(my $in,'<',"$$opts{outdir}/$sample.vcf.sorted") or error("$$opts{outdir}/$sample.vcf.sorted: $!");
+        open(my $out,"| bgzip -c > $$opts{outdir}/$sample.vcf.gz") or error("bgzip -c > $$opts{outdir}/$sample.vcf.gz: $!");
+        my (@buf,@buf_line);
+        while (my $line=<$in>)
+        {
+            if ( substr($line,0,1) eq '#' ) { print $out $line; next; }
+            my @items = split(/\t/,$line);
+            if ( @buf && ($items[0] ne $buf[0][0] or $items[1] ne $buf[0][1]) )
+            {
+                flush_buffer($out,\@buf,\@buf_line);
+            }
+            push @buf, \@items;
+            push @buf_line, $line;
+        }
+        flush_buffer($out,\@buf,\@buf_line);
+        close($in) or error("close $$opts{outdir}/$sample.vcf.sorted");
+        close($out) or error("close bgzip -c > $$opts{outdir}/$sample.vcf.gz");
+        cmd("$$opts{bcftools} index -t $$opts{outdir}/$sample.vcf.gz");
+        push @files, "$$opts{outdir}/$sample.vcf.gz";
+        unlink("$$opts{outdir}/$sample.vcf.sorted");
+    }
+
+    if ( $$opts{merge_vcfs} )
+    {
+        my $outfile = $$opts{outdir};
+        $outfile =~ s{/+$}{};
+        if ( @files>1 )
+        {
+            cmd("$$opts{bcftools} merge ".join(' ',@files)." -Oz > $outfile.vcf.gz");
+            cmd("$$opts{bcftools} index -m0 $outfile.vcf.gz");
+        }
+        elsif ( @files==1 )
+        {
+            cmd("cp $files[0] $outfile.vcf.gz");
+            cmd("cp $files[0].tbi $outfile.vcf.gz.tbi");
+        }
+    }
+}
+
+sub flush_buffer
+{
+    my ($fh,$buf,$buf_line) = @_;
+    for (my $i=0; $i<@$buf; $i++)
+    {
+        if ( substr($$buf[$i][2],0,2) eq 'rs' ) { print $fh $$buf_line[$i]; @$buf = (); @$buf_line = (); return; }
+    }
+    print $fh $$buf_line[0]; @$buf = (); @$buf_line = ();
+}
+

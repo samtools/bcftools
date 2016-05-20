@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Filtering</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_filtering">Filtering</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Most BCFtools commands accept the <code>-i, --include</code> and <code>-e, --exclude</code> options
+which allow advanced filtering. In the examples below, we demonstrate the
+usage on the <code>query</code> command because it allows us to show the output in
+a very compact form using the <code>-f</code> formatting option. (For details about
+the format, see the <a href="query.html">Extracting information</a> page.)</p>
+</div>
+<div class="paragraph">
+<div class="title"><strong>Simple example: filtering by fixed columns</strong></div>
+<p>Fixed columns such as QUAL, FILTER, INFO are straightforward to filter. In this example,
+we use the <code>-e 'FILTER="."'</code> expression to exclude sites where FILTER is not set:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -e'FILTER="."' -f'%CHROM %POS %FILTER\n' file.bcf | head -2
+1 3000150 PASS
+1 3000151 LowQual</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example, we use the <code>-i 'QUAL&gt;20 &amp;&amp; DP&gt;10'</code> expression to include only sites with big enough quality and depth:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -i'QUAL&gt;20 &amp;&amp; DP&gt;10' -f'%CHROM %POS %QUAL %DP\n' file.bcf | head -2
+1 14930 31.2757 13
+1 17538 37.9458 12
+
+todo:
+vcf=/lustre/scratch116/vr/projects/hipsci/cnv/exome-validation/mpileup/ffdm#ffdm_3.bcf
+$bt query $vcf -i'QUAL="."' -f' %CHROM %POS %QUAL\n' | head -2
+Comparing string to numeric value: QUAL="."</pre>
+</div>
+</div>
+<div class="paragraph">
+<div class="title"><strong>FORMAT columns</strong></div>
+<p>When filtering FORMAT tags, the OR logic is applied with multiple
+samples. For example, if we want to remove sites with an uncalled
+genotype in any sample, the expression <code>-i 'GT!="."'</code> is not going to work:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -i'GT!="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
+1 30923  ./. 1/1
+1 54490  ./. 1/1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Instead, the reverse logic <code>-e 'GT ="."'</code> must be applied:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -e'GT ="."' -f'%CHROM %POS [ %GT]\n' file.bcf | head -2
+1 69511  1/1 1/1
+1 71850  0/0 0/1</pre>
+</div>
+</div>
+<div class="paragraph">
+<div class="title"><strong>FORMAT columns and boolean expressions</strong></div>
+<p>Say our VCF contains the per-sample depth and genotype quality annotations
+and we want to include only sites where one or more samples have big enough coverage
+(<code>DP&gt;10</code>) and genotype quality (<code>GQ&gt;20</code>). The expression <code>-i 'FMT/DP&gt;10 &amp; FMT/GQ&gt;20'</code> selects
+sites where the conditions are satisfied within the same sample:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -i'FMT/DP&gt;10 &amp; FMT/GQ&gt;20' -f'%POS[\t%SAMPLE:DP=%DP GQ=%GQ]\n' file.bcf
+49979   SampleA:DP=10 GQ=50     SampleB:DP=20 GQ=40</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>On the other hand, if we need to include sites where both conditions met but
+not necessarily in the same sample, we use the <code>&amp;&amp;</code> operator rather than <code>&amp;</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -i'FMT/DP&gt;10 &amp;&amp; FMT/GQ&gt;20' -f'%POS[\t%SAMPLE:DP=%DP GQ=%GQ]\n' file.bcf
+31771   SampleA:DP=10 GQ=50     SampleB:DP=40 GQ=20
+49979   SampleA:DP=10 GQ=50     SampleB:DP=20 GQ=40</pre>
+</div>
+</div>
+<div class="paragraph">
+<div class="title"><strong>Combining scalar and vector fields</strong></div>
+<p>The <code>filter -S.</code> example..</p>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

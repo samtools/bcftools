@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Copy Number Variation</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_copy_number_variation">Copy Number Variation</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The BCFtools package implements two methods (the <code>polysomy</code> and <code>cnv</code>
+commands) for sensitive detection of copy number alterations, aneuploidy and
+contamination.
+In contrast to other methods designed for identifying copy
+number variations in a single sample or in a sample composed of a mixture of
+normal and tumor cells, this method is tailored for determining differences
+between two cell lines, which allows to distinguish between normal and novel
+copy number variation.</p>
+</div>
+<div class="sect2">
+<h3 id="_installation">Installation</h3>
+<div class="paragraph">
+<p>The <code>polysomy</code> command requires the <a href="http://www.gnu.org/software/gsl/">GNU Scientific Library</a>.
+As described in the <a href="install.html">installation</a>,
+it must be compiled with <code>USE_GPL=1</code>.
+If it is still not visible in the list of commands, recompile with:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>make USE_GPL=1 clean all</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now typing <code>bcftools polysomy</code> should give you a list of available options.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_preparing_input_data">Preparing input data</h3>
+<div class="paragraph">
+<p>The <code>polysomy</code> command takes on input VCF with FORMAT columns annotated with
+B-Allele Frequency (the BAF annotation). The <code>cnv</code> command in addition requires the presence of
+Log R Ratio values (the LRR annotation). If the experimental data were prepared
+by Illumina&#8217;s GenomeStudio, its text output can be converted to VCF using the
+<a href="cnv-calling/fcr-to-vcf">fcr-to-vcf</a> script.
+Please check this <a href="cnv-calling/usage-example.tgz">usage example</a> for details
+and some test data to experiment with.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_detecting_aneuploidy_and_contamination">Detecting aneuploidy and contamination</h3>
+<div class="paragraph">
+<p>Large aberrations which affect whole chromosomes, such as aneuploidy or
+contamination, can be discerned directly from the overall distribution of BAF
+values. The command is</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools polysomy -v -o outdir/ file.vcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and the results can be found in <code>outdir/dist.dat</code>. The file can be inspected visually or
+processed by standard unix commands. For example, a list of chromosomes which are aberrant
+or uncertain can be obtained by</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>cat outdir/dist.dat | awk '$1=="CN" &amp;&amp; $3!=0'</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If uncertain, it is very useful to inspect the BAF distribution by eye. The distribution
+can be plotted using the auto-generated matplotlib script</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>python outdir/dist.py</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When the goodness-of-fit threshold <code>-f</code> is set too strict or when the experimental
+intensities are too different from the expected distribution, the fit may fail.
+This is indicated by printing -1 instead of a copy number state.
+If the program outputs a non-diploid state on multiple chromosomes, this may indicate contamination or very noisy input data.</p>
+</div>
+<div class="exampleblock">
+<div class="content">
+<a href="cnv-calling/bafdist.array.contam.png"><img src="cnv-calling/bafdist.array.contam.png" width="500px"></a>
+<div class="paragraph">
+<p>Example of the graphical output from the <code>polysomy</code> command. In this figure,
+the sample had three copies of chromosome X.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_detecting_subchromosomal_cnvs">Detecting subchromosomal CNVs</h3>
+<div class="paragraph">
+<p>The strength of the CNV caller is in the pairwise calling mode which was designed to detect
+differences between two samples. This greatly helps to reduce the number of
+false calls and also allows one to distinguish between normal and novel copy number
+variation. The command is</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools cnv -c conrol_sample -s query_sample -o outdir/ -p 0 file.vcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>-p 0</code> option tells the program to automatically call matplotlib and
+produce plots like the one in this example:</p>
+</div>
+<div class="exampleblock">
+<div class="content">
+<a href="cnv-calling/cnv.array.cn231.png"><img src="cnv-calling/cnv.array.cn231.png" width="600px"></a>
+<div class="paragraph">
+<p>Example of the graphical output from the <code>cnv</code> command. In this figure,
+the control sample is normal and the query has two CNVs: a duplication and a loss.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_working_with_non_illumina_data">Working with non-Illumina data</h3>
+<div class="paragraph">
+<p>If the <a href="cnv-calling/fcr-to-vcf">fcr-to-vcf</a> script fails from some reason or in case the input
+data is in a different format, the VCF file can be annotated
+"manually":</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># Annotation file with BAF values for two samples
+$ zcat baf.txt.gz | head -2
+11  193096  0.24    0.16
+11  193194  0.61    0.81
+
+# Index the annotation file and fill in the BAF values. For the latter, we need to
+# add a BAF definition into the VCF header
+$ tabix -s1 -b2 -e2 baf.txt.gz
+$ echo '##FORMAT=&lt;ID=BAF,Number=1,Type=Float,Description="NGS estimate of BAF"&gt;' &gt; baf.hdr
+$ bcftools annotate -a baf.txt.gz -h baf.hdr -c CHROM,POS,FMT/BAF -Ob -o output.bcf input.bcf</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_references">References</h3>
+<div class="paragraph">
+<p>Please cite our paper when using our software: <a href="http://www.ncbi.nlm.nih.gov/pubmed/27176002" class="bare">http://www.ncbi.nlm.nih.gov/pubmed/27176002</a></p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

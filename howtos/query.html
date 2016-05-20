@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Extracting information from VCFs</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_extracting_information_from_vcfs">Extracting information from VCFs</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The versatile <code>bcftools query</code> command can be used to extract any VCF field.
+Combined with standard UNIX commands, this gives a powerful tool for
+quick querying of VCFs.</p>
+</div>
+<div class="paragraph">
+<p>Below is a list of some of the most common tasks with explanation how it works.
+For a full list of options, see the <a href="bcftools.html#query">manual page</a>.</p>
+</div>
+<div class="listingblock">
+<div class="title"><strong>List of samples</strong></div>
+<div class="content">
+<pre>bcftools query -l file.bcf</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title"><strong>Number of samples</strong></div>
+<div class="content">
+<pre>bcftools query -l file.bcf | wc -l</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title"><strong>List of positions</strong></div>
+<div class="content">
+<pre>bcftools query -f '%POS\n' file.bcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example, the <code>-f</code> otion defines the output format. The <code>%POS</code> string
+indicates that for each VCF line we want the POS column printed. The <code>\n</code>
+stands for a newline character, a notation commonly used in the
+world of computer programming. Any characters without a special meaning
+will be passed as is, so for example see this command and its output below:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f 'pos=%POS\n' file.bcf | head -3
+pos=13380
+pos=16071
+pos=16141</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Here the <code>$</code> character precedes the command we typed on the command line
+and below is the actual output that was printed.
+The <code>| head -3</code> part limited the output to the first three lines.</p>
+</div>
+<div class="listingblock">
+<div class="title"><strong>List of positions and alleles</strong></div>
+<div class="content">
+<pre>$ bcftools query -f '%CHROM %POS %REF %ALT\n' file.bcf | head -3
+1 13380 C G
+1 16071 G A
+1 16141 C T</pre>
+</div>
+</div>
+<div class="paragraph">
+<div class="title"><strong>Extract allele frequency at each position</strong></div>
+<p>Assuming the INFO/AF tag is present, we can write:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f '%CHROM %POS %AF\n' file.bcf | head -3
+1 13380 7.69515e-05
+1 16071 0.000123122
+1 16141 0.000138513</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If AF annotation is not present but AN and AC are, we can compute the frequencies on the fly:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f '%CHROM %POS %AN %AC{0}\n' file.bcf | awk '{printf "%s %s %f\n",$1,$2,$4/$3}' | head -3
+1 13380 0.000077
+1 16071 0.000123
+1 16141 0.000139</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Because the AC tag can have multiple comma-separated values, we select the first one using the subscript <code>{0}</code>.
+The <code>awk</code> outputs the first two fields unchanged and computes the fraction using the third and fourth.</p>
+</div>
+<div class="paragraph">
+<div class="title"><strong>Extracting per-sample tags</strong></div>
+<p>FORMAT tags can be extracted using the square brackets <code>[]</code> operator, which
+loops over all samples. For example, to print the GT field followed by PL field
+we can write:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f '%CHROM %POS[\t%GT\t%PL]\n' file.bcf | head -3
+1 10234 1/1 28,3,0  1/1 29,3,0
+1 10291 ./. 0,0,0   1/1 28,3,0
+1 14907 0/1 8,0,17  0/1 26,0,48</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Here we used the tab character <code>\t</code> instead of space for a change. If we wanted
+to print GTs for all samples first followed by PLs for all samples rather than
+mixing the two types as above, we could write two bracket operators instead:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f '%CHROM %POS  GTs:[ %GT]\t PLs:[ %PL]\n' file.bcf | head -3
+1 10234  GTs: 1/1 1/1    PLs: 28,3,0 29,3,0
+1 10291  GTs: ./. 1/1    PLs: 0,0,0 28,3,0
+1 14907  GTs: 0/1 0/1    PLs: 8,0,17 26,0,48</pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

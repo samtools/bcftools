@@ -1,0 +1,95 @@
+include::header.inc[]
+
+
+Extracting information from VCFs
+--------------------------------
+
+The versatile `bcftools query` command can be used to extract any VCF field.
+Combined with standard UNIX commands, this gives a powerful tool for
+quick querying of VCFs.
+
+Below is a list of some of the most common tasks with explanation how it works.
+For a full list of options, see the link:bcftools.html#query[manual page].
+
+.**List of samples**
+----
+bcftools query -l file.bcf
+----
+
+.**Number of samples**
+----
+bcftools query -l file.bcf | wc -l
+----
+
+.**List of positions**
+----
+bcftools query -f '%POS\n' file.bcf
+----
+In this example, the `-f` otion defines the output format. The `%POS` string
+indicates that for each VCF line we want the POS column printed. The `\n` 
+stands for a newline character, a notation commonly used in the
+world of computer programming. Any characters without a special meaning
+will be passed as is, so for example see this command and its output below: 
+----
+$ bcftools query -f 'pos=%POS\n' file.bcf | head -3
+pos=13380
+pos=16071
+pos=16141
+----
+Here the `$` character precedes the command we typed on the command line
+and below is the actual output that was printed.
+The `| head -3` part limited the output to the first three lines.
+
+
+.**List of positions and alleles**
+----
+$ bcftools query -f '%CHROM %POS %REF %ALT\n' file.bcf | head -3
+1 13380 C G
+1 16071 G A
+1 16141 C T
+----
+
+.**Extract allele frequency at each position**
+Assuming the INFO/AF tag is present, we can write:
+----
+$ bcftools query -f '%CHROM %POS %AF\n' file.bcf | head -3
+1 13380 7.69515e-05
+1 16071 0.000123122
+1 16141 0.000138513
+----
+If AF annotation is not present but AN and AC are, we can compute the frequencies on the fly:
+----
+$ bcftools query -f '%CHROM %POS %AN %AC{0}\n' file.bcf | awk '{printf "%s %s %f\n",$1,$2,$4/$3}' | head -3
+1 13380 0.000077
+1 16071 0.000123
+1 16141 0.000139
+----
+Because the AC tag can have multiple comma-separated values, we select the first one using the subscript `{0}`.
+The `awk` outputs the first two fields unchanged and computes the fraction using the third and fourth.
+
+
+.**Extracting per-sample tags**
+FORMAT tags can be extracted using the square brackets `[]` operator, which
+loops over all samples. For example, to print the GT field followed by PL field
+we can write:
+----
+$ bcftools query -f '%CHROM %POS[\t%GT\t%PL]\n' file.bcf | head -3
+1 10234 1/1 28,3,0  1/1 29,3,0
+1 10291 ./. 0,0,0   1/1 28,3,0
+1 14907 0/1 8,0,17  0/1 26,0,48
+----
+Here we used the tab character `\t` instead of space for a change. If we wanted
+to print GTs for all samples first followed by PLs for all samples rather than
+mixing the two types as above, we could write two bracket operators instead:
+----
+$ bcftools query -f '%CHROM %POS  GTs:[ %GT]\t PLs:[ %PL]\n' file.bcf | head -3
+1 10234  GTs: 1/1 1/1    PLs: 28,3,0 29,3,0
+1 10291  GTs: ./. 1/1    PLs: 0,0,0 28,3,0
+1 14907  GTs: 0/1 0/1    PLs: 8,0,17 26,0,48
+----
+
+
+
+include::footer.inc[]
+
+

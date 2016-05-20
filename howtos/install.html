@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Installation</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_installation">Installation</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_for_the_impatient">For the impatient</h3>
+<div class="paragraph">
+<p>The latest source code can be downloaded from github using:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>git clone git://github.com/samtools/htslib.git
+git clone git://github.com/samtools/bcftools.git
+cd bcftools; make</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that if also the <code>polysomy</code> command should be included, the
+compilation instructions differ, see <a href="#gsl">Optional Compilation with GSL</a> below.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_system_requirements">System Requirements</h3>
+<div class="paragraph">
+<p>BCFtools and HTSlib depend on the <code>zlib</code> library <a href="http://zlib.net" class="bare">http://zlib.net</a>.  Building
+them requires <code>zlib</code> development files to be installed on the build machine;
+you may need to ensure a package such as <code>zlib1g-dev</code> (on Debian or Ubuntu Linux)
+or <code>zlib-devel</code> (on RPM/yum-based distributions) is installed.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_compilation">Compilation</h3>
+<div class="paragraph">
+<p><code>cd</code> to the bcftools directory containing the package&#8217;s source and type
+<code>make</code> to compile BCFtools.</p>
+</div>
+<div class="paragraph">
+<p>If you already have a system-installed HTSlib or another HTSlib
+that you would prefer to build against, you can arrange this by overriding
+<code>$(HTSDIR)</code> by typing <code>make HTSDIR=/path/to/htslib-source</code>&#8201;&#8212;&#8201;see the Makefile
+for details.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="gsl">Optional Compilation with GSL</h3>
+<div class="paragraph">
+<p>The <code>polysomy</code> command depends on the GNU Scientific Library (GSL) and is not
+enabled by default. In order to compile it, type</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>make clean &amp;&amp; make USE_GPL=1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that GSL is distributed under a GPL license, so when <code>USE_GPL=1</code> is used to
+compile bcftools, the resulting program must only be distributed under terms
+compatible with that license.</p>
+</div>
+<div class="paragraph">
+<p>In the default compilation mode the program is dual licensed and you may
+choose to be licensed under the terms of the MIT/Expat license or the
+GNU General Public License (GPL).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_installation_2">Installation</h3>
+<div class="paragraph">
+<p>Type <code>make install</code> to install the bcftools executable and associated scripts
+and a manual page to <code>/usr/local</code>.</p>
+</div>
+<div class="paragraph">
+<p>Type <code>make prefix=/path/to/dir install</code> to install everything under your
+choice of installation directory.  The install target also understands
+<code>DESTDIR</code> and the other usual installation directory variables.</p>
+</div>
+<div class="paragraph">
+<p>The bgzip and tabix utilities are provided by HTSlib.  If you have not also
+installed HTSlib separately, you may wish to install these utilities by hand
+by copying <code>bcftools/htslib/{bgzip,tabix}</code> to the same bin directory
+to which you have installed bcftools et al.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

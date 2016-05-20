@@ -1,0 +1,30 @@
+include::header.inc[]
+
+
+Consensus sequence
+------------------
+
+Sometimes there is the need to create a consensus sequence for an individual
+where the sequence incorporates variants typed for this individual.
+This is possible using the ``consensus`` command.
+
+We need the reference sequence ``reference.fa`` in the fasta format
+and an indexed VCF with the variants ``calls.bcf``. The command is:
+
+----
+cat reference.fa | bcftools consensus calls.vcf.gz > consensus.fa
+----
+
+This assumes we have already made the calls. There is
+link:variant-calling.html[another page] which goes deeper and is devoted just
+to this, but in brief, the variant calling command in its simplest form is:
+
+----
+bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
+tabix calls.vcf.gz
+----
+
+
+include::footer.inc[]
+
+
