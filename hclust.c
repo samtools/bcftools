@@ -309,9 +309,6 @@ float calc_dev(node_t **dat, int n)
  */
 float hclust_set_threshold(hclust_t *clust, float min_inter_dist, float max_intra_dist)
 {
-    if ( max_intra_dist > 0 ) return max_intra_dist;    // use fixed cutoff
-    max_intra_dist = fabs(max_intra_dist);
-
     node_t **dat = clust->rmme + clust->ndat;
     int i, ndat = clust->nrmme - clust->ndat;
  
@@ -329,8 +326,15 @@ float hclust_set_threshold(hclust_t *clust, float min_inter_dist, float max_intr
         ksprintf(&clust->str,"DEV\t%f\t%f\n",th,dev);
         if ( min_dev > dev && th >= min_inter_dist ) { min_dev = dev; imin = i; }
     }
-    th = imin==-1 ? max_intra_dist : dat[imin]->value;
-    if ( th > max_intra_dist ) th = max_intra_dist;
+    if ( max_intra_dist > 0 )
+        th = max_intra_dist;  // use fixed cutoff, the above was only for debugging output
+    else
+    {
+        // dynamic cutoff
+        max_intra_dist = fabs(max_intra_dist);
+        th = imin==-1 ? max_intra_dist : dat[imin]->value;
+        if ( th > max_intra_dist ) th = max_intra_dist;
+    }
     ksprintf(&clust->str,"TH\t%f\n", th);
     ksprintf(&clust->str,"MAX_DIST\t%f\n", dat[ndat-1]->value);
     ksprintf(&clust->str,"MIN_INTER\t%f\n", min_inter_dist);
