@@ -320,7 +320,7 @@ sub cmd
 sub test_cmd
 {
     my ($opts,%args) = @_;
-    if ( !exists($args{out}) && !exists($args{exp}) )
+    if ( !exists($args{out}) )
     {
         if ( !exists($args{in}) ) { error("FIXME: expected out or in key\n"); }
         $args{out} = "$args{in}.out";
@@ -350,23 +350,20 @@ sub test_cmd
     }
     my $exp = '';
     if ( exists($args{exp}) ) { $exp = $args{exp}; }
-    else
+    elsif ( open(my $fh,'<',"$$opts{path}/$args{out}") )
     {
-        if ( open(my $fh,'<',"$$opts{path}/$args{out}") )
-        {
-            my @exp = <$fh>;
-            $exp = join('',@exp);
-            close($fh);
-        }
-        elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
+        my @exp = <$fh>;
+        $exp = join('',@exp);
+        close($fh);
     }
+    elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
 
     if ( $exp ne $out )
     {
         open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new");
         print $fh $out;
         close($fh);
-        if ( !-e "$$opts{path}/$args{out}" )
+        if ( !-e "$$opts{path}/$args{out}" && !exists($args{exp}) )
         {
             rename("$$opts{path}/$args{out}.new","$$opts{path}/$args{out}") or error("rename $$opts{path}/$args{out}.new $$opts{path}/$args{out}: $!");
             print "\tthe file with expected output does not exist, creating new one:\n";
@@ -374,6 +371,12 @@ sub test_cmd
         }
         else
         {
+            if ( exists($args{exp}) )
+            {
+                open(my $fh,'>',"$$opts{path}/$args{out}") or error("$$opts{path}/$args{out}");
+                print $fh $exp;
+                close($fh);
+            }
             failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new");
         }
         return;
@@ -908,9 +911,9 @@ sub test_naive_concat
     }
 
     my $bcfs = join('.bcf ',@files).'.bcf';
-    test_cmd($opts,exp=>$exp,cmd=>"$$opts{bin}/bcftools concat --naive $bcfs | $$opts{bin}/bcftools view -H");
+    test_cmd($opts,exp=>$exp,out=>"concat.naive.bcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $bcfs | $$opts{bin}/bcftools view -H");
 
     my $vcfs = join('.vcf.gz ',@files).'.vcf.gz';
-    test_cmd($opts,exp=>$exp,cmd=>"$$opts{bin}/bcftools concat --naive $vcfs | $$opts{bin}/bcftools view -H");
+    test_cmd($opts,exp=>$exp,out=>"concat.naive.vcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $vcfs | $$opts{bin}/bcftools view -H");
 }
 
