@@ -206,6 +206,7 @@ test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.vcf.out',do
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.bcf.out',do_bcf=>1,args=>'-aD');
 test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-l');
 test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-l');
+test_naive_concat($opts,name=>'naive_concat',max_hdr_lines=>10000,max_body_lines=>10000,nfiles=>10);
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');
@@ -348,7 +349,8 @@ sub test_cmd
         }
     }
     my $exp = '';
-    if ( open(my $fh,'<',"$$opts{path}/$args{out}") )
+    if ( exists($args{exp}) ) { $exp = $args{exp}; }
+    elsif ( open(my $fh,'<',"$$opts{path}/$args{out}") )
     {
         my @exp = <$fh>;
         $exp = join('',@exp);
@@ -361,7 +363,7 @@ sub test_cmd
         open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new");
         print $fh $out;
         close($fh);
-        if ( !-e "$$opts{path}/$args{out}" )
+        if ( !-e "$$opts{path}/$args{out}" && !exists($args{exp}) )
         {
             rename("$$opts{path}/$args{out}.new","$$opts{path}/$args{out}") or error("rename $$opts{path}/$args{out}.new $$opts{path}/$args{out}: $!");
             print "\tthe file with expected output does not exist, creating new one:\n";
@@ -369,6 +371,12 @@ sub test_cmd
         }
         else
         {
+            if ( exists($args{exp}) )
+            {
+                open(my $fh,'>',"$$opts{path}/$args{out}") or error("$$opts{path}/$args{out}");
+                print $fh $exp;
+                close($fh);
+            }
             failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new");
         }
         return;
@@ -853,5 +861,59 @@ sub test_vcf_consensus_chain
     my $mask = $args{mask} ? "-m $$opts{path}/$args{mask}" : '';
     my $chain = $args{chain} ? "-c $$opts{tmp}/$args{chain}.new" : '';
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools consensus $$opts{tmp}/$args{in}.vcf.gz -f $$opts{path}/$args{fa} $args{args} $mask $chain > /dev/null 2>/dev/null; cat $$opts{tmp}/$args{chain}.new");
+}
+
+sub test_naive_concat
+{
+    my ($opts,%args) = @_;
+
+    my $seed = srand();
+    print STDERR "Random seed for test_naive_concat: $seed\n";
+
+    my @files = ();
+    my $exp   = '';
+    for (my $n=0; $n<$args{nfiles}; $n++)
+    {
+        my $nhdr = 1 + int(rand($args{max_hdr_lines}));
+        my $nbdy = int(rand($args{max_body_lines}));
+        my $file = "$$opts{tmp}/$args{name}.$n";
+        push @files,$file;
+
+        open(my $fh,'>',"$file.vcf") or error("$file.vcf: $!");
+        print $fh "##fileformat=VCFv4.0\n";
+        print $fh "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
+        print $fh "##contig=<ID=1,length=62435964>\n";
+        for (my $i=0; $i<$nhdr; $i++)
+        {
+            my $x = rand;
+            print $fh "##INFO=<ID=XX$i,Number=1,Type=Integer,Description=\"Test Tag $x\">\n";
+        }
+        print $fh join("\t",'#CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO')."\n";
+
+        # let one of the files have no body
+        if ( $n!=3 )
+        {
+            for (my $i=1; $i<=$nbdy; $i++)
+            {
+                my $x = int(rand(1000));
+                my $line = join("\t",'1',$i,'.','A','C','.','.',"DP=$x")."\n";
+                print $fh  $line;
+                $exp .= $line;
+            }
+        }
+        close($fh) or error("close failed: $file.vcf");
+    }
+
+    for my $file (@files)
+    {
+        cmd("$$opts{bin}/bcftools view -Ob -o $file.bcf $file.vcf");
+        cmd("$$opts{bin}/bcftools view -Oz -o $file.vcf.gz $file.vcf");
+    }
+
+    my $bcfs = join('.bcf ',@files).'.bcf';
+    test_cmd($opts,exp=>$exp,out=>"concat.naive.bcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $bcfs | $$opts{bin}/bcftools view -H");
+
+    my $vcfs = join('.vcf.gz ',@files).'.vcf.gz';
+    test_cmd($opts,exp=>$exp,out=>"concat.naive.vcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $vcfs | $$opts{bin}/bcftools view -H");
 }
 
