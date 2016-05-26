@@ -1403,6 +1403,15 @@ regions listed in the BED file.
 
 ==== Output options
 
+*-g, --gvcf* 'INT'[,...]::
+    output gVCF blocks of homozygous REF calls, with depth (DP) ranges
+    specified by the list of integers. For example, passing '5,15' will
+    group sites into two types of gVCF blocks, the first with minimum
+    per-sample DP from the interval [5,15) and the latter with minimum
+    depth 15 or more. In this example, sites with minimum per-sample
+    depth less than 5 will be printed as separate records, outside of
+    gVCF blocks.
+
 *-o, --output* 'FILE'::
     Write output to 'FILE', rather than the default of standard output.
     (The same short option is used for both *--open-prob* and *--output*.  If *-o*'s
