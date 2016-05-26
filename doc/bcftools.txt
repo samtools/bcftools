@@ -1388,7 +1388,7 @@ regions listed in the BED file.
     indexed.  If used in conjunction with -l then considers the intersection
     of the two requests [all sites]
 
-*-R, --ignore-RG*::
+*--ignore-RG*::
     Ignore RG tags. Treat all reads in one alignment file as one sample.
 
 *--rf, --incl-flags* 'STR'|'INT'::

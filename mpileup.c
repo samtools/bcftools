@@ -652,7 +652,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -Q, --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [%d]\n", mplp->min_baseQ);
     fprintf(fp,
 "  -r, --region REG        region in which pileup is generated\n"
-"  -R, --ignore-RG         ignore RG tags (one BAM = one sample)\n"
+"      --ignore-RG         ignore RG tags (one BAM = one sample)\n"
 "  --rf, --incl-flags STR|INT  required flags: skip reads with mask bits unset [%s]\n", tmp_require);
     fprintf(fp,
 "  --ff, --excl-flags STR|INT  filter flags: skip reads with mask bits set\n"
@@ -717,6 +717,8 @@ int bam_mpileup(int argc, char *argv[])
         {"excl-flags", required_argument, NULL, 2},
         {"output", required_argument, NULL, 3},
         {"open-prob", required_argument, NULL, 4},
+        {"ignore-RG", no_argument, NULL, 5},
+        {"ignore-rg", no_argument, NULL, 5},
         {"illumina1.3+", no_argument, NULL, '6'},
         {"count-orphans", no_argument, NULL, 'A'},
         {"bam-list", required_argument, NULL, 'b'},
@@ -732,24 +734,13 @@ int bam_mpileup(int argc, char *argv[])
         {"exclude-rg", required_argument, NULL, 'G'},
         {"positions", required_argument, NULL, 'l'},
         {"region", required_argument, NULL, 'r'},
-        {"ignore-RG", no_argument, NULL, 'R'},
-        {"ignore-rg", no_argument, NULL, 'R'},
         {"min-MQ", required_argument, NULL, 'q'},
         {"min-mq", required_argument, NULL, 'q'},
         {"min-BQ", required_argument, NULL, 'Q'},
         {"min-bq", required_argument, NULL, 'Q'},
         {"ignore-overlaps", no_argument, NULL, 'x'},
-        {"BCF", no_argument, NULL, 'g'},
-        {"bcf", no_argument, NULL, 'g'},
-        {"VCF", no_argument, NULL, 'v'},
-        {"vcf", no_argument, NULL, 'v'},
         {"output-type", required_argument, NULL, 'O'},
-        {"output-BP", no_argument, NULL, 'O'},
-        {"output-bp", no_argument, NULL, 'O'},
-        {"output-MQ", no_argument, NULL, 's'},
-        {"output-mq", no_argument, NULL, 's'},
         {"output-tags", required_argument, NULL, 't'},
-        {"uncompressed", no_argument, NULL, 'u'},
         {"ext-prob", required_argument, NULL, 'e'},
         {"gap-frac", required_argument, NULL, 'F'},
         {"tandem-qual", required_argument, NULL, 'h'},
@@ -761,7 +752,7 @@ int bam_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Agf:r:l:q:Q:uRC:BDSd:L:b:P:po:e:h:Im:F:EG:6O:sVvxt:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Af:r:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xt:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -774,6 +765,7 @@ int bam_mpileup(int argc, char *argv[])
             break;
         case  3 : mplp.output_fname = optarg; break;
         case  4 : mplp.openQ = atoi(optarg); break;
+        case  5 : mplp.flag |= MPLP_IGNORE_RG; break;
         case 'f':
             mplp.fai = fai_load(optarg);
             if (mplp.fai == NULL) return 1;
@@ -790,18 +782,10 @@ int bam_mpileup(int argc, char *argv[])
                   break;
         case 'P': mplp.pl_list = strdup(optarg); break;
         case 'p': mplp.flag |= MPLP_PER_SAMPLE; break;
-        case 'g': fprintf(stderr,"[warning] bcftools mpileup `-g` is functional, but deprecated. Please swith to -O in future.\n"); mplp.flag |= MPLP_BCF; break;
-        case 'v': fprintf(stderr,"[warning] bcftools mpileup `-v` is functional, but deprecated. Please swith to -O in future.\n"); mplp.flag |= MPLP_BCF | MPLP_VCF; break;
-        case 'u': fprintf(stderr,"[warning] bcftools mpileup `-u` is functional, but deprecated. Please swith to -O in future.\n"); mplp.flag |= MPLP_NO_COMP | MPLP_BCF; break;
         case 'B': mplp.flag &= ~MPLP_REALN; break;
-        case 'D': mplp.fmt_flag |= B2B_FMT_DP; fprintf(stderr, "[warning] bcftools mpileup option `-D` is functional, but deprecated. Please switch to `-t DP` in future.\n"); break;
-        case 'S': mplp.fmt_flag |= B2B_FMT_SP; fprintf(stderr, "[warning] bcftools mpileup option `-S` is functional, but deprecated. Please switch to `-t SP` in future.\n"); break;
-        case 'V': mplp.fmt_flag |= B2B_FMT_DV; fprintf(stderr, "[warning] bcftools mpileup option `-V` is functional, but deprecated. Please switch to `-t DV` in future.\n"); break;
         case 'I': mplp.flag |= MPLP_NO_INDEL; break;
         case 'E': mplp.flag |= MPLP_REDO_BAQ; break;
         case '6': mplp.flag |= MPLP_ILLUMINA13; break;
-        case 'R': mplp.flag |= MPLP_IGNORE_RG; break;
-        case 's': error("The -s option is for text based mpileup output. Please use \"samtools mpileup -s\" instead.\n"); break;
         case 'O': 
             switch (optarg[0]) {
                 case 'b': mplp.output_type = FT_BCF_GZ; break;
