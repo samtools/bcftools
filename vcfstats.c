@@ -187,6 +187,12 @@ static inline int idist_i2bin(idist_t *d, int i)
     return i-1+d->min;
 }
 
+static inline int clip_nonnegative(float x, int limit)
+{
+    if (x >= limit || isnan(x)) return limit - 1;
+    else if (x <= 0.0) return 0;
+    else return (int) x;
+}
 
 #define IC_DBG 0
 #if IC_DBG
@@ -621,7 +627,7 @@ static void do_indel_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     bcf1_t *line = reader->buffer[0];
 
     #if QUAL_STATS
-        int iqual = line->qual >= args->m_qual || isnan(line->qual) ? args->m_qual - 1 : line->qual;
+        int iqual = clip_nonnegative(line->qual, args->m_qual);
         stats->qual_indels[iqual]++;
     #endif
 
@@ -756,7 +762,7 @@ static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     if ( ref<0 ) return;
 
     #if QUAL_STATS
-        int iqual = line->qual >= args->m_qual || isnan(line->qual) ? args->m_qual - 1 : line->qual;
+        int iqual = clip_nonnegative(line->qual, args->m_qual);
         stats->qual_snps[iqual]++;
     #endif
 
