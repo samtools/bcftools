@@ -180,6 +180,7 @@ peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(HTSDIR)/htslib/kstring.h
 consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) $(HTSDIR)/htslib/regidx.h
 bin.o: bin.c $(bin_h)
 mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(htslib_regidx_h) $(bcftools_h) $(call_h) $(bam2bcf_h) $(sample_h)
+sample.o: $(sample_h) $(htslib_hts_h) $(HTSDIR)/htslib/khash_str2int.h
 version.o: version.h version.c
 hclust.o: hclust.c hclust.h
 

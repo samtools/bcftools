@@ -1,6 +1,7 @@
 /*  sample.h -- group data by sample.
 
     Copyright (C) 2010 Broad Institute.
+    Copyright (C) 2016 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -34,7 +35,7 @@ typedef struct {
 } bam_sample_t;
 
 bam_sample_t *bam_smpl_init(void);
-int bam_smpl_add(bam_sample_t *sm, const char *abs, const char *txt);
+int bam_smpl_add(bam_sample_t *sm, const char *abs, const char *txt, void *white_list, void *white_hash);
 int bam_smpl_rg2smid(const bam_sample_t *sm, const char *fn, const char *rg, kstring_t *str);
 void bam_smpl_destroy(bam_sample_t *sm);
 

@@ -60,12 +60,12 @@ DEALINGS IN THE SOFTWARE.  */
 
 typedef struct {
     int min_mq, flag, min_baseQ, capQ_thres, max_depth, max_indel_depth, fmt_flag;
-    int rflag_require, rflag_filter, output_type;
+    int rflag_require, rflag_filter, output_type, sample_is_file;
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
-    char *reg, *pl_list, *fai_fname, *output_fname;
+    char *reg, *pl_list, *fai_fname, *output_fname, *samples_list;
     faidx_t *fai;
-    void *rghash;
+    void *rghash_exc;
     regidx_t *bed;
     gvcf_t *gvcf;
     int argc;
@@ -86,6 +86,7 @@ typedef struct {
     bam_hdr_t *h;
     mplp_ref_t *ref;
     const mplp_conf_t *conf;
+    void *rghash_inc;   // whitelist for readgroups on per-bam basis
 } mplp_aux_t;
 
 typedef struct {
@@ -158,6 +159,7 @@ static int mplp_func(void *data, bam1_t *b)
     int ret, skip = 0, ref_len;
     do {
         int has_ref;
+        skip = 0;
         ret = ma->iter? sam_itr_next(ma->fp, ma->iter, b) : sam_read1(ma->fp, ma->h, b);
         if (ret < 0) break;
         // The 'B' cigar operation is not part of the specification, considering as obsolete.
@@ -172,9 +174,16 @@ static int mplp_func(void *data, bam1_t *b)
             skip = regidx_overlap(ma->conf->bed, ma->h->target_name[b->core.tid],b->core.pos, bam_endpos(b)-1, NULL) ? 0 : 1;
             if (skip) continue;
         }
-        if (ma->conf->rghash) { // exclude read groups
+        if (ma->rghash_inc)
+        {
+            // skip unless read group is listed
             uint8_t *rg = bam_aux_get(b, "RG");
-            skip = (rg && khash_str2int_get(ma->conf->rghash, (const char*)(rg+1), NULL)==0);
+            if ( !rg ) { skip = 1; continue; }
+            if ( !khash_str2int_has_key(ma->rghash_inc, (const char*)(rg+1)) ) { skip = 1; continue; }
+        }
+        if (ma->conf->rghash_exc) { // exclude read groups
+            uint8_t *rg = bam_aux_get(b, "RG");
+            skip = (rg && khash_str2int_get(ma->conf->rghash_exc, (const char*)(rg+1), NULL)==0);
             if (skip) continue;
         }
         if (ma->conf->flag & MPLP_ILLUMINA13) {
@@ -278,7 +287,7 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
     bam_mplp_t iter;
     bam_hdr_t *h = NULL; /* header of first file in input list */
     char *ref;
-    void *rghash = NULL;
+    void *rghash_exc = NULL;
 
     bcf_callaux_t *bca = NULL;
     bcf_callret1_t *bcr = NULL;
@@ -301,6 +310,24 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
     if (n == 0) {
         fprintf(stderr,"[%s] no input file/data given\n", __func__);
         exit(EXIT_FAILURE);
+    }
+
+    void *samples_inc = NULL;
+    if ( conf->samples_list )
+    {
+        int nsamples = 0;
+        char **samples = hts_readlist(conf->samples_list, conf->sample_is_file, &nsamples);
+        if (!samples) {
+            fprintf(stderr,"[%s] could not read the samples list %s\n", __func__, conf->samples_list);
+            exit(EXIT_FAILURE);
+        }
+        if ( nsamples ) samples_inc = khash_str2int_init();
+        for (i=0; i<nsamples; i++)
+        {
+            khash_str2int_inc(samples_inc, strdup(samples[i]));
+            free(samples[i]);
+        }
+        free(samples);
     }
 
     // read the header of each file in the list and initialize data
@@ -329,9 +356,10 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
             fprintf(stderr,"[%s] fail to read the header of %s\n", __func__, fn[i]);
             exit(EXIT_FAILURE);
         }
-        bam_smpl_add(sm, fn[i], (conf->flag&MPLP_IGNORE_RG)? 0 : h_tmp->text);
+        if ( samples_inc ) data[i]->rghash_inc = khash_str2int_init();
+        bam_smpl_add(sm, fn[i], (conf->flag&MPLP_IGNORE_RG)? 0 : h_tmp->text, samples_inc, data[i]->rghash_inc);
         // Collect read group IDs with PL (platform) listed in pl_list (note: fragile, strstr search)
-        rghash = bcf_call_add_rg(rghash, h_tmp->text, conf->pl_list);
+        rghash_exc = bcf_call_add_rg(rghash_exc, h_tmp->text, conf->pl_list);
         if (conf->reg) {
             hts_idx_t *idx = sam_index_load(data[i]->fp, fn[i]);
             if (idx == NULL) {
@@ -458,7 +486,6 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
     // Initialise the calling algorithm
     bca = bcf_call_init(-1., conf->min_baseQ);
     bcr = (bcf_callret1_t*) calloc(sm->n, sizeof(bcf_callret1_t));
-    bca->rghash = rghash;
     bca->openQ = conf->openQ, bca->extQ = conf->extQ, bca->tandemQ = conf->tandemQ;
     bca->min_frac = conf->min_frac;
     bca->min_support = conf->min_support;
@@ -519,7 +546,8 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
         bcf_call2bcf(&bc, bcf_rec, bcr, conf->fmt_flag, 0, 0);
         flush_bcf_records(conf, bcf_fp, bcf_hdr, bcf_rec);
         // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
-        if (!(conf->flag&MPLP_NO_INDEL) && total_depth < max_indel_depth && bcf_call_gap_prep(gplp.n, gplp.n_plp, gplp.plp, pos, bca, ref, rghash) >= 0)
+        // check me: rghash in bcf_call_gap_prep() should have no effect, reads mplp_func already excludes them
+        if (!(conf->flag&MPLP_NO_INDEL) && total_depth < max_indel_depth && bcf_call_gap_prep(gplp.n, gplp.n_plp, gplp.plp, pos, bca, ref, NULL) >= 0)
         {
             bcf_callaux_clean(bca, &bc);
             for (i = 0; i < gplp.n; ++i)
@@ -552,15 +580,17 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
     bam_smpl_destroy(sm); free(buf.s);
     for (i = 0; i < gplp.n; ++i) free(gplp.plp[i]);
     free(gplp.plp); free(gplp.n_plp); free(gplp.m_plp);
-    bcf_call_del_rghash(rghash);
+    bcf_call_del_rghash(rghash_exc);
     bam_mplp_destroy(iter);
     bam_hdr_destroy(h);
     for (i = 0; i < n; ++i) {
         sam_close(data[i]->fp);
         if (data[i]->iter) hts_itr_destroy(data[i]->iter);
+        if ( data[i]->rghash_inc ) khash_str2int_destroy_free(data[i]->rghash_inc);
         free(data[i]);
     }
     free(data); free(plp); free(n_plp);
+    if ( samples_inc ) khash_str2int_destroy_free(samples_inc);
     free(mp_ref.ref[0]);
     free(mp_ref.ref[1]);
     return ret;
@@ -689,6 +719,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  --ff, --excl-flags STR|INT  filter flags: skip reads with mask bits set\n"
 "                                            [%s]\n", tmp_filter);
     fprintf(fp,
+"  -s, --samples LIST      comma separated list of samples to include\n"
+"  -S, --samples-file FILE file of samples to include\n"
 "  -x, --ignore-overlaps   disable read-pair overlap detection\n"
 "\n"
 "Output options:\n"
@@ -774,6 +806,8 @@ int bam_mpileup(int argc, char *argv[])
         {"min-bq", required_argument, NULL, 'Q'},
         {"ignore-overlaps", no_argument, NULL, 'x'},
         {"output-type", required_argument, NULL, 'O'},
+        {"samples", required_argument, NULL, 's'},
+        {"samples-file", required_argument, NULL, 'S'},
         {"output-tags", required_argument, NULL, 't'},
         {"ext-prob", required_argument, NULL, 'e'},
         {"gap-frac", required_argument, NULL, 'F'},
@@ -786,7 +820,7 @@ int bam_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xt:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xt:s:S:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -824,6 +858,11 @@ int bam_mpileup(int argc, char *argv[])
         case 'I': mplp.flag |= MPLP_NO_INDEL; break;
         case 'E': mplp.flag |= MPLP_REDO_BAQ; break;
         case '6': mplp.flag |= MPLP_ILLUMINA13; break;
+        case 's': mplp.samples_list = optarg; break;
+        case 'S':
+            mplp.samples_list = optarg;
+            mplp.sample_is_file = 1;
+            break;
         case 'O': 
             switch (optarg[0]) {
                 case 'b': mplp.output_type = FT_BCF_GZ; break;
@@ -854,11 +893,11 @@ int bam_mpileup(int argc, char *argv[])
         case 'G': {
                 FILE *fp_rg;
                 char buf[1024];
-                mplp.rghash = khash_str2int_init();
+                mplp.rghash_exc = khash_str2int_init();
                 if ((fp_rg = fopen(optarg, "r")) == NULL)
                     fprintf(stderr, "(%s) Fail to open file %s. Continue anyway.\n", __func__, optarg);
                 while (!feof(fp_rg) && fscanf(fp_rg, "%s", buf) > 0) // this is not a good style, but forgive me...
-                    khash_str2int_inc(mplp.rghash, strdup(buf));
+                    khash_str2int_inc(mplp.rghash_exc, strdup(buf));
                 fclose(fp_rg);
             }
             break;
@@ -907,7 +946,7 @@ int bam_mpileup(int argc, char *argv[])
     }
     else
         ret = mpileup(&mplp, argc - optind, argv + optind);
-    if (mplp.rghash) khash_str2int_destroy_free(mplp.rghash);
+    if (mplp.rghash_exc) khash_str2int_destroy_free(mplp.rghash_exc);
     free(mplp.reg); free(mplp.pl_list);
     if (mplp.fai) fai_destroy(mplp.fai);
     if (mplp.bed) regidx_destroy(mplp.bed);

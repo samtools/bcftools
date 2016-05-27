@@ -1397,6 +1397,12 @@ regions listed in the BED file.
 *--ff, --excl-flags* 'STR'|'INT'::
     Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
 
+*-s, --samples* 'LIST'::
+    list of sample names. See *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    file of sample names. See *<<common_options,Common Options>>*
+
 *-x, --ignore-overlaps*::
     Disable read-pair overlap detection.
 
