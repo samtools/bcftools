@@ -1409,6 +1409,31 @@ regions listed in the BED file.
 
 ==== Output options
 
+*-a, --annotate* 'LIST'::
+    Comma-separated list of FORMAT and INFO tags to output. (case-insensitive,
+    the "FORMAT/" prefix is optional, and use "?" to list available annotations
+    on the command line) [null]:
+
+    *FORMAT/AD* .. Allelic depth (Number=R,Type=Integer)
+    *FORMAT/ADF* .. Allelic depths on the forward strand (Number=R,Type=Integer)
+    *FORMAT/ADR* .. Allelic depths on the reverse strand (Number=R,Type=Integer)
+    *FORMAT/DP* .. Number of high-quality bases (Number=1,Type=Integer)
+    *FORMAT/SP* .. Phred-scaled strand bias P-value (Number=1,Type=Integer)
+
+    *INFO/AD* .. Total allelic depth (Number=R,Type=Integer)
+    *INFO/ADF* .. Total allelic depths on the forward strand (Number=R,Type=Integer)
+    *INFO/ADR* .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+
+    *FORMAT/DV* .. Deprecated in favor of FORMAT/AD;
+            Number of high-quality non-reference bases, (Number=1,Type=Integer)
+    *FORMAT/DP4* .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR;
+            Number of high-quality ref-forward, ref-reverse,
+            alt-forward and alt-reverse bases (Number=4,Type=Integer)
+    *FORMAT/DPR* .. Deprecated in favor of FORMAT/AD;
+            Number of high-quality bases for each observed allele (Number=R,Type=Integer)
+    *INFO/DPR* .. Deprecated in favor of INFO/AD;
+            Number of high-quality bases for each observed allele (Number=R,Type=Integer)
+
 *-g, --gvcf* 'INT'[,...]::
     output gVCF blocks of homozygous REF calls, with depth (DP) ranges
     specified by the list of integers. For example, passing '5,15' will
@@ -1428,29 +1453,6 @@ regions listed in the BED file.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
-
-*-t, --output-tags* 'LIST'::
-    Comma-separated list of FORMAT and INFO tags to output (case-insensitive) [null]:
-
-    - *AD* .. Allelic depth, FORMAT
-    - *INFO/AD* .. Total allelic depth, INFO
-    - *ADF* .. Allelic depths on the forward strand, FORMAT
-    - *INFO/ADF* .. Total allelic depths on the forward strand, INFO
-    - *ADR* .. Allelic depths on the reverse strand, FORMAT
-    - *INFO/ADR* .. Total allelic depths on the reverse strand, INFO
-    - *DP* .. Number of high-quality bases, FORMAT
-    - *SP* .. Phred-scaled strand bias P-value, FORMAT
-
-    - *DV* .. Deprecated in favor of AD;
-              Number of high-quality non-reference bases, FORMAT
-    - *DPR* .. Deprecated in favor of AD;
-               Number of high-quality bases for each observed allele, FORMAT
-    - *INFO/DPR* .. Deprecated in favor of INFO/AD;
-                    Number of high-quality bases for each observed allele, INFO
-    - *DP4* .. Deprecated in favor of ADF and ADR;
-               Number of high-quality ref-forward, ref-reverse,
-               alt-forward and alt-reverse bases, FORMAT
-
 
 ==== Options for SNP/INDEL genotype likelihood computation
 

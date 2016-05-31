@@ -257,11 +257,11 @@ test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.1.out',fa=>'consensus
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.2.out',fa=>'consensus2.fa',args=>'-H 2');
 test_vcf_consensus($opts,in=>'empty',out=>'consensus.5.out',fa=>'consensus.fa',args=>'');
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150]);
-test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.2.out',args=>q[-t DP,DV -r17:100-600]); # test files from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
 test_mpileup($opts,in=>[qw(1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
-test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.4.out',args=>q[-t DP,DPR,DV,DP4,INFO/DPR,SP -r17:100-600]); #test files from samtools mpileup test suite
-test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.5.out',args=>q[-t DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR -r17:100-600]);
-test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.6.out',args=>q[-t DP,DV -r17:100-600 --gvcf 0,2,5]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.4.out',args=>q[-a DP,DPR,DV,DP4,INFO/DPR,SP -r17:100-600]); #test files from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.5.out',args=>q[-a DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR -r17:100-600]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV -r17:100-600 --gvcf 0,2,5]);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -s HG00101,HG00102]);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -S {PATH}/mplp.samples]);
 

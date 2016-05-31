@@ -660,15 +660,15 @@ int parse_format_flag(const char *str)
     char **tags = hts_readlist(str, 0, &n_tags);
     for(i=0; i<n_tags; i++)
     {
-        if ( !strcasecmp(tags[i],"DP") ) flag |= B2B_FMT_DP;
-        else if ( !strcasecmp(tags[i],"DV") ) { flag |= B2B_FMT_DV; fprintf(stderr, "[warning] tag DV functional, but deprecated. Please switch to `AD` in future.\n"); }
-        else if ( !strcasecmp(tags[i],"SP") ) flag |= B2B_FMT_SP;
-        else if ( !strcasecmp(tags[i],"DP4") ) { flag |= B2B_FMT_DP4; fprintf(stderr, "[warning] tag DP4 functional, but deprecated. Please switch to `ADF` and `ADR` in future.\n"); }
-        else if ( !strcasecmp(tags[i],"DPR") ) { flag |= B2B_FMT_DPR; fprintf(stderr, "[warning] tag DPR functional, but deprecated. Please switch to `AD` in future.\n"); }
+        if ( !strcasecmp(tags[i],"DP") || !strcasecmp(tags[i],"FORMAT/DP") || !strcasecmp(tags[i],"FMT/DP") ) flag |= B2B_FMT_DP;
+        else if ( !strcasecmp(tags[i],"DV") || !strcasecmp(tags[i],"FORMAT/DV") || !strcasecmp(tags[i],"FMT/DV") ) { flag |= B2B_FMT_DV; fprintf(stderr, "[warning] tag DV functional, but deprecated. Please switch to `AD` in future.\n"); }
+        else if ( !strcasecmp(tags[i],"SP") || !strcasecmp(tags[i],"FORMAT/SP") || !strcasecmp(tags[i],"FMT/SP") ) flag |= B2B_FMT_SP;
+        else if ( !strcasecmp(tags[i],"DP4") || !strcasecmp(tags[i],"FORMAT/DP4") || !strcasecmp(tags[i],"FMT/DP4") ) { flag |= B2B_FMT_DP4; fprintf(stderr, "[warning] tag DP4 functional, but deprecated. Please switch to `ADF` and `ADR` in future.\n"); }
+        else if ( !strcasecmp(tags[i],"DPR") || !strcasecmp(tags[i],"FORMAT/DPR") || !strcasecmp(tags[i],"FMT/DPR") ) { flag |= B2B_FMT_DPR; fprintf(stderr, "[warning] tag DPR functional, but deprecated. Please switch to `AD` in future.\n"); }
         else if ( !strcasecmp(tags[i],"INFO/DPR") ) { flag |= B2B_INFO_DPR; fprintf(stderr, "[warning] tag INFO/DPR functional, but deprecated. Please switch to `INFO/AD` in future.\n"); }
-        else if ( !strcasecmp(tags[i],"AD") ) flag |= B2B_FMT_AD;
-        else if ( !strcasecmp(tags[i],"ADF") ) flag |= B2B_FMT_ADF;
-        else if ( !strcasecmp(tags[i],"ADR") ) flag |= B2B_FMT_ADR;
+        else if ( !strcasecmp(tags[i],"AD") || !strcasecmp(tags[i],"FORMAT/AD") || !strcasecmp(tags[i],"FMT/AD") ) flag |= B2B_FMT_AD;
+        else if ( !strcasecmp(tags[i],"ADF") || !strcasecmp(tags[i],"FORMAT/ADF") || !strcasecmp(tags[i],"FMT/ADF") ) flag |= B2B_FMT_ADF;
+        else if ( !strcasecmp(tags[i],"ADR") || !strcasecmp(tags[i],"FORMAT/ADR") || !strcasecmp(tags[i],"FMT/ADR") ) flag |= B2B_FMT_ADR;
         else if ( !strcasecmp(tags[i],"INFO/AD") ) flag |= B2B_INFO_AD;
         else if ( !strcasecmp(tags[i],"INFO/ADF") ) flag |= B2B_INFO_ADF;
         else if ( !strcasecmp(tags[i],"INFO/ADR") ) flag |= B2B_INFO_ADR;
@@ -681,6 +681,26 @@ int parse_format_flag(const char *str)
     }
     if (n_tags) free(tags);
     return flag;
+}
+
+static void list_annotations(FILE *fp)
+{
+    fprintf(fp,
+"\n"
+"FORMAT annotation tags available (\"FORMAT/\" prefix is optional):\n"
+"\n"
+"  FORMAT/AD  .. Allelic depth (Number=R,Type=Integer)\n"
+"  FORMAT/ADF .. Allelic depths on the forward strand (Number=R,Type=Integer)\n"
+"  FORMAT/ADR .. Allelic depths on the reverse strand (Number=R,Type=Integer)\n"
+"  FORMAT/DP  .. Number of high-quality bases (Number=1,Type=Integer)\n"
+"  FORMAT/SP  .. Phred-scaled strand bias P-value (Number=1,Type=Integer)\n"
+"\n"
+"INFO annotation tags available:\n"
+"\n"
+"  INFO/AD  .. Total allelic depth (Number=R,Type=Integer)\n"
+"  INFO/ADF .. Total allelic depths on the forward strand (Number=R,Type=Integer)\n"
+"  INFO/ADR .. Total allelic depths on the reverse strand (Number=R,Type=Integer)\n"
+"\n");
 }
 
 static void print_usage(FILE *fp, const mplp_conf_t *mplp)
@@ -724,13 +744,12 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -x, --ignore-overlaps   disable read-pair overlap detection\n"
 "\n"
 "Output options:\n"
+"  -a, --annotate LIST     optional tags to output; '?' to list []\n"
 "  -g, --gvcf INT[,...]    group non-variant sites into gVCF blocks according\n"
 "                          to minimum per-sample DP\n"
 "  -o, --output FILE       write output to FILE [standard output]\n"
 "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
 "                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
-"  -t, --output-tags LIST  optional tags to output:\n"
-"               DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR []\n"
 "\n"
 "SNP/INDEL genotype likelihoods options:\n"
 "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
@@ -749,7 +768,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -p, --per-sample-mF     apply -m and -F per-sample for increased sensitivity\n"
 "  -P, --platforms STR     comma separated list of platforms for indels [all]\n"
 "\n"
-"Notes: Assuming diploid individuals.\n");
+"Notes: Assuming diploid individuals.\n"
+"\n");
 
     free(tmp_require);
     free(tmp_filter);
@@ -808,7 +828,7 @@ int bam_mpileup(int argc, char *argv[])
         {"output-type", required_argument, NULL, 'O'},
         {"samples", required_argument, NULL, 's'},
         {"samples-file", required_argument, NULL, 'S'},
-        {"output-tags", required_argument, NULL, 't'},
+        {"annotate", required_argument, NULL, 'a'},
         {"ext-prob", required_argument, NULL, 'e'},
         {"gap-frac", required_argument, NULL, 'F'},
         {"tandem-qual", required_argument, NULL, 'h'},
@@ -820,7 +840,7 @@ int bam_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xt:s:S:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -901,7 +921,13 @@ int bam_mpileup(int argc, char *argv[])
                 fclose(fp_rg);
             }
             break;
-        case 't': mplp.fmt_flag |= parse_format_flag(optarg); break;
+        case 'a':
+            if (optarg[0]=='?') {
+                list_annotations(stderr);
+                return 1;
+            }
+            mplp.fmt_flag |= parse_format_flag(optarg);
+        break;
         default:
             fprintf(stderr,"Invalid option: '%c'\n", c);
             return 1;
