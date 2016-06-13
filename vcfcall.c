@@ -411,7 +411,7 @@ static void init_data(args_t *args)
         {
             args->nsamples = bcf_hdr_nsamples(args->aux.hdr);
             args->sample2sex = (int*) malloc(sizeof(int)*args->nsamples);
-            for (i=0; i<args->nsamples; i++) args->sample2sex[i] = 0;
+            for (i=0; i<args->nsamples; i++) args->sample2sex[i] = 2;
         }
     }
     if ( args->nsamples )
@@ -779,8 +779,8 @@ int main_vcfcall(int argc, char *argv[])
 
     if ( !ploidy_fname && !ploidy )
     {
-        fprintf(stderr,"Note: Neither --ploidy nor --ploidy-file given, assuming all sites are diploid\n");
-        args.ploidy = ploidy_init_string("",2);
+        if ( !args.samples_is_file ) fprintf(stderr,"Note: none of --samples-file, --ploidy or --ploidy-file given, assuming all sites are diploid\n");
+        args.ploidy = ploidy_init_string("* * * 0 0\n* * * 1 1\n* * * 2 2\n",2);
     }
 
     if ( !args.ploidy ) error("Could not initialize ploidy\n");
