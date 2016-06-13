@@ -22,11 +22,11 @@
     THE SOFTWARE.
 */
 
-#include <htslib/regidx.h>
 #include <htslib/khash_str2int.h>
 #include <htslib/kseq.h>
 #include <htslib/hts.h>
 #include "bcftools.h"
+#include "regidx.h"
 #include "ploidy.h"
 
 struct _ploidy_t

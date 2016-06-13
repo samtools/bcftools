@@ -35,8 +35,8 @@
 #include <htslib/kstring.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
-#include <htslib/regidx.h>
 #include "bcftools.h"
+#include "regidx.h"
 #include "rbuf.h"
 
 typedef struct
