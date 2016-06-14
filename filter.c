@@ -567,7 +567,7 @@ static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *to
         tok->nvalues = tok->nsamples = 0;
         return;
     }
-    int i, blen = 3, nsmpl = bcf_hdr_nsamples(flt->hdr);
+    int i, blen = 4, nsmpl = bcf_hdr_nsamples(flt->hdr);
     kstring_t str;
 
 gt_length_too_big:
@@ -576,29 +576,15 @@ gt_length_too_big:
     {
         int plen = str.l;
 
-        #define BRANCH(type_t) { \
-            type_t *ptr = (type_t*) (fmt->p + i*fmt->size); \
-            if ( !(ptr[0]>>1) ) kputc('.',&str); \
-        }
-        switch (fmt->type) {
-            case BCF_BT_INT8:  BRANCH(int8_t); break;
-            case BCF_BT_INT16: BRANCH(int16_t); break;
-            case BCF_BT_INT32: BRANCH(int32_t); break;
-            default: fprintf(stderr,"FIXME: type %d in bcf_format_gt?\n", fmt->type); abort(); break;
-        }
-        #undef BRANCH
-
-        if ( plen==str.l )
+        bcf_format_gt(fmt, i, &str);
+        kputc_(0,&str);
+        if ( str.l - plen > blen )
         {
-            bcf_format_gt(fmt, i, &str);
-            if ( str.l - plen > blen )
-            {
-                // too many alternate alleles or ploidy is too large, the genotype does not fit
-                // three characters ("0/0" vs "10/10").
-                tok->str_value = str.s;
-                blen *= 2;
-                goto gt_length_too_big;
-            }
+            // too many alternate alleles or ploidy is too large, the genotype does not fit
+            // three characters ("0/0" vs "10/10").
+            tok->str_value = str.s;
+            blen *= 2;
+            goto gt_length_too_big;
         }
 
         plen = str.l - plen;
@@ -1124,10 +1110,23 @@ static int cmp_vector_strings(token_t *atok, token_t *btok, int logic)    // log
     }
     return pass_site;
 }
-static int regex_vector_strings(token_t *atok, token_t *btok)
+static int regex_vector_strings(token_t *atok, token_t *btok, int negate)
 {
-    int ret = regexec(btok->regex, atok->str_value, 0,NULL,0);
-    return ret==0 ? 1 : 0;
+    int i, pass_site = 0;
+    if ( atok->nsamples )
+    {
+        for (i=0; i<atok->nsamples; i++)
+        {
+            char *ptr = atok->str_value + i*(int)atok->values[0];
+            atok->pass_samples[i] = regexec(btok->regex, ptr, 0,NULL,0) ? 0 : 1;
+            if ( negate ) atok->pass_samples[i] = atok->pass_samples[i] ? 0 : 1;
+            pass_site |= atok->pass_samples[i];
+        }
+        return pass_site;
+    }
+    pass_site = regexec(btok->regex, atok->str_value, 0,NULL,0) ? 0 : 1;
+    if ( negate ) pass_site = pass_site ? 0 : 1;
+    return pass_site;
 }
 
 static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
@@ -1746,10 +1745,7 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         else if ( filter->filters[i].tok_type == TOK_LIKE || filter->filters[i].tok_type == TOK_NLIKE )
         {
             if ( is_str==2 )
-            {
-                is_true = regex_vector_strings(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1]);
-                if ( filter->filters[i].tok_type == TOK_NLIKE ) is_true = is_true ? 0 : 1;
-            }
+                is_true = regex_vector_strings(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1], filter->filters[i].tok_type == TOK_LIKE ? 0 : 1);
             else
                 error("The regex operator can be used on strings only: %s\n", filter->str);
         }
