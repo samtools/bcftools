@@ -45,7 +45,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
-           vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o version.o \
+           vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o regidx.o version.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
 EXTRA_CPPFLAGS = -I. -I$(HTSDIR) -DPLUGINPATH=\"$(pluginpath)\"
@@ -172,6 +172,7 @@ vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
 ploidy.o: ploidy.c regidx.h $(HTSDIR)/htslib/khash_str2int.h $(HTSDIR)/htslib/kseq.h $(htslib_hts_h) $(bcftools_h) $(ploidy_h)
 polysomy.o: polysomy.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(bcftools_h) peakfit.h
 peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(HTSDIR)/htslib/kstring.h
+regidx.o: regidx.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) regidx.h
 consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) regidx.h
 version.o: version.h version.c
 

@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -28,6 +28,7 @@
 #include <htslib/khash_str2int.h>
 #include "regidx.h"
 
+#define MAX_COOR 2147483647     // CSI and hts_itr_query limit
 #define LIDX_SHIFT 13   // number of insignificant index bits
 
 // List of regions for one chromosome
@@ -53,7 +54,8 @@ struct _regidx_t
 
     // temporary data for index initialization
     kstring_t str;
-    int rid_prev, start_prev, end_prev;
+    int rid_prev;
+    uint32_t start_prev, end_prev;
     int payload_size;
     void *payload;
 };
@@ -78,50 +80,68 @@ char **regidx_seq_names(regidx_t *idx, int *n)
     return idx->seq_names;
 }
 
-int _regidx_build_index(regidx_t *idx)
+int _regidx_build_index(regidx_t *idx, reglist_t *list)
 {
-    int iseq;
-    for (iseq=0; iseq<idx->nseq; iseq++)
+    int j,k, imax = 0;   // max index bin
+    for (j=0; j<list->nregs; j++)
     {
-        reglist_t *list = &idx->seq[iseq];
-        int j,k, imax = 0;   // max index bin
-        for (j=0; j<list->nregs; j++)
+        int ibeg = list->regs[j].start >> LIDX_SHIFT;
+        int iend = list->regs[j].end >> LIDX_SHIFT;
+        if ( imax < iend + 1 )
         {
-            int ibeg = list->regs[j].start >> LIDX_SHIFT;
-            int iend = list->regs[j].end >> LIDX_SHIFT;
-            if ( imax < iend + 1 )
-            {
-                int old_imax = imax; 
-                imax = iend + 1;
-                kroundup32(imax);
-                list->idx = (int*) realloc(list->idx, imax*sizeof(int));
-                for (k=old_imax; k<imax; k++) list->idx[k] = -1;
-            }
-            if ( ibeg==iend )
-            {
-                if ( list->idx[ibeg]<0 ) list->idx[ibeg] = j;
-            }
-            else
-            {
-                for (k=ibeg; k<=iend; k++)
-                    if ( list->idx[k]<0 ) list->idx[k] = j;
-            }
-            list->nidx = iend + 1;
+            int old_imax = imax; 
+            imax = iend + 1;
+            kroundup32(imax);
+            list->idx = (int*) realloc(list->idx, imax*sizeof(int));
+            for (k=old_imax; k<imax; k++) list->idx[k] = -1;
         }
+        if ( ibeg==iend )
+        {
+            if ( list->idx[ibeg]<0 ) list->idx[ibeg] = j;
+        }
+        else
+        {
+            for (k=ibeg; k<=iend; k++)
+                if ( list->idx[k]<0 ) list->idx[k] = j;
+        }
+        list->nidx = iend + 1;
     }
+    return 0;
+}
+
+int regidx_insert_list(regidx_t *idx, char *line, char delim)
+{
+    kstring_t tmp = {0,0,0};
+    char *ss = line;
+    while ( *ss )
+    {
+        char *se = ss;
+        while ( *se && *se!=delim ) se++;
+        tmp.l = 0;
+        kputsn(ss, se-ss, &tmp);
+        if ( regidx_insert(idx,tmp.s) < 0 )
+        {
+            free(tmp.s);
+            return -1;
+        }
+        if ( !*se ) break;
+        ss = se+1;
+    }
+    free(tmp.s);
     return 0;
 }
 
 int regidx_insert(regidx_t *idx, char *line)
 {
-    if ( !line )
-        return _regidx_build_index(idx);
+    if ( !line ) return 0;
 
     char *chr_from, *chr_to;
     reg_t reg;
     int ret = idx->parse(line,&chr_from,&chr_to,&reg,idx->payload,idx->usr);
     if ( ret==-2 ) return -1;   // error
     if ( ret==-1 ) return 0;    // skip the line
+    if ( reg.start > MAX_COOR - 1 ) reg.start = MAX_COOR - 1;
+    if ( reg.end   > MAX_COOR - 1 ) reg.end   = MAX_COOR - 1;
 
     int rid;
     idx->str.l = 0;
@@ -151,7 +171,7 @@ int regidx_insert(regidx_t *idx, char *line)
     {
         if ( idx->start_prev > reg.start || (idx->start_prev==reg.start && idx->end_prev>reg.end) ) 
         { 
-            fprintf(stderr,"The regions are not sorted: %s:%d-%d is before %s:%d-%d\n", 
+            fprintf(stderr,"The regions are not sorted: %s:%u-%u is before %s:%u-%u\n", 
                 idx->str.s,idx->start_prev+1,idx->end_prev+1,idx->str.s,reg.start+1,reg.end+1); 
             return -1;
         }
@@ -187,8 +207,8 @@ regidx_t *regidx_init(const char *fname, regidx_parse_f parser, regidx_free_f fr
     idx->usr   = usr_dat;
     idx->seq2regs = khash_str2int_init();
     idx->rid_prev   = -1;
-    idx->start_prev = -1;
-    idx->end_prev   = -1;
+    idx->start_prev = 0;
+    idx->end_prev   = 0;
     idx->payload_size = payload_size;
     if ( payload_size ) idx->payload = malloc(payload_size);
 
@@ -249,29 +269,42 @@ int regidx_overlap(regidx_t *idx, const char *chr, uint32_t from, uint32_t to, r
     reglist_t *list = &idx->seq[iseq];
     if ( !list->nregs ) return 0;
 
-    int i, ibeg = from>>LIDX_SHIFT; 
-    int ireg = ibeg < list->nidx ? list->idx[ibeg] : list->idx[ list->nidx - 1 ];
-    if ( ireg < 0 )
+    int i;
+    if ( list->nregs==1 )
     {
-        // linear search; if slow, replace with binary search
-        if ( ibeg > list->nidx ) ibeg = list->nidx;
-        for (i=ibeg - 1; i>=0; i--)
-            if ( list->idx[i] >=0 ) break;
-        ireg = i>=0 ? list->idx[i] : 0;
+        // one region only, the index was not built to save memory
+        if ( idx->seq[iseq].regs[0].start > to ) return 0; // no match
+        if ( idx->seq[iseq].regs[0].end < from ) return 0;
+        i = 0;
     }
-    for (i=ireg; i<list->nregs; i++)
+    else
     {
-        if ( list->regs[i].start > to ) return 0;   // no match
-        if ( list->regs[i].end >= from && list->regs[i].start <= to ) break; // found
+        if ( !list->idx ) _regidx_build_index(idx, list);
+
+        int ibeg = from>>LIDX_SHIFT; 
+        int ireg = ibeg < list->nidx ? list->idx[ibeg] : list->idx[ list->nidx - 1 ];
+        if ( ireg < 0 )
+        {
+            // linear search; if slow, replace with binary search
+            if ( ibeg > list->nidx ) ibeg = list->nidx;
+            for (i=ibeg - 1; i>=0; i--)
+                if ( list->idx[i] >=0 ) break;
+            ireg = i>=0 ? list->idx[i] : 0;
+        }
+        for (i=ireg; i<list->nregs; i++)
+        {
+            if ( list->regs[i].start > to ) return 0;   // no match
+            if ( list->regs[i].end >= from ) break; // found
+        }
+
+        if ( i>=list->nregs ) return 0;   // no match
     }
-
-    if ( i>=list->nregs ) return 0;   // no match
-
     if ( !itr ) return 1;
 
     itr->i = 0;
     itr->n = list->nregs - i;
     itr->reg = &idx->seq[iseq].regs[i];
+    itr->seq = iseq;
     if ( idx->payload_size )
         itr->payload = idx->seq[iseq].payload + i*idx->payload_size;
     else
@@ -289,10 +322,17 @@ int regidx_parse_bed(const char *line, char **chr_beg, char **chr_end, reg_t *re
     
     char *se = ss;
     while ( *se && !isspace(*se) ) se++;
-    if ( !*se ) { fprintf(stderr,"Could not parse bed line: %s\n", line); return -2; }
 
     *chr_beg = ss;
     *chr_end = se-1;
+
+    if ( !*se )
+    {
+        // just the chromosome name
+        reg->start = 0;
+        reg->end   = MAX_COOR - 1;
+        return 0;
+    }
 
     ss = se+1;
     reg->start = hts_parse_decimal(ss, &se, 0);
@@ -314,14 +354,23 @@ int regidx_parse_tab(const char *line, char **chr_beg, char **chr_end, reg_t *re
     
     char *se = ss;
     while ( *se && !isspace(*se) ) se++;
-    if ( !*se ) { fprintf(stderr,"Could not parse bed line: %s\n", line); return -2; }
 
     *chr_beg = ss;
     *chr_end = se-1;
 
+    if ( !*se )
+    {
+        // just the chromosome name
+        reg->start = 0;
+        reg->end   = MAX_COOR - 1;
+        return 0;
+    }
+
     ss = se+1;
-    reg->start = hts_parse_decimal(ss, &se, 0) - 1;
-    if ( ss==se ) { fprintf(stderr,"Could not parse bed line: %s\n", line); return -2; }
+    reg->start = hts_parse_decimal(ss, &se, 0);
+    if ( ss==se ) { fprintf(stderr,"Could not parse tab line: %s\n", line); return -2; }
+    if ( reg->start==0 ) { fprintf(stderr,"Could not parse tab line, expected 1-based coordinate: %s\n", line); return -2; }
+    reg->start--;
 
     if ( !se[0] || !se[1] )
         reg->end = reg->start;
@@ -330,9 +379,83 @@ int regidx_parse_tab(const char *line, char **chr_beg, char **chr_end, reg_t *re
         ss = se+1;
         reg->end = hts_parse_decimal(ss, &se, 0);
         if ( ss==se ) reg->end = reg->start;
+        else if ( reg->end==0 ) { fprintf(stderr,"Could not parse tab line, expected 1-based coordinate: %s\n", line); return -2; }
         else reg->end--;
     }
-    
     return 0;
+}
+
+int regidx_parse_reg(const char *line, char **chr_beg, char **chr_end, reg_t *reg, void *payload, void *usr)
+{
+    char *ss = (char*) line;
+    while ( *ss && isspace(*ss) ) ss++;
+    if ( !*ss ) return -1;      // skip blank lines
+    if ( *ss=='#' ) return -1;  // skip comments
+    
+    char *se = ss;
+    while ( *se && *se!=':' ) se++;
+
+    *chr_beg = ss;
+    *chr_end = se-1;
+
+    if ( !*se )
+    {
+        reg->start = 0;
+        reg->end   = MAX_COOR - 1;
+        return 0;
+    }
+
+    ss = se+1;
+    reg->start = hts_parse_decimal(ss, &se, 0);
+    if ( ss==se ) { fprintf(stderr,"Could not parse reg line: %s\n", line); return -2; }
+    if ( reg->start==0 ) { fprintf(stderr,"Could not parse reg line, expected 1-based coordinate: %s\n", line); return -2; }
+    reg->start--;
+
+    if ( !se[0] || !se[1] )
+        reg->end = se[0]=='-' ? MAX_COOR - 1 : reg->start;
+    else
+    {
+        ss = se+1;
+        reg->end = hts_parse_decimal(ss, &se, 0);
+        if ( ss==se ) reg->end = reg->start;
+        else if ( reg->end==0 ) { fprintf(stderr,"Could not parse reg line, expected 1-based coordinate: %s\n", line); return -2; }
+        else reg->end--;
+    }
+    return 0;
+}
+
+int regidx_loop(regidx_t *idx, regitr_t *itr)
+{
+    if ( !itr->reg )
+    {
+        if ( !idx->nseq ) return 0;
+        itr->i = itr->n = 0;
+        itr->seq = -1;
+    }
+
+    itr->i++;
+
+    if ( itr->i >= itr->n )
+    {
+        itr->seq++;
+        if ( itr->seq >= idx->nseq ) return 0;
+
+        reglist_t *list = &idx->seq[itr->seq];
+        itr->reg = &list->regs[0];
+        itr->i   = 0;
+        itr->n   = list->nregs;
+    }
+
+    if ( idx->payload_size )
+        itr->payload = idx->seq[itr->seq].payload + itr->i*idx->payload_size;
+    else
+        itr->payload = NULL;
+
+    return 1;
+}
+
+const char *regitr_seqname(regidx_t *idx, regitr_t *itr)
+{
+    return (const char*)idx->seq_names[itr->seq];
 }
 
