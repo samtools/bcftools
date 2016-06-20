@@ -87,9 +87,20 @@ static inline int replace_iupac_codes(char *seq, int nseq)
     for (i=0; i<nseq; i++)
     {
         char c = toupper(seq[i]);
-        if ( c!='A' && c!='C' && c!='G' && c!='T' ) { seq[i] = 'N'; n++; }
+        if ( c!='A' && c!='C' && c!='G' && c!='T' && c!='N' ) { seq[i] = 'N'; n++; }
     }
     return n;
+}
+static inline int has_non_acgtn(char *seq, int nseq)
+{
+    char *end = nseq ? seq + nseq : seq + UINT32_MAX;   // arbitrary large number
+    while ( *seq && seq<end )
+    {
+        char c = toupper(*seq);
+        if ( c!='A' && c!='C' && c!='G' && c!='T' && c!='N' ) return 1;
+        seq++;
+    }
+    return 0;
 }
 
 static void fix_ref(args_t *args, bcf1_t *line)
@@ -261,13 +272,17 @@ static int realign(args_t *args, bcf1_t *line)
     int i, nref, reflen = strlen(line->d.allele[0]);
     char *ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
     if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
-    replace_iupac_codes(ref,nref);
+    replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
 
-    // does REF contain non-standard bases?
-    if ( replace_iupac_codes(line->d.allele[0],reflen) )
+    // does VCF REF contain non-standard bases?
+    if ( has_non_acgtn(line->d.allele[0],reflen) )
     {
-        args->nchanged++;
-        bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
+        if ( args->check_ref==CHECK_REF_EXIT )
+            error("Non-ACGTN reference allele at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
+        if ( args->check_ref & CHECK_REF_WARN )
+            fprintf(stderr,"NON_ACGTN_REF\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+        free(ref);
+        return ERR_REF_MISMATCH;
     }
     if ( strcasecmp(ref,line->d.allele[0]) )
     {
@@ -289,6 +304,14 @@ static int realign(args_t *args, bcf1_t *line)
     for (i=0; i<line->n_allele; i++)
     {
         if ( line->d.allele[i][0]=='<' ) return ERR_SYMBOLIC;  // symbolic allele
+        if ( has_non_acgtn(line->d.allele[i],0) )
+        {
+            if ( args->check_ref==CHECK_REF_EXIT )
+                error("Non-ACGTN alternate allele at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[i]);
+            if ( args->check_ref & CHECK_REF_WARN )
+                fprintf(stderr,"NON_ACGTN_ALT\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[i]);
+            return ERR_REF_MISMATCH;
+        }
 
         als[i].l = 0;
         kputs(line->d.allele[i], &als[i]);
