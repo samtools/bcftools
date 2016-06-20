@@ -58,16 +58,39 @@ DEALINGS IN THE SOFTWARE.  */
 #define MPLP_PER_SAMPLE (1<<11)
 #define MPLP_SMART_OVERLAPS (1<<12)
 
+typedef struct _mplp_aux_t mplp_aux_t;
+typedef struct _mplp_pileup_t mplp_pileup_t;
+
+// Data shared by all bam files
 typedef struct {
     int min_mq, flag, min_baseQ, capQ_thres, max_depth, max_indel_depth, fmt_flag;
     int rflag_require, rflag_filter, output_type, sample_is_file;
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
-    char *reg, *pl_list, *fai_fname, *output_fname, *samples_list;
+    char *reg_fname, *pl_list, *fai_fname, *output_fname, *samples_list;
+    int reg_is_file;
     faidx_t *fai;
-    void *rghash_exc;
-    regidx_t *bed;
+    regidx_t *bed, *reg;    // bed: skipping regions, reg: index-jump to regions
     gvcf_t *gvcf;
+
+    // auxiliary structures for calling
+    bcf_callaux_t *bca;
+    bcf_callret1_t *bcr;
+    bcf_call_t bc;
+    bam_mplp_t iter;
+    mplp_aux_t **mplp_data;
+    int nfiles;
+    char **files;
+    mplp_pileup_t *gplp;
+    int *n_plp;
+    const bam_pileup1_t **plp;
+    bam_sample_t *smpl;
+    kstring_t buf;
+    bcf1_t *bcf_rec;
+    htsFile *bcf_fp;
+    bcf_hdr_t *bcf_hdr;
+    void *rghash_exc;   // shared by all bams
+
     int argc;
     char **argv;
 } mplp_conf_t;
@@ -80,20 +103,24 @@ typedef struct {
 
 #define MPLP_REF_INIT {{NULL,NULL},{-1,-1},{0,0}}
 
-typedef struct {
+// Data specific to each bam file
+struct _mplp_aux_t {
     samFile *fp;
     hts_itr_t *iter;
     bam_hdr_t *h;
     mplp_ref_t *ref;
     const mplp_conf_t *conf;
-    void *rghash_inc;   // whitelist for readgroups on per-bam basis
-} mplp_aux_t;
+    void *rghash_inc;   // whitelist for readgroups on per-bam basis, precedes blacklist
+    void *rghash_exc;   // blacklist of readgroups 
+    hts_idx_t *idx;     // maintained only with more than one -r regions
+};
 
-typedef struct {
+// Data passed to htslib/mpileup
+struct _mplp_pileup_t {
     int n;
     int *n_plp, *m_plp;
     bam_pileup1_t **plp;
-} mplp_pileup_t;
+};
 
 static int mplp_get_ref(mplp_aux_t *ma, int tid,  char **ref, int *ref_len) {
     mplp_ref_t *r = ma->ref;
@@ -156,35 +183,34 @@ static int mplp_func(void *data, bam1_t *b)
 {
     char *ref;
     mplp_aux_t *ma = (mplp_aux_t*)data;
-    int ret, skip = 0, ref_len;
-    do {
+    int ret, ref_len;
+    while (1)
+    {
         int has_ref;
-        skip = 0;
         ret = ma->iter? sam_itr_next(ma->fp, ma->iter, b) : sam_read1(ma->fp, ma->h, b);
         if (ret < 0) break;
         // The 'B' cigar operation is not part of the specification, considering as obsolete.
         //  bam_remove_B(b);
-        if (b->core.tid < 0 || (b->core.flag&BAM_FUNMAP)) { // exclude unmapped reads
-            skip = 1;
-            continue;
-        }
-        if (ma->conf->rflag_require && !(ma->conf->rflag_require&b->core.flag)) { skip = 1; continue; }
-        if (ma->conf->rflag_filter && ma->conf->rflag_filter&b->core.flag) { skip = 1; continue; }
-        if (ma->conf->bed) { // test overlap
-            skip = regidx_overlap(ma->conf->bed, ma->h->target_name[b->core.tid],b->core.pos, bam_endpos(b)-1, NULL) ? 0 : 1;
-            if (skip) continue;
+        if (b->core.tid < 0 || (b->core.flag&BAM_FUNMAP)) continue; // exclude unmapped reads
+        if (ma->conf->rflag_require && !(ma->conf->rflag_require&b->core.flag)) continue;
+        if (ma->conf->rflag_filter && ma->conf->rflag_filter&b->core.flag) continue;
+        if (ma->conf->bed)
+        {
+            // test overlap
+            if ( !regidx_overlap(ma->conf->bed, ma->h->target_name[b->core.tid],b->core.pos, bam_endpos(b)-1, NULL) ) continue;
         }
         if (ma->rghash_inc)
         {
             // skip unless read group is listed
             uint8_t *rg = bam_aux_get(b, "RG");
-            if ( !rg ) { skip = 1; continue; }
-            if ( !khash_str2int_has_key(ma->rghash_inc, (const char*)(rg+1)) ) { skip = 1; continue; }
+            if ( !rg ) continue;
+            if ( !khash_str2int_has_key(ma->rghash_inc, (const char*)(rg+1)) ) continue;
         }
-        if (ma->conf->rghash_exc) { // exclude read groups
+        if ( ma->rghash_exc )
+        {
+            // exclude read groups
             uint8_t *rg = bam_aux_get(b, "RG");
-            skip = (rg && khash_str2int_get(ma->conf->rghash_exc, (const char*)(rg+1), NULL)==0);
-            if (skip) continue;
+            if ( rg && khash_str2int_has_key(ma->rghash_exc, (const char*)(rg+1)) ) continue;
         }
         if (ma->conf->flag & MPLP_ILLUMINA13) {
             int i;
@@ -198,23 +224,23 @@ static int mplp_func(void *data, bam1_t *b)
             if (has_ref && ref_len <= b->core.pos) { // exclude reads outside of the reference sequence
                 fprintf(stderr,"[%s] Skipping because %d is outside of %d [ref:%d]\n",
                         __func__, b->core.pos, ref_len, b->core.tid);
-                skip = 1;
                 continue;
             }
         } else {
             has_ref = 0;
         }
 
-        skip = 0;
         if (has_ref && (ma->conf->flag&MPLP_REALN)) sam_prob_realn(b, ref, ref_len, (ma->conf->flag & MPLP_REDO_BAQ)? 7 : 3);
         if (has_ref && ma->conf->capQ_thres > 10) {
             int q = sam_cap_mapq(b, ref, ref_len, ma->conf->capQ_thres);
-            if (q < 0) skip = 1;
+            if (q < 0) continue;    // skip
             else if (b->core.qual > q) b->core.qual = q;
         }
-        if (b->core.qual < ma->conf->min_mq) skip = 1;
-        else if ((ma->conf->flag&MPLP_NO_ORPHAN) && (b->core.flag&BAM_FPAIRED) && !(b->core.flag&BAM_FPROPER_PAIR)) skip = 1;
-    } while (skip);
+        if (b->core.qual < ma->conf->min_mq) continue;
+        else if ((ma->conf->flag&MPLP_NO_ORPHAN) && (b->core.flag&BAM_FPAIRED) && !(b->core.flag&BAM_FPROPER_PAIR)) continue;
+
+        return ret;
+    };
     return ret;
 }
 
@@ -270,48 +296,70 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
     if ( rec ) bcf_write1(fp,hdr,rec);
 }
 
-/*
- * Performs pileup
- * @param conf configuration for this pileup
- * @param n number of files specified in fn
- * @param fn filenames
- */
-static int mpileup(mplp_conf_t *conf, int n, char **fn)
+static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
+{
+    bam_hdr_t *hdr = conf->mplp_data[0]->h; // header of first file in input list
+
+    int ret, i, tid, pos, ref_len;
+    char *ref;
+
+    while ( (ret=bam_mplp_auto(conf->iter, &tid, &pos, conf->n_plp, conf->plp)) > 0) 
+    {
+        if ( end && (pos<beg || pos>end) ) continue;
+        if (conf->bed && tid >= 0 && !regidx_overlap(conf->bed, hdr->target_name[tid], pos, pos, NULL)) continue;
+        mplp_get_ref(conf->mplp_data[0], tid, &ref, &ref_len);
+
+        int total_depth, _ref0, ref16;
+        for (i = total_depth = 0; i < conf->nfiles; ++i) total_depth += conf->n_plp[i];
+        group_smpl(conf->gplp, conf->smpl, &conf->buf, conf->nfiles, conf->files, conf->n_plp, conf->plp, conf->flag & MPLP_IGNORE_RG);
+        _ref0 = (ref && pos < ref_len)? ref[pos] : 'N';
+        ref16 = seq_nt16_table[_ref0];
+        bcf_callaux_clean(conf->bca, &conf->bc);
+        for (i = 0; i < conf->gplp->n; ++i)
+            bcf_call_glfgen(conf->gplp->n_plp[i], conf->gplp->plp[i], ref16, conf->bca, conf->bcr + i);
+        conf->bc.tid = tid; conf->bc.pos = pos;
+        bcf_call_combine(conf->gplp->n, conf->bcr, conf->bca, ref16, &conf->bc);
+        bcf_clear1(conf->bcf_rec);
+        bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, 0, 0);
+        flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
+
+        // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
+        // check me: rghash in bcf_call_gap_prep() should have no effect, reads mplp_func already excludes them
+        if (!(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth 
+            && bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref) >= 0)
+        {
+            bcf_callaux_clean(conf->bca, &conf->bc);
+            for (i = 0; i < conf->gplp->n; ++i)
+                bcf_call_glfgen(conf->gplp->n_plp[i], conf->gplp->plp[i], -1, conf->bca, conf->bcr + i);
+            if (bcf_call_combine(conf->gplp->n, conf->bcr, conf->bca, -1, &conf->bc) >= 0) 
+            {
+                bcf_clear1(conf->bcf_rec);
+                bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, conf->bca, ref);
+                flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
+            }
+        }
+    }
+    return 0;
+}
+
+static int mpileup(mplp_conf_t *conf)
 {
     extern void *bcf_call_add_rg(void *rghash, const char *hdtext, const char *list);
     extern void bcf_call_del_rghash(void *rghash);
-    mplp_aux_t **data;
-    int i, tid, pos, *n_plp, beg0 = 0, end0 = INT_MAX, ref_len, max_depth, max_indel_depth;
-    const bam_pileup1_t **plp;
-    mplp_ref_t mp_ref = MPLP_REF_INIT;
-    bam_mplp_t iter;
-    bam_hdr_t *h = NULL; /* header of first file in input list */
-    char *ref;
-    void *rghash_exc = NULL;
 
-    bcf_callaux_t *bca = NULL;
-    bcf_callret1_t *bcr = NULL;
-    bcf_call_t bc;
-    htsFile *bcf_fp = NULL;
-    bcf_hdr_t *bcf_hdr = NULL;
-
-    bam_sample_t *sm = NULL;
-    kstring_t buf;
-    mplp_pileup_t gplp;
-
-    memset(&gplp, 0, sizeof(mplp_pileup_t));
-    memset(&buf, 0, sizeof(kstring_t));
-    memset(&bc, 0, sizeof(bcf_call_t));
-    data = (mplp_aux_t**) calloc(n, sizeof(mplp_aux_t*));
-    plp = (const bam_pileup1_t**) calloc(n, sizeof(bam_pileup1_t*));
-    n_plp = (int*) calloc(n, sizeof(int));
-    sm = bam_smpl_init();
-
-    if (n == 0) {
+    if (conf->nfiles == 0) {
         fprintf(stderr,"[%s] no input file/data given\n", __func__);
         exit(EXIT_FAILURE);
     }
 
+    mplp_ref_t mp_ref = MPLP_REF_INIT;
+    conf->gplp = (mplp_pileup_t *) calloc(1,sizeof(mplp_pileup_t));
+    conf->mplp_data = (mplp_aux_t**) calloc(conf->nfiles, sizeof(mplp_aux_t*));
+    conf->plp = (const bam_pileup1_t**) calloc(conf->nfiles, sizeof(bam_pileup1_t*));
+    conf->n_plp = (int*) calloc(conf->nfiles, sizeof(int));
+    conf->smpl = bam_smpl_init();
+
+    int i;
     void *samples_inc = NULL;
     if ( conf->samples_list )
     {
@@ -330,270 +378,313 @@ static int mpileup(mplp_conf_t *conf, int n, char **fn)
         free(samples);
     }
 
-    // read the header of each file in the list and initialize data
-    for (i = 0; i < n; ++i) {
-        bam_hdr_t *h_tmp;
-        data[i] = (mplp_aux_t*) calloc(1, sizeof(mplp_aux_t));
-        data[i]->fp = sam_open(fn[i], "rb");
-        if ( !data[i]->fp )
+    // Allow to run mpileup on multiple regions in one go. This comes at cost: the bai index
+    // must be kept in the memory for the whole time which can be a problem with many bams.
+    // Therefore if none or only one region is requested, we initialize the bam iterator as
+    // before and free the index. Only when multiple regions are queried, we keep the index.
+    regitr_t reg_itr;
+    REGITR_INIT(reg_itr);
+    int nregs = 0;
+    if ( conf->reg_fname )
+    {
+        if ( conf->reg_is_file )
         {
-            fprintf(stderr, "[%s] failed to open %s: %s\n", __func__, fn[i], strerror(errno));
+            conf->reg = regidx_init(conf->reg_fname,NULL,NULL,0,NULL);
+            if ( !conf->reg ) {
+                fprintf(stderr,"Could not parse the regions: %s\n", conf->reg_fname);
+                exit(EXIT_FAILURE);
+            }
+        }
+        else
+        {
+            conf->reg = regidx_init(NULL,regidx_parse_reg,NULL,sizeof(char*),NULL);
+            if ( regidx_insert_list(conf->reg,conf->reg_fname,',') !=0 ) {
+                fprintf(stderr,"Could not parse the regions: %s\n", conf->reg_fname);
+                exit(EXIT_FAILURE);
+            }
+        }
+        nregs = regidx_nregs(conf->reg);
+        regidx_loop(conf->reg,&reg_itr);    // position the region iterator at the first region
+    }
+
+    // read the header of each file in the list and initialize data
+    // beware: mpileup has always assumed that tid's are consistent in the headers, add sanity check at least!
+    bam_hdr_t *hdr = NULL;      // header of first file in input list
+    for (i = 0; i < conf->nfiles; ++i) {
+        bam_hdr_t *h_tmp;
+        conf->mplp_data[i] = (mplp_aux_t*) calloc(1, sizeof(mplp_aux_t));
+        conf->mplp_data[i]->fp = sam_open(conf->files[i], "rb");
+        if ( !conf->mplp_data[i]->fp )
+        {
+            fprintf(stderr, "[%s] failed to open %s: %s\n", __func__, conf->files[i], strerror(errno));
             exit(EXIT_FAILURE);
         }
-        if (hts_set_opt(data[i]->fp, CRAM_OPT_DECODE_MD, 0)) {
+        if (hts_set_opt(conf->mplp_data[i]->fp, CRAM_OPT_DECODE_MD, 0)) {
             fprintf(stderr, "Failed to set CRAM_OPT_DECODE_MD value\n");
             exit(EXIT_FAILURE);
         }
-        if (conf->fai_fname && hts_set_fai_filename(data[i]->fp, conf->fai_fname) != 0) {
+        if (conf->fai_fname && hts_set_fai_filename(conf->mplp_data[i]->fp, conf->fai_fname) != 0) {
             fprintf(stderr, "[%s] failed to process %s: %s\n",
                     __func__, conf->fai_fname, strerror(errno));
             exit(EXIT_FAILURE);
         }
-        data[i]->conf = conf;
-        data[i]->ref = &mp_ref;
-        h_tmp = sam_hdr_read(data[i]->fp);
+        conf->mplp_data[i]->conf = conf;
+        conf->mplp_data[i]->ref = &mp_ref;
+        h_tmp = sam_hdr_read(conf->mplp_data[i]->fp);
         if ( !h_tmp ) {
-            fprintf(stderr,"[%s] fail to read the header of %s\n", __func__, fn[i]);
+            fprintf(stderr,"[%s] fail to read the header of %s\n", __func__, conf->files[i]);
             exit(EXIT_FAILURE);
         }
-        if ( samples_inc ) data[i]->rghash_inc = khash_str2int_init();
-        bam_smpl_add(sm, fn[i], (conf->flag&MPLP_IGNORE_RG)? 0 : h_tmp->text, samples_inc, data[i]->rghash_inc);
+        conf->mplp_data[i]->h = i? hdr : h_tmp; // for i==0, "h" has not been set yet
+        conf->mplp_data[i]->rghash_exc = conf->rghash_exc;
+        if ( samples_inc ) conf->mplp_data[i]->rghash_inc = khash_str2int_init();
+        bam_smpl_add(conf->smpl, conf->files[i], (conf->flag&MPLP_IGNORE_RG)? 0 : h_tmp->text, samples_inc, conf->mplp_data[i]->rghash_inc);
         // Collect read group IDs with PL (platform) listed in pl_list (note: fragile, strstr search)
-        rghash_exc = bcf_call_add_rg(rghash_exc, h_tmp->text, conf->pl_list);
+        conf->mplp_data[i]->rghash_exc = bcf_call_add_rg(conf->mplp_data[i]->rghash_exc, h_tmp->text, conf->pl_list);
         if (conf->reg) {
-            hts_idx_t *idx = sam_index_load(data[i]->fp, fn[i]);
+            hts_idx_t *idx = sam_index_load(conf->mplp_data[i]->fp, conf->files[i]);
             if (idx == NULL) {
-                fprintf(stderr, "[%s] fail to load index for %s\n", __func__, fn[i]);
+                fprintf(stderr, "[%s] fail to load index for %s\n", __func__, conf->files[i]);
                 exit(EXIT_FAILURE);
             }
-            if ( (data[i]->iter=sam_itr_querys(idx, h_tmp, conf->reg)) == 0) {
-                fprintf(stderr, "[E::%s] fail to parse region '%s' with %s\n", __func__, conf->reg, fn[i]);
+            conf->buf.l = 0;
+            ksprintf(&conf->buf,"%s:%u-%u",regitr_seqname(conf->reg,&reg_itr),REGITR_START(reg_itr)+1,REGITR_END(reg_itr)+1);
+            conf->mplp_data[i]->iter = sam_itr_querys(idx, conf->mplp_data[i]->h, conf->buf.s);
+            if ( !conf->mplp_data[i]->iter ) 
+            {
+                conf->mplp_data[i]->iter = sam_itr_querys(idx, conf->mplp_data[i]->h, regitr_seqname(conf->reg,&reg_itr));
+                if ( conf->mplp_data[i]->iter ) {
+                    fprintf(stderr,"[E::%s] fail to parse region '%s'\n", __func__, conf->buf.s);
+                    exit(EXIT_FAILURE);
+                }
+                fprintf(stderr,"[E::%s] the sequence \"%s\" not found: %s\n",__func__,regitr_seqname(conf->reg,&reg_itr),conf->files[i]);
                 exit(EXIT_FAILURE);
             }
-            if (i == 0) beg0 = data[i]->iter->beg, end0 = data[i]->iter->end;
-            hts_idx_destroy(idx);
+            if ( nregs==1 ) // no need to keep the index in memory
+               hts_idx_destroy(idx);
+            else
+                conf->mplp_data[i]->idx = idx;
         }
-        else
-            data[i]->iter = NULL;
 
-        if (i == 0) h = data[i]->h = h_tmp; // save the header of the first file
+        if (i == 0) hdr = h_tmp; /* save the header of first file in list */
         else {
             // FIXME: check consistency between h and h_tmp
             bam_hdr_destroy(h_tmp);
 
             // we store only the first file's header; it's (alleged to be)
             // compatible with the i-th file's target_name lookup needs
-            data[i]->h = h;
+            conf->mplp_data[i]->h = hdr;
         }
     }
     // allocate data storage proportionate to number of samples being studied sm->n
-    gplp.n = sm->n;
-    gplp.n_plp = (int*) calloc(sm->n, sizeof(int));
-    gplp.m_plp = (int*) calloc(sm->n, sizeof(int));
-    gplp.plp = (bam_pileup1_t**) calloc(sm->n, sizeof(bam_pileup1_t*));
+    conf->gplp->n = conf->smpl->n;
+    conf->gplp->n_plp = (int*) calloc(conf->smpl->n, sizeof(int));
+    conf->gplp->m_plp = (int*) calloc(conf->smpl->n, sizeof(int));
+    conf->gplp->plp = (bam_pileup1_t**) calloc(conf->smpl->n, sizeof(bam_pileup1_t*));  
 
-    fprintf(stderr, "[%s] %d samples in %d input files\n", __func__, sm->n, n);
+    fprintf(stderr, "[%s] %d samples in %d input files\n", __func__, conf->smpl->n, conf->nfiles);
     // write the VCF header
-    bcf_fp = hts_open(conf->output_fname?conf->output_fname:"-", hts_bcf_wmode(conf->output_type));
-    if (bcf_fp == NULL) {
+    conf->bcf_fp = hts_open(conf->output_fname?conf->output_fname:"-", hts_bcf_wmode(conf->output_type));
+    if (conf->bcf_fp == NULL) {
         fprintf(stderr, "[%s] failed to write to %s: %s\n", __func__, conf->output_fname? conf->output_fname : "standard output", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
     // BCF header creation
-    bcf_hdr = bcf_hdr_init("w");
-    kstring_t str = {0,0,NULL};
+    conf->bcf_hdr = bcf_hdr_init("w");
+    conf->buf.l = 0;
 
-    ksprintf(&str, "##bcftoolsVersion=%s+htslib-%s\n",bcftools_version(),hts_version());
-    bcf_hdr_append(bcf_hdr, str.s);
+    ksprintf(&conf->buf, "##bcftoolsVersion=%s+htslib-%s\n",bcftools_version(),hts_version());
+    bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
 
-    str.l = 0;
-    ksprintf(&str, "##bcftoolsCommand=mpileup");
-    for (i=1; i<conf->argc; i++) ksprintf(&str, " %s", conf->argv[i]);
-    kputc('\n', &str);
-    bcf_hdr_append(bcf_hdr, str.s);
+    conf->buf.l = 0;
+    ksprintf(&conf->buf, "##bcftoolsCommand=mpileup");
+    for (i=1; i<conf->argc; i++) ksprintf(&conf->buf, " %s", conf->argv[i]);
+    kputc('\n', &conf->buf);
+    bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
 
     if (conf->fai_fname)
     {
-        str.l = 0;
-        ksprintf(&str, "##reference=file://%s\n", conf->fai_fname);
-        bcf_hdr_append(bcf_hdr, str.s);
+        conf->buf.l = 0;
+        ksprintf(&conf->buf, "##reference=file://%s\n", conf->fai_fname);
+        bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
     }
 
     // Translate BAM @SQ tags to BCF ##contig tags
     // todo: use/write new BAM header manipulation routines, fill also UR, M5
-    for (i=0; i<h->n_targets; i++)
+    for (i=0; i<hdr->n_targets; i++)
     {
-        str.l = 0;
-        ksprintf(&str, "##contig=<ID=%s,length=%d>", h->target_name[i], h->target_len[i]);
-        bcf_hdr_append(bcf_hdr, str.s);
+        conf->buf.l = 0;
+        ksprintf(&conf->buf, "##contig=<ID=%s,length=%d>", hdr->target_name[i], hdr->target_len[i]);
+        bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
     }
-    free(str.s);
-    bcf_hdr_append(bcf_hdr,"##ALT=<ID=*,Description=\"Represents allele(s) other than observed.\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=INDEL,Number=0,Type=Flag,Description=\"Indicates that the variant is an INDEL.\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=IDV,Number=1,Type=Integer,Description=\"Maximum number of reads supporting an indel\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=IMF,Number=1,Type=Float,Description=\"Maximum fraction of reads supporting an indel\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Raw read depth\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=VDB,Number=1,Type=Float,Description=\"Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)\",Version=\"3\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias (bigger is better)\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
+    conf->buf.l = 0;
+
+    bcf_hdr_append(conf->bcf_hdr,"##ALT=<ID=*,Description=\"Represents allele(s) other than observed.\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=INDEL,Number=0,Type=Flag,Description=\"Indicates that the variant is an INDEL.\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=IDV,Number=1,Type=Integer,Description=\"Maximum number of reads supporting an indel\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=IMF,Number=1,Type=Float,Description=\"Maximum fraction of reads supporting an indel\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Raw read depth\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=VDB,Number=1,Type=Float,Description=\"Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)\",Version=\"3\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias (bigger is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
 #if CDF_MWU_TESTS
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=RPB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias [CDF] (bigger is better)\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias [CDF] (bigger is better)\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=BQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias [CDF] (bigger is better)\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQSB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias [CDF] (bigger is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias [CDF] (bigger is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias [CDF] (bigger is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias [CDF] (bigger is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias [CDF] (bigger is better)\">");
 #endif
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=SGB,Number=1,Type=Float,Description=\"Segregation based metric.\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=MQ0F,Number=1,Type=Float,Description=\"Fraction of MQ0 reads (smaller is better)\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=I16,Number=16,Type=Float,Description=\"Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h\">");
-    bcf_hdr_append(bcf_hdr,"##INFO=<ID=QS,Number=R,Type=Float,Description=\"Auxiliary tag used for calling\">");
-    bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"List of Phred-scaled genotype likelihoods\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SGB,Number=1,Type=Float,Description=\"Segregation based metric.\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQ0F,Number=1,Type=Float,Description=\"Fraction of MQ0 reads (smaller is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=I16,Number=16,Type=Float,Description=\"Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=QS,Number=R,Type=Float,Description=\"Auxiliary tag used for calling\">");
+    bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"List of Phred-scaled genotype likelihoods\">");
     if ( conf->fmt_flag&B2B_FMT_DP )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Number of high-quality bases\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Number of high-quality bases\">");
     if ( conf->fmt_flag&B2B_FMT_DV )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"Number of high-quality non-reference bases\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"Number of high-quality non-reference bases\">");
     if ( conf->fmt_flag&B2B_FMT_DPR )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
     if ( conf->fmt_flag&B2B_INFO_DPR )
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=DPR,Number=R,Type=Integer,Description=\"Number of high-quality bases observed for each allele\">");
     if ( conf->fmt_flag&B2B_FMT_DP4 )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-fwd, ref-reverse, alt-fwd and alt-reverse bases\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=DP4,Number=4,Type=Integer,Description=\"Number of high-quality ref-fwd, ref-reverse, alt-fwd and alt-reverse bases\">");
     if ( conf->fmt_flag&B2B_FMT_SP )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=SP,Number=1,Type=Integer,Description=\"Phred-scaled strand bias P-value\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=SP,Number=1,Type=Integer,Description=\"Phred-scaled strand bias P-value\">");
     if ( conf->fmt_flag&B2B_FMT_AD )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic depths\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic depths\">");
     if ( conf->fmt_flag&B2B_FMT_ADF )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=ADF,Number=R,Type=Integer,Description=\"Allelic depths on the forward strand\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=ADF,Number=R,Type=Integer,Description=\"Allelic depths on the forward strand\">");
     if ( conf->fmt_flag&B2B_FMT_ADR )
-        bcf_hdr_append(bcf_hdr,"##FORMAT=<ID=ADR,Number=R,Type=Integer,Description=\"Allelic depths on the reverse strand\">");
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=ADR,Number=R,Type=Integer,Description=\"Allelic depths on the reverse strand\">");
     if ( conf->fmt_flag&B2B_INFO_AD )
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Total allelic depths\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Total allelic depths\">");
     if ( conf->fmt_flag&B2B_INFO_ADF )
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=ADF,Number=R,Type=Integer,Description=\"Total allelic depths on the forward strand\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=ADF,Number=R,Type=Integer,Description=\"Total allelic depths on the forward strand\">");
     if ( conf->fmt_flag&B2B_INFO_ADR )
-        bcf_hdr_append(bcf_hdr,"##INFO=<ID=ADR,Number=R,Type=Integer,Description=\"Total allelic depths on the reverse strand\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=ADR,Number=R,Type=Integer,Description=\"Total allelic depths on the reverse strand\">");
     if ( conf->gvcf )
-        gvcf_update_header(conf->gvcf, bcf_hdr);
+        gvcf_update_header(conf->gvcf, conf->bcf_hdr);
 
-    for (i=0; i<sm->n; i++)
-        bcf_hdr_add_sample(bcf_hdr, sm->smpl[i]);
-    bcf_hdr_add_sample(bcf_hdr, NULL);
-    bcf_hdr_write(bcf_fp, bcf_hdr);
-    // End of BCF header creation
+    for (i=0; i<conf->smpl->n; i++)
+        bcf_hdr_add_sample(conf->bcf_hdr, conf->smpl->smpl[i]);
+    bcf_hdr_add_sample(conf->bcf_hdr, NULL);
+    bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr);
 
-    // Initialise the calling algorithm
-    bca = bcf_call_init(-1., conf->min_baseQ);
-    bcr = (bcf_callret1_t*) calloc(sm->n, sizeof(bcf_callret1_t));
-    bca->openQ = conf->openQ, bca->extQ = conf->extQ, bca->tandemQ = conf->tandemQ;
-    bca->min_frac = conf->min_frac;
-    bca->min_support = conf->min_support;
-    bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
+    conf->bca = bcf_call_init(-1., conf->min_baseQ);
+    conf->bcr = (bcf_callret1_t*) calloc(conf->smpl->n, sizeof(bcf_callret1_t));
+    conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
+    conf->bca->min_frac = conf->min_frac;
+    conf->bca->min_support = conf->min_support;
+    conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
 
-    bc.bcf_hdr = bcf_hdr;
-    bc.n = sm->n;
-    bc.PL = (int32_t*) malloc(15 * sm->n * sizeof(*bc.PL));
+    conf->bc.bcf_hdr = conf->bcf_hdr;
+    conf->bc.n = conf->smpl->n;
+    conf->bc.PL = (int32_t*) malloc(15 * conf->smpl->n * sizeof(*conf->bc.PL));
     if (conf->fmt_flag)
     {
         assert( sizeof(float)==sizeof(int32_t) );
-        bc.DP4 = (int32_t*) malloc(sm->n * sizeof(int32_t) * 4);
-        bc.fmt_arr = (uint8_t*) malloc(sm->n * sizeof(float)); // all fmt_flag fields
+        conf->bc.DP4 = (int32_t*) malloc(conf->smpl->n * sizeof(int32_t) * 4);
+        conf->bc.fmt_arr = (uint8_t*) malloc(conf->smpl->n * sizeof(float)); // all fmt_flag fields, float and int32
         if ( conf->fmt_flag&(B2B_INFO_DPR|B2B_FMT_DPR|B2B_INFO_AD|B2B_INFO_ADF|B2B_INFO_ADR|B2B_FMT_AD|B2B_FMT_ADF|B2B_FMT_ADR) )
         {
             // first B2B_MAX_ALLELES fields for total numbers, the rest per-sample
-            bc.ADR = (int32_t*) malloc((sm->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-            bc.ADF = (int32_t*) malloc((sm->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-            for (i=0; i<sm->n; i++)
+            conf->bc.ADR = (int32_t*) malloc((conf->smpl->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            conf->bc.ADF = (int32_t*) malloc((conf->smpl->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            for (i=0; i<conf->smpl->n; i++)
             {
-                bcr[i].ADR = bc.ADR + (i+1)*B2B_MAX_ALLELES;
-                bcr[i].ADF = bc.ADF + (i+1)*B2B_MAX_ALLELES;
+                conf->bcr[i].ADR = conf->bc.ADR + (i+1)*B2B_MAX_ALLELES;
+                conf->bcr[i].ADF = conf->bc.ADF + (i+1)*B2B_MAX_ALLELES;
             }
         }
     }
 
-    // init pileup
-    iter = bam_mplp_init(n, mplp_func, (void**)data);
-    if ( conf->flag & MPLP_SMART_OVERLAPS ) bam_mplp_init_overlaps(iter);
-    max_depth = conf->max_depth;
-    if (max_depth * sm->n > 1<<20)
+    // init mpileup
+    conf->iter = bam_mplp_init(conf->nfiles, mplp_func, (void**)conf->mplp_data);
+    if ( conf->flag & MPLP_SMART_OVERLAPS ) bam_mplp_init_overlaps(conf->iter);
+    if ( conf->max_depth * conf->smpl->n > 1<<20)
         fprintf(stderr, "(%s) Max depth is above 1M. Potential memory hog!\n", __func__);
-    if (max_depth * sm->n < 8000) {
-        max_depth = 8000 / sm->n;
-        fprintf(stderr, "<%s> Set max per-file depth to %d\n", __func__, max_depth);
+    if ( conf->max_depth * conf->smpl->n < 8000) {
+        conf->max_depth = 8000 / conf->smpl->n;
+        fprintf(stderr, "<%s> Set max per-file depth to %d\n", __func__, conf->max_depth);
     }
-    max_indel_depth = conf->max_indel_depth * sm->n;
-    bam_mplp_set_maxcnt(iter, max_depth);
-    bcf1_t *bcf_rec = bcf_init1();
-    int ret;
-    // begin pileup
-    while ( (ret=bam_mplp_auto(iter, &tid, &pos, n_plp, plp)) > 0) {
-        if (conf->reg && (pos < beg0 || pos >= end0)) continue; // out of the region requested
-        if (conf->bed && tid >= 0 && !regidx_overlap(conf->bed, h->target_name[tid], pos, pos, NULL)) continue;
-        mplp_get_ref(data[0], tid, &ref, &ref_len);
-        //printf("tid=%d len=%d ref=%p/%s\n", tid, ref_len, ref, ref);
-        int total_depth, _ref0, ref16;
-        for (i = total_depth = 0; i < n; ++i) total_depth += n_plp[i];
-        group_smpl(&gplp, sm, &buf, n, fn, n_plp, plp, conf->flag & MPLP_IGNORE_RG);
-        _ref0 = (ref && pos < ref_len)? ref[pos] : 'N';
-        ref16 = seq_nt16_table[_ref0];
-        bcf_callaux_clean(bca, &bc);
-        for (i = 0; i < gplp.n; ++i)
-            bcf_call_glfgen(gplp.n_plp[i], gplp.plp[i], ref16, bca, bcr + i);
-        bc.tid = tid; bc.pos = pos;
-        bcf_call_combine(gplp.n, bcr, bca, ref16, &bc);
-        bcf_clear1(bcf_rec);
-        bcf_call2bcf(&bc, bcf_rec, bcr, conf->fmt_flag, 0, 0);
-        flush_bcf_records(conf, bcf_fp, bcf_hdr, bcf_rec);
-        // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
-        // check me: rghash in bcf_call_gap_prep() should have no effect, reads mplp_func already excludes them
-        if (!(conf->flag&MPLP_NO_INDEL) && total_depth < max_indel_depth && bcf_call_gap_prep(gplp.n, gplp.n_plp, gplp.plp, pos, bca, ref, NULL) >= 0)
+    bam_mplp_set_maxcnt(conf->iter, conf->max_depth);
+    conf->max_indel_depth = conf->max_indel_depth * conf->smpl->n;
+    conf->bcf_rec = bcf_init1();
+
+    // Run mpileup for multiple regions
+    if ( nregs )
+    {
+        int ireg = 0;
+        do 
         {
-            bcf_callaux_clean(bca, &bc);
-            for (i = 0; i < gplp.n; ++i)
-                bcf_call_glfgen(gplp.n_plp[i], gplp.plp[i], -1, bca, bcr + i);
-            if (bcf_call_combine(gplp.n, bcr, bca, -1, &bc) >= 0) {
-                bcf_clear1(bcf_rec);
-                bcf_call2bcf(&bc, bcf_rec, bcr, conf->fmt_flag, bca, ref);
-                flush_bcf_records(conf, bcf_fp, bcf_hdr, bcf_rec);
+            // first region is already positioned
+            if ( ireg++ > 0 )
+            {
+                conf->buf.l = 0;
+                ksprintf(&conf->buf,"%s:%u-%u",regitr_seqname(conf->reg,&reg_itr),REGITR_START(reg_itr),REGITR_END(reg_itr));
+
+                for (i=0; i<conf->nfiles; i++) 
+                {
+                    hts_itr_destroy(conf->mplp_data[i]->iter);
+                    conf->mplp_data[i]->iter = sam_itr_querys(conf->mplp_data[i]->idx, conf->mplp_data[i]->h, conf->buf.s);
+                    if ( !conf->mplp_data[i]->iter ) 
+                    {
+                        conf->mplp_data[i]->iter = sam_itr_querys(conf->mplp_data[i]->idx, conf->mplp_data[i]->h, regitr_seqname(conf->reg,&reg_itr));
+                        if ( conf->mplp_data[i]->iter ) {
+                            fprintf(stderr,"[E::%s] fail to parse region '%s'\n", __func__, conf->buf.s);
+                            exit(EXIT_FAILURE);
+                        }
+                        fprintf(stderr,"[E::%s] the sequence \"%s\" not found: %s\n",__func__,regitr_seqname(conf->reg,&reg_itr),conf->files[i]);
+                        exit(EXIT_FAILURE);
+                    }
+                    bam_mplp_reset(conf->iter);
+                }
             }
+            mpileup_reg(conf,REGITR_START(reg_itr),REGITR_END(reg_itr));
         }
+        while ( regidx_loop(conf->reg,&reg_itr) );
     }
-    flush_bcf_records(conf, bcf_fp, bcf_hdr, NULL);
+    else
+        mpileup_reg(conf,0,0);
+
+    flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, NULL);
 
     // clean up
-    free(bc.tmp.s);
-    bcf_destroy1(bcf_rec);
-    if (bcf_fp)
+    free(conf->bc.tmp.s);
+    bcf_destroy1(conf->bcf_rec);
+    if (conf->bcf_fp)
     {
-        hts_close(bcf_fp);
-        bcf_hdr_destroy(bcf_hdr);
-        bcf_call_destroy(bca);
-        free(bc.PL);
-        free(bc.DP4);
-        free(bc.ADR);
-        free(bc.ADF);
-        free(bc.fmt_arr);
-        free(bcr);
+        hts_close(conf->bcf_fp);
+        bcf_hdr_destroy(conf->bcf_hdr);
+        bcf_call_destroy(conf->bca);
+        free(conf->bc.PL);
+        free(conf->bc.DP4);
+        free(conf->bc.ADR);
+        free(conf->bc.ADF);
+        free(conf->bc.fmt_arr);
+        free(conf->bcr);
     }
     if ( conf->gvcf ) gvcf_destroy(conf->gvcf);
-    bam_smpl_destroy(sm); free(buf.s);
-    for (i = 0; i < gplp.n; ++i) free(gplp.plp[i]);
-    free(gplp.plp); free(gplp.n_plp); free(gplp.m_plp);
-    bcf_call_del_rghash(rghash_exc);
-    bam_mplp_destroy(iter);
-    bam_hdr_destroy(h);
-    for (i = 0; i < n; ++i) {
-        sam_close(data[i]->fp);
-        if (data[i]->iter) hts_itr_destroy(data[i]->iter);
-        if ( data[i]->rghash_inc ) khash_str2int_destroy_free(data[i]->rghash_inc);
-        free(data[i]);
+    bam_smpl_destroy(conf->smpl); free(conf->buf.s);
+    for (i = 0; i < conf->gplp->n; ++i) free(conf->gplp->plp[i]);
+    free(conf->gplp->plp); free(conf->gplp->n_plp); free(conf->gplp->m_plp); free(conf->gplp);
+    bam_mplp_destroy(conf->iter);
+    bam_hdr_destroy(hdr);
+    for (i = 0; i < conf->nfiles; ++i) {
+        if ( nregs>1 ) hts_idx_destroy(conf->mplp_data[i]->idx);
+        sam_close(conf->mplp_data[i]->fp);
+        if ( conf->mplp_data[i]->iter) hts_itr_destroy(conf->mplp_data[i]->iter);
+        if ( conf->mplp_data[i]->rghash_inc ) khash_str2int_destroy_free(conf->mplp_data[i]->rghash_inc);
+        free(conf->mplp_data[i]);
     }
-    free(data); free(plp); free(n_plp);
+    free(conf->mplp_data); free(conf->plp); free(conf->n_plp);
     if ( samples_inc ) khash_str2int_destroy_free(samples_inc);
     free(mp_ref.ref[0]);
     free(mp_ref.ref[1]);
-    return ret;
+    return 0;
 }
 
 #define MAX_PATH_LEN 1024
@@ -732,7 +823,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "  -Q, --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [%d]\n", mplp->min_baseQ);
     fprintf(fp,
-"  -r, --region REG        region in which pileup is generated\n"
+"  -r, --regions REG[,...] comma separated list of regions in which pileup is generated\n"
+"  -R, --regions-file FILE restrict to regions listed in a file\n"
 "      --ignore-RG         ignore RG tags (one BAM = one sample)\n"
 "  --rf, --incl-flags STR|INT  required flags: skip reads with mask bits unset [%s]\n", tmp_require);
     fprintf(fp,
@@ -820,6 +912,8 @@ int bam_mpileup(int argc, char *argv[])
         {"exclude-rg", required_argument, NULL, 'G'},
         {"positions", required_argument, NULL, 'l'},
         {"region", required_argument, NULL, 'r'},
+        {"regions", required_argument, NULL, 'r'},
+        {"regions-file", required_argument, NULL, 'R'},
         {"min-MQ", required_argument, NULL, 'q'},
         {"min-mq", required_argument, NULL, 'q'},
         {"min-BQ", required_argument, NULL, 'Q'},
@@ -840,7 +934,7 @@ int bam_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -864,7 +958,8 @@ int bam_mpileup(int argc, char *argv[])
             mplp.fai_fname = optarg;
             break;
         case 'd': mplp.max_depth = atoi(optarg); break;
-        case 'r': mplp.reg = strdup(optarg); break;
+        case 'r': mplp.reg_fname = strdup(optarg); break;
+        case 'R': mplp.reg_fname = strdup(optarg); mplp.reg_is_file = 1; break;
         case 'l':
                   // In the original version the whole BAM was streamed which is inefficient
                   //  with few BED intervals and big BAMs. Todo: devise a heuristic to determine
@@ -964,17 +1059,25 @@ int bam_mpileup(int argc, char *argv[])
         return 1;
     }
     int ret;
-    if (file_list) {
+    if (file_list) 
+    {
         if ( read_file_list(file_list,&nfiles,&fn) ) return 1;
-        ret = mpileup(&mplp,nfiles,fn);
+        mplp.files  = fn;
+        mplp.nfiles = nfiles;
+        ret = mpileup(&mplp);
         for (c=0; c<nfiles; c++) free(fn[c]);
         free(fn);
     }
     else
-        ret = mpileup(&mplp, argc - optind, argv + optind);
+    {
+        mplp.nfiles = argc - optind;
+        mplp.files  = argv + optind;
+        ret = mpileup(&mplp);
+    }
     if (mplp.rghash_exc) khash_str2int_destroy_free(mplp.rghash_exc);
-    free(mplp.reg); free(mplp.pl_list);
+    free(mplp.reg_fname); free(mplp.pl_list);
     if (mplp.fai) fai_destroy(mplp.fai);
     if (mplp.bed) regidx_destroy(mplp.bed);
+    if (mplp.reg) regidx_destroy(mplp.reg);
     return ret;
 }

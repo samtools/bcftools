@@ -262,6 +262,7 @@ test_mpileup($opts,in=>[qw(1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.4.out',args=>q[-a DP,DPR,DV,DP4,INFO/DPR,SP -r17:100-600]); #test files from samtools mpileup test suite
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.5.out',args=>q[-a DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR -r17:100-600]);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV -r17:100-600 --gvcf 0,2,5]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV -r17:100-200,17:201-300,17:301-400,17:401-500,17:501-600 --gvcf 0,2,5]);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -s HG00101,HG00102]);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -S {PATH}/mplp.samples]);
 

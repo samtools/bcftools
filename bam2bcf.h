@@ -1,7 +1,7 @@
 /*  bam2bcf.h -- variant calling.
 
     Copyright (C) 2010-2012 Broad Institute.
-    Copyright (C) 2012-2014 Genome Research Ltd.
+    Copyright (C) 2012-2014,2016 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -128,8 +128,7 @@ extern "C" {
     int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int ref_base /*4-bit*/, bcf_call_t *call);
     int bcf_call2bcf(bcf_call_t *bc, bcf1_t *b, bcf_callret1_t *bcr, int fmt_flag,
                      const bcf_callaux_t *bca, const char *ref);
-    int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref,
-                          const void *rghash);
+    int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref);
     void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call);
 
 #ifdef __cplusplus

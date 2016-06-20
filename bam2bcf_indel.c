@@ -1,7 +1,7 @@
 /*  bam2bcf_indel.c -- indel caller.
 
     Copyright (C) 2010, 2011 Broad Institute.
-    Copyright (C) 2012-2014 Genome Research Ltd.
+    Copyright (C) 2012-2014,2016 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -26,26 +26,24 @@ DEALINGS IN THE SOFTWARE.  */
 #include <assert.h>
 #include <ctype.h>
 #include <string.h>
-#include "htslib/hts.h"
-#include "htslib/sam.h"
+#include <htslib/hts.h>
+#include <htslib/sam.h>
+#include <htslib/khash_str2int.h>
 #include "bam2bcf.h"
-#include "htslib/khash.h"
-KHASH_SET_INIT_STR(rg)
 
-#include "htslib/ksort.h"
+#include <htslib/ksort.h>
 KSORT_INIT_GENERIC(uint32_t)
 
 #define MINUS_CONST 0x10000000
 #define INDEL_WINDOW_SIZE 50
 
-void *bcf_call_add_rg(void *_hash, const char *hdtext, const char *list)
+void *bcf_call_add_rg(void *hash, const char *hdtext, const char *list)
 {
     const char *s, *p, *q, *r, *t;
-    khash_t(rg) *hash;
-    if (list == 0 || hdtext == 0) return _hash;
-    if (_hash == 0) _hash = kh_init(rg);
-    hash = (khash_t(rg)*)_hash;
-    if ((s = strstr(hdtext, "@RG\t")) == 0) return hash;
+
+    if (list == 0 || hdtext == 0) return hash;
+    if ( !hash ) hash = khash_str2int_init();
+    if ((s = strstr(hdtext, "@RG\t")) == 0) return hash;    // @RG lines not present
     do {
         t = strstr(s + 4, "@RG\t"); // the next @RG
         if ((p = strstr(s, "\tID:")) != 0) p += 4;
@@ -60,13 +58,10 @@ void *bcf_call_add_rg(void *_hash, const char *hdtext, const char *list)
             x = (char*) calloc((lp > lq? lp : lq) + 1, 1);
             for (r = q; *r && *r != '\t' && *r != '\n'; ++r) x[r-q] = *r;
             if (strstr(list, x)) { // insert ID to the hash table
-                khint_t k;
-                int ret;
                 for (r = p; *r && *r != '\t' && *r != '\n'; ++r) x[r-p] = *r;
                 x[r-p] = 0;
-                k = kh_get(rg, hash, x);
-                if (k == kh_end(hash)) k = kh_put(rg, hash, x, &ret);
-                else free(x);
+                if ( khash_str2int_has_key(hash,x) ) free(x);
+                else khash_str2int_set(hash,x,1);
             } else free(x);
         }
         s = t;
@@ -74,15 +69,9 @@ void *bcf_call_add_rg(void *_hash, const char *hdtext, const char *list)
     return hash;
 }
 
-void bcf_call_del_rghash(void *_hash)
+void bcf_call_del_rghash(void *hash)
 {
-    khint_t k;
-    khash_t(rg) *hash = (khash_t(rg)*)_hash;
-    if (hash == 0) return;
-    for (k = kh_begin(hash); k < kh_end(hash); ++k)
-        if (kh_exist(hash, k))
-            free((char*)kh_key(hash, k));
-    kh_destroy(rg, hash);
+    khash_str2int_destroy_free(hash);
 }
 
 static int tpos2qpos(const bam1_core_t *c, const uint32_t *cigar, int32_t tpos, int is_left, int32_t *_tpos)
@@ -144,30 +133,13 @@ static inline int est_indelreg(int pos, const char *ref, int l, char *ins4)
             - 8: estimated sequence quality                     .. (aux>>8)&0xff
             - 8: indel quality                                  .. aux&0xff
  */
-int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref,
-                      const void *rghash)
+int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref)
 {
     int i, s, j, k, t, n_types, *types, max_rd_len, left, right, max_ins, *score1, *score2, max_ref2;
     int N, K, l_run, ref_type, n_alt;
     char *inscns = 0, *ref2, *query, **ref_sample;
-    khash_t(rg) *hash = (khash_t(rg)*)rghash;
     if (ref == 0 || bca == 0) return -1;
-    // mark filtered reads
-    if (rghash) {
-        N = 0;
-        for (s = N = 0; s < n; ++s) {
-            for (i = 0; i < n_plp[s]; ++i) {
-                bam_pileup1_t *p = plp[s] + i;
-                const uint8_t *rg = bam_aux_get(p->b, "RG");
-                p->aux = 1; // filtered by default
-                if (rg) {
-                    khint_t k = kh_get(rg, hash, (const char*)(rg + 1));
-                    if (k != kh_end(hash)) p->aux = 0, ++N; // not filtered
-                }
-            }
-        }
-        if (N == 0) return -1; // no reads left
-    }
+
     // determine if there is a gap
     for (s = N = 0; s < n; ++s) {
         for (i = 0; i < n_plp[s]; ++i)
@@ -187,12 +159,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
             int na = 0, nt = 0;
             for (i = 0; i < n_plp[s]; ++i) {
                 const bam_pileup1_t *p = plp[s] + i;
-                if (rghash == 0 || p->aux == 0) {
-                    ++nt;
-                    if (p->indel != 0) {
-                        ++na;
-                        aux[m++] = MINUS_CONST + p->indel;
-                    }
+                ++nt;
+                if (p->indel != 0) {
+                    ++na;
+                    aux[m++] = MINUS_CONST + p->indel;
                 }
                 j = bam_cigar2qlen(p->b->core.n_cigar, bam_get_cigar(p->b));
                 if (j > max_rd_len) max_rd_len = j;

@@ -1383,10 +1383,14 @@ regions listed in the BED file.
 *-Q, --min-BQ* 'INT'::
     Minimum base quality for a base to be considered [13]
 
-*-r, --region* 'STR'::
-    Only generate output in region. Requires the alignment files to be
-    indexed.  If used in conjunction with -l then considers the intersection
-    of the two requests [all sites]
+*-r, --regions* 'CHR'|'CHR:POS'|'CHR:FROM-TO'|'CHR:FROM-'[,...]::
+    Only generate mpileup output in given regions. Requires the alignment files
+    to be indexed.  If used in conjunction with -l then considers the intersection;
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'FILE'::
+    As for *-r, --regions*, but regions read from FILE;
+    see *<<common_options,Common Options>>*
 
 *--ignore-RG*::
     Ignore RG tags. Treat all reads in one alignment file as one sample.
