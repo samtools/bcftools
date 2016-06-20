@@ -1255,8 +1255,20 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 *--use-header* 'FILE'::
     use the VCF header in the provided text 'FILE'
 
+*-0  --missing-to-ref*::
+    assume genotypes at missing sites are 0/0
+
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
+
+*-F, --filter-logic* 'x'|'+'::
+    Set the output record to PASS if any of the inputs is PASS ('x'),
+    or apply all filters ('+'), which is the default.
+
+*-g, --gvcf*::
+    merge gVCF blocks, INFO/END tag is expected. The *--gvcf* option uses
+    the following default INFO rules: 
+    *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max*.
 
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::
     Rules for merging INFO fields (scalars or vectors) or '-' to disable the
