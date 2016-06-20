@@ -30,10 +30,10 @@ THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
-#include <htslib/regidx.h>
 #include <math.h>
 #include <ctype.h>
 #include "bcftools.h"
+#include "regidx.h"
 #include "vcmp.h"
 
 #define DBG 0
