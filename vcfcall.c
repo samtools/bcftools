@@ -146,7 +146,7 @@ static ploidy_predef_t ploidy_predefs[] =
           "*  * *     F 2\n"
     },
     { .alias  = "GRCh38",
-      .about  = "Human Genome reference assembly GRCh38 / hg38, plain chromosome naming (1,2,3,..)",
+      .about  = "Human Genome reference assembly GRCh38 / hg38",
       .ploidy =
           "X 1 9999 M 1\n"
           "X 2781480 155701381 M 1\n"
@@ -569,7 +569,10 @@ ploidy_t *init_ploidy(char *alias)
 
     if ( !pld->alias )
     {
-        fprintf(stderr,"Predefined ploidies:\n");
+        fprintf(stderr,"\nPRE-DEFINED PLOIDY FILES\n\n");
+        fprintf(stderr," * Columns are: CHROM,FROM,TO,SEX,PLOIDY\n");
+        fprintf(stderr," * Coordinates are 1-based inclusive.\n");
+        fprintf(stderr," * A '*' means any value not otherwise defined.\n\n");
         pld = ploidy_predefs;
         while ( pld->alias )
         {
