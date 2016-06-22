@@ -986,7 +986,7 @@ sub test_mpileup
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -Ob $files 2>/dev/null | $$opts{bin}/bcftools view  | $grep_hdr");
         if ($args{test_list})
         {
-            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -b $$opts{tmp}/mpileup.$fmt.list 2>/dev/null | $grep_hdr");
+            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -b $$opts{tmp}/mpileup.$fmt.list --no-version 2>/dev/null | grep -v ^##reference");
             test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -Ob -b $$opts{tmp}/mpileup.$fmt.urllist 2>/dev/null | $$opts{bin}/bcftools view  | $grep_hdr");
         }
     }

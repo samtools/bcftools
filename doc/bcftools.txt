@@ -1447,6 +1447,9 @@ regions listed in the BED file.
     depth less than 5 will be printed as separate records, outside of
     gVCF blocks.
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     Write output to 'FILE', rather than the default of standard output.
     (The same short option is used for both *--open-prob* and *--output*.  If *-o*'s
@@ -1456,6 +1459,9 @@ regions listed in the BED file.
     ./123* or *--output 123*.)
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
 ==== Options for SNP/INDEL genotype likelihood computation

@@ -68,7 +68,7 @@ typedef struct {
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
     char *reg_fname, *pl_list, *fai_fname, *output_fname, *samples_list;
-    int reg_is_file;
+    int reg_is_file, record_cmd_line, n_threads;
     faidx_t *fai;
     regidx_t *bed, *reg;    // bed: skipping regions, reg: index-jump to regions
     gvcf_t *gvcf;
@@ -489,19 +489,23 @@ static int mpileup(mplp_conf_t *conf)
         fprintf(stderr, "[%s] failed to write to %s: %s\n", __func__, conf->output_fname? conf->output_fname : "standard output", strerror(errno));
         exit(EXIT_FAILURE);
     }
+    if ( conf->n_threads ) hts_set_threads(conf->bcf_fp, conf->n_threads);
 
     // BCF header creation
     conf->bcf_hdr = bcf_hdr_init("w");
     conf->buf.l = 0;
 
-    ksprintf(&conf->buf, "##bcftoolsVersion=%s+htslib-%s\n",bcftools_version(),hts_version());
-    bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
+    if (conf->record_cmd_line)
+    {
+        ksprintf(&conf->buf, "##bcftoolsVersion=%s+htslib-%s\n",bcftools_version(),hts_version());
+        bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
 
-    conf->buf.l = 0;
-    ksprintf(&conf->buf, "##bcftoolsCommand=mpileup");
-    for (i=1; i<conf->argc; i++) ksprintf(&conf->buf, " %s", conf->argv[i]);
-    kputc('\n', &conf->buf);
-    bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
+        conf->buf.l = 0;
+        ksprintf(&conf->buf, "##bcftoolsCommand=mpileup");
+        for (i=1; i<conf->argc; i++) ksprintf(&conf->buf, " %s", conf->argv[i]);
+        kputc('\n', &conf->buf);
+        bcf_hdr_append(conf->bcf_hdr, conf->buf.s);
+    }
 
     if (conf->fai_fname)
     {
@@ -846,9 +850,11 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -a, --annotate LIST     optional tags to output; '?' to list []\n"
 "  -g, --gvcf INT[,...]    group non-variant sites into gVCF blocks according\n"
 "                          to minimum per-sample DP\n"
+"      --no-version        do not append version and command line to the header\n"
 "  -o, --output FILE       write output to FILE [standard output]\n"
 "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
 "                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
+"      --threads INT       number of extra output compression threads [0]\n"
 "\n"
 "SNP/INDEL genotype likelihoods options:\n"
 "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
@@ -892,6 +898,8 @@ int bam_mpileup(int argc, char *argv[])
     mplp.rflag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP;
     mplp.output_fname = NULL;
     mplp.output_type = FT_VCF;
+    mplp.record_cmd_line = 1;
+    mplp.n_threads = 0;
 
     static const struct option lopts[] =
     {
@@ -904,6 +912,8 @@ int bam_mpileup(int argc, char *argv[])
         {"ignore-RG", no_argument, NULL, 5},
         {"ignore-rg", no_argument, NULL, 5},
         {"gvcf", required_argument, NULL, 7},
+        {"no-version", no_argument, NULL, 8},
+        {"threads",required_argument,NULL,9},
         {"illumina1.3+", no_argument, NULL, '6'},
         {"count-orphans", no_argument, NULL, 'A'},
         {"bam-list", required_argument, NULL, 'b'},
@@ -964,6 +974,8 @@ int bam_mpileup(int argc, char *argv[])
             if (mplp.fai == NULL) return 1;
             mplp.fai_fname = optarg;
             break;
+        case  8 : mplp.record_cmd_line = 0; break;
+        case  9 : mplp.n_threads = strtol(optarg, 0, 0); break;
         case 'd': mplp.max_depth = atoi(optarg); break;
         case 'r': mplp.reg_fname = strdup(optarg); break;
         case 'R': mplp.reg_fname = strdup(optarg); mplp.reg_is_file = 1; break;
