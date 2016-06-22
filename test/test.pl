@@ -30,6 +30,7 @@ use FindBin;
 use lib "$FindBin::Bin";
 use Getopt::Long;
 use File::Temp qw/ tempfile tempdir /;
+use Cwd qw/ abs_path /;
 
 my $opts = parse_params();
 
@@ -256,7 +257,7 @@ test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.4.chain',chain=>'
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.1.out',fa=>'consensus2.fa',args=>'-H 1');
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.2.out',fa=>'consensus2.fa',args=>'-H 2');
 test_vcf_consensus($opts,in=>'empty',out=>'consensus.5.out',fa=>'consensus.fa',args=>'');
-test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
 test_mpileup($opts,in=>[qw(1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.4.out',args=>q[-a DP,DPR,DV,DP4,INFO/DPR,SP -r17:100-600]); #test files from samtools mpileup test suite
@@ -954,6 +955,26 @@ sub test_mpileup
 {
     my ($opts,%args) = @_;
 
+    if ($args{test_list})
+    {
+        # make a local copy, create bams, index the bams and the reference
+        open(my $fh1,'>',"$$opts{tmp}/mpileup.bam.list") or error("$$opts{tmp}/mpileup.bam.list: $!");
+        open(my $fh2,'>',"$$opts{tmp}/mpileup.cram.list") or error("$$opts{tmp}/mpileup.cram.list: $!");
+        open(my $fh3,'>',"$$opts{tmp}/mpileup.bam.urllist") or error("$$opts{tmp}/mpileup.bam.urllist: $!");
+        open(my $fh4,'>',"$$opts{tmp}/mpileup.cram.urllist") or error("$$opts{tmp}/mpileup.cram.urllist: $!");
+        for my $file (@{$args{in}})
+        {
+            print $fh1 "$$opts{path}/mpileup/mpileup.$file.bam\n";
+            print $fh2 "$$opts{path}/mpileup/mpileup.$file.cram\n";
+            print $fh3 "file://", abs_path("$$opts{path}/mpileup/mpileup.$file.bam"), "\n";
+            print $fh4 "file://", abs_path("$$opts{path}/mpileup/mpileup.$file.cram"), "\n";
+        }
+        close($fh1);
+        close($fh2);
+        close($fh3);
+        close($fh4);
+	}
+
     $args{args} =~ s/{PATH}/$$opts{path}/g;
     for my $fmt ('bam','cram')
     {
@@ -963,5 +984,10 @@ sub test_mpileup
         my $grep_hdr = "grep -v ^##bcftools | grep -v ^##reference";
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa $files 2>/dev/null | $grep_hdr");
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -Ob $files 2>/dev/null | $$opts{bin}/bcftools view  | $grep_hdr");
+        if ($args{test_list})
+        {
+            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -b $$opts{tmp}/mpileup.$fmt.list 2>/dev/null | $grep_hdr");
+            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -Ob -b $$opts{tmp}/mpileup.$fmt.urllist 2>/dev/null | $$opts{bin}/bcftools view  | $grep_hdr");
+        }
     }
 }
