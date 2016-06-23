@@ -71,6 +71,7 @@ typedef struct {
     int reg_is_file, record_cmd_line, n_threads;
     faidx_t *fai;
     regidx_t *bed, *reg;    // bed: skipping regions, reg: index-jump to regions
+    int bed_logic;          // 1: include region, 0: exclude region
     gvcf_t *gvcf;
 
     // auxiliary structures for calling
@@ -197,7 +198,20 @@ static int mplp_func(void *data, bam1_t *b)
         if (ma->conf->bed)
         {
             // test overlap
-            if ( !regidx_overlap(ma->conf->bed, ma->h->target_name[b->core.tid],b->core.pos, bam_endpos(b)-1, NULL) ) continue;
+            regitr_t itr;
+            int beg = b->core.pos, end = bam_endpos(b)-1;
+            int overlap = regidx_overlap(ma->conf->bed, ma->h->target_name[b->core.tid],beg,end, &itr);
+            if ( !ma->conf->bed_logic && !overlap )
+            {
+                // exclude only reads which are fully contained in the region
+                while ( REGITR_OVERLAP(itr,beg,end) )
+                {
+                    if ( beg < REGITR_START(itr) ) { overlap = 1; break; }
+                    if ( end > REGITR_END(itr) ) { overlap = 1; break; }
+                    itr.i++;
+                }
+            }
+            if ( !overlap ) continue;
         }
         if (ma->rghash_inc)
         {
@@ -306,7 +320,12 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
     while ( (ret=bam_mplp_auto(conf->iter, &tid, &pos, conf->n_plp, conf->plp)) > 0) 
     {
         if ( end && (pos<beg || pos>end) ) continue;
-        if (conf->bed && tid >= 0 && !regidx_overlap(conf->bed, hdr->target_name[tid], pos, pos, NULL)) continue;
+        if ( conf->bed && tid >= 0 )
+        {
+            int overlap = regidx_overlap(conf->bed, hdr->target_name[tid], pos, pos, NULL);
+            if ( !conf->bed_logic ) overlap = overlap ? 0 : 1;
+            if ( !overlap ) continue;
+        }
         mplp_get_ref(conf->mplp_data[0], tid, &ref, &ref_len);
 
         int total_depth, _ref0, ref16;
@@ -835,7 +854,6 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
 "  -f, --fasta-ref FILE    faidx indexed reference sequence file\n"
 "  -G, --exclude-RG FILE   exclude read groups listed in FILE\n"
-"  -l, --positions FILE    skip unlisted positions (chr pos) or regions (BED)\n"
 "  -q, --min-MQ INT        skip alignments with mapQ smaller than INT [%d]\n", mplp->min_mq);
     fprintf(fp,
 "  -Q, --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [%d]\n", mplp->min_baseQ);
@@ -850,6 +868,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "  -s, --samples LIST      comma separated list of samples to include\n"
 "  -S, --samples-file FILE file of samples to include\n"
+"  -t, --targets REG[,...] similar to -r but streams rather than index-jumps\n"
+"  -T, --targets-file FILE similar to -R but streams rather than index-jumps\n"
 "  -x, --ignore-overlaps   disable read-pair overlap detection\n"
 "\n"
 "Output options:\n"
@@ -933,10 +953,11 @@ int bam_mpileup(int argc, char *argv[])
         {"fasta-ref", required_argument, NULL, 'f'},
         {"exclude-RG", required_argument, NULL, 'G'},
         {"exclude-rg", required_argument, NULL, 'G'},
-        {"positions", required_argument, NULL, 'l'},
         {"region", required_argument, NULL, 'r'},
         {"regions", required_argument, NULL, 'r'},
         {"regions-file", required_argument, NULL, 'R'},
+        {"targets", required_argument, NULL, 't'},
+        {"targets-file", required_argument, NULL, 'T'},
         {"min-MQ", required_argument, NULL, 'q'},
         {"min-mq", required_argument, NULL, 'q'},
         {"min-BQ", required_argument, NULL, 'Q'},
@@ -957,7 +978,7 @@ int bam_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:l:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -985,10 +1006,22 @@ int bam_mpileup(int argc, char *argv[])
         case 'd': mplp.max_depth = atoi(optarg); break;
         case 'r': mplp.reg_fname = strdup(optarg); break;
         case 'R': mplp.reg_fname = strdup(optarg); mplp.reg_is_file = 1; break;
-        case 'l':
+        case 't':
                   // In the original version the whole BAM was streamed which is inefficient
                   //  with few BED intervals and big BAMs. Todo: devise a heuristic to determine
                   //  best strategy, that is streaming or jumping.
+                  if ( optarg[0]=='^' ) optarg++;
+                  else mplp.bed_logic = 1;
+                  mplp.bed = regidx_init(NULL,regidx_parse_reg,NULL,0,NULL);
+                  if ( regidx_insert_list(mplp.bed,optarg,',') !=0 )
+                  {
+                      fprintf(stderr,"Could not parse the targets: %s\n", optarg);
+                      exit(EXIT_FAILURE);
+                  }
+                  break;
+        case 'T':
+                  if ( optarg[0]=='^' ) optarg++;
+                  else mplp.bed_logic = 1;
                   mplp.bed = regidx_init(optarg,NULL,NULL,0,NULL);
                   if (!mplp.bed) { fprintf(stderr, "bcftools mpileup: Could not read file \"%s\"", optarg); return 1; }
                   break;

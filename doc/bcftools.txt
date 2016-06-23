@@ -1314,16 +1314,17 @@ individuals can be pooled in one alignment file, also one individual can be
 separated into multiple files.  If sample identifiers are absent, each input
 file is regarded as one sample.
 
-
 Note that there are two orthogonal ways to specify locations in the
-input file; via *-r* 'region' and *-l* 'positions'.  The
+input file; via *-r* 'region' and *-t* 'positions'.  The
 former uses (and requires) an index to do random access while the
 latter streams through the file contents filtering out the specified
 regions, requiring no index.  The two may be used in conjunction.  For
 example a BED file containing locations of genes in chromosome 20
-could be specified using *-r 20 -l chr20.bed*, meaning that the
+could be specified using *-r 20 -t chr20.bed*, meaning that the
 index is used to find chromosome 20 and then it is filtered for the
-regions listed in the BED file.
+regions listed in the BED file. Also note that the *-r* option can be much
+slower than *-t* with many regions and can require more memory when
+multiple regions and many alignment files are processed.
 
 
 ==== Input options
@@ -1367,16 +1368,6 @@ regions listed in the BED file.
 *-G, --exclude-RG* 'FILE'::
     Exclude reads from readgroups listed in FILE (one @RG-ID per line)
 
-*-l, --positions* 'FILE'::
-    BED or position list file containing a list of regions or sites where
-    output should be generated. Position list files contain two
-    columns (chromosome and position) and start counting from 1.  BED
-    files contain at least 3 columns (chromosome, start and end position)
-    and are 0-based half-open.
-    While it is possible to mix both position-list and BED coordinates in
-    the same file, this is strongly ill advised due to the differing
-    coordinate systems. [null]
-
 *-q, -min-MQ* 'INT'::
     Minimum mapping quality for an alignment to be used [0]
 
@@ -1406,6 +1397,12 @@ regions listed in the BED file.
 
 *-S, --samples-file* 'FILE'::
     file of sample names. See *<<common_options,Common Options>>*
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-x, --ignore-overlaps*::
     Disable read-pair overlap detection.
