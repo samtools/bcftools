@@ -911,7 +911,7 @@ int bam_mpileup(int argc, char *argv[])
         {"open-prob", required_argument, NULL, 4},
         {"ignore-RG", no_argument, NULL, 5},
         {"ignore-rg", no_argument, NULL, 5},
-        {"gvcf", required_argument, NULL, 7},
+        {"gvcf", required_argument, NULL, 'g'},
         {"no-version", no_argument, NULL, 8},
         {"threads",required_argument,NULL,9},
         {"illumina1.3+", no_argument, NULL, '6'},
@@ -965,7 +965,7 @@ int bam_mpileup(int argc, char *argv[])
         case  3 : mplp.output_fname = optarg; break;
         case  4 : mplp.openQ = atoi(optarg); break;
         case  5 : mplp.flag |= MPLP_IGNORE_RG; break;
-        case  7 :
+        case 'g':
             mplp.gvcf = gvcf_init(optarg);
             if ( !mplp.gvcf ) error("Could not parse: --gvcf %s\n", optarg);
             break;
