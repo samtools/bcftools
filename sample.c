@@ -63,7 +63,7 @@ static void add_pair(bam_sample_t *sm, void *sm2id, const char *readgroup, const
     khash_str2int_set(sm->rg2smid, strdup(readgroup), ismpl);
 }
 
-int bam_smpl_add(bam_sample_t *sm, const char *fn, const char *txt, void *white_list, void *white_hash)
+int bam_smpl_add(bam_sample_t *sm, const char *fn, const char *txt, void *sample_list, int sample_logic, void *white_hash)
 {
     const char *p = txt, *q, *r;
     kstring_t buf, first_sm;
@@ -85,13 +85,21 @@ int bam_smpl_add(bam_sample_t *sm, const char *fn, const char *txt, void *white_
             for (u = (char*)q; *u && *u != '\t' && *u != '\n'; ++u);
             for (v = (char*)r; *v && *v != '\t' && *v != '\n'; ++v);
             ioq = *u; ior = *v; *u = *v = '\0';
-            if ( !white_list || khash_str2int_has_key(white_list,r) )
+
+            // r now points to a null terminated sample name
+            int accept_rg = 1;
+            if ( sample_list )
+            {
+                accept_rg = khash_str2int_has_key(sample_list,r);
+                if ( sample_logic==0 ) accept_rg = accept_rg ? 0 : 1;
+            }
+            if ( accept_rg )
             {
                 buf.l = 0; kputs(fn, &buf); kputc('/', &buf); kputs(q, &buf);
                 add_pair(sm, sm->sm2id, buf.s, r);
                 if ( !first_sm.s )
                     kputs(r,&first_sm);
-                if ( white_list ) khash_str2int_inc(white_hash,strdup(q));
+                if ( sample_list ) khash_str2int_inc(white_hash,strdup(q));
             }
             *u = ioq; *v = ior;
         } else break;

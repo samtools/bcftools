@@ -35,7 +35,7 @@ typedef struct {
 } bam_sample_t;
 
 bam_sample_t *bam_smpl_init(void);
-int bam_smpl_add(bam_sample_t *sm, const char *abs, const char *txt, void *white_list, void *white_hash);
+int bam_smpl_add(bam_sample_t *sm, const char *abs, const char *txt, void *sample_list, int sample_logic, void *white_hash);
 int bam_smpl_rg2smid(const bam_sample_t *sm, const char *fn, const char *rg, kstring_t *str);
 void bam_smpl_destroy(bam_sample_t *sm);
 

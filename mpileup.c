@@ -359,20 +359,26 @@ static int mpileup(mplp_conf_t *conf)
     conf->n_plp = (int*) calloc(conf->nfiles, sizeof(int));
     conf->smpl = bam_smpl_init();
 
-    int i;
-    void *samples_inc = NULL;
+    int i, samples_logic = 1;   // 1: include, 0: exclude
+    void *samples_list = NULL;  // hash of sample names to include or exclude
     if ( conf->samples_list )
     {
         int nsamples = 0;
-        char **samples = hts_readlist(conf->samples_list, conf->sample_is_file, &nsamples);
+        char *list = conf->samples_list;
+        if ( list[0]=='^' )
+        {
+            list++;
+            samples_logic = 0;
+        }
+        char **samples = hts_readlist(list, conf->sample_is_file, &nsamples);
         if (!samples) {
-            fprintf(stderr,"[%s] could not read the samples list %s\n", __func__, conf->samples_list);
+            fprintf(stderr,"[%s] could not read the samples list %s\n", __func__, list);
             exit(EXIT_FAILURE);
         }
-        if ( nsamples ) samples_inc = khash_str2int_init();
+        if ( nsamples ) samples_list = khash_str2int_init();
         for (i=0; i<nsamples; i++)
         {
-            khash_str2int_inc(samples_inc, strdup(samples[i]));
+            khash_str2int_inc(samples_list, strdup(samples[i]));
             free(samples[i]);
         }
         free(samples);
@@ -437,8 +443,8 @@ static int mpileup(mplp_conf_t *conf)
         }
         conf->mplp_data[i]->h = i? hdr : h_tmp; // for i==0, "h" has not been set yet
         conf->mplp_data[i]->rghash_exc = conf->rghash_exc;
-        if ( samples_inc ) conf->mplp_data[i]->rghash_inc = khash_str2int_init();
-        bam_smpl_add(conf->smpl, conf->files[i], (conf->flag&MPLP_IGNORE_RG)? 0 : h_tmp->text, samples_inc, conf->mplp_data[i]->rghash_inc);
+        if ( samples_list ) conf->mplp_data[i]->rghash_inc = khash_str2int_init();
+        bam_smpl_add(conf->smpl, conf->files[i], (conf->flag&MPLP_IGNORE_RG)? 0 : h_tmp->text, samples_list, samples_logic, conf->mplp_data[i]->rghash_inc);
         // Collect read group IDs with PL (platform) listed in pl_list (note: fragile, strstr search)
         conf->mplp_data[i]->rghash_exc = bcf_call_add_rg(conf->mplp_data[i]->rghash_exc, h_tmp->text, conf->pl_list);
         if (conf->reg) {
@@ -685,7 +691,7 @@ static int mpileup(mplp_conf_t *conf)
         free(conf->mplp_data[i]);
     }
     free(conf->mplp_data); free(conf->plp); free(conf->n_plp);
-    if ( samples_inc ) khash_str2int_destroy_free(samples_inc);
+    if ( samples_list ) khash_str2int_destroy_free(samples_list);
     free(mp_ref.ref[0]);
     free(mp_ref.ref[1]);
     return 0;
