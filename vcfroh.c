@@ -74,7 +74,7 @@ typedef struct _args_t
     int ismpl, nsmpl;           // index of query sample
     char *estimate_AF, *sample; // list of samples for AF estimate and query sample
     char **argv, *targets_list, *regions_list, *af_fname, *af_tag;
-    int argc, fake_PLs, snps_only, vi_training;
+    int argc, fake_PLs, snps_only, vi_training, n_threads;
 }
 args_t;
 
@@ -695,6 +695,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -s, --sample <sample>              sample to analyze\n");
     fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "        --threads <int>                number of extra decompression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from HW (Hardy-Weinberg) to AZ (autozygous) state [6.7e-8]\n");
@@ -733,6 +734,7 @@ int main_vcfroh(int argc, char *argv[])
         {"genetic-map",1,0,'m'},
         {"rec-rate",1,0,'M'},
         {"skip-indels",0,0,'I'},
+        {"threads",1,0,9},
         {0,0,0,0}
     };
 
@@ -773,6 +775,7 @@ int main_vcfroh(int argc, char *argv[])
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'V': args->vi_training = 1; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h': 
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
@@ -799,6 +802,8 @@ int main_vcfroh(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->af_fname, 1, 3)<0 )
             error("Failed to read the targets: %s\n", args->af_fname);
     }
+    if ( args->n_threads && bcf_sr_set_threads(args->files, args->n_threads)<0)
+        error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
 
     init_data(args);

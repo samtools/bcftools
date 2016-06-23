@@ -220,7 +220,8 @@ static void init_data(args_t *args)
     else if (args->output_type & FT_GZ) strcat(modew,"z");      // compressed VCF
     args->out = hts_open(args->fn_out ? args->fn_out : "-", modew);
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
-    if ( args->n_threads ) hts_set_threads(args->out, args->n_threads);
+    if ( args->n_threads > 0)
+        hts_set_opt(args->out, HTS_OPT_THREAD_POOL, args->files->p);
 
     // headers: hdr=full header, hsub=subset header, hnull=sites only header
     if (args->sites_only){
@@ -494,7 +495,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -R, --regions-file <file>           restrict to regions listed in a file\n");
     fprintf(stderr, "    -t, --targets [^]<region>           similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
     fprintf(stderr, "    -T, --targets-file [^]<file>        similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
-    fprintf(stderr, "        --threads <int>                 number of extra output compression threads [0]\n");
+    fprintf(stderr, "        --threads <int>                 number of extra (de)compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles        trim alternate alleles not seen in the subset\n");
@@ -726,6 +727,7 @@ int main_vcfview(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->targets_list);
     }
 
+    if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);

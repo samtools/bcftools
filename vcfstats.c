@@ -155,6 +155,7 @@ typedef struct
     filter_t *filter[2];
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+    int n_threads;
 
     // Per Sample r working data arrays of size equal to number of samples
     smpl_r_t* smpl_r_snps;
@@ -1484,6 +1485,7 @@ static void usage(void)
     fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "    -u, --user-tstv <TAG[:min:max:n]>  collect Ts/Tv stats for any tag using the given binning [0:1:100]\n");
+    fprintf(stderr, "        --threads <int>                number of extra decompression threads [0]\n");
     fprintf(stderr, "    -v, --verbose                      produce verbose per-site and per-sample output\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1518,6 +1520,7 @@ int main_vcfstats(int argc, char *argv[])
         {"targets-file",1,0,'T'},
         {"fasta-ref",1,0,'F'},
         {"user-tstv",1,0,'u'},
+        {"threads",1,0,9},
         {0,0,0,0}
     };
     while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:i:t:T:F:f:1u:vIE:",loptions,NULL)) >= 0) {
@@ -1553,6 +1556,7 @@ int main_vcfstats(int argc, char *argv[])
             case 'I': args->split_by_id = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
@@ -1577,6 +1581,9 @@ int main_vcfstats(int argc, char *argv[])
         error("Failed to read the targets: %s\n", args->targets_list);
     if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
         error("Failed to read the regions: %s\n", args->regions_list);
+    if ( args->n_threads && bcf_sr_set_threads(args->files, args->n_threads)<0)
+        error("Failed to create threads\n");
+
     while (fname)
     {
         if ( !bcf_sr_add_reader(args->files, fname) )
