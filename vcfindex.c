@@ -121,7 +121,7 @@ int vcf_index_stats(char *fname, int stats)
 
 int main_vcfindex(int argc, char *argv[])
 {
-    int c, force = 0, tbi = 0, stats = 0;
+    int c, force = 0, tbi = 0, stats = 0, n_threads = 0;
     int min_shift = BCF_LIDX_SHIFT;
     char *outfn = NULL;
 
@@ -133,6 +133,7 @@ int main_vcfindex(int argc, char *argv[])
         {"min-shift",required_argument,NULL,'m'},
         {"stats",no_argument,NULL,'s'},
         {"nrecords",no_argument,NULL,'n'},
+        {"threads",required_argument,NULL,9},
         {"output-file",required_argument,NULL,'o'},
         {NULL, 0, NULL, 0}
     };
@@ -151,6 +152,10 @@ int main_vcfindex(int argc, char *argv[])
                 break;
             case 's': stats |= 1; break;
             case 'n': stats |= 2; break;
+            case 9:
+                n_threads = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --threads %s\n", optarg);
+                break;
             case 'o': outfn = optarg; break;
             default: usage();
         }
@@ -204,7 +209,7 @@ int main_vcfindex(int argc, char *argv[])
         }
     }
 
-    int ret = bcf_index_build2(fname, idx_fname.s, min_shift);
+    int ret = bcf_index_build3(fname, idx_fname.s, min_shift, n_threads);
     free(idx_fname.s);
     if (ret != 0) {
         if (ret == -2)

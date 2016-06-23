@@ -1648,7 +1648,8 @@ static void init_data(args_t *args)
 
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-        if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
+        if ( args->n_threads )
+            hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p);
         bcf_hdr_write(args->out_fh, args->hdr_out);
     }
 }
@@ -1975,6 +1976,7 @@ int main_vcfannotate(int argc, char *argv[])
             args->files->collapse |= COLLAPSE_SOME;
         }
     }
+    if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);

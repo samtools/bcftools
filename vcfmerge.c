@@ -2241,7 +2241,7 @@ void merge_vcf(args_t *args)
 {
     args->out_fh  = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-    if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
+    if ( args->n_threads ) hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p); //hts_set_threads(args->out_fh, args->n_threads);
     args->out_hdr = bcf_hdr_init("w");
 
     if ( args->header_fname )
@@ -2442,6 +2442,7 @@ int main_vcfmerge(int argc, char *argv[])
         args->regs_itr = regitr_init(args->regs);
     }
 
+    if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
     while (optind<argc)
     {
         if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
