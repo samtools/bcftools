@@ -1621,7 +1621,8 @@ static void normalize_vcf(args_t *args)
 {
     htsFile *out = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( out == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-    if ( args->n_threads ) hts_set_threads(out, args->n_threads);
+    if ( args->n_threads )
+        hts_set_opt(out, HTS_OPT_THREAD_POOL, args->files->p);
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
     bcf_hdr_write(out, args->hdr);
 
@@ -1704,7 +1705,7 @@ static void usage(void)
     fprintf(stderr, "    -c, --check-ref <e|w|x|s>         check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [e]\n");
     fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
     fprintf(stderr, "    -d, --rm-dup <type>               remove duplicate snps|indels|both|any\n");
-    fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
+    fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence (MANDATORY)\n");
     fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --no-version                  do not append version and command line to the header\n");
     fprintf(stderr, "    -N, --do-not-normalize            do not normalize indels (with -m or -c s)\n");
@@ -1715,7 +1716,7 @@ static void usage(void)
     fprintf(stderr, "    -s, --strict-filter               when merging (-m+), merged site is PASS only if all sites being merged PASS\n");
     fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "        --threads <int>               number of extra output compression threads [0]\n");
+    fprintf(stderr, "        --threads <int>               number of extra (de)compression threads [0]\n");
     fprintf(stderr, "    -w, --site-win <int>              buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -1842,6 +1843,7 @@ int main_vcfnorm(int argc, char *argv[])
             error("Failed to read the targets: %s\n", args->targets);
     }
 
+    if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
     if ( args->mrows_op&MROWS_SPLIT && args->rmdup ) error("Cannot combine -D and -m-\n");
     init_data(args);
