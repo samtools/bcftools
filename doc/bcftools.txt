@@ -1365,8 +1365,15 @@ multiple regions and many alignment files are processed.
     The *faidx*-indexed reference file in the FASTA format. The file can be
     optionally compressed by *bgzip* [null]
 
-*-G, --exclude-RG* 'FILE'::
-    Exclude reads from readgroups listed in FILE (one @RG-ID per line)
+*-G, --read-groups* [&#94;]'FILE'::
+    list of read groups to include or exclude if prefixed with "&#94;".
+    One read group per line.  This file can also be used to assign new sample
+    names to read groups by giving the new sample name as a second
+    white-space-separated field, like this: "read_group_id new_sample_name".
+    If the read group name is not unique, also the bam file name can
+    be included: "read_group_id file_name sample_name".  If all
+    reads from the alignment file should be treated as a single sample, the
+    asterisk symbol can be used: "* file_name sample_name". 
 
 *-q, -min-MQ* 'INT'::
     Minimum mapping quality for an alignment to be used [0]
@@ -1392,11 +1399,16 @@ multiple regions and many alignment files are processed.
 *--ff, --excl-flags* 'STR'|'INT'::
     Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
 
-*-s, --samples* 'LIST'::
+*-s, --samples* [&#94;]'LIST'::
     list of sample names. See *<<common_options,Common Options>>*
 
-*-S, --samples-file* 'FILE'::
-    file of sample names. See *<<common_options,Common Options>>*
+*-S, --samples-file* [&#94;]'FILE'::
+    file of sample names to include or exclude if prefixed with "&#94;".
+    One sample per line. This file can also be used to rename samples by giving
+    the new sample name as a second white-space-separated column, like this:
+    "old_name new_name".  If a sample name contains spaces, the spaces can be
+    escaped using the backslash character, for example "Not\ a\ good\ sample\
+    name".
 
 *-t, --targets* 'LIST'::
     see *<<common_options,Common Options>>*

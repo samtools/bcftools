@@ -26,17 +26,25 @@ DEALINGS IN THE SOFTWARE.  */
 #ifndef BAM_SAMPLE_H
 #define BAM_SAMPLE_H
 
-#include "htslib/kstring.h"
+#include <htslib/sam.h>
 
-typedef struct {
-    int n, m;
-    char **smpl;
-    void *rg2smid, *sm2id;
-} bam_sample_t;
+typedef struct _bam_smpl_t bam_smpl_t;
 
-bam_sample_t *bam_smpl_init(void);
-int bam_smpl_add(bam_sample_t *sm, const char *abs, const char *txt, void *sample_list, int sample_logic, void *white_hash);
-int bam_smpl_rg2smid(const bam_sample_t *sm, const char *fn, const char *rg, kstring_t *str);
-void bam_smpl_destroy(bam_sample_t *sm);
+bam_smpl_t *bam_smpl_init(void);
+
+int bam_smpl_add_samples(bam_smpl_t *bsmpl, char *list, int is_file);
+int bam_smpl_add_readgroups(bam_smpl_t *bsmpl, char *list, int is_file);
+void bam_smpl_ignore_readgroups(bam_smpl_t* bsmpl);
+
+// The above should be called only before bams are added. Returns the BAM id
+// to be passed to bam_smpl_get_sample_id() later. It is safe to assume
+// sequential numbering, starting from 0.
+//
+int bam_smpl_add_bam(bam_smpl_t *bsmpl, char *bam_hdr, const char *fname);
+
+const char **bam_smpl_get_samples(bam_smpl_t *bsmpl, int *nsmpl);
+int bam_smpl_get_sample_id(bam_smpl_t *bsmpl, int bam_id, bam1_t *bam_rec);
+
+void bam_smpl_destroy(bam_smpl_t *bsmpl);
 
 #endif

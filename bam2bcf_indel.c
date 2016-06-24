@@ -37,43 +37,6 @@ KSORT_INIT_GENERIC(uint32_t)
 #define MINUS_CONST 0x10000000
 #define INDEL_WINDOW_SIZE 50
 
-void *bcf_call_add_rg(void *hash, const char *hdtext, const char *list)
-{
-    const char *s, *p, *q, *r, *t;
-
-    if (list == 0 || hdtext == 0) return hash;
-    if ( !hash ) hash = khash_str2int_init();
-    if ((s = strstr(hdtext, "@RG\t")) == 0) return hash;    // @RG lines not present
-    do {
-        t = strstr(s + 4, "@RG\t"); // the next @RG
-        if ((p = strstr(s, "\tID:")) != 0) p += 4;
-        if ((q = strstr(s, "\tPL:")) != 0) q += 4;
-        if (p && q && (t == 0 || (p < t && q < t))) { // ID and PL are both present
-            int lp, lq;
-            char *x;
-            for (r = p; *r && *r != '\t' && *r != '\n'; ++r) { }
-            lp = r - p;
-            for (r = q; *r && *r != '\t' && *r != '\n'; ++r) { }
-            lq = r - q;
-            x = (char*) calloc((lp > lq? lp : lq) + 1, 1);
-            for (r = q; *r && *r != '\t' && *r != '\n'; ++r) x[r-q] = *r;
-            if (strstr(list, x)) { // insert ID to the hash table
-                for (r = p; *r && *r != '\t' && *r != '\n'; ++r) x[r-p] = *r;
-                x[r-p] = 0;
-                if ( khash_str2int_has_key(hash,x) ) free(x);
-                else khash_str2int_set(hash,x,1);
-            } else free(x);
-        }
-        s = t;
-    } while (s);
-    return hash;
-}
-
-void bcf_call_del_rghash(void *hash)
-{
-    khash_str2int_destroy_free(hash);
-}
-
 static int tpos2qpos(const bam1_core_t *c, const uint32_t *cigar, int32_t tpos, int is_left, int32_t *_tpos)
 {
     int k, x = c->pos, y = 0, last_y = 0;

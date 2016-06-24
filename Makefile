@@ -143,7 +143,7 @@ roh_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kst
 cnv_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h)
 bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
 sam_h = sam.h $(htslib_sam_h) $(bam_h)
-bam_sample_h = bam_sample.h $(htslib_kstring_h)
+bam_sample_h = bam_sample.h $(htslib_sam_h)
 
 main.o: main.c $(htslib_hts_h) version.h $(bcftools_h)
 vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)

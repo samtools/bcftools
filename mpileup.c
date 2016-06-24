@@ -64,10 +64,10 @@ typedef struct _mplp_pileup_t mplp_pileup_t;
 // Data shared by all bam files
 typedef struct {
     int min_mq, flag, min_baseQ, capQ_thres, max_depth, max_indel_depth, fmt_flag;
-    int rflag_require, rflag_filter, output_type, sample_is_file;
+    int rflag_require, rflag_filter, output_type;
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
-    char *reg_fname, *pl_list, *fai_fname, *output_fname, *samples_list;
+    char *reg_fname, *pl_list, *fai_fname, *output_fname;
     int reg_is_file, record_cmd_line, n_threads;
     faidx_t *fai;
     regidx_t *bed, *reg;    // bed: skipping regions, reg: index-jump to regions
@@ -85,13 +85,11 @@ typedef struct {
     mplp_pileup_t *gplp;
     int *n_plp;
     const bam_pileup1_t **plp;
-    bam_sample_t *smpl;
+    bam_smpl_t *bsmpl;
     kstring_t buf;
     bcf1_t *bcf_rec;
     htsFile *bcf_fp;
     bcf_hdr_t *bcf_hdr;
-    void *rghash_exc;   // shared by all bams
-
     int argc;
     char **argv;
 } mplp_conf_t;
@@ -111,8 +109,7 @@ struct _mplp_aux_t {
     bam_hdr_t *h;
     mplp_ref_t *ref;
     const mplp_conf_t *conf;
-    void *rghash_inc;   // whitelist for readgroups on per-bam basis, precedes blacklist
-    void *rghash_exc;   // blacklist of readgroups 
+    int bam_id;
     hts_idx_t *idx;     // maintained only with more than one -r regions
 };
 
@@ -213,19 +210,7 @@ static int mplp_func(void *data, bam1_t *b)
             }
             if ( !overlap ) continue;
         }
-        if (ma->rghash_inc)
-        {
-            // skip unless read group is listed
-            uint8_t *rg = bam_aux_get(b, "RG");
-            if ( !rg ) continue;
-            if ( !khash_str2int_has_key(ma->rghash_inc, (const char*)(rg+1)) ) continue;
-        }
-        if ( ma->rghash_exc )
-        {
-            // exclude read groups
-            uint8_t *rg = bam_aux_get(b, "RG");
-            if ( rg && khash_str2int_has_key(ma->rghash_exc, (const char*)(rg+1)) ) continue;
-        }
+        if ( bam_smpl_get_sample_id(ma->conf->bsmpl,ma->bam_id,b)<0 ) continue;
         if (ma->conf->flag & MPLP_ILLUMINA13) {
             int i;
             uint8_t *qual = bam_get_qual(b);
@@ -258,25 +243,18 @@ static int mplp_func(void *data, bam1_t *b)
     return ret;
 }
 
-static void group_smpl(mplp_pileup_t *m, bam_sample_t *sm, kstring_t *buf,
-                       int n, char *const*fn, int *n_plp, const bam_pileup1_t **plp, int ignore_rg)
+static void group_smpl(mplp_pileup_t *m, bam_smpl_t *bsmpl, int n, int *n_plp, const bam_pileup1_t **plp)
 {
     int i, j;
     memset(m->n_plp, 0, m->n * sizeof(int));
-    for (i = 0; i < n; ++i) {
-        for (j = 0; j < n_plp[i]; ++j) {
+    for (i = 0; i < n; ++i) // iterate over all bams
+    {
+        for (j = 0; j < n_plp[i]; ++j)  // iterate over all reads available at this position
+        {
             const bam_pileup1_t *p = plp[i] + j;
-            uint8_t *q;
-            int id = -1;
-            q = ignore_rg? NULL : bam_aux_get(p->b, "RG");
-            if (q) id = bam_smpl_rg2smid(sm, fn[i], (char*)q+1, buf);
-            if (id < 0) id = bam_smpl_rg2smid(sm, fn[i], 0, buf);
-            if (id < 0 || id >= m->n) {
-                assert(q); // otherwise a bug
-                fprintf(stderr, "[%s] Read group %s used in file %s but absent from the header or an alignment missing read group.\n", __func__, (char*)q+1, fn[i]);
-                exit(EXIT_FAILURE);
-            }
-            if (m->n_plp[id] == m->m_plp[id]) {
+            int id = bam_smpl_get_sample_id(bsmpl,i,p->b);
+            if (m->n_plp[id] == m->m_plp[id]) 
+            {
                 m->m_plp[id] = m->m_plp[id]? m->m_plp[id]<<1 : 8;
                 m->plp[id] = (bam_pileup1_t*) realloc(m->plp[id], sizeof(bam_pileup1_t) * m->m_plp[id]);
             }
@@ -330,7 +308,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
 
         int total_depth, _ref0, ref16;
         for (i = total_depth = 0; i < conf->nfiles; ++i) total_depth += conf->n_plp[i];
-        group_smpl(conf->gplp, conf->smpl, &conf->buf, conf->nfiles, conf->files, conf->n_plp, conf->plp, conf->flag & MPLP_IGNORE_RG);
+        group_smpl(conf->gplp, conf->bsmpl, conf->nfiles, conf->n_plp, conf->plp);
         _ref0 = (ref && pos < ref_len)? ref[pos] : 'N';
         ref16 = seq_nt16_table[_ref0];
         bcf_callaux_clean(conf->bca, &conf->bc);
@@ -363,9 +341,6 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
 
 static int mpileup(mplp_conf_t *conf)
 {
-    extern void *bcf_call_add_rg(void *rghash, const char *hdtext, const char *list);
-    extern void bcf_call_del_rghash(void *rghash);
-
     if (conf->nfiles == 0) {
         fprintf(stderr,"[%s] no input file/data given\n", __func__);
         exit(EXIT_FAILURE);
@@ -376,32 +351,6 @@ static int mpileup(mplp_conf_t *conf)
     conf->mplp_data = (mplp_aux_t**) calloc(conf->nfiles, sizeof(mplp_aux_t*));
     conf->plp = (const bam_pileup1_t**) calloc(conf->nfiles, sizeof(bam_pileup1_t*));
     conf->n_plp = (int*) calloc(conf->nfiles, sizeof(int));
-    conf->smpl = bam_smpl_init();
-
-    int i, samples_logic = 1;   // 1: include, 0: exclude
-    void *samples_list = NULL;  // hash of sample names to include or exclude
-    if ( conf->samples_list )
-    {
-        int nsamples = 0;
-        char *list = conf->samples_list;
-        if ( list[0]=='^' )
-        {
-            list++;
-            samples_logic = 0;
-        }
-        char **samples = hts_readlist(list, conf->sample_is_file, &nsamples);
-        if (!samples) {
-            fprintf(stderr,"[%s] could not read the samples list %s\n", __func__, list);
-            exit(EXIT_FAILURE);
-        }
-        if ( nsamples ) samples_list = khash_str2int_init();
-        for (i=0; i<nsamples; i++)
-        {
-            khash_str2int_inc(samples_list, strdup(samples[i]));
-            free(samples[i]);
-        }
-        free(samples);
-    }
 
     // Allow to run mpileup on multiple regions in one go. This comes at cost: the bai index
     // must be kept in the memory for the whole time which can be a problem with many bams.
@@ -435,6 +384,7 @@ static int mpileup(mplp_conf_t *conf)
     // read the header of each file in the list and initialize data
     // beware: mpileup has always assumed that tid's are consistent in the headers, add sanity check at least!
     bam_hdr_t *hdr = NULL;      // header of first file in input list
+    int i;
     for (i = 0; i < conf->nfiles; ++i) {
         bam_hdr_t *h_tmp;
         conf->mplp_data[i] = (mplp_aux_t*) calloc(1, sizeof(mplp_aux_t));
@@ -460,12 +410,20 @@ static int mpileup(mplp_conf_t *conf)
             fprintf(stderr,"[%s] fail to read the header of %s\n", __func__, conf->files[i]);
             exit(EXIT_FAILURE);
         }
-        conf->mplp_data[i]->h = i? hdr : h_tmp; // for i==0, "h" has not been set yet
-        conf->mplp_data[i]->rghash_exc = conf->rghash_exc;
-        if ( samples_list ) conf->mplp_data[i]->rghash_inc = khash_str2int_init();
-        bam_smpl_add(conf->smpl, conf->files[i], (conf->flag&MPLP_IGNORE_RG)? 0 : h_tmp->text, samples_list, samples_logic, conf->mplp_data[i]->rghash_inc);
-        // Collect read group IDs with PL (platform) listed in pl_list (note: fragile, strstr search)
-        conf->mplp_data[i]->rghash_exc = bcf_call_add_rg(conf->mplp_data[i]->rghash_exc, h_tmp->text, conf->pl_list);
+        conf->mplp_data[i]->h = i ? hdr : h_tmp; // for j==0, "h" has not been set yet
+        conf->mplp_data[i]->bam_id = bam_smpl_add_bam(conf->bsmpl,h_tmp->text,conf->files[i]);
+        if ( conf->mplp_data[i]->bam_id<0 )
+        {
+            // no usable readgroups in this bam, it can be skipped
+            sam_close(conf->mplp_data[i]->fp);
+            free(conf->mplp_data[i]);
+            bam_hdr_destroy(h_tmp);
+            free(conf->files[i]);
+            if ( i+1<conf->nfiles ) memmove(&conf->files[i],&conf->files[i+1],sizeof(*conf->files)*(conf->nfiles-i-1));
+            conf->nfiles--;
+            i--;
+            continue;
+        }
         if (conf->reg) {
             hts_idx_t *idx = sam_index_load(conf->mplp_data[i]->fp, conf->files[i]);
             if (idx == NULL) {
@@ -491,7 +449,7 @@ static int mpileup(mplp_conf_t *conf)
                 conf->mplp_data[i]->idx = idx;
         }
 
-        if (i == 0) hdr = h_tmp; /* save the header of first file in list */
+        if ( !hdr ) hdr = h_tmp; /* save the header of first file in list */
         else {
             // FIXME: check consistency between h and h_tmp
             bam_hdr_destroy(h_tmp);
@@ -502,12 +460,12 @@ static int mpileup(mplp_conf_t *conf)
         }
     }
     // allocate data storage proportionate to number of samples being studied sm->n
-    conf->gplp->n = conf->smpl->n;
-    conf->gplp->n_plp = (int*) calloc(conf->smpl->n, sizeof(int));
-    conf->gplp->m_plp = (int*) calloc(conf->smpl->n, sizeof(int));
-    conf->gplp->plp = (bam_pileup1_t**) calloc(conf->smpl->n, sizeof(bam_pileup1_t*));  
+    bam_smpl_get_samples(conf->bsmpl, &conf->gplp->n);
+    conf->gplp->n_plp = (int*) calloc(conf->gplp->n, sizeof(int));
+    conf->gplp->m_plp = (int*) calloc(conf->gplp->n, sizeof(int));
+    conf->gplp->plp = (bam_pileup1_t**) calloc(conf->gplp->n, sizeof(bam_pileup1_t*));  
 
-    fprintf(stderr, "[%s] %d samples in %d input files\n", __func__, conf->smpl->n, conf->nfiles);
+    fprintf(stderr, "[%s] %d samples in %d input files\n", __func__, conf->gplp->n, conf->nfiles);
     // write the VCF header
     conf->bcf_fp = hts_open(conf->output_fname?conf->output_fname:"-", hts_bcf_wmode(conf->output_type));
     if (conf->bcf_fp == NULL) {
@@ -597,32 +555,33 @@ static int mpileup(mplp_conf_t *conf)
     if ( conf->gvcf )
         gvcf_update_header(conf->gvcf, conf->bcf_hdr);
 
-    for (i=0; i<conf->smpl->n; i++)
-        bcf_hdr_add_sample(conf->bcf_hdr, conf->smpl->smpl[i]);
-    bcf_hdr_add_sample(conf->bcf_hdr, NULL);
+    int nsmpl;
+    const char **smpl = bam_smpl_get_samples(conf->bsmpl, &nsmpl);
+    for (i=0; i<nsmpl; i++)
+        bcf_hdr_add_sample(conf->bcf_hdr, smpl[i]);
     bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr);
 
     conf->bca = bcf_call_init(-1., conf->min_baseQ);
-    conf->bcr = (bcf_callret1_t*) calloc(conf->smpl->n, sizeof(bcf_callret1_t));
+    conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
     conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
     conf->bca->min_frac = conf->min_frac;
     conf->bca->min_support = conf->min_support;
     conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
 
     conf->bc.bcf_hdr = conf->bcf_hdr;
-    conf->bc.n = conf->smpl->n;
-    conf->bc.PL = (int32_t*) malloc(15 * conf->smpl->n * sizeof(*conf->bc.PL));
+    conf->bc.n  = nsmpl;
+    conf->bc.PL = (int32_t*) malloc(15 * nsmpl * sizeof(*conf->bc.PL));
     if (conf->fmt_flag)
     {
         assert( sizeof(float)==sizeof(int32_t) );
-        conf->bc.DP4 = (int32_t*) malloc(conf->smpl->n * sizeof(int32_t) * 4);
-        conf->bc.fmt_arr = (uint8_t*) malloc(conf->smpl->n * sizeof(float)); // all fmt_flag fields, float and int32
+        conf->bc.DP4 = (int32_t*) malloc(nsmpl * sizeof(int32_t) * 4);
+        conf->bc.fmt_arr = (uint8_t*) malloc(nsmpl * sizeof(float)); // all fmt_flag fields, float and int32
         if ( conf->fmt_flag&(B2B_INFO_DPR|B2B_FMT_DPR|B2B_INFO_AD|B2B_INFO_ADF|B2B_INFO_ADR|B2B_FMT_AD|B2B_FMT_ADF|B2B_FMT_ADR) )
         {
             // first B2B_MAX_ALLELES fields for total numbers, the rest per-sample
-            conf->bc.ADR = (int32_t*) malloc((conf->smpl->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-            conf->bc.ADF = (int32_t*) malloc((conf->smpl->n+1)*B2B_MAX_ALLELES*sizeof(int32_t));
-            for (i=0; i<conf->smpl->n; i++)
+            conf->bc.ADR = (int32_t*) malloc((nsmpl+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            conf->bc.ADF = (int32_t*) malloc((nsmpl+1)*B2B_MAX_ALLELES*sizeof(int32_t));
+            for (i=0; i<nsmpl; i++)
             {
                 conf->bcr[i].ADR = conf->bc.ADR + (i+1)*B2B_MAX_ALLELES;
                 conf->bcr[i].ADF = conf->bc.ADF + (i+1)*B2B_MAX_ALLELES;
@@ -633,14 +592,14 @@ static int mpileup(mplp_conf_t *conf)
     // init mpileup
     conf->iter = bam_mplp_init(conf->nfiles, mplp_func, (void**)conf->mplp_data);
     if ( conf->flag & MPLP_SMART_OVERLAPS ) bam_mplp_init_overlaps(conf->iter);
-    if ( conf->max_depth * conf->smpl->n > 1<<20)
+    if ( conf->max_depth * nsmpl > 1<<20)
         fprintf(stderr, "(%s) Max depth is above 1M. Potential memory hog!\n", __func__);
-    if ( conf->max_depth * conf->smpl->n < 8000) {
-        conf->max_depth = 8000 / conf->smpl->n;
+    if ( conf->max_depth * nsmpl < 8000) {
+        conf->max_depth = 8000 / nsmpl;
         fprintf(stderr, "<%s> Set max per-file depth to %d\n", __func__, conf->max_depth);
     }
     bam_mplp_set_maxcnt(conf->iter, conf->max_depth);
-    conf->max_indel_depth = conf->max_indel_depth * conf->smpl->n;
+    conf->max_indel_depth = conf->max_indel_depth * nsmpl;
     conf->bcf_rec = bcf_init1();
 
     // Run mpileup for multiple regions
@@ -697,7 +656,7 @@ static int mpileup(mplp_conf_t *conf)
         free(conf->bcr);
     }
     if ( conf->gvcf ) gvcf_destroy(conf->gvcf);
-    bam_smpl_destroy(conf->smpl); free(conf->buf.s);
+    free(conf->buf.s);
     for (i = 0; i < conf->gplp->n; ++i) free(conf->gplp->plp[i]);
     free(conf->gplp->plp); free(conf->gplp->n_plp); free(conf->gplp->m_plp); free(conf->gplp);
     bam_mplp_destroy(conf->iter);
@@ -706,11 +665,9 @@ static int mpileup(mplp_conf_t *conf)
         if ( nregs>1 ) hts_idx_destroy(conf->mplp_data[i]->idx);
         sam_close(conf->mplp_data[i]->fp);
         if ( conf->mplp_data[i]->iter) hts_itr_destroy(conf->mplp_data[i]->iter);
-        if ( conf->mplp_data[i]->rghash_inc ) khash_str2int_destroy_free(conf->mplp_data[i]->rghash_inc);
         free(conf->mplp_data[i]);
     }
     free(conf->mplp_data); free(conf->plp); free(conf->n_plp);
-    if ( samples_list ) khash_str2int_destroy_free(samples_list);
     free(mp_ref.ref[0]);
     free(mp_ref.ref[1]);
     return 0;
@@ -853,7 +810,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
 "  -f, --fasta-ref FILE    faidx indexed reference sequence file\n"
-"  -G, --exclude-RG FILE   exclude read groups listed in FILE\n"
+"  -G, --read-groups FILE  select or exclude read groups listed in the file\n"
 "  -q, --min-MQ INT        skip alignments with mapQ smaller than INT [%d]\n", mplp->min_mq);
     fprintf(fp,
 "  -Q, --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [%d]\n", mplp->min_baseQ);
@@ -926,6 +883,7 @@ int bam_mpileup(int argc, char *argv[])
     mplp.output_type = FT_VCF;
     mplp.record_cmd_line = 1;
     mplp.n_threads = 0;
+    mplp.bsmpl = bam_smpl_init();
 
     static const struct option lopts[] =
     {
@@ -951,8 +909,7 @@ int bam_mpileup(int argc, char *argv[])
         {"redo-BAQ", no_argument, NULL, 'E'},
         {"redo-baq", no_argument, NULL, 'E'},
         {"fasta-ref", required_argument, NULL, 'f'},
-        {"exclude-RG", required_argument, NULL, 'G'},
-        {"exclude-rg", required_argument, NULL, 'G'},
+        {"read-groups", required_argument, NULL, 'G'},
         {"region", required_argument, NULL, 'r'},
         {"regions", required_argument, NULL, 'r'},
         {"regions-file", required_argument, NULL, 'R'},
@@ -991,7 +948,7 @@ int bam_mpileup(int argc, char *argv[])
             break;
         case  3 : mplp.output_fname = optarg; break;
         case  4 : mplp.openQ = atoi(optarg); break;
-        case  5 : mplp.flag |= MPLP_IGNORE_RG; break;
+        case  5 : bam_smpl_ignore_readgroups(mplp.bsmpl); break;
         case 'g':
             mplp.gvcf = gvcf_init(optarg);
             if ( !mplp.gvcf ) error("Could not parse: --gvcf %s\n", optarg);
@@ -1031,11 +988,8 @@ int bam_mpileup(int argc, char *argv[])
         case 'I': mplp.flag |= MPLP_NO_INDEL; break;
         case 'E': mplp.flag |= MPLP_REDO_BAQ; break;
         case '6': mplp.flag |= MPLP_ILLUMINA13; break;
-        case 's': mplp.samples_list = optarg; break;
-        case 'S':
-            mplp.samples_list = optarg;
-            mplp.sample_is_file = 1;
-            break;
+        case 's': if ( bam_smpl_add_samples(mplp.bsmpl,optarg,0)<0 ) error("Could not read samples: %s\n",optarg); break;
+        case 'S': if ( bam_smpl_add_samples(mplp.bsmpl,optarg,1)<0 ) error("Could not read samples: %s\n",optarg); break;
         case 'O': 
             switch (optarg[0]) {
                 case 'b': mplp.output_type = FT_BCF_GZ; break;
@@ -1063,17 +1017,7 @@ int bam_mpileup(int argc, char *argv[])
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;
         case 'L': mplp.max_indel_depth = atoi(optarg); break;
-        case 'G': {
-                FILE *fp_rg;
-                char buf[1024];
-                mplp.rghash_exc = khash_str2int_init();
-                if ((fp_rg = fopen(optarg, "r")) == NULL)
-                    fprintf(stderr, "(%s) Fail to open file %s. Continue anyway.\n", __func__, optarg);
-                while (!feof(fp_rg) && fscanf(fp_rg, "%s", buf) > 0) // this is not a good style, but forgive me...
-                    khash_str2int_inc(mplp.rghash_exc, strdup(buf));
-                fclose(fp_rg);
-            }
-            break;
+        case 'G': bam_smpl_add_readgroups(mplp.bsmpl, optarg, 1); break;
         case 'a':
             if (optarg[0]=='?') {
                 list_annotations(stderr);
@@ -1116,26 +1060,27 @@ int bam_mpileup(int argc, char *argv[])
         print_usage(stderr, &mplp);
         return 1;
     }
-    int ret;
+    int ret,i;
     if (file_list) 
     {
         if ( read_file_list(file_list,&nfiles,&fn) ) return 1;
         mplp.files  = fn;
         mplp.nfiles = nfiles;
-        ret = mpileup(&mplp);
-        for (c=0; c<nfiles; c++) free(fn[c]);
-        free(fn);
     }
     else
     {
         mplp.nfiles = argc - optind;
-        mplp.files  = argv + optind;
-        ret = mpileup(&mplp);
+        mplp.files  = (char**) malloc(mplp.nfiles*sizeof(char*));
+        for (i=0; i<mplp.nfiles; i++) mplp.files[i] = strdup(argv[optind+i]);
     }
-    if (mplp.rghash_exc) khash_str2int_destroy_free(mplp.rghash_exc);
+    ret = mpileup(&mplp);
+
+    for (i=0; i<mplp.nfiles; i++) free(mplp.files[i]);
+    free(mplp.files);
     free(mplp.reg_fname); free(mplp.pl_list);
     if (mplp.fai) fai_destroy(mplp.fai);
     if (mplp.bed) regidx_destroy(mplp.bed);
     if (mplp.reg) regidx_destroy(mplp.reg);
+    bam_smpl_destroy(mplp.bsmpl);
     return ret;
 }

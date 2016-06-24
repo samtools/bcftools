@@ -268,7 +268,8 @@ test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -S {PATH}/mplp.samples]);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.8.out',args=>q[-r17:100-150 -s ^HG00101,HG00102]);
 test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.8.out',args=>q[-r17:100-150 -S ^{PATH}/mplp.samples]);
-test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.8.out',args=>q[-t17:100-150 -S ^{PATH}/mplp.samples]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.9.out',args=>q[-t17:100-150 -S {PATH}/mplp.9.samples]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.10.out',args=>q[-t17:100-150 -G {PATH}/mplp.10.samples]);
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
