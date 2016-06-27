@@ -82,7 +82,8 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -p, --ped <file>        \n"
+        "   -p, --ped <file>        PED file with optional 7th column to group\n"
+        "                           results by population\n"
         "\n"
         "Example:\n"
         "   bcftools +trio-switch-rate file.bcf -- -p file.ped\n"
@@ -100,10 +101,11 @@ void parse_ped(args_t *args, char *fname)
     void *pop2i = khash_str2int_init();
 
     int moff = 0, *off = NULL;
-    while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 )
+    do
     {
+        // familyID    sampleID paternalID maternalID sex   phenotype   population relationship   siblings   secondOrder   thirdOrder   children    comment
         // BB03    HG01884 HG01885 HG01956 2   0   ACB child   0   0   0   0
-        int ncols = ksplit_core(str.s,'\t',&moff,&off);
+        int ncols = ksplit_core(str.s,0,&moff,&off);
         if ( ncols<4 ) error("Could not parse the ped file: %s\n", str.s);
 
         int father = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[2]]);
@@ -120,19 +122,21 @@ void parse_ped(args_t *args, char *fname)
         trio->mother = mother;
         trio->child  = child;
 
-        char *pop_name = &str.s[off[6]];
-        if ( !khash_str2int_has_key(pop2i,pop_name) )
-        {
-            pop_name = strdup(&str.s[off[6]]);
-            khash_str2int_set(pop2i,pop_name,args->npop);
-            args->npop++;
-            args->pop = (pop_t*) realloc(args->pop,args->npop*sizeof(*args->pop));
-            memset(args->pop+args->npop-1,0,sizeof(*args->pop));
-            args->pop[args->npop-1].name = pop_name;
+        if (ncols>6) {
+            char *pop_name = &str.s[off[6]];
+            if ( !khash_str2int_has_key(pop2i,pop_name) )
+            {
+                pop_name = strdup(&str.s[off[6]]);
+                khash_str2int_set(pop2i,pop_name,args->npop);
+                args->npop++;
+                args->pop = (pop_t*) realloc(args->pop,args->npop*sizeof(*args->pop));
+                memset(args->pop+args->npop-1,0,sizeof(*args->pop));
+                args->pop[args->npop-1].name = pop_name;
+            }
+            khash_str2int_get(pop2i,pop_name,&trio->ipop);
+            args->pop[trio->ipop].ntrio++;
         }
-        khash_str2int_get(pop2i,pop_name,&trio->ipop);
-        args->pop[trio->ipop].ntrio++;
-    }
+    } while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 );
 
     khash_str2int_destroy(pop2i);
     free(str.s);
@@ -149,7 +153,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     char *ped_fname = NULL;
     static struct option loptions[] =
     {
-        {"ped",1,0,'p'},
+        {"ped",required_argument,NULL,'p'},
         {0,0,0,0}
     };
     int c;
@@ -173,6 +177,8 @@ typedef struct
     int a, b, phased;
 }
 gt_t;
+
+int parse_genotype(gt_t *gt, int32_t *ptr);
 
 inline int parse_genotype(gt_t *gt, int32_t *ptr)
 {
@@ -230,11 +236,10 @@ void destroy(void)
 {
     int i;
     printf("# This file was produced by: bcftools +trio-switch-rate(%s+htslib-%s)\n", bcftools_version(),hts_version());
-    printf("# The command line was:\tbcftools +%s", args.argv[0]);
+    printf("# The command line was:\tbcftools +trio-switch-rate %s", args.argv[0]);
     for (i=1; i<args.argc; i++) printf(" %s",args.argv[i]);
     printf("\n#\n");
     printf("# TRIO\t[2]Father\t[3]Mother\t[4]Child\t[5]nTested\t[6]nMendelian Errors\t[7]nSwitch\t[8]nSwitch (%%)\n");
-    printf("# POP\t[2]Name\t[3]\t[4]Number of trios\t[5]avgTested\t[6]avgMendelian Errors\t[7]avgSwitch\t[8]avgSwitch (%%)\n");
     for (i=0; i<args.ntrio; i++)
     {
         trio_t *trio = &args.trio[i];
@@ -242,14 +247,18 @@ void destroy(void)
             bcf_hdr_int2id(args.hdr,BCF_DT_SAMPLE,trio->father),
             bcf_hdr_int2id(args.hdr,BCF_DT_SAMPLE,trio->mother),
             bcf_hdr_int2id(args.hdr,BCF_DT_SAMPLE,trio->child),
-            trio->ntest, trio->err, trio->nswitch, trio->nswitch*100./trio->ntest
+            trio->ntest, trio->err, trio->nswitch, trio->ntest ? trio->nswitch*100./trio->ntest : 0
         );
-        pop_t *pop = &args.pop[trio->ipop];
-        pop->err     += trio->err;
-        pop->nswitch += trio->nswitch;
-        pop->ntest   += trio->ntest;
-        pop->pswitch += trio->nswitch*100./trio->ntest;
+        if (args.npop) {
+            pop_t *pop = &args.pop[trio->ipop];
+            pop->err     += trio->err;
+            pop->nswitch += trio->nswitch;
+            pop->ntest   += trio->ntest;
+            pop->pswitch += trio->ntest ? trio->nswitch*100./trio->ntest : 0;
+        }
     }
+    printf("# POP\tpopulation or other grouping defined by an optional 7-th column of the PED file\n");
+    printf("# POP\t[2]Name\t[3]Number of trios\t[4]avgTested\t[5]avgMendelian Errors\t[6]avgSwitch\t[7]avgSwitch (%%)\n");
     for (i=0; i<args.npop; i++)
     {
         pop_t *pop = &args.pop[i];
