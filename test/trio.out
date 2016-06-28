@@ -1,0 +1,7 @@
+#
+# TRIO	[2]Father	[3]Mother	[4]Child	[5]nTested	[6]nMendelian Errors	[7]nSwitch	[8]nSwitch (%)
+TRIO	HG00101	HG00102	HG00100	5	4	0	0.00
+TRIO	HG00201	HG00202	HG00200	11	0	2	18.18
+# POP	population or other grouping defined by an optional 7-th column of the PED file
+# POP	[2]Name	[3]Number of trios	[4]avgTested	[5]avgMendelian Errors	[6]avgSwitch	[7]avgSwitch (%)
+POP	CEU	2	8	2	1	9.09
