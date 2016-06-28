@@ -36,7 +36,7 @@
 
 #define GUESS_GT 1
 #define GUESS_PL 2
-#define GUESS_GL 3
+#define GUESS_GL 4
 
 typedef struct
 {
@@ -97,13 +97,20 @@ const char *usage(void)
         "       --AF-tag <TAG>              use TAG for allele frequency\n"
         "   -e, --error-rate <float>        probability of GT being wrong (with -t GT) [1e-3]\n"
         "   -i, --include-indels            do not skip indel sites\n"
-        "   -r, --regions <chr:beg-end>     [X:2699521-154931043]\n"
-        "   -R, --regions-file <file>       regions listed in a file\n"
+        "   -g, --genome <str>              shortcut to select nonPAR region for common genomes b37|hg19|b38|hg38\n"
+        "   -r, --regions <chr:beg-end>     restrict to comma-separated list of regions\n"
+        "   -R, --regions-file <file>       restrict to regions listed in a file\n"
         "   -t, --tag <tag>                 genotype or genotype likelihoods: GT, PL, GL [PL]\n"
         "   -v, --verbose                   verbose output (specify twice to increase verbosity)\n"
         "\n"
+        "Region shortcuts:\n"
+        "   b37 .. -r X:2699521-154931043   # GRCh37 no-chr prefix\n"
+        "   b38 .. -r X:2781480-155701381   # GRCh38 no-chr prefix\n"
+        "   hg19 .. -r chrX:2699521-154931043   # GRCh37 chr prefix\n"
+        "   hg38 .. -r chrX:2781480-155701381   # GRCh38 chr prefix\n"
+        "\n"
         "Examples:\n"
-        "   bcftools +guess-ploidy in.vcf.gz\n"
+        "   bcftools +guess-ploidy -g b37 in.vcf.gz\n"
         "   bcftools +guess-ploidy in.vcf.gz -t GL -r chrX:2699521-154931043\n"
         "   bcftools view file.vcf.gz -r chrX:2699521-154931043 | bcftools +guess-ploidy\n"
         "   bcftools +guess-ploidy in.bcf -v > ploidy.txt && guess-ploidy.py ploidy.txt img\n"
@@ -238,24 +245,25 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->gt_err_prob = 1e-3;
     args->af_dflt = 0.5;
-    char *region  = "X:2699521-154931043";
+    char *region  = NULL;
     int region_is_file = 0;
     static struct option loptions[] =
     {
-        {"AF-tag",1,0,0},
-        {"AF-dflt",1,0,1},
-        {"verbose",0,0,'v'},
-        {"include-indels",0,0,'i'},
-        {"error-rate",1,0,'e'},
-        {"tag",1,0,'t'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"background",1,0,'b'},
-        {0,0,0,0}
+        {"AF-tag",required_argument,NULL,0},
+        {"AF-dflt",required_argument,NULL,1},
+        {"verbose",no_argument,NULL,'v'},
+        {"include-indels",no_argument,NULL,'i'},
+        {"error-rate",required_argument,NULL,'e'},
+        {"tag",required_argument,NULL,'t'},
+        {"genome",required_argument,NULL,'g'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"background",required_argument,NULL,'b'},
+        {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:e:i",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:e:ig:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -270,13 +278,20 @@ int run(int argc, char **argv)
                 if ( *tmp ) error("Could not parse: -e %s\n", optarg);
                 if ( args->gt_err_prob<0 || args->gt_err_prob>1 ) error("Expected value from the interval [0,1]: -e %s\n", optarg);
                 break;
-            case 'R': region_is_file = 1; break; 
+            case 'g':
+                if ( !strcasecmp(optarg,"b37") ) region = "X:2699521-154931043";
+                else if ( !strcasecmp(optarg,"b38") ) region = "X:2781480-155701381";
+                else if ( !strcasecmp(optarg,"hg19") ) region = "chrX:2699521-154931043";
+                else if ( !strcasecmp(optarg,"hg38") ) region = "chrX:2781480-155701381";
+                else error("The argument not recognised, expected --genome b37, b38, hg19 or hg38: %s\n", optarg);
+                break;
+            case 'R': region_is_file = 1; 
             case 'r': region = optarg; break; 
             case 'v': args->verbose++; break; 
             case 't':
                 if ( !strcasecmp(optarg,"GT") ) args->tag = GUESS_GT;
                 else if ( !strcasecmp(optarg,"PL") ) args->tag = GUESS_PL;
-                else if ( !strcasecmp(optarg,"GL") ) args->tag = GUESS_GL;
+                else if ( !strcasecmp(optarg,"GL") ) { args->tag = GUESS_GL; error("GL tag not currently supported\n"); }
                 else error("The argument not recognised, expected --tag GT, PL or GL: %s\n", optarg);
                 break;
             case 'h':
@@ -297,11 +312,19 @@ int run(int argc, char **argv)
     args->sr = bcf_sr_init();
     if ( strcmp("-",fname) )
     {
-        args->sr->require_index = 1;
         if ( region )
         {
+            args->sr->require_index = 1;
             if ( bcf_sr_set_regions(args->sr, region, region_is_file)<0 )
                 error("Failed to read the regions: %s\n",region);
+        }
+    }
+    else
+    {
+        if ( region )
+        {
+            if ( bcf_sr_set_targets(args->sr, region, region_is_file, 0)<0 )
+                error("Failed to read the targets: %s\n",region);
         }
     }
     if ( !bcf_sr_add_reader(args->sr,fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
@@ -312,13 +335,28 @@ int run(int argc, char **argv)
     if ( args->af_tag && !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) )
         error("No such INFO tag: %s\n", args->af_tag);
 
+    if ( args->tag&GUESS_PL && bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL")<0 )
+    {
+        fprintf(stderr, "Warning: PL tag not found in header, switching to GL\n");
+        args->tag = GUESS_GL;
+    }
+
+    if ( args->tag&GUESS_GL && bcf_hdr_id2int(args->hdr, BCF_DT_ID, "GL")<0 )
+    {
+        fprintf(stderr, "Warning: GL tag not found in header, switching to GT\n");
+        args->tag = GUESS_GT;
+    }
+
+    if ( args->tag&GUESS_GT && bcf_hdr_id2int(args->hdr, BCF_DT_ID, "GT")<0 )
+        error("Error: GT tag not found in header\n");
+
     int i;
     if ( args->tag&GUESS_PL )
     {
         args->pl2p = (double*) calloc(256,sizeof(double));
         for (i=0; i<256; i++) args->pl2p[i] = pow(10., -i/10.);
     }
-    if ( args->tag&GUESS_PL || args->tag&GUESS_GL )
+    if ( args->tag&GUESS_PL || args->tag&GUESS_GL || args->tag&GUESS_GT )
         args->tmpf = (double*) malloc(sizeof(*args->tmpf)*3*args->nsample);
 
     if ( args->verbose )
@@ -339,13 +377,16 @@ int run(int argc, char **argv)
     {
         double phap = args->stats.counts[i].ncount ? args->stats.counts[i].phap / args->stats.counts[i].ncount : 0.5;
         double pdip = args->stats.counts[i].ncount ? args->stats.counts[i].pdip / args->stats.counts[i].ncount : 0.5;
+        char predicted_sex = 'U';
+        if (phap>pdip) predicted_sex = 'M';
+        else if (phap<pdip) predicted_sex = 'F';
         if ( args->verbose )
         {
-            printf("SEX\t%s\t%s\t%f\t%f\t%"PRId64"\t%f\n", args->hdr->samples[i],phap>pdip?"M":"F",
+            printf("SEX\t%s\t%c\t%f\t%f\t%"PRId64"\t%f\n", args->hdr->samples[i],predicted_sex,
                     phap,pdip,args->stats.counts[i].ncount,phap-pdip);
         }
         else
-            printf("%s\t%s\n", args->hdr->samples[i],phap>pdip?"M":"F");
+            printf("%s\t%c\n", args->hdr->samples[i],predicted_sex);
     }
    
     bcf_sr_destroy(args->sr);

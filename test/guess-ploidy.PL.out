@@ -1,0 +1,4 @@
+# [1]SEX	[2]Sample	[3]Predicted sex	[4]log P(Haploid)/nSites	[5]log P(Diploid)/nSites	[6]nSites	[7]Score: F < 0 < M ($4-$5)
+SEX	NA00001	M	-0.320857	-0.641712	4	0.320856
+SEX	NA00002	F	-29.404163	-0.468425	4	-28.935738
+SEX	NA00003	F	-14.703050	-1.159841	3	-13.543208
