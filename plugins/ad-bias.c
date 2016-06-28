@@ -93,7 +93,7 @@ void parse_samples(args_t *args, char *fname)
     if ( hts_getline(fp, KS_SEP_LINE, &str) <= 0 ) error("Empty file: %s\n", fname);
 
     int moff = 0, *off = NULL;
-    while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 )
+    do
     {
         // HPSI0513i-veqz_6    HPSI0513pf-veqz
         int ncols = ksplit_core(str.s,'\t',&moff,&off);
@@ -111,7 +111,7 @@ void parse_samples(args_t *args, char *fname)
         pair->smpl = smpl;
         pair->smpl_name = bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,pair->smpl);
         pair->ctrl_name = bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,pair->ctrl);
-    }
+    } while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 );
 
     free(str.s);
     free(off);
@@ -126,10 +126,10 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     char *fname = NULL, *format = NULL;
     static struct option loptions[] =
     {
-        {"format",1,0,'f'},
-        {"samples",1,0,'s'},
-        {"threshold",1,0,'t'},
-        {0,0,0,0}
+        {"format",required_argument,NULL,'f'},
+        {"samples",required_argument,NULL,'s'},
+        {"threshold",required_argument,NULL,'t'},
+        {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
@@ -151,10 +151,13 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( !fname ) error("Expected the -s option\n");
     parse_samples(&args, fname);
     if ( format ) args.convert = convert_init(args.hdr, NULL, 0, format);
-    printf("# [1]FT, Fisher Test\t[2]Sample\t[3]Control\t[4]Chrom\t[5]Pos\t[6]smpl.nREF\t[7]smpl.nALT\t[8]ctrl.nREF\t[9]ctrl.nALT\t[10]P-value");
+    printf("# This file was produced by: bcftools +ad-bias(%s+htslib-%s)\n", bcftools_version(),hts_version());
+    printf("# The command line was:\tbcftools +ad-bias %s", argv[0]);
+    for (c=1; c<argc; c++) printf(" %s",argv[c]);
+    printf("\n#\n");
+    printf("# FT, Fisher Test\t[2]Sample\t[3]Control\t[4]Chrom\t[5]Pos\t[6]smpl.nREF\t[7]smpl.nALT\t[8]ctrl.nREF\t[9]ctrl.nALT\t[10]P-value");
     if ( format ) printf("\t[11-]User data: %s", format);
     printf("\n");
-    printf("# [1]SN, Summary Numbers\t[2]Number of Pairs\t[3]Number of Sites\t[4]Number of comparisons\t[5]P-value output threshold\n");
     return 1;
 }
 
@@ -198,8 +201,9 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
+    printf("# SN, Summary Numbers\t[2]Number of Pairs\t[3]Number of Sites\t[4]Number of comparisons\t[5]P-value output threshold\n");
     printf("SN\t%d\t%"PRId64"\t%"PRId64"\t%e\n",args.npair,args.nsite,args.ncmp,args.th);
-    if ( args.convert) convert_destroy(args.convert);
+    if (args.convert) convert_destroy(args.convert);
     free(args.str.s);
     free(args.pair);
     free(args.ad_arr);
