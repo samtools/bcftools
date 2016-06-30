@@ -41,7 +41,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include "regidx.h"
 #include "bcftools.h"
 #include "bam2bcf.h"
-#include "sample.h"
+#include "bam_sample.h"
 #include "gvcf.h"
 
 #define MPLP_BCF        1

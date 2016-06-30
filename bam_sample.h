@@ -1,4 +1,4 @@
-/*  sample.h -- group data by sample.
+/*  bam_sample.h -- group data by sample.
 
     Copyright (C) 2010 Broad Institute.
     Copyright (C) 2016 Genome Research Ltd.

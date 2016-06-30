@@ -1,4 +1,4 @@
-/*  sample.c -- group data by sample.
+/*  bam_sample.c -- group data by sample.
 
     Copyright (C) 2010, 2011 Broad Institute.
     Copyright (C) 2013, 2016 Genome Research Ltd.
@@ -27,7 +27,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <string.h>
 #include <htslib/hts.h>
 #include <htslib/khash_str2int.h>
-#include "sample.h"
+#include "bam_sample.h"
 
 bam_sample_t *bam_smpl_init(void)
 {
