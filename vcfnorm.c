@@ -259,10 +259,11 @@ static void fix_dup_alt(args_t *args, bcf1_t *line)
     if ( changed ) bcf_update_genotypes(args->hdr,line,gts,ngts);
 }
 
-#define ERR_DUP_ALLELE      -2
-#define ERR_REF_MISMATCH    -1
-#define ERR_OK              0
-#define ERR_SYMBOLIC        1
+#define ERR_DUP_ALLELE       -2
+#define ERR_REF_MISMATCH     -1
+#define ERR_OK                0
+#define ERR_SYMBOLIC          1
+#define ERR_SPANNING_DELETION 2
 
 static int realign(args_t *args, bcf1_t *line)
 {
@@ -304,6 +305,7 @@ static int realign(args_t *args, bcf1_t *line)
     for (i=0; i<line->n_allele; i++)
     {
         if ( line->d.allele[i][0]=='<' ) return ERR_SYMBOLIC;  // symbolic allele
+        if ( line->d.allele[i][0]=='*' ) return ERR_SPANNING_DELETION;  // spanning deletion
         if ( has_non_acgtn(line->d.allele[i],0) )
         {
             if ( args->check_ref==CHECK_REF_EXIT )
