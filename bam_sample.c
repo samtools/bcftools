@@ -3,7 +3,7 @@
     Copyright (C) 2010, 2011 Broad Institute.
     Copyright (C) 2013, 2016 Genome Research Ltd.
 
-    Author: Heng Li <lh3@sanger.ac.uk>
+    Author: Heng Li <lh3@sanger.ac.uk>, Petr Danecek <pd3@sanger.ac.uk>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -31,13 +31,14 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/khash_str2int.h>
 #include <khash_str2str.h>
 #include "bam_sample.h"
+#include "bcftools.h"
 
 
 typedef struct
 {
     char *fname;
     void *rg2idx;       // hash: read group name to BCF output sample index. Maintained by bsmpl_add_readgroup
-    int default_idx;    // default BCF output sample index
+    int default_idx;    // default BCF output sample index, set only when all readgroups are treated as one sample
 }
 file_t;
 
@@ -88,14 +89,17 @@ void bam_smpl_ignore_readgroups(bam_smpl_t* bsmpl)
 
 static void bsmpl_add_readgroup(bam_smpl_t *bsmpl, file_t *file, const char *rg_id, const char *smpl_name)
 {
-    int ismpl;
-    if ( khash_str2int_get(bsmpl->name2idx,smpl_name,&ismpl) < 0 )
+    int ismpl = -1;
+    if ( smpl_name )
     {
-        // new sample
-        bsmpl->nsmpl++;
-        bsmpl->smpl = (char**) realloc(bsmpl->smpl,sizeof(char*)*bsmpl->nsmpl);
-        bsmpl->smpl[bsmpl->nsmpl-1] = strdup(smpl_name);
-        ismpl = khash_str2int_inc(bsmpl->name2idx,bsmpl->smpl[bsmpl->nsmpl-1]);
+        if ( khash_str2int_get(bsmpl->name2idx,smpl_name,&ismpl) < 0 )
+        {
+            // new sample
+            bsmpl->nsmpl++;
+            bsmpl->smpl = (char**) realloc(bsmpl->smpl,sizeof(char*)*bsmpl->nsmpl);
+            bsmpl->smpl[bsmpl->nsmpl-1] = strdup(smpl_name);
+            ismpl = khash_str2int_inc(bsmpl->name2idx,bsmpl->smpl[bsmpl->nsmpl-1]);
+        }
     }
     if ( !strcmp("*",rg_id) )
     {
@@ -107,7 +111,7 @@ static void bsmpl_add_readgroup(bam_smpl_t *bsmpl, file_t *file, const char *rg_
     if ( khash_str2int_has_key(file->rg2idx,rg_id) ) return;    // duplicate @RG:ID
     khash_str2int_set(file->rg2idx, strdup(rg_id), ismpl);
 }
-int bsmpl_keep_readgroup(bam_smpl_t *bsmpl, file_t *file, const char *rg_id, const char **smpl_name)
+static int bsmpl_keep_readgroup(bam_smpl_t *bsmpl, file_t *file, const char *rg_id, const char **smpl_name)
 {
     char *rg_smpl = khash_str2str_get(bsmpl->rg_list,rg_id);    // unique read group present in one bam only
     if ( !rg_smpl )
@@ -127,10 +131,23 @@ int bsmpl_keep_readgroup(bam_smpl_t *bsmpl, file_t *file, const char *rg_id, con
     if ( !rg_smpl && bsmpl->rg_logic ) return 0;
     if ( rg_smpl && !bsmpl->rg_logic ) return 0;
 
-    if ( rg_smpl && rg_smpl[0]!='\t' ) *smpl_name = rg_smpl;
+    if ( rg_smpl && rg_smpl[0]!='\t' ) *smpl_name = rg_smpl;    // rename the sample
     return 1;
 }
 
+/*
+    The logic of this function is a bit complicated because we want to work
+    also with broken bams containing read groups that are not listed in the
+    header. The desired behavior is as follows:
+        - when -G is given, read groups which are not listed in the header must
+          be given explicitly using the "?" symbol in -G.
+          Otherwise:
+        - if the bam has no header, all reads in the file are assigned to a
+          single sample named after the file
+        - if there is at least one sample defined in the header, reads with no
+          read group id or with a read group id not listed in the header are
+          assigned to the first sample encountered in the header
+*/
 int bam_smpl_add_bam(bam_smpl_t *bsmpl, char *bam_hdr, const char *fname)
 {
     bsmpl->nfiles++;
@@ -142,11 +159,13 @@ int bam_smpl_add_bam(bam_smpl_t *bsmpl, char *bam_hdr, const char *fname)
 
     if ( bsmpl->ignore_rg || !bam_hdr )
     {
-        bsmpl_add_readgroup(bsmpl,file,"*",file->fname);    // --ignore-RG set or no BAM header
+        // The option --ignore-RG is set or there is no BAM header: use the file name as the sample name
+        bsmpl_add_readgroup(bsmpl,file,"*",file->fname);
         return bsmpl->nfiles-1;
     }
 
-    int has_rg = 0;
+    void *bam_smpls = khash_str2int_init();
+    int first_smpl = -1, nskipped = 0;
     const char *p = bam_hdr, *q, *r;
     while ((q = strstr(p, "@RG")) != 0) 
     {
@@ -164,6 +183,9 @@ int bam_smpl_add_bam(bam_smpl_t *bsmpl, char *bam_hdr, const char *fname)
 
             // q now points to a null terminated read group id
             // r points to a null terminated sample name
+            if ( !strcmp("*",q) || !strcmp("?",q) )
+                error("Error: the read group IDs \"*\" and \"?\" have a special meaning in the mpileup code. Please fix the code or the bam: %s\n", fname);
+
             int accept_rg = 1;
             if ( bsmpl->sample_list )
             {
@@ -182,23 +204,48 @@ int bam_smpl_add_bam(bam_smpl_t *bsmpl, char *bam_hdr, const char *fname)
                 accept_rg = bsmpl_keep_readgroup(bsmpl,file,q,&r);
             }
             if ( accept_rg )
-            {
                 bsmpl_add_readgroup(bsmpl,file,q,r);
-                has_rg = 1;
+            else
+            {
+                bsmpl_add_readgroup(bsmpl,file,q,NULL); // ignore this RG but note that it was seen in the header
+                nskipped++;
             }
+
+            if ( first_smpl<0 )
+                khash_str2int_get(bsmpl->name2idx,r,&first_smpl);
+            if ( !khash_str2int_has_key(bam_smpls,r) )
+                khash_str2int_inc(bam_smpls,strdup(r));
 
             *u = ioq; *v = ior;
         }
         else
             break;
-        p = q > r? q : r;
+        p = q > r ? q : r;
     }
-    if ( !has_rg )
+    int nsmpls = khash_str2int_size(bam_smpls);
+    khash_str2int_destroy_free(bam_smpls);
+
+    const char *smpl_name = NULL;
+    int accept_null_rg = 1;
+    if ( bsmpl->rg_list && !bsmpl_keep_readgroup(bsmpl,file,"?",&smpl_name) ) accept_null_rg = 0;
+    if ( bsmpl->sample_list && first_smpl==-1 ) accept_null_rg = 0;
+
+    if ( !accept_null_rg && first_smpl==-1 )
     {
+        // no suitable read group is available in this bam: ignore the whole file.
         free(file->fname);
         bsmpl->nfiles--;
         return -1;
     }
+    if ( !accept_null_rg ) return bsmpl->nfiles-1;
+    if ( nsmpls==1 && !nskipped )
+    {
+        file->default_idx = first_smpl;
+        return bsmpl->nfiles-1;
+    }
+    if ( !smpl_name ) smpl_name = first_smpl==-1 ? file->fname : bsmpl->smpl[first_smpl];
+
+    bsmpl_add_readgroup(bsmpl,file,"?",smpl_name);
     return bsmpl->nfiles-1;
 }
 
@@ -214,10 +261,11 @@ int bam_smpl_get_sample_id(bam_smpl_t *bsmpl, int bam_id, bam1_t *bam_rec)
     if ( file->default_idx >= 0 ) return file->default_idx;
 
     char *aux_rg = (char*) bam_aux_get(bam_rec, "RG");
-    if ( !aux_rg ) return -1;
+    aux_rg = aux_rg ? aux_rg+1 : "?";
 
     int rg_id;
-    if ( khash_str2int_get(file->rg2idx, aux_rg+1, &rg_id)==0 ) return rg_id;
+    if ( khash_str2int_get(file->rg2idx, aux_rg, &rg_id)==0 ) return rg_id;
+    if ( khash_str2int_get(file->rg2idx, "?", &rg_id)==0 ) return rg_id;
     return -1;
 }
 
@@ -327,7 +375,12 @@ int bam_smpl_add_readgroups(bam_smpl_t *bsmpl, char *list, int is_file)
             fld2.l = 0;
             kputs(fld3.s,&fld2);
         }
-        khash_str2str_set(bsmpl->rg_list,strdup(fld1.s),strdup(fld2.l?fld2.s:"\t"));
+        // fld2.s now contains a new sample name. If NULL, use \t to keep the bam header name
+        char *value = khash_str2str_get(bsmpl->rg_list,fld1.s);
+        if ( !value )
+            khash_str2str_set(bsmpl->rg_list,strdup(fld1.s),strdup(fld2.l?fld2.s:"\t"));
+        else if ( strcmp(value,fld2.l?fld2.s:"\t") )
+            error("Error: The read group \"%s\" was assigned to two different samples: \"%s\" and \"%s\"\n", fld1.s,value,fld2.l?fld2.s:"\t");
         free(rows[i]);
     }
     free(rows);

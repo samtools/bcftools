@@ -1373,7 +1373,18 @@ multiple regions and many alignment files are processed.
     If the read group name is not unique, also the bam file name can
     be included: "read_group_id file_name sample_name".  If all
     reads from the alignment file should be treated as a single sample, the
-    asterisk symbol can be used: "* file_name sample_name". 
+    asterisk symbol can be used: "* file_name sample_name". Alignments without
+    a read group ID can be matched with "?".
+----
+    RG_ID_1
+    RG_ID_2  SAMPLE_A
+    RG_ID_3  SAMPLE_A
+    RG_ID_4  SAMPLE_B
+    RG_ID_5  FILE_1.bam  SAMPLE_A
+    RG_ID_6  FILE_2.bam  SAMPLE_A
+    *        FILE_3.bam  SAMPLE_C
+    ?        FILE_3.bam  SAMPLE_D
+----
 
 *-q, -min-MQ* 'INT'::
     Minimum mapping quality for an alignment to be used [0]

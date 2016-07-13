@@ -3,7 +3,7 @@
     Copyright (C) 2010 Broad Institute.
     Copyright (C) 2016 Genome Research Ltd.
 
-    Author: Heng Li <lh3@sanger.ac.uk>
+    Author: Heng Li <lh3@sanger.ac.uk>, Petr Danecek <pd3@sanger.ac.uk>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
