@@ -48,7 +48,7 @@ typedef struct
 {
     bcf_hdr_t *hdr;
     pair_t *pair;
-    int npair, mpair;
+    int npair, mpair, min_dp;
     int32_t *ad_arr;
     int mad_arr;
     double th;
@@ -75,6 +75,7 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
+        "   -d, --min-dp <int>          Minimum required depth [0]\n"
         "   -f, --format <string>       Optional tags to append to output (`bcftools query` style of format)\n"
         "   -s, --samples <file>        List of sample pairs, one tab-delimited pair per line\n"
         "   -t, --threshold <float>     Output only hits with p-value smaller than <float> [1e-3]\n"
@@ -126,6 +127,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     char *fname = NULL, *format = NULL;
     static struct option loptions[] =
     {
+        {"min-dp",required_argument,NULL,'d'},
         {"format",required_argument,NULL,'f'},
         {"samples",required_argument,NULL,'s'},
         {"threshold",required_argument,NULL,'t'},
@@ -133,10 +135,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?hs:t:f:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hs:t:f:d:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'd':
+                args.min_dp = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse: -d %s\n", optarg);
+                break;
             case 't':
                 args.th = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -t %s\n", optarg);
@@ -179,6 +185,8 @@ bcf1_t *process(bcf1_t *rec)
 
         if ( aptr[0]==bcf_int32_missing ) continue;
         if ( bptr[0]==bcf_int32_missing ) continue;
+        if ( aptr[0]+aptr[1] < args.min_dp ) continue;
+        if ( bptr[0]+bptr[1] < args.min_dp ) continue;
 
         args.ncmp++;
 
