@@ -1,6 +1,6 @@
 /*  vcfstats.c -- Produces stats which can be plotted using plot-vcfstats.
 
-    Copyright (C) 2012-2015 Genome Research Ltd.
+    Copyright (C) 2012-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -39,6 +39,7 @@ THE SOFTWARE.  */
 #include <inttypes.h>
 #include "bcftools.h"
 #include "filter.h"
+#include "bin.h"
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -131,7 +132,8 @@ typedef struct
     int dp_min, dp_max, dp_step;
     gtcmp_t *smpl_gts_snps, *smpl_gts_indels;
     gtcmp_t *af_gts_snps, *af_gts_indels; // first bin of af_* stats are singletons
-    float *af_bins, *farr;
+    bin_t *af_bins;
+    float *farr;
     int mfarr;
 
     // indel context
@@ -414,39 +416,12 @@ static void init_stats(args_t *args)
     }
     else
     {
-        int is_file = index(args->af_bins_list,',') ? 0 : 1;    // a comma indicates a list, otherwise a file
-        int nlist;
-        char **list = hts_readlist(args->af_bins_list, is_file, &nlist);
-        args->m_af  = nlist;
-        args->af_bins = (float*) malloc(sizeof(float)*args->m_af);
-        for (i=0; i<nlist; i++)
-        {
-            char *tmp;
-            args->af_bins[i] = strtod(list[i],&tmp);
-            if ( !tmp ) error("Could not parse %s: %s\n", args->af_bins_list, list[i]);
-            if ( args->af_bins[i] < 0 || args->af_bins[i] > 1 ) error("Expected values from the interval [0,1] for --af-bins, found %s\n", list[i]);
-            free(list[i]); 
-        }
-        free(list);
-
-        // make sure we've got both boundaries: 0,1. Since the intervals are half-open [), make
-        // the last interval bigger so that AF=1 fits in the last bin
-        if ( args->af_bins[0]!=0 ) 
-        {
-            args->af_bins = (float*)realloc(args->af_bins, (++args->m_af)*sizeof(float));
-            memmove(args->af_bins+1,args->af_bins,sizeof(float)*(args->m_af-1));
-            args->af_bins[0] = 0;
-        }
-        if ( args->af_bins[args->m_af-1]<1 ) 
-        {
-            args->af_bins = (float*)realloc(args->af_bins, (++args->m_af)*sizeof(float));
-            args->af_bins[args->m_af-1] = 1;
-        }
-        args->af_bins[args->m_af-1] += 0.01;     // so that AF=1 values do not end up solitary in the last bin
-
+        args->af_bins = bin_init(args->af_bins_list,0,1);
+    
         // m_af is used also for other af arrays, where the first bin is for
         // singletons. However, since the last element is unused in af_bins
         // (n boundaries form n-1 intervals), the m_af count is good for both.
+        args->m_af = bin_get_size(args->af_bins);
     }
 
     bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
@@ -593,7 +568,7 @@ static void destroy_stats(args_t *args)
         if ( args->exons ) free(stats->smpl_frm_shifts);
     }
     for (j=0; j<args->nusr; j++) free(args->usr[j].tag);
-    free(args->af_bins);
+    if ( args->af_bins ) bin_destroy(args->af_bins);
     free(args->farr);
     free(args->usr);
     free(args->tmp_frm);
@@ -607,21 +582,6 @@ static void destroy_stats(args_t *args)
     if (args->filter[0]) filter_destroy(args->filter[0]);
     if (args->filter[1]) filter_destroy(args->filter[1]);
 }
-
-// Binary search in half-closed,half-open intervals [)
-static inline int binary_search(float *dat, int ndat, float value)
-{   
-    int imin = 0, imax = ndat - 1;
-    while ( imin<imax )
-    {
-        int i = (imin+imax)/2;
-        if ( value < dat[i] ) imax = i - 1;
-        else if ( value > dat[i] ) imin = i + 1;
-        else return i;
-    }
-    if ( dat[imax] <= value ) return imax;
-    return imin - 1;
-}   
 
 static void init_iaf(args_t *args, bcf_sr_t *reader)
 {
@@ -642,7 +602,9 @@ static void init_iaf(args_t *args, bcf_sr_t *reader)
         for (i=1; i<line->n_allele; i++)
         {
             float af = args->farr[i-1];
-            int iaf = args->af_bins ? binary_search(args->af_bins,args->m_af,af) : af*(args->m_af-2);
+            if ( af<0 ) af = 0;
+            else if ( af>1 ) af = 1;
+            int iaf = args->af_bins ? bin_get_idx(args->af_bins,af) : af*(args->m_af-2);
             args->tmp_iaf[i] = iaf + 1;     // the first tmp_iaf bin is reserved for singletons
         }
         return;
@@ -671,7 +633,9 @@ static void init_iaf(args_t *args, bcf_sr_t *reader)
         else
         {
             float af = (float) args->tmp_iaf[i] / an;
-            int iaf = args->af_bins ? binary_search(args->af_bins,args->m_af,af) : af*(args->m_af-2);
+            if ( af<0 ) af = 0;
+            else if ( af>1 ) af = 1;
+            int iaf = args->af_bins ? bin_get_idx(args->af_bins,af) : af*(args->m_af-2);
             args->tmp_iaf[i] = iaf + 1;
         }
     }
@@ -1266,7 +1230,7 @@ static void print_stats(args_t *args)
         for (i=1; i<args->m_af; i++) // note that af[1] now contains also af[0], see SiS stats output above
         {
             if ( stats->af_snps[i]+stats->af_ts[i]+stats->af_tv[i]+stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i] == 0  ) continue;
-            double af = args->af_bins ? (args->af_bins[i]+args->af_bins[i-1])*0.5 : (double)(i-1)/(args->m_af-1);
+            double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
             printf("AF\t%d\t%f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", id,af,stats->af_snps[i],stats->af_ts[i],stats->af_tv[i],
                 stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i],stats->af_repeats[0][i],stats->af_repeats[1][i],stats->af_repeats[2][i]);
         }
@@ -1357,7 +1321,7 @@ static void print_stats(args_t *args)
                     r2 /= sqrt((stats[i].xx - stats[i].x*stats[i].x/stats[i].n) * (stats[i].yy - stats[i].y*stats[i].y/stats[i].n));
                     r2 *= r2;
                 }
-                double af = args->af_bins ? (args->af_bins[i]+args->af_bins[i-1])*0.5 : (double)(i-1)/(args->m_af-1);
+                double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
                 printf("GC%cAF\t2\t%f", x==0 ? 's' : 'i', af);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
@@ -1490,7 +1454,7 @@ static void print_stats(args_t *args)
                 for (j=0; j<args->naf_hwe; j++) sum_tot += ptr[j];
                 if ( !sum_tot ) continue;
 
-                double af = args->af_bins ? (args->af_bins[i]+args->af_bins[i-1])*0.5 : (double)(i-1)/(args->m_af-1);
+                double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
 
                 int nprn = 3;
                 printf("HWE\t%d\t%f\t%d",id,af,sum_tot);
