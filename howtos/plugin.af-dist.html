@@ -5,7 +5,7 @@
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 1.5.2">
-<title>Plugins</title>
+<title>Plugin af-dist</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -63,57 +63,61 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_plugins">Plugins</h2>
+<h2 id="_plugin_af_dist">Plugin af-dist</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>ad-bias</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="plugin.af-dist.html">af-dist</a></dt>
-<dd>
-<p>Collects AF deviation stats and GT probability distribution given AF and assuming HWE</p>
-</dd>
-</dl>
+<p>This plugin allows to detect possible strand issues by checking
+genotype frequencies against population allele frequencies.</p>
 </div>
 <div class="paragraph">
-<p>aggregate</p>
+<p>If working with human data, first download the 1000 Genomes allele frequency annotations</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>wget -O af.vcf.gz ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.vcf.gz
+
+bcftools index af.vcf.gz</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>counts</p>
+<p>Then annotate your data file and stream the result through the <code>af-dist</code> plugin to create
+the genotype frequency distribution</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools annotate -c INFO/AF -a af.vcf.gz data.vcf.gz | bcftools +af-dist | grep ^PROB &gt; data.dist.txt</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>dosage</p>
+<p>The output should something like this</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>PROB_DIST   0.000000    0.100000    100618
+PROB_DIST   0.100000    0.200000    144103
+PROB_DIST   0.200000    0.300000    214923
+PROB_DIST   0.300000    0.400000    320721
+PROB_DIST   0.400000    0.500000    817965
+PROB_DIST   0.500000    0.600000    84027
+PROB_DIST   0.600000    0.700000    86531
+PROB_DIST   0.700000    0.800000    97986
+PROB_DIST   0.800000    0.900000    108776
+PROB_DIST   0.900000    1.000000    176755</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>fill-AN-AC</p>
+<p>Finally plot the distribution to check whether there are only few unlikely genotypes.</p>
 </div>
+<div class="exampleblock">
+<div class="content">
+<a href="plugins/af-dist.png"><img src="plugins/af-dist.png" width="500px"></a>
 <div class="paragraph">
-<p>fill-tags</p>
+<p>Example of two <code>af-dist</code> outputs combined into one plot. In this figure, one
+of the VCFs (blue line) has many low-probability genotypes (given the 1000Genomes allele
+frequencies and assuming HWE), which suggests that many of the REF and ALT
+alleles are on the incorrect strand.</p>
 </div>
-<div class="paragraph">
-<p>fixref</p>
 </div>
-<div class="paragraph">
-<p>guess-ploidy</p>
-</div>
-<div class="paragraph">
-<p>impute-info</p>
-</div>
-<div class="paragraph">
-<p>mendelian</p>
-</div>
-<div class="paragraph">
-<p>setGT</p>
-</div>
-<div class="paragraph">
-<p>tag2tag</p>
-</div>
-<div class="paragraph">
-<p>trio-switch-rate</p>
-</div>
-<div class="paragraph">
-<p>validate</p>
 </div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>

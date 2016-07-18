@@ -4,7 +4,38 @@ include::header.inc[]
 Plugins
 -------
 
-TODO
+ad-bias
+
+link:plugin.af-dist.html[af-dist]:: Collects AF deviation stats and GT probability distribution given AF and assuming HWE
+
+
+aggregate
+
+counts
+
+dosage
+
+fill-AN-AC
+
+fill-tags
+
+fixref
+
+guess-ploidy
+
+impute-info
+
+mendelian
+
+setGT
+
+tag2tag
+
+trio-switch-rate
+
+validate
+
+
 
 include::footer.inc[]
 
