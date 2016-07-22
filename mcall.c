@@ -572,9 +572,9 @@ static inline double logsumexp2(double a, double b)
 }
 
 // Macro to set the most likely alleles
-#define UPDATE_MAX_LKs(als) { \
+#define UPDATE_MAX_LKs(als,sum) { \
      if ( max_lk<lk_tot ) { max_lk = lk_tot; max_als = (als); } \
-     if ( lk_tot_set ) lk_sum = logsumexp2(lk_tot,lk_sum); \
+     if ( sum ) lk_sum = logsumexp2(lk_tot,lk_sum); \
 }
 
 #define SWAP(type_t,x,y) {type_t tmp; tmp = x; x = y; y = tmp; }
@@ -603,9 +603,10 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
             if ( *pdg ) { lk_tot += log(*pdg); lk_tot_set = 1; }
             pdg += ngts;
         }
+
         if ( ia==0 ) ref_lk = lk_tot;   // likelihood of 0/0 for all samples
         else lk_tot += call->theta; // the prior
-        UPDATE_MAX_LKs(1<<ia);
+        UPDATE_MAX_LKs(1<<ia, ia>0 && lk_tot_set);
     }
 
     // Two alleles
@@ -637,7 +638,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                 }
                 if ( ia!=0 ) lk_tot += call->theta;    // the prior
                 if ( ib!=0 ) lk_tot += call->theta;
-                UPDATE_MAX_LKs(1<<ia|1<<ib);
+                UPDATE_MAX_LKs(1<<ia|1<<ib, lk_tot_set);
             }
         }
     }
@@ -679,7 +680,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                     if ( ia!=0 ) lk_tot += call->theta;    // the prior
                     if ( ib!=0 ) lk_tot += call->theta;    // the prior
                     if ( ic!=0 ) lk_tot += call->theta;    // the prior
-                    UPDATE_MAX_LKs(1<<ia|1<<ib|1<<ic);
+                    UPDATE_MAX_LKs(1<<ia|1<<ib|1<<ic, lk_tot_set);
                 }
             }
         }
@@ -1528,13 +1529,14 @@ int mcall(call_t *call, bcf1_t *rec)
         if ( hob != HUGE_VAL ) bcf_update_info_float(call->hdr, rec, "HOB", &hob, 1);
 
         // Quality of a variant site. fabs() to avoid negative zeros in VCF output when CALL_KEEPALT is set
-        rec->qual = call->lk_sum==-HUGE_VAL || call->ref_lk==0 ? 0 : fabs(-4.343*(call->ref_lk - call->lk_sum));
+        rec->qual = -4.343*(call->ref_lk - logsumexp2(call->lk_sum,call->ref_lk));
     }
     else
     {
         // Set the quality of a REF site
-        rec->qual = call->lk_sum==-HUGE_VAL || call->ref_lk==0 ? 0 : -4.343*log(1 - exp(call->ref_lk - call->lk_sum));
+        rec->qual = -4.343*(call->lk_sum - logsumexp2(call->lk_sum,call->ref_lk));
     }
+
     if ( rec->qual>999 ) rec->qual = 999;
     if ( rec->qual>50 ) rec->qual = rint(rec->qual);
 
