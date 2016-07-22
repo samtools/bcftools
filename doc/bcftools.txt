@@ -2060,9 +2060,14 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
         DP=".", DP!=".", ALT="."
 
 * missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".")
-using this expression
+using these expressions
 
-        GT="."
+        GT~"\.", GT!~"\."
+
+* missing genotypes can be matched including the phase and ploidy (".|.", "./.", ".")
+using these expressions
+
+        GT=".|.", GT="./.", GT="." 
 
 * TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
 
