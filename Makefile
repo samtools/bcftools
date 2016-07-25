@@ -197,7 +197,7 @@ docs: doc/bcftools.1 doc/bcftools.html
 # bcftools.1 is a generated file from the asciidoc bcftools.txt file.
 # Since there is no make dependency, bcftools.1 can be out-of-date and
 # make docs can be run to update if asciidoc is available
-install: $(PROG)
+install: $(PROG) $(PLUGINS)
 	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
 	$(INSTALL_PROGRAM) $(PROG) $(MISC_PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_DATA) doc/bcftools.1 $(DESTDIR)$(man1dir)
