@@ -125,7 +125,7 @@ int vcf_index_stats(char *fname, int stats)
 
 int main_vcfindex(int argc, char *argv[])
 {
-    int c, force = 0, tbi = 0, stats = 0;
+    int c, force = 0, tbi = 0, stats = 0, n_threads = 0;
     int min_shift = BCF_LIDX_SHIFT;
 
     static struct option loptions[] =
@@ -136,6 +136,7 @@ int main_vcfindex(int argc, char *argv[])
         {"min-shift",required_argument,NULL,'m'},
         {"stats",no_argument,NULL,'s'},
         {"nrecords",no_argument,NULL,'n'},
+        {"threads",required_argument,NULL,9},
         {NULL, 0, NULL, 0}
     };
 
@@ -153,6 +154,10 @@ int main_vcfindex(int argc, char *argv[])
                 break;
             case 's': stats |= 1; break;
             case 'n': stats |= 2; break;
+            case 9:
+                n_threads = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --threads %s\n", optarg);
+                break;
             default: usage();
         }
     }
@@ -223,7 +228,7 @@ int main_vcfindex(int argc, char *argv[])
 
     if (type.format==bcf)
     {
-        if ( bcf_index_build(fname, min_shift) != 0 )
+        if ( bcf_index_build3(fname, NULL, min_shift, n_threads) != 0 )
         {
             fprintf(stderr,"[E::%s] bcf_index_build failed for %s\n", __func__, fname);
             return 1;
@@ -231,7 +236,7 @@ int main_vcfindex(int argc, char *argv[])
     }
     else
     {
-        if ( tbx_index_build(fname, min_shift, &tbx_conf_vcf) != 0 )
+        if ( tbx_index_build3(fname, NULL, min_shift, n_threads, &tbx_conf_vcf) != 0 )
         {
             fprintf(stderr,"[E::%s] tbx_index_build failed for %s\n", __func__, fname);
             return 1;
