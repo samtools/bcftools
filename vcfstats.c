@@ -1338,7 +1338,7 @@ static void print_stats(args_t *args)
                 stats = args->af_gts_indels;
             }
             uint64_t nrd_m[3] = {0,0,0}, nrd_mm[3] = {0,0,0};
-            for (i=1; i<args->m_af; i++)
+            for (i=0; i<args->m_af; i++)
             {
                 int j, n = 0;
                 for (j=0; j<3; j++)     // rr, ra, aa
