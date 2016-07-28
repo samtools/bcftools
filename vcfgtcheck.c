@@ -606,6 +606,17 @@ int process_PL(args_t *args, bcf1_t *line, uint32_t *ntot, uint32_t *ndif)
 
 static void cross_check_gts(args_t *args)
 {
+    // Initialize things: check which tags are defined in the header, sample names etc.
+    if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "PL")<0 )
+    {
+        if ( bcf_hdr_id2int(args->sm_hdr, BCF_DT_ID, "GT")<0 )
+            error("[E::%s] Neither PL nor GT present in the header of %s\n", __func__, args->files->readers[0].fname);
+        if ( !args->no_PLs ) {
+            fprintf(stderr,"Warning: PL not present in the header of %s, using GT instead\n", args->files->readers[0].fname);
+            args->no_PLs = 99;
+        }
+    }
+
     args->nsmpl = bcf_hdr_nsamples(args->sm_hdr);
     args->narr  = (args->nsmpl-1)*args->nsmpl/2;
 
