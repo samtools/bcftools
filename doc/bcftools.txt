@@ -1775,6 +1775,14 @@ the program generates separate stats for intersection and the complements. By
 default only sites are compared, *-s*/*-S* must given to include also sample
 columns.
 
+*--af-bins* 'LIST'|'FILE'::
+    comma separated list of allele frequency bins (e.g. 0.1,0.5,1)
+    or a file listing the allele frequency bins one per line (e.g. 0.1\n0.5\n1)
+
+*--af-tag* 'TAG'::
+    allele frequency INFO tag to use for binning. By default the allele frequency is
+    estimated from AC/AN, if available, or directly from the genotypes (GT) if not.
+
 *-1, --1st-allele-only*::
     consider only the 1st alternate allele at multiallelic sites
 
@@ -2163,8 +2171,8 @@ chromosome separately), plots graphs and creates a PDF presentation.
 *-m, --merge*::
     Merge vcfstats files to STDOUT, skip plotting.
 
-*-p, --prefix* 'PATH'::
-    The output files prefix, add a slash to create new directory.
+*-p, --prefix* 'DIR'::
+    The output directory. This directory will be created if it does not exist.
 
 *-P, --no-PDF*::
     Skip the PDF creation step.

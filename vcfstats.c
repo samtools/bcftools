@@ -1,6 +1,6 @@
 /*  vcfstats.c -- Produces stats which can be plotted using plot-vcfstats.
 
-    Copyright (C) 2012-2015 Genome Research Ltd.
+    Copyright (C) 2012-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -39,6 +39,7 @@ THE SOFTWARE.  */
 #include <inttypes.h>
 #include "bcftools.h"
 #include "filter.h"
+#include "bin.h"
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -66,17 +67,6 @@ typedef struct
     uint64_t *vals;
 }
 idist_t;
-
-typedef struct
-{
-    double x;
-    double x2;
-    double y;
-    double y2;
-    double xy;
-    double n;
-}
-smpl_r_t;
 
 typedef struct
 {
@@ -108,9 +98,14 @@ stats_t;
 
 typedef struct
 {
-    uint64_t m[3], mm[3];        // number of hom, het and non-ref hom matches and mismatches
-    float r2sum;
-    uint32_t r2n;
+    uint64_t m[3], mm[3];       // number of hom, het and non-ref hom matches and mismatches
+    /*
+        Pearson's R^2 is used for aggregate R^2 
+        y, yy .. sum of dosage and squared dosage in the query VCF (second file)
+        x, xx .. sum of squared dosage in the truth VCF (first file)
+        n     .. number of genotypes
+     */
+    double y, yy, x, xx, yx, n;
 }
 gtcmp_t;
 
@@ -135,7 +130,11 @@ typedef struct
     int *tmp_iaf, ntmp_iaf, m_af, m_qual, naf_hwe, mtmp_frm;
     uint8_t *tmp_frm;
     int dp_min, dp_max, dp_step;
-    gtcmp_t *af_gts_snps, *af_gts_indels, *smpl_gts_snps, *smpl_gts_indels; // first bin of af_* stats are singletons
+    gtcmp_t *smpl_gts_snps, *smpl_gts_indels;
+    gtcmp_t *af_gts_snps, *af_gts_indels; // first bin of af_* stats are singletons
+    bin_t *af_bins;
+    float *farr;
+    int mfarr;
 
     // indel context
     indel_ctx_t *indel_ctx;
@@ -148,17 +147,13 @@ typedef struct
     // other
     bcf_srs_t *files;
     bcf_sr_regions_t *exons;
-    char **argv, *exons_fname, *regions_list, *samples_list, *targets_list;
+    char **argv, *exons_fname, *regions_list, *samples_list, *targets_list, *af_bins_list, *af_tag;
     int argc, verbose_sites, first_allele_only, samples_is_file;
     int split_by_id, nstats;
 
     filter_t *filter[2];
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
-
-    // Per Sample r working data arrays of size equal to number of samples
-    smpl_r_t* smpl_r_snps;
-    smpl_r_t* smpl_r_indels;
 }
 args_t;
 
@@ -411,11 +406,27 @@ static void init_stats(args_t *args)
             args->filter[1] = filter_init(bcf_sr_get_header(args->files,1), args->filter_str);
     }
 
-    // AF corresponds to AC but is more robust for mixture of haploid and diploid GTs
-    args->m_af = 101;
-    for (i=0; i<args->files->nreaders; i++)
-        if ( bcf_hdr_nsamples(args->files->readers[i].header) + 1> args->m_af )
-            args->m_af = bcf_hdr_nsamples(args->files->readers[i].header) + 1;
+    // AF corresponds to AC but is more robust to mixtures of haploid and diploid GTs
+    if ( !args->af_bins_list )
+    {
+        args->m_af = 101;
+        for (i=0; i<args->files->nreaders; i++)
+            if ( bcf_hdr_nsamples(args->files->readers[i].header) + 1> args->m_af )
+                args->m_af = bcf_hdr_nsamples(args->files->readers[i].header) + 1;
+    }
+    else
+    {
+        args->af_bins = bin_init(args->af_bins_list,0,1);
+    
+        // m_af is used also for other af arrays, where the first bin is for
+        // singletons. However, since the last element is unused in af_bins
+        // (n boundaries form n-1 intervals), the m_af count is good for both.
+        args->m_af = bin_get_size(args->af_bins);
+    }
+
+    bcf_hdr_t *hdr = bcf_sr_get_header(args->files,0);
+    if ( args->af_tag && !bcf_hdr_idinfo_exists(hdr,BCF_HL_INFO,bcf_hdr_id2int(hdr,BCF_DT_ID,args->af_tag)) )
+        error("No such INFO tag: %s\n", args->af_tag);
 
     #if QUAL_STATS
         args->m_qual = 999;
@@ -436,8 +447,6 @@ static void init_stats(args_t *args)
         args->af_gts_indels   = (gtcmp_t *) calloc(args->m_af,sizeof(gtcmp_t));
         args->smpl_gts_snps   = (gtcmp_t *) calloc(args->files->n_smpl,sizeof(gtcmp_t));
         args->smpl_gts_indels = (gtcmp_t *) calloc(args->files->n_smpl,sizeof(gtcmp_t));
-        args->smpl_r_snps = (smpl_r_t*) calloc(args->files->n_smpl, sizeof(smpl_r_t));
-        args->smpl_r_indels = (smpl_r_t*) calloc(args->files->n_smpl, sizeof(smpl_r_t));
     }
     for (i=0; i<args->nstats; i++)
     {
@@ -532,7 +541,6 @@ static void destroy_stats(args_t *args)
             if (stats->qual_indels) free(stats->qual_indels);
         #endif
         #if HWE_STATS
-            //if ( args->files->n_smpl ) free(stats->af_hwe);
             free(stats->af_hwe);
         #endif
         free(stats->insertions);
@@ -560,6 +568,8 @@ static void destroy_stats(args_t *args)
         if ( args->exons ) free(stats->smpl_frm_shifts);
     }
     for (j=0; j<args->nusr; j++) free(args->usr[j].tag);
+    if ( args->af_bins ) bin_destroy(args->af_bins);
+    free(args->farr);
     free(args->usr);
     free(args->tmp_frm);
     free(args->tmp_iaf);
@@ -568,8 +578,6 @@ static void destroy_stats(args_t *args)
     free(args->af_gts_indels);
     free(args->smpl_gts_snps);
     free(args->smpl_gts_indels);
-    free(args->smpl_r_snps);
-    free(args->smpl_r_indels);
     if (args->indel_ctx) indel_ctx_destroy(args->indel_ctx);
     if (args->filter[0]) filter_destroy(args->filter[0]);
     if (args->filter[1]) filter_destroy(args->filter[1]);
@@ -578,36 +586,59 @@ static void destroy_stats(args_t *args)
 static void init_iaf(args_t *args, bcf_sr_t *reader)
 {
     bcf1_t *line = reader->buffer[0];
-    if ( args->ntmp_iaf < line->n_allele )
-    {
-        args->tmp_iaf = (int*)realloc(args->tmp_iaf, line->n_allele*sizeof(int));
-        args->ntmp_iaf = line->n_allele;
-    }
-    // tmp_iaf is first filled with AC counts in calc_ac and then transformed to
-    //  an index to af_gts_snps
-    int i, ret = bcf_calc_ac(reader->header, line, args->tmp_iaf, args->samples_list ? BCF_UN_INFO|BCF_UN_FMT : BCF_UN_INFO);
-    if ( ret )
-    {
-        int an=0;
-        for (i=0; i<line->n_allele; i++)
-            an += args->tmp_iaf[i];
+    hts_expand(int32_t,line->n_allele,args->ntmp_iaf,args->tmp_iaf);
 
+    int i, ret;
+    if ( args->af_tag )
+    {
+        ret = bcf_get_info_float(reader->header, line, args->af_tag, &args->farr, &args->mfarr);
+        if ( ret<=0 || ret!=line->n_allele-1 )
+        {
+            // the AF tag is not present or wrong number of values, put in the singletons/unknown bin
+            for (i=0; i<line->n_allele; i++) args->tmp_iaf[i] = 0;
+            return;
+        }
         args->tmp_iaf[0] = 0;
         for (i=1; i<line->n_allele; i++)
         {
-            if ( args->tmp_iaf[i]==1 )
-                args->tmp_iaf[i] = 0; // singletons into the first bin
-            else if ( !an )
-                args->tmp_iaf[i] = 1;   // no genotype at all, put to the AF=0 bin
-            else
-                args->tmp_iaf[i] = 1 + args->tmp_iaf[i] * (args->m_af-2.0) / an;
+            float af = args->farr[i-1];
+            if ( af<0 ) af = 0;
+            else if ( af>1 ) af = 1;
+            int iaf = args->af_bins ? bin_get_idx(args->af_bins,af) : af*(args->m_af-2);
+            args->tmp_iaf[i] = iaf + 1;     // the first tmp_iaf bin is reserved for singletons
+        }
+        return;
+    }
+
+    // tmp_iaf is first filled with AC counts in calc_ac and then transformed to
+    //  an index to af_gts_snps
+    ret = bcf_calc_ac(reader->header, line, args->tmp_iaf, args->samples_list ? BCF_UN_INFO|BCF_UN_FMT : BCF_UN_INFO);
+    if ( !ret )
+    {
+        for (i=0; i<line->n_allele; i++) args->tmp_iaf[i] = 0;      // singletons/unknown bin
+        return;
+    }
+
+    int an = 0;
+    for (i=0; i<line->n_allele; i++)
+        an += args->tmp_iaf[i];
+
+    args->tmp_iaf[0] = 0;
+    for (i=1; i<line->n_allele; i++)
+    {
+        if ( args->tmp_iaf[i]==1 )
+            args->tmp_iaf[i] = 0;   // singletons into the first bin
+        else if ( !an )
+            args->tmp_iaf[i] = 1;   // no genotype at all, put to the AF=0 bin
+        else
+        {
+            float af = (float) args->tmp_iaf[i] / an;
+            if ( af<0 ) af = 0;
+            else if ( af>1 ) af = 1;
+            int iaf = args->af_bins ? bin_get_idx(args->af_bins,af) : af*(args->m_af-2);
+            args->tmp_iaf[i] = iaf + 1;
         }
     }
-    else
-        for (i=0; i<line->n_allele; i++)
-            args->tmp_iaf[i] = 0;
-
-    // todo: otherwise use AF
 }
 
 static inline void do_mnp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
@@ -879,6 +910,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         {
             float het_frac = (float)nhet_tot/(nhet_tot + nref_tot + nalt_tot);
             int idx = het_frac*(args->naf_hwe - 1);
+//check me: what is this?
             if ( line->n_allele>1 ) idx += args->naf_hwe*args->tmp_iaf[1];
             stats->af_hwe[idx]++;
         }
@@ -917,33 +949,11 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         fmt1 = bcf_get_fmt(files->readers[1].header,files->readers[1].buffer[0],"GT"); if ( !fmt1 ) return;
 
         // only the first ALT allele is considered
-        int iaf = line->n_allele>1 ? args->tmp_iaf[1] : 1;
+        int iaf = args->tmp_iaf[1];
         int line_type = bcf_get_variant_types(files->readers[0].buffer[0]);
         gtcmp_t *af_stats = line_type&VCF_SNP ? args->af_gts_snps : args->af_gts_indels;
         gtcmp_t *smpl_stats = line_type&VCF_SNP ? args->smpl_gts_snps : args->smpl_gts_indels;
 
-        //
-        // Calculates r squared
-        // x is mean dosage of x at given site
-        // x2 is mean squared dosage of x at given site
-        // y is mean dosage of x at given site
-        // y2 is mean squared dosage of x at given site
-        // xy is mean dosage of x*y at given site
-        // r2sum += (xy - x*y)^2 / ( (x2 - x^2) * (y2 - y^2) )
-        // r2n is number of sites considered
-        // output as r2sum/r2n for each AF bin
-        int r2n = 0;
-        float x = 0, y = 0, xy = 0, x2 = 0, y2 = 0;
-        // Select smpl_r
-        smpl_r_t *smpl_r = NULL;
-        if (line_type&VCF_SNP)
-        {
-            smpl_r = args->smpl_r_snps;
-        }
-        else if (line_type&VCF_INDEL)
-        {
-            smpl_r = args->smpl_r_indels;
-        }
         for (is=0; is<files->n_smpl; is++)
         {
             // Simplified comparison: only 0/0, 0/1, 1/1 is looked at as the identity of
@@ -956,49 +966,36 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
 
             if ( type2ploidy[gt0]*type2ploidy[gt1] == -1 ) continue;   // cannot compare diploid and haploid genotypes
 
-            int dsg0 = type2dosage[gt0];
-            int dsg1 = type2dosage[gt1];
-            x   += dsg0;
-            x2  += dsg0*dsg0;
-            y   += dsg1;
-            y2  += dsg1*dsg1;
-            xy  += dsg0*dsg1;
-            r2n++;
-
             int idx = type2stats[gt0];
             if ( gt0==gt1 )
             {
+                // genotype match
                 af_stats[iaf].m[idx]++;
                 smpl_stats[is].m[idx]++;
             }
             else
             {
+                // genotype mismatch
                 af_stats[iaf].mm[idx]++;
                 smpl_stats[is].mm[idx]++;
             }
 
-            // Now do it across samples
+            float y = type2dosage[gt0];
+            float x = type2dosage[gt1];
 
-            if (smpl_r) {
-                smpl_r[is].xy += dsg0*dsg1;
-                smpl_r[is].x += dsg0;
-                smpl_r[is].x2 += dsg0*dsg0;
-                smpl_r[is].y += dsg1;
-                smpl_r[is].y2 += dsg1*dsg1;
-                ++(smpl_r[is].n);
-            }
-        }
+            smpl_stats[is].yx += y*x;
+            smpl_stats[is].x  += x;
+            smpl_stats[is].xx += x*x;
+            smpl_stats[is].y  += y;
+            smpl_stats[is].yy += y*y;
+            smpl_stats[is].n  += 1;
 
-        if ( r2n )
-        {
-            x /= r2n; y /= r2n; x2 /= r2n; y2 /= r2n; xy /= r2n;
-            float cov  = xy - x*y;
-            float var2 = (x2 - x*x) * (y2 - y*y);
-            if ( var2!=0 )
-            {
-                af_stats[iaf].r2sum += cov*cov/var2;
-                af_stats[iaf].r2n++;
-            }
+            af_stats[iaf].yx += y*x;
+            af_stats[iaf].x  += x;
+            af_stats[iaf].xx += x*x;
+            af_stats[iaf].y  += y;
+            af_stats[iaf].yy += y*y;
+            af_stats[iaf].n  += 1;
         }
 
         if ( args->verbose_sites )
@@ -1208,6 +1205,24 @@ static void print_stats(args_t *args)
         stats->af_repeats[1][1] += stats->af_repeats[1][0];
         stats->af_repeats[2][1] += stats->af_repeats[2][0];
     }
+    // move the singletons stats into the first AF bin, singleton stats was collected separately because of init_iaf
+    if ( args->af_gts_snps )
+    {
+        args->af_gts_snps[1].y    += args->af_gts_snps[0].y;
+        args->af_gts_snps[1].yy   += args->af_gts_snps[0].yy;
+        args->af_gts_snps[1].xx   += args->af_gts_snps[0].xx;
+        args->af_gts_snps[1].yx   += args->af_gts_snps[0].yx;
+        args->af_gts_snps[1].n    += args->af_gts_snps[0].n;
+    }
+    if ( args->af_gts_indels )
+    {
+        args->af_gts_indels[1].y  += args->af_gts_indels[0].y;
+        args->af_gts_indels[1].yy += args->af_gts_indels[0].yy;
+        args->af_gts_indels[1].xx += args->af_gts_indels[0].xx;
+        args->af_gts_indels[1].yx += args->af_gts_indels[0].yx;
+        args->af_gts_indels[1].n  += args->af_gts_indels[0].n;
+    }
+
     printf("# AF, Stats by non-reference allele frequency:\n# AF\t[2]id\t[3]allele frequency\t[4]number of SNPs\t[5]number of transitions\t[6]number of transversions\t[7]number of indels\t[8]repeat-consistent\t[9]repeat-inconsistent\t[10]not applicable\n");
     for (id=0; id<args->nstats; id++)
     {
@@ -1215,7 +1230,8 @@ static void print_stats(args_t *args)
         for (i=1; i<args->m_af; i++) // note that af[1] now contains also af[0], see SiS stats output above
         {
             if ( stats->af_snps[i]+stats->af_ts[i]+stats->af_tv[i]+stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i] == 0  ) continue;
-            printf("AF\t%d\t%f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", id,100.*(i-1)/(args->m_af-1),stats->af_snps[i],stats->af_ts[i],stats->af_tv[i],
+            double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
+            printf("AF\t%d\t%f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", id,af,stats->af_snps[i],stats->af_ts[i],stats->af_tv[i],
                 stats->af_repeats[0][i]+stats->af_repeats[1][i]+stats->af_repeats[2][i],stats->af_repeats[0][i],stats->af_repeats[1][i],stats->af_repeats[2][i]);
         }
     }
@@ -1272,34 +1288,46 @@ static void print_stats(args_t *args)
         printf("SN\t%d\tnumber of samples:\t%d\n", 2, args->files->n_smpl);
 
         int x;
-        for (x=0; x<2; x++)
+        for (x=0; x<2; x++)     // x=0: snps, x=1: indels
         {
             gtcmp_t *stats;
             if ( x==0 )
             {
-                printf("# GCsAF, Genotype concordance by non-reference allele frequency (SNPs)\n# GCsAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites\n");
+                printf("# GCsAF, Genotype concordance by non-reference allele frequency (SNPs)\n# GCsAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of genotypes\n");
                 stats = args->af_gts_snps;
             }
             else
             {
-                printf("# GCiAF, Genotype concordance by non-reference allele frequency (indels)\n# GCiAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of sites\n");
+                printf("# GCiAF, Genotype concordance by non-reference allele frequency (indels)\n# GCiAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of genotypes\n");
                 stats = args->af_gts_indels;
             }
             uint64_t nrd_m[3] = {0,0,0}, nrd_mm[3] = {0,0,0};
             for (i=0; i<args->m_af; i++)
             {
                 int j, n = 0;
-                for (j=0; j<3; j++)
+                for (j=0; j<3; j++)     // rr, ra, aa
                 {
                     n += stats[i].m[j] + stats[i].mm[j];
                     nrd_m[j]  += stats[i].m[j];
                     nrd_mm[j] += stats[i].mm[j];
                 }
                 if ( !i || !n ) continue;   // skip singleton stats and empty bins
-                printf("GC%cAF\t2\t%f", x==0 ? 's' : 'i', 100.*(i-1)/(args->m_af-1));
+
+                // Pearson's r2
+                double r2 = 0;
+                if ( stats[i].n )
+                {
+                    r2  = (stats[i].yx - stats[i].x*stats[i].y/stats[i].n);
+                    r2 /= sqrt((stats[i].xx - stats[i].x*stats[i].x/stats[i].n) * (stats[i].yy - stats[i].y*stats[i].y/stats[i].n));
+                    r2 *= r2;
+                }
+                double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
+                printf("GC%cAF\t2\t%f", x==0 ? 's' : 'i', af);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
-                printf("\t%f\t%"PRId32"\n", stats[i].r2n ? stats[i].r2sum/stats[i].r2n : -1.0, stats[i].r2n);
+                if ( stats[i].n && !isnan(r2) ) printf("\t%f", r2);
+                else printf("\t"NA_STRING);
+                printf("\t%.0f\n", stats[i].n);
             }
 
             if ( x==0 )
@@ -1325,39 +1353,36 @@ static void print_stats(args_t *args)
                   );
         }
 
-        for (x=0; x<2; x++)
+        for (x=0; x<2; x++) // x=0: snps, x=1: indels
         {
             gtcmp_t *stats;
-            smpl_r_t *smpl_r_array;
             if ( x==0 )
             {
                 printf("# GCsS, Genotype concordance by sample (SNPs)\n# GCsS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches\t[11]dosage r-squared\n");
                 stats = args->smpl_gts_snps;
-                smpl_r_array = args->smpl_r_snps;
             }
             else
             {
                 printf("# GCiS, Genotype concordance by sample (indels)\n# GCiS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches\t[11]dosage r-squared\n");
                 stats = args->smpl_gts_indels;
-                smpl_r_array = args->smpl_r_indels;
             }
             for (i=0; i<args->files->n_smpl; i++)
             {
                 uint64_t m  = stats[i].m[T2S(GT_HET_RA)] + stats[i].m[T2S(GT_HOM_AA)];
                 uint64_t mm = stats[i].mm[T2S(GT_HOM_RR)] + stats[i].mm[T2S(GT_HET_RA)] + stats[i].mm[T2S(GT_HOM_AA)];
-                // Calculate r by formula 19.2 - Biostatistical Analysis 4th edition - Jerrold H. Zar
-                smpl_r_t *smpl_r = smpl_r_array + i;
-                double r = 0.0;
-                if (smpl_r->n) {
-                    double sum_crossprod = smpl_r->xy-(smpl_r->x*smpl_r->y)/smpl_r->n;//per 17.3 machine formula
-                    double x2_xx = smpl_r->x2-(smpl_r->x*smpl_r->x)/smpl_r->n;
-                    double y2_yy = smpl_r->y2-(smpl_r->y*smpl_r->y)/smpl_r->n;
-                    r = (sum_crossprod)/sqrt(x2_xx*y2_yy);
+
+                // Pearson's r2
+                double r2 = 0;
+                if ( stats[i].n )
+                {
+                    r2  = (stats[i].yx - stats[i].x*stats[i].y/stats[i].n);
+                    r2 /= sqrt((stats[i].xx - stats[i].x*stats[i].x/stats[i].n) * (stats[i].yy - stats[i].y*stats[i].y/stats[i].n));
+                    r2 *= r2;
                 }
                 printf("GC%cS\t2\t%s\t%.3f",  x==0 ? 's' : 'i', args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
                 printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
-                if (smpl_r->n && !isnan(r)) printf("\t%f\n", r*r);
+                if ( stats[i].n && !isnan(r2) ) printf("\t%f\n", r2);
                 else printf("\t"NA_STRING"\n");
             }
         }
@@ -1429,8 +1454,10 @@ static void print_stats(args_t *args)
                 for (j=0; j<args->naf_hwe; j++) sum_tot += ptr[j];
                 if ( !sum_tot ) continue;
 
+                double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
+
                 int nprn = 3;
-                printf("HWE\t%d\t%f\t%d",id,100.*(i-1)/(args->m_af-1),sum_tot);
+                printf("HWE\t%d\t%f\t%d",id,af,sum_tot);
                 for (j=0; j<args->naf_hwe; j++)
                 {
                     sum_tmp += ptr[j];
@@ -1468,6 +1495,8 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools stats [options] <A.vcf.gz> [<B.vcf.gz>]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "        --af-bins <list>               allele frequency bins, a list (0.1,0.5,1) or a file (0.1\\n0.5\\n1)\n");
+    fprintf(stderr, "        --af-tag <string>              allele frequency tag to use, by default estimated from AN,AC or GT\n");
     fprintf(stderr, "    -1, --1st-allele-only              include only 1st allele at multiallelic sites\n");
     fprintf(stderr, "    -c, --collapse <string>            treat as identical records with <snps|indels|both|all|some|none>, see man page for details [none]\n");
     fprintf(stderr, "    -d, --depth <int,int,int>          depth distribution: min,max,bin size [0,500,1]\n");
@@ -1500,6 +1529,8 @@ int main_vcfstats(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"af-bins",1,0,1},
+        {"af-tag",1,0,2},
         {"1st-allele-only",0,0,'1'},
         {"include",1,0,'i'},
         {"exclude",1,0,'e'},
@@ -1522,6 +1553,8 @@ int main_vcfstats(int argc, char *argv[])
     };
     while ((c = getopt_long(argc, argv, "hc:r:R:e:s:S:d:i:t:T:F:f:1u:vIE:",loptions,NULL)) >= 0) {
         switch (c) {
+            case  1 : args->af_bins_list = optarg; break;
+            case  2 : args->af_tag = optarg; break;
             case 'u': add_user_stats(args,optarg); break;
             case '1': args->first_allele_only = 1; break;
             case 'F': args->ref_fname = optarg; break;

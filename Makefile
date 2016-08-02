@@ -37,6 +37,7 @@ TABIX  = $(HTSDIR)/tabix
 
 CC       = gcc
 CPPFLAGS =
+CFLAGS   = -g -Wall -Wc++-compat -O2 -Wpadded
 CFLAGS   = -g -Wall -Wc++-compat -O2
 LDFLAGS  =
 LIBS     =
@@ -45,7 +46,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
-           vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o version.o \
+           vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o bin.o version.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
 EXTRA_CPPFLAGS = -I. -I$(HTSDIR) -DPLUGINPATH=\"$(pluginpath)\"
@@ -130,6 +131,7 @@ plugins: $(PLUGINS)
 
 
 bcftools_h = bcftools.h $(htslib_hts_defs_h) $(htslib_vcf_h)
+bin_h = bin.h $(htslib_hts_h)
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
 convert_h = convert.h $(htslib_vcf_h)
 tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h)
@@ -155,7 +157,7 @@ vcfquery.o: vcfquery.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vc
 vcfroh.o: vcfroh.c $(roh_h)
 vcfcnv.o: vcfcnv.c $(cnv_h)
 vcfsom.o: vcfsom.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
-vcfstats.o: vcfstats.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) $(bcftools_h)
+vcfstats.o: vcfstats.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) $(bcftools_h) $(filter_h) $(bin_h)
 vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h)
 reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
 tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
@@ -173,6 +175,7 @@ ploidy.o: ploidy.c $(htslib_regidx_h) $(HTSDIR)/htslib/khash_str2int.h $(HTSDIR)
 polysomy.o: polysomy.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(bcftools_h) peakfit.h
 peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(HTSDIR)/htslib/kstring.h
 consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) $(HTSDIR)/htslib/regidx.h
+bin.o: bin.c $(bin_h)
 version.o: version.h version.c
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h

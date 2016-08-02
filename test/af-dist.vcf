@@ -1,0 +1,19 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///seq/references/1000Genomes-NCBI37.fasta
+##contig=<ID=11,length=135006516>
+##contig=<ID=20,length=63025520>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
+11	2343543	.	A	.	999	.	AN=6	GT	0/0	0/0	0/0
+11	5464562	.	C	T	999	.	AN=0;AC=0	GT	./.	./.	./.
+20	76962	rs6111385	T	C	999	.	AN=6;AF=0.833333;AC=5	GT	0/1	1/1	1/1
+20	126310	.	ACC	A	999	.	AN=6;AF=0.666667;AC=4	GT	0/1	0/1	1/1
+20	138125	rs2298108	G	T	999	.	AN=6;AF=0.666667;AC=4	GT	0/1	0/1	1/1
+20	138148	rs2298109	C	T	999	.	AN=6;AF=0.666667;AC=4	GT	0/1	0/1	1/1
+20	271225	.	T	TTTA,TA	999	.	AN=6;AF=0.333333,0.333333;AC=2,2	GT	0/2	0/1	1/2
+20	304568	.	C	T	999	.	AN=6;AF=0.666667;AC=4	GT	0|1	0|1	1|1
+20	326891	.	A	AC	999	.	AN=4;AF=0.5;AC=2	GT	0|1	0|1	./.
