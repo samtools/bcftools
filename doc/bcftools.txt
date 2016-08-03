@@ -1026,6 +1026,18 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
 *-a, --all-sites*::
     output for all sites
 
+*-c, --cluster* 'FLOAT','FLOAT'::
+    min inter- and max intra-sample error [0.23,-0.3]
+
+    The first "min" argument controls the typical error rate in multiplexed
+    runs ("lanelets") from the same sample. Lanelets with error rate less
+    than this will always be considered as coming from the same sample.
+    The second "max" argument is the reverse: lanelets with error rate
+    greater than the absolute value of this parameter will always be
+    considered as different samples. When the value is negative, the cutoff
+    may be heuristically lowered by the clustering engine. If positive, the
+    value is interpreted as a fixed cutoff.
+
 *-g, --genotypes* 'genotypes.vcf.gz'::
     reference genotypes to compare against
 
