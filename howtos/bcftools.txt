@@ -38,7 +38,8 @@ transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.
 Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
-work in most, but not all situations.
+work in most, but not all situations. In general, whenever multiple VCFs are 
+read simultaneously, they must be indexed and therefore also compressed.
 
 BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
@@ -75,6 +76,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 
 - *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations
 - *<<call,call>>*        ..  SNP/indel calling (former "view")
+- *<<cnv,cnv>>*          ..  Copy Number Variation caller
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
 - *<<consensus,consensus>>*    ..  create consensus sequence by applying VCF variants
 - *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
@@ -83,8 +85,10 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<index,index>>*      ..  index VCF/BCF
 - *<<isec,isec>>*        ..  intersections of VCF/BCF files
 - *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
+- *<<mpileup,mpileup>>*  ..  multi-way pileup producing genotype likelihoods
 - *<<norm,norm>>*        ..  normalize indels
 - *<<plugin,plugin>>*    ..  run user-defined plugin
+- *<<polysomy,polysomy>>*   ..  detect contaminations and whole-chromosome aberrations
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
@@ -156,6 +160,9 @@ specific commands to see if they apply.
     in 'LIST'. For example, to include only sites which have no filters set,
     use *-f* '.,PASS'.
 
+*--no-version*::
+    Do not append version and command line information to the output VCF header.
+
 *-o, --output* 'FILE'::
     When output consists of a single stream, write it to 'FILE' rather than
     to standard output, where it is written by default.
@@ -163,7 +170,7 @@ specific commands to see if they apply.
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
     Use the -Ou option when piping between bcftools subcommands to speed up
-    performance by removing unecessary compression/decompression and
+    performance by removing unnecessary compression/decompression and
     VCF<-->BCF conversion.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
@@ -173,11 +180,15 @@ specific commands to see if they apply.
 *-R, --regions-file* 'FILE'::
     Regions can be specified either on command line or in a VCF, BED, or
     tab-delimited file (the default).  The columns of the tab-delimited file
-    are: CHROM, POS, and,  optionally,  POS_TO,  where positions are 1-based
-    and inclusive.  Uncompressed files are stored in memory, while
-    bgzip-compressed and tabix-indexed region files are streamed.  Note that
-    sequence names must match exactly, "chr20" is not the same as "20".
-    Also note that chromosome ordering in 'FILE' will be respected,
+    are: CHROM, POS, and, optionally,  POS_TO,  where positions are 1-based
+    and inclusive. The columns of the tab-delimited BED file are also
+    CHROM, POS and POS_TO (trailing columns are ignored), but coordinates
+    are 0-based, half-open.  To indicate that a file be treated as BED rather
+    than the 1-based tab-delimited file, the file must have the ".bed" or
+    ".bed.gz" suffix (case-insensitive). Uncompressed files are stored in
+    memory, while bgzip-compressed and tabix-indexed region files are streamed.
+    Note that sequence names must match exactly, "chr20" is not the same as
+    "20".  Also note that chromosome ordering in 'FILE' will be respected,
     the VCF will be processed in the order in which chromosomes first appear
     in 'FILE'. However, within chromosomes, the VCF will always be
     processed in ascending genomic coordinate order no matter what order they
@@ -189,10 +200,20 @@ specific commands to see if they apply.
 *-s, --samples* \[&#94;]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
     with "&#94;".
+    Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
+    to correspond to the subset samples. *<<view,bcftools view>>* is the
+    exception where some tags will be updated (unless the *-I, --no-update*
+    option is used; see *<<view,bcftools view>>* documentation). To use updated 
+    tags for the subset in another command one can pipe from *view* into
+    that command. For example:
+----
+    bcftools view -Ou -s sample1,sample2 file.vcf | bcftools query -f %INFO/AC\t%INFO/AN\n
+----
 
 *-S, --samples-file* [&#94;]'FILE'[[samples_file]]::
     File of sample names to include or exclude if prefixed with "&#94;".
-    One sample per line.
+    One sample per line. See also the note above for the *-s, --samples*
+    option.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) or sex (as defined by
     *<<ploidy,--ploidy>>*, for example "F" or "M"), and can parse also PED
@@ -235,16 +256,22 @@ specific commands to see if they apply.
 
     ::
     With the *call -C* 'alleles' command, third column of the targets file must
-    be comma-separated list of alleles, starting with the reference allele.
+    be comma-separated list of alleles, starting with the reference allele. 
+    Note that the file must be compressed and index.
     Such a file can be easily created from a VCF using:
 ----
-    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf
+    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
+
+*--threads* 'INT'::
+    Number of output compression threads to use in addition to main thread. 
+    Only used when '--output-type' is 'b' or 'z'. Default: 0.
+
 
 [[annotate]]
 === bcftools annotate '[OPTIONS]' 'FILE'
 
-This command allows to add or remove annotations.
+Add or remove annotations.
 
 *-a, --annotations* 'file'::
     Bgzip-compressed and tabix-indexed file with annotations. The file
@@ -318,6 +345,9 @@ This command allows to add or remove annotations.
 *-m, --mark-sites* [+-]'TAG'::
     annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -344,6 +374,9 @@ This command allows to add or remove annotations.
     target VCF and the *-a, --annotations* VCF, the name mapping can be
     given as "src_name dst_name\n", separated by whitespaces, each pair on a
     separate line.
+
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 *-x, --remove* 'list'::
     List of annotations to remove. Use "FILTER" to remove all filters or
@@ -381,6 +414,7 @@ This command allows to add or remove annotations.
 ----
 
 
+
 [[call]]
 === bcftools call '[OPTIONS]' 'FILE'
 
@@ -390,6 +424,12 @@ http://github.com/samtools/htslib[htslib], but will be added back on popular
 demand. The original calling model can be invoked with the *-c* option.
 
 ==== File format options:
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
@@ -402,7 +442,7 @@ demand. The original calling model can be invoked with the *-c* option.
 *--ploidy-file* 'FILE'::
     ploidy definition given as a space/tab-delimited list of
     CHROM, FROM, TO, SEX, PLOIDY. The SEX codes are arbitrary and
-    correspond to the ones used by *<<samples_file,--samples-file>>*. 
+    correspond to the ones used by *<<samples_file,--samples-file>>*.
     The default ploidy can be given using the starred records (see
     below), unlisted regions have ploidy 2. The default ploidy definition is
 ----
@@ -434,6 +474,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *-T, --targets-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 ==== Input/output options:
 
 *-A, --keep-alts*::
@@ -445,16 +488,36 @@ demand. The original calling model can be invoked with the *-c* option.
     GQ and GP fields are supported. For convenience, the fields can be given
     as lower case letters.
 
+*-F, --prior-freqs* 'AN','AC'::
+    take advantage of prior knowledge of population allele frequencies. The
+    workflow looks like this:
+----
+    # Extract AN,AC values from an existing VCF, such 1000Genomes
+    bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' 1000Genomes.bcf | bgzip -c > AFs.tab.gz
+
+    # If the tags AN,AC are not already present, use the +fill-AN-AC plugin
+    bcftools +fill-AN-AC 1000Genomes.bcf | bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' | bgzip -c > AFs.tab.gz
+    tabix -s1 -b2 -e2 AFs.tab.gz
+
+    # Create a VCF header description, here we name the tags REF_AN,REF_AC
+    cat AFs.hdr
+    ##INFO=<ID=REF_AN,Number=1,Type=Integer,Description="Total number of alleles in reference genotypes">
+    ##INFO=<ID=REF_AC,Number=A,Type=Integer,Description="Allele count in reference genotypes for each ALT allele">
+
+    # Now before calling, stream the raw mpileup output through `bcftools annotate` to add the frequencies
+    bcftools mpileup [...] -Ou | bcftools annotate -a AFs.tab.gz -h AFs.hdr -c CHROM,POS,REF,ALT,REF_AN,REF_AC -Ou | bcftools call -mv -F REF_AN,REF_AC [...]
+----
+
 *-g, --gvcf* 'INT'::
     output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
     minimum per-sample depth required to include a site in the non-variant
     block.
 
+*-i, --insert-missed* 'INT'::
+    output also sites missed by mpileup but present in *-T, --targets-file*.
+
 *-M, --keep-masked-ref*::
     output sites where REF allele is N
-
-*-o, --output* 'FILE'::
-    see *<<common_options,Common Options>>*
 
 *-V, --skip-variants* 'snps'|'indels'::
     skip indel/SNP sites
@@ -485,7 +548,7 @@ demand. The original calling model can be invoked with the *-c* option.
     genotype calling maximizes likelihood of a particular combination of
     genotypes for father, mother and the child
     P(F=i,M=j,C=k) = P(unconstrained) * Pn + P(constrained) * (1-Pn).
-    By providing three values, the mutation rate Pn is set explictly for SNPs,
+    By providing three values, the mutation rate Pn is set explicitly for SNPs,
     deletions and insertions, respectively.  If two values are given, the first
     is interpreted as the mutation rate of SNPs and the second is used to
     calculate the mutation rate of indels according to their length as
@@ -509,6 +572,91 @@ demand. The original calling model can be invoked with the *-c* option.
     haploid output for males and skips females (requires PED file with *-s*)
 
 
+[[cnv]]
+=== bcftools cnv '[OPTIONS]' 'FILE'
+
+Copy number variation caller, requires a VCF annotated with the Illumina's
+B-allele frequency (BAF) and Log R Ratio intensity (LRR) values. The HMM
+considers the following copy number states: CN 2 (normal), 1 (single-copy
+loss), 0 (complete loss), 3 (single-copy gain).
+
+
+==== General Options:
+
+*-c, --control-sample* 'string'::
+    optional control sample name. If given, pairwise calling is performed
+    and the *-P*  option can be used
+
+*-f, --AF-file* 'file'::
+    read allele frequencies from  a tab-delimited file with the columns CHR,POS,REF,ALT,AF
+
+*-o, --output-dir 'path'::
+    output directory
+
+*-p, --plot-threshold 'float'::
+    call *matplotlib* to produce plots for chromosomes with quality at least 'float',
+    useful for visual inspection of the calls. With *-p 0*, plots for all chromosomes will be
+    generated. If not given, a *matplotlib* script will be created but not called.
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-s, --query-sample* 'string'::
+    query samply name
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+==== HMM Options:
+
+*-a, --aberrant* 'float'[,'float']::
+    fraction of aberrant cells in query and control. The hallmark of
+    duplications and contaminations is the BAF value of heterozygous markers
+    which is dependent on the fraction of aberrant cells. Sensitivity to
+    smaller fractions of cells can be increased by setting *-a* to a lower value. Note
+    however, that this comes at the cost of increased false discovery rate.
+
+*-b, --BAF-weight* 'float'::
+    relative contribution from BAF
+
+*d, --BAF-dev* 'float'[,'float']::
+    expected BAF deviation in query and control, i.e. the noise observed
+    in the data.
+
+*-e, --err-prob* 'float'::
+    uniform error probability
+
+*-l, --LRR-weight* 'float'::
+    relative contribution from LRR. With noisy data, this option can have big effect
+    on the number of calls produced. In truly random noise (such as in simulated data),
+    the value should be set high (1.0), but in the presence of systematic noise
+    when LRR are not informative, lower values result in cleaner calls (0.2).
+
+*-L, --LRR-smooth-win* 'int'::
+    reduce LRR noise by applying moving average given this window size
+
+*-O, --optimize* 'float'::
+    iteratively estimate the fraction of aberrant cells, down to the given fraction.
+    Lowering this value from the default 1.0 to say, 0.3, can help discover more
+    events but also increases noise
+
+*-P, --same-prob* 'float'::
+    the prior probability of the query and the control sample being the same.
+    Setting to 0 calls both independently, setting to 1 forces the same copy
+    number state in both.
+
+*-x, --xy-prob* 'float'::
+    the HMM probability of transition to another copy number state. Increasing this
+    values leads to smaller and more frequent calls.
+
+
+
 [[concat]]
 === bcftools concat '[OPTIONS]' 'FILE1' 'FILE2' [...]
 
@@ -517,7 +665,10 @@ columns appearing in the same order. Can be used, for example, to
 concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
 VCF into one. The input files must be sorted by chr and position. The files
 must be given in the correct order to produce sorted VCF on output unless
-the *-a, --allow-overlaps* option is specified.
+the *-a, --allow-overlaps* option is specified. With the --naive option, the files
+are concatenated without being recompressed, which is very fast but dangerous
+if the BCF headers differ.
+
 
 *-a, --allow-overlaps*::
     First coordinate of the next file can precede last record of the current file.
@@ -538,6 +689,16 @@ the *-a, --allow-overlaps* option is specified.
 *-l, --ligate*::
     Ligate phased VCFs by matching phase at overlapping haplotypes
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
+*-n, --naive*::
+    Concatenate BCF files without recompression. This is very fast but requires
+    that all files have the same headers. This is because all tags and
+    chromosome names in the BCF body rely on the implicit order of the contig
+    and tag definitions in the header. Currently no sanity checks
+    are in place and only works for compressed BCF files. Dangerous, use with caution. 
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -552,6 +713,9 @@ the *-a, --allow-overlaps* option is specified.
 
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*. Requires *-a, --allow-overlaps*.
+
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 [[consensus]]
@@ -623,10 +787,16 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
 
 ==== VCF output options:
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
 ==== GEN/SAMPLE conversion:
@@ -672,13 +842,30 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
     convert from haps/sample format to VCF. The columns of .haps file are
     similar to .gen file above, but there are only two haplotype columns per
     sample. Note that the first column of the haps file is expected to be in
-    the form "CHR:POS_REF_ALT", for example:
+    the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
+    defining the INFO/END tag when ALT is a symbolic allele, for example:
 ----
   .haps
   ----
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
   1:111494194_C_T rsID2 111494194 C T 0 1 0 0
+  1:111495231_A_<DEL>_111495784 rsID3 111495231 A <DEL> 0 0 1 0
 ----
+
+*--hapsample* 'prefix' or 'haps-file','sample-file'::
+    convert from VCF to haps/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .haps file begin with ID,RSID,POS,REF,ALT. In order to 
+    prevent strand swaps, the program uses IDs of the form 
+    "CHROM:POS_REF_ALT".
+
+*--haploid2diploid*::
+    with *-h* option converts haploid genotypes to homozygous diploid
+    genotypes. For example, the program will print '0 0' instead of the 
+    default '0 -'. This is useful for programs which do not handle haploid
+    genotypes correctly.
+
+*--vcf-ids*::
+    output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
 
 ==== HAPS/LEGEND/SAMPLE conversion:
 *-H, --haplegendsample2vcf* 'prefix' or 'haps-file','legend-file','sample-file'::
@@ -800,6 +987,9 @@ And similarly here, the second is filtered:
     strings of failed sites instead of replacing them. The "x" mode resets
     filters of sites which pass to "PASS". Modes "+" and "x" can both be set.
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -825,7 +1015,8 @@ And similarly here, the second is filtered:
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
-
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 
@@ -835,6 +1026,18 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
 
 *-a, --all-sites*::
     output for all sites
+
+*-c, --cluster* 'FLOAT','FLOAT'::
+    min inter- and max intra-sample error [0.23,-0.3]
+
+    The first "min" argument controls the typical error rate in multiplexed
+    runs ("lanelets") from the same sample. Lanelets with error rate less
+    than this will always be considered as coming from the same sample.
+    The second "max" argument is the reverse: lanelets with error rate
+    greater than the absolute value of this parameter will always be
+    considered as different samples. When the value is negative, the cutoff
+    may be heuristically lowered by the clustering engine. If positive, the
+    value is interpreted as a fixed cutoff.
 
 *-g, --genotypes* 'genotypes.vcf.gz'::
     reference genotypes to compare against
@@ -901,7 +1104,7 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
 
 
 [[index]]
-=== bcftools index ['OPTIONS']  '<in.bcf>|<in.vcf.gz>'
+=== bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate-sorted index) is created by default. The CSI format
 supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
@@ -919,6 +1122,10 @@ the CSI first and then the TBI.
 
 *-m, --min-shift 'INT'*::
     set minimal interval size for CSI indices to 2&#94;INT; default: 14
+
+*-o, --output-file 'FILE'*::
+    output file name. If not set, then the index will be created
+    using the input file name plus a '.csi' or '.tbi' extension
 
 *-t, --tbi*::
     generate TBI-format index for VCF files
@@ -1048,12 +1255,30 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 *--use-header* 'FILE'::
     use the VCF header in the provided text 'FILE'
 
+*-0  --missing-to-ref*::
+    assume genotypes at missing sites are 0/0
+
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
+*-F, --filter-logic* 'x'|'+'::
+    Set the output record to PASS if any of the inputs is PASS ('x'),
+    or apply all filters ('+'), which is the default.
+
+*-g, --gvcf* '-'|'FILE'::
+    merge gVCF blocks, INFO/END tag is expected. If the reference fasta
+    file 'FILE' is not given and the dash ('-') is given, unknown reference
+    bases generated at gVCF block splits will be substituted with N's.
+    The *--gvcf* option uses the following default INFO rules: 
+    *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max*.
+
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::
     Rules for merging INFO fields (scalars or vectors) or '-' to disable the
-    default rules.  'METHOD' is one of 'sum', 'avg', 'min', 'max', 'join'.
+    default rules. 'METHOD' is one of 'sum', 'avg', 'min', 'max', 'join'.
+    Default is 'DP:sum,DP4:sum' if these fields exist in the input files.
+    Fields with no specified rule will take the value from the first input file.
+    The merged QUAL value is currently set to the maximum. This behaviour is 
+    not user controllable at the moment.
 
 *-l, --file-list* 'FILE'::
     read file names from 'FILE'
@@ -1069,6 +1294,9 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 -m id     ..  merge by ID
 ----
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -1081,13 +1309,255 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
+
+[[mpileup]]
+=== bcftools mpileup ['OPTIONS'] *-f* 'ref.fa' 'in.bam' ['in2.bam' [...]]
+Generate VCF or BCF containing genotype likelihoods for one or multiple
+alignment (BAM or CRAM) files. This is based on the original 
+*samtools mpileup* command (with the *-v* or *-g* options) producing 
+genotype likelihoods in VCF or BCF format, but not the textual pileup
+output. The *mpileup* command was transferred to bcftools in order to
+avoid errors resulting from use of incompatible versions of samtools
+and bcftools when using in the mpileup+bcftools call pipeline.
+
+Individuals are identified from the SM tags in the @RG header lines.  Multiple
+individuals can be pooled in one alignment file, also one individual can be
+separated into multiple files.  If sample identifiers are absent, each input
+file is regarded as one sample.
+
+Note that there are two orthogonal ways to specify locations in the
+input file; via *-r* 'region' and *-t* 'positions'.  The
+former uses (and requires) an index to do random access while the
+latter streams through the file contents filtering out the specified
+regions, requiring no index.  The two may be used in conjunction.  For
+example a BED file containing locations of genes in chromosome 20
+could be specified using *-r 20 -t chr20.bed*, meaning that the
+index is used to find chromosome 20 and then it is filtered for the
+regions listed in the BED file. Also note that the *-r* option can be much
+slower than *-t* with many regions and can require more memory when
+multiple regions and many alignment files are processed.
+
+
+==== Input options
+
+*-6, --illumina1.3+*::
+    Assume the quality is in the Illumina 1.3+ encoding.
+
+*-A, --count-orphans*::
+    Do not skip anomalous read pairs in variant calling.
+
+*-b, --bam-list* 'FILE'::
+    List of input alignment files, one file per line [null]
+
+*-B, --no-BAQ*::
+    Disable probabilistic realignment for the computation of base alignment
+    quality (BAQ). BAQ is the Phred-scaled probability of a read base being
+    misaligned. Applying this option greatly helps to reduce false SNPs caused
+    by misalignments.
+
+*-C, --adjust-MQ* 'INT'::
+    Coefficient  for  downgrading mapping quality for reads containing
+    excessive mismatches. Given a read with a phred-scaled probability q of
+    being generated from the mapped posi- tion, the new mapping quality is
+    about sqrt((INT-q)/INT)*INT. A zero value disables this functionality; if
+    enabled, the recommended value for BWA is 50. [0]
+
+*-d, --max-depth* 'INT'::
+    At a position, read maximally 'INT' reads per input file. Note that bcftools
+    has a minimum value of '8000/n' where 'n' is the number of input files given
+    to mpileup.  This means the default is highly likely to be increased. Once
+    above the cross-sample minimum of 8000 the -d parameter will have an effect.
+    [250]
+
+*-E, --redo-BAQ*::
+    Recalculate BAQ on the fly, ignore existing BQ tags
+
+*-f, --fasta-ref* 'FILE'::
+    The *faidx*-indexed reference file in the FASTA format. The file can be
+    optionally compressed by *bgzip* [null]
+
+*-G, --read-groups* [&#94;]'FILE'::
+    list of read groups to include or exclude if prefixed with "&#94;".
+    One read group per line.  This file can also be used to assign new sample
+    names to read groups by giving the new sample name as a second
+    white-space-separated field, like this: "read_group_id new_sample_name".
+    If the read group name is not unique, also the bam file name can
+    be included: "read_group_id file_name sample_name".  If all
+    reads from the alignment file should be treated as a single sample, the
+    asterisk symbol can be used: "* file_name sample_name". Alignments without
+    a read group ID can be matched with "?".
+----
+    RG_ID_1
+    RG_ID_2  SAMPLE_A
+    RG_ID_3  SAMPLE_A
+    RG_ID_4  SAMPLE_B
+    RG_ID_5  FILE_1.bam  SAMPLE_A
+    RG_ID_6  FILE_2.bam  SAMPLE_A
+    *        FILE_3.bam  SAMPLE_C
+    ?        FILE_3.bam  SAMPLE_D
+----
+
+*-q, -min-MQ* 'INT'::
+    Minimum mapping quality for an alignment to be used [0]
+
+*-Q, --min-BQ* 'INT'::
+    Minimum base quality for a base to be considered [13]
+
+*-r, --regions* 'CHR'|'CHR:POS'|'CHR:FROM-TO'|'CHR:FROM-'[,...]::
+    Only generate mpileup output in given regions. Requires the alignment files
+    to be indexed.  If used in conjunction with -l then considers the intersection;
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'FILE'::
+    As for *-r, --regions*, but regions read from FILE;
+    see *<<common_options,Common Options>>*
+
+*--ignore-RG*::
+    Ignore RG tags. Treat all reads in one alignment file as one sample.
+
+*--rf, --incl-flags* 'STR'|'INT'::
+    Required flags: skip reads with mask bits unset  [null]
+
+*--ff, --excl-flags* 'STR'|'INT'::
+    Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
+
+*-s, --samples* [&#94;]'LIST'::
+    list of sample names. See *<<common_options,Common Options>>*
+
+*-S, --samples-file* [&#94;]'FILE'::
+    file of sample names to include or exclude if prefixed with "&#94;".
+    One sample per line. This file can also be used to rename samples by giving
+    the new sample name as a second white-space-separated column, like this:
+    "old_name new_name".  If a sample name contains spaces, the spaces can be
+    escaped using the backslash character, for example "Not\ a\ good\ sample\
+    name".
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-x, --ignore-overlaps*::
+    Disable read-pair overlap detection.
+
+
+==== Output options
+
+*-a, --annotate* 'LIST'::
+    Comma-separated list of FORMAT and INFO tags to output. (case-insensitive,
+    the "FORMAT/" prefix is optional, and use "?" to list available annotations
+    on the command line) [null]:
+
+    *FORMAT/AD* .. Allelic depth (Number=R,Type=Integer)
+    *FORMAT/ADF* .. Allelic depths on the forward strand (Number=R,Type=Integer)
+    *FORMAT/ADR* .. Allelic depths on the reverse strand (Number=R,Type=Integer)
+    *FORMAT/DP* .. Number of high-quality bases (Number=1,Type=Integer)
+    *FORMAT/SP* .. Phred-scaled strand bias P-value (Number=1,Type=Integer)
+
+    *INFO/AD* .. Total allelic depth (Number=R,Type=Integer)
+    *INFO/ADF* .. Total allelic depths on the forward strand (Number=R,Type=Integer)
+    *INFO/ADR* .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+
+    *FORMAT/DV* .. Deprecated in favor of FORMAT/AD;
+            Number of high-quality non-reference bases, (Number=1,Type=Integer)
+    *FORMAT/DP4* .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR;
+            Number of high-quality ref-forward, ref-reverse,
+            alt-forward and alt-reverse bases (Number=4,Type=Integer)
+    *FORMAT/DPR* .. Deprecated in favor of FORMAT/AD;
+            Number of high-quality bases for each observed allele (Number=R,Type=Integer)
+    *INFO/DPR* .. Deprecated in favor of INFO/AD;
+            Number of high-quality bases for each observed allele (Number=R,Type=Integer)
+
+*-g, --gvcf* 'INT'[,...]::
+    output gVCF blocks of homozygous REF calls, with depth (DP) ranges
+    specified by the list of integers. For example, passing '5,15' will
+    group sites into two types of gVCF blocks, the first with minimum
+    per-sample DP from the interval [5,15) and the latter with minimum
+    depth 15 or more. In this example, sites with minimum per-sample
+    depth less than 5 will be printed as separate records, outside of
+    gVCF blocks.
+
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
+*-o, --output* 'FILE'::
+    Write output to 'FILE', rather than the default of standard output.
+    (The same short option is used for both *--open-prob* and *--output*.  If *-o*'s
+    argument contains any non-digit characters other than a leading + or -
+    sign,  it  is  interpreted  as *--output*.  Usually the filename extension
+    will take care of this, but to write to an entirely numeric filename use *-o
+    ./123* or *--output 123*.)
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
+==== Options for SNP/INDEL genotype likelihood computation
+
+*-e, --ext-prob* 'INT'::
+    Phred-scaled gap extension sequencing error probability. Reducing 'INT'
+    leads to longer indels [20]
+
+*-F, --gap-frac* 'FLOAT'::
+    Minimum fraction of gapped reads [0.002]
+
+*-h, --tandem-qual* 'INT'::
+    Coefficient for modeling homopolymer errors. Given an 'l'-long homopolymer
+    run, the sequencing error of an indel of size s is modeled as 'INT'*s/l [100]
+
+*-I, --skip-indels*::
+    Do not perform INDEL calling
+
+*-L, --max-idepth* 'INT'::
+    Skip INDEL calling if the average per-sample depth is above 'INT' [250]
+
+*-m, --min-ireads* 'INT'::
+    Minimum number gapped reads for indel candidates 'INT' [1]
+
+*-o, --open-prob* 'INT'::
+    Phred-scaled gap open sequencing error probability. Reducing 'INT' leads
+    to more indel calls. (The same short option is used for both *--open-prob*
+    and *--output*.  When -o's argument contains only an optional + or - sign
+    followed by the digits 0 to 9, it is interpreted  as *--open-prob*.) [40]
+
+*-p, --per-sample-mF*::
+    Apply *-m* and *-F* thresholds per sample to increase sensitivity of calling.
+    By default both options are applied to reads pooled from all samples.
+
+*-P, --platforms* 'STR'::
+    Comma-delimited  list  of  platforms (determined by *@RG-PL*) from which
+    indel candidates are obtained. It is recommended to collect indel
+    candidates from sequencing technologies that have low indel error rate
+    such as ILLUMINA [all]
+
+==== Examples:
+
+Call SNPs and short INDELs, then mark low quality sites and sites with the read
+depth exceeding a limit. (The read depth should be adjusted to about twice the
+average read depth as higher read depths usually indicate problematic regions
+which are often enriched for artefacts.) One may consider to add *-C50* to
+mpileup if mapping quality is overestimated  for reads containing  excessive
+mismatches.  Applying this option usually helps for BWA-backtrack alignments,
+but may not other aligners.
+----
+    bcftools mpileup -Ou -f ref.fa aln.bam | \
+    bcftools call -Ou -mv | \
+    bcftools filter -s LowQual -e '%QUAL<20 || DP>100' > var.flt.vcf
+----
 
 
 [[norm]]
 === bcftools norm ['OPTIONS'] 'file.vcf.gz'
-Left-align and normalize indels,  check if REF alleles match the reference,
+Left-align and normalize indels, check if REF alleles match the reference,
 split multiallelic sites into multiple rows; recover multiallelics from
-multiple rows.
+multiple rows. Left-alignment and normalization will only be applied if
+the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *-c, --check-ref* 'e'|'w'|'x'|'s':: 
     what to do when incorrect or missing REF allele is encountered: 
@@ -1096,22 +1566,33 @@ multiple rows.
     can swap alleles and will update genotypes (GT) and AC counts, 
     but will not attempt to fix PL or other fields.
 
+*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
+    If a record is present in multiple files, output only the first instance,
+    see *--collapse* in *<<common_options,Common Options>>*.
+    Requires *-a, --allow-overlaps*.
+
 *-D, --remove-duplicates*::
-    remove duplicate lines of the same type
+    If a record is present in multiple files, output only the first instance.
+    Alias for *-d none*.  Requires *-a, --allow-overlaps*.
 
-*-f, --fasta-ref* 'FILE'::
-    reference sequence
+*-f, --fasta-ref* 'FILE'[[fasta_ref]]::
+    reference sequence. Supplying this option will turn on left-alignment
+    and normalization, however, see also the *<<do_not_normalize,--do-not-normalize>>*
+    option below.
 
-*-m, --multiallelics* <-|+>['snps'|'indels'|'both'|'any']::
-    split multiallelic sites into biallelic records ('-') or join
-    biallelic sites into multiallelic records ('+'). An optional type string
+*-m, --multiallelics* *-*|*+*['snps'|'indels'|'both'|'any']::
+    split multiallelic sites into biallelic records (*-*) or join
+    biallelic sites into multiallelic records (*+*). An optional type string
     can follow which controls variant types which should be split or merged
     together: If only SNP records should be split or merged, specify 'snps'; if
     both SNPs and indels should be merged separately into two records, specify
     'both'; if SNPs and indels should be merged into a single record, specify
     'any'.
 
-*-N, --do-not-normalize*::
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
+*-N, --do-not-normalize*[[do_not_normalize]]::
     the '-c s' option can be used to fix or set the REF allele from the 
     reference '-f'. The '-N' option will not turn on indel normalisation
     as the '-f' option normally implies
@@ -1137,13 +1618,16 @@ multiple rows.
 *-T, --targets-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 *-w, --site-win* 'INT'::
     maximum distance between two records to consider when locally
     sorting variants which changed position during the realignment
 
 
 [[plugin]]
-=== bcftools plugin 'NAME' '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
+=== bcftools [plugin 'NAME'|+'NAME'] '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
 
 ==== VCF input options:
 
@@ -1169,10 +1653,16 @@ multiple rows.
 
 ==== VCF output options:
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
 *-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
 ==== Plugin options:
@@ -1196,6 +1686,9 @@ If htslib is not installed systemwide, set the environment variable
 
 *-v, --verbose*::
     print debugging information to debug plugin failure
+
+*-V, --version*::
+    print version string and exit
 
 ==== List of plugins coming with the distribution:
 
@@ -1233,9 +1726,13 @@ bcftools plugin
 # List available plugins
 bcftools plugin -l
 
-# One can run plugins in several ways
+# Run a plugin
 bcftools plugin counts in.vcf
+
+# Run a plugin using the abbreviated "+" notation
 bcftools +counts in.vcf
+
+# The input VCF can be streamed just like in other commands
 cat in.vcf | bcftools +counts
 
 # Print usage information of plugin "dosage"
@@ -1270,7 +1767,7 @@ const char *about(void);
 // Longer description used by 'bcftools +name -h'
 const char *usage(void);
 
-// Called once at startup, allows to initialize local variables.
+// Called once at startup, allows initialization of local variables.
 // Return 1 to suppress normal VCF/BCF header output, -1 on critical
 // errors, 0 otherwise.
 int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr);
@@ -1281,6 +1778,67 @@ bcf1_t *process(bcf1_t *rec);
 // Called after all lines have been processed to clean up
 void destroy(void);
 ----
+
+
+
+[[polysomy]]
+=== bcftools polysomy ['OPTIONS'] 'file.vcf.gz'
+Detect number of chromosomal copies in VCFs annotates with the Illumina's
+B-allele frequency (BAF) values. Note that this command is not compiled
+in by default, see the section *Optional Compilation with GSL* in the INSTALL 
+file for help.
+
+==== General options:
+
+*-o, --output-dir* 'path'::
+    output directory 
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*-s, --sample* 'string'::
+    sample name
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-v, --verbose*::
+    verbose debugging output which gives hints about the thresholds and decisions made
+    by the program. Note that the exact output can change between versions.
+
+==== Algorithm options:
+
+*-b, --peak-size* 'float'::
+    the minimum peak size considered as a good match can be from the interval [0,1]
+    where larger is stricter
+
+*-c, --cn-penalty* 'float'::
+    a penalty for increasing copy number state. How this works: multiple peaks
+    are always a better fit than a single peak, therefore the program prefers 
+    a single peak (normal copy number) unless the absolute deviation of the
+    multiple peaks fit is significantly smaller. Here the meaning of
+    "significant" is given by the 'float' from the interval [0,1] where
+    larger is stricter.
+    
+*-f, --fit-th* 'float'::
+    threshold for goodness of fit (normalized absolute deviation), smaller is stricter
+
+*-i, --include-aa*::
+    include also the AA peak in CN2 and CN3 evaluation. This usually requires increasing *-f*.
+
+*-m, --min-fraction* 'float'::
+    minimum distinguishable fraction of aberrant cells. The experience shows that trustworthy
+    are estimates of 20% and more.
+
+*-p, --peak-symmetry* 'float'::
+    a heuristics to filter failed fits where the expected peak symmetry is violated.
+    The 'float' is from the interval [0,1] and larger is stricter
 
 
 [[query]]
@@ -1369,9 +1927,10 @@ Modify header of VCF/BCF files, change sample names.
 *-s, --samples* 'FILE'::
     new sample names, one name per line, in the same order as they appear
     in the VCF file. Alternatively, only samples which need to be renamed
-    can be listed as "old_name new_name\n" pairs separated by
-    whitespaces, each on separate line.
-
+    can be listed as "old_name new_name\n" pairs separated by whitespaces,
+    each on a separate line. If a sample name contains spaces, the
+    spaces can be escaped using the backslash character, for example
+    "Not\ a\ good\ sample\ name".
 
 
 [[roh]]
@@ -1410,7 +1969,7 @@ Transition probabilities:
 
 *--AF-tag* 'TAG'::
     use the specified INFO tag 'TAG' as an allele frequency estimate
-    instead of the defaul AC and AN tags. Sites which do not have 'TAG'
+    instead of the default AC and AN tags. Sites which do not have 'TAG'
     will be skipped.
     
 *--AF-file* 'FILE'::
@@ -1442,6 +2001,9 @@ Transition probabilities:
     third column are used (position and Genetic_Map(cM)). The 'FILE' can
     be a single file or a file mask, where string "{CHROM}" is replaced with
     chromosome name.
+
+*-M, --rec-rate* 'FLOAT'::
+    constant recombination rate per bp
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -1479,8 +2041,16 @@ the program generates separate stats for intersection and the complements. By
 default only sites are compared, *-s*/*-S* must given to include also sample
 columns.
 
+*--af-bins* 'LIST'|'FILE'::
+    comma separated list of allele frequency bins (e.g. 0.1,0.5,1)
+    or a file listing the allele frequency bins one per line (e.g. 0.1\n0.5\n1)
+
+*--af-tag* 'TAG'::
+    allele frequency INFO tag to use for binning. By default the allele frequency is
+    estimated from AC/AN, if available, or directly from the genotypes (GT) if not.
+
 *-1, --1st-allele-only*::
-    consider only 1st allele at multiallelic sites
+    consider only the 1st alternate allele at multiallelic sites
 
 *-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
     see *<<common_options,Common Options>>*
@@ -1535,7 +2105,11 @@ columns.
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*-u, --user-tstv* '<TAG[:min:max:n]>'::
+    collect Ts/Tv stats for any tag using the given binning [0:1:100]
 
+*-v, --verbose*::
+    produce verbose per-site and per-sample output
 
 
 [[view]]
@@ -1558,6 +2132,9 @@ Convert between VCF and BCF. Former *bcftools subset*.
     compression level. 0 stands for uncompressed, 1 for best speed and 9 for
     best compression.
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
@@ -1576,10 +2153,16 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 
 ==== Subset options:
 *-a, --trim-alt-alleles*::
     trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT fields will also be trimmed
+
+*--force-samples*::
+    only warn about unknown subset samples
 
 *-I, --no-update*::
     do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
@@ -1592,6 +2175,15 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 
 ==== Filter options:
+Note that filter options below dealing with counting the number of alleles
+will, for speed, first check for the values of AC and AN in the INFO column to 
+avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
+that a filter like '--min-af 0.1' will be based `AC/AN' where AC and AN come
+from either INFO/AC and INFO/AN if available or FORMAT/GT if not. It will not
+filter on another field like INFO/AF. The '--include' and '--exclude' filter
+expressions should instead be used to explicitly filter based on fields in
+the INFO column, e.g. '--exclude AF<0.1'.
+
 *-c, --min-ac* 'INT'[':nref'|':alt1'|':minor'|':major'|:'nonmajor']::
     minimum allele count (INFO/AC) of sites to be printed.
     Specifying the type of allele is optional and can be set to 
@@ -1735,7 +2327,7 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        FILTER, QUAL, ID, REF, ALT[0]
+        FILTER, QUAL, ID, POS, REF, ALT[0]
 
 * 1 (or 0) to test the presence (or absence) of a flag
 
@@ -1746,9 +2338,14 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
         DP=".", DP!=".", ALT="."
 
 * missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".")
-using this expression
+using these expressions
 
-        GT="."
+        GT~"\.", GT!~"\."
+
+* missing genotypes can be matched including the phase and ploidy (".|.", "./.", ".")
+using these expressions
+
+        GT=".|.", GT="./.", GT="." 
 
 * TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
 
@@ -1792,6 +2389,10 @@ not "dp" instead of "DP".
 
     MIN(DP)>10 & MIN(DV)>3
 
+    FMT/DP>10  & FMT/GQ>10 .. both conditions must be satisfied within one sample
+
+    FMT/DP>10 && FMT/GQ>10 .. the conditions can be satisfied in different samples
+
     QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
 
     QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
@@ -1805,6 +2406,8 @@ not "dp" instead of "DP".
     ID!=@~/file    .. skip lines with ID present in the ~/file
 
     MAF[0]<0.05    .. select rare variants at 5% cutoff
+
+    POS>=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.
 
 --
 
@@ -1834,8 +2437,8 @@ chromosome separately), plots graphs and creates a PDF presentation.
 *-m, --merge*::
     Merge vcfstats files to STDOUT, skip plotting.
 
-*-p, --prefix* 'PATH'::
-    The output files prefix, add a slash to create new directory.
+*-p, --prefix* 'DIR'::
+    The output directory. This directory will be created if it does not exist.
 
 *-P, --no-PDF*::
     Skip the PDF creation step.
