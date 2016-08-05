@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2016-04-18 14:18 BST
+.\"      Date: 2016-04-26 21:06 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2016\-04\-18 14:18 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2016\-04\-26 21:06 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2016\-04\-18 14:18 BST\fR and refers to bcftools git version \fB1\&.3\-36\-g47e811c+\fR\&.
+This manual page was last updated \fB2016\-04\-26 21:06 BST\fR and refers to bcftools git version \fB1\&.3\&.1\-6\-g0848b12+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -203,6 +203,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBmerge\fR
 \&.\&. merge VCF/BCF files files from non\-overlapping sample sets
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBmpileup\fR
+\&.\&. multi\-way pileup producing genotype likelihoods
 .RE
 .sp
 .RS 4
@@ -2146,6 +2159,402 @@ see
 .RS 4
 see
 \fBCommon Options\fR
+.RE
+.SS "bcftools mpileup [\fIOPTIONS\fR] \-f \fIref\&.fa\fR \fIin\&.bam\fR [\fIin2\&.bam\fR [\&...]]"
+.sp
+Generate VCF or BCF containing genotype likelihoods for one or multiple alignment (BAM or CRAM) files\&. This is based on the original \fBsamtools mpileup\fR command (with the \fB\-v\fR or \fB\-g\fR options) producing genotype likelihoods in VCF or BCF format, but not the textual pileup output\&. The \fBmpileup\fR command was transferred to bcftools in order to avoid errors resulting from use of incompatible versions of samtools and bcftools when using in the mpileup+bcftools call pipeline\&.
+.sp
+Individuals are identified from the SM tags in the @RG header lines\&. Multiple individuals can be pooled in one alignment file, also one individual can be separated into multiple files\&. If sample identifiers are absent, each input file is regarded as one sample\&.
+.sp
+Note that there are two orthogonal ways to specify locations in the input file; via \fB\-r\fR \fIregion\fR and \fB\-l\fR \fIpositions\fR\&. The former uses (and requires) an index to do random access while the latter streams through the file contents filtering out the specified regions, requiring no index\&. The two may be used in conjunction\&. For example a BED file containing locations of genes in chromosome 20 could be specified using \fB\-r 20 \-l chr20\&.bed\fR, meaning that the index is used to find chromosome 20 and then it is filtered for the regions listed in the BED file\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBInput options\fR
+.RS 4
+.PP
+\fB\-6, \-\-illumina1\&.3+\fR
+.RS 4
+Assume the quality is in the Illumina 1\&.3+ encoding\&.
+.RE
+.PP
+\fB\-A, \-\-count\-orphans\fR
+.RS 4
+Do not skip anomalous read pairs in variant calling\&.
+.RE
+.PP
+\fB\-b, \-\-bam\-list\fR \fIFILE\fR
+.RS 4
+List of input alignment files, one file per line [null]
+.RE
+.PP
+\fB\-B, \-\-no\-BAQ\fR
+.RS 4
+Disable probabilistic realignment for the computation of base alignment quality (BAQ)\&. BAQ is the Phred\-scaled probability of a read base being misaligned\&. Applying this option greatly helps to reduce false SNPs caused by misalignments\&.
+.RE
+.PP
+\fB\-C, \-\-adjust\-MQ\fR \fIINT\fR
+.RS 4
+Coefficient for downgrading mapping quality for reads containing excessive mismatches\&. Given a read with a phred\-scaled probability q of being generated from the mapped posi\- tion, the new mapping quality is about sqrt((INT\-q)/INT)*INT\&. A zero value disables this functionality; if enabled, the recommended value for BWA is 50\&. [0]
+.RE
+.PP
+\fB\-d, \-\-max\-depth\fR \fIINT\fR
+.RS 4
+At a position, read maximally
+\fIINT\fR
+reads per input file\&. Note that bcftools has a minimum value of
+\fI8000/n\fR
+where
+\fIn\fR
+is the number of input files given to mpileup\&. This means the default is highly likely to be increased\&. Once above the cross\-sample minimum of 8000 the \-d parameter will have an effect\&. [250]
+.RE
+.PP
+\fB\-E, \-\-redo\-BAQ\fR
+.RS 4
+Recalculate BAQ on the fly, ignore existing BQ tags
+.RE
+.PP
+\fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
+.RS 4
+The
+\fBfaidx\fR\-indexed reference file in the FASTA format\&. The file can be optionally compressed by
+\fBbgzip\fR
+[null]
+.RE
+.PP
+\fB\-G, \-\-exclude\-RG\fR \fIFILE\fR
+.RS 4
+Exclude reads from readgroups listed in FILE (one @RG\-ID per line)
+.RE
+.PP
+\fB\-l, \-\-positions\fR \fIFILE\fR
+.RS 4
+BED or position list file containing a list of regions or sites where output should be generated\&. Position list files contain two columns (chromosome and position) and start counting from 1\&. BED files contain at least 3 columns (chromosome, start and end position) and are 0\-based half\-open\&. While it is possible to mix both position\-list and BED coordinates in the same file, this is strongly ill advised due to the differing coordinate systems\&. [null]
+.RE
+.PP
+\fB\-q, \-min\-MQ\fR \fIINT\fR
+.RS 4
+Minimum mapping quality for an alignment to be used [0]
+.RE
+.PP
+\fB\-Q, \-\-min\-BQ\fR \fIINT\fR
+.RS 4
+Minimum base quality for a base to be considered [13]
+.RE
+.PP
+\fB\-r, \-\-region\fR \fISTR\fR
+.RS 4
+Only generate output in region\&. Requires the alignment files to be indexed\&. If used in conjunction with \-l then considers the intersection of the two requests [all sites]
+.RE
+.PP
+\fB\-R, \-\-ignore\-RG\fR
+.RS 4
+Ignore RG tags\&. Treat all reads in one alignment file as one sample\&.
+.RE
+.PP
+\fB\-\-rf, \-\-incl\-flags\fR \fISTR\fR|\fIINT\fR
+.RS 4
+Required flags: skip reads with mask bits unset [null]
+.RE
+.PP
+\fB\-\-ff, \-\-excl\-flags\fR \fISTR\fR|\fIINT\fR
+.RS 4
+Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
+.RE
+.PP
+\fB\-x, \-\-ignore\-overlaps\fR
+.RS 4
+Disable read\-pair overlap detection\&.
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBOutput options\fR
+.RS 4
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+Write output to
+\fIFILE\fR, rather than the default of standard output\&. (The same short option is used for both
+\fB\-\-open\-prob\fR
+and
+\fB\-\-output\fR\&. If
+\fB\-o\fR\*(Aqs argument contains any non\-digit characters other than a leading + or \- sign, it is interpreted as
+\fB\-\-output\fR\&. Usually the filename extension will take care of this, but to write to an entirely numeric filename use
+\fB\-o \&./123\fR
+or
+\fB\-\-output 123\fR\&.)
+.RE
+.PP
+\fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-output\-tags\fR \fILIST\fR
+.RS 4
+Comma\-separated list of FORMAT and INFO tags to output (case\-insensitive) [null]:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBAD\fR
+\&.\&. Allelic depth, FORMAT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBINFO/AD\fR
+\&.\&. Total allelic depth, INFO
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBADF\fR
+\&.\&. Allelic depths on the forward strand, FORMAT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBINFO/ADF\fR
+\&.\&. Total allelic depths on the forward strand, INFO
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBADR\fR
+\&.\&. Allelic depths on the reverse strand, FORMAT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBINFO/ADR\fR
+\&.\&. Total allelic depths on the reverse strand, INFO
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBDP\fR
+\&.\&. Number of high\-quality bases, FORMAT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBSP\fR
+\&.\&. Phred\-scaled strand bias P\-value, FORMAT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBDV\fR
+\&.\&. Deprecated in favor of AD; Number of high\-quality non\-reference bases, FORMAT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBDPR\fR
+\&.\&. Deprecated in favor of AD; Number of high\-quality bases for each observed allele, FORMAT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBINFO/DPR\fR
+\&.\&. Deprecated in favor of INFO/AD; Number of high\-quality bases for each observed allele, INFO
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBDP4\fR
+\&.\&. Deprecated in favor of ADF and ADR; Number of high\-quality ref\-forward, ref\-reverse, alt\-forward and alt\-reverse bases, FORMAT
+.RE
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBOptions for SNP/INDEL genotype likelihood computation\fR
+.RS 4
+.PP
+\fB\-e, \-\-ext\-prob\fR \fIINT\fR
+.RS 4
+Phred\-scaled gap extension sequencing error probability\&. Reducing
+\fIINT\fR
+leads to longer indels [20]
+.RE
+.PP
+\fB\-F, \-\-gap\-frac\fR \fIFLOAT\fR
+.RS 4
+Minimum fraction of gapped reads [0\&.002]
+.RE
+.PP
+\fB\-h, \-\-tandem\-qual\fR \fIINT\fR
+.RS 4
+Coefficient for modeling homopolymer errors\&. Given an
+\fIl\fR\-long homopolymer run, the sequencing error of an indel of size s is modeled as
+\fIINT\fR*s/l [100]
+.RE
+.PP
+\fB\-I, \-\-skip\-indels\fR
+.RS 4
+Do not perform INDEL calling
+.RE
+.PP
+\fB\-L, \-\-max\-idepth\fR \fIINT\fR
+.RS 4
+Skip INDEL calling if the average per\-sample depth is above
+\fIINT\fR
+[250]
+.RE
+.PP
+\fB\-m, \-\-min\-ireads\fR \fIINT\fR
+.RS 4
+Minimum number gapped reads for indel candidates
+\fIINT\fR
+[1]
+.RE
+.PP
+\fB\-o, \-\-open\-prob\fR \fIINT\fR
+.RS 4
+Phred\-scaled gap open sequencing error probability\&. Reducing
+\fIINT\fR
+leads to more indel calls\&. (The same short option is used for both
+\fB\-\-open\-prob\fR
+and
+\fB\-\-output\fR\&. When \-o\(cqs argument contains only an optional + or \- sign followed by the digits 0 to 9, it is interpreted as
+\fB\-\-open\-prob\fR\&.) [40]
+.RE
+.PP
+\fB\-p, \-\-per\-sample\-mF\fR
+.RS 4
+Apply
+\fB\-m\fR
+and
+\fB\-F\fR
+thresholds per sample to increase sensitivity of calling\&. By default both options are applied to reads pooled from all samples\&.
+.RE
+.PP
+\fB\-P, \-\-platforms\fR \fISTR\fR
+.RS 4
+Comma\-delimited list of platforms (determined by
+\fB@RG\-PL\fR) from which indel candidates are obtained\&. It is recommended to collect indel candidates from sequencing technologies that have low indel error rate such as ILLUMINA [all]
+.RE
+.RE
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.ps +1
+\fBExamples:\fR
+.RS 4
+.sp
+Call SNPs and short INDELs, then mark low quality sites and sites with the read depth exceeding a limit\&. (The read depth should be adjusted to about twice the average read depth as higher read depths usually indicate problematic regions which are often enriched for artefacts\&.) One may consider to add \fB\-C50\fR to mpileup if mapping quality is overestimated for reads containing excessive mismatches\&. Applying this option usually helps for BWA\-backtrack alignments, but may not other aligners\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools mpileup \-Ou \-f ref\&.fa aln\&.bam | \e
+    bcftools call \-Ou \-mv | \e
+    bcftools filter \-s LowQual \-e \*(Aq%QUAL<20 || DP>100\*(Aq > var\&.flt\&.vcf
+.fi
+.if n \{\
+.RE
+.\}
 .RE
 .SS "bcftools norm [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
 .sp
