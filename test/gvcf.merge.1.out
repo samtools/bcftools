@@ -1,0 +1,30 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=LowGQX,Description="Locus GQX is less than 30 or not present">
+##FILTER=<ID=HighDPFRatio,Description="The fraction of basecalls filtered out at a site is greater than 0.3">
+##FILTER=<ID=nc,Description="No-call">
+##contig=<ID=chrY,length=59373566,assembly=B37,md5=1e86411d73e6f00a10590f976be01623,species="Homo sapiens">
+##contig=<ID=chrM,length=16569,assembly=B37,md5=c68f52674c9fb33aef52dcf399755519,species="Homo sapiens">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=HQ,Number=2,Type=Integer,Description="Haplotype Quality">
+##FORMAT=<ID=GQX,Number=1,Type=Integer,Description="Minimum of {Genotype quality assuming variant position,Genotype quality assuming non-variant position}">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=EHQ,Number=2,Type=Integer,Description="Haplotype Quality, Equal Allele Fraction Assumption">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Filtered basecall depth used for site genotyping">
+##FORMAT=<ID=DPF,Number=1,Type=Integer,Description="Basecalls filtered from input prior to site genotyping">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of Samples With Data">
+##INFO=<ID=MATEID,Number=1,Type=String,Description="ID of mate breakend">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele">
+##INFO=<ID=CGA_XR,Number=A,Type=String,Description="Per-ALT external database reference (dbSNP, COSMIC, etc)">
+##INFO=<ID=CGA_BF,Number=1,Type=Float,Description="Frequency in baseline">
+##INFO=<ID=CGA_FI,Number=A,Type=String,Description="Functional impact annotation">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the region described in this record">
+##INFO=<ID=BLOCKAVG_min30p3a,Number=0,Type=Flag,Description="Non-variant site block. All sites in a block are constrained to be non-variant, have the same filter value, and have all sample values in range [x,y], y <= max(x+3,(x*1.3)). All printed site block sample values are the minimum observed in the region spanned by the block">
+##contig=<ID=chr1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	G06	D05	H09
+chr1	10106	.	C	.	0	LowGQX	BLOCKAVG_min30p3a;AN=2	GT:GQX:DP:DPF	./.:.:.:.	0/0:12:5:0	./.:.:.:.
+chr1	10107	.	C	.	0	LowGQX;HighDPFRatio	BLOCKAVG_min30p3a;AN=4	GT:GQX:DP:DPF	.:.:0:1	0/0:12:5:0	0/0:5:2:0
+chr1	10108	.	N	.	0	LowGQX;HighDPFRatio	END=10110;BLOCKAVG_min30p3a;AN=2	GT:GQX:DP:DPF	.:.:0:1	./.:.:.:.	0/0:5:2:0
+chr1	10111	.	N	.	0	LowGQX	END=10120;BLOCKAVG_min30p3a;AN=2	GT:GQX:DP:DPF	./.:.:.:.	./.:.:.:.	0/0:5:2:0
