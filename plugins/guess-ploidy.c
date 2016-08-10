@@ -64,7 +64,8 @@ typedef struct
     double *tmpf, *pl2p, gt_err_prob;
     float *af;
     int maf;
-    int32_t *arr, narr;
+    int32_t *arr, narr, nfarr;
+    float *farr;
     bcf_srs_t *sr;
     bcf_hdr_t *hdr;
 }
@@ -122,7 +123,8 @@ void process_region_guess(args_t *args)
     while ( bcf_sr_next_line(args->sr) )
     {
         bcf1_t *rec = bcf_sr_get_line(args->sr,0);
-        if ( !args->include_indels && !(bcf_get_variant_types(rec)&VCF_SNP) )  continue;
+        if ( rec->n_allele==1 ) continue;
+        if ( !args->include_indels && !(bcf_get_variant_types(rec)&VCF_SNP) ) continue;
 
         double freq[2] = {0,0}, sum;
         int ismpl,i;
@@ -174,42 +176,161 @@ void process_region_guess(args_t *args)
                 freq[1] += tmp[1]+2*tmp[2];
             }
         }
-        else
+        else if ( args->tag & GUESS_PL )    // use PL guess the ploidy, restrict to first ALT allele
         {
-            // use PL or GL to guess the ploidy, restrict to first ALT allele
-            int npl = bcf_get_format_int32(args->hdr,rec,args->tag&GUESS_PL?"PL":"GL",&args->arr,&args->narr);
+            int npl = bcf_get_format_int32(args->hdr,rec,"PL",&args->arr,&args->narr);
             if ( npl<=0 ) continue;
             npl /= args->nsample;
-            for (ismpl=0; ismpl<args->nsample; ismpl++)
+            int ndip_gt = rec->n_allele*(rec->n_allele+1)/2;
+            if ( npl==ndip_gt )             // diploid
             {
-                int32_t *ptr = args->arr + ismpl*npl;
-                double *tmp = args->tmpf + ismpl*3;
+                for (ismpl=0; ismpl<args->nsample; ismpl++)
+                {
+                    int32_t *ptr = args->arr + ismpl*npl;
+                    double *tmp = args->tmpf + ismpl*3;
 
-                // restrict to first ALT
-                if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing || ptr[2]==bcf_int32_missing ) 
-                {
-                    tmp[0] = -1;
-                    continue;
-                }
-                if ( ptr[0]==ptr[1] && ptr[0]==ptr[2] )
-                {
-                    tmp[0] = -1;
-                    continue;
-                }
-                if ( args->tag&GUESS_PL )
-                {
-                    for (i=0; i<3; i++)
-                        tmp[i] = (ptr[i]<0 || ptr[i]>=256) ? args->pl2p[255] : args->pl2p[ptr[i]];
-                }
-                else
-                    for (i=0; i<3; i++) tmp[i] = pow(10.,ptr[i]);   // GL
+                    // restrict to first ALT
+                    if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing || ptr[2]==bcf_int32_missing ) 
+                    {
+                        tmp[0] = -1;
+                        continue;
+                    }
+                    if ( ptr[0]==ptr[1] && ptr[0]==ptr[2] ) // non-informative
+                    {
+                        tmp[0] = -1;
+                        continue;
+                    }
+                    if ( ptr[2]==bcf_int32_vector_end )
+                    {
+                        tmp[0] = (ptr[0]<0 || ptr[0]>=256) ? args->pl2p[255] : args->pl2p[ptr[0]];
+                        tmp[1] = args->pl2p[255];
+                        tmp[2] = (ptr[1]<0 || ptr[1]>=256) ? args->pl2p[255] : args->pl2p[ptr[1]];
+                    }
+                    else
+                        for (i=0; i<3; i++)
+                            tmp[i] = (ptr[i]<0 || ptr[i]>=256) ? args->pl2p[255] : args->pl2p[ptr[i]];
 
-                sum = 0;
-                for (i=0; i<3; i++) sum += tmp[i];
-                for (i=0; i<3; i++) tmp[i] /= sum;
-                freq[0] += 2*tmp[0]+tmp[1];
-                freq[1] += tmp[1]+2*tmp[2];
+                    sum = 0;
+                    for (i=0; i<3; i++) sum += tmp[i];
+                    for (i=0; i<3; i++) tmp[i] /= sum;
+
+                    if ( ptr[2]==bcf_int32_vector_end )
+                    {
+                        freq[0] += tmp[0];
+                        freq[1] += tmp[2];
+                    }
+                    else
+                    {
+                        freq[0] += 2*tmp[0]+tmp[1];
+                        freq[1] += tmp[1]+2*tmp[2];
+                    }
+                }
             }
+            else if ( npl==rec->n_allele )  // all samples haploid
+            {
+                for (ismpl=0; ismpl<args->nsample; ismpl++)
+                {
+                    int32_t *ptr = args->arr + ismpl*npl;
+                    double *tmp = args->tmpf + ismpl*3;
+
+                    // restrict to first ALT
+                    if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing ) 
+                    {
+                        tmp[0] = -1;
+                        continue;
+                    }
+                    tmp[0] = (ptr[0]<0 || ptr[0]>=256) ? args->pl2p[255] : args->pl2p[ptr[0]];
+                    tmp[1] = args->pl2p[255];
+                    tmp[2] = (ptr[1]<0 || ptr[1]>=256) ? args->pl2p[255] : args->pl2p[ptr[1]];
+
+                    sum = 0;
+                    for (i=0; i<3; i++) sum += tmp[i];
+                    for (i=0; i<3; i++) tmp[i] /= sum;
+
+                    freq[0] += tmp[0];
+                    freq[1] += tmp[2];
+                }
+            }
+            else
+                continue;   // neither diploid nor haploid
+        }
+        else    // use GL
+        {
+            int ngl = bcf_get_format_float(args->hdr,rec,"GL",&args->farr,&args->nfarr);
+            if ( ngl<=0 ) continue;
+            ngl /= args->nsample;
+            int ndip_gt = rec->n_allele*(rec->n_allele+1)/2;
+            if ( ngl==ndip_gt )             // diploid
+            {
+                for (ismpl=0; ismpl<args->nsample; ismpl++)
+                {
+                    float *ptr = args->farr + ismpl*ngl;
+                    double *tmp = args->tmpf + ismpl*3;
+
+                    // restrict to first ALT
+                    if ( bcf_float_is_missing(ptr[0]) || bcf_float_is_missing(ptr[1]) || bcf_float_is_missing(ptr[2]) ) 
+                    {
+                        tmp[0] = -1;
+                        continue;
+                    }
+                    if ( ptr[0]==ptr[1] && ptr[0]==ptr[2] ) // non-informative
+                    {
+                        tmp[0] = -1;
+                        continue;
+                    }
+                    if ( bcf_float_is_vector_end(ptr[2]) )
+                    {
+                        tmp[0] = pow(10.,ptr[0]);
+                        tmp[1] = 1e-26;             // arbitrary small value for a het
+                        tmp[2] = pow(10.,ptr[1]);
+                    }
+                    else
+                        for (i=0; i<3; i++)
+                            tmp[i] = pow(10.,ptr[i]);
+
+                    sum = 0;
+                    for (i=0; i<3; i++) sum += tmp[i];
+                    for (i=0; i<3; i++) tmp[i] /= sum;
+
+                    if ( bcf_float_is_vector_end(ptr[2]) )
+                    {
+                        freq[0] += tmp[0];
+                        freq[1] += tmp[2];
+                    }
+                    else
+                    {
+                        freq[0] += 2*tmp[0]+tmp[1];
+                        freq[1] += tmp[1]+2*tmp[2];
+                    }
+                }
+            }
+            else if ( ngl==rec->n_allele )  // all samples haploid
+            {
+                for (ismpl=0; ismpl<args->nsample; ismpl++)
+                {
+                    float *ptr = args->farr + ismpl*ngl;
+                    double *tmp = args->tmpf + ismpl*3;
+
+                    // restrict to first ALT
+                    if ( bcf_float_is_missing(ptr[0]) || bcf_float_is_missing(ptr[1]) ) 
+                    {
+                        tmp[0] = -1;
+                        continue;
+                    }
+                    tmp[0] = pow(10.,ptr[0]);
+                    tmp[1] = 1e-26;
+                    tmp[2] = pow(10.,ptr[1]);
+
+                    sum = 0;
+                    for (i=0; i<3; i++) sum += tmp[i];
+                    for (i=0; i<3; i++) tmp[i] /= sum;
+
+                    freq[0] += tmp[0];
+                    freq[1] += tmp[2];
+                }
+            }
+            else
+                continue;   // neither diploid nor haploid
         }
         if ( args->af_tag )
         {
@@ -291,7 +412,7 @@ int run(int argc, char **argv)
             case 't':
                 if ( !strcasecmp(optarg,"GT") ) args->tag = GUESS_GT;
                 else if ( !strcasecmp(optarg,"PL") ) args->tag = GUESS_PL;
-                else if ( !strcasecmp(optarg,"GL") ) { args->tag = GUESS_GL; error("GL tag not currently supported\n"); }
+                else if ( !strcasecmp(optarg,"GL") ) args->tag = GUESS_GL;
                 else error("The argument not recognised, expected --tag GT, PL or GL: %s\n", optarg);
                 break;
             case 'h':
@@ -395,6 +516,7 @@ int run(int argc, char **argv)
     free(args->counts);
     free(args->stats.counts);
     free(args->arr);
+    free(args->farr);
     free(args->af);
     free(args);
     return 0;
