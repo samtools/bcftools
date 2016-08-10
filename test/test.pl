@@ -186,9 +186,6 @@ test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'dosage.out',cmd=>'+dosage');
 test_vcf_plugin($opts,in=>'fixploidy',out=>'fixploidy.out',cmd=>'+fixploidy --no-version',args=>'-- -s {PATH}/fixploidy.samples -p {PATH}/fixploidy.ploidy');
-test_vcf_plugin($opts,in=>'vcf2sex',out=>'vcf2sex.out',cmd=>'+vcf2sex',args=>'-- -n 5');
-test_vcf_plugin($opts,in=>'vcf2sex',out=>'vcf2sex.out',cmd=>'+vcf2sex',args=>'-- -g GT');
-test_vcf_plugin($opts,in=>'vcf2sex',out=>'vcf2sex.out',cmd=>'+vcf2sex',args=>'-- -g GT -n 5');
 test_vcf_plugin($opts,in=>'view.PL',out=>'guess-ploidy.PL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view.GL',out=>'guess-ploidy.GL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view.GL',out=>'view.PL.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gl-to-pl');
