@@ -395,10 +395,14 @@ static void filters_set_info_int(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     if ( tok->idx==-2 )
     {
-        int i, n = bcf_get_info_int32(flt->hdr,line,tok->tag,&flt->tmpi,&flt->mtmpi);
-        tok->nvalues = n;
-        hts_expand(double,n,tok->mvalues,tok->values);
-        for (i=0; i<n; i++) tok->values[i] = flt->tmpi[i];
+        int i;
+        tok->nvalues = bcf_get_info_int32(flt->hdr,line,tok->tag,&flt->tmpi,&flt->mtmpi);
+        if ( tok->nvalues<=0 ) tok->nvalues = 0;
+        else
+        {
+            hts_expand(double,tok->nvalues,tok->mvalues,tok->values);
+            for (i=0; i<tok->nvalues; i++) tok->values[i] = flt->tmpi[i];
+        }
     }
     else
     {
@@ -417,13 +421,14 @@ static void filters_set_info_float(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     if ( tok->idx==-2 )
     {
+        int i;
         tok->nvalues = bcf_get_info_float(flt->hdr,line,tok->tag,&flt->tmpf,&flt->mtmpf);
-        if ( tok->nvalues<0 ) tok->nvalues = 0;
+        if ( tok->nvalues<=0 ) tok->nvalues = 0;
         else
         {
-            int i;
+            hts_expand(double,tok->nvalues,tok->mvalues,tok->values);
             for (i=0; i<tok->nvalues; i++)
-                if ( bcf_float_is_missing(tok->values[i]) ) bcf_double_set_missing(tok->values[i]);
+                if ( bcf_float_is_missing(flt->tmpf[i]) ) bcf_double_set_missing(tok->values[i]);
                 else tok->values[i] = flt->tmpf[i];
         }
     }
