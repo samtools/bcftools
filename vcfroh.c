@@ -453,9 +453,9 @@ static void flush_viterbi(args_t *args)
         const char *chr = bcf_hdr_id2name(args->hdr,args->rids[i]);
         for (j=0; j<nsites; j++)
         {
-            int state = vpath[j*2];
-            double pval = fwd[j*2 + state];
-            printf("%s\t%d\t%d\t%e\n", chr,args->sites[ioff+j]+1,state==STATE_AZ ? 1 : 0, pval);
+            int state = vpath[j*2]==STATE_AZ ? 1 : 0;
+            double *pval = fwd + j*2;
+            printf("%s\t%d\t%d\t%.1f\n", chr,args->sites[ioff+j]+1, state, phred_score(1.0-pval[state]));
         }
     }
 }
