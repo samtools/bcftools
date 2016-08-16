@@ -32,6 +32,7 @@ THE SOFTWARE.  */
 #include <htslib/kseq.h>
 #include "bcftools.h"
 #include "HMM.h"
+#include "smpl_ilist.h"
 
 #define STATE_HW 0        // normal state, follows Hardy-Weinberg allele frequencies
 #define STATE_AZ 1        // autozygous state
@@ -72,9 +73,11 @@ typedef struct _args_t
 
     int ntot, nused;            // some stats to detect if things didn't go awfully wrong
     int ismpl, nsmpl;           // index of query sample
-    char *estimate_AF, *sample; // list of samples for AF estimate and query sample
+    smpl_ilist_t *smpl;         // list of --estimate-AF samples 
+    char *sample;               // name of the query sample
+    char *estimate_AF;          // list of samples for AF estimate and query sample
     char **argv, *targets_list, *regions_list, *af_fname, *af_tag;
-    int argc, fake_PLs, snps_only, vi_training;
+    int argc, fake_PLs, snps_only, vi_training, pl_hdr_id;
 }
 args_t;
 
@@ -100,45 +103,69 @@ static void init_data(args_t *args)
     }
     if ( !bcf_hdr_nsamples(args->hdr) ) error("No samples in the VCF?\n");
 
-    // Set samples
+    if ( !args->fake_PLs )
+    {
+        args->pl_hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL");
+        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,args->pl_hdr_id) )
+            error("Error: The FORMAT/PL tag not found in the header, consider running with -G\n");
+        if ( bcf_hdr_id2type(args->hdr,BCF_HL_FMT,args->pl_hdr_id)!=BCF_HT_INT ) 
+            error("Error: The FORMAT/PL tag not defined as Integer in the header\n");
+    }
+
     kstring_t str = {0,0,0};
-    if ( args->estimate_AF && strcmp("-",args->estimate_AF) )
-    {
-        int i, n;
-        char **smpls = hts_readlist(args->estimate_AF, 1, &n);
-
-        // Make sure the query sample is included
-        for (i=0; i<n; i++)
-            if ( !strcmp(args->sample,smpls[i]) ) break;
-
-        // Add the query sample if not present
-        if ( i!=n ) kputs(args->sample, &str);
-
-        for (i=0; i<n; i++)
-        {
-            if ( str.l ) kputc(',', &str);
-            kputs(smpls[i], &str);
-            free(smpls[i]);
-        }
-        free(smpls);
-    }
-    else if ( !args->estimate_AF )
-        kputs(args->sample, &str);
-
-    if ( str.l )
-    {
-        int ret = bcf_hdr_set_samples(args->hdr, str.s, 0);
-        if ( ret<0 ) error("Error parsing the list of samples: %s\n", str.s);
-        else if ( ret>0 ) error("The %d-th sample not found in the VCF\n", ret);
-    }
-
     if ( args->af_tag )
+    {
         if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) )
             error("No such INFO tag in the VCF: %s\n", args->af_tag);
 
-    args->nsmpl = bcf_hdr_nsamples(args->hdr);
-    args->ismpl = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, args->sample);
+        kputs(args->sample, &str);
+    }
+    else if ( args->estimate_AF && strcmp("-",args->estimate_AF) )
+    {
+        args->smpl = smpl_ilist_init(args->hdr, args->estimate_AF, 1, SMPL_NONE);
+
+        // Make sure the query sample is included
+        int i, iqry = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, args->sample);
+        for (i=0; i < args->smpl->n; i++)
+            if ( args->smpl->idx[i] == iqry ) break;
+
+        // Add the query sample if not present
+        if ( i == args->smpl->n )
+        {
+            args->smpl->n++;
+            args->smpl->idx = (int*) realloc(args->smpl->idx,sizeof(int)*args->smpl->n);
+            args->smpl->idx[i] = iqry;
+        }
+
+        // Can we subset?
+        if ( args->smpl->n < bcf_hdr_nsamples(args->hdr) )
+        {
+            for (i=0; i<args->smpl->n; i++)
+            {
+                if ( str.l ) kputc(',', &str);
+                kputs(args->hdr->samples[args->smpl->idx[i]], &str);
+            }
+        }
+    }
+
+    // if plain VCF, subset to these samples to avoid slow parsing of format fields
+    if ( str.l && (bcf_sr_get_reader(args->files,0))->file->format.format==vcf )
+    {
+        int ret = bcf_hdr_set_samples(args->hdr, str.s, 0);
+        if ( ret<0 ) error("Error parsing the list of samples: %s\n", str.s);
+        else if ( ret>0 ) error("The %d-th sample not found in the VCF: %s\n", ret,str.s);
+
+        if ( args->smpl )
+        {
+            // the indexes must be updated
+            smpl_ilist_destroy(args->smpl);
+            args->smpl = smpl_ilist_init(args->hdr, str.s, 0, SMPL_NONE);
+        }
+    }
     free(str.s);
+
+    args->nsmpl = args->smpl ? args->smpl->n : bcf_hdr_nsamples(args->hdr);
+    args->ismpl = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, args->sample);
 
     int i;
     for (i=0; i<256; i++) args->pl2p[i] = pow(10., -i/10.);
@@ -175,6 +202,7 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    if (args->smpl) smpl_ilist_destroy(args->smpl);
     free(args->sites);
     free(args->eprob);
     free(args->sample);
@@ -255,7 +283,6 @@ static double get_genmap_rate(args_t *args, int start, int end)
     // position j to be equal or larger than end
     int j = i;
     while ( j+1<args->ngenmap && args->genmap[j].pos < end ) j++;
-
     if ( i==j )
     {
         args->igenmap = i;
@@ -272,7 +299,7 @@ static double get_genmap_rate(args_t *args, int start, int end)
 void set_tprob_genmap(hmm_t *hmm, uint32_t prev_pos, uint32_t pos, void *data, double *tprob)
 {
     args_t *args = (args_t*) data;
-    double ci = get_genmap_rate(args, pos - prev_pos, pos);
+    double ci = get_genmap_rate(args, prev_pos, pos);
     MAT(tprob,2,STATE_HW,STATE_AZ) *= ci;
     MAT(tprob,2,STATE_AZ,STATE_HW) *= ci;
     MAT(tprob,2,STATE_AZ,STATE_AZ)  = 1 - MAT(tprob,2,STATE_HW,STATE_AZ);
@@ -473,14 +500,15 @@ int estimate_AF(args_t *args, bcf1_t *line, double *alt_freq)
     if ( !args->nitmp )
     {
         args->nitmp = bcf_get_genotypes(args->hdr, line, &args->itmp, &args->mitmp);
-        if ( args->nitmp != 2*args->nsmpl ) return -1;     // not diploid?
-        args->nitmp /= args->nsmpl;
+        if ( args->nitmp != 2*bcf_hdr_nsamples(args->hdr) ) return -1;     // not diploid?
+        args->nitmp /= bcf_hdr_nsamples(args->hdr);
     }
 
     int i, nalt = 0, nref = 0;
     for (i=0; i<args->nsmpl; i++)
     {
-        int32_t *gt = &args->itmp[i*args->nitmp];
+        int ismpl = args->smpl ? args->smpl->idx[i] : i;
+        int32_t *gt = &args->itmp[ismpl*args->nitmp];
 
         if ( bcf_gt_is_missing(gt[0]) || bcf_gt_is_missing(gt[1]) ) continue;
 
@@ -553,8 +581,8 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
         if ( !args->nitmp )
         {
             args->nitmp = bcf_get_genotypes(args->hdr, line, &args->itmp, &args->mitmp);
-            if ( args->nitmp != 2*args->nsmpl ) return -1;     // not diploid?
-            args->nitmp /= args->nsmpl;
+            if ( args->nitmp != 2*bcf_hdr_nsamples(args->hdr) ) return -1;     // not diploid?
+            args->nitmp /= bcf_hdr_nsamples(args->hdr);
         }
 
         int32_t *gt = &args->itmp[args->ismpl*args->nitmp];
@@ -580,11 +608,46 @@ int parse_line(args_t *args, bcf1_t *line, double *alt_freq, double *pdg)
     }
     else
     {
+#if SLOWER
         args->nitmp = bcf_get_format_int32(args->hdr, line, "PL", &args->itmp, &args->mitmp);
         if ( args->nitmp != args->nsmpl*line->n_allele*(line->n_allele+1)/2. ) return -1;     // not diploid?
         args->nitmp /= args->nsmpl;
 
         int32_t *pl = &args->itmp[args->ismpl*args->nitmp];
+        if ( pl[0]<0 || pl[1]<0 || pl[2]<0 ) return -1;     // missing values or different ploidy
+#else
+        // this is not noticeably faster, but since it's done, let's leave it here
+        int32_t pl[3];
+
+        // low level access to avoid slow bcf_get_format_int32()
+        if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
+
+        int i;
+        for (i=0; i<line->n_fmt; i++)
+            if ( line->d.fmt[i].id==args->pl_hdr_id ) break;
+        if ( i==line->n_fmt ) return -1;                    // the tag is not present in this record
+
+        bcf_fmt_t *fmt = &line->d.fmt[i];
+        if ( fmt->n != line->n_allele*(line->n_allele+1)/2. ) return -1;     // not diploid
+
+        #define BRANCH(type_t) \
+        { \
+            type_t *p = (type_t*)fmt->p + args->ismpl*fmt->n; \
+            for (i=0; i<3; i++) \
+            { \
+                if ( p[i]<0 ) return -1;    /* missing value */ \
+                pl[i] = p[i]; \
+            } \
+        }
+        switch (fmt->type) {
+            case BCF_BT_INT8:  BRANCH(int8_t); break;
+            case BCF_BT_INT16: BRANCH(int16_t); break;
+            case BCF_BT_INT32: BRANCH(int32_t); break;
+            default: fprintf(stderr,"TODO: %s:%d .. fmt->type=%d\n", __FILE__,__LINE__, fmt->type); exit(1);
+        }
+        #undef BRANCH
+#endif
+
         pdg[0] = pl[0] < 256 ? args->pl2p[ pl[0] ] : 1.0;
         pdg[1] = pl[1] < 256 ? args->pl2p[ pl[1] ] : 1.0;
         pdg[2] = pl[2] < 256 ? args->pl2p[ pl[2] ] : 1.0;

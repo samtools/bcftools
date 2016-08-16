@@ -46,7 +46,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o bin.o hclust.o version.o \
-           regidx.o \
+           regidx.o smpl_ilist.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
@@ -185,6 +185,7 @@ mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(hts
 bam_sample.o: $(bam_sample_h) $(htslib_hts_h) $(HTSDIR)/htslib/khash_str2int.h
 version.o: version.h version.c
 hclust.o: hclust.c hclust.h
+smpl_ilist.o: smpl_ilist.c smpl_ilist.h
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
