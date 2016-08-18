@@ -33,6 +33,7 @@ THE SOFTWARE.  */
 #include <htslib/faidx.h>
 #include <math.h>
 #include <ctype.h>
+#include <time.h>
 #include "bcftools.h"
 #include "regidx.h"
 #include "vcmp.h"
@@ -2229,6 +2230,8 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
         else
             ksprintf(&str, " %s", argv[i]);
     }
+    kputs("; Date=", &str);
+    time_t tm; time(&tm); kputs(ctime(&tm), &str);
     kputc('\n', &str);
     bcf_hdr_append(hdr,str.s);
     free(str.s);
