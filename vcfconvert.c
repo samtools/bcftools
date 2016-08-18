@@ -373,6 +373,7 @@ static void gensample_to_vcf(args_t *args)
 
     int i, nsamples;
     char **samples = hts_readlist(sample_fname, 1, &nsamples);
+    if ( !samples ) error("Could not read %s\n", sample_fname);
     for (i=2; i<nsamples; i++)
     {
         se = samples[i]; while ( *se && !isspace(*se) ) se++;
@@ -493,6 +494,7 @@ static void haplegendsample_to_vcf(args_t *args)
 
     int i, nrows, nsamples;
     char **samples = hts_readlist(sample_fname, 1, &nrows);
+    if ( !samples ) error("Could not read %s\n", sample_fname);
     nsamples = nrows - 1;
 
     // sample_fname should contain a header line, so need to ignore first row
@@ -610,6 +612,7 @@ static void hapsample_to_vcf(args_t *args)
 
     int i, nsamples;
     char **samples = hts_readlist(sample_fname, 1, &nsamples);
+    if ( !samples ) error("Could not read %s\n", sample_fname);
     for (i=2; i<nsamples; i++)
     {
         se = samples[i]; while ( *se && !isspace(*se) ) se++;
@@ -682,7 +685,7 @@ static void vcf_to_gensample(args_t *args)
     char *gen_fname = NULL, *sample_fname = NULL;
     str.l = 0;
     kputs(args->outfname,&str);
-    int n_files, i;
+    int n_files = 0, i;
     char **files = hts_readlist(str.s, 0, &n_files);
     if ( n_files==1 )
     {
@@ -793,7 +796,7 @@ static void vcf_to_haplegendsample(args_t *args)
     char *hap_fname = NULL, *legend_fname = NULL, *sample_fname = NULL;
     str.l = 0;
     kputs(args->outfname,&str);
-    int n_files, i;
+    int n_files = 0, i;
     char **files = hts_readlist(str.s, 0, &n_files);
     if ( n_files==1 )
     {
@@ -940,7 +943,7 @@ static void vcf_to_hapsample(args_t *args)
     char *hap_fname = NULL, *sample_fname = NULL;
     str.l = 0;
     kputs(args->outfname,&str);
-    int n_files, i;
+    int n_files = 0, i;
     char **files = hts_readlist(str.s, 0, &n_files);
     if ( n_files==1 )
     {
