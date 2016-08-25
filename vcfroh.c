@@ -847,7 +847,6 @@ static void usage(args_t *args)
     fprintf(stderr, "                                           If the first number is negative, it is interpreted as the maximum memory to\n");
     fprintf(stderr, "                                           use, in MB. The default overlap is set to roughly 1%% of the buffer size.\n");
     fprintf(stderr, "    -e, --estimate-AF <file>           estimate AF from GTs of all samples (\"-\") or samples listed in <file>\n");
-    fprintf(stderr, "                                           N.B. With many samples it can be faster to first annotate the VCF and use --AF-tag\n");
     fprintf(stderr, "    -G, --GTs-only <float>             use GTs and ignore PLs, instead using <float> for PL of the two least likely genotypes.\n");
     fprintf(stderr, "                                           Safe value to use is 30 to account for GT errors.\n");
     fprintf(stderr, "    -I, --skip-indels                  skip indels as their genotypes are enriched for errors\n");
@@ -953,6 +952,7 @@ int main_vcfroh(int argc, char *argv[])
     }
 
     if ( argc<optind+1 ) usage(args);
+    if ( args->vi_training && args->buffer_size ) error("Error: cannot use -b with -V\n");
     if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1]\n", args->t2AZ);
     if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1]\n", args->t2HW);
     if ( naf_opts>1 ) error("Error: The options --AF-tag, --AF-file and -e are mutually exclusive\n");
