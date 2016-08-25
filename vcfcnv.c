@@ -263,7 +263,7 @@ static void init_data(args_t *args)
     args->tprob  = init_tprob_matrix(args->nstates, args->ij_prob, args->same_prob);
     args->iprobs = init_iprobs(args->nstates, args->same_prob);
     args->hmm = hmm_init(args->nstates, args->tprob, 10000);
-    hmm_init_states(args->hmm, args->iprobs, HMM_VIT|HMM_FWD|HMM_BWD);
+    hmm_init_states(args->hmm, args->iprobs);
 
     args->summary_fh = stdout;
     init_sample_files(&args->query_sample, args->output_dir);

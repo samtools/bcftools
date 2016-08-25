@@ -48,7 +48,6 @@ genmap_t;
 /** HMM data for each sample */
 typedef struct
 {
-    double vit[2], fwd[2];  // initial state probabilities
     double *eprob;      // emission probs [2*nsites,msites]
     uint32_t *sites;    // positions [nsites,msites]
     int nsites, msites;
@@ -206,7 +205,7 @@ static void init_data(args_t *args)
             args->nbuf_max = tmp;
 
         if ( args->nbuf_olap<0 )
-            args->nbuf_olap = args->nbuf_max*0.05;
+            args->nbuf_olap = args->nbuf_max*0.01;
     }
     fprintf(stderr,"Number of target samples: %d\n", args->roh_smpl->n);
     fprintf(stderr,"Number of --estimate-AF samples: %d\n", args->af_smpl ? args->af_smpl->n : 0);
@@ -215,11 +214,6 @@ static void init_data(args_t *args)
     else fprintf(stderr,"unlimited\n");
 
     args->smpl = (smpl_t*) calloc(args->roh_smpl->n,sizeof(smpl_t));
-    for (i=0; i<args->roh_smpl->n; i++)
-    {
-        args->smpl[i].vit[0] = args->smpl[i].vit[1] = 0.5;
-        args->smpl[i].fwd[0] = args->smpl[i].fwd[1] = 0.5;
-    }
 
     for (i=0; i<256; i++) args->pl2p[i] = pow(10., -i/10.);
 
@@ -250,7 +244,7 @@ static void init_data(args_t *args)
     for (i=1; i<args->argc; i++)
         printf(" %s",args->argv[i]);
     printf("\n#\n");
-    i = 1;
+    i = 2;
     printf("# ROH");
     printf("\t[%d]Sample", i++);
     printf("\t[%d]Chromosome", i++);
@@ -261,7 +255,7 @@ static void init_data(args_t *args)
 
     if ( args->vi_training)
     {
-        i = 1;
+        i = 2;
         printf("# VT, Viterbi Training");
         printf("\t[%d]Sample", i++);
         printf("\t[%d]Iteration", i++);
@@ -437,16 +431,12 @@ static void flush_viterbi(args_t *args, int ismpl)
 
     if ( !args->vi_training ) // single viterbi pass
     {
+        hmm_restore(args->hmm); 
         int end = (args->nbuf_max && smpl->nsites >= args->nbuf_max && smpl->nsites > args->nbuf_olap) ? smpl->nsites - 0.5*args->nbuf_olap : smpl->nsites;
         if ( end < smpl->nsites )
-        {
-            hmm_set_watchdog(args->hmm, smpl->nsites-args->nbuf_olap-1, smpl->vit, HMM_VIT);
-            hmm_set_watchdog(args->hmm, smpl->nsites-args->nbuf_olap-1, smpl->fwd, HMM_FWD);
-        }
+            hmm_snapshot(args->hmm, smpl->nsites - args->nbuf_olap - 1);
 
         args->igenmap = smpl->igenmap;
-        hmm_init_states(args->hmm, smpl->vit, HMM_VIT);
-        hmm_init_states(args->hmm, smpl->fwd, HMM_FWD);
         hmm_run_viterbi(args->hmm, smpl->nsites, smpl->eprob, smpl->sites);
         hmm_run_fwd_bwd(args->hmm, smpl->nsites, smpl->eprob, smpl->sites);
         double *fwd = hmm_get_fwd_bwd_prob(args->hmm);
@@ -465,7 +455,7 @@ static void flush_viterbi(args_t *args, int ismpl)
         {
             end = smpl->nsites - args->nbuf_olap;
             memmove(smpl->sites, smpl->sites + end, sizeof(*smpl->sites)*args->nbuf_olap);
-            memmove(smpl->eprob, smpl->eprob + end, sizeof(*smpl->eprob)*args->nbuf_olap*2);
+            memmove(smpl->eprob, smpl->eprob + end*2, sizeof(*smpl->eprob)*args->nbuf_olap*2);
             smpl->nsites  = args->nbuf_olap;
             smpl->beg     = 0.5*args->nbuf_olap;
             smpl->igenmap = args->igenmap;
@@ -854,8 +844,8 @@ static void usage(args_t *args)
     fprintf(stderr, "        --AF-tag <TAG>                 use TAG for allele frequency\n");
     fprintf(stderr, "        --AF-file <file>               read allele frequencies from file (CHR\\tPOS\\tREF,ALT\\tAF)\n");
     fprintf(stderr, "    -b  --buffer-size <int[,int]>      buffer size and the number of overlapping sites, 0 for unlimited [0]\n");
-    fprintf(stderr, "                                           If the first number is negative, it is interpreted as the maximum memory in MB\n");
-    fprintf(stderr, "                                           to use. The default overlap is set to roughly 5%% of the buffer size.\n");
+    fprintf(stderr, "                                           If the first number is negative, it is interpreted as the maximum memory to\n");
+    fprintf(stderr, "                                           use, in MB. The default overlap is set to roughly 1%% of the buffer size.\n");
     fprintf(stderr, "    -e, --estimate-AF <file>           estimate AF from GTs of all samples (\"-\") or samples listed in <file>\n");
     fprintf(stderr, "                                           N.B. With many samples it can be faster to first annotate the VCF and use --AF-tag\n");
     fprintf(stderr, "    -G, --GTs-only <float>             use GTs and ignore PLs, instead using <float> for PL of the two least likely genotypes.\n");

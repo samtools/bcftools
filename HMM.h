@@ -51,19 +51,17 @@ void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob);
 /**
  *   hmm_init_states() - initial state probabilities
  *   @probs:  initial state probabilities or NULL to reset to default
- *   @which:  combination of HMM_VITERBI, HMM_FWD, HMM_BWD
  *
  *   If uncalled, all states are initialized with the same likelihood
  */
-void hmm_init_states(hmm_t *hmm, double *probs, int which);
+void hmm_init_states(hmm_t *hmm, double *probs);
 
 /**
- *   hmm_set_watchdog() - set state probabilities at this step
- *   @isite:  set the probabilities at isite-th step
- *   @ptr:    pointer to memory of nstate doubles or NULL to unset
- *   @which:  combination of HMM_VITERBI, HMM_FWD, HMM_BWD
+ *   hmm_snapshot() - take the model's snapshot, intended for sliding HMM
+ *   @isite:  take the snapshot at i-th step
  */
-void hmm_set_watchdog(hmm_t *hmm, int isite, double *ptr, int which);
+void hmm_snapshot(hmm_t *hmm, int isite);
+void hmm_restore(hmm_t *hmm);
 
 /**
  *   hmm_get_tprob() - return the array of transition matrices, precalculated
