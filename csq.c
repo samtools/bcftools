@@ -525,7 +525,7 @@ const char *gf_type2gff_string(int type)
 /*
     gff parsing functions
 */
-inline int feature_set_seq(args_t *args, char *chr_beg, char *chr_end)
+static inline int feature_set_seq(args_t *args, char *chr_beg, char *chr_end)
 {
     aux_t *aux = &args->init;
     char c = chr_end[1];
@@ -541,13 +541,13 @@ inline int feature_set_seq(args_t *args, char *chr_beg, char *chr_end)
     chr_end[1] = c;
     return iseq;
 }
-inline char *gff_skip(const char *line, char *ss)
+static inline char *gff_skip(const char *line, char *ss)
 {
     while ( *ss && *ss!='\t' ) ss++;
     if ( !*ss ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
     return ss+1;
 }
-inline void gff_parse_chr(const char *line, char **chr_beg, char **chr_end)
+static inline void gff_parse_chr(const char *line, char **chr_beg, char **chr_end)
 {
     char *se = (char*) line;
     while ( *se && *se!='\t' ) se++;
@@ -555,7 +555,7 @@ inline void gff_parse_chr(const char *line, char **chr_beg, char **chr_end)
     *chr_beg = (char*) line;
     *chr_end = se-1;
 }
-inline char *gff_parse_beg_end(const char *line, char *ss, uint32_t *beg, uint32_t *end)
+static inline char *gff_parse_beg_end(const char *line, char *ss, uint32_t *beg, uint32_t *end)
 {
     char *se = ss;
     *beg = strtol(ss, &se, 10) - 1;
@@ -565,7 +565,7 @@ inline char *gff_parse_beg_end(const char *line, char *ss, uint32_t *beg, uint32
     if ( ss==se ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
     return se+1;
 }
-inline uint32_t gff_parse_id(const char *line, const char *needle, char *ss)
+static inline uint32_t gff_parse_id(const char *line, const char *needle, char *ss)
 {
     ss = strstr(ss,needle);
     if ( !ss ) error("[%s:%d %s] Could not parse the line, \"%s\" not present: %s\n",__FILE__,__LINE__,__FUNCTION__,needle,line);
@@ -578,7 +578,7 @@ inline uint32_t gff_parse_id(const char *line, const char *needle, char *ss)
     if ( *se && *se!=';' && *se!='\t' ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
     return id;
 }
-inline int gff_parse_type(char *line)
+static inline int gff_parse_type(char *line)
 {
     line = strstr(line,"ID=");
     if ( !line ) return -1;
@@ -587,7 +587,7 @@ inline int gff_parse_type(char *line)
     else if ( !strncmp(line,"gene:",5) ) return GFF_GENE_LINE;
     return -1;
 }
-inline int gff_parse_biotype(char *_line)
+static inline int gff_parse_biotype(char *_line)
 {
     char *line = strstr(_line,"biotype=");
     if ( !line ) return -1;
@@ -627,7 +627,7 @@ inline int gff_parse_biotype(char *_line)
     }
     return 0;
 }
-inline int gff_ignored_biotype(char *ss)
+static inline int gff_ignored_biotype(char *ss)
 {
     ss = strstr(ss,"biotype=") + 8;
     if ( !strncmp("antisense",ss,9) ) return 1;
@@ -786,7 +786,7 @@ static int cmp_cds_ptr(const void *a, const void *b)
     return 0;
 }
 
-inline void chr_beg_end(aux_t *aux, int iseq, char **chr_beg, char **chr_end)
+static inline void chr_beg_end(aux_t *aux, int iseq, char **chr_beg, char **chr_end)
 {
     *chr_beg = *chr_end = aux->seq[iseq];
     while ( (*chr_end)[1] ) (*chr_end)++;
@@ -1635,7 +1635,7 @@ void hap_finalize(args_t *args, hap_t *hap)
     }
 }
 
-inline void csq_print_text(args_t *args, csq_t *csq, int ismpl, int ihap)
+static inline void csq_print_text(args_t *args, csq_t *csq, int ismpl, int ihap)
 {
     if ( csq->type==CSQ_PRINTED_UPSTREAM ) return;
 
@@ -1658,7 +1658,7 @@ inline void csq_print_text(args_t *args, csq_t *csq, int ismpl, int ihap)
     }
     fprintf(args->out,"%s\n",csq->str);
 }
-inline void hap_print_text(args_t *args, tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
+static inline void hap_print_text(args_t *args, tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
 {
     if ( !node || !node->ncsq_list ) return;
 
@@ -1690,7 +1690,7 @@ inline void hap_print_text(args_t *args, tscript_t *tr, int ismpl, int ihap, hap
     }
 }
 
-inline void hap_stage_vcf(args_t *args, tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
+static inline void hap_stage_vcf(args_t *args, tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
 {
     if ( !node || !node->ncsq_list || ismpl<0 ) return;
 
