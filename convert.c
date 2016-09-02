@@ -62,13 +62,16 @@ THE SOFTWARE.  */
 #define T_IUPAC_GT     23
 #define T_GT_TO_HAP    24   // not publicly advertised
 #define T_GT_TO_HAP2   25   // not publicly advertised
+#define T_TBCSQ        26
 
 typedef struct _fmt_t
 {
     int type, id, is_gt_field, ready, subscript;
     char *key;
     bcf_fmt_t *fmt;
+    void *usr;                  // user data (optional)
     void (*handler)(convert_t *, bcf1_t *, struct _fmt_t *, int, kstring_t *);
+    void (*destroy)(void*);     // clean user data (optional)
 }
 fmt_t;
 
@@ -88,6 +91,13 @@ struct _convert_t
     int allow_undef_tags;
 };
 
+typedef struct
+{
+    kstring_t hap1,hap2;
+    char **str;
+    int n, m;
+}
+bcsq_t;
 
 static void process_chrom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(convert->header->id[BCF_DT_CTG][line->rid].key, str); }
 static void process_pos(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+1, str); }
@@ -315,6 +325,104 @@ static void process_tgt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isampl
             kputc('.', str);
     }
     if (l == 0) kputc('.', str);
+}
+static void destroy_tbcsq(void *usr)
+{
+    bcsq_t *csq = (bcsq_t*) usr;
+    free(csq->hap1.s);
+    free(csq->hap2.s);
+    if ( csq->n )
+        free(csq->str[0]);
+    free(csq->str);
+    free(csq);
+}
+static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    if ( !fmt->ready )
+    {
+        init_format(convert, line, fmt);
+
+        bcsq_t *csq;
+        if ( fmt->usr )
+        {
+            csq = (bcsq_t*) fmt->usr;
+            if ( csq->n )
+                free(csq->str[0]);
+            csq->n = 0;
+        }
+        else
+            csq = (bcsq_t*) calloc(1,sizeof(bcsq_t));
+        fmt->usr = csq;
+
+        int i=0, len = 0;
+        char *tmp = NULL;
+        if ( bcf_get_info_string(convert->header,line,fmt->key,&tmp,&len)<0 )
+        {
+            csq->n = 0;
+            kputc('.', str);
+            return;
+        }
+        do
+        {
+            csq->n++;
+            hts_expand(char*, csq->n, csq->m, csq->str);
+            csq->str[ csq->n-1 ] = tmp + i;
+            while ( i<len && tmp[i]!=',' ) i++;
+            if ( i<len && tmp[i]==',' ) tmp[i++] = 0;
+        }
+        while ( i<len );
+    }
+
+    bcsq_t *csq = (bcsq_t*)fmt->usr;
+
+    if ( fmt->fmt==NULL || !csq->n )
+    {
+        kputc('.', str);
+        return;
+    }
+
+
+    csq->hap1.l = 0;
+    csq->hap2.l = 0;
+
+    #define BRANCH(type_t, nbits) { \
+        type_t *x = (type_t*)(fmt->fmt->p + isample*fmt->fmt->size), val = *x; \
+        int i; \
+        if ( fmt->subscript<0 || fmt->subscript==0 ) \
+        { \
+            for (i=0; val && i<nbits; i+=2) \
+            { \
+                if ( *x & (1<<i) ) kputs(csq->str[i/2], &csq->hap1); \
+            } \
+            val = *x; \
+        } \
+        if ( fmt->subscript<0 || fmt->subscript==1 ) \
+        { \
+            for (i=1; val && i<nbits; i+=2) \
+            { \
+                if ( *x & (1<<i) ) kputs(csq->str[i/2], &csq->hap2); \
+            } \
+        } \
+    }
+    switch (fmt->fmt->type)
+    {
+        case BCF_BT_INT8:  BRANCH(uint8_t, 8); break;
+        case BCF_BT_INT16: BRANCH(uint16_t,16); break;
+        case BCF_BT_INT32: BRANCH(uint32_t,32); break;
+        default: error("Unexpected type: %d\n", fmt->fmt->type); exit(1); break;
+    }
+    #undef BRANCH
+
+    if ( fmt->subscript<0 )
+    {
+        kputs(csq->hap1.l?csq->hap1.s:".", str);
+        kputc_('\t', str);
+        kputs(csq->hap2.l?csq->hap2.s:".", str);
+    }
+    else if ( fmt->subscript==0 )
+        kputs(csq->hap1.l?csq->hap1.s:".", str);
+    else
+        kputs(csq->hap2.l?csq->hap2.s:".", str);
 }
 static void init_format_iupac(convert_t *convert, bcf1_t *line, fmt_t *fmt)
 {
@@ -709,6 +817,8 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
     fmt->key   = key ? strdup(key) : NULL;
     fmt->is_gt_field = is_gtf;
     fmt->subscript = -1;
+    fmt->usr     = NULL;
+    fmt->destroy = NULL;
 
     // Allow non-format tags, such as CHROM, INFO, etc., to appear amongst the format tags.
     if ( key )
@@ -759,6 +869,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_IUPAC_GT: fmt->handler = &process_iupac_gt; convert->max_unpack |= BCF_UN_FMT; break;
         case T_GT_TO_HAP: fmt->handler = &process_gt_to_hap; convert->max_unpack |= BCF_UN_FMT; break;
         case T_GT_TO_HAP2: fmt->handler = &process_gt_to_hap2; convert->max_unpack |= BCF_UN_FMT; break;
+        case T_TBCSQ: fmt->handler = &process_tbcsq; fmt->destroy = &destroy_tbcsq; convert->max_unpack |= BCF_UN_FMT; break;
         case T_LINE: fmt->handler = &process_line; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
@@ -797,6 +908,11 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         if ( !strcmp(str.s, "SAMPLE") ) register_tag(convert, T_SAMPLE, "SAMPLE", is_gtf);
         else if ( !strcmp(str.s, "GT") ) register_tag(convert, T_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "TGT") ) register_tag(convert, T_TGT, "GT", is_gtf);
+        else if ( !strcmp(str.s, "TBCSQ") ) 
+        {
+            fmt_t *fmt = register_tag(convert, T_TBCSQ, "BCSQ", is_gtf);
+            fmt->subscript = parse_subscript(&q);
+        }
         else if ( !strcmp(str.s, "IUPACGT") ) register_tag(convert, T_IUPAC_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "INFO") )
         {
@@ -923,7 +1039,10 @@ void convert_destroy(convert_t *convert)
 {
     int i;
     for (i=0; i<convert->nfmt; i++)
+    {
+        if ( convert->fmt[i].destroy ) convert->fmt[i].destroy(convert->fmt[i].usr);
         free(convert->fmt[i].key);
+    }
     free(convert->fmt);
     free(convert->undef_info_tag);
     free(convert->dat);

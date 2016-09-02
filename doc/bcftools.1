@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2016-08-05 16:10 BST
+.\"      Date: 2016-09-02 15:50 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2016\-08\-05 16:10 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2016\-09\-02 15:50 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2016\-08\-05 16:10 BST\fR and refers to bcftools git version \fB1\&.3\&.1\-83\-gd26cb61+\fR\&.
+This manual page was last updated \fB2016\-09\-02 15:50 BST\fR and refers to bcftools git version \fB1\&.3\&.1\-102\-ga962fea+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -138,6 +138,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 
 \fBconvert\fR
 \&.\&. convert VCF/BCF to other formats and back
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
+\fBcsq\fR
+\&.\&. haplotype aware consequence caller
 .RE
 .sp
 .RS 4
@@ -1589,6 +1602,127 @@ bcftools convert \-c ID,CHROM,POS,AA \-s SampleName \-f 23andme\-ref\&.fa \-\-ts
 .RE
 .\}
 .RE
+.SS "bcftools csq \fI[OPTIONS]\fR \fIFILE\fR"
+.sp
+Haplotype aware consequence predictor which correctly handles combined variants such as MNPs split over multiple VCF records, SNPs separated by an intron (but adjacent in the spliced transcript) or nearby frame\-shifting indels which in combination in fact are not frame\-shifting\&.
+.PP
+\fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
+.RS 4
+exclude sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
+.RS 4
+reference sequence in fasta format
+.RE
+.PP
+\fB\-g, \-\-gff\-annot\fR \fIFILE\fR
+.RS 4
+GFF3 annotation file, such as
+ftp://ftp\&.ensembl\&.org/pub/current_gff3/homo_sapiens/
+.RE
+.PP
+\fB\-i, \-\-include\fR \fIEXPRESSION\fR
+.RS 4
+include only sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-O, \-\-output\-type\fR \fIb\fR|\fIt\fR|\fIu\fR|\fIz\fR|\fIv\fR
+.RS 4
+see
+\fBCommon Options\fR\&. In addition, a custom tab\-delimited plain text can be printed (\fIt\fR)\&.
+.RE
+.PP
+\fB\-p, \-\-phase\fR \fIa\fR|\fIm\fR|\fIr\fR|\fIs\fR
+.RS 4
+how to construct haplotypes and how to deal with unphased data:
+.PP
+\fIa\fR
+.RS 4
+take GTs as is, create haplotypes regardless of phase (0/1 → 0|1)
+.RE
+.PP
+\fIm\fR
+.RS 4
+merge all GTs into a single haplotype (0/1 → 1, 1/2 → 1)
+.RE
+.PP
+\fIr\fR
+.RS 4
+require phased GTs, throw an error on unphased het GTs
+.RE
+.PP
+\fIs\fR
+.RS 4
+skip unphased GTs
+.RE
+.RE
+.PP
+\fB\-q, \-\-quiet\fR
+.RS 4
+suppress warning messages
+.RE
+.sp
+\-r, \-\-regions <region> restrict to comma\-separated list of regions \-R, \-\-regions\-file <file> restrict to regions listed in a file \-s, \-\-samples ←|list> samples to include or "\-" to apply all variants and ignore samples \-S, \-\-samples\-file <file> samples to include \-t, \-\-targets <region> similar to \-r but streams rather than index\-jumps \-T, \-\-targets\-file <file> similar to \-R but streams rather than index\-jumps
+.PP
+\fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-R, \-\-regions\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-s, \-\-samples\fR \fILIST\fR
+.RS 4
+samples to include or "\-" to apply all variants and ignore samples
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-t, \-\-targets\fR \fILIST\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-targets\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.sp
+\fBExamples:\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    bcftools csq \-f hs37d5\&.fa \-g Homo_sapiens\&.GRCh37\&.82\&.gff3\&.gz in\&.vcf
+.fi
+.if n \{\
+.RE
+.\}
 .SS "bcftools filter \fI[OPTIONS]\fR \fIFILE\fR"
 .sp
 Apply fixed\-threshold filters\&.
@@ -3237,6 +3371,7 @@ process multiple VCFs listed in the file
 %FIRST_ALT      Alias for %ALT{0}
 []              The brackets loop over all samples
 %GT             Genotype (e\&.g\&. 0/1)
+%TBCSQ          Translated FORMAT/BCSQ (e\&.g\&. %TBCSQ{0} for the first haplotype, %TBCSQ for both)
 %TGT            Translated genotype (e\&.g\&. C/A)
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e\&.g\&. M instead of C/A)
 %LINE           Prints the whole line
@@ -3367,6 +3502,11 @@ or have different reference or alternate allele will be skipped\&. Note that suc
 .RE
 .\}
 .PP
+\fB\-b, \-\-buffer\-size\fR \fIINT\fR[,\fIINT\fR]
+.RS 4
+when the entire many\-sample file cannot fit into memory, a sliding buffer approach can be used\&. The first value is the number of sites to keep in memory\&. If negative, it is interpreted as the maximum memory to use, in MB\&. The second, optional, value sets the number of overlapping sites\&. The default overlap is set to roughly 1% of the buffer size\&.
+.RE
+.PP
 \fB\-e, \-\-estimate\-AF\fR \fIFILE\fR
 .RS 4
 recalculate INFO/AC and INFO/AN on the fly, using either all samples ("\-") or samples listed in
@@ -3408,9 +3548,16 @@ see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-s, \-\-sample\fR \fIname\fR
+\fB\-s, \-\-samples\fR \fILIST\fR
 .RS 4
-the name of sample to analyze
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-S, \-\-samples\-file\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
 .RE
 .PP
 \fB\-t, \-\-targets\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
@@ -3444,9 +3591,10 @@ P(AZ|HW) transition probability from AZ (autozygous) to HW (Hardy\-Weinberg) sta
 P(HW|AZ) transition probability from HW to AZ state
 .RE
 .PP
-\fB\-V, \-\-viterbi\-training\fR
+\fB\-V, \-\-viterbi\-training\fR \fIFLOAT\fR
 .RS 4
-perform Viterbi training to estimate transition probabilities
+estimate HMM parameters using Baum\-Welch algorithm, using the convergence threshold
+\fIFLOAT\fR, e\&.g\&. 1e\-10 (experimental)
 .RE
 .RE
 .SS "bcftools stats [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"

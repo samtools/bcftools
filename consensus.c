@@ -35,8 +35,8 @@
 #include <htslib/kstring.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
-#include "bcftools.h"
 #include "regidx.h"
+#include "bcftools.h"
 #include "rbuf.h"
 
 typedef struct
@@ -68,6 +68,7 @@ typedef struct
     int nvcf_buf, rid;
 
     regidx_t *mask;
+    regitr_t *itr;
 
     int chain_id;       // chain_id, to provide a unique ID to each chain in the chain output
     chain_t *chain;     // chain structure to store the sequence of ungapped blocks between the ref and alt sequences
@@ -202,6 +203,7 @@ static void init_data(args_t *args)
     {
         args->mask = regidx_init(args->mask_fname,NULL,NULL,0,NULL);
         if ( !args->mask ) error("Failed to initialize mask regions\n");
+        args->itr = regitr_init(args->mask);
     }
     // In case we want to store the chains
     if ( args->chain_fname )
@@ -228,6 +230,7 @@ static void destroy_data(args_t *args)
     free(args->vcf_buf);
     free(args->fa_buf.s);
     if ( args->mask ) regidx_destroy(args->mask);
+    if ( args->itr ) regitr_destroy(args->itr);
     if ( args->chain_fname )
         if ( fclose(args->fp_chain) ) error("Close failed: %s\n", args->chain_fname);
     if ( fclose(args->fp_out) ) error("Close failed: %s\n", args->output_fname);
@@ -510,18 +513,16 @@ static void mask_region(args_t *args, char *seq, int len)
     int start = args->fa_src_pos - len;
     int end   = args->fa_src_pos;
 
-    regitr_t itr;
-    if ( !regidx_overlap(args->mask, chr,start,end, &itr) ) return;
+    if ( !regidx_overlap(args->mask, chr,start,end, args->itr) ) return;
 
     int idx_start, idx_end, i;
-    while ( REGITR_OVERLAP(itr,start,end) )
+    while ( regitr_overlap(args->itr) )
     {
-        idx_start = REGITR_START(itr) - start;
-        idx_end   = REGITR_END(itr) - start;
+        idx_start = args->itr->beg - start;
+        idx_end   = args->itr->end - start;
         if ( idx_start < 0 ) idx_start = 0;
         if ( idx_end >= len ) idx_end = len - 1;
         for (i=idx_start; i<=idx_end; i++) seq[i] = 'N';
-        itr.i++;
     }
 }
 

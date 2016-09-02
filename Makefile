@@ -23,7 +23,7 @@
 # DEALINGS IN THE SOFTWARE.
 
 PROG=       bcftools
-TEST_PROG=  test/test-rbuf
+TEST_PROG=  test/test-rbuf test/test-regidx
 
 
 all: $(PROG) $(TEST_PROG)
@@ -46,7 +46,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o bin.o hclust.o version.o \
-           regidx.o smpl_ilist.o \
+           regidx.o smpl_ilist.o csq.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
@@ -103,7 +103,8 @@ force:
 .c.o:
 	$(CC) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) -c -o $@ $<
 
-test: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
+test: $(PROG) plugins test/test-rbuf test/test-regidx $(BGZIP) $(TABIX)
+	./test/test-regidx
 	./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
 
 test-plugins: $(PROG) plugins test/test-rbuf $(BGZIP) $(TABIX)
@@ -186,11 +187,17 @@ bam_sample.o: $(bam_sample_h) $(htslib_hts_h) $(HTSDIR)/htslib/khash_str2int.h
 version.o: version.h version.c
 hclust.o: hclust.c hclust.h
 smpl_ilist.o: smpl_ilist.c smpl_ilist.h
+csq.o: csq.c smpl_ilist.h regidx.h filter.h kheap.h rbuf.h
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
 	$(CC) $(LDFLAGS) -o $@ $^ -lm $(LIBS)
+
+test/test-regidx.o: test/test-regidx.c regidx.h
+
+test/test-regidx: test/test-regidx.o regidx.o 
+	$(CC) $(LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread -lz -lm $(LIBS)
 
 bcftools: $(HTSLIB) $(OBJS)
 	$(CC) -rdynamic $(LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(GSL_LIBS) $(LIBS)

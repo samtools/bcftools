@@ -277,6 +277,7 @@ test_mpileup($opts,in=>[qw(3)],out=>'mpileup/mpileup.11.out',args=>q[]);
 test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-s HG00102]);
 test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-s ^HG99999]);
 test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
+test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -833,6 +834,7 @@ sub test_vcf_plugin
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
     if ( !exists($args{args}) ) { $args{args} = ''; }
     $args{args} =~ s/{PATH}/$$opts{path}/g;
+    $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
     bgzip_tabix_vcf($opts,"$args{in}");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} 2>/dev/null | grep -v ^##bcftools_");
 
@@ -1002,3 +1004,11 @@ sub test_mpileup
         }
     }
 }
+
+sub test_csq
+{
+    my ($opts,%args) = @_;
+    $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | grep -v ^#");
+}
+

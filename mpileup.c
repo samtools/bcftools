@@ -71,6 +71,7 @@ typedef struct {
     int reg_is_file, record_cmd_line, n_threads;
     faidx_t *fai;
     regidx_t *bed, *reg;    // bed: skipping regions, reg: index-jump to regions
+    regitr_t *bed_itr, *reg_itr;
     int bed_logic;          // 1: include region, 0: exclude region
     gvcf_t *gvcf;
 
@@ -195,17 +196,16 @@ static int mplp_func(void *data, bam1_t *b)
         if (ma->conf->bed)
         {
             // test overlap
-            regitr_t itr;
+            regitr_t *itr = ma->conf->bed_itr;
             int beg = b->core.pos, end = bam_endpos(b)-1;
-            int overlap = regidx_overlap(ma->conf->bed, ma->h->target_name[b->core.tid],beg,end, &itr);
+            int overlap = regidx_overlap(ma->conf->bed, ma->h->target_name[b->core.tid],beg,end, itr);
             if ( !ma->conf->bed_logic && !overlap )
             {
                 // exclude only reads which are fully contained in the region
-                while ( REGITR_OVERLAP(itr,beg,end) )
+                while ( regitr_overlap(itr) )
                 {
-                    if ( beg < REGITR_START(itr) ) { overlap = 1; break; }
-                    if ( end > REGITR_END(itr) ) { overlap = 1; break; }
-                    itr.i++;
+                    if ( beg < itr->beg ) { overlap = 1; break; }
+                    if ( end > itr->end ) { overlap = 1; break; }
                 }
             }
             if ( !overlap ) continue;
@@ -356,8 +356,6 @@ static int mpileup(mplp_conf_t *conf)
     // must be kept in the memory for the whole time which can be a problem with many bams.
     // Therefore if none or only one region is requested, we initialize the bam iterator as
     // before and free the index. Only when multiple regions are queried, we keep the index.
-    regitr_t reg_itr;
-    REGITR_INIT(reg_itr);
     int nregs = 0;
     if ( conf->reg_fname )
     {
@@ -378,7 +376,8 @@ static int mpileup(mplp_conf_t *conf)
             }
         }
         nregs = regidx_nregs(conf->reg);
-        regidx_loop(conf->reg,&reg_itr);    // position the region iterator at the first region
+        conf->reg_itr = regitr_init(conf->reg);
+        regitr_loop(conf->reg_itr);   // region iterator now positioned at the first region
     }
 
     // read the header of each file in the list and initialize data
@@ -431,16 +430,16 @@ static int mpileup(mplp_conf_t *conf)
                 exit(EXIT_FAILURE);
             }
             conf->buf.l = 0;
-            ksprintf(&conf->buf,"%s:%u-%u",regitr_seqname(conf->reg,&reg_itr),REGITR_START(reg_itr)+1,REGITR_END(reg_itr)+1);
+            ksprintf(&conf->buf,"%s:%u-%u",conf->reg_itr->seq,conf->reg_itr->beg+1,conf->reg_itr->end+1);
             conf->mplp_data[i]->iter = sam_itr_querys(idx, conf->mplp_data[i]->h, conf->buf.s);
             if ( !conf->mplp_data[i]->iter ) 
             {
-                conf->mplp_data[i]->iter = sam_itr_querys(idx, conf->mplp_data[i]->h, regitr_seqname(conf->reg,&reg_itr));
+                conf->mplp_data[i]->iter = sam_itr_querys(idx, conf->mplp_data[i]->h, conf->reg_itr->seq);
                 if ( conf->mplp_data[i]->iter ) {
                     fprintf(stderr,"[E::%s] fail to parse region '%s'\n", __func__, conf->buf.s);
                     exit(EXIT_FAILURE);
                 }
-                fprintf(stderr,"[E::%s] the sequence \"%s\" not found: %s\n",__func__,regitr_seqname(conf->reg,&reg_itr),conf->files[i]);
+                fprintf(stderr,"[E::%s] the sequence \"%s\" not found: %s\n",__func__,conf->reg_itr->seq,conf->files[i]);
                 exit(EXIT_FAILURE);
             }
             if ( nregs==1 ) // no need to keep the index in memory
@@ -612,7 +611,7 @@ static int mpileup(mplp_conf_t *conf)
             if ( ireg++ > 0 )
             {
                 conf->buf.l = 0;
-                ksprintf(&conf->buf,"%s:%u-%u",regitr_seqname(conf->reg,&reg_itr),REGITR_START(reg_itr),REGITR_END(reg_itr));
+                ksprintf(&conf->buf,"%s:%u-%u",conf->reg_itr->seq,conf->reg_itr->beg,conf->reg_itr->end);
 
                 for (i=0; i<conf->nfiles; i++) 
                 {
@@ -620,20 +619,20 @@ static int mpileup(mplp_conf_t *conf)
                     conf->mplp_data[i]->iter = sam_itr_querys(conf->mplp_data[i]->idx, conf->mplp_data[i]->h, conf->buf.s);
                     if ( !conf->mplp_data[i]->iter ) 
                     {
-                        conf->mplp_data[i]->iter = sam_itr_querys(conf->mplp_data[i]->idx, conf->mplp_data[i]->h, regitr_seqname(conf->reg,&reg_itr));
+                        conf->mplp_data[i]->iter = sam_itr_querys(conf->mplp_data[i]->idx, conf->mplp_data[i]->h, conf->reg_itr->seq);
                         if ( conf->mplp_data[i]->iter ) {
                             fprintf(stderr,"[E::%s] fail to parse region '%s'\n", __func__, conf->buf.s);
                             exit(EXIT_FAILURE);
                         }
-                        fprintf(stderr,"[E::%s] the sequence \"%s\" not found: %s\n",__func__,regitr_seqname(conf->reg,&reg_itr),conf->files[i]);
+                        fprintf(stderr,"[E::%s] the sequence \"%s\" not found: %s\n",__func__,conf->reg_itr->seq,conf->files[i]);
                         exit(EXIT_FAILURE);
                     }
                     bam_mplp_reset(conf->iter);
                 }
             }
-            mpileup_reg(conf,REGITR_START(reg_itr),REGITR_END(reg_itr));
+            mpileup_reg(conf,conf->reg_itr->beg,conf->reg_itr->end);
         }
-        while ( regidx_loop(conf->reg,&reg_itr) );
+        while ( regitr_loop(conf->reg_itr) );
     }
     else
         mpileup_reg(conf,0,0);
@@ -667,6 +666,7 @@ static int mpileup(mplp_conf_t *conf)
         if ( conf->mplp_data[i]->iter) hts_itr_destroy(conf->mplp_data[i]->iter);
         free(conf->mplp_data[i]);
     }
+    if ( conf->reg_itr ) regitr_destroy(conf->reg_itr);
     free(conf->mplp_data); free(conf->plp); free(conf->n_plp);
     free(mp_ref.ref[0]);
     free(mp_ref.ref[1]);
@@ -970,6 +970,7 @@ int bam_mpileup(int argc, char *argv[])
                   if ( optarg[0]=='^' ) optarg++;
                   else mplp.bed_logic = 1;
                   mplp.bed = regidx_init(NULL,regidx_parse_reg,NULL,0,NULL);
+                  mplp.bed_itr = regitr_init(mplp.bed);
                   if ( regidx_insert_list(mplp.bed,optarg,',') !=0 )
                   {
                       fprintf(stderr,"Could not parse the targets: %s\n", optarg);
@@ -1079,7 +1080,11 @@ int bam_mpileup(int argc, char *argv[])
     free(mplp.files);
     free(mplp.reg_fname); free(mplp.pl_list);
     if (mplp.fai) fai_destroy(mplp.fai);
-    if (mplp.bed) regidx_destroy(mplp.bed);
+    if (mplp.bed)
+    {
+        regidx_destroy(mplp.bed);
+        regitr_destroy(mplp.bed_itr);
+    }
     if (mplp.reg) regidx_destroy(mplp.reg);
     bam_smpl_destroy(mplp.bsmpl);
     return ret;

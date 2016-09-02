@@ -33,7 +33,6 @@ THE SOFTWARE.  */
 #include <htslib/faidx.h>
 #include <math.h>
 #include <ctype.h>
-#include <time.h>
 #include "bcftools.h"
 #include "regidx.h"
 #include "vcmp.h"
@@ -136,6 +135,7 @@ typedef struct
     vcmp_t *vcmp;
     maux_t *maux;
     regidx_t *regs;    // apply regions only after the blocks are expanded
+    regitr_t *regs_itr;
     int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     faidx_t *gvcf_fai;
@@ -1826,15 +1826,12 @@ void gvcf_flush(args_t *args, int done)
     int start = maux->gvcf_break>=0 ? maux->gvcf_break + 1 : maux->pos;
     if ( args->regs )
     {
-        regitr_t itr;
         int rstart = -1, rend = -1;
-        if ( regidx_overlap(args->regs,maux->chr,start,flush_until,&itr) )
+        if ( regidx_overlap(args->regs,maux->chr,start,flush_until,args->regs_itr) )
         {
             // In case there are multiple regions, we treat them as one
-            rstart = REGITR_START(itr);
-            while ( REGITR_OVERLAP(itr,start,flush_until) ) itr.i++;
-            itr.i--;
-            rend = REGITR_END(itr);
+            rstart = args->regs_itr->beg;
+            while ( regitr_overlap(args->regs_itr) ) rend = args->regs_itr->end;
         }
         if ( rstart > start ) start = rstart;
         if ( rend < flush_until ) flush_until = rend+1;
@@ -2230,8 +2227,6 @@ void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *c
         else
             ksprintf(&str, " %s", argv[i]);
     }
-    kputs("; Date=", &str);
-    time_t tm; time(&tm); kputs(ctime(&tm), &str);
     kputc('\n', &str);
     bcf_hdr_append(hdr,str.s);
     free(str.s);
@@ -2441,6 +2436,7 @@ int main_vcfmerge(int argc, char *argv[])
             regidx_insert(args->regs,NULL);
         }
         if ( !args->regs ) error("Could not parse the regions: %s\n", args->regions_list);
+        args->regs_itr = regitr_init(args->regs);
     }
 
     while (optind<argc)
@@ -2461,6 +2457,7 @@ int main_vcfmerge(int argc, char *argv[])
     merge_vcf(args);
     bcf_sr_destroy(args->files);
     if ( args->regs ) regidx_destroy(args->regs);
+    if ( args->regs_itr ) regitr_destroy(args->regs_itr);
     if ( args->gvcf_fai ) fai_destroy(args->gvcf_fai);
     free(args);
     return 0;
