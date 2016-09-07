@@ -946,6 +946,10 @@ variants such as MNPs split over multiple VCF records, SNPs separated by
 an intron (but adjacent in the spliced transcript) or nearby frame-shifting
 indels which in combination in fact are not frame-shifting. 
 
+The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag. The latter
+is a bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype.
+See the usage examples below.
+
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -1012,7 +1016,42 @@ indels which in combination in fact are not frame-shifting.
 
 *Examples:*
 ----
-    bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf
+    bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf -Ob -o out.bcf
+
+    # Extract the translated haplotype consequences. The following TBCSQ variations
+    # are recognised:
+    #   %TBCSQ    .. print consequences in both haplotypes in separate columns
+    #   %TBCSQ{0} .. print the first haplotype only
+    #   %TBCSQ{1} .. print the second haplotype only
+    #   %TBCSQ{*} .. print a list of unique consquences present in either haplotype
+    bcftools query -f'[%CHROM\t%POS\t%SAMPLE\t%TBCSQ\n]' out.bcf
+----
+
+*Examples of BCSQ annotation:*
+----
+    # Two separate VCF records at positions 2:122106101 and 2:122106102
+    # change the same codon. This UV-induced C>T dinucleotide mutation
+    # has been annotated fully at the position 2:122106101 with
+    #   - consequence type
+    #   - gene name
+    #   - ensembl transcript ID
+    #   - coding strand (+ fwd, - rev)
+    #   - amino acid position (in the coding strand orientation)
+    #   - list of corresponding VCF variants
+    # The annotation at the second position gives the position of the full
+    # annotation
+    BCSQ=missense|CLASP1|ENST00000545861|-|1174P>1174L|122106101G>A+122106102G>A
+    BCSQ=@122106101
+
+    # A frame-restoring combination of two frameshift insertions C>CG and T>TGG
+    BCSQ=@46115084
+    BCSQ=inframe_insertion|COPZ2|ENST00000006101|-|18AGRGP>18AQAGGP|46115072C>CG+46115084T>TGG
+
+    # Stop gained variant
+    BCSQ=stop_gained|C2orf83|ENST00000264387|-|141W>141*|228476140C>T
+
+    # The consequence type of a variant downstream from a stop are prefixed with *
+    BCSQ=*missense|PER3|ENST00000361923|+|1028M>1028T|7890117T>C
 ----
 
 
@@ -1984,7 +2023,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %FIRST_ALT      Alias for %ALT{0}
     []              The brackets loop over all samples
     %GT             Genotype (e.g. 0/1)
-    %TBCSQ          Translated FORMAT/BCSQ (e.g. %TBCSQ{0} for the first haplotype, %TBCSQ for both)
+    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for examples.
     %TGT            Translated genotype (e.g. C/A)
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
