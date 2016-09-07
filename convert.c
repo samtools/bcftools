@@ -381,22 +381,23 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
         return;
     }
 
-
     csq->hap1.l = 0;
     csq->hap2.l = 0;
+
+    int mask = fmt->subscript==0 ? 3 : 1;   // merge both haplotypes if subscript==0
 
     #define BRANCH(type_t, nbits) { \
         type_t *x = (type_t*)(fmt->fmt->p + isample*fmt->fmt->size), val = *x; \
         int i; \
-        if ( fmt->subscript<0 || fmt->subscript==0 ) \
+        if ( fmt->subscript<=0 || fmt->subscript==1 ) \
         { \
             for (i=0; val && i<nbits; i+=2) \
             { \
-                if ( *x & (1<<i) ) kputs(csq->str[i/2], &csq->hap1); \
+                if ( *x & (mask<<i) ) kputs(csq->str[i/2], &csq->hap1); \
             } \
             val = *x; \
         } \
-        if ( fmt->subscript<0 || fmt->subscript==1 ) \
+        if ( fmt->subscript<0 || fmt->subscript==2 ) \
         { \
             for (i=1; val && i<nbits; i+=2) \
             { \
@@ -419,7 +420,7 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
         kputc_('\t', str);
         kputs(csq->hap2.l?csq->hap2.s:".", str);
     }
-    else if ( fmt->subscript==0 )
+    else if ( fmt->subscript<2 )
         kputs(csq->hap1.l?csq->hap1.s:".", str);
     else
         kputs(csq->hap2.l?csq->hap2.s:".", str);
@@ -912,6 +913,11 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         {
             fmt_t *fmt = register_tag(convert, T_TBCSQ, "BCSQ", is_gtf);
             fmt->subscript = parse_subscript(&q);
+            if ( fmt->subscript==-1 )
+            { 
+                if ( !strncmp(q,"{*}",3) ) { fmt->subscript = 0; q += 3; }
+            }
+            else fmt->subscript++;
         }
         else if ( !strcmp(str.s, "IUPACGT") ) register_tag(convert, T_IUPAC_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "INFO") )
