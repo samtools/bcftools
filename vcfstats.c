@@ -98,7 +98,7 @@ stats_t;
 
 typedef struct
 {
-    uint64_t m[3], mm[3];       // number of hom, het and non-ref hom matches and mismatches
+    uint64_t gt2gt[5][5];   // number of RR->RR, RR->RA, etc. matches/mismatches; see type2stats
     /*
         Pearson's R^2 is used for aggregate R^2 
         y, yy .. sum of dosage and squared dosage in the query VCF (second file)
@@ -157,7 +157,7 @@ typedef struct
 }
 args_t;
 
-static int type2dosage[6], type2ploidy[6], type2stats[6];
+static int type2dosage[6], type2ploidy[6], type2stats[7];
 
 static void idist_init(idist_t *d, int min, int max, int step)
 {
@@ -518,9 +518,10 @@ static void init_stats(args_t *args)
     type2stats[GT_HOM_RR] = 0;
     type2stats[GT_HET_RA] = 1;
     type2stats[GT_HOM_AA] = 2;
-    type2stats[GT_HET_AA] = 1;
+    type2stats[GT_HET_AA] = 3;
     type2stats[GT_HAPL_R] = 0;
     type2stats[GT_HAPL_A] = 2;
+    type2stats[GT_UNKN]   = 4;
 
 }
 static void destroy_stats(args_t *args)
@@ -959,26 +960,15 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
             // Simplified comparison: only 0/0, 0/1, 1/1 is looked at as the identity of
             //  actual alleles can be enforced by running without the -c option.
             int gt0 = bcf_gt_type(fmt0, files->readers[0].samples[is], NULL, NULL);
-            if ( gt0 == GT_UNKN ) continue;
-
             int gt1 = bcf_gt_type(fmt1, files->readers[1].samples[is], NULL, NULL);
-            if ( gt1 == GT_UNKN ) continue;
 
+            int idx0 = type2stats[gt0];
+            int idx1 = type2stats[gt1];
+            af_stats[iaf].gt2gt[idx0][idx1]++;
+            smpl_stats[is].gt2gt[idx0][idx1]++;
+
+            if ( gt0 == GT_UNKN || gt1 == GT_UNKN ) continue;
             if ( type2ploidy[gt0]*type2ploidy[gt1] == -1 ) continue;   // cannot compare diploid and haploid genotypes
-
-            int idx = type2stats[gt0];
-            if ( gt0==gt1 )
-            {
-                // genotype match
-                af_stats[iaf].m[idx]++;
-                smpl_stats[is].m[idx]++;
-            }
-            else
-            {
-                // genotype mismatch
-                af_stats[iaf].mm[idx]++;
-                smpl_stats[is].mm[idx]++;
-            }
 
             float y = type2dosage[gt0];
             float x = type2dosage[gt1];
@@ -1132,7 +1122,7 @@ static void print_header(args_t *args)
 #define T2S(x) type2stats[x]
 static void print_stats(args_t *args)
 {
-    int i, id;
+    int i, j,k, id;
     printf("# SN, Summary numbers:\n# SN\t[2]id\t[3]key\t[4]value\n");
     for (id=0; id<args->files->nreaders; id++)
         printf("SN\t%d\tnumber of samples:\t%d\n", id, bcf_hdr_nsamples(args->files->readers[id].header));
@@ -1301,16 +1291,26 @@ static void print_stats(args_t *args)
                 printf("# GCiAF, Genotype concordance by non-reference allele frequency (indels)\n# GCiAF\t[2]id\t[3]allele frequency\t[4]RR Hom matches\t[5]RA Het matches\t[6]AA Hom matches\t[7]RR Hom mismatches\t[8]RA Het mismatches\t[9]AA Hom mismatches\t[10]dosage r-squared\t[11]number of genotypes\n");
                 stats = args->af_gts_indels;
             }
-            uint64_t nrd_m[3] = {0,0,0}, nrd_mm[3] = {0,0,0};
+            uint64_t nrd_m[4] = {0,0,0,0}, nrd_mm[4] = {0,0,0,0};   // across all bins
             for (i=0; i<args->m_af; i++)
             {
-                int j, n = 0;
-                for (j=0; j<3; j++)     // rr, ra, aa
-                {
-                    n += stats[i].m[j] + stats[i].mm[j];
-                    nrd_m[j]  += stats[i].m[j];
-                    nrd_mm[j] += stats[i].mm[j];
-                }
+                int n = 0;
+                uint64_t m[4] = {0,0,0,0}, mm[4] = {0,0,0,0};    // in i-th AF bin
+                for (j=0; j<4; j++)     // rr, ra, aa hom, aa het, ./.
+                    for (k=0; k<4; k++)
+                    {
+                        n += stats[i].gt2gt[j][k];
+                        if ( j==k ) 
+                        {
+                            nrd_m[j] += stats[i].gt2gt[j][k];
+                            m[j]     += stats[i].gt2gt[j][k];
+                        }
+                        else
+                        {
+                            nrd_mm[j] += stats[i].gt2gt[j][k];
+                            mm[j]     += stats[i].gt2gt[j][k];
+                        }
+                    }
                 if ( !i || !n ) continue;   // skip singleton stats and empty bins
 
                 // Pearson's r2
@@ -1323,8 +1323,8 @@ static void print_stats(args_t *args)
                 }
                 double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
                 printf("GC%cAF\t2\t%f", x==0 ? 's' : 'i', af);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", m[T2S(GT_HOM_RR)],m[T2S(GT_HET_RA)],m[T2S(GT_HOM_AA)]);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", mm[T2S(GT_HOM_RR)],mm[T2S(GT_HET_RA)],mm[T2S(GT_HOM_AA)]);
                 if ( stats[i].n && !isnan(r2) ) printf("\t%f", r2);
                 else printf("\t"NA_STRING);
                 printf("\t%.0f\n", stats[i].n);
@@ -1343,8 +1343,8 @@ static void print_stats(args_t *args)
             }
             else
                 printf("# Non-Reference Discordance (NRD), indels\n# NRDi\t[2]id\t[3]NRD\t[4]Ref/Ref discordance\t[5]Ref/Alt discordance\t[6]Alt/Alt discordance\n");
-            uint64_t m  = nrd_m[T2S(GT_HET_RA)] + nrd_m[T2S(GT_HOM_AA)];
-            uint64_t mm = nrd_mm[T2S(GT_HOM_RR)] + nrd_mm[T2S(GT_HET_RA)] + nrd_mm[T2S(GT_HOM_AA)];
+            uint64_t m  = nrd_m[T2S(GT_HET_RA)] + nrd_m[T2S(GT_HOM_AA)] + nrd_m[T2S(GT_HET_AA)];
+            uint64_t mm = nrd_mm[T2S(GT_HOM_RR)] + nrd_mm[T2S(GT_HET_RA)] + nrd_mm[T2S(GT_HOM_AA)] + nrd_mm[T2S(GT_HET_AA)];
             printf("NRD%c\t2\t%f\t%f\t%f\t%f\n", x==0 ? 's' : 'i',
                     m+mm ? mm*100.0/(m+mm) : 0,
                     nrd_m[T2S(GT_HOM_RR)]+nrd_mm[T2S(GT_HOM_RR)] ? nrd_mm[T2S(GT_HOM_RR)]*100.0/(nrd_m[T2S(GT_HOM_RR)]+nrd_mm[T2S(GT_HOM_RR)]) : 0,
@@ -1368,8 +1368,10 @@ static void print_stats(args_t *args)
             }
             for (i=0; i<args->files->n_smpl; i++)
             {
-                uint64_t m  = stats[i].m[T2S(GT_HET_RA)] + stats[i].m[T2S(GT_HOM_AA)];
-                uint64_t mm = stats[i].mm[T2S(GT_HOM_RR)] + stats[i].mm[T2S(GT_HET_RA)] + stats[i].mm[T2S(GT_HOM_AA)];
+                uint64_t mm = 0, m = stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HET_RA)] + stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HOM_AA)];
+                for (j=0; j<3; j++)
+                    for (k=0; k<3; k++)
+                        if ( j!=k ) mm += stats[i].gt2gt[j][k];
 
                 // Pearson's r2
                 double r2 = 0;
@@ -1380,10 +1382,68 @@ static void print_stats(args_t *args)
                     r2 *= r2;
                 }
                 printf("GC%cS\t2\t%s\t%.3f",  x==0 ? 's' : 'i', args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].m[T2S(GT_HOM_RR)],stats[i].m[T2S(GT_HET_RA)],stats[i].m[T2S(GT_HOM_AA)]);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", stats[i].mm[T2S(GT_HOM_RR)],stats[i].mm[T2S(GT_HET_RA)],stats[i].mm[T2S(GT_HOM_AA)]);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", 
+                    stats[i].gt2gt[T2S(GT_HOM_RR)][T2S(GT_HOM_RR)],
+                    stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HET_RA)],
+                    stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HOM_AA)]);
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"",
+                    stats[i].gt2gt[T2S(GT_HOM_RR)][T2S(GT_HET_RA)] + stats[i].gt2gt[T2S(GT_HOM_RR)][T2S(GT_HOM_AA)],
+                    stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HOM_RR)] + stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HOM_AA)],
+                    stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HOM_RR)] + stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HET_RA)]);
                 if ( stats[i].n && !isnan(r2) ) printf("\t%f\n", r2);
                 else printf("\t"NA_STRING"\n");
+            }
+        }
+        for (x=0; x<2; x++) // x=0: snps, x=1: indels
+        {
+                //printf("# GCiS, Genotype concordance by sample (indels)\n# GCiS\t[2]id\t[3]sample\t[4]non-reference discordance rate\t[5]RR Hom matches\t[6]RA Het matches\t[7]AA Hom matches\t[8]RR Hom mismatches\t[9]RA Het mismatches\t[10]AA Hom mismatches\t[11]dosage r-squared\n");
+
+            gtcmp_t *stats;
+            if ( x==0 )
+            {
+                printf("# GCTs, Genotype concordance table (SNPs)\n# GCTs");
+                stats = args->smpl_gts_snps;
+            }
+            else
+            {
+                printf("# GCTi, Genotype concordance table (indels)\n# GCTi");
+                stats = args->smpl_gts_indels;
+            }
+            i = 1;
+            printf("\t[%d]sample", ++i);
+            printf("\t[%d]RR Hom -> RR Hom", ++i);
+            printf("\t[%d]RR Hom -> RA Het", ++i);
+            printf("\t[%d]RR Hom -> AA Hom", ++i);
+            printf("\t[%d]RR Hom -> AA Het", ++i);
+            printf("\t[%d]RR Hom -> missing", ++i);
+            printf("\t[%d]RA Het -> RR Hom", ++i);
+            printf("\t[%d]RA Het -> RA Het", ++i);
+            printf("\t[%d]RA Het -> AA Hom", ++i);
+            printf("\t[%d]RA Het -> AA Het", ++i);
+            printf("\t[%d]RA Het -> missing", ++i);
+            printf("\t[%d]AA Hom -> RR Hom", ++i);
+            printf("\t[%d]AA Hom -> RA Het", ++i);
+            printf("\t[%d]AA Hom -> AA Hom", ++i);
+            printf("\t[%d]AA Hom -> AA Het", ++i);
+            printf("\t[%d]AA Hom -> missing", ++i);
+            printf("\t[%d]AA Het -> RR Hom", ++i);
+            printf("\t[%d]AA Het -> RA Het", ++i);
+            printf("\t[%d]AA Het -> AA Hom", ++i);
+            printf("\t[%d]AA Het -> AA Het", ++i);
+            printf("\t[%d]AA Het -> missing", ++i);
+            printf("\t[%d]missing -> RR Hom", ++i);
+            printf("\t[%d]missing -> RA Het", ++i);
+            printf("\t[%d]missing -> AA Hom", ++i);
+            printf("\t[%d]missing -> AA Het", ++i);
+            printf("\t[%d]missing -> missing\n", ++i);
+
+            for (i=0; i<args->files->n_smpl; i++)
+            {
+                printf("GCT%c\t%s",  x==0 ? 's' : 'i', args->files->samples[i]);
+                for (j=0; j<5; j++)
+                    for (k=0; k<5; k++)
+                        printf("\t%"PRId64, stats[i].gt2gt[j][k]);
+                printf("\n");
             }
         }
     }
