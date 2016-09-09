@@ -33,6 +33,7 @@
 
 typedef struct
 {
+    int nstates;        // number of hmm's states
     int isite;          // take snapshot at i-th position
     uint32_t pos;       // i-th site's position
     double *vit_prob;   // viterbi probabilities, NULL for uniform probs
@@ -125,29 +126,43 @@ hmm_t *hmm_init(int nstates, double *tprob, int ntprob)
     return hmm;
 }
 
-void _destroy_snapshot(hmm_t *hmm)
+void *hmm_snapshot(hmm_t *hmm, void *_snapshot, int isite)
 {
-    free(hmm->snapshot->vit_prob);
-    free(hmm->snapshot->fwd_prob);
-    free(hmm->snapshot);
-    hmm->snapshot = NULL;
+    snapshot_t *snapshot = (snapshot_t*) _snapshot;
+    if ( snapshot && snapshot->nstates!=hmm->nstates )
+    {
+        free(snapshot);
+        snapshot = NULL;
+    }
+    if ( !snapshot )
+    {
+        // Allocate the snapshot as a single memory block so that it can be
+        // free()-ed by the user. So make sure the arrays are aligned..
+        size_t snp_size = sizeof(snapshot_t);
+        size_t ptr_size = sizeof(double*);
+        size_t pad_size = (ptr_size - snp_size % ptr_size) % ptr_size;
+        void *mem = malloc(snp_size + pad_size + sizeof(double)*2*hmm->nstates);
+        snapshot = (snapshot_t*) mem;
+        snapshot->nstates  = hmm->nstates;
+        snapshot->vit_prob = (double*) (mem + snp_size + pad_size);
+        snapshot->fwd_prob = snapshot->vit_prob + hmm->nstates;
+    }
+    snapshot->isite = isite;
+    hmm->snapshot = snapshot;
+    return snapshot;
 }
-void hmm_snapshot(hmm_t *hmm, int isite)
+void hmm_restore(hmm_t *hmm, void *_snapshot)
 {
-    if ( hmm->snapshot ) _destroy_snapshot(hmm);
-    hmm->snapshot = (snapshot_t*) calloc(1,sizeof(snapshot_t));
-    hmm->snapshot->isite = isite;
-}
-void hmm_restore(hmm_t *hmm)
-{
-    if ( !hmm->snapshot ) return;
+    snapshot_t *snapshot = (snapshot_t*) _snapshot;
+    if ( !snapshot ) 
+    {
+        hmm->init.isite = 0;
+        return;
+    }
     hmm->init.isite = 1;
-    hmm->init.pos   = hmm->snapshot->pos;
-    if ( hmm->snapshot->vit_prob )
-        memcpy(hmm->init.vit_prob,hmm->snapshot->vit_prob,sizeof(double)*hmm->nstates);
-    if ( hmm->snapshot->fwd_prob )
-        memcpy(hmm->init.fwd_prob,hmm->snapshot->fwd_prob,sizeof(double)*hmm->nstates);
-    _destroy_snapshot(hmm);
+    hmm->init.pos   = snapshot->pos;
+    memcpy(hmm->init.vit_prob,snapshot->vit_prob,sizeof(double)*hmm->nstates);
+    memcpy(hmm->init.fwd_prob,snapshot->fwd_prob,sizeof(double)*hmm->nstates);
 }
 
 void hmm_set_tprob(hmm_t *hmm, double *tprob, int ntprob)
@@ -214,7 +229,6 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         double *eprob  = &eprobs[i*nstates];
 
         int pos_diff = sites[i] == prev_pos ? 0 : sites[i] - prev_pos - 1;
-
         _set_tprob(hmm, pos_diff);
         if ( hmm->set_tprob ) hmm->set_tprob(hmm, prev_pos, sites[i], hmm->set_tprob_data, hmm->curr_tprob);
         prev_pos = sites[i];
@@ -239,7 +253,6 @@ void hmm_run_viterbi(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
         if ( hmm->snapshot && i==hmm->snapshot->isite )
         {
             hmm->snapshot->pos = sites[i];
-            hmm->snapshot->vit_prob = (double*) malloc(sizeof(*hmm->vprob)*nstates);
             memcpy(hmm->snapshot->vit_prob, hmm->vprob, sizeof(*hmm->vprob)*nstates);
         }
     }
@@ -277,6 +290,7 @@ void hmm_run_fwd_bwd(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
     int i,j,k, nstates = hmm->nstates;
     memcpy(hmm->fwd, hmm->init.fwd_prob, sizeof(*hmm->init.fwd_prob)*nstates);
     memcpy(hmm->bwd, hmm->init.bwd_prob, sizeof(*hmm->init.bwd_prob)*nstates);
+
     uint32_t prev_pos = hmm->init.isite ? hmm->init.pos : sites[0];
 
     // Run fwd 
@@ -308,7 +322,6 @@ void hmm_run_fwd_bwd(hmm_t *hmm, int n, double *eprobs, uint32_t *sites)
     {
         i = hmm->snapshot->isite;
         hmm->snapshot->pos = sites[i];
-        hmm->snapshot->fwd_prob = (double*) malloc(sizeof(*hmm->fwd)*nstates);
         memcpy(hmm->snapshot->fwd_prob, hmm->fwd + (i+1)*nstates, sizeof(*hmm->fwd)*nstates);
     }
 
@@ -467,7 +480,6 @@ void hmm_destroy(hmm_t *hmm)
     free(hmm->init.vit_prob);
     free(hmm->init.fwd_prob);
     free(hmm->init.bwd_prob);
-    if ( hmm->snapshot ) _destroy_snapshot(hmm);
     free(hmm->vprob);
     free(hmm->vprob_tmp);
     free(hmm->vpath);

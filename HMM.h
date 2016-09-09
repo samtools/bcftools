@@ -58,10 +58,17 @@ void hmm_init_states(hmm_t *hmm, double *probs);
 
 /**
  *   hmm_snapshot() - take the model's snapshot, intended for sliding HMM
- *   @isite:  take the snapshot at i-th step
+ *   @snapshot: NULL or snapshot returned by previous hmm_snapshot() call, must be free()-ed by the caller
+ *   @isite:    take the snapshot at i-th step
  */
-void hmm_snapshot(hmm_t *hmm, int isite);
-void hmm_restore(hmm_t *hmm);
+void *hmm_snapshot(hmm_t *hmm, void *snapshot, int isite);
+
+/**
+ *   hmm_restore() - restore model's snapshot, intended for sliding HMM
+ *   @snapshot: snapshot returned by hmm_snapshot() call or NULL to reset
+ *   @isite:    take the snapshot at i-th step
+ */
+void hmm_restore(hmm_t *hmm, void *snapshot);
 
 /**
  *   hmm_get_tprob() - return the array of transition matrices, precalculated

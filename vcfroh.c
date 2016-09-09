@@ -55,6 +55,7 @@ typedef struct
     int igenmap;        // current position in genmap
     int nused;          // some stats to detect if things didn't go wrong
     int nrid, *rid, *rid_off;   // for viterbi training, keep all chromosomes
+    void *snapshot;             // hmm snapshot
 }
 smpl_t;
 
@@ -278,6 +279,7 @@ static void destroy_data(args_t *args)
         free(args->smpl[i].sites);
         free(args->smpl[i].rid);
         free(args->smpl[i].rid_off);
+        free(args->smpl[i].snapshot);
     }
     free(args->smpl);
     if ( args->af_smpl ) smpl_ilist_destroy(args->af_smpl);
@@ -431,10 +433,10 @@ static void flush_viterbi(args_t *args, int ismpl)
 
     if ( !args->vi_training ) // single viterbi pass
     {
-        hmm_restore(args->hmm); 
+        hmm_restore(args->hmm, smpl->snapshot); 
         int end = (args->nbuf_max && smpl->nsites >= args->nbuf_max && smpl->nsites > args->nbuf_olap) ? smpl->nsites - 0.5*args->nbuf_olap : smpl->nsites;
         if ( end < smpl->nsites )
-            hmm_snapshot(args->hmm, smpl->nsites - args->nbuf_olap - 1);
+            smpl->snapshot = hmm_snapshot(args->hmm, smpl->snapshot, smpl->nsites - args->nbuf_olap - 1);
 
         args->igenmap = smpl->igenmap;
         hmm_run_viterbi(args->hmm, smpl->nsites, smpl->eprob, smpl->sites);
