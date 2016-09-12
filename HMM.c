@@ -138,13 +138,13 @@ void *hmm_snapshot(hmm_t *hmm, void *_snapshot, int isite)
     {
         // Allocate the snapshot as a single memory block so that it can be
         // free()-ed by the user. So make sure the arrays are aligned..
-        size_t snp_size = sizeof(snapshot_t);
-        size_t ptr_size = sizeof(double*);
-        size_t pad_size = (ptr_size - snp_size % ptr_size) % ptr_size;
-        void *mem = malloc(snp_size + pad_size + sizeof(double)*2*hmm->nstates);
+        size_t str_size = sizeof(snapshot_t);
+        size_t dbl_size = sizeof(double);
+        size_t pad_size = (dbl_size - str_size % dbl_size) % dbl_size;
+        uint8_t *mem = (uint8_t*) malloc(str_size + pad_size + dbl_size*2*hmm->nstates);
         snapshot = (snapshot_t*) mem;
         snapshot->nstates  = hmm->nstates;
-        snapshot->vit_prob = (double*) (mem + snp_size + pad_size);
+        snapshot->vit_prob = (double*) (mem + str_size + pad_size);
         snapshot->fwd_prob = snapshot->vit_prob + hmm->nstates;
     }
     snapshot->isite = isite;
