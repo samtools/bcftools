@@ -33,17 +33,23 @@
         IG_C_gene
         IG_D_gene
         IG_J_gene
+        IG_LV_gene
         IG_V_gene
         lincRNA
+        macro_lncRNA    (maps to lincRNA)
         miRNA
         misc_RNA
         Mt_rRNA
         Mt_tRNA
         polymorphic_pseudogene
         protein_coding
+        ribozyme        (maps to misc_RNA)
         rRNA
-        snoRNA
+        sRNA            (maps to misc_RNA)
+        scRNA           (maps to misc_RNA)
+        scaRNA          (maps to misc_RNA)
         snRNA
+        snoRNA
         TR_C_gene
         TR_D_gene
         TR_J_gene
@@ -137,13 +143,21 @@
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
 
-// Ensembl ID format, e.g. ENST00000423372
-#define ENSID_TR "ENST%011d"
-
 // Definition of splice_region, splice_acceptor and splice_donor
 #define N_SPLICE_DONOR         2      
 #define N_SPLICE_REGION_EXON   3 
 #define N_SPLICE_REGION_INTRON 8 
+
+// Ensembl ID format, e.g. 
+//     ENST00000423372 for human .. ENST%011d
+//  ENSMUST00000120394 for mouse .. ENSMUST%011d
+char  ENSID_BUF[32], *ENSID_FMT = NULL;
+static inline char *ENSID(uint32_t id)
+{
+    sprintf(ENSID_BUF,ENSID_FMT,id);
+    return ENSID_BUF;
+}
+
 
 #define STRAND_REV 0
 #define STRAND_FWD 1
@@ -226,11 +240,12 @@ const char *csq_strings[] =
 #define GF_IG_C                         (3|(1<<GF_coding_bit))
 #define GF_IG_D                         (4|(1<<GF_coding_bit))
 #define GF_IG_J                         (5|(1<<GF_coding_bit))
-#define GF_IG_V                         (6|(1<<GF_coding_bit))
-#define GF_TR_C                         (7|(1<<GF_coding_bit))
-#define GF_TR_D                         (8|(1<<GF_coding_bit))
-#define GF_TR_J                         (9|(1<<GF_coding_bit))
-#define GF_TR_V                        (10|(1<<GF_coding_bit))
+#define GF_IG_LV                        (6|(1<<GF_coding_bit))
+#define GF_IG_V                         (7|(1<<GF_coding_bit))
+#define GF_TR_C                         (8|(1<<GF_coding_bit))
+#define GF_TR_D                         (9|(1<<GF_coding_bit))
+#define GF_TR_J                        (10|(1<<GF_coding_bit))
+#define GF_TR_V                        (11|(1<<GF_coding_bit))
 #define GF_CDS      ((1<<(GF_coding_bit+1))+1)      // 129, 130, ...
 #define GF_EXON     ((1<<(GF_coding_bit+1))+2)
 #define GF_UTR3     ((1<<(GF_coding_bit+1))+3)
@@ -572,7 +587,7 @@ static inline uint32_t gff_parse_id(const char *line, const char *needle, char *
 {
     ss = strstr(ss,needle);
     if ( !ss ) error("[%s:%d %s] Could not parse the line, \"%s\" not present: %s\n",__FILE__,__LINE__,__FUNCTION__,needle,line);
-    ss += 18;
+    ss += strlen(needle);
     while ( *ss && !isdigit(*ss) ) ss++;
     if ( !ss ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__, line);
     char *se;
@@ -580,6 +595,20 @@ static inline uint32_t gff_parse_id(const char *line, const char *needle, char *
     if ( ss==se ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__, line);
     if ( *se && *se!=';' && *se!='\t' ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
     return id;
+}
+static void gff_parse_ensid_fmt(const char *line, const char *needle, char *ss)
+{
+    ss = strstr(ss,needle);
+    if ( !ss ) error("[%s:%d %s] Could not parse the line, \"%s\" not present: %s\n",__FILE__,__LINE__,__FUNCTION__,needle,line);
+    ss += strlen(needle);
+    char *se = ss;
+    while ( *se && !isdigit(*se) ) se++;
+    kstring_t str = {0,0,0};
+    kputsn(ss,se-ss,&str);
+    ss = se;
+    while ( *se && isdigit(*se) ) se++;
+    ksprintf(&str,"%%0%dd",(int)(se-ss));
+    ENSID_FMT = str.s;
 }
 static inline int gff_parse_type(char *line)
 {
@@ -606,6 +635,7 @@ static inline int gff_parse_biotype(char *_line)
             if ( !strncmp(line,"IG_C_gene",9) ) return GF_IG_C;
             else if ( !strncmp(line,"IG_D_gene",9) ) return GF_IG_D;
             else if ( !strncmp(line,"IG_J_gene",9) ) return GF_IG_J;
+            else if ( !strncmp(line,"IG_LV_gene",10) ) return GF_IG_LV;
             else if ( !strncmp(line,"IG_V_gene",9) ) return GF_IG_V;
             break;
         case 'T':
@@ -622,11 +652,16 @@ static inline int gff_parse_biotype(char *_line)
         case 'm':
             if ( !strncmp(line,"miRNA",5) ) return GF_miRNA;
             else if ( !strncmp(line,"misc_RNA",8) ) return GF_MISC_RNA;
+            else if ( !strncmp(line,"macro_lncRNA",12) ) return GF_lincRNA;
         case 'r':
             if ( !strncmp(line,"rRNA",4) ) return GF_rRNA;
+            if ( !strncmp(line,"ribozyme",8) ) return GF_MISC_RNA;
         case 's':
-            if ( !strncmp(line,"snRNA",4) ) return GF_snRNA;
-            else if ( !strncmp(line,"snoRNA",4) ) return GF_snoRNA;
+            if ( !strncmp(line,"snRNA",5) ) return GF_snRNA;
+            else if ( !strncmp(line,"sRNA",4) ) return GF_MISC_RNA;
+            else if ( !strncmp(line,"scRNA",5) ) return GF_MISC_RNA;
+            else if ( !strncmp(line,"scaRNA",6) ) return GF_MISC_RNA;
+            else if ( !strncmp(line,"snoRNA",6) ) return GF_snoRNA;
     }
     return 0;
 }
@@ -637,6 +672,8 @@ static inline int gff_ignored_biotype(char *ss)
     if ( !strncmp("sense_intronic",ss,14) ) return 1;
     if ( !strncmp("sense_overlapping",ss,17) ) return 1;
     if ( !strncmp("non_stop_decay",ss,14) ) return 1;
+    if ( !strncmp("IG_pseudogene",ss,13) ) return 1;
+    if ( !strncmp("IG_D_pseudogene",ss,15) ) return 1;
     if ( !strncmp("IG_V_pseudogene",ss,15) ) return 1;
     if ( !strncmp("TR_J_pseudogene",ss,15) ) return 1;
     if ( !strncmp("translated_processed_pseudogene",ss,31) ) return 1;
@@ -652,6 +689,10 @@ static inline int gff_ignored_biotype(char *ss)
     if ( !strncmp("transcribed_unprocessed_pseudogene",ss,34) ) return 1;
     if ( !strncmp("transcribed_processed_pseudogene",ss,32) ) return 1;
     if ( !strncmp("3prime_overlapping_ncrna",ss,24) ) return 1;
+    if ( !strncmp("3prime_overlapping_ncRNA",ss,24) ) return 1;
+    if ( !strncmp("TEC",ss,3) ) return 1;
+    if ( !strncmp("bidirectional_promoter_lncRNA",ss,29) ) return 1;
+    if ( !strncmp("transcribed_unitary_pseudogene",ss,30) ) return 1;
     return 0;
 }
 void gff_parse_transcript(args_t *args, const char *line, char *ss)
@@ -667,6 +708,8 @@ void gff_parse_transcript(args_t *args, const char *line, char *ss)
     // create a mapping from transcript_id to gene_id
     uint32_t trid = gff_parse_id(line, "ID=transcript:", ss);
     uint32_t gene_id = gff_parse_id(line, "Parent=gene:", ss);
+
+    if ( !ENSID_FMT ) gff_parse_ensid_fmt(line, "ID=transcript:", ss);
 
     int ret;
     khint_t k = kh_put(int2int, aux->trid2gid, (int)trid, &ret);
@@ -751,6 +794,7 @@ int gff_parse(args_t *args, char *line, ftr_t *ftr)
         {
             // we ignore these, debug print to see new types:
             ss = strstr(ss,"ID=");
+            if ( !ss ) return -1;   // no ID, ignore the line
             if ( !strncmp("chromosome",ss+3,10) ) return -1;
             if ( !strncmp("supercontig",ss+3,11) ) return -1;
             fprintf(stderr,"ignore: %s\n", line);
@@ -776,7 +820,6 @@ int gff_parse(args_t *args, char *line, ftr_t *ftr)
 
     // substring search for "Parent=transcript:ENST00000437963"
     ftr->trid = gff_parse_id(line, "Parent=transcript:", ss);
-
     ftr->iseq = feature_set_seq(args, chr_beg,chr_end);
     return 0;
 }
@@ -868,7 +911,8 @@ void tscript_init_cds(args_t *args)
     {
         if ( !kh_exist(aux->id2tr, k) ) continue;
         tscript_t *tr = (tscript_t*) kh_val(aux->id2tr, k);
-        
+        if ( !tr->ncds ) continue;      // transcript with no CDS
+
         // sort CDs
         qsort(tr->cds, tr->ncds, sizeof(gf_cds_t*), cmp_cds_ptr);
 
@@ -885,14 +929,25 @@ void tscript_init_cds(args_t *args)
             {
                 int phase = tr->cds[i]->phase ? 3 - tr->cds[i]->phase : 0;
                 if ( phase!=len%3)
-                    error("GFF3 assumption failed for transcript "ENSID_TR", CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",tr->id,tr->cds[i]->beg+1,phase,len);
+                    error("GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",ENSID(tr->id),tr->cds[i]->beg+1,phase,len);
                 assert( phase == len%3 );
                 len += tr->cds[i]->len; 
             }
         }
         else
         {
-            int i = tr->ncds - 1;
+            // Check that the phase is not bigger than CDS length. Curiously, this can really happen,
+            // see Mus_musculus.GRCm38.85.gff3.gz, transcript:ENSMUST00000163141
+            // todo: the same for the fwd strand
+            i = tr->ncds - 1;
+            int phase = tr->cds[i]->phase;
+            while ( i>=0 && phase > tr->cds[i]->len )
+            {
+                phase -= tr->cds[i]->len;
+                tr->cds[i]->phase = 0;
+                tr->cds[i]->len   = 0;
+                i--;
+            }
             tr->cds[i]->len  -= tr->cds[i]->phase;
             tr->cds[i]->phase = 0;
 
@@ -901,8 +956,8 @@ void tscript_init_cds(args_t *args)
             {
                 int phase = tr->cds[i]->phase ? 3 - tr->cds[i]->phase : 0;
                 if ( phase!=len%3)
-                    error("GFF3 assumption failed for transcript "ENSID_TR", CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",tr->id,tr->cds[i]->beg+1,phase,len);
-                len += tr->cds[i]->len; 
+                    error("GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",ENSID(tr->id),tr->cds[i]->beg+1,phase,len);
+                len += tr->cds[i]->len;
             }
         }
 
@@ -922,23 +977,38 @@ void tscript_init_cds(args_t *args)
         }
         if ( len%3 != 0 )
         {
-            // This does happen quite often, there are 13k transcripts with CDS 3' incomplete. See for example ENST00000524289
+            // There are 13k transcripts with incomplete 3' CDS. See for example ENST00000524289
             //  http://sep2015.archive.ensembl.org/Homo_sapiens/Transcript/Sequence_cDNA?db=core;g=ENSG00000155868;r=5:157138846-157159019;t=ENST00000524289
-            //  fprintf(stderr,"GFF3 assumption failed for transcript ENST%011d: len%%3!=0 (len=%d)\n",tr->id,len);
+            // Also, the incomplete CDS can be too short (1 or 2bp), so it is not enough to trim the last one.
 
             if ( tr->strand==STRAND_FWD )
-                tr->cds[tr->ncds-1]->len -= len%3;
+            {
+                i = tr->ncds - 1;
+                while ( i>=0 && len%3 )
+                {
+                    int dlen = tr->cds[i]->len >= len%3 ? len%3 : tr->cds[i]->len;
+                    tr->cds[i]->len -= dlen;
+                    len -= dlen;
+                    i--;
+                }
+            }
             else
             {
-                tr->cds[0]->beg += len%3;
-                tr->cds[0]->len -= len%3;
+                i = 0;
+                while ( i<tr->ncds && len%3 )
+                {
+                    int dlen = tr->cds[i]->len >= len%3 ? len%3 : tr->cds[i]->len;
+                    tr->cds[i]->len -= dlen;
+                    tr->cds[i]->beg += dlen;
+                    len -= dlen;
+                    i++;
+                }
             }
-            len -= len%3;
         }
         tr->len = len;
         tr->end = tr->cds[tr->ncds-1]->beg + tr->cds[tr->ncds-1]->len - 1;
 
-        // set exons' offsets and insert into regidx
+        // set CDS offsets and insert into regidx
         char *chr_beg, *chr_end;
         chr_beg_end(aux, tr->gene->iseq, &chr_beg,&chr_end);
         len=0;
@@ -1004,7 +1074,7 @@ void init_gff(args_t *args)
         else if ( ftr->type==GF_UTR5 ) register_utr(args, gene, ftr);
         else if ( ftr->type==GF_UTR3 ) register_utr(args, gene, ftr);
         else
-            error("something: %s\t%d\t%d\t"ENSID_TR"\t%s\t%s\n", aux->seq[ftr->iseq],ftr->beg+1,ftr->end+1, ftr->trid,gf_type2gff_string(gene->type),gf_type2gff_string(ftr->type));
+            error("something: %s\t%d\t%d\t%s\t%s\t%s\n", aux->seq[ftr->iseq],ftr->beg+1,ftr->end+1,ENSID(ftr->trid),gf_type2gff_string(gene->type),gf_type2gff_string(ftr->type));
     }
 
     tscript_init_cds(args);
@@ -1143,6 +1213,7 @@ void destroy_data(args_t *args)
     free(args->gt_arr);
     free(args->str.s);
     free(args->str2.s);
+    free(ENSID_FMT);
 }
 
 int hap_init(hap_node_t *parent, hap_node_t *child, gf_cds_t *cds, bcf1_t *rec, int ial)
@@ -1563,7 +1634,7 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
     // gene, transcript, strand
     if ( hap->upstream_stop ) kputc_('*', &str);
     kput_csq(csq->type, &str);
-    ksprintf(&str, "|%s|"ENSID_TR"|%c",tr->gene->name,tr->id,tr->strand==STRAND_FWD ? '+' : '-');
+    ksprintf(&str, "|%s|%s|%c",tr->gene->name,ENSID(tr->id),tr->strand==STRAND_FWD ? '+' : '-');
 
     if ( hap->stack[ibeg].node->type == HAP_SSS  )
     {
@@ -2190,7 +2261,7 @@ int test_utr(args_t *args, bcf1_t *rec)
 
         args->str2.l = 0;
         kput_csq(csq->type, &args->str2);
-        ksprintf(&args->str2, "|%s|"ENSID_TR"|%c",tr->gene->name,tr->id,tr->strand==STRAND_FWD ? '+' : '-');
+        ksprintf(&args->str2, "|%s|%s|%c",tr->gene->name,ENSID(tr->id),tr->strand==STRAND_FWD ? '+' : '-');
         csq->str = strdup(args->str2.s);
 
         csq_stage(args, csq, rec);
@@ -2209,6 +2280,7 @@ int test_splice(args_t *args, bcf1_t *rec)
     {
         gf_exon_t *exon = regitr_payload(args->itr, gf_exon_t*);
         tscript_t *tr = exon->tr;
+        if ( !tr->ncds ) continue;  // not a coding transcript, no interest in splice sites
 
         // check whether the record falls inside (dpos<0) or outside (dpos>0) the exon
         int dpos = exon->beg - rec->pos, side = exon->beg;
@@ -2243,7 +2315,7 @@ int test_splice(args_t *args, bcf1_t *rec)
 
         args->str2.l = 0;
         kput_csq(csq->type, &args->str2);
-        ksprintf(&args->str2, "|%s|"ENSID_TR"|%c",tr->gene->name,tr->id,tr->strand==STRAND_FWD ? '+' : '-');
+        ksprintf(&args->str2, "|%s|%s|%c",tr->gene->name,ENSID(tr->id),tr->strand==STRAND_FWD ? '+' : '-');
         csq->str = strdup(args->str2.s);
 
         csq_stage(args, csq, rec);
