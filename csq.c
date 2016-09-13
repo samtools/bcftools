@@ -1079,6 +1079,15 @@ void init_gff(args_t *args)
 
     tscript_init_cds(args);
 
+    if ( !args->quiet )
+    {
+        fprintf(stderr,"Indexed %d CDS, %d UTR, %d exon and %d gene regions\n", 
+                regidx_nregs(args->idx_cds),
+                regidx_nregs(args->idx_utr),
+                regidx_nregs(args->idx_exon),
+                regidx_nregs(args->idx_gene));
+    }
+
     free(aux->ftr);
     khash_str2int_destroy_free(aux->seq2int);
     kh_destroy(int2int,aux->trid2gid);
