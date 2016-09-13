@@ -80,6 +80,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
 - *<<consensus,consensus>>*    ..  create consensus sequence by applying VCF variants
 - *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
+- *<<csq,csq>>*          ..  haplotype aware consequence caller
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
 - *<<index,index>>*      ..  index VCF/BCF
@@ -935,6 +936,125 @@ Create consensus sequence by applying VCF variants to a reference fasta file.
 # Convert 23andme results into VCF
 bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23andme.txt -Oz -o out.vcf.gz
 ----
+
+
+[[csq]]
+=== bcftools csq '[OPTIONS]' 'FILE'
+
+Haplotype aware consequence predictor which correctly handles combined
+variants such as MNPs split over multiple VCF records, SNPs separated by
+an intron (but adjacent in the spliced transcript) or nearby frame-shifting
+indels which in combination in fact are not frame-shifting. 
+
+The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag. The latter
+is a bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype.
+See the usage examples below.
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-f, --fasta-ref* 'FILE'::
+    reference sequence in fasta format
+
+*-g, --gff-annot* 'FILE'::
+    GFF3 annotation file, such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-O, --output-type* 'b'|'t'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*. In addition, a custom tab-delimited
+    plain text can be printed ('t').
+
+*-p, --phase* 'a'|'m'|'r'|'s'::
+    how to construct haplotypes and how to deal with unphased data:
+
+        'a';;
+            take GTs as is, create haplotypes regardless of phase (0/1 -> 0|1)
+
+        'm';;
+            merge all GTs into a single haplotype (0/1 -> 1, 1/2 -> 1)
+
+        'r';;
+            require phased GTs, throw an error on unphased het GTs
+
+        's';;
+            skip unphased GTs
+
+*-q, --quiet*::
+    suppress warning messages
+
+-r, --regions <region>          restrict to comma-separated list of regions
+-R, --regions-file <file>       restrict to regions listed in a file
+-s, --samples <-|list>          samples to include or "-" to apply all variants and ignore samples
+-S, --samples-file <file>       samples to include
+-t, --targets <region>          similar to -r but streams rather than index-jumps
+-T, --targets-file <file>       similar to -R but streams rather than index-jumps
+
+*-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+    see *<<common_options,Common Options>>*
+
+*-R, --regions-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-s, --samples* 'LIST'::
+    samples to include or "-" to apply all variants and ignore samples
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-t, --targets* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*Examples:*
+----
+    bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf -Ob -o out.bcf
+
+    # Extract the translated haplotype consequences. The following TBCSQ variations
+    # are recognised:
+    #   %TBCSQ    .. print consequences in both haplotypes in separate columns
+    #   %TBCSQ{0} .. print the first haplotype only
+    #   %TBCSQ{1} .. print the second haplotype only
+    #   %TBCSQ{*} .. print a list of unique consquences present in either haplotype
+    bcftools query -f'[%CHROM\t%POS\t%SAMPLE\t%TBCSQ\n]' out.bcf
+----
+
+*Examples of BCSQ annotation:*
+----
+    # Two separate VCF records at positions 2:122106101 and 2:122106102
+    # change the same codon. This UV-induced C>T dinucleotide mutation
+    # has been annotated fully at the position 2:122106101 with
+    #   - consequence type
+    #   - gene name
+    #   - ensembl transcript ID
+    #   - coding strand (+ fwd, - rev)
+    #   - amino acid position (in the coding strand orientation)
+    #   - list of corresponding VCF variants
+    # The annotation at the second position gives the position of the full
+    # annotation
+    BCSQ=missense|CLASP1|ENST00000545861|-|1174P>1174L|122106101G>A+122106102G>A
+    BCSQ=@122106101
+
+    # A frame-restoring combination of two frameshift insertions C>CG and T>TGG
+    BCSQ=@46115084
+    BCSQ=inframe_insertion|COPZ2|ENST00000006101|-|18AGRGP>18AQAGGP|46115072C>CG+46115084T>TGG
+
+    # Stop gained variant
+    BCSQ=stop_gained|C2orf83|ENST00000264387|-|141W>141*|228476140C>T
+
+    # The consequence type of a variant downstream from a stop are prefixed with *
+    BCSQ=*missense|PER3|ENST00000361923|+|1028M>1028T|7890117T>C
+----
+
+
 
 [[filter]]
 === bcftools filter '[OPTIONS]' 'FILE'
@@ -1903,6 +2023,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %FIRST_ALT      Alias for %ALT{0}
     []              The brackets loop over all samples
     %GT             Genotype (e.g. 0/1)
+    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for examples.
     %TGT            Translated genotype (e.g. C/A)
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
@@ -1982,6 +2103,14 @@ Transition probabilities:
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\t%INFO/TAG\n' file.vcf | bgzip -c > freqs.tab.gz
 ----
 
+*-b, --buffer-size* 'INT'[,'INT']::
+    when the entire many-sample file cannot fit into memory, a sliding
+    buffer approach can be used. The first value is the number of sites
+    to keep in memory. If negative, it is interpreted as the maximum
+    memory to use, in MB. The second, optional, value sets the number
+    of overlapping sites. The default overlap is set to roughly 1% of
+    the buffer size.
+
 *-e, --estimate-AF* 'FILE'::
     recalculate INFO/AC and INFO/AN on the fly, using either all samples
     ("-") or samples listed in 'FILE'. By default, allele frequency is
@@ -2011,8 +2140,11 @@ Transition probabilities:
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-s, --sample* 'name'::
-    the name of sample to analyze
+*-s, --samples* 'LIST'::
+    see *<<common_options,Common Options>>*
+
+*-S, --samples-file* 'FILE'::
+    see *<<common_options,Common Options>>*
 
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -2028,8 +2160,9 @@ Transition probabilities:
 *-H, --az-to-hw* 'FLOAT'::
     P(HW|AZ) transition probability from HW to AZ state
 
-*-V, --viterbi-training*::
-    perform Viterbi training to estimate transition probabilities
+*-V, --viterbi-training* 'FLOAT'::
+    estimate HMM parameters using Baum-Welch algorithm, using the convergence threshold
+    'FLOAT', e.g. 1e-10 (experimental)
 
 
 

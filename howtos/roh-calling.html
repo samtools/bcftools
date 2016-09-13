@@ -147,6 +147,23 @@ them. This command should give the number of sites that were processed:</p>
 </div>
 </div>
 <div class="sect2">
+<h3 id="_plotting">Plotting</h3>
+<div class="paragraph">
+<p>The command does not produce any plots. The graph above was created with matplotlib, the raw input data
+were obtained using the following commands</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools query -f'%POS\t[%GT]\n' test.vcf.gz | awk '$2~/^[01\/]+$/ &amp;&amp; $2~/1/' | sed 's,/,\t,' | awk '{print $1,$2+$3}' &gt; dosage.txt
+
+bcftools roh -G30 --AF-dflt 0.4 test.vcf.gz | grep -v ^ROH | cut -f4,5 &gt; roh.txt</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The dosage data were smoothed using a moving average filter prior to plotting.</p>
+</div>
+</div>
+<div class="sect2">
 <h3 id="_references">References</h3>
 <div class="paragraph">
 <p>Please cite this paper if you find our software useful: <a href="http://www.ncbi.nlm.nih.gov/pubmed/26826718" class="bare">http://www.ncbi.nlm.nih.gov/pubmed/26826718</a></p>

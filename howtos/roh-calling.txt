@@ -70,6 +70,20 @@ bcftools view -i'type="SNP" && AF>0' -m2 -M2 -s Indiv1 -Ou file.vcf | bcftools +
 ----
 
 
+=== Plotting
+
+The command does not produce any plots. The graph above was created with matplotlib, the raw input data 
+were obtained using the following commands
+
+----
+bcftools query -f'%POS\t[%GT]\n' test.vcf.gz | awk '$2~/^[01\/]+$/ && $2~/1/' | sed 's,/,\t,' | awk '{print $1,$2+$3}' > dosage.txt
+
+bcftools roh -G30 --AF-dflt 0.4 test.vcf.gz | grep -v ^ROH | cut -f4,5 > roh.txt
+----
+
+The dosage data were smoothed using a moving average filter prior to plotting.
+
+
 === References
 
 Please cite this paper if you find our software useful: http://www.ncbi.nlm.nih.gov/pubmed/26826718
