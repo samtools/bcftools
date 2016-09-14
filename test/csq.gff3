@@ -29,6 +29,7 @@
 2	.	CDS	160	171	.	-	1	Parent=transcript:ENST00000000002
 2	.	five_prime_UTR	172	200	.	-	.	Parent=transcript:ENST00000000002
 3	.	lincRNA_gene	20	50	.	-	.	ID=gene:ENSG00000000004;Name=mir-007;biotype=lincRNA
+3	.	lincRNA	20	50	.	-	.	ID=transcript:ENSG00000000004;Parent=gene:ENSG00000000004;biotype=lincRNA
 3	.	gene	100	200	.	-	.	ID=gene:ENSG00000000003;Name=QWRTY;biotype=protein_coding
 3	.	transcript	100	200	.	-	.	ID=transcript:ENST00000000003;Parent=gene:ENSG00000000003;biotype=protein_coding
 3	.	exon	100	110	.	-	.	Parent=transcript:ENST00000000003

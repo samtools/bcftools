@@ -28,26 +28,31 @@
     Read about transcript types here
         http://vega.sanger.ac.uk/info/about/gene_and_transcript_types.html
         http://www.ensembl.org/info/genome/variation/predicted_data.html
+        http://www.gencodegenes.org/gencode_biotypes.html
 
     List of supported biotypes
+        antisense
         IG_C_gene
         IG_D_gene
         IG_J_gene
         IG_LV_gene
         IG_V_gene
         lincRNA
-        macro_lncRNA    (maps to lincRNA)
+        macro_lncRNA
         miRNA
         misc_RNA
         Mt_rRNA
         Mt_tRNA
         polymorphic_pseudogene
+        processed_transcript
         protein_coding
-        ribozyme        (maps to misc_RNA)
+        ribozyme
         rRNA
-        sRNA            (maps to misc_RNA)
-        scRNA           (maps to misc_RNA)
-        scaRNA          (maps to misc_RNA)
+        sRNA
+        scRNA
+        scaRNA
+        sense_intronic
+        sense_overlapping
         snRNA
         snoRNA
         TR_C_gene
@@ -96,23 +101,23 @@
             1. idx_cds(gf_cds_t) - lookup CDS by position, create haplotypes, call consequences
             2. idx_utr(gf_utr_t) - check UTR hits
             3. idx_exon(gf_exon_t) - check for splice variants
-            4. idx_gene(gf_gene_t) - check for intronic variants, RNAs, etc.
+            4. idx_tscript(tscript_t) - check for intronic variants, RNAs, etc.
 
         These regidx indexes are created by parsing a gff3 file as follows:
             1.  create the array "ftr" of all UTR, CDS, exons. This will be
             processed later and pruned based on transcript types we want to keep.
-            In the same go, create the hash "trid2gid" of transcripts to keep
-            (based on biotype) which maps from transcript_id to gene_id. At the
-            same time also build the hash "gid2gene" which maps from gene_id to
+            In the same go, create the hash "id2tr" of transcripts to keep
+            (based on biotype) which maps from transcript_id to a transcript. At
+            the same time also build the hash "gid2gene" which maps from gene_id to
             gf_gene_t pointer.
             
-            2.  build "idx_cds", "idx_gene", "idx_utr" and "idx_exon" indexes.
-            Use only features from "ftr" which are present in "trid2gid".
+            2.  build "idx_cds", "idx_tscript", "idx_utr" and "idx_exon" indexes.
+            Use only features from "ftr" which are present in "id2tr".
 
-            3.  clean data that won't be needed anymore: ftr, trid2gid, gid2name.
+            3.  clean data that won't be needed anymore: ftr, id2tr, gid2gene.
         
     Data structures.
-        idx_cds, idx_utr, idx_exon, idx_gene:
+        idx_cds, idx_utr, idx_exon, idx_tscript:
             as described above, regidx structures for fast lookup of exons/transcripts
             overlapping a region, the payload is a pointer to tscript.cds
 */
@@ -235,6 +240,15 @@ const char *csq_strings[] =
 #define GF_rRNA                          6
 #define GF_snRNA                         7
 #define GF_snoRNA                        8
+#define GF_PROCESSED_TRANSCRIPT          9
+#define GF_ANTISENSE                    10
+#define GF_macro_lncRNA                 11
+#define GF_ribozyme                     12
+#define GF_sRNA                         13
+#define GF_scRNA                        14
+#define GF_scaRNA                       15
+#define GF_SENSE_INTRONIC               16
+#define GF_SENSE_OVERLAPPING            17
 #define GF_PROTEIN_CODING               (1|(1<<GF_coding_bit))  // 65, 66, ...
 #define GF_POLYMORPHIC_PSEUDOGENE       (2|(1<<GF_coding_bit))
 #define GF_IG_C                         (3|(1<<GF_coding_bit))
@@ -266,11 +280,8 @@ typedef struct
 gf_cds_t;
 typedef struct
 {
-    uint32_t id, beg,end;
-    uint32_t type:(GF_coding_bit+1);    // one of GF_* types, smaller than (1<<(GF_coding_bit+1))
-    uint32_t iseq:(31-GF_coding_bit);
-    //uint8_t type;
-    char *name;                         // human readable name, e.g. ORF45
+    char *name;           // human readable name, e.g. ORF45
+    uint8_t iseq;
 }
 gf_gene_t;
 typedef struct
@@ -365,7 +376,7 @@ struct _hap_node_t
 struct _tscript_t
 {
     uint32_t id, len;   // transcript id and the cds length
-    uint32_t end;       // transcript's end coordinate (ref strand, 0-based, inclusive)
+    uint32_t beg,end;   // transcript's end coordinate (ref strand, 0-based, inclusive)
     uint32_t strand:1,  // STRAND_REV or STRAND_FWD
              ncds:31,   // number of exons
              mcds;
@@ -375,6 +386,7 @@ struct _tscript_t
     hap_node_t *root;   // root of the haplotype tree
     hap_node_t **hap;   // pointer to haplotype leaves, two for each sample
     int nhap, nsref;    // number of haplotypes and length of sref
+    uint32_t type;      // one of GF_* types
     gf_gene_t *gene;
 };
 static inline int cmp_tscript(tscript_t **a, tscript_t **b)
@@ -431,7 +443,6 @@ typedef struct
     int nftr, mftr;
 
     // mapping from transcript ensembl id to gene id
-    kh_int2int_t *trid2gid;
     kh_int2gene_t *gid2gene;
 
     // mapping from transcript id to tscript, for quick CDS anchoring
@@ -448,7 +459,7 @@ typedef struct _args_t
 {
     // the main regidx lookups, from chr:beg-end to overlapping features and
     // index iterator
-    regidx_t *idx_cds, *idx_utr, *idx_exon, *idx_gene;
+    regidx_t *idx_cds, *idx_utr, *idx_exon, *idx_tscript;
     regitr_t *itr;
 
     // temporary structures, deleted after initializtion
@@ -528,7 +539,11 @@ const char *gf_type2gff_string(int type)
     {
         if ( type < (1<<(GF_coding_bit+1)) )
         {
-            char *strings[] = { "", "MT_rRNA", "MT_tRNA", "lincRNA", "miRNA", "misc_RNA", "rRNA", "snRNA", "snoRNA" };
+            char *strings[] = 
+            { 
+                "", "MT_rRNA", "MT_tRNA", "lincRNA", "miRNA", "misc_RNA", "rRNA", "snRNA", "snoRNA", "processed_transcript",
+                "antisense", "macro_lncRNA", "ribozyme", "sRNA", "scRNA", "scaRNA", "sense_intronic", "sense_overlapping" 
+            };
             return strings[type];
         }
         char *strings[] = { "", "CDS", "exon", "3_prime_UTR", "5_prime_UTR" };
@@ -555,6 +570,7 @@ static inline int feature_set_seq(args_t *args, char *chr_beg, char *chr_end)
         aux->seq[aux->nseq] = strdup(chr_beg);
         iseq = khash_str2int_inc(aux->seq2int, aux->seq[aux->nseq]);
         aux->nseq++;
+        assert( aux->nseq < 256 );  // see gf_gene_t.iseq
     }
     chr_end[1] = c;
     return iseq;
@@ -594,6 +610,7 @@ static inline uint32_t gff_parse_id(const char *line, const char *needle, char *
     uint32_t id = strtol(ss, &se, 10);
     if ( ss==se ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__, line);
     if ( *se && *se!=';' && *se!='\t' ) error("[%s:%d %s] Could not parse the line: %s\n",__FILE__,__LINE__,__FUNCTION__,line);
+    assert( id <= 0xffffff );   // see gf_gene_t.id. Ensembl IDs are never that big in practice
     return id;
 }
 static void gff_parse_ensid_fmt(const char *line, const char *needle, char *ss)
@@ -630,7 +647,10 @@ static inline int gff_parse_biotype(char *_line)
         case 'p': 
             if ( !strncmp(line,"protein_coding",14) ) return GF_PROTEIN_CODING;
             else if ( !strncmp(line,"polymorphic_pseudogene",22) ) return GF_POLYMORPHIC_PSEUDOGENE;
+            else if ( !strncmp(line,"processed_transcript",20) ) return GF_PROCESSED_TRANSCRIPT;
             break;
+        case 'a':
+            if ( !strncmp(line,"antisense",9) ) return GF_ANTISENSE;
         case 'I':
             if ( !strncmp(line,"IG_C_gene",9) ) return GF_IG_C;
             else if ( !strncmp(line,"IG_D_gene",9) ) return GF_IG_D;
@@ -652,32 +672,30 @@ static inline int gff_parse_biotype(char *_line)
         case 'm':
             if ( !strncmp(line,"miRNA",5) ) return GF_miRNA;
             else if ( !strncmp(line,"misc_RNA",8) ) return GF_MISC_RNA;
-            else if ( !strncmp(line,"macro_lncRNA",12) ) return GF_lincRNA;
+            else if ( !strncmp(line,"macro_lncRNA",12) ) return GF_macro_lncRNA;
         case 'r':
             if ( !strncmp(line,"rRNA",4) ) return GF_rRNA;
-            if ( !strncmp(line,"ribozyme",8) ) return GF_MISC_RNA;
+            if ( !strncmp(line,"ribozyme",8) ) return GF_ribozyme;
         case 's':
             if ( !strncmp(line,"snRNA",5) ) return GF_snRNA;
-            else if ( !strncmp(line,"sRNA",4) ) return GF_MISC_RNA;
-            else if ( !strncmp(line,"scRNA",5) ) return GF_MISC_RNA;
-            else if ( !strncmp(line,"scaRNA",6) ) return GF_MISC_RNA;
+            else if ( !strncmp(line,"sRNA",4) ) return GF_sRNA;
+            else if ( !strncmp(line,"scRNA",5) ) return GF_scRNA;
+            else if ( !strncmp(line,"scaRNA",6) ) return GF_scaRNA;
             else if ( !strncmp(line,"snoRNA",6) ) return GF_snoRNA;
+            else if ( !strncmp(line,"sense_intronic",14) ) return GF_SENSE_INTRONIC;
+            else if ( !strncmp(line,"sense_overlapping",17) ) return GF_SENSE_OVERLAPPING;
     }
     return 0;
 }
 static inline int gff_ignored_biotype(char *ss)
 {
     ss = strstr(ss,"biotype=") + 8;
-    if ( !strncmp("antisense",ss,9) ) return 1;
-    if ( !strncmp("sense_intronic",ss,14) ) return 1;
-    if ( !strncmp("sense_overlapping",ss,17) ) return 1;
     if ( !strncmp("non_stop_decay",ss,14) ) return 1;
     if ( !strncmp("IG_pseudogene",ss,13) ) return 1;
     if ( !strncmp("IG_D_pseudogene",ss,15) ) return 1;
     if ( !strncmp("IG_V_pseudogene",ss,15) ) return 1;
     if ( !strncmp("TR_J_pseudogene",ss,15) ) return 1;
     if ( !strncmp("translated_processed_pseudogene",ss,31) ) return 1;
-    if ( !strncmp("processed_transcript",ss,20) ) return 1;
     if ( !strncmp("processed_pseudogene",ss,20) ) return 1;
     if ( !strncmp("unitary_pseudogene",ss,18) ) return 1;
     if ( !strncmp("pseudogene",ss,10) ) return 1;
@@ -695,7 +713,20 @@ static inline int gff_ignored_biotype(char *ss)
     if ( !strncmp("transcribed_unitary_pseudogene",ss,30) ) return 1;
     return 0;
 }
-void gff_parse_transcript(args_t *args, const char *line, char *ss)
+gf_gene_t *gene_init(aux_t *aux, uint32_t gene_id)
+{
+    khint_t k = kh_get(int2gene, aux->gid2gene, (int)gene_id);
+    gf_gene_t *gene = (k == kh_end(aux->gid2gene)) ? NULL : kh_val(aux->gid2gene, k);
+    if ( !gene )
+    {
+        gene = (gf_gene_t*) calloc(1,sizeof(gf_gene_t));
+        int ret;
+        k = kh_put(int2gene, aux->gid2gene, (int)gene_id, &ret);
+        kh_val(aux->gid2gene,k) = gene;
+    }
+    return gene;
+}
+void gff_parse_transcript(args_t *args, const char *line, char *ss, ftr_t *ftr)
 {
     aux_t *aux = &args->init;
     int biotype = gff_parse_biotype(ss);
@@ -709,18 +740,23 @@ void gff_parse_transcript(args_t *args, const char *line, char *ss)
     uint32_t trid = gff_parse_id(line, "ID=transcript:", ss);
     uint32_t gene_id = gff_parse_id(line, "Parent=gene:", ss);
 
-    if ( !ENSID_FMT ) gff_parse_ensid_fmt(line, "ID=transcript:", ss);
+    if ( !ENSID_FMT ) gff_parse_ensid_fmt(line, "ID=transcript:", ss);      // id prefix different across species
 
+    tscript_t *tr = (tscript_t*) calloc(1,sizeof(tscript_t));
+    tr->id     = trid;
+    tr->strand = ftr->strand;
+    tr->gene   = gene_init(aux, gene_id);
+    tr->type   = biotype;
+    tr->beg    = ftr->beg;
+    tr->end    = ftr->end;
+
+    khint_t k;
     int ret;
-    khint_t k = kh_put(int2int, aux->trid2gid, (int)trid, &ret);
-    kh_val(aux->trid2gid,k) = gene_id;
+    k = kh_put(int2tscript, aux->id2tr, (int)trid, &ret);
+    kh_val(aux->id2tr,k) = tr;
 }
-void gff_parse_gene(args_t *args, const char *line, char *chr_beg, char *chr_end)
+void gff_parse_gene(args_t *args, const char *line, char *ss, char *chr_beg, char *chr_end, ftr_t *ftr)
 {
-    char *se, *ss;
-    ss = gff_skip(line, chr_end+2);
-    ss = gff_skip(line, ss);
-
     int biotype = gff_parse_biotype(ss);
     if ( biotype <= 0 )
     {
@@ -729,32 +765,23 @@ void gff_parse_gene(args_t *args, const char *line, char *chr_beg, char *chr_end
     }
 
     aux_t *aux = &args->init;
-    gf_gene_t *gene = (gf_gene_t*) calloc(1,sizeof(gf_gene_t));
-
-    gff_parse_beg_end(line, ss, &gene->beg,&gene->end);
-    gene->type = gff_parse_biotype(ss);
-    gene->iseq = feature_set_seq(args, chr_beg,chr_end);
 
     // substring search for "ID=gene:ENSG00000437963"
-    gene->id = gff_parse_id(line, "ID=gene:", ss);
+    uint32_t gene_id = gff_parse_id(line, "ID=gene:", ss);
+    gf_gene_t *gene = gene_init(aux, gene_id);
+    assert( !gene->name );      // the gene_id should be unique
+
+    gene->iseq = feature_set_seq(args, chr_beg,chr_end);
 
     // substring search for "Name=OR4F5"
     ss = strstr(chr_end+2,"Name=");
     if ( !ss ) error("Could not parse the line, \"Name=\" not present: %s\n", line);
     ss += 5;
-    se = ss;
+    char *se = ss;
     while ( *se && *se!=';' && !isspace(*se) ) se++;
     gene->name = (char*) malloc(se-ss+1);
     memcpy(gene->name,ss,se-ss);
     gene->name[se-ss] = 0;
-
-    // gene_id-to-gene lookup
-    int ret;
-    khint_t k = kh_put(int2gene, aux->gid2gene, (int)gene->id, &ret);
-    kh_val(aux->gid2gene,k) = gene;
-
-    // position-to-gene lookup
-    regidx_push(args->idx_gene, chr_beg, chr_end, gene->beg, gene->end, &gene);
 }
 int gff_parse(args_t *args, char *line, ftr_t *ftr)
 {
@@ -788,9 +815,7 @@ int gff_parse(args_t *args, char *line, ftr_t *ftr)
         ss = gff_parse_beg_end(line, ss, &ftr->beg,&ftr->end);
         ss = gff_skip(line, ss);
         int type = gff_parse_type(ss);
-        if ( type==GFF_TSCRIPT_LINE ) gff_parse_transcript(args, line, ss);
-        else if ( type==GFF_GENE_LINE ) gff_parse_gene(args, line, chr_beg,chr_end);
-        else
+        if ( type!=GFF_TSCRIPT_LINE && type!=GFF_GENE_LINE ) 
         {
             // we ignore these, debug print to see new types:
             ss = strstr(ss,"ID=");
@@ -798,7 +823,19 @@ int gff_parse(args_t *args, char *line, ftr_t *ftr)
             if ( !strncmp("chromosome",ss+3,10) ) return -1;
             if ( !strncmp("supercontig",ss+3,11) ) return -1;
             fprintf(stderr,"ignore: %s\n", line);
+            return -1;
         }
+
+        // 7. column: strand
+        if ( *ss == '+' ) ftr->strand = STRAND_FWD;
+        else if ( *ss == '-' ) ftr->strand = STRAND_REV;
+        else error("Unknown strand: %c .. %s\n", *ss,ss);
+
+        if ( type==GFF_TSCRIPT_LINE )
+            gff_parse_transcript(args, line, ss, ftr);
+        else
+            gff_parse_gene(args, line, ss, chr_beg, chr_end, ftr);
+
         return -1;
     }
     ss = gff_parse_beg_end(line, ss, &ftr->beg,&ftr->end);
@@ -837,32 +874,20 @@ static inline void chr_beg_end(aux_t *aux, int iseq, char **chr_beg, char **chr_
     *chr_beg = *chr_end = aux->seq[iseq];
     while ( (*chr_end)[1] ) (*chr_end)++;
 }
-tscript_t *tscript_init(aux_t *aux, gf_gene_t *gene, ftr_t *ftr)
+tscript_t *tscript_init(aux_t *aux, uint32_t trid)
 {
-    khint_t k = kh_get(int2tscript, aux->id2tr, (int)ftr->trid);
+    khint_t k = kh_get(int2tscript, aux->id2tr, (int)trid);
     tscript_t *tr = (k == kh_end(aux->id2tr)) ? NULL : kh_val(aux->id2tr, k);
-    if ( !tr )
-    {
-        tr = (tscript_t*) calloc(1,sizeof(tscript_t));
-        tr->strand = ftr->strand;
-        tr->id     = ftr->trid;
-        tr->gene   = gene;
-        int ret;
-        k = kh_put(int2tscript, aux->id2tr, (int)ftr->trid, &ret);
-        kh_val(aux->id2tr,k) = tr;
-    }
+    assert( tr );
     return tr;
 }
-void register_cds(args_t *args, gf_gene_t *gene, ftr_t *ftr)
+void register_cds(args_t *args, ftr_t *ftr)
 {
-    // See if the tscript_t structure has been already created, 
-    // then make the new CDS searchable via idx_cds. Note we
-    // do not malloc tr->cds just yet.
-    //  ftr  .. the gff CDS line
-    //  gene .. the corresponding gene line
+    // Make the CDS searchable via idx_cds. Note we do not malloc tr->cds just yet.
+    //  ftr is the result of parsing a gff CDS line
     aux_t *aux = &args->init;
 
-    tscript_t *tr = tscript_init(aux, gene, ftr);
+    tscript_t *tr = tscript_init(aux, ftr->trid);
     if ( tr->strand != ftr->strand ) error("Conflicting strand in transcript %"PRIu32" .. %d vs %d\n",ftr->trid,tr->strand,ftr->strand);
     
     gf_cds_t *cds = (gf_cds_t*) malloc(sizeof(gf_cds_t));
@@ -875,26 +900,26 @@ void register_cds(args_t *args, gf_gene_t *gene, ftr_t *ftr)
     hts_expand(gf_cds_t*,tr->ncds+1,tr->mcds,tr->cds);
     tr->cds[tr->ncds++] = cds;
 }
-void register_utr(args_t *args, gf_gene_t *gene, ftr_t *ftr)
+void register_utr(args_t *args, ftr_t *ftr)
 {
     aux_t *aux = &args->init;
     gf_utr_t *utr = (gf_utr_t*) malloc(sizeof(gf_utr_t));
     utr->which = ftr->type==GF_UTR3 ? prime3 : prime5;
     utr->beg   = ftr->beg;
     utr->end   = ftr->end;
-    utr->tr    = tscript_init(aux, gene, ftr);
+    utr->tr    = tscript_init(aux, ftr->trid);
 
     char *chr_beg, *chr_end;
     chr_beg_end(&args->init, utr->tr->gene->iseq, &chr_beg, &chr_end);
     regidx_push(args->idx_utr, chr_beg,chr_end, utr->beg,utr->end, &utr);
 }
-void register_exon(args_t *args, gf_gene_t *gene, ftr_t *ftr)
+void register_exon(args_t *args, ftr_t *ftr)
 {
     aux_t *aux = &args->init;
     gf_exon_t *exon = (gf_exon_t*) malloc(sizeof(gf_exon_t));
     exon->beg = ftr->beg;
     exon->end = ftr->end;
-    exon->tr  = tscript_init(aux, gene, ftr);
+    exon->tr  = tscript_init(aux, ftr->trid);
 
     char *chr_beg, *chr_end;
     chr_beg_end(&args->init, exon->tr->gene->iseq, &chr_beg, &chr_end);
@@ -911,6 +936,12 @@ void tscript_init_cds(args_t *args)
     {
         if ( !kh_exist(aux->id2tr, k) ) continue;
         tscript_t *tr = (tscript_t*) kh_val(aux->id2tr, k);
+
+        // position-to-tscript lookup
+        char *chr_beg, *chr_end;
+        chr_beg_end(aux, tr->gene->iseq, &chr_beg, &chr_end);
+        regidx_push(args->idx_tscript, chr_beg, chr_end, tr->beg, tr->end, &tr);
+
         if ( !tr->ncds ) continue;      // transcript with no CDS
 
         // sort CDs
@@ -1009,8 +1040,6 @@ void tscript_init_cds(args_t *args)
         tr->end = tr->cds[tr->ncds-1]->beg + tr->cds[tr->ncds-1]->len - 1;
 
         // set CDS offsets and insert into regidx
-        char *chr_beg, *chr_end;
-        chr_beg_end(aux, tr->gene->iseq, &chr_beg,&chr_end);
         len=0;
         for (i=0; i<tr->ncds; i++)
         {
@@ -1022,15 +1051,15 @@ void tscript_init_cds(args_t *args)
 }
 
 void regidx_free_gf(void *payload) { free(*((gf_cds_t**)payload)); }
-void regidx_free_gene(void *payload) { gf_gene_t *gene = *((gf_gene_t**)payload); free(gene->name); free(gene); }
+void regidx_free_tscript(void *payload) { tscript_t *tr = *((tscript_t**)payload); free(tr->cds); free(tr); }
 
 void init_gff(args_t *args)
 {
     aux_t *aux = &args->init;
     aux->seq2int   = khash_str2int_init();   // chrom's numeric id
-    aux->trid2gid  = kh_init(int2int);       // ensembl transcript id to ens gene id
     aux->gid2gene  = kh_init(int2gene);      // gene id to gf_gene_t, for idx_gene
-    args->idx_gene = regidx_init(NULL, NULL, regidx_free_gene, sizeof(gf_gene_t*), NULL);
+    aux->id2tr     = kh_init(int2tscript);   // transcript id to tscript_t
+    args->idx_tscript = regidx_init(NULL, NULL, regidx_free_tscript, sizeof(tscript_t*), NULL);
 
     // parse gff
     kstring_t str = {0,0,0};
@@ -1047,7 +1076,6 @@ void init_gff(args_t *args)
 
 
     // process gff information: connect CDS and exons to transcripts
-    aux->id2tr     = kh_init(int2tscript);   // transcript id to tscript_t
     args->idx_cds  = regidx_init(NULL, NULL, regidx_free_gf, sizeof(gf_cds_t*), NULL);
     args->idx_utr  = regidx_init(NULL, NULL, regidx_free_gf, sizeof(gf_utr_t*), NULL);
     args->idx_exon = regidx_init(NULL, NULL, regidx_free_gf, sizeof(gf_exon_t*), NULL);
@@ -1059,40 +1087,43 @@ void init_gff(args_t *args)
         ftr_t *ftr = &aux->ftr[i];
 
         // check whether to keep this feature: is there a mapping trid -> gene_id -> gene?
-        khint_t k = kh_get(int2int, aux->trid2gid, (int)ftr->trid);
-        if ( k==kh_end(aux->trid2gid) ) continue;       // no such transcript
-        uint32_t gene_id = kh_val(aux->trid2gid, k);
-        k = kh_get(int2gene, aux->gid2gene, (int)gene_id);
-        if ( k==kh_end(aux->gid2gene) ) continue;       // no such gene
-        gf_gene_t *gene = kh_val(aux->gid2gene, k);
+        khint_t k = kh_get(int2tscript, aux->id2tr, (int)ftr->trid);
+        if ( k==kh_end(aux->id2tr) ) continue;       // no such transcript
+
+        tscript_t *tr = kh_val(aux->id2tr,k);
+        if ( !tr->gene->name )
+        {
+            // not a supported biotype (e.g. gene:pseudogene, transcript:processed_transcript)
+            regidx_free_tscript(&tr);
+            kh_del(int2tscript, aux->id2tr,k);
+            continue;
+        }
 
         // populate regidx by category: 
         //      ftr->type   .. GF_CDS, GF_EXON, GF_UTR3, GF_UTR5
         //      gene->type  .. GF_PROTEIN_CODING, GF_MT_rRNA, GF_IG_C, ...
-        if ( ftr->type==GF_CDS ) register_cds(args, gene, ftr);
-        else if ( ftr->type==GF_EXON ) register_exon(args, gene, ftr);
-        else if ( ftr->type==GF_UTR5 ) register_utr(args, gene, ftr);
-        else if ( ftr->type==GF_UTR3 ) register_utr(args, gene, ftr);
+        if ( ftr->type==GF_CDS ) register_cds(args, ftr);
+        else if ( ftr->type==GF_EXON ) register_exon(args, ftr);
+        else if ( ftr->type==GF_UTR5 ) register_utr(args, ftr);
+        else if ( ftr->type==GF_UTR3 ) register_utr(args, ftr);
         else
-            error("something: %s\t%d\t%d\t%s\t%s\t%s\n", aux->seq[ftr->iseq],ftr->beg+1,ftr->end+1,ENSID(ftr->trid),gf_type2gff_string(gene->type),gf_type2gff_string(ftr->type));
+            error("something: %s\t%d\t%d\t%s\t%s\n", aux->seq[ftr->iseq],ftr->beg+1,ftr->end+1,ENSID(ftr->trid),gf_type2gff_string(ftr->type));
     }
-
     tscript_init_cds(args);
 
     if ( !args->quiet )
     {
-        fprintf(stderr,"Indexed %d CDS, %d UTR, %d exon and %d gene regions\n", 
-                regidx_nregs(args->idx_cds),
-                regidx_nregs(args->idx_utr),
+        fprintf(stderr,"Indexed %d transcripts, %d exons, %d CDSs, %d UTRs\n", 
+                regidx_nregs(args->idx_tscript),
                 regidx_nregs(args->idx_exon),
-                regidx_nregs(args->idx_gene));
+                regidx_nregs(args->idx_cds),
+                regidx_nregs(args->idx_utr));
     }
 
     free(aux->ftr);
     khash_str2int_destroy_free(aux->seq2int);
-    kh_destroy(int2int,aux->trid2gid);
-    kh_destroy(int2gene,aux->gid2gene);
-    // we keep this hash only to free all transcripts at the end: kh_destroy(int2tscript,aux->id2tr);
+    // keeping only to destroy the genes at the end: kh_destroy(int2gene,aux->gid2gene);
+    kh_destroy(int2tscript,aux->id2tr);
     free(aux->seq);
 }
 
@@ -1143,14 +1174,9 @@ void init_data(args_t *args)
         fprintf(args->out,"# CSQ"); i = 1;
         fprintf(args->out,"\t[%d]Sample", ++i);
         fprintf(args->out,"\t[%d]Haplotype", ++i);
-        fprintf(args->out,"\t[%d]Gene", ++i);
-        fprintf(args->out,"\t[%d]Transcript", ++i);
-        fprintf(args->out,"\t[%d]Coding strand (+ fwd or - rev)", ++i);
         fprintf(args->out,"\t[%d]Chromosome", ++i);
         fprintf(args->out,"\t[%d]Position", ++i);
-        fprintf(args->out,"\t[%d]SO consequence term", ++i);
-        fprintf(args->out,"\t[%d]Amino acid substitution", ++i);
-        fprintf(args->out,"\t[%d]DNA substitution", ++i);
+        fprintf(args->out,"\t[%d]Consequence", ++i);
         fprintf(args->out,"\n");
     }
     else
@@ -1171,18 +1197,18 @@ void destroy_data(args_t *args)
     regidx_destroy(args->idx_cds);
     regidx_destroy(args->idx_utr);
     regidx_destroy(args->idx_exon);
-    regidx_destroy(args->idx_gene);
+    regidx_destroy(args->idx_tscript);
     regitr_destroy(args->itr);
 
     khint_t k,i,j;
-    for (k=0; k<kh_end(args->init.id2tr); k++)
+    for (k=0; k<kh_end(args->init.gid2gene); k++)
     {
-        if ( !kh_exist(args->init.id2tr, k) ) continue;
-        tscript_t *tr = (tscript_t*) kh_val(args->init.id2tr, k);
-        free(tr->cds);
-        free(tr);
+        if ( !kh_exist(args->init.gid2gene, k) ) continue;
+        gf_gene_t *gene = (gf_gene_t*) kh_val(args->init.gid2gene, k);
+        free(gene->name);
+        free(gene);
     }
-    kh_destroy(int2tscript,args->init.id2tr);
+    kh_destroy(int2gene,args->init.gid2gene);
 
     if ( args->filter )
         filter_destroy(args->filter);
@@ -1553,7 +1579,7 @@ void tscript_splice_ref(tscript_t *tr)
     tr->sref[len] = 0;
 }
 
-void csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
+int csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
 {
     khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)csq->pos);
     vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
@@ -1570,11 +1596,13 @@ void csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
 
     csq->vrec = vrec;
     csq->idx  = i;
-    if ( i<vrec->ncsq ) return; // the consequence already exists
+    if ( i<vrec->ncsq ) return 1; // the consequence already exists
 
     vrec->ncsq++;
     hts_expand(char*, vrec->ncsq, vrec->mcsq, vrec->csq);
     vrec->csq[vrec->ncsq-1] = csq->str;
+
+    return 0;
 }
 
 //  soff .. position of the variant within the trimmed query transcript
@@ -1875,15 +1903,7 @@ static inline void csq_print_text(args_t *args, csq_t *csq, int ismpl, int ihap)
     else
         fprintf(args->out,"-");
 
-    fprintf(args->out,"\t%s\t%d\t",chr,csq->pos+1);
-
-    char *beg = csq->str;
-    while ( *beg )
-    {
-        if ( *beg=='|' ) *beg = '\t';
-        beg++;
-    }
-    fprintf(args->out,"%s\n",csq->str);
+    fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,csq->str);
 }
 static inline void hap_print_text(args_t *args, tscript_t *tr, int ismpl, int ihap, hap_node_t *node)
 {
@@ -2210,7 +2230,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
     // coding haplotypes are printed in one go and buffering is not used
     // with tab output. VCF output is OK though.
 
-    csq_push(args, csq, rec);
+    if ( csq_push(args, csq, rec)!=0 ) return;    // the consequence already exists
 
     int i,j,ngt = 0;
     if ( args->phase!=PHASE_DROP_GT )
@@ -2331,27 +2351,27 @@ int test_splice(args_t *args, bcf1_t *rec)
     }
     return ret;
 }
-int test_gene(args_t *args, bcf1_t *rec)
+int test_tscript(args_t *args, bcf1_t *rec)
 {
     const char *chr = bcf_seqname(args->hdr,rec);
-    if ( !regidx_overlap(args->idx_gene,chr,rec->pos,rec->pos+rec->rlen-1, args->itr) ) return 0;
+    if ( !regidx_overlap(args->idx_tscript,chr,rec->pos,rec->pos+rec->rlen-1, args->itr) ) return 0;
     while ( regitr_overlap(args->itr) )
     {
-        gf_gene_t *gene = regitr_payload(args->itr, gf_gene_t*);
+        tscript_t *tr = regitr_payload(args->itr, tscript_t*);
 
         hts_expand(csq_t, args->ncsq_buf+1, args->mcsq_buf, args->csq_buf);
         csq_t *csq = &args->csq_buf[args->ncsq_buf++];
         csq->pos  = rec->pos;
-        csq->type = GF_is_coding(gene->type) ? CSQ_INTRON : CSQ_NON_CODING;
+        csq->type = GF_is_coding(tr->type) ? CSQ_INTRON : CSQ_NON_CODING;
 
         args->str2.l = 0;
         kput_csq(csq->type, &args->str2);
         kputc_('|', &args->str2);
-        kputs(gene->name, &args->str2);
+        kputs(tr->gene->name, &args->str2);
         if ( csq->type==CSQ_NON_CODING )
         {
             kputc_('|', &args->str2);
-            kputs(gf_type2gff_string(gene->type), &args->str2);
+            kputs(gf_type2gff_string(tr->type), &args->str2);
         }
         csq->str = strdup(args->str2.s);
 
@@ -2398,7 +2418,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     int hit = test_cds(args, rec);
     if ( !hit ) hit = test_utr(args, rec);
     if ( !hit ) hit = test_splice(args, rec);
-    if ( !hit ) hit = test_gene(args, rec);
+    if ( !hit ) hit = test_tscript(args, rec);
 
     hap_flush(args, rec->pos-1);
     vbuf_flush(args);
