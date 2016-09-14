@@ -6,5 +6,6 @@ plugins/*.dSYM
 plugins/*.P
 
 /test/test-rbuf
+/test/test-regidx
 
 /TAGS
