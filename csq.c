@@ -375,8 +375,8 @@ struct _hap_node_t
 };
 struct _tscript_t
 {
-    uint32_t id, len;   // transcript id and the cds length
-    uint32_t beg,end;   // transcript's end coordinate (ref strand, 0-based, inclusive)
+    uint32_t id;        // transcript id
+    uint32_t beg,end;   // transcript's beg and end coordinate (ref strand, 0-based, inclusive)
     uint32_t strand:1,  // STRAND_REV or STRAND_FWD
              ncds:31,   // number of exons
              mcds;
@@ -391,7 +391,7 @@ struct _tscript_t
 };
 static inline int cmp_tscript(tscript_t **a, tscript_t **b)
 {
-    return ( (*a)->len + (*a)->cds[0]->beg < (*b)->len + (*b)->cds[0]->beg ) ? 1 : 0;
+    return ( (*a)->end  < (*b)->end ) ? 1 : 0;
 }
 KHEAP_INIT(trhp, tscript_t*, cmp_tscript)
 typedef khp_trhp_t tr_heap_t;
@@ -412,6 +412,7 @@ typedef struct
     kstring_t tseq;     // the variable part of translated haplotype transcript, coding strand
     kstring_t tref;     // the variable part of translated reference transcript, coding strand
     int upstream_stop;
+    uint32_t sbeg;      // stack's sbeg, for cases first node's type is HAP_SSS
 }
 hap_t;
 
@@ -1036,8 +1037,6 @@ void tscript_init_cds(args_t *args)
                 }
             }
         }
-        tr->len = len;
-        tr->end = tr->cds[tr->ncds-1]->beg + tr->cds[tr->ncds-1]->len - 1;
 
         // set CDS offsets and insert into regidx
         len=0;
@@ -1610,8 +1609,8 @@ int csq_push(args_t *args, csq_t *csq, bcf1_t *rec)
 //  rbeg .. position on the reference transcript (if there are no indels, then rbeg=send)
 //  rpos .. VCF position
 #define node2soff(i) (hap->stack[i].slen - (hap->stack[i].node->rlen + hap->stack[i].node->dlen))
-#define node2sbeg(i) (hap->stack[1].node->sbeg + node2soff(i))
-#define node2send(i) (hap->stack[1].node->sbeg + hap->stack[i].slen)
+#define node2sbeg(i) (hap->sbeg + node2soff(i))
+#define node2send(i) (hap->sbeg + hap->stack[i].slen)
 #define node2rbeg(i) (hap->stack[i].node->sbeg)
 #define node2rend(i) (hap->stack[i].node->sbeg + hap->stack[i].node->rlen)
 #define node2rpos(i) (hap->stack[i].node->rbeg)
@@ -1792,9 +1791,13 @@ void hap_finalize(args_t *args, hap_t *hap)
         sseq.m = sref.m + hap->stack[istack].dlen;  // total length of the spliced query transcript
         hap->upstream_stop = 0;
 
+        int i = 1, dlen, ibeg;
+        while ( i<istack && hap->stack[i].node->type == HAP_SSS ) i++;
+        hap->sbeg = hap->stack[i].node->sbeg;
+
         if ( tr->strand==STRAND_FWD )
         {
-            int i = 0, dlen = 0, ibeg = -1;
+            i = 0, dlen = 0, ibeg = -1;
             while ( ++i <= istack )
             {
                 if ( hap->stack[i].node->type == HAP_SSS )
@@ -1842,7 +1845,7 @@ void hap_finalize(args_t *args, hap_t *hap)
         }
         else
         {
-            int i = istack + 1, dlen = 0, ibeg = -1;
+            i = istack + 1, dlen = 0, ibeg = -1;
             while ( --i > 0 )
             {
                 if ( hap->stack[i].node->type == HAP_SSS )
@@ -1851,7 +1854,7 @@ void hap_finalize(args_t *args, hap_t *hap)
                     continue;
                 }
                 dlen += hap->stack[i].node->dlen;
-                if ( i>1 )
+                if ( i>1 && hap->stack[i-1].node->type != HAP_SSS )
                 {
                     if ( dlen%3 )
                     {
@@ -2103,12 +2106,12 @@ int test_cds(args_t *args, bcf1_t *rec)
         if ( !tr->root )
         {
             // initialize the transcript and its haplotype tree, fetch the reference sequence
-            int len;
-            tr->ref = faidx_fetch_seq(args->fai, chr, tr->cds[0]->beg, tr->end, &len);
+            int len, cds_end = tr->cds[tr->ncds-1]->beg + tr->cds[tr->ncds-1]->len - 1;
+            tr->ref = faidx_fetch_seq(args->fai, chr, tr->cds[0]->beg, cds_end, &len);
             if ( !tr->ref )
-                error("faidx_fetch_seq failed %s:%d-%d\n", chr,tr->cds[0]->beg+1,tr->end+1);
-            if ( len != tr->end - tr->cds[0]->beg + 1 )
-                error("incorrect length from faidx_fetch_seq %s:%d-%d .. %d\n", chr,tr->cds[0]->beg+1,tr->end+1,len);
+                error("faidx_fetch_seq failed %s:%d-%d\n", chr,tr->cds[0]->beg+1,cds_end+1);
+            if ( len != cds_end - tr->cds[0]->beg + 1 )
+                error("incorrect length from faidx_fetch_seq %s:%d-%d .. %d\n", chr,tr->cds[0]->beg+1,cds_end+1,len);
 
             tr->root = (hap_node_t*) calloc(1,sizeof(hap_node_t));
             tr->nhap = args->phase==PHASE_DROP_GT ? 1 : 2*args->smpl->n;     // maximum ploidy = diploid
@@ -2318,7 +2321,7 @@ int test_splice(args_t *args, bcf1_t *rec)
         if ( abs(dpos) > abs(exon->end - rec_end) ) dpos = rec_end - exon->end, side = exon->end;
 
         // skip the variant if it is at begining of the first exon or at the end of the last exon
-        if ( side==tr->cds[0]->beg || side==tr->end ) continue;
+        if ( side==tr->beg || side==tr->end ) continue;
 
         int type = 0;
         if ( dpos < 0 )   // inside the exon
