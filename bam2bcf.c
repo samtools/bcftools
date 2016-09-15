@@ -350,11 +350,22 @@ double calc_chisq_bias(int *a, int *b, int n)
     return prob;
 }
 
+static double mann_whitney_1947_(int n, int m, int U)
+{
+     if (U<0) return 0;
+     if (n==0||m==0) return U==0 ? 1 : 0;
+    return (double)n/(n+m)*mann_whitney_1947_(n-1,m,U-m) + (double)m/(n+m)*mann_whitney_1947_(n,m-1,U);
+}
+
 double mann_whitney_1947(int n, int m, int U)
 {
-    if (U<0) return 0;
-    if (n==0||m==0) return U==0 ? 1 : 0;
-    return (double)n/(n+m)*mann_whitney_1947(n-1,m,U-m) + (double)m/(n+m)*mann_whitney_1947(n,m-1,U);
+    #include "mw.h"
+
+    assert(n >= 2 && m >= 2);
+
+    return (n < 8 && m < 8 && U < 50)
+        ? mw[n-2][m-2][U]
+        : mann_whitney_1947_(n,m,U);
 }
 
 double mann_whitney_1947_cdf(int n, int m, int U)
@@ -416,11 +427,16 @@ double calc_mwu_bias(int *a, int *b, int n)
     double U = 0, ties = 0;
     for (i=0; i<n; i++)
     {
-        na += a[i];
-        U  += a[i] * (nb + b[i]*0.5);
-        nb += b[i];
-        if ( a[i] && b[i] )
-        {
+        if (!a[i]) {
+            if (!b[i]) continue;
+            nb += b[i];
+        } else if (!b[i]) {
+            na += a[i];
+            U  += a[i] * nb;
+        } else {
+            na += a[i];
+            U  += a[i] * (nb + b[i]*0.5);
+            nb += b[i];
             double tie = a[i] + b[i];
             ties += (tie*tie-1)*tie;
         }
