@@ -722,6 +722,12 @@ if the BCF headers differ.
 [[consensus]]
 === bcftools consensus '[OPTIONS]' 'FILE'
 Create consensus sequence by applying VCF variants to a reference fasta file.
+By default, the program will apply all ALT variants to the reference fasta to
+obtain the consensus sequence. Using the *--sample* (and, optionally,
+*--haplotype*) option will apply genotype (haplotype) calls from FORMAT/GT.
+Note that the program does not act as a primitive variant caller and ignores allelic
+depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
+*setGT* plugin.
 
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format

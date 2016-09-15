@@ -614,8 +614,11 @@ static void consensus(args_t *args)
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
-    fprintf(stderr, "About:   Create consensus sequence by applying VCF variants to a reference\n");
-    fprintf(stderr, "         fasta file.\n");
+    fprintf(stderr, "About: Create consensus sequence by applying VCF variants to a reference fasta\n");
+    fprintf(stderr, "       file. By default, the program will apply all ALT variants. Using the\n");
+    fprintf(stderr, "       --sample (and, optionally, --haplotype) option will apply genotype\n");
+    fprintf(stderr, "       (or haplotype) calls from FORMAT/GT. The program ignores allelic depth\n");
+    fprintf(stderr, "       information, such as INFO/AD or FORMAT/AD.\n");
     fprintf(stderr, "Usage:   bcftools consensus [OPTIONS] <file.vcf>\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -f, --fasta-ref <file>     reference sequence in fasta format\n");
