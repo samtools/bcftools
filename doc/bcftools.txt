@@ -989,13 +989,6 @@ See the usage examples below.
 *-q, --quiet*::
     suppress warning messages
 
--r, --regions <region>          restrict to comma-separated list of regions
--R, --regions-file <file>       restrict to regions listed in a file
--s, --samples <-|list>          samples to include or "-" to apply all variants and ignore samples
--S, --samples-file <file>       samples to include
--t, --targets <region>          similar to -r but streams rather than index-jumps
--T, --targets-file <file>       similar to -R but streams rather than index-jumps
-
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
