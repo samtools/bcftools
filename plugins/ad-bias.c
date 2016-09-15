@@ -192,8 +192,8 @@ bcf1_t *process(bcf1_t *rec)
 
         int n11 = aptr[0], n12 = aptr[1];
         int n21 = bptr[0], n22 = bptr[1];
-        double left, right, two;
-        double fisher = kt_fisher_exact(n11,n12,n21,n22, &left,&right,&two);
+        double left, right, fisher;
+        kt_fisher_exact(n11,n12,n21,n22, &left,&right,&fisher);
         if ( fisher >= args.th ) continue;
 
         printf("FT\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%e",

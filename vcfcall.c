@@ -421,8 +421,12 @@ static void init_data(args_t *args)
         for (i=0; i<args->nsex; i++) args->sex2ploidy_prev[i] = 2;
     }
 
-    if ( args->gvcf ) 
+    if ( args->gvcf )
+    {
+        int id = bcf_hdr_id2int(args->aux.hdr,BCF_DT_ID,"DP");
+        if ( id<0 || !bcf_hdr_idinfo_exists(args->aux.hdr,BCF_HL_FMT,id) ) error("--gvcf output mode requires FORMAT/DP tag, which is not present in the input header\n");
         gvcf_update_header(args->gvcf, args->aux.hdr);
+    }
 
     if ( args->samples_map )
     {

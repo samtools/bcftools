@@ -65,7 +65,7 @@ annot_line_t;
 
 #define REPLACE_MISSING  0  // replace only missing values
 #define REPLACE_ALL      1  // replace both missing and existing values
-#define REPLACE_EXISTING 2  // replace only if tgt is not missing
+#define REPLACE_NON_MISSING 2  // replace only if tgt is not missing
 #define SET_OR_APPEND    3  // set new value if missing or non-existent, append otherwise
 typedef struct _annot_col_t
 {
@@ -109,6 +109,7 @@ typedef struct _args_t
     convert_t *set_ids;
     int set_ids_replace;
 
+    int nsmpl_annot;
     int *sample_map, nsample_map, sample_is_file;   // map[idst] -> isrc
     int mtmpi, mtmpf, mtmps;
     int mtmpi2, mtmpf2, mtmps2;
@@ -752,7 +753,7 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
     nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
     if ( ndst<=0 )  // field not present in dst file
     {
-        if ( col->replace==REPLACE_EXISTING ) return 0;
+        if ( col->replace==REPLACE_NON_MISSING ) return 0;
         hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
         for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
         {
@@ -777,7 +778,7 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
             if ( args->sample_map[i]==-1 ) continue;
             int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
             int32_t *dst = args->tmpi2 + ndst*i;
-            if ( col->replace==REPLACE_EXISTING && bcf_gt_is_missing(dst[0]) ) continue;
+            if ( col->replace==REPLACE_NON_MISSING && bcf_gt_is_missing(dst[0]) ) continue;
             if ( col->replace==REPLACE_MISSING  && !bcf_gt_is_missing(dst[0]) ) continue;
             for (j=0; j<nsrc; j++) dst[j] = src[j];
             for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
@@ -793,7 +794,7 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
             int32_t *dst = args->tmpi3 + nsrc*i;
             int keep_ori = 0;
             if ( args->sample_map[i]==-1 ) keep_ori = 1;
-            else if ( col->replace==REPLACE_EXISTING && bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
+            else if ( col->replace==REPLACE_NON_MISSING && bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
             else if ( col->replace==REPLACE_MISSING  && !bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
             if ( keep_ori )
             {
@@ -811,7 +812,7 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
 }
 static int count_vals(annot_line_t *tab, int icol_beg, int icol_end)
 {
-    int i, nmax = 0;
+    int i, nmax = 1;
     for (i=icol_beg; i<icol_end; i++)
     {
         char *str = tab->cols[i], *end = str;
@@ -831,17 +832,192 @@ static int count_vals(annot_line_t *tab, int icol_beg, int icol_end)
     }
     return nmax;
 }
+static int core_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, int32_t *vals, int nvals)
+{
+    if ( !args->sample_map )
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,vals,nvals*args->nsmpl_annot);
+
+    int i, j, ndst = bcf_get_format_int32(args->hdr,line,col->hdr_key,&args->tmpi2,&args->mtmpi2);
+    if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
+    if ( ndst<=0 )
+    {
+        if ( col->replace==REPLACE_NON_MISSING ) return 0;    // overwrite only if present
+        hts_expand(int32_t, nvals*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            int32_t *dst = args->tmpi2 + nvals*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                dst[0] = bcf_int32_missing;
+                for (j=1; j<nvals; j++) dst[j] = bcf_int32_vector_end;
+            }
+            else
+            {
+                int32_t *src = vals + nvals*args->sample_map[i];
+                for (j=0; j<nvals; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi2,nvals*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else if ( ndst >= nvals )     
+    {
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            if ( args->sample_map[i]==-1 ) continue;
+            int32_t *src = vals  + nvals*args->sample_map[i];
+            int32_t *dst = args->tmpi2 + ndst*i;
+            // possible cases:
+            //      in annot out
+            //       x  y     x     TAG,-TAG,=TAG    .. REPLACE_ALL, REPLACE_NON_MISSING, SET_OR_APPEND
+            //       x  y     y    +TAG              .. REPLACE_MISSING
+            //       .  y     .    =TAG              .. SET_OR_APPEND
+            //       .  y     y     TAG,+TAG,-TAG    .. REPLACE_ALL, REPLACE_MISSING, REPLACE_NON_MISSING
+            //       x  .     x     TAG,+TAG         .. REPLACE_ALL, REPLACE_MISSING
+            //       x  .     .    -TAG              .. REPLACE_NON_MISSING
+            if ( col->replace==REPLACE_NON_MISSING ) { if ( dst[0]==bcf_int32_missing ) continue; } 
+            else if ( col->replace==REPLACE_MISSING ) { if ( dst[0]!=bcf_int32_missing ) continue; }
+            else if ( col->replace==REPLACE_ALL ) { if ( src[0]==bcf_int32_missing ) continue; }
+            for (j=0; j<nvals; j++) dst[j] = src[j];
+            for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
+        }
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi2,ndst*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else    // ndst < nvals
+    {
+        hts_expand(int32_t, nvals*bcf_hdr_nsamples(args->hdr_out), args->mtmpi3, args->tmpi3);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            int32_t *ann = vals + nvals*args->sample_map[i];
+            int32_t *ori = args->tmpi2 + ndst*i;                // ori vcf line
+            int32_t *dst = args->tmpi3 + nvals*i;               // expanded buffer
+            int use_new_ann = 1;
+            if ( args->sample_map[i]==-1 ) use_new_ann = 0;
+            else if ( col->replace==REPLACE_NON_MISSING ) { if ( ori[0]==bcf_int32_missing ) use_new_ann = 0; }
+            else if ( col->replace==REPLACE_MISSING ) { if ( ori[0]!=bcf_int32_missing ) use_new_ann = 0; }
+            else if ( col->replace==REPLACE_ALL ) { if ( ann[0]==bcf_int32_missing ) use_new_ann = 0; }
+            if ( !use_new_ann )
+            {
+                for (j=0; j<ndst; j++) dst[j] = ori[j];
+                for (; j<nvals; j++) dst[j] = bcf_int32_vector_end;
+            }
+            else
+                for (j=0; j<nvals; j++) dst[j] = ann[j];
+        }
+        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi3,nvals*bcf_hdr_nsamples(args->hdr_out));
+    }
+}
+static int core_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, float *vals, int nvals)
+{
+    if ( !args->sample_map )
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,vals,nvals*args->nsmpl_annot);
+
+    int i, j, ndst = bcf_get_format_float(args->hdr,line,col->hdr_key,&args->tmpf2,&args->mtmpf2);
+    if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
+    if ( ndst<=0 )
+    {
+        if ( col->replace==REPLACE_NON_MISSING ) return 0;    // overwrite only if present
+        hts_expand(float, nvals*bcf_hdr_nsamples(args->hdr_out), args->mtmpf2, args->tmpf2);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            float *dst = args->tmpf2 + nvals*i;
+            if ( args->sample_map[i]==-1 )
+            {
+                bcf_float_set_missing(dst[0]);
+                for (j=1; j<nvals; j++) bcf_float_set_vector_end(dst[j]);
+            }
+            else
+            {
+                float *src = vals + nvals*args->sample_map[i];
+                for (j=0; j<nvals; j++) dst[j] = src[j];
+            }
+        }
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf2,nvals*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else if ( ndst >= nvals )     
+    {
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            if ( args->sample_map[i]==-1 ) continue;
+            float *src = vals  + nvals*args->sample_map[i];
+            float *dst = args->tmpf2 + ndst*i;
+            if ( col->replace==REPLACE_NON_MISSING ) { if ( bcf_float_is_missing(dst[0]) ) continue; } 
+            else if ( col->replace==REPLACE_MISSING ) { if ( !bcf_float_is_missing(dst[0]) ) continue; }
+            else if ( col->replace==REPLACE_ALL ) { if ( bcf_float_is_missing(src[0]) ) continue; }
+            for (j=0; j<nvals; j++) dst[j] = src[j];
+            for (; j<ndst; j++) bcf_float_set_vector_end(dst[j]);
+        }
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf2,ndst*bcf_hdr_nsamples(args->hdr_out));
+    }
+    else    // ndst < nvals
+    {
+        hts_expand(float, nvals*bcf_hdr_nsamples(args->hdr_out), args->mtmpf3, args->tmpf3);
+        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
+        {
+            float *ann = vals + nvals*args->sample_map[i];
+            float *ori = args->tmpf2 + ndst*i;                // ori vcf line
+            float *dst = args->tmpf3 + nvals*i;               // expanded buffer
+            int use_new_ann = 1;
+            if ( args->sample_map[i]==-1 ) use_new_ann = 0;
+            else if ( col->replace==REPLACE_NON_MISSING ) { if ( bcf_float_is_missing(ori[0]) ) use_new_ann = 0; }
+            else if ( col->replace==REPLACE_MISSING ) { if ( !bcf_float_is_missing(ori[0]) ) use_new_ann = 0; }
+            else if ( col->replace==REPLACE_ALL ) { if ( bcf_float_is_missing(ann[0]) ) use_new_ann = 0; }
+            if ( !use_new_ann )
+            {
+                for (j=0; j<ndst; j++) dst[j] = ori[j];
+                for (; j<nvals; j++) bcf_float_set_vector_end(dst[j]);
+            }
+            else
+                for (j=0; j<nvals; j++) dst[j] = ann[j];
+        }
+        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf3,nvals*bcf_hdr_nsamples(args->hdr_out));
+    }
+}
+static int core_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, char **vals)
+{
+    if ( !args->sample_map )
+        return bcf_update_format_string(args->hdr_out,line,col->hdr_key,(const char**)vals,args->nsmpl_annot);
+
+    int i;
+    args->tmpp2[0] = args->tmps2;
+    int ret = bcf_get_format_string(args->hdr,line,col->hdr_key,&args->tmpp2,&args->mtmps2);
+    args->tmps2 = args->tmpp2[0];   // tmps2 might be realloced
+
+    int nsmpl = bcf_hdr_nsamples(args->hdr_out);
+    if ( ret<=0 )   // not present in dst
+    {
+        hts_expand(char,bcf_hdr_nsamples(args->hdr_out)*2,args->mtmps2,args->tmps2);
+        char *tmp = args->tmps2;
+        for (i=0; i<nsmpl; i++)
+        {
+            tmp[0] = '.'; 
+            tmp[1] = 0;
+            args->tmpp2[i] = tmp;
+            tmp += 2;
+        }
+    }
+    for (i=0; i<nsmpl; i++)
+    {
+        if ( args->sample_map[i]==-1 ) continue;
+        char **src = vals + args->sample_map[i];
+        char **dst = args->tmpp2 + i;
+
+        if ( col->replace==REPLACE_NON_MISSING ) { if ( (*dst)[0]=='.' && (*dst)[1]==0 ) continue; } 
+        else if ( col->replace==REPLACE_MISSING ) { if ( (*dst)[0]!='.' || (*dst)[1]!=0 ) continue; }
+        else if ( col->replace==REPLACE_ALL ) { if ( (*src)[0]=='.' && (*src)[1]==0 ) continue; }
+        *dst = *src;
+    }
+    return bcf_update_format_string(args->hdr_out,line,col->hdr_key,(const char**)args->tmpp2,nsmpl);
+}
 static int setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
-    int nsmpl = bcf_hdr_nsamples(args->hdr_out);
-    assert( col->icol+nsmpl <= tab->ncols );
-    int nvals = count_vals(tab,col->icol,col->icol+nsmpl);
-    assert( nvals>0 );
-    hts_expand(int32_t,nvals*nsmpl,args->mtmpi,args->tmpi);
+    if ( col->icol+args->nsmpl_annot > tab->ncols ) 
+        error("Incorrect number of values for %s at %s:%d\n",col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+    int nvals = count_vals(tab,col->icol,col->icol+args->nsmpl_annot);
+    hts_expand(int32_t,nvals*args->nsmpl_annot,args->mtmpi,args->tmpi);
 
     int icol = col->icol, ismpl;
-    for (ismpl=0; ismpl<nsmpl; ismpl++)
+    for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++)
     {
         int32_t *ptr = args->tmpi + ismpl*nvals;
         int ival = 0;
@@ -867,19 +1043,18 @@ static int setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void 
         while ( ival<nvals ) ptr[ival++] = bcf_int32_vector_end;
         icol++;
     }
-    return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi,nsmpl*nvals);
+    return core_setter_format_int(args,line,col,args->tmpi,nvals);
 }
 static int setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
-    int nsmpl = bcf_hdr_nsamples(args->hdr_out);
-    assert( col->icol+nsmpl <= tab->ncols );
-    int nvals = count_vals(tab,col->icol,col->icol+nsmpl);
-    assert( nvals>0 );
-    hts_expand(float,nvals*nsmpl,args->mtmpf,args->tmpf);
+    if ( col->icol+args->nsmpl_annot > tab->ncols ) 
+        error("Incorrect number of values for %s at %s:%d\n",col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
+    int nvals = count_vals(tab,col->icol,col->icol+args->nsmpl_annot);
+    hts_expand(float,nvals*args->nsmpl_annot,args->mtmpf,args->tmpf);
 
     int icol = col->icol, ismpl;
-    for (ismpl=0; ismpl<nsmpl; ismpl++)
+    for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++)
     {
         float *ptr = args->tmpf + ismpl*nvals;
         int ival = 0;
@@ -906,37 +1081,19 @@ static int setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void
         while ( ival<nvals ) { bcf_float_set_vector_end(ptr[ival]); ival++; }
         icol++;
     }
-    return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf,nsmpl*nvals);
+    return core_setter_format_real(args,line,col,args->tmpf,nvals);
 }
 static int setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
-    int nsmpl = bcf_hdr_nsamples(args->hdr_out);
-    assert( col->icol+nsmpl <= tab->ncols );
+    if ( col->icol+args->nsmpl_annot > tab->ncols ) 
+        error("Incorrect number of values for %s at %s:%d\n",col->hdr_key,bcf_seqname(args->hdr,line),line->pos+1);
 
-    int i, max_len = 0;
-    for (i=col->icol; i<col->icol+nsmpl; i++)
-    {
-        int len = strlen(tab->cols[i]);
-        if ( max_len < len ) max_len = len;
-    }
-    hts_expand(char,max_len*nsmpl,args->mtmps,args->tmps);
+    int ismpl;
+    for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++)
+        args->tmpp[ismpl] = tab->cols[col->icol + ismpl];
 
-    int icol = col->icol, ismpl;
-    for (ismpl=0; ismpl<nsmpl; ismpl++)
-    {
-        char *ptr = args->tmps + ismpl*max_len;
-        char *str = tab->cols[icol];
-        i = 0;
-        while ( str[i] )
-        {
-            ptr[i] = str[i];
-            i++;
-        }
-        while ( i<max_len ) ptr[i++] = 0;
-        icol++;
-    }
-    return bcf_update_format_char(args->hdr_out,line,col->hdr_key,args->tmps,nsmpl*max_len);
+    return core_setter_format_str(args,line,col,args->tmpp);
 }
 static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -944,71 +1101,7 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
     int nsrc = bcf_get_format_int32(args->files->readers[1].header,rec,col->hdr_key,&args->tmpi,&args->mtmpi);
     if ( nsrc==-3 ) return 0;    // the tag is not present
     if ( nsrc<=0 ) return 1;     // error
-
-    if ( !args->sample_map )
-        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi,nsrc);
-
-    int i, j, ndst = bcf_get_format_int32(args->hdr,line,col->hdr_key,&args->tmpi2,&args->mtmpi2);
-    if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
-    nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
-    if ( ndst<=0 )
-    {
-        if ( col->replace==REPLACE_EXISTING ) return 0;    // overwrite only if present
-        hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
-        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-        {
-            int32_t *dst = args->tmpi2 + nsrc*i;
-            if ( args->sample_map[i]==-1 )
-            {
-                dst[0] = bcf_int32_missing;
-                for (j=1; j<nsrc; j++) dst[j] = bcf_int32_vector_end;
-            }
-            else
-            {
-                int32_t *src = args->tmpi + nsrc*args->sample_map[i];
-                for (j=0; j<nsrc; j++) dst[j] = src[j];
-            }
-        }
-        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi2,nsrc*bcf_hdr_nsamples(args->hdr_out));
-    }
-    else if ( ndst >= nsrc )     
-    {
-        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-        {
-            if ( args->sample_map[i]==-1 ) continue;
-            int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
-            int32_t *dst = args->tmpi2 + ndst*i;
-            if ( col->replace==REPLACE_EXISTING && dst[0]==bcf_int32_missing ) continue;
-            if ( col->replace==REPLACE_MISSING  && dst[0]!=bcf_int32_missing ) continue;
-            for (j=0; j<nsrc; j++) dst[j] = src[j];
-            for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
-        }
-        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi2,ndst*bcf_hdr_nsamples(args->hdr_out));
-    }
-    else    // ndst < nsrc
-    {
-        hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi3, args->tmpi3);
-        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-        {
-            int32_t *ori = args->tmpi2 + ndst*i;
-            int32_t *dst = args->tmpi3 + nsrc*i;
-            int keep_ori = 0;
-            if ( args->sample_map[i]==-1 ) keep_ori = 1;
-            else if ( col->replace==REPLACE_EXISTING && ori[0]==bcf_int32_missing ) keep_ori = 1;
-            else if ( col->replace==REPLACE_MISSING  && ori[0]!=bcf_int32_missing ) keep_ori = 1;
-            if ( keep_ori )
-            {
-                for (j=0; j<ndst; j++) dst[j] = ori[j];
-                for (; j<nsrc; j++) dst[j] = bcf_int32_vector_end;
-            }
-            else
-            {
-                int32_t *src = args->tmpi + nsrc*args->sample_map[i];
-                for (j=0; j<nsrc; j++) dst[j] = src[j];
-            }
-        }
-        return bcf_update_format_int32(args->hdr_out,line,col->hdr_key,args->tmpi3,nsrc*bcf_hdr_nsamples(args->hdr_out));
-    }
+    return core_setter_format_int(args,line,col,args->tmpi,nsrc/bcf_hdr_nsamples(args->files->readers[1].header));
 }
 static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -1016,72 +1109,9 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
     int nsrc = bcf_get_format_float(args->files->readers[1].header,rec,col->hdr_key,&args->tmpf,&args->mtmpf);
     if ( nsrc==-3 ) return 0;    // the tag is not present
     if ( nsrc<=0 ) return 1;     // error
-
-    if ( !args->sample_map )
-        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf,nsrc);
-
-    int i, j, ndst = bcf_get_format_float(args->hdr,line,col->hdr_key,&args->tmpf2,&args->mtmpf2);
-    if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
-    nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
-    if ( ndst<=0 )
-    {
-        if ( col->replace==REPLACE_EXISTING ) return 0;    // overwrite only if present
-        hts_expand(float, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpf2, args->tmpf2);
-        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-        {
-            float *dst = args->tmpf2 + nsrc*i;
-            if ( args->sample_map[i]==-1 )
-            {
-                bcf_float_set_missing(dst[0]);
-                for (j=1; j<nsrc; j++) bcf_float_set_vector_end(dst[j]);
-            }
-            else
-            {
-                float *src = args->tmpf + nsrc*args->sample_map[i];
-                for (j=0; j<nsrc; j++) dst[j] = src[j];
-            }
-        }
-        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf2,nsrc*bcf_hdr_nsamples(args->hdr_out));
-    }
-    else if ( ndst >= nsrc )     
-    {
-        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-        {
-            if ( args->sample_map[i]==-1 ) continue;
-            float *src = args->tmpf  + nsrc*args->sample_map[i];
-            float *dst = args->tmpf2 + ndst*i;
-            if ( col->replace==REPLACE_EXISTING && bcf_float_is_missing(dst[0]) ) continue;
-            if ( col->replace==REPLACE_MISSING  && !bcf_float_is_missing(dst[0]) ) continue;
-            for (j=0; j<nsrc; j++) dst[j] = src[j];
-            for (; j<ndst; j++) bcf_float_set_vector_end(dst[j]);
-        }
-        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf2,ndst*bcf_hdr_nsamples(args->hdr_out));
-    }
-    else    // ndst < nsrc
-    {
-        hts_expand(float, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpf3, args->tmpf3);
-        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-        {
-            float *ori = args->tmpf2 + ndst*i;
-            float *dst = args->tmpf3 + nsrc*i;
-            int keep_ori = 0;
-            if ( args->sample_map[i]==-1 ) keep_ori = 1;
-            else if ( col->replace==REPLACE_EXISTING && bcf_float_is_missing(ori[0]) ) keep_ori = 1;
-            else if ( col->replace==REPLACE_MISSING  && !bcf_float_is_missing(ori[0]) ) keep_ori = 1;
-            if ( keep_ori )
-            {
-                for (j=0; j<ndst; j++) dst[j] = ori[j];
-                for (; j<nsrc; j++) bcf_float_set_vector_end(dst[j]);
-            }
-            else
-            {
-                float *src = args->tmpf + nsrc*args->sample_map[i];
-                for (j=0; j<nsrc; j++) dst[j] = src[j];
-            }
-        }
-        return bcf_update_format_float(args->hdr_out,line,col->hdr_key,args->tmpf3,nsrc*bcf_hdr_nsamples(args->hdr_out));
-    }
+    return core_setter_format_real(args,line,col,args->tmpf,nsrc/bcf_hdr_nsamples(args->files->readers[1].header));
 }
+
 static int vcf_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
@@ -1090,39 +1120,18 @@ static int vcf_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, v
     args->tmps = args->tmpp[0]; // tmps might be realloced
     if ( ret==-3 ) return 0;    // the tag is not present
     if ( ret<=0 ) return 1;     // error
-
-    if ( !args->sample_map )
-        return bcf_update_format_string(args->hdr_out,line,col->hdr_key,(const char**)args->tmpp,bcf_hdr_nsamples(args->hdr_out));
-
-    int i;
-    args->tmpp2[0] = args->tmps2;
-    ret = bcf_get_format_string(args->hdr,line,col->hdr_key,&args->tmpp2,&args->mtmps2);
-    args->tmps2 = args->tmpp2[0];   // tmps2 might be realloced
-
-    if ( ret<=0 )   // not present in dst
-    {
-        hts_expand(char,bcf_hdr_nsamples(args->hdr_out)*2,args->mtmps2,args->tmps2);
-        for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-        {
-            args->tmps2[2*i]   = '.';
-            args->tmps2[2*i+1] = 0;
-            args->tmpp2[i] = args->tmps2+2*i;
-        }
-    }
-
-    for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
-    {
-        int isrc = args->sample_map[i];
-        if ( isrc==-1 ) continue;
-        args->tmpp2[i] = args->tmpp[isrc];
-    }
-    return bcf_update_format_string(args->hdr_out,line,col->hdr_key,(const char**)args->tmpp2,bcf_hdr_nsamples(args->hdr_out));
+    return core_setter_format_str(args,line,col,args->tmpp);
 }
-static void set_samples(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst, int need_samples)
+static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
 {
     int i;
     if ( !args->sample_names )
     {
+        args->nsmpl_annot = bcf_hdr_nsamples(dst);
+
+        // tab annotation file, expecting that all samples are present: sample map not needed
+        if ( !src ) return 0;
+
         int nmatch = 0, order_ok = 1;
         for (i=0; i<bcf_hdr_nsamples(src); i++)
         {
@@ -1133,8 +1142,7 @@ static void set_samples(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst, int need_s
                 if ( i!=id ) order_ok = 0;
             }
         }
-        if ( bcf_hdr_nsamples(src)==bcf_hdr_nsamples(dst) && nmatch==bcf_hdr_nsamples(src) && order_ok && !need_samples ) 
-            return;    // the same samples in both files
+        if ( bcf_hdr_nsamples(src)==bcf_hdr_nsamples(dst) && nmatch==bcf_hdr_nsamples(src) && order_ok ) return 0;  // not needed
 
         if ( !nmatch ) error("No matching samples found in the source and the destination file\n");
         if ( nmatch!=bcf_hdr_nsamples(src) || nmatch!=bcf_hdr_nsamples(dst) ) fprintf(stderr,"%d sample(s) in common\n", nmatch);
@@ -1146,46 +1154,65 @@ static void set_samples(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst, int need_s
             int id = bcf_hdr_id2int(src, BCF_DT_SAMPLE, dst->samples[i]);
             args->sample_map[i] = id;   // idst -> isrc, -1 if not present
         }
-        return;
+        return 1;
     }
 
     args->nsample_map = bcf_hdr_nsamples(dst);
     args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
     for (i=0; i<args->nsample_map; i++) args->sample_map[i] = -1;
 
-    int nsamples = 0;
-    char **samples = hts_readlist(args->sample_names, args->sample_is_file, &nsamples);
-    for (i=0; i<nsamples; i++)
+    char **samples = hts_readlist(args->sample_names, args->sample_is_file, &args->nsmpl_annot);
+    if ( !samples ) error("Could not parse: %s\n", args->sample_names);
+    int need_sample_map = args->nsmpl_annot==bcf_hdr_nsamples(dst) ? 0 : 1;
+    if ( !src )
     {
-        int isrc, idst;
-        char *ss = samples[i], *se = samples[i];
-        while ( *se && !isspace(*se) ) se++;
-        if ( !*se ) 
+        // tab annotation file
+        for (i=0; i<args->nsmpl_annot; i++)
         {
-            // only one sample name
+            int idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE, samples[i]);
+            if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", samples[i]);
+            args->sample_map[idst] = i;
+            if ( idst!=i ) need_sample_map = 1;
+        }
+    }
+    else
+    {
+        // vcf annotation file
+        for (i=0; i<args->nsmpl_annot; i++)
+        {
+            int isrc, idst;
+            char *ss = samples[i], *se = samples[i];
+            while ( *se && !isspace(*se) ) se++;
+            if ( !*se ) 
+            {
+                // only one sample name
+                isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE,ss);
+                if ( isrc==-1 ) error("Sample \"%s\" not found in the source file\n", ss);
+                idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE,ss);
+                if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", ss);
+                args->sample_map[idst] = isrc;
+                if ( idst!=isrc ) need_sample_map = 1;
+                continue;
+            }
+            *se = 0;
             isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE,ss);
             if ( isrc==-1 ) error("Sample \"%s\" not found in the source file\n", ss);
+
+            ss = se+1;
+            while ( isspace(*ss) ) ss++;
+            se = ss;
+            while ( *se && !isspace(*se) ) se++;
+
             idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE,ss);
             if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", ss);
+
             args->sample_map[idst] = isrc;
-            continue;
+            if ( idst!=isrc ) need_sample_map = 1;
         }
-        *se = 0;
-        isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE,ss);
-        if ( isrc==-1 ) error("Sample \"%s\" not found in the source file\n", ss);
-
-        ss = se+1;
-        while ( isspace(*ss) ) ss++;
-        se = ss;
-        while ( *se && !isspace(*se) ) se++;
-
-        idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE,ss);
-        if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", ss);
-
-        args->sample_map[idst] = isrc;
     }
-    for (i=0; i<nsamples; i++) free(samples[i]);
+    for (i=0; i<args->nsmpl_annot; i++) free(samples[i]);
     free(samples);
+    return need_sample_map;
 }
 static char *columns_complement(char *columns, void **skip_info, void **skip_fmt)
 {
@@ -1249,6 +1276,8 @@ static char *columns_complement(char *columns, void **skip_info, void **skip_fmt
 }
 static void init_columns(args_t *args)
 {
+    int need_sample_map = init_sample_map(args, args->tgts_is_vcf?args->files->readers[1].header:NULL, args->hdr);
+
     void *skip_fmt = NULL, *skip_info = NULL;
     if ( args->tgts_is_vcf )
         args->columns = columns_complement(args->columns, &skip_info, &skip_fmt);
@@ -1256,13 +1285,13 @@ static void init_columns(args_t *args)
     kstring_t str = {0,0,0}, tmp = {0,0,0};
     char *ss = args->columns, *se = ss;
     args->ncols = 0;
-    int icol = -1, has_fmt_str = 0, force_samples = -1;
+    int icol = -1, has_fmt_str = 0;
     while ( *ss )
     {
         if ( *se && *se!=',' ) { se++; continue; }
         int replace = REPLACE_ALL;
         if ( *ss=='+' ) { replace = REPLACE_MISSING; ss++; }
-        else if ( *ss=='-' ) { replace = REPLACE_EXISTING; ss++; }
+        else if ( *ss=='-' ) { replace = REPLACE_NON_MISSING; ss++; }
         else if ( *ss=='=' ) { replace = SET_OR_APPEND; ss++; }
         icol++;
         str.l = 0;
@@ -1276,7 +1305,7 @@ static void init_columns(args_t *args)
         else if ( !strcasecmp("ALT",str.s) ) args->alt_idx = icol;
         else if ( !strcasecmp("ID",str.s) )
         {
-            if ( replace==REPLACE_EXISTING ) error("Apologies, the -ID feature has not been implemented yet.\n");
+            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = icol;
@@ -1286,7 +1315,7 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("FILTER",str.s) )
         {
-            if ( replace==REPLACE_EXISTING ) error("Apologies, the -FILTER feature has not been implemented yet.\n");
+            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -FILTER feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             col->icol = icol;
@@ -1312,7 +1341,7 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("QUAL",str.s) )
         {
-            if ( replace==REPLACE_EXISTING ) error("Apologies, the -QUAL feature has not been implemented yet.\n");
+            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -QUAL feature has not been implemented yet.\n");
             if ( replace==SET_OR_APPEND ) error("Apologies, the =QUAL feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
@@ -1323,7 +1352,7 @@ static void init_columns(args_t *args)
         }
         else if ( args->tgts_is_vcf && !strcasecmp("INFO",str.s) ) // All INFO fields
         {
-            if ( replace==REPLACE_EXISTING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
+            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
             if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO/TAG feature has not been implemented yet.\n");
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
             int j;
@@ -1358,8 +1387,7 @@ static void init_columns(args_t *args)
         else if ( args->tgts_is_vcf && (!strcasecmp("FORMAT",str.s) || !strcasecmp("FMT",str.s)) ) // All FORMAT fields
         {
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
-            if ( force_samples<0 ) force_samples = replace;
-            if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;
+            if ( replace>=0 && replace!=REPLACE_ALL ) need_sample_map = 1;
             int j;
             for (j=0; j<tgts_hdr->nhrec; j++)
             {
@@ -1392,8 +1420,7 @@ static void init_columns(args_t *args)
         else if ( !strncasecmp("FORMAT/",str.s, 7) || !strncasecmp("FMT/",str.s,4) )
         {
             char *key = str.s + (!strncasecmp("FMT/",str.s,4) ? 4 : 7);
-            if ( force_samples<0 ) force_samples = replace;
-            if ( force_samples>=0 && replace!=REPLACE_ALL ) force_samples = replace;
+            if ( replace>=0 && replace!=REPLACE_ALL ) need_sample_map = 1;
             if ( args->tgts_is_vcf )
             {
                 bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_FMT, "ID", key, NULL);
@@ -1410,7 +1437,7 @@ static void init_columns(args_t *args)
             if ( !args->tgts_is_vcf )
             {
                 col->icol = icol;
-                icol += bcf_hdr_nsamples(args->hdr_out) - 1;
+                icol += args->nsmpl_annot - 1;
             }
             else
                 col->icol = -1;
@@ -1428,7 +1455,7 @@ static void init_columns(args_t *args)
         }
         else
         {
-            if ( replace==REPLACE_EXISTING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
+            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
             if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO/TAG feature has not been implemented yet.\n");
             if ( !strncasecmp("INFO/",str.s,5) ) { memmove(str.s,str.s+5,str.l-4); }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, str.s);
@@ -1480,8 +1507,11 @@ static void init_columns(args_t *args)
         args->tmpp  = (char**)malloc(sizeof(char*)*n);
         args->tmpp2 = (char**)malloc(sizeof(char*)*n);
     }
-    if ( force_samples>=0 && args->tgts_is_vcf )
-        set_samples(args, args->files->readers[1].header, args->hdr, force_samples==REPLACE_ALL ? 0 : 1);
+    if ( !need_sample_map )
+    {
+        free(args->sample_map);
+        args->sample_map = NULL;
+    }
 }
 
 static void rename_chrs(args_t *args, char *fname)

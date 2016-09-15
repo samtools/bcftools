@@ -54,6 +54,7 @@ int main_polysomy(int argc, char *argv[]);
 #endif
 int main_plugin(int argc, char *argv[]);
 int main_consensus(int argc, char *argv[]);
+int main_csq(int argc, char *argv[]);
 int bam_mpileup(int argc, char *argv[]);
 
 typedef struct
@@ -140,6 +141,10 @@ static cmd_t cmds[] =
     { .func  = main_vcfcnv,
       .alias = "cnv",
       .help  = "HMM CNV calling"
+    },
+    { .func  = main_csq,
+      .alias = "csq",
+      .help  = "call variation consequences"
     },
     { .func  = main_vcffilter,
       .alias = "filter",
