@@ -243,6 +243,18 @@ static int mplp_func(void *data, bam1_t *b)
     return ret;
 }
 
+// Called once per new bam added to the pileup.
+// We cache sample information here so we don't have to keep recomputing this
+// on each and every pileup column.
+//
+// Cd is an arbitrary block of data we can write into, which ends up in
+// the pileup structures.  We stash the sample ID there.
+static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd) {
+    mplp_aux_t *ma = (mplp_aux_t *)data;
+    cd->i = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b);
+    return 0;
+}
+
 static void group_smpl(mplp_pileup_t *m, bam_smpl_t *bsmpl, int n, int *n_plp, const bam_pileup1_t **plp)
 {
     int i, j;
@@ -252,7 +264,7 @@ static void group_smpl(mplp_pileup_t *m, bam_smpl_t *bsmpl, int n, int *n_plp, c
         for (j = 0; j < n_plp[i]; ++j)  // iterate over all reads available at this position
         {
             const bam_pileup1_t *p = plp[i] + j;
-            int id = bam_smpl_get_sample_id(bsmpl,i,p->b);
+            int id = p->cd.i;
             if (m->n_plp[id] == m->m_plp[id]) 
             {
                 m->m_plp[id] = m->m_plp[id]? m->m_plp[id]<<1 : 8;
@@ -600,6 +612,7 @@ static int mpileup(mplp_conf_t *conf)
     bam_mplp_set_maxcnt(conf->iter, conf->max_depth);
     conf->max_indel_depth = conf->max_indel_depth * nsmpl;
     conf->bcf_rec = bcf_init1();
+    bam_mplp_constructor(conf->iter, pileup_constructor);
 
     // Run mpileup for multiple regions
     if ( nregs )
