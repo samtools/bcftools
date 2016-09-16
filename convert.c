@@ -393,7 +393,7 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
         { \
             for (i=0; val && i<nbits; i+=2) \
             { \
-                if ( *x & (mask<<i) ) kputs(csq->str[i/2], &csq->hap1); \
+                if ( *x & (mask<<i) ) { kputs(csq->str[i/2], &csq->hap1); kputc_(',', &csq->hap1); } \
             } \
             val = *x; \
         } \
@@ -401,7 +401,7 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
         { \
             for (i=1; val && i<nbits; i+=2) \
             { \
-                if ( *x & (1<<i) ) kputs(csq->str[i/2], &csq->hap2); \
+                if ( *x & (1<<i) ) { kputs(csq->str[i/2], &csq->hap2); kputc_(',', &csq->hap2); } \
             } \
         } \
     }
@@ -413,6 +413,9 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
         default: error("Unexpected type: %d\n", fmt->fmt->type); exit(1); break;
     }
     #undef BRANCH
+
+    if ( csq->hap1.l ) csq->hap1.s[--csq->hap1.l] = 0;
+    if ( csq->hap2.l ) csq->hap2.s[--csq->hap2.l] = 0;
 
     if ( fmt->subscript<0 )
     {
