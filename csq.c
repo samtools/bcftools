@@ -1928,15 +1928,7 @@ static inline void hap_print_text(args_t *args, tscript_t *tr, int ismpl, int ih
         else
             fprintf(args->out,"-");
 
-        fprintf(args->out,"\t%s\t%d\t",chr,csq->pos+1);
-
-        char *beg = csq->str;
-        while ( *beg )
-        {
-            if ( *beg=='|' ) *beg = '\t';
-            beg++;
-        }
-        fprintf(args->out,"%s\n",csq->str);
+        fprintf(args->out,"\t%s\t%d\t%s\n",chr,csq->pos+1,csq->str);
     }
 }
 
