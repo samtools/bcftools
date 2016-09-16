@@ -2022,17 +2022,29 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %FIRST_ALT      Alias for %ALT{0}
     []              The brackets loop over all samples
     %GT             Genotype (e.g. 0/1)
-    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for examples.
+    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
     %TGT            Translated genotype (e.g. C/A)
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
     %SAMPLE         Sample name
+    %POS0           POS in 0-based coordinates
+    %END            End position of the REF allele
+    %END0           End position of the REF allele in 0-based cordinates
+    \n              new line
+    \t              tab character
+
+    Everything else is printed verbatim.
 
 ==== Examples:
 
+    # Print chromosome, position, ref allele and the first alternate allele
     bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz
+
+    # Similar to above, but use tabs instead of spaces, add sample name and genotype
     bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz
 
+    # Make a BED file: chr, pos (0-based), end pos (1-based), id
+    bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n'
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'

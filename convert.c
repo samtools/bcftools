@@ -63,6 +63,9 @@ THE SOFTWARE.  */
 #define T_GT_TO_HAP    24   // not publicly advertised
 #define T_GT_TO_HAP2   25   // not publicly advertised
 #define T_TBCSQ        26
+#define T_END          27
+#define T_POS0         28
+#define T_END0         29
 
 typedef struct _fmt_t
 {
@@ -101,6 +104,9 @@ bcsq_t;
 
 static void process_chrom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(convert->header->id[BCF_DT_CTG][line->rid].key, str); }
 static void process_pos(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+1, str); }
+static void process_pos0(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos, str); }
+static void process_end(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+line->rlen, str); }
+static void process_end0(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputw(line->pos+line->rlen-1, str); }
 static void process_id(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(line->d.id, str); }
 static void process_ref(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str) { kputs(line->d.allele[0], str); }
 static void process_alt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
@@ -832,6 +838,9 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         {
             if ( !strcmp("CHROM",key) ) { fmt->type = T_CHROM; }
             else if ( !strcmp("POS",key) ) { fmt->type = T_POS; }
+            else if ( !strcmp("POS0",key) ) { fmt->type = T_POS0; }
+            else if ( !strcmp("END",key) ) { fmt->type = T_END; }
+            else if ( !strcmp("END0",key) ) { fmt->type = T_END0; }
             else if ( !strcmp("ID",key) ) { fmt->type = T_ID; }
             else if ( !strcmp("REF",key) ) { fmt->type = T_REF; }
             else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
@@ -856,6 +865,9 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_GP_TO_PROB3: fmt->handler = &process_gp_to_prob3; break;
         case T_CHROM: fmt->handler = &process_chrom; break;
         case T_POS: fmt->handler = &process_pos; break;
+        case T_POS0: fmt->handler = &process_pos0; break;
+        case T_END: fmt->handler = &process_end; break;
+        case T_END0: fmt->handler = &process_end0; break;
         case T_ID: fmt->handler = &process_id; break;
         case T_REF: fmt->handler = &process_ref; break;
         case T_ALT: fmt->handler = &process_alt; break;
@@ -944,6 +956,9 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
     {
         if ( !strcmp(str.s, "CHROM") ) register_tag(convert, T_CHROM, str.s, is_gtf);
         else if ( !strcmp(str.s, "POS") ) register_tag(convert, T_POS, str.s, is_gtf);
+        else if ( !strcmp(str.s, "POS0") ) register_tag(convert, T_POS0, str.s, is_gtf);
+        else if ( !strcmp(str.s, "END") ) register_tag(convert, T_END, str.s, is_gtf);
+        else if ( !strcmp(str.s, "END0") ) register_tag(convert, T_END0, str.s, is_gtf);
         else if ( !strcmp(str.s, "ID") ) register_tag(convert, T_ID, str.s, is_gtf);
         else if ( !strcmp(str.s, "REF") ) register_tag(convert, T_REF, str.s, is_gtf);
         else if ( !strcmp(str.s, "ALT") ) 
