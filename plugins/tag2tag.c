@@ -34,6 +34,7 @@ DEALINGS IN THE SOFTWARE.  */
 #define GP_TO_GL 1
 #define GL_TO_PL 2
 #define GP_TO_GT 3
+#define PL_TO_GL 4
 
 static int mode = 0, drop_source_tag = 0;
 static bcf_hdr_t *in_hdr, *out_hdr;
@@ -59,6 +60,7 @@ const char *usage(void)
         "       --gp-to-gl           convert FORMAT/GP to FORMAT/GL\n"
         "       --gp-to-gt           convert FORMAT/GP to FORMAT/GT by taking argmax of GP\n"
         "       --gl-to-pl           convert FORMAT/GL to FORMAT/PL\n"
+        "       --pl-to-gl           convert FORMAT/PL to FORMAT/GL\n"
         "   -r, --replace            drop the source tag\n"
         "   -t, --threshold <float>  threshold for GP to GT hard-call [0.1]\n"
         "\n"
@@ -84,17 +86,20 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"gp-to-gl",no_argument,NULL,1},
         {"gl-to-pl",no_argument,NULL,2},
         {"gp-to-gt",no_argument,NULL,3},
+        {"pl-to-gl",no_argument,NULL,4},
         {"threshold",required_argument,NULL,'t'},
         {NULL,0,NULL,0}
     };
     int c;
+    char *src_tag = "GP";
     while ((c = getopt_long(argc, argv, "?hrt:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
-            case  1 : mode = GP_TO_GL; break;
-            case  2 : mode = GL_TO_PL; break;
-            case  3 : mode = GP_TO_GT; break;
+            case  1 : src_tag = "GP"; mode = GP_TO_GL; break;
+            case  2 : src_tag = "GL"; mode = GL_TO_PL; break;
+            case  3 : src_tag = "GP"; mode = GP_TO_GT; break;
+            case  4 : src_tag = "PL"; mode = PL_TO_GL; break;
             case 'r': drop_source_tag = 1; break;
             case 't': thresh = atof(optarg); break;
             case 'h':
@@ -111,10 +116,16 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         init_header(out_hdr,drop_source_tag?"GP":NULL,BCF_HL_FMT,"##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype Likelihoods\">");
     else if ( mode==GL_TO_PL )
         init_header(out_hdr,drop_source_tag?"GL":NULL,BCF_HL_FMT,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred scaled genotype likelihoods\">");
+    else if ( mode==PL_TO_GL )
+        init_header(out_hdr,drop_source_tag?"PL":NULL,BCF_HL_FMT,"##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype likelihoods\">");
     else if ( mode==GP_TO_GT ) {
         if (thresh<0||thresh>1) error("--threshold must be in the range [0,1]: %f\n", thresh);
         init_header(out_hdr,drop_source_tag?"GP":NULL,BCF_HL_FMT,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
     }
+
+    int tag_id;
+    if ( (tag_id=bcf_hdr_id2int(in_hdr,BCF_DT_ID,src_tag))<0 || !bcf_hdr_idinfo_exists(in_hdr,BCF_HL_FMT,tag_id) )
+        error("The source tag does not exist: %s\n", src_tag);
 
     return 0;
 }
@@ -125,6 +136,7 @@ bcf1_t *process(bcf1_t *rec)
     if ( mode==GP_TO_GL )
     {
         n = bcf_get_format_float(in_hdr,rec,"GP",&farr,&mfarr);
+        if ( n<=0 ) return rec;
         for (i=0; i<n; i++)
         {
             if ( bcf_float_is_missing(farr[i]) || bcf_float_is_vector_end(farr[i]) ) continue;
@@ -134,18 +146,29 @@ bcf1_t *process(bcf1_t *rec)
         if ( drop_source_tag )
             bcf_update_format_float(out_hdr,rec,"GP",NULL,0);
     }
+    else if ( mode==PL_TO_GL )
+    {
+        n = bcf_get_format_int32(in_hdr,rec,"PL",&iarr,&miarr);
+        if ( n<=0 ) return rec;
+        hts_expand(float, n, mfarr, farr);
+        for (i=0; i<n; i++)
+        {
+            if ( iarr[i]==bcf_int32_missing )
+                bcf_float_set_missing(farr[i]);
+            else if ( iarr[i]==bcf_int32_vector_end )
+                bcf_float_set_vector_end(farr[i]);
+            else
+                farr[i] = -0.1 * iarr[i];
+        }
+        bcf_update_format_float(out_hdr,rec,"GL",farr,n);
+        if ( drop_source_tag )
+            bcf_update_format_int32(out_hdr,rec,"PL",NULL,0);
+    }
     else if ( mode==GL_TO_PL )
     {
         n = bcf_get_format_float(in_hdr,rec,"GL",&farr,&mfarr);
-        if(n < 0){
-            fprintf(stderr, "Could not read tag: GL\n");
-            exit(1);
-        }
-
-        // create extra space to store converted data
-        iarr = (int32_t*) malloc(n * sizeof(int32_t));
-        if(!iarr) n = -4;
-
+        if ( n<=0 ) return rec;
+        hts_expand(int32_t, n, miarr, iarr);
         for (i=0; i<n; i++)
         {
             if ( bcf_float_is_missing(farr[i]) )
@@ -166,6 +189,8 @@ bcf1_t *process(bcf1_t *rec)
         hts_expand(int32_t,nsmpl*2,miarr,iarr);
 
         n = bcf_get_format_float(in_hdr,rec,"GP",&farr,&mfarr);
+        if ( n<=0 ) return rec;
+
         n /= nsmpl;
         for (i=0; i<nsmpl; i++)
         {
