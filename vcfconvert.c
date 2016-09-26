@@ -1259,9 +1259,30 @@ static void gvcf_to_vcf(args_t *args)
             if ( !pass ) continue;
         }
 
-        if ( line->n_allele!=1 || !bcf_has_filter(hdr,line,"PASS") )
+        if (!bcf_has_filter(hdr,line,"PASS"))
         {
-            // Assuming that only ALT=. sites can be blocks and skipping sites which don't PASS
+            bcf_write(out_fh,hdr,line);
+            continue;
+        }
+
+        // check if alleles compatible with being a gVCF record
+        int i, gallele = -1;
+        if (line->n_allele==1)
+            gallele = 0; // illumina/bcftools-call gvcf (if INFO/END present)
+        else
+        {
+            if ( line->d.allele[1][0]!='<' ) continue;
+            for (i=1; i<line->n_allele; i++)
+            {
+                if ( line->d.allele[i][1]=='*' && line->d.allele[i][2]=='>' && line->d.allele[i][3]=='\0' ) { gallele = i; break; } // mpileup/spec compliant gVCF
+                if ( line->d.allele[i][1]=='X' && line->d.allele[i][2]=='>' && line->d.allele[i][3]=='\0' ) { gallele = i; break; } // old mpileup gVCF
+                if ( strcmp(line->d.allele[i],"<NON_REF>")==0 ) { gallele = i; break; }               // GATK gVCF
+            }
+        }
+
+        // no gVCF compatible alleles
+        if (gallele<0)
+        {
             bcf_write(out_fh,hdr,line);
             continue;
         }
@@ -1269,7 +1290,7 @@ static void gvcf_to_vcf(args_t *args)
         int nend = bcf_get_info_int32(hdr,line,"END",&itmp,&nitmp);
         if ( nend!=1 )
         {
-            // No END lineord
+            // No INFO/END => not gVCF record
             bcf_write(out_fh,hdr,line);
             continue;
         }
@@ -1280,10 +1301,9 @@ static void gvcf_to_vcf(args_t *args)
             line->pos = pos;
             char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(hdr,line->rid), line->pos, line->pos, &len);
             if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(hdr,line->rid), line->pos+1);
-            // we have already checked above that there is only one allele,
-            // so fine to just update alleles with the ref allele from the fasta
-            bcf_update_alleles_str(hdr, line, &ref[0]);
+            strncpy(line->d.allele[0],ref,len);
             bcf_write(out_fh,hdr,line);
+            free(ref);
         }
     }
     free(itmp);
