@@ -628,6 +628,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
         for (i=0; i<*nb; i++)
         {
             if ( b[i][0]=='<' ) continue;   // symbolic allele, do not modify
+            if ( b[i][0]=='*' ) continue;   // overlapping deletion (*), do not modify
             int l = strlen(b[i]);
             b[i] = (char*) realloc(b[i],l+rla-rlb+1);
             memcpy(b[i]+l,a[0]+rlb,rla-rlb+1);
@@ -639,7 +640,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
     {
         int const_ai = 1;
         char *ai;
-        if ( rlb>rla && a[i][0]!='<' )  // $a alleles need expanding and not a symbolic allele
+        if ( rlb>rla && a[i][0]!='<' && a[i][0]!='*' )  // $a alleles need expanding and not a symbolic allele or *
         {
             int l = strlen(a[i]);
             ai = (char*) malloc(l+rlb-rla+1);
@@ -2104,7 +2105,6 @@ int can_merge(args_t *args)
                 }
                 continue;
             }
-
             // normalize alleles
             maux->als = merge_alleles(line->d.allele, line->n_allele, buf->rec[j].map, maux->als, &maux->nals, &maux->mals);
             if ( !maux->als ) error("Failed to merge alleles at %s:%d in %s\n",bcf_seqname(args->out_hdr,line),line->pos+1,reader->fname);
