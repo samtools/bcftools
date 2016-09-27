@@ -188,6 +188,10 @@ void remove_format(args_t *args, bcf1_t *line, rm_tag_t *tag)
     }
 }
 
+#include "htslib/khash.h"
+KHASH_MAP_INIT_STR(vdict, bcf_idinfo_t)
+typedef khash_t(vdict) vdict_t;
+
 static void remove_hdr_lines(bcf_hdr_t *hdr, int type)
 {
     int i = 0, nrm = 0;
@@ -195,11 +199,17 @@ static void remove_hdr_lines(bcf_hdr_t *hdr, int type)
     {
         if ( hdr->hrec[i]->type!=type ) { i++; continue; }
         bcf_hrec_t *hrec = hdr->hrec[i];
-        if ( type==BCF_HL_FMT )
+        if ( type==BCF_HL_FMT || type==BCF_HL_INFO || type==BCF_HL_FMT || type== BCF_HL_CTG )
         {
             // everything except FORMAT/GT
             int id = bcf_hrec_find_key(hrec, "ID");
-            if ( id>=0 && !strcmp(hrec->vals[id],"GT") ) { i++; continue; }
+            if ( id>=0 )
+            {
+                if ( type==BCF_HL_FMT && !strcmp(hrec->vals[id],"GT") ) { i++; continue; }
+                vdict_t *d = type==BCF_HL_CTG ? (vdict_t*)hdr->dict[BCF_DT_CTG] : (vdict_t*)hdr->dict[BCF_DT_ID];
+                khint_t k = kh_get(vdict, d, hdr->hrec[i]->vals[id]);
+                kh_val(d, k).hrec[type==BCF_HL_CTG?0:type] = NULL;
+            }
         }
         nrm++;
         hdr->nhrec--;
