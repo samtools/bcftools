@@ -2020,7 +2020,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %MASK           Indicates presence of the site in other files (with multiple files)
     %TAG{INT}       Curly brackets to subscript vectors (0-based)
     %FIRST_ALT      Alias for %ALT{0}
-    []              The brackets loop over all samples
+    []              Format fields must be enclosed in brackets to loop over all samples
     %GT             Genotype (e.g. 0/1)
     %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
     %TGT            Translated genotype (e.g. C/A)
@@ -2043,8 +2043,11 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     # Similar to above, but use tabs instead of spaces, add sample name and genotype
     bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz
 
+    # Print FORMAT/GT fields followed by FORMAT/GT fields
+    bcftools query -f 'GQ:[ %GQ] \t GT:[ %GT]\n' file.vcf
+
     # Make a BED file: chr, pos (0-based), end pos (1-based), id
-    bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n'
+    bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n' file.bcf
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'

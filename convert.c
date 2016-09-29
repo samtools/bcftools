@@ -242,6 +242,7 @@ static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isamp
 static void init_format(convert_t *convert, bcf1_t *line, fmt_t *fmt)
 {
     fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, fmt->key);
+    if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,fmt->id) ) fmt->id = -1;
     fmt->fmt = NULL;
     if ( fmt->id >= 0 )
     {
@@ -889,12 +890,13 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_LINE: fmt->handler = &process_line; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
-    if ( key )
+    if ( key && fmt->type==T_INFO )
     {
-        if ( fmt->type==T_INFO )
+        fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, key);
+        if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,fmt->id) )
         {
-            fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, key);
-            if ( fmt->id==-1 ) convert->undef_info_tag = strdup(key);
+            fmt->id = -1;
+            convert->undef_info_tag = strdup(key);
         }
     }
     return fmt;
