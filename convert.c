@@ -887,7 +887,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_GT_TO_HAP: fmt->handler = &process_gt_to_hap; convert->max_unpack |= BCF_UN_FMT; break;
         case T_GT_TO_HAP2: fmt->handler = &process_gt_to_hap2; convert->max_unpack |= BCF_UN_FMT; break;
         case T_TBCSQ: fmt->handler = &process_tbcsq; fmt->destroy = &destroy_tbcsq; convert->max_unpack |= BCF_UN_FMT; break;
-        case T_LINE: fmt->handler = &process_line; break;
+        case T_LINE: fmt->handler = &process_line; convert->max_unpack |= BCF_UN_FMT; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
     if ( key && fmt->type==T_INFO )
