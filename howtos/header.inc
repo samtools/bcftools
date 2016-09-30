@@ -4,7 +4,7 @@
 
 .General
 * link:index.html[Main page]
-* link:bcftools.html[Manual page]
+* link:../bcftools.html[Manual page]
 * link:install.html[Installation]
 
 .Calling

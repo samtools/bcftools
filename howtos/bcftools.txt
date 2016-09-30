@@ -722,6 +722,12 @@ if the BCF headers differ.
 [[consensus]]
 === bcftools consensus '[OPTIONS]' 'FILE'
 Create consensus sequence by applying VCF variants to a reference fasta file.
+By default, the program will apply all ALT variants to the reference fasta to
+obtain the consensus sequence. Using the *--sample* (and, optionally,
+*--haplotype*) option will apply genotype (haplotype) calls from FORMAT/GT.
+Note that the program does not act as a primitive variant caller and ignores allelic
+depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
+*setGT* plugin.
 
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format
@@ -988,13 +994,6 @@ See the usage examples below.
 
 *-q, --quiet*::
     suppress warning messages
-
--r, --regions <region>          restrict to comma-separated list of regions
--R, --regions-file <file>       restrict to regions listed in a file
--s, --samples <-|list>          samples to include or "-" to apply all variants and ignore samples
--S, --samples-file <file>       samples to include
--t, --targets <region>          similar to -r but streams rather than index-jumps
--T, --targets-file <file>       similar to -R but streams rather than index-jumps
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -1747,7 +1746,18 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 
 [[plugin]]
+
 === bcftools [plugin 'NAME'|+'NAME'] '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
+
+A common framework for various utilities. The plugins can be used 
+the same way as normal commands only their name is prefixed with "+".
+Most plugins accept two types of parameters: general options shared by all
+plugins followed by a separator, and a list of plugin-specific options.  There
+are some exceptions to this rule, some plugins do not accept the common
+options and implement their own parameters. Therefore please pay attention to
+the usage examples that each plugin comes with.
+
+
 
 ==== VCF input options:
 
@@ -1799,10 +1809,6 @@ By default, appropriate system directories are searched for installed plugins.
     If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains
     adjacent colons, the system directories are also searched at that position
     in the list of directories.
-+
-If htslib is not installed systemwide, set the environment variable
-    LD_LIBRARY_PATH (linux) or DYLD_LIBRARY_PATH (Mac OS X) to include the
-    directory where *libhts.so.1* is located.
 
 *-v, --verbose*::
     print debugging information to debug plugin failure
@@ -1811,6 +1817,21 @@ If htslib is not installed systemwide, set the environment variable
     print version string and exit
 
 ==== List of plugins coming with the distribution:
+
+*GTisec*::
+    count genotype intersections across all possible sample subsets in a vcf file
+
+*GTsubset*::
+    output only sites where the requested samples all exclusively share a genotype
+
+*ad-bias*::
+    find positions with wildly varying ALT allele frequency (Fisher test on FMT/AD)
+
+*af-dist*::
+    collect AF deviation stats and GT probability distribution given AF and assuming HWE
+
+*color-chrs*::
+    color shared chromosomal segments, requires trio VCF with phased GTs
 
 *counts*::
     a minimal plugin which counts number of SNPs, Indels, and total number of sites.
@@ -1822,20 +1843,43 @@ If htslib is not installed systemwide, set the environment variable
 *fill-AN-AC*::
     fill INFO fields AN and AC.
 
+*fill-from-fasta*::
+    fill INFO or REF field based on values in a fasta file
+
+*fill-tags*::
+    set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi
+
 *fix-ploidy*::
     sets correct ploidy
+
+*fixref*::
+    determine and fix strand orientation
 
 *frameshifts*::
     annotate frameshift indels
 
+*guess-ploidy*::
+    determine sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT)
+    in the non-PAR region of chrX.
+
+*impute-info*::
+    add imputation information metrics to the INFO field based on selected FORMAT tags
+
+*mendelian*::
+    count Mendelian consistent / inconsistent genotypes.
+
 *missing2ref*::
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
 
-*tag2tag*::
-    Convert between similar tags, such as GL and GP.
+*setGT*::
+    general tool to set genotypes according to rules requested by the user
 
-*vcf2sex*::
-    determine sample sex by checking genotypes in haploid regions
+*tag2tag*::
+    convert between similar tags, such as GL and GP
+
+*trio-switch-rate*::
+    calculate phase switch rate in trio samples, children samples must have phased GTs.
+
 
 ==== Examples:
 
@@ -1871,11 +1915,6 @@ Things to check if your plugin does not show up in the *bcftools plugin -l* outp
 
 - Run with the *-v* option for verbose output: *bcftools plugin -lv*
 - Does the environment variable BCFTOOLS_PLUGINS include the correct path?
-- Are all shared libraries, namely libhts.so, accessible? Verify with
-* on Mac OS X: *otool -L your/plugin.so* and set DYLD_LIBRARY_PATH if they are not
-* on Linux: *ldd your/plugin.so* and set LD_LIBRARY_PATH if they are not
-- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or
-DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.
 
 
 ==== Plugins API:
@@ -2021,19 +2060,34 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %MASK           Indicates presence of the site in other files (with multiple files)
     %TAG{INT}       Curly brackets to subscript vectors (0-based)
     %FIRST_ALT      Alias for %ALT{0}
-    []              The brackets loop over all samples
+    []              Format fields must be enclosed in brackets to loop over all samples
     %GT             Genotype (e.g. 0/1)
-    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for examples.
+    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
     %TGT            Translated genotype (e.g. C/A)
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
     %SAMPLE         Sample name
+    %POS0           POS in 0-based coordinates
+    %END            End position of the REF allele
+    %END0           End position of the REF allele in 0-based cordinates
+    \n              new line
+    \t              tab character
+
+    Everything else is printed verbatim.
 
 ==== Examples:
 
+    # Print chromosome, position, ref allele and the first alternate allele
     bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz
+
+    # Similar to above, but use tabs instead of spaces, add sample name and genotype
     bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz
 
+    # Print FORMAT/GT fields followed by FORMAT/GT fields
+    bcftools query -f 'GQ:[ %GQ] \t GT:[ %GT]\n' file.vcf
+
+    # Make a BED file: chr, pos (0-based), end pos (1-based), id
+    bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n' file.bcf
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
