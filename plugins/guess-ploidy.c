@@ -76,7 +76,7 @@ const char *about(void)
     return "Determine sample sex by checking genotype likelihoods in haploid regions.\n";
 }
 
-const char *usage(void)
+static const char *usage_text(void)
 {
     return 
         "\n"
@@ -417,7 +417,7 @@ int run(int argc, char **argv)
                 break;
             case 'h':
             case '?':
-            default: error("%s", usage()); break;
+            default: error("%s", usage_text()); break;
         }
     }
 
@@ -425,9 +425,9 @@ int run(int argc, char **argv)
     if ( optind==argc )
     {
         if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
-        else { error(usage()); }
+        else { error(usage_text()); }
     }
-    else if ( optind+1!=argc ) error(usage());
+    else if ( optind+1!=argc ) error(usage_text());
     else fname = argv[optind];
 
     args->sr = bcf_sr_init();
