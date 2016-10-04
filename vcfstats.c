@@ -404,6 +404,7 @@ static void init_stats(args_t *args)
         args->filter[0] = filter_init(bcf_sr_get_header(args->files,0), args->filter_str);
         if ( args->files->nreaders==2 )
             args->filter[1] = filter_init(bcf_sr_get_header(args->files,1), args->filter_str);
+        args->files->max_unpack |= filter_max_unpack(args->filter[0]);
     }
 
     // AF corresponds to AC but is more robust to mixtures of haploid and diploid GTs
