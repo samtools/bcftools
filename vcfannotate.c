@@ -156,6 +156,7 @@ void remove_info(args_t *args, bcf1_t *line, rm_tag_t *tag)
         }
         line->d.shared_dirty |= BCF1_DIRTY_INF;
         inf->vptr = NULL;
+        inf->vptr_off = inf->vptr_len = 0;
     }
 }
 void remove_info_tag(args_t *args, bcf1_t *line, rm_tag_t *tag)
