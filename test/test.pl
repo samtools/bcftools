@@ -33,6 +33,14 @@ use File::Temp qw/ tempfile tempdir /;
 use Cwd qw/ abs_path /;
 
 my $opts = parse_params();
+#test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
+#test_csq_real($opts,in=>'csq');
+#print "\nNumber of tests:\n";
+#printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
+#printf "    passed  .. %d\n", $$opts{nok};
+#printf "    failed  .. %d\n", $$opts{nfailed};
+#print "\n";
+#exit ($$opts{nfailed} != 0);
 
 test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
@@ -190,6 +198,7 @@ test_vcf_annotate($opts,in=>'annotate4',tab=>'annots4',out=>'annotate8.out',args
 test_vcf_annotate($opts,in=>'annotate10',tab=>'annots10',out=>'annotate10.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate11.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR -s A');
 test_vcf_annotate($opts,in=>'annotate2',tab=>'annots11',out=>'annotate11.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR -s A');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate12.out',args=>'-c AAA:=IINT,FMT/BBB:=FMT/FINT');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
@@ -396,7 +405,13 @@ sub test_cmd
         $exp = join('',@exp);
         close($fh);
     }
-    elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
+    else
+    {
+        open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new: $!");
+        print $fh $out;
+        close($fh);
+        if ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}.new"); return; }
+    }
 
     if ( $exp ne $out )
     {
@@ -1015,6 +1030,29 @@ sub test_csq
 {
     my ($opts,%args) = @_;
     $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | grep -v ^#");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'");
+}
+sub test_csq_real
+{
+    my ($opts,%args) = @_;
+
+    my $dirname = "$$opts{path}/$args{in}";
+    opendir(my $dh,$dirname) or error("opendir $dirname: $!");
+    while (my $dir=readdir($dh))
+    {
+        if ( !($dir=~/^E/) or !-d "$dirname/$dir" ) { next; }
+        my $gff = "$dirname/$dir/$dir.gff";
+        my $ref = "$dirname/$dir/$dir.fa";
+        opendir(my $tmp,"$dirname/$dir") or error("opendir: $dirname/$dir: $!");
+        while (my $file=readdir($tmp))
+        {
+            if ( !($file=~/\.vcf$/) ) { next; }
+            my $vcf = "$dirname/$dir/$file";
+            my $out = "$args{in}/$dir/$`.txt";
+            test_cmd($opts,%args,out=>$out,cmd=>"$$opts{bin}/bcftools csq -f $ref -g $gff $vcf | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'");
+        }
+        closedir($tmp);
+    }
+    closedir($dh);
 }
 

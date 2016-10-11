@@ -304,18 +304,23 @@ Add or remove annotations.
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
     'list' describes the columns of the annotation file and must include CHROM,
     POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
-    columns which should be ignored can be indicated by "-".
+    columns which should be ignored can be indicated by "-".   
+    +
     If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
     order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
     and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
+    The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
+    +
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
     "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+    +
     To add annotations without overwriting existing values (that is, to add missing tags or
     add values to existing tags with missing values), use "+TAG" instead of "TAG".
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
+    +
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
 
@@ -2478,8 +2483,7 @@ Display the full bcftools version number in a machine-readable format.
 EXPRESSIONS
 -----------
 
-These filtering expressions are accepted by *<<annotate,annotate>>*,
-*<<filter,filter>>*, *<<query,query>>* and *<<view,view>>* commands.
+These filtering expressions are accepted by most of the commands.
 
 .Valid expressions may contain:
 
