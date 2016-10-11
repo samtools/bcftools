@@ -1154,9 +1154,7 @@ static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
             }
         }
         if ( bcf_hdr_nsamples(src)==bcf_hdr_nsamples(dst) && nmatch==bcf_hdr_nsamples(src) && order_ok ) return 0;  // not needed
-
-        if ( !nmatch ) error("No matching samples found in the source and the destination file\n");
-        if ( nmatch!=bcf_hdr_nsamples(src) || nmatch!=bcf_hdr_nsamples(dst) ) fprintf(stderr,"%d sample(s) in common\n", nmatch);
+        if ( !nmatch ) return -1;   // No matching samples found in the source and the destination file
 
         args->nsample_map = bcf_hdr_nsamples(dst);
         args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
@@ -1303,7 +1301,8 @@ static void bcf_hrec_format_rename(bcf_hrec_t *hrec, char *tag, kstring_t *str)
 }
 static void init_columns(args_t *args)
 {
-    int need_sample_map = init_sample_map(args, args->tgts_is_vcf?args->files->readers[1].header:NULL, args->hdr);
+    int need_sample_map = 0;
+    int sample_map_ok = init_sample_map(args, args->tgts_is_vcf?args->files->readers[1].header:NULL, args->hdr);
 
     void *skip_fmt = NULL, *skip_info = NULL;
     if ( args->tgts_is_vcf )
@@ -1418,7 +1417,7 @@ static void init_columns(args_t *args)
         else if ( args->tgts_is_vcf && (!strcasecmp("FORMAT",str.s) || !strcasecmp("FMT",str.s)) ) // All FORMAT fields
         {
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
-            if ( replace>=0 && replace!=REPLACE_ALL ) need_sample_map = 1;
+            need_sample_map = 1;
             int j;
             for (j=0; j<tgts_hdr->nhrec; j++)
             {
@@ -1462,7 +1461,7 @@ static void init_columns(args_t *args)
             }
             else
                 key_src = key_dst;
-            if ( replace>=0 && replace!=REPLACE_ALL ) need_sample_map = 1;
+            need_sample_map = 1;
             if ( args->tgts_is_vcf )
             {
                 bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_FMT, "ID", key_src, NULL);
@@ -1565,6 +1564,8 @@ static void init_columns(args_t *args)
         free(args->sample_map);
         args->sample_map = NULL;
     }
+    else if ( sample_map_ok<0 )
+        error("No matching samples in source and destination file?\n");
 }
 
 static void rename_chrs(args_t *args, char *fname)
