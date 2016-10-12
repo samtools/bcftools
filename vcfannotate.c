@@ -210,6 +210,7 @@ static void remove_hdr_lines(bcf_hdr_t *hdr, int type)
                 vdict_t *d = type==BCF_HL_CTG ? (vdict_t*)hdr->dict[BCF_DT_CTG] : (vdict_t*)hdr->dict[BCF_DT_ID];
                 khint_t k = kh_get(vdict, d, hdr->hrec[i]->vals[id]);
                 kh_val(d, k).hrec[type==BCF_HL_CTG?0:type] = NULL;
+                kh_val(d, k).info[type] |= 0xf;
             }
         }
         nrm++;

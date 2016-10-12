@@ -199,6 +199,7 @@ test_vcf_annotate($opts,in=>'annotate10',tab=>'annots10',out=>'annotate10.out',a
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate11.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR -s A');
 test_vcf_annotate($opts,in=>'annotate2',tab=>'annots11',out=>'annotate11.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR -s A');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate12.out',args=>'-c AAA:=IINT,FMT/BBB:=FMT/FINT');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate13.out',args=>'-x INFO -c INFO/IINT');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
