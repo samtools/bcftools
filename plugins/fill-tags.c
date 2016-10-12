@@ -49,7 +49,7 @@ counts_t;
 typedef struct
 {
     bcf_hdr_t *in_hdr, *out_hdr;
-    int tags, marr, mfarr, mcounts, gt_id;
+    int tags, marr, mfarr, mcounts, gt_id, drop_missing;
     int32_t *arr;
     float *farr;
     counts_t *counts;
@@ -73,11 +73,13 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
+        "   -d, --drop-missing      do not count half-missing genotypes \"./1\" as hemizygous\n"
         "   -t, --tags LIST         list of output tags. By default, all tags are filled.\n"
         "\n"
         "Example:\n"
-        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -d\n"
         "\n";
 }
 
@@ -114,14 +116,16 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
     static struct option loptions[] =
     {
+        {"drop-missing",0,0,'d'},
         {"tags",1,0,'t'},
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:T:l:cd",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:d",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'd': args.drop_missing = 1; break;
             case 't': args.tags |= parse_tags(&args,optarg); break;
             case 'h':
             case '?':
@@ -147,7 +151,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
 bcf1_t *process(bcf1_t *rec)
 {
-    int i, ns = 0;
+    int i, ns = 0, is_hom, is_hemi, is_half;
 
     bcf_unpack(rec, BCF_UN_FMT);
     bcf_fmt_t *fmt_gt = NULL;
@@ -165,26 +169,35 @@ bcf1_t *process(bcf1_t *rec)
         for (i=0; i<rec->n_sample; i++) \
         { \
             type_t *p = (type_t*) (fmt_gt->p + i*fmt_gt->size); \
-            int ial, als = 0; \
+            int ial, als = 0, nals = 0; \
             for (ial=0; ial<fmt_gt->n; ial++) \
             { \
                 if ( p[ial]==vector_end ) break; /* smaller ploidy */ \
-                if ( bcf_gt_is_missing(p[ial]) ) break; /* missing allele */ \
+                if ( bcf_gt_is_missing(p[ial]) ) continue; /* missing allele */ \
                 int idx = bcf_gt_allele(p[ial]); \
+                nals++; \
                 \
                 if ( idx >= rec->n_allele ) \
                     error("Incorrect allele (\"%d\") in %s at %s:%d\n",idx,args.in_hdr->samples[i],bcf_seqname(args.in_hdr,rec),rec->pos+1); \
                 als |= (1<<idx);  /* this breaks with too many alleles */ \
             } \
-            if ( ial==0 ) continue; /* missing alleles */ \
+            if ( nals==0 ) continue; /* missing genotype */ \
             ns++; \
-            int is_hom  = als && !(als & (als-1)); /* only one bit is set */ \
-            int is_hemi = ial==1; \
+            is_hom = als && !(als & (als-1)); /* only one bit is set */ \
+            if ( nals!=ial ) \
+            { \
+                if ( args.drop_missing ) is_hemi = 0, is_half = 1; \
+                else is_hemi = 1, is_half = 0; \
+            } \
+            else if ( nals==1 ) is_hemi = 1, is_half = 0; \
+            else is_hemi = 0, is_half = 0; \
             for (ial=0; als; ial++) \
             { \
                 if ( als&1 ) \
                 { \
-                    if ( !is_hom ) \
+                    if ( is_half ) \
+                        args.counts[ial].nac++; \
+                    else if ( !is_hom ) \
                         args.counts[ial].nhet++; \
                     else if ( !is_hemi ) \
                         args.counts[ial].nhom += 2; \
@@ -211,7 +224,7 @@ bcf1_t *process(bcf1_t *rec)
     {
         args.arr[0] = 0;
         for (i=0; i<rec->n_allele; i++)
-            args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi;
+            args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
         if ( bcf_update_info_int32(args.out_hdr,rec,"AN",args.arr,1)!=0 )
             error("Error occurred while updating AN at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
     }
@@ -222,9 +235,9 @@ bcf1_t *process(bcf1_t *rec)
         {
             args.arr[0] = 0;
             for (i=0; i<rec->n_allele; i++)
-                args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi;
+                args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
             for (i=1; i<rec->n_allele; i++)
-                args.farr[i] = (args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi)*1.0/args.arr[0];
+                args.farr[i] = (args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac)*1.0/args.arr[0];
         }
         if ( args.arr[0] )
         {
@@ -239,7 +252,7 @@ bcf1_t *process(bcf1_t *rec)
         {
             memset(args.arr,0,sizeof(*args.arr)*rec->n_allele);
             for (i=1; i<rec->n_allele; i++)
-                args.arr[i] = args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi;
+                args.arr[i] = args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
         }
         if ( bcf_update_info_int32(args.out_hdr,rec,"AC",args.arr+1,n)!=0 )
             error("Error occurred while updating AC at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
