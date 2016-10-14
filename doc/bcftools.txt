@@ -2538,9 +2538,14 @@ using these expressions
 
         GT=".|.", GT="./.", GT="." 
 
-* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other). Use the regex
+operator "\~" to require at least one allele of the given type or the equal sign "="
+to require that all alleles are of the given type. Compare
 
-        TYPE="indel" | TYPE="snp"
+        TYPE="snp"
+        TYPE~"snp"
+        TYPE!="snp"
+        TYPE!~"snp"
 
 * array subscripts, "*" for any field
 
