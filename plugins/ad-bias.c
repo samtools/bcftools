@@ -48,7 +48,7 @@ typedef struct
 {
     bcf_hdr_t *hdr;
     pair_t *pair;
-    int npair, mpair, min_dp;
+    int npair, mpair, min_dp, min_alt_dp;
     int32_t *ad_arr;
     int mad_arr;
     double th;
@@ -75,6 +75,7 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
+        "   -a, --min-alt-dp <int>      Minimum required alternate allele depth [1]\n"
         "   -d, --min-dp <int>          Minimum required depth [0]\n"
         "   -f, --format <string>       Optional tags to append to output (`bcftools query` style of format)\n"
         "   -s, --samples <file>        List of sample pairs, one tab-delimited pair per line\n"
@@ -124,10 +125,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     memset(&args,0,sizeof(args_t));
     args.hdr = in;
     args.th  = 1e-3;
+    args.min_alt_dp = 1;
     char *fname = NULL, *format = NULL;
     static struct option loptions[] =
     {
         {"min-dp",required_argument,NULL,'d'},
+        {"min-alt-dp",required_argument,NULL,'a'},
         {"format",required_argument,NULL,'f'},
         {"samples",required_argument,NULL,'s'},
         {"threshold",required_argument,NULL,'t'},
@@ -135,10 +138,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?hs:t:f:d:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hs:t:f:d:a:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'a':
+                args.min_alt_dp = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse: -a %s\n", optarg);
+                break;
             case 'd':
                 args.min_dp = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse: -d %s\n", optarg);
@@ -187,6 +194,7 @@ bcf1_t *process(bcf1_t *rec)
         if ( bptr[0]==bcf_int32_missing ) continue;
         if ( aptr[0]+aptr[1] < args.min_dp ) continue;
         if ( bptr[0]+bptr[1] < args.min_dp ) continue;
+        if ( aptr[1] < args.min_alt_dp && bptr[1] < args.min_alt_dp ) continue;
 
         args.ncmp++;
 
