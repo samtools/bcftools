@@ -31,6 +31,7 @@
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include "bcftools.h"
+#include "htslib/khash_str2int.h"
 
 #define SET_AN      (1<<0)
 #define SET_AC      (1<<1)
@@ -57,11 +58,11 @@ counts_t;
 typedef struct
 {
     bcf_hdr_t *in_hdr, *out_hdr;
-    int tags, marr, mfarr, mcounts, gt_id, drop_missing;
+    int tags, marr, mfarr, mcounts, gt_id, drop_missing, n_samples, *sample_pos;
     int32_t *arr;
     float *farr;
     counts_t *counts;
-    char *prefix, **ids;
+    char *prefix, **ids, *sample_file, **samples;
 }
 args_t;
 
@@ -84,7 +85,8 @@ const char *usage(void)
         "Plugin options:\n"
         "   -d, --drop-missing      do not count half-missing genotypes \"./1\" as hemizygous\n"
         "   -t, --tags LIST         list of output tags. By default, all tags are filled.\n"
-        "   -P, --prefix  <string>  prefix to use for annotations."
+        "   -P, --prefix  <string>  prefix to use for annotations.\n"
+        "   -S, --samples FILE      list of samples to use for AC calculations.\n"
         "\n"
         "Example:\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf\n"
@@ -92,6 +94,78 @@ const char *usage(void)
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -d\n"
         "\n";
 }
+
+void load_samples(args_t *args)
+{
+    int i;
+
+    void *hdr_samples = khash_str2int_init();
+    args->n_samples = bcf_hdr_nsamples(args->in_hdr);
+    for (i=0; i< args->n_samples; i++) {
+        khash_str2int_inc(hdr_samples, bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i));
+    }
+    args->samples = NULL;
+    if (! args->sample_file) { // load all samples
+        args->sample_pos = (int *)  malloc((args->n_samples + 1) * sizeof(int));
+        args->samples    = (char**) malloc((args->n_samples + 1) * sizeof(const char*));
+        for (i=0; i < args->n_samples; i++)
+        {
+            args->samples[i] = strdup(bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i));
+            args->sample_pos[i] = i;
+        }
+    } else { // only load specific samples
+        void *exclude = (args->sample_file[0]=='^') ? khash_str2int_init() : NULL;
+        int nsmpl;
+        char **smpl = NULL;
+        args->n_samples = 0;
+        smpl = hts_readlist(exclude ? &args->sample_file[1] : args->sample_file, 1, &nsmpl);
+        if ( !smpl )
+        {
+            error("Could not read the list: \"%s\"\n", exclude ? &args->sample_file[1] : args->sample_file);
+        }
+        int n = 0;
+        if ( exclude )
+        {
+            for (i=0; i<nsmpl; i++) {
+                if (!khash_str2int_has_key(hdr_samples,smpl[i])) {
+                    error("Error: exclude called for sample that does not exist in header: \"%s\". Use \"--force-samples\" to ignore this error.\n", smpl[i]);
+                }
+                khash_str2int_inc(exclude, smpl[i]);
+                ++n;
+            }
+
+            for (i=0; i<bcf_hdr_nsamples(args->in_hdr); i++)
+            {
+                if ( exclude && khash_str2int_has_key(exclude,bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i))  ) continue;
+                args->samples = (char**) realloc(args->samples, (args->n_samples+1)*sizeof(const char*));
+                args->samples[args->n_samples++] = strdup(bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i));
+            }
+            khash_str2int_destroy(exclude);
+        }
+        else
+        {
+            for (i=0; i<nsmpl; i++) {
+                if (!khash_str2int_has_key(hdr_samples,smpl[i])) {
+                    error("Error: subset called for sample that does not exist in header: \"%s\". Use \"--force-samples\" to ignore this error.\n", smpl[i]);
+                }
+                args->samples = (char**) realloc(args->samples, (args->n_samples+1)*sizeof(const char*));
+                args->samples[args->n_samples++] = strdup(smpl[i]);
+            }
+        }
+        args->sample_pos = (int *) malloc( (args->n_samples + 1) * sizeof(int));
+        for (i=0; i < args->n_samples; ++i) {
+            args->sample_pos[i] = khash_str2int_inc(hdr_samples, args->samples[i]); // build up position index
+        }
+        
+        for (i=0; i<nsmpl; i++) free(smpl[i]);
+        free(smpl);
+    }
+    khash_str2int_destroy(hdr_samples);
+    if (args->n_samples == 0) {
+        fprintf(stderr, "Warn: subsetting has removed all samples\n");
+    }
+}
+
 
 int parse_tags(args_t *args, const char *str)
 {
@@ -147,22 +221,25 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"drop-missing",0,0,'d'},
         {"tags",1,0,'t'},
         {"prefix",1,0,'P'},
+        {"samples-file",1,0,'S'},
         {0,0,0,0}
     };
     args.prefix = "";
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:dP:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:dP:S:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case 'd': args.drop_missing = 1; break;
             case 't': args.tags |= parse_tags(&args,optarg); break;
             case 'P': args.prefix = optarg; break;
+            case 'S': args.sample_file = optarg; break;
             case 'h':
             case '?':
             default: error("%s", usage()); break;
         }
     }
+    load_samples(&args);
 
 
     args.ids = (char **)malloc(7 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
@@ -194,7 +271,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
 bcf1_t *process(bcf1_t *rec)
 {
-    int i, ns = 0, is_hom, is_hemi, is_half;
+    int i, pos, ns = 0, is_hom, is_hemi, is_half;
 
     bcf_unpack(rec, BCF_UN_FMT);
     bcf_fmt_t *fmt_gt = NULL;
@@ -209,8 +286,9 @@ bcf1_t *process(bcf1_t *rec)
     memset(args.counts,0,sizeof(*args.counts)*rec->n_allele);
 
     #define BRANCH_INT(type_t,vector_end) { \
-        for (i=0; i<rec->n_sample; i++) \
+        for (pos=0; pos<args.n_samples; pos++) \
         { \
+            i = args.sample_pos[pos]; \
             type_t *p = (type_t*) (fmt_gt->p + i*fmt_gt->size); \
             int ial, als = 0, nals = 0; \
             for (ial=0; ial<fmt_gt->n; ial++) \
@@ -272,7 +350,6 @@ bcf1_t *process(bcf1_t *rec)
             args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
         if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr,1)!=0 )
             error("Error occurred while updating AN at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-        free(id);
     }
     if ( args.tags&SET_AF )
     {
@@ -349,6 +426,13 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
+    int i;
+    for (i = 0; i < args.n_samples; ++i) {
+        free(args.samples[i]);
+    }
+    free(args.samples);
+    free(args.sample_pos);
+
     free(args.ids[POS_NS]);
     free(args.ids[POS_AN]);
     free(args.ids[POS_AC]);
@@ -362,5 +446,6 @@ void destroy(void)
     free(args.arr);
     free(args.farr);
 }
+
 
 
