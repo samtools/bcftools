@@ -40,6 +40,14 @@
 #define SET_AF      (1<<5)
 #define SET_NS      (1<<6)
 
+static const int POS_NS = 0;
+static const int POS_AN = 1;
+static const int POS_AC = 2;
+static const int POS_AF = 3;
+static const int POS_Hom = 4;
+static const int POS_Het = 5;
+static const int POS_Hemi = 6;
+
 typedef struct
 {
     int nhom, nhet, nhemi, nac;
@@ -53,6 +61,7 @@ typedef struct
     int32_t *arr;
     float *farr;
     counts_t *counts;
+    char *prefix, **ids;
 }
 args_t;
 
@@ -75,6 +84,7 @@ const char *usage(void)
         "Plugin options:\n"
         "   -d, --drop-missing      do not count half-missing genotypes \"./1\" as hemizygous\n"
         "   -t, --tags LIST         list of output tags. By default, all tags are filled.\n"
+        "   -P, --prefix  <string>  prefix to use for annotations."
         "\n"
         "Example:\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf\n"
@@ -107,6 +117,24 @@ int parse_tags(args_t *args, const char *str)
     return flag;
 }
 
+int hdr_append(bcf_hdr_t *hdr, const char *str, args_t *args)
+{
+    const size_t len1 = strlen(args->prefix);
+    const size_t len2 = strlen(str);
+    char *result = (char*)malloc(len1+len2+1);
+    sprintf(result, str, args->prefix);
+    bcf_hdr_append(args->out_hdr, result);
+    free(result);
+    return 0;
+}
+
+char* concat_prefix(args_t *args, const char *s2)
+{
+    char *result = (char *) malloc(strlen(args->prefix)+strlen(s2)+1);
+    strcpy(result, args->prefix);
+    strcat(result, s2);
+    return result;
+}
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
@@ -118,33 +146,48 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     {
         {"drop-missing",0,0,'d'},
         {"tags",1,0,'t'},
+        {"prefix",1,0,'P'},
         {0,0,0,0}
     };
+    args.prefix = "";
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:d",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:dP:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case 'd': args.drop_missing = 1; break;
             case 't': args.tags |= parse_tags(&args,optarg); break;
+            case 'P': args.prefix = optarg; break;
             case 'h':
             case '?':
             default: error("%s", usage()); break;
         }
     }
+
+
+    args.ids = (char **)malloc(7 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
+
+    args.ids[POS_NS] = concat_prefix(&args, "NS");
+    args.ids[POS_AN] = concat_prefix(&args, "AN");
+    args.ids[POS_AC] = concat_prefix(&args, "AC");
+    args.ids[POS_AF] = concat_prefix(&args, "AF");
+    args.ids[POS_Het] = concat_prefix(&args, "AC_Het");
+    args.ids[POS_Hom] = concat_prefix(&args, "AC_Hom");
+    args.ids[POS_Hemi] = concat_prefix(&args, "AC_Hemi");
+
     if ( optind != argc ) error(usage());
     if ( !args.tags ) args.tags |= SET_AN|SET_AC|SET_NS|SET_AC_Hom|SET_AC_Het|SET_AC_Hemi|SET_AF;
     
     args.gt_id = bcf_hdr_id2int(args.in_hdr,BCF_DT_ID,"GT");
     if ( args.gt_id<0 ) error("Error: GT field is not present\n");
 
-    if ( args.tags&SET_AN ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
-    if ( args.tags&SET_AC ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
-    if ( args.tags&SET_NS ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">");
-    if ( args.tags&SET_AC_Hom ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC_Hom,Number=A,Type=Integer,Description=\"Allele counts in homozygous genotypes\">");
-    if ( args.tags&SET_AC_Het ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC_Het,Number=A,Type=Integer,Description=\"Allele counts in heterozygous genotypes\">");
-    if ( args.tags&SET_AC_Hemi ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AC_Hemi,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes\">");
-    if ( args.tags&SET_AF ) bcf_hdr_append(args.out_hdr, "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele frequency\">");
+    if ( args.tags&SET_AN ) hdr_append(args.out_hdr, "##INFO=<ID=%sAN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">", &args);
+    if ( args.tags&SET_AC ) hdr_append(args.out_hdr, "##INFO=<ID=%sAC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">", &args);
+    if ( args.tags&SET_NS ) hdr_append(args.out_hdr, "##INFO=<ID=%sNS,Number=1,Type=Integer,Description=\"Number of samples with data\">", &args);
+    if ( args.tags&SET_AC_Hom ) hdr_append(args.out_hdr, "##INFO=<ID=%sAC_Hom,Number=A,Type=Integer,Description=\"Allele counts in homozygous genotypes\">", &args);
+    if ( args.tags&SET_AC_Het ) hdr_append(args.out_hdr, "##INFO=<ID=%sAC_Het,Number=A,Type=Integer,Description=\"Allele counts in heterozygous genotypes\">", &args);
+    if ( args.tags&SET_AC_Hemi ) hdr_append(args.out_hdr, "##INFO=<ID=%sAC_Hemi,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes\">", &args);
+    if ( args.tags&SET_AF ) hdr_append(args.out_hdr, "##INFO=<ID=%sAF,Number=A,Type=Float,Description=\"Allele frequency\">", &args);
 
     return 0;
 }
@@ -217,16 +260,19 @@ bcf1_t *process(bcf1_t *rec)
     #undef BRANCH_INT
     if ( args.tags&SET_NS )
     {
-        if ( bcf_update_info_int32(args.out_hdr,rec,"NS",&ns,1)!=0 )
+        char * id = args.ids[POS_NS];
+        if ( bcf_update_info_int32(args.out_hdr,rec,id,&ns,1)!=0 )
             error("Error occurred while updating NS at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
     }
     if ( args.tags&SET_AN )
     {
+        char * id = args.ids[POS_AN];
         args.arr[0] = 0;
         for (i=0; i<rec->n_allele; i++)
             args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
-        if ( bcf_update_info_int32(args.out_hdr,rec,"AN",args.arr,1)!=0 )
+        if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr,1)!=0 )
             error("Error occurred while updating AN at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
+        free(id);
     }
     if ( args.tags&SET_AF )
     {
@@ -241,7 +287,8 @@ bcf1_t *process(bcf1_t *rec)
         }
         if ( args.arr[0] )
         {
-            if ( bcf_update_info_float(args.out_hdr,rec,"AF",args.farr+1,n)!=0 )
+            char * id = args.ids[POS_AF];
+            if ( bcf_update_info_float(args.out_hdr,rec,id,args.farr+1,n)!=0 )
                 error("Error occurred while updating AF at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
         }
     }
@@ -254,7 +301,8 @@ bcf1_t *process(bcf1_t *rec)
             for (i=1; i<rec->n_allele; i++)
                 args.arr[i] = args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
         }
-        if ( bcf_update_info_int32(args.out_hdr,rec,"AC",args.arr+1,n)!=0 )
+        char * id = args.ids[POS_AC];
+        if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
             error("Error occurred while updating AC at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
     }
     if ( args.tags&SET_AC_Het )
@@ -266,7 +314,8 @@ bcf1_t *process(bcf1_t *rec)
             for (i=1; i<rec->n_allele; i++)
                 args.arr[i] += args.counts[i].nhet;
         }
-        if ( bcf_update_info_int32(args.out_hdr,rec,"AC_Het",args.arr+1,n)!=0 )
+        char * id = args.ids[POS_Het];
+        if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
             error("Error occurred while updating AC_Het at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
     }
     if ( args.tags&SET_AC_Hom )
@@ -278,7 +327,8 @@ bcf1_t *process(bcf1_t *rec)
             for (i=1; i<rec->n_allele; i++)
                 args.arr[i] += args.counts[i].nhom;
         }
-        if ( bcf_update_info_int32(args.out_hdr,rec,"AC_Hom",args.arr+1,n)!=0 )
+        char * id = args.ids[POS_Hom];
+        if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
             error("Error occurred while updating AC_Hom at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
     }
     if ( args.tags&SET_AC_Hemi )
@@ -290,7 +340,8 @@ bcf1_t *process(bcf1_t *rec)
             for (i=1; i<rec->n_allele; i++)
                 args.arr[i] += args.counts[i].nhemi;
         }
-        if ( bcf_update_info_int32(args.out_hdr,rec,"AC_Hemi",args.arr+1,n)!=0 )
+        char * id = args.ids[POS_Hemi];
+        if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
             error("Error occurred while updating AC_Hemi at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
     }
     return rec;
@@ -298,10 +349,18 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
+    free(args.ids[POS_NS]);
+    free(args.ids[POS_AN]);
+    free(args.ids[POS_AC]);
+    free(args.ids[POS_AF]);
+    free(args.ids[POS_Het]);
+    free(args.ids[POS_Hom]);
+    free(args.ids[POS_Hemi]);
+    free(args.ids);
+
     free(args.counts);
     free(args.arr);
     free(args.farr);
 }
-
 
 
