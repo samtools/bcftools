@@ -967,10 +967,14 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         for (i=0; i<btok->nsamples; i++)
             atok->pass_samples[i] = btok->pass_samples[i];
         atok->nsamples = btok->nsamples;
+        atok->nvalues  = 1;
         return btok->pass_site;
     }
     if ( !btok->nvalues ) // missing value in b
+    {
+        btok->nvalues = 1;
         return atok->pass_site;
+    }
 
     if ( !atok->nsamples && !btok->nsamples ) return atok->pass_site || btok->pass_site;
     if ( !atok->nsamples )
