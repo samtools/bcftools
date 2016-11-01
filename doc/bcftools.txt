@@ -2502,9 +2502,10 @@ These filtering expressions are accepted by most of the commands.
 
         == (same as =), >, >=, <=, <, !=
 
-* regex operators "\~" and its negation "!~"
+* regex operators "\~" and its negation "!~". The expressions are case sensitive unless "/i" is added.
 
         INFO/HAYSTACK ~ "needle"
+        INFO/HAYSTACK ~ "NEEDless/i"
 
 * parentheses
 

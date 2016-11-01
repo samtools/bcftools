@@ -1594,7 +1594,14 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( !out[j].key )
                 error("Could not parse the expression, wrong value for regex operator: %s\n", filter->str);
             out[j].regex = (regex_t *) malloc(sizeof(regex_t));
-            if ( regcomp(out[j].regex, out[j].key, REG_ICASE|REG_NOSUB) )
+            int cflags = REG_NOSUB;
+            int len = strlen(out[j].key);
+            if ( len>2 && out[j].key[len-1]=='i' && out[j].key[len-2]=='/' && out[j].key[len-3]!='\\'  )
+            {
+                out[j].key[len-2] = 0;
+                cflags |= REG_ICASE;
+            }
+            if ( regcomp(out[j].regex, out[j].key, cflags) )
                 error("Could not compile the regex expression \"%s\": %s\n", out[j].key,filter->str);
         }
         if ( out[i].tok_type!=TOK_VAL ) continue;
