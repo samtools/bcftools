@@ -239,13 +239,13 @@ void load_samples(args_t *args)
 
             for (i=0; i<nsmpl; i++) free(smpl[i]);
             free(smpl);
+	    if (args->n_samples[ifile] == 0) {
+	      fprintf(stderr, "Warn: subsetting has removed all samples for prefix '%s'\n", pref);
+	    }
             if (strlen(pref) > 0) {
                 free(pref);
             }
             free(file);
-        }
-        if (args->n_samples[ifile] == 0) {
-            fprintf(stderr, "Warn: subsetting has removed all samples\n");
         }
     }
     khash_str2int_destroy(hdr_samples);
@@ -298,12 +298,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             case 'd': args.drop_missing = 1; break;
             case 't': args.tags |= parse_tags(&args,optarg); break;
             case 'S': if (args.sample_files == NULL) {
-                          args.sample_files = (char **) malloc(1 * sizeof(*optarg));
+                          args.sample_files = (char **) malloc(1 * sizeof(char *));
 //                          memset(args.sample_files, &optarg, sizeof(*optarg));
                           args.n_sample_files++;
                       } else {
                           args.n_sample_files++;
-                          args.sample_files = (char **) realloc(args.sample_files,args.n_sample_files*sizeof(*optarg));
+                          args.sample_files = (char **) realloc(args.sample_files,args.n_sample_files*sizeof(char *));
                       }
                       char* tmp = (char *) strdup(optarg);
                       args.sample_files[args.n_sample_files-1] = tmp;
