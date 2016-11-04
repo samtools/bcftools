@@ -40,6 +40,7 @@
 #define SET_AC_Hemi (1<<4)
 #define SET_AF      (1<<5)
 #define SET_NS      (1<<6)
+#define SET_MAF     (1<<7)
 
 static const int POS_NS = 0;
 static const int POS_AN = 1;
@@ -48,6 +49,7 @@ static const int POS_AF = 3;
 static const int POS_Hom = 4;
 static const int POS_Het = 5;
 static const int POS_Hemi = 6;
+static const int POS_MAF = 7;
 
 typedef struct
 {
@@ -58,7 +60,8 @@ counts_t;
 typedef struct
 {
     bcf_hdr_t *in_hdr, *out_hdr;
-    int tags, marr, mfarr, mcounts, gt_id, drop_missing, *n_samples, **sample_pos, n_sample_files;
+    int marr, mfarr, mcounts, gt_id, drop_missing, *n_samples, **sample_pos, n_sample_files;
+    long tags;
     int32_t *arr;
     float *farr;
     counts_t *counts;
@@ -70,14 +73,14 @@ static args_t args;
 
 const char *about(void)
 {
-    return "Set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n";
+    return "Set INFO tags MAF, AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n";
 }
 
 const char *usage(void)
 {
     return 
         "\n"
-        "About: Set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n"
+        "About: Set INFO tags MAF, AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n"
         "Usage: bcftools +fill-tags [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
@@ -124,6 +127,7 @@ void addHeader(args_t *args, char * prefix)
     if ( args->tags&SET_AC_Het ) hdr_append(args->out_hdr, "##INFO=<ID=%sAC_Het,Number=A,Type=Integer,Description=\"Allele counts in heterozygous genotypes\">", args, prefix);
     if ( args->tags&SET_AC_Hemi ) hdr_append(args->out_hdr, "##INFO=<ID=%sAC_Hemi,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes\">", args, prefix);
     if ( args->tags&SET_AF ) hdr_append(args->out_hdr, "##INFO=<ID=%sAF,Number=A,Type=Float,Description=\"Allele frequency\">", args, prefix);
+    if ( args->tags&SET_MAF ) hdr_append(args->out_hdr, "##INFO=<ID=%sMAF,Number=A,Type=Float,Description=\"Minor Allele frequency\">", args, prefix);
 }
 
 void load_samples(args_t *args)
@@ -144,11 +148,12 @@ void load_samples(args_t *args)
         args->n_samples[0] = n_samples_local;
         args->samples = NULL;
         char * empty = "";
-        args->ids[0] = (char **)malloc(7 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
+        args->ids[0] = (char **)malloc(8 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
         args->ids[0][POS_NS] = concat_prefix(empty, "NS");
         args->ids[0][POS_AN] = concat_prefix(empty, "AN");
         args->ids[0][POS_AC] = concat_prefix(empty, "AC");
         args->ids[0][POS_AF] = concat_prefix(empty, "AF");
+        args->ids[0][POS_MAF] = concat_prefix(empty, "MAF");
         args->ids[0][POS_Het] = concat_prefix(empty, "AC_Het");
         args->ids[0][POS_Hom] = concat_prefix(empty, "AC_Hom");
         args->ids[0][POS_Hemi] = concat_prefix(empty, "AC_Hemi");
@@ -180,11 +185,12 @@ void load_samples(args_t *args)
                 pref = strdup(&(args->sample_files[ifile][off[0]]));
                 file = strdup(&(args->sample_files[ifile][off[1]]));
             }
-            args->ids[ifile] = (char **)malloc(7 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
+            args->ids[ifile] = (char **)malloc(8 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
             args->ids[ifile][POS_NS] = concat_prefix(pref, "NS");
             args->ids[ifile][POS_AN] = concat_prefix(pref, "AN");
             args->ids[ifile][POS_AC] = concat_prefix(pref, "AC");
             args->ids[ifile][POS_AF] = concat_prefix(pref, "AF");
+            args->ids[ifile][POS_MAF] = concat_prefix(pref, "MAF");
             args->ids[ifile][POS_Het] = concat_prefix(pref, "AC_Het");
             args->ids[ifile][POS_Hom] = concat_prefix(pref, "AC_Hom");
             args->ids[ifile][POS_Hemi] = concat_prefix(pref, "AC_Hemi");
@@ -254,7 +260,8 @@ void load_samples(args_t *args)
 
 int parse_tags(args_t *args, const char *str)
 {
-    int i, flag = 0, n_tags;
+    int i = 0, n_tags;
+    long flag = 0l;
     char **tags = hts_readlist(str, 0, &n_tags);
     for(i=0; i<n_tags; i++)
     {
@@ -265,6 +272,7 @@ int parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"AC_Het") ) flag |= SET_AC_Het;
         else if ( !strcasecmp(tags[i],"AC_Hemi") ) flag |= SET_AC_Hemi;
         else if ( !strcasecmp(tags[i],"AF") ) flag |= SET_AF;
+        else if ( !strcasecmp(tags[i],"MAF") ) flag |= SET_MAF;
         else
         {
             fprintf(stderr,"Error parsing \"--tags %s\": the tag \"%s\" is not supported\n", str,tags[i]);
@@ -317,8 +325,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( optind != argc ) error(usage());
     args.gt_id = bcf_hdr_id2int(args.in_hdr,BCF_DT_ID,"GT");
     if ( args.gt_id<0 ) error("Error: GT field is not present\n");
-
-    if ( !args.tags ) args.tags |= SET_AN|SET_AC|SET_NS|SET_AC_Hom|SET_AC_Het|SET_AC_Hemi|SET_AF;
+    if ( !args.tags ) args.tags |= SET_AN|SET_AC|SET_NS|SET_AC_Hom|SET_AC_Het|SET_AC_Hemi|SET_AF|SET_MAF;
     load_samples(&args);
     return 0;
 }
@@ -410,7 +417,7 @@ bcf1_t *process(bcf1_t *rec)
             if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr,1)!=0 )
                 error("Error occurred while updating AN at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
         }
-        if ( args.tags&SET_AF )
+        if ( args.tags&SET_AF || args.tags&SET_MAF )
         {
             int n = rec->n_allele-1;
             if ( n>0 )
@@ -423,9 +430,21 @@ bcf1_t *process(bcf1_t *rec)
             }
             if ( args.arr[0] )
             {
+                if (args.tags&SET_AF) {
                 char * id = args.ids[nsf][POS_AF];
                 if ( bcf_update_info_float(args.out_hdr,rec,id,args.farr+1,n)!=0 )
                     error("Error occurred while updating AF at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
+                }
+                if (args.tags&SET_MAF) {
+                    for (i=1; i<rec->n_allele; i++) {
+                        if (args.farr[i] > 0.5) {
+                            args.farr[i] = 1 - args.farr[i];
+                        }
+                    }
+                    char * id = args.ids[nsf][POS_MAF];
+                    if ( bcf_update_info_float(args.out_hdr,rec,id,args.farr+1,n)!=0 )
+                        error("Error occurred while updating MAF at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
+                }
             }
         }
         if ( args.tags&SET_AC )
@@ -497,6 +516,7 @@ void destroy(void)
         free(args.ids[i][POS_AN]);
         free(args.ids[i][POS_AC]);
         free(args.ids[i][POS_AF]);
+        free(args.ids[i][POS_MAF]);
         free(args.ids[i][POS_Het]);
         free(args.ids[i][POS_Hom]);
         free(args.ids[i][POS_Hemi]);
@@ -512,5 +532,6 @@ void destroy(void)
     free(args.arr);
     free(args.farr);
 }
+
 
 
