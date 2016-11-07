@@ -209,7 +209,8 @@ test_vcf_plugin($opts,in=>'view.GL',out=>'guess-ploidy.GL.out',cmd=>'+guess-ploi
 test_vcf_plugin($opts,in=>'view.GL',out=>'view.PL.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gl-to-pl');
 test_vcf_plugin($opts,in=>'view.GP',out=>'view.GT.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gp-to-gt -t 0.2');
 test_vcf_plugin($opts,in=>'merge.a',out=>'fill-tags.out',cmd=>'+fill-tags --no-version',args=>'-- -t AN,AC,AC_Hom,AC_Het,AC_Hemi');
-test_vcf_plugin($opts,in=>'view',out=>'fill-tags.2.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,NS');
+test_vcf_plugin($opts,in=>'view',out=>'fill-tags.2.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,MAF,NS');
+test_vcf_plugin($opts,in=>'view',out=>'fill-tags.3.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,MAF,NS -S TEST_,<(echo -e "NA00001\nNA00002\nNA00003") ');
 test_vcf_plugin($opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.1.out',cmd=>'+fill-tags --no-version');
 test_vcf_plugin($opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.2.out',cmd=>'+fill-tags --no-version',args=>'-- -d');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.out',cmd=>'+GTisec',args=>' | grep -v bcftools');
