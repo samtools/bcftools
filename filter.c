@@ -1028,6 +1028,7 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
     if ( (atok)->nsamples || (btok)->nsamples ) error("todo: Querying of missing values in FORMAT\n"); \
     token_t *tok = (atok)->is_missing ? (btok) : (atok); \
     (ret) = ( tok->nvalues CMP_OP 1 ) ? 0 : 1; \
+    tok->nvalues = 1; \
 }
 
 #define CMP_VECTORS(atok,btok,CMP_OP,ret) \
