@@ -298,6 +298,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {0,0,0,0}
     };
     args.n_sample_files = 0;
+    args.sample_files = NULL;
     int c;
     while ((c = getopt_long(argc, argv, "?ht:dS:",loptions,NULL)) >= 0)
     {
@@ -305,16 +306,10 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {
             case 'd': args.drop_missing = 1; break;
             case 't': args.tags |= parse_tags(&args,optarg); break;
-            case 'S': if (args.sample_files == NULL) {
-                          args.sample_files = (char **) malloc(1 * sizeof(char *));
-//                          memset(args.sample_files, &optarg, sizeof(*optarg));
-                          args.n_sample_files++;
-                      } else {
-                          args.n_sample_files++;
-                          args.sample_files = (char **) realloc(args.sample_files,args.n_sample_files*sizeof(char *));
-                      }
-                      char* tmp = (char *) strdup(optarg);
-                      args.sample_files[args.n_sample_files-1] = tmp;
+            case 'S': 
+                args.n_sample_files++;
+                args.sample_files = (char**) realloc(args.sample_files, args.n_sample_files*sizeof(char*));
+                args.sample_files[args.n_sample_files-1] = strdup(optarg);
                 break;
             case 'h':
             case '?':
