@@ -299,6 +299,11 @@ Add or remove annotations.
     # etc.
 ----
 
+*--collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+    Controls how to match records from the annotation file to the target VCF.
+    Effective only when *-a* is a VCF or BCF.
+    See *<<common_options,Common Options>>* for more.
+
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,

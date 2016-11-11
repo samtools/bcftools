@@ -1857,6 +1857,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations <file>       VCF file or tabix-indexed file with annotations: CHR\\tPOS[\\tVALUE]+\n");
+    fprintf(stderr, "       --collapse <string>        matching records by <snps|indels|both|all|some|none>, see man page for details [some]\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
     fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
@@ -1889,7 +1890,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->record_cmd_line = 1;
     args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
     args->set_ids_replace = 1;
-    int regions_is_file = 0;
+    int regions_is_file = 0, collapse = 0;
 
     static struct option loptions[] =
     {
@@ -1899,6 +1900,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"output-type",required_argument,NULL,'O'},
         {"threads",required_argument,NULL,9},
         {"annotations",required_argument,NULL,'a'},
+        {"collapse",required_argument,NULL,2},
         {"include",required_argument,NULL,'i'},
         {"exclude",required_argument,NULL,'e'},
         {"regions",required_argument,NULL,'r'},
@@ -1943,6 +1945,16 @@ int main_vcfannotate(int argc, char *argv[])
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 'h': args->header_fname = optarg; break;
             case  1 : args->rename_chrs = optarg; break;
+            case  2 :
+                if ( !strcmp(optarg,"snps") ) collapse |= COLLAPSE_SNPS;
+                else if ( !strcmp(optarg,"indels") ) collapse |= COLLAPSE_INDELS;
+                else if ( !strcmp(optarg,"both") ) collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
+                else if ( !strcmp(optarg,"any") ) collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"all") ) collapse |= COLLAPSE_ANY;
+                else if ( !strcmp(optarg,"some") ) collapse |= COLLAPSE_SOME;
+                else if ( !strcmp(optarg,"none") ) collapse = COLLAPSE_NONE;
+                else error("The --collapse string \"%s\" not recognised.\n", optarg);
+                break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case '?': usage(args); break;
@@ -1973,7 +1985,7 @@ int main_vcfannotate(int argc, char *argv[])
         {
             args->tgts_is_vcf = 1;
             args->files->require_index = 1;
-            args->files->collapse |= COLLAPSE_SOME;
+            args->files->collapse = collapse ? collapse : COLLAPSE_SOME;
         }
     }
     if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
