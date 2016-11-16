@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Bcftools by samtools</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Bcftools</h1>
+
+        <p class="view">
+            <a href="bcftools.html">Manual page</a>
+            <br>
+            <a href="howtos/index.html">Documentation</a>
+            <br>
+            <a href="howtos/bgzf-aes-encryption.html">VCF/BCF/BAM encryption</a>
+        </p>
+        <p class="view">
+            <a href="http://github.com/samtools/bcftools">View the Project on GitHub <small>samtools/bcftools</small></a>
+            <br>
+            <a href="http://www.htslib.org/download">Download <small>www.htslib.org</small></a>
+        </p>
+
+
+      </header>
+      <section>
+        <h2>BGZF block-level encryption for VCF, BCF, BAM</h2>
+        <p> This page describes a proof of concept implementation of BGZF block-level
+        encryption which wroks for VCF, BCF, BAM and in general anything compressed with bgzip. 
+        The key requirement is that 1) the files remain .tbi and .csi indexable and 
+        2) no changes to existing tools relying on HTSlib are required.
+
+        <p>
+        For more please check this <a href="bgzf-aes-encryption.pdf">PDF presentation</a>.
+      </section>
+
+      <section>
+        <h3>Download and compiling</h3>
+
+        To download, compile and test the functionality, run the following sequence of commands:
+        <ul style='list-style-type:none;margin-left:-1em;'>
+            <li># get the software
+            <li>git clone --branch=crypto git://github.com/pd3/htslib.git
+            <li>cd htslib
+            <li>&nbsp;
+            <li># the autotools are used only to make openssl optional
+            <li>autoheader
+            <li>autoconf
+            <li>./configure --enable-openssl
+            <li>&nbsp;
+            <li># compile
+            <li>make
+            <li>&nbsp;
+            <li># test
+            <li>./test/test.pl
+        </ul>
+
+        In order to test with bcftools and samtools, the openssl-aware version of htslib must be linked 
+        with <i>pkg-config openssl --libs</i>. For BCFtools, there is a modified version of Makefile
+        which you can test here
+        <ul style='list-style-type:none;margin-left:-1em;'>
+            <li>git clone --branch=crypto git://github.com/pd3/bcftools.git
+            <li>cd bcftools
+            <li>make
+        </ul>
+
+      </section>
+      <section>
+        <h3>See also</h3>
+        <ul>
+            <li><a href="https://github.com/samtools/htslib">HTSlib GitHub Project</a></li>
+            <li><a href="https://github.com/samtools/samtools">Samtools GitHub Project</a></li>
+        </ul>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/samtools">samtools</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
