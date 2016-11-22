@@ -335,6 +335,7 @@ static void process_tgt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isampl
 }
 static void destroy_tbcsq(void *usr)
 {
+    if ( !usr ) return;
     bcsq_t *csq = (bcsq_t*) usr;
     free(csq->hap1.s);
     free(csq->hap2.s);
