@@ -84,3 +84,23 @@ smpl_ilist_t *smpl_ilist_init(bcf_hdr_t *hdr, char *sample_list, int is_file, in
     return smpl;
 }
 
+smpl_ilist_t *smpl_ilist_map(bcf_hdr_t *hdr_a, bcf_hdr_t *hdr_b, int flags)
+{
+    if ( flags&SMPL_STRICT && bcf_hdr_nsamples(hdr_a)!=bcf_hdr_nsamples(hdr_b) )
+        error("Different number of samples: %d vs %d\n", bcf_hdr_nsamples(hdr_a),bcf_hdr_nsamples(hdr_b));
+
+    smpl_ilist_t *smpl = (smpl_ilist_t*) calloc(1,sizeof(smpl_ilist_t));
+
+    int i;
+    smpl->n = bcf_hdr_nsamples(hdr_a);
+    smpl->idx = (int*) malloc(sizeof(int)*smpl->n);
+    for (i=0; i<smpl->n; i++)
+    {
+        const char *name = bcf_hdr_int2id(hdr_a, BCF_DT_SAMPLE, i);
+        smpl->idx[i] = bcf_hdr_id2int(hdr_b, BCF_DT_SAMPLE, name);
+        if ( flags&SMPL_STRICT && smpl->idx[i]<0 ) 
+            error("The sample %s is not present in the second file\n", name);
+    }
+    return smpl;
+}
+

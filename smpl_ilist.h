@@ -41,6 +41,7 @@ typedef struct
 smpl_ilist_t;
 
 smpl_ilist_t *smpl_ilist_init(bcf_hdr_t *hdr, char *sample_list, int is_file, int flags);
+smpl_ilist_t *smpl_ilist_map(bcf_hdr_t *hdr_a, bcf_hdr_t *hdr_b, int flags);
 void smpl_ilist_destroy(smpl_ilist_t *smpl);
 
 #endif
