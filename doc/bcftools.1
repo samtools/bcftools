@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2016-11-29 14:50 GMT
+.\"      Date: 2016-11-29 20:14 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2016\-11\-29 14:50 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2016\-11\-29 20:14 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2016\-11\-29 14:50 GMT\fR and refers to bcftools git version \fB1\&.3\&.1\-147\-gd6b517c+\fR\&.
+This manual page was last updated \fB2016\-11\-29 20:14 GMT\fR and refers to bcftools git version \fB1\&.3\&.1\-178\-gd307e82+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1623,13 +1623,15 @@ bcftools convert \-c ID,CHROM,POS,AA \-s SampleName \-f 23andme\-ref\&.fa \-\-ts
 .sp
 Haplotype aware consequence predictor which correctly handles combined variants such as MNPs split over multiple VCF records, SNPs separated by an intron (but adjacent in the spliced transcript) or nearby frame\-shifting indels which in combination in fact are not frame\-shifting\&.
 .sp
-The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag\&. The latter is a bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype\&. See the usage examples below\&.
+The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag (configurable with the \fB\-c\fR option)\&. The latter is a bitmask of indexes to INFO/BCSQ, with interleaved haplotypes\&. See the usage examples below for using the %TBCSQ converter in \fBquery\fR for extracting a more human readable form from this bitmask\&. The contruction of the bitmask limits the number of consequences that can be referenced in the FORMAT/BCSQ tags\&. By default this is 16, but if more are required, see the \fB\-\-ncsq\fR option\&.
 .sp
 The program requires on input a VCF/BCF file, the reference genome in fasta format (\fB\-\-fasta\-ref\fR) and genomic features in the GFF3 format downloadable from Ensembl website (\fB\-\-gff\-annot\fR), and outputs an annotated VCF/BCF file\&.
+.sp
+By default, the input VCF should be phased\&. If phase is unknown, or only partially known, the \fB\-\-phase\fR option can be used to indicate how to handle unphased data\&. Alternatively, haplotype aware calling can be turned off with the \fB\-\-local\-csq\fR option\&.
 .PP
 \fB\-c, \-\-custom\-tag\fR \fISTRING\fR
 .RS 4
-use this tag instead of the default BCSQ
+use this custom tag to store consequences rather than the default BCSQ tag
 .RE
 .PP
 \fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
@@ -1642,12 +1644,12 @@ is true\&. For valid expressions see
 .PP
 \fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
 .RS 4
-reference sequence in fasta format
+reference sequence in fasta format (required)
 .RE
 .PP
 \fB\-g, \-\-gff\-annot\fR \fIFILE\fR
 .RS 4
-GFF3 annotation file, such as
+GFF3 annotation file (required), such as
 ftp://ftp\&.ensembl\&.org/pub/current_gff3/homo_sapiens/
 .RE
 .PP
@@ -1680,7 +1682,7 @@ see
 \fB\-O, \-\-output\-type\fR \fIb\fR|\fIt\fR|\fIu\fR|\fIz\fR|\fIv\fR
 .RS 4
 see
-\fBCommon Options\fR\&. In addition, a custom tab\-delimited plain text can be printed (\fIt\fR)\&.
+\fBCommon Options\fR\&. In addition, a custom tab\-delimited plain text output can be printed (\fIt\fR)\&.
 .RE
 .PP
 \fB\-p, \-\-phase\fR \fIa\fR|\fIm\fR|\fIr\fR|\fIR\fR|\fIs\fR
@@ -1699,7 +1701,7 @@ merge all GTs into a single haplotype (0/1 → 1, 1/2 → 1)
 .PP
 \fIr\fR
 .RS 4
-require phased GTs, throw an error on unphased het GTs
+require phased GTs, throw an error on unphased heterozygous GTs
 .RE
 .PP
 \fIR\fR
@@ -1759,11 +1761,12 @@ see
 .RS 4
 .\}
 .nf
+    # Basic usage
     bcftools csq \-f hs37d5\&.fa \-g Homo_sapiens\&.GRCh37\&.82\&.gff3\&.gz in\&.vcf \-Ob \-o out\&.bcf
 
     # Extract the translated haplotype consequences\&. The following TBCSQ variations
     # are recognised:
-    #   %TBCSQ    \&.\&. print consequences in both haplotypes in separate columns
+    #   %TBCSQ    \&.\&. print consequences in all haplotypes in separate columns
     #   %TBCSQ{0} \&.\&. print the first haplotype only
     #   %TBCSQ{1} \&.\&. print the second haplotype only
     #   %TBCSQ{*} \&.\&. print a list of unique consquences present in either haplotype
