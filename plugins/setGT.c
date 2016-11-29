@@ -229,8 +229,11 @@ bcf1_t *process(bcf1_t *rec)
         if ( (pass_site && filter_logic==FLT_EXCLUDE) || (!pass_site && filter_logic==FLT_INCLUDE) ) return rec;
         for (i=0; i<rec->n_sample; i++)
         {
-            if ( !smpl_pass[i] && filter_logic==FLT_INCLUDE ) continue;
-            if (  smpl_pass[i] && filter_logic==FLT_EXCLUDE ) continue;
+            if ( smpl_pass )
+            {
+                if ( !smpl_pass[i] && filter_logic==FLT_INCLUDE ) continue;
+                if (  smpl_pass[i] && filter_logic==FLT_EXCLUDE ) continue;
+            }
 
             if ( new_mask&GT_UNPHASED )
                 changed += unphase_gt(gts + i*ngts, ngts);

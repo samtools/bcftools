@@ -37,6 +37,9 @@ THE SOFTWARE.  */
 #define STATE_HW 0        // normal state, follows Hardy-Weinberg allele frequencies
 #define STATE_AZ 1        // autozygous state
 
+#define OUTPUT_ST (1<<1)
+#define OUTPUT_RG (1<<2)
+
 /** Genetic map */
 typedef struct
 {
@@ -51,11 +54,15 @@ typedef struct
     double *eprob;      // emission probs [2*nsites,msites]
     uint32_t *sites;    // positions [nsites,msites]
     int nsites, msites;
-    int beg;            // overlap sites to ignore
     int igenmap;        // current position in genmap
     int nused;          // some stats to detect if things didn't go wrong
     int nrid, *rid, *rid_off;   // for viterbi training, keep all chromosomes
     void *snapshot;             // hmm snapshot
+    struct {
+        uint32_t beg,end,nqual;
+        double qual;
+        int rid, state;
+    } rg;
 }
 smpl_t;
 
@@ -89,7 +96,7 @@ typedef struct _args_t
     smpl_ilist_t *roh_smpl;     // list of samples to analyze (--samples, --samples-file)
     char *estimate_AF;          // list of samples for AF estimate and query sample
     char **argv, *targets_list, *regions_list, *af_fname, *af_tag, *samples, *buffer_size;
-    int argc, fake_PLs, snps_only, vi_training, samples_is_file;
+    int argc, fake_PLs, snps_only, vi_training, samples_is_file, output_type, skip_homref, n_threads;
 }
 args_t;
 
@@ -245,15 +252,31 @@ static void init_data(args_t *args)
     for (i=1; i<args->argc; i++)
         printf(" %s",args->argv[i]);
     printf("\n#\n");
-    i = 2;
-    printf("# ROH");
-    printf("\t[%d]Sample", i++);
-    printf("\t[%d]Chromosome", i++);
-    printf("\t[%d]Position", i++);
-    printf("\t[%d]State (0:HW, 1:AZ)", i++);
-    printf("\t[%d]Quality (fwd-bwd phred score)", i++);
-    printf("\n");
 
+    if ( args->output_type & OUTPUT_RG )
+    {
+        i = 2;
+        printf("# RG");
+        printf("\t[%d]Sample", i++);
+        printf("\t[%d]Chromosome", i++);
+        printf("\t[%d]Start", i++);
+        printf("\t[%d]End", i++);
+        printf("\t[%d]Length (bp)", i++);
+        printf("\t[%d]Number of markers", i++);
+        printf("\t[%d]Quality (average fwd-bwd phred score)", i++);
+        printf("\n");
+    }
+    if ( args->output_type & OUTPUT_ST )
+    {
+        i = 2;
+        printf("# ST");
+        printf("\t[%d]Sample", i++);
+        printf("\t[%d]Chromosome", i++);
+        printf("\t[%d]Position", i++);
+        printf("\t[%d]State (0:HW, 1:AZ)", i++);
+        printf("\t[%d]Quality (fwd-bwd phred score)", i++);
+        printf("\n");
+    }
     if ( args->vi_training)
     {
         i = 2;
@@ -434,7 +457,7 @@ static void flush_viterbi(args_t *args, int ismpl)
     if ( !args->vi_training ) // single viterbi pass
     {
         hmm_restore(args->hmm, smpl->snapshot); 
-        int end = (args->nbuf_max && smpl->nsites >= args->nbuf_max && smpl->nsites > args->nbuf_olap) ? smpl->nsites - 0.5*args->nbuf_olap : smpl->nsites;
+        int end = (args->nbuf_max && smpl->nsites >= args->nbuf_max && smpl->nsites > args->nbuf_olap) ? smpl->nsites - args->nbuf_olap : smpl->nsites;
         if ( end < smpl->nsites )
             smpl->snapshot = hmm_snapshot(args->hmm, smpl->snapshot, smpl->nsites - args->nbuf_olap - 1);
 
@@ -446,11 +469,37 @@ static void flush_viterbi(args_t *args, int ismpl)
         const char *chr  = bcf_hdr_id2name(args->hdr,args->prev_rid);
         uint8_t *vpath   = hmm_get_viterbi_path(args->hmm);
 
-        for (i=smpl->beg; i<end; i++)
+        for (i=0; i<end; i++)
         {
             int state = vpath[i*2]==STATE_AZ ? 1 : 0;
-            double *pval = fwd + i*2;
-            printf("ROH\t%s\t%s\t%d\t%d\t%.1f\n", name,chr,smpl->sites[i]+1, state, phred_score(1.0-pval[state]));
+            double qual = phred_score(1.0 - fwd[i*2 + state]);
+            if ( args->output_type & OUTPUT_ST )
+                printf("ST\t%s\t%s\t%d\t%d\t%.1f\n", name,chr,smpl->sites[i]+1, state, qual);
+
+            if ( args->output_type & OUTPUT_RG )
+            {
+                if ( state!=smpl->rg.state ) 
+                {
+                    if ( !state )   // the region ends, flush
+                    {
+                        printf("RG\t%s\t%s\t%d\t%d\t%d\t%d\t%.1f\n",name,bcf_hdr_id2name(args->hdr,smpl->rg.rid),
+                                smpl->rg.beg+1,smpl->rg.end+1,smpl->rg.end-smpl->rg.beg+1,smpl->rg.nqual,smpl->rg.qual/smpl->rg.nqual);
+                        smpl->rg.state = 0;
+                    }
+                    else
+                    {
+                        smpl->rg.state = 1;
+                        smpl->rg.beg = smpl->sites[i];
+                        smpl->rg.rid = args->prev_rid;
+                    }
+                }
+                else if ( state )
+                {
+                    smpl->rg.nqual++;
+                    smpl->rg.qual += qual;
+                    smpl->rg.end  = smpl->sites[i];
+                }
+            }
         }
 
         if ( end < smpl->nsites )
@@ -459,14 +508,19 @@ static void flush_viterbi(args_t *args, int ismpl)
             memmove(smpl->sites, smpl->sites + end, sizeof(*smpl->sites)*args->nbuf_olap);
             memmove(smpl->eprob, smpl->eprob + end*2, sizeof(*smpl->eprob)*args->nbuf_olap*2);
             smpl->nsites  = args->nbuf_olap;
-            smpl->beg     = 0.5*args->nbuf_olap;
             smpl->igenmap = args->igenmap;
         }
         else
         {
             smpl->nsites  = 0;
-            smpl->beg     = 0;
             smpl->igenmap = 0;
+
+            if ( smpl->rg.state )
+            {
+                printf("RG\t%s\t%s\t%d\t%d\t%d\t%.1f\n",name,bcf_hdr_id2name(args->hdr,smpl->rg.rid),
+                        smpl->rg.beg+1,smpl->rg.end+1,smpl->rg.nqual,smpl->rg.qual/smpl->rg.nqual);
+                smpl->rg.state = 0;
+            }
         }
 
         return;
@@ -714,13 +768,15 @@ int process_line(args_t *args, bcf1_t *line)
             }
             else if ( a==0 )
             {
-                pdg[0] = 1 - 2*args->unseen_PL;
-                pdg[1] = pdg[2] = args->unseen_PL;
+                pdg[0] = 1 - args->unseen_PL - args->unseen_PL*args->unseen_PL;
+                pdg[1] = args->unseen_PL;
+                pdg[2] = args->unseen_PL*args->unseen_PL;
             }
             else
             {
-                pdg[0] = pdg[1] = args->unseen_PL;
-                pdg[2] = 1 - 2*args->unseen_PL;
+                pdg[0] = args->unseen_PL*args->unseen_PL;
+                pdg[1] = args->unseen_PL;
+                pdg[2] = 1 - args->unseen_PL - args->unseen_PL*args->unseen_PL;
             }
         }
         else
@@ -745,6 +801,7 @@ int process_line(args_t *args, bcf1_t *line)
         double sum = pdg[0] + pdg[1] + pdg[2];
         if ( !sum ) continue;
         for (j=0; j<3; j++) pdg[j] /= sum;
+        if ( args->skip_homref && pdg[0]>0.99 ) continue;
 
         smpl_t *smpl = &args->smpl[i];
         smpl->nused++;
@@ -753,6 +810,7 @@ int process_line(args_t *args, bcf1_t *line)
         {
             hts_expand(uint32_t,smpl->nsites+1,smpl->msites,smpl->sites);
             smpl->eprob = (double*) realloc(smpl->eprob,sizeof(*smpl->eprob)*smpl->msites*2);
+            if ( !smpl->eprob ) error("Error: failed to alloc %d bytes\n", sizeof(*smpl->eprob)*smpl->msites*2);
         }
         
         // Calculate emission probabilities P(D|AZ) and P(D|HW)
@@ -851,16 +909,19 @@ static void usage(args_t *args)
     fprintf(stderr, "    -e, --estimate-AF <file>           estimate AF from GTs of all samples (\"-\") or samples listed in <file>\n");
     fprintf(stderr, "    -G, --GTs-only <float>             use GTs and ignore PLs, instead using <float> for PL of the two least likely genotypes.\n");
     fprintf(stderr, "                                           Safe value to use is 30 to account for GT errors.\n");
+    fprintf(stderr, "    -i, --ignore-homref                skip hom-ref genotypes (0/0)\n");
     fprintf(stderr, "    -I, --skip-indels                  skip indels as their genotypes are enriched for errors\n");
     fprintf(stderr, "    -m, --genetic-map <file>           genetic map in IMPUTE2 format, single file or mask, where string \"{CHROM}\"\n");
     fprintf(stderr, "                                           is replaced with chromosome name\n");
     fprintf(stderr, "    -M, --rec-rate <float>             constant recombination rate per bp\n");
+    fprintf(stderr, "    -O, --output-type [sr]             output s:per-site, r:regions [sr]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
     fprintf(stderr, "    -s, --samples <list>               list of samples to analyze [all samples]\n");
     fprintf(stderr, "    -S, --samples-file <file>          file of samples to analyze [all samples]\n");
     fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "        --threads <int>                number of extra decompression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from HW (Hardy-Weinberg) to AZ (autozygous) state [6.7e-8]\n");
@@ -887,7 +948,9 @@ int main_vcfroh(int argc, char *argv[])
         {"AF-file",1,0,1},
         {"AF-dflt",1,0,2},
         {"buffer-size",1,0,'b'},
+        {"ignore-homref",0,0,'i'},
         {"estimate-AF",1,0,'e'},
+        {"output-type",1,0,'O'},
         {"GTs-only",1,0,'G'},
         {"samples",1,0,'s'},
         {"samples-file",1,0,'S'},
@@ -901,12 +964,13 @@ int main_vcfroh(int argc, char *argv[])
         {"genetic-map",1,0,'m'},
         {"rec-rate",1,0,'M'},
         {"skip-indels",0,0,'I'},
+        {"threads",1,0,9},
         {0,0,0,0}
     };
 
     int naf_opts = 0;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:s:S:m:M:G:Ia:e:V:b:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "h?r:R:t:T:H:a:s:S:m:M:G:Ia:e:V:b:O:i",loptions,NULL)) >= 0) {
         switch (c) {
             case 0: args->af_tag = optarg; naf_opts++; break;
             case 1: args->af_fname = optarg; naf_opts++; break;
@@ -914,8 +978,13 @@ int main_vcfroh(int argc, char *argv[])
                 args->dflt_AF = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: --AF-dflt %s\n", optarg);
                 break;
+            case 'O': 
+                if ( index(optarg,'s') || index(optarg,'S') ) args->output_type |= OUTPUT_ST;
+                if ( index(optarg,'r') || index(optarg,'R') ) args->output_type |= OUTPUT_RG;
+                break;
             case 'e': args->estimate_AF = optarg; naf_opts++; break;
             case 'b': args->buffer_size = optarg; break;
+            case 'i': args->skip_homref = 1; break;
             case 'I': args->snps_only = 1; break;
             case 'G':
                 args->fake_PLs = 1; 
@@ -942,6 +1011,7 @@ int main_vcfroh(int argc, char *argv[])
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'V': 
                 args->vi_training = 1; 
                 args->baum_welch_th = strtod(optarg,&tmp); 
@@ -953,6 +1023,7 @@ int main_vcfroh(int argc, char *argv[])
         }
     }
 
+    if ( !args->output_type ) args->output_type = OUTPUT_ST|OUTPUT_RG;
     if ( argc<optind+1 ) usage(args);
     if ( args->vi_training && args->buffer_size ) error("Error: cannot use -b with -V\n");
     if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1]\n", args->t2AZ);
@@ -974,6 +1045,8 @@ int main_vcfroh(int argc, char *argv[])
         if ( bcf_sr_set_targets(args->files, args->af_fname, 1, 3)<0 )
             error("Failed to read the targets: %s\n", args->af_fname);
     }
+    if ( args->n_threads && bcf_sr_set_threads(args->files, args->n_threads)<0)
+        error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
 
     init_data(args);

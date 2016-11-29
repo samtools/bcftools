@@ -299,23 +299,33 @@ Add or remove annotations.
     # etc.
 ----
 
+*--collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
+    Controls how to match records from the annotation file to the target VCF.
+    Effective only when *-a* is a VCF or BCF.
+    See *<<common_options,Common Options>>* for more.
+
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
     'list' describes the columns of the annotation file and must include CHROM,
     POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
-    columns which should be ignored can be indicated by "-".
+    columns which should be ignored can be indicated by "-".   
+    +
     If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
     order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
     and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
+    The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
+    +
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
     "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+    +
     To add annotations without overwriting existing values (that is, to add missing tags or
     add values to existing tags with missing values), use "+TAG" instead of "TAG".
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
+    +
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
 
@@ -2499,8 +2509,7 @@ Display the full bcftools version number in a machine-readable format.
 EXPRESSIONS
 -----------
 
-These filtering expressions are accepted by *<<annotate,annotate>>*,
-*<<filter,filter>>*, *<<query,query>>* and *<<view,view>>* commands.
+These filtering expressions are accepted by most of the commands.
 
 .Valid expressions may contain:
 
@@ -2519,9 +2528,10 @@ These filtering expressions are accepted by *<<annotate,annotate>>*,
 
         == (same as =), >, >=, <=, <, !=
 
-* regex operators "\~" and its negation "!~"
+* regex operators "\~" and its negation "!~". The expressions are case sensitive unless "/i" is added.
 
         INFO/HAYSTACK ~ "needle"
+        INFO/HAYSTACK ~ "NEEDless/i"
 
 * parentheses
 
@@ -2555,9 +2565,14 @@ using these expressions
 
         GT=".|.", GT="./.", GT="." 
 
-* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other). Use the regex
+operator "\~" to require at least one allele of the given type or the equal sign "="
+to require that all alleles are of the given type. Compare
 
-        TYPE="indel" | TYPE="snp"
+        TYPE="snp"
+        TYPE~"snp"
+        TYPE!="snp"
+        TYPE!~"snp"
 
 * array subscripts, "*" for any field
 
