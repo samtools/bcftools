@@ -1,0 +1,62 @@
+#!/usr/bin/env perl
+#
+# Author: petr.danecek@sanger
+#
+
+use strict;
+use warnings;
+use Carp;
+
+my $opts = parse_params();
+sort_csq($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print 
+        "Usage: sort-csq [OPTIONS]\n",
+        "Options:\n",
+        "   -h, -?, --help                  This help message.\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = {};
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    return $opts;
+}
+
+sub sort_csq
+{
+    my ($opts) = @_;
+    while (my $line=<STDIN>)
+    {
+        if ( $line=~/^#/ ) { print $line; next; }
+        chomp($line);
+        $line = sort_csq_tag($line,'EXP');
+        $line = sort_csq_tag($line,'BCSQ');
+        print $line."\n";
+    }
+}
+
+sub sort_csq_tag
+{
+    my ($line,$tag) = @_;
+    if ( !($line=~/$tag=([^;\t]+)/) ) { return $line; }
+    my $beg = $`;
+    my $end = $';
+    my $hit = $1;
+    my @vals = sort split(/,/,$hit);
+    return $beg."$tag=".join(',',@vals).$end;
+}
+

@@ -1,0 +1,16 @@
+2	ensembl_havana	gene	21	5626	.	-	.	ID=gene:ENSG00000116031;Name=CD207;biotype=protein_coding;description=CD207 molecule%2C langerin [Source:HGNC Symbol%3BAcc:17935];gene_id=ENSG00000116031;logic_name=ensembl_havana_gene;version=7
+2	ensembl_havana	transcript	21	5626	.	-	.	ID=transcript:ENST00000410009;Parent=gene:ENSG00000116031;Name=CD207-001;biotype=protein_coding;havana_transcript=OTTHUMT00000329959;havana_version=4;tag=basic;transcript_id=ENST00000410009;version=3
+2	ensembl_havana	three_prime_UTR	21	854	.	-	.	Parent=transcript:ENST00000410009
+2	ensembl_havana	exon	21	1005	.	-	.	Parent=transcript:ENST00000410009;Name=ENSE00001949188;constitutive=1;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00001949188;rank=6;version=1
+2	ensembl_havana	CDS	855	1005	.	-	1	ID=CDS:ENSP00000386378;Parent=transcript:ENST00000410009;protein_id=ENSP00000386378
+2	ensembl_havana	exon	1506	1624	.	-	.	Parent=transcript:ENST00000410009;Name=ENSE00000760756;constitutive=1;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00000760756;rank=5;version=1
+2	ensembl_havana	CDS	1506	1624	.	-	0	ID=CDS:ENSP00000386378;Parent=transcript:ENST00000410009;protein_id=ENSP00000386378
+2	ensembl_havana	exon	2705	2856	.	-	.	Parent=transcript:ENST00000410009;Name=ENSE00000760757;constitutive=1;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00000760757;rank=4;version=1
+2	ensembl_havana	CDS	2705	2856	.	-	2	ID=CDS:ENSP00000386378;Parent=transcript:ENST00000410009;protein_id=ENSP00000386378
+2	ensembl_havana	exon	3451	3825	.	-	.	Parent=transcript:ENST00000410009;Name=ENSE00000760758;constitutive=1;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00000760758;rank=3;version=1
+2	ensembl_havana	CDS	3451	3825	.	-	2	ID=CDS:ENSP00000386378;Parent=transcript:ENST00000410009;protein_id=ENSP00000386378
+2	ensembl_havana	exon	5296	5412	.	-	.	Parent=transcript:ENST00000410009;Name=ENSE00001588982;constitutive=1;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00001588982;rank=2;version=1
+2	ensembl_havana	CDS	5296	5412	.	-	2	ID=CDS:ENSP00000386378;Parent=transcript:ENST00000410009;protein_id=ENSP00000386378
+2	ensembl_havana	CDS	5508	5580	.	-	0	ID=CDS:ENSP00000386378;Parent=transcript:ENST00000410009;protein_id=ENSP00000386378
+2	ensembl_havana	exon	5508	5626	.	-	.	Parent=transcript:ENST00000410009;Name=ENSE00001589135;constitutive=1;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00001589135;rank=1;version=3
+2	ensembl_havana	five_prime_UTR	5581	5626	.	-	.	Parent=transcript:ENST00000410009

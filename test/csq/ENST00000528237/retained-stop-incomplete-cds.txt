@@ -1,0 +1,3 @@
+14714	G	A	stop_retained|MKNK1|ENST00000528237|protein_coding|-|143R>143*|14714G>A
+14714	G	A	stop_retained|MKNK1|ENST00000528237|protein_coding|-|143R>143*|14714G>A
+

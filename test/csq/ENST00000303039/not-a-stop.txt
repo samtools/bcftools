@@ -1,0 +1,3 @@
+983	A	AT	3_prime_utr|OR8J1|ENST00000303039|protein_coding
+983	A	AT	3_prime_utr|OR8J1|ENST00000303039|protein_coding
+

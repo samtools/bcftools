@@ -366,7 +366,6 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
         if ( bcf_get_info_string(convert->header,line,fmt->key,&tmp,&len)<0 )
         {
             csq->n = 0;
-            kputc('.', str);
             return;
         }
         do
@@ -382,11 +381,7 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
 
     bcsq_t *csq = (bcsq_t*)fmt->usr;
 
-    if ( fmt->fmt==NULL || !csq->n )
-    {
-        kputc('.', str);
-        return;
-    }
+    if ( fmt->fmt==NULL || !csq->n ) return;
 
     csq->hap1.l = 0;
     csq->hap2.l = 0;
@@ -394,21 +389,26 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
     int mask = fmt->subscript==0 ? 3 : 1;   // merge both haplotypes if subscript==0
 
     #define BRANCH(type_t, nbits) { \
-        type_t *x = (type_t*)(fmt->fmt->p + isample*fmt->fmt->size), val = *x; \
-        int i; \
+        type_t *x = (type_t*)(fmt->fmt->p + isample*fmt->fmt->size); \
+        int i,j; \
         if ( fmt->subscript<=0 || fmt->subscript==1 ) \
         { \
-            for (i=0; val && i<nbits; i+=2) \
+            for (j=0; j < fmt->fmt->n; j++) \
             { \
-                if ( *x & (mask<<i) ) { kputs(csq->str[i/2], &csq->hap1); kputc_(',', &csq->hap1); } \
+                type_t val = x[j]; \
+                if ( !val ) continue; \
+                for (i=0; i<nbits; i+=2) \
+                    if ( val & (mask<<i) ) { kputs(csq->str[(j*32+i)/2], &csq->hap1); kputc_(',', &csq->hap1); } \
             } \
-            val = *x; \
         } \
         if ( fmt->subscript<0 || fmt->subscript==2 ) \
         { \
-            for (i=1; val && i<nbits; i+=2) \
+            for (j=0; j < fmt->fmt->n; j++) \
             { \
-                if ( *x & (1<<i) ) { kputs(csq->str[i/2], &csq->hap2); kputc_(',', &csq->hap2); } \
+                type_t val = x[j]; \
+                if ( !val ) continue; \
+                for (i=1; i<nbits; i+=2) \
+                    if ( val & (1<<i) ) { kputs(csq->str[(j*32+i)/2], &csq->hap2); kputc_(',', &csq->hap2); } \
             } \
         } \
     }
@@ -420,6 +420,8 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
         default: error("Unexpected type: %d\n", fmt->fmt->type); exit(1); break;
     }
     #undef BRANCH
+
+    if ( !csq->hap1.l && !csq->hap2.l ) return;
 
     if ( csq->hap1.l ) csq->hap1.s[--csq->hap1.l] = 0;
     if ( csq->hap2.l ) csq->hap2.s[--csq->hap2.l] = 0;
@@ -1129,7 +1131,7 @@ int convert_header(convert_t *convert, kstring_t *str)
 int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
 {
     if ( !convert->allow_undef_tags && convert->undef_info_tag )
-        error("Error: no such tag defined in the VCF header: INFO/%s\n", convert->undef_info_tag);
+        error("Error: no such tag defined in the VCF header: INFO/%s. FORMAT fields must be in square brackets, e.g. \"[ %s]\"\n", convert->undef_info_tag,convert->undef_info_tag);
 
     int l_ori = str->l;
     bcf_unpack(line, convert->max_unpack);
@@ -1138,7 +1140,7 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
     str->l = 0;
     for (i=0; i<convert->nfmt; i++)
     {
-        // Genotype fields
+        // Genotype fields. 
         if ( convert->fmt[i].is_gt_field )
         {
             int j = i, js, k;
@@ -1149,6 +1151,13 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
             }
             for (js=0; js<convert->nsamples; js++)
             {
+                // Here comes a hack designed for TBCSQ. When running on large files,
+                // such as 1000GP, there are too many empty fields in the output and
+                // it's very very slow. Therefore in case the handler does not add
+                // anything to the string, we trim all genotype fields enclosed in square
+                // brackets here. This may be changed in future, time will show...
+                size_t l_start = str->l;
+            
                 int ks = convert->samples[js];
                 for (k=i; k<j; k++)
                 {
@@ -1158,7 +1167,11 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
                             kputc(bcf_sr_has_line(convert->readers,ir)?'1':'0', str);
                     }
                     else if ( convert->fmt[k].handler )
+                    {
+                        size_t l = str->l;
                         convert->fmt[k].handler(convert, line, &convert->fmt[k], ks, str);
+                        if ( l==str->l ) { str->l = l_start; break; }  // only TBCSQ does this
+                    }
                 }
             }
             i = j-1;
@@ -1172,6 +1185,7 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
         }
         else if ( convert->fmt[i].handler )
             convert->fmt[i].handler(convert, line, &convert->fmt[i], -1, str);
+
     }
     return str->l - l_ori;
 }

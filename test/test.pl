@@ -33,7 +33,6 @@ use File::Temp qw/ tempfile tempdir /;
 use Cwd qw/ abs_path /;
 
 my $opts = parse_params();
-
 test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
@@ -284,6 +283,7 @@ test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-s HG0010
 test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-s ^HG99999]);
 test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
 test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
+test_csq_real($opts,in=>'csq');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -396,7 +396,13 @@ sub test_cmd
         $exp = join('',@exp);
         close($fh);
     }
-    elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
+    else
+    {
+        open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new: $!");
+        print $fh $out;
+        close($fh);
+        if ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}.new"); return; }
+    }
 
     if ( $exp ne $out )
     {
@@ -1015,6 +1021,44 @@ sub test_csq
 {
     my ($opts,%args) = @_;
     $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | grep -v ^#");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | $$opts{bin}/test/csq/sort-csq | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'");
+}
+sub test_csq_real
+{
+    my ($opts,%args) = @_;
+
+    my $dirname = "$$opts{path}/$args{in}";
+    opendir(my $dh,$dirname) or error("opendir $dirname: $!");
+    while (my $dir=readdir($dh))
+    {
+        if ( !($dir=~/^E/) or !-d "$dirname/$dir" ) { next; }
+        my $gff = "$dirname/$dir/$dir.gff";
+        my $ref = "$dirname/$dir/$dir.fa";
+        opendir(my $tmp,"$dirname/$dir") or error("opendir: $dirname/$dir: $!");
+        while (my $file=readdir($tmp))
+        {
+            if ( !($file=~/\.vcf$/) ) { next; }
+            my $vcf   = "$dirname/$dir/$file";
+            my @nsmpl = `$$opts{bin}/bcftools query -l $vcf`;
+            my $cmd;
+            if ( !@nsmpl )
+            {
+                $cmd = "$$opts{bin}/test/csq/sort-csq | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'";
+            }
+            else
+            {
+                $cmd = "$$opts{bin}/bcftools query -f'[%POS\\t%REF\\t%ALT\\t%TBCSQ\\n]\\n'";
+            }
+            my $out  = "$args{in}/$dir/$`.txt";
+            my $outl = "$args{in}/$dir/$`.txt-l";
+            test_cmd($opts,%args,out=>$out,cmd=>"$$opts{bin}/bcftools csq -f $ref -g $gff $vcf | $cmd");
+            if ( -e "$$opts{path}/$outl" )
+            {
+                test_cmd($opts,%args,out=>$outl,cmd=>"$$opts{bin}/bcftools csq -l -f $ref -g $gff $vcf | $cmd");
+            }
+        }
+        closedir($tmp);
+    }
+    closedir($dh);
 }
 

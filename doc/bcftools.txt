@@ -956,6 +956,14 @@ The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag. The latter
 is a bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype.
 See the usage examples below.
 
+The program requires on input a VCF/BCF file, the reference genome in fasta format (*--fasta-ref*)
+and genomic features in the GFF3 format downloadable from Ensembl website (*--gff-annot*),
+and outputs an annotated VCF/BCF file.
+
+
+*-c, --custom-tag* 'STRING'::
+    use this tag instead of the default BCSQ
+
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -970,6 +978,16 @@ See the usage examples below.
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*-l, --local-csq*::
+    switch off haplotype-aware calling, run localized predictions considering
+    only one VCF record at a time
+
+*-n, --ncsq* 'INT'::
+    maximum number of consequences to consider per site. The INFO/BCSQ column includes
+    all consequences, but only the first 'INT' will be referenced by the FORMAT/BCSQ fields.
+    The default value is 16 which corresponds to one integer per diploid
+    sample. Note that increasing the value leads to increased memory and is rarely necessary.
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
@@ -977,7 +995,7 @@ See the usage examples below.
     see *<<common_options,Common Options>>*. In addition, a custom tab-delimited
     plain text can be printed ('t').
 
-*-p, --phase* 'a'|'m'|'r'|'s'::
+*-p, --phase* 'a'|'m'|'r'|'R'|'s'::
     how to construct haplotypes and how to deal with unphased data:
 
         'a';;
@@ -988,6 +1006,9 @@ See the usage examples below.
 
         'r';;
             require phased GTs, throw an error on unphased het GTs
+
+        'R';;
+            create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)
 
         's';;
             skip unphased GTs

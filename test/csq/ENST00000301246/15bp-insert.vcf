@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=19,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+19	770	.	G	GAAGAAGGAGAAGGGC	.	.	EXP=3_prime_utr|C19orf33|ENST00000588605|protein_coding,inframe_insertion|C19orf33|ENST00000301246|protein_coding|+|89K>89KKKEKG|770G>GAAGAAGGAGAAGGGC;type=ENST00000301246:38795550-G-GAAGAAGGAGAAGGGC

@@ -1,0 +1,3 @@
+349	CA	C	stop_lost&frameshift|PEX11G|ENST00000593942|protein_coding|-|172*>172D|349CA>C
+349	CA	C	stop_lost&frameshift|PEX11G|ENST00000593942|protein_coding|-|172*>172D|349CA>C
+

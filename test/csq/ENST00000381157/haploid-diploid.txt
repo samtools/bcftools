@@ -1,0 +1,9 @@
+31140	A	T	missense|GYG2|ENST00000381157|protein_coding|+|76N>76Y|31140A>T	.
+
+31177	C	T	missense|GYG2|ENST00000381157|protein_coding|+|88A>88V|31177C>T+31178G>T	.
+31177	C	T	missense|GYG2|ENST00000381157|protein_coding|+|88A>88V|31177C>T	.
+
+31178	G	T	@31177	.
+31178	G	T	.	synonymous|GYG2|ENST00000381157|protein_coding|+|88A|31178G>T
+
+

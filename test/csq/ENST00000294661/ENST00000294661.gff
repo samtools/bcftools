@@ -1,0 +1,6 @@
+1	ensembl_havana	gene	1	9717	.	-	.	ID=gene:ENSG00000162642;Name=C1orf52;biotype=protein_coding;description=chromosome 1 open reading frame 52 [Source:HGNC Symbol%3BAcc:24871];gene_id=ENSG00000162642;logic_name=ensembl_havana_gene;version=9
+1	ensembl_havana	processed_transcript	1	9717	.	-	.	ID=transcript:ENST00000294661;Parent=gene:ENSG00000162642;Name=C1orf52-003;biotype=processed_transcript;havana_transcript=OTTHUMT00000027614;havana_version=2;transcript_id=ENST00000294661;version=4
+1	ensembl_havana	exon	1	2747	.	-	.	Parent=transcript:ENST00000294661;Name=ENSE00001388570;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001388570;rank=4;version=2
+1	ensembl_havana	exon	8569	8767	.	-	.	Parent=transcript:ENST00000294661;Name=ENSE00003676223;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003676223;rank=3;version=1
+1	ensembl_havana	exon	8980	9106	.	-	.	Parent=transcript:ENST00000294661;Name=ENSE00001870157;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001870157;rank=2;version=1
+1	ensembl_havana	exon	9403	9717	.	-	.	Parent=transcript:ENST00000294661;Name=ENSE00001067212;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001067212;rank=1;version=4

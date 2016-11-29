@@ -1,0 +1,18 @@
+19	ensembl_havana	gene	21	20595	.	-	.	ID=gene:ENSG00000104883;Name=PEX11G;biotype=protein_coding;description=peroxisomal biogenesis factor 11 gamma [Source:HGNC Symbol%3BAcc:20208];gene_id=ENSG00000104883;logic_name=ensembl_havana_gene;version=3
+19	ensembl_havana	transcript	22	20595	.	-	.	ID=transcript:ENST00000593942;Parent=gene:ENSG00000104883;Name=PEX11G-002;biotype=protein_coding;havana_transcript=OTTHUMT00000458966;havana_version=1;tag=basic;transcript_id=ENST00000593942;version=1
+19	havana	three_prime_UTR	22	347	.	-	.	Parent=transcript:ENST00000593942
+19	havana	exon	22	582	.	-	.	Parent=transcript:ENST00000593942;Name=ENSE00003214970;constitutive=0;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00003214970;rank=7;version=1
+19	havana	CDS	348	582	.	-	1	ID=CDS:ENSP00000472216;Parent=transcript:ENST00000593942;protein_id=ENSP00000472216
+19	havana	exon	1460	1522	.	-	.	Parent=transcript:ENST00000593942;Name=ENSE00003562909;constitutive=0;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSE00003562909;rank=6;version=1
+19	havana	CDS	1460	1522	.	-	1	ID=CDS:ENSP00000472216;Parent=transcript:ENST00000593942;protein_id=ENSP00000472216
+19	havana	exon	5179	5357	.	-	.	Parent=transcript:ENST00000593942;Name=ENSE00003600419;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003600419;rank=5;version=1
+19	havana	CDS	5179	5357	.	-	0	ID=CDS:ENSP00000472216;Parent=transcript:ENST00000593942;protein_id=ENSP00000472216
+19	havana	CDS	8984	9022	.	-	0	ID=CDS:ENSP00000472216;Parent=transcript:ENST00000593942;protein_id=ENSP00000472216
+19	havana	exon	8984	9172	.	-	.	Parent=transcript:ENST00000593942;Name=ENSE00003621789;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00003621789;rank=4;version=1
+19	havana	five_prime_UTR	9023	9172	.	-	.	Parent=transcript:ENST00000593942
+19	havana	exon	12494	12658	.	-	.	Parent=transcript:ENST00000593942;Name=ENSE00003020804;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003020804;rank=3;version=1
+19	havana	five_prime_UTR	12494	12658	.	-	.	Parent=transcript:ENST00000593942
+19	havana	exon	14128	14268	.	-	.	Parent=transcript:ENST00000593942;Name=ENSE00003109739;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003109739;rank=2;version=1
+19	havana	five_prime_UTR	14128	14268	.	-	.	Parent=transcript:ENST00000593942
+19	havana	exon	20549	20595	.	-	.	Parent=transcript:ENST00000593942;Name=ENSE00003217935;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003217935;rank=1;version=1
+19	havana	five_prime_UTR	20549	20595	.	-	.	Parent=transcript:ENST00000593942

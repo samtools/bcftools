@@ -1,0 +1,22 @@
+5	ensembl_havana	gene	21	55922	.	+	.	ID=gene:ENSG00000113658;Name=SMAD5;biotype=protein_coding;description=SMAD family member 5 [Source:HGNC Symbol%3BAcc:6771];gene_id=ENSG00000113658;logic_name=ensembl_havana_gene;version=12
+5	ensembl_havana	transcript	23	49909	.	+	.	ID=transcript:ENST00000545279;Parent=gene:ENSG00000113658;Name=SMAD5-201;biotype=protein_coding;tag=basic;transcript_id=ENST00000545279;version=1
+5	ensembl	exon	23	138	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00001231815;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001231815;rank=1;version=5
+5	ensembl	five_prime_UTR	23	138	.	+	.	Parent=transcript:ENST00000545279
+5	ensembl	exon	15008	15082	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00001375348;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001375348;rank=2;version=1
+5	ensembl	five_prime_UTR	15008	15082	.	+	.	Parent=transcript:ENST00000545279
+5	ensembl	five_prime_UTR	20768	20936	.	+	.	Parent=transcript:ENST00000545279
+5	ensembl	exon	20768	21339	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00003607923;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00003607923;rank=3;version=1
+5	ensembl	CDS	20937	21339	.	+	0	ID=CDS:ENSP00000441954;Parent=transcript:ENST00000545279;protein_id=ENSP00000441954
+5	ensembl	exon	28032	28283	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00003658167;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003658167;rank=4;version=1
+5	ensembl	CDS	28032	28283	.	+	2	ID=CDS:ENSP00000441954;Parent=transcript:ENST00000545279;protein_id=ENSP00000441954
+5	ensembl	exon	30448	30567	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00003585794;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003585794;rank=5;version=1
+5	ensembl	CDS	30448	30567	.	+	2	ID=CDS:ENSP00000441954;Parent=transcript:ENST00000545279;protein_id=ENSP00000441954
+5	ensembl	exon	39610	39831	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00003542635;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003542635;rank=6;version=1
+5	ensembl	CDS	39610	39831	.	+	2	ID=CDS:ENSP00000441954;Parent=transcript:ENST00000545279;protein_id=ENSP00000441954
+5	ensembl	exon	41552	41808	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00003558908;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00003558908;rank=7;version=1
+5	ensembl	CDS	41552	41808	.	+	2	ID=CDS:ENSP00000441954;Parent=transcript:ENST00000545279;protein_id=ENSP00000441954
+5	ensembl	exon	44513	44572	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00002232122;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00002232122;rank=8;version=1
+5	ensembl	CDS	44513	44572	.	+	0	ID=CDS:ENSP00000441954;Parent=transcript:ENST00000545279;protein_id=ENSP00000441954
+5	ensembl	CDS	44575	44655	.	+	0	ID=CDS:ENSP00000441954;Parent=transcript:ENST00000545279;protein_id=ENSP00000441954
+5	ensembl	exon	44575	49909	.	+	.	Parent=transcript:ENST00000545279;Name=ENSE00002251256;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002251256;rank=9;version=1
+5	ensembl	three_prime_UTR	44656	49909	.	+	.	Parent=transcript:ENST00000545279

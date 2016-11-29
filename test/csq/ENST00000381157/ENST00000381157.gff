@@ -1,0 +1,14 @@
+X	ensembl_havana	gene	21	54051	.	+	.	ID=gene:ENSG00000056998;Name=GYG2;biotype=protein_coding;description=glycogenin 2 [Source:HGNC Symbol%3BAcc:4700];gene_id=ENSG00000056998;logic_name=ensembl_havana_gene;version=14
+X	ensembl_havana	transcript	26354	52324	.	+	.	ID=transcript:ENST00000381157;Parent=gene:ENSG00000056998;Name=GYG2-010;biotype=protein_coding;havana_transcript=OTTHUMT00000377085;havana_version=1;transcript_id=ENST00000381157;version=2
+X	havana	exon	26354	26388	.	+	.	Parent=transcript:ENST00000381157;Name=ENSE00002101522;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00002101522;rank=1;version=1
+X	havana	CDS	26354	26388	.	+	1	ID=CDS:ENSP00000370549;Parent=transcript:ENST00000381157;protein_id=ENSP00000370549
+X	havana	exon	27731	27857	.	+	.	Parent=transcript:ENST00000381157;Name=ENSE00003500720;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00003500720;rank=2;version=1
+X	havana	CDS	27731	27857	.	+	2	ID=CDS:ENSP00000370549;Parent=transcript:ENST00000381157;protein_id=ENSP00000370549
+X	havana	exon	31076	31298	.	+	.	Parent=transcript:ENST00000381157;Name=ENSE00003569036;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSE00003569036;rank=3;version=1
+X	havana	CDS	31076	31298	.	+	1	ID=CDS:ENSP00000370549;Parent=transcript:ENST00000381157;protein_id=ENSP00000370549
+X	havana	exon	32755	32955	.	+	.	Parent=transcript:ENST00000381157;Name=ENSE00003507737;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003507737;rank=4;version=1
+X	havana	CDS	32755	32955	.	+	0	ID=CDS:ENSP00000370549;Parent=transcript:ENST00000381157;protein_id=ENSP00000370549
+X	havana	exon	47043	47147	.	+	.	Parent=transcript:ENST00000381157;Name=ENSE00003507910;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003507910;rank=5;version=1
+X	havana	CDS	47043	47147	.	+	0	ID=CDS:ENSP00000370549;Parent=transcript:ENST00000381157;protein_id=ENSP00000370549
+X	havana	exon	52285	52324	.	+	.	Parent=transcript:ENST00000381157;Name=ENSE00002095888;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002095888;rank=6;version=1
+X	havana	CDS	52285	52324	.	+	0	ID=CDS:ENSP00000370549;Parent=transcript:ENST00000381157;protein_id=ENSP00000370549

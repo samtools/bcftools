@@ -1,0 +1,9 @@
+11	ensembl_havana	gene	1	15447	.	-	.	ID=gene:ENSG00000110446;Name=SLC15A3;biotype=protein_coding;description=solute carrier family 15 (oligopeptide transporter)%2C member 3 [Source:HGNC Symbol%3BAcc:18068];gene_id=ENSG00000110446;logic_name=ensembl_havana_gene;version=5
+11	ensembl_havana	transcript	1	901	.	-	.	ID=transcript:ENST00000536784;Parent=gene:ENSG00000110446;Name=SLC15A3-007;biotype=protein_coding;havana_transcript=OTTHUMT00000396444;havana_version=1;transcript_id=ENST00000536784;version=1
+11	havana	exon	1	290	.	-	.	Parent=transcript:ENST00000536784;Name=ENSE00003535089;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003535089;rank=3;version=1
+11	havana	three_prime_UTR	1	290	.	-	.	Parent=transcript:ENST00000536784
+11	havana	three_prime_UTR	433	466	.	-	.	Parent=transcript:ENST00000536784
+11	havana	exon	433	483	.	-	.	Parent=transcript:ENST00000536784;Name=ENSE00002225178;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00002225178;rank=2;version=1
+11	havana	CDS	467	483	.	-	2	ID=CDS:ENSP00000441694;Parent=transcript:ENST00000536784;protein_id=ENSP00000441694
+11	havana	exon	787	901	.	-	.	Parent=transcript:ENST00000536784;Name=ENSE00002265924;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00002265924;rank=1;version=1
+11	havana	CDS	787	901	.	-	0	ID=CDS:ENSP00000441694;Parent=transcript:ENST00000536784;protein_id=ENSP00000441694

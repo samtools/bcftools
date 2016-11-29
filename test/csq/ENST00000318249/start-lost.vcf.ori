@@ -1,0 +1,5 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description=""
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	21771579	.	GA	G	.	.	type=ENST00000318249:21771579-GA-G

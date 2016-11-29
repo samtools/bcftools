@@ -1,0 +1,4 @@
+1	havana	lincRNA_gene	21	1605	.	+	.	ID=gene:ENSG00000231363;Name=RP11-148B18.1;biotype=lincRNA;gene_id=ENSG00000231363;logic_name=havana;version=1
+1	havana	lincRNA	21	1605	.	+	.	ID=transcript:ENST00000413103;Parent=gene:ENSG00000231363;Name=RP11-148B18.1-001;biotype=lincRNA;havana_transcript=OTTHUMT00000029383;havana_version=1;tag=basic;transcript_id=ENST00000413103;version=1
+1	havana	exon	21	152	.	+	.	Parent=transcript:ENST00000413103;Name=ENSE00001743123;constitutive=1;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001743123;rank=1;version=1
+1	havana	exon	1526	1605	.	+	.	Parent=transcript:ENST00000413103;Name=ENSE00001669492;constitutive=1;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001669492;rank=2;version=1

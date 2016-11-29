@@ -1,0 +1,3 @@
+6609	A	AG	splice_acceptor&splice_region|UNC93B1|ENST00000227471|protein_coding
+6609	A	AG	splice_acceptor&splice_region|UNC93B1|ENST00000227471|protein_coding
+

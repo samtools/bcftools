@@ -1,0 +1,10 @@
+1	ensembl_havana	gene	21	12132	.	-	.	ID=gene:ENSG00000197915;Name=HRNR;biotype=protein_coding;description=hornerin [Source:HGNC Symbol%3BAcc:20846];gene_id=ENSG00000197915;logic_name=ensembl_havana_gene;version=5
+1	ensembl_havana	transcript	21	12132	.	-	.	ID=transcript:ENST00000368801;Parent=gene:ENSG00000197915;Name=HRNR-001;biotype=protein_coding;ccdsid=CCDS30859.1;havana_transcript=OTTHUMT00000034016;havana_version=1;tag=basic;transcript_id=ENST00000368801;version=2
+1	ensembl_havana	three_prime_UTR	21	1014	.	-	.	Parent=transcript:ENST00000368801
+1	ensembl_havana	exon	21	9429	.	-	.	Parent=transcript:ENST00000368801;Name=ENSE00001447986;constitutive=1;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00001447986;rank=3;version=2
+1	ensembl_havana	CDS	1015	9429	.	-	0	ID=CDS:ENSP00000357791;Parent=transcript:ENST00000368801;protein_id=ENSP00000357791
+1	ensembl_havana	CDS	11055	11192	.	-	0	ID=CDS:ENSP00000357791;Parent=transcript:ENST00000368801;protein_id=ENSP00000357791
+1	ensembl_havana	exon	11055	11217	.	-	.	Parent=transcript:ENST00000368801;Name=ENSE00001447987;constitutive=1;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00001447987;rank=2;version=1
+1	ensembl_havana	five_prime_UTR	11193	11217	.	-	.	Parent=transcript:ENST00000368801
+1	ensembl_havana	exon	12082	12132	.	-	.	Parent=transcript:ENST00000368801;Name=ENSE00001447988;constitutive=1;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001447988;rank=1;version=2
+1	ensembl_havana	five_prime_UTR	12082	12132	.	-	.	Parent=transcript:ENST00000368801
