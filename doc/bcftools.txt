@@ -972,12 +972,20 @@ if more are required, see the *--ncsq* option.
 
 The program requires on input a VCF/BCF file, the reference genome in fasta
 format (*--fasta-ref*) and genomic features in the GFF3 format downloadable
-from Ensembl website (*--gff-annot*), and outputs an annotated VCF/BCF file.
+from the Ensembl website (*--gff-annot*), and outputs an annotated VCF/BCF
+file. Currently, only Ensembl GFF3 files are supported.
 
 By default, the input VCF should be phased. If phase is unknown, or only
 partially known, the *--phase* option can be used to indicate how to handle
 unphased data. Alternatively, haplotype aware calling can be turned off
 with the *--local-csq* option.
+
+If conflicting (overlapping) variants within one haplotype are detected,
+a warning will be emitted and predictions will be based on only the first
+variant in the analysis.
+
+Symbolic alleles are not supported. They will remain unannotated in the
+output VCF and are ignored for the prediction analysis.
 
 
 *-c, --custom-tag* 'STRING'::
