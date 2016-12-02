@@ -1331,7 +1331,7 @@ void init_data(args_t *args)
         args->out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to %s: %s\n", args->output_fname? args->output_fname : "standard output", strerror(errno));
         bcf_hdr_append_version(args->hdr,args->argc,args->argv,"bcftools/csq");
-        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"Consequence annotation from bcftools/csq. Format: csq,gene,transcript,biotype[,strand,aa change,dna change]\">",args->bcsq_tag);
+        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq. Format: '[*]consequence|gene|transcript|biotype[|strand|amino_acid_change|dna_change]' or, for consequences of variants split across multiple sites, a pointer to the record storing the consequences '@position'. '*' prefix indicates a consequence downstream from a stop \">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware");
         bcf_hdr_printf(args->hdr,"##FORMAT=<ID=%s,Number=.,Type=Integer,Description=\"Bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype. Use \\\"bcftools query -f'[%%CHROM\\t%%POS\\t%%SAMPLE\\t%%TBCSQ\\n]'\\\" to translate.\">",args->bcsq_tag);
         bcf_hdr_write(args->out_fh, args->hdr);
     }
