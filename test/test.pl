@@ -135,6 +135,7 @@ test_vcf_view($opts,in=>'view.omitgenotypes',out=>'view.dropgenotypes.noheader.o
 test_vcf_view($opts,in=>'many.alleles',out=>'many.alleles.trim.out',args=>'-a',reg=>'');
 test_vcf_view($opts,in=>'view.vectors',out=>'view.vectors.A.out',args=>'-asA',reg=>'');
 test_vcf_view($opts,in=>'view.vectors',out=>'view.vectors.B.out',args=>'-asB',reg=>'');
+test_vcf_view($opts,in=>'view.vectors.2',out=>'view.vectors.C.out',args=>'-asA',reg=>'');
 test_vcf_view($opts,in=>'view.filter',out=>'view.filter.1.out',args=>q[-H -i'FMT/FGS[0]="AAAAAA"'],reg=>'');    # test expressions
 test_vcf_view($opts,in=>'view.filter',out=>'view.filter.2.out',args=>q[-H -i'FMT/FGS[2]="C"'],reg=>'');
 test_vcf_view($opts,in=>'view.filter',out=>'view.filter.3.out',args=>q[-H -i'FMT/FGS[4]="EE"'],reg=>'');
