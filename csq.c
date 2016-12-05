@@ -3085,6 +3085,19 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
     }
 }
 
+static void sanity_check_ref(args_t *args, tscript_t *tr, bcf1_t *rec)
+{
+    char *ref = tr->ref + (rec->pos - tr->beg + N_REF_PAD);
+    char *alt = rec->d.allele[0];
+    while ( *ref && *alt )
+    {
+        if ( *ref!=*alt && toupper(*ref)!=toupper(*alt) ) 
+            error("Error: the fasta reference does not match the VCF REF allele at %s:%d .. %s\n", bcf_seqname(args->hdr,rec),rec->pos+1,rec->d.allele[0]);
+        ref++;
+        alt++;
+    }
+}
+
 int test_cds_local(args_t *args, bcf1_t *rec)
 {
     int i,j, ret = 0;
@@ -3110,6 +3123,8 @@ int test_cds_local(args_t *args, bcf1_t *rec)
             tscript_splice_ref(tr);
             khp_insert(trhp, args->active_tr, &tr);     // only to clean the reference afterwards
         }
+
+        sanity_check_ref(args, tr, rec);
 
         kstring_t sref;
         sref.s = tr->sref;
@@ -3279,6 +3294,8 @@ int test_cds(args_t *args, bcf1_t *rec)
 
             khp_insert(trhp, args->active_tr, &tr);
         }
+
+        sanity_check_ref(args, tr, rec);
 
         if ( args->phase==PHASE_DROP_GT )
         {
