@@ -41,6 +41,7 @@ THE SOFTWARE.  */
 #include "vcmp.h"
 #include "filter.h"
 #include "convert.h"
+#include "smpl_ilist.h"
 
 struct _args_t;
 
@@ -1171,8 +1172,13 @@ static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
     args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
     for (i=0; i<args->nsample_map; i++) args->sample_map[i] = -1;
 
-    char **samples = hts_readlist(args->sample_names, args->sample_is_file, &args->nsmpl_annot);
-    if ( !samples ) error("Could not parse: %s\n", args->sample_names);
+    // possible todo: could do with smpl_ilist only
+    smpl_ilist_t *ilist = smpl_ilist_init(dst, args->sample_names, args->sample_is_file, SMPL_STRICT);
+    if ( !ilist || !ilist->n ) error("Could not parse: %s\n", args->sample_names);
+    char **samples = (char**) malloc(sizeof(char*)*ilist->n);
+    for (i=0; i<ilist->n; i++) samples[i] = strdup(dst->samples[i]);
+    args->nsmpl_annot = ilist->n;
+    smpl_ilist_destroy(ilist);
     int need_sample_map = args->nsmpl_annot==bcf_hdr_nsamples(dst) ? 0 : 1;
     if ( !src )
     {
