@@ -36,6 +36,7 @@ sub error
         "   -i, --indels <int>              introduce indels\n",
         "   -o, --output <string>           \n",
         "   -p, --position <pos>            \n",
+        "       --pad <int>                 [20]\n",
         "   -t, --transcript <id>           \n",
         "   -h, -?, --help                  This help message.\n",
         "\n",
@@ -49,6 +50,7 @@ sub parse_params
     my $opts = { indels=>0, pad=>20 };
     while (defined(my $arg=shift(@ARGV)))
     {
+        if (                 $arg eq '--pad' ) { $$opts{pad}=shift(@ARGV); next; }
         if ( $arg eq '-p' || $arg eq '--position' ) { $$opts{pos}=shift(@ARGV); next; }
         if ( $arg eq '-i' || $arg eq '--indels' ) { $$opts{indels}=shift(@ARGV); next; }
         if ( $arg eq '-f' || $arg eq '--fasta-ref' ) { $$opts{ref}=shift(@ARGV); next; }

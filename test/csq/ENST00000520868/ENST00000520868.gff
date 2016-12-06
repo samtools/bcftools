@@ -1,0 +1,15 @@
+8	ensembl_havana	gene	101	37094	.	-	.	ID=gene:ENSG00000070756;Name=PABPC1;biotype=protein_coding;description=poly(A) binding protein%2C cytoplasmic 1 [Source:HGNC Symbol%3BAcc:8554];gene_id=ENSG00000070756;logic_name=ensembl_havana_gene;version=9
+8	ensembl_havana	transcript	17201	21216	.	-	.	ID=transcript:ENST00000520868;Parent=gene:ENSG00000070756;Name=PABPC1-006;biotype=protein_coding;havana_transcript=OTTHUMT00000380216;havana_version=1;transcript_id=ENST00000520868;version=1
+8	havana	exon	17201	17644	.	-	.	Parent=transcript:ENST00000520868;Name=ENSE00001378950;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001378950;rank=6;version=1
+8	havana	three_prime_UTR	17201	17644	.	-	.	Parent=transcript:ENST00000520868
+8	havana	three_prime_UTR	18565	18582	.	-	.	Parent=transcript:ENST00000520868
+8	havana	exon	18565	18675	.	-	.	Parent=transcript:ENST00000520868;Name=ENSE00002101657;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002101657;rank=5;version=1
+8	havana	CDS	18583	18675	.	-	0	ID=CDS:ENSP00000428021;Parent=transcript:ENST00000520868;protein_id=ENSP00000428021
+8	havana	exon	19211	19341	.	-	.	Parent=transcript:ENST00000520868;Name=ENSE00003465118;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00003465118;rank=4;version=1
+8	havana	CDS	19211	19341	.	-	2	ID=CDS:ENSP00000428021;Parent=transcript:ENST00000520868;protein_id=ENSP00000428021
+8	havana	exon	19874	19958	.	-	.	Parent=transcript:ENST00000520868;Name=ENSE00003509544;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00003509544;rank=3;version=1
+8	havana	CDS	19874	19958	.	-	0	ID=CDS:ENSP00000428021;Parent=transcript:ENST00000520868;protein_id=ENSP00000428021
+8	havana	exon	20936	21090	.	-	.	Parent=transcript:ENST00000520868;Name=ENSE00003689366;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00003689366;rank=2;version=1
+8	havana	CDS	20936	21090	.	-	2	ID=CDS:ENSP00000428021;Parent=transcript:ENST00000520868;protein_id=ENSP00000428021
+8	havana	exon	21172	21216	.	-	.	Parent=transcript:ENST00000520868;Name=ENSE00002114920;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00002114920;rank=1;version=1
+8	havana	CDS	21172	21216	.	-	2	ID=CDS:ENSP00000428021;Parent=transcript:ENST00000520868;protein_id=ENSP00000428021

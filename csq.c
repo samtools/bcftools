@@ -1534,7 +1534,7 @@ fprintf(stderr,"a2: %s  aoff=%d\n",splice->kalt.s,aoff);
     {
         if ( end + alen + aoff - splice->kalt.l - 1 > splice->tr->end ) // trim, the requested sequence is too long
             alen -= end + alen + aoff - splice->kalt.l - 1 - splice->tr->end;
-        if ( splice->kalt.l < alen )
+        if ( alen > 0 && alen > splice->kalt.l )
             kputsn(splice->tr->ref + aoff + N_REF_PAD + end - splice->tr->beg, alen - splice->kalt.l, &splice->kalt);
     }
 #if XDBG
@@ -1752,13 +1752,13 @@ fprintf(stderr,"del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
                 if ( splice->ref_end >= ex_beg - N_SPLICE_REGION_INTRON && splice->ref_beg < ex_beg - N_SPLICE_DONOR )
                 {
                     splice->csq |= CSQ_SPLICE_REGION;
-                    if ( ref && !strncmp(ref,alt,N_SPLICE_REGION_INTRON) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
+                    if ( ref && alt && !strncmp(ref,alt,N_SPLICE_REGION_INTRON) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
                 }
                 if ( splice->ref_end >= ex_beg - N_SPLICE_DONOR )
                 {
                     if ( splice->check_donor && splice->tr->strand==STRAND_REV ) splice->csq |= CSQ_SPLICE_DONOR;
                     if ( splice->check_acceptor && splice->tr->strand==STRAND_FWD ) splice->csq |= CSQ_SPLICE_ACCEPTOR;
-                    if ( ref && !strncmp(ref+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,alt+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,N_SPLICE_DONOR) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
+                    if ( ref && alt && !strncmp(ref+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,alt+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,N_SPLICE_DONOR) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
                 }
             }
         }
@@ -1798,13 +1798,13 @@ fprintf(stderr,"del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
                 if ( splice->ref_beg < ex_end + N_SPLICE_REGION_INTRON && splice->ref_end > ex_end + N_SPLICE_DONOR )
                 {
                     splice->csq |= CSQ_SPLICE_REGION;
-                    if ( ref && !strncmp(ref,alt,N_SPLICE_REGION_INTRON) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
+                    if ( ref && alt && !strncmp(ref,alt,N_SPLICE_REGION_INTRON) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
                 }
                 if ( splice->ref_beg < ex_end + N_SPLICE_DONOR )
                 {
                     if ( splice->check_donor && splice->tr->strand==STRAND_FWD ) splice->csq |= CSQ_SPLICE_DONOR;
                     if ( splice->check_acceptor && splice->tr->strand==STRAND_REV ) splice->csq |= CSQ_SPLICE_ACCEPTOR;
-                    if ( ref && !strncmp(ref+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,alt+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,N_SPLICE_DONOR) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
+                    if ( ref && alt && !strncmp(ref+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,alt+N_SPLICE_REGION_INTRON-N_SPLICE_DONOR,N_SPLICE_DONOR) ) splice->csq |= CSQ_SYNONYMOUS_VARIANT;
                 }
             }
         }
