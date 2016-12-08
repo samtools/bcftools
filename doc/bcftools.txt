@@ -2276,6 +2276,8 @@ processing and can be plotted using *<<plot-vcfstats,plot-vcfstats>>*.  When two
 the program generates separate stats for intersection and the complements. By
 default only sites are compared, *-s*/*-S* must given to include also sample
 columns.
+When one VCF file is specified on the command line, then stats by non-reference allele frequency, depth distribution, stats by quality and per-sample counts, singleton stats, etc. are printed.
+When two VCF files are given, then stats such as concordance (Genotype concordance by non-reference allele frequency, Genotype concordance by sample, Non-Reference Discordance) and correlation are also printed. Per-site discordance (PSD) is also printed in *--verbose* mode.
 
 *--af-bins* 'LIST'|'FILE'::
     comma separated list of allele frequency bins (e.g. 0.1,0.5,1)
