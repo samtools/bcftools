@@ -31,7 +31,7 @@
         // pointer to a string. For the description of parse_custom and
         // free_custom functions, see regidx_parse_f and regidx_free_f below,
         // and for working example see test/test-regidx.c.
-        regidx_t *idx = regidx_init5(in_fname,parse_custom,free_custom,sizeof(char*),NULL);
+        regidx_t *idx = regidx_init(in_fname,parse_custom,free_custom,sizeof(char*),NULL);
 
         // Query overlap with chr:from-to
         regitr_t *itr = regitr_init(idx);
