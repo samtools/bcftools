@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2016-12-02 07:14 GMT
+.\"      Date: 2016-12-13 13:31 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2016\-12\-02 07:14 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2016\-12\-13 13:31 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2016\-12\-02 07:14 GMT\fR and refers to bcftools git version \fB1\&.3\&.1\-181\-g2f85bd6+\fR\&.
+This manual page was last updated \fB2016\-12\-13 13:31 GMT\fR and refers to bcftools git version \fB1\&.3\&.1\-193\-g88ed541+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -2827,7 +2827,7 @@ can swap alleles and will update genotypes (GT) and AC counts, but will not atte
 .PP
 \fB\-d, \-\-rm\-dup\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR
 .RS 4
-If a record is present in multiple files, output only the first instance, see
+If a record is present multiple times, output only the first instance, see
 \fB\-\-collapse\fR
 in
 \fBCommon Options\fR\&. Requires
@@ -3655,8 +3655,17 @@ when the entire many\-sample file cannot fit into memory, a sliding buffer appro
 .PP
 \fB\-e, \-\-estimate\-AF\fR \fIFILE\fR
 .RS 4
-recalculate INFO/AC and INFO/AN on the fly, using either all samples ("\-") or samples listed in
-\fIFILE\fR\&. By default, allele frequency is estimated from AC and AN counts which are already present in the INFO field\&.
+estimate the allele frequency by recalculating INFO/AC and INFO/AN on the fly, using the specified
+\fITAG\fR
+which can be either FORMAT/GT ("GT") or FORMAT/PL ("PL")\&. If
+\fITAG\fR
+is not given, "GT" is assumed\&. Either all samples ("\-") or samples listed in
+\fIFILE\fR
+will be included\&. For example, use "PL,\-" to estimate AF from FORMAT/PL of all samples\&. If neither
+\fB\-e\fR
+nor the other
+\fB\-\-AF\-\&...\fR
+options are given, the allele frequency is estimated from AC and AN counts which are already present in the INFO field\&.
 .RE
 .PP
 \fB\-G, \-\-GTs\-only\fR \fIFLOAT\fR
@@ -3680,6 +3689,17 @@ can chromosome name\&.
 \fB\-M, \-\-rec\-rate\fR \fIFLOAT\fR
 .RS 4
 constant recombination rate per bp
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+Write output to the
+\fIFILE\fR, by default the output is printed on stdout
+.RE
+.PP
+\fB\-O, \-\-output\-type\fR \fIs\fR|\fIr\fR
+.RS 4
+Generate per\-site output (\fIs\fR) or per\-region output (\fIr\fR)\&. By default both types are printed\&.
 .RE
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]

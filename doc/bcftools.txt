@@ -2214,11 +2214,14 @@ Transition probabilities:
     of overlapping sites. The default overlap is set to roughly 1% of
     the buffer size.
 
-*-e, --estimate-AF* 'FILE'::
-    recalculate INFO/AC and INFO/AN on the fly, using either all samples
-    ("-") or samples listed in 'FILE'. By default, allele frequency is
-    estimated from AC and AN counts which are already present in the INFO
-    field.
+*-e, --estimate-AF* ['TAG',]'FILE'::
+    estimate the allele frequency by recalculating INFO/AC and INFO/AN on
+    the fly, using the specified 'TAG' which can be either FORMAT/GT ("GT")
+    or FORMAT/PL ("PL"). If 'TAG' is not given, "GT" is assumed.  Either all
+    samples ("-") or samples listed in 'FILE' will be included. For example,
+    use "PL,-" to estimate AF from FORMAT/PL of all samples.
+    If neither *-e* nor the other *--AF-...* options are given, the allele frequency is
+    estimated from AC and AN counts which are already present in the INFO field. 
 
 *-G, --GTs-only* 'FLOAT'::
     use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
@@ -2236,6 +2239,13 @@ Transition probabilities:
 
 *-M, --rec-rate* 'FLOAT'::
     constant recombination rate per bp
+
+*-o, --output* 'FILE'::
+    Write output to the 'FILE', by default the output is printed on stdout
+
+*-O, --output-type* 's'|'r'::
+    Generate per-site output ('s') or per-region output ('r'). By default
+    both types are printed.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
