@@ -1041,8 +1041,6 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         { \
             for (i=0; i<(atok)->nsamples; i++) \
             { \
-                if ( bcf_double_is_missing((atok)->values[i]) ) { (atok)->pass_samples[i] = 0; continue; } \
-                if ( bcf_double_is_missing((btok)->values[i]) ) { (atok)->pass_samples[i] = 0; continue; } \
                 has_values = 1; \
                 if ( (atok)->values[i] CMP_OP (btok)->values[i] ) { (atok)->pass_samples[i] = 1; pass_site = 1; } \
                 else (atok)->pass_samples[i] = 0; \
@@ -1051,34 +1049,26 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         } \
         else if ( (atok)->nsamples ) \
         { \
-            if ( bcf_double_is_missing((btok)->values[0]) ) { (atok)->nvalues = 0; (atok)->nsamples = 0; (ret) = 0; } \
-            else \
+            for (i=0; i<(atok)->nsamples; i++) \
             { \
-                for (i=0; i<(atok)->nsamples; i++) \
-                { \
-                    if ( bcf_double_is_missing((atok)->values[i]) ) { (atok)->pass_samples[i] = 0; continue; } \
-                    has_values = 1; \
-                    if ( (atok)->values[i] CMP_OP (btok)->values[0] ) { (atok)->pass_samples[i] = 1; pass_site = 1; } \
-                    else (atok)->pass_samples[i] = 0; \
-                } \
+                /*if ( bcf_double_is_missing((atok)->values[i]) ) { (atok)->pass_samples[i] = 0; continue; }*/ \
+                has_values = 1; \
+                if ( (atok)->values[i] CMP_OP (btok)->values[0] ) { (atok)->pass_samples[i] = 1; pass_site = 1; } \
+                else (atok)->pass_samples[i] = 0; \
             } \
             if ( !has_values ) (atok)->nvalues = 0; \
         } \
         else if ( (btok)->nsamples ) \
         { \
-            if ( bcf_double_is_missing((atok)->values[0]) ) { (atok)->nvalues = 0; (atok)->nsamples = 0; (ret) = 0; } \
-            else \
+            for (i=0; i<(btok)->nsamples; i++) \
             { \
-                for (i=0; i<(btok)->nsamples; i++) \
-                { \
-                    if ( bcf_double_is_missing((btok)->values[i]) ) { (atok)->pass_samples[i] = 0; continue; } \
-                    has_values = 1; \
-                    if ( (atok)->values[0] CMP_OP (btok)->values[i] ) { (atok)->pass_samples[i] = 1; pass_site = 1; } \
-                    else (atok)->pass_samples[i] = 0; \
-                } \
-                (atok)->nvalues  = (btok)->nvalues; \
-                (atok)->nsamples = (btok)->nsamples; \
+                if ( bcf_double_is_missing((btok)->values[i]) ) { (atok)->pass_samples[i] = 0; continue; } \
+                has_values = 1; \
+                if ( (atok)->values[0] CMP_OP (btok)->values[i] ) { (atok)->pass_samples[i] = 1; pass_site = 1; } \
+                else (atok)->pass_samples[i] = 0; \
             } \
+            (atok)->nvalues  = (btok)->nvalues; \
+            (atok)->nsamples = (btok)->nsamples; \
             if ( !has_values ) (atok)->nvalues = 0; \
         } \
         else if ( (atok)->idx==-2 || (btok)->idx==-2 ) \
