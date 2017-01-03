@@ -2243,9 +2243,10 @@ Transition probabilities:
 *-o, --output* 'FILE'::
     Write output to the 'FILE', by default the output is printed on stdout
 
-*-O, --output-type* 's'|'r'::
+*-O, --output-type* 's'|'r'['z']::
     Generate per-site output ('s') or per-region output ('r'). By default
-    both types are printed.
+    both types are printed and the output is uncompressed. Add 'z' for
+    a compressed output.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*

@@ -30,6 +30,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kstring.h>
 #include <htslib/kseq.h>
+#include <htslib/bgzf.h>
 #include <errno.h>
 #include "bcftools.h"
 #include "HMM.h"
@@ -40,6 +41,7 @@ THE SOFTWARE.  */
 
 #define OUTPUT_ST (1<<1)
 #define OUTPUT_RG (1<<2)
+#define OUTPUT_GZ (1<<3)
 
 /** Genetic map */
 typedef struct
@@ -99,7 +101,8 @@ typedef struct _args_t
     int af_from_PL;             // estimate AF from FMT/PL rather than FMT/GT
     char **argv, *targets_list, *regions_list, *af_fname, *af_tag, *samples, *buffer_size, *output_fname;
     int argc, fake_PLs, snps_only, vi_training, samples_is_file, output_type, skip_homref, n_threads;
-    FILE *out;
+    BGZF *out;
+    kstring_t str;
 }
 args_t;
 
@@ -269,60 +272,61 @@ static void init_data(args_t *args)
     else
         args->hmm = hmm_init(2, tprob, 10000);
 
-    args->out = args->output_fname ? fopen(args->output_fname,"w") : stdout;
-    if ( !args->out ) error("Failed to open %s: %s\n", args->output_fname,strerror(errno));
-
+    args->out = bgzf_open(strcmp("stdout",args->output_fname)?args->output_fname:"-", args->output_type&OUTPUT_GZ ? "wg" : "wu"); 
+    if ( !args->out ) error("Failed to open %s: %s\n", args->output_fname, strerror(errno));
 
     // print header
-    fprintf(args->out, "# This file was produced by: bcftools roh(%s+htslib-%s)\n", bcftools_version(),hts_version());
-    fprintf(args->out, "# The command line was:\tbcftools %s", args->argv[0]);
+    args->str.l = 0;
+    ksprintf(&args->str, "# This file was produced by: bcftools roh(%s+htslib-%s)\n", bcftools_version(),hts_version());
+    ksprintf(&args->str, "# The command line was:\tbcftools %s", args->argv[0]);
     for (i=1; i<args->argc; i++)
-        fprintf(args->out, " %s",args->argv[i]);
-    fprintf(args->out, "\n#\n");
-
+        ksprintf(&args->str, " %s",args->argv[i]);
+    ksprintf(&args->str, "\n#\n");
     if ( args->output_type & OUTPUT_RG )
     {
         i = 2;
-        fprintf(args->out, "# RG");
-        fprintf(args->out, "\t[%d]Sample", i++);
-        fprintf(args->out, "\t[%d]Chromosome", i++);
-        fprintf(args->out, "\t[%d]Start", i++);
-        fprintf(args->out, "\t[%d]End", i++);
-        fprintf(args->out, "\t[%d]Length (bp)", i++);
-        fprintf(args->out, "\t[%d]Number of markers", i++);
-        fprintf(args->out, "\t[%d]Quality (average fwd-bwd phred score)", i++);
-        fprintf(args->out, "\n");
+        ksprintf(&args->str, "# RG");
+        ksprintf(&args->str, "\t[%d]Sample", i++);
+        ksprintf(&args->str, "\t[%d]Chromosome", i++);
+        ksprintf(&args->str, "\t[%d]Start", i++);
+        ksprintf(&args->str, "\t[%d]End", i++);
+        ksprintf(&args->str, "\t[%d]Length (bp)", i++);
+        ksprintf(&args->str, "\t[%d]Number of markers", i++);
+        ksprintf(&args->str, "\t[%d]Quality (average fwd-bwd phred score)", i++);
+        ksprintf(&args->str, "\n");
     }
     if ( args->output_type & OUTPUT_ST )
     {
         i = 2;
-        fprintf(args->out, "# ST");
-        fprintf(args->out, "\t[%d]Sample", i++);
-        fprintf(args->out, "\t[%d]Chromosome", i++);
-        fprintf(args->out, "\t[%d]Position", i++);
-        fprintf(args->out, "\t[%d]State (0:HW, 1:AZ)", i++);
-        fprintf(args->out, "\t[%d]Quality (fwd-bwd phred score)", i++);
-        fprintf(args->out, "\n");
+        ksprintf(&args->str, "# ST");
+        ksprintf(&args->str, "\t[%d]Sample", i++);
+        ksprintf(&args->str, "\t[%d]Chromosome", i++);
+        ksprintf(&args->str, "\t[%d]Position", i++);
+        ksprintf(&args->str, "\t[%d]State (0:HW, 1:AZ)", i++);
+        ksprintf(&args->str, "\t[%d]Quality (fwd-bwd phred score)", i++);
+        ksprintf(&args->str, "\n");
     }
     if ( args->vi_training)
     {
         i = 2;
-        fprintf(args->out, "# VT, Viterbi Training");
-        fprintf(args->out, "\t[%d]Sample", i++);
-        fprintf(args->out, "\t[%d]Iteration", i++);
-        fprintf(args->out, "\t[%d]dAZ", i++);
-        fprintf(args->out, "\t[%d]dHW", i++);
-        fprintf(args->out, "\t[%d]1 - P(HW|HW)", i++);
-        fprintf(args->out, "\t[%d]P(AZ|HW)", i++);
-        fprintf(args->out, "\t[%d]1 - P(AZ|AZ)", i++);
-        fprintf(args->out, "\t[%d]P(HW|AZ)", i++);
-        fprintf(args->out, "\n");
+        ksprintf(&args->str, "# VT, Viterbi Training");
+        ksprintf(&args->str, "\t[%d]Sample", i++);
+        ksprintf(&args->str, "\t[%d]Iteration", i++);
+        ksprintf(&args->str, "\t[%d]dAZ", i++);
+        ksprintf(&args->str, "\t[%d]dHW", i++);
+        ksprintf(&args->str, "\t[%d]1 - P(HW|HW)", i++);
+        ksprintf(&args->str, "\t[%d]P(AZ|HW)", i++);
+        ksprintf(&args->str, "\t[%d]1 - P(AZ|AZ)", i++);
+        ksprintf(&args->str, "\t[%d]P(HW|AZ)", i++);
+        ksprintf(&args->str, "\n");
     }
+    if ( bgzf_write(args->out, args->str.s, args->str.l) != args->str.l )
+        error("Error writing %s: %s\n", args->output_fname, strerror(errno));
 }
 
 static void destroy_data(args_t *args)
 {
-    if ( fclose(args->out) ) error("Error: close failed .. %s\n", args->output_fname?args->output_fname:"stdout");
+    if ( bgzf_close(args->out)!=0 ) error("Error: close failed .. %s\n", args->output_fname);
     int i;
     for (i=0; i<args->roh_smpl->n; i++)
     {
@@ -332,6 +336,7 @@ static void destroy_data(args_t *args)
         free(args->smpl[i].rid_off);
         free(args->smpl[i].snapshot);
     }
+    free(args->str.s);
     free(args->smpl);
     if ( args->af_smpl ) smpl_ilist_destroy(args->af_smpl);
     smpl_ilist_destroy(args->roh_smpl);
@@ -502,7 +507,11 @@ static void flush_viterbi(args_t *args, int ismpl)
             int state = vpath[i*2]==STATE_AZ ? 1 : 0;
             double qual = phred_score(1.0 - fwd[i*2 + state]);
             if ( args->output_type & OUTPUT_ST )
-                fprintf(args->out, "ST\t%s\t%s\t%d\t%d\t%.1f\n", name,chr,smpl->sites[i]+1, state, qual);
+            {
+                args->str.l = 0;
+                ksprintf(&args->str, "ST\t%s\t%s\t%d\t%d\t%.1f\n", name,chr,smpl->sites[i]+1, state, qual);
+                if ( bgzf_write(args->out, args->str.s, args->str.l) != args->str.l ) error("Error writing %s: %s\n", args->output_fname, strerror(errno));
+            }
 
             if ( args->output_type & OUTPUT_RG )
             {
@@ -510,8 +519,10 @@ static void flush_viterbi(args_t *args, int ismpl)
                 {
                     if ( !state )   // the region ends, flush
                     {
-                        fprintf(args->out, "RG\t%s\t%s\t%d\t%d\t%d\t%d\t%.1f\n",name,bcf_hdr_id2name(args->hdr,smpl->rg.rid),
+                        args->str.l = 0;
+                        ksprintf(&args->str, "RG\t%s\t%s\t%d\t%d\t%d\t%d\t%.1f\n",name,bcf_hdr_id2name(args->hdr,smpl->rg.rid),
                                 smpl->rg.beg+1,smpl->rg.end+1,smpl->rg.end-smpl->rg.beg+1,smpl->rg.nqual,smpl->rg.qual/smpl->rg.nqual);
+                        if ( bgzf_write(args->out, args->str.s, args->str.l) != args->str.l ) error("Error writing %s: %s\n", args->output_fname, strerror(errno));
                         smpl->rg.state = 0;
                     }
                     else
@@ -545,8 +556,10 @@ static void flush_viterbi(args_t *args, int ismpl)
 
             if ( smpl->rg.state )
             {
-                fprintf(args->out, "RG\t%s\t%s\t%d\t%d\t%d\t%d\t%.1f\n",name,bcf_hdr_id2name(args->hdr,smpl->rg.rid),
+                args->str.l = 0;
+                ksprintf(&args->str, "RG\t%s\t%s\t%d\t%d\t%d\t%d\t%.1f\n",name,bcf_hdr_id2name(args->hdr,smpl->rg.rid),
                         smpl->rg.beg+1,smpl->rg.end+1,smpl->rg.end-smpl->rg.beg+1,smpl->rg.nqual,smpl->rg.qual/smpl->rg.nqual);
+                if ( bgzf_write(args->out, args->str.s, args->str.l) != args->str.l ) error("Error writing %s: %s\n", args->output_fname, strerror(errno));
                 smpl->rg.state = 0;
             }
         }
@@ -596,10 +609,12 @@ static void flush_viterbi(args_t *args, int ismpl)
         deltaz = fabs(MAT(tprob_new,2,STATE_AZ,STATE_HW)-t2az_prev);
         delthw = fabs(MAT(tprob_new,2,STATE_HW,STATE_AZ)-t2hw_prev);
         niter++;
-        fprintf(args->out, "VT\t%s\t%d\t%e\t%e\t%e\t%e\t%e\t%e\n", 
+        args->str.l = 0;
+        ksprintf(&args->str, "VT\t%s\t%d\t%e\t%e\t%e\t%e\t%e\t%e\n", 
             name,niter,deltaz,delthw,
             1-MAT(tprob_new,2,STATE_HW,STATE_HW),MAT(tprob_new,2,STATE_AZ,STATE_HW),
             1-MAT(tprob_new,2,STATE_AZ,STATE_AZ),MAT(tprob_new,2,STATE_HW,STATE_AZ));
+        if ( bgzf_write(args->out, args->str.s, args->str.l) != args->str.l ) error("Error writing %s: %s\n", args->output_fname, strerror(errno));
     }
     while ( deltaz > args->baum_welch_th || delthw > args->baum_welch_th );
     
@@ -619,7 +634,9 @@ static void flush_viterbi(args_t *args, int ismpl)
         {
             int state = vpath[j*2]==STATE_AZ ? 1 : 0;
             double *pval = fwd + j*2;
-            fprintf(args->out, "ROH\t%s\t%s\t%d\t%d\t%.1f\n", name,chr,smpl->sites[ioff+j]+1, state, phred_score(1.0-pval[state]));
+            args->str.l = 0;
+            ksprintf(&args->str, "ROH\t%s\t%s\t%d\t%d\t%.1f\n", name,chr,smpl->sites[ioff+j]+1, state, phred_score(1.0-pval[state]));
+            if ( bgzf_write(args->out, args->str.s, args->str.l) != args->str.l ) error("Error writing %s: %s\n", args->output_fname, strerror(errno));
         }
     }
 }
@@ -1045,7 +1062,7 @@ static void usage(args_t *args)
     fprintf(stderr, "                                           is replaced with chromosome name\n");
     fprintf(stderr, "    -M, --rec-rate <float>             constant recombination rate per bp\n");
     fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
-    fprintf(stderr, "    -O, --output-type [sr]             output s:per-site, r:regions [sr]\n");
+    fprintf(stderr, "    -O, --output-type [srz]            output s:per-site, r:regions, z:compressed [sr]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
     fprintf(stderr, "    -s, --samples <list>               list of samples to analyze [all samples]\n");
@@ -1114,6 +1131,7 @@ int main_vcfroh(int argc, char *argv[])
             case 'O': 
                 if ( index(optarg,'s') || index(optarg,'S') ) args->output_type |= OUTPUT_ST;
                 if ( index(optarg,'r') || index(optarg,'R') ) args->output_type |= OUTPUT_RG;
+                if ( index(optarg,'z') || index(optarg,'z') ) args->output_type |= OUTPUT_GZ;
                 break;
             case 'e': args->estimate_AF = optarg; naf_opts++; break;
             case 'b': args->buffer_size = optarg; break;
@@ -1155,9 +1173,16 @@ int main_vcfroh(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-
+    if ( !args->output_fname ) args->output_fname = "stdout";
     if ( !args->output_type ) args->output_type = OUTPUT_ST|OUTPUT_RG;
-    if ( argc<optind+1 ) usage(args);
+    char *fname = NULL;
+    if ( optind==argc )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else usage(args);
+    }
+    else fname = argv[optind];
+
     if ( args->vi_training && args->buffer_size ) error("Error: cannot use -b with -V\n");
     if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1]\n", args->t2AZ);
     if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1]\n", args->t2HW);
@@ -1180,7 +1205,7 @@ int main_vcfroh(int argc, char *argv[])
     }
     if ( args->n_threads && bcf_sr_set_threads(args->files, args->n_threads)<0)
         error("Failed to create threads\n");
-    if ( !bcf_sr_add_reader(args->files, argv[optind]) ) error("Failed to open %s: %s\n", argv[optind],bcf_sr_strerror(args->files->errnum));
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);
     while ( bcf_sr_next_line(args->files) )
