@@ -65,7 +65,7 @@ struct _args_t
     int rev_als, output_vcf_ids, hap2dip, output_chrom_first_col;
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
-    char *outfname, *infname, *ref_fname;
+    char *outfname, *infname, *ref_fname, *gender_fname;
     int argc, n_threads, record_cmd_line;
 };
 
@@ -129,9 +129,6 @@ static void open_vcf(args_t *args, const char *format_str)
     }
     if ( format_str ) args->convert = convert_init(args->header, samples, nsamples, format_str);
     free(samples);
-
-    if ( args->filter_str )
-        args->filter = filter_init(args->header, args->filter_str);
 }
 
 static int tsv_setter_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
@@ -657,6 +654,32 @@ static void hapsample_to_vcf(args_t *args)
     fprintf(stderr,"Number of processed rows: \t%d\n", args->n.total);
 }
 
+char *init_sample2sex(bcf_hdr_t *hdr, char *gender_fname)
+{
+    int i, nlines;
+    char *sample2sex = (char*) calloc(bcf_hdr_nsamples(hdr),1);
+    char **lines = hts_readlist(gender_fname, 1, &nlines);
+    if ( !lines ) error("Could not read %s\n", gender_fname);
+    for (i=0; i<nlines; i++)
+    {
+        char *se = lines[i]; while ( *se && !isspace(*se) ) se++;
+        char tmp = *se;
+        *se = 0;
+        int id = bcf_hdr_id2int(hdr, BCF_DT_SAMPLE, lines[i]);
+        *se = tmp;
+        if ( id<0 ) continue;
+        while ( *se && isspace(*se) ) se++;
+        if ( *se=='M' ) sample2sex[id] = '1';
+        else if ( *se=='F' ) sample2sex[id] = '2';
+        else error("Could not parse %s: %s\n", gender_fname,lines[i]);
+    }
+    for (i=0; i<nlines; i++) free(lines[i]);
+    free(lines);
+    for (i=0; i<bcf_hdr_nsamples(hdr); i++) 
+        if ( !sample2sex[i] ) error("Missing gender for sample %s in %s\n", bcf_hdr_int2id(hdr, BCF_DT_SAMPLE, i),gender_fname);
+    return sample2sex;
+}
+
 static void vcf_to_gensample(args_t *args)
 {
     kstring_t str = {0,0,0};
@@ -715,22 +738,30 @@ static void vcf_to_gensample(args_t *args)
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
 
     // write samples file
-    if (sample_fname) {
+    if (sample_fname) 
+    {
+        char *sample2sex = NULL;
+        if ( args->gender_fname ) sample2sex = init_sample2sex(args->header,args->gender_fname);
+
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
         str.l = 0;
-        kputs("ID_1 ID_2 missing\n0 0 0\n", &str);
+        kputs(sample2sex ? "ID_1 ID_2 missing sex\n0 0 0 0\n" : "ID_1 ID_2 missing\n0 0 0\n", &str);
         ret = bgzf_write(sout, str.s, str.l);
         if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
         for (i=0; i<bcf_hdr_nsamples(args->header); i++)
         {
             str.l = 0;
-            ksprintf(&str, "%s %s 0\n", args->header->samples[i],args->header->samples[i]);
+            if ( sample2sex )
+                ksprintf(&str, "%s %s 0 %c\n", args->header->samples[i],args->header->samples[i],sample2sex[i]);
+            else
+                ksprintf(&str, "%s %s 0\n", args->header->samples[i],args->header->samples[i]);
             ret = bgzf_write(sout, str.s, str.l);
             if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
         }
         if ( bgzf_close(sout)!=0 ) error("Error closing %s: %s\n", sample_fname, strerror(errno));
         free(sample_fname);
+        free(sample2sex);
     }
     if (!gen_fname) {
         if ( str.m ) free(str.s);
@@ -832,7 +863,11 @@ static void vcf_to_haplegendsample(args_t *args)
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
 
     // write samples file
-    if (sample_fname) {
+    if (sample_fname)
+    {
+        char *sample2sex = NULL;
+        if ( args->gender_fname ) sample2sex = init_sample2sex(args->header,args->gender_fname);
+        
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
         str.l = 0;
@@ -842,12 +877,13 @@ static void vcf_to_haplegendsample(args_t *args)
         for (i=0; i<bcf_hdr_nsamples(args->header); i++)
         {
             str.l = 0;
-            ksprintf(&str, "%s %s %s 2\n", args->header->samples[i], args->header->samples[i], args->header->samples[i]);
+            ksprintf(&str, "%s %s %s %c\n", args->header->samples[i], args->header->samples[i], args->header->samples[i], sample2sex ? sample2sex[i] : '2');
             ret = bgzf_write(sout, str.s, str.l);
             if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
         }
         if ( bgzf_close(sout)!=0 ) error("Error closing %s: %s\n", sample_fname, strerror(errno));
         free(sample_fname);
+        free(sample2sex);
     }
     if (!hap_fname && !legend_fname) {
         if ( str.m ) free(str.s);
@@ -973,22 +1009,30 @@ static void vcf_to_hapsample(args_t *args)
     if (sample_fname) fprintf(stderr, "Sample file: %s\n", sample_fname);
 
     // write samples file
-    if (sample_fname) {
+    if (sample_fname)
+    {
+        char *sample2sex = NULL;
+        if ( args->gender_fname ) sample2sex = init_sample2sex(args->header,args->gender_fname);
+
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
         str.l = 0;
-        kputs("ID_1 ID_2 missing\n0 0 0\n", &str);
+        kputs(sample2sex ? "ID_1 ID_2 missing sex\n0 0 0 0\n" : "ID_1 ID_2 missing\n0 0 0\n", &str);
         ret = bgzf_write(sout, str.s, str.l);
         if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
         for (i=0; i<bcf_hdr_nsamples(args->header); i++)
         {
             str.l = 0;
-            ksprintf(&str, "%s %s 0\n", args->header->samples[i], args->header->samples[i]);
+            if ( sample2sex )
+                ksprintf(&str, "%s %s 0 %c\n", args->header->samples[i],args->header->samples[i],sample2sex[i]);
+            else
+                ksprintf(&str, "%s %s 0\n", args->header->samples[i],args->header->samples[i]);
             ret = bgzf_write(sout, str.s, str.l);
             if ( ret != str.l ) error("Error writing %s: %s\n", sample_fname, strerror(errno));
         }
         if ( bgzf_close(sout)!=0 ) error("Error closing %s: %s\n", sample_fname, strerror(errno));
         free(sample_fname);
+        free(sample2sex);
     }
     if (!hap_fname) {
         if ( str.m ) free(str.s);
@@ -1339,6 +1383,7 @@ static void usage(void)
     fprintf(stderr, "   -g, --gensample <...>       <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "       --tag <string>          tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
     fprintf(stderr, "       --chrom                 output chromosome in first column instead of CHROM:POS_REF_ALT\n");
+    fprintf(stderr, "       --gender <file>         output sex column in the sample-file, input format is: Sample\\t[MF]\n");
     fprintf(stderr, "       --vcf-ids               output VCF IDs in second column instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "gVCF conversion:\n");
@@ -1349,12 +1394,14 @@ static void usage(void)
     fprintf(stderr, "       --hapsample2vcf <...>   <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --hapsample <...>       <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
+    fprintf(stderr, "       --gender <file>         output sex column in the sample-file, input format is: Sample\\t[MF]\n");
     fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf <...>  <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "   -h, --haplegendsample <...>      <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid            convert haploid genotypes to diploid homozygotes\n");
+    fprintf(stderr, "       --gender <file>              output sex column in the sample-file, input format is: Sample\\t[MF]\n");
     fprintf(stderr, "       --vcf-ids                    output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV conversion:\n");
@@ -1398,6 +1445,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"targets-file",required_argument,NULL,'T'},
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
+        {"gender",required_argument,NULL,11},
         {"gensample",required_argument,NULL,'g'},
         {"gensample2vcf",required_argument,NULL,'G'},
         {"tag",required_argument,NULL,1},
@@ -1451,6 +1499,7 @@ int main_vcfconvert(int argc, char *argv[])
             case 'h': args->convert_func = vcf_to_haplegendsample; args->outfname = optarg; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 10 : args->record_cmd_line = 0; break;
+            case 11 : args->gender_fname = optarg; break;
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }

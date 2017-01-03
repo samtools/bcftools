@@ -846,6 +846,20 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *--tag* 'STRING'::
     tag to take values for .gen file: GT,PL,GL,GP
 
+*--chrom*::
+    output chromosome in the first column instead of CHROM:POS_REF_ALT
+
+*--gender* 'FILE'::
+    output sex column in the sample file. The FILE format is
+----
+    MaleSample    M
+    FemaleSample  F
+----
+
+*--vcf-ids*::
+    output VCF IDs in the second column instead of CHROM:POS_REF_ALT
+
+
 ==== gVCF conversion:
 *--gvcf2vcf*::
     convert gVCF to VCF, expanding REF blocks into sites. Only sites
@@ -853,6 +867,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *-f, --fasta-ref* 'file'::
     reference sequence in fasta format. Must be indexed with samtools faidx
+
 
 ==== HAPS/SAMPLE conversion:
 *--hapsample2vcf* 'prefix' or 'haps-file','sample-file'::
@@ -880,6 +895,13 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     genotypes. For example, the program will print '0 0' instead of the 
     default '0 -'. This is useful for programs which do not handle haploid
     genotypes correctly.
+
+*--gender* 'FILE'::
+    output sex column in the sample file. The FILE format is
+----
+    MaleSample    M
+    FemaleSample  F
+----
 
 *--vcf-ids*::
     output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
@@ -919,6 +941,13 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     genotypes. For example, the program will print '0 0' instead of the 
     default '0 -'. This is useful for programs which do not handle haploid
     genotypes correctly.
+
+*--gender* 'FILE'::
+    output sex column in the sample file. The FILE format is
+----
+    MaleSample    M
+    FemaleSample  F
+----
 
 *--vcf-ids*::
     output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
