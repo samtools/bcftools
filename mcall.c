@@ -357,8 +357,7 @@ void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unse
                 break;
             }
             if ( PLs[j]==bcf_int32_missing ) break;
-            assert( PLs[j]<256 );
-            pdg[j] = pl2p[ PLs[j] ];
+            pdg[j] = PLs[j] < 256 ? pl2p[PLs[j]] : pow(10., -PLs[j]/10.);
             sum += pdg[j];
         }
 
@@ -377,8 +376,7 @@ void set_pdg(double *pl2p, int *PLs, double *pdg, int n_smpl, int n_gt, int unse
             {
                 assert( PLs[j]!=bcf_int32_vector_end );
                 if ( PLs[j]==bcf_int32_missing ) PLs[j] = 255;
-                assert( PLs[j]<256 );
-                pdg[j] = pl2p[ PLs[j] ];
+                pdg[j] = PLs[j] < 256 ? pl2p[PLs[j]] : pow(10., -PLs[j]/10.);
                 sum += pdg[j];
             }
         }
