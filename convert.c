@@ -719,103 +719,260 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
     // the allele (0/1) and the asterisk (*); e.g., "0* 1*" for a
     // heterozygous genotype of unknown phase.
 
-    int m, n, i;
+    int i, gt_id = bcf_hdr_id2int(convert->header, BCF_DT_ID, "GT");
+    if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,gt_id) )
+        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+    if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
+    bcf_fmt_t *fmt_gt = NULL;
+    for (i=0; i<line->n_fmt; i++)
+        if ( line->d.fmt[i].id==gt_id ) { fmt_gt = &line->d.fmt[i]; break; }
+    if ( !fmt_gt )
+        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
 
-    m = convert->ndat / sizeof(int32_t);
-    n = bcf_get_genotypes(convert->header, line, &convert->dat, &m);
-    convert->ndat = m * sizeof(int32_t);
+    // Alloc all memory in advance to avoid kput routines. The biggest allowed allele index is 99
+    if ( line->n_allele > 100 )
+        error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
+    if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
+        error("Could not alloc %d bytes\n", str->l + convert->nsamples*8);
 
-    if ( n<=0 )
-    {
-        // Throw an error or silently proceed?
-        //
-        // for (i=0; i<convert->nsamples; i++) kputs(" ...", str);
-        // return;
+    if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
+        error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
 
-        error("Error parsing GT tag at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
-    }
-
-    n /= convert->nsamples;
+    int8_t *ptr = ((int8_t*) fmt_gt->p) - fmt_gt->n;
     for (i=0; i<convert->nsamples; i++)
     {
-        int32_t *ptr = (int32_t*)convert->dat + i*n;
-        int j;
-        for (j=0; j<n; j++)
-            if ( ptr[j]==bcf_int32_vector_end ) break;
-
-        if (i>0) kputs(" ", str); // no space separation for first column
-        if ( j==2 )
+        ptr += fmt_gt->n;
+        if ( ptr[0]==2 )
         {
-            // diploid
-            if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) ) {
-                kputs("? ?", str);
+            if ( ptr[1]==3 ) /* 0|0 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = ' ';
             }
-            else if ( bcf_gt_is_phased(ptr[1])) {
-                ksprintf(str, "%d %d", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            else if ( ptr[1]==5 ) /* 0|1 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = ' ';
             }
-            else {
-                ksprintf(str, "%d* %d*", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            else if ( ptr[1]==bcf_int8_vector_end ) /* 0 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '-'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==2 ) /* 0/0 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==4 ) /* 0/1 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_missing(ptr[1]) ) /* 0/. */
+            {
+                str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_phased(ptr[1]) ) /* 0|x */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = ' ';
+            }
+            else /* 0/x */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = '*'; str->s[str->l++] = ' ';
             }
         }
-        else if ( j==1 )
+        else if ( ptr[0]==4 )
         {
-            // haploid
-            if ( bcf_gt_is_missing(ptr[0]) )
-                kputs("? -", str);
-            else if ( bcf_gt_allele(ptr[0])==1 )
-                kputs("1 -", str);       // first ALT allele
-            else
-                kputs("0 -", str);       // REF or something else than first ALT
+            if ( ptr[1]==3 ) /* 1|0 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==5 ) /* 1|1 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==bcf_int8_vector_end ) /* 1 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' '; str->s[str->l++] = '-'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==2 ) /* 1/0 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==4 ) /* 1/1 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_missing(ptr[1]) ) /* 1/. */
+            {
+                str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_phased(ptr[1]) )    /* 1|x */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = ' ';
+            }
+            else /* 1/x */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
         }
-        else error("FIXME: not ready for ploidy %d\n", j);
+        else if ( bcf_gt_is_missing(ptr[0]) )
+        {
+            if ( ptr[1]==bcf_int8_vector_end ) 
+            {
+                str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '-'; str->s[str->l++] = ' ';
+            }
+            else 
+            { 
+                str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
+            }
+        }
+        else if ( ptr[1]==bcf_int8_vector_end )
+        {
+            /* use REF for something else than first ALT */
+            str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '-'; str->s[str->l++] = ' ';
+        }
+        else
+        {
+            kputw(bcf_gt_allele(ptr[0]),str);
+            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            str->s[str->l++] = ' ';
+            kputw(bcf_gt_allele(ptr[1]),str);
+            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            str->s[str->l++] = ' ';
+        }
     }
+    str->s[--str->l] = 0;     // delete the last space
 }
 static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
     // same as process_gt_to_hap but converts haploid genotypes into diploid
-    int m, n, i;
 
-    m = convert->ndat / sizeof(int32_t);
-    n = bcf_get_genotypes(convert->header, line, &convert->dat, &m);
-    convert->ndat = m * sizeof(int32_t);
+    int i, gt_id = bcf_hdr_id2int(convert->header, BCF_DT_ID, "GT");
+    if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,gt_id) )
+        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+    if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
+    bcf_fmt_t *fmt_gt = NULL;
+    for (i=0; i<line->n_fmt; i++)
+        if ( line->d.fmt[i].id==gt_id ) { fmt_gt = &line->d.fmt[i]; break; }
+    if ( !fmt_gt )
+        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
 
-    if ( n<=0 )
-        error("Error parsing GT tag at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+    // Alloc all memory in advance to avoid kput routines. The biggest allowed allele index is 99
+    if ( line->n_allele > 100 )
+        error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
+    if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
+        error("Could not alloc %d bytes\n", str->l + convert->nsamples*8);
 
-    n /= convert->nsamples;
+    if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
+        error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
+
+    int8_t *ptr = ((int8_t*) fmt_gt->p) - fmt_gt->n;
     for (i=0; i<convert->nsamples; i++)
     {
-        int32_t *ptr = (int32_t*)convert->dat + i*n;
-        int j;
-        for (j=0; j<n; j++)
-            if ( ptr[j]==bcf_int32_vector_end ) break;
-
-        if (i>0) kputs(" ", str); // no space separation for first column
-        if ( j==2 )
+        ptr += fmt_gt->n;
+        if ( ptr[0]==2 )
         {
-            // diploid
-            if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) ) {
-                kputs("? ?", str);
+            if ( ptr[1]==3 ) /* 0|0 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = ' ';
             }
-            else if ( bcf_gt_is_phased(ptr[1])) {
-                ksprintf(str, "%d %d", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            else if ( ptr[1]==5 ) /* 0|1 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = ' ';
             }
-            else {
-                ksprintf(str, "%d* %d*", bcf_gt_allele(ptr[0]), bcf_gt_allele(ptr[1]));
+            else if ( ptr[1]==bcf_int8_vector_end ) /* 0 -> 0|0 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==2 ) /* 0/0 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==4 ) /* 0/1 */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_missing(ptr[1]) ) /* 0/. */
+            {
+                str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_phased(ptr[1]) ) /* 0|x */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = ' ';
+            }
+            else /* 0/x */
+            {
+                str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = '*'; str->s[str->l++] = ' ';
             }
         }
-        else if ( j==1 )
+        else if ( ptr[0]==4 )
         {
-            // haploid
-            if ( bcf_gt_is_missing(ptr[0]) )
-                kputs("? ?", str);
-            else if ( bcf_gt_allele(ptr[0])==1 )
-                kputs("1 1", str);       // first ALT allele
-            else
-                kputs("0 0", str);       // REF or something else than first ALT
+            if ( ptr[1]==3 ) /* 1|0 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==5 ) /* 1|1 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==bcf_int8_vector_end ) /* 1 -> 1|1 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==2 ) /* 1/0 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( ptr[1]==4 ) /* 1/1 */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' '; str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_missing(ptr[1]) ) /* 1/. */
+            {
+                str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
+            }
+            else if ( bcf_gt_is_phased(ptr[1]) )    /* 1|x */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = ' ';
+            }
+            else /* 1/x */
+            {
+                str->s[str->l++] = '1'; str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+                kputw(bcf_gt_allele(ptr[1]),str);
+                str->s[str->l++] = '*'; str->s[str->l++] = ' ';
+            }
         }
-        else error("FIXME: not ready for ploidy %d\n", j);
+        else if ( bcf_gt_is_missing(ptr[0]) )
+        {
+            str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
+        }
+        else if ( ptr[1]==bcf_int8_vector_end )
+        {
+            /* use REF for something else than first ALT */
+            str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '0'; str->s[str->l++] = ' ';
+        }
+        else
+        {
+            kputw(bcf_gt_allele(ptr[0]),str);
+            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            str->s[str->l++] = ' ';
+            kputw(bcf_gt_allele(ptr[1]),str);
+            if ( bcf_gt_is_phased(ptr[1]) ) str->s[str->l++] = '*';
+            str->s[str->l++] = ' ';
+        }
     }
+    str->s[--str->l] = 0;     // delete the last space
 }
 
 static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)

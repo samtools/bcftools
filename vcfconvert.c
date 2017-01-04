@@ -81,6 +81,9 @@ static void destroy_data(args_t *args)
 static void open_vcf(args_t *args, const char *format_str)
 {
     args->files = bcf_sr_init();
+    if ( args->n_threads && bcf_sr_set_threads(args->files, args->n_threads)!=0 )
+        error("Could not initialize --threads %d\n", args->n_threads);
+
     if ( args->regions_list )
     {
         if ( bcf_sr_set_regions(args->files, args->regions_list, args->regions_is_file)<0 )
@@ -892,6 +895,7 @@ static void vcf_to_haplegendsample(args_t *args)
 
     // open haps and legend outputs
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
+    if ( hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
     BGZF *lout = legend_fname ? bgzf_open(legend_fname, legend_compressed ? "wg" : "wu") : NULL;
     if (legend_fname) {
         str.l = 0;
@@ -1041,6 +1045,7 @@ static void vcf_to_hapsample(args_t *args)
 
     // open haps output
     BGZF *hout = hap_fname ? bgzf_open(hap_fname, hap_compressed ? "wg" : "wu") : NULL;
+    if ( hap_compressed && args->n_threads ) bgzf_thread_pool(hout, args->files->p->pool, args->files->p->qsize);
 
     int no_alt = 0, non_biallelic = 0, filtered = 0, nok = 0;
     while ( bcf_sr_next_line(args->files) )
