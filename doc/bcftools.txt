@@ -849,7 +849,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *--chrom*::
     output chromosome in the first column instead of CHROM:POS_REF_ALT
 
-*--gender* 'FILE'::
+*--sex* 'FILE'::
     output sex column in the sample file. The FILE format is
 ----
     MaleSample    M
@@ -896,7 +896,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     default '0 -'. This is useful for programs which do not handle haploid
     genotypes correctly.
 
-*--gender* 'FILE'::
+*--sex* 'FILE'::
     output sex column in the sample file. The FILE format is
 ----
     MaleSample    M
@@ -942,7 +942,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     default '0 -'. This is useful for programs which do not handle haploid
     genotypes correctly.
 
-*--gender* 'FILE'::
+*--sex* 'FILE'::
     output sex column in the sample file. The FILE format is
 ----
     MaleSample    M

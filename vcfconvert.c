@@ -65,7 +65,7 @@ struct _args_t
     int rev_als, output_vcf_ids, hap2dip, output_chrom_first_col;
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
-    char *outfname, *infname, *ref_fname, *gender_fname;
+    char *outfname, *infname, *ref_fname, *sex_fname;
     int argc, n_threads, record_cmd_line;
 };
 
@@ -657,12 +657,12 @@ static void hapsample_to_vcf(args_t *args)
     fprintf(stderr,"Number of processed rows: \t%d\n", args->n.total);
 }
 
-char *init_sample2sex(bcf_hdr_t *hdr, char *gender_fname)
+char *init_sample2sex(bcf_hdr_t *hdr, char *sex_fname)
 {
     int i, nlines;
     char *sample2sex = (char*) calloc(bcf_hdr_nsamples(hdr),1);
-    char **lines = hts_readlist(gender_fname, 1, &nlines);
-    if ( !lines ) error("Could not read %s\n", gender_fname);
+    char **lines = hts_readlist(sex_fname, 1, &nlines);
+    if ( !lines ) error("Could not read %s\n", sex_fname);
     for (i=0; i<nlines; i++)
     {
         char *se = lines[i]; while ( *se && !isspace(*se) ) se++;
@@ -674,12 +674,12 @@ char *init_sample2sex(bcf_hdr_t *hdr, char *gender_fname)
         while ( *se && isspace(*se) ) se++;
         if ( *se=='M' ) sample2sex[id] = '1';
         else if ( *se=='F' ) sample2sex[id] = '2';
-        else error("Could not parse %s: %s\n", gender_fname,lines[i]);
+        else error("Could not parse %s: %s\n", sex_fname,lines[i]);
     }
     for (i=0; i<nlines; i++) free(lines[i]);
     free(lines);
     for (i=0; i<bcf_hdr_nsamples(hdr); i++) 
-        if ( !sample2sex[i] ) error("Missing gender for sample %s in %s\n", bcf_hdr_int2id(hdr, BCF_DT_SAMPLE, i),gender_fname);
+        if ( !sample2sex[i] ) error("Missing sex for sample %s in %s\n", bcf_hdr_int2id(hdr, BCF_DT_SAMPLE, i),sex_fname);
     return sample2sex;
 }
 
@@ -744,7 +744,7 @@ static void vcf_to_gensample(args_t *args)
     if (sample_fname) 
     {
         char *sample2sex = NULL;
-        if ( args->gender_fname ) sample2sex = init_sample2sex(args->header,args->gender_fname);
+        if ( args->sex_fname ) sample2sex = init_sample2sex(args->header,args->sex_fname);
 
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
@@ -869,7 +869,7 @@ static void vcf_to_haplegendsample(args_t *args)
     if (sample_fname)
     {
         char *sample2sex = NULL;
-        if ( args->gender_fname ) sample2sex = init_sample2sex(args->header,args->gender_fname);
+        if ( args->sex_fname ) sample2sex = init_sample2sex(args->header,args->sex_fname);
         
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
@@ -1016,7 +1016,7 @@ static void vcf_to_hapsample(args_t *args)
     if (sample_fname)
     {
         char *sample2sex = NULL;
-        if ( args->gender_fname ) sample2sex = init_sample2sex(args->header,args->gender_fname);
+        if ( args->sex_fname ) sample2sex = init_sample2sex(args->header,args->sex_fname);
 
         int i;
         BGZF *sout = bgzf_open(sample_fname, sample_compressed ? "wg" : "wu");
@@ -1388,7 +1388,7 @@ static void usage(void)
     fprintf(stderr, "   -g, --gensample <...>       <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "       --tag <string>          tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
     fprintf(stderr, "       --chrom                 output chromosome in first column instead of CHROM:POS_REF_ALT\n");
-    fprintf(stderr, "       --gender <file>         output sex column in the sample-file, input format is: Sample\\t[MF]\n");
+    fprintf(stderr, "       --sex <file>            output sex column in the sample-file, input format is: Sample\\t[MF]\n");
     fprintf(stderr, "       --vcf-ids               output VCF IDs in second column instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "gVCF conversion:\n");
@@ -1399,14 +1399,14 @@ static void usage(void)
     fprintf(stderr, "       --hapsample2vcf <...>   <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --hapsample <...>       <prefix>|<haps-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid       convert haploid genotypes to diploid homozygotes\n");
-    fprintf(stderr, "       --gender <file>         output sex column in the sample-file, input format is: Sample\\t[MF]\n");
+    fprintf(stderr, "       --sex <file>            output sex column in the sample-file, input format is: Sample\\t[MF]\n");
     fprintf(stderr, "       --vcf-ids               output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HAP/LEGEND/SAMPLE conversion:\n");
     fprintf(stderr, "   -H, --haplegendsample2vcf <...>  <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "   -h, --haplegendsample <...>      <prefix>|<hap-file>,<legend-file>,<sample-file>\n");
     fprintf(stderr, "       --haploid2diploid            convert haploid genotypes to diploid homozygotes\n");
-    fprintf(stderr, "       --gender <file>              output sex column in the sample-file, input format is: Sample\\t[MF]\n");
+    fprintf(stderr, "       --sex <file>                 output sex column in the sample-file, input format is: Sample\\t[MF]\n");
     fprintf(stderr, "       --vcf-ids                    output VCF IDs instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "TSV conversion:\n");
@@ -1450,7 +1450,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"targets-file",required_argument,NULL,'T'},
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
-        {"gender",required_argument,NULL,11},
+        {"sex",required_argument,NULL,11},
         {"gensample",required_argument,NULL,'g'},
         {"gensample2vcf",required_argument,NULL,'G'},
         {"tag",required_argument,NULL,1},
@@ -1504,7 +1504,7 @@ int main_vcfconvert(int argc, char *argv[])
             case 'h': args->convert_func = vcf_to_haplegendsample; args->outfname = optarg; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 10 : args->record_cmd_line = 0; break;
-            case 11 : args->gender_fname = optarg; break;
+            case 11 : args->sex_fname = optarg; break;
             case '?': usage();
             default: error("Unknown argument: %s\n", optarg);
         }
