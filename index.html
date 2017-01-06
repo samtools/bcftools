@@ -45,14 +45,11 @@
         The latest release can be downloaded from <a href="http://www.htslib.org/download">www.htslib.org</a>.
         </P>
 
-        The most up to date (development) version of BCFtools and SAMtools can be obtained from github
+        The most up to date (development) version of BCFtools can be obtained from github
         using these commands:
         <ul style='list-style-type:none;margin-left:-1em;'>
-            <li>git clone git://github.com/samtools/htslib.git
             <li>git clone git://github.com/samtools/bcftools.git
-            <li>git clone git://github.com/samtools/samtools.git
             <li>cd bcftools; make
-            <li>cd ../samtools; make
         </ul>
         The <em>clone</em> command above is used to create a local copy of the remote repository and needs to be run only once.
         Whenever the latest snapshot from github is needed, use instead the <em>pull</em> command:
@@ -61,10 +58,9 @@
             <li>cd ../bcftools; git pull
             <li>make clean
             <li>make
-            <li>cd ../samtools; git pull
-            <li>make
         </ul>
-        In order to use the <b>BCFtools plugins</b>, set this environment variable:
+        <span style="font-weight:bold;margin-right:0.5em;">IMPORTANT</span><br> In order to use the <b>BCFtools plugins</b>, this environment variable must be set
+        and point to the correct location:
         <ul style='list-style-type:none;margin-left:-1em;'>
             <li>export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins
         </ul>
