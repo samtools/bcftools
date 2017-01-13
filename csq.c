@@ -1769,7 +1769,11 @@ fprintf(stderr,"del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
             if ( splice->tbeg + splice->tend == splice->vcf.alen )
             {
                 // the deletion overlaps ex_beg and cannot be easily realigned to the right
-                if ( !splice->tend ) return SPLICE_OVERLAP;
+                if ( !splice->tend )
+                {
+                    splice->csq |= CSQ_CODING_SEQUENCE;
+                    return SPLICE_OVERLAP;
+                }
                 splice->tend--;
             }
         }
@@ -3087,14 +3091,15 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
 
 static void sanity_check_ref(args_t *args, tscript_t *tr, bcf1_t *rec)
 {
-    char *ref = tr->ref + (rec->pos - tr->beg + N_REF_PAD);
-    char *alt = rec->d.allele[0];
-    while ( *ref && *alt )
+    char *ref = tr->ref + (rec->pos + N_REF_PAD >= tr->beg ? rec->pos - tr->beg + N_REF_PAD : 0);
+    char *vcf = rec->d.allele[0] + (rec->pos + N_REF_PAD >= tr->beg ? 0 : tr->beg - N_REF_PAD - rec->pos);
+    assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) );
+    while ( *ref && *vcf )
     {
-        if ( *ref!=*alt && toupper(*ref)!=toupper(*alt) ) 
+        if ( *ref!=*vcf && toupper(*ref)!=toupper(*vcf) ) 
             error("Error: the fasta reference does not match the VCF REF allele at %s:%d .. %s\n", bcf_seqname(args->hdr,rec),rec->pos+1,rec->d.allele[0]);
         ref++;
-        alt++;
+        vcf++;
     }
 }
 
