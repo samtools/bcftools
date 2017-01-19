@@ -275,7 +275,7 @@ static void set_samples(args_t *args, const char *fn, int is_file)
 
     args->samples_map = (int*) malloc(sizeof(int)*bcf_hdr_nsamples(args->aux.hdr)); // for subsetting
     args->sample2sex  = (int*) malloc(sizeof(int)*bcf_hdr_nsamples(args->aux.hdr));
-    int dflt_sex_id = ploidy_add_sex(args->ploidy, "F");
+    int dflt_sex_id = ploidy_nsex(args->ploidy) - 1;
     for (i=0; i<bcf_hdr_nsamples(args->aux.hdr); i++) args->sample2sex[i] = dflt_sex_id;
 
     int *old2new = (int*) malloc(sizeof(int)*bcf_hdr_nsamples(args->aux.hdr));
@@ -411,14 +411,16 @@ static void init_data(args_t *args)
         {
             args->nsamples = bcf_hdr_nsamples(args->aux.hdr);
             args->sample2sex = (int*) malloc(sizeof(int)*args->nsamples);
-            for (i=0; i<args->nsamples; i++) args->sample2sex[i] = 2;
+            for (i=0; i<args->nsamples; i++) args->sample2sex[i] = args->nsex - 1;
         }
     }
     if ( args->nsamples )
     {
         args->aux.ploidy = (uint8_t*) malloc(args->nsamples);
-        for (i=0; i<args->nsamples; i++) args->aux.ploidy[i] = 2;
-        for (i=0; i<args->nsex; i++) args->sex2ploidy_prev[i] = 2;
+        for (i=0; i<args->nsamples; i++) args->aux.ploidy[i] = ploidy_max(args->ploidy);
+        for (i=0; i<args->nsex; i++) args->sex2ploidy_prev[i] = ploidy_max(args->ploidy);
+        for (i=0; i<args->nsamples; i++) 
+            if ( args->sample2sex[i] >= args->nsex ) args->sample2sex[i] = args->nsex - 1;
     }
 
     if ( args->gvcf )
@@ -558,7 +560,6 @@ static void set_ploidy(args_t *args, bcf1_t *rec)
         else
             args->aux.ploidy[i] = args->sex2ploidy[args->sample2sex[i]];
     }
-
     int *tmp = args->sex2ploidy; args->sex2ploidy = args->sex2ploidy_prev; args->sex2ploidy_prev = tmp;
 }
 
