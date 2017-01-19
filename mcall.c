@@ -601,7 +601,6 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
             if ( *pdg ) { lk_tot += log(*pdg); lk_tot_set = 1; }
             pdg += ngts;
         }
-
         if ( ia==0 ) ref_lk = lk_tot;   // likelihood of 0/0 for all samples
         else lk_tot += call->theta; // the prior
         UPDATE_MAX_LKs(1<<ia, ia>0 && lk_tot_set);
@@ -621,14 +620,16 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                 int lk_tot_set = 0;
                 double fa  = call->qsum[ia]/(call->qsum[ia]+call->qsum[ib]);
                 double fb  = call->qsum[ib]/(call->qsum[ia]+call->qsum[ib]);
-                double fab = 2*fa*fb; fa *= fa; fb *= fb;
+                double fa2 = fa*fa;
+                double fb2 = fb*fb;
+                double fab = 2*fa*fb;
                 int isample, ibb = (ib+1)*(ib+2)/2-1, iab = iaa - ia + ib;
                 double *pdg  = call->pdg;
                 for (isample=0; isample<nsmpl; isample++)
                 {
                     double val = 0;
                     if ( !call->ploidy || call->ploidy[isample]==2 )
-                        val = fa*pdg[iaa] + fb*pdg[ibb] + fab*pdg[iab];
+                        val = fa2*pdg[iaa] + fb2*pdg[ibb] + fab*pdg[iab];
                     else if ( call->ploidy && call->ploidy[isample]==1 )
                         val = fa*pdg[iaa] + fb*pdg[ibb];
                     if ( val ) { lk_tot += log(val); lk_tot_set = 1; }
@@ -661,7 +662,10 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                     double fa  = call->qsum[ia]/(call->qsum[ia]+call->qsum[ib]+call->qsum[ic]);
                     double fb  = call->qsum[ib]/(call->qsum[ia]+call->qsum[ib]+call->qsum[ic]);
                     double fc  = call->qsum[ic]/(call->qsum[ia]+call->qsum[ib]+call->qsum[ic]);
-                    double fab = 2*fa*fb, fac = 2*fa*fc, fbc = 2*fb*fc; fa *= fa; fb *= fb; fc *= fc;
+                    double fa2 = fa*fa;
+                    double fb2 = fb*fb;
+                    double fc2 = fc*fc;
+                    double fab = 2*fa*fb, fac = 2*fa*fc, fbc = 2*fb*fc;
                     int isample, icc = (ic+1)*(ic+2)/2-1;
                     int iac = iaa - ia + ic, ibc = ibb - ib + ic;
                     double *pdg = call->pdg;
@@ -669,7 +673,7 @@ static int mcall_find_best_alleles(call_t *call, int nals, int *out_als)
                     {
                         double val = 0;
                         if ( !call->ploidy || call->ploidy[isample]==2 )
-                            val = fa*pdg[iaa] + fb*pdg[ibb] + fc*pdg[icc] + fab*pdg[iab] + fac*pdg[iac] + fbc*pdg[ibc];
+                            val = fa2*pdg[iaa] + fb2*pdg[ibb] + fc2*pdg[icc] + fab*pdg[iab] + fac*pdg[iac] + fbc*pdg[ibc];
                         else if ( call->ploidy && call->ploidy[isample]==1 )
                             val = fa*pdg[iaa] + fb*pdg[ibb] + fc*pdg[icc];
                         if ( val ) { lk_tot += log(val); lk_tot_set = 1; }
@@ -789,7 +793,7 @@ static void mcall_call_genotypes(call_t *call, bcf1_t *rec, int nals, int nout_a
         {
             if ( !(out_als & 1<<ia) ) continue;     // ia-th allele not in the final selection, skip
             int iaa = (ia+1)*(ia+2)/2-1;            // PL index of the ia/ia genotype
-            double lk = pdg[iaa]*call->qsum[ia]*call->qsum[ia];
+            double lk = ploidy==2 ? pdg[iaa]*call->qsum[ia]*call->qsum[ia] : pdg[iaa]*call->qsum[ia];
             #if USE_PRIOR_FOR_GTS
                 if ( ia!=0 ) lk *= prior;
             #endif
@@ -943,7 +947,7 @@ static void mcall_call_trio_genotypes(call_t *call, bcf1_t *rec, int nals, int n
             if ( !(out_als & 1<<ia) ) continue;     // ia-th allele not in the final selection, skip
             int iaa   = bcf_alleles2gt(ia,ia);      // PL index of the ia/ia genotype
             int idx   = bcf_alleles2gt(call->als_map[ia],call->als_map[ia]);
-            double lk = pdg[iaa]*call->qsum[ia]*call->qsum[ia];
+            double lk = ploidy==2 ? pdg[iaa]*call->qsum[ia]*call->qsum[ia] : pdg[iaa]*call->qsum[ia];
             sum_lk   += lk;
             gls[idx]  = lk;
             if ( best_lk < lk )
@@ -1436,18 +1440,22 @@ int mcall(call_t *call, bcf1_t *rec)
 
         float qsum_tot = 0;
         for (i=0; i<nals; i++) qsum_tot += call->qsum[i];
-        if ( !call->qsum[0] )
-        {
-            // As P(RR)!=0 even for QS(ref)=0, we set QS(ref) to a small value,
-            // an equivalent of a single reference read.
-            if ( bcf_get_info_int32(call->hdr, rec, "DP", &call->itmp, &call->n_itmp)!=1 )
-                error("Could not read DP at %s:%d\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1);
-            if ( call->itmp[0] )
-            {
-                call->qsum[0] = 1.0 / call->itmp[0] / nsmpl;
-                qsum_tot += call->qsum[0];
-            }
-        }
+
+        // Is this still necessary??
+        //
+        //  if (0&& !call->qsum[0] )
+        //  {
+        //      // As P(RR)!=0 even for QS(ref)=0, we set QS(ref) to a small value,
+        //      // an equivalent of a single reference read.
+        //      if ( bcf_get_info_int32(call->hdr, rec, "DP", &call->itmp, &call->n_itmp)!=1 )
+        //          error("Could not read DP at %s:%d\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1);
+        //      if ( call->itmp[0] )
+        //      {
+        //          call->qsum[0] = 1.0 / call->itmp[0] / nsmpl;
+        //          qsum_tot += call->qsum[0];
+        //      }
+        //  }
+
         if ( qsum_tot ) for (i=0; i<nals; i++) call->qsum[i] /= qsum_tot;
     #endif
 
@@ -1532,7 +1540,10 @@ int mcall(call_t *call, bcf1_t *rec)
     else
     {
         // Set the quality of a REF site
-        rec->qual = -4.343*(call->lk_sum - logsumexp2(call->lk_sum,call->ref_lk));
+        if ( call->lk_sum==-HUGE_VAL )  // no support from (high quality) reads, so QUAL=1-prior
+            rec->qual = call->theta ? -4.343*call->theta : 0;
+        else
+            rec->qual = -4.343*(call->lk_sum - logsumexp2(call->lk_sum,call->ref_lk));
     }
 
     if ( rec->qual>999 ) rec->qual = 999;
