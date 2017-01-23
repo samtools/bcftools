@@ -1270,6 +1270,7 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
 // NB: in this function we temporarily use calls->als_map for a different
 // purpose to store mapping from new (target) alleles to original alleles.
 //
+// returns 0 on success, >0 on failure
 static int mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
 {
     bcf_sr_regions_t *tgt = call->srs->targets;
@@ -1293,8 +1294,8 @@ static int mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
         call->als[nals] = tgt->als[i];
         j = vcmp_find_allele(call->vcmp, rec->d.allele+1, rec->n_allele - 1, tgt->als[i]);
 
-        //return false if allele is invalid
-        if ( j+1==*unseen ) return 0;
+        //return nonzero if allele is invalid
+        if ( j+1==*unseen ) return 1;
         
         if ( j>=0 )
         {
@@ -1320,7 +1321,7 @@ static int mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
         nals++;
     }
 
-    if ( !has_new && nals==rec->n_allele ) return 1;
+    if ( !has_new && nals==rec->n_allele ) return 0;
     bcf_update_alleles(call->hdr, rec, (const char**)call->als, nals);
 
     // create mapping from new PL to old PL
@@ -1373,7 +1374,7 @@ static int mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
 
     if ( *unseen ) *unseen = nals-1;
 
-    return 1;
+    return 0;
 }
 
 
@@ -1389,7 +1390,7 @@ int mcall(call_t *call, bcf1_t *rec)
 
     // Force alleles when calling genotypes given alleles was requested
     if ( call->flag & CALL_CONSTR_ALLELES ) {
-	if(!mcall_constrain_alleles(call, rec, &unseen)) {
+	if(mcall_constrain_alleles(call, rec, &unseen) != 0) {
             //if this fails, print a warning to stderr and return 0 to continue with the next variant
             fprintf( stderr, "Skipping call because constraining alleles failed at %s:%d\n", bcf_seqname(call->hdr,rec),rec->pos+1);
             return 0;
