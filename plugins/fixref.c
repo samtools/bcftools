@@ -112,7 +112,7 @@ const char *usage(void)
         "About: This tool helps to determine and fix strand orientation.\n"
         "       Currently the following modes are recognised:\n"
         "           flip  .. flips non-ambiguous SNPs and ignores the rest\n"
-        "           stats .. converts from Illumina TOP strand to fwd\n"
+        "           stats .. collect and print stats\n"
         "           top   .. converts from Illumina TOP strand to fwd\n"
         "\n"
         "       WARNING: Do not use the program blindly, make an effort to\n"
