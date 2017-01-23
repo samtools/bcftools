@@ -4,6 +4,13 @@ include::header.inc[]
 Plugins
 -------
 
+IMPORTANT: In order to use the BCFtools plugins, this environment variable must
+be set and point to the correct location: +
+``export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins``
+
+
+=== List of plugins
+
 ad-bias
 
 link:plugin.af-dist.html[af-dist]:: Collects AF deviation stats and GT probability distribution given AF and assuming HWE
@@ -19,7 +26,7 @@ fill-AN-AC
 
 fill-tags
 
-fixref
+link:plugin.fixref.html[fixref]:: Diagnose and fix VCFs with genotypes on incorrect strand
 
 guess-ploidy
 

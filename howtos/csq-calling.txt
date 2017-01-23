@@ -1,0 +1,45 @@
+include::header.inc[]
+
+
+Consequence calling
+-------------------
+
+The BCFtools/csq command is a very fast program for haplotype-aware consequence
+calling which can take into account known phase. It avoids the common pitfall
+of existing predictors which analyze variants as isolated events and correctly
+predicts consequences for adjacent variants which alter the same codon or
+frame-shifting indels followed by a frame-restoring indels.
+
+====
+++++
+<a href="csq-calling.png"><img src="csq-calling.png" width="1000px"></a>
+++++
+
+Three types of compound variants that lead to incorrect consequence prediction when handled in a localized manner each separately rather than jointly. +
+**A)** Multiple SNVs in the same
+codon result in a TAG stop codon rather than an amino acid change. **B)** A deletion locally predicted as frame-shifting is followed by a frame-restoring variant. Two amino acids are deleted
+and one changed, the functional consequence on protein function is likely much less severe. **C)** Two SNVs separated by an intron occur within the same codon in the spliced transcript. +
+Unchanged areas are shaded for readability. All three examples were encountered in real data.
+====
+
+The program requires on input a VCF/BCF file, the reference genome in fasta
+format and genomic features in the GFF3 format downloadable
+from the Ensembl website, and outputs an annotated VCF/BCF
+file. Currently, only Ensembl GFF3 files are supported, see for example link:ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens[ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens].
+
+The typical command looks like this
+----
+bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf -Ob -o out.bcf
+----
+
+For more details please see the link:../bcftools-man.html#csq[manual page].
+
+
+=== References
+
+Please cite this paper if you find our software useful: http://biorxiv.org/content/early/2016/12/01/090811
+
+
+include::footer.inc[]
+
+

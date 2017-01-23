@@ -5,7 +5,7 @@
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 1.5.2">
-<title>Plugin af-dist</title>
+<title>Converting from 23andMe to VCF</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -69,59 +69,66 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_plugin_af_dist">Plugin af-dist</h2>
+<h2 id="_converting_from_23andme_to_vcf">Converting from 23andMe to VCF</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>This plugin allows to detect possible strand issues by checking
-genotype frequencies against population allele frequencies.</p>
-</div>
-<div class="paragraph">
-<p>If working with human data, first download the 1000 Genomes allele frequency annotations</p>
+<p>The raw 23andMe results can be downloaded as a tab-delimited file with four columns,
+the marker ID, chromosome name, position and the genotype:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>wget -O af.vcf.gz ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.wgs.phase3_shapeit2_mvncall_integrated_v5b.20130502.sites.vcf.gz
-
-bcftools index af.vcf.gz</pre>
+<pre>rs6139074       20      63244   AA
+rs1418258       20      63799   CC
+rs6086616       20      68749   TT
+rs6039403       20      69094   AG</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Then annotate your data file and stream the result through the <code>af-dist</code> plugin to create
-the genotype frequency distribution</p>
+<p>The dot &#8220;.&#8221; can be used for a marker ID in case it is not known. The conversion
+command is then:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools annotate -c INFO/AF -a af.vcf.gz data.vcf.gz | bcftools +af-dist | grep ^PROB &gt; data.dist.txt</pre>
+<pre>bcftools convert --tsv2vcf input.tab.gz -f ref.fa -s SampleName -Ob -o sample.bcf</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The output should something like this</p>
+<p>It is important to check the output printed on the screen, which may look for example
+like this:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>PROB_DIST   0.000000    0.100000    100618
-PROB_DIST   0.100000    0.200000    144103
-PROB_DIST   0.200000    0.300000    214923
-PROB_DIST   0.300000    0.400000    320721
-PROB_DIST   0.400000    0.500000    817965
-PROB_DIST   0.500000    0.600000    84027
-PROB_DIST   0.600000    0.700000    86531
-PROB_DIST   0.700000    0.800000    97986
-PROB_DIST   0.800000    0.900000    108776
-PROB_DIST   0.900000    1.000000    176755</pre>
+<pre>Rows total:     612647
+Rows skipped:   4751
+Missing GTs:    20525
+Hom RR:     318339
+Het RA:     165598
+Hom AA:     103420
+Het AA:     14</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Finally plot the distribution to check whether there are only few unlikely genotypes.</p>
+<p>Here the program converted more than 95% of the rows, in the example 20525
+genotypes are missing (&#8220;--&#8221;) and 4751 sites were skipped because the tool
+only considers SNPs and ignores deletions and insertions.</p>
 </div>
-<div class="exampleblock">
+<div class="paragraph">
+<p>One should also check the number of non-reference heterozygous genotypes, which
+was 14 in this example. It should be small like this, because large number of
+heterozygous alts (<code>Het AA</code>) indicates that the input alleles are not on the
+forward strand. We can check this explicitly using the <a href="plugin.fixref.html">fixref plugin</a>.</p>
+</div>
+<div class="sect2">
+<h3 id="_merging_into_multi_sample_vcfs">Merging into multi-sample VCFs</h3>
+<div class="paragraph">
+<p>Single-sample VCFs created in the previous step can be merged into one multi-sample VCF using the
+following commands. The input files must be indexed, then can be merged:</p>
+</div>
+<div class="listingblock">
 <div class="content">
-<a href="plugins/af-dist.png"><img src="plugins/af-dist.png" width="500px"></a>
-<div class="paragraph">
-<p>Example of two <code>af-dist</code> outputs combined into one plot. In this figure, one
-of the VCFs (blue line) has many low-probability genotypes (given the 1000Genomes allele
-frequencies and assuming HWE), which suggests that many of the REF and ALT
-alleles are on the incorrect strand.</p>
+<pre>bcftools index sampleA.bcf
+bcftools index sampleB.bcf
+bcftools merge -Ob -o output.bcf sampleA.bcf sampleB.bcf</pre>
 </div>
 </div>
 </div>

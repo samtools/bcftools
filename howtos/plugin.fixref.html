@@ -5,7 +5,7 @@
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 1.5.2">
-<title>Consensus sequence</title>
+<title>Plugin fixref</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -69,32 +69,62 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_consensus_sequence">Consensus sequence</h2>
+<h2 id="_plugin_fixref">Plugin fixref</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Sometimes there is the need to create a consensus sequence for an individual
-where the sequence incorporates variants typed for this individual.
-This is possible using the <code>consensus</code> command.</p>
+<p>This tool helps to determine and fix strand orientation.
+Currently it can collect and print numbers useful in determining
+the strand convention (the <code>stats</code> mode), flip non-ambiguous SNPs (the <code>flip</code> mode),
+or convert from the
+<a href="http://www.illumina.com/documents/products/technotes/technote_topbot.pdf">Illumina TOP strand</a>
+convention to the forward strand (the <code>top</code> mode).</p>
 </div>
 <div class="paragraph">
-<p>We need the reference sequence <code>reference.fa</code> in the fasta format
-and an indexed VCF with the variants <code>calls.bcf</code>. The command is:</p>
+<p>Run the stats to learn the number of REF allele mismatches and the number of
+non-biallelic sites:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>cat reference.fa | bcftools consensus calls.vcf.gz &gt; consensus.fa</pre>
+<pre>bcftools +fixref test.bcf -- -f ref.fa</pre>
 </div>
 </div>
 <div class="paragraph">
-<p>This assumes we have already made the calls. There is
-<a href="variant-calling.html">another page</a> which goes deeper and is devoted just
-to this, but in brief, the variant calling command in its simplest form is:</p>
+<p>If there are no REF mismatches and the number of multi-allelic sites is small, we are done.
+If the output shows that the VCF is TOP-compatible, the following command can be
+used to fix the strand:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
-tabix calls.vcf.gz</pre>
+<pre>bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m top</pre>
 </div>
+</div>
+<div class="paragraph">
+<p>In the most extreme case when nothing else is working, one can simply force
+the unambigous alleles onto the forward strand and drop the ambigous genotypes.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m flip -d</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that this is an extremely unsafe operation and can result in nonsense
+genotypes. If you decide to use it, make sure to check the sanity of the
+result with the <a href="plugin.af-dist.html">af-dist plugin</a>.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Warning</div>
+</td>
+<td class="content">
+Do not use the program blindly, make an effort to understand what
+strand convention your data uses! Make sure the reason for mismatching REF
+alleles is not a different reference build!!
+</td>
+</tr>
+</table>
 </div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>

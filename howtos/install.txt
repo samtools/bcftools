@@ -71,5 +71,9 @@ by copying ``bcftools/htslib/{bgzip,tabix}`` to the same bin directory
 to which you have installed bcftools et al.
 
 
+IMPORTANT: In order to use the BCFtools plugins, this environment variable must
+be set and point to the correct location: +
+``export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins``
+
 include::footer.inc[]
 

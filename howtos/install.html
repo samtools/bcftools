@@ -35,6 +35,9 @@
 <p><a href="cnv-calling.html">CNV calling</a></p>
 </li>
 <li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
 <p><a href="consensus-sequence.html">Consensus calling</a></p>
 </li>
 <li>
@@ -48,6 +51,9 @@
 <div class="ulist">
 <div class="title">Tips and Tricks</div>
 <ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
 <li>
 <p><a href="query.html">Extracting information</a></p>
 </li>
@@ -142,6 +148,20 @@ choice of installation directory.  The install target also understands
 installed HTSlib separately, you may wish to install these utilities by hand
 by copying <code>bcftools/htslib/{bgzip,tabix}</code> to the same bin directory
 to which you have installed bcftools et al.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Important</div>
+</td>
+<td class="content">
+In order to use the BCFtools plugins, this environment variable must
+be set and point to the correct location:<br>
+<code>export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins</code>
+</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">

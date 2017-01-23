@@ -9,11 +9,13 @@
 
 .Calling
 * link:cnv-calling.html[CNV calling]
+* link:csq-calling.html[Consequence calling]
 * link:consensus-sequence.html[Consensus calling]
 * link:roh-calling.html[ROH calling]
 * link:variant-calling.html[Variant calling]
 
 .Tips and Tricks
+* link:convert.html[Converting formats]
 * link:query.html[Extracting information]
 * link:filtering.html[Filtering]
 * link:plugins.html[Plugins]

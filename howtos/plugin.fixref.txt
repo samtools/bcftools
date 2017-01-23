@@ -1,0 +1,45 @@
+include::header.inc[]
+
+
+Plugin fixref
+-------------
+
+This tool helps to determine and fix strand orientation.
+Currently it can collect and print numbers useful in determining
+the strand convention (the `stats` mode), flip non-ambiguous SNPs (the `flip` mode),
+or convert from the 
+link:http://www.illumina.com/documents/products/technotes/technote_topbot.pdf[Illumina TOP strand]
+convention to the forward strand (the `top` mode).
+
+Run the stats to learn the number of REF allele mismatches and the number of 
+non-biallelic sites:
+----
+bcftools +fixref test.bcf -- -f ref.fa
+----
+
+If there are no REF mismatches and the number of multi-allelic sites is small, we are done.
+If the output shows that the VCF is TOP-compatible, the following command can be
+used to fix the strand:
+----
+bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m top
+----
+
+In the most extreme case when nothing else is working, one can simply force
+the unambigous alleles onto the forward strand and drop the ambigous genotypes.
+----
+bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m flip -d
+----
+Note that this is an extremely unsafe operation and can result in nonsense 
+genotypes. If you decide to use it, make sure to check the sanity of the
+result with the link:plugin.af-dist.html[af-dist plugin].
+
+WARNING: Do not use the program blindly, make an effort to understand what
+strand convention your data uses! Make sure the reason for mismatching REF
+alleles is not a different reference build!!
+
+
+
+
+include::footer.inc[]
+
+

@@ -1,0 +1,54 @@
+include::header.inc[]
+
+
+== Converting from 23andMe to VCF
+
+The raw 23andMe results can be downloaded as a tab-delimited file with four columns,
+the marker ID, chromosome name, position and the genotype:
+----
+rs6139074       20      63244   AA
+rs1418258       20      63799   CC
+rs6086616       20      68749   TT
+rs6039403       20      69094   AG
+----
+
+The dot "`.`" can be used for a marker ID in case it is not known. The conversion
+command is then:
+----
+bcftools convert --tsv2vcf input.tab.gz -f ref.fa -s SampleName -Ob -o sample.bcf
+----
+
+It is important to check the output printed on the screen, which may look for example
+like this:
+----
+Rows total:     612647
+Rows skipped:   4751
+Missing GTs:    20525
+Hom RR:     318339
+Het RA:     165598
+Hom AA:     103420
+Het AA:     14
+----
+Here the program converted more than 95% of the rows, in the example 20525
+genotypes are missing ("`--`") and 4751 sites were skipped because the tool
+only considers SNPs and ignores deletions and insertions.
+
+One should also check the number of non-reference heterozygous genotypes, which
+was 14 in this example. It should be small like this, because large number of
+heterozygous alts (`Het AA`) indicates that the input alleles are not on the
+forward strand. We can check this explicitly using the link:plugin.fixref.html[fixref plugin].
+
+
+=== Merging into multi-sample VCFs
+
+Single-sample VCFs created in the previous step can be merged into one multi-sample VCF using the
+following commands. The input files must be indexed, then can be merged:
+----
+bcftools index sampleA.bcf
+bcftools index sampleB.bcf
+bcftools merge -Ob -o output.bcf sampleA.bcf sampleB.bcf
+----
+
+include::footer.inc[]
+
+

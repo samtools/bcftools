@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Consequence calling</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_consequence_calling">Consequence calling</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The BCFtools/csq command is a very fast program for haplotype-aware consequence
+calling which can take into account known phase. It avoids the common pitfall
+of existing predictors which analyze variants as isolated events and correctly
+predicts consequences for adjacent variants which alter the same codon or
+frame-shifting indels followed by a frame-restoring indels.</p>
+</div>
+<div class="exampleblock">
+<div class="content">
+<a href="csq-calling.png"><img src="csq-calling.png" width="1000px"></a>
+<div class="paragraph">
+<p>Three types of compound variants that lead to incorrect consequence prediction when handled in a localized manner each separately rather than jointly.<br>
+<strong>A)</strong> Multiple SNVs in the same
+codon result in a TAG stop codon rather than an amino acid change. <strong>B)</strong> A deletion locally predicted as frame-shifting is followed by a frame-restoring variant. Two amino acids are deleted
+and one changed, the functional consequence on protein function is likely much less severe. <strong>C)</strong> Two SNVs separated by an intron occur within the same codon in the spliced transcript.<br>
+Unchanged areas are shaded for readability. All three examples were encountered in real data.</p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>The program requires on input a VCF/BCF file, the reference genome in fasta
+format and genomic features in the GFF3 format downloadable
+from the Ensembl website, and outputs an annotated VCF/BCF
+file. Currently, only Ensembl GFF3 files are supported, see for example <a href="ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens">ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens</a>.</p>
+</div>
+<div class="paragraph">
+<p>The typical command looks like this</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf -Ob -o out.bcf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For more details please see the <a href="../bcftools-man.html#csq">manual page</a>.</p>
+</div>
+<div class="sect2">
+<h3 id="_references">References</h3>
+<div class="paragraph">
+<p>Please cite this paper if you find our software useful: <a href="http://biorxiv.org/content/early/2016/12/01/090811" class="bare">http://biorxiv.org/content/early/2016/12/01/090811</a></p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>
