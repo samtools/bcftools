@@ -1205,6 +1205,8 @@ convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *
             default:  p = parse_sep(convert, p, is_gtf); break;
         }
     }
+    if ( is_gtf )
+        error("Could not parse the format string, missing the square bracket \"]\": %s\n", convert->format_str);
 
     if ( nsamples )
     {
@@ -1302,7 +1304,7 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
         if ( convert->fmt[i].is_gt_field )
         {
             int j = i, js, k;
-            while ( convert->fmt[j].is_gt_field )
+            while ( j<convert->nfmt && convert->fmt[j].is_gt_field )
             {
                 convert->fmt[j].ready = 0;
                 j++;
