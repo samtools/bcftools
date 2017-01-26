@@ -599,13 +599,25 @@ int print_vcf_gz_header(BGZF *fp, BGZF *bgzf_out, int print_header, kstring_t *t
     return nskip;
 }
 
+static inline int unpackInt16(const uint8_t *buffer)
+{
+    return buffer[0] | buffer[1] << 8;
+}
+static int check_header(const uint8_t *header)
+{
+    if ( header[0] != 31 || header[1] != 139 || header[2] != 8 ) return -2;
+    return ((header[3] & 4) != 0
+            && unpackInt16((uint8_t*)&header[10]) == 6
+            && header[12] == 'B' && header[13] == 'C'
+            && unpackInt16((uint8_t*)&header[14]) == 2) ? 0 : -1;
+}
 static void naive_concat(args_t *args)
 {
     // only compressed BCF atm
     BGZF *bgzf_out = bgzf_open(args->output_fname,"w");;
 
-    const size_t page_size = 32768;
-    char *buf = (char*) malloc(page_size);
+    const size_t page_size = BGZF_MAX_BLOCK_SIZE;
+    uint8_t *buf = (uint8_t*) malloc(page_size);
     kstring_t tmp = {0,0,0};
     int i, file_types = 0;
     for (i=0; i<args->nfnames; i++)
@@ -659,52 +671,22 @@ static void naive_concat(args_t *args)
 
 
         // Stream the rest of the file as it is, without recompressing, but remove BGZF EOF blocks
-        ssize_t nread, ncached = 0, nwr;
-        const int neof = 28;
-        char cached[neof];
+        // The final bgzf eof block will be added by bgzf_close.
+        ssize_t nread, nblock, nwr;
+        const int nheader = 18, neof = 28;
+        const uint8_t *eof = (uint8_t*) "\037\213\010\4\0\0\0\0\0\377\6\0\102\103\2\0\033\0\3\0\0\0\0\0\0\0\0\0";
         while (1)
         {
-            nread = bgzf_raw_read(fp, buf, page_size);
-
-            // page_size boundary may occur in the middle of the EOF block, so we need to cache the blocks' ends
-            if ( nread<=0 ) break;
-            if ( nread<=neof )      // last block
-            {
-                if ( ncached )
-                {
-                    // flush the part of the cache that won't be needed
-                    nwr = bgzf_raw_write(bgzf_out, cached, nread);
-                    if (nwr != nread) error("Write failed, wrote %d instead of %d bytes.\n", nwr,(int)nread);
-
-                    // make space in the cache so that we can append to the end
-                    if ( nread!=neof ) memmove(cached,cached+nread,neof-nread);
-                }
-
-                // fill the cache and check for eof outside this loop
-                memcpy(cached+neof-nread,buf,nread);
-                break;
-            }
-
-            // not the last block, flush the cache if full
-            if ( ncached )
-            {
-                nwr = bgzf_raw_write(bgzf_out, cached, ncached);
-                if (nwr != ncached) error("Write failed, wrote %d instead of %d bytes.\n", nwr,(int)ncached);
-                ncached = 0;
-            }
-
-            // fill the cache
-            nread -= neof;
-            memcpy(cached,buf+nread,neof);
-            ncached = neof;
-
+            nread = bgzf_raw_read(fp, buf, nheader);
+            if ( !nread ) break;
+            if ( nread != nheader || check_header(buf)!=0 ) error("Could not parse the header of a bgzf block: %s\n",args->fnames[i]);
+            nblock = unpackInt16(buf+16) + 1;
+            assert( nblock <= page_size && nblock >= nheader );
+            nread += bgzf_raw_read(fp, buf+nheader, nblock - nheader);
+            if ( nread!=nblock ) error("Could not read %d bytes: %s\n",nblock,args->fnames[i]);
+            if ( nread==neof && !memcmp(buf,eof,neof) ) continue;
             nwr = bgzf_raw_write(bgzf_out, buf, nread);
-            if (nwr != nread) error("Write failed, wrote %d instead of %d bytes.\n", nwr,(int)nread);
-        }
-        if ( ncached && memcmp(cached,"\037\213\010\4\0\0\0\0\0\377\6\0\102\103\2\0\033\0\3\0\0\0\0\0\0\0\0\0",neof) )
-        {
-            nwr = bgzf_raw_write(bgzf_out, cached, neof);
-            if (nwr != neof) error("Write failed, wrote %d instead of %d bytes.\n", nwr,(int)neof);
+            if ( nwr != nread ) error("Write failed, wrote %d instead of %d bytes.\n", nwr,(int)nread);
         }
         if (hts_close(hts_fp)) error("Close failed: %s\n",args->fnames[i]);
     }
