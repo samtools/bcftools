@@ -1,6 +1,6 @@
 /*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
-    Copyright (C) 2008-2016 Genome Research Ltd.
+    Copyright (C) 2008-2017 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -821,6 +821,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
 "  -f, --fasta-ref FILE    faidx indexed reference sequence file\n"
+"      --no-reference      do not require fasta reference file\n"
 "  -G, --read-groups FILE  select or exclude read groups listed in the file\n"
 "  -q, --min-MQ INT        skip alignments with mapQ smaller than INT [%d]\n", mplp->min_mq);
     fprintf(fp,
@@ -879,7 +880,7 @@ int bam_mpileup(int argc, char *argv[])
     int c;
     const char *file_list = NULL;
     char **fn = NULL;
-    int nfiles = 0, use_orphan = 0;
+    int nfiles = 0, use_orphan = 0, noref = 0;
     mplp_conf_t mplp;
     memset(&mplp, 0, sizeof(mplp_conf_t));
     mplp.min_baseQ = 13;
@@ -907,6 +908,7 @@ int bam_mpileup(int argc, char *argv[])
         {"ignore-RG", no_argument, NULL, 5},
         {"ignore-rg", no_argument, NULL, 5},
         {"gvcf", required_argument, NULL, 'g'},
+        {"non-reference", no_argument, NULL, 7},
         {"no-version", no_argument, NULL, 8},
         {"threads",required_argument,NULL,9},
         {"illumina1.3+", no_argument, NULL, '6'},
@@ -969,6 +971,7 @@ int bam_mpileup(int argc, char *argv[])
             if (mplp.fai == NULL) return 1;
             mplp.fai_fname = optarg;
             break;
+        case  7 : noref = 1; break;
         case  8 : mplp.record_cmd_line = 0; break;
         case  9 : mplp.n_threads = strtol(optarg, 0, 0); break;
         case 'd': mplp.max_depth = atoi(optarg); break;
@@ -1070,6 +1073,10 @@ int bam_mpileup(int argc, char *argv[])
     if (argc == 1)
     {
         print_usage(stderr, &mplp);
+        return 1;
+    }
+    if (!mplp.fai && !noref) {
+        fprintf(stderr,"Error: mpileup requires the --reference option by default; use --no-reference to run without a fasta reference\n");
         return 1;
     }
     int ret,i;
