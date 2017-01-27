@@ -1574,7 +1574,11 @@ multiple regions and many alignment files are processed.
 
 *-f, --fasta-ref* 'FILE'::
     The *faidx*-indexed reference file in the FASTA format. The file can be
-    optionally compressed by *bgzip* [null]
+    optionally compressed by *bgzip*. Reference is required by default
+    unless the *--no-reference* option is set [null]
+
+*--no-reference*::
+    Do not require the *--fasta-ref* option.
 
 *-G, --read-groups* [&#94;]'FILE'::
     list of read groups to include or exclude if prefixed with "&#94;".
