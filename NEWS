@@ -1,0 +1,14 @@
+Noteworthy changes in release 1.4
+
+* The `mpileup` command moved from samtools to bcftools. The basic
+  functionality remains unchanged and so does most of the command line 
+  options, but there are differences one should be aware of:
+
+  - The option `samtools mpileup -t, --output-tags` changed to `bcftools
+    mpileup -a, --annotate`. The short -t option has a different meaning
+    in bcftools, consistent with the rest of bcftools commands. 
+
+  - The option `-d, --depth .. max per-file depth` now behaves as expected
+    amd according to the documentation, and prints a meaningful diagnostics.
+
+

@@ -603,12 +603,10 @@ static int mpileup(mplp_conf_t *conf)
     // init mpileup
     conf->iter = bam_mplp_init(conf->nfiles, mplp_func, (void**)conf->mplp_data);
     if ( conf->flag & MPLP_SMART_OVERLAPS ) bam_mplp_init_overlaps(conf->iter);
-    if ( conf->max_depth * nsmpl > 1<<20)
-        fprintf(stderr, "(%s) Max depth is above 1M. Potential memory hog!\n", __func__);
-    if ( conf->max_depth * nsmpl < 8000) {
-        conf->max_depth = 8000 / nsmpl;
-        fprintf(stderr, "<%s> Set max per-file depth to %d\n", __func__, conf->max_depth);
-    }
+    if ( (double)conf->max_depth * conf->nfiles > 1<<20)
+        fprintf(stderr, "Warning: Potential memory hog, up to %.0fM reads in the pileup!\n", (double)conf->max_depth*conf->nfiles);
+    if ( (double)conf->max_depth * conf->nfiles / nsmpl < 250 )
+        fprintf(stderr, "Note: The maximum per-sample depth with -d %d is %.1fx\n", conf->max_depth,(double)conf->max_depth * conf->nfiles / nsmpl);
     bam_mplp_set_maxcnt(conf->iter, conf->max_depth);
     conf->max_indel_depth = conf->max_indel_depth * nsmpl;
     conf->bcf_rec = bcf_init1();
