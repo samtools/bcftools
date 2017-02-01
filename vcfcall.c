@@ -639,7 +639,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -m, --multiallelic-caller       alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
     fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5]\n");
-    fprintf(stderr, "   -P, --prior <float>             mutation rate (use bigger for greater sensitivity) [1.1e-3]\n");
+    fprintf(stderr, "   -P, --prior <float>             mutation rate (use bigger for greater sensitivity), use with -m [1.1e-3]\n");
 
     // todo (and more)
     // fprintf(stderr, "\nContrast calling and association test options:\n");

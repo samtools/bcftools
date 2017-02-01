@@ -571,7 +571,7 @@ demand. The original calling model can be invoked with the *-c* option.
     with *-c*, accept variant if P(ref|D) < 'float'.
 
 *-P, --prior* 'float'::
-    expected substitution rate, or 0 to disable the prior.
+    expected substitution rate, or 0 to disable the prior. Only with *-m*.
 
 *-t, --targets* 'file'|'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
