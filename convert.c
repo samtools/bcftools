@@ -141,7 +141,7 @@ static void process_first_alt(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
 static void process_qual(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
     if ( bcf_float_is_missing(line->qual) ) kputc('.', str);
-    else ksprintf(str, "%g", line->qual);
+    else kputd(line->qual, str);
 }
 static void process_filter(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
@@ -209,7 +209,7 @@ static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isamp
             case BCF_BT_INT8:  if ( info->v1.i==bcf_int8_missing ) kputc('.', str); else kputw(info->v1.i, str); break;
             case BCF_BT_INT16: if ( info->v1.i==bcf_int16_missing ) kputc('.', str); else kputw(info->v1.i, str); break;
             case BCF_BT_INT32: if ( info->v1.i==bcf_int32_missing ) kputc('.', str); else kputw(info->v1.i, str); break;
-            case BCF_BT_FLOAT: if ( bcf_float_is_missing(info->v1.f) ) kputc('.', str); else ksprintf(str, "%g", info->v1.f); break;
+            case BCF_BT_FLOAT: if ( bcf_float_is_missing(info->v1.f) ) kputc('.', str); else kputd(info->v1.f, str); break;
             case BCF_BT_CHAR:  kputc(info->v1.i, str); break;
             default: fprintf(stderr,"todo: type %d\n", info->type); exit(1); break;
         }
@@ -231,7 +231,7 @@ static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isamp
             case BCF_BT_INT8:  BRANCH(int8_t,  val==bcf_int8_missing,  val==bcf_int8_vector_end,  kputw(val, str)); break;
             case BCF_BT_INT16: BRANCH(int16_t, val==bcf_int16_missing, val==bcf_int16_vector_end, kputw(val, str)); break;
             case BCF_BT_INT32: BRANCH(int32_t, val==bcf_int32_missing, val==bcf_int32_vector_end, kputw(val, str)); break;
-            case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(val), bcf_float_is_vector_end(val), ksprintf(str, "%g", val)); break;
+            case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(val), bcf_float_is_vector_end(val), kputd(val, str)); break;
             default: fprintf(stderr,"todo: type %d\n", info->type); exit(1); break;
         }
         #undef BRANCH
@@ -278,7 +278,7 @@ static void process_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
             if ( bcf_float_is_missing(ptr[fmt->subscript]) || bcf_float_is_vector_end(ptr[fmt->subscript]) )
                 kputc('.', str);
             else
-                ksprintf(str, "%g", ptr[fmt->subscript]);
+                kputd(ptr[fmt->subscript], str);
         }
         else if ( fmt->fmt->type != BCF_BT_CHAR )
         {
