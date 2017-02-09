@@ -192,12 +192,12 @@ csq.o: csq.c smpl_ilist.h regidx.h filter.h kheap.h rbuf.h
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
-	$(CC) $(LDFLAGS) -o $@ $^ -lm $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ -lm -ldl $(LIBS)
 
 test/test-regidx.o: test/test-regidx.c regidx.h
 
 test/test-regidx: test/test-regidx.o regidx.o 
-	$(CC) $(LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread -lz -lm $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread -lz -lm -ldl $(LIBS)
 
 bcftools: $(HTSLIB) $(OBJS)
 	$(CC) -rdynamic $(LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(GSL_LIBS) $(LIBS)
