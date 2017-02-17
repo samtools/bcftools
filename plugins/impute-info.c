@@ -133,6 +133,8 @@ bcf1_t *process(bcf1_t *rec)
                 if ( is_missing || is_vector_end ) break; \
                 vals[j] = ptr[j]; \
             } \
+            double norm = vals[0]+vals[1]+vals[2]; \
+            if ( norm ) for (j=0; j<3; j++) vals[j] /= norm; \
             esum  += vals[1] + 2*vals[2]; \
             e2sum += (vals[1] + 2*vals[2]) * (vals[1] + 2*vals[2]); \
             fsum  += vals[1] + 4*vals[2]; \
