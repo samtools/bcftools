@@ -146,7 +146,7 @@ int main_vcfindex(int argc, char *argv[])
             case 'c': tbi = 0; break;
             case 't': tbi = 1; min_shift = 0; break;
             case 'f': force = 1; break;
-            case 'm': 
+            case 'm':
                 min_shift = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --min-shift %s\n", optarg);
                 break;
@@ -217,7 +217,7 @@ int main_vcfindex(int argc, char *argv[])
         else if (ret == -3)
             error("index: \"%s\" is in a format that cannot be usefully indexed\n", fname);
         else
-            error("index: \"%s\" is corrupted or unsorted\n", fname);
+            error("index: failed to create index for \"%s\"\n", fname);
     }
     return 0;
 }
