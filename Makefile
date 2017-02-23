@@ -41,6 +41,11 @@ CFLAGS   = -g -Wall -Wc++-compat -O2
 LDFLAGS  =
 LIBS     =
 
+# TODO Use configure or htslib.pc to add -rdynamic/-ldl conditionally
+ALL_CPPFLAGS = -I. $(HTSLIB_CPPFLAGS) $(CPPFLAGS)
+ALL_LDFLAGS  = -rdynamic $(HTSLIB_LDFLAGS) $(LDFLAGS)
+ALL_LIBS     = -lm -lz -ldl $(LIBS)
+
 OBJS     = main.o vcfindex.o tabix.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
@@ -101,7 +106,7 @@ version.h:
 force:
 
 .c.o:
-	$(CC) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(EXTRA_CPPFLAGS) $(ALL_CPPFLAGS) -c -o $@ $<
 
 test: $(PROG) plugins test/test-rbuf test/test-regidx $(BGZIP) $(TABIX)
 	./test/test-regidx
@@ -125,7 +130,7 @@ PLUGIN_FLAGS = -fPIC -shared
 endif
 
 %.so: %.c version.h version.c
-	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(LIBS)
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(EXTRA_CPPFLAGS) $(ALL_CPPFLAGS) $(ALL_LDFLAGS) -o $@ version.c $< $(ALL_LIBS)
 
 -include $(PLUGINM)
 
@@ -192,15 +197,15 @@ csq.o: csq.c smpl_ilist.h regidx.h filter.h kheap.h rbuf.h
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
-	$(CC) $(LDFLAGS) -o $@ $^ -lm $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(ALL_LIBS)
 
 test/test-regidx.o: test/test-regidx.c regidx.h
 
-test/test-regidx: test/test-regidx.o regidx.o 
-	$(CC) $(LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread -lz -lm $(LIBS)
+test/test-regidx: test/test-regidx.o regidx.o $(HTSLIB)
+	$(CC) $(ALL_LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread $(ALL_LIBS)
 
 bcftools: $(HTSLIB) $(OBJS)
-	$(CC) -rdynamic $(LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread -lz -lm -ldl $(GSL_LIBS) $(LIBS)
+	$(CC) $(DYNAMIC_FLAGS) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread $(GSL_LIBS) $(ALL_LIBS)
 
 doc/bcftools.1: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
