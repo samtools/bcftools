@@ -41,9 +41,15 @@ CFLAGS   = -g -Wall -Wc++-compat -O2
 LDFLAGS  =
 LIBS     =
 
+ifeq "$(shell uname -s)" "Darwin"
+DYNAMIC_FLAGS = -Wl,-export_dynamic
+else
+DYNAMIC_FLAGS = -rdynamic
+endif
+
 # TODO Use configure or htslib.pc to add -rdynamic/-ldl conditionally
 ALL_CPPFLAGS = -I. $(HTSLIB_CPPFLAGS) $(CPPFLAGS)
-ALL_LDFLAGS  = -rdynamic $(HTSLIB_LDFLAGS) $(LDFLAGS)
+ALL_LDFLAGS  = $(DYNAMIC_FLAGS) $(HTSLIB_LDFLAGS) $(LDFLAGS)
 ALL_LIBS     = -lm -lz -ldl $(LIBS)
 
 OBJS     = main.o vcfindex.o tabix.o \
