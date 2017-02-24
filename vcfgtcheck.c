@@ -520,21 +520,21 @@ static void check_gt(args_t *args)
     }
 }
 
-static inline int is_hom_most_likely(int nals, int *pls)
-{
-    int ia, ib, idx = 1, min_is_hom = 1, min_pl = pls[0];
-    for (ia=1; ia<nals; ia++)
-    {
-        for (ib=0; ib<ia; ib++)
-        {
-            if ( pls[idx] < min_pl ) { min_pl = pls[idx]; min_is_hom = 0; }
-            idx++;
-        }
-        if ( pls[idx] < min_pl ) { min_pl = pls[idx]; min_is_hom = 1; }
-        idx++;
-    }
-    return min_is_hom;
-}
+// static inline int is_hom_most_likely(int nals, int *pls)
+// {
+//     int ia, ib, idx = 1, min_is_hom = 1, min_pl = pls[0];
+//     for (ia=1; ia<nals; ia++)
+//     {
+//         for (ib=0; ib<ia; ib++)
+//         {
+//             if ( pls[idx] < min_pl ) { min_pl = pls[idx]; min_is_hom = 0; }
+//             idx++;
+//         }
+//         if ( pls[idx] < min_pl ) { min_pl = pls[idx]; min_is_hom = 1; }
+//         idx++;
+//     }
+//     return min_is_hom;
+// }
 
 int process_GT(args_t *args, bcf1_t *line, uint32_t *ntot, uint32_t *ndif)
 {
