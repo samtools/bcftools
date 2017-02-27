@@ -294,6 +294,7 @@ static void set_samples(args_t *args, const char *fn, int is_file)
 
         int ismpl = bcf_hdr_id2int(args->aux.hdr, BCF_DT_SAMPLE, ss);
         if ( ismpl < 0 ) { fprintf(stderr,"Warning: No such sample in the VCF: %s\n",ss); continue; }
+        if ( old2new[ismpl] != -1 ) { fprintf(stderr,"Warning: The sample is listed multiple times: %s\n",ss); continue; }
 
         ss = se+1;
         while ( *ss && isspace(*ss) ) ss++;
