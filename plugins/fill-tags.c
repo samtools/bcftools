@@ -29,9 +29,10 @@
 #include <getopt.h>
 #include <math.h>
 #include <htslib/hts.h>
+#include <htslib/kseq.h>
 #include <htslib/vcf.h>
+#include <htslib/khash_str2int.h>
 #include "bcftools.h"
-#include "htslib/khash_str2int.h"
 
 #define SET_AN      (1<<0)
 #define SET_AC      (1<<1)
@@ -41,15 +42,7 @@
 #define SET_AF      (1<<5)
 #define SET_NS      (1<<6)
 #define SET_MAF     (1<<7)
-
-static const int POS_NS = 0;
-static const int POS_AN = 1;
-static const int POS_AC = 2;
-static const int POS_AF = 3;
-static const int POS_Hom = 4;
-static const int POS_Het = 5;
-static const int POS_Hemi = 6;
-static const int POS_MAF = 7;
+#define SET_HWE     (1<<8)
 
 typedef struct
 {
@@ -59,209 +52,165 @@ counts_t;
 
 typedef struct
 {
-    bcf_hdr_t *in_hdr, *out_hdr;
-    int marr, mfarr, mcounts, gt_id, drop_missing, *n_samples, **sample_pos, n_sample_files;
-    long tags;
-    int32_t *arr;
-    float *farr;
+    int ns;
+    int ncounts, mcounts;
     counts_t *counts;
-    char ***ids, **sample_files, ***samples;
+    char *name, *suffix;
+    int nsmpl, *smpl;
+}
+pop_t;
+
+typedef struct
+{
+    bcf_hdr_t *in_hdr, *out_hdr;
+    int npop, tags, drop_missing, gt_id;
+    pop_t *pop, **smpl2pop;
+    float *farr;
+    int32_t *iarr, niarr, miarr, nfarr, mfarr;
+    double *hwe_probs;
+    int mhwe_probs;
+    kstring_t str;
 }
 args_t;
 
-static args_t args;
+static args_t *args;
 
 const char *about(void)
 {
-    return "Set INFO tags MAF, AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n";
+    return "Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS.\n";
 }
 
 const char *usage(void)
 {
     return 
         "\n"
-        "About: Set INFO tags MAF, AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi.\n"
+        "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS.\n"
         "Usage: bcftools +fill-tags [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -d, --drop-missing      do not count half-missing genotypes \"./1\" as hemizygous\n"
-        "   -t, --tags LIST         list of output tags. By default, all tags are filled.\n"
-        "   -S, --samples [PREFIX,]FILE      Prefix with a file containing a list of samples to use (one id per line) for AC calculations, separated by ','.\n"
+        "   -d, --drop-missing          do not count half-missing genotypes \"./1\" as hemizygous\n"
+        "   -t, --tags LIST             list of output tags. By default, all tags are filled.\n"
+        "   -S, --samples-file FILE     list of samples (first column) and comma-separated list of populations (second column)\n"
         "\n"
         "Example:\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -d\n"
-        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S GRP_A_,my_a_samples.txt -S GRP_B_,my_b_samples.txt -S NOT_GRP_B,^my_b_samples.txt\n"
-        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S my_samples.txt\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE\n"
         "\n";
 }
 
-char* concat_prefix(const char * prefix, const char *s2)
+void parse_samples(args_t *args, char *fname)
 {
-    char *result = (char *) malloc(strlen(prefix)+strlen(s2)+1);
-    strcpy(result, prefix);
-    strcat(result, s2);
-    return result;
-}
+    htsFile *fp = hts_open(fname, "r");
+    if ( !fp ) error("Could not read: %s\n", fname);
 
-int hdr_append(bcf_hdr_t *hdr, const char *str, args_t *args, char * prefix)
-{
-    const size_t len1 = strlen(prefix);
-    const size_t len2 = strlen(str);
-    char *result = (char*)malloc(len1+len2+1);
-    sprintf(result, str, prefix);
-    bcf_hdr_append(args->out_hdr, result);
-    free(result);
-    return 0;
-}
+    void *pop2i = khash_str2int_init();
+    void *smpli = khash_str2int_init();
+    kstring_t str = {0,0,0};
 
-void addHeader(args_t *args, char * prefix)
-{
-    if ( args->tags&SET_AN ) hdr_append(args->out_hdr, "##INFO=<ID=%sAN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">", args, prefix);
-    if ( args->tags&SET_AC ) hdr_append(args->out_hdr, "##INFO=<ID=%sAC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">", args, prefix);
-    if ( args->tags&SET_NS ) hdr_append(args->out_hdr, "##INFO=<ID=%sNS,Number=1,Type=Integer,Description=\"Number of samples with data\">", args, prefix);
-    if ( args->tags&SET_AC_Hom ) hdr_append(args->out_hdr, "##INFO=<ID=%sAC_Hom,Number=A,Type=Integer,Description=\"Allele counts in homozygous genotypes\">", args, prefix);
-    if ( args->tags&SET_AC_Het ) hdr_append(args->out_hdr, "##INFO=<ID=%sAC_Het,Number=A,Type=Integer,Description=\"Allele counts in heterozygous genotypes\">", args, prefix);
-    if ( args->tags&SET_AC_Hemi ) hdr_append(args->out_hdr, "##INFO=<ID=%sAC_Hemi,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes\">", args, prefix);
-    if ( args->tags&SET_AF ) hdr_append(args->out_hdr, "##INFO=<ID=%sAF,Number=A,Type=Float,Description=\"Allele frequency\">", args, prefix);
-    if ( args->tags&SET_MAF ) hdr_append(args->out_hdr, "##INFO=<ID=%sMAF,Number=A,Type=Float,Description=\"Minor Allele frequency\">", args, prefix);
-}
+    int moff = 0, *off = NULL, nsmpl = 0;
+    while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 )
+    {
+        // NA12400 GRP1
+        // NA18507 GRP1,GRP2
+        char *pop_names = str.s + str.l - 1;
+        while ( pop_names >= str.s && isspace(*pop_names) ) pop_names--;
+        if ( pop_names <= str.s ) error("Could not parse the file: %s\n", str.s);
+        pop_names[1] = 0;   // trailing spaces
+        while ( pop_names >= str.s && !isspace(*pop_names) ) pop_names--;
+        if ( pop_names <= str.s ) error("Could not parse the file: %s\n", str.s);
 
-void load_samples(args_t *args)
-{
-    int i, ifile, n_samples_local;
+        char *smpl = pop_names++;
+        while ( smpl >= str.s && isspace(*smpl) ) smpl--;
+        if ( smpl <= str.s+1 ) error("Could not parse the file: %s\n", str.s);
+        smpl[1] = 0;
+        smpl = str.s;
 
-    void *hdr_samples = khash_str2int_init();
-    n_samples_local = bcf_hdr_nsamples(args->in_hdr);
-    if (args->n_sample_files > 0) {
-        args->ids = (char ***) malloc(args->n_sample_files * sizeof(const char**));
-        args->n_samples = (int *)malloc(args->n_sample_files * sizeof(int));
-        memset(args->n_samples,0,args->n_sample_files * sizeof(int));
-        args->samples = (char ***) malloc(args->n_sample_files*sizeof(const char***));
-        args->sample_pos = (int **) malloc(args->n_sample_files*sizeof(const int*));
-    } else {
-        args->ids = (char ***) malloc(1 * sizeof(char**));
-        args->n_samples = (int *)malloc(sizeof(int));
-        args->n_samples[0] = n_samples_local;
-        args->samples = NULL;
-        char * empty = "";
-        args->ids[0] = (char **)malloc(8 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
-        args->ids[0][POS_NS] = concat_prefix(empty, "NS");
-        args->ids[0][POS_AN] = concat_prefix(empty, "AN");
-        args->ids[0][POS_AC] = concat_prefix(empty, "AC");
-        args->ids[0][POS_AF] = concat_prefix(empty, "AF");
-        args->ids[0][POS_MAF] = concat_prefix(empty, "MAF");
-        args->ids[0][POS_Het] = concat_prefix(empty, "AC_Het");
-        args->ids[0][POS_Hom] = concat_prefix(empty, "AC_Hom");
-        args->ids[0][POS_Hemi] = concat_prefix(empty, "AC_Hemi");
-        addHeader(args, empty);
-    }
-    for (i=0; i< n_samples_local; i++) {
-        khash_str2int_inc(hdr_samples, bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i));
-    }
-    if (args->n_sample_files == 0) { // load all samples
-        args->sample_pos = (int **)  malloc(sizeof(int));
-        args->sample_pos[0] = (int *)  malloc((n_samples_local + 1) * sizeof(int));
-        args->samples    = (char***) malloc(sizeof(const char**));
-        args->samples[0]    = (char**) malloc((n_samples_local + 1) * sizeof(const char*));
-        for (i=0; i < args->n_samples[0]; i++)
+        int ismpl = bcf_hdr_id2int(args->in_hdr,BCF_DT_SAMPLE,smpl);
+        if ( ismpl<0 ) 
         {
-            args->samples[0][i] = strdup(bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i));
-            args->sample_pos[0][i] = i;
+            fprintf(stderr,"Warning: The sample not present in the VCF: %s\n",smpl);
+            continue;
         }
-        args->n_sample_files = 1; // to make it easier to iterate
-    } else { // only load specific samples
-        for (ifile = 0; ifile < args->n_sample_files; ++ifile) {
-            int moff = 0, *off = NULL;
-            int ncols = ksplit_core(args->sample_files[ifile],',',&moff,&off);
-            if ( ncols>2 ) error("Could not parse the paramteter: %s\n", args->sample_files[ifile]);
-            char* pref = "";
-            char* file = strdup(args->sample_files[ifile]);
-            if (ncols == 2) {
-                free(file);
-                pref = strdup(&(args->sample_files[ifile][off[0]]));
-                file = strdup(&(args->sample_files[ifile][off[1]]));
-            }
-            args->ids[ifile] = (char **)malloc(8 * sizeof(char*)); // array for 7 elements NS,AN,AC,AF,Het,Hom,Hemi
-            args->ids[ifile][POS_NS] = concat_prefix(pref, "NS");
-            args->ids[ifile][POS_AN] = concat_prefix(pref, "AN");
-            args->ids[ifile][POS_AC] = concat_prefix(pref, "AC");
-            args->ids[ifile][POS_AF] = concat_prefix(pref, "AF");
-            args->ids[ifile][POS_MAF] = concat_prefix(pref, "MAF");
-            args->ids[ifile][POS_Het] = concat_prefix(pref, "AC_Het");
-            args->ids[ifile][POS_Hom] = concat_prefix(pref, "AC_Hom");
-            args->ids[ifile][POS_Hemi] = concat_prefix(pref, "AC_Hemi");
-            addHeader(args, pref);
-
-            void *exclude = (file[0]=='^') ? khash_str2int_init() : NULL;
-            int nsmpl;
-            char **smpl = NULL;
-            args->n_samples[ifile] = 0;
-            smpl = hts_readlist(exclude ? &file[1] : file, 1, &nsmpl);
-            if ( !smpl )
-            {
-                error("Could not read the list: \"%s\"\n", exclude ? &file[1] : file);
-            }
-            int n = 0;
-            if ( exclude )
-            {
-                for (i=0; i<nsmpl; i++) {
-                    if (!khash_str2int_has_key(hdr_samples,smpl[i])) {
-                        error("Error: exclude called for sample that does not exist in header: \"%s\". Use \"--force-samples\" to ignore this error.\n", smpl[i]);
-                    }
-                    khash_str2int_inc(exclude, smpl[i]);
-                    ++n;
-                }
-
-                for (i=0; i<bcf_hdr_nsamples(args->in_hdr); i++)
-                {
-                    if ( exclude && khash_str2int_has_key(exclude,bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i))  ) continue;
-                    args->samples[ifile] = (char**) realloc(args->samples[ifile], (args->n_samples[ifile]+1)*sizeof(const char*));
-                    args->samples[ifile][args->n_samples[ifile]++] = strdup(bcf_hdr_int2id(args->in_hdr,BCF_DT_SAMPLE,i));
-                }
-                khash_str2int_destroy(exclude);
-            }
-            else
-            {
-                for (i=0; i<nsmpl; i++) {
-                    if (!khash_str2int_has_key(hdr_samples,smpl[i])) {
-                        error("Error: subset called for sample that does not exist in header: \"%s\". Use \"--force-samples\" to ignore this error.\n", smpl[i]);
-                    }
-                    if (i == 0) {
-                        args->samples[ifile] = (char**) malloc((args->n_samples[ifile]+1)*sizeof(const char**));
-                    } else {
-                        args->samples[ifile] = (char**) realloc(args->samples[ifile], (args->n_samples[ifile]+1)*sizeof(const char*));
-                    }
-                    args->samples[ifile][args->n_samples[ifile]++] = strdup(smpl[i]);
-                }
-            }
-            args->sample_pos[ifile] = (int *) malloc( (args->n_samples[ifile] + 1) * sizeof(int));
-            for (i=0; i < args->n_samples[ifile]; ++i) {
-                args->sample_pos[ifile][i] = khash_str2int_inc(hdr_samples, args->samples[ifile][i]); // build up position index
-            }
-
-            for (i=0; i<nsmpl; i++) free(smpl[i]);
-            free(smpl);
-	    if (args->n_samples[ifile] == 0) {
-	      fprintf(stderr, "Warn: subsetting has removed all samples for prefix '%s'\n", pref);
-	    }
-            if (strlen(pref) > 0) {
-                free(pref);
-            }
-            free(file);
+        if ( khash_str2int_has_key(smpli,smpl) )
+        {
+            fprintf(stderr,"Warning: The sample is listed twice in %s: %s\n",fname,smpl);
+            continue;
         }
+        khash_str2int_inc(smpli,strdup(smpl));
+
+        int i,npops = ksplit_core(pop_names,',',&moff,&off);
+        for (i=0; i<npops; i++)
+        {
+            char *pop_name = &pop_names[off[i]];
+            if ( !khash_str2int_has_key(pop2i,pop_name) )
+            {
+                pop_name = strdup(pop_name);
+                khash_str2int_set(pop2i,pop_name,args->npop);
+                args->npop++;
+                args->pop = (pop_t*) realloc(args->pop,args->npop*sizeof(*args->pop));
+                memset(args->pop+args->npop-1,0,sizeof(*args->pop));
+                args->pop[args->npop-1].name = pop_name;
+                args->pop[args->npop-1].suffix = (char*)malloc(strlen(pop_name)+2);
+                memcpy(args->pop[args->npop-1].suffix+1,pop_name,strlen(pop_name)+1);
+                args->pop[args->npop-1].suffix[0] = '_';
+            }
+            int ipop = 0;
+            khash_str2int_get(pop2i,pop_name,&ipop);
+            pop_t *pop = &args->pop[ipop];
+            pop->nsmpl++;
+            pop->smpl = (int*) realloc(pop->smpl,pop->nsmpl*sizeof(*pop->smpl));
+            pop->smpl[pop->nsmpl-1] = ismpl;
+        }
+        nsmpl++;
     }
-    khash_str2int_destroy(hdr_samples);
+
+    if ( nsmpl != bcf_hdr_nsamples(args->in_hdr) )
+        fprintf(stderr,"Warning: %d samples in the list, %d samples in the VCF.\n", nsmpl,bcf_hdr_nsamples(args->in_hdr));
+
+    if ( !args->npop ) error("No populations given?\n");
+
+    khash_str2int_destroy(pop2i);
+    khash_str2int_destroy_free(smpli);
+    free(str.s);
+    free(off);
+    hts_close(fp);
 }
 
+void init_pops(args_t *args)
+{
+    int i,j, nsmpl;
+
+    // add the population "ALL", which is a summary population for all samples
+    args->npop++;
+    args->pop = (pop_t*) realloc(args->pop,args->npop*sizeof(*args->pop));
+    memset(args->pop+args->npop-1,0,sizeof(*args->pop));
+    args->pop[args->npop-1].name   = strdup("");
+    args->pop[args->npop-1].suffix = strdup("");
+
+    nsmpl = bcf_hdr_nsamples(args->in_hdr);
+    args->smpl2pop = (pop_t**) calloc(nsmpl*(args->npop+1),sizeof(pop_t*));
+    for (i=0; i<nsmpl; i++)
+        args->smpl2pop[i*(args->npop+1)] = &args->pop[args->npop-1];
+
+    for (i=0; i<args->npop; i++)
+    {
+        for (j=0; j<args->pop[i].nsmpl; j++)
+        {
+            int ismpl = args->pop[i].smpl[j];
+            pop_t **smpl2pop = &args->smpl2pop[ismpl*(args->npop+1)];
+            while (*smpl2pop) smpl2pop++;
+            *smpl2pop = &args->pop[i];
+        }
+    }
+}
 
 int parse_tags(args_t *args, const char *str)
 {
-    int i = 0, n_tags;
-    long flag = 0l;
+    int i, flag = 0, n_tags;
     char **tags = hts_readlist(str, 0, &n_tags);
     for(i=0; i<n_tags; i++)
     {
@@ -273,6 +222,7 @@ int parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"AC_Hemi") ) flag |= SET_AC_Hemi;
         else if ( !strcasecmp(tags[i],"AF") ) flag |= SET_AF;
         else if ( !strcasecmp(tags[i],"MAF") ) flag |= SET_MAF;
+        else if ( !strcasecmp(tags[i],"HWE") ) flag |= SET_HWE;
         else
         {
             fprintf(stderr,"Error parsing \"--tags %s\": the tag \"%s\" is not supported\n", str,tags[i]);
@@ -284,12 +234,19 @@ int parse_tags(args_t *args, const char *str)
     return flag;
 }
 
+void hdr_append(args_t *args, char *fmt)
+{
+    int i;
+    for (i=0; i<args->npop; i++)
+        bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
+}
+
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
-    memset(&args,0,sizeof(args_t));
-    args.in_hdr  = in;
-    args.out_hdr = out;
-
+    args = (args_t*) calloc(1,sizeof(args_t));
+    args->in_hdr  = in;
+    args->out_hdr = out;
+    char *samples_fname = NULL;
     static struct option loptions[] =
     {
         {"drop-missing",0,0,'d'},
@@ -297,20 +254,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"samples-file",1,0,'S'},
         {0,0,0,0}
     };
-    args.n_sample_files = 0;
-    args.sample_files = NULL;
     int c;
     while ((c = getopt_long(argc, argv, "?ht:dS:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
-            case 'd': args.drop_missing = 1; break;
-            case 't': args.tags |= parse_tags(&args,optarg); break;
-            case 'S': 
-                args.n_sample_files++;
-                args.sample_files = (char**) realloc(args.sample_files, args.n_sample_files*sizeof(char*));
-                args.sample_files[args.n_sample_files-1] = strdup(optarg);
-                break;
+            case 'd': args->drop_missing = 1; break;
+            case 't': args->tags |= parse_tags(args,optarg); break;
+            case 'S': samples_fname = optarg; break;
             case 'h':
             case '?':
             default: error("%s", usage()); break;
@@ -318,38 +269,146 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     }
 
     if ( optind != argc ) error(usage());
-    args.gt_id = bcf_hdr_id2int(args.in_hdr,BCF_DT_ID,"GT");
-    if ( args.gt_id<0 ) error("Error: GT field is not present\n");
-    if ( !args.tags ) args.tags |= SET_AN|SET_AC|SET_NS|SET_AC_Hom|SET_AC_Het|SET_AC_Hemi|SET_AF|SET_MAF;
-    load_samples(&args);
+
+    args->gt_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
+    if ( args->gt_id<0 ) error("Error: GT field is not present\n");
+
+    if ( !args->tags )
+        for (c=0; c<=8; c++) args->tags |= 1<<c;    // by default all tags will be filled
+
+    if ( samples_fname ) parse_samples(args, samples_fname);
+    init_pops(args);
+
+    if ( args->tags & SET_AN ) hdr_append(args, "##INFO=<ID=AN%s,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes%s%s\">");
+    if ( args->tags & SET_AC ) hdr_append(args, "##INFO=<ID=AC%s,Number=A,Type=Integer,Description=\"Allele count in genotypes%s%s\">");
+    if ( args->tags & SET_NS ) hdr_append(args, "##INFO=<ID=NS%s,Number=1,Type=Integer,Description=\"Number of samples with data%s%s\">");
+    if ( args->tags & SET_AC_Hom ) hdr_append(args, "##INFO=<ID=AC_Hom%s,Number=A,Type=Integer,Description=\"Allele counts in homozygous genotypes%s%s\">");
+    if ( args->tags & SET_AC_Het ) hdr_append(args, "##INFO=<ID=AC_Het%s,Number=A,Type=Integer,Description=\"Allele counts in heterozygous genotypes%s%s\">");
+    if ( args->tags & SET_AC_Hemi ) hdr_append(args, "##INFO=<ID=AC_Hemi%s,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes%s%s\">");
+    if ( args->tags & SET_AF ) hdr_append(args, "##INFO=<ID=AF%s,Number=A,Type=Float,Description=\"Allele frequency%s%s\">");
+    if ( args->tags & SET_MAF ) hdr_append(args, "##INFO=<ID=MAF%s,Number=A,Type=Float,Description=\"Minor Allele frequency%s%s\">");
+    if ( args->tags & SET_HWE ) hdr_append(args, "##INFO=<ID=HWE%s,Number=A,Type=Float,Description=\"HWE test%s%s (PMID:15789306)\">");
+
     return 0;
+}
+
+/* 
+    Wigginton 2005, PMID: 15789306 
+
+    nref .. number of reference alleles
+    nalt .. number of alt alleles
+    nhet .. number of het genotypes, assuming number of genotypes = (nref+nalt)*2
+
+*/
+float calc_hwe(args_t *args, int nref, int nalt, int nhet)
+{
+    int ngt   = (nref+nalt) / 2;
+    int nrare = nref < nalt ? nref : nalt;
+
+    // sanity check: there is odd/even number of rare alleles iff there is odd/even number of hets
+    if ( (nrare & 1) ^ (nhet & 1) ) error("nrare/nhet should be both odd or even: nrare=%d nref=%d nalt=%d nhet=%d\n",nrare,nref,nalt,nhet);
+    if ( nrare < nhet ) error("Fewer rare alleles than hets? nrare=%d nref=%d nalt=%d nhet=%d\n",nrare,nref,nalt,nhet);
+    if ( (nref+nalt) & 1 ) error("Expected diploid genotypes: nref=%d nalt=%d\n",nref,nalt);
+
+    // initialize het probs
+    hts_expand(double,nrare+1,args->mhwe_probs,args->hwe_probs);
+    memset(args->hwe_probs, 0, sizeof(*args->hwe_probs)*(nrare+1));
+    double *probs = args->hwe_probs;
+
+    // start at midpoint
+    int mid = nrare * (nref + nalt - nrare) / (nref + nalt);
+
+    // check to ensure that midpoint and rare alleles have same parity
+    if ( (nrare & 1) ^ (mid & 1) ) mid++;
+
+    int het = mid;
+    int hom_r  = (nrare - mid) / 2;
+    int hom_c  = ngt - het - hom_r;
+    double sum = probs[mid] = 1.0;
+
+    for (het = mid; het > 1; het -= 2)
+    {
+        probs[het - 2] = probs[het] * het * (het - 1.0) / (4.0 * (hom_r + 1.0) * (hom_c + 1.0));
+        sum += probs[het - 2];
+
+        // 2 fewer heterozygotes for next iteration -> add one rare, one common homozygote
+        hom_r++;
+        hom_c++;
+    }
+
+    het = mid;
+    hom_r = (nrare - mid) / 2;
+    hom_c = ngt - het - hom_r;
+    for (het = mid; het <= nrare - 2; het += 2)
+    {
+        probs[het + 2] = probs[het] * 4.0 * hom_r * hom_c / ((het + 2.0) * (het + 1.0));
+        sum += probs[het + 2];
+
+        // add 2 heterozygotes for next iteration -> subtract one rare, one common homozygote
+        hom_r--;
+        hom_c--;
+    }
+
+    for (het=0; het<nrare+1; het++) probs[het] /= sum;
+
+    double p_rank = 0.0;
+    for (het=0; het <= nrare; het++)
+    {
+        if ( probs[het] > probs[nhet]) continue;
+        p_rank += probs[het];
+    }
+
+    return p_rank > 1 ? 1.0 : p_rank;
+}
+
+static inline void set_counts(pop_t *pop, int is_half, int is_hom, int is_hemi, int als)
+{
+    int ial;
+    for (ial=0; als; ial++)
+    {
+        if ( als&1 )
+        { 
+            if ( is_half ) pop->counts[ial].nac++;
+            else if ( !is_hom ) pop->counts[ial].nhet++;
+            else if ( !is_hemi ) pop->counts[ial].nhom += 2;
+            else pop->counts[ial].nhemi++;
+        }
+        als >>= 1;
+    }
+    pop->ns++;
+}
+static void clean_counts(pop_t *pop, int nals)
+{
+    pop->ns = 0;
+    memset(pop->counts,0,sizeof(counts_t)*nals);
 }
 
 bcf1_t *process(bcf1_t *rec)
 {
-    int nsf, i;
+    int i,j, nsmpl = bcf_hdr_nsamples(args->in_hdr);;
 
     bcf_unpack(rec, BCF_UN_FMT);
     bcf_fmt_t *fmt_gt = NULL;
     for (i=0; i<rec->n_fmt; i++)
-        if ( rec->d.fmt[i].id==args.gt_id ) { fmt_gt = &rec->d.fmt[i]; break; }
+        if ( rec->d.fmt[i].id==args->gt_id ) { fmt_gt = &rec->d.fmt[i]; break; }
     if ( !fmt_gt ) return rec;    // no GT tag
 
-    hts_expand(int32_t,rec->n_allele, args.marr, args.arr);
-    hts_expand(float,rec->n_allele, args.mfarr, args.farr);
-    hts_expand(counts_t,rec->n_allele,args.mcounts, args.counts);
+    hts_expand(int32_t,rec->n_allele, args->miarr, args->iarr);
+    hts_expand(float,rec->n_allele, args->mfarr, args->farr);
+    for (i=0; i<args->npop; i++)
+        hts_expand(counts_t,rec->n_allele,args->pop[i].mcounts, args->pop[i].counts);
 
-    for (nsf=0; nsf < args.n_sample_files; ++nsf) {
-        int pos, ns = 0, is_hom, is_hemi, is_half;
-        memset(args.arr,0,sizeof(*args.arr)*rec->n_allele);
-        memset(args.counts,0,sizeof(*args.counts)*rec->n_allele);
+    for (i=0; i<args->npop; i++)
+        clean_counts(&args->pop[i], rec->n_allele);
 
-       #define BRANCH_INT(type_t,vector_end) { \
-         for (pos=0; pos<args.n_samples[nsf]; pos++) \
-         { \
-            i = args.sample_pos[nsf][pos]; \
+    assert( rec->n_allele < 8*sizeof(int) );
+
+    #define BRANCH_INT(type_t,vector_end) \
+    { \
+        for (i=0; i<nsmpl; i++) \
+        { \
             type_t *p = (type_t*) (fmt_gt->p + i*fmt_gt->size); \
-            int ial, als = 0, nals = 0; \
+            int ial, als = 0, nals = 0, is_half, is_hom, is_hemi; \
             for (ial=0; ial<fmt_gt->n; ial++) \
             { \
                 if ( p[ial]==vector_end ) break; /* smaller ploidy */ \
@@ -358,174 +417,203 @@ bcf1_t *process(bcf1_t *rec)
                 nals++; \
                 \
                 if ( idx >= rec->n_allele ) \
-                    error("Incorrect allele (\"%d\") in %s at %s:%d\n",idx,args.in_hdr->samples[i],bcf_seqname(args.in_hdr,rec),rec->pos+1); \
+                    error("Incorrect allele (\"%d\") in %s at %s:%d\n",idx,args->in_hdr->samples[i],bcf_seqname(args->in_hdr,rec),rec->pos+1); \
                 als |= (1<<idx);  /* this breaks with too many alleles */ \
             } \
             if ( nals==0 ) continue; /* missing genotype */ \
-            ns++; \
             is_hom = als && !(als & (als-1)); /* only one bit is set */ \
             if ( nals!=ial ) \
             { \
-                if ( args.drop_missing ) is_hemi = 0, is_half = 1; \
+                if ( args->drop_missing ) is_hemi = 0, is_half = 1; \
                 else is_hemi = 1, is_half = 0; \
             } \
             else if ( nals==1 ) is_hemi = 1, is_half = 0; \
             else is_hemi = 0, is_half = 0; \
-            for (ial=0; als; ial++) \
-            { \
-                if ( als&1 ) \
-                { \
-                    if ( is_half ) \
-                        args.counts[ial].nac++; \
-                    else if ( !is_hom ) \
-                        args.counts[ial].nhet++; \
-                    else if ( !is_hemi ) \
-                        args.counts[ial].nhom += 2; \
-                    else \
-                        args.counts[ial].nhemi++; \
-                } \
-                als >>= 1; \
-            } \
-          } \
-        }
-        switch (fmt_gt->type) {
-            case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
-            case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
-            case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
-            default: error("The GT type is not recognised: %d at %s:%d\n",fmt_gt->type, bcf_seqname(args.in_hdr,rec),rec->pos+1); break;
-        }
+            pop_t **pop = &args->smpl2pop[i*(args->npop+1)]; \
+            while ( *pop ) { set_counts(*pop,is_half,is_hom,is_hemi,als); pop++; }\
+        } \
+    }
+    switch (fmt_gt->type) {
+        case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
+        default: error("The GT type is not recognised: %d at %s:%d\n",fmt_gt->type, bcf_seqname(args->in_hdr,rec),rec->pos+1); break;
+    }
+    #undef BRANCH_INT
 
-        #undef BRANCH_INT
-
-        if ( args.tags&SET_NS )
+    if ( args->tags & SET_NS )
+    {
+        for (i=0; i<args->npop; i++)
         {
-            char * id = args.ids[nsf][POS_NS];
-            if ( bcf_update_info_int32(args.out_hdr,rec,id,&ns,1)!=0 )
-                error("Error occurred while updating NS at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-        }
-        if ( args.tags&SET_AN )
-        {
-            char * id = args.ids[nsf][POS_AN];
-            args.arr[0] = 0;
-            for (i=0; i<rec->n_allele; i++)
-                args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
-            if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr,1)!=0 )
-                error("Error occurred while updating AN at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-        }
-        if ( args.tags&SET_AF || args.tags&SET_MAF )
-        {
-            int n = rec->n_allele-1;
-            if ( n>0 )
-            {
-                args.arr[0] = 0;
-                for (i=0; i<rec->n_allele; i++)
-                    args.arr[0] += args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
-                for (i=1; i<rec->n_allele; i++)
-                    args.farr[i] = (args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac)*1.0/args.arr[0];
-            }
-            if ( args.arr[0] )
-            {
-                if (args.tags&SET_AF) {
-                char * id = args.ids[nsf][POS_AF];
-                if ( bcf_update_info_float(args.out_hdr,rec,id,args.farr+1,n)!=0 )
-                    error("Error occurred while updating AF at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-                }
-                if (args.tags&SET_MAF) {
-                    for (i=1; i<rec->n_allele; i++) {
-                        if (args.farr[i] > 0.5) {
-                            args.farr[i] = 1 - args.farr[i];
-                        }
-                    }
-                    char * id = args.ids[nsf][POS_MAF];
-                    if ( bcf_update_info_float(args.out_hdr,rec,id,args.farr+1,n)!=0 )
-                        error("Error occurred while updating MAF at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-                }
-            }
-        }
-        if ( args.tags&SET_AC )
-        {
-            int n = rec->n_allele-1;
-            if ( n>0 )
-            {
-                memset(args.arr,0,sizeof(*args.arr)*rec->n_allele);
-                for (i=1; i<rec->n_allele; i++)
-                    args.arr[i] = args.counts[i].nhet + args.counts[i].nhom + args.counts[i].nhemi + args.counts[i].nac;
-            }
-            char * id = args.ids[nsf][POS_AC];
-            if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
-                error("Error occurred while updating AC at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-        }
-        if ( args.tags&SET_AC_Het )
-        {
-            int n = rec->n_allele-1;
-            if ( n>0 )
-            {
-                memset(args.arr,0,sizeof(*args.arr)*rec->n_allele);
-                for (i=1; i<rec->n_allele; i++)
-                    args.arr[i] += args.counts[i].nhet;
-            }
-            char * id = args.ids[nsf][POS_Het];
-            if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
-                error("Error occurred while updating AC_Het at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-        }
-        if ( args.tags&SET_AC_Hom )
-        {
-            int n = rec->n_allele-1;
-            if ( n>0 )
-            {
-                memset(args.arr,0,sizeof(*args.arr)*rec->n_allele);
-                for (i=1; i<rec->n_allele; i++)
-                    args.arr[i] += args.counts[i].nhom;
-            }
-            char * id = args.ids[nsf][POS_Hom];
-            if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
-                error("Error occurred while updating AC_Hom at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
-        }
-        if ( args.tags&SET_AC_Hemi )
-        {
-            int n = rec->n_allele-1;
-            if ( n>0 )
-            {
-                memset(args.arr,0,sizeof(*args.arr)*rec->n_allele);
-                for (i=1; i<rec->n_allele; i++)
-                    args.arr[i] += args.counts[i].nhemi;
-            }
-            char * id = args.ids[nsf][POS_Hemi];
-            if ( bcf_update_info_int32(args.out_hdr,rec,id,args.arr+1,n)!=0 )
-                error("Error occurred while updating AC_Hemi at %s:%d\n", bcf_seqname(args.in_hdr,rec),rec->pos+1);
+            args->str.l = 0;
+            ksprintf(&args->str, "NS%s", args->pop[i].suffix);
+            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,&args->pop[i].ns,1)!=0 )
+                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
         }
     }
+    if ( args->tags & SET_AN )
+    {
+        for (i=0; i<args->npop; i++)
+        {
+            pop_t *pop = &args->pop[i];
+            int32_t an = 0;
+            for (j=0; j<rec->n_allele; j++) 
+                an += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
+
+            args->str.l = 0;
+            ksprintf(&args->str, "AN%s", args->pop[i].suffix);
+            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,&an,1)!=0 )
+                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        }
+    }
+    if ( args->tags & (SET_AF | SET_MAF) )
+    {
+        for (i=0; i<args->npop; i++)
+        {
+            int32_t an = 0;
+            if ( rec->n_allele > 1 )
+            {
+                pop_t *pop = &args->pop[i];
+                memset(args->farr, 0, sizeof(*args->farr)*(rec->n_allele-1));
+                for (j=1; j<rec->n_allele; j++) 
+                    args->farr[j-1] += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
+                an = pop->counts[0].nhet + pop->counts[0].nhom + pop->counts[0].nhemi + pop->counts[0].nac;
+                for (j=1; j<rec->n_allele; j++) an += args->farr[j-1];
+                if ( !an ) continue;
+                for (j=1; j<rec->n_allele; j++) args->farr[j-1] /= an;
+            }
+            if ( args->tags & SET_AF )
+            {
+                args->str.l = 0;
+                ksprintf(&args->str, "AF%s", args->pop[i].suffix);
+                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
+                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+            }
+            if ( args->tags & SET_MAF )
+            {
+                if ( !an ) continue;
+                for (j=1; j<rec->n_allele; j++)
+                    if ( args->farr[j-1] > 0.5 ) args->farr[j-1] = 1 - args->farr[j-1];     // todo: this is incorrect for multiallelic sites
+                args->str.l = 0;
+                ksprintf(&args->str, "MAF%s", args->pop[i].suffix);
+                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
+                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+            }
+        }
+    }
+    if ( args->tags & SET_AC )
+    {
+        for (i=0; i<args->npop; i++)
+        {
+            if ( rec->n_allele > 1 )
+            {
+                pop_t *pop = &args->pop[i];
+                memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
+                for (j=1; j<rec->n_allele; j++) 
+                    args->iarr[j-1] += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
+            }
+            args->str.l = 0;
+            ksprintf(&args->str, "AC%s", args->pop[i].suffix);
+            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
+                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        }
+    }
+    if ( args->tags & SET_AC_Het )
+    {
+        for (i=0; i<args->npop; i++)
+        {
+            if ( rec->n_allele > 1 )
+            {
+                pop_t *pop = &args->pop[i];
+                memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
+                for (j=1; j<rec->n_allele; j++) 
+                    args->iarr[j-1] += pop->counts[j].nhet;
+            }
+            args->str.l = 0;
+            ksprintf(&args->str, "AC_Het%s", args->pop[i].suffix);
+            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
+                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        }
+    }
+    if ( args->tags & SET_AC_Hom )
+    {
+        for (i=0; i<args->npop; i++)
+        {
+            if ( rec->n_allele > 1 )
+            {
+                pop_t *pop = &args->pop[i];
+                memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
+                for (j=1; j<rec->n_allele; j++) 
+                    args->iarr[j-1] += pop->counts[j].nhom;
+            }
+            args->str.l = 0;
+            ksprintf(&args->str, "AC_Hom%s", args->pop[i].suffix);
+            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
+                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        }
+    }
+    if ( args->tags & SET_AC_Hemi && rec->n_allele > 1 )
+    {
+        for (i=0; i<args->npop; i++)
+        {
+            if ( rec->n_allele > 1 )
+            {
+                pop_t *pop = &args->pop[i];
+                memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
+                for (j=1; j<rec->n_allele; j++) 
+                    args->iarr[j-1] += pop->counts[j].nhemi;
+            }
+            args->str.l = 0;
+            ksprintf(&args->str, "AC_Hemi%s", args->pop[i].suffix);
+            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
+                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        }
+    }
+    if ( args->tags & SET_HWE )
+    {
+        for (i=0; i<args->npop; i++)
+        {
+            if ( rec->n_allele > 1 )
+            {
+                pop_t *pop = &args->pop[i];
+                memset(args->farr, 0, sizeof(*args->farr)*(rec->n_allele-1));
+                int nref_tot = pop->counts[0].nhom;
+                for (j=0; j<rec->n_allele; j++) nref_tot += pop->counts[j].nhet;   // NB this neglects multiallelic genotypes
+                for (j=1; j<rec->n_allele; j++) 
+                {
+                    int nref = nref_tot - pop->counts[j].nhet;
+                    int nalt = pop->counts[j].nhet + pop->counts[j].nhom;
+                    int nhet = pop->counts[j].nhet;
+                    args->farr[j-1] = (nref>0 && nalt>0) ? calc_hwe(args, nref, nalt, nhet) : 1;
+                }
+            }
+            args->str.l = 0;
+            ksprintf(&args->str, "HWE%s", args->pop[i].suffix);
+            if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
+                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        }
+    }
+
     return rec;
 }
 
 void destroy(void)
 {
-    int i,j;
-    for (i=0; i < args.n_sample_files; ++i) {
-        for (j = 0; j < args.n_samples[i]; ++j) {
-            free(args.samples[i][j]);
-        }
-        free(args.samples[i]);
-        free(args.sample_pos[i]);
-        free(args.ids[i][POS_NS]);
-        free(args.ids[i][POS_AN]);
-        free(args.ids[i][POS_AC]);
-        free(args.ids[i][POS_AF]);
-        free(args.ids[i][POS_MAF]);
-        free(args.ids[i][POS_Het]);
-        free(args.ids[i][POS_Hom]);
-        free(args.ids[i][POS_Hemi]);
-        free(args.ids[i]);
+    int i; 
+    for (i=0; i<args->npop; i++)
+    {
+        free(args->pop[i].name);
+        free(args->pop[i].suffix);
+        free(args->pop[i].smpl);
+        free(args->pop[i].counts);
     }
-
-    free(args.n_samples);
-    free(args.samples);
-    free(args.sample_pos);
-    free(args.ids);
-
-    free(args.counts);
-    free(args.arr);
-    free(args.farr);
+    free(args->str.s);
+    free(args->pop);
+    free(args->smpl2pop);
+    free(args->iarr);
+    free(args->farr);
+    free(args->hwe_probs);
+    free(args);
 }
 
 
