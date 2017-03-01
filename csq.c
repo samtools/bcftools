@@ -534,6 +534,9 @@ typedef struct
     void *seq2int;
     char **seq;
     int nseq, mseq;
+
+    // ignored biotypes
+    void *ignored_biotypes;
 }
 aux_t;
 
@@ -815,7 +818,7 @@ static inline int gff_parse_biotype(char *_line)
             if ( !strncmp(line,"LRG_gene",8) ) return GF_LRG_GENE;
             break;
         case '3':
-            if ( !strncmp(line,"3prime_overlapping_ncrna",24) ) return GF_3PRIME_OVERLAPPING_ncRNA;
+            if ( !strncmp(line,"3prime_overlapping_ncRNA",24) ) return GF_3PRIME_OVERLAPPING_ncRNA;
             break;
         case 'd':
             if ( !strncmp(line,"disrupted_domain",16) ) return GF_DISRUPTED_DOMAIN;
@@ -829,32 +832,24 @@ static inline int gff_parse_biotype(char *_line)
     }
     return 0;
 }
-static inline int gff_ignored_biotype(char *ss)
+static inline int gff_ignored_biotype(args_t *args, char *ss)
 {
-return 0;
-    ss = strstr(ss,"biotype=") + 8;
-    if ( !strncmp("non_stop_decay",ss,14) ) return 1;
-    if ( !strncmp("IG_pseudogene",ss,13) ) return 1;
-    if ( !strncmp("IG_D_pseudogene",ss,15) ) return 1;
-    if ( !strncmp("IG_V_pseudogene",ss,15) ) return 1;
-    if ( !strncmp("TR_J_pseudogene",ss,15) ) return 1;
-    if ( !strncmp("translated_processed_pseudogene",ss,31) ) return 1;
-    if ( !strncmp("processed_pseudogene",ss,20) ) return 1;
-    if ( !strncmp("unitary_pseudogene",ss,18) ) return 1;
-    if ( !strncmp("pseudogene",ss,10) ) return 1;
-    if ( !strncmp("retained_intron",ss,15) ) return 1;
-    if ( !strncmp("IG_C_pseudogene",ss,15) ) return 1;
-    if ( !strncmp("IG_J_pseudogene",ss,15) ) return 1;
-    if ( !strncmp("nonsense_mediated_decay",ss,23) ) return 1;
-    if ( !strncmp("unprocessed_pseudogene",ss,22) ) return 1;
-    if ( !strncmp("transcribed_unprocessed_pseudogene",ss,34) ) return 1;
-    if ( !strncmp("transcribed_processed_pseudogene",ss,32) ) return 1;
-    if ( !strncmp("3prime_overlapping_ncrna",ss,24) ) return 1;
-    if ( !strncmp("3prime_overlapping_ncRNA",ss,24) ) return 1;
-    if ( !strncmp("TEC",ss,3) ) return 1;
-    if ( !strncmp("bidirectional_promoter_lncRNA",ss,29) ) return 1;
-    if ( !strncmp("transcribed_unitary_pseudogene",ss,30) ) return 1;
-    return 0;
+    ss = strstr(ss,"biotype=");
+    if ( !ss ) return 0;
+
+    ss += 8;
+    char *se = ss, tmp;
+    while ( *se && *se!=';' ) se++;
+    tmp = *se;
+    *se = 0;
+
+    char *key = ss;
+    int n = 0;
+    if ( khash_str2int_get(args->init.ignored_biotypes, ss, &n)!=0 ) key = strdup(ss);
+    khash_str2int_set(args->init.ignored_biotypes, key, n+1);
+
+    *se = tmp;
+    return 1;
 }
 gf_gene_t *gene_init(aux_t *aux, uint32_t gene_id)
 {
@@ -875,7 +870,7 @@ void gff_parse_transcript(args_t *args, const char *line, char *ss, ftr_t *ftr)
     int biotype = gff_parse_biotype(ss);
     if ( biotype <= 0 )
     {
-        if ( !gff_ignored_biotype(ss) ) fprintf(stderr,"ignored transcript: %s\n",line);
+        if ( !gff_ignored_biotype(args, ss) ) fprintf(stderr,"ignored transcript: %s\n",line);
         return;
     }
 
@@ -903,7 +898,7 @@ void gff_parse_gene(args_t *args, const char *line, char *ss, char *chr_beg, cha
     int biotype = gff_parse_biotype(ss);
     if ( biotype <= 0 )
     {
-        if ( !gff_ignored_biotype(ss) ) fprintf(stderr,"ignored gene: %s\n",line);
+        if ( !gff_ignored_biotype(args, ss) ) fprintf(stderr,"ignored gene: %s\n",line);
         return;
     }
 
@@ -1204,6 +1199,7 @@ void init_gff(args_t *args)
     aux->gid2gene  = kh_init(int2gene);      // gene id to gf_gene_t, for idx_gene
     aux->id2tr     = kh_init(int2tscript);   // transcript id to tscript_t
     args->idx_tscript = regidx_init(NULL, NULL, regidx_free_tscript, sizeof(tscript_t*), NULL);
+    aux->ignored_biotypes = khash_str2int_init();
 
     // parse gff
     kstring_t str = {0,0,0};
@@ -1269,6 +1265,18 @@ void init_gff(args_t *args)
     // keeping only to destroy the genes at the end: kh_destroy(int2gene,aux->gid2gene);
     kh_destroy(int2tscript,aux->id2tr);
     free(aux->seq);
+
+    if ( khash_str2int_size(aux->ignored_biotypes) )
+    {
+        khash_t(str2int) *ign = (khash_t(str2int)*)aux->ignored_biotypes;
+        fprintf(stderr,"Ignored the following biotypes:\n");
+        for (i = kh_begin(ign); i < kh_end(ign); i++)
+        {
+            if ( !kh_exist(ign,i)) continue;
+            fprintf(stderr,"\t%dx\t.. %s\n", kh_value(ign,i), kh_key(ign,i));
+        }
+    }
+    khash_str2int_destroy_free(aux->ignored_biotypes);
 }
 
 void init_data(args_t *args)
@@ -1839,8 +1847,11 @@ fprintf(stderr,"del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
     if ( splice->set_refalt )
     {
         if ( splice->tbeg>0 ) splice->tbeg--;  //why is this?
-        splice->vcf.rlen -= splice->tbeg + splice->tend;
-        splice->vcf.alen -= splice->tbeg + splice->tend;
+        if ( splice->vcf.rlen > splice->tbeg + splice->tend && splice->vcf.alen > splice->tbeg + splice->tend )
+        {
+            splice->vcf.rlen -= splice->tbeg + splice->tend;
+            splice->vcf.alen -= splice->tbeg + splice->tend;
+        }
         splice->kref.l = 0; kputsn(splice->vcf.ref + splice->tbeg, splice->vcf.rlen, &splice->kref); 
         splice->kalt.l = 0; kputsn(splice->vcf.alt + splice->tbeg, splice->vcf.alen, &splice->kalt); 
         if ( (splice->ref_beg+1 < ex_beg && splice->ref_end >= ex_beg) || (splice->ref_beg+1 < ex_end && splice->ref_end >= ex_end) ) // ouch, ugly ENST00000409523/long-overlapping-del.vcf

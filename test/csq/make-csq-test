@@ -80,17 +80,25 @@ sub parse_gff
         if ( $vals[8]=~/ID=transcript:$$opts{tscript};/  ) { last; }
     }
     if ( !@buf ) { error("Transcript $$opts{tscript} not found in $$opts{gff}\n"); }
-    my @dat = ( $buf[0], $buf[-1] );
+    if ( !($buf[-1][8]=~/Parent=gene:([^;\s+]+)/) ) { error("Gene ID not present: $buf[-1][8]\n"); }
+    my $gene_id = $1;
     while (my $line=<$fh>)
     {
-        if ( $line=~/^#/ ) { last; }
+        if ( $line=~/^###/ ) { last; }
         my @vals = split(/\t/,$line);
-        if ( !($vals[8]=~/Parent=transcript:$$opts{tscript}/) ) { last; }
-        push @dat,\@vals;
+        push @buf,\@vals;
+    }
+    my $tline;
+    my @dat = ();
+    for my $line (@buf)
+    {
+        if ( $$line[8]=~/ID=gene:$gene_id/ ) { push @dat,$line; next; }
+        if ( $$line[8]=~/ID=transcript:$$opts{tscript}/ ) { push @dat,$line; $tline = $line; next; }
+        if ( $$line[8]=~/Parent=transcript:$$opts{tscript}/ ) { push @dat,$line; next; }
     }
     close($fh);
     $$opts{dat} = \@dat;
-    $$opts{offset} = $dat[0][3] - $$opts{pad} - 1;
+    $$opts{offset} = $$tline[3] - $$opts{pad} - 1;
 }
 sub get_chr_beg_end
 {
