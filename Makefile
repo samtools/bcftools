@@ -31,9 +31,12 @@ all: $(PROG) $(TEST_PROG)
 # Adjust $(HTSDIR) to point to your top-level htslib directory
 HTSDIR = ../htslib
 include $(HTSDIR)/htslib.mk
+include $(HTSDIR)/htslib_static.mk
 HTSLIB = $(HTSDIR)/libhts.a
 BGZIP  = $(HTSDIR)/bgzip
 TABIX  = $(HTSDIR)/tabix
+HTSLIB_LDFLAGS = $(HTSLIB_static_LDFLAGS)
+HTSLIB_LIBS = $(HTSLIB_static_LIBS)
 
 CC       = gcc
 CPPFLAGS =
@@ -208,10 +211,10 @@ test/test-rbuf: test/test-rbuf.o
 test/test-regidx.o: test/test-regidx.c regidx.h
 
 test/test-regidx: test/test-regidx.o regidx.o $(HTSLIB)
-	$(CC) $(ALL_LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread $(ALL_LIBS)
+	$(CC) $(ALL_LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread $(HTSLIB_LIBS) $(ALL_LIBS)
 
 bcftools: $(HTSLIB) $(OBJS)
-	$(CC) $(DYNAMIC_FLAGS) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread $(GSL_LIBS) $(ALL_LIBS)
+	$(CC) $(DYNAMIC_FLAGS) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread $(HTSLIB_LIBS) $(GSL_LIBS) $(ALL_LIBS)
 
 doc/bcftools.1: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
