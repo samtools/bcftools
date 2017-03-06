@@ -223,6 +223,7 @@ bcf1_t *process(bcf1_t *rec)
     if ( needs_update && bcf_update_genotypes(args.hdr,rec,args.gt_arr,ngt) )
         error("Could not update GT field at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
 
+    if ( args.mode&MODE_DELETE ) return rec;
     if ( args.mode&MODE_LIST_GOOD ) return has_bad ? NULL : rec;
     if ( args.mode&MODE_LIST_BAD ) return has_bad ? rec : NULL;
 
