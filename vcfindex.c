@@ -48,10 +48,11 @@ static void usage(void)
     fprintf(stderr, "    -m, --min-shift INT      set minimal interval size for CSI indices to 2^INT [14]\n");
     fprintf(stderr, "    -o, --output-file FILE   optional output index file name\n");
     fprintf(stderr, "    -t, --tbi                generate TBI-format index for VCF files\n");
+    fprintf(stderr, "        --threads            sets the number of threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Stats options:\n");
     fprintf(stderr, "    -n, --nrecords       print number of records based on existing index file\n");
-    fprintf(stderr, "    -s, --stats   print per contig stats based on existing index file\n");
+    fprintf(stderr, "    -s, --stats          print per contig stats based on existing index file\n");
     fprintf(stderr, "\n");
     exit(1);
 }

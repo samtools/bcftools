@@ -715,8 +715,8 @@ static void usage(args_t *args)
     fprintf(stderr, "   -D, --remove-duplicates        Alias for -d none\n");
     fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
-    fprintf(stderr, "       --no-version               do not append version and command line to the header\n");
-    fprintf(stderr, "   -n, --naive                    Concatenate BCF files without recompression (dangerous, use with caution)\n");
+    fprintf(stderr, "       --no-version               Do not append version and command line to the header\n");
+    fprintf(stderr, "   -n, --naive                    Concatenate files without recompression (dangerous, use with caution)\n");
     fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");

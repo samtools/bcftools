@@ -38,7 +38,7 @@ transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.
 Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
-work in most, but not all situations. In general, whenever multiple VCFs are 
+work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.
 
 BCFtools is designed to work on a stream. It regards an input file "-" as the
@@ -46,7 +46,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 
 
-=== VERSION 
+=== VERSION
 This manual page was last updated *{date}* and refers to bcftools git version *{version}*.
 
 === BCF1
@@ -195,7 +195,7 @@ specific commands to see if they apply.
     processed in ascending genomic coordinate order no matter what order they
     appear in 'FILE'. Note that overlapping regions in 'FILE' can result in
     duplicated out of order positions in the output.
-    This option requires indexed VCF/BCF files. Note that *-R* cannot be used 
+    This option requires indexed VCF/BCF files. Note that *-R* cannot be used
     in combination with *-r*.
 
 *-s, --samples* \[&#94;]'LIST'::
@@ -204,7 +204,7 @@ specific commands to see if they apply.
     Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
     to correspond to the subset samples. *<<view,bcftools view>>* is the
     exception where some tags will be updated (unless the *-I, --no-update*
-    option is used; see *<<view,bcftools view>>* documentation). To use updated 
+    option is used; see *<<view,bcftools view>>* documentation). To use updated
     tags for the subset in another command one can pipe from *view* into
     that command. For example:
 ----
@@ -233,7 +233,7 @@ specific commands to see if they apply.
     sample2    F
     sample3    F
 
-  or a .ped file (here is shown a minimum working example, the first column is 
+  or a .ped file (here is shown a minimum working example, the first column is
   ignored and the last indicates sex: 1=male, 2=female)
 
     ignored daughterA fatherA motherA 2
@@ -257,7 +257,7 @@ specific commands to see if they apply.
 
     ::
     With the *call -C* 'alleles' command, third column of the targets file must
-    be comma-separated list of alleles, starting with the reference allele. 
+    be comma-separated list of alleles, starting with the reference allele.
     Note that the file must be compressed and index.
     Such a file can be easily created from a VCF using:
 ----
@@ -265,7 +265,7 @@ specific commands to see if they apply.
 ----
 
 *--threads* 'INT'::
-    Number of output compression threads to use in addition to main thread. 
+    Number of output compression threads to use in addition to main thread.
     Only used when '--output-type' is 'b' or 'z'. Default: 0.
 
 
@@ -278,7 +278,7 @@ Add or remove annotations.
     Bgzip-compressed and tabix-indexed file with annotations. The file
     can be VCF, BED, or a tab-delimited file with mandatory columns CHROM, POS
     (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary
-    number of annotation columns. BED files are expected to have 
+    number of annotation columns. BED files are expected to have
     the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
     Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
     one-based and inclusive.  When REF and ALT are present, only matching VCF
@@ -309,7 +309,7 @@ Add or remove annotations.
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
     'list' describes the columns of the annotation file and must include CHROM,
     POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
-    columns which should be ignored can be indicated by "-".   
+    columns which should be ignored can be indicated by "-".
     +
     If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
     order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
@@ -410,14 +410,14 @@ Add or remove annotations.
 
     # Carry over all INFO and FORMAT annotations except FORMAT/GT
     bcftools annotate -a src.bcf -c INFO,^FORMAT/GT dst.bcf
-    
+
     # Annotate from a tab-delimited file with six columns (the fifth is ignored),
     # first indexing with tabix. The coordinates are 1-based.
     tabix -s1 -b2 -e2 annots.tab.gz
     bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,POS,REF,ALT,-,TAG file.vcf
 
     # Annotate from a tab-delimited file with regions (1-based coordinates, inclusive)
-    tabix -s1 -b2 -e3 annots.tab.gz 
+    tabix -s1 -b2 -e3 annots.tab.gz
     bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,FROM,TO,TAG inut.vcf
 
     # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
@@ -704,11 +704,11 @@ if the BCF headers differ.
     see *<<common_options,Common Options>>*
 
 *-n, --naive*::
-    Concatenate BCF files without recompression. This is very fast but requires
-    that all files have the same headers. This is because all tags and
-    chromosome names in the BCF body rely on the implicit order of the contig
-    and tag definitions in the header. Currently no sanity checks
-    are in place and only works for compressed BCF files. Dangerous, use with caution. 
+    Concatenate VCF or BCF files without recompression. This is very fast but requires
+    that all files are of the same type (all VCF or all BCF) and have the same headers.
+    This is because all tags and chromosome names in the BCF body rely on the implicit
+    order of the contig and tag definitions in the header. Currently no sanity checks
+    are in place. Dangerous, use with caution.
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -886,13 +886,13 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *--hapsample* 'prefix' or 'haps-file','sample-file'::
     convert from VCF to haps/sample format used by IMPUTE2 and SHAPEIT.
-    The columns of .haps file begin with ID,RSID,POS,REF,ALT. In order to 
-    prevent strand swaps, the program uses IDs of the form 
+    The columns of .haps file begin with ID,RSID,POS,REF,ALT. In order to
+    prevent strand swaps, the program uses IDs of the form
     "CHROM:POS_REF_ALT".
 
 *--haploid2diploid*::
     with *-h* option converts haploid genotypes to homozygous diploid
-    genotypes. For example, the program will print '0 0' instead of the 
+    genotypes. For example, the program will print '0 0' instead of the
     default '0 -'. This is useful for programs which do not handle haploid
     genotypes correctly.
 
@@ -938,7 +938,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *--haploid2diploid*::
     with *-h* option converts haploid genotypes to homozygous diploid
-    genotypes. For example, the program will print '0 0' instead of the 
+    genotypes. For example, the program will print '0 0' instead of the
     default '0 -'. This is useful for programs which do not handle haploid
     genotypes correctly.
 
@@ -959,7 +959,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *-c, --columns* 'list'::
     comma-separated list of fields in the input file. In the current
-    version, the fields CHROM, POS, ID, and AA are expected and 
+    version, the fields CHROM, POS, ID, and AA are expected and
     can appear in arbitrary order, columns which should be ignored in the input
     file can be indicated by "-".
     The AA field lists alleles on the forward reference strand,
@@ -989,7 +989,7 @@ bcftools convert -c ID,CHROM,POS,AA -s SampleName -f 23andme-ref.fa --tsv2vcf 23
 Haplotype aware consequence predictor which correctly handles combined
 variants such as MNPs split over multiple VCF records, SNPs separated by
 an intron (but adjacent in the spliced transcript) or nearby frame-shifting
-indels which in combination in fact are not frame-shifting. 
+indels which in combination in fact are not frame-shifting.
 
 The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag (configurable
 with the *-c* option). The latter is a bitmask of indexes to INFO/BCSQ, with
@@ -1240,8 +1240,8 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
     reference genotypes to compare against
 
 *-G, --GTs-only* 'INT'::
-    use genotypes (GT) instead of genotype likelihoods (PL). When set to 1, 
-    reported discordance is the number of non-matching GTs, otherwise the 
+    use genotypes (GT) instead of genotype likelihoods (PL). When set to 1,
+    reported discordance is the number of non-matching GTs, otherwise the
     number 'INT' is interpreted as phred-scaled likelihood of unobserved
     genotypes.
 
@@ -1327,14 +1327,17 @@ the CSI first and then the TBI.
 *-t, --tbi*::
     generate TBI-format index for VCF files
 
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
+
 ==== Stats options:
 *-n, --nrecords*::
     print the number of records based on the CSI or TBI index files
 
 *-s, --stats*::
-    Print per contig stats based on the CSI or TBI index files. 
-    Output format is three tab-delimited columns listing the contig 
-    name, contig length ('.' if unknown) and number of records for 
+    Print per contig stats based on the CSI or TBI index files.
+    Output format is three tab-delimited columns listing the contig
+    name, contig length ('.' if unknown) and number of records for
     the contig. Contigs with zero records are not printed.
 
 [[isec]]
@@ -1466,7 +1469,7 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
     merge gVCF blocks, INFO/END tag is expected. If the reference fasta
     file 'FILE' is not given and the dash ('-') is given, unknown reference
     bases generated at gVCF block splits will be substituted with N's.
-    The *--gvcf* option uses the following default INFO rules: 
+    The *--gvcf* option uses the following default INFO rules:
     *-i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max*.
 
 *-i, --info-rules* '-'|'TAG:METHOD'[,...]::
@@ -1474,7 +1477,7 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
     default rules. 'METHOD' is one of 'sum', 'avg', 'min', 'max', 'join'.
     Default is 'DP:sum,DP4:sum' if these fields exist in the input files.
     Fields with no specified rule will take the value from the first input file.
-    The merged QUAL value is currently set to the maximum. This behaviour is 
+    The merged QUAL value is currently set to the maximum. This behaviour is
     not user controllable at the moment.
 
 *-l, --file-list* 'FILE'::
@@ -1513,8 +1516,8 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
 [[mpileup]]
 === bcftools mpileup ['OPTIONS'] *-f* 'ref.fa' 'in.bam' ['in2.bam' [...]]
 Generate VCF or BCF containing genotype likelihoods for one or multiple
-alignment (BAM or CRAM) files. This is based on the original 
-*samtools mpileup* command (with the *-v* or *-g* options) producing 
+alignment (BAM or CRAM) files. This is based on the original
+*samtools mpileup* command (with the *-v* or *-g* options) producing
 genotype likelihoods in VCF or BCF format, but not the textual pileup
 output. The *mpileup* command was transferred to bcftools in order to
 avoid errors resulting from use of incompatible versions of samtools
@@ -1760,11 +1763,11 @@ split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows. Left-alignment and normalization will only be applied if
 the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
-*-c, --check-ref* 'e'|'w'|'x'|'s':: 
-    what to do when incorrect or missing REF allele is encountered: 
+*-c, --check-ref* 'e'|'w'|'x'|'s'::
+    what to do when incorrect or missing REF allele is encountered:
     exit ('e'), warn ('w'), exclude ('x'), or set/fix ('s') bad sites.
     The 'w' option can be combined with 'x' and 's'. Note that 's'
-    can swap alleles and will update genotypes (GT) and AC counts, 
+    can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields.
 
 *-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
@@ -1794,7 +1797,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     see *<<common_options,Common Options>>*
 
 *-N, --do-not-normalize*[[do_not_normalize]]::
-    the '-c s' option can be used to fix or set the REF allele from the 
+    the '-c s' option can be used to fix or set the REF allele from the
     reference '-f'. The '-N' option will not turn on indel normalisation
     as the '-f' option normally implies
 
@@ -1831,7 +1834,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 === bcftools [plugin 'NAME'|+'NAME'] '[OPTIONS]' 'FILE' -- '[PLUGIN OPTIONS]'
 
-A common framework for various utilities. The plugins can be used 
+A common framework for various utilities. The plugins can be used
 the same way as normal commands only their name is prefixed with "+".
 Most plugins accept two types of parameters: general options shared by all
 plugins followed by a separator, and a list of plugin-specific options.  There
@@ -1918,7 +1921,7 @@ By default, appropriate system directories are searched for installed plugins.
 *counts*::
     a minimal plugin which counts number of SNPs, Indels, and total number of sites.
 
-*dosage*:: 
+*dosage*::
     print genotype dosage. By default the plugin searches for PL, GL and GT, in
     that order.
 
@@ -1985,7 +1988,7 @@ cat in.vcf | bcftools +counts
 bcftools +dosage -h
 
 # Replace missing genotypes with 0/0
-bcftools +missing2ref in.vcf 
+bcftools +missing2ref in.vcf
 
 # Replace missing genotypes with 0|0
 bcftools +missing2ref in.vcf -- -p
@@ -2026,13 +2029,13 @@ void destroy(void);
 === bcftools polysomy ['OPTIONS'] 'file.vcf.gz'
 Detect number of chromosomal copies in VCFs annotates with the Illumina's
 B-allele frequency (BAF) values. Note that this command is not compiled
-in by default, see the section *Optional Compilation with GSL* in the INSTALL 
+in by default, see the section *Optional Compilation with GSL* in the INSTALL
 file for help.
 
 ==== General options:
 
 *-o, --output-dir* 'path'::
-    output directory 
+    output directory
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -2061,12 +2064,12 @@ file for help.
 
 *-c, --cn-penalty* 'float'::
     a penalty for increasing copy number state. How this works: multiple peaks
-    are always a better fit than a single peak, therefore the program prefers 
+    are always a better fit than a single peak, therefore the program prefers
     a single peak (normal copy number) unless the absolute deviation of the
     multiple peaks fit is significantly smaller. Here the meaning of
     "significant" is given by the 'float' from the interval [0,1] where
     larger is stricter.
-    
+
 *-f, --fit-th* 'float'::
     threshold for goodness of fit (normalized absolute deviation), smaller is stricter
 
@@ -2211,7 +2214,7 @@ Transition probabilities:
 
   ci  = P_i(C)  .. probability of cross-over at site i, from genetic map
   AZi = P_i(AZ) .. probability of site i being AZ/non-AZ, scaled so that AZi+HWi = 1
-  HWi = P_i(HW) 
+  HWi = P_i(HW)
 
   P_{i+1}(AZ) = oAZ * max[(1 - tAZ * ci) * AZ{i-1} , tAZ * ci * (1-AZ{i-1})]
   P_{i+1}(HW) = oHW * max[(1 - tHW * ci) * (1-AZ{i-1}) , tHW * ci * AZ{i-1}]
@@ -2228,12 +2231,12 @@ Transition probabilities:
     use the specified INFO tag 'TAG' as an allele frequency estimate
     instead of the default AC and AN tags. Sites which do not have 'TAG'
     will be skipped.
-    
+
 *--AF-file* 'FILE'::
     Read allele frequencies from a tab-delimited file containing
     the columns: CHROM\tPOS\tREF,ALT\tAF. The file can be compressed with
     *bgzip* and indexed with tabix -s1 -b2 -e2.  Sites which are not present in
-    the 'FILE' or have different reference or alternate allele will be skipped. 
+    the 'FILE' or have different reference or alternate allele will be skipped.
     Note that such a file can be easily created from a VCF using:
 ----
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\t%INFO/TAG\n' file.vcf | bgzip -c > freqs.tab.gz
@@ -2254,7 +2257,7 @@ Transition probabilities:
     samples ("-") or samples listed in 'FILE' will be included. For example,
     use "PL,-" to estimate AF from FORMAT/PL of all samples.
     If neither *-e* nor the other *--AF-...* options are given, the allele frequency is
-    estimated from AC and AN counts which are already present in the INFO field. 
+    estimated from AC and AN counts which are already present in the INFO field.
 
 *-G, --GTs-only* 'FLOAT'::
     use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
@@ -2320,8 +2323,12 @@ processing and can be plotted using *<<plot-vcfstats,plot-vcfstats>>*.  When two
 the program generates separate stats for intersection and the complements. By
 default only sites are compared, *-s*/*-S* must given to include also sample
 columns.
-When one VCF file is specified on the command line, then stats by non-reference allele frequency, depth distribution, stats by quality and per-sample counts, singleton stats, etc. are printed.
-When two VCF files are given, then stats such as concordance (Genotype concordance by non-reference allele frequency, Genotype concordance by sample, Non-Reference Discordance) and correlation are also printed. Per-site discordance (PSD) is also printed in *--verbose* mode.
+When one VCF file is specified on the command line, then stats by non-reference allele
+frequency, depth distribution, stats by quality and per-sample counts, singleton stats,
+etc. are printed.
+When two VCF files are given, then stats such as concordance (Genotype concordance by
+non-reference allele frequency, Genotype concordance by sample, Non-Reference Discordance)
+and correlation are also printed. Per-site discordance (PSD) is also printed in *--verbose* mode.
 
 *--af-bins* 'LIST'|'FILE'::
     comma separated list of allele frequency bins (e.g. 0.1,0.5,1)
@@ -2441,7 +2448,8 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 ==== Subset options:
 *-a, --trim-alt-alleles*::
-    trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT fields will also be trimmed
+    trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT
+    fields will also be trimmed
 
 *--force-samples*::
     only warn about unknown subset samples
@@ -2458,7 +2466,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 ==== Filter options:
 Note that filter options below dealing with counting the number of alleles
-will, for speed, first check for the values of AC and AN in the INFO column to 
+will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
 that a filter like '--min-af 0.1' will be based `AC/AN' where AC and AN come
 from either INFO/AC and INFO/AN if available or FORMAT/GT if not. It will not
@@ -2468,16 +2476,16 @@ the INFO column, e.g. '--exclude AF<0.1'.
 
 *-c, --min-ac* 'INT'[':nref'|':alt1'|':minor'|':major'|:'nonmajor']::
     minimum allele count (INFO/AC) of sites to be printed.
-    Specifying the type of allele is optional and can be set to 
-    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
-    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    Specifying the type of allele is optional and can be set to
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least
+    frequent ('minor'), the most frequent ('major') or sum of all but the
     most frequent ('nonmajor') alleles.
 
 *-C, --max-ac* 'INT'[':nref'|':alt1'|':minor'|:'major'|:'nonmajor']::
     maximum allele count (INFO/AC) of sites to be printed.
-    Specifying the type of allele is optional and can be set to 
-    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
-    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    Specifying the type of allele is optional and can be set to
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least
+    frequent ('minor'), the most frequent ('major') or sum of all but the
     most frequent ('nonmajor') alleles.
 
 *-e, --exclude* 'EXPRESSION'::
@@ -2503,7 +2511,8 @@ the INFO column, e.g. '--exclude AF<0.1'.
     print sites with at least 'INT' alleles listed in REF and ALT columns
 
 *-M, --max-alleles* 'INT'::
-    print sites with at most 'INT' alleles listed in REF and ALT columns. Use *-m2 -M2 -v snps* to only view biallelic SNPs.
+    print sites with at most 'INT' alleles listed in REF and ALT columns.
+    Use *-m2 -M2 -v snps* to only view biallelic SNPs.
 
 *-n, --novel*::
     print novel sites only (ID column is ".")
@@ -2518,16 +2527,16 @@ the INFO column, e.g. '--exclude AF<0.1'.
 
 *-q, --min-af* 'FLOAT'[':nref'|':alt1'|':minor'|':major'|':nonmajor']::
     minimum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
-    Specifying the type of allele is optional and can be set to 
-    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
-    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    Specifying the type of allele is optional and can be set to
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least
+    frequent ('minor'), the most frequent ('major') or sum of all but the
     most frequent ('nonmajor') alleles.
 
 *-Q, --max-af* 'FLOAT'[':nref'|':alt1'|':minor'|':major'|':nonmajor']::
     maximum allele frequency (INFO/AC / INFO/AN) of sites to be printed.
-    Specifying the type of allele is optional and can be set to 
-    non-reference ('nref', the default), 1st alternate  ('alt1'), the least 
-    frequent ('minor'), the most frequent ('major') or sum of all but the 
+    Specifying the type of allele is optional and can be set to
+    non-reference ('nref', the default), 1st alternate  ('alt1'), the least
+    frequent ('minor'), the most frequent ('major') or sum of all but the
     most frequent ('nonmajor') alleles.
 
 *-u, --uncalled*::
@@ -2537,16 +2546,16 @@ the INFO column, e.g. '--exclude AF<0.1'.
     exclude sites without a called genotype
 
 *-v, --types* 'snps'|'indels'|'mnps'|'other'::
-    comma-separated list of variant types to select. Site is selected if 
-    any of the ALT alleles is of the type requested. Types are determined 
-    by comparing the REF and ALT alleles in the VCF record not INFO tags 
-    like INFO/INDEL or INFO/VT. Use *--include* to select based on INFO 
+    comma-separated list of variant types to select. Site is selected if
+    any of the ALT alleles is of the type requested. Types are determined
+    by comparing the REF and ALT alleles in the VCF record not INFO tags
+    like INFO/INDEL or INFO/VT. Use *--include* to select based on INFO
     tags.
 
 *-V, --exclude-types* 'snps'|'indels'|'mnps'|'other'::
-    comma-separated list of variant types to exclude. Site is excluded if 
-    any of the ALT alleles is of the type requested. Types are determined 
-    by comparing the REF and ALT alleles in the VCF record not INFO tags 
+    comma-separated list of variant types to exclude. Site is excluded if
+    any of the ALT alleles is of the type requested. Types are determined
+    by comparing the REF and ALT alleles in the VCF record not INFO tags
     like INFO/INDEL or INFO/VT. Use *--exclude* to exclude based on INFO tags.
 
 *-x, --private*::
@@ -2558,11 +2567,14 @@ the INFO column, e.g. '--exclude AF<0.1'.
 
 [[help]]
 === bcftools help ['COMMAND'] | bcftools --help ['COMMAND']
-Display  a  brief usage message listing the bcftools commands available.  If the name of a command is also given, e.g., bcftools help view, the detailed usage message for that particular command is displayed.
+Display  a  brief usage message listing the bcftools commands available.
+If the name of a command is also given, e.g., bcftools help view, the detailed
+usage message for that particular command is displayed.
 
 [[version]]
 === bcftools ['--version'|'-v']
-Display the version numbers and copyright information for bcftools and the important libraries used by bcftools.
+Display the version numbers and copyright information for bcftools and the
+important libraries used by bcftools.
 
 [[version-only]]
 === bcftools ['--version-only']
@@ -2627,7 +2639,7 @@ using these expressions
 * missing genotypes can be matched including the phase and ploidy (".|.", "./.", ".")
 using these expressions
 
-        GT=".|.", GT="./.", GT="." 
+        GT=".|.", GT="./.", GT="."
 
 * TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
