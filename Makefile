@@ -1,6 +1,6 @@
 # Makefile for bcftools, utilities for Variant Call Format VCF/BCF files.
 #
-#   Copyright (C) 2012-2016 Genome Research Ltd.
+#   Copyright (C) 2012-2017 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -132,14 +132,13 @@ PLUGINM = $(PLUGINC:.c=.mk)
 
 ifeq "$(shell uname -s)" "Darwin"
 $(PLUGINS): | bcftools
-
 PLUGIN_FLAGS = -bundle -bundle_loader bcftools
 else
 PLUGIN_FLAGS = -fPIC -shared
 endif
 
 %.so: %.c version.h version.c
-	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(EXTRA_CPPFLAGS) $(ALL_CPPFLAGS) $(ALL_LDFLAGS) -o $@ version.c $< $(ALL_LIBS)
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(LIBS)
 
 -include $(PLUGINM)
 
@@ -154,23 +153,22 @@ tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h)
 filter_h = filter.h $(htslib_vcf_h)
 ploidy_h = ploidy.h regidx.h
 prob1_h = prob1.h $(htslib_vcf_h) $(call_h)
-roh_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kstring.h $(HTSDIR)/htslib/kseq.h $(bcftools_h)
+roh_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kstring_h) $(htslib_kseq_h) $(bcftools_h)
 cnv_h = HMM.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h)
 bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
-sam_h = sam.h $(htslib_sam_h) $(bam_h)
 bam_sample_h = bam_sample.h $(htslib_sam_h)
 
 main.o: main.c $(htslib_hts_h) version.h $(bcftools_h)
-vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
-vcfplugin.o: vcfplugin.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h) vcmp.h $(filter_h)
-vcfcall.o: vcfcall.c $(htslib_vcf_h) $(HTSDIR)/htslib/kfunc.h $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/khash_str2int.h $(bcftools_h) $(call_h) $(prob1_h) $(ploidy_h)
-vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(HTSDIR)/htslib/kseq.h $(htslib_bgzf_h) $(htslib_tbx_h) $(bcftools_h)
+vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(bcftools_h) vcmp.h $(filter_h)
+vcfplugin.o: vcfplugin.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(bcftools_h) vcmp.h $(filter_h)
+vcfcall.o: vcfcall.c $(htslib_vcf_h) $(htslib_kfunc_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_str2int_h) $(bcftools_h) $(call_h) $(prob1_h) $(ploidy_h)
+vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(bcftools_h)
 vcfconvert.o: vcfconvert.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) $(convert_h) $(tsv2vcf_h)
 vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h
 vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) hclust.h
-vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h) $(HTSDIR)/htslib/kstring.h
+vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h) $(htslib_kstring_h)
 vcfisec.o: vcfisec.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h)
-vcfmerge.o: vcfmerge.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) regidx.h $(bcftools_h) vcmp.h $(HTSDIR)/htslib/khash.h
+vcfmerge.o: vcfmerge.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) regidx.h $(bcftools_h) vcmp.h $(htslib_khash_h)
 vcfnorm.o: vcfnorm.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_faidx_h) $(bcftools_h) rbuf.h
 vcfquery.o: vcfquery.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) $(convert_h)
 vcfroh.o: vcfroh.c $(roh_h)
@@ -178,26 +176,26 @@ vcfcnv.o: vcfcnv.c $(cnv_h)
 vcfsom.o: vcfsom.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
 vcfstats.o: vcfstats.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) $(bcftools_h) $(filter_h) $(bin_h)
 vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h)
-reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(HTSDIR)/htslib/kseq.h $(bcftools_h)
+reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_kseq_h) $(bcftools_h)
 tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
-ccall.o: ccall.c $(HTSDIR)/htslib/kfunc.h $(call_h) kmin.h $(prob1_h)
+ccall.o: ccall.c $(htslib_kfunc_h) $(call_h) kmin.h $(prob1_h)
 convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(convert_h)
 tsv2vcf.o: tsv2vcf.c $(tsv2vcf_h)
 em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)
-filter.o: filter.c $(HTSDIR)/htslib/khash_str2int.h $(filter_h) $(bcftools_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h)
+filter.o: filter.c $(htslib_khash_str2int_h) $(filter_h) $(bcftools_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h)
 gvcf.o: gvcf.c gvcf.h $(call_h)
 kmin.o: kmin.c kmin.h
-mcall.o: mcall.c $(HTSDIR)/htslib/kfunc.h $(call_h)
+mcall.o: mcall.c $(htslib_kfunc_h) $(call_h)
 prob1.o: prob1.c $(prob1_h)
 vcmp.o: vcmp.c $(htslib_hts_h) vcmp.h
-ploidy.o: ploidy.c regidx.h $(HTSDIR)/htslib/khash_str2int.h $(HTSDIR)/htslib/kseq.h $(htslib_hts_h) $(bcftools_h) $(ploidy_h)
+ploidy.o: ploidy.c regidx.h $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_hts_h) $(bcftools_h) $(ploidy_h)
 polysomy.o: polysomy.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(bcftools_h) peakfit.h
-peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(HTSDIR)/htslib/kstring.h
+peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(htslib_kstring_h)
 bin.o: bin.c $(bin_h)
 regidx.o: regidx.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) regidx.h
-consensus.o: consensus.c $(htslib_hts_h) $(HTSDIR)/htslib/kseq.h rbuf.h $(bcftools_h) regidx.h
+consensus.o: consensus.c $(htslib_hts_h) $(htslib_kseq_h) rbuf.h $(bcftools_h) regidx.h
 mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) regidx.h $(bcftools_h) $(call_h) $(bam2bcf_h) $(bam_sample_h)
-bam_sample.o: $(bam_sample_h) $(htslib_hts_h) $(HTSDIR)/htslib/khash_str2int.h
+bam_sample.o: $(bam_sample_h) $(htslib_hts_h) $(htslib_khash_str2int_h)
 version.o: version.h version.c
 hclust.o: hclust.c hclust.h
 smpl_ilist.o: smpl_ilist.c smpl_ilist.h
@@ -214,7 +212,7 @@ test/test-regidx: test/test-regidx.o regidx.o $(HTSLIB)
 	$(CC) $(ALL_LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread $(HTSLIB_LIBS) $(ALL_LIBS)
 
 bcftools: $(HTSLIB) $(OBJS)
-	$(CC) $(DYNAMIC_FLAGS) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread $(HTSLIB_LIBS) $(GSL_LIBS) $(ALL_LIBS)
+	$(CC) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB) -lpthread $(HTSLIB_LIBS) $(GSL_LIBS) $(ALL_LIBS)
 
 doc/bcftools.1: doc/bcftools.txt
 	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
