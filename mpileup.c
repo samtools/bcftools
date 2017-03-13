@@ -1076,7 +1076,7 @@ int bam_mpileup(int argc, char *argv[])
         return 1;
     }
     if (!mplp.fai && !noref) {
-        fprintf(stderr,"Error: mpileup requires the --reference option by default; use --no-reference to run without a fasta reference\n");
+        fprintf(stderr,"Error: mpileup requires the --fasta-ref option by default; use --no-reference to run without a fasta reference\n");
         return 1;
     }
     int ret,i;
