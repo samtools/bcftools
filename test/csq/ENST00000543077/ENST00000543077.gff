@@ -1,0 +1,7 @@
+12	ensembl_havana	gene	1	17460	.	-	.	ID=gene:ENSG00000111241;Name=FGF6;biotype=protein_coding;description=fibroblast growth factor 6 [Source:HGNC Symbol%3BAcc:3684];gene_id=ENSG00000111241;logic_name=ensembl_havana_gene;version=2
+12	ensembl_havana	transcript	2	16065	.	-	.	ID=transcript:ENST00000543077;Parent=gene:ENSG00000111241;Name=FGF6-002;biotype=protein_coding;havana_transcript=OTTHUMT00000398938;havana_version=1;transcript_id=ENST00000543077;version=1
+12	havana	three_prime_UTR	2	240	.	-	.	Parent=transcript:ENST00000543077
+12	havana	exon	2	249	.	-	.	Parent=transcript:ENST00000543077;Name=ENSE00002242290;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002242290;rank=2;version=1
+12	havana	CDS	241	249	.	-	0	ID=CDS:ENSP00000445479;Parent=transcript:ENST00000543077;protein_id=ENSP00000445479
+12	havana	exon	15979	16065	.	-	.	Parent=transcript:ENST00000543077;Name=ENSE00002260911;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00002260911;rank=1;version=1
+12	havana	CDS	15979	16065	.	-	0	ID=CDS:ENSP00000445479;Parent=transcript:ENST00000543077;protein_id=ENSP00000445479

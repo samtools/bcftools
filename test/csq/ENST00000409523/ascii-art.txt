@@ -1,0 +1,30 @@
+
+
+                18990     19000               37744      37755     37767
+                eeeeeeeeeeeiiiiiiiiii   ...   ..eeeeeeeeeeeeeeu....uuuuu
+GTGGCAGGTTGGTCCTTAAAGGGATATCTACAAGAGA   ...       TCCAGGAGCCAT
+GTGGCAGGTTGGTCCTT----------------GAGA             C
+
+
+CDS 268     344         ..  77
+CDS 9418    9499            82  .. 159
+CDS 15262   15299           38  .. 197
+CDS 18950   19000           51  .. 248
+CDS 37623   37755           133 .. 381
+
+
+GTGGCAGGTTGGTCCTTAAAGGGATATCTACAAGAGAAAGATTATTTTTTTACACAA
+GTGGCAGGTTGGTCCTT----------------GAGAAAGATTATTTTTTTACACAA
+GTGGCAGGTTGGTCCTTGAGAAAGATTATTTTTTTACACAA----------------
+                 1234567890
+                eeeeeeeeeeeiiiiiiiiii   ...   ..eeeeeeeeeeeeeeu....uuuuu
+                           12345678
+
+xx: 
+    CTACAAGA 
+    GAGAAAGA
+
+a1: (null)  aoff=11
+a2: (null)
+a3: GAGAAAGA
+

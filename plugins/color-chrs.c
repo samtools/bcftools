@@ -456,6 +456,7 @@ void flush_viterbi(args_t *args)
         s3 = bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,args->ifather);
         s2 = bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,args->ichild);
     }
+    else abort();
 
     if ( !args->fp )
     {

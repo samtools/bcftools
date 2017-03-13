@@ -1,0 +1,8 @@
+8	ensembl_havana	gene	1	272897	.	-	.	ID=gene:ENSG00000076554;Name=TPD52;biotype=protein_coding;description=tumor protein D52 [Source:HGNC Symbol%3BAcc:12005];gene_id=ENSG00000076554;logic_name=ensembl_havana_gene;version=11
+8	ensembl_havana	transcript	94944	213048	.	-	.	ID=transcript:ENST00000520795;Parent=gene:ENSG00000076554;Name=TPD52-012;biotype=protein_coding;havana_transcript=OTTHUMT00000379392;havana_version=1;transcript_id=ENST00000520795;version=1
+8	havana	exon	94944	95095	.	-	.	Parent=transcript:ENST00000520795;Name=ENSE00002095249;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002095249;rank=3;version=1
+8	havana	CDS	94944	95095	.	-	0	ID=CDS:ENSP00000430865;Parent=transcript:ENST00000520795;protein_id=ENSP00000430865
+8	havana	exon	106143	106258	.	-	.	Parent=transcript:ENST00000520795;Name=ENSE00003683821;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00003683821;rank=2;version=1
+8	havana	CDS	106143	106258	.	-	2	ID=CDS:ENSP00000430865;Parent=transcript:ENST00000520795;protein_id=ENSP00000430865
+8	havana	exon	212872	213048	.	-	.	Parent=transcript:ENST00000520795;Name=ENSE00002102583;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00002102583;rank=1;version=1
+8	havana	CDS	212872	213048	.	-	2	ID=CDS:ENSP00000430865;Parent=transcript:ENST00000520795;protein_id=ENSP00000430865

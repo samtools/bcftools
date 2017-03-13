@@ -1,0 +1,7 @@
+           
+        5507  
+ref  CTTG.CT
+alt  CTTG.CCT   <-- this one is correct
+     CTTGC.CT
+     iiii.eeeee
+

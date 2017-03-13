@@ -1,0 +1,19 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples with data">
+##INFO=<ID=AC_Hom,Number=A,Type=Integer,Description="Allele counts in homozygous genotypes">
+##INFO=<ID=AC_Het,Number=A,Type=Integer,Description="Allele counts in heterozygous genotypes">
+##INFO=<ID=AC_Hemi,Number=A,Type=Integer,Description="Allele counts in hemizygous genotypes">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+##INFO=<ID=MAF,Number=A,Type=Float,Description="Minor Allele frequency">
+##INFO=<ID=HWE,Number=A,Type=Float,Description="HWE test (PMID:15789306)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3177144	.	G	T,A	45	PASS	NS=2;AN=2;AF=0.5,0.5;MAF=0.5,0.5;AC=1,1;AC_Het=0,0;AC_Hom=0,0;AC_Hemi=1,1;HWE=1,1	GT	1	2
+1	3177144	.	G	T	45	PASS	NS=2;AN=2;AF=0.5;MAF=0.5;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=0;HWE=1	GT	0/.	1/.
+1	3177144	.	G	T	45	PASS	NS=2;AN=2;AF=0.5;MAF=0.5;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=0;HWE=1	GT	./0	./1
+1	3177144	.	G	T	45	PASS	NS=1;AN=1;AF=1;MAF=0;AC=1;AC_Het=0;AC_Hom=0;AC_Hemi=0;HWE=1	GT	./.	./1

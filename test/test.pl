@@ -30,13 +30,12 @@ use FindBin;
 use lib "$FindBin::Bin";
 use Getopt::Long;
 use File::Temp qw/ tempfile tempdir /;
+use Cwd qw/ abs_path /;
 
 my $opts = parse_params();
-
 test_usage($opts,cmd=>'bcftools');
 test_tabix($opts,in=>'merge.a',reg=>'2:3199812-3199812',out=>'tabix.2.3199812.out');
 test_tabix($opts,in=>'merge.a',reg=>'1:3000151-3000151',out=>'tabix.1.3000151.out');
-test_tabix($opts,in=>'large_chrom_tbi_limit',reg=>'chr11:1-536870912',out=>'large_chrom_tbi_limit.20.1.536870912.out'); # 536870912 (1<<29) is the current limit for tbi. cannot retrieve regions larger than that
 test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20:1-2147483647',out=>'large_chrom_csi_limit.20.1.2147483647.out'); # 2147483647 (1<<31-1) is the current chrom limit for csi. bcf conversion and indexing fail above this
 test_index($opts,in=>'large_chrom_csi_limit',reg=>'chr20',out=>'large_chrom.20.1.2147483647.out'); # this fails until bug resolved
 test_vcf_idxstats($opts,in=>'idx',args=>'-s',out=>'idx.out');
@@ -46,6 +45,7 @@ test_vcf_idxstats($opts,in=>'empty',args=>'-n',out=>'empty.idx_count.out');
 test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_check_merge($opts,in=>'check',out=>'check_merge.chk');
 test_vcf_stats($opts,in=>['stats.a','stats.b'],out=>'stats.chk',args=>'-s -');
+test_vcf_stats($opts,in=>['stats.a','stats.b'],out=>'stats.B.chk',args=>'-s B');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.flt.out',args=>'-n =2 -i"STRLEN(REF)==2"');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -53,11 +53,16 @@ test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.any.out',args=>'-n =2 
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.C.out',args=>'-C -c any');
 test_vcf_isec2($opts,vcf_in=>['isec.a'],tab_in=>'isec',out=>'isec.tab.out',args=>'');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.out',args=>'--force-samples');
+test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.2.out',args=>'--force-samples -Fx');
+test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.3.out',args=>'--force-samples -0');
 test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.none.out',args=>'--force-samples -m none');
 test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.both.out',args=>'--force-samples -m both');
 test_vcf_merge($opts,in=>['merge.2.a','merge.2.b'],out=>'merge.2.all.out',args=>'--force-samples -m all');
 test_vcf_merge($opts,in=>['merge.3.a','merge.3.b'],out=>'merge.3.out',args=>'--force-samples -i TR:sum,TA:sum,TG:sum');
 test_vcf_merge($opts,in=>['merge.4.a','merge.4.b'],out=>'merge.4.out',args=>'--force-samples -m id');
+test_vcf_merge($opts,in=>['gvcf.merge.1','gvcf.merge.2','gvcf.merge.3'],out=>'gvcf.merge.1.out',args=>'--gvcf -');
+test_vcf_merge($opts,in=>['merge.gvcf.2.a','merge.gvcf.2.b','merge.gvcf.2.c'],out=>'merge.gvcf.2.out',args=>'--gvcf -');
+test_vcf_merge($opts,in=>['merge.5.a','merge.5.b'],out=>'merge.5.out');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i'XRI[*]>1111']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.3.out',args=>q[-f'%XRF\\n' -i'XRF[*]=2e6']);
@@ -94,7 +99,17 @@ test_vcf_query($opts,in=>'missing',out=>'query.22.out',args=>q[-i'ISTR="."'  -f'
 test_vcf_query($opts,in=>'missing',out=>'query.23.out',args=>q[-i'ISTR!="."' -f'%POS %ISTR\\n']);
 test_vcf_query($opts,in=>'missing',out=>'query.23.out',args=>q[-e'ISTR="."'  -f'%POS %ISTR\\n']);
 test_vcf_query($opts,in=>'missing',out=>'query.22.out',args=>q[-e'ISTR!="."' -f'%POS %ISTR\\n']);
-test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm');
+test_vcf_query($opts,in=>'missing',out=>'query.24.out',args=>q[-i'FILTER="q11"' -f'%POS %ISTR\\n']);
+test_vcf_query($opts,in=>'query',out=>'query.25.out',args=>q[-f'%LINE']);
+test_vcf_query($opts,in=>'query.filter-type',out=>'query.26.out',args=>q[-f'%POS\\t%REF\\t%ALT\\n' -i'type="snp"']);
+test_vcf_query($opts,in=>'query.filter-type',out=>'query.27.out',args=>q[-f'%POS\\t%REF\\t%ALT\\n' -i'type~"snp"']);
+test_vcf_query($opts,in=>'query.filter-type',out=>'query.28.out',args=>q[-f'%POS\\t%REF\\t%ALT\\n' -i'type!="snp"']);
+test_vcf_query($opts,in=>'query.filter-type',out=>'query.29.out',args=>q[-f'%POS\\t%REF\\t%ALT\\n' -i'type!~"snp"']);
+test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.30.out',args=>q[-f'%POS\\t%A_AF\\t%B_AF\\t%C_AF\\n' -i'A_AF>=0.0001 || B_AF >= 0.0001 || C_AF >= 0.0001']);
+test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.31.out',args=>q[-f'%POS\\t%A_AF\\t%B_AF\\t%C_AF\\n' -e'A_AF>=0.0001 || B_AF >= 0.0001 || C_AF >= 0.0001']);
+test_vcf_query($opts,in=>'missing',out=>'query.32.out',args=>q[-i'FMT/FINT!="."' -f'[\t%FINT]\\n']);
+test_vcf_query($opts,in=>'query.filter.2',out=>'query.33.out',args=>q[-f'[%GT]\\n' -i'GT~"0/[1-9]" || GT~"[1-9]/0"']);
+test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split',fai=>'norm',out=>'norm.split.and.norm.out',args=>'-m-');
@@ -121,6 +136,7 @@ test_vcf_view($opts,in=>'view.omitgenotypes',out=>'view.dropgenotypes.noheader.o
 test_vcf_view($opts,in=>'many.alleles',out=>'many.alleles.trim.out',args=>'-a',reg=>'');
 test_vcf_view($opts,in=>'view.vectors',out=>'view.vectors.A.out',args=>'-asA',reg=>'');
 test_vcf_view($opts,in=>'view.vectors',out=>'view.vectors.B.out',args=>'-asB',reg=>'');
+test_vcf_view($opts,in=>'view.vectors.2',out=>'view.vectors.C.out',args=>'-asA',reg=>'');
 test_vcf_view($opts,in=>'view.filter',out=>'view.filter.1.out',args=>q[-H -i'FMT/FGS[0]="AAAAAA"'],reg=>'');    # test expressions
 test_vcf_view($opts,in=>'view.filter',out=>'view.filter.2.out',args=>q[-H -i'FMT/FGS[2]="C"'],reg=>'');
 test_vcf_view($opts,in=>'view.filter',out=>'view.filter.3.out',args=>q[-H -i'FMT/FGS[4]="EE"'],reg=>'');
@@ -144,11 +160,13 @@ test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mg0');
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.samples');
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.ped');
+test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.2.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.2.samples');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_call($opts,in=>'mpileup.c',out=>'mpileup.c.1.out',args=>'-cv');
 # test_vcf_call($opts,in=>'mpileup.c',out=>'mpileup.c.2.out',args=>'-cg0');
 test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.samples');
 test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.ped');
+test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.2.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.2.samples');
 test_vcf_filter($opts,in=>'filter.1',out=>'filter.1.out',args=>'-mx -g2 -G2');
 test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'QUAL==59.2 || (INDEL=0 & (FMT/GQ=25 | FMT/DP=10))' -sModified -S.]);
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.3.out',args=>q[-e'DP=19'],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
@@ -177,18 +195,26 @@ test_vcf_annotate($opts,in=>'annotate3',out=>'annotate7.out',args=>'-x FORMAT');
 test_vcf_annotate($opts,in=>'annotate4',vcf=>'annots4',out=>'annotate8.out',args=>'-c +INFO');
 test_vcf_annotate($opts,in=>'annotate4',tab=>'annots4',out=>'annotate8.out',args=>'-c CHROM,POS,REF,ALT,+FA,+FR,+IA,+IR,+SA,+SR');
 test_vcf_annotate($opts,in=>'annotate10',tab=>'annots10',out=>'annotate10.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate11.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR -s A');
+test_vcf_annotate($opts,in=>'annotate2',tab=>'annots11',out=>'annotate11.out',args=>'-c CHROM,POS,FMT/FINT,FMT/FFLT,FMT/FSTR -s A');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate12.out',args=>'-c AAA:=IINT,FMT/BBB:=FMT/FINT');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate13.out',args=>'-x INFO -c INFO/IINT');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
+test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
 test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args=>'-c CHROM,POS,REF,ALT,+ID');
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'dosage.out',cmd=>'+dosage');
 test_vcf_plugin($opts,in=>'fixploidy',out=>'fixploidy.out',cmd=>'+fixploidy --no-version',args=>'-- -s {PATH}/fixploidy.samples -p {PATH}/fixploidy.ploidy');
-test_vcf_plugin($opts,in=>'vcf2sex',out=>'vcf2sex.out',cmd=>'+vcf2sex',args=>'-- -n 5');
-test_vcf_plugin($opts,in=>'vcf2sex',out=>'vcf2sex.out',cmd=>'+vcf2sex',args=>'-- -g GT');
-test_vcf_plugin($opts,in=>'vcf2sex',out=>'vcf2sex.out',cmd=>'+vcf2sex',args=>'-- -g GT -n 5');
+test_vcf_plugin($opts,in=>'view.PL',out=>'guess-ploidy.PL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
+test_vcf_plugin($opts,in=>'view.GL',out=>'guess-ploidy.GL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view.GL',out=>'view.PL.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gl-to-pl');
+test_vcf_plugin($opts,in=>'view.GP',out=>'view.GT.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gp-to-gt -t 0.2');
 test_vcf_plugin($opts,in=>'merge.a',out=>'fill-tags.out',cmd=>'+fill-tags --no-version',args=>'-- -t AN,AC,AC_Hom,AC_Het,AC_Hemi');
-test_vcf_plugin($opts,in=>'view',out=>'fill-tags.2.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,NS');
+test_vcf_plugin($opts,in=>'view',out=>'fill-tags.2.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,MAF,NS');
+test_vcf_plugin($opts,in=>'view',out=>'fill-tags.3.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC -S {PATH}/fill-tags.3.smpl');
+test_vcf_plugin($opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.1.out',cmd=>'+fill-tags --no-version');
+test_vcf_plugin($opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.2.out',cmd=>'+fill-tags --no-version',args=>'-- -d');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.out',cmd=>'+GTisec',args=>' | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.H.out',cmd=>'+GTisec',args=>'-- -H | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.Hm.out',cmd=>'+GTisec',args=>'-- -Hm | grep -v bcftools');
@@ -197,6 +223,18 @@ test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.Hv.out',cmd=>'+GTisec',args=>
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.m.out',cmd=>'+GTisec',args=>'-- -m | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.mv.out',cmd=>'+GTisec',args=>'-- -mv | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.v.out',cmd=>'+GTisec',args=>'-- -v | grep -v bcftools');
+test_vcf_plugin($opts,in=>'trio',out=>'trio.out',cmd=>'+trio-switch-rate',args=>'-- -p {PATH}/trio.ped | grep -v bcftools');
+test_vcf_plugin($opts,in=>'ad-bias',out=>'ad-bias.out',cmd=>'+ad-bias',args=>'-- -s {PATH}/ad-bias.samples | grep -v bcftools');
+test_vcf_plugin($opts,in=>'af-dist',out=>'af-dist.out',cmd=>'+af-dist',args=>' | grep -v bcftools');
+test_vcf_plugin($opts,in=>'fixref',out=>'fixref.1.out',cmd=>'+fixref',args=>'-- -f {PATH}/norm.fa -m top');
+test_vcf_plugin($opts,in=>'aa',out=>'aa.out',cmd=>'+fill-from-fasta',args=>'-- -f {PATH}/aa.fa -c AA -h {PATH}/aa.hdr -i \'TYPE="snp"\'');
+test_vcf_plugin($opts,in=>'ref',out=>'ref.out',cmd=>'+fill-from-fasta',args=>'-- -f {PATH}/norm.fa -c REF');
+test_vcf_plugin($opts,in=>'view',out=>'view.GTsubset.NA1.out',cmd=>'+GTsubset --no-version',args=>'-- -s NA00001');
+test_vcf_plugin($opts,in=>'view',out=>'view.GTsubset.NA1NA2.out',cmd=>'+GTsubset --no-version',args=>'-- -s NA00001,NA00002');
+test_vcf_plugin($opts,in=>'view',out=>'view.GTsubset.NA1NA2NA3.out',cmd=>'+GTsubset --no-version',args=>'-- -s NA00001,NA00002,NA00003');
+test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.1.out',cmd=>'+mendelian --no-version',args=>'-- -t mom1,dad1,child1 -d');
+test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.2.out',cmd=>'+mendelian --no-version',args=>'-- -t mom1,dad1,child1 -l+');
+test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.3.out',cmd=>'+mendelian --no-version',args=>'-- -t mom1,dad1,child1 -lx');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
@@ -205,6 +243,7 @@ test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.vcf.out',do
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.bcf.out',do_bcf=>1,args=>'-aD');
 test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-l');
 test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-l');
+test_naive_concat($opts,name=>'naive_concat',max_hdr_lines=>10000,max_body_lines=>10000,nfiles=>10);
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');
@@ -242,6 +281,25 @@ test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.4.chain',chain=>'
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.1.out',fa=>'consensus2.fa',args=>'-H 1');
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.2.out',fa=>'consensus2.fa',args=>'-H 2');
 test_vcf_consensus($opts,in=>'empty',out=>'consensus.5.out',fa=>'consensus.fa',args=>'');
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.4.out',args=>q[-a DP,DPR,DV,DP4,INFO/DPR,SP -r17:100-600]); #test files from samtools mpileup test suite
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.5.out',args=>q[-a DP,AD,ADF,ADR,SP,INFO/AD,INFO/ADF,INFO/ADR -r17:100-600]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV -r17:100-600 --gvcf 0,2,5]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.6.out',args=>q[-a DP,DV -r17:100-200,17:201-300,17:301-400,17:401-500,17:501-600 --gvcf 0,2,5]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -s HG00101,HG00102]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.7.out',args=>q[-r17:100-150 -S {PATH}/mplp.samples]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.8.out',args=>q[-r17:100-150 -s ^HG00101,HG00102]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.8.out',args=>q[-r17:100-150 -S ^{PATH}/mplp.samples]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.9.out',args=>q[-t17:100-150 -S {PATH}/mplp.9.samples]);
+test_mpileup($opts,in=>[qw(1 2 3)],out=>'mpileup/mpileup.10.out',args=>q[-t17:100-150 -G {PATH}/mplp.10.samples]);
+test_mpileup($opts,in=>[qw(3)],out=>'mpileup/mpileup.11.out',args=>q[]);
+test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-s HG00102]);
+test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-s ^HG99999]);
+test_mpileup($opts,in=>[qw(3 4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
+test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
+test_csq_real($opts,in=>'csq');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -347,20 +405,27 @@ sub test_cmd
         }
     }
     my $exp = '';
-    if ( open(my $fh,'<',"$$opts{path}/$args{out}") )
+    if ( exists($args{exp}) ) { $exp = $args{exp}; }
+    elsif ( open(my $fh,'<',"$$opts{path}/$args{out}") )
     {
         my @exp = <$fh>;
         $exp = join('',@exp);
         close($fh);
     }
-    elsif ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}: $!"); return; }
+    else
+    {
+        open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new: $!");
+        print $fh $out;
+        close($fh);
+        if ( !$$opts{redo_outputs} ) { failed($opts,$test,"$$opts{path}/$args{out}.new"); return; }
+    }
 
     if ( $exp ne $out )
     {
         open(my $fh,'>',"$$opts{path}/$args{out}.new") or error("$$opts{path}/$args{out}.new");
         print $fh $out;
         close($fh);
-        if ( !-e "$$opts{path}/$args{out}" )
+        if ( !-e "$$opts{path}/$args{out}" && !exists($args{exp}) )
         {
             rename("$$opts{path}/$args{out}.new","$$opts{path}/$args{out}") or error("rename $$opts{path}/$args{out}.new $$opts{path}/$args{out}: $!");
             print "\tthe file with expected output does not exist, creating new one:\n";
@@ -368,6 +433,12 @@ sub test_cmd
         }
         else
         {
+            if ( exists($args{exp}) )
+            {
+                open(my $fh,'>',"$$opts{path}/$args{out}") or error("$$opts{path}/$args{out}");
+                print $fh $exp;
+                close($fh);
+            }
             failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new");
         }
         return;
@@ -436,6 +507,18 @@ sub test_index
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
+
+    # output path
+    unlink("$$opts{tmp}/$args{in}.bcf.csi", "$$opts{tmp}/$args{in}.bcf.csi", "$$opts{tmp}/$args{in}.vcf.gz.tbi");
+    cmd("$$opts{bin}/bcftools index -fo $$opts{tmp}/$args{in}.csi $$opts{tmp}/$args{in}.bcf");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
+
+    # streaming
+    cmd("$$opts{bin}/bcftools view -Oz $$opts{path}/$args{in}.vcf | tee $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools index -fo $$opts{tmp}/$args{in}.vcf.gz.csi");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.vcf.gz $args{reg}");
+
+    cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$args{in}.vcf | tee $$opts{tmp}/$args{in}.bcf | $$opts{bin}/bcftools index -fo $$opts{tmp}/$args{in}.bcf.csi");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -H $$opts{tmp}/$args{in}.bcf $args{reg}");
 }
 
@@ -779,12 +862,13 @@ sub test_vcf_plugin
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
     if ( !exists($args{args}) ) { $args{args} = ''; }
     $args{args} =~ s/{PATH}/$$opts{path}/g;
+    $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
     bgzip_tabix_vcf($opts,"$args{in}");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args}");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.vcf.gz $args{args} 2>/dev/null | grep -v ^##bcftools_");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools $args{cmd} $$opts{tmp}/$args{in}.bcf $args{args} 2>/dev/null | grep -v ^##bcftools_");
 }
 sub test_vcf_concat
 {
@@ -852,5 +936,145 @@ sub test_vcf_consensus_chain
     my $mask = $args{mask} ? "-m $$opts{path}/$args{mask}" : '';
     my $chain = $args{chain} ? "-c $$opts{tmp}/$args{chain}.new" : '';
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools consensus $$opts{tmp}/$args{in}.vcf.gz -f $$opts{path}/$args{fa} $args{args} $mask $chain > /dev/null 2>/dev/null; cat $$opts{tmp}/$args{chain}.new");
+}
+
+sub test_naive_concat
+{
+    my ($opts,%args) = @_;
+
+    my $seed = srand();
+    print STDERR "Random seed for test_naive_concat: $seed\n";
+
+    my @files = ();
+    my $exp   = '';
+    for (my $n=0; $n<$args{nfiles}; $n++)
+    {
+        my $nhdr = 1 + int(rand($args{max_hdr_lines}));
+        my $nbdy = int(rand($args{max_body_lines}));
+        my $file = "$$opts{tmp}/$args{name}.$n";
+        push @files,$file;
+
+        open(my $fh,'>',"$file.vcf") or error("$file.vcf: $!");
+        print $fh "##fileformat=VCFv4.0\n";
+        print $fh "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
+        print $fh "##contig=<ID=1,length=62435964>\n";
+        for (my $i=0; $i<$nhdr; $i++)
+        {
+            my $x = rand;
+            print $fh "##INFO=<ID=XX$i,Number=1,Type=Integer,Description=\"Test Tag $x\">\n";
+        }
+        print $fh join("\t",'#CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO')."\n";
+
+        # let one of the files have no body
+        if ( $n!=3 )
+        {
+            for (my $i=1; $i<=$nbdy; $i++)
+            {
+                my $x = int(rand(1000));
+                my $line = join("\t",'1',$i,'.','A','C','.','.',"DP=$x")."\n";
+                print $fh  $line;
+                $exp .= $line;
+            }
+        }
+        close($fh) or error("close failed: $file.vcf");
+    }
+
+    for my $file (@files)
+    {
+        cmd("$$opts{bin}/bcftools view -Ob -o $file.bcf $file.vcf");
+        cmd("$$opts{bin}/bcftools view -Oz -o $file.vcf.gz $file.vcf");
+    }
+
+    my $bcfs = join('.bcf ',@files).'.bcf';
+    test_cmd($opts,exp=>$exp,out=>"concat.naive.bcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $bcfs | $$opts{bin}/bcftools view -H");
+
+    my $vcfs = join('.vcf.gz ',@files).'.vcf.gz';
+    test_cmd($opts,exp=>$exp,out=>"concat.naive.vcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $vcfs | $$opts{bin}/bcftools view -H");
+}
+
+sub test_mpileup
+{
+    my ($opts,%args) = @_;
+
+    if ($args{test_list})
+    {
+        # make a local copy, create bams, index the bams and the reference
+        open(my $fh1,'>',"$$opts{tmp}/mpileup.bam.list") or error("$$opts{tmp}/mpileup.bam.list: $!");
+        open(my $fh2,'>',"$$opts{tmp}/mpileup.cram.list") or error("$$opts{tmp}/mpileup.cram.list: $!");
+        open(my $fh3,'>',"$$opts{tmp}/mpileup.bam.urllist") or error("$$opts{tmp}/mpileup.bam.urllist: $!");
+        open(my $fh4,'>',"$$opts{tmp}/mpileup.cram.urllist") or error("$$opts{tmp}/mpileup.cram.urllist: $!");
+        for my $file (@{$args{in}})
+        {
+            print $fh1 "$$opts{path}/mpileup/mpileup.$file.bam\n";
+            print $fh2 "$$opts{path}/mpileup/mpileup.$file.cram\n";
+            print $fh3 "file://", abs_path("$$opts{path}/mpileup/mpileup.$file.bam"), "\n";
+            print $fh4 "file://", abs_path("$$opts{path}/mpileup/mpileup.$file.cram"), "\n";
+        }
+        close($fh1);
+        close($fh2);
+        close($fh3);
+        close($fh4);
+	}
+
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
+    for my $fmt ('bam','cram')
+    {
+        my @files = ();
+        for my $file (@{$args{in}}) { push @files, "$$opts{path}/mpileup/mpileup.$file.$fmt"; }
+        my $files = join(' ',@files);
+        my $grep_hdr = "grep -v ^##bcftools | grep -v ^##reference";
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa $files 2>/dev/null | $grep_hdr");
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -Ob $files 2>/dev/null | $$opts{bin}/bcftools view  | $grep_hdr");
+        if ($args{test_list})
+        {
+            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -b $$opts{tmp}/mpileup.$fmt.list --no-version 2>/dev/null | grep -v ^##reference");
+            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/mpileup.ref.fa -Ob -b $$opts{tmp}/mpileup.$fmt.urllist 2>/dev/null | $$opts{bin}/bcftools view  | $grep_hdr");
+        }
+    }
+}
+
+sub test_csq
+{
+    my ($opts,%args) = @_;
+    $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | $$opts{bin}/test/csq/sort-csq | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'");
+}
+sub test_csq_real
+{
+    my ($opts,%args) = @_;
+
+    my $dirname = "$$opts{path}/$args{in}";
+    opendir(my $dh,$dirname) or error("opendir $dirname: $!");
+    while (my $dir=readdir($dh))
+    {
+        if ( !($dir=~/^E/) or !-d "$dirname/$dir" ) { next; }
+        my $gff = "$dirname/$dir/$dir.gff";
+        my $ref = "$dirname/$dir/$dir.fa";
+        opendir(my $tmp,"$dirname/$dir") or error("opendir: $dirname/$dir: $!");
+        while (my $file=readdir($tmp))
+        {
+            if ( !($file=~/\.vcf$/) ) { next; }
+            my $vcf   = "$dirname/$dir/$file";
+            my @nsmpl = `$$opts{bin}/bcftools query -l $vcf`;
+            my $cmd;
+            if ( !@nsmpl )
+            {
+                $cmd = "$$opts{bin}/test/csq/sort-csq | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'";
+            }
+            else
+            {
+                $cmd = "$$opts{bin}/bcftools query -f'[%POS\\t%REF\\t%ALT\\t%TBCSQ\\n]\\n'";
+            }
+            my $out  = "$args{in}/$dir/$`.txt";
+            my $outl = "$args{in}/$dir/$`.txt-l";
+            test_cmd($opts,%args,out=>$out,cmd=>"$$opts{bin}/bcftools csq -f $ref -g $gff $vcf | $cmd");
+            if ( -e "$$opts{path}/$outl" )
+            {
+                test_cmd($opts,%args,out=>$outl,cmd=>"$$opts{bin}/bcftools csq -l -f $ref -g $gff $vcf | $cmd");
+            }
+        }
+        closedir($tmp);
+    }
+    closedir($dh);
 }
 

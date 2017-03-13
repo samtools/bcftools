@@ -1,0 +1,3 @@
+18371	CAGG	CAAAGG	splice_region|SAMD11|ENST00000341065|protein_coding
+18371	CAGG	CAAAGG	splice_region|SAMD11|ENST00000341065|protein_coding
+

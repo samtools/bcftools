@@ -1,6 +1,6 @@
 /*  plugins/setGT.c -- set gentoypes to given values
 
-    Copyright (C) 2015 Genome Research Ltd.
+    Copyright (C) 2015-2016 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -29,12 +29,21 @@ DEALINGS IN THE SOFTWARE.  */
 #include <inttypes.h>
 #include <getopt.h>
 #include "bcftools.h"
+#include "filter.h"
+
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
 
 bcf_hdr_t *in_hdr, *out_hdr;
 int32_t *gts = NULL, mgts = 0;
 int *arr = NULL, marr = 0;
 uint64_t nchanged = 0;
 int tgt_mask = 0, new_mask = 0, new_gt = 0;
+filter_t *filter = NULL;
+char *filter_str = NULL;
+int filter_logic = 0;
+const uint8_t *smpl_pass = NULL;
 
 #define GT_MISSING   1
 #define GT_PARTIAL  (1<<1)
@@ -43,6 +52,7 @@ int tgt_mask = 0, new_mask = 0, new_gt = 0;
 #define GT_PHASED   (1<<4)
 #define GT_UNPHASED (1<<5)
 #define GT_ALL      (1<<6)
+#define GT_QUERY    (1<<7)
 
 const char *about(void)
 {
@@ -57,6 +67,7 @@ const char *usage(void)
         "           ./x  .. partially missing (e.g., \"./0\" or \".|1\" but not \"./.\")\n"
         "           .    .. partially or completely missing\n"
         "           a    .. all genotypes\n"
+        "           q    .. select genotypes using -i/-e options\n"
         "       and the new genotype can be one of:\n"
         "           .    .. missing (\".\" or \"./.\", keeps ploidy)\n"
         "           0    .. reference allele\n"
@@ -68,12 +79,17 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
+        "   -e, --exclude <expr>        Exclude a genotype if true (requires -t q)\n"
+        "   -i, --include <expr>        include a genotype if true (requires -t q)\n"
         "   -n, --new-gt <type>         Genotypes to set, see above\n"
         "   -t, --target-gt <type>      Genotypes to change, see above\n"
         "\n"
         "Example:\n"
         "   # set missing genotypes (\"./.\") to phased ref genotypes (\"0|0\")\n"
         "   bcftools +setGT in.vcf -- -t . -n 0p\n"
+        "\n"
+        "   # set missing genotypes with DP>0 and GQ>20 to ref genotypes (\"0/0\")\n"
+        "   bcftools +setGT in.vcf -- -t q -n 0 -i 'GT=\".\" && FMT/DP>0 && GQ>20'\n"
         "\n"
         "   # set partially missing genotypes to completely missing\n"
         "   bcftools +setGT in.vcf -- -t ./x -n .\n"
@@ -86,26 +102,34 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     int c;
     static struct option loptions[] =
     {
-        {"new-gt",1,0,'n'},
-        {"target-gt",0,0,'t'},
-        {0,0,0,0}
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
+        {"new-gt",required_argument,NULL,'n'},
+        {"target-gt",required_argument,NULL,'t'},
+        {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "?hn:t:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hn:t:i:e:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'i': filter_str = optarg; filter_logic = FLT_INCLUDE; break;
+            case 'e': filter_str = optarg; filter_logic = FLT_EXCLUDE; break;
             case 'n': new_mask = bcf_gt_phased(0); 
                 if ( strchr(optarg,'.') ) new_mask |= GT_MISSING;
                 if ( strchr(optarg,'0') ) new_mask |= GT_REF;
                 if ( strchr(optarg,'M') ) new_mask |= GT_MAJOR;
                 if ( strchr(optarg,'p') ) new_mask |= GT_PHASED;
                 if ( strchr(optarg,'u') ) new_mask |= GT_UNPHASED;
+                if ( new_mask==0 ) error("Unknown parameter to --new-gt: %s\n", optarg);
                 break;
             case 't':
                 if ( !strcmp(optarg,".") ) tgt_mask |= GT_MISSING|GT_PARTIAL;
                 if ( !strcmp(optarg,"./x") ) tgt_mask |= GT_PARTIAL;
                 if ( !strcmp(optarg,"./.") ) tgt_mask |= GT_MISSING;
                 if ( !strcmp(optarg,"a") ) tgt_mask |= GT_ALL;
+                if ( !strcmp(optarg,"q") ) tgt_mask |= GT_QUERY;
+                if ( !strcmp(optarg,"?") ) tgt_mask |= GT_QUERY;        // for backward compatibility
+                if ( tgt_mask==0 ) error("Unknown parameter to --target-gt: %s\n", optarg);
                 break;
             case 'h':
             case '?':
@@ -121,7 +145,49 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( new_mask & GT_MISSING ) new_gt = bcf_gt_missing;
     if ( new_mask & GT_REF ) new_gt = new_mask&GT_PHASED ? bcf_gt_phased(0) : bcf_gt_unphased(0);
 
+    if ( filter_str  && tgt_mask!=GT_QUERY ) error("Expected -t? with -i/-e\n");
+    if ( !filter_str && tgt_mask&GT_QUERY ) error("Expected -i/-e with -t?\n");
+    if ( filter_str ) filter = filter_init(in,filter_str);
+
     return 0;
+}
+
+static inline int unphase_gt(int32_t *ptr, int ngts)
+{
+    int j, changed = 0;
+    for (j=0; j<ngts; j++)
+    {
+        if ( ptr[j]==bcf_int32_vector_end ) break;
+        if ( !bcf_gt_is_phased(ptr[j]) ) continue;
+        ptr[j] = bcf_gt_unphased(bcf_gt_allele(ptr[j]));    // remove phasing
+        changed++;
+    }
+
+    // insertion sort
+    int k, l;
+    for (k=1; k<j; k++)
+    {
+        int32_t x = ptr[k];
+        l = k;
+        while ( l>0 && ptr[l-1]>x )
+        {
+            ptr[l] = ptr[l-1];
+            l--;
+        }
+        ptr[l] = x;
+    }
+    return changed;
+}
+static inline int set_gt(int32_t *ptr, int ngts, int gt)
+{
+    int j, changed = 0;
+    for (j=0; j<ngts; j++)
+    {
+        if ( ptr[j]==bcf_int32_vector_end ) break;
+        ptr[j] = gt;
+        changed++;
+    }
+    return changed;
 }
 
 bcf1_t *process(bcf1_t *rec)
@@ -157,55 +223,48 @@ bcf1_t *process(bcf1_t *rec)
     }
 
     // replace gts
-    for (i=0; i<rec->n_sample; i++)
+    if ( tgt_mask&GT_QUERY )
     {
-        int ploidy = 0, nmiss = 0;
-        int32_t *ptr = gts + i*ngts;
-        for (j=0; j<ngts; j++)
+        int pass_site = filter_test(filter,rec,&smpl_pass);
+        if ( (pass_site && filter_logic==FLT_EXCLUDE) || (!pass_site && filter_logic==FLT_INCLUDE) ) return rec;
+        for (i=0; i<rec->n_sample; i++)
         {
-            if ( ptr[j]==bcf_int32_vector_end ) break;
-            ploidy++;
-            if ( ptr[j]==bcf_gt_missing ) nmiss++;
+            if ( smpl_pass )
+            {
+                if ( !smpl_pass[i] && filter_logic==FLT_INCLUDE ) continue;
+                if (  smpl_pass[i] && filter_logic==FLT_EXCLUDE ) continue;
+            }
+
+            if ( new_mask&GT_UNPHASED )
+                changed += unphase_gt(gts + i*ngts, ngts);
+            else
+                changed += set_gt(gts + i*ngts, ngts, new_gt);
         }
-
-        int do_set = 0;
-        if ( tgt_mask&GT_ALL ) do_set = 1;
-        else if ( tgt_mask&GT_PARTIAL && nmiss ) do_set = 1;
-        else if ( tgt_mask&GT_MISSING && ploidy==nmiss ) do_set = 1;
-
-        if ( !do_set ) continue;
-
-        if ( new_mask&GT_UNPHASED )
+    }
+    else
+    {
+        for (i=0; i<rec->n_sample; i++)
         {
+            int ploidy = 0, nmiss = 0;
+            int32_t *ptr = gts + i*ngts;
             for (j=0; j<ngts; j++)
             {
                 if ( ptr[j]==bcf_int32_vector_end ) break;
-                if ( !bcf_gt_is_phased(ptr[j]) ) continue;
-                ptr[j] = bcf_gt_unphased(bcf_gt_allele(ptr[j]));    // remove phasing
-                changed++;
+                ploidy++;
+                if ( ptr[j]==bcf_gt_missing ) nmiss++;
             }
 
-            // insertion sort
-            int k, l;
-            for (k=1; k<j; k++)
-            {
-                int32_t x = ptr[k];
-                l = k;
-                while ( l>0 && ptr[l-1]>x )
-                {
-                    ptr[l] = ptr[l-1];
-                    l--;
-                }
-                ptr[l] = x;
-            }
-            continue;
-        }
+            int do_set = 0;
+            if ( tgt_mask&GT_ALL ) do_set = 1;
+            else if ( tgt_mask&GT_PARTIAL && nmiss ) do_set = 1;
+            else if ( tgt_mask&GT_MISSING && ploidy==nmiss ) do_set = 1;
 
-        for (j=0; j<ngts; j++)
-        {
-            if ( ptr[j]==bcf_int32_vector_end ) break;
-            ptr[j] = new_gt;
-            changed++;
+            if ( !do_set ) continue;
+
+            if ( new_mask&GT_UNPHASED )
+                changed += unphase_gt(ptr, ngts);
+            else
+                changed += set_gt(ptr, ngts, new_gt);
         }
     }
     nchanged += changed;
@@ -215,6 +274,7 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
+    if ( filter ) filter_destroy(filter);
     free(arr);
     fprintf(stderr,"Filled %"PRId64" alleles\n", nchanged);
     free(gts);

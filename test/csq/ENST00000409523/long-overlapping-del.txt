@@ -1,0 +1,6 @@
+18990	TAAAGGGATATCTACAA	T	frameshift&splice_acceptor|C2orf76|ENST00000409523|protein_coding
+18990	TAAAGGGATATCTACAA	T	frameshift&splice_acceptor|C2orf76|ENST00000409523|protein_coding
+
+37744	T	C	synonymous|C2orf76|ENST00000409523|protein_coding|-|4G|37744T>C
+37744	T	C	synonymous|C2orf76|ENST00000409523|protein_coding|-|4G|37744T>C
+

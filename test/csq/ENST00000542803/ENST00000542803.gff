@@ -1,0 +1,22 @@
+1	ensembl_havana	gene	1	343452	.	+	.	ID=gene:ENSG00000162631;Name=NTNG1;biotype=protein_coding;description=netrin G1 [Source:HGNC Symbol%3BAcc:23319];gene_id=ENSG00000162631;logic_name=ensembl_havana_gene;version=14
+1	ensembl_havana	transcript	11	341464	.	+	.	ID=transcript:ENST00000542803;Parent=gene:ENSG00000162631;Name=NTNG1-206;biotype=protein_coding;tag=basic;transcript_id=ENST00000542803;version=1
+1	ensembl	exon	11	193	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00001711486;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001711486;rank=1;version=1
+1	ensembl	five_prime_UTR	11	193	.	+	.	Parent=transcript:ENST00000542803
+1	ensembl	five_prime_UTR	8063	8587	.	+	.	Parent=transcript:ENST00000542803
+1	ensembl	exon	8063	8833	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00003594347;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00003594347;rank=2;version=1
+1	ensembl	CDS	8588	8833	.	+	0	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	exon	184276	184916	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00003471810;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003471810;rank=3;version=1
+1	ensembl	CDS	184276	184916	.	+	0	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	exon	255148	255324	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00001451664;constitutive=0;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSE00001451664;rank=4;version=1
+1	ensembl	CDS	255148	255324	.	+	1	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	exon	255456	255472	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00001620095;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00001620095;rank=5;version=1
+1	ensembl	CDS	255456	255472	.	+	1	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	exon	263634	263639	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00001659820;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00001659820;rank=6;version=1
+1	ensembl	CDS	263634	263639	.	+	2	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	exon	290744	290911	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00001451661;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00001451661;rank=7;version=1
+1	ensembl	CDS	290744	290911	.	+	2	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	exon	296659	296793	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00001451660;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00001451660;rank=8;version=1
+1	ensembl	CDS	296659	296793	.	+	2	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	CDS	340605	340834	.	+	2	ID=CDS:ENSP00000440561;Parent=transcript:ENST00000542803;protein_id=ENSP00000440561
+1	ensembl	exon	340605	341464	.	+	.	Parent=transcript:ENST00000542803;Name=ENSE00001595215;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00001595215;rank=9;version=1
+1	ensembl	three_prime_UTR	340835	341464	.	+	.	Parent=transcript:ENST00000542803

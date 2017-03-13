@@ -89,7 +89,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
             ptr++;
         }
         if ( !*ptr ) break;
-        ptr++;
+        while ( *ptr && isspace(*ptr) ) ptr++;
         while ( *ptr )
         {
             if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
@@ -371,9 +371,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
     htsFile *fp = args->fp;
     bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to read the header: %s\n", args->fname);
     kstring_t htxt = {0,0,0};
-    int hlen;
-    htxt.s = bcf_hdr_fmt_text(hdr, 1, &hlen);
-    htxt.l = hlen;
+    bcf_hdr_format(hdr, 1, &htxt);
 
     int i, nsamples = 0;
     char **samples = NULL;

@@ -1,0 +1,8 @@
+X	ensembl_havana	gene	21	6606	.	-	.	ID=gene:ENSG00000196368;Name=NUDT11;biotype=protein_coding;description=nudix (nucleoside diphosphate linked moiety X)-type motif 11 [Source:HGNC Symbol%3BAcc:18011];gene_id=ENSG00000196368;logic_name=ensembl_havana_gene;version=4
+X	ensembl_havana	transcript	21	6606	.	-	.	ID=transcript:ENST00000375992;Parent=gene:ENSG00000196368;Name=NUDT11-001;biotype=protein_coding;ccdsid=CCDS43952.1;havana_transcript=OTTHUMT00000056579;havana_version=1;tag=basic;transcript_id=ENST00000375992;version=3
+X	ensembl_havana	three_prime_UTR	21	1758	.	-	.	Parent=transcript:ENST00000375992
+X	ensembl_havana	exon	21	1759	.	-	.	Parent=transcript:ENST00000375992;Name=ENSE00001469078;constitutive=1;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00001469078;rank=2;version=3
+X	ensembl_havana	CDS	1759	1759	.	-	1	ID=CDS:ENSP00000365160;Parent=transcript:ENST00000375992;protein_id=ENSP00000365160
+X	ensembl_havana	CDS	5961	6454	.	-	0	ID=CDS:ENSP00000365160;Parent=transcript:ENST00000375992;protein_id=ENSP00000365160
+X	ensembl_havana	exon	5961	6606	.	-	.	Parent=transcript:ENST00000375992;Name=ENSE00001469091;constitutive=1;ensembl_end_phase=2;ensembl_phase=-1;exon_id=ENSE00001469091;rank=1;version=3
+X	ensembl_havana	five_prime_UTR	6455	6606	.	-	.	Parent=transcript:ENST00000375992

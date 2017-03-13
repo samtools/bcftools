@@ -1,0 +1,4 @@
+14	havana	J_gene_segment	21	83	.	+	.	ID=gene:ENSG00000211872;Name=TRAJ17;biotype=TR_J_gene;description=T cell receptor alpha joining 17 [Source:HGNC Symbol%3BAcc:12045];gene_id=ENSG00000211872;logic_name=havana_ig_gene;version=1
+14	havana	J_gene_segment	21	83	.	+	.	ID=transcript:ENST00000390520;Parent=gene:ENSG00000211872;Name=TRAJ17-001;biotype=TR_J_gene;havana_transcript=OTTHUMT00000410981;havana_version=1;tag=basic;transcript_id=ENST00000390520;version=1
+14	havana	exon	21	83	.	+	.	Parent=transcript:ENST00000390520;Name=ENSE00001508149;constitutive=1;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00001508149;rank=1;version=1
+14	havana	CDS	21	83	.	+	2	ID=CDS:ENSP00000451250;Parent=transcript:ENST00000390520;protein_id=ENSP00000451250

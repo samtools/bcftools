@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	2723	.	G	GAAA	.	.	EXP=splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:2,exon:2, spliced utr
+1	3630	.	T	TAAA	.	.	EXP=stop_lost&inframe_insertion|AL627309.1|ENST00000423372|protein_coding|-|260*>260CL|3630T>TAAA;type=CDS:0, another stop 2aa further

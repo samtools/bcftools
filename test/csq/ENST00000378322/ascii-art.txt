@@ -1,0 +1,9 @@
+
+exon     19165               19292 
+cds      19165   19233             
+5'utr                 19234  19292 
+                                19295
+                          xxxx
+                           CGCGCAGCAGGCTG
+                                A--------
+

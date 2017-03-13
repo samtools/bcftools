@@ -1,0 +1,276 @@
+#!/usr/bin/env perl
+#
+# Author: petr.danecek@sanger
+#
+
+use strict;
+use warnings;
+use Carp;
+use FindBin;
+$ENV{PATH} = $FindBin::RealBin."/../../:$ENV{PATH}";
+
+my $opts = parse_params();
+parse_gff($opts);
+create_ref($opts);
+create_vcf($opts,0);
+create_vcf($opts,$$opts{offset});
+create_gff($opts,0);
+create_gff($opts,$$opts{offset});
+run_vep($opts);
+run_bcsq($opts,$$opts{offset});
+run_bcsq($opts,0);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print 
+        "Usage: make-csq-test [OPTIONS]\n",
+        "Options:\n",
+        "   -f, --fasta-ref <file>          \n",
+        "   -g, --gff <file>                \n",
+        "   -i, --indels <int>              introduce indels\n",
+        "   -o, --output <string>           \n",
+        "   -p, --position <pos>            \n",
+        "       --pad <int>                 [20]\n",
+        "   -t, --transcript <id>           \n",
+        "   -h, -?, --help                  This help message.\n",
+        "\n",
+        "Example:\n",
+        "   ./make-csq-test -f \$ref -g \$gff -o rmme -p 3566625-AGCAGGCTG-A -t ENST00000378322\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = { indels=>0, pad=>20 };
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if (                 $arg eq '--pad' ) { $$opts{pad}=shift(@ARGV); next; }
+        if ( $arg eq '-p' || $arg eq '--position' ) { $$opts{pos}=shift(@ARGV); next; }
+        if ( $arg eq '-i' || $arg eq '--indels' ) { $$opts{indels}=shift(@ARGV); next; }
+        if ( $arg eq '-f' || $arg eq '--fasta-ref' ) { $$opts{ref}=shift(@ARGV); next; }
+        if ( $arg eq '-t' || $arg eq '--transcript' ) { $$opts{tscript}=shift(@ARGV); next; }
+        if ( $arg eq '-g' || $arg eq '--gff' ) { $$opts{gff}=shift(@ARGV); next; }
+        if ( $arg eq '-o' || $arg eq '--output' ) { $$opts{out}=shift(@ARGV); next; }
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    if ( !exists($$opts{ref}) ) { error("Missing the -f option.\n") }
+    if ( !exists($$opts{gff}) ) { error("Missing the -g option.\n") }
+    if ( !exists($$opts{out}) ) { error("Missing the -o option.\n") }
+    if ( !exists($$opts{tscript}) ) { error("Missing the -t option.\n") }
+    return $opts;
+}
+sub parse_gff
+{
+    my ($opts) = @_;
+    my @buf = ();
+    open(my $fh,"gunzip -c $$opts{gff} |") or error("gunzip -c $$opts{gff}: $!");
+    while (my $line=<$fh>)
+    {
+        if ( $line=~/^###/ ) { @buf = (); next; }
+        if ( $line=~/^#/ ) { next; }
+        my @vals = split(/\t/,$line);
+        push @buf,\@vals;
+        if ( $vals[8]=~/ID=transcript:$$opts{tscript};/  ) { last; }
+    }
+    if ( !@buf ) { error("Transcript $$opts{tscript} not found in $$opts{gff}\n"); }
+    if ( !($buf[-1][8]=~/Parent=gene:([^;\s+]+)/) ) { error("Gene ID not present: $buf[-1][8]\n"); }
+    my $gene_id = $1;
+    while (my $line=<$fh>)
+    {
+        if ( $line=~/^###/ ) { last; }
+        my @vals = split(/\t/,$line);
+        push @buf,\@vals;
+    }
+    my $tline;
+    my @dat = ();
+    for my $line (@buf)
+    {
+        if ( $$line[8]=~/ID=gene:$gene_id/ ) { push @dat,$line; next; }
+        if ( $$line[8]=~/ID=transcript:$$opts{tscript}/ ) { push @dat,$line; $tline = $line; next; }
+        if ( $$line[8]=~/Parent=transcript:$$opts{tscript}/ ) { push @dat,$line; next; }
+    }
+    close($fh);
+    $$opts{dat} = \@dat;
+    $$opts{offset} = $$tline[3] - $$opts{pad} - 1;
+}
+sub get_chr_beg_end
+{
+    my ($rec) = @_;
+    return ($$rec[0],$$rec[3],$$rec[4]);
+}
+sub get_type
+{
+    my ($rec) = @_;
+    if ( $$rec[2] eq 'gene' ) { return $$rec[2]; }
+    if ( $$rec[2] eq 'transcript' ) { return $$rec[2]; }
+    if ( $$rec[2] eq 'exon' ) { return $$rec[2]; }
+    if ( $$rec[2] eq 'CDS' ) { return $$rec[2]; }
+    if ( $$rec[2] eq 'three_prime_UTR' ) { return $$rec[2]; }
+    if ( $$rec[2] eq 'five_prime_UTR' ) { return $$rec[2]; }
+    error("Unknown type: $$rec[2] .. ".join("\t",@$rec));
+}
+sub get_strand
+{
+    my ($rec) = @_;
+    return $$rec[6];
+}
+sub create_ref
+{
+    my ($opts) = @_;
+    my ($chr,$beg,$end) = get_chr_beg_end($$opts{dat}[0]);
+    $beg -= $$opts{pad};
+    $end += $$opts{pad};
+    my $ref = '';
+    open(my $out,'>',"$$opts{out}.fa") or error("$$opts{out}.fa: $!");
+    open(my $fh,"samtools faidx $$opts{ref} $chr:$beg-$end|") or error("samtools faidx $$opts{ref} $chr:$beg-$end: $!");
+    <$fh>;
+    print $out ">$chr\t$chr:$beg-$end\n";
+    while (my $line=<$fh>)
+    {
+        print $out $line;
+        chomp($line);
+        $ref .= $line;
+    }
+    close($fh);
+    close($out);
+    $$opts{refseq} = $ref;
+    `rm -f $$opts{out}.fai; samtools faidx $$opts{out}.fa`;
+}
+sub create_vcf
+{
+    my ($opts,$offset) = @_;
+    my $strand = get_strand($$opts{dat}[0]);
+    my ($chr,$beg0,$end0) = get_chr_beg_end($$opts{dat}[0]);
+    my %dat;
+    if ( exists($$opts{pos}) )
+    {
+        my ($pos,$ref,$alt) = split(/-/,$$opts{pos});
+        $dat{$pos}{ref} = $ref;
+        $dat{$pos}{alt} = $alt;
+        push @{$dat{$pos}{type}}, "$$opts{tscript}:$$opts{pos}";
+    }
+    else
+    {
+        for my $dat (@{$$opts{dat}})
+        {
+            my ($chr,$beg,$end) = get_chr_beg_end($dat);
+            my $type   = get_type($dat);
+            for my $off (-9,-8,-4,-3,-2,0,2,3,4,8,9)
+            {
+                my $pos = $beg + $off;
+                if ( $pos<$beg0 or $pos>$end0 ) { next; }
+                if ( $$opts{indels} == 0  )
+                {
+                    $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,1);
+                    $dat{$pos}{alt} = $dat{$pos}{ref} eq 'A' ? 'C' : 'A';
+                }
+                elsif ( $$opts{indels} > 0 )
+                {
+                    $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,1);
+                    $dat{$pos}{alt} = $dat{$pos}{ref}. ('A' x $$opts{indels});
+                }
+                else
+                {
+                    if ( $pos-$beg0-$$opts{indels} > length($$opts{refseq}) ) { next; }
+                    $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,-$$opts{indels});
+                    $dat{$pos}{alt} = substr($$opts{refseq},$pos-$beg0,1);
+                }
+                push @{$dat{$pos}{type}}, "$type:$off";
+            }
+        }
+    }
+    my $fname = $offset ? "$$opts{out}.vcf" : "$$opts{out}.vcf.ori";
+    open(my $out,'>',"$fname") or error("$fname: $!");
+    print $out qq[##fileformat=VCFv4.2\n];
+    print $out qq[##contig=<ID=$chr,length=249250621>\n];
+    print $out qq[##INFO=<ID=type,Number=.,Type=String,Description="">\n];
+    print $out qq[##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">\n];
+    print $out qq[##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">\n];
+    print $out "#".join("\t", qw(CHROM POS ID REF ALT QUAL FILTER INFO))."\n";
+    for my $pos (sort {$a<=>$b} keys %dat)
+    {
+        my $ref = $dat{$pos}{ref};
+        my $alt = $dat{$pos}{alt};
+        my $type = join(',',@{$dat{$pos}{type}});
+        print $out join("\t",($chr,$pos-$offset,'.',$ref,$alt,'.','.',"type=$type"))."\n";
+    }
+    close($out);
+}
+sub create_gff
+{
+    my ($opts,$offset) = @_;
+    my $fname = $offset ? "$$opts{out}.gff" : "$$opts{out}.gff.ori";
+    open(my $out,'>',"$fname") or error("$fname: $!");
+    for my $dat (@{$$opts{dat}})
+    {
+        my (@x) = (@$dat);
+        $x[3] -= $offset;
+        $x[4] -= $offset;
+        print $out join("\t",@x);
+    }
+    close($out);
+}
+sub run_vep
+{
+    my ($opts) = @_;
+
+    my $vep = "perl -I /software/vertres/installs/ensembl/82/ /software/vertres/bin-external/variant_effect_predictor_v82.pl --db_version 82 -t SO --format vcf --force_overwrite --cache --dir /lustre/scratch116/vr/ref/ensembl/vep_cache/ --species human --offline --symbol --biotype --vcf --no_stats --assembly GRCh37 --no_progress --quiet -o -";
+    my $cmd = "cat $$opts{out}.vcf.ori | $vep | bcftools query -f'%POS\\t%REF\\t%ALT\\t%CSQ\\n'";
+
+    open(my $fh,"$cmd |") or error("$cmd: $!");
+    open(my $out,'>',"$$opts{out}.vep.txt") or error("$$opts{out}.vep.txt: $!");
+    while (my $line=<$fh>)
+    {
+        my @out = ();
+        my ($pos,$ref,$alt,$csq) = split(/\t/,$line);
+        my @csq = split(/,/,$csq);
+        chomp($csq[-1]);
+        for my $csq (@csq)
+        {
+            if ( $csq=~/Transcript\|$$opts{tscript}/ ) { push @out,$csq; }
+        }
+        if ( !scalar @out ) { @out = ('.'); }
+        $csq = join(',',@out);
+        print $out join("\t",($pos,$ref,$alt,$csq))."\n";
+    }
+    close($fh);
+    close($out);
+}
+sub run_bcsq
+{
+    my ($opts,$offset) = @_;
+    my $fname = $offset ? "$$opts{out}.bcsq.txt" : "$$opts{out}.bcsq.txt.ori";
+    my $vcf   = $offset ? "$$opts{out}.vcf" : "$$opts{out}.vcf.ori";
+    my $gff   = $offset ? "$$opts{out}.gff" : $$opts{gff};
+    my $ref   = $offset ? "$$opts{out}.fa"  : $$opts{ref};
+
+    my $cmd = "bcftools csq -f $ref -g $gff $vcf | bcftools query -f'%POS\\t%REF\\t%ALT\\t%BCSQ\\n'";
+
+    print STDERR "$cmd\n";
+    open(my $fh,"$cmd |") or error("$cmd: $!");
+    open(my $out,'>',$fname) or error("$fname: $!");
+    while (my $line=<$fh>)
+    {
+        my @out = ();
+        my ($pos,$ref,$alt,$csq) = split(/\t/,$line);
+        my @csq = split(/,/,$csq);
+        chomp($csq[-1]);
+        for my $csq (@csq)
+        {
+            if ( !($csq=~/Transcript/) or $csq=~/Transcript\|$$opts{tscript}/ ) { push @out,$csq; }
+        }
+        if ( !scalar @out ) { @out = ('.'); }
+        $csq = join(',',@out);
+        print $out join("\t",($pos,$ref,$alt,$csq))."\n";
+    }
+    close($fh);
+    close($out);
+}
+

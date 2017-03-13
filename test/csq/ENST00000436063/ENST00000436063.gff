@@ -1,0 +1,18 @@
+1	ensembl_havana	gene	21	12122	.	-	.	ID=gene:ENSG00000067334;Name=DNTTIP2;biotype=protein_coding;description=deoxynucleotidyltransferase%2C terminal%2C interacting protein 2 [Source:HGNC Symbol%3BAcc:24013];gene_id=ENSG00000067334;logic_name=ensembl_havana_gene;version=9
+1	ensembl_havana	transcript	21	11410	.	-	.	ID=transcript:ENST00000436063;Parent=gene:ENSG00000067334;Name=DNTTIP2-001;biotype=protein_coding;ccdsid=CCDS44174.1;havana_transcript=OTTHUMT00000028317;havana_version=2;tag=basic;transcript_id=ENST00000436063;version=2
+1	ensembl_havana	three_prime_UTR	21	2054	.	-	.	Parent=transcript:ENST00000436063
+1	ensembl_havana	exon	21	2148	.	-	.	Parent=transcript:ENST00000436063;Name=ENSE00001774432;constitutive=0;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00001774432;rank=7;version=2
+1	ensembl_havana	CDS	2055	2148	.	-	1	ID=CDS:ENSP00000411010;Parent=transcript:ENST00000436063;protein_id=ENSP00000411010
+1	ensembl_havana	exon	2887	2996	.	-	.	Parent=transcript:ENST00000436063;Name=ENSE00003641262;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003641262;rank=6;version=1
+1	ensembl_havana	CDS	2887	2996	.	-	0	ID=CDS:ENSP00000411010;Parent=transcript:ENST00000436063;protein_id=ENSP00000411010
+1	ensembl_havana	exon	4276	4440	.	-	.	Parent=transcript:ENST00000436063;Name=ENSE00003655393;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003655393;rank=5;version=1
+1	ensembl_havana	CDS	4276	4440	.	-	0	ID=CDS:ENSP00000411010;Parent=transcript:ENST00000436063;protein_id=ENSP00000411010
+1	ensembl_havana	exon	5323	5418	.	-	.	Parent=transcript:ENST00000436063;Name=ENSE00003551497;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003551497;rank=4;version=1
+1	ensembl_havana	CDS	5323	5418	.	-	0	ID=CDS:ENSP00000411010;Parent=transcript:ENST00000436063;protein_id=ENSP00000411010
+1	ensembl_havana	exon	7849	7987	.	-	.	Parent=transcript:ENST00000436063;Name=ENSE00000777089;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSE00000777089;rank=3;version=1
+1	ensembl_havana	CDS	7849	7987	.	-	1	ID=CDS:ENSP00000411010;Parent=transcript:ENST00000436063;protein_id=ENSP00000411010
+1	ensembl_havana	exon	8472	10066	.	-	.	Parent=transcript:ENST00000436063;Name=ENSE00003464563;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003464563;rank=2;version=1
+1	ensembl_havana	CDS	8472	10066	.	-	0	ID=CDS:ENSP00000411010;Parent=transcript:ENST00000436063;protein_id=ENSP00000411010
+1	ensembl_havana	CDS	11281	11352	.	-	0	ID=CDS:ENSP00000411010;Parent=transcript:ENST00000436063;protein_id=ENSP00000411010
+1	ensembl_havana	exon	11281	11410	.	-	.	Parent=transcript:ENST00000436063;Name=ENSE00002201976;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00002201976;rank=1;version=1
+1	ensembl_havana	five_prime_UTR	11353	11410	.	-	.	Parent=transcript:ENST00000436063

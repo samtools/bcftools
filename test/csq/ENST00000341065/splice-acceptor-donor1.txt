@@ -1,0 +1,33 @@
+16255	CCC	CC	intron|SAMD11||protein_coding
+16255	CCC	CC	intron|SAMD11||protein_coding
+
+16261	CCA	CA	splice_region|SAMD11|ENST00000341065|protein_coding
+16261	CCA	CA	splice_region|SAMD11|ENST00000341065|protein_coding
+
+16429	TA	T	splice_region|SAMD11|ENST00000341065|protein_coding
+16429	TA	T	splice_region|SAMD11|ENST00000341065|protein_coding
+
+16438	GG	G	intron|SAMD11||protein_coding
+16438	GG	G	intron|SAMD11||protein_coding
+
+18365	A	AA	intron|SAMD11||protein_coding
+18365	A	AA	intron|SAMD11||protein_coding
+
+18371	C	CA	splice_region|SAMD11|ENST00000341065|protein_coding
+18371	C	CA	splice_region|SAMD11|ENST00000341065|protein_coding
+
+18500	T	TA	splice_region|SAMD11|ENST00000341065|protein_coding
+18500	T	TA	splice_region|SAMD11|ENST00000341065|protein_coding
+
+18506	G	GA	intron|SAMD11||protein_coding
+18506	G	GA	intron|SAMD11||protein_coding
+
+18816	CAGGTCT	CAGGTCT	.
+18816	CAGGTCT	CAGGTCT	.
+
+18826	G	A	missense|SAMD11|ENST00000341065|protein_coding|+|473R>473K|18826G>A
+18826	G	A	missense|SAMD11|ENST00000341065|protein_coding|+|473R>473K|18826G>A
+
+19026	CAGGTGGCCAG	CAGGTGAG	inframe_deletion|SAMD11|ENST00000341065|protein_coding|+|508VA>508V|19026CAGGTGGCCAG>CAGGTGAG
+19026	CAGGTGGCCAG	CAGGTGAG	inframe_deletion|SAMD11|ENST00000341065|protein_coding|+|508VA>508V|19026CAGGTGGCCAG>CAGGTGAG
+

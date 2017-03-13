@@ -1,0 +1,3 @@
+1944	T	C	synonymous|NDNF|ENST00000379692|protein_coding|-|145L|1944T>C,synonymous|NDNF|ENST00000515757|protein_coding|-|145L|1944T>C
+1944	T	C	synonymous|NDNF|ENST00000379692|protein_coding|-|145L|1944T>C,synonymous|NDNF|ENST00000515757|protein_coding|-|145L|1944T>C
+

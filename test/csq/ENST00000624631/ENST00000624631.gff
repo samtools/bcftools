@@ -1,0 +1,8 @@
+7	ensembl	gene	101	1296	.	-	.	ID=gene:ENSG00000280410;Name=AC104073.1;biotype=protein_coding;gene_id=ENSG00000280410;logic_name=ensembl;version=1
+7	ensembl	mRNA	101	1296	.	-	.	ID=transcript:ENST00000624631;Parent=gene:ENSG00000280410;Name=AC104073.1-201;biotype=protein_coding;tag=basic;transcript_id=ENST00000624631;transcript_support_level=5;version=1
+7	ensembl	exon	101	544	.	-	.	Parent=transcript:ENST00000624631;Name=ENSE00003758654;constitutive=1;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003758654;rank=3;version=1
+7	ensembl	CDS	101	544	.	-	0	ID=CDS:ENSP00000485644;Parent=transcript:ENST00000624631;protein_id=ENSP00000485644
+7	ensembl	exon	547	975	.	-	.	Parent=transcript:ENST00000624631;Name=ENSE00003759678;constitutive=1;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003759678;rank=2;version=1
+7	ensembl	CDS	547	975	.	-	0	ID=CDS:ENSP00000485644;Parent=transcript:ENST00000624631;protein_id=ENSP00000485644
+7	ensembl	exon	1264	1296	.	-	.	Parent=transcript:ENST00000624631;Name=ENSE00003757286;constitutive=1;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003757286;rank=1;version=1
+7	ensembl	CDS	1264	1296	.	-	0	ID=CDS:ENSP00000485644;Parent=transcript:ENST00000624631;protein_id=ENSP00000485644

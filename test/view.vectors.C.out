@@ -1,0 +1,28 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=249250621>
+##INFO=<ID=IAF,Number=A,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=IRF,Number=R,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=IGF,Number=G,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=IAI,Number=A,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=IRI,Number=R,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=IGI,Number=G,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=IAS,Number=A,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=IRS,Number=R,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=IGS,Number=G,Type=String,Description="Test Number=AGR in INFO">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=FAF,Number=A,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRF,Number=R,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGF,Number=G,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAI,Number=A,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRI,Number=R,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGI,Number=G,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAS,Number=A,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRS,Number=R,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGS,Number=G,Type=String,Description="Test Number=AGR in FORMAT">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
+1	10	.	A	C	999	PASS	IAF=.;IRF=.;IGF=.;IAI=.;IRI=.;IGI=.;IAS=.;IRS=.,.;IGS=.,.,.;AC=1;AN=2	GT:FAF:FRF:FGF:FAI:FRI:FGI:FAS:FRS:FGS	0/1:.:.:.:.:.:.:.:.,.:.,.,.
+1	20	.	A	T	999	PASS	IAF=.;IRF=.;IGF=.;IAI=.;IRI=.;IGI=.;IAS=.;IRS=.,.;IGS=.,.,.;AC=1;AN=2	GT:FAF:FRF:FGF:FAI:FRI:FGI:FAS:FRS:FGS	0/1:.:.:.:.:.:.:.:.:.
+1	30	.	G	A	999	PASS	IAF=.;IRF=.;IGF=.;IAI=.;IRI=.;IGI=.;IAS=.;IRS=.;IGS=.;AC=1;AN=2	GT:FAF:FRF:FGF:FAI:FRI:FGI:FAS:FRS	0/1:.:.:.:.:.:.:.:.

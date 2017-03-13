@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1502	.	G	C	.	.	EXP=missense|WRAP73|ENST00000378322|protein_coding|-|331I>331M|1502G>C
+1	19291	.	G	A	.	.	EXP=5_prime_utr|WRAP73|ENST00000378322|protein_coding;type=no splice
+1	19295	.	AGCAGGCTG	A	.	.	EXP=.;type=ENST00000378322:3566625-AGCAGGCTG-A beyond;

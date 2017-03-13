@@ -1,0 +1,26 @@
+2	ensembl_havana	gene	21	48689	.	-	.	ID=gene:ENSG00000035115;Name=SH3YL1;biotype=protein_coding;description=SH3 and SYLF domain containing 1 [Source:HGNC Symbol%3BAcc:29546];gene_id=ENSG00000035115;logic_name=ensembl_havana_gene;version=17
+2	ensembl_havana	NMD_transcript_variant	1071	42999	.	-	.	ID=transcript:ENST00000479739;Parent=gene:ENSG00000035115;Name=SH3YL1-009;biotype=nonsense_mediated_decay;havana_transcript=OTTHUMT00000322358;havana_version=3;transcript_id=ENST00000479739;version=2
+2	havana	exon	1071	1292	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00001954076;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001954076;rank=11;version=1
+2	havana	three_prime_UTR	1071	1292	.	-	.	Parent=transcript:ENST00000479739
+2	havana	exon	12257	12335	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00003606733;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003606733;rank=10;version=1
+2	havana	three_prime_UTR	12257	12335	.	-	.	Parent=transcript:ENST00000479739
+2	havana	three_prime_UTR	12838	13259	.	-	.	Parent=transcript:ENST00000479739
+2	havana	exon	12838	13482	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00001945985;constitutive=0;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00001945985;rank=9;version=1
+2	havana	CDS	13260	13482	.	-	1	ID=CDS:ENSP00000441266;Parent=transcript:ENST00000479739;protein_id=ENSP00000441266
+2	havana	exon	15392	15520	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00003685079;constitutive=0;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSE00003685079;rank=8;version=1
+2	havana	CDS	15392	15520	.	-	1	ID=CDS:ENSP00000441266;Parent=transcript:ENST00000479739;protein_id=ENSP00000441266
+2	havana	exon	16451	16563	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00003571637;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003571637;rank=7;version=1
+2	havana	CDS	16451	16563	.	-	0	ID=CDS:ENSP00000441266;Parent=transcript:ENST00000479739;protein_id=ENSP00000441266
+2	havana	CDS	25089	25091	.	-	0	ID=CDS:ENSP00000441266;Parent=transcript:ENST00000479739;protein_id=ENSP00000441266
+2	havana	exon	25089	25162	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00001537032;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00001537032;rank=6;version=1
+2	havana	five_prime_UTR	25092	25162	.	-	.	Parent=transcript:ENST00000479739
+2	havana	exon	25794	25853	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00003646899;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003646899;rank=5;version=1
+2	havana	five_prime_UTR	25794	25853	.	-	.	Parent=transcript:ENST00000479739
+2	havana	exon	29829	29893	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00003541607;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003541607;rank=4;version=1
+2	havana	five_prime_UTR	29829	29893	.	-	.	Parent=transcript:ENST00000479739
+2	havana	exon	32022	32135	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00003498940;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003498940;rank=3;version=1
+2	havana	five_prime_UTR	32022	32135	.	-	.	Parent=transcript:ENST00000479739
+2	havana	exon	35296	35406	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00003522422;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003522422;rank=2;version=1
+2	havana	five_prime_UTR	35296	35406	.	-	.	Parent=transcript:ENST00000479739
+2	havana	exon	42376	42999	.	-	.	Parent=transcript:ENST00000479739;Name=ENSE00001878590;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001878590;rank=1;version=1
+2	havana	five_prime_UTR	42376	42999	.	-	.	Parent=transcript:ENST00000479739

@@ -1,0 +1,8 @@
+X	ensembl_havana	gene	21	16570	.	+	.	ID=gene:ENSG00000101916;Name=TLR8;biotype=protein_coding;description=toll-like receptor 8 [Source:HGNC Symbol%3BAcc:15632];gene_id=ENSG00000101916;logic_name=ensembl_havana_gene;version=11
+X	ensembl_havana	transcript	21	16570	.	+	.	ID=transcript:ENST00000218032;Parent=gene:ENSG00000101916;Name=TLR8-002;biotype=protein_coding;ccdsid=CCDS14152.1;havana_transcript=OTTHUMT00000055784;havana_version=2;tag=basic;transcript_id=ENST00000218032;version=6
+X	ensembl_havana	five_prime_UTR	21	107	.	+	.	Parent=transcript:ENST00000218032
+X	ensembl_havana	exon	21	110	.	+	.	Parent=transcript:ENST00000218032;Name=ENSE00001907173;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00001907173;rank=1;version=1
+X	ensembl_havana	CDS	108	110	.	+	0	ID=CDS:ENSP00000218032;Parent=transcript:ENST00000218032;protein_id=ENSP00000218032
+X	ensembl_havana	CDS	12445	15567	.	+	0	ID=CDS:ENSP00000218032;Parent=transcript:ENST00000218032;protein_id=ENSP00000218032
+X	ensembl_havana	exon	12445	16570	.	+	.	Parent=transcript:ENST00000218032;Name=ENSE00001130430;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00001130430;rank=2;version=6
+X	ensembl_havana	three_prime_UTR	15568	16570	.	+	.	Parent=transcript:ENST00000218032

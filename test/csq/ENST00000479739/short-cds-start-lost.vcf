@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=2,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+2	25091	.	T	C	.	.	EXP=start_lost&splice_region|SH3YL1|ENST00000479739|NMD|-|1M>1V|25091T>C;type=ENST00000479739:242800-T-C 3bp CDS

@@ -1,0 +1,12 @@
+1	ensembl_havana	gene	21	4140	.	-	.	ID=gene:ENSG00000182330;Name=PRAMEF8;biotype=protein_coding;description=PRAME family member 8 [Source:HGNC Symbol%3BAcc:24074];gene_id=ENSG00000182330;logic_name=ensembl_havana_gene;version=6
+1	ensembl_havana	transcript	21	4140	.	-	.	ID=transcript:ENST00000357367;Parent=gene:ENSG00000182330;Name=PRAMEF8-001;biotype=protein_coding;ccdsid=CCDS30597.1;havana_transcript=OTTHUMT00000022043;havana_version=1;tag=basic;transcript_id=ENST00000357367;version=2
+1	ensembl_havana	three_prime_UTR	21	356	.	-	.	Parent=transcript:ENST00000357367
+1	ensembl_havana	exon	21	918	.	-	.	Parent=transcript:ENST00000357367;Name=ENSE00001763203;constitutive=1;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00001763203;rank=4;version=1
+1	ensembl_havana	CDS	357	918	.	-	1	ID=CDS:ENSP00000349931;Parent=transcript:ENST00000357367;protein_id=ENSP00000349931
+1	ensembl_havana	exon	1833	2408	.	-	.	Parent=transcript:ENST00000357367;Name=ENSE00001787203;constitutive=1;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSE00001787203;rank=3;version=1
+1	ensembl_havana	CDS	1833	2408	.	-	1	ID=CDS:ENSP00000349931;Parent=transcript:ENST00000357367;protein_id=ENSP00000349931
+1	ensembl_havana	CDS	2791	3077	.	-	0	ID=CDS:ENSP00000349931;Parent=transcript:ENST00000357367;protein_id=ENSP00000349931
+1	ensembl_havana	exon	2791	3102	.	-	.	Parent=transcript:ENST00000357367;Name=ENSE00001764121;constitutive=1;ensembl_end_phase=2;ensembl_phase=-1;exon_id=ENSE00001764121;rank=2;version=1
+1	ensembl_havana	five_prime_UTR	3078	3102	.	-	.	Parent=transcript:ENST00000357367
+1	ensembl_havana	exon	4083	4140	.	-	.	Parent=transcript:ENST00000357367;Name=ENSE00001633251;constitutive=1;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001633251;rank=1;version=1
+1	ensembl_havana	five_prime_UTR	4083	4140	.	-	.	Parent=transcript:ENST00000357367

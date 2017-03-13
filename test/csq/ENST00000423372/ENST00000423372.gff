@@ -1,0 +1,8 @@
+1	ensembl	gene	1	4479	.	-	.	ID=gene:ENSG00000237683;Name=AL627309.1;biotype=protein_coding;description=Uncharacterized protein  [Source:UniProtKB/TrEMBL%3BAcc:R4GN28];gene_id=ENSG00000237683;logic_name=ensembl;version=5
+1	ensembl	transcript	1	4479	.	-	.	ID=transcript:ENST00000423372;Parent=gene:ENSG00000237683;Name=AL627309.1-201;biotype=protein_coding;tag=basic;transcript_id=ENST00000423372;version=3
+1	ensembl	exon	1	902	.	-	.	Parent=transcript:ENST00000423372;Name=ENSE00002314092;constitutive=1;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002314092;rank=2;version=1
+1	ensembl	three_prime_UTR	1	902	.	-	.	Parent=transcript:ENST00000423372
+1	ensembl	three_prime_UTR	2721	3629	.	-	.	Parent=transcript:ENST00000423372
+1	ensembl	exon	2721	4479	.	-	.	Parent=transcript:ENST00000423372;Name=ENSE00002221580;constitutive=1;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002221580;rank=1;version=1
+1	ensembl	CDS	3630	4409	.	-	0	ID=CDS:ENSP00000473460;Parent=transcript:ENST00000423372;protein_id=ENSP00000473460
+1	ensembl	five_prime_UTR	4410	4479	.	-	.	Parent=transcript:ENST00000423372

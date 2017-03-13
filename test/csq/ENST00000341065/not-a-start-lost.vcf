@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	5435	.	C	G	.	.	EXP=missense|SAMD11|ENST00000341065|protein_coding|+|1H>1D|5435C>G;type=ENST00000341065:865694-C-G:incomplete cds

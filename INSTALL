@@ -1,11 +1,27 @@
 System Requirements
 ===================
 
-BCFtools and HTSlib depend on the zlib library <http://zlib.net>.  Building
-them requires zlib development files to be installed on the build machine;
-you may need to ensure a package such as zlib1g-dev (on Debian or Ubuntu Linux)
-or zlib-devel (on RPM/yum-based distributions) is installed.
+BCFtools and HTSlib depend on the zlib library <http://zlib.net>, the bzip2
+library <http://bzip.org/> and liblzma <http://tukaani.org/xz/>.  Building
+them requires development files to be installed on the build machine;
+note that some Linux distributions package these separately from the library
+itself (see below).
 
+The bzip2 and liblzma dependencies can be removed if full CRAM support
+is not needed - see HTSlib's INSTALL file for details.
+
+Packages for dpkg-based Linux distributions (Debian / Ubuntu) are:
+
+  zlib1g-dev
+  libbz2-dev
+  liblzma-dev
+
+Packages for rpm or yum-based Linux distributions (RedHat / Fedora / CentOS)
+are:
+
+  zlib-devel
+  bzip2-devel
+  xz-devel
 
 Compilation
 ===========

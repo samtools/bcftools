@@ -1,0 +1,23 @@
+19	ensembl_havana	gene	21	869	.	+	.	ID=gene:ENSG00000167644;Name=C19orf33;biotype=protein_coding;description=chromosome 19 open reading frame 33 [Source:HGNC Symbol%3BAcc:16668];gene_id=ENSG00000167644;logic_name=ensembl_havana_gene;version=7
+19	ensembl_havana	transcript	21	869	.	+	.	ID=transcript:ENST00000301246;Parent=gene:ENSG00000167644;Name=C19orf33-001;biotype=protein_coding;ccdsid=CCDS12511.1;havana_transcript=OTTHUMT00000458168;havana_version=1;tag=basic;transcript_id=ENST00000301246;version=5
+19	ensembl_havana	five_prime_UTR	21	121	.	+	.	Parent=transcript:ENST00000301246
+19	ensembl_havana	exon	21	143	.	+	.	Parent=transcript:ENST00000301246;Name=ENSE00002964887;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00002964887;rank=1;version=1
+19	ensembl_havana	CDS	122	143	.	+	0	ID=CDS:ENSP00000301246;Parent=transcript:ENST00000301246;protein_id=ENSP00000301246
+19	ensembl_havana	exon	235	350	.	+	.	Parent=transcript:ENST00000301246;Name=ENSE00003679241;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00003679241;rank=2;version=1
+19	ensembl_havana	CDS	235	350	.	+	2	ID=CDS:ENSP00000301246;Parent=transcript:ENST00000301246;protein_id=ENSP00000301246
+19	ensembl_havana	exon	484	546	.	+	.	Parent=transcript:ENST00000301246;Name=ENSE00003669537;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003669537;rank=3;version=1
+19	ensembl_havana	CDS	484	546	.	+	0	ID=CDS:ENSP00000301246;Parent=transcript:ENST00000301246;protein_id=ENSP00000301246
+19	ensembl_havana	CDS	705	824	.	+	0	ID=CDS:ENSP00000301246;Parent=transcript:ENST00000301246;protein_id=ENSP00000301246
+19	ensembl_havana	exon	705	869	.	+	.	Parent=transcript:ENST00000301246;Name=ENSE00002868661;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002868661;rank=4;version=1
+19	ensembl_havana	three_prime_UTR	825	869	.	+	.	Parent=transcript:ENST00000301246
+19	ensembl_havana	transcript	24	866	.	+	.	ID=transcript:ENST00000588605;Parent=gene:ENSG00000167644;Name=C19orf33-002;biotype=protein_coding;havana_transcript=OTTHUMT00000458169;havana_version=1;tag=basic;transcript_id=ENST00000588605;version=1
+19	havana	five_prime_UTR	24	121	.	+	.	Parent=transcript:ENST00000588605
+19	havana	exon	24	143	.	+	.	Parent=transcript:ENST00000588605;Name=ENSE00001309662;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00001309662;rank=1;version=3
+19	havana	CDS	122	143	.	+	0	ID=CDS:ENSP00000464940;Parent=transcript:ENST00000588605;protein_id=ENSP00000464940
+19	havana	exon	235	350	.	+	.	Parent=transcript:ENST00000588605;Name=ENSE00003679241;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00003679241;rank=2;version=1
+19	havana	CDS	235	350	.	+	2	ID=CDS:ENSP00000464940;Parent=transcript:ENST00000588605;protein_id=ENSP00000464940
+19	havana	CDS	425	544	.	+	0	ID=CDS:ENSP00000464940;Parent=transcript:ENST00000588605;protein_id=ENSP00000464940
+19	havana	exon	425	546	.	+	.	Parent=transcript:ENST00000588605;Name=ENSE00003656115;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00003656115;rank=3;version=1
+19	havana	three_prime_UTR	545	546	.	+	.	Parent=transcript:ENST00000588605
+19	havana	exon	705	866	.	+	.	Parent=transcript:ENST00000588605;Name=ENSE00001323608;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001323608;rank=4;version=4
+19	havana	three_prime_UTR	705	866	.	+	.	Parent=transcript:ENST00000588605

@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	19026	.	CAGGTGGCCAG	CAGGTCAG	.	.	EXP=inframe_deletion|SAMD11|ENST00000341065|protein_coding|+|508VA>508V|19026CAGGTGGCCAG>CAGGTCAG,splice_region|SAMD11|ENST00000341065|protein_coding;type=first is X, so 508V is correct

@@ -1,0 +1,26 @@
+1	ensembl_havana	gene	1	21995	.	-	.	ID=gene:ENSG00000116213;Name=WRAP73;biotype=protein_coding;description=WD repeat containing%2C antisense to TP73 [Source:HGNC Symbol%3BAcc:12759];gene_id=ENSG00000116213;logic_name=ensembl_havana_gene;version=11
+1	ensembl_havana	transcript	1	19292	.	-	.	ID=transcript:ENST00000378322;Parent=gene:ENSG00000116213;Name=WRAP73-002;biotype=protein_coding;havana_transcript=OTTHUMT00000001471;havana_version=1;tag=basic;transcript_id=ENST00000378322;version=3
+1	havana	three_prime_UTR	1	631	.	-	.	Parent=transcript:ENST00000378322
+1	havana	exon	1	891	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00001755234;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00001755234;rank=11;version=2
+1	havana	CDS	632	891	.	-	2	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	1447	1572	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00003534355;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003534355;rank=10;version=1
+1	havana	CDS	1447	1572	.	-	2	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	2632	2737	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00001659258;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00001659258;rank=9;version=1
+1	havana	CDS	2632	2737	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	4231	4308	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00003685083;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003685083;rank=8;version=1
+1	havana	CDS	4231	4308	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	4394	4528	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00003492457;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003492457;rank=7;version=1
+1	havana	CDS	4394	4528	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	5178	5264	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00003480267;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003480267;rank=6;version=1
+1	havana	CDS	5178	5264	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	6229	6332	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00000734306;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00000734306;rank=5;version=1
+1	havana	CDS	6229	6332	.	-	2	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	7984	8056	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00000734303;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00000734303;rank=4;version=2
+1	havana	CDS	7984	8056	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	15900	16016	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00000734299;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00000734299;rank=3;version=1
+1	havana	CDS	15900	16016	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	16642	16794	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00003566716;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003566716;rank=2;version=1
+1	havana	CDS	16642	16794	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	CDS	19165	19233	.	-	0	ID=CDS:ENSP00000367573;Parent=transcript:ENST00000378322;protein_id=ENSP00000367573
+1	havana	exon	19165	19292	.	-	.	Parent=transcript:ENST00000378322;Name=ENSE00001870155;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00001870155;rank=1;version=1
+1	havana	five_prime_UTR	19234	19292	.	-	.	Parent=transcript:ENST00000378322
