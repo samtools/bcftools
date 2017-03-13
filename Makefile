@@ -98,7 +98,7 @@ MISC_PROGRAMS = plot-vcfstats vcfutils.pl plugins/color-chrs.pl
 all:$(PROG) plugins
 
 # See htslib/Makefile
-PACKAGE_VERSION = 1.3.1
+PACKAGE_VERSION = 1.4
 ifneq "$(wildcard .git)" ""
 PACKAGE_VERSION := $(shell git describe --always --dirty)
 DOC_VERSION :=  $(shell git describe --always)+
