@@ -6,7 +6,9 @@ Plugin fixref
 
 This tool helps to determine and fix strand orientation.
 Currently it can collect and print numbers useful in determining
-the strand convention (the `stats` mode), flip non-ambiguous SNPs (the `flip` mode),
+the strand convention (the `stats` mode), swap REF/ALT alleles based on the 
+SNP reference ID (the `id` mode), 
+flip or swap non-ambiguous SNPs (the `flip` mode),
 or convert from the 
 link:http://www.illumina.com/documents/products/technotes/technote_topbot.pdf[Illumina TOP strand]
 convention to the forward strand (the `top` mode).
@@ -17,12 +19,35 @@ non-biallelic sites:
 bcftools +fixref test.bcf -- -f ref.fa
 ----
 
+Another tool for checking the reference allele mismatches:
+----
+bcftools norm --check-ref e -f /path/to/reference.fasta input.vcf.gz -Ou -o /dev/null
+----
+
 If there are no REF mismatches and the number of multi-allelic sites is small, we are done.
 If the output shows that the VCF is TOP-compatible, the following command can be
 used to fix the strand:
 ----
 bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m top
 ----
+
+
+If the file contains dbSNP reference identificators (rsXXX in the ID column), the following
+commands can be used to swap the reference and alternate alleles:
+----
+# Get the dbSNP annotation file. Make sure the correct reference build is used (e.g. b37)
+#   https://www.ncbi.nlm.nih.gov/variation/docs/human_variation_vcf/
+wget ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b146_GRCh37p13/VCF/All_20151104.vcf.gz
+wget ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b146_GRCh37p13/VCF/All_20151104.vcf.gz.tbi
+
+# Swap the alleles
+bcftools +fixref broken.bcf -Ob -o fixref.bcf -- -d -f /path/to/reference.fasta -i All_20151104.vcf.gz
+
+# The above command might have changed the coordinates, we must sort the VCF.
+# Use `vcf-sort` from the vcftools package or a command like this:
+(bcftools view -h fixref.bcf; bcftools view -H fixref.bcf | sort -k1,1d -k2,2n;) | bcftools view -Ob -o fixref.srt.bcf
+----
+
 
 In the most extreme case when nothing else is working, one can simply force
 the unambigous alleles onto the forward strand and drop the ambigous genotypes.
@@ -36,8 +61,6 @@ result with the link:plugin.af-dist.html[af-dist plugin].
 WARNING: Do not use the program blindly, make an effort to understand what
 strand convention your data uses! Make sure the reason for mismatching REF
 alleles is not a different reference build!!
-
-
 
 
 include::footer.inc[]
