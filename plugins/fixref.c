@@ -207,7 +207,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     return 0;
 }
 
-bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char alt, int swap)
+static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char alt, int swap)
 {
     rec->d.allele[0][0] = ref;
     rec->d.allele[1][0] = alt;
@@ -246,7 +246,7 @@ static inline int nt2int(char nt)
 #define int2nt(x) "ACGT"[x]
 #define revint(x) ("3210"[x]-'0')
 
-inline uint32_t parse_rsid(char *name)
+static inline uint32_t parse_rsid(char *name)
 {
     if ( name[0]!='r' || name[1]!='s' ) 
     {
@@ -261,7 +261,7 @@ inline uint32_t parse_rsid(char *name)
     return id;
 }
 
-int fetch_ref(args_t *args, bcf1_t *rec)
+static int fetch_ref(args_t *args, bcf1_t *rec)
 {
     // Get the reference allele
     int len;
@@ -281,7 +281,7 @@ int fetch_ref(args_t *args, bcf1_t *rec)
     return ir;
 }
 
-void dbsnp_init(args_t *args, const char *chr)
+static void dbsnp_init(args_t *args, const char *chr)
 {
     if ( args->i2m ) kh_destroy(i2m, args->i2m);
     args->i2m = kh_init(i2m);
@@ -313,7 +313,7 @@ done:
     bcf_sr_destroy(sr);
 }
 
-bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
+static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
 {
     int k, ref,alt,pos;
     uint32_t id = parse_rsid(rec->d.id);
