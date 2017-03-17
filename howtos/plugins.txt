@@ -22,9 +22,7 @@ counts
 
 dosage
 
-fill-AN-AC
-
-fill-tags
+link:plugin.fill-tags.html[fill-tags]:: Set various INFO tags, such as  AF, AC, HWE, etc.
 
 link:plugin.fixref.html[fixref]:: Diagnose and fix VCFs with genotypes on incorrect strand
 

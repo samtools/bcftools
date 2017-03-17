@@ -1,0 +1,54 @@
+include::header.inc[]
+
+
+Plugin fill-tags
+----------------
+
+This plugin can be used to compute and fill various INFO tags:
+
+* AN .. Total number of alleles in called genotypes
+* AC .. Allele count in genotypes
+* NS .. Number of samples with data
+* AC_Hom .. Allele counts in homozygous genotypes
+* AC_Het .. Allele counts in heterozygous genotypes
+* AC_Hemi .. Allele counts in hemizygous genotypes (haploid)
+* AF .. Allele frequency
+* MAF .. Minor Allele frequency
+* HWE .. HWE test (PMID:15789306)
+
+By default the values are calculated across all samples, but also
+per-population values can be calculated. For this,
+provide a file with the list of samples in the first column and 
+a comma-separated list of populations in the second column. The
+file can look for example like this:
+----
+Sample1     Group1
+Sample2     Group1,Group2
+Sample3     Group2
+----
+
+
+The list of plugin-specific options can be obtained by running 
+`bcftools +fill-tags -h`, which will print the following usage page:
+----
+About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS.
+Usage: bcftools +fill-tags [General Options] -- [Plugin Options]
+Options:
+   run "bcftools plugin" for a list of common options
+
+Plugin options:
+   -d, --drop-missing          do not count half-missing genotypes "./1" as hemizygous
+   -t, --tags LIST             list of output tags. By default, all tags are filled.
+   -S, --samples-file FILE     list of samples (first column) and comma-separated list of populations (second column)
+
+Example:
+   bcftools +fill-tags in.bcf -Ob -o out.bcf
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -d
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE
+----
+
+
+include::footer.inc[]
+
+
