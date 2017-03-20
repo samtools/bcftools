@@ -399,7 +399,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         }
     }
 
-    if (args->min_ac)
+    if (args->min_ac!=-1)
     {
         if (args->min_ac_type == ALLELE_NONREF && args->min_ac>non_ref_ac) return 0; // min AC
         else if (args->min_ac_type == ALLELE_MINOR && args->min_ac>minor_ac) return 0; // min minor AC
@@ -407,7 +407,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         else if (args->min_ac_type == ALLELE_MAJOR && args->min_ac > major_ac) return 0; // min major AC
         else if (args->min_ac_type == ALLELE_NONMAJOR && args->min_ac > an-major_ac) return 0; // min non-major AC
     }
-    if (args->max_ac)
+    if (args->max_ac!=-1)
     {
         if (args->max_ac_type == ALLELE_NONREF && args->max_ac<non_ref_ac) return 0; // max AC
         else if (args->max_ac_type == ALLELE_MINOR && args->max_ac<minor_ac) return 0; // max minor AC
@@ -415,7 +415,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         else if (args->max_ac_type == ALLELE_MAJOR && args->max_ac < major_ac) return 0; // max major AC
         else if (args->max_ac_type == ALLELE_NONMAJOR && args->max_ac < an-major_ac) return 0; // max non-major AC
     }
-    if (args->min_af)
+    if (args->min_af!=-1)
     {
         if (an == 0) return 0; // freq not defined, skip site
         if (args->min_af_type == ALLELE_NONREF && args->min_af>non_ref_ac/(double)an) return 0; // min AF
@@ -424,7 +424,7 @@ int subset_vcf(args_t *args, bcf1_t *line)
         else if (args->min_af_type == ALLELE_MAJOR && args->min_af > major_ac/(double)an) return 0; // min major AF
         else if (args->min_af_type == ALLELE_NONMAJOR && args->min_af > (an-major_ac)/(double)an) return 0; // min non-major AF
     }
-    if (args->max_af)
+    if (args->max_af!=-1)
     {
         if (an == 0) return 0; // freq not defined, skip site
         if (args->max_af_type == ALLELE_NONREF && args->max_af<non_ref_ac/(double)an) return 0; // max AF
@@ -534,6 +534,7 @@ int main_vcfview(int argc, char *argv[])
     args->output_type = FT_VCF;
     args->n_threads = 0;
     args->record_cmd_line = 1;
+    args->min_ac = args->max_ac = args->min_af = args->max_af = -1;
     int targets_is_file = 0, regions_is_file = 0;
 
     static struct option loptions[] =
