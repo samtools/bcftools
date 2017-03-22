@@ -1,6 +1,6 @@
-# Configure script for samtools, utilities for Sequence Alignment/Map files.
+# Configure script for bcftools, utilities for VCF/BCF files.
 #
-#    Copyright (C) 2015 Genome Research Ltd.
+#    Copyright (C) 2015,2017 Genome Research Ltd.
 #
 #    Author: John Marshall <jm18@sanger.ac.uk>
 #
@@ -23,17 +23,16 @@
 # DEALINGS IN THE SOFTWARE.
 
 dnl Process this file with autoconf to produce a configure script
-AC_INIT([Samtools], m4_esyscmd_s([make print-version]),
+AC_INIT([BCFtools], m4_esyscmd_s([make print-version]),
         [samtools-help@lists.sourceforge.net], [], [http://www.htslib.org/])
 AC_PREREQ([2.63])  dnl This version introduced 4-argument AC_CHECK_HEADER
-AC_CONFIG_SRCDIR([bamtk.c])
+AC_CONFIG_SRCDIR([main.c])
 AC_CONFIG_HEADERS([config.h])
 
-m4_include([m4/ax_with_curses.m4])
 m4_include([m4/ax_with_htslib.m4])
 
 dnl Copyright notice to be copied into the generated configure script
-AC_COPYRIGHT([Portions copyright (C) 2015 Genome Research Ltd.
+AC_COPYRIGHT([Portions copyright (C) 2015,2017 Genome Research Ltd.
 
 This configure script is free software: you are free to change and
 redistribute it.  There is NO WARRANTY, to the extent permitted by law.])
@@ -46,12 +45,12 @@ AX_WITH_HTSLIB
 if test "$ax_cv_htslib" != yes; then
   AC_MSG_ERROR([HTSlib development files not found
 
-Samtools uses HTSlib to parse bioinformatics file formats etc.  Building it
+BCFtools uses HTSlib to parse bioinformatics file formats etc.  Building it
 requires an unpacked HTSlib source tree (which will be built in conjunction
-with samtools) or a previously-installed HTSlib.  In either case you may
+with bcftools) or a previously-installed HTSlib.  In either case you may
 need to configure --with-htslib=DIR to locate the appropriate HTSlib.
 
-FAILED.  You must supply an HTSlib in order to build samtools successfully.])
+FAILED.  You must supply an HTSlib in order to build bcftools successfully.])
 fi
 
 if test "$ax_cv_htslib_which" = source; then
@@ -64,31 +63,6 @@ fi
 AC_SUBST([Hsource])
 AC_SUBST([Hinstall])
 
-AC_ARG_WITH([curses],
-  [AS_HELP_STRING([--without-curses],
-                  [omit curses support, so no curses library needed])])
-
-if test "$with_curses" != no; then
-  AX_WITH_CURSES
-  if test "$ax_cv_curses" != yes; then
-    AC_MSG_ERROR([curses development files not found
-
-The 'samtools tview' command uses the curses text user interface library.
-Building samtools with tview requires curses/ncurses/etc development files
-to be installed on the build machine; you may need to ensure a package such
-as libncurses5-dev (on Debian or Ubuntu Linux) or ncurses-devel (on RPM-based
-Linux distributions) is installed.
-
-FAILED.  Either configure --without-curses or resolve this error to build
-samtools successfully.])
-  fi
-else
-  CURSES_LIB=
-  CURSES_CPPFLAGS=
-  AC_SUBST([CURSES_LIB])
-  AC_SUBST([CURSES_CPPFLAGS])
-fi
-
 save_LIBS=$LIBS
 zlib_devel=ok
 dnl Set a trivial non-empty INCLUDES to avoid excess default includes tests
@@ -99,12 +73,12 @@ LIBS=$save_LIBS
 if test $zlib_devel != ok; then
   AC_MSG_ERROR([zlib development files not found
 
-Samtools uses compression routines from the zlib library <http://zlib.net>.
-Building samtools requires zlib development files to be installed on the build
+BCFtools uses compression routines from the zlib library <http://zlib.net>.
+Building bcftools requires zlib development files to be installed on the build
 machine; you may need to ensure a package such as zlib1g-dev (on Debian or
 Ubuntu Linux) or zlib-devel (on RPM-based Linux distributions) is installed.
 
-FAILED.  This error must be resolved in order to build samtools successfully.])
+FAILED.  This error must be resolved in order to build bcftools successfully.])
 fi
 
 AC_CONFIG_FILES([config.mk])
