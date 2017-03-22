@@ -156,7 +156,6 @@ build bcftools.])])
     [CC_RDYNAMIC_OPT=-rdynamic],[CC_RDYNAMIC_OPT=])
   AC_SUBST([CC_RDYNAMIC_OPT])
 ])
-
 save_LIBS=$LIBS
 zlib_devel=ok
 dnl Set a trivial non-empty INCLUDES to avoid excess default includes tests
