@@ -51,8 +51,10 @@ and the results can be found in ``outdir/dist.dat``. The file can be inspected v
 processed by standard unix commands. For example, a list of chromosomes which are aberrant
 or uncertain can be obtained by
 ----
-cat outdir/dist.dat | awk '$1=="CN" && $3!=0'
+cat outdir/dist.dat | awk '$1=="CN" && $3!=2.0'
 ----
+For clean data, the third column should be 2.0 for normal diploid state, 1.0 for a loss, 3.0 for
+gain, and -1 is used when the program cannot determine the state, usually because of noisy data.
 If uncertain, it is very useful to inspect the BAF distribution by eye. The distribution
 can be plotted using the auto-generated matplotlib script
 ----
