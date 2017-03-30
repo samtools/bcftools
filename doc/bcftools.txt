@@ -695,7 +695,7 @@ if the BCF headers differ.
     Alias for *-d none*
 
 *-f, --file-list* 'FILE'::
-    Read the list of files from a file.
+    Read file names from 'FILE', one file name per line.
 
 *-l, --ligate*::
     Ligate phased VCFs by matching phase at overlapping haplotypes
@@ -1481,7 +1481,7 @@ For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
     not user controllable at the moment.
 
 *-l, --file-list* 'FILE'::
-    read file names from 'FILE'
+    Read file names from 'FILE', one file name per line.
 
 *-m, --merge* 'snps'|'indels'|'both'|'all'|'none'|'id'::
     The option controls what types of multiallelic records can be created:
