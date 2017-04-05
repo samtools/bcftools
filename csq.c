@@ -3094,7 +3094,7 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
         char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD);
         for (i=0; i < N_REF_PAD - pad_beg; i++) ref[i] = 'N';
         memcpy(ref+i, tr->ref, len);
-        for (i=0; i < N_REF_PAD - pad_end; i++) ref[i+len+N_REF_PAD] = 'N';
+        for (i=0; i < N_REF_PAD - pad_end; i++) ref[i+len] = 'N';
         free(tr->ref);
         tr->ref = ref;
     }
