@@ -24,6 +24,7 @@ THE SOFTWARE.  */
 
 #include <ctype.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <errno.h>
 #include <math.h>
 #include <wordexp.h>
@@ -33,6 +34,10 @@ THE SOFTWARE.  */
 #include "bcftools.h"
 #include <htslib/hts_defs.h>
 #include <htslib/vcfutils.h>
+
+#ifndef __FUNCTION__
+#  define __FUNCTION__ __func__
+#endif
 
 uint64_t bcf_double_missing    = 0x7ff0000000000001;
 uint64_t bcf_double_vector_end = 0x7ff0000000000002;

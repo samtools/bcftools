@@ -1129,9 +1129,9 @@ int main_vcfroh(int argc, char *argv[])
                 break;
             case 'o': args->output_fname = optarg; break;
             case 'O': 
-                if ( index(optarg,'s') || index(optarg,'S') ) args->output_type |= OUTPUT_ST;
-                if ( index(optarg,'r') || index(optarg,'R') ) args->output_type |= OUTPUT_RG;
-                if ( index(optarg,'z') || index(optarg,'z') ) args->output_type |= OUTPUT_GZ;
+                if ( strchr(optarg,'s') || strchr(optarg,'S') ) args->output_type |= OUTPUT_ST;
+                if ( strchr(optarg,'r') || strchr(optarg,'R') ) args->output_type |= OUTPUT_RG;
+                if ( strchr(optarg,'z') || strchr(optarg,'z') ) args->output_type |= OUTPUT_GZ;
                 break;
             case 'e': args->estimate_AF = optarg; naf_opts++; break;
             case 'b': args->buffer_size = optarg; break;

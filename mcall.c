@@ -1224,7 +1224,7 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
             {
                 int k = call->als_map[j];
                 if ( k==-1 ) continue;   // to be dropped
-                memcpy(tmp_new+size*k, tmp_ori+size*j, size);
+                memcpy((char *)tmp_new+size*k, (char *)tmp_ori+size*j, size);
             }
             bcf_update_info_int32(call->hdr, rec, key, tmp_new, nout_als);
         }
@@ -1247,8 +1247,8 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
 
         for (j=0; j<nsmpl; j++)
         {
-            void *ptr_src = tmp_ori + j*nals*size;
-            void *ptr_dst = tmp_new + j*nout_als*size;
+            char *ptr_src = (char *)tmp_ori + j*nals*size;
+            char *ptr_dst = (char *)tmp_new + j*nout_als*size;
             int k;
             for (k=0; k<nals; k++)
             {
