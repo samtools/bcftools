@@ -3472,6 +3472,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
     }
 
     vrec_t *vrec = csq->vrec;
+    int printed = 0;
     for (i=0; i<args->smpl->n; i++)
     {
         int32_t *gt = args->gt_arr + args->smpl->idx[i]*ngt;
@@ -3480,11 +3481,14 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
             if ( gt[j]==bcf_gt_missing || gt[j]==bcf_int32_vector_end || !bcf_gt_allele(gt[j]) ) continue;
 
             int icsq = 2*csq->idx + j;
-            if ( icsq >= args->ncsq_max ) // more than ncsq_max consequences, so can't fit it in FMT
+            if ( icsq >= args->ncsq_max) // more than ncsq_max consequences, so can't fit it in FMT
             {
-                int ismpl = args->smpl->idx[i];
-                fprintf(stderr,"Warning: --ncsq %d is too small to annotate %s at %s:%d with %d-th csq\n",
-                        args->ncsq_max/2,args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),vrec->line->pos+1,csq->idx+1);
+                if (printed == 0) {
+                    int ismpl = args->smpl->idx[i];
+                    fprintf(stderr,"Warning: --ncsq %d is too small to annotate %s at %s:%d with %d-th csq\n",
+                            args->ncsq_max/2,args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),vrec->line->pos+1,csq->idx+1);
+                    printed = 1;
+                }
                 break;
             }
             if ( vrec->nfmt < 1 + icsq/32 ) vrec->nfmt = 1 + icsq/32;
