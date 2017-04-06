@@ -738,6 +738,8 @@ int main_vcfview(int argc, char *argv[])
         bcf_hdr_write(args->out, out_hdr);
     else if ( args->output_type & FT_BCF )
         error("BCF output requires header, cannot proceed with -H\n");
+
+    int ret = 0;
     if (!args->header_only)
     {
         while ( bcf_sr_next_line(args->files) )
@@ -747,10 +749,12 @@ int main_vcfview(int argc, char *argv[])
             if ( subset_vcf(args, line) )
                 bcf_write1(args->out, out_hdr, line);
         }
+        ret = args->files->errnum;
+        if ( ret ) fprintf(stderr,"Error: %s\n", bcf_sr_strerror(args->files->errnum));
     }
     hts_close(args->out);
     destroy_data(args);
     bcf_sr_destroy(args->files);
     free(args);
-    return 0;
+    return ret;
 }
