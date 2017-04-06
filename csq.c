@@ -151,6 +151,10 @@
 #include "smpl_ilist.h"
 #include "rbuf.h"
 
+#ifndef __FUNCTION__
+#  define __FUNCTION__ __func__
+#endif
+
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
