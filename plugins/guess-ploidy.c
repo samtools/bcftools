@@ -34,6 +34,11 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include "bcftools.h"
+#include "filter.h"
+
+// Logic of the filters: include or exclude sites which match the filters?
+#define FLT_INCLUDE 1
+#define FLT_EXCLUDE 2
 
 #define GUESS_GT 1
 #define GUESS_PL 2
@@ -60,6 +65,10 @@ typedef struct
     char **argv, *af_tag;
     double af_dflt;
     stats_t stats;
+    filter_t *filter;
+    char *filter_str;
+    int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+    const uint8_t *smpl_pass;
     int nsample, verbose, tag, include_indels;
     int *counts, ncounts;       // number of observed GTs with given ploidy, used when -g is not given
     double *tmpf, *pl2p, gt_err_prob;
@@ -98,7 +107,9 @@ static const char *usage_text(void)
         "       --AF-dflt <float>           the default alternate allele frequency [0.5]\n"
         "       --AF-tag <TAG>              use TAG for allele frequency\n"
         "   -e, --error-rate <float>        probability of GT being wrong (with -t GT) [1e-3]\n"
+        "       --exclude <expr>            exclude sites for which the expression is true\n"
         "   -i, --include-indels            do not skip indel sites\n"
+        "       --include <expr>            include only sites for which the expression is true\n"
         "   -g, --genome <str>              shortcut to select nonPAR region for common genomes b37|hg19|b38|hg38\n"
         "   -r, --regions <chr:beg-end>     restrict to comma-separated list of regions\n"
         "   -R, --regions-file <file>       restrict to regions listed in a file\n"
@@ -106,8 +117,8 @@ static const char *usage_text(void)
         "   -v, --verbose                   verbose output (specify twice to increase verbosity)\n"
         "\n"
         "Region shortcuts:\n"
-        "   b37 .. -r X:2699521-154931043   # GRCh37 no-chr prefix\n"
-        "   b38 .. -r X:2781480-155701381   # GRCh38 no-chr prefix\n"
+        "   b37  .. -r X:2699521-154931043      # GRCh37 no-chr prefix\n"
+        "   b38  .. -r X:2781480-155701381      # GRCh38 no-chr prefix\n"
         "   hg19 .. -r chrX:2699521-154931043   # GRCh37 chr prefix\n"
         "   hg38 .. -r chrX:2781480-155701381   # GRCh38 chr prefix\n"
         "\n"
@@ -119,6 +130,15 @@ static const char *usage_text(void)
         "\n";
 }
 
+static inline int smpl_pass(args_t *args, int ismpl)
+{
+    if ( !args->smpl_pass ) return 1;
+    int pass = args->smpl_pass[ismpl];
+    if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+    if ( pass ) return 1;
+    return 0;
+}
+
 void process_region_guess(args_t *args)
 {
     while ( bcf_sr_next_line(args->sr) )
@@ -126,6 +146,13 @@ void process_region_guess(args_t *args)
         bcf1_t *rec = bcf_sr_get_line(args->sr,0);
         if ( rec->n_allele==1 ) continue;
         if ( !args->include_indels && !(bcf_get_variant_types(rec)&VCF_SNP) ) continue;
+
+        if ( args->filter )
+        {
+            int pass = filter_test(args->filter, rec, &args->smpl_pass);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
+            if ( !args->smpl_pass && !pass ) continue;     // site-level filtering, not per-sample filtering
+        }
 
         double freq[2] = {0,0}, sum;
         int ismpl,i;
@@ -136,6 +163,7 @@ void process_region_guess(args_t *args)
             ngt /= args->nsample;
             for (ismpl=0; ismpl<args->nsample; ismpl++)
             {
+                if ( !smpl_pass(args,ismpl) ) continue;
                 int32_t *ptr = args->arr + ismpl*ngt;
                 double *tmp = args->tmpf + ismpl*3;
 
@@ -187,6 +215,7 @@ void process_region_guess(args_t *args)
             {
                 for (ismpl=0; ismpl<args->nsample; ismpl++)
                 {
+                    if ( !smpl_pass(args,ismpl) ) continue;
                     int32_t *ptr = args->arr + ismpl*npl;
                     double *tmp = args->tmpf + ismpl*3;
 
@@ -231,6 +260,7 @@ void process_region_guess(args_t *args)
             {
                 for (ismpl=0; ismpl<args->nsample; ismpl++)
                 {
+                    if ( !smpl_pass(args,ismpl) ) continue;
                     int32_t *ptr = args->arr + ismpl*npl;
                     double *tmp = args->tmpf + ismpl*3;
 
@@ -265,6 +295,7 @@ void process_region_guess(args_t *args)
             {
                 for (ismpl=0; ismpl<args->nsample; ismpl++)
                 {
+                    if ( !smpl_pass(args,ismpl) ) continue;
                     float *ptr = args->farr + ismpl*ngl;
                     double *tmp = args->tmpf + ismpl*3;
 
@@ -309,6 +340,7 @@ void process_region_guess(args_t *args)
             {
                 for (ismpl=0; ismpl<args->nsample; ismpl++)
                 {
+                    if ( !smpl_pass(args,ismpl) ) continue;
                     float *ptr = args->farr + ismpl*ngl;
                     double *tmp = args->tmpf + ismpl*3;
 
@@ -345,6 +377,7 @@ void process_region_guess(args_t *args)
         freq[1] /= sum;
         for (ismpl=0; ismpl<args->nsample; ismpl++)
         {
+            if ( !smpl_pass(args,ismpl) ) continue;
             count_t *counts = &args->stats.counts[ismpl];
             double *tmp = args->tmpf + ismpl*3;
             if ( tmp[0] < 0 ) continue;
@@ -373,6 +406,8 @@ int run(int argc, char **argv)
     {
         {"AF-tag",required_argument,NULL,0},
         {"AF-dflt",required_argument,NULL,1},
+        {"exclude",required_argument,NULL,2},
+        {"include",required_argument,NULL,3},
         {"verbose",no_argument,NULL,'v'},
         {"include-indels",no_argument,NULL,'i'},
         {"error-rate",required_argument,NULL,'e'},
@@ -394,6 +429,8 @@ int run(int argc, char **argv)
                     args->af_dflt = strtod(optarg,&tmp);
                     if ( *tmp ) error("Could not parse: --AF-dflt %s\n", optarg);
                     break;
+            case 2: args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 3: args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'i': args->include_indels = 1; break;
             case 'e':
                 args->gt_err_prob = strtod(optarg,&tmp);
@@ -421,6 +458,7 @@ int run(int argc, char **argv)
             default: error("%s", usage_text()); break;
         }
     }
+    if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of --include or --exclude can be given.\n");
 
     char *fname = NULL;
     if ( optind==argc )
@@ -453,6 +491,9 @@ int run(int argc, char **argv)
     args->hdr = args->sr->readers[0].header;
     args->nsample = bcf_hdr_nsamples(args->hdr);
     args->stats.counts = (count_t*) calloc(args->nsample,sizeof(count_t));
+
+    if ( args->filter_str )
+        args->filter = filter_init(args->hdr, args->filter_str);
 
     if ( args->af_tag && !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,bcf_hdr_id2int(args->hdr,BCF_DT_ID,args->af_tag)) )
         error("No such INFO tag: %s\n", args->af_tag);
@@ -511,6 +552,9 @@ int run(int argc, char **argv)
             printf("%s\t%c\n", args->hdr->samples[i],predicted_sex);
     }
    
+    if ( args->filter )
+        filter_destroy(args->filter);
+
     bcf_sr_destroy(args->sr);
     free(args->pl2p);
     free(args->tmpf);
