@@ -75,6 +75,7 @@ sub error
     my (@msg) = @_;
     if ( scalar @msg ) { confess @msg; }
     die
+        "About: Plots output of \"bcftools stats\"\n",
         "Usage: plot-vcfstats [OPTIONS] file.chk ...\n",
         "       plot-vcfstats -p outdir/ file.chk ...\n",
         "Options:\n",
