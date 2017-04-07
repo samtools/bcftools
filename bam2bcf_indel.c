@@ -372,10 +372,11 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
     { // compute indelQ
         int sc_a[16], sumq_a[16];
         int tmp, *sc = sc_a, *sumq = sumq_a;
-        if (n_types > 1) {
+        if (n_types > 16) {
             sc   = (int *)malloc(n_types * sizeof(int));
-            sumq = (int *)calloc(n_types,  sizeof(int));
+            sumq = (int *)malloc(n_types * sizeof(int));
         }
+        memset(sumq, 0, n_types * sizeof(int));
         for (s = K = 0; s < n; ++s) {
             for (i = 0; i < n_plp[s]; ++i, ++K) {
                 bam_pileup1_t *p = plp[s] + i;
