@@ -1,3 +1,10 @@
+Noteworthy changes for the next release:
+
+* `roh`: Fixed malfunctioning options `-m, --genetic-map` and `-M, --rec-rate`,
+  and newly allowed their combination. Added a convenience wrapper misc/run-roh.pl
+  and an interactive script for visualizing the calls misc/plot-roh.py.
+
+
 Release 1.4 (13 March 2017)
 
 Two new commands - `mpileup` and `csq`:

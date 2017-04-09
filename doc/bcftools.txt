@@ -2274,7 +2274,13 @@ Transition probabilities:
     chromosome name.
 
 *-M, --rec-rate* 'FLOAT'::
-    constant recombination rate per bp
+    constant recombination rate per bp. In combination with *--genetic-map*,
+    the *--rec-rate* parameter is interpreted differently, as 'FLOAT'-fold increase of 
+    transition probabilities, which allows the model to become more sensitive
+    yet still account for recombination hotspots. Note that also the range
+    of the values is therefore different in both cases: normally the
+    parameter will be in the range (1e-3,1e-9) but with *--genetic-map* 
+    it will be in the range (10,1000).
 
 *-o, --output* 'FILE'::
     Write output to the 'FILE', by default the output is printed on stdout
