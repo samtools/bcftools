@@ -86,29 +86,33 @@ are expected unless the <code>-G</code> option is provided.</p>
 <p>The second required information is the estimate of the alternate allele
 frequencies in the population for each site. There are two ways to obtain this
 information. One is to supply a VCF with many samples from the same population
-(preferably &gt;100 though often it works down to just 20 individuals or
-so). This allows the frequencies to be estimated from the samples provided.</p>
+(preferably &gt;100, though often it works down to just 20 individuals or
+so). This allows the frequencies to be estimated from the samples provided.
+Otherwise, the allele frequency information for your specific population can be
+provided from other datasets: from a custom VCF annotation (<code>--AF-tag</code>),
+from a tab-delimited file (<code>--AF-file</code>) or a fixed default can be used
+if none of the previous is available (<code>--AF-dflt</code>).</p>
 </div>
 <div class="paragraph">
-<p>Otherwise, the allele frequency information for your specific population can be
-provided from other datasets, from a custom annotation (<code>--AF-tag</code>),
-tab-delimited file (<code>--AF-file</code>), or a fixed default can be provided
-(<code>--AF-dflt</code>).</p>
+<p>Finally, a genetic map can be provided (<code>--genetic-map</code>) so that the model
+can account for recombination hotspots. If not available, a constant
+recombination rate per-base can be given (<code>--rec-rate</code>).
+Note that also both options can be given. In that case, the <code>--rec-rate</code> parameter
+will be interpreted differently by the program - as a fold increase of transition probabilities. This
+allows the model to become more sensitive yet still account for recombination hotspots.
+Of course, also the range of the values given to <code>--rec-rate</code> must be different in both cases:
+it will be typically in the range (1e-9,1e-3) without the <code>--genetic-map</code> option
+and in the range (10,1000) with <code>--genetic-map</code>. In both cases bigger values result in more sensitive calls.</p>
 </div>
 <div class="paragraph">
-<p>Finally, a genetic map with recombination hotspots can be provided. You can
-find a version provided by impute2 here:
-<a href="https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference" class="bare">https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference</a></p>
-</div>
-<div class="paragraph">
-<p>Note that the program considers only biallelic sites, sites with non-zero AF,
+<p>The program considers only biallelic sites, sites with non-zero AF,
 and sites with non-missing PL/GT.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_usage">Usage</h3>
+<h3 id="_example_1">Example 1</h3>
 <div class="paragraph">
-<p>In this example, the FORMAT/PL annotation is not present, so we go with FORMAT/GT,
+<p>In this example, the FORMAT/PL annotation is not present, therefore we must use FORMAT/GT,
 see the -G option.  Also, the VCF does not contain allele frequency information
 and there is just one sample so it cannot be estimated on the fly. Hence we use
 a default AF value 0.4.</p>
@@ -132,10 +136,82 @@ and some test data to experiment with.</p>
 </div>
 </div>
 <div class="sect2">
+<h3 id="_example_2">Example 2</h3>
+<div class="paragraph">
+<p>In the second example we use the allele frequencies from the
+<a href="http://www.internationalgenome.org">1000 Genomes Project</a>
+and the genetic map distributed with
+<a href="https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference">Impute2</a>
+(<a href="https://mathgen.stats.ox.ac.uk/impute/1000GP_Phase3.tgz">1000GP_Phase3.tgz</a>).
+Because these files are big and require some (although easy) pre-processing, a packaged version
+can be downloaded from here: <a href="ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/1000GP-AFs.tgz">allele frequencies</a> and <a href="ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/genetic-map.tgz">genetic map</a>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># Annotate VCF with the AFs and run ROH
+bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h AFs.tab.gz.hdr -a AFs.tab.gz in.bcf | \
+   bcftools roh --AF-tag AF1KG -M 100 -m genetic-map/genetic_map_chr{CHROM}_combined_b37.txt -o roh.txt</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In case a different version is needed, the following commands show how the pre-packaged
+<a href="ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/genetic-map.tgz">genetic map</a> and
+<a href="ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/1000GP-AFs.tgz">allele
+frequencies</a> were created:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># Get the genetic map
+curl -O https://mathgen.stats.ox.ac.uk/impute/1000GP_Phase3.tgz
+tar --wildcards -xzf 1000GP_Phase3.tgz 1000GP_Phase3/genetic_map_chr\*
+mv 1000GP_Phase3 genetic-map
+rm -f 1000GP_Phase3.tgz
+
+# Get alleles frequencies from the 1000 Genomes Project
+curl -Lo AFs.vcf.gz http://goo.gl/z1NHN7
+bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AF\n' AFs.vcf.gz | bgzip -c &gt; AFs.tab.gz
+tabix -s1 -b2 -e2 AFs.tab.gz
+echo '##INFO=&lt;ID=AF1KG,Number=1,Type=Float,Description="Allele Frequency"&gt;' &gt; AFs.tab.gz.hdr
+rm -f AFs.vcf.gz</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_example_3">Example 3</h3>
+<div class="paragraph">
+<p>Sometimes multiple samples need to be analyzed and compared. There is the convenience
+script <a href="https://github.com/samtools/bcftools/blob/develop/misc/run-roh.pl">run-roh.pl</a>
+which takes multiple VCF/BCF files and locates regions private to one sample or shared across multiple samples.
+On input it expects a directory with .vcf, .vcf.gz or .bcf files, a file with allele frequencies
+and a genetic map (optional).  The calls can be then plotted or visualized interactively using
+the <a href="https://github.com/samtools/bcftools/blob/develop/misc/plot-roh.py">plot-roh.py</a> script</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>run-roh.pl -i input-dir -o output-dir
+plot-roh.py -i output-dir</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>An example of the output is shown below. In the first window, all chromosomes from three samples
+are shown. Each dot corresponds to one marker with either the alternate homozygous genotype (top) or the
+heterozygous genotype (bottom). The grey and red rectangles highlight regions predicted by <code>bcftools roh</code>
+as homozygous - they should contain few heterozygous genotypes. The grey rectangles highlight homozygous
+regions private to one sample, while the red rectangles show homozygous regions shared across multiple samples.
+In the second window is chromosome 17, zoomed-in using the button with the magnifying glass icon.</p>
+</div>
+<div class="exampleblock">
+<div class="content">
+<a href="roh-calling/plot-roh-1.jpg"><img src="roh-calling/plot-roh-1.jpg" width="800px"></a>
+<a href="roh-calling/plot-roh-2.jpg"><img src="roh-calling/plot-roh-2.jpg" width="800px"></a>
+</div>
+</div>
+</div>
+<div class="sect2">
 <h3 id="_troubleshooting">Troubleshooting</h3>
 <div class="paragraph">
 <p>If the results look unexpected, check how many sites have been ignored by the
-program, for example in this run many sites were filtered:</p>
+program.  For example in this run many sites were filtered:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -150,23 +226,6 @@ them. This command should give the number of sites that were processed:</p>
 <div class="content">
 <pre>bcftools view -i'type="SNP" &amp;&amp; AF&gt;0' -m2 -M2 -s Indiv1 -Ou file.vcf | bcftools +counts -i'GT!="./." &amp;&amp; GT!="."</pre>
 </div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_plotting">Plotting</h3>
-<div class="paragraph">
-<p>The command does not produce any plots. The graph above was created with matplotlib, the raw input data
-were obtained using the following commands</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>bcftools query -f'%POS\t[%GT]\n' test.vcf.gz | awk '$2~/^[01\/]+$/ &amp;&amp; $2~/1/' | sed 's,/,\t,' | awk '{print $1,$2+$3}' &gt; dosage.txt
-
-bcftools roh -G30 --AF-dflt 0.4 test.vcf.gz | grep -v ^ROH | cut -f4,5 &gt; roh.txt</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The dosage data were smoothed using a moving average filter prior to plotting.</p>
 </div>
 </div>
 <div class="sect2">
