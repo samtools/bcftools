@@ -67,7 +67,7 @@ and the genetic map distributed with
 link:https://mathgen.stats.ox.ac.uk/impute/impute_v2.html#reference[Impute2]
 (link:https://mathgen.stats.ox.ac.uk/impute/1000GP_Phase3.tgz[1000GP_Phase3.tgz]).
 Because these files are big and require some (although easy) pre-processing, a packaged version
-can be downloaded from here: link:ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/1000GP-AFs.tgz[allele frequencies] and link:ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/genetic-map.tgz[genetic map].
+can be downloaded from here: link:ftp://ngs.sanger.ac.uk/production/samtools/1000GP-AFs.tgz[allele frequencies] and link:ftp://ngs.sanger.ac.uk/production/samtools/genetic-map.tgz[genetic map].
 
 ----
 # Annotate VCF with the AFs and run ROH
@@ -76,9 +76,8 @@ bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h AFs.tab.gz.hdr -a AFs.tab.gz in.
 ----
 
 In case a different version is needed, the following commands show how the pre-packaged
-link:ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/genetic-map.tgz[genetic map] and
-link:ftp://ngs.sanger.ac.uk/scratch/project/team145/pd3/1000GP-AFs.tgz[allele
-frequencies] were created:
+link:ftp://ngs.sanger.ac.uk/production/samtools/genetic-map.tgz[genetic map] and
+link:ftp://ngs.sanger.ac.uk/production/samtools/1000GP-AFs.tgz[allele frequencies] were created:
 
 ----
 # Get the genetic map
