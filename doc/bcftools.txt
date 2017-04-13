@@ -2141,7 +2141,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
     %CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
     %INFO/TAG       Any tag in the INFO column
-    %TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)
+    %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
     %MASK           Indicates presence of the site in other files (with multiple files)
     %TAG{INT}       Curly brackets to subscript vectors (0-based)
     %FIRST_ALT      Alias for %ALT{0}
@@ -2558,7 +2558,7 @@ the INFO column, e.g. '--exclude AF<0.1'.
     like INFO/INDEL or INFO/VT. Use *--include* to select based on INFO
     tags.
 
-*-V, --exclude-types* 'snps'|'indels'|'mnps'|'other'::
+*-V, --exclude-types* 'snps'|'indels'|'mnps'|'ref'|'bnd'|'other'::
     comma-separated list of variant types to exclude. Site is excluded if
     any of the ALT alleles is of the type requested. Types are determined
     by comparing the REF and ALT alleles in the VCF record not INFO tags
@@ -2647,7 +2647,7 @@ using these expressions
 
         GT=".|.", GT="./.", GT="."
 
-* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other). Use the regex
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 

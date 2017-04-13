@@ -182,10 +182,12 @@ static void init_data(args_t *args)
         if (args->include_types) {
             args->include = 0;
             for (i = 0; i < n; ++i) {
-                if (strcmp(type_list[i], "snps") == 0) args->include |= VCF_SNP;
-                else if (strcmp(type_list[i], "indels") == 0) args->include |= VCF_INDEL;
-                else if (strcmp(type_list[i], "mnps") == 0) args->include |= VCF_MNP;
-                else if (strcmp(type_list[i], "other") == 0) args->include |= VCF_OTHER;
+                if (strcmp(type_list[i], "snps") == 0) args->include |= VCF_SNP<<1;
+                else if (strcmp(type_list[i], "indels") == 0) args->include |= VCF_INDEL<<1;
+                else if (strcmp(type_list[i], "mnps") == 0) args->include |= VCF_MNP<<1;
+                else if (strcmp(type_list[i], "other") == 0) args->include |= VCF_OTHER<<1;
+                else if (strcmp(type_list[i], "ref") == 0) args->include |= VCF_OTHER<<1;
+                else if (strcmp(type_list[i], "bnd") == 0) args->include |= VCF_BND<<1;
                 else {
                     fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
                     fprintf(stderr, "Accepted types are snps, indels, mnps, other\n");
@@ -196,10 +198,12 @@ static void init_data(args_t *args)
         if (args->exclude_types) {
             args->exclude = 0;
             for (i = 0; i < n; ++i) {
-                if (strcmp(type_list[i], "snps") == 0) args->exclude |= VCF_SNP;
-                else if (strcmp(type_list[i], "indels") == 0) args->exclude |= VCF_INDEL;
-                else if (strcmp(type_list[i], "mnps") == 0) args->exclude |= VCF_MNP;
-                else if (strcmp(type_list[i], "other") == 0) args->exclude |= VCF_OTHER;
+                if (strcmp(type_list[i], "snps") == 0) args->exclude |= VCF_SNP<<1;
+                else if (strcmp(type_list[i], "indels") == 0) args->exclude |= VCF_INDEL<<1;
+                else if (strcmp(type_list[i], "mnps") == 0) args->exclude |= VCF_MNP<<1;
+                else if (strcmp(type_list[i], "other") == 0) args->exclude |= VCF_OTHER<<1;
+                else if (strcmp(type_list[i], "ref") == 0) args->exclude |= VCF_OTHER<<1;
+                else if (strcmp(type_list[i], "bnd") == 0) args->exclude |= VCF_BND<<1;
                 else {
                     fprintf(stderr, "[E::%s] unknown type\n", type_list[i]);
                     fprintf(stderr, "Accepted types are snps, indels, mnps, other\n");
@@ -317,8 +321,8 @@ int subset_vcf(args_t *args, bcf1_t *line)
     if (args->include || args->exclude)
     {
         int line_type = bcf_get_variant_types(line);
-        if ( args->include && !(line_type&args->include) ) return 0; // include only given variant types
-        if ( args->exclude &&   line_type&args->exclude  ) return 0; // exclude given variant types
+        if ( args->include && !((line_type<<1) & args->include) ) return 0; // include only given variant types
+        if ( args->exclude &&   (line_type<<1) & args->exclude  ) return 0; // exclude given variant types
     }
 
     if ( args->filter )
@@ -517,7 +521,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -q/Q, --min-af/--max-af <float>[:<type>]    minimum/maximum frequency for non-reference (nref), 1st alternate (alt1), least frequent\n");
     fprintf(stderr, "                                                   (minor), most frequent (major) or sum of all but most frequent (nonmajor) alleles [nref]\n");
     fprintf(stderr, "    -u/U, --uncalled/--exclude-uncalled         select/exclude sites without a called genotype\n");
-    fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,other [null]\n");
+    fprintf(stderr, "    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,ref,bnd,other [null]\n");
     fprintf(stderr, "    -x/X, --private/--exclude-private           select/exclude sites where the non-reference alleles are exclusive (private) to the subset samples\n");
     fprintf(stderr, "\n");
     exit(1);
