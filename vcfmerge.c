@@ -600,7 +600,7 @@ char **merge_alleles(char **a, int na, int *map, char **b, int *nb, int *mb)
     }
 
     // Sanity check: reference prefixes must be identical
-    if ( strncmp(a[0],b[0],rla<rlb?rla:rlb) )
+    if ( strncasecmp(a[0],b[0],rla<rlb?rla:rlb) )
     {
         if ( strncasecmp(a[0],b[0],rla<rlb?rla:rlb) )
         {
