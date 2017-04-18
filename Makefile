@@ -94,9 +94,11 @@ INSTALL_DATA    = $(INSTALL) -m 644
 INSTALL_DIR     = $(MKDIR_P) -m 755
 
 MISC_PROGRAMS = \
-    plugins/color-chrs.pl \
+    misc/color-chrs.pl \
     misc/guess-ploidy.py \
     misc/plot-vcfstats \
+    misc/plot-roh.py \
+    misc/run-roh.pl \
     misc/vcfutils.pl
 
 all:$(PROG) plugins
