@@ -184,8 +184,8 @@ static int cal_pdg(const bcf1_t *b, bcf_p1aux_t *ma)
 }
 
 
-/* f0 is minor allele fraction */
-int bcf_p1_call_gt(const bcf_p1aux_t *ma, double f0, int k)
+/* f0 is freq of the ref allele */
+int bcf_p1_call_gt(const bcf_p1aux_t *ma, double f0, int k, int is_var)
 {
     double sum, g[3];
     double max, f3[3], *pdg = ma->pdg + k * 3;
@@ -206,6 +206,7 @@ int bcf_p1_call_gt(const bcf_p1aux_t *ma, double f0, int k)
         g[i] /= sum;
         if (g[i] > max) max = g[i], max_i = i;
     }
+    if ( !is_var ) { max_i = 2; max = g[2]; }   // force 0/0 genotype if the site is non-variant
     max = 1. - max;
     if (max < 1e-308) max = 1e-308;
     q = (int)(-4.343 * log(max) + .499);
