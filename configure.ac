@@ -225,6 +225,23 @@ AS_IF([test "$enable_perl_filters" != "no" ], [dnl
 dnl Apply value from HTS_PROG_CC_WERROR (if set)
 AS_IF([test "x$hts_late_cflags" != x],[CFLAGS="$CFLAGS $hts_late_cflags"])
 
+dnl Look for regcomp in various libraries (needed on windows/mingw).
+AC_SEARCH_LIBS(regcomp, regex, [libregex=needed], [])
+
+dnl Force POSIX mode on Windows/Mingw
+test -n "$host_alias" || host_alias=unknown-`uname -s`
+case $host_alias in
+  *-msys* | *-MSYS* | *-mingw* | *-MINGW*)
+    host_result="MSYS dll"
+    PLATFORM=MSYS
+    PLUGIN_EXT=.dll
+    # This also sets __USE_MINGW_ANSI_STDIO which in turn makes PRId64,
+    # %lld and %z printf formats work.  It also enforces the snprintf to
+    # be C99 compliant so it returns the correct values (in kstring.c).
+    CPPFLAGS="$CPPCFLAGS -D_POSIX_C_SOURCE=600"
+    ;;
+esac
+
 AC_CONFIG_FILES([config.mk])
 AC_OUTPUT
 

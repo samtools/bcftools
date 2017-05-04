@@ -153,6 +153,14 @@ endif
 ifeq "$(PLATFORM)" "Darwin"
 $(PLUGINS): | bcftools
 PLUGIN_FLAGS = -bundle -bundle_loader bcftools -Wl,-undefined,dynamic_lookup
+else ifeq "$(shell uname -o)" "Msys"
+DYNAMIC_FLAGS = -Wl,-export-all-symbols
+$(PLUGINS): | bcftools
+PLUGIN_FLAGS = -fPIC -shared
+PLUGIN_LIBS = $(HTSLIB_LIB) -lm $(ALL_LIBS) libbcftools.a $(GSL_LIBS)
+# On windows, plugins need to be fully linked, including bcftools_version() symbol
+# from the application they will be loaded into.
+BCFTOOLS_IMPLIB = -Wl,-out-implib,libbcftools.a
 else
 DYNAMIC_FLAGS = -rdynamic
 PLUGIN_FLAGS = -fPIC -shared
@@ -223,7 +231,7 @@ tsv2vcf.o: tsv2vcf.c $(tsv2vcf_h)
 em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)
 filter.o: filter.c $(htslib_khash_str2int_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) config.h $(filter_h) $(bcftools_h)
 	$(CC) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(PERL_CFLAGS) -c -o $@ $<
-gvcf.o: gvcf.c $(gvcf_h) $(bcftools_h)
+gvcf.o: gvcf.c $(gvcf_h) $(bcftools_h) $(call_h)
 kmin.o: kmin.c kmin.h
 mcall.o: mcall.c $(htslib_kfunc_h) $(call_h)
 prob1.o: prob1.c $(prob1_h)
@@ -251,15 +259,18 @@ csq.o: csq.c $(htslib_hts_h) $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(hts
 # For tests that might use it, set $REF_PATH explicitly to use only reference
 # areas within the test suite (or set it to ':' to use no reference areas).
 # (regression.sh sets $REF_PATH to a subdirectory itself.)
+#
+# If using MSYS, avoid poor shell expansion via:
+#    MSYS2_ARG_CONV_EXCL="*" make check
 check test: $(PROGRAMS) $(TEST_PROGRAMS) $(BGZIP) $(TABIX)
 	./test/test-rbuf
 	./test/test-regidx
-	REF_PATH=: ./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
+	REF_PATH=: ./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX) $${TEST_OPTS:-}
 
-test-plugins: $(PROGRAMS) $(TEST_PROGRAMS) $(BGZIP) $(TABIX) plugins
+check-plugins test-plugins: $(PROGRAMS) $(TEST_PROGRAMS) $(BGZIP) $(TABIX) plugins
 	./test/test-rbuf
 	./test/test-regidx
-	REF_PATH=: ./test/test.pl --plugins --exec bgzip=$(BGZIP) --exec tabix=$(TABIX)
+	REF_PATH=: ./test/test.pl --plugins --exec bgzip=$(BGZIP) --exec tabix=$(TABIX) $${TEST_OPTS:-}
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 

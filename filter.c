@@ -1306,6 +1306,11 @@ static int func_strlen(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
             while ( *se && *se!=',' ) se++;
             hts_expand(double, i+1, rtok->mvalues, rtok->values);
             if ( !*se ) rtok->values[i] = strlen(ss);
+                tok->values = realloc(tok->values,
+                                      tok->mvalues * sizeof(*tok->values));
+                if (!tok->values)
+                    abort(); // we need a better way to return an error!
+            }
             else
             {
                 *se = 0;

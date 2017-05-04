@@ -36,6 +36,7 @@ THE SOFTWARE.  */
 #include <htslib/kfunc.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/khash_str2int.h>
+#include <htslib/hts_os.h>
 #include <ctype.h>
 #include "bcftools.h"
 #include "call.h"
@@ -45,11 +46,6 @@ THE SOFTWARE.  */
 #include "regidx.h"
 
 void error(const char *format, ...);
-
-#ifdef _WIN32
-#define srand48(x) srand(x)
-#define lrand48() rand()
-#endif
 
 #define CF_NO_GENO      1
 #define CF_INS_MISSED   (1<<1)
