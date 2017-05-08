@@ -1,4 +1,31 @@
-## Noteworthy changes in release 1.4 (DD Mmmmm 2016)
+## Noteworthy changes for the next release:
+
+## Release 1.4.1 (8 May 2017)
+
+* `roh`: Fixed malfunctioning options `-m, --genetic-map` and `-M, --rec-rate`,
+  and newly allowed their combination. Added a convenience wrapper `misc/run-roh.pl`
+  and an interactive script for visualizing the calls `misc/plot-roh.py`.
+
+* `csq`: More control over warning messages (#585).
+
+* Portability improvements (#587). Still work to be done on this front.
+
+* Add support for breakends to `view`, `norm`, `query` and filtering (#592).
+
+* `plot-vcfstats`: Fix for python 2/3 compatibility (#593).
+
+* New `-l, --list` option for `+af-dist` plugin.
+
+* New `-i, --use-id` option for `+fix-ref` plugin.
+
+* Add `--include/--exclude` options to `+guess-ploidy` plugin.
+
+* New `+check-sparsity` plugin.
+
+* Miscellaneous bugfixes for #575, #584, #588, #599, #535.
+
+
+## Release 1.4 (13 March 2017)
 
 Two new commands - `mpileup` and `csq`:
 

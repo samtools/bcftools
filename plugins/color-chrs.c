@@ -128,7 +128,8 @@ const char *usage(void)
 {
     return 
         "\n"
-        "About: Color shared chromosomal segments, requires phased GTs.\n"
+        "About: Color shared chromosomal segments, requires phased GTs. The output\n"
+        "       can be visualized using the color-chrs.pl script.\n"
         "Usage: bcftools +color-chrs [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"

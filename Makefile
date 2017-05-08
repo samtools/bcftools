@@ -93,12 +93,18 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA    = $(INSTALL) -m 644
 INSTALL_DIR     = $(MKDIR_P) -m 755
 
-MISC_PROGRAMS = plot-vcfstats vcfutils.pl plugins/color-chrs.pl
+MISC_PROGRAMS = \
+    misc/color-chrs.pl \
+    misc/guess-ploidy.py \
+    misc/plot-vcfstats \
+    misc/plot-roh.py \
+    misc/run-roh.pl \
+    misc/vcfutils.pl
 
 all:$(PROG) plugins
 
 # See htslib/Makefile
-PACKAGE_VERSION = 1.4
+PACKAGE_VERSION = 1.4.1
 ifneq "$(wildcard .git)" ""
 PACKAGE_VERSION := $(shell git describe --always --dirty)
 DOC_VERSION :=  $(shell git describe --always)+

@@ -38,7 +38,7 @@ typedef struct
     char *af_tag;
     bcf_hdr_t *hdr;
     int32_t *gt, ngt, naf;
-    float *af;
+    float *af, list_min, list_max;
     bin_t *dev_bins, *prob_bins;
     uint64_t *dev_dist, *prob_dist;
 }
@@ -63,6 +63,7 @@ const char *usage(void)
         "\n"
         "Plugin options:\n"
         "   -d, --dev-bins <list>       AF deviation bins\n"
+        "   -l, --list <min,max>        list genotypes from the given bin (for debugging)\n"
         "   -p, --prob-bins <list>      probability distribution bins\n"
         "   -t, --af-tag <tag>          VCF INFO tag to use [AF]\n"
         "\n"
@@ -81,18 +82,29 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     char *prob_bins = "0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1";
     args->hdr = in;
     args->af_tag = "AF";
+    args->list_min = -1;
     static struct option loptions[] =
     {
+        {"list",required_argument,NULL,'l'},
         {"dev-bins",required_argument,NULL,'d'},
         {"prob-bins",required_argument,NULL,'p'},
         {"af-tag",required_argument,NULL,'t'},
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:d:p:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:d:p:l:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'l': 
+            {
+                char *a,*b;
+                args->list_min = strtod(optarg,&a);
+                if ( a==optarg || *a!=',' ) error("Could not parse: --list %s\n", optarg);
+                args->list_max = strtod(a+1,&b);
+                if ( a+1==b || *b ) error("Could not parse: --list %s\n", optarg);
+                break;
+            }
             case 'd': dev_bins = optarg; break;
             case 'p': prob_bins = optarg; break;
             case 't': args->af_tag = optarg; break;
@@ -115,6 +127,9 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     for (c=1; c<argc; c++) printf(" %s",argv[c]);
     printf("\n#\n");
 
+    if ( args->list_min!=-1 )
+        printf("# GT, genotypes with P(AF) in [%f,%f]; [2]Chromosome\t[3]Position[4]Sample\t[5]Genotype\t[6]AF-based probability\n",args->list_min,args->list_max);
+
     return 1;
 }
 
@@ -128,6 +143,10 @@ bcf1_t *process(bcf1_t *rec)
     float pAA = af*af;
     int iRA = bin_get_idx(args->prob_bins,pRA);
     int iAA = bin_get_idx(args->prob_bins,pAA);
+
+    int list_RA = args->list_min==-1 || pRA < args->list_min || pRA > args->list_max ? 0 : 1;
+    int list_AA = args->list_min==-1 || pAA < args->list_min || pAA > args->list_max ? 0 : 1;
+    const char *chr = bcf_seqname(args->hdr,rec);
 
     int ngt = bcf_get_genotypes(args->hdr, rec, &args->gt, &args->ngt);
     int i, j, nsmpl = bcf_hdr_nsamples(args->hdr);
@@ -148,8 +167,16 @@ bcf1_t *process(bcf1_t *rec)
         nals += j;
         nalt += dosage;
 
-        if ( dosage==1 ) args->prob_dist[iRA]++;
-        else if ( dosage==2 ) args->prob_dist[iAA]++;
+        if ( dosage==1 )
+        {
+            args->prob_dist[iRA]++;
+            if ( list_RA ) printf("GT\t%s\t%d\t%s\t1\t%f\n",chr,rec->pos+1,args->hdr->samples[i],pRA);
+        }
+        else if ( dosage==2 )
+        {
+            args->prob_dist[iAA]++;
+            if ( list_AA ) printf("GT\t%s\t%d\t%s\t2\t%f\n",chr,rec->pos+1,args->hdr->samples[i],pAA);
+        }
     }
 
     if ( nals && (nalt || af) )

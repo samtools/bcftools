@@ -33,6 +33,7 @@ import csv
 csv.register_dialect('tab', delimiter='\t', quoting=csv.QUOTE_NONE)
 
 if len(sys.argv) != 3:
+    print >> sys.stderr, 'About: Plot output of "bcftools +guess-ploidy -v"'
     print >> sys.stderr, 'Usage: guess-ploidy.py <guess-ploidy.out> <image-prefix>'
     sys.exit()
 

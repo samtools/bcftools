@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2017-03-08 11:33 GMT
+.\"      Date: 2017-05-08
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2017\-03\-08 11:33 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2017\-05\-08" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2017\-03\-08 11:33 GMT\fR and refers to bcftools git version \fB1\&.3\&.1\-241\-g3ab917f+\fR\&.
+This manual page was last updated \fB2017\-05\-08\fR and refers to bcftools git version \fB1\&.4\&.1\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1191,7 +1191,8 @@ Alias for
 .PP
 \fB\-f, \-\-file\-list\fR \fIFILE\fR
 .RS 4
-Read the list of files from a file\&.
+Read file names from
+\fIFILE\fR, one file name per line\&.
 .RE
 .PP
 \fB\-l, \-\-ligate\fR
@@ -2469,8 +2470,8 @@ if these fields exist in the input files\&. Fields with no specified rule will t
 .PP
 \fB\-l, \-\-file\-list\fR \fIFILE\fR
 .RS 4
-read file names from
-\fIFILE\fR
+Read file names from
+\fIFILE\fR, one file name per line\&.
 .RE
 .PP
 \fB\-m, \-\-merge\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR|\fIid\fR
@@ -3536,7 +3537,7 @@ process multiple VCFs listed in the file
 .nf
 %CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
 %INFO/TAG       Any tag in the INFO column
-%TYPE           Variant type (REF, SNP, MNP, INDEL, OTHER)
+%TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
 %MASK           Indicates presence of the site in other files (with multiple files)
 %TAG{INT}       Curly brackets to subscript vectors (0\-based)
 %FIRST_ALT      Alias for %ALT{0}
@@ -3761,7 +3762,13 @@ can chromosome name\&.
 .PP
 \fB\-M, \-\-rec\-rate\fR \fIFLOAT\fR
 .RS 4
-constant recombination rate per bp
+constant recombination rate per bp\&. In combination with
+\fB\-\-genetic\-map\fR, the
+\fB\-\-rec\-rate\fR
+parameter is interpreted differently, as
+\fIFLOAT\fR\-fold increase of transition probabilities, which allows the model to become more sensitive yet still account for recombination hotspots\&. Note that also the range of the values is therefore different in both cases: normally the parameter will be in the range (1e\-3,1e\-9) but with
+\fB\-\-genetic\-map\fR
+it will be in the range (10,1000)\&.
 .RE
 .PP
 \fB\-o, \-\-output\fR \fIFILE\fR
@@ -4193,7 +4200,7 @@ comma\-separated list of variant types to select\&. Site is selected if any of t
 to select based on INFO tags\&.
 .RE
 .PP
-\fB\-V, \-\-exclude\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIother\fR
+\fB\-V, \-\-exclude\-types\fR \fIsnps\fR|\fIindels\fR|\fImnps\fR|\fIref\fR|\fIbnd\fR|\fIother\fR
 .RS 4
 comma\-separated list of variant types to exclude\&. Site is excluded if any of the ALT alleles is of the type requested\&. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags like INFO/INDEL or INFO/VT\&. Use
 \fB\-\-exclude\fR
@@ -4472,7 +4479,7 @@ GT="\&.|\&.", GT="\&./\&.", GT="\&."
 .sp -1
 .IP \(bu 2.3
 .\}
-TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,other)\&. Use the regex operator "\e~" to require at least one allele of the given type or the equal sign "=" to require that all alleles are of the given type\&. Compare
+TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other)\&. Use the regex operator "\e~" to require at least one allele of the given type or the equal sign "=" to require that all alleles are of the given type\&. Compare
 .sp
 .if n \{\
 .RS 4
