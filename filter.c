@@ -832,6 +832,7 @@ static void set_strlen(filter_t *flt, bcf1_t *line, token_t *tok)
         {
             char *se = ss;
             while ( *se && *se!=',' ) se++;
+            hts_expand(double, i+1, tok->mvalues, tok->values);
             if ( !*se ) tok->values[i] = strlen(ss);
             else
             {
