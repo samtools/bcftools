@@ -2669,9 +2669,10 @@ to require that all alleles are of the given type. Compare
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
-frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes
+frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
+number of samples with missing genotype; fraction of samples with missing genotype
 
-        N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN
+        N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING
 
 
 .Notes:
