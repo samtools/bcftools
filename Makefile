@@ -136,7 +136,7 @@ bcftools: $(OBJS) $(HTSLIB)
 
 # Plugin rules
 ifeq "$(shell uname -s)" "Darwin"
-DYNAMIC_FLAGS = -Wl,-export_dynamic
+DYNAMIC_FLAGS = -rdynamic
 $(PLUGINS): | bcftools
 PLUGIN_FLAGS = -bundle -bundle_loader bcftools
 else
