@@ -270,7 +270,7 @@ int run(int argc, char **argv)
         }
     }
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
-    if ( !args->max_ld && !args->nsites ) error("Expected --max-LD, --nsites-per-win or both\n");
+    if ( !args->max_ld && !args->nsites ) error("%sError: Expected --max-LD, --nsites-per-win or both\n\n", usage_text());
 
     if ( optind==argc )
     {
