@@ -884,20 +884,20 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 <span class="strong"><strong>--vcf-ids</strong></span>
 </span></dt><dd>
     output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
-</dd></dl></div></div><div class="refsect3" title="HAPS/LEGEND/SAMPLE conversion:"><a id="_haps_legend_sample_conversion"></a><h4>HAPS/LEGEND/SAMPLE conversion:</h4><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>-H, --haplegendsample2vcf</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,<span class="emphasis"><em>sample-file</em></span>
+</dd></dl></div></div><div class="refsect3" title="HAP/LEGEND/SAMPLE conversion:"><a id="_hap_legend_sample_conversion"></a><h4>HAP/LEGEND/SAMPLE conversion:</h4><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-H, --haplegendsample2vcf</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>hap-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,<span class="emphasis"><em>sample-file</em></span>
 </span></dt><dd>
-    convert from haps/legend/sample format used by IMPUTE2 to VCF, see
-    also <span class="strong"><strong>-h, --hapslegendsample</strong></span> below.
+    convert from hap/legend/sample format used by IMPUTE2 to VCF, see
+    also <span class="strong"><strong>-h, --haplegendsample</strong></span> below.
 </dd><dt><span class="term">
-<span class="strong"><strong>-h, --haplegendsample</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>haps-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,<span class="emphasis"><em>sample-file</em></span>
+<span class="strong"><strong>-h, --haplegendsample</strong></span> <span class="emphasis"><em>prefix</em></span> or <span class="emphasis"><em>hap-file</em></span>,<span class="emphasis"><em>legend-file</em></span>,<span class="emphasis"><em>sample-file</em></span>
 </span></dt><dd>
-    convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
+    convert from VCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT.
     The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
     swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
     file is quite basic at the moment with columns for population, group and
     sex expected to be edited by the user. For example:
-</dd></dl></div><pre class="screen">  .haps
+</dd></dl></div><pre class="screen">  .hap
   -----
   0 1 0 0 1 0
   0 1 0 0 0 1
