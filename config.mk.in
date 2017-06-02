@@ -40,6 +40,11 @@ CFLAGS   = @CFLAGS@
 LDFLAGS  = @LDFLAGS@
 LIBS     = @LIBS@
 
+PLATFORM   = @PLATFORM@
+PLUGINS_ENABLED = @enable_bcftools_plugins@
+plugindir = @bcf_plugindir@
+PLUGIN_EXT = @PLUGIN_EXT@
+
 @Hsource@HTSDIR = @HTSDIR@
 @Hsource@include $(HTSDIR)/htslib.mk
 @Hsource@include $(HTSDIR)/htslib_static.mk

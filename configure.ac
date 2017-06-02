@@ -41,6 +41,31 @@ AC_PROG_CC
 
 AC_SYS_LARGEFILE
 
+AC_ARG_ENABLE([bcftools-plugins],
+  [AS_HELP_STRING([--disable-bcftools-plugins],
+                  [do not build optional plugins])],
+  [], [enable_bcftools_plugins=yes])
+AC_SUBST(enable_bcftools_plugins)
+
+AC_ARG_WITH([bcf-plugin-dir],
+  [AS_HELP_STRING([--with-bcf-plugin-dir=DIR],
+                  [plugin installation location [LIBEXECDIR/bcftools]])],
+  [case $withval in
+     yes|no) AC_MSG_ERROR([no directory specified for --with-plugin-dir]) ;;
+   esac],
+   [with_bcf_plugin_dir='$(libexecdir)/bcftools'])
+AC_SUBST([bcf_plugindir], $with_bcf_plugin_dir)
+
+AC_ARG_WITH([bcf-plugin-path],
+  [AS_HELP_STRING([--with-bcf-plugin-path=PATH],
+                  [default BCFTOOLS_PLUGINS plugin search path [PLUGINDIR]])],
+  [case $withval in
+     yes) AC_MSG_ERROR([no path specified for --with-bcf-plugin-path]) ;;
+     no)  with_bcf_plugin_path= ;;
+   esac],
+  [with_bcf_plugin_path=$with_bcf_plugin_dir])
+AC_SUBST([PLUGINPATH], $with_bcf_plugin_path)
+
 AX_WITH_HTSLIB
 if test "$ax_cv_htslib" != yes; then
   AC_MSG_ERROR([HTSlib development files not found
@@ -62,6 +87,40 @@ else
 fi
 AC_SUBST([Hsource])
 AC_SUBST([Hinstall])
+
+AS_IF([test "$enable_bcftools_plugins" != "no"], [dnl
+  AC_MSG_CHECKING([shared library type])
+  test -n "$host_alias" || host_alias=unknown-`uname -s`
+  AS_CASE([$host_alias],
+    [*-cygwin* | *-CYGWIN*],[dnl
+      host_result="Cygwin DLL"
+      PLATFORM=CYGWIN
+      PLUGIN_EXT=.cygdll],
+
+    [*-darwin* | *-Darwin*],[dnl
+      host_result="Darwin dylib"
+      PLATFORM=Darwin
+      PLUGIN_EXT=.so],
+
+    [*],[dnl
+      host_result="plain .so"
+      PLATFORM=default
+      PLUGIN_EXT=.so])
+  AC_MSG_RESULT([$host_result])
+  AC_SUBST([PLATFORM])
+  AC_SUBST([PLUGIN_EXT])
+  AC_DEFINE_UNQUOTED([PLUGIN_EXT], ["$PLUGIN_EXT"],
+                     [Platform-dependent plugin filename extension.])
+  AC_DEFINE([ENABLE_BCF_PLUGINS], 1,
+            [Define if BCFtools should enable plugins.])
+
+  AC_SEARCH_LIBS([dlopen], [dl], [],
+    [AC_MSG_ERROR([dlopen() not found
+
+Plugin support requires dynamic linking facilities from the operating system.
+Either configure with --disable-bcftools-plugins or resolve this error to
+build bcftools.])])
+])
 
 save_LIBS=$LIBS
 zlib_devel=ok
