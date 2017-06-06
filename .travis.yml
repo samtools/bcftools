@@ -35,11 +35,12 @@ addons:
     packages:
     - liblzma-dev
     - libbz2-dev
+    - libgsl0-dev
 
 # For MacOSX systems
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update    ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install xz; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install xz gsl ; fi
 
 before_script:
   # Clone samtools/htslib (or another repository, as specified by a Travis CI
@@ -47,4 +48,4 @@ before_script:
   # same name, if any, or otherwise the default branch.
   - .travis/clone ${HTSREPO:-git://github.com/samtools/htslib.git} $HTSDIR $TRAVIS_BRANCH
 
-script: if test "$USE_CONFIG" = "yes" ; then ( cd "$HTSDIR" && autoreconf ) && autoreconf && ./configure && make && make test ; else make plugindir=$TRAVIS_BUILD_DIR/plugins -e && make -e test-plugins ; fi
+script: if test "$USE_CONFIG" = "yes" ; then ( cd "$HTSDIR" && autoreconf ) && autoreconf && ./configure --enable-libgsl && make && make test ; else make plugindir=$TRAVIS_BUILD_DIR/plugins -e && make -e test-plugins ; fi

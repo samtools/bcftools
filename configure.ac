@@ -66,6 +66,18 @@ AC_ARG_WITH([bcf-plugin-path],
   [with_bcf_plugin_path=$with_bcf_plugin_dir])
 AC_SUBST([PLUGINPATH], $with_bcf_plugin_path)
 
+AC_ARG_ENABLE([libgsl],
+  [AS_HELP_STRING([--enable-libgsl],
+                  [build options that require the GNU scientific library (changes bcftools license to GPL, see INSTALL for details)])],
+  [], [enable_libgsl=no])
+
+AC_ARG_WITH([cblas],
+  [AS_HELP_STRING([--with-cblas],
+                  [which cblas library to use (only needed with libgsl; default: try cblas then gslcblas)])],
+  [AS_CASE([$withval],
+	   [no],[AC_MSG_ERROR([no library name specified for --with-cblas])])],
+  [with_cblas=yes])
+
 AX_WITH_HTSLIB
 if test "$ax_cv_htslib" != yes; then
   AC_MSG_ERROR([HTSlib development files not found
@@ -140,5 +152,57 @@ Ubuntu Linux) or zlib-devel (on RPM-based Linux distributions) is installed.
 FAILED.  This error must be resolved in order to build bcftools successfully.])
 fi
 
+AS_IF([test "$enable_libgsl" != "no"], [dnl
+  gsl_devel=ok
+  save_LIBS="$LIBS"dnl Libraries for GSL are listed in $(GSL_LIBS)
+  GSL_LIBS=
+  AC_CHECK_HEADER([gsl/gsl_version.h], [], [gsl_devel=missing], [;])
+  AS_IF([test "$gsl_devel" != "missing"], [dnl
+    AS_CASE([$with_cblas],
+      [yes],[AC_SEARCH_LIBS([cblas_dgemm],[cblas gslcblas],
+              [GSL_LIBS="$ac_cv_search_cblas_dgemm"],
+              [gsl_devel=missing])],
+      [AC_CHECK_LIB([$with_cblas],[cblas_dgemm],
+         [GSL_LIBS="-l$with_cblas"],[gsl_devel=missing])])
+  ])
+  AS_IF([test "$gsl_devel" != "missing"], [dnl
+    AC_CHECK_LIB(gsl, gsl_multifit_gradient,
+      [GSL_LIBS="-lgsl $GSL_LIBS"], [gsl_devel=missing], [$GSL_LIBS])
+  ])
+
+  AS_IF([test "$gsl_devel" != "ok"], [dnl
+    AC_MSG_ERROR([libgsl development files not found
+
+The bcftools polysomy command uses routines from the GNU Scientific library
+<https://www.gnu.org/software/gsl/>.  Building BCFtools with libgsl enabled
+requires libgsl development files to be installed on the build machine; you
+may need to ensure a package such as libgsl0-dev (on Debian or Ubuntu linux)
+or gsl-devel (on RPM-based Linux distributions) is installed.
+
+Either configure with --disable-libgsl or resolve this error to build bcftools.
+    ])
+  ])
+
+  LIBS="$save_LIBS"
+  USE_GPL=1
+  AC_SUBST([USE_GPL])
+  AC_SUBST([GSL_LIBS])
+])
+
 AC_CONFIG_FILES([config.mk])
 AC_OUTPUT
+
+AS_IF([test "x$USE_GPL" != "x"], [dnl
+  AC_MSG_NOTICE([License has been changed to GPL.
+
+Linking against the GNU scientific library requires that the resulting
+binary is licensed using the GNU General Public License.  In particular,
+this means you will have to follow the terms of this license in order
+to distribute binary copies.  For more information see the INSTALL file.
+
+Text of the GNU General Public License can be found in the LICENSE file,
+or at http://www.gnu.org/copyleft/gpl.html
+
+Information on the GNU Scientific Library, including the rationale for
+its choice of license can be found at https://www.gnu.org/software/gsl/
+])])

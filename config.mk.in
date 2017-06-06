@@ -40,6 +40,9 @@ CFLAGS   = @CFLAGS@
 LDFLAGS  = @LDFLAGS@
 LIBS     = @LIBS@
 
+USE_GPL = @USE_GPL@
+GSL_LIBS = @GSL_LIBS@
+
 PLATFORM   = @PLATFORM@
 PLUGINS_ENABLED = @enable_bcftools_plugins@
 plugindir = @bcf_plugindir@
