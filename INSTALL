@@ -23,43 +23,96 @@ are:
   bzip2-devel
   xz-devel
 
+To build BCFtools, you will need:
+
+    GNU make
+    C compiler (e.g. gcc or clang)
+
+In addition, building the configure script requires:
+
+    autoheader
+    autoconf
+
+Running the configure script uses awk, along with a number of
+standard UNIX tools (cat, cp, grep, mv, rm, sed, among others).  Almost
+all installations will have these already.
+
+Running the test harness (make test) uses:
+
+    bash
+    perl
+
+Building Configure
+==================
+
+This step is only needed if configure.ac has been changed, or if configure
+does not exist (for example, when building from a git clone).  The
+configure script and config.h.in can be built by running:
+
+    autoheader
+    autoconf
+
+If you have a full GNU autotools install, you can alternatively run:
+
+    autoreconf
+
+
 Compilation
 ===========
 
-'cd' to the bcftools-1.x directory containing the package's source and type
-'make' to compile BCFtools.
+'cd' to the bcftools directory containing the package's source and type:
+
+    ./configure
+    make
 
 This BCFtools release contains a copy of HTSlib which will be used to build
 BCFtools.  If you already have a system-installed HTSlib or another HTSlib
-that you would prefer to build against, you can arrange this by overriding
-$(HTSDIR) by typing 'make HTSDIR=/path/to/htslib-source' -- see the makefile
-for details.
+that you would prefer to build against, you can arrange this by using the
+configure script's --with-htslib option.  Use --with-htslib=DIR to point
+to an HTSlib source tree or installation in DIR; or --with-htslib=system
+to use a system-installed HTSlib.
 
 
 Optional Compilation with GSL
 =============================
 
 The 'polysomy' command depends on the GNU Scientific Library (GSL) and is not
-enabled by default. In order to compile it, type 'make clean && make USE_GPL=1'.
+enabled by default. In order to compile it, supply the --enable-libgsl
+option to configure before running make:
 
-Note that GSL is distributed under a GPL license, so when USE_GPL=1 is used to
-compile bcftools, the resulting program must only be distributed under terms
-compatible with that license. 
+    ./configure --enable-libgsl
+
+The GNU Scientific Library depends on the cblas library.  The configure
+script will look for both libcblas and libgslcblas, in that order.  If
+you have more than one version of cblas installed and want to override its
+choice you can do this by using either --with-cblas=cblas or
+--with-cblas=gslcblas.
+
+Note that GSL is distributed under the GNU General Public License (GPL).
+When --enable-libgsl is used to compile bcftools, the resulting program
+will also be GPL licensed.  If you want to distribute the program, you MUST
+do so under terms compatible with that license.  A copy of the GPL is included
+in the LICENSE file, or can be downloaded from
+<http://www.gnu.org/copyleft/gpl.html>.
 
 In the default compilation mode the program is dual licensed and you may
 choose to be licensed under the terms of the MIT/Expat license or the
 GNU General Public License (GPL).
 
+Information on the GNU Scientific Library, including the rationale for
+its choice of license can be found at <https://www.gnu.org/software/gsl/>.
 
 Installation
 ============
 
 Type 'make install' to install the bcftools executable and associated scripts
-and a manual page to /usr/local.
+and a manual page.  The default is to install in /usr/local.  This can be
+changed by using the configure script's --prefix option:
 
-Type 'make prefix=/path/to/dir install' to install everything under your
-choice of installation directory.  The install target also understands
-DESTDIR and the other usual installation directory variables.
+   ./configure --prefix=/path/to/install/dir
+
+The install target also understands DESTDIR and the other usual installation
+directory variables.
 
 The bgzip and tabix utilities are provided by HTSlib.  If you have not also
 installed HTSlib separately, you may wish to install these utilities by hand
