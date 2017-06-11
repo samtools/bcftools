@@ -218,10 +218,11 @@ def prune_regions(groups,regions):
     return regions
 
 def parse_samples(fname,highlight):
-    if fname==None: return None
+    if fname==None: return (None,None,{})
     samples = {}
     groups  = {}
     grp2sgn = {}
+    smpl2y  = {}
     # parse "+name" to create a map "name":"+"
     if highlight!=None:
         for grp in re.split(r',', highlight):
@@ -242,13 +243,14 @@ def parse_samples(fname,highlight):
                 else:
                     grp = '+'
                 groups[smpl] = grp
+            y = len(smpl2y)
+            smpl2y[smpl] = y
     if highlight==None: groups = None
-    return (samples,groups)
+    return (samples,groups,smpl2y)
 
 regs = parse_regions(regs)
-(samples,groups) = parse_samples(sample_file,highlight)
+(samples,groups,smpl2y) = parse_samples(sample_file,highlight)
 
-smpl2y = {}
 dat_gt = {}
 dat_rg = {}
 chrs   = []
@@ -262,6 +264,7 @@ for fname in fnames:
             reg  = region_overlap(regs,chr,pos,pos)
             if reg==None: continue
             smpl = row[3]
+            if samples!=None and smpl not in samples: continue
             gt   = row[4]
             x = gt.split('/')
             dsg = 2
@@ -278,6 +281,7 @@ for fname in fnames:
             dat_gt[chr][smpl].append([pos,dsg])
         elif row[0]=='RG':
             smpl  = row[1]
+            if samples!=None and smpl not in samples: continue
             chr   = row[2]
             beg   = int(row[3])
             end   = int(row[4])
@@ -294,6 +298,14 @@ for fname in fnames:
                 if beg<reg[0]: beg = reg[0]
                 if end>reg[1]: end = reg[1]
             dat_rg[chr][smpl].append([beg,end])
+
+if samples==None: 
+    samples = {}
+    for smpl in smpl2y: samples[smpl] = smpl
+
+# list the samples in the same order as encountered in the file, from top to bottom
+for smpl in smpl2y:
+    smpl2y[smpl] = len(smpl2y) - smpl2y[smpl] - 1
 
 off_list = []
 off_hash = {}
