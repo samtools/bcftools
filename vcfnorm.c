@@ -298,7 +298,15 @@ static int realign(args_t *args, bcf1_t *line)
     free(ref);
     ref = NULL;
 
-    if ( line->n_allele == 1 ) return ERR_OK;    // a REF
+    if ( line->n_allele == 1 ) // a REF
+    {
+        if ( line->rlen > 1 )
+        {
+            line->d.allele[0][1] = 0;
+            bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
+        }
+        return ERR_OK;
+    }
 
     // make a copy of each allele for trimming
     hts_expand0(kstring_t,line->n_allele,args->ntmp_als,args->tmp_als);
