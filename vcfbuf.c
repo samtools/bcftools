@@ -55,6 +55,12 @@ typedef struct
 }
 prune_t;
 
+typedef struct
+{
+    int active, rid, end;
+}
+overlap_t;
+
 struct _vcfbuf_t
 {
     int win;
@@ -63,6 +69,7 @@ struct _vcfbuf_t
     rbuf_t rbuf;
     ld_t ld;
     prune_t prune;
+    overlap_t overlap;
 };
 
 vcfbuf_t *vcfbuf_init(bcf_hdr_t *hdr, int win)
@@ -70,6 +77,7 @@ vcfbuf_t *vcfbuf_init(bcf_hdr_t *hdr, int win)
     vcfbuf_t *buf = (vcfbuf_t*) calloc(1,sizeof(vcfbuf_t));
     buf->hdr = hdr;
     buf->win = win;
+    buf->overlap.rid = -1;
     rbuf_init(&buf->rbuf, 0);
     return buf;
 }
@@ -89,11 +97,17 @@ void vcfbuf_destroy(vcfbuf_t *buf)
 
 void vcfbuf_set(vcfbuf_t *buf, vcfbuf_opt_t key, void *value)
 {
-    if ( key==LD_MAX ) { buf->ld.max = *((double*)value); return; }
-    if ( key==LD_RAND_MISSING ) { buf->ld.rand_missing = *((int*)value); return; }
-    if ( key==LD_SKIP_FILTER ) { buf->ld.skip_filter = *((int*)value); return; }
-    if ( key==LD_NSITES ) { buf->prune.max_sites = *((int*)value); return; }
-    if ( key==LD_AF_TAG ) { buf->prune.af_tag = *((char**)value); return; }
+    if ( key==VCFBUF_LD_MAX ) { buf->ld.max = *((double*)value); return; }
+    if ( key==VCFBUF_RAND_MISSING ) { buf->ld.rand_missing = *((int*)value); return; }
+    if ( key==VCFBUF_SKIP_FILTER ) { buf->ld.skip_filter = *((int*)value); return; }
+    if ( key==VCFBUF_NSITES ) { buf->prune.max_sites = *((int*)value); return; }
+    if ( key==VCFBUF_AF_TAG ) { buf->prune.af_tag = *((char**)value); return; }
+    if ( key==VCFBUF_OVERLAP_WIN ) { buf->overlap.active = *((int*)value); return; }
+}
+
+int vcfbuf_nsites(vcfbuf_t *buf)
+{
+    return buf->rbuf.n;
 }
 
 bcf1_t *vcfbuf_push(vcfbuf_t *buf, bcf1_t *rec, int swap)
@@ -184,6 +198,49 @@ static void _prune_sites(vcfbuf_t *buf, int flush_all)
         rbuf_remove_kth(&buf->rbuf, vcfrec_t, buf->prune.idx[i], buf->vcf);
 }
 
+static int _overlap_can_flush(vcfbuf_t *buf, int flush_all)
+{
+    if ( flush_all ) { buf->overlap.rid = -1; return 1; }
+
+    int i = rbuf_last(&buf->rbuf);
+    vcfrec_t *last = &buf->vcf[i];
+    if ( buf->overlap.rid != last->rec->rid ) buf->overlap.end = 0;
+
+    int beg_pos = last->rec->pos;
+    int end_pos = last->rec->pos + last->rec->rlen - 1;
+
+    // Assuming left-aligned indels. In case it is a deletion, the real variant
+    // starts one base after. If an insertion, the overlap with previous zero length.
+    int imin = last->rec->rlen;
+    for (i=0; i<last->rec->n_allele; i++)
+    {
+        char *ref = last->rec->d.allele[0];
+        char *alt = last->rec->d.allele[i];
+        if ( *alt == '<' ) continue;    // ignore symbolic alleles
+        while ( *ref && *alt && nt_to_upper(*ref)==nt_to_upper(*alt) ) { ref++; alt++; }
+        if ( imin > ref - last->rec->d.allele[0] ) imin = ref - last->rec->d.allele[0];
+    }
+
+    if ( beg_pos <= buf->overlap.end )
+    {
+        beg_pos += imin;
+        if ( beg_pos > end_pos ) end_pos = beg_pos;
+    }
+
+    if ( buf->rbuf.n==1 )
+    {
+        buf->overlap.rid = last->rec->rid;
+        buf->overlap.end = end_pos;
+        return 0; 
+    }
+    if ( beg_pos <= buf->overlap.end )
+    {
+        if ( buf->overlap.end < end_pos ) buf->overlap.end = end_pos;
+        return 0;
+    }
+    return 1;
+}
+
 bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all)
 {
     int i,j;
@@ -195,13 +252,25 @@ bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all)
     j = rbuf_last(&buf->rbuf);      // last
 
     if ( buf->vcf[i].rec->rid != buf->vcf[j].rec->rid ) goto ret;
+    if ( buf->overlap.active )
+    {
+        int ret = _overlap_can_flush(buf, flush_all);
+        //printf("can_flush: %d  %d - %d\n", ret, buf->vcf[i].rec->pos+1, buf->vcf[j].rec->pos+1);
+        if ( ret ) goto ret;
+    }
+    //if ( buf->overlap.active && _overlap_can_flush(buf, flush_all) ) goto ret;
+
     if ( buf->win > 0 )
     {
         if ( buf->rbuf.n <= buf->win ) return NULL;
         goto ret;
     }
-    if ( buf->vcf[i].rec->pos - buf->vcf[j].rec->pos > buf->win ) return NULL;    // NB: win < 0
-
+    else if ( buf->win < 0 )
+    {
+        if ( buf->vcf[i].rec->pos - buf->vcf[j].rec->pos > buf->win ) return NULL;
+    }
+    else return NULL;
+    
 ret:
     if ( buf->prune.max_sites && buf->prune.max_sites < buf->rbuf.n ) _prune_sites(buf, flush_all);
 

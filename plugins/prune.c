@@ -134,11 +134,11 @@ static void init_data(args_t *args)
         args->filter_r2_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->filter_r2);
 
     args->vcfbuf = vcfbuf_init(args->hdr, args->ld_win);
-    vcfbuf_set_opt(args->vcfbuf,double,LD_MAX,args->max_ld);
-    if ( args->nsites ) vcfbuf_set_opt(args->vcfbuf,int,LD_NSITES,args->nsites);
-    if ( args->af_tag ) vcfbuf_set_opt(args->vcfbuf,char*,LD_AF_TAG,args->af_tag);
-    if ( args->rand_missing ) vcfbuf_set_opt(args->vcfbuf,int,LD_RAND_MISSING,1);
-    vcfbuf_set_opt(args->vcfbuf,int,LD_SKIP_FILTER,args->filter_r2 ? 1 : 0);
+    vcfbuf_set_opt(args->vcfbuf,double,VCFBUF_LD_MAX,args->max_ld);
+    if ( args->nsites ) vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_NSITES,args->nsites);
+    if ( args->af_tag ) vcfbuf_set_opt(args->vcfbuf,char*,VCFBUF_AF_TAG,args->af_tag);
+    if ( args->rand_missing ) vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_RAND_MISSING,1);
+    vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_SKIP_FILTER,args->filter_r2 ? 1 : 0);
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);

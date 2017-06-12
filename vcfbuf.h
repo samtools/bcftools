@@ -35,13 +35,15 @@
 
 typedef struct _vcfbuf_t vcfbuf_t;
 
+// Modes of operation
 typedef enum
 {
-    LD_MAX,             // vcfbuf_max_ld() stops at the first record that exceeds the threshold
-    LD_RAND_MISSING,    // randomize rather than ignore missing genotypes
-    LD_SKIP_FILTER,     // skip sites with FILTER diferent from "PASS" or "."
-    LD_NSITES,          // leave at max this many sites in the window
-    LD_AF_TAG,          // use this INFO tag with LD_NSITES
+    VCFBUF_LD_MAX,          // vcfbuf_max_ld() stops at the first record that exceeds the threshold
+    VCFBUF_RAND_MISSING,    // randomize rather than ignore missing genotypes
+    VCFBUF_SKIP_FILTER,     // skip sites with FILTER diferent from "PASS" or "."
+    VCFBUF_NSITES,          // leave at max this many sites in the window
+    VCFBUF_AF_TAG,          // use this INFO tag with LD_NSITES
+    VCFBUF_OVERLAP_WIN,     // keep only overlapping variants in the window
 }
 vcfbuf_opt_t;
 
@@ -63,6 +65,11 @@ void vcfbuf_destroy(vcfbuf_t *buf);
 bcf1_t *vcfbuf_push(vcfbuf_t *buf, bcf1_t *rec, int swap);
 
 bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all);
+
+/*
+ *  vcfbuf_nsites() - return the number of sites in the buffer
+ */
+int vcfbuf_nsites(vcfbuf_t *buf);
 
 /*
  *  vcfbuf_max_ld() - return a record that has maximum D or first record exceeding the threshold
