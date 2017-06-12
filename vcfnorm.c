@@ -553,7 +553,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
             if ( bcf_gt_allele(gt[j])==ialt+1 )
                 gt[j] = bcf_gt_unphased(1) | bcf_gt_is_phased(gt[j]); // set to first ALT
             else
-                gt[j] = bcf_gt_unphased(0) | bcf_gt_is_phased(gt[j]); // set to REF
+                gt[j] = bcf_gt_missing | bcf_gt_is_phased(gt[j]); // set to REF
         }
         gt += ngts;
     }
