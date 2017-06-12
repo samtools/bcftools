@@ -402,7 +402,7 @@ bcf1_t *process(bcf1_t *rec)
     for (i=0; i<args->npop; i++)
         clean_counts(&args->pop[i], rec->n_allele);
 
-    args->bset = kbs_resize(args->bset, rec->n_allele);
+    if ( kbs_resize(&args->bset, rec->n_allele) < 0 ) error("kbs_resize: failed to store %d bits\n", rec->n_allele);
 
     #define BRANCH_INT(type_t,vector_end) \
     { \
