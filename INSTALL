@@ -56,6 +56,9 @@ If you have a full GNU autotools install, you can alternatively run:
 
     autoreconf
 
+Warnings like "AC_CONFIG_SUBDIRS: you should use literals" can be ignored
+or supressed using 'autoconf -Wno-syntax'.
+
 
 Compilation
 ===========
