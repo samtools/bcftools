@@ -1,0 +1,40 @@
+include::header.inc[]
+
+
+Plugin mendelian
+----------------
+
+This plugin is intended for detecting Mendelian inconsistencies. On input the program requires 
+a valid VCF and a trio definition, for example:
+----
+$ bcftools +mendelian file.vcf -- -t mother,father,child
+----
+
+Multiple trios can be tested at once by providing a list of trios:
+----
+$ bcftools +mendelian file.vcf -- -T trios.txt
+$ cat trios.txt
+mother1,father1,child1
+mother2,father2,child2
+----
+
+The inconsistent genotypes can be deleted by setting to `./.` (with the `-d, --delete` option),
+inconsistent sites can be counted (give the `-c, --count` option) or listed (the `-l, --list` option).
+
+On output three values are printed for each trio
+----
+# [1]nOK  [2]nBad  [3]nSkipped  [4]Trio
+334518    4621     996          mother,father,child
+----
+where
+
+- nOK .. number of genotypes at which the trio had no missingness and no Mendelian error
+- nBad .. number of genotypes at which the trio had a Mendelian error
+- nSkipped .. number of genotypes at which that trio had at least one individual missing and therefore could not be considered
+
+The program takes the genotypes as they are, *not* considering genotype quality (FORMAT/GQ).
+If pre-filtering is desired, the plugin ``setGT`` can be used.
+
+include::footer.inc[]
+
+

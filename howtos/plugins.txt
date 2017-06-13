@@ -30,7 +30,7 @@ guess-ploidy
 
 impute-info
 
-mendelian
+link:plugin.mendelian.html[mendelian]:: Count Mendelian consistent / inconsistent genotypes
 
 setGT
 

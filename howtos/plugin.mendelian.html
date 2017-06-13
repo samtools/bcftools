@@ -5,7 +5,7 @@
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 1.5.2">
-<title>Plugins</title>
+<title>Plugin mendelian</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -69,82 +69,60 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_plugins">Plugins</h2>
+<h2 id="_plugin_mendelian">Plugin mendelian</h2>
 <div class="sectionbody">
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Important</div>
-</td>
-<td class="content">
-In order to use the BCFtools plugins, this environment variable must
-be set and point to the correct location:<br>
-<code>export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins</code>
-</td>
-</tr>
-</table>
-</div>
-<div class="sect2">
-<h3 id="_list_of_plugins">List of plugins</h3>
 <div class="paragraph">
-<p>ad-bias</p>
+<p>This plugin is intended for detecting Mendelian inconsistencies. On input the program requires
+a valid VCF and a trio definition, for example:</p>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="plugin.af-dist.html">af-dist</a></dt>
-<dd>
-<p>Collects AF deviation stats and GT probability distribution given AF and assuming HWE</p>
-</dd>
-</dl>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools +mendelian file.vcf -- -t mother,father,child</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>aggregate</p>
+<p>Multiple trios can be tested at once by providing a list of trios:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools +mendelian file.vcf -- -T trios.txt
+$ cat trios.txt
+mother1,father1,child1
+mother2,father2,child2</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>counts</p>
+<p>The inconsistent genotypes can be deleted by setting to <code>./.</code> (with the <code>-d, --delete</code> option),
+inconsistent sites can be counted (give the <code>-c, --count</code> option) or listed (the <code>-l, --list</code> option).</p>
 </div>
 <div class="paragraph">
-<p>dosage</p>
+<p>On output three values are printed for each trio</p>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="plugin.fill-tags.html">fill-tags</a></dt>
-<dd>
-<p>Set various INFO tags, such as  AF, AC, HWE, etc.</p>
-</dd>
-<dt class="hdlist1"><a href="plugin.fixref.html">fixref</a></dt>
-<dd>
-<p>Diagnose and fix VCFs with genotypes on incorrect strand</p>
-</dd>
-</dl>
+<div class="listingblock">
+<div class="content">
+<pre># [1]nOK  [2]nBad  [3]nSkipped  [4]Trio
+334518    4621     996          mother,father,child</pre>
+</div>
 </div>
 <div class="paragraph">
-<p>guess-ploidy</p>
+<p>where</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>nOK .. number of genotypes at which the trio had no missingness and no Mendelian error</p>
+</li>
+<li>
+<p>nBad .. number of genotypes at which the trio had a Mendelian error</p>
+</li>
+<li>
+<p>nSkipped .. number of genotypes at which that trio had at least one individual missing and therefore could not be considered</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
-<p>impute-info</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="plugin.mendelian.html">mendelian</a></dt>
-<dd>
-<p>Count Mendelian consistent / inconsistent genotypes</p>
-</dd>
-</dl>
-</div>
-<div class="paragraph">
-<p>setGT</p>
-</div>
-<div class="paragraph">
-<p>tag2tag</p>
-</div>
-<div class="paragraph">
-<p>trio-switch-rate</p>
-</div>
-<div class="paragraph">
-<p>validate</p>
-</div>
+<p>The program takes the genotypes as they are, <strong>not</strong> considering genotype quality (FORMAT/GQ).
+If pre-filtering is desired, the plugin <code>setGT</code> can be used.</p>
 </div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>
