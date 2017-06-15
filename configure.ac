@@ -132,6 +132,16 @@ AS_IF([test "$enable_bcftools_plugins" != "no"], [dnl
 Plugin support requires dynamic linking facilities from the operating system.
 Either configure with --disable-bcftools-plugins or resolve this error to
 build bcftools.])])
+
+  AC_MSG_CHECKING([if the compiler accepts -rdynamic])
+  save_CFLAGS=$CFLAGS
+  CFLAGS="$CFLAGS -rdynamic"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM()],[cc_rdynamic=yes],[cc_rdynamic=no])
+  CFLAGS=$save_CFLAGS
+  AC_MSG_RESULT([$cc_rdynamic])
+  AS_IF([test "$cc_rdynamic" = "yes"],dnl
+    [CC_RDYNAMIC_OPT=-rdynamic],[CC_RDYNAMIC_OPT=])
+  AC_SUBST([CC_RDYNAMIC_OPT])
 ])
 
 save_LIBS=$LIBS

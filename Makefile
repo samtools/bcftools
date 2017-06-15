@@ -28,6 +28,7 @@ CFLAGS   = -g -Wall -Wc++-compat -O2
 LDFLAGS  =
 LIBS     =
 
+DYNAMIC_FLAGS = -rdynamic
 PLUGINS_ENABLED = yes
 PLUGIN_EXT = .so
 
@@ -145,11 +146,9 @@ ifneq "$(origin PLATFORM)" "file"
 PLATFORM := $(shell uname -s)
 endif
 ifeq "$(PLATFORM)" "Darwin"
-DYNAMIC_FLAGS = -rdynamic
 $(PLUGINS): | bcftools
 PLUGIN_FLAGS = -bundle -bundle_loader bcftools
 else
-DYNAMIC_FLAGS = -rdynamic
 PLUGIN_FLAGS = -fPIC -shared
 endif
 
