@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=A>
+##contig=<ID=B>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=SRC,Number=.,Type=String,Description="Source file">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample1	sample2
+B	1	.	G	C	2	.	SRC=file1,file2	GT	0/0	1/1
+B	2	.	A	C	2	.	SRC=file1,file2	GT	0/0	1/1
+A	1	.	G	C	1	.	SRC=file2	GT	./.	1/1

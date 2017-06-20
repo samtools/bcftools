@@ -869,24 +869,24 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     reference sequence in fasta format. Must be indexed with samtools faidx
 
 
-==== HAPS/SAMPLE conversion:
-*--hapsample2vcf* 'prefix' or 'haps-file','sample-file'::
-    convert from haps/sample format to VCF. The columns of .haps file are
+==== HAP/SAMPLE conversion:
+*--hapsample2vcf* 'prefix' or 'hap-file','sample-file'::
+    convert from hap/sample format to VCF. The columns of .hap file are
     similar to .gen file above, but there are only two haplotype columns per
-    sample. Note that the first column of the haps file is expected to be in
+    sample. Note that the first column of the .hap file is expected to be in
     the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
     defining the INFO/END tag when ALT is a symbolic allele, for example:
 ----
-  .haps
+  .hap
   ----
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
   1:111494194_C_T rsID2 111494194 C T 0 1 0 0
   1:111495231_A_<DEL>_111495784 rsID3 111495231 A <DEL> 0 0 1 0
 ----
 
-*--hapsample* 'prefix' or 'haps-file','sample-file'::
-    convert from VCF to haps/sample format used by IMPUTE2 and SHAPEIT.
-    The columns of .haps file begin with ID,RSID,POS,REF,ALT. In order to
+*--hapsample* 'prefix' or 'hap-file','sample-file'::
+    convert from VCF to hap/sample format used by IMPUTE2 and SHAPEIT.
+    The columns of .hap file begin with ID,RSID,POS,REF,ALT. In order to
     prevent strand swaps, the program uses IDs of the form
     "CHROM:POS_REF_ALT".
 
@@ -906,19 +906,19 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *--vcf-ids*::
     output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
 
-==== HAPS/LEGEND/SAMPLE conversion:
-*-H, --haplegendsample2vcf* 'prefix' or 'haps-file','legend-file','sample-file'::
-    convert from haps/legend/sample format used by IMPUTE2 to VCF, see
+==== HAP/LEGEND/SAMPLE conversion:
+*-H, --haplegendsample2vcf* 'prefix' or 'hap-file','legend-file','sample-file'::
+    convert from hap/legend/sample format used by IMPUTE2 to VCF, see
     also *-h, --hapslegendsample* below.
 
-*-h, --haplegendsample* 'prefix' or 'haps-file','legend-file','sample-file'::
-    convert from VCF to haps/legend/sample format used by IMPUTE2 and SHAPEIT.
+*-h, --haplegendsample* 'prefix' or 'hap-file','legend-file','sample-file'::
+    convert from VCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT.
     The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
     swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
     file is quite basic at the moment with columns for population, group and
     sex expected to be edited by the user. For example:
 ----
-  .haps
+  .hap
   -----
   0 1 0 0 1 0
   0 1 0 0 0 1
@@ -2669,9 +2669,10 @@ to require that all alleles are of the given type. Compare
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
-frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes
+frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
+number of samples with missing genotype; fraction of samples with missing genotype
 
-        N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN
+        N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING
 
 
 .Notes:

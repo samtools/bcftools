@@ -1,4 +1,35 @@
-## Noteworthy changes for the next release:
+## Release 1.5 (June 2017)
+
+* Added autoconf support to bcftools. See `INSTALL` for more details.
+
+* `norm`: Make norm case insensitive (#601). Trim the reference allele (#602).
+
+* `mpileup`: fix for misreported indel depths for reads containing adjacent
+  indels (3c1205c1).
+
+* `plot-vcfstats`: Open stats file in text mode, not binary (#618).
+
+* `fixref` plugin: Allow multiallelic sites in the `-i, --use-id reference`.
+  Also flip genotypes, not just REF/ALT!
+
+* `merge`: fix gVCF merge bug when last record on a chromosome opened a
+  gVCF block (#616)
+
+* New options added to the ROH plotting script.
+
+* `consensus`: Properly flush chain info (#606, thanks to @krooijers).
+
+* New `+prune` plugin for pruning sites by LD (R2) or maximum number of
+  records within a window.
+
+* New N_MISSING, F_MISSING (number and fraction misssing) filtering
+  expressions.
+
+* Fix HMM initilization in `roh` when snapshots are used in multiple
+  chromosome VCF.
+
+* Fix buffer overflow (#607) in `filter`.
+
 
 ## Release 1.4.1 (8 May 2017)
 

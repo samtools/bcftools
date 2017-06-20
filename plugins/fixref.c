@@ -94,7 +94,7 @@
 typedef struct
 {
     uint32_t pos;
-    uint8_t ref:4, alt:4;
+    uint8_t ref;
 }
 marker_t;
 
@@ -129,7 +129,7 @@ const char *usage(void)
         "About: This tool helps to determine and fix strand orientation.\n"
         "       Currently the following modes are recognised:\n"
         "           flip  .. flips non-ambiguous SNPs and ignores the rest\n"
-        "           id    .. swap REF/ALT using the ID column to determine the REF allele\n"
+        "           id    .. swap REF/ALT and GTs using the ID column to determine the REF allele\n"
         "           stats .. collect and print stats\n"
         "           top   .. converts from Illumina TOP strand to fwd\n"
         "\n"
@@ -292,12 +292,10 @@ static void dbsnp_init(args_t *args, const char *chr)
     while ( bcf_sr_next_line(sr) )
     {
         bcf1_t *rec = bcf_sr_get_line(sr, 0);
-        if ( rec->n_allele!=2 ) continue;       // skip multiallelic markers
         if ( rec->d.allele[0][1]!=0 || rec->d.allele[1][1]!=0 ) continue;   // skip non-snps
 
         int ref = nt2int(rec->d.allele[0][0]);
-        int alt = nt2int(rec->d.allele[1][0]);
-        if ( ref<0 || alt<0 ) continue;     // non-[ACGT] base
+        if ( ref<0 ) continue;     // non-[ACGT] base
 
         uint32_t id = parse_rsid(rec->d.id);
         if ( !id ) continue;
@@ -308,7 +306,6 @@ static void dbsnp_init(args_t *args, const char *chr)
         if ( ret==0 ) continue; // skip ambiguous id
         kh_val(args->i2m, k).pos = (uint32_t)rec->pos;
         kh_val(args->i2m, k).ref = ref;
-        kh_val(args->i2m, k).alt = alt;
     }
 done:
     bcf_sr_destroy(sr);
@@ -316,7 +313,7 @@ done:
 
 static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
 {
-    int k, ref,alt,pos;
+    int k, ref,pos;
     uint32_t id = parse_rsid(rec->d.id);
     if ( !id ) goto no_info;
 
@@ -332,13 +329,11 @@ static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
     }
 
     ref = kh_val(args->i2m, k).ref;
-    alt = kh_val(args->i2m, k).alt;
-
 	if ( ref!=ir ) 
         error("Reference base mismatch at %s:%d .. %c vs %c\n",bcf_seqname(args->hdr,rec),rec->pos+1,int2nt(ref),int2nt(ir));
 
-    if ( ia==ref && ib==alt ) return rec;
-    if ( ia==alt && ib==ref ) { args->nswap++; return set_ref_alt(args,rec,int2nt(ib),int2nt(ia),0); }
+    if ( ia==ref ) return rec;
+    if ( ib==ref ) { args->nswap++; return set_ref_alt(args,rec,int2nt(ib),int2nt(ia),1); }
 
 no_info:
     args->nunresolved++;

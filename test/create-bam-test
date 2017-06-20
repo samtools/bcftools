@@ -1,0 +1,99 @@
+#!/usr/bin/env perl
+#
+# Author: petr.danecek@sanger
+#
+
+use strict;
+use warnings;
+use Carp;
+
+my $opts = parse_params();
+create_test($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print 
+        "Usage: create-bam-test [OPTIONS]\n",
+        "Options:\n",
+        "   -b, --bam <file.bam>            \n",
+        "   -f, --fa-ref <ref.fa>           \n",
+        "   -o, --output-prefix <string>    \n",
+        "   -r, --region <region>           \n",
+        "   -h, -?, --help                  This help message.\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = {};
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-b' || $arg eq '--bam' ) { $$opts{bam}=shift(@ARGV); next }
+        if ( $arg eq '-f' || $arg eq '--fa-ref' ) { $$opts{ref}=shift(@ARGV); next }
+        if ( $arg eq '-o' || $arg eq '--output-prefix' ) { $$opts{out}=shift(@ARGV); next }
+        if ( $arg eq '-r' || $arg eq '--region' ) { $$opts{region}=shift(@ARGV); next }
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    if ( !exists($$opts{bam}) ) { error("Missing the -b option.\n") }
+    if ( !exists($$opts{ref}) ) { error("Missing the -f option.\n") }
+    if ( !exists($$opts{out}) ) { error("Missing the -o option.\n") }
+    if ( !exists($$opts{region}) ) { error("Missing the -r option.\n") }
+    return $opts;
+}
+sub create_test
+{
+    my ($opts) = @_;
+    if ( !($$opts{region}=~/^([^:]+):(\d+)-(\d+)$/) ) { error("Could not parse the region: $$opts{region}"); }
+    my $chr = $1;
+    my $beg = $2;
+    my $end = $3;
+    my $ori_beg = $beg;
+    my $ori_end = $end;
+    my @reads  = ();
+    my $cmd = "samtools view -h $$opts{bam} $$opts{region}";
+    open(my $out,'>',"$$opts{out}.sam") or error("$$opts{out}.sam: $!");
+    open(my $fh,"$cmd |") or error("$cmd: $!");
+    while (my $line=<$fh>)
+    {
+        my @vals = split(/\t/,$line);
+        if ( $vals[0] eq '@HD' ) { print $out $line; next; }
+        if ( $vals[0] =~ /^\@/ ) { next; }
+        if ( $vals[3] < $beg ) { $beg = $vals[3]; }
+        if ( $vals[7] < $beg ) { $beg = $vals[7]; }
+        if ( $vals[3] + length($vals[9]) > $end ) { $end = $vals[3] + length($vals[9]); }
+        my $i;
+        for ($i=0; $i<@vals; $i++) { if ($vals[$i]=~/^RG:Z:/) { last; } }
+        if ( $i!=@vals ) { splice(@vals,$i,1); }
+        chomp($vals[-1]);
+        push @reads, \@vals;
+    }
+    close($fh) or error("close failed: $cmd");
+
+    print $out "\@SQ\tSN:$chr\tLN:".($end-$beg+1)."\n";
+    print $out "\@RG\tID:rg\tSM:sample\n";
+
+    for my $read (@reads)
+    {
+        $$read[3] -= $beg - 1;
+        $$read[7] -= $beg - 1;
+        print $out join("\t",@$read,"RG:Z:rg")."\n";
+    }
+    close($out) or error("close failed: $$opts{out}.sam");
+
+    `samtools view -b $$opts{out}.sam -o $$opts{out}.bam`;
+    `samtools index $$opts{out}.bam`;
+    `samtools faidx $$opts{ref} $chr:$beg-$end | sed 's,:, ,' > $$opts{out}.fa`;
+    `samtools faidx $$opts{out}.fa`;
+
+    $ori_beg -= $beg - 1;
+    $ori_end -= $beg - 1;
+    print "$chr:$ori_beg-$ori_end\n";
+}
+

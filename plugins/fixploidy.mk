@@ -1,2 +1,2 @@
-plugins/fixploidy.so: plugins/fixploidy.c version.h version.c ploidy.h ploidy.c
-	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ ploidy.c version.c $< $(LIBS)
+plugins/fixploidy.so: plugins/fixploidy.c version.h version.c regidx.h regidx.c ploidy.h ploidy.c
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ ploidy.c regidx.c version.c $< $(LIBS)
