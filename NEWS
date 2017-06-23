@@ -1,3 +1,5 @@
+## Release a.b (Equinox)
+
 ## Release 1.5 (June 2017)
 
 * Added autoconf support to bcftools. See `INSTALL` for more details.
