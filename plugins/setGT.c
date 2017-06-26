@@ -224,8 +224,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->new_mask & GT_MISSING ) args->new_gt = bcf_gt_missing;
     if ( args->new_mask & GT_REF ) args->new_gt = args->new_mask&GT_PHASED ? bcf_gt_phased(0) : bcf_gt_unphased(0);
 
-    if ( args->filter_str  && args->tgt_mask!=GT_QUERY ) error("Expected -t? with -i/-e\n");
-    if ( !args->filter_str && args->tgt_mask&GT_QUERY ) error("Expected -i/-e with -t?\n");
+    if ( args->filter_str  && !(args->tgt_mask&GT_QUERY) ) error("Expected -tq with -i/-e\n");
+    if ( !args->filter_str && args->tgt_mask&GT_QUERY ) error("Expected -i/-e with -tq\n");
     if ( args->filter_str ) args->filter = filter_init(in,args->filter_str);
 
     return 0;
@@ -326,9 +326,14 @@ bcf1_t *process(bcf1_t *rec)
     // replace gts
     if ( nbinom && ngts>=2 )    // only diploid genotypes are considered: higher ploidy ignored further, haploid here
     {
-        // todo: allow combining with -i/-e
+        if ( args->filter ) filter_test(args->filter,rec,&args->smpl_pass);
         for (i=0; i<rec->n_sample; i++)
         {
+            if ( args->smpl_pass )
+            {
+                if ( !args->smpl_pass[i] && args->filter_logic==FLT_INCLUDE ) continue;
+                if (  args->smpl_pass[i] && args->filter_logic==FLT_EXCLUDE ) continue;
+            }
             int32_t *ptr = args->gts + i*ngts;
             if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) || ptr[1]==bcf_int32_vector_end ) continue;
             if ( ptr[0]==ptr[1] ) continue; // a hom
