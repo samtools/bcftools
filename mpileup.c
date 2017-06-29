@@ -909,7 +909,7 @@ int bam_mpileup(int argc, char *argv[])
         {"ignore-RG", no_argument, NULL, 5},
         {"ignore-rg", no_argument, NULL, 5},
         {"gvcf", required_argument, NULL, 'g'},
-        {"non-reference", no_argument, NULL, 7},
+        {"no-reference", no_argument, NULL, 7},
         {"no-version", no_argument, NULL, 8},
         {"threads",required_argument,NULL,9},
         {"illumina1.3+", no_argument, NULL, '6'},
