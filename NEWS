@@ -1,5 +1,10 @@
 ## Release a.b (Equinox)
 
+* New options added to the `consensus` command. Note that the `-i, --iupac`
+  option has been renamed to `-I, --iupac`, in favor of the standard 
+  `-i, --include`.
+
+
 ## Release 1.5 (June 2017)
 
 * Added autoconf support to bcftools. See `INSTALL` for more details.

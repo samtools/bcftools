@@ -601,10 +601,10 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *-f, --AF-file* 'file'::
     read allele frequencies from  a tab-delimited file with the columns CHR,POS,REF,ALT,AF
 
-*-o, --output-dir 'path'::
+*-o, --output-dir* 'path'::
     output directory
 
-*-p, --plot-threshold 'float'::
+*-p, --plot-threshold* 'float'::
     call *matplotlib* to produce plots for chromosomes with quality at least 'float',
     useful for visual inspection of the calls. With *-p 0*, plots for all chromosomes will be
     generated. If not given, a *matplotlib* script will be created but not called.
@@ -739,14 +739,44 @@ Note that the program does not act as a primitive variant caller and ignores all
 depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *setGT* plugin.
 
+*-c, --chain* 'FILE'::
+    write a chain file for liftover
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format
 
-*-H, --haplotype* '1'|'2'::
-    apply variants for the given haplotype. This option requires *-s*, unless
-    exactly one sample is present in the VCF
+*-H, --haplotype* '1'|'2'|'R'|'A'|'LR'|'LA'|'SR'|'SA'::
+    choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
+    
+        '1';;
+            the first allele
 
-*-i, --iupac-codes*::
+        '2';;
+            the second allele
+
+        'R';;
+            the REF allele (in heterozygous genotypes)
+
+        'A';;
+            the ALT allele (in heterozygous genotypes)
+
+        'LR, LA';;
+            the longer allele. If both have the same length, use the REF allele (LR), or the ALT allele  (LA)
+
+        'SR, SA';;
+            the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)
+
+    This option requires *-s*, unless exactly one sample is present in the VCF
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-I, --iupac-codes*::
     output variants in the form of IUPAC ambiguity codes
 
 *-m, --mask* 'FILE'::
@@ -1915,6 +1945,12 @@ By default, appropriate system directories are searched for installed plugins.
 *af-dist*::
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
 
+*check-ploidy*::
+    check if ploidy of samples is consistent for all sites
+
+*check-sparsity*::
+    print samples without genotypes in a region or chromosome
+
 *color-chrs*::
     color shared chromosomal segments, requires trio VCF with phased GTs
 
@@ -1932,7 +1968,7 @@ By default, appropriate system directories are searched for installed plugins.
     fill INFO or REF field based on values in a fasta file
 
 *fill-tags*::
-    set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi
+    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS
 
 *fix-ploidy*::
     sets correct ploidy
@@ -1950,11 +1986,17 @@ By default, appropriate system directories are searched for installed plugins.
 *impute-info*::
     add imputation information metrics to the INFO field based on selected FORMAT tags
 
+*isecGT*::
+    compare two files and set non-identical genotypes to missing
+
 *mendelian*::
     count Mendelian consistent / inconsistent genotypes.
 
 *missing2ref*::
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
+
+*prune*::
+    prune sites by missingness or linkage disequilibrium
 
 *setGT*::
     general tool to set genotypes according to rules requested by the user
