@@ -624,6 +624,81 @@ static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
     tok->nvalues  = ret;
     tok->nsamples = nsmpl;
 }
+static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int type)
+{
+    bcf_fmt_t *fmt = bcf_get_fmt(flt->hdr, line, "GT");
+    if ( !fmt )
+    {
+        tok->nvalues = tok->nsamples = 0;
+        return;
+    }
+    
+    int i,j, nsmpl = bcf_hdr_nsamples(flt->hdr), nvals = type==2 ? 3 : 4;
+    if ( tok->values[0]*tok->nsamples < nvals*nsmpl )
+    {
+        tok->values[0] = nvals;
+        tok->nvalues   = nvals*nsmpl;
+        tok->nsamples  = nsmpl;
+        tok->str_value = (char*)realloc(tok->str_value,nvals*nsmpl);
+    }
+
+#define BRANCH_INT(type_t,vector_end) \
+    { \
+        for (i=0; i<line->n_sample; i++) \
+        { \
+            type_t *ptr = (type_t*) (fmt->p + i*fmt->size); \
+            int is_het = 0, has_ref = 0, missing = 0; \
+            for (j=0; j<fmt->n; j++) \
+            { \
+                if ( ptr[j]==vector_end ) break; /* smaller ploidy */ \
+                if ( bcf_gt_is_missing(ptr[j]) ) { missing=1; break; } /* missing allele */ \
+                int ial = ptr[j]; \
+                if ( bcf_gt_allele(ial)==0 ) has_ref = 1; \
+                if ( j>0 ) \
+                { \
+                    int jal = ptr[j-1]; \
+                    if ( bcf_gt_allele(ial)!=bcf_gt_allele(jal) ) is_het = 1; \
+                } \
+            } \
+            char *dst = &tok->str_value[nvals*i]; \
+            if ( !j || missing ) dst[0]='.', dst[1]=0; /* ., missing genotype */ \
+            else if ( type==3 ) \
+            { \
+                if ( j==1 ) dst[0]='h', dst[1]='a', dst[2]='p', dst[3] = 0; /* hap, haploid */ \
+                else if ( !is_het ) dst[0]='h', dst[1]='o', dst[2]='m', dst[3] = 0; /* hom */ \
+                else dst[0]='h', dst[1]='e', dst[2]='t', dst[3] = 0; /* het */ \
+            } \
+            else \
+            { \
+                if ( j==1 ) \
+                { \
+                    if ( has_ref ) dst[0]='r', dst[1]=0; /* r, haploid */ \
+                    else dst[0]='a', dst[1]=0; /* a, haploid */ \
+                } \
+                else if ( !is_het ) \
+                { \
+                    if ( has_ref ) dst[0]='r', dst[1]='r', dst[2] = 0; /* rr */ \
+                    else dst[0]='a', dst[1]='a', dst[2] = 0; /* aa */ \
+                } \
+                else \
+                { \
+                    if ( has_ref ) dst[0]='r', dst[1]='a', dst[2] = 0; /* ra */ \
+                    else dst[0]='a', dst[1]='A', dst[2] = 0; /* aA */ \
+                } \
+            } \
+        } \
+    }
+    switch (fmt->type) {
+        case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
+        default: error("The GT type is not lineognised: %d at %s:%d\n",fmt->type, bcf_seqname(flt->hdr,line),line->pos+1); break;
+    }
+#undef BRANCH_INT
+}
+static void filters_set_genotype2(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 2); }
+static void filters_set_genotype3(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 3); }
+
 static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     bcf_fmt_t *fmt = bcf_get_fmt(flt->hdr, line, "GT");
@@ -1518,6 +1593,11 @@ static void filter_debug_print(token_t *toks, token_t **tok_ptrs, int ntoks)
     }
 }
 
+static void str_to_lower(char *str)
+{
+    while ( *str ) { *str = tolower(*str); str++; }
+}
+
 
 // Parse filter expression and convert to reverse polish notation. Dijkstra's shunting-yard algorithm
 filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
@@ -1668,6 +1748,28 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( out[itok].tok_type==TOK_LIKE || out[itok].tok_type==TOK_NLIKE ) out[itok].comparator = filters_cmp_bit_and;
             out[ival].tag = out[ival].key; out[ival].key = NULL;
             i = itok;
+            continue;
+        }
+        if ( !strcmp(out[i].tag,"GT") )
+        {
+            if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
+            int itok, ival;
+            if ( out[i+1].tok_type==TOK_EQ || out[i+1].tok_type==TOK_NE ) ival = i - 1, itok = i + 1;
+            else if ( out[i+1].tok_type==TOK_LIKE || out[i+1].tok_type==TOK_NLIKE ) ival = i - 1, itok = i + 1;
+            else if ( out[i+2].tok_type==TOK_EQ || out[i+2].tok_type==TOK_NE ) itok = i + 2, ival = i + 1;
+            else if ( out[i+2].tok_type==TOK_LIKE || out[i+2].tok_type==TOK_NLIKE ) itok = i + 2, ival = i + 1;
+            else error("[%s:%d %s] Could not parse the expression: %s\n",  __FILE__,__LINE__,__FUNCTION__, filter->str);
+
+            // assign correct setters and unify expressions, eg ar->ra, HOM->hom, etc
+            if ( !strcasecmp(out[ival].key,"hom") ) { out[i].setter = filters_set_genotype3;  str_to_lower(out[ival].key); }
+            else if ( !strcasecmp(out[ival].key,"het") ) { out[i].setter = filters_set_genotype3;  str_to_lower(out[ival].key); }
+            else if ( !strcasecmp(out[ival].key,"hap") ) { out[i].setter = filters_set_genotype3;  str_to_lower(out[ival].key); }
+            else if ( !strcasecmp(out[ival].key,"rr") ) { out[i].setter = filters_set_genotype2;  str_to_lower(out[ival].key); }
+            else if ( !strcasecmp(out[ival].key,"ra") || !strcasecmp(out[ival].key,"ar") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='r'; out[ival].key[1]='a'; }   // ra
+            else if ( !strcmp(out[ival].key,"aA") || !strcmp(out[ival].key,"Aa") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='a'; out[ival].key[1]='A'; }   // aA
+            else if ( !strcasecmp(out[ival].key,"aa") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='a'; out[ival].key[1]='a'; }  // aa
+            else if ( !strcasecmp(out[ival].key,"a") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='a'; out[ival].key[1]=0; }  // a
+            else if ( !strcasecmp(out[ival].key,"r") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='r'; out[ival].key[1]=0; }  // r
             continue;
         }
         if ( !strcmp(out[i].tag,"FILTER") )
