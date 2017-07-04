@@ -131,6 +131,7 @@
             heap->mdat = heap->ndat;                                    \
             kroundup32(heap->mdat);                                     \
             heap->dat = (kheap_t*)realloc(heap->dat, heap->mdat*sizeof(kheap_t));  \
+            memset(heap->dat + heap->ndat, 0, (heap->mdat - heap->ndat)*sizeof(kheap_t)); \
         }                                                               \
         int i = heap->ndat - 1;                                         \
         while ( i && __cmp(dat,&heap->dat[khp_parent(i)]) )             \
