@@ -93,6 +93,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
+- *<<sort,sort>>*        ..  sort VCF/BCF files
 - *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
 - *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
 
@@ -2361,6 +2362,24 @@ Transition probabilities:
 *-V, --viterbi-training* 'FLOAT'::
     estimate HMM parameters using Baum-Welch algorithm, using the convergence threshold
     'FLOAT', e.g. 1e-10 (experimental)
+
+
+[[sort]]
+=== bcftools sort ['OPTIONS'] file.bcf
+
+*-m, --max-mem* 'FLOAT'['kMG']::
+    Maximum memory to use. Approximate, affects the number of temporary files written
+    to the disk. Note that if the command fails at this step because of too many open files,
+    your system limit on the number of open files ("ulimit") may need to be increased.
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-T, --temp-dir* 'DIR'::
+    Use this directory to store temporary files
 
 
 

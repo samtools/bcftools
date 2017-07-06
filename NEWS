@@ -4,6 +4,8 @@
   option has been renamed to `-I, --iupac`, in favor of the standard 
   `-i, --include`.
 
+* New `sort` command.
+
 
 ## Release 1.5 (June 2017)
 
