@@ -2730,11 +2730,14 @@ to require that all alleles are of the given type. Compare
         TYPE!="snp"
         TYPE!~"snp"
 
-* array subscripts, "*" for any field
+* array subscripts (0-based), "*" for any field, "-" to indicate a range
 
         (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
         DP4[*] == 0
         CSQ[*] ~ "missense_variant.*deleterious"
+        FORMAT/DP[1-3] > 10
+        FORMAT/DP[1-]  < 7
+        FORMAT/DP[0,2-4] > 20
 
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
