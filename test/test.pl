@@ -110,6 +110,9 @@ test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.30.out',args=>q[-f'
 test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.31.out',args=>q[-f'%POS\\t%A_AF\\t%B_AF\\t%C_AF\\n' -e'A_AF>=0.0001 || B_AF >= 0.0001 || C_AF >= 0.0001']);
 test_vcf_query($opts,in=>'missing',out=>'query.32.out',args=>q[-i'FMT/FINT!="."' -f'[\t%FINT]\\n']);
 test_vcf_query($opts,in=>'query.filter.2',out=>'query.33.out',args=>q[-f'[%GT]\\n' -i'GT~"0/[1-9]" || GT~"[1-9]/0"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.34.out',args=>q[-f'%POS[ %FGS]\\n' -i'FGS[1-2,4]="EE"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.35.out',args=>q[-f'%POS[ %FGI]\\n' -i'FGI[1-2,5]=6']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.36.out',args=>q[-f'%POS[ %FGF]\\n' -i'FGF[1-3,4]=5e-5']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
