@@ -50,6 +50,18 @@ frequencies and assuming HWE), which suggests that many of the REF and ALT
 alleles are on the incorrect strand.
 ====
 
+The method is reliable and robust even for non-European populations, as shown below.
+
+====
+++++
+<a href="plugins/af-dist.pop.png"><img src="plugins/af-dist.pop.png" width="500px"></a>
+++++
+The plot shows ``af-dist`` results for 52 samples from 26 populations
+of the 1000 Genomes Project (two samples randomly selected from each population), subset to
+link:http://www.illumina.com/science/consortia/human-consortia/multi-ethnic-genotyping-consortium.html[MEGA]
+sites, an array with population-specific variants.
+====
+
 
 include::footer.inc[]
 
