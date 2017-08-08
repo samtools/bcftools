@@ -195,11 +195,13 @@ bcf1_t *process(bcf1_t *rec)
         if ( bcf_gt_is_missing(c) || bcf_gt_is_missing(d) ) continue; 
         if ( bcf_gt_is_missing(e) || bcf_gt_is_missing(f) ) continue; 
 
-        mother = (1<<bcf_gt_allele(a)) | (1<<bcf_gt_allele(b));
-        father = (1<<bcf_gt_allele(c)) | (1<<bcf_gt_allele(d));
-        child  = (1<<bcf_gt_allele(e)) | (1<<bcf_gt_allele(f));
+        mother = bcf_gt_allele(a) + bcf_gt_allele(b);
+        father = bcf_gt_allele(c) + bcf_gt_allele(d);
+        child  = bcf_gt_allele(e) + bcf_gt_allele(f);
 
-        if ( (mother&child) && (father&child) ) 
+        if ( ( child == 0 && mother <= 1 && father <= 1 )
+             || ( child == 1 && mother + father >= 1 && mother + father <= 3 )
+             || ( child == 2 && mother >= 1 && father >= 1 ) )
         {
             trio->nok++;
         }
