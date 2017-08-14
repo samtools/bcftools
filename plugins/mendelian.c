@@ -117,7 +117,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             case 'T': trio_file = optarg; break;
             case 'h':
             case '?':
-            default: error("%s", usage()); break;
+            default: error(usage()); break;
         }
     }
     if ( optind != argc ) error(usage());
@@ -176,30 +176,96 @@ bcf1_t *process(bcf1_t *rec)
 
     int ngt = bcf_get_genotypes(args.hdr, rec, &args.gt_arr, &args.ngt_arr);
     if ( ngt<0 ) return dflt;
-    if ( ngt!=2*bcf_hdr_nsamples(args.hdr) ) return dflt;
+    if ( ngt!=2*bcf_hdr_nsamples(args.hdr) && ngt!=bcf_hdr_nsamples(args.hdr) ) return dflt;
+    ngt /= bcf_hdr_nsamples(args.hdr);
 
     int i, has_bad = 0, needs_update = 0;
     for (i=0; i<args.ntrios; i++)
     {
-        int mother,father,child;
         int32_t a,b,c,d,e,f;
         trio_t *trio = &args.trios[i];
 
-        a = args.gt_arr[2*trio->imother];
-        b = args.gt_arr[2*trio->imother+1];
-        c = args.gt_arr[2*trio->ifather];
-        d = args.gt_arr[2*trio->ifather+1];
-        e = args.gt_arr[2*trio->ichild];
-        f = args.gt_arr[2*trio->ichild+1];
-        if ( bcf_gt_is_missing(a) || bcf_gt_is_missing(b) ) continue; 
+        a = args.gt_arr[ngt*trio->imother];
+        b = ngt==2 ? args.gt_arr[ngt*trio->imother+1] : bcf_int32_vector_end;
+        c = args.gt_arr[ngt*trio->ifather];
+        d = ngt==2 ? args.gt_arr[ngt*trio->ifather+1] : bcf_int32_vector_end;
+        e = args.gt_arr[ngt*trio->ichild];
+        f = ngt==2 ? args.gt_arr[ngt*trio->ichild+1] : bcf_int32_vector_end;
+
+        // missing allele in the child: missing data or daugther's chrY
+        if ( bcf_gt_is_missing(e) || bcf_gt_is_missing(f) ) continue;
+
+        // missing data in father
         if ( bcf_gt_is_missing(c) || bcf_gt_is_missing(d) ) continue; 
-        if ( bcf_gt_is_missing(e) || bcf_gt_is_missing(f) ) continue; 
 
-        mother = (1<<bcf_gt_allele(a)) | (1<<bcf_gt_allele(b));
-        father = (1<<bcf_gt_allele(c)) | (1<<bcf_gt_allele(d));
-        child  = (1<<bcf_gt_allele(e)) | (1<<bcf_gt_allele(f));
+        uint64_t mother,father,child1,child2;
 
-        if ( (mother&child) && (father&child) ) 
+        // sex chr - father is haploid
+        if ( d==bcf_int32_vector_end )
+        {
+            if ( bcf_gt_is_missing(a) && (bcf_gt_is_missing(b) || b==bcf_int32_vector_end) )
+            {
+                // either the child does not match the father or the child is diploid
+                if ( bcf_gt_allele(c)!=bcf_gt_allele(e) || f!=bcf_int32_vector_end )
+                {
+                    trio->nbad++;
+                    has_bad = 1;
+                    if ( args.mode&MODE_DELETE )
+                    {   
+                        args.gt_arr[ngt*trio->imother] = bcf_gt_missing;
+                        if ( b!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->imother+1] = bcf_gt_missing; // should be always true 
+                        args.gt_arr[ngt*trio->ifather] = bcf_gt_missing;
+                        args.gt_arr[ngt*trio->ichild]  = bcf_gt_missing;
+                        if ( ngt==2 ) args.gt_arr[ngt*trio->ichild+1] = bcf_int32_vector_end;
+                        needs_update = 1;
+                    }
+                }
+                else
+                    trio->nok++;
+                continue;
+            }
+            // son's chrX
+            if ( f==bcf_int32_vector_end )
+            {
+                // chrY - no data in mother
+                if ( bcf_gt_allele(e)!=bcf_gt_allele(a) && bcf_gt_allele(e)!=bcf_gt_allele(b) )
+                {
+                    trio->nbad++;
+                    has_bad = 1;
+                    if ( args.mode&MODE_DELETE )
+                    {
+                        args.gt_arr[ngt*trio->imother] = bcf_gt_missing;
+                        if ( ngt==2 ) args.gt_arr[ngt*trio->imother+1] = bcf_gt_missing;
+                        args.gt_arr[ngt*trio->ifather] = bcf_gt_missing;
+                        if ( d!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->ifather+1] = bcf_gt_missing;
+                        args.gt_arr[ngt*trio->ichild]  = bcf_gt_missing;
+                        needs_update = 1;
+                    }
+                }
+                else
+                    trio->nok++;
+                continue;
+            }
+
+            // skip genotypes which do not fit in a 64bit bitmask
+            if ( bcf_gt_allele(a) > 63 || bcf_gt_allele(b) > 63 || bcf_gt_allele(c) > 63 ) continue; 
+            if ( bcf_gt_allele(e) > 63 || bcf_gt_allele(f) > 63 ) continue; 
+
+            // daughter's chrX
+            mother = (1<<bcf_gt_allele(a)) | (1<<bcf_gt_allele(b));
+            father = 1<<bcf_gt_allele(c);
+            child1 = 1<<bcf_gt_allele(e);
+            child2 = 1<<bcf_gt_allele(f);
+        }
+        else
+        {
+            mother = (1<<bcf_gt_allele(a)) | (1<<bcf_gt_allele(b));
+            father = (1<<bcf_gt_allele(c)) | (1<<bcf_gt_allele(d));
+            child1 = 1<<bcf_gt_allele(e);
+            child2 = 1<<bcf_gt_allele(f);
+        }
+
+        if ( (mother&child1 && father&child2) || (mother&child2 && father&child1) )
         {
             trio->nok++;
         }
@@ -209,18 +275,18 @@ bcf1_t *process(bcf1_t *rec)
             has_bad = 1;
             if ( args.mode&MODE_DELETE )
             {
-                args.gt_arr[2*trio->imother]   = bcf_gt_missing;
-                args.gt_arr[2*trio->imother+1] = bcf_gt_missing;
-                args.gt_arr[2*trio->ifather]   = bcf_gt_missing;
-                args.gt_arr[2*trio->ifather+1] = bcf_gt_missing;
-                args.gt_arr[2*trio->ichild]    = bcf_gt_missing;
-                args.gt_arr[2*trio->ichild+1]  = bcf_gt_missing;
+                args.gt_arr[ngt*trio->imother] = bcf_gt_missing;
+                if ( b!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->imother+1] = bcf_gt_missing; // should be always true 
+                args.gt_arr[ngt*trio->ifather] = bcf_gt_missing;
+                if ( d!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->ifather+1] = bcf_gt_missing;
+                args.gt_arr[ngt*trio->ichild] = bcf_gt_missing;
+                if ( f!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->ichild+1]  = bcf_gt_missing;
                 needs_update = 1;
             }
         }
     }
 
-    if ( needs_update && bcf_update_genotypes(args.hdr,rec,args.gt_arr,ngt) )
+    if ( needs_update && bcf_update_genotypes(args.hdr,rec,args.gt_arr,ngt*bcf_hdr_nsamples(args.hdr)) )
         error("Could not update GT field at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
 
     if ( args.mode&MODE_DELETE ) return rec;
