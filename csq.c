@@ -3665,7 +3665,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     return;
 }
 
-const char *usage(void)
+static const char *usage(void)
 {
     return 
         "\n"
