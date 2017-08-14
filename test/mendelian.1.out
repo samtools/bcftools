@@ -7,6 +7,8 @@
 ##contig=<ID=4>
 ##contig=<ID=5>
 ##contig=<ID=6>
+##contig=<ID=X>
+##contig=<ID=Y>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	mom1	dad1	child1
 1	100	.	A	G	100	PASS	.	GT	0/0	0/0	0/0
 1	101	.	A	G	100	PASS	.	GT	./.	./.	./.
@@ -26,3 +28,10 @@
 6	600	.	A	G	100	PASS	.	GT	./.	./.	./.
 6	601	.	A	G	100	PASS	.	GT	0/1	1/1	0/1
 6	602	.	A	G	100	PASS	.	GT	0/1	1/1	1/1
+X	100	.	A	G	100	PASS	.	GT	0/0	1	0
+X	101	.	A	G	100	PASS	.	GT	./.	.	.
+X	102	.	A	G	100	PASS	.	GT	0/0	1	0/1
+X	103	.	A	G	100	PASS	.	GT	./.	.	./.
+Y	101	.	A	G	100	PASS	.	GT	.	0	0
+Y	102	.	A	G	100	PASS	.	GT	.	.	.
+Y	103	.	A	G	100	PASS	.	GT	.	0	.
