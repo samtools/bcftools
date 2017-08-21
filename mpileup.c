@@ -1099,11 +1099,8 @@ int bam_mpileup(int argc, char *argv[])
     free(mplp.files);
     free(mplp.reg_fname); free(mplp.pl_list);
     if (mplp.fai) fai_destroy(mplp.fai);
-    if (mplp.bed)
-    {
-        regidx_destroy(mplp.bed);
-        regitr_destroy(mplp.bed_itr);
-    }
+    if (mplp.bed) regidx_destroy(mplp.bed);
+    if (mplp.bed_itr) regitr_destroy(mplp.bed_itr);
     if (mplp.reg) regidx_destroy(mplp.reg);
     bam_smpl_destroy(mplp.bsmpl);
     return ret;
