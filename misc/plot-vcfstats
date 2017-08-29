@@ -1598,7 +1598,7 @@ sub plot_substitutions
             \\tcm  = mpl.cm.get_cmap('autumn')
             \\tn = 12
             \\tcol = []
-            \\tfor i in range(n): col.append(cm(1.*i/n))
+            \\tfor i in list(range(n)): col.append(cm(1.*i/n))
             \\tax1 = fig.add_subplot(111)
             \\tax1.bar([row[0] for row in dat], [row[2] for row in dat], color=col)
             \\tax1.set_ylabel('Count')
