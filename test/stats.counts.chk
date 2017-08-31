@@ -1,0 +1,37 @@
+SN	0	number of samples:	3
+SN	0	number of records:	11
+SN	0	number of no-ALTs:	2
+SN	0	number of SNPs:	6
+SN	0	number of MNPs:	2
+SN	0	number of indels:	1
+SN	0	number of others:	2
+SN	0	number of multiallelic sites:	4
+SN	0	number of multiallelic SNP sites:	2
+TSTV	0	4	3	1.33	3	2	1.50
+SiS	0	1	2	1	1	1	0	0	1
+AF	0	0.000000	2	1	1	1	0	0	1
+AF	0	0.330000	2	1	1	0	0	0	0
+AF	0	0.490000	3	2	1	0	0	0	0
+QUAL	0	998	6	3	2	1
+IDD	0	1	1
+ST	0	A>C	0
+ST	0	A>G	0
+ST	0	A>T	0
+ST	0	C>A	1
+ST	0	C>G	1
+ST	0	C>T	1
+ST	0	G>A	3
+ST	0	G>C	1
+ST	0	G>T	0
+ST	0	T>A	0
+ST	0	T>C	0
+ST	0	T>G	0
+PSC	0	A	11	0	0	0	0	0	0.0	0	0	0
+PSC	0	B	1	1	4	3	1	1	0.0	0	1	0
+PSC	0	C	1	5	0	3	1	0	0.0	0	0	1
+PSI	0	A	0	0	0	0.00	0	0
+PSI	0	B	0	0	0	0.00	1	0
+PSI	0	C	0	0	0	0.00	0	0
+HWE	0	0.000000	3	0.000000	0.000000	0.000000
+HWE	0	0.330000	1	0.000000	0.000000	0.000000
+HWE	0	0.490000	7	0.330000	0.330000	0.330000
