@@ -1803,10 +1803,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields.
 
-*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
+*-d, --rm-dup* 'snps'|'indels'|'both'|'any'::
     If a record is present multiple times, output only the first instance,
     see *--collapse* in *<<common_options,Common Options>>*.
-    Requires *-a, --allow-overlaps*.
 
 *-D, --remove-duplicates*::
     If a record is present in multiple files, output only the first instance.
