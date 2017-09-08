@@ -172,23 +172,13 @@ sub run_roh
     while (my $file = readdir($dh))
     {
         if ( !($file=~/\.vcf$/i) && !($file=~/\.vcf\.gz$/i) && !($file=~/\.bcf$/i) ) { next; }
-        my $bname = $`;
-        my @samples = cmd("bcftools query -l '$$opts{indir}/$file'");
-        for my $sample (@samples)
-        {
-            $sample =~ s/\s*$//;
-            my $smpl = $sample;
-            $smpl =~ s{/+}{_}g;
-            $smpl =~ s{\s+}{_}g;
-            my $outfile = "$$opts{outdir}/$bname.$smpl.bcf";
-            push @files,$outfile;
-            if ( -e $outfile ) { next; }
-            cmd(
-                "bcftools view -s '$sample' '$$opts{indir}/$file' -Ou | " .
-                "bcftools annotate --rename-chrs $chr_fname -Ou | " .
-                "bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h $$opts{af_annots}.hdr -a $$opts{af_annots} -Ob -o $outfile.part && " .
-                "mv $outfile.part $outfile",%$opts);
-        }
+        my $outfile = "$$opts{outdir}/$`.bcf";
+        push @files,$outfile;
+        if ( -e $outfile ) { next; }
+        cmd(
+            "bcftools annotate --rename-chrs $chr_fname '$$opts{indir}/$file' -Ou | " .
+            "bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h $$opts{af_annots}.hdr -a $$opts{af_annots} -Ob -o $outfile.part && " .
+            "mv $outfile.part $outfile",%$opts);
     }
     closedir($dh) or error("close failed: $$opts{indir}");
 

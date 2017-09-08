@@ -263,22 +263,24 @@ for fname in fnames:
             pos  = int(row[2])
             reg  = region_overlap(regs,chr,pos,pos)
             if reg==None: continue
-            smpl = row[3]
-            if samples!=None and smpl not in samples: continue
-            gt   = row[4]
-            x = gt.split('/')
-            dsg = 2
-            if x[0]!=x[1]: dsg = 1
-            elif x[0]=='0': continue        # skip HomRef 0/0 genotypes
-            if chr not in dat_gt: 
-                dat_gt[chr] = {}
-                chrs.append(chr)
-            if smpl not in dat_gt[chr]: 
-                dat_gt[chr][smpl] = []
-            if smpl not in smpl2y:
-                y = len(smpl2y)
-                smpl2y[smpl] = y
-            dat_gt[chr][smpl].append([pos,dsg])
+            for i in range(3,len(row),2):
+                smpl = row[i]
+                if samples!=None and smpl not in samples: continue
+                gt   = row[i+1]
+                x = gt.split('/')
+                if x[0]=='.': continue          # missing genotype ./.
+                dsg = 2
+                if x[0]!=x[1]: dsg = 1
+                elif x[0]=='0': continue        # skip HomRef 0/0 genotypes
+                if chr not in dat_gt: 
+                    dat_gt[chr] = {}
+                    chrs.append(chr)
+                if smpl not in dat_gt[chr]: 
+                    dat_gt[chr][smpl] = []
+                if smpl not in smpl2y:
+                    y = len(smpl2y)
+                    smpl2y[smpl] = y
+                dat_gt[chr][smpl].append([pos,dsg])
         elif row[0]=='RG':
             smpl  = row[1]
             if samples!=None and smpl not in samples: continue
@@ -326,8 +328,8 @@ for chr in chrs:
     off += max_pos + off_sep
     off_list.append(off)
 
-height = len(fnames)
-if len(fnames)>5: heigth = 5
+height = len(smpl2y)
+if len(smpl2y)>5: heigth = 5
 wh = 20,height
 
 def bignum(num):
