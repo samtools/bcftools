@@ -8,6 +8,14 @@
         obj.style.height = 0;
         obj.style.height = obj.contentWindow.document.body.scrollHeight + 'px';
     }
+
+
+    var iframe = document.getElementById('iframeId');
+    var doc = (iframe.contentDocument)? iframe.contentDocument: iframe.contentWindow.document;
+
+    var anchors = doc.getElementsByTagName('a');
+    for (var i = 0; i < anchors.length; i++)
+        anchors[i].target = '_parent';
 </script>
 </head>
 
@@ -21,7 +29,7 @@ Please refer to <a href="http://www.htslib.org/doc/bcftools.html">htslib.org</a>
 documentation for the latest <b>versioned release</b>.
 </div>
 
-<iframe src="bcftools-man.html" style="display:block;width:100%;" frameborder="0" scrolling="no" onload="resizeIframe(this);"></iframe> 
+<iframe id='iframeId' src="bcftools-man.html" style="display:block;width:100%;" frameborder="0" scrolling="no" onload="resizeIframe(this);"></iframe> 
 
 </body>
 

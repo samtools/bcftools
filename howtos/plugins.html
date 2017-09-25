@@ -80,70 +80,113 @@
 <td class="content">
 In order to use the BCFtools plugins, this environment variable must
 be set and point to the correct location:<br>
-<code>export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins</code>
+<code>export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins</code><br>
+If a  plugin still does not work, <code>bcftools +name -vv</code> explains why it would not load.
 </td>
 </tr>
 </table>
 </div>
 <div class="sect2">
-<h3 id="_list_of_plugins">List of plugins</h3>
+<h3 id="_for_developers">For developers</h3>
 <div class="paragraph">
-<p>ad-bias</p>
+<p>Please read <a href="plugin.api.html">here</a>.</p>
 </div>
+</div>
+<div class="sect2">
+<h3 id="_list_of_plugins">List of plugins</h3>
 <div class="dlist">
 <dl>
+<dt class="hdlist1">ad-bias</dt>
+<dd>
+<p>Finds positions with ALT allele frequency significantly different
+between two samples. Performs a Fisher test on the FORMAT/AD annotation.</p>
+</dd>
 <dt class="hdlist1"><a href="plugin.af-dist.html">af-dist</a></dt>
 <dd>
 <p>Collects AF deviation stats and GT probability distribution given AF and assuming HWE</p>
 </dd>
-</dl>
-</div>
-<div class="paragraph">
-<p>aggregate</p>
-</div>
-<div class="paragraph">
-<p>counts</p>
-</div>
-<div class="paragraph">
-<p>dosage</p>
-</div>
-<div class="dlist">
-<dl>
+<dt class="hdlist1">check-ploidy</dt>
+<dd>
+<p>Checks if ploidy of samples is consistent for all sites.</p>
+</dd>
+<dt class="hdlist1">check-sparsity</dt>
+<dd>
+<p>Prints samples without genotypes in a region (-r/-R) or chromosome (the default)</p>
+</dd>
+<dt class="hdlist1">color-chrs</dt>
+<dd>
+<p>Colors shared chromosomal segments shared. Requires phased GTs.</p>
+</dd>
+<dt class="hdlist1">counts</dt>
+<dd>
+<p>A minimal plugin which counts number of samples, SNPs, INDELs, MNPs and total number of sites.</p>
+</dd>
+<dt class="hdlist1">dosage</dt>
+<dd>
+<p>Prints genotype dosage determined from FORMAT/PL, GL, or GT.</p>
+</dd>
+<dt class="hdlist1">fill-from-fasta</dt>
+<dd>
+<p>Fills INFO or REF field based on values in a fasta file.</p>
+</dd>
 <dt class="hdlist1"><a href="plugin.fill-tags.html">fill-tags</a></dt>
 <dd>
-<p>Set various INFO tags, such as  AF, AC, HWE, etc.</p>
+<p>Sets INFO tags such as AF, AC, AC_Hemi, etc, for all samples or per population.</p>
+</dd>
+<dt class="hdlist1">fixploidy</dt>
+<dd>
+<p>Fix ploidy</p>
 </dd>
 <dt class="hdlist1"><a href="plugin.fixref.html">fixref</a></dt>
 <dd>
-<p>Diagnose and fix VCFs with genotypes on incorrect strand</p>
+<p>Diagnose and fix VCFs with genotypes on incorrect strand.</p>
 </dd>
-</dl>
-</div>
-<div class="paragraph">
-<p>guess-ploidy</p>
-</div>
-<div class="paragraph">
-<p>impute-info</p>
-</div>
-<div class="dlist">
-<dl>
+<dt class="hdlist1">frameshifts</dt>
+<dd>
+<p>Annotates frameshift indels.</p>
+</dd>
+<dt class="hdlist1">GTisec</dt>
+<dd>
+<p>Counts genotype intersections across all possible sample subsets in a vcf file.</p>
+</dd>
+<dt class="hdlist1">GTsubset</dt>
+<dd>
+<p>Outputs sites where the requested samples all exclusively share a genotype (GT), i.e.
+all selected samples must have the same GT, while non of the others can have it.</p>
+</dd>
+<dt class="hdlist1">guess-ploidy</dt>
+<dd>
+<p>Determines sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT) in the non-PAR region of chrX.</p>
+</dd>
+<dt class="hdlist1">impute-info</dt>
+<dd>
+<p>Adds imputation information metrics to the INFO field based on selected FORMAT tags. Only the IMPUTE2 INFO metric from FORMAT/GP tags is currently available.</p>
+</dd>
+<dt class="hdlist1">isecGT</dt>
+<dd>
+<p>Compares two files and set non-identical genotypes in the first file to missing.</p>
+</dd>
 <dt class="hdlist1"><a href="plugin.mendelian.html">mendelian</a></dt>
 <dd>
 <p>Count Mendelian consistent / inconsistent genotypes</p>
 </dd>
+<dt class="hdlist1">prune</dt>
+<dd>
+<p>Prunes sites by missingness or linkage disequilibrium.</p>
+</dd>
+<dt class="hdlist1">setGT</dt>
+<dd>
+<p>Sets genotypes according to the specified criteria and filtering expressions. For example, missing genotypes can be set to ref, but much more than that.</p>
+</dd>
+<dt class="hdlist1">tag2tag</dt>
+<dd>
+<p>Converts between similar tags, such as GL, PL and GP.</p>
+</dd>
+<dt class="hdlist1">trio-switch-rate</dt>
+<dd>
+<p>Calculates phase switch rate in trio children.</p>
+</dd>
 </dl>
-</div>
-<div class="paragraph">
-<p>setGT</p>
-</div>
-<div class="paragraph">
-<p>tag2tag</p>
-</div>
-<div class="paragraph">
-<p>trio-switch-rate</p>
-</div>
-<div class="paragraph">
-<p>validate</p>
 </div>
 </div>
 <div class="sect2">

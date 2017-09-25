@@ -1,0 +1,47 @@
+include::header.inc[]
+
+
+Plugins for developers
+----------------------
+
+The API is described in link:https://github.com/samtools/bcftools/blob/develop/vcfplugin.c#L50-L74[vcfplugin.c]
+
+....
+/**
+ *   Plugin API:
+ *   ----------
+ *   const char *about(void)
+ *      - short description used by 'bcftools plugin -lv'
+ *
+ *   const char *usage(void)
+ *      - longer description used by 'bcftools +name -h'
+ *
+ *   int run(int argc, char **argv)
+ *      - if implemented, the control is immediately handed over to the plugin,
+ *      none of the init/process/destroy functions is called.  Return 0 on
+ *      success or non-zero value on error.
+ *
+ *   int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
+ *      - called once at startup, allows to initialize local variables.
+ *      Return 1 to suppress normal VCF/BCF header output, -1 on critical
+ *      errors, 0 otherwise.
+ *
+ *   bcf1_t *process(bcf1_t *rec)
+ *      - called for each VCF record, return NULL for no output
+ *
+ *   void destroy(void)
+ *      - called after all lines have been processed to clean up
+ */
+....
+
+
+A few tips:
+
+- The simplest plugin to build upon is link:https://github.com/samtools/bcftools/blob/develop/plugins/counts.c[counts.c].
+- Check the source code other link:https://github.com/samtools/bcftools/tree/develop/plugins[plugins] for inspiration.
+- ``bcftools +name -vv`` explains why a given plugin would not load
+- ``bcftools +file.so`` is a way to load a plugin without having to specify the BCFTOOLS_PLUGINS environmental variable
+
+include::footer.inc[]
+
+

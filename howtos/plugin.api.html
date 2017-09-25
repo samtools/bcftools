@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Plugins for developers</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_plugins_for_developers">Plugins for developers</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The API is described in <a href="https://github.com/samtools/bcftools/blob/develop/vcfplugin.c#L50-L74">vcfplugin.c</a></p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>/**
+ *   Plugin API:
+ *   ----------
+ *   const char *about(void)
+ *      - short description used by 'bcftools plugin -lv'
+ *
+ *   const char *usage(void)
+ *      - longer description used by 'bcftools +name -h'
+ *
+ *   int run(int argc, char **argv)
+ *      - if implemented, the control is immediately handed over to the plugin,
+ *      none of the init/process/destroy functions is called.  Return 0 on
+ *      success or non-zero value on error.
+ *
+ *   int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
+ *      - called once at startup, allows to initialize local variables.
+ *      Return 1 to suppress normal VCF/BCF header output, -1 on critical
+ *      errors, 0 otherwise.
+ *
+ *   bcf1_t *process(bcf1_t *rec)
+ *      - called for each VCF record, return NULL for no output
+ *
+ *   void destroy(void)
+ *      - called after all lines have been processed to clean up
+ */</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A few tips:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The simplest plugin to build upon is <a href="https://github.com/samtools/bcftools/blob/develop/plugins/counts.c">counts.c</a>.</p>
+</li>
+<li>
+<p>Check the source code other <a href="https://github.com/samtools/bcftools/tree/develop/plugins">plugins</a> for inspiration.</p>
+</li>
+<li>
+<p><code>bcftools +name -vv</code> explains why a given plugin would not load</p>
+</li>
+<li>
+<p><code>bcftools +file.so</code> is a way to load a plugin without having to specify the BCFTOOLS_PLUGINS environmental variable</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

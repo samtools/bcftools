@@ -6,40 +6,61 @@ Plugins
 
 IMPORTANT: In order to use the BCFtools plugins, this environment variable must
 be set and point to the correct location: +
-``export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins``
+``export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins`` +
+If a  plugin still does not work, ``bcftools +name -vv`` explains why it would not load.
+
+=== For developers
+
+Please read link:plugin.api.html[here].
 
 
 === List of plugins
 
-ad-bias
+ad-bias:: Finds positions with ALT allele frequency significantly different
+    between two samples. Performs a Fisher test on the FORMAT/AD annotation.
 
 link:plugin.af-dist.html[af-dist]:: Collects AF deviation stats and GT probability distribution given AF and assuming HWE
 
+check-ploidy:: Checks if ploidy of samples is consistent for all sites.
 
-aggregate
+check-sparsity:: Prints samples without genotypes in a region (-r/-R) or chromosome (the default)
 
-counts
+color-chrs:: Colors shared chromosomal segments shared. Requires phased GTs.
 
-dosage
+counts:: A minimal plugin which counts number of samples, SNPs, INDELs, MNPs and total number of sites.
 
-link:plugin.fill-tags.html[fill-tags]:: Set various INFO tags, such as  AF, AC, HWE, etc.
+dosage:: Prints genotype dosage determined from FORMAT/PL, GL, or GT.
 
-link:plugin.fixref.html[fixref]:: Diagnose and fix VCFs with genotypes on incorrect strand
+fill-from-fasta:: Fills INFO or REF field based on values in a fasta file.
 
-guess-ploidy
+link:plugin.fill-tags.html[fill-tags]:: Sets INFO tags such as AF, AC, AC_Hemi, etc, for all samples or per population.
 
-impute-info
+fixploidy:: Fix ploidy
+
+link:plugin.fixref.html[fixref]:: Diagnose and fix VCFs with genotypes on incorrect strand.
+
+frameshifts:: Annotates frameshift indels.
+
+GTisec:: Counts genotype intersections across all possible sample subsets in a vcf file.
+
+GTsubset:: Outputs sites where the requested samples all exclusively share a genotype (GT), i.e.
+    all selected samples must have the same GT, while non of the others can have it.
+
+guess-ploidy:: Determines sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT) in the non-PAR region of chrX.
+
+impute-info:: Adds imputation information metrics to the INFO field based on selected FORMAT tags. Only the IMPUTE2 INFO metric from FORMAT/GP tags is currently available.
+
+isecGT:: Compares two files and set non-identical genotypes in the first file to missing.
 
 link:plugin.mendelian.html[mendelian]:: Count Mendelian consistent / inconsistent genotypes
 
-setGT
+prune:: Prunes sites by missingness or linkage disequilibrium.
 
-tag2tag
+setGT:: Sets genotypes according to the specified criteria and filtering expressions. For example, missing genotypes can be set to ref, but much more than that.
 
-trio-switch-rate
+tag2tag:: Converts between similar tags, such as GL, PL and GP.
 
-validate
-
+trio-switch-rate:: Calculates phase switch rate in trio children.
 
 
 include::footer.inc[]
