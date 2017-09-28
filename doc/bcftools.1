@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2017-06-21
+.\"      Date: 2017-09-28
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2017\-06\-21" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2017\-09\-28" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2017\-06\-21\fR and refers to bcftools git version \fB1\&.5\fR\&.
+This manual page was last updated \fB2017\-09\-28\fR and refers to bcftools git version \fB1\&.6\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -318,6 +318,19 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .IP \(bu 2.3
 .\}
 
+\fBsort\fR
+\&.\&. sort VCF/BCF files
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+
 \fBstats\fR
 \&.\&. produce VCF/BCF stats (former vcfcheck)
 .RE
@@ -461,7 +474,7 @@ cannot be used in combination with
 .PP
 \fB\-s, \-\-samples\fR [^]\fILIST\fR
 .RS 4
-Comma\-separated list of samples to include or exclude if prefixed with "^"\&. Note that in general tags such as INFO/AC, INFO/AN, etc are not updated to correspond to the subset samples\&.
+Comma\-separated list of samples to include or exclude if prefixed with "^"\&. The sample order is updated to reflect that given on the command line\&. Note that in general tags such as INFO/AC, INFO/AN, etc are not updated to correspond to the subset samples\&.
 \fBbcftools view\fR
 is the exception where some tags will be updated (unless the
 \fB\-I, \-\-no\-update\fR
@@ -486,7 +499,7 @@ into that command\&. For example:
 .RS 4
 File of sample names to include or exclude if prefixed with "^"\&. One sample per line\&. See also the note above for the
 \fB\-s, \-\-samples\fR
-option\&. The command
+option\&. The sample order is updated to reflect that given in the input file\&. The command
 \fBbcftools call\fR
 accepts an optional second column indicating ploidy (0, 1 or 2) or sex (as defined by
 \fB\-\-ploidy\fR, for example "F" or "M"), and can parse also PED files\&. If the second column is not present, the sex "F" is assumed\&. With
@@ -1062,12 +1075,12 @@ option can be used
 read allele frequencies from a tab\-delimited file with the columns CHR,POS,REF,ALT,AF
 .RE
 .PP
-*\-o, \-\-output\-dir \fIpath\fR
+\fB\-o, \-\-output\-dir\fR \fIpath\fR
 .RS 4
 output directory
 .RE
 .PP
-*\-p, \-\-plot\-threshold \fIfloat\fR
+\fB\-p, \-\-plot\-threshold\fR \fIfloat\fR
 .RS 4
 call
 \fBmatplotlib\fR
@@ -1252,18 +1265,78 @@ see
 .sp
 Create consensus sequence by applying VCF variants to a reference fasta file\&. By default, the program will apply all ALT variants to the reference fasta to obtain the consensus sequence\&. Using the \fB\-\-sample\fR (and, optionally, \fB\-\-haplotype\fR) option will apply genotype (haplotype) calls from FORMAT/GT\&. Note that the program does not act as a primitive variant caller and ignores allelic depth information, such as INFO/AD or FORMAT/AD\&. For that, consider using the \fBsetGT\fR plugin\&.
 .PP
+\fB\-c, \-\-chain\fR \fIFILE\fR
+.RS 4
+write a chain file for liftover
+.RE
+.PP
+\fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
+.RS 4
+exclude sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
 \fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
 .RS 4
 reference sequence in fasta format
 .RE
 .PP
-\fB\-H, \-\-haplotype\fR \fI1\fR|\fI2\fR
+\fB\-H, \-\-haplotype\fR \fI1\fR|\fI2\fR|\fIR\fR|\fIA\fR|\fILR\fR|\fILA\fR|\fISR\fR|\fISA\fR
 .RS 4
-apply variants for the given haplotype\&. This option requires
-\fB\-s\fR, unless exactly one sample is present in the VCF
+choose which allele from the FORMAT/GT field to use (the codes are case\-insensitive):
+.PP
+\fI1\fR
+.RS 4
+the first allele
 .RE
 .PP
-\fB\-i, \-\-iupac\-codes\fR
+\fI2\fR
+.RS 4
+the second allele
+.RE
+.PP
+\fIR\fR
+.RS 4
+the REF allele (in heterozygous genotypes)
+.RE
+.PP
+\fIA\fR
+.RS 4
+the ALT allele (in heterozygous genotypes)
+.RE
+.PP
+\fILR, LA\fR
+.RS 4
+the longer allele\&. If both have the same length, use the REF allele (LR), or the ALT allele (LA)
+.RE
+.PP
+\fISR, SA\fR
+.RS 4
+the shorter allele\&. If both have the same length, use the REF allele (SR), or the ALT allele (SA)
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+This option requires *\-s*, unless exactly one sample is present in the VCF
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.RE
+.PP
+\fB\-i, \-\-include\fR \fIEXPRESSION\fR
+.RS 4
+include only sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
+\fB\-I, \-\-iupac\-codes\fR
 .RS 4
 output variants in the form of IUPAC ambiguity codes
 .RE
@@ -2899,13 +2972,12 @@ and
 can swap alleles and will update genotypes (GT) and AC counts, but will not attempt to fix PL or other fields\&.
 .RE
 .PP
-\fB\-d, \-\-rm\-dup\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR
+\fB\-d, \-\-rm\-dup\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIany\fR
 .RS 4
 If a record is present multiple times, output only the first instance, see
 \fB\-\-collapse\fR
 in
-\fBCommon Options\fR\&. Requires
-\fB\-a, \-\-allow\-overlaps\fR\&.
+\fBCommon Options\fR\&.
 .RE
 .PP
 \fB\-D, \-\-remove\-duplicates\fR
@@ -3144,6 +3216,16 @@ find positions with wildly varying ALT allele frequency (Fisher test on FMT/AD)
 collect AF deviation stats and GT probability distribution given AF and assuming HWE
 .RE
 .PP
+\fBcheck\-ploidy\fR
+.RS 4
+check if ploidy of samples is consistent for all sites
+.RE
+.PP
+\fBcheck\-sparsity\fR
+.RS 4
+print samples without genotypes in a region or chromosome
+.RE
+.PP
 \fBcolor\-chrs\fR
 .RS 4
 color shared chromosomal segments, requires trio VCF with phased GTs
@@ -3171,7 +3253,7 @@ fill INFO or REF field based on values in a fasta file
 .PP
 \fBfill\-tags\fR
 .RS 4
-set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi
+set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS
 .RE
 .PP
 \fBfix\-ploidy\fR
@@ -3199,6 +3281,11 @@ determine sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT) 
 add imputation information metrics to the INFO field based on selected FORMAT tags
 .RE
 .PP
+\fBisecGT\fR
+.RS 4
+compare two files and set non\-identical genotypes to missing
+.RE
+.PP
 \fBmendelian\fR
 .RS 4
 count Mendelian consistent / inconsistent genotypes\&.
@@ -3207,6 +3294,11 @@ count Mendelian consistent / inconsistent genotypes\&.
 \fBmissing2ref\fR
 .RS 4
 sets missing genotypes ("\&./\&.") to ref allele ("0/0" or "0|0")
+.RE
+.PP
+\fBprune\fR
+.RS 4
+prune sites by missingness or linkage disequilibrium
 .RE
 .PP
 \fBsetGT\fR
@@ -3845,6 +3937,29 @@ estimate HMM parameters using Baum\-Welch algorithm, using the convergence thres
 \fIFLOAT\fR, e\&.g\&. 1e\-10 (experimental)
 .RE
 .RE
+.SS "bcftools sort [\fIOPTIONS\fR] file\&.bcf"
+.PP
+\fB\-m, \-\-max\-mem\fR \fIFLOAT\fR[\fIkMG\fR]
+.RS 4
+Maximum memory to use\&. Approximate, affects the number of temporary files written to the disk\&. Note that if the command fails at this step because of too many open files, your system limit on the number of open files ("ulimit") may need to be increased\&.
+.RE
+.PP
+\fB\-o, \-\-output\fR \fIFILE\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-O, \-\-output\-type\fR \fIb\fR|\fIu\fR|\fIz\fR|\fIv\fR
+.RS 4
+see
+\fBCommon Options\fR
+.RE
+.PP
+\fB\-T, \-\-temp\-dir\fR \fIDIR\fR
+.RS 4
+Use this directory to store temporary files
+.RE
 .SS "bcftools stats [\fIOPTIONS\fR] \fIA\&.vcf\&.gz\fR [\fIB\&.vcf\&.gz\fR]"
 .sp
 Parses VCF or BCF and produces text file stats which is suitable for machine processing and can be plotted using \fBplot\-vcfstats\fR\&. When two files are given, the program generates separate stats for intersection and the complements\&. By default only sites are compared, \fB\-s\fR/\fB\-S\fR must given to include also sample columns\&. When one VCF file is specified on the command line, then stats by non\-reference allele frequency, depth distribution, stats by quality and per\-sample counts, singleton stats, etc\&. are printed\&. When two VCF files are given, then stats such as concordance (Genotype concordance by non\-reference allele frequency, Genotype concordance by sample, Non\-Reference Discordance) and correlation are also printed\&. Per\-site discordance (PSD) is also printed in \fB\-\-verbose\fR mode\&.
@@ -4479,6 +4594,35 @@ GT="\&.|\&.", GT="\&./\&.", GT="\&."
 .sp -1
 .IP \(bu 2.3
 .\}
+sample genotype: homozygous, heterozygous, haploid, ref\-ref hom, alt\-alt hom, ref\-alt het, alt\-alt het, haploid ref, haploid alt (case\-insensitive)
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+GT="hom"
+GT="het"
+GT="hap"
+GT="RR"
+GT="AA"
+GT="RA" or GT="AR"
+GT="Aa" or GT="aA"
+GT="R"
+GT="A"
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other)\&. Use the regex operator "\e~" to require at least one allele of the given type or the equal sign "=" to require that all alleles are of the given type\&. Compare
 .sp
 .if n \{\
@@ -4503,7 +4647,7 @@ TYPE!~"snp"
 .sp -1
 .IP \(bu 2.3
 .\}
-array subscripts, "*" for any field
+array subscripts (0\-based), "*" for any field, "\-" to indicate a range
 .sp
 .if n \{\
 .RS 4
@@ -4512,6 +4656,9 @@ array subscripts, "*" for any field
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0\&.3
 DP4[*] == 0
 CSQ[*] ~ "missense_variant\&.*deleterious"
+FORMAT/DP[1\-3] > 10
+FORMAT/DP[1\-]  < 7
+FORMAT/DP[0,2\-4] > 20
 .fi
 .if n \{\
 .RE

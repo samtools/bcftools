@@ -70,11 +70,9 @@ exit;
 
 #--------------------------------
 
-sub error
+sub usage
 {
-    my (@msg) = @_;
-    if ( scalar @msg ) { confess @msg; }
-    die
+    print STDERR
         "About: Plots output of \"bcftools stats\"\n",
         "Usage: plot-vcfstats [OPTIONS] file.chk ...\n",
         "       plot-vcfstats -p outdir/ file.chk ...\n",
@@ -88,6 +86,15 @@ sub error
         "   -T, --main-title <string>           Main title for the PDF.\n",
         "   -h, -?, --help                      This help message.\n",
         "\n";
+}
+
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    usage();
+    exit 1;
 }
 
 
@@ -244,7 +251,7 @@ sub parse_params
         if ( $arg eq '-t' || $arg eq '--title' ) { push @{$$opts{titles}},shift(@ARGV); next; }
         if ( $arg eq '-T' || $arg eq '--main-title' ) { $$opts{main_title} = shift(@ARGV); next; }
         if ( $arg eq '-p' || $arg eq '--prefix' ) { $$opts{prefix}=shift(@ARGV); next; }
-        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { usage(); exit 0; }
         if ( -e $arg ) { push @{$$opts{vcfstats}},$arg; next; }
         error("Unknown parameter or non-existent file \"$arg\". Run -h for help.\n");
     }
@@ -1590,8 +1597,8 @@ sub plot_substitutions
             \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
             \\tcm  = mpl.cm.get_cmap('autumn')
             \\tn = 12
-            \\tcol = range(n)
-            \\tfor i in range(n): col[i] = cm(1.*i/n)
+            \\tcol = []
+            \\tfor i in list(range(n)): col.append(cm(1.*i/n))
             \\tax1 = fig.add_subplot(111)
             \\tax1.bar([row[0] for row in dat], [row[2] for row in dat], color=col)
             \\tax1.set_ylabel('Count')

@@ -176,7 +176,7 @@ sub run_roh
         push @files,$outfile;
         if ( -e $outfile ) { next; }
         cmd(
-            "bcftools annotate --rename-chrs $chr_fname $$opts{indir}/$file -Ou | " .
+            "bcftools annotate --rename-chrs $chr_fname '$$opts{indir}/$file' -Ou | " .
             "bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h $$opts{af_annots}.hdr -a $$opts{af_annots} -Ob -o $outfile.part && " .
             "mv $outfile.part $outfile",%$opts);
     }

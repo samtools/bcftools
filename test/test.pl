@@ -46,6 +46,7 @@ test_vcf_check($opts,in=>'check',out=>'check.chk');
 test_vcf_check_merge($opts,in=>'check',out=>'check_merge.chk');
 test_vcf_stats($opts,in=>['stats.a','stats.b'],out=>'stats.chk',args=>'-s -');
 test_vcf_stats($opts,in=>['stats.a','stats.b'],out=>'stats.B.chk',args=>'-s B');
+test_vcf_stats($opts,in=>['stats.counts'],out=>'stats.counts.chk',args=>'-s -');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.out',args=>'-n =2');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.flt.out',args=>'-n =2 -i"STRLEN(REF)==2"');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2 -c both');
@@ -110,6 +111,9 @@ test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.30.out',args=>q[-f'
 test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.31.out',args=>q[-f'%POS\\t%A_AF\\t%B_AF\\t%C_AF\\n' -e'A_AF>=0.0001 || B_AF >= 0.0001 || C_AF >= 0.0001']);
 test_vcf_query($opts,in=>'missing',out=>'query.32.out',args=>q[-i'FMT/FINT!="."' -f'[\t%FINT]\\n']);
 test_vcf_query($opts,in=>'query.filter.2',out=>'query.33.out',args=>q[-f'[%GT]\\n' -i'GT~"0/[1-9]" || GT~"[1-9]/0"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.34.out',args=>q[-f'%POS[ %FGS]\\n' -i'FGS[1-2,4]="EE"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.35.out',args=>q[-f'%POS[ %FGI]\\n' -i'FGI[1-2,5]=6']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.36.out',args=>q[-f'%POS[ %FGF]\\n' -i'FGF[1-3,4]=5e-5']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
@@ -185,6 +189,18 @@ test_vcf_filter($opts,in=>'filter.2',out=>'filter.8.out',args=>q[-i'AC[*]=2 && F
 test_vcf_filter($opts,in=>'filter.2',out=>'filter.9.out',args=>q[-i'ALT="."'],fmt=>'%POS\\t%AC[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.4',out=>'filter.10.out',args=>q[-S . -i 'FORMAT/TEST3<25']);
 test_vcf_filter($opts,in=>'filter.4',out=>'filter.10.out',args=>q[-S . -i 'FORMAT/TEST4<25']);
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.12.out',args=>q[-i'GT="A"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.13.out',args=>q[-i'GT="RR"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.14.out',args=>q[-i'GT="RA"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.14.out',args=>q[-i'GT="AR"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.15.out',args=>q[-i'GT="AA"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.16.out',args=>q[-i'GT="aA"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.16.out',args=>q[-i'GT="Aa"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.17.out',args=>q[-i'GT="HOM"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.18.out',args=>q[-i'GT="HET"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.2',out=>'filter.19.out',args=>q[-i'GT="HAP"'],fmt=>'%POS[\\t%GT]\\n');
+test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\n');
+test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\n');
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
@@ -275,8 +291,8 @@ test_vcf_consensus($opts,in=>'consensus',out=>'consensus.1.out',fa=>'consensus.f
 test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.1.chain',chain=>'consensus.1.chain',fa=>'consensus.fa',mask=>'consensus.tab',args=>'');
 test_vcf_consensus($opts,in=>'consensus',out=>'consensus.2.out',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-H 1');
 test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.2.chain',chain=>'consensus.2.chain',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-H 1');
-test_vcf_consensus($opts,in=>'consensus',out=>'consensus.3.out',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-i');
-test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.3.chain',chain=>'consensus.3.chain',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-i');
+test_vcf_consensus($opts,in=>'consensus',out=>'consensus.3.out',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-I');
+test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.3.chain',chain=>'consensus.3.chain',fa=>'consensus.fa',mask=>'consensus.tab',args=>'-I');
 test_vcf_consensus($opts,in=>'consensus',out=>'consensus.4.out',fa=>'consensus.fa',args=>'-H 1');
 test_vcf_consensus_chain($opts,in=>'consensus',out=>'consensus.4.chain',chain=>'consensus.4.chain',fa=>'consensus.fa',args=>'-H 1');
 test_vcf_consensus($opts,in=>'consensus2',out=>'consensus2.1.out',fa=>'consensus2.fa',args=>'-H 1');
@@ -703,6 +719,13 @@ sub test_vcf_filter
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter $args{args} $$opts{path}/$args{in}.vcf | $pipe");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools filter -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | $pipe");
 }
+sub test_vcf_sort
+{
+    my ($opts,%args) = @_;
+    my $pipe = "$$opts{bin}/bcftools query -f '$args{fmt}'";
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools sort $args{args} $$opts{path}/$args{in}.vcf | $pipe");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools sort -Ob $args{args} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools view | $pipe");
+}
 sub test_vcf_regions
 {
     my ($opts,%args) = @_;
@@ -1088,4 +1111,3 @@ sub test_csq_real
     }
     closedir($dh);
 }
-

@@ -1,3 +1,36 @@
+## Release 1.6 (September 2017)
+
+* New `sort` command.
+
+* New options added to the `consensus` command. Note that the `-i, --iupac`
+  option has been renamed to `-I, --iupac`, in favor of the standard 
+  `-i, --include`.
+
+* Filtering expressions (`-i/-e`): support for `GT=<type>` expressions and
+  for lists and ranges (#639) - see the man page for details.
+
+* `csq`: relax some GFF3 parsing restrictions to enable using Ensembl
+  GFF3 files for plants (#667)
+
+* `stats`: add further documentation to output stats files (#316) and
+  include haploid counts in per-sample output (#671).
+
+* `plot-vcfstats`: further fixes for Python3 (@nsoranzo, #645, #666).
+
+* `query` bugfix (#632)
+
+* `+setGT` plugin: new option to set genotypes based on a two-tailed binomial
+  distribution test. Also, allow combining `-i/-e` with `-t q`.
+
+* `mpileup`: fix typo (#636)
+
+* `convert --gvcf2vcf` bugfix (#641)
+
+* `+mendelian`: recognize some mendelian inconsistencies that were
+  being missed (@oronnavon, #660), also add support for multiallelic
+  sites and sex chromosomes.
+
+
 ## Release 1.5 (June 2017)
 
 * Added autoconf support to bcftools. See `INSTALL` for more details.

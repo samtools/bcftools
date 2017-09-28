@@ -93,6 +93,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
 - *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
 - *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
+- *<<sort,sort>>*        ..  sort VCF/BCF files
 - *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
 - *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
 
@@ -201,6 +202,7 @@ specific commands to see if they apply.
 *-s, --samples* \[&#94;]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
     with "&#94;".
+    The sample order is updated to reflect that given on the command line.
     Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
     to correspond to the subset samples. *<<view,bcftools view>>* is the
     exception where some tags will be updated (unless the *-I, --no-update*
@@ -215,6 +217,7 @@ specific commands to see if they apply.
     File of sample names to include or exclude if prefixed with "&#94;".
     One sample per line. See also the note above for the *-s, --samples*
     option.
+    The sample order is updated to reflect that given in the input file.
     The command *<<call,bcftools call>>* accepts an optional second
     column indicating ploidy (0, 1 or 2) or sex (as defined by
     *<<ploidy,--ploidy>>*, for example "F" or "M"), and can parse also PED
@@ -601,10 +604,10 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *-f, --AF-file* 'file'::
     read allele frequencies from  a tab-delimited file with the columns CHR,POS,REF,ALT,AF
 
-*-o, --output-dir 'path'::
+*-o, --output-dir* 'path'::
     output directory
 
-*-p, --plot-threshold 'float'::
+*-p, --plot-threshold* 'float'::
     call *matplotlib* to produce plots for chromosomes with quality at least 'float',
     useful for visual inspection of the calls. With *-p 0*, plots for all chromosomes will be
     generated. If not given, a *matplotlib* script will be created but not called.
@@ -739,14 +742,44 @@ Note that the program does not act as a primitive variant caller and ignores all
 depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *setGT* plugin.
 
+*-c, --chain* 'FILE'::
+    write a chain file for liftover
+
+*-e, --exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format
 
-*-H, --haplotype* '1'|'2'::
-    apply variants for the given haplotype. This option requires *-s*, unless
-    exactly one sample is present in the VCF
+*-H, --haplotype* '1'|'2'|'R'|'A'|'LR'|'LA'|'SR'|'SA'::
+    choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
+    
+        '1';;
+            the first allele
 
-*-i, --iupac-codes*::
+        '2';;
+            the second allele
+
+        'R';;
+            the REF allele (in heterozygous genotypes)
+
+        'A';;
+            the ALT allele (in heterozygous genotypes)
+
+        'LR, LA';;
+            the longer allele. If both have the same length, use the REF allele (LR), or the ALT allele  (LA)
+
+        'SR, SA';;
+            the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)
+
+    This option requires *-s*, unless exactly one sample is present in the VCF
+
+*-i, --include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
+*-I, --iupac-codes*::
     output variants in the form of IUPAC ambiguity codes
 
 *-m, --mask* 'FILE'::
@@ -1770,10 +1803,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields.
 
-*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
+*-d, --rm-dup* 'snps'|'indels'|'both'|'any'::
     If a record is present multiple times, output only the first instance,
     see *--collapse* in *<<common_options,Common Options>>*.
-    Requires *-a, --allow-overlaps*.
 
 *-D, --remove-duplicates*::
     If a record is present in multiple files, output only the first instance.
@@ -1915,6 +1947,12 @@ By default, appropriate system directories are searched for installed plugins.
 *af-dist*::
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
 
+*check-ploidy*::
+    check if ploidy of samples is consistent for all sites
+
+*check-sparsity*::
+    print samples without genotypes in a region or chromosome
+
 *color-chrs*::
     color shared chromosomal segments, requires trio VCF with phased GTs
 
@@ -1932,7 +1970,7 @@ By default, appropriate system directories are searched for installed plugins.
     fill INFO or REF field based on values in a fasta file
 
 *fill-tags*::
-    set INFO tags AF, AN, AC, NS, AC_Hom, AC_Het, AC_Hemi
+    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS
 
 *fix-ploidy*::
     sets correct ploidy
@@ -1950,11 +1988,17 @@ By default, appropriate system directories are searched for installed plugins.
 *impute-info*::
     add imputation information metrics to the INFO field based on selected FORMAT tags
 
+*isecGT*::
+    compare two files and set non-identical genotypes to missing
+
 *mendelian*::
     count Mendelian consistent / inconsistent genotypes.
 
 *missing2ref*::
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
+
+*prune*::
+    prune sites by missingness or linkage disequilibrium
 
 *setGT*::
     general tool to set genotypes according to rules requested by the user
@@ -2321,6 +2365,24 @@ Transition probabilities:
     'FLOAT', e.g. 1e-10 (experimental)
 
 
+[[sort]]
+=== bcftools sort ['OPTIONS'] file.bcf
+
+*-m, --max-mem* 'FLOAT'['kMG']::
+    Maximum memory to use. Approximate, affects the number of temporary files written
+    to the disk. Note that if the command fails at this step because of too many open files,
+    your system limit on the number of open files ("ulimit") may need to be increased.
+
+*-o, --output* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*-O, --output-type* 'b'|'u'|'z'|'v'::
+    see *<<common_options,Common Options>>*
+
+*-T, --temp-dir* 'DIR'::
+    Use this directory to store temporary files
+
+
 
 [[stats]]
 === bcftools stats ['OPTIONS'] 'A.vcf.gz' ['B.vcf.gz']
@@ -2647,6 +2709,19 @@ using these expressions
 
         GT=".|.", GT="./.", GT="."
 
+* sample genotype: homozygous, heterozygous, haploid, ref-ref hom, alt-alt hom,
+ref-alt het, alt-alt het, haploid ref, haploid alt (case-insensitive)
+
+        GT="hom"
+        GT="het"
+        GT="hap"
+        GT="RR"
+        GT="AA"
+        GT="RA" or GT="AR"
+        GT="Aa" or GT="aA"
+        GT="R"
+        GT="A"
+
 * TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
@@ -2656,11 +2731,14 @@ to require that all alleles are of the given type. Compare
         TYPE!="snp"
         TYPE!~"snp"
 
-* array subscripts, "*" for any field
+* array subscripts (0-based), "*" for any field, "-" to indicate a range
 
         (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
         DP4[*] == 0
         CSQ[*] ~ "missense_variant.*deleterious"
+        FORMAT/DP[1-3] > 10
+        FORMAT/DP[1-]  < 7
+        FORMAT/DP[0,2-4] > 20
 
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 

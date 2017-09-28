@@ -39,6 +39,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o bin.o hclust.o version.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
+           vcfsort.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
 prefix      = /usr/local
@@ -92,7 +93,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.5
+PACKAGE_VERSION = 1.6
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
@@ -202,6 +203,7 @@ vcfquery.o: vcfquery.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vc
 vcfroh.o: vcfroh.c $(roh_h)
 vcfcnv.o: vcfcnv.c $(cnv_h)
 vcfsom.o: vcfsom.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h)
+vcfsort.o: vcfsort.c $(htslib_vcf_h) $(bcftools_h)
 vcfstats.o: vcfstats.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) $(bcftools_h) $(filter_h) $(bin_h)
 vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h)
 reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_kseq_h) $(bcftools_h)
