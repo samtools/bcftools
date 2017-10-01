@@ -726,7 +726,7 @@ static inline uint32_t gff_id_parse(id_tbl_t *tbl, const char *line, const char 
         id = tbl->nstr++;
         hts_expand(char*, tbl->nstr, tbl->mstr, tbl->str);
         tbl->str[id] = strdup(ss);
-        int ret = khash_str2int_set(tbl->str2id, tbl->str[id], id);
+        khash_str2int_set(tbl->str2id, tbl->str[id], id);
     }
     *se = tmp;
 
