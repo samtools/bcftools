@@ -582,7 +582,6 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
     {
         hts_expand(double,tok->nvalues,tok->mvalues,tok->values);
         int nvals = tok->nvalues / line->n_sample;
-        int idx = tok->idx >= 0 ? tok->idx : 0;
         int is_missing = 1;
         int k, j = 0, end = tok->idxs[tok->nidxs-1] < 0 ? nvals - 1 : tok->nidxs - 1;
         if ( end >= nvals ) end = nvals - 1;
@@ -647,7 +646,6 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
     {
         hts_expand(double,tok->nvalues,tok->mvalues,tok->values);
         int nvals = tok->nvalues / line->n_sample;
-        int idx = tok->idx >= 0 ? tok->idx : 0;
         int is_missing = 1;
         int k, j = 0, end = tok->idxs[tok->nidxs-1] < 0 ? nvals - 1 : tok->nidxs - 1;
         if ( end >= nvals ) end = nvals - 1;
@@ -769,7 +767,14 @@ static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int
                 } \
             } \
             char *dst = &tok->str_value.s[nvals*i]; \
-            if ( !j || missing ) dst[0]='.', dst[1]=0; /* ., missing genotype */ \
+            if ( type==4 ) \
+            { \
+                if ( !j || missing ) dst[0]='m', dst[1]='i', dst[2]='s', dst[3] = 0; /* mis, missing genotype */ \
+                else if ( !has_ref ) dst[0]='a', dst[1]='l', dst[2]='t', dst[3] = 0; /* alt, no ref, must have alt allele */ \
+                else if ( !is_het ) dst[0]='r', dst[1]='e', dst[2]='f', dst[3] = 0; /* ref, must be ref-only, no alt alelle */ \
+                else dst[0]='a', dst[1]='l', dst[2]='t', dst[3] = 0; /* alt, is het, has alt allele */ \
+            } \
+            else if ( !j || missing ) dst[0]='.', dst[1]=0; /* ., missing genotype */ \
             else if ( type==3 ) \
             { \
                 if ( j==1 ) dst[0]='h', dst[1]='a', dst[2]='p', dst[3] = 0; /* hap, haploid */ \
@@ -810,6 +815,7 @@ static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int
 }
 static void filters_set_genotype2(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 2); }
 static void filters_set_genotype3(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 3); }
+static void filters_set_genotype4(filter_t *flt, bcf1_t *line, token_t *tok) { _filters_set_genotype(flt, line, tok, 4); }
 
 static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
@@ -820,7 +826,6 @@ static void filters_set_genotype_string(filter_t *flt, bcf1_t *line, token_t *to
         return;
     }
     int i, blen = 4, nsmpl = bcf_hdr_nsamples(flt->hdr);
-    kstring_t str;
 
 gt_length_too_big:
     tok->str_value.l = 0;
@@ -868,7 +873,7 @@ static void filters_set_alt_string(filter_t *flt, bcf1_t *line, token_t *tok)
     }
     else if ( tok->idx==-2 )
     {
-        int i, j = 0, end = tok->idxs[tok->nidxs-1] < 0 ? line->n_allele - 1 : tok->nidxs - 1;
+        int i, end = tok->idxs[tok->nidxs-1] < 0 ? line->n_allele - 1 : tok->nidxs - 1;
         if ( end >= line->n_allele - 1 ) end = line->n_allele - 2;
         for (i=0; i<=end; i++)
             if ( i>=tok->nidxs || tok->idxs[i] )
@@ -1939,6 +1944,9 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( !strcasecmp(out[ival].key,"hom") ) { out[i].setter = filters_set_genotype3;  str_to_lower(out[ival].key); }
             else if ( !strcasecmp(out[ival].key,"het") ) { out[i].setter = filters_set_genotype3;  str_to_lower(out[ival].key); }
             else if ( !strcasecmp(out[ival].key,"hap") ) { out[i].setter = filters_set_genotype3;  str_to_lower(out[ival].key); }
+            else if ( !strcasecmp(out[ival].key,"mis") ) { out[i].setter = filters_set_genotype4;  str_to_lower(out[ival].key); }
+            else if ( !strcasecmp(out[ival].key,"ref") ) { out[i].setter = filters_set_genotype4;  str_to_lower(out[ival].key); }
+            else if ( !strcasecmp(out[ival].key,"alt") ) { out[i].setter = filters_set_genotype4;  str_to_lower(out[ival].key); }
             else if ( !strcasecmp(out[ival].key,"rr") ) { out[i].setter = filters_set_genotype2;  str_to_lower(out[ival].key); }
             else if ( !strcasecmp(out[ival].key,"ra") || !strcasecmp(out[ival].key,"ar") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='r'; out[ival].key[1]='a'; }   // ra
             else if ( !strcmp(out[ival].key,"aA") || !strcmp(out[ival].key,"Aa") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='a'; out[ival].key[1]='A'; }   // aA

@@ -2709,9 +2709,14 @@ using these expressions
 
         GT=".|.", GT="./.", GT="."
 
-* sample genotype: homozygous, heterozygous, haploid, ref-ref hom, alt-alt hom,
-ref-alt het, alt-alt het, haploid ref, haploid alt (case-insensitive)
+* sample genotype: reference (haploid or diploid), alternate (hom or het,
+haploid or diploid), missing genotype, homozygous, heterozygous, haploid,
+ref-ref hom, alt-alt hom, ref-alt het, alt-alt het, haploid ref, haploid alt
+(case-insensitive)
 
+        GT="ref"
+        GT="alt"
+        GT="mis"
         GT="hom"
         GT="het"
         GT="hap"
