@@ -526,6 +526,8 @@ static void flush_viterbi(args_t *args, int ismpl)
                         smpl->rg.state = 1;
                         smpl->rg.beg = smpl->sites[i];
                         smpl->rg.rid = args->prev_rid;
+                        smpl->rg.qual  = 0;
+                        smpl->rg.nqual = 0;
                     }
                 }
                 else if ( state )
