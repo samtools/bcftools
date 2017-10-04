@@ -24,7 +24,7 @@
 
 CC       = gcc
 CPPFLAGS =
-CFLAGS   = -g -Wall -Wc++-compat -O2
+CFLAGS   = -g -Wall -Wc++-compat -O0
 LDFLAGS  =
 LIBS     =
 
@@ -148,7 +148,7 @@ PLATFORM := $(shell uname -s)
 endif
 ifeq "$(PLATFORM)" "Darwin"
 $(PLUGINS): | bcftools
-PLUGIN_FLAGS = -bundle -bundle_loader bcftools
+PLUGIN_FLAGS = -bundle -bundle_loader bcftools -Wl,-undefined,dynamic_lookup
 else
 PLUGIN_FLAGS = -fPIC -shared
 endif
