@@ -24,7 +24,7 @@
 
 CC       = gcc
 CPPFLAGS =
-CFLAGS   = -g -Wall -Wc++-compat -O0
+CFLAGS   = -g -Wall -Wc++-compat -O2
 LDFLAGS  =
 LIBS     =
 
