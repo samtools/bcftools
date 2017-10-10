@@ -871,7 +871,7 @@ sub plot_per_sample_stats
             with open('$img.dat', 'r') as f:
             \\treader = csv.reader(f, 'tab')
             \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append(row)
+            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row[:7]] + [row[7]])
 
             if plot_tstv_by_sample:
             \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
@@ -1010,7 +1010,7 @@ sub plot_DP
             with open('$img.dat', 'r') as f:
             \\treader = csv.reader(f, 'tab')
             \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append(row)
+            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
 
             if plot_dp_dist:
             \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
