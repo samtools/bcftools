@@ -3648,6 +3648,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     int call_csq = 1;
     if ( !rec->n_allele ) call_csq = 0;   // no alternate allele
     else if ( rec->n_allele==2 && (rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*') ) call_csq = 0;     // gVCF, no alt allele
+    else if ( rec->d.allele[1][0]=='<' && rec->d.allele[1][0]!='*') call_csq = 0;                            // a symbolic allele, not ready for CNVs etc
     else if ( args->filter )
     {
         call_csq = filter_test(args->filter, rec, NULL);
