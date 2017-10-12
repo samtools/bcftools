@@ -271,13 +271,12 @@ static inline int set_gt(int32_t *ptr, int ngts, int gt)
 
 static inline double calc_binom(int na, int nb)
 {
-    int N = na + nb;
-    if ( !N ) return 1;
+    if ( na + nb == 0 ) return 1;
 
     /*
         kfunc.h implements kf_betai, which is the regularized beta function I_x(a,b) = P(X<=a/(a+b))
     */
-    double prob = 2 * kf_betai(na, nb+1, 0.5);
+    double prob = na > nb ? 2*kf_betai(na, nb + 1, 0.5) : 2*kf_betai(nb, na + 1, 0.5);
     if ( prob > 1 ) prob = 1;
 
     return prob;
