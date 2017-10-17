@@ -305,7 +305,7 @@ int indel_ctx_type(indel_ctx_t *ctx, char *chr, int pos, char *ref, char *alt, i
 
     // Sanity check: the reference sequence must match the REF allele
     for (i=0; i<fai_ref_len && i<ref_len; i++)
-        if ( ref[i] != fai_ref[i] && ref[i] - 32 != fai_ref[i] )
+        if ( ref[i] != fai_ref[i] && ref[i] - 32 != fai_ref[i] && !iupac_consistent(fai_ref[i], ref[i]) )
             error("\nSanity check failed, the reference sequence differs: %s:%d+%d .. %c vs %c\n", chr, pos, i, ref[i],fai_ref[i]);
 
     // Count occurrences of all possible kmers
