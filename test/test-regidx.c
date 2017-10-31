@@ -336,7 +336,7 @@ int main(int argc, char **argv)
         {"seed",1,0,'s'},
         {0,0,0,0}
     };
-    char c;
+    int c;
     int seed = (int)time(NULL);
     while ((c = getopt_long(argc, argv, "hvs:",loptions,NULL)) >= 0) 
     {
