@@ -1743,7 +1743,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     {
         errno = 0;
         tok->threshold = strtof(tmp.s, &end);   // float?
-        if ( errno!=0 || end!=tmp.s+len ) error("[%s:%d %s] Error: the tag \"INFO/%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
+        if ( errno!=0 || end!=tmp.s+len ) error("[%s:%d %s] Error: the tag \"%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
     }
 
     if ( tmp.s ) free(tmp.s);
