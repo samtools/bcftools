@@ -257,6 +257,7 @@ bcf1_t *process(bcf1_t *rec)
             child1 = 1<<bcf_gt_allele(e);
             child2 = 1<<bcf_gt_allele(f);
         }
+        else if ( bcf_gt_is_missing(a) || bcf_gt_is_missing(b) ) continue;  // missing mother
         else
         {
             mother = (1<<bcf_gt_allele(a)) | (1<<bcf_gt_allele(b));
