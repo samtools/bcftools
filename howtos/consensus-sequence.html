@@ -92,7 +92,7 @@ to this, but in brief, the variant calling command in its simplest form is:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
+<pre>samtools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
 tabix calls.vcf.gz</pre>
 </div>
 </div>
