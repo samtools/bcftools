@@ -20,7 +20,7 @@ link:variant-calling.html[another page] which goes deeper and is devoted just
 to this, but in brief, the variant calling command in its simplest form is:
 
 ----
-bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
+samtools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
 tabix calls.vcf.gz
 ----
 
