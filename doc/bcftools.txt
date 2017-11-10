@@ -639,7 +639,7 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *-b, --BAF-weight* 'float'::
     relative contribution from BAF
 
-*d, --BAF-dev* 'float'[,'float']::
+*-d, --BAF-dev* 'float'[,'float']::
     expected BAF deviation in query and control, i.e. the noise observed
     in the data.
 
