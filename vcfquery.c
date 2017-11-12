@@ -48,6 +48,7 @@ typedef struct
     filter_t *filter;
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+    uint8_t *smpl_pass;
     convert_t *convert;
     bcf_srs_t *files;
     bcf_hdr_t *header;
@@ -99,6 +100,7 @@ static void init_data(args_t *args)
         }
     }
     args->convert = convert_init(args->header, samples, nsamples, args->format_str);
+    convert_set_option(args->convert, subset_samples, &args->smpl_pass);
     if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
     free(samples);
 
@@ -129,6 +131,7 @@ static void query_vcf(args_t *args)
         fwrite(str.s, str.l, 1, args->out);
     }
 
+    int i,max_convert_unpack = convert_max_unpack(args->convert);
     while ( bcf_sr_next_line(args->files) )
     {
         if ( !bcf_sr_has_line(args->files,0) ) continue;
@@ -137,9 +140,30 @@ static void query_vcf(args_t *args)
 
         if ( args->filter )
         {
-            int pass = filter_test(args->filter, line, NULL);
-            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-            if ( !pass ) continue;
+            int pass = filter_test(args->filter, line, (const uint8_t**) &args->smpl_pass);
+            if ( args->filter_logic & FLT_EXCLUDE )
+            {
+                // This code addresses this problem:
+                //  -i can include a site but exclude a sample
+                //  -e exclude a site but include a sample
+
+                if ( pass )
+                {
+                    if ( !args->smpl_pass ) continue;
+                    if ( !(max_convert_unpack & BCF_UN_FMT) ) continue;
+
+                    pass = 0;
+                    for (i=0; i<line->n_sample; i++)
+                    {
+                        if ( args->smpl_pass[i] ) args->smpl_pass[i] = 0;
+                        else { args->smpl_pass[i] = 1; pass = 1; }
+                    }
+                    if ( !pass ) continue;
+                }
+                else if ( args->smpl_pass )
+                    for (i=0; i<line->n_sample; i++) args->smpl_pass[i] = 1;
+            }
+            else if ( !pass ) continue;
         }
 
         str.l = 0;

@@ -1279,11 +1279,37 @@ static int vector_logic_or(token_t *atok, token_t *btok, int or_type)
         if ( (atok)->idx<=-2 || (btok)->idx<=-2 ) \
         { \
             /* any field can match: [*] */ \
-            for (i=0; i<(atok)->nvalues; i++) \
+            int nasmpl = (atok)->nsamples ? (atok)->nsamples : 1; \
+            int nbsmpl = (btok)->nsamples ? (btok)->nsamples : 1; \
+            int ainc, binc; \
+            if ( nasmpl==nbsmpl ) ainc = binc = 1; \
+            else if ( (atok)->nsamples ) ainc = 1, binc = 0; \
+            else ainc = 0, binc = 1; \
+            int naval  = (atok)->nvalues / ((atok)->nsamples ? (atok)->nsamples : 1); \
+            int nbval  = (btok)->nvalues / ((btok)->nsamples ? (btok)->nsamples : 1); \
+            int ia = 0, ib = 0; \
+            uint8_t *pass_samples = (atok)->nsamples ? (atok)->pass_samples : ((btok)->nsamples ? (btok)->pass_samples : NULL); \
+            while ( ia < nasmpl && ib < nbsmpl ) \
             { \
-                for (j=0; j<(btok)->nvalues; j++) \
-                    if ( (atok)->values[i] CMP_OP (btok)->values[j] ) { pass_site = 1; i = (atok)->nvalues; break; } \
+                int pass_smpl = 0; \
+                for (i=ia*naval; i<(ia+1)*naval; i++) \
+                { \
+                    for (j=ib*nbval; j<(ib+1)*nbval; j++) \
+                    { \
+                        if ( (atok)->values[i] CMP_OP (btok)->values[j] ) { pass_smpl = pass_site = 1; i = (atok)->nvalues; break; } \
+                    } \
+                } \
+                if ( pass_samples ) pass_samples[ia>ib?ia:ib] = pass_smpl; \
+                else if ( pass_site ) break; \
+                ia += ainc; \
+                ib += binc; \
             } \
+            /* for (i=0; i<(atok)->nvalues; i++) \
+               { \
+                   for (j=0; j<(btok)->nvalues; j++) \
+                       if ( (atok)->values[i] CMP_OP (btok)->values[j] ) { pass_site = 1; i = (atok)->nvalues; break; } \
+               } \
+            */ \
         } \
         else if ( (atok)->nsamples && (btok)->nsamples ) \
         { \

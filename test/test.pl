@@ -84,10 +84,10 @@ test_vcf_query($opts,in=>'query',out=>'query.10.out',args=>q[-f'%POS[ %GT]\\n' -
 test_vcf_query($opts,in=>'query',out=>'query.11.out',args=>q[-f'%POS[ %GT]\\n' -i'MAC[0]=1']);
 test_vcf_query($opts,in=>'query',out=>'query.11.out',args=>q[-f'%POS[ %GT]\\n' -i'MAF[0]=1/4']);
 test_vcf_query($opts,in=>'view.vectors',out=>'query.12.out',args=>q[-f'I8=%I8 I16=%I16 I32=%I32 IF=%IF IA8=%IA8 IA16=%IA16 IA32=%IA32 IAF=%IAF IA8=%IA8{1} IA16=%IA16{1} IA32=%IA32{1} IAF=%IAF{1} [ %F8:%F16:%F32:%FF]\\n']);
-test_vcf_query($opts,in=>'query.filter',out=>'query.13.out',args=>q[-f'%POS[ %GT]\\n' -i'GT ="1"']);
-test_vcf_query($opts,in=>'query.filter',out=>'query.14.out',args=>q[-f'%POS[ %GT]\\n' -i'GT!="1"']);
-test_vcf_query($opts,in=>'query.filter',out=>'query.15.out',args=>q[-f'%POS[ %GT]\\n' -e'GT ="1"']);
-test_vcf_query($opts,in=>'query.filter',out=>'query.16.out',args=>q[-f'%POS[ %GT]\\n' -e'GT!="1"']);
+test_vcf_query($opts,in=>'query.filter',out=>'query.13.out',args=>q[-f'[%POS %SAMPLE %GT\\n]' -i'GT ="1"']);
+test_vcf_query($opts,in=>'query.filter',out=>'query.14.out',args=>q[-f'[%POS %SAMPLE %GT\\n]' -i'GT!="1"']);
+test_vcf_query($opts,in=>'query.filter',out=>'query.15.out',args=>q[-f'[%POS %SAMPLE %GT\\n]' -e'GT ="1"']);
+test_vcf_query($opts,in=>'query.filter',out=>'query.16.out',args=>q[-f'[%POS %SAMPLE %GT\\n]' -e'GT!="1"']);
 test_vcf_query($opts,in=>'query.2',out=>'query.17.out',args=>q[-f'%XX_A %XX.A %XX.A0 %xx.a0\\n']);
 test_vcf_query($opts,in=>'missing',out=>'query.18.out',args=>q[-i'IINT="."'  -f'%POS %IINT\\n']);
 test_vcf_query($opts,in=>'missing',out=>'query.19.out',args=>q[-i'IINT!="."' -f'%POS %IINT\\n']);
@@ -111,9 +111,9 @@ test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.30.out',args=>q[-f'
 test_vcf_query($opts,in=>'filter-missing-floats',out=>'query.31.out',args=>q[-f'%POS\\t%A_AF\\t%B_AF\\t%C_AF\\n' -e'A_AF>=0.0001 || B_AF >= 0.0001 || C_AF >= 0.0001']);
 test_vcf_query($opts,in=>'missing',out=>'query.32.out',args=>q[-i'FMT/FINT!="."' -f'[\t%FINT]\\n']);
 test_vcf_query($opts,in=>'query.filter.2',out=>'query.33.out',args=>q[-f'[%GT]\\n' -i'GT~"0/[1-9]" || GT~"[1-9]/0"']);
-test_vcf_query($opts,in=>'view.filter',out=>'query.34.out',args=>q[-f'%POS[ %FGS]\\n' -i'FGS[1-2,4]="EE"']);
-test_vcf_query($opts,in=>'view.filter',out=>'query.35.out',args=>q[-f'%POS[ %FGI]\\n' -i'FGI[1-2,5]=6']);
-test_vcf_query($opts,in=>'view.filter',out=>'query.36.out',args=>q[-f'%POS[ %FGF]\\n' -i'FGF[1-3,4]=5e-5']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.34.out',args=>q[-f'[%POS %SAMPLE %FGS\\n]\\n' -i'FGS[1-2,4]="EE"']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.35.out',args=>q[-f'[%POS %SAMPLE %FGI\\n]\\n' -i'FGI[1-2,5]=6']);
+test_vcf_query($opts,in=>'view.filter',out=>'query.36.out',args=>q[-f'[%POS %SAMPLE %FGF\\n]\\n' -i'FGF[1-3,4]=5e-5']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');

@@ -92,6 +92,7 @@ struct _convert_t
     int ndat;
     char *undef_info_tag;
     int allow_undef_tags;
+    uint8_t **subset_samples;
 };
 
 typedef struct
@@ -1312,6 +1313,9 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
             }
             for (js=0; js<convert->nsamples; js++)
             {
+                // Skip samples when filtering was requested
+                if ( *convert->subset_samples && !(*convert->subset_samples)[js] ) continue;
+
                 // Here comes a hack designed for TBCSQ. When running on large files,
                 // such as 1000GP, there are too many empty fields in the output and
                 // it's very very slow. Therefore in case the handler does not add
@@ -1361,6 +1365,9 @@ int convert_set_option(convert_t *convert, enum convert_option opt, ...)
     {
         case allow_undef_tags:
             convert->allow_undef_tags = va_arg(args, int);
+            break;
+        case subset_samples:
+            convert->subset_samples = va_arg(args, uint8_t**);
             break;
         default:
             ret = -1;

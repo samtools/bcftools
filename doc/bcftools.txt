@@ -2218,6 +2218,12 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     # Make a BED file: chr, pos (0-based), end pos (1-based), id
     bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n' file.bcf
 
+    # Print only samples with alternate (non-reference) genotypes
+    bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i'GT="alt"' file.bcf
+
+    # Print all samples at sites with at least one alternate genotype
+    bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
+
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
 Modify header of VCF/BCF files, change sample names.
