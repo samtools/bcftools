@@ -94,7 +94,7 @@ static inline int replace_iupac_codes(char *seq, int nseq)
 }
 static inline int has_non_acgtn(char *seq, int nseq)
 {
-    char *end = nseq ? seq + nseq : seq + UINT32_MAX;   // arbitrary large number
+    char *end = seq + nseq;
     while ( *seq && seq<end )
     {
         char c = toupper(*seq);
@@ -326,7 +326,7 @@ static int realign(args_t *args, bcf1_t *line)
     {
         if ( line->d.allele[i][0]=='<' ) return ERR_SYMBOLIC;  // symbolic allele
         if ( line->d.allele[i][0]=='*' ) return ERR_SPANNING_DELETION;  // spanning deletion
-        if ( has_non_acgtn(line->d.allele[i],0) )
+        if ( has_non_acgtn(line->d.allele[i],line->shared.l) )
         {
             if ( args->check_ref==CHECK_REF_EXIT )
                 error("Non-ACGTN alternate allele at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[i]);
