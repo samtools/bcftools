@@ -77,7 +77,7 @@ static inline int iupac_consistent(char iupac, char nt)
     else if ( nt=='C' ) nt = 2;
     else if ( nt=='G' ) nt = 4;
     else if ( nt=='T' ) nt = 8;
-    return iupac_mask[iupac] & nt ? 1 : 0;
+    return iupac_mask[(int)iupac] & nt ? 1 : 0;
 }
 
 static inline char nt_to_upper(char nt)
