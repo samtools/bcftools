@@ -1879,7 +1879,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --rename-chrs <file>       rename sequences according to map file: from\\tto\n");
     fprintf(stderr, "   -s, --samples [^]<list>        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -S, --samples-file [^]<file>   file of samples to annotate (or exclude with \"^\" prefix)\n");
-    fprintf(stderr, "   -x, --remove <list>            list of annotations to remove (e.g. ID,INFO/DP,FORMAT/DP,FILTER). See man page for details\n");
+    fprintf(stderr, "   -x, --remove <list>            list of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with "^" prefix). See man page for details\n");
     fprintf(stderr, "       --threads <int>            number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
