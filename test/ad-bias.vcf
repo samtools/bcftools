@@ -1,5 +1,6 @@
 ##fileformat=VCFv4.2
 ##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://some/path/human_g1k_v37.fasta
 ##contig=<ID=22,length=51304566>
 ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">

@@ -12,7 +12,7 @@
 ##FILTER=<ID=MinAB,Description="Minimum number of alternate bases (INFO/DP4) [2]">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
-11	2343543	.	A	.	999	PASS	.	PL	0,255,255	0,255,255	0,255,255
+11	2343543	.	A	.	999	PASS	.	PL	0	0	0
 11	5464562	.	C	T	999	PASS	.	PL	0,0,0	0,0,0	0,0,0
 20	76962	rs6111385	T	C	999	PASS	.	PL	255,0,255	255,255,0	255,255,0
 20	126310	.	ACC	A	999	StrandBias;EndDistBias	.	PL	255,0,132	255,0,139	255,213,0

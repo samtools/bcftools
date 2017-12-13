@@ -1,5 +1,6 @@
 ##fileformat=VCFv4.1
 ##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///some/path/1000GenomesPilot-NCBI36.fasta
 ##contig=<ID=chr7>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">

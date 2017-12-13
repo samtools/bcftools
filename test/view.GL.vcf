@@ -12,7 +12,7 @@
 ##FILTER=<ID=EndDistBias,Description="Min P-value for end distance bias (INFO/PV4) [0.0001]">
 ##FILTER=<ID=MinAB,Description="Minimum number of alternate bases (INFO/DP4) [2]">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
-11	2343543	.	A	.	999	PASS	.	GL	0,-25.5,-25.5	0,-25.5,-25.5	0,-25.5,-25.5
+11	2343543	.	A	.	999	PASS	.	GL	0	0	0
 11	5464562	.	C	T	999	PASS	.	GL	0,0,0	0,0,0	0,0,0
 20	76962	rs6111385	T	C	999	PASS	.	GL	-25.5,0,-25.5	-25.5,-25.5,0	-25.5,-25.5,0
 20	126310	.	ACC	A	999	StrandBias;EndDistBias	.	GL	-25.5,0,-13.2	-25.5,0,-13.9	-25.5,-21.3,0

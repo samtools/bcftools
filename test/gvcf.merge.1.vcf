@@ -1,10 +1,10 @@
 ##fileformat=VCFv4.1
+##reference=file:///some/path/1000GenomesPilot-NCBI36.fasta
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##FILTER=<ID=LowGQX,Description="Locus GQX is less than 30 or not present">
 ##FILTER=<ID=HighDPFRatio,Description="The fraction of basecalls filtered out at a site is greater than 0.3">
 ##FILTER=<ID=nc,Description="No-call">
-##contig=<ID=chrY,length=59373566,assembly=B37,md5=1e86411d73e6f00a10590f976be01623,species="Homo sapiens">
-##contig=<ID=chrM,length=16569,assembly=B37,md5=c68f52674c9fb33aef52dcf399755519,species="Homo sapiens">
+##contig=<ID=chr1,length=59373566,assembly=B37,md5=1e86411d73e6f00a10590f976be01623,species="Homo sapiens">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=HQ,Number=2,Type=Integer,Description="Haplotype Quality">
 ##FORMAT=<ID=GQX,Number=1,Type=Integer,Description="Minimum of {Genotype quality assuming variant position,Genotype quality assuming non-variant position}">
