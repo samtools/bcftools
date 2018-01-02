@@ -175,6 +175,24 @@ static inline int32_t bcf_array_ivalue(void *bcf_array, int type, int idx)
     }
     return ((int32_t*)bcf_array)[idx];
 }
+static inline void _copy_field(char *src, uint32_t len, int idx, kstring_t *str)
+{
+    int n = 0, ibeg = 0;
+    while ( src[ibeg] && ibeg<len && n < idx )
+    {
+        if ( src[ibeg]==',' ) n++;
+        ibeg++;
+    }
+    if ( ibeg==len ) { kputc('.', str); return; }
+
+    int iend = ibeg;
+    while ( src[iend] && src[iend]!=',' && iend<len ) iend++;
+
+    if ( iend>ibeg )
+        kputsn(src+ibeg, iend-ibeg, str);
+    else
+        kputc('.', str);
+}
 static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
     if ( fmt->id<0 )
@@ -233,6 +251,7 @@ static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isamp
             case BCF_BT_INT16: BRANCH(int16_t, val==bcf_int16_missing, val==bcf_int16_vector_end, kputw(val, str)); break;
             case BCF_BT_INT32: BRANCH(int32_t, val==bcf_int32_missing, val==bcf_int32_vector_end, kputw(val, str)); break;
             case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(val), bcf_float_is_vector_end(val), kputd(val, str)); break;
+            case BCF_BT_CHAR:  _copy_field(info->vptr, info->vptr_len, fmt->subscript, str); break;
             default: fprintf(stderr,"todo: type %d\n", info->type); exit(1); break;
         }
         #undef BRANCH
@@ -289,6 +308,8 @@ static void process_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isa
             else
                 kputw(ival, str);
         }
+        else if ( fmt->fmt->type == BCF_BT_CHAR )
+            _copy_field((char*)(fmt->fmt->p + isample*fmt->fmt->size), fmt->fmt->size, fmt->subscript, str);
         else error("TODO: %s:%d .. fmt->type=%d\n", __FILE__,__LINE__, fmt->fmt->type);
     }
     else
