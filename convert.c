@@ -251,7 +251,7 @@ static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isamp
             case BCF_BT_INT16: BRANCH(int16_t, val==bcf_int16_missing, val==bcf_int16_vector_end, kputw(val, str)); break;
             case BCF_BT_INT32: BRANCH(int32_t, val==bcf_int32_missing, val==bcf_int32_vector_end, kputw(val, str)); break;
             case BCF_BT_FLOAT: BRANCH(float,   bcf_float_is_missing(val), bcf_float_is_vector_end(val), kputd(val, str)); break;
-            case BCF_BT_CHAR:  _copy_field(info->vptr, info->vptr_len, fmt->subscript, str); break;
+            case BCF_BT_CHAR:  _copy_field((char*)info->vptr, info->vptr_len, fmt->subscript, str); break;
             default: fprintf(stderr,"todo: type %d\n", info->type); exit(1); break;
         }
         #undef BRANCH
