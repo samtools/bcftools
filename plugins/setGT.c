@@ -120,27 +120,40 @@ const char *usage(void)
         "\n";
 }
 
+static void _parse_binom_expr_error(char *str)
+{
+    error(
+            "Error parsing the expression: %s\n"
+            "Expected TAG CMP VAL, where\n"
+            "   TAG .. one of the format tags\n"
+            "   CMP .. operator, one of <, <=, >, >=\n"
+            "   VAL .. value\n"
+            "For example:\n"
+            "   bcftools +setGT in.vcf -- -t \"b:AD>1e-3\" -n 0\n"
+            "\n", str
+         );
+}
 void parse_binom_expr(args_t *args, char *str)
 {
-    if ( str[1]!=':' ) goto err;
+    if ( str[1]!=':' ) _parse_binom_expr_error(str);
 
     char *beg = str+2;
     while ( *beg && isspace(*beg) ) beg++;
-    if ( !*beg ) goto err;
+    if ( !*beg ) _parse_binom_expr_error(str);
     char *end = beg;
     while ( *end )
     {
         if ( isspace(*end) || *end=='<' || *end=='=' || *end=='>' ) break;
         end++;
     }
-    if ( !*end ) goto err;
+    if ( !*end ) _parse_binom_expr_error(str);
     args->binom_tag = (char*) calloc(1,end-beg+1);
     memcpy(args->binom_tag,beg,end-beg);
     int tag_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,args->binom_tag);
     if ( !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,tag_id) ) error("The FORMAT tag \"%s\" is not present in the VCF\n", args->binom_tag);
     
     while ( *end && isspace(*end) ) end++;
-    if ( !*end ) goto err;
+    if ( !*end ) _parse_binom_expr_error(str);
 
     if ( !strncmp(end,"<=",2) ) { args->binom_cmp = cmp_le; beg = end+2; }
     else if ( !strncmp(end,">=",2) ) { args->binom_cmp = cmp_ge; beg = end+2; }
@@ -148,29 +161,17 @@ void parse_binom_expr(args_t *args, char *str)
     else if ( !strncmp(end,"<",1) ) { args->binom_cmp = cmp_lt; beg = end+1; }
     else if ( !strncmp(end,">",1) ) { args->binom_cmp = cmp_gt; beg = end+1; }
     else if ( !strncmp(end,"=",1) ) { args->binom_cmp = cmp_eq; beg = end+1; }
-    else goto err;
+    else _parse_binom_expr_error(str);
 
     while ( *beg && isspace(*beg) ) beg++;
-    if ( !*beg ) goto err;
+    if ( !*beg ) _parse_binom_expr_error(str);
 
     args->binom_val = strtod(beg, &end);
     while ( *end && isspace(*end) ) end++;
-    if ( *end ) goto err;
+    if ( *end ) _parse_binom_expr_error(str);
 
     args->tgt_mask |= GT_BINOM;
     return;
-
-err:
-    error(
-        "Error parsing the expression: %s\n"
-        "Expected TAG CMP VAL, where\n"
-        "   TAG .. one of the format tags\n"
-        "   CMP .. operator, one of <, <=, >, >=\n"
-        "   VAL .. value\n"
-        "For example:\n"
-        "   bcftools +setGT in.vcf -- -t \"b:AD>1e-3\" -n 0\n"
-        "\n", str
-        );
 }
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
