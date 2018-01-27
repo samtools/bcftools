@@ -34,6 +34,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <errno.h>
 #include <ctype.h>
+#include <unistd.h>     // for isatty
 #include "bcftools.h"
 #include "regidx.h"
 
