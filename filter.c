@@ -1782,6 +1782,10 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
             tok->setter = &filters_set_alt_string;
             tok->is_str = 1;
             tok->tag = strdup("ALT");
+            tok->idxs = (int*) malloc(sizeof(int));
+            tok->idxs[0] = -1;
+            tok->nidxs   = 1;
+            tok->idx     = -2;
             return 0;
         }
         else if ( !strncasecmp(str,"N_ALT",len) )
