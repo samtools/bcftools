@@ -356,6 +356,9 @@ Add or remove annotations.
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*-k, --keep-sites*::
+    keep sites wich do not pass *-i* and *-e* expressions instead of discarding them
+
 *-m, --mark-sites* [+-]'TAG'::
     annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
 

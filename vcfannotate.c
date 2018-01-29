@@ -95,6 +95,7 @@ typedef struct _args_t
     filter_t *filter;
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
+    int keep_sites;
 
     rm_tag_t *rm;           // tags scheduled for removal
     int nrm;
@@ -1870,6 +1871,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
     fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man page for details\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "   -k, --keep-sites               leave -i/-e sites unchanged instead of discarding them\n");
     fprintf(stderr, "   -m, --mark-sites [+-]<tag>     add INFO/tag flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
     fprintf(stderr, "       --no-version               do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
@@ -1901,6 +1903,7 @@ int main_vcfannotate(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"keep-sites",required_argument,NULL,'k'},
         {"mark-sites",required_argument,NULL,'m'},
         {"set-id",required_argument,NULL,'I'},
         {"output",required_argument,NULL,'o'},
@@ -1921,9 +1924,10 @@ int main_vcfannotate(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:k",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'k': args->keep_sites = 1; break;
             case 'm': 
                 args->mark_sites_logic = MARK_LISTED;
                 if ( optarg[0]=='+' ) args->mark_sites = optarg+1;
@@ -2008,7 +2012,11 @@ int main_vcfannotate(int argc, char *argv[])
         {
             int pass = filter_test(args->filter, line, NULL);
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-            if ( !pass ) continue;
+            if ( !pass ) 
+            {
+                if ( args->keep_sites ) bcf_write1(args->out_fh, args->hdr_out, line);
+                continue;
+            }
         }
         annotate(args, line);
         bcf_write1(args->out_fh, args->hdr_out, line);
