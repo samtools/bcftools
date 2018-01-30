@@ -1088,7 +1088,7 @@ output VCF and are ignored for the prediction analysis.
     plain text output can be printed ('t').
 
 *-p, --phase* 'a'|'m'|'r'|'R'|'s'::
-    how to construct haplotypes and how to deal with unphased data:
+    how to handle unphased heterozygous genotypes:
 
         'a';;
             take GTs as is, create haplotypes regardless of phase (0/1 -> 0|1)
@@ -1103,7 +1103,7 @@ output VCF and are ignored for the prediction analysis.
             create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)
 
         's';;
-            skip unphased GTs
+            skip unphased heterozygous GTs
 
 *-q, --quiet*::
     suppress warning messages

@@ -3388,7 +3388,7 @@ int test_cds(args_t *args, bcf1_t *rec)
             int32_t *gt = args->gt_arr + args->smpl->idx[ismpl]*ngts;
             if ( gt[0]==bcf_gt_missing ) continue;
 
-            if ( ngts>1 && gt[0]!=gt[1] && gt[1]!=bcf_gt_missing && gt[1]!=bcf_int32_vector_end )
+            if ( ngts>1 && gt[1]!=bcf_gt_missing && gt[1]!=bcf_int32_vector_end && bcf_gt_allele(gt[0])!=bcf_gt_allele(gt[1]) )
             {
                 if ( args->phase==PHASE_MERGE )
                 {
@@ -3397,7 +3397,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                 if ( !bcf_gt_is_phased(gt[0]) && !bcf_gt_is_phased(gt[1]) )
                 {
                     if ( args->phase==PHASE_REQUIRE )
-                        error("Unphased genotype at %s:%d, sample %s. See the --phase option.\n", chr,rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
+                        error("Unphased heterozygous genotype at %s:%d, sample %s. See the --phase option.\n", chr,rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
                     if ( args->phase==PHASE_SKIP )
                         continue;
                     if ( args->phase==PHASE_NON_REF )
@@ -3696,12 +3696,12 @@ static const char *usage(void)
         "   -c, --custom-tag <string>       use this tag instead of the default BCSQ\n"
         "   -l, --local-csq                 localized predictions, consider only one VCF record at a time\n"
         "   -n, --ncsq <int>                maximum number of consequences to consider per site [16]\n"
-        "   -p, --phase <a|m|r|R|s>         how to construct haplotypes and how to deal with unphased data: [r]\n"
+        "   -p, --phase <a|m|r|R|s>         how to handle unphased heterozygous genotypes: [r]\n"
         "                                     a: take GTs as is, create haplotypes regardless of phase (0/1 -> 0|1)\n"
         "                                     m: merge *all* GTs into a single haplotype (0/1 -> 1, 1/2 -> 1)\n"
         "                                     r: require phased GTs, throw an error on unphased het GTs\n"
         "                                     R: create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)\n"
-        "                                     s: skip unphased GTs\n"
+        "                                     s: skip unphased hets\n"
         "Options:\n"
         "   -e, --exclude <expr>            exclude sites for which the expression is true\n"
         "   -i, --include <expr>            select sites for which the expression is true\n"
