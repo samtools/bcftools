@@ -264,7 +264,7 @@ static void init_remove_annots(args_t *args)
                 tag->key = strdup(str.s);
                 tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
                 if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
-                bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
+                if ( !args->keep_sites ) bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
             }
             else
             {
@@ -294,32 +294,35 @@ static void init_remove_annots(args_t *args)
                 tag->key = strdup(str.s);
                 if ( type==BCF_HL_INFO ) tag->handler = remove_info_tag;
                 else if ( type==BCF_HL_FMT ) tag->handler = remove_format_tag;
-                bcf_hdr_remove(args->hdr_out,type,tag->key);
+                if ( !args->keep_sites ) bcf_hdr_remove(args->hdr_out,type,tag->key);
             }
         }
         else if ( !strcasecmp("ID",str.s) ) tag->handler = remove_id;
         else if ( !strcasecmp("FILTER",str.s) )
         {
             tag->handler = remove_filter;
-            remove_hdr_lines(args->hdr_out,BCF_HL_FLT);
+            if ( !args->keep_sites ) remove_hdr_lines(args->hdr_out,BCF_HL_FLT);
         }
         else if ( !strcasecmp("QUAL",str.s) ) tag->handler = remove_qual;
         else if ( !strcasecmp("INFO",str.s) ) 
         {
             tag->handler = remove_info;
-            remove_hdr_lines(args->hdr_out,BCF_HL_INFO);
+            if ( !args->keep_sites ) remove_hdr_lines(args->hdr_out,BCF_HL_INFO);
         }
         else if ( !strcasecmp("FMT",str.s) || !strcasecmp("FORMAT",str.s) )
         {
             tag->handler = remove_format;
-            remove_hdr_lines(args->hdr_out,BCF_HL_FMT);
+            if ( !args->keep_sites ) remove_hdr_lines(args->hdr_out,BCF_HL_FMT);
         }
         else if ( str.l )
         {
-            if ( str.s[0]=='#' && str.s[1]=='#' )
-                bcf_hdr_remove(args->hdr_out,BCF_HL_GEN,str.s+2);
-            else
-                bcf_hdr_remove(args->hdr_out,BCF_HL_STR,str.s);
+            if ( !args->keep_sites )
+            {
+                if ( str.s[0]=='#' && str.s[1]=='#' )
+                    bcf_hdr_remove(args->hdr_out,BCF_HL_GEN,str.s+2);
+                else
+                    bcf_hdr_remove(args->hdr_out,BCF_HL_STR,str.s);
+            }
             args->nrm--;
         }
 
@@ -355,7 +358,7 @@ static void init_remove_annots(args_t *args)
                 tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, hrec->vals[k]);
             }
             tag->key = strdup(hrec->vals[k]);
-            bcf_hdr_remove(args->hdr_out,hrec->type,tag->key);
+            if ( !args->keep_sites ) bcf_hdr_remove(args->hdr_out,hrec->type,tag->key);
         }
     }
     khash_str2int_destroy_free(keep);
