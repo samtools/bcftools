@@ -51,7 +51,7 @@ sub parse_params
     while (defined(my $arg=shift(@ARGV)))
     {
         if (                 $arg eq '--pad' ) { $$opts{pad}=shift(@ARGV); next; }
-        if ( $arg eq '-p' || $arg eq '--position' ) { $$opts{pos}=shift(@ARGV); next; }
+        if ( $arg eq '-p' || $arg eq '--position' ) { push @{$$opts{pos}},shift(@ARGV); next; }
         if ( $arg eq '-i' || $arg eq '--indels' ) { $$opts{indels}=shift(@ARGV); next; }
         if ( $arg eq '-f' || $arg eq '--fasta-ref' ) { $$opts{ref}=shift(@ARGV); next; }
         if ( $arg eq '-t' || $arg eq '--transcript' ) { $$opts{tscript}=shift(@ARGV); next; }
@@ -98,12 +98,10 @@ sub parse_gff
     }
     close($fh);
     $$opts{dat} = \@dat;
-    $$opts{offset} = $$tline[3] - $$opts{pad} - 1;
-}
-sub get_chr_beg_end
-{
-    my ($rec) = @_;
-    return ($$rec[0],$$rec[3],$$rec[4]);
+    $$opts{offset} = $$tline[3] - $$opts{pad} - 1;  # pos_new = pos_ori - offset
+    $$opts{tchr} = $$tline[0];
+    $$opts{tbeg} = $$tline[3];
+    $$opts{tend} = $$tline[4];
 }
 sub get_type
 {
@@ -124,9 +122,9 @@ sub get_strand
 sub create_ref
 {
     my ($opts) = @_;
-    my ($chr,$beg,$end) = get_chr_beg_end($$opts{dat}[0]);
-    $beg -= $$opts{pad};
-    $end += $$opts{pad};
+    my $chr = $$opts{tchr};
+    my $beg = $$opts{tbeg} - $$opts{pad};
+    my $end = $$opts{tend} + $$opts{pad};
     my $ref = '';
     open(my $out,'>',"$$opts{out}.fa") or error("$$opts{out}.fa: $!");
     open(my $fh,"samtools faidx $$opts{ref} $chr:$beg-$end|") or error("samtools faidx $$opts{ref} $chr:$beg-$end: $!");
@@ -147,44 +145,50 @@ sub create_vcf
 {
     my ($opts,$offset) = @_;
     my $strand = get_strand($$opts{dat}[0]);
-    my ($chr,$beg0,$end0) = get_chr_beg_end($$opts{dat}[0]);
+    my $chr  = $$opts{tchr};
+    my $beg0 = $$opts{tbeg} - $$opts{pad};
+    my $end0 = $$opts{tend} + $$opts{pad};
     my %dat;
     if ( exists($$opts{pos}) )
     {
-        my ($pos,$ref,$alt) = split(/-/,$$opts{pos});
-        $dat{$pos}{ref} = $ref;
-        $dat{$pos}{alt} = $alt;
-        push @{$dat{$pos}{type}}, "$$opts{tscript}:$$opts{pos}";
+        for my $pos_ref_alt (@{$$opts{pos}})
+        {
+            my ($pos,$ref,$alt) = split(/-/,$pos_ref_alt);
+            $dat{$pos}{ref} = $ref;
+            $dat{$pos}{alt} = $alt;
+            push @{$dat{$pos}{type}}, "$$opts{tscript}:$pos_ref_alt";
+        }
     }
     else
     {
-        for my $dat (@{$$opts{dat}})
-        {
-            my ($chr,$beg,$end) = get_chr_beg_end($dat);
-            my $type   = get_type($dat);
-            for my $off (-9,-8,-4,-3,-2,0,2,3,4,8,9)
-            {
-                my $pos = $beg + $off;
-                if ( $pos<$beg0 or $pos>$end0 ) { next; }
-                if ( $$opts{indels} == 0  )
-                {
-                    $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,1);
-                    $dat{$pos}{alt} = $dat{$pos}{ref} eq 'A' ? 'C' : 'A';
-                }
-                elsif ( $$opts{indels} > 0 )
-                {
-                    $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,1);
-                    $dat{$pos}{alt} = $dat{$pos}{ref}. ('A' x $$opts{indels});
-                }
-                else
-                {
-                    if ( $pos-$beg0-$$opts{indels} > length($$opts{refseq}) ) { next; }
-                    $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,-$$opts{indels});
-                    $dat{$pos}{alt} = substr($$opts{refseq},$pos-$beg0,1);
-                }
-                push @{$dat{$pos}{type}}, "$type:$off";
-            }
-        }
+        # unused. If used, get_chr_beg_end() needs fixing
+        # for my $dat (@{$$opts{dat}})
+        # {
+        #     my ($chr,$beg,$end) = get_chr_beg_end($dat);
+        #     my $type   = get_type($dat);
+        #     for my $off (-9,-8,-4,-3,-2,0,2,3,4,8,9)
+        #     {
+        #         my $pos = $beg + $off;
+        #         if ( $pos<$beg0 or $pos>$end0 ) { next; }
+        #         if ( $$opts{indels} == 0  )
+        #         {
+        #             $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,1);
+        #             $dat{$pos}{alt} = $dat{$pos}{ref} eq 'A' ? 'C' : 'A';
+        #         }
+        #         elsif ( $$opts{indels} > 0 )
+        #         {
+        #             $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,1);
+        #             $dat{$pos}{alt} = $dat{$pos}{ref}. ('A' x $$opts{indels});
+        #         }
+        #         else
+        #         {
+        #             if ( $pos-$beg0-$$opts{indels} > length($$opts{refseq}) ) { next; }
+        #             $dat{$pos}{ref} = substr($$opts{refseq},$pos-$beg0,-$$opts{indels});
+        #             $dat{$pos}{alt} = substr($$opts{refseq},$pos-$beg0,1);
+        #         }
+        #         push @{$dat{$pos}{type}}, "$type:$off";
+        #     }
+        # }
     }
     my $fname = $offset ? "$$opts{out}.vcf" : "$$opts{out}.vcf.ori";
     open(my $out,'>',"$fname") or error("$fname: $!");
@@ -199,6 +203,7 @@ sub create_vcf
         my $ref = $dat{$pos}{ref};
         my $alt = $dat{$pos}{alt};
         my $type = join(',',@{$dat{$pos}{type}});
+printf STDERR "offset=$offset  .. $pos  %d\n",$pos-$offset;
         print $out join("\t",($chr,$pos-$offset,'.',$ref,$alt,'.','.',"type=$type"))."\n";
     }
     close($out);

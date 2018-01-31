@@ -2713,6 +2713,7 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
     }
 }
 
+
 void hap_finalize(args_t *args, hap_t *hap)
 {
     tscript_t *tr = hap->tr;
@@ -2784,7 +2785,10 @@ void hap_finalize(args_t *args, hap_t *hap)
                 }
                 dlen += hap->stack[i].node->dlen;
                 if ( hap->stack[i].node->dlen ) indel = 1;
-                if ( i<istack )
+
+                // This condition extends compound variants. Note that s/s/s sites are forced out to always break
+                // a compound block. See ENST00000271583/splice-acceptor.vcf for motivation.
+                if ( i<istack && hap->stack[i+1].node->type != HAP_SSS )
                 {
                     if ( dlen%3 )   // frameshift
                     {
