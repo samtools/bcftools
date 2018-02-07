@@ -1628,7 +1628,8 @@ multiple regions and many alignment files are processed.
     be included: "read_group_id file_name sample_name".  If all
     reads from the alignment file should be treated as a single sample, the
     asterisk symbol can be used: "* file_name sample_name". Alignments without
-    a read group ID can be matched with "?".
+    a read group ID can be matched with "?". *NOTE:* The meaning of *bcftools mpileup -G*
+    is the opposite of *samtools mpileup -G*.
 ----
     RG_ID_1
     RG_ID_2  SAMPLE_A
@@ -2135,9 +2136,6 @@ file for help.
 [[query]]
 === bcftools query ['OPTIONS'] 'file.vcf.gz' ['file.vcf.gz' [...]]
 Extracts fields from VCF or BCF files and outputs them in user-defined format.
-
-*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
-    see *<<common_options,Common Options>>*
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
