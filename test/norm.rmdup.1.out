@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///usr/bio-ref/GRCh38.81/GRCh38.fa
+##contig=<ID=1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	789241	.	C	G	.	.	.
+1	789242	.	C	G	.	.	.
+1	789243	.	C	CA	.	.	.
+1	789243	.	C	CCA	.	.	.
+1	789244	.	C	A	.	.	.
+1	789244	.	C	CA	.	.	.
+1	789244	.	C	CCA	.	.	.
+1	789245	.	C	T,CA,TTT	.	.	.

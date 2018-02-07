@@ -222,7 +222,6 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools query [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -c, --collapse <string>           collapse lines with duplicate positions for <snps|indels|both|all|some|none>, see man page [none]\n");
     fprintf(stderr, "    -e, --exclude <expr>              exclude sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -f, --format <string>             see man page for details\n");
     fprintf(stderr, "    -H, --print-header                print header\n");
@@ -278,14 +277,8 @@ int main_vcfquery(int argc, char *argv[])
             case 'f': args->format_str = strdup(optarg); break;
             case 'H': args->print_header = 1; break;
             case 'v': args->vcf_list = optarg; break;
-            case 'c':
-                if ( !strcmp(optarg,"snps") ) collapse |= COLLAPSE_SNPS;
-                else if ( !strcmp(optarg,"indels") ) collapse |= COLLAPSE_INDELS;
-                else if ( !strcmp(optarg,"both") ) collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
-                else if ( !strcmp(optarg,"any") ) collapse |= COLLAPSE_ANY;
-                else if ( !strcmp(optarg,"all") ) collapse |= COLLAPSE_ANY;
-                else if ( !strcmp(optarg,"some") ) collapse |= COLLAPSE_SOME;
-                else error("The --collapse string \"%s\" not recognised.\n", optarg);
+            case 'c': 
+                error("The --collapse option is obsolete, pipe through `bcftools norm -c` instead.\n", optarg);
                 break;
             case 'a':
                 {
@@ -346,7 +339,6 @@ int main_vcfquery(int argc, char *argv[])
     {
         if ( !fname ) usage();
         args->files = bcf_sr_init();
-        args->files->collapse = collapse;
         if ( optind+1 < argc ) args->files->require_index = 1;
         if ( args->regions_list && bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
