@@ -255,7 +255,7 @@ dat_gt = {}
 dat_rg = {}
 chrs   = []
 for fname in fnames:
-    f = gzip.open(fname, 'rb')
+    f = gzip.open(fname, 'r')
     reader = csv.reader(f, 'tab')
     for row in reader:
         if row[0]=='GT':

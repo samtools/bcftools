@@ -265,7 +265,7 @@ static void init_data(args_t *args)
         "\n"
         "def read_dat(dat,fit,cn):\n"
         "   csv.register_dialect('tab', delimiter='\t', quoting=csv.QUOTE_NONE)\n"
-        "   with open(outdir+'/dist.dat', 'rb') as f:\n"
+        "   with open(outdir+'/dist.dat', 'r') as f:\n"
         "      reader = csv.reader(f, 'tab')\n"
         "      for row in reader:\n"
         "          if row[0][0]=='#': continue\n"
