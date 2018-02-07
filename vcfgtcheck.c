@@ -1,6 +1,6 @@
 /*  vcfgtcheck.c -- Check sample identity.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2018 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
