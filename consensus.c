@@ -385,7 +385,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         if ( regidx_overlap(args->mask, chr,start,end,NULL) ) return;
     }
 
-    int i, ialt = 1;
+    int i, ialt = 1;    // the alternate allele
     if ( args->isample >= 0 )
     {
         bcf_unpack(rec, BCF_UN_FMT);
@@ -422,6 +422,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             {
                 char ial = rec->d.allele[ialt][0];
                 char jal = rec->d.allele[jalt][0];
+                if ( !ialt ) ialt = jalt;   // only ialt is used, make sure 0/1 is not ignored
                 rec->d.allele[ialt][0] = gt2iupac(ial,jal);
             }
         }
