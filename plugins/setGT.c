@@ -55,7 +55,7 @@ typedef struct
     filter_t *filter;
     char *filter_str;
     int filter_logic;
-    const uint8_t *smpl_pass;
+    uint8_t *smpl_pass;
     double binom_val;
     char *binom_tag;
     cmp_f binom_cmp;
@@ -326,7 +326,7 @@ bcf1_t *process(bcf1_t *rec)
     // replace gts
     if ( nbinom && ngts>=2 )    // only diploid genotypes are considered: higher ploidy ignored further, haploid here
     {
-        if ( args->filter ) filter_test(args->filter,rec,&args->smpl_pass);
+        if ( args->filter ) filter_test(args->filter,rec,(const uint8_t **)&args->smpl_pass);
         for (i=0; i<rec->n_sample; i++)
         {
             if ( args->smpl_pass )
@@ -354,16 +354,29 @@ bcf1_t *process(bcf1_t *rec)
     }
     else if ( args->tgt_mask&GT_QUERY )
     {
-        int pass_site = filter_test(args->filter,rec,&args->smpl_pass);
-        if ( (pass_site && args->filter_logic==FLT_EXCLUDE) || (!pass_site && args->filter_logic==FLT_INCLUDE) ) return rec;
+        int pass_site = filter_test(args->filter,rec,(const uint8_t **)&args->smpl_pass);
+        if ( pass_site && args->filter_logic==FLT_EXCLUDE )
+        {
+            // -i can include a site but exclude a sample, -e exclude a site but include a sample
+            if ( pass_site )
+            {
+                if ( !args->smpl_pass ) return rec;
+                pass_site = 0;
+                for (i=0; i<rec->n_sample; i++)
+                {
+                    if ( args->smpl_pass[i] ) args->smpl_pass[i] = 0;
+                    else { args->smpl_pass[i] = 1; pass_site = 1; }
+                }
+                if ( !pass_site ) return rec;
+            }
+            else if ( args->smpl_pass )
+                for (i=0; i<rec->n_sample; i++) args->smpl_pass[i] = 1;
+        }
+        else if ( !pass_site ) return rec;
+
         for (i=0; i<rec->n_sample; i++)
         {
-            if ( args->smpl_pass )
-            {
-                if ( !args->smpl_pass[i] && args->filter_logic==FLT_INCLUDE ) continue;
-                if (  args->smpl_pass[i] && args->filter_logic==FLT_EXCLUDE ) continue;
-            }
-
+            if ( !args->smpl_pass[i] ) continue;
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(args->gts + i*ngts, ngts);
             else
