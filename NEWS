@@ -23,7 +23,7 @@
 
 * `roh`: Fix errors in the RG output
 
-* `stats`: Allow IUPAC ambiguity codes in the refence file
+* `stats`: Allow IUPAC ambiguity codes in the reference file; report the number of missing genotypes
 
 * `+fill-tags`: Add ExcHet annotation
 
