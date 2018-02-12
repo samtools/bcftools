@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2017-09-28
+.\"      Date: 2018-02-12
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2017\-09\-28" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2018\-02\-12" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2017\-09\-28\fR and refers to bcftools git version \fB1\&.6\fR\&.
+This manual page was last updated \fB2018\-02\-12\fR and refers to bcftools git version \fB1\&.7\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -691,6 +691,15 @@ is true\&. For valid expressions see
 \fBEXPRESSIONS\fR\&.
 .RE
 .PP
+\fB\-k, \-\-keep\-sites\fR
+.RS 4
+keep sites wich do not pass
+\fB\-i\fR
+and
+\fB\-e\fR
+expressions instead of discarding them
+.RE
+.PP
 \fB\-m, \-\-mark\-sites\fR \fITAG\fR
 .RS 4
 annotate sites which are present ("+") or absent ("\-") in the
@@ -1141,7 +1150,7 @@ to a lower value\&. Note however, that this comes at the cost of increased false
 relative contribution from BAF
 .RE
 .PP
-\fBd, \-\-BAF\-dev\fR \fIfloat\fR[,\fIfloat\fR]
+\fB\-d, \-\-BAF\-dev\fR \fIfloat\fR[,\fIfloat\fR]
 .RS 4
 expected BAF deviation in query and control, i\&.e\&. the noise observed in the data\&.
 .RE
@@ -1824,7 +1833,7 @@ see
 .PP
 \fB\-p, \-\-phase\fR \fIa\fR|\fIm\fR|\fIr\fR|\fIR\fR|\fIs\fR
 .RS 4
-how to construct haplotypes and how to deal with unphased data:
+how to handle unphased heterozygous genotypes:
 .PP
 \fIa\fR
 .RS 4
@@ -1848,7 +1857,7 @@ create non\-reference haplotypes if possible (0/1 → 1|1, 1/2 → 1|2)
 .PP
 \fIs\fR
 .RS 4
-skip unphased GTs
+skip unphased heterozygous GTs
 .RE
 .RE
 .PP
@@ -2678,6 +2687,11 @@ option\&.
 \fB\-G, \-\-read\-groups\fR \fIFILE\fR
 .RS 4
 list of read groups to include or exclude if prefixed with "^"\&. One read group per line\&. This file can also be used to assign new sample names to read groups by giving the new sample name as a second white\-space\-separated field, like this: "read_group_id new_sample_name"\&. If the read group name is not unique, also the bam file name can be included: "read_group_id file_name sample_name"\&. If all reads from the alignment file should be treated as a single sample, the asterisk symbol can be used: "* file_name sample_name"\&. Alignments without a read group ID can be matched with "?"\&.
+\fBNOTE:\fR
+The meaning of
+\fBbcftools mpileup \-G\fR
+is the opposite of
+\fBsamtools mpileup \-G\fR\&.
 .RE
 .sp
 .if n \{\
@@ -3526,12 +3540,6 @@ is from the interval [0,1] and larger is stricter
 .sp
 Extracts fields from VCF or BCF files and outputs them in user\-defined format\&.
 .PP
-\fB\-c, \-\-collapse\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fIsome\fR|\fInone\fR
-.RS 4
-see
-\fBCommon Options\fR
-.RE
-.PP
 \fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
 .RS 4
 exclude sites for which
@@ -3708,6 +3716,28 @@ bcftools query \-f \*(AqGQ:[ %GQ] \et GT:[ %GT]\en\*(Aq file\&.vcf
 .nf
 # Make a BED file: chr, pos (0\-based), end pos (1\-based), id
 bcftools query \-f\*(Aq%CHROM\et%POS0\et%END\et%ID\en\*(Aq file\&.bcf
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Print only samples with alternate (non\-reference) genotypes
+bcftools query \-f\*(Aq[%CHROM:%POS %SAMPLE %GT\en]\*(Aq \-i\*(AqGT="alt"\*(Aq file\&.bcf
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Print all samples at sites with at least one alternate genotype
+bcftools view \-i\*(AqGT="alt"\*(Aq file\&.bcf \-Ou | bcftools query \-f\*(Aq[%CHROM:%POS %SAMPLE %GT\en]\*(Aq
 .fi
 .if n \{\
 .RE
@@ -4594,12 +4624,15 @@ GT="\&.|\&.", GT="\&./\&.", GT="\&."
 .sp -1
 .IP \(bu 2.3
 .\}
-sample genotype: homozygous, heterozygous, haploid, ref\-ref hom, alt\-alt hom, ref\-alt het, alt\-alt het, haploid ref, haploid alt (case\-insensitive)
+sample genotype: reference (haploid or diploid), alternate (hom or het, haploid or diploid), missing genotype, homozygous, heterozygous, haploid, ref\-ref hom, alt\-alt hom, ref\-alt het, alt\-alt het, haploid ref, haploid alt (case\-insensitive)
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
+GT="ref"
+GT="alt"
+GT="mis"
 GT="hom"
 GT="het"
 GT="hap"
@@ -4647,7 +4680,7 @@ TYPE!~"snp"
 .sp -1
 .IP \(bu 2.3
 .\}
-array subscripts (0\-based), "*" for any field, "\-" to indicate a range
+array subscripts (0\-based), "*" for any field, "\-" to indicate a range\&. Note that for querying FORMAT vectors, the colon ":" can be used to select a sample and a subfield
 .sp
 .if n \{\
 .RS 4
@@ -4656,9 +4689,13 @@ array subscripts (0\-based), "*" for any field, "\-" to indicate a range
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0\&.3
 DP4[*] == 0
 CSQ[*] ~ "missense_variant\&.*deleterious"
-FORMAT/DP[1\-3] > 10
-FORMAT/DP[1\-]  < 7
-FORMAT/DP[0,2\-4] > 20
+FORMAT/DP[0]   > 30         \&.\&. DP of the first sample bigger than 30
+FORMAT/DP[1\-3] > 10         \&.\&. samples 2\-4
+FORMAT/DP[1\-]  < 7          \&.\&. all samples but the first
+FORMAT/DP[0,2\-4] > 20       \&.\&. samples 1, 3\-5
+FORMAT/AD[0:1]              \&.\&. first sample, second AD field
+FORMAT/AD[0:*], AD[0:] or AD[0] \&.\&. first sample, any AD field
+FORMAT/AD[*:1] or AD[:1]        \&.\&. any sample, second AD field
 .fi
 .if n \{\
 .RE
@@ -4679,7 +4716,7 @@ function on FORMAT tags (over samples) and INFO tags (over vector fields)
 .RS 4
 .\}
 .nf
-MAX, MIN, AVG, SUM, STRLEN, ABS
+MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT
 .fi
 .if n \{\
 .RE
@@ -4728,7 +4765,7 @@ String comparisons and regular expressions are case\-insensitive
 .sp -1
 .IP \(bu 2.3
 .\}
-If the subscript "*" is used in regular expression search, the whole field is treated as one string\&. For example, the regex STR[*]~"B,C" will be true for the string vector INFO/STR=AB,CD\&.
+Variables and function names are case\-insensitive, but not tag names\&. For example, "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but not "dp" instead of "DP"\&.
 .RE
 .sp
 .RS 4
@@ -4739,7 +4776,24 @@ If the subscript "*" is used in regular expression search, the whole field is tr
 .sp -1
 .IP \(bu 2.3
 .\}
-Variables and function names are case\-insensitive, but not tag names\&. For example, "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but not "dp" instead of "DP"\&.
+When querying multiple subfields, all subfields are tested and the OR logic is used on the result\&. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-i \*(AqTAG[*]=1\*(Aq   \&.\&. true, the record will be printed
+\-i \*(AqTAG[*]!=1\*(Aq  \&.\&. true
+\-e \*(AqTAG[*]=1\*(Aq   \&.\&. false, the record will be discarded
+\-e \*(AqTAG[*]!=1\*(Aq  \&.\&. false
+\-i \*(AqTAG[0]=1\*(Aq   \&.\&. true
+\-i \*(AqTAG[0]!=1\*(Aq  \&.\&. false
+\-e \*(AqTAG[0]=1\*(Aq   \&.\&. false
+\-e \*(AqTAG[0]!=1\*(Aq  \&.\&. true
+.fi
+.if n \{\
+.RE
+.\}
 .RE
 .sp
 \fBExamples:\fR
@@ -4798,7 +4852,7 @@ FMT/DP>10 && FMT/GQ>10 \&.\&. the conditions can be satisfied in different sampl
 .RS 4
 .\}
 .nf
-QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
+QUAL>10 |  FMT/GQ>10   \&.\&. true for sites with QUAL>10 or a sample with GQ>10, but selects only samples with GQ>10
 .fi
 .if n \{\
 .RE
@@ -4808,7 +4862,7 @@ QUAL>10 |  FMT/GQ>10   \&.\&. selects only GQ>10 samples
 .RS 4
 .\}
 .nf
-QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
+QUAL>10 || FMT/GQ>10   \&.\&. true for sites with QUAL>10 or a sample with GQ>10, plus selects all samples at such sites
 .fi
 .if n \{\
 .RE
@@ -4819,6 +4873,16 @@ QUAL>10 || FMT/GQ>10   \&.\&. selects all samples at QUAL>10 sites
 .\}
 .nf
 TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+COUNT(GT="hom")=0
 .fi
 .if n \{\
 .RE

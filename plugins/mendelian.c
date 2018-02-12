@@ -31,8 +31,12 @@
 #include <math.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
+#include <htslib/synced_bcf_reader.h>
 #include <errno.h>
+#include <ctype.h>
+#include <unistd.h>     // for isatty
 #include "bcftools.h"
+#include "regidx.h"
 
 #define MODE_COUNT     1
 #define MODE_LIST_GOOD 2
@@ -46,51 +50,253 @@ typedef struct
 }
 trio_t;
 
+typedef struct
+{
+    int mpl, fpl, cpl;  // ploidies - mother, father, child
+    int mal, fal;       // expect an allele from mother and father
+}
+rule_t;
+
 typedef struct _args_t
 {
+    regidx_t *rules;
+    regitr_t *itr, *itr_ori;
     bcf_hdr_t *hdr;
+    htsFile *out_fh;
     int32_t *gt_arr;
     int mode;
     int ngt_arr, nrec;
     trio_t *trios;
     int ntrios;
+    int output_type;
+    char *output_fname;
+    bcf_srs_t *sr;
 }
 args_t;
 
 static args_t args;
+static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_t *beg, uint32_t *end, void *payload, void *usr);
+static bcf1_t *process(bcf1_t *rec);
 
 const char *about(void)
 {
     return "Count Mendelian consistent / inconsistent genotypes.\n";
 }
 
+typedef struct
+{
+    const char *alias, *about, *rules;
+}
+rules_predef_t;
+
+static rules_predef_t rules_predefs[] =
+{
+    { .alias = "GRCh37",
+      .about = "Human Genome reference assembly GRCh37 / hg19, both chr naming conventions",
+      .rules =
+            "   X:1-60000               M/M + F > M\n"
+            "   X:1-60000               M/M + F > M/F\n"
+            "   X:2699521-154931043     M/M + F > M\n"
+            "   X:2699521-154931043     M/M + F > M/F\n"
+            "   Y:1-59373566            .   + F > F\n"
+            "   MT:1-16569              M   + F > M\n"
+            "\n"
+            "   chrX:1-60000            M/M + F > M\n"
+            "   chrX:1-60000            M/M + F > M/F\n"
+            "   chrX:2699521-154931043  M/M + F > M\n"
+            "   chrX:2699521-154931043  M/M + F > M/F\n"
+            "   chrY:1-59373566         .   + F > F\n"
+            "   chrM:1-16569            M   + F > M\n"
+    },
+    { .alias = "GRCh38",
+      .about = "Human Genome reference assembly GRCh38 / hg38, both chr naming conventions",
+      .rules =
+            "   X:1-9999                M/M + F > M\n"
+            "   X:1-9999                M/M + F > M/F\n"
+            "   X:2781480-155701381     M/M + F > M\n"
+            "   X:2781480-155701381     M/M + F > M/F\n"
+            "   Y:1-57227415            .   + F > F\n"
+            "   MT:1-16569              M   + F > M\n"
+            "\n"
+            "   chrX:1-9999             M/M + F > M\n"
+            "   chrX:1-9999             M/M + F > M/F\n"
+            "   chrX:2781480-155701381  M/M + F > M\n"
+            "   chrX:2781480-155701381  M/M + F > M/F\n"
+            "   chrY:1-57227415         .   + F > F\n"
+            "   chrM:1-16569            M   + F > M\n"
+    },
+    {
+        .alias = NULL,
+        .about = NULL,
+        .rules = NULL,
+    }
+};
+
+
 const char *usage(void)
 {
     return 
         "\n"
         "About: Count Mendelian consistent / inconsistent genotypes.\n"
-        "Usage: bcftools +mendelian [General Options] -- [Plugin Options]\n"
+        "Usage: bcftools +mendelian [Options]\n"
         "Options:\n"
-        "   run \"bcftools plugin\" for a list of common options\n"
-        "\n"
-        "Plugin options:\n"
-        "   -c, --count             count the number of consistent sites\n"
-        "   -d, --delete            delete inconsistent genotypes (set to \"./.\")\n"
-        "   -l, --list [+x]         list consistent (+) or inconsistent (x) sites\n"
-        "   -t, --trio <m,f,c>      names of mother, father and the child\n"
-        "   -T, --trio-file <file>  list of trios, one per line\n"
+        "   -c, --count                 count the number of consistent sites\n"
+        "   -d, --delete                delete inconsistent genotypes (set to \"./.\")\n"
+        "   -l, --list [+x]             list consistent (+) or inconsistent (x) sites\n"
+        "   -o, --output <file>         write output to a file [standard output]\n"
+        "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n"
+        "   -r, --rules <assembly>[?]   predefined rules, 'list' to print available settings, append '?' for details\n"
+        "   -R, --rules-file <file>     inheritance rules, see example below\n"
+        "   -t, --trio <m,f,c>          names of mother, father and the child\n"
+        "   -T, --trio-file <file>      list of trios, one per line\n"
         "\n"
         "Example:\n"
-        "   bcftools +mendelian in.vcf -- -t Mother,Father,Child -c\n"
+        "   # Default inheritance patterns, override with -r\n"
+        "   #   region  mothernal_ploidy + paternal > offspring\n"
+        "   X:1-60000            M/M + F > M\n"
+        "   X:1-60000            M/M + F > M/F\n"
+        "   X:2699521-154931043  M/M + F > M\n"
+        "   X:2699521-154931043  M/M + F > M/F\n"
+        "   Y:1-59373566         .   + F > F\n"
+        "   MT:1-16569           M   + F > M\n"
+        "\n"
+        "   bcftools +mendelian in.vcf -t Mother,Father,Child -c\n"
         "\n";
 }
 
-int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
+regidx_t *init_rules(args_t *args, char *alias)
 {
-    char *trio_samples = NULL, *trio_file = NULL;
+    const rules_predef_t *rules = rules_predefs;
+    if ( !alias ) alias = "GRCh37";
+
+    int detailed = 0, len = strlen(alias);
+    if ( alias[len-1]=='?' ) { detailed = 1; alias[len-1] = 0; }
+
+    while ( rules->alias && strcasecmp(alias,rules->alias) ) rules++;
+
+    if ( !rules->alias )
+    {
+        fprintf(stderr,"\nPRE-DEFINED INHERITANCE RULES\n\n");
+        fprintf(stderr," * Columns are: CHROM:BEG-END MATERNAL_PLOIDY + PATERNAL_PLOIDY > OFFSPRING\n");
+        fprintf(stderr," * Coordinates are 1-based inclusive.\n\n");
+        rules = rules_predefs;
+        while ( rules->alias )
+        {
+            fprintf(stderr,"%s\n   .. %s\n\n", rules->alias,rules->about);
+            if ( detailed )
+                fprintf(stderr,"%s\n", rules->rules);
+            rules++;
+        }
+        fprintf(stderr,"Run as --rules <alias> (e.g. --rules GRCh37).\n");
+        fprintf(stderr,"To see the detailed ploidy definition, append a question mark (e.g. --rules GRCh37?).\n");
+        fprintf(stderr,"\n");
+        exit(-1);
+    }
+    else if ( detailed )
+    {
+        fprintf(stderr,"%s", rules->rules);
+        exit(-1);
+    }
+    return regidx_init_string(rules->rules, parse_rules, NULL, sizeof(rule_t), &args);
+}
+
+static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_t *beg, uint32_t *end, void *payload, void *usr)
+{
+    // e.g. "Y:1-59373566        .   + F > . # daugther"
+
+    // eat any leading spaces
+    char *ss = (char*) line;
+    while ( *ss && isspace(*ss) ) ss++;
+    if ( !*ss ) return -1;      // skip empty lines
+
+    // chromosome name, beg, end
+    char *tmp, *se = ss;
+    while ( se[1] && !isspace(se[1]) ) se++;
+    while ( se > ss && isdigit(*se) ) se--;
+    if ( *se!='-' ) error("Could not parse the region: %s\n", line);
+    *end = strtol(se+1, &tmp, 10) - 1;
+    if ( tmp==se+1 ) error("Could not parse the region:%s\n",line);
+    while ( se > ss && *se!=':' ) se--;
+    *beg = strtol(se+1, &tmp, 10) - 1;
+    if ( tmp==se+1 ) error("Could not parse the region:%s\n",line);
+
+    *chr_beg = ss;
+    *chr_end = se-1;
+
+    // skip region
+    while ( *ss && !isspace(*ss) ) ss++;
+    while ( *ss && isspace(*ss) ) ss++;
+
+    rule_t *rule = (rule_t*) payload;
+    memset(rule, 0, sizeof(rule_t));
+
+    // mothernal ploidy
+    se = ss;
+    while ( *se && !isspace(*se) ) se++;
+    int err = 0;
+    if ( se - ss == 1 )
+    {
+        if ( *ss=='M' ) rule->mpl = 1;
+        else if ( *ss=='.' ) rule->mpl = 0;
+        else err = 1;
+    }
+    else if ( se - ss == 3 )
+    {
+        if ( !strncmp(ss,"M/M",3) ) rule->mpl = 2;
+        else err = 1;
+    }
+    else err = 1;
+    if ( err ) error("Could not parse the mothernal ploidy, only \"M\", \"M/M\" and \".\" currently supported: %s\n",line);
+
+    // skip "+"
+    while ( *se && isspace(*se) ) se++;
+    if ( *se != '+' ) error("Could not parse the line: %s\n",line);
+    se++;
+    while ( *se && isspace(*se) ) se++;
+
+    // paternal ploidy
+    ss = se;
+    while ( *se && !isspace(*se) ) se++;
+    if ( se - ss == 1 )
+    {
+        if ( *ss=='F' ) rule->fpl = 1;
+        else err = 1;
+    }
+    else err = 1;
+    if ( err ) error("Could not parse the paternal ploidy, only \"F\" is currently supported: %s [%s]\n",line, ss);
+
+    // skip ">"
+    while ( *se && isspace(*se) ) se++;
+    if ( *se != '>' ) error("Could not parse the line: %s\n",line);
+    se++;
+    while ( *se && isspace(*se) ) se++;
+
+    // ploidy in offspring
+    ss = se;
+    while ( *se && !isspace(*se) ) se++;
+    if ( se - ss == 3 )
+    {
+        if ( !strncmp(ss,"M/F",3) ) { rule->cpl = 2; rule->fal = 1; rule->mal = 1; }
+        else err = 1;
+    }
+    else if ( se - ss == 1 )
+    {
+        if ( *ss=='F' ) { rule->cpl = 1; rule->fal = 1; }
+        else if ( *ss=='M' ) { rule->cpl = 1; rule->mal = 1; }
+        else err = 1;
+    }
+    else err = 1;
+    if ( err ) error("Could not parse the offspring's ploidy, only \"M\", \"F\" or \"M/F\" is currently supported: %s\n",line);
+
+    return 0;
+}
+
+int run(int argc, char **argv)
+{
+    char *trio_samples = NULL, *trio_file = NULL, *rules_fname = NULL, *rules_string = NULL;
     memset(&args,0,sizeof(args_t));
-    args.hdr  = in;
     args.mode = 0;
+    args.output_fname = "-";
 
     static struct option loptions[] =
     {
@@ -99,13 +305,29 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"delete",0,0,'d'},
         {"list",1,0,'l'},
         {"count",0,0,'c'},
+        {"rules",1,0,'r'},
+        {"rules-file",1,0,'R'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:T:l:cd",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:T:l:cdr:R:o:O:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'o': args.output_fname = optarg; break;
+            case 'O':
+                      switch (optarg[0]) {
+                          case 'b': args.output_type = FT_BCF_GZ; break;
+                          case 'u': args.output_type = FT_BCF; break;
+                          case 'z': args.output_type = FT_VCF_GZ; break;
+                          case 'v': args.output_type = FT_VCF; break;
+                          default: error("The output type \"%s\" not recognised\n", optarg);
+                      };
+                      break;
+            case 'R': rules_fname = optarg; break;
+            case 'r': rules_string = optarg; break;
             case 'd': args.mode |= MODE_DELETE; break;
             case 'c': args.mode |= MODE_COUNT; break;
             case 'l': 
@@ -120,10 +342,34 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             default: error(usage()); break;
         }
     }
-    if ( optind != argc ) error(usage());
+    if ( rules_fname )
+        args.rules = regidx_init(rules_fname, parse_rules, NULL, sizeof(rule_t), &args);
+    else
+        args.rules = init_rules(&args, rules_string);
+    if ( !args.rules ) return -1;
+    args.itr     = regitr_init(args.rules);
+    args.itr_ori = regitr_init(args.rules);
+
+    char *fname = NULL;
+    if ( optind>=argc || argv[optind][0]=='-' )
+    {
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else error(usage());
+    }
+    else
+        fname = argv[optind];
+
     if ( !trio_samples && !trio_file ) error("Expected the -t/T option\n");
     if ( !args.mode ) error("Expected one of the -c, -d or -l options\n");
     if ( args.mode&MODE_DELETE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD;
+
+    args.sr = bcf_sr_init();
+    if ( !bcf_sr_add_reader(args.sr, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args.sr->errnum));
+    args.hdr = bcf_sr_get_header(args.sr, 0);
+    args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
+    if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
+    bcf_hdr_write(args.out_fh, args.hdr);
+
 
     int i, n = 0;
     char **list;
@@ -166,7 +412,46 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         }
         free(list);
     }
-    return args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD) ? 0 : 1;
+
+    while ( bcf_sr_next_line(args.sr) )
+    {
+        bcf1_t *line = bcf_sr_get_line(args.sr,0);
+        line = process(line);
+        if ( line )
+        {
+            if ( line->errcode ) error("TODO: Unchecked error (%d), exiting\n",line->errcode);
+            bcf_write1(args.out_fh, args.hdr, line);
+        }
+    }
+
+
+    fprintf(stderr,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio\n");
+    for (i=0; i<args.ntrios; i++)
+    {
+        trio_t *trio = &args.trios[i];
+        fprintf(stderr,"%d\t%d\t%d\t%s,%s,%s\n", 
+            trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
+            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
+            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
+            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
+            );
+    }
+    free(args.gt_arr);
+    free(args.trios);
+    regitr_destroy(args.itr);
+    regitr_destroy(args.itr_ori);
+    regidx_destroy(args.rules);
+    bcf_sr_destroy(args.sr);
+    if ( hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
+    return 0;
+}
+
+static void warn_ploidy(bcf1_t *rec)
+{
+    static int warned = 0;
+    if ( warned ) return;
+    fprintf(stderr,"Incorrect ploidy at %s:%d, skipping the trio. (This warning is printed only once.)\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+    warned = 1;
 }
 
 bcf1_t *process(bcf1_t *rec)
@@ -174,10 +459,14 @@ bcf1_t *process(bcf1_t *rec)
     bcf1_t *dflt = args.mode&MODE_LIST_GOOD ? rec : NULL;
     args.nrec++;
 
+    if ( rec->n_allele > 63 ) return dflt;      // we use 64bit bitmask below
+
     int ngt = bcf_get_genotypes(args.hdr, rec, &args.gt_arr, &args.ngt_arr);
     if ( ngt<0 ) return dflt;
     if ( ngt!=2*bcf_hdr_nsamples(args.hdr) && ngt!=bcf_hdr_nsamples(args.hdr) ) return dflt;
     ngt /= bcf_hdr_nsamples(args.hdr);
+
+    int itr_set = regidx_overlap(args.rules, bcf_seqname(args.hdr,rec),rec->pos,rec->pos, args.itr_ori);
 
     int i, has_bad = 0, needs_update = 0;
     for (i=0; i<args.ntrios; i++)
@@ -192,80 +481,59 @@ bcf1_t *process(bcf1_t *rec)
         e = args.gt_arr[ngt*trio->ichild];
         f = ngt==2 ? args.gt_arr[ngt*trio->ichild+1] : bcf_int32_vector_end;
 
-        // missing allele in the child: missing data or daugther's chrY
+        // skip sites with missing data in child
         if ( bcf_gt_is_missing(e) || bcf_gt_is_missing(f) ) continue;
 
-        // missing data in father
-        if ( bcf_gt_is_missing(c) || bcf_gt_is_missing(d) ) continue; 
+        uint64_t mother = 0, father = 0,child1,child2;
 
-        uint64_t mother,father,child1,child2;
-
-        // sex chr - father is haploid
-        if ( d==bcf_int32_vector_end )
+        int is_ok = 0;
+        if ( !itr_set )
         {
-            if ( bcf_gt_is_missing(a) && (bcf_gt_is_missing(b) || b==bcf_int32_vector_end) )
-            {
-                // either the child does not match the father or the child is diploid
-                if ( bcf_gt_allele(c)!=bcf_gt_allele(e) || f!=bcf_int32_vector_end )
-                {
-                    trio->nbad++;
-                    has_bad = 1;
-                    if ( args.mode&MODE_DELETE )
-                    {   
-                        args.gt_arr[ngt*trio->imother] = bcf_gt_missing;
-                        if ( b!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->imother+1] = bcf_gt_missing; // should be always true 
-                        args.gt_arr[ngt*trio->ifather] = bcf_gt_missing;
-                        args.gt_arr[ngt*trio->ichild]  = bcf_gt_missing;
-                        if ( ngt==2 ) args.gt_arr[ngt*trio->ichild+1] = bcf_int32_vector_end;
-                        needs_update = 1;
-                    }
-                }
-                else
-                    trio->nok++;
-                continue;
-            }
-            // son's chrX
-            if ( f==bcf_int32_vector_end )
-            {
-                // chrY - no data in mother
-                if ( bcf_gt_allele(e)!=bcf_gt_allele(a) && bcf_gt_allele(e)!=bcf_gt_allele(b) )
-                {
-                    trio->nbad++;
-                    has_bad = 1;
-                    if ( args.mode&MODE_DELETE )
-                    {
-                        args.gt_arr[ngt*trio->imother] = bcf_gt_missing;
-                        if ( ngt==2 ) args.gt_arr[ngt*trio->imother+1] = bcf_gt_missing;
-                        args.gt_arr[ngt*trio->ifather] = bcf_gt_missing;
-                        if ( d!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->ifather+1] = bcf_gt_missing;
-                        args.gt_arr[ngt*trio->ichild]  = bcf_gt_missing;
-                        needs_update = 1;
-                    }
-                }
-                else
-                    trio->nok++;
-                continue;
-            }
+            if ( f==bcf_int32_vector_end ) { warn_ploidy(rec); continue; }
 
-            // skip genotypes which do not fit in a 64bit bitmask
-            if ( bcf_gt_allele(a) > 63 || bcf_gt_allele(b) > 63 || bcf_gt_allele(c) > 63 ) continue; 
-            if ( bcf_gt_allele(e) > 63 || bcf_gt_allele(f) > 63 ) continue; 
-
-            // daughter's chrX
-            mother = (1<<bcf_gt_allele(a)) | (1<<bcf_gt_allele(b));
-            father = 1<<bcf_gt_allele(c);
+            // All M,F,C genotypes are diploid. Missing data are considered consistent.
             child1 = 1<<bcf_gt_allele(e);
             child2 = 1<<bcf_gt_allele(f);
+            mother  = bcf_gt_is_missing(a) ? child1|child2 : 1<<bcf_gt_allele(a);
+            mother |= bcf_gt_is_missing(b) || b==bcf_int32_vector_end ? child1|child2 : 1<<bcf_gt_allele(b);
+            father  = bcf_gt_is_missing(c) ? child1|child2 : 1<<bcf_gt_allele(c);
+            father |= bcf_gt_is_missing(d) || d==bcf_int32_vector_end ? child1|child2 : 1<<bcf_gt_allele(d);
+
+            if ( (mother&child1 && father&child2) || (mother&child2 && father&child1) ) is_ok = 1;
         }
         else
         {
-            mother = (1<<bcf_gt_allele(a)) | (1<<bcf_gt_allele(b));
-            father = (1<<bcf_gt_allele(c)) | (1<<bcf_gt_allele(d));
-            child1 = 1<<bcf_gt_allele(e);
-            child2 = 1<<bcf_gt_allele(f);
-        }
+            child1  = 1<<bcf_gt_allele(e);
+            child2  = bcf_gt_is_missing(f) || f==bcf_int32_vector_end ? 0 : 1<<bcf_gt_allele(f);
+            mother |= bcf_gt_is_missing(a) ? 0 : 1<<bcf_gt_allele(a);
+            mother |= bcf_gt_is_missing(b) || b==bcf_int32_vector_end ? 0 : 1<<bcf_gt_allele(b);
+            father |= bcf_gt_is_missing(c) ? 0 : 1<<bcf_gt_allele(c);
+            father |= bcf_gt_is_missing(d) || d==bcf_int32_vector_end ? 0 : 1<<bcf_gt_allele(d);
 
-        if ( (mother&child1 && father&child2) || (mother&child2 && father&child1) )
+            regitr_copy(args.itr, args.itr_ori);
+            while ( !is_ok && regitr_overlap(args.itr) )
+            {
+                rule_t *rule = &regitr_payload(args.itr,rule_t);
+                if ( child1 && child2 )
+                {
+                    if ( !rule->mal || !rule->fal ) continue;   // wrong rule (haploid), but this is a diploid GT
+                    if ( !mother ) mother = child1|child2;
+                    if ( !father ) father = child1|child2;
+                    if ( (mother&child1 && father&child2) || (mother&child2 && father&child1) ) is_ok = 1; 
+                    continue;
+                }
+                if ( rule->mal )
+                {
+                    if ( mother && !(child1&mother) ) continue;
+                }
+                if ( rule->fal )
+                {
+                    if ( father && !(child1&father) ) continue;
+                }
+                is_ok = 1;
+            }
+        }
+        if ( is_ok )
         {
             trio->nok++;
         }
@@ -295,24 +563,4 @@ bcf1_t *process(bcf1_t *rec)
 
     return NULL;
 }
-
-void destroy(void)
-{
-    int i;
-    fprintf(stderr,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio\n");
-    for (i=0; i<args.ntrios; i++)
-    {
-        trio_t *trio = &args.trios[i];
-        fprintf(stderr,"%d\t%d\t%d\t%s,%s,%s\n", 
-            trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
-            );
-    }
-    free(args.gt_arr);
-    free(args.trios);
-}
-
-
 

@@ -16,3 +16,4 @@
 1	1006	.	CC	CC	.	PASS	.	GT	0/0	0/1	1/1
 1	1006	.	C	G,T	.	PASS	.	GT	0/0	1/1	2/2
 X	1000	.	C	A	.	PASS	.	GT	0/0	0	1
+X	1001	.	C	A	.	PASS	.	GT	./.	0	.

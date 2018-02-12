@@ -93,7 +93,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.6
+PACKAGE_VERSION = 1.7
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
@@ -148,7 +148,7 @@ PLATFORM := $(shell uname -s)
 endif
 ifeq "$(PLATFORM)" "Darwin"
 $(PLUGINS): | bcftools
-PLUGIN_FLAGS = -bundle -bundle_loader bcftools
+PLUGIN_FLAGS = -bundle -bundle_loader bcftools -Wl,-undefined,dynamic_lookup
 else
 PLUGIN_FLAGS = -fPIC -shared
 endif
@@ -272,7 +272,7 @@ docs: doc/bcftools.1 doc/bcftools.html
 # bcftools.1 is a generated file from the asciidoc bcftools.txt file.
 # Since there is no make dependency, bcftools.1 can be out-of-date and
 # make docs can be run to update if asciidoc is available
-install: $(PROG) $(PLUGINS)
+install: $(PROGRAMS) $(PLUGINS)
 	$(INSTALL_DIR) $(DESTDIR)$(bindir) $(DESTDIR)$(man1dir) $(DESTDIR)$(plugindir)
 	$(INSTALL_PROGRAM) $(PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_SCRIPT) $(MISC_SCRIPTS) $(DESTDIR)$(misc_bindir)
@@ -280,7 +280,7 @@ install: $(PROG) $(PLUGINS)
 	$(INSTALL_PROGRAM) plugins/*.so $(DESTDIR)$(plugindir)
 
 clean: testclean clean-plugins
-	-rm -f gmon.out *.o *~ $(PROG) version.h plugins/*.so plugins/*.P
+	-rm -f gmon.out *.o *~ $(PROGRAMS) version.h plugins/*.so plugins/*.P
 	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
 
 clean-plugins:
@@ -288,7 +288,7 @@ clean-plugins:
 	-rm -rf plugins/*.dSYM
 
 testclean:
-	-rm -f test/*.o test/*~ $(TEST_PROG)
+	-rm -f test/*.o test/*~ $(TEST_PROGRAMS)
 
 distclean: clean
 	-rm -f config.cache config.h config.log config.mk config.status

@@ -1,6 +1,7 @@
 ##fileformat=VCFv4.1
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##reference=file://some/path/human_g1k_v37.fasta
 ##contig=<ID=X,assembly=b37,length=155270560>
 ##bcftools_normVersion=1.2+htslib-1.2.1
 ##bcftools_normCommand=norm -m - convert.vcf

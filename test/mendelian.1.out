@@ -13,6 +13,9 @@
 1	100	.	A	G	100	PASS	.	GT	0/0	0/0	0/0
 1	101	.	A	G	100	PASS	.	GT	./.	./.	./.
 1	102	.	A	G	100	PASS	.	GT	./.	./.	./.
+1	103	.	A	G	100	PASS	.	GT	./.	./.	./.
+1	104	.	A	G	100	PASS	.	GT	.	./.	./.
+1	105	.	A	G	100	PASS	.	GT	.	0/0	0/1
 2	200	.	A	G	100	PASS	.	GT	0/0	0/1	0/0
 2	201	.	A	G	100	PASS	.	GT	0/0	0/1	0/1
 2	202	.	A	G	100	PASS	.	GT	./.	./.	./.
@@ -32,6 +35,8 @@ X	100	.	A	G	100	PASS	.	GT	0/0	1	0
 X	101	.	A	G	100	PASS	.	GT	./.	.	.
 X	102	.	A	G	100	PASS	.	GT	0/0	1	0/1
 X	103	.	A	G	100	PASS	.	GT	./.	.	./.
+X	104	.	A	G	100	PASS	.	GT	.	0	1
+X	105	.	A	G	100	PASS	.	GT	.	0	0/1
 Y	101	.	A	G	100	PASS	.	GT	.	0	0
 Y	102	.	A	G	100	PASS	.	GT	.	.	.
 Y	103	.	A	G	100	PASS	.	GT	.	0	.

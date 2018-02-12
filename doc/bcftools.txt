@@ -356,6 +356,9 @@ Add or remove annotations.
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*-k, --keep-sites*::
+    keep sites wich do not pass *-i* and *-e* expressions instead of discarding them
+
 *-m, --mark-sites* [+-]'TAG'::
     annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
 
@@ -639,7 +642,7 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *-b, --BAF-weight* 'float'::
     relative contribution from BAF
 
-*d, --BAF-dev* 'float'[,'float']::
+*-d, --BAF-dev* 'float'[,'float']::
     expected BAF deviation in query and control, i.e. the noise observed
     in the data.
 
@@ -1085,7 +1088,7 @@ output VCF and are ignored for the prediction analysis.
     plain text output can be printed ('t').
 
 *-p, --phase* 'a'|'m'|'r'|'R'|'s'::
-    how to construct haplotypes and how to deal with unphased data:
+    how to handle unphased heterozygous genotypes:
 
         'a';;
             take GTs as is, create haplotypes regardless of phase (0/1 -> 0|1)
@@ -1100,7 +1103,7 @@ output VCF and are ignored for the prediction analysis.
             create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)
 
         's';;
-            skip unphased GTs
+            skip unphased heterozygous GTs
 
 *-q, --quiet*::
     suppress warning messages
@@ -1625,7 +1628,8 @@ multiple regions and many alignment files are processed.
     be included: "read_group_id file_name sample_name".  If all
     reads from the alignment file should be treated as a single sample, the
     asterisk symbol can be used: "* file_name sample_name". Alignments without
-    a read group ID can be matched with "?".
+    a read group ID can be matched with "?". *NOTE:* The meaning of *bcftools mpileup -G*
+    is the opposite of *samtools mpileup -G*.
 ----
     RG_ID_1
     RG_ID_2  SAMPLE_A
@@ -2133,9 +2137,6 @@ file for help.
 === bcftools query ['OPTIONS'] 'file.vcf.gz' ['file.vcf.gz' [...]]
 Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
-*-c, --collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
-    see *<<common_options,Common Options>>*
-
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -2217,6 +2218,12 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
     # Make a BED file: chr, pos (0-based), end pos (1-based), id
     bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n' file.bcf
+
+    # Print only samples with alternate (non-reference) genotypes
+    bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i'GT="alt"' file.bcf
+
+    # Print all samples at sites with at least one alternate genotype
+    bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
@@ -2709,9 +2716,14 @@ using these expressions
 
         GT=".|.", GT="./.", GT="."
 
-* sample genotype: homozygous, heterozygous, haploid, ref-ref hom, alt-alt hom,
-ref-alt het, alt-alt het, haploid ref, haploid alt (case-insensitive)
+* sample genotype: reference (haploid or diploid), alternate (hom or het,
+haploid or diploid), missing genotype, homozygous, heterozygous, haploid,
+ref-ref hom, alt-alt hom, ref-alt het, alt-alt het, haploid ref, haploid alt
+(case-insensitive)
 
+        GT="ref"
+        GT="alt"
+        GT="mis"
         GT="hom"
         GT="het"
         GT="hap"
@@ -2731,18 +2743,23 @@ to require that all alleles are of the given type. Compare
         TYPE!="snp"
         TYPE!~"snp"
 
-* array subscripts (0-based), "*" for any field, "-" to indicate a range
+* array subscripts (0-based), "*" for any field, "-" to indicate a range. Note that
+for querying FORMAT vectors, the colon ":" can be used to select a sample and a subfield
 
         (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
         DP4[*] == 0
         CSQ[*] ~ "missense_variant.*deleterious"
-        FORMAT/DP[1-3] > 10
-        FORMAT/DP[1-]  < 7
-        FORMAT/DP[0,2-4] > 20
+        FORMAT/DP[0]   > 30         .. DP of the first sample bigger than 30
+        FORMAT/DP[1-3] > 10         .. samples 2-4
+        FORMAT/DP[1-]  < 7          .. all samples but the first
+        FORMAT/DP[0,2-4] > 20       .. samples 1, 3-5
+        FORMAT/AD[0:1]              .. first sample, second AD field
+        FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
+        FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
 
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
-        MAX, MIN, AVG, SUM, STRLEN, ABS
+        MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT
 
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
@@ -2756,12 +2773,20 @@ number of samples with missing genotype; fraction of samples with missing genoty
 .Notes:
 
 * String comparisons and regular expressions are case-insensitive
-* If the subscript "\*" is used in regular expression search, the
-whole field is treated as one string. For example, the regex STR[*]~"B,C" will be
-true for the string vector INFO/STR=AB,CD.
 * Variables and function names are case-insensitive, but not tag names. For example,
 "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
 not "dp" instead of "DP".
+* When querying multiple subfields, all subfields are tested and the OR logic is
+used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
+
+    -i 'TAG[*]=1'   .. true, the record will be printed
+    -i 'TAG[*]!=1'  .. true
+    -e 'TAG[*]=1'   .. false, the record will be discarded
+    -e 'TAG[*]!=1'  .. false
+    -i 'TAG[0]=1'   .. true
+    -i 'TAG[0]!=1'  .. false
+    -e 'TAG[0]=1'   .. false
+    -e 'TAG[0]!=1'  .. true
 
 
 *Examples:*
@@ -2777,11 +2802,13 @@ not "dp" instead of "DP".
 
     FMT/DP>10 && FMT/GQ>10 .. the conditions can be satisfied in different samples
 
-    QUAL>10 |  FMT/GQ>10   .. selects only GQ>10 samples
+    QUAL>10 |  FMT/GQ>10   .. true for sites with QUAL>10 or a sample with GQ>10, but selects only samples with GQ>10
 
-    QUAL>10 || FMT/GQ>10   .. selects all samples at QUAL>10 sites
+    QUAL>10 || FMT/GQ>10   .. true for sites with QUAL>10 or a sample with GQ>10, plus selects all samples at such sites
 
     TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
+
+    COUNT(GT="hom")=0
 
     MIN(DP)>35 && AVG(GQ)>50
 

@@ -1,0 +1,26 @@
+1	ensembl_havana	gene	-254	42704	.	+	.	ID=gene:ENSG00000143337;Name=TOR1AIP1;biotype=protein_coding;description=torsin A interacting protein 1 [Source:HGNC Symbol%3BAcc:29456];gene_id=ENSG00000143337;logic_name=ensembl_havana_gene;version=14
+1	ensembl_havana	transcript	1	36981	.	+	.	ID=transcript:ENST00000271583;Parent=gene:ENSG00000143337;Name=TOR1AIP1-011;biotype=protein_coding;havana_transcript=OTTHUMT00000393092;havana_version=1;tag=basic;transcript_id=ENST00000271583;version=3
+1	havana	five_prime_UTR	1	206	.	+	.	Parent=transcript:ENST00000271583
+1	havana	exon	1	681	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00002179326;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00002179326;rank=1;version=1
+1	havana	CDS	207	681	.	+	0	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	2396	2473	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003536688;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003536688;rank=2;version=1
+1	havana	CDS	2396	2473	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	7014	7073	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003591554;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003591554;rank=3;version=1
+1	havana	CDS	7014	7073	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	17830	17871	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003633018;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003633018;rank=4;version=1
+1	havana	CDS	17830	17871	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	19006	19092	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003483184;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003483184;rank=5;version=1
+1	havana	CDS	19006	19092	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	21670	21726	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003703708;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003703708;rank=6;version=1
+1	havana	CDS	21670	21726	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	25527	25568	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003707546;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003707546;rank=7;version=1
+1	havana	CDS	25527	25568	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	26309	26377	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003711472;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003711472;rank=8;version=1
+1	havana	CDS	26309	26377	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	31290	31334	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00002193587;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00002193587;rank=9;version=1
+1	havana	CDS	31290	31334	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	31702	31758	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00003633147;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003633147;rank=10;version=1
+1	havana	CDS	31702	31758	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	CDS	35156	35943	.	+	2	ID=CDS:ENSP00000271583;Parent=transcript:ENST00000271583;protein_id=ENSP00000271583
+1	havana	exon	35156	36981	.	+	.	Parent=transcript:ENST00000271583;Name=ENSE00002189988;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00002189988;rank=11;version=1
+1	havana	three_prime_UTR	35944	36981	.	+	.	Parent=transcript:ENST00000271583

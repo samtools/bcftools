@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=SR,Number=R,Type=String,Description="String with variable fields">
+##FORMAT=<ID=FR,Number=R,Type=Float,Description="Float with variable fields">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FILTER=<ID=q20,Description="Mapping quality below 20">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C
+1	3162007	.	A	C	.	.	.	DP:AD:FR:SR	1:1,11:1,11:1a,11b	.	.
+1	3162007	.	A	C	.	.	.	DP:AD:FR:SR	.	2:2,11:2,11:2a,11b	.
+1	3162007	.	A	C	.	.	.	DP:AD:FR:SR	.	.	3:3,11:3,11:3a,11b

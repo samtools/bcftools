@@ -44,6 +44,7 @@
 #define SET_NS      (1<<6)
 #define SET_MAF     (1<<7)
 #define SET_HWE     (1<<8)
+#define SET_ExcHet  (1<<9)
 
 typedef struct
 {
@@ -78,20 +79,21 @@ static args_t *args;
 
 const char *about(void)
 {
-    return "Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS.\n";
+    return "Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS.\n";
 }
 
 const char *usage(void)
 {
     return 
         "\n"
-        "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS.\n"
+        "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS.\n"
         "Usage: bcftools +fill-tags [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
         "   -d, --drop-missing          do not count half-missing genotypes \"./1\" as hemizygous\n"
+        "   -l, --list-tags             list available tags with description\n"
         "   -t, --tags LIST             list of output tags. By default, all tags are filled.\n"
         "   -S, --samples-file FILE     list of samples (first column) and comma-separated list of populations (second column)\n"
         "\n"
@@ -224,6 +226,7 @@ int parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"AF") ) flag |= SET_AF;
         else if ( !strcasecmp(tags[i],"MAF") ) flag |= SET_MAF;
         else if ( !strcasecmp(tags[i],"HWE") ) flag |= SET_HWE;
+        else if ( !strcasecmp(tags[i],"ExcHet") ) flag |= SET_ExcHet;
         else
         {
             fprintf(stderr,"Error parsing \"--tags %s\": the tag \"%s\" is not supported\n", str,tags[i]);
@@ -242,6 +245,22 @@ void hdr_append(args_t *args, char *fmt)
         bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
 }
 
+void list_tags(void)
+{
+    error(
+        "INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
+        "INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes\n"
+        "INFO/NS       Number:1  Type:Integer  ..  Number of samples with data\n"
+        "INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes\n"
+        "INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes\n"
+        "INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
+        "INFO/AF       Number:A  Type:Float    ..  Allele frequency\n"
+        "INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency\n"
+        "INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306)\n"
+        "INFO/ExcHet   Number:A  Type:Float    ..  Probability of excess heterozygosity\n"
+        );
+}
+
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     args = (args_t*) calloc(1,sizeof(args_t));
@@ -250,16 +269,18 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     char *samples_fname = NULL;
     static struct option loptions[] =
     {
+        {"list-tags",0,0,'l'},
         {"drop-missing",0,0,'d'},
         {"tags",1,0,'t'},
         {"samples-file",1,0,'S'},
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:dS:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:dS:l",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'l': list_tags(); break;
             case 'd': args->drop_missing = 1; break;
             case 't': args->tags |= parse_tags(args,optarg); break;
             case 'S': samples_fname = optarg; break;
@@ -275,7 +296,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->gt_id<0 ) error("Error: GT field is not present\n");
 
     if ( !args->tags )
-        for (c=0; c<=8; c++) args->tags |= 1<<c;    // by default all tags will be filled
+        for (c=0; c<=9; c++) args->tags |= 1<<c;    // by default all tags will be filled
 
     if ( samples_fname ) parse_samples(args, samples_fname);
     init_pops(args);
@@ -289,6 +310,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_AF ) hdr_append(args, "##INFO=<ID=AF%s,Number=A,Type=Float,Description=\"Allele frequency%s%s\">");
     if ( args->tags & SET_MAF ) hdr_append(args, "##INFO=<ID=MAF%s,Number=A,Type=Float,Description=\"Minor Allele frequency%s%s\">");
     if ( args->tags & SET_HWE ) hdr_append(args, "##INFO=<ID=HWE%s,Number=A,Type=Float,Description=\"HWE test%s%s (PMID:15789306)\">");
+    if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Probability of excess heterozygosity\">");
 
     return 0;
 }
@@ -301,7 +323,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     nhet .. number of het genotypes, assuming number of genotypes = (nref+nalt)*2
 
 */
-float calc_hwe(args_t *args, int nref, int nalt, int nhet)
+
+void calc_hwe(args_t *args, int nref, int nalt, int nhet, float *p_hwe, float *p_exc_het)
 {
     int ngt   = (nref+nalt) / 2;
     int nrare = nref < nalt ? nref : nalt;
@@ -352,14 +375,18 @@ float calc_hwe(args_t *args, int nref, int nalt, int nhet)
 
     for (het=0; het<nrare+1; het++) probs[het] /= sum;
 
-    double p_rank = 0.0;
+    double prob = probs[nhet];
+    for (het = nhet + 1; het <= nrare; het++) prob += probs[het];
+    *p_exc_het = prob;
+
+    prob = 0;
     for (het=0; het <= nrare; het++)
     {
         if ( probs[het] > probs[nhet]) continue;
-        p_rank += probs[het];
+        prob += probs[het];
     }
-
-    return p_rank > 1 ? 1.0 : p_rank;
+    if ( prob > 1 ) prob = 1;
+    *p_hwe = prob;
 }
 
 static inline void set_counts(pop_t *pop, int is_half, int is_hom, int is_hemi, int als)
@@ -395,7 +422,7 @@ bcf1_t *process(bcf1_t *rec)
     if ( !fmt_gt ) return rec;    // no GT tag
 
     hts_expand(int32_t,rec->n_allele, args->miarr, args->iarr);
-    hts_expand(float,rec->n_allele, args->mfarr, args->farr);
+    hts_expand(float,rec->n_allele*2, args->mfarr, args->farr);
     for (i=0; i<args->npop; i++)
         hts_expand(counts_t,rec->n_allele,args->pop[i].mcounts, args->pop[i].counts);
 
@@ -570,14 +597,16 @@ bcf1_t *process(bcf1_t *rec)
                 error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
         }
     }
-    if ( args->tags & SET_HWE )
+    if ( args->tags & (SET_HWE|SET_ExcHet) )
     {
         for (i=0; i<args->npop; i++)
         {
+            float *fhwe = args->farr;
+            float *fexc_het = args->farr + rec->n_allele;
             if ( rec->n_allele > 1 )
             {
                 pop_t *pop = &args->pop[i];
-                memset(args->farr, 0, sizeof(*args->farr)*(rec->n_allele-1));
+                memset(args->farr,  0, sizeof(*args->farr)*(2*rec->n_allele));
                 int nref_tot = pop->counts[0].nhom;
                 for (j=0; j<rec->n_allele; j++) nref_tot += pop->counts[j].nhet;   // NB this neglects multiallelic genotypes
                 for (j=1; j<rec->n_allele; j++) 
@@ -585,13 +614,26 @@ bcf1_t *process(bcf1_t *rec)
                     int nref = nref_tot - pop->counts[j].nhet;
                     int nalt = pop->counts[j].nhet + pop->counts[j].nhom;
                     int nhet = pop->counts[j].nhet;
-                    args->farr[j-1] = (nref>0 && nalt>0) ? calc_hwe(args, nref, nalt, nhet) : 1;
+                    if ( nref>0 && nalt>0 )
+                        calc_hwe(args, nref, nalt, nhet, &fhwe[j-1], &fexc_het[j-1]);
+                    else
+                        fhwe[j-1] = fexc_het[j-1] = 1;
                 }
             }
-            args->str.l = 0;
-            ksprintf(&args->str, "HWE%s", args->pop[i].suffix);
-            if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+            if ( args->tags & SET_HWE )
+            {
+                args->str.l = 0;
+                ksprintf(&args->str, "HWE%s", args->pop[i].suffix);
+                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,fhwe,rec->n_allele-1)!=0 )
+                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+            }
+            if ( args->tags & SET_ExcHet )
+            {
+                args->str.l = 0;
+                ksprintf(&args->str, "ExcHet%s", args->pop[i].suffix);
+                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,fexc_het,rec->n_allele-1)!=0 )
+                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+            }
         }
     }
 

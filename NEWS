@@ -1,3 +1,40 @@
+## Release 1.7 (February 2018)
+
+* `-i, -e` filtering: Major revamp, improved filtering by FORMAT fields
+  and missing values. New GT=ref,alt,mis etc keywords, check the documenation
+  for details.
+
+* `query`: Only matching expression are printed when both the -f and -i/-e
+  expressions contain genotype fields. Note that this changes the original
+  behavior. Previously all samples were output when one matching sample was
+  found. This functionality can be achieved by pre-filtering with view and then
+  streaming to query. Compare
+        bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i'GT="alt"' file.bcf
+  and
+        bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
+
+* `annotate`: New -k, --keep-sites option
+
+* `consensus`: Fix --iupac-codes output
+
+* `csq`: Homs always considered phased and other fixes
+
+* `norm`: Make `-c none` work and remove `query -c`
+
+* `roh`: Fix errors in the RG output
+
+* `stats`: Allow IUPAC ambiguity codes in the reference file; report the number of missing genotypes
+
+* `+fill-tags`: Add ExcHet annotation
+
+* `+setGt`: Fix bug in binom.test calculation, previously it worked only for nAlt<nRef!
+
+* `+split`: New plugin to split a multi-sample file into single-sample files in one go
+
+* Improve python3 compatibility in plotting scripts
+
+
+
 ## Release 1.6 (September 2017)
 
 * New `sort` command.

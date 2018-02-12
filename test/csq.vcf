@@ -1,6 +1,7 @@
 ##fileformat=VCFv4.2
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##reference=file://some/path/human_g1k_v37.fasta
+##INFO=<ID=EXP,Number=.,Type=String,Description="Expected consequence">
 ##contig=<ID=1,length=2147483647>
 ##contig=<ID=2,length=2147483647>
 ##contig=<ID=3,length=2147483647>

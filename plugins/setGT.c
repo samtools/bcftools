@@ -55,7 +55,7 @@ typedef struct
     filter_t *filter;
     char *filter_str;
     int filter_logic;
-    const uint8_t *smpl_pass;
+    uint8_t *smpl_pass;
     double binom_val;
     char *binom_tag;
     cmp_f binom_cmp;
@@ -120,27 +120,40 @@ const char *usage(void)
         "\n";
 }
 
+static void _parse_binom_expr_error(char *str)
+{
+    error(
+            "Error parsing the expression: %s\n"
+            "Expected TAG CMP VAL, where\n"
+            "   TAG .. one of the format tags\n"
+            "   CMP .. operator, one of <, <=, >, >=\n"
+            "   VAL .. value\n"
+            "For example:\n"
+            "   bcftools +setGT in.vcf -- -t \"b:AD>1e-3\" -n 0\n"
+            "\n", str
+         );
+}
 void parse_binom_expr(args_t *args, char *str)
 {
-    if ( str[1]!=':' ) goto err;
+    if ( str[1]!=':' ) _parse_binom_expr_error(str);
 
     char *beg = str+2;
     while ( *beg && isspace(*beg) ) beg++;
-    if ( !*beg ) goto err;
+    if ( !*beg ) _parse_binom_expr_error(str);
     char *end = beg;
     while ( *end )
     {
         if ( isspace(*end) || *end=='<' || *end=='=' || *end=='>' ) break;
         end++;
     }
-    if ( !*end ) goto err;
+    if ( !*end ) _parse_binom_expr_error(str);
     args->binom_tag = (char*) calloc(1,end-beg+1);
     memcpy(args->binom_tag,beg,end-beg);
     int tag_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,args->binom_tag);
     if ( !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,tag_id) ) error("The FORMAT tag \"%s\" is not present in the VCF\n", args->binom_tag);
     
     while ( *end && isspace(*end) ) end++;
-    if ( !*end ) goto err;
+    if ( !*end ) _parse_binom_expr_error(str);
 
     if ( !strncmp(end,"<=",2) ) { args->binom_cmp = cmp_le; beg = end+2; }
     else if ( !strncmp(end,">=",2) ) { args->binom_cmp = cmp_ge; beg = end+2; }
@@ -148,29 +161,17 @@ void parse_binom_expr(args_t *args, char *str)
     else if ( !strncmp(end,"<",1) ) { args->binom_cmp = cmp_lt; beg = end+1; }
     else if ( !strncmp(end,">",1) ) { args->binom_cmp = cmp_gt; beg = end+1; }
     else if ( !strncmp(end,"=",1) ) { args->binom_cmp = cmp_eq; beg = end+1; }
-    else goto err;
+    else _parse_binom_expr_error(str);
 
     while ( *beg && isspace(*beg) ) beg++;
-    if ( !*beg ) goto err;
+    if ( !*beg ) _parse_binom_expr_error(str);
 
     args->binom_val = strtod(beg, &end);
     while ( *end && isspace(*end) ) end++;
-    if ( *end ) goto err;
+    if ( *end ) _parse_binom_expr_error(str);
 
     args->tgt_mask |= GT_BINOM;
     return;
-
-err:
-    error(
-        "Error parsing the expression: %s\n"
-        "Expected TAG CMP VAL, where\n"
-        "   TAG .. one of the format tags\n"
-        "   CMP .. operator, one of <, <=, >, >=\n"
-        "   VAL .. value\n"
-        "For example:\n"
-        "   bcftools +setGT in.vcf -- -t \"b:AD>1e-3\" -n 0\n"
-        "\n", str
-        );
 }
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
@@ -271,13 +272,12 @@ static inline int set_gt(int32_t *ptr, int ngts, int gt)
 
 static inline double calc_binom(int na, int nb)
 {
-    int N = na + nb;
-    if ( !N ) return 1;
+    if ( na + nb == 0 ) return 1;
 
     /*
         kfunc.h implements kf_betai, which is the regularized beta function I_x(a,b) = P(X<=a/(a+b))
     */
-    double prob = 2 * kf_betai(na, nb+1, 0.5);
+    double prob = na > nb ? 2*kf_betai(na, nb + 1, 0.5) : 2*kf_betai(nb, na + 1, 0.5);
     if ( prob > 1 ) prob = 1;
 
     return prob;
@@ -326,7 +326,7 @@ bcf1_t *process(bcf1_t *rec)
     // replace gts
     if ( nbinom && ngts>=2 )    // only diploid genotypes are considered: higher ploidy ignored further, haploid here
     {
-        if ( args->filter ) filter_test(args->filter,rec,&args->smpl_pass);
+        if ( args->filter ) filter_test(args->filter,rec,(const uint8_t **)&args->smpl_pass);
         for (i=0; i<rec->n_sample; i++)
         {
             if ( args->smpl_pass )
@@ -354,16 +354,29 @@ bcf1_t *process(bcf1_t *rec)
     }
     else if ( args->tgt_mask&GT_QUERY )
     {
-        int pass_site = filter_test(args->filter,rec,&args->smpl_pass);
-        if ( (pass_site && args->filter_logic==FLT_EXCLUDE) || (!pass_site && args->filter_logic==FLT_INCLUDE) ) return rec;
+        int pass_site = filter_test(args->filter,rec,(const uint8_t **)&args->smpl_pass);
+        if ( pass_site && args->filter_logic==FLT_EXCLUDE )
+        {
+            // -i can include a site but exclude a sample, -e exclude a site but include a sample
+            if ( pass_site )
+            {
+                if ( !args->smpl_pass ) return rec;
+                pass_site = 0;
+                for (i=0; i<rec->n_sample; i++)
+                {
+                    if ( args->smpl_pass[i] ) args->smpl_pass[i] = 0;
+                    else { args->smpl_pass[i] = 1; pass_site = 1; }
+                }
+                if ( !pass_site ) return rec;
+            }
+            else if ( args->smpl_pass )
+                for (i=0; i<rec->n_sample; i++) args->smpl_pass[i] = 1;
+        }
+        else if ( !pass_site ) return rec;
+
         for (i=0; i<rec->n_sample; i++)
         {
-            if ( args->smpl_pass )
-            {
-                if ( !args->smpl_pass[i] && args->filter_logic==FLT_INCLUDE ) continue;
-                if (  args->smpl_pass[i] && args->filter_logic==FLT_EXCLUDE ) continue;
-            }
-
+            if ( !args->smpl_pass[i] ) continue;
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(args->gts + i*ngts, ngts);
             else

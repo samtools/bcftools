@@ -1,8 +1,12 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2014 Genome Research Ltd.
+# Plot the output of "bcftools +guess-ploidy -v"
 #
-#   Author: Petr Danecek <pd3@sanger.ac.uk>
+# The MIT License
+#
+# Copyright (C) 2012-2018 Genome Research Ltd.
+#
+# Author: Petr Danecek <pd3@sanger.ac.uk>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -871,7 +875,7 @@ sub plot_per_sample_stats
             with open('$img.dat', 'r') as f:
             \\treader = csv.reader(f, 'tab')
             \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append(row)
+            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row[:7]] + [row[7]])
 
             if plot_tstv_by_sample:
             \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
@@ -1010,7 +1014,7 @@ sub plot_DP
             with open('$img.dat', 'r') as f:
             \\treader = csv.reader(f, 'tab')
             \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append(row)
+            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
 
             if plot_dp_dist:
             \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))

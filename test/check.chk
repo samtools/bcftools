@@ -85,10 +85,10 @@ DP	0	32	4	11.111111	0	0.000000
 DP	0	35	4	11.111111	0	0.000000
 DP	0	60	0	0.000000	1	33.333333
 DP	0	62	0	0.000000	2	66.666667
-# PSC, Per-sample counts. Note that the ref/het/hom counts include only SNPs, for indels see PSI. Haploid counts include both SNPs and indels.
-# PSC	[2]id	[3]sample	[4]nRefHom	[5]nNonRefHom	[6]nHets	[7]nTransitions	[8]nTransversions	[9]nIndels	[10]average depth	[11]nSingletons	[12]nHapRef	[13]nHapAlt
-PSC	0	A	0	2	4	3	2	9	28.7	1	0	0
-PSC	0	B	1	1	4	2	2	9	28.7	0	0	0
+# PSC, Per-sample counts. Note that the ref/het/hom counts include only SNPs, for indels see PSI. The rest include both SNPs and indels.
+# PSC	[2]id	[3]sample	[4]nRefHom	[5]nNonRefHom	[6]nHets	[7]nTransitions	[8]nTransversions	[9]nIndels	[10]average depth	[11]nSingletons	[12]nHapRef	[13]nHapAlt	[14]nMissing
+PSC	0	A	0	2	4	3	2	9	28.7	1	0	0	0
+PSC	0	B	1	1	4	2	2	9	28.7	0	0	0	0
 # PSI, Per-Sample Indels
 # PSI	[2]id	[3]sample	[4]in-frame	[5]out-frame	[6]not applicable	[7]out/(in+out) ratio	[8]nHets	[9]nAA
 PSI	0	A	0	0	0	0.00	9	0

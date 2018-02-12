@@ -1,5 +1,6 @@
 ##fileformat=VCFv4.1
 ##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///some/path/1000GenomesPilot-NCBI36.fasta
 ##contig=<ID=chr1,length=135006516>
 ##INFO=<ID=TEST1,Number=1,Type=Integer,Description="Test1">
 ##INFO=<ID=TEST2,Number=1,Type=Float,Description="Test2">

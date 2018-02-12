@@ -1,4 +1,5 @@
 ##fileformat=VCFv4.1
+##reference=file:///some/path/1000GenomesPilot-NCBI36.fasta
 ##contig=<ID=chr7>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SRR1528791
