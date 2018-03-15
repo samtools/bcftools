@@ -249,6 +249,7 @@ test_vcf_annotate($opts,in=>'annotate2',tab=>'annots11',out=>'annotate11.out',ar
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate12.out',args=>'-c AAA:=IINT,FMT/BBB:=FMT/FINT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate13.out',args=>'-x INFO -c INFO/IINT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate14.out',args=>q[-x INFO -c INFO/IINT -e'POS=3000001' -k]);
+test_vcf_annotate($opts,in=>'annotate11',vcf=>'annots11',out=>'annotate15.out',args=>q[-c FMT]);
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
@@ -285,6 +286,7 @@ test_vcf_plugin($opts,in=>'view',out=>'view.GTsubset.NA1NA2NA3.out',cmd=>'+GTsub
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.1.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -d');
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.2.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -l+');
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.3.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -lx');
+test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-0 a,b -1 c');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
