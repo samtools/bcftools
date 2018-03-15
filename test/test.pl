@@ -231,8 +231,8 @@ test_vcf_filter($opts,in=>'filter.5',out=>'filter.23.out',args=>q[-i'AD[*]="."']
 test_vcf_filter($opts,in=>'filter.5',out=>'filter.24.out',args=>q[-i'AD[0:0]=="."'],fmt=>'%POS[\\t%AD]\\n');
 test_vcf_filter($opts,in=>'filter.5',out=>'filter.25.out',args=>q[-i'AD[0:0]!="."'],fmt=>'%POS[\\t%AD]\\n');
 test_vcf_filter($opts,in=>'filter.5',out=>'filter.26.out',args=>q[-i'QUAL=="."'],fmt=>'%POS\\t%QUAL\\n');
-test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\n');
-test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\n');
+test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
+test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
