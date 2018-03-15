@@ -1924,7 +1924,7 @@ int main_vcfnorm(int argc, char *argv[])
                 break;
             case 'o': args->output_fname = optarg; break;
             case 'D':
-                fprintf(stderr,"Warning: `-D` is functional but deprecated, replaced by `-d both`.\n"); 
+                fprintf(stderr,"Warning: `-D` is functional but deprecated, replaced by and alias of `-d none`.\n"); 
                 args->rmdup = BCF_SR_PAIR_EXACT;
                 break;
             case 's': args->strict_filter = 1; break;
