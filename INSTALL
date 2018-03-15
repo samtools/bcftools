@@ -76,6 +76,21 @@ to an HTSlib source tree or installation in DIR; or --with-htslib=system
 to use a system-installed HTSlib.
 
 
+Optional Compilation with Perl
+==============================
+
+The '-i' and '-e' options can take external perl scripts for a more
+sophisticated filtering. This option can be enabled by supplying the
+--enable-perl-filters option to configure before running make:
+
+    ./configure --enable-perl-filters
+
+Note that enabling this option changes the license from MIT to GPL
+because bcftools need to be built with
+
+    perl -MExtUtils::Embed -e ccopts -e ldopts
+
+
 Optional Compilation with GSL
 =============================
 

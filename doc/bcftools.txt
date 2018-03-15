@@ -1255,7 +1255,10 @@ And similarly here, the second is filtered:
 
 [[gtcheck]]
 === bcftools gtcheck ['OPTIONS'] [*-g* 'genotypes.vcf.gz'] 'query.vcf.gz'
-Checks sample identity or, without *-g*, multi-sample cross-check is performed.
+Checks sample identity. The program can operate in two modes. If the *-g*
+option is given, the identity of the *-s* sample from 'query.vcf.gz'
+is checked against the samples in the *-g* file.
+Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' is performed.
 
 *-a, --all-sites*::
     output for all sites
@@ -1319,17 +1322,16 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
         *-G*, the value '1' can be used instead; the discordance value then
         gives exactly the number of differing genotypes.
 
-    SM, Average Discordance;;
-        Average discordance between sample 'a' and all other samples.
+    ERR, error rate;;
+        Pairwise error rate calculated as number of differences divided
+        by the total number of comparisons.
 
-    SM, Average Depth;;
-        Average depth at evaluated sites, or 1 if FORMAT/DP field is not
-        present.
-
-    SM, Average Number of sites;;
-        The average number of sites used to calculate the discordance.  In
-        other words, the average number of non-missing PLs/genotypes seen
-        both samples.
+    CLUSTER, TH, DOT;;
+        In presence of multiple samples, related samples and outliers can be
+        identified by clustering samples by error rate. A simple hierarchical
+        clustering based on minimization of standard deviation is used. This is
+        useful to detect sample swaps, for example in situations where one
+        sample has been sequenced in multiple runs.
 
 //    MD, Maximum Deviation;;
 //        The maximum absolute deviation from average score of the sample
@@ -2768,6 +2770,14 @@ frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype
 
         N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING
+
+* custom perl filtering. Note that this command is not compiled in by default, see
+the section *Optional Compilation with Perl* in the INSTALL file for help
+and misc/demo-flt.pl for a working example. The demo defined the perl subroutine
+"severity" which can be invoked from the command line as follows:
+
+        perl:path/to/script.pl; perl.severity(INFO/CSQ) > 3
+
 
 
 .Notes:

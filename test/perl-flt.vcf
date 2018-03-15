@@ -1,0 +1,41 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##reference=file://some/path/human_g1k_v37.fasta
+##INFO=<ID=CSQ,Number=.,Type=String,Description="Predicted consequence">
+##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
+##contig=<ID=3,length=2147483647>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SmplAAA	SmplBBB
+1	90	.	C	T	.	.	CSQ=5_prime_utr|XYZ|ENST00000000001|protein_coding	GT	1|0	1|1
+1	102	.	C	T	1	.	CSQ=synonymous|XYZ|ENST00000000001|protein_coding|+|1Y|102C>T	GT	1|0	1|0
+1	103	.	G	A	1	.	CSQ=missense|XYZ|ENST00000000001|protein_coding|+|2V>2I|103G>A	GT	1|0	0|0
+1	103	.	G	C	1	.	CSQ=missense|XYZ|ENST00000000001|protein_coding|+|2V>2L|103G>C	GT	0|0	1|0
+1	107	.	G	A	1	.	CSQ=missense|XYZ|ENST00000000001|protein_coding|+|3R>3Q|107G>A+108T>A	GT	1|0	1|0
+1	108	.	T	A	1	.	CSQ=splice_region|XYZ|ENST00000000001|protein_coding,@107	GT	1|0	1|0
+1	121	.	ACG	A	.	.	CSQ=inframe_deletion|XYZ|ENST00000000001|protein_coding|+|5TY>5I|121ACG>A+124TA>T,splice_region|XYZ|ENST00000000001|protein_coding	GT	1|0	1|0
+1	124	.	TA	T	.	.	CSQ=@121	GT	1|0	1|0
+1	128	.	T	C	1	.	CSQ=missense|XYZ|ENST00000000001|protein_coding|+|7V>6A|128T>C+129A>C,splice_region|XYZ|ENST00000000001|protein_coding	GT	1|0	0/0
+1	129	.	A	C	1	.	CSQ=splice_region|XYZ|ENST00000000001|protein_coding,@128	GT	1|0	0/0
+1	140	.	TA	AACG	.	.	CSQ=inframe_insertion|XYZ|ENST00000000001|protein_coding|+|8LR>7QRR|140TA>AACG+142C>CC,splice_region|XYZ|ENST00000000001|protein_coding	GT	1|0	0|0
+1	142	.	C	CC	.	.	CSQ=splice_region|XYZ|ENST00000000001|protein_coding,@140	GT	1|0	0|0
+1	145	.	AC	TA	.	.	CSQ=stop_gained|XYZ|ENST00000000001|protein_coding|+|10T>10*|145AC>TA	GT	1|0	0|0
+1	160	.	TA	T	.	.	CSQ=*frameshift|XYZ|ENST00000000001|protein_coding|+|12YVRT>12SYV|160TA>T,splice_region|XYZ|ENST00000000001|protein_coding	GT	1|0	0|0
+1	190	.	C	T	.	.	CSQ=3_prime_utr|XYZ|ENST00000000001|protein_coding	GT	1|0	0|0
+2	97	.	A	C	.	.	CSQ=3_prime_utr|ABC|ENST00000000002|protein_coding	GT	1|0	0|0
+2	105	.	AC	A	.	.	CSQ=@121	GT	1|0	0|0
+2	121	.	AC	A	.	.	CSQ=frameshift|ABC|ENST00000000002|protein_coding|-|11VVRTY>11*|105AC>A+121AC>A,splice_region|ABC|ENST00000000002|protein_coding	GT	1|0	0|0
+2	126	.	C	CTT	.	.	CSQ=@127	GT	1|0	0|0
+2	127	.	G	GG	.	.	CSQ=inframe_insertion|ABC|ENST00000000002|protein_coding|-|9T>8TK|126C>CTT+127G>GG	GT	1|0	0|0
+2	144	.	TAC	T	.	.	CSQ=@148	GT	1|0	0|0
+2	148	.	TA	T	.	.	CSQ=inframe_deletion|ABC|ENST00000000002|protein_coding|-|5YV>5T|144TAC>T+148TA>T,splice_region|ABC|ENST00000000002|protein_coding	GT	1|0	0|0
+2	164	.	T	G	.	.	CSQ=missense|ABC|ENST00000000002|protein_coding|-|3T>3P|164T>G	GT	1|0	0|0
+2	165	.	A	C	.	.	CSQ=synonymous|ABC|ENST00000000002|protein_coding|-|2R|165A>C	GT	1|0	0|0
+2	169	.	A	G	.	.	CSQ=@170	GT	1|0	0|0
+2	170	.	C	T	.	.	CSQ=missense|ABC|ENST00000000002|protein_coding|-|1V>1T|169A>G+170C>T	GT	1|0	0|0
+2	199	.	G	T	.	.	CSQ=5_prime_utr|ABC|ENST00000000002|protein_coding	GT	1|0	0|0
+3	20	.	T	A	.	.	CSQ=non_coding|mir-007||lincRNA	GT	1|0	0|0
+3	109	.	ACGTACGT	A	1	.	CSQ=splice_acceptor|QWRTY|ENST00000000003|protein_coding	GT	1|0	0|0
+3	113	.	A	T	.	.	CSQ=splice_region|QWRTY|ENST00000000003|protein_coding	GT	1|0	0|0
+3	120	.	T	A	.	.	CSQ=intron|QWRTY||protein_coding	GT	1|0	0|0
+3	152	.	T	A	.	.	CSQ=splice_region|QWRTY|ENST00000000003|protein_coding	GT	1|0	0|0
+3	159	.	G	A	.	.	CSQ=splice_donor|QWRTY|ENST00000000003|protein_coding	GT	1|0	0|0
