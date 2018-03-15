@@ -1944,9 +1944,7 @@ int main_vcfnorm(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( argc>optind+1 ) usage();
-    if ( !args->ref_fname && !args->mrows_op && !args->rmdup ) usage();
-    if ( !args->ref_fname && args->check_ref&CHECK_REF_FIX ) error("Expected --fasta-ref with --check-ref s\n");
+
     char *fname = NULL;
     if ( optind>=argc )
     {
@@ -1954,6 +1952,9 @@ int main_vcfnorm(int argc, char *argv[])
         else usage();
     }
     else fname = argv[optind];
+
+    if ( !args->ref_fname && !args->mrows_op && !args->rmdup ) error("Expected -f, -m, -D or -d option\n");
+    if ( !args->ref_fname && args->check_ref&CHECK_REF_FIX ) error("Expected --fasta-ref with --check-ref s\n");
 
     if ( args->region )
     {
