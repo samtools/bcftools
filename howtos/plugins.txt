@@ -27,6 +27,8 @@ check-sparsity:: Prints samples without genotypes in a region (-r/-R) or chromos
 
 color-chrs:: Colors shared chromosomal segments shared. Requires phased GTs.
 
+contrast:: Finds novel alleles and genotypes in two groups of samples. Adds an annotation which lists samples with a novel allele (INFO/NOVELAL) or a novel genotype (INFO/NOVELGT)
+
 counts:: A minimal plugin which counts number of samples, SNPs, INDELs, MNPs and total number of sites.
 
 dosage:: Prints genotype dosage determined from FORMAT/PL, GL, or GT.

@@ -12,12 +12,12 @@
 * link:csq-calling.html[Consequence calling]
 * link:consensus-sequence.html[Consensus calling]
 * link:roh-calling.html[ROH calling]
-* link:variant-calling.html[Variant calling]
+* link:variant-calling.html[Variant calling and filtering]
 
 .Tips and Tricks
 * link:convert.html[Converting formats]
 * link:query.html[Extracting information]
-* link:filtering.html[Filtering]
+* link:filtering.html[Filtering expressions]
 * link:plugins.html[Plugins]
 
 ****
