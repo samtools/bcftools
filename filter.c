@@ -27,6 +27,8 @@ THE SOFTWARE.  */
 #include <strings.h>
 #include <errno.h>
 #include <math.h>
+#include <sys/types.h>
+#include <pwd.h>
 #include <regex.h>
 #include <htslib/khash_str2int.h>
 #include <htslib/hts_defs.h>
