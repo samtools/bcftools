@@ -47,16 +47,17 @@
 
         The most up to date (development) version of BCFtools can be obtained from github
         using these commands:
-        <ul style='list-style-type:none;margin-left:-1em;'>
+        <ul style='list-style-type:none;margin-left:-1em;color:black;'>
             <li>git clone git://github.com/samtools/htslib.git
             <li>git clone git://github.com/samtools/bcftools.git
             <li>cd bcftools
-            <li>autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters     # optional
+            <li style="color:gray"># The following is optional:
+                 <br>autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters
             <li>make
         </ul>
         The <em>clone</em> command above is used to create a local copy of the remote repository and needs to be run only once.
         Whenever the latest snapshot from github is needed, use instead the <em>pull</em> command:
-        <ul style='list-style-type:none;margin-left:-1em;'>
+        <ul style='list-style-type:none;margin-left:-1em;color:black;'>
             <li>cd htslib; git pull
             <li>cd ../bcftools; git pull
             <li>make clean
@@ -64,7 +65,7 @@
         </ul>
         <span style="font-weight:bold;margin-right:0.5em;">IMPORTANT</span><br> In order to use the <b>BCFtools plugins</b>, this environment variable must be set
         and point to the correct location:
-        <ul style='list-style-type:none;margin-left:-1em;'>
+        <ul style='list-style-type:none;margin-left:-1em;color:black;'>
             <li>export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins
         </ul>
 
