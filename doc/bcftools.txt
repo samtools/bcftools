@@ -1809,13 +1809,13 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields.
 
-*-d, --rm-dup* 'snps'|'indels'|'both'|'any'::
+*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
     If a record is present multiple times, output only the first instance,
     see *--collapse* in *<<common_options,Common Options>>*.
 
 *-D, --remove-duplicates*::
     If a record is present in multiple files, output only the first instance.
-    Alias for *-d none*.  Requires *-a, --allow-overlaps*.
+    Alias for *-d none*, deprecated.
 
 *-f, --fasta-ref* 'FILE'[[fasta_ref]]::
     reference sequence. Supplying this option will turn on left-alignment
@@ -2745,12 +2745,15 @@ to require that all alleles are of the given type. Compare
         TYPE!="snp"
         TYPE!~"snp"
 
-* array subscripts (0-based), "*" for any field, "-" to indicate a range. Note that
-for querying FORMAT vectors, the colon ":" can be used to select a sample and a subfield
-
-        (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
-        DP4[*] == 0
-        CSQ[*] ~ "missense_variant.*deleterious"
+* array subscripts (0-based), "*" for any element, "-" to indicate a range. Note that
+for querying FORMAT vectors, the colon ":" can be used to select a sample and an
+element of the vector, as shown in the examples below
+    
+        INFO/AF[0] > 0.3             .. first AF value bigger than 0.3
+        FORMAT/AD[0:0] > 30          .. first AD value of the first sample bigger than 30
+        FORMAT/AD[0:1]               .. first sample, second AD value
+        FORMAT/AD[1:0]               .. second sample, first AD value
+        DP4[*] == 0                  .. any DP4 value
         FORMAT/DP[0]   > 30         .. DP of the first sample bigger than 30
         FORMAT/DP[1-3] > 10         .. samples 2-4
         FORMAT/DP[1-]  < 7          .. all samples but the first
@@ -2758,6 +2761,8 @@ for querying FORMAT vectors, the colon ":" can be used to select a sample and a 
         FORMAT/AD[0:1]              .. first sample, second AD field
         FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
         FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
+        (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
+        CSQ[*] ~ "missense_variant.*deleterious"
 
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
@@ -2779,14 +2784,13 @@ and misc/demo-flt.pl for a working example. The demo defined the perl subroutine
         perl:path/to/script.pl; perl.severity(INFO/CSQ) > 3
 
 
-
 .Notes:
 
 * String comparisons and regular expressions are case-insensitive
 * Variables and function names are case-insensitive, but not tag names. For example,
 "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
 not "dp" instead of "DP".
-* When querying multiple subfields, all subfields are tested and the OR logic is
+* When querying multiple values, all elements are tested and the OR logic is
 used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
 
     -i 'TAG[*]=1'   .. true, the record will be printed
