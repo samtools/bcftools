@@ -2312,10 +2312,18 @@ Transition probabilities:
     If neither *-e* nor the other *--AF-...* options are given, the allele frequency is
     estimated from AC and AN counts which are already present in the INFO field.
 
+*--exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-G, --GTs-only* 'FLOAT'::
     use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
     setting PL of unseen genotypes to 'FLOAT'. Safe value to use is 30 to
     account for GT errors.
+
+*--include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
 
 *-I, --skip-indels*::
     skip indels as their genotypes are usually enriched for errors
