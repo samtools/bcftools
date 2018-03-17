@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #  
 #  The MIT License
 #  
@@ -41,36 +41,39 @@ def usage(msg=None):
         print '   -s, --samples <file>                  List of samples to show, rename or group: "name[\\tnew_name[\\tgroup]]"'
         print '   -h, --help                            This usage text'
         print 'Matplotlib options:'
-        print '   +adj, --adjust <str>     Set plot adjust [bottom=0.18,left=0.07,right=0.98]'
-        print '   +dpi, --dpi <num>        Set bitmap DPI [150]'
-        print '   +sxt, --show-xticks      Show x-ticks (genomic coordinate)'
-        print '   +xlb, --xlabel <str>     Set x-label'
-        print '   +xli, --xlimit <num>     Extend x-range by this fraction [0.05]'
+        print '   +adj, --adjust <str>          Set plot adjust [bottom=0.18,left=0.07,right=0.98]'
+        print '   +dpi, --dpi <num>             Set bitmap DPI [150]'
+        print '   +sxt, --show-xticks           Show x-ticks (genomic coordinate)'
+        print '   +twh, --track-wh <num,num>    Set track width and height [20,1]'
+        print '   +xlb, --xlabel <str>          Set x-label'
+        print '   +xli, --xlimit <num>          Extend x-range by this fraction [0.05]'
     else:
         print msg
     sys.exit(1)
 
-dir         = None
-regs        = None
-min_length  = 0
-min_markers = 0
-min_qual    = 0
-interactive = False
-sample_file = None
-highlight   = None
-outfile     = None
-adjust      = 'bottom=0.18,left=0.07,right=0.98'
-dpi         = 150
-xlim        = 0.05
-show_xticks = False
-xlabel      = None
+dir          = None
+plot_regions = None
+min_length   = 0
+min_markers  = 0
+min_qual     = 0
+interactive  = False
+sample_file  = None
+highlight    = None
+outfile      = None
+adjust       = 'bottom=0.18,left=0.07,right=0.98'
+dpi          = 150
+xlim         = 0.05
+show_xticks  = False
+xlabel       = None
+track_width  = 20
+track_height = 1
 
 if len(sys.argv) < 2: usage()
 args = sys.argv[1:]
 while len(args):
     if args[0]=='-r' or args[0]=='--region': 
         args = args[1:]
-        regs = args[0]
+        plot_regions = args[0]
     elif args[0]=='-i' or args[0]=='--interactive': 
         interactive = True
     elif args[0]=='-l' or args[0]=='--min-length': 
@@ -99,11 +102,16 @@ while len(args):
     elif args[0]=='+dpi' or args[0]=='--dpi': 
         args = args[1:]
         dpi = float(args[0])
+    elif args[0]=='+sxt' or args[0]=='--show-xticks': 
+        show_xticks = True
+    elif args[0]=='+twh' or args[0]=='--track-wh': 
+        args = args[1:]
+        (track_width,track_height) = args[0].split(',')
+        track_height = -float(track_height)    # will be used as if negative, no auto-magic
+        track_width  = float(track_width)
     elif args[0]=='+xlb' or args[0]=='--xlabel': 
         args = args[1:]
         xlabel = args[0]
-    elif args[0]=='+sxt' or args[0]=='--show-xticks': 
-        show_xticks = True
     elif args[0]=='+xli' or args[0]=='--xlimit': 
         args = args[1:]
         xlim = float(args[0])
@@ -119,17 +127,21 @@ adjust = eval("wrap_hash("+adjust+")")
 
 
 import matplotlib as mpl
-for gui in ['TKAgg','GTKAgg','Qt4Agg','WXAgg','MacOSX']:
-    try:
-        mpl.use(gui,warn=False, force=True)
-        import matplotlib.pyplot as plt
-        import matplotlib.patches as patches
-        break
-    except:
-        continue
+if interactive==False:
+    mpl.use('Agg')
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+else:
+    for gui in ['TKAgg','GTKAgg','Qt4Agg','WXAgg','MacOSX']:
+        try:
+            mpl.use(gui,warn=False, force=True)
+            import matplotlib.pyplot as plt
+            import matplotlib.patches as patches
+            break
+        except:
+            continue
 
 cols = [ '#337ab7', '#5cb85c', '#5bc0de', '#f0ad4e', '#d9534f', 'grey', 'black' ]
-mpl.rcParams['axes.color_cycle'] = cols
 
 globstr = os.path.join(dir, '*.txt.gz')
 fnames = glob.glob(globstr)
@@ -272,7 +284,7 @@ def parse_samples(fname,highlight):
     if highlight==None: groups = None
     return (samples,groups,smpl2y)
 
-regs = parse_regions(regs)
+plot_regions = parse_regions(plot_regions)
 (samples,groups,smpl2y) = parse_samples(sample_file,highlight)
 
 dat_gt = {}
@@ -285,7 +297,7 @@ for fname in fnames:
         if row[0]=='GT':
             chr  = row[1]
             pos  = int(row[2])
-            reg  = region_overlap(regs,chr,pos,pos)
+            reg  = region_overlap(plot_regions,chr,pos,pos)
             if reg==None: continue
             for i in range(3,len(row),2):
                 smpl = row[i]
@@ -317,7 +329,8 @@ for fname in fnames:
             if length < min_length: continue
             if nmark < min_markers : continue
             if qual < min_qual : continue
-            reg = region_overlap(regs,chr,beg,end)
+            reg = region_overlap(plot_regions,chr,beg,end)
+            if reg==None: continue
             if chr not in dat_rg: dat_rg[chr] = {}
             if smpl not in dat_rg[chr]: dat_rg[chr][smpl] = []
             if reg!=None:
@@ -352,9 +365,11 @@ for chr in chrs:
     off += max_pos + off_sep
     off_list.append(off)
 
-height = len(smpl2y)
-if len(smpl2y)>5: heigth = 5
-wh = 20,height
+wh = track_width,len(smpl2y)
+if track_height < 0:
+    wh = track_width,-track_height*len(smpl2y)
+elif len(smpl2y)>5: 
+    wh = track_width,5
 
 def bignum(num):
     s = str(num); out = ''; slen = len(s)
@@ -379,6 +394,7 @@ ax1.format_coord = format_coord
 xtick_lbl = []
 xtick_pos = []
 max_x = 0
+min_x = -1
 for chr in dat_gt:
     off  = off_hash[chr]
     icol = 0
@@ -394,6 +410,7 @@ for chr in dat_gt:
                 rect = patches.Rectangle((rg[0]+off,3*y+0.5), rg[1]-rg[0]+1, 2, color='#d9534f')
                 ax1.add_patch(rect)
         ax1.plot([x[0]+off for x in dat_gt[chr][smpl]],[x[1]+3*y for x in dat_gt[chr][smpl]],'.',color=cols[icol])
+        if min_x==-1 or min_x > dat_gt[chr][smpl][0][0]+off: min_x = dat_gt[chr][smpl][0][0]+off
         if max_x < dat_gt[chr][smpl][-1][0]+off: max_x = dat_gt[chr][smpl][-1][0]+off
         if max < dat_gt[chr][smpl][-1][0]: max = dat_gt[chr][smpl][-1][0]
         icol += 1
@@ -408,7 +425,8 @@ for chr in dat_gt:
         ytick_pos.append(3*smpl2y[smpl]+1)
     break
 if xlim!=0:
-    ax1.set_xlim(0,max_x+xlim*max_x)
+    if min_x==-1: min_x = 0
+    ax1.set_xlim(min_x,max_x+xlim*max_x)
 lbl_pos = 3*(len(smpl2y)-1)
 ax1.annotate('   HomAlt ',xy=(max_x,lbl_pos-1),xycoords='data',va='center')
 ax1.annotate('   Het',xy=(max_x,lbl_pos-2),xycoords='data',va='center')
