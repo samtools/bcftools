@@ -1720,6 +1720,7 @@ static void init_columns(args_t *args)
             if ( args->tgts_is_vcf )
             {
                 bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_FMT, "ID", key_src, NULL);
+                if ( !hrec ) error("No such annotation \"%s\" in %s\n", key_src,args->targets_fname);
                 tmp.l = 0;
                 bcf_hrec_format_rename(hrec, key_dst, &tmp);
                 bcf_hdr_append(args->hdr_out, tmp.s);
