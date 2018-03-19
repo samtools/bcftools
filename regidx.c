@@ -234,7 +234,7 @@ regidx_t *regidx_init(const char *fname, regidx_parse_f parser, regidx_free_f fr
                 parser = regidx_parse_bed;
             else if ( len>=4 && !strcasecmp(".vcf",fname+len-4) )
                 parser = regidx_parse_vcf;
-            else if ( len>=4 && !strcasecmp(".vcf.gz",fname+len-7) )
+            else if ( len>=7 && !strcasecmp(".vcf.gz",fname+len-7) )
                 parser = regidx_parse_vcf;
             else
                 parser = regidx_parse_tab;
