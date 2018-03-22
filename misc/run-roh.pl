@@ -59,6 +59,7 @@ sub error
         "   -n, --min-markers <num>     Filter input regions with fewer marker than this [100]\n",
         "   -o, --outdir <dir>          Output directory\n",
         "   -q, --min-qual <num>        Filter input regions with quality smaller than this [10]\n",
+        "       --roh-args <string>     Extra arguments to pass to bcftools roh\n",
         "   -s, --silent                Quiet output, do not print commands\n",
         "   -h, -?, --help              This help message\n",
         "\n";
@@ -73,9 +74,11 @@ sub parse_params
         min_length  => 1e6,
         min_markers => 100,
         min_qual    => 10,
+        roh_args    => '',
     };
     while (defined(my $arg=shift(@ARGV)))
     {
+        if (                 $arg eq '--roh-args' ) { $$opts{roh_args}=shift(@ARGV); next }
         if (                 $arg eq '--include' ) { $$opts{include_expr}=shift(@ARGV); next }
         if (                 $arg eq '--exclude' ) { $$opts{exclude_expr}=shift(@ARGV); next }
         if ( $arg eq '-q' || $arg eq '--min-qual' ) { $$opts{min_qual}=shift(@ARGV); next }
@@ -224,7 +227,7 @@ sub run_roh
     for my $file (@files)
     {
         if ( -e "$file.txt.gz" ) { next; }
-        my @out = cmd("bcftools roh --AF-tag AF1KG $genmap $file -Orz -o $file.txt.gz.part 2>&1 | tee -a $file.log",%$opts);
+        my @out = cmd("bcftools roh $$opts{roh_args} --AF-tag AF1KG $genmap $file -Orz -o $file.txt.gz.part 2>&1 | tee -a $file.log",%$opts);
         for my $line (@out)
         {
             if ( !($line=~m{total/processed:\s+(\d+)/(\d+)}) ) { next; }
