@@ -361,6 +361,8 @@ bcf1_t *process(bcf1_t *rec)
 
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(ptr, ngts);
+            else if ( args->new_mask==GT_PHASED )
+                changed += phase_gt(ptr, ngts);
             else
                 changed += set_gt(ptr, ngts, args->new_gt);
         }
@@ -392,6 +394,8 @@ bcf1_t *process(bcf1_t *rec)
             if ( !args->smpl_pass[i] ) continue;
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(args->gts + i*ngts, ngts);
+            else if ( args->new_mask==GT_PHASED )
+                changed += phase_gt(args->gts + i*ngts, ngts);
             else
                 changed += set_gt(args->gts + i*ngts, ngts, args->new_gt);
         }
