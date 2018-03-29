@@ -1748,6 +1748,18 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
         for (i=0; i<tok->nidxs; i++) if ( tok->idxs[i] ) tok->nuidxs++;
     }
 }
+static int max_ac_an_unpack(bcf_hdr_t *hdr)
+{
+    int hdr_id = bcf_hdr_id2int(hdr,BCF_DT_ID,"AC");
+    if ( hdr_id<0 ) return BCF_UN_FMT;
+    if ( !bcf_hdr_idinfo_exists(hdr,BCF_HL_INFO,hdr_id) ) return BCF_UN_FMT;
+
+    hdr_id = bcf_hdr_id2int(hdr,BCF_DT_ID,"AN");
+    if ( hdr_id<0 ) return BCF_UN_FMT;
+    if ( !bcf_hdr_idinfo_exists(hdr,BCF_HL_INFO,hdr_id) ) return BCF_UN_FMT;
+
+    return BCF_UN_INFO;
+}
 static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
 {
     tok->tok_type  = TOK_VAL;
@@ -1980,6 +1992,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     }
     else if ( !strcasecmp(tmp.s,"AN") )
     {
+        filter->max_unpack |= BCF_UN_FMT;
         tok->setter = &filters_set_an;
         tok->tag = strdup("AN");
         free(tmp.s);
@@ -1987,6 +2000,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     }
     else if ( !strcasecmp(tmp.s,"AC") )
     {
+        filter->max_unpack |= BCF_UN_FMT;
         tok->setter = &filters_set_ac;
         tok->tag = strdup("AC");
         free(tmp.s);
@@ -1994,6 +2008,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     }
     else if ( !strcasecmp(tmp.s,"MAC") )
     {
+        filter->max_unpack |= max_ac_an_unpack(filter->hdr);
         tok->setter = &filters_set_mac;
         tok->tag = strdup("MAC");
         free(tmp.s);
@@ -2001,6 +2016,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     }
     else if ( !strcasecmp(tmp.s,"AF") )
     {
+        filter->max_unpack |= max_ac_an_unpack(filter->hdr);
         tok->setter = &filters_set_af;
         tok->tag = strdup("AF");
         free(tmp.s);
@@ -2008,6 +2024,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     }
     else if ( !strcasecmp(tmp.s,"MAF") )
     {
+        filter->max_unpack |= max_ac_an_unpack(filter->hdr);
         tok->setter = &filters_set_maf;
         tok->tag = strdup("MAF");
         free(tmp.s);
