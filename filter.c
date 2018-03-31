@@ -922,7 +922,6 @@ static void filters_set_alt_string(filter_t *flt, bcf1_t *line, token_t *tok)
             kputs(line->d.allele[tok->idx + 1], &tok->str_value);
         else
             kputc('.', &tok->str_value);
-        tok->idx = 0;
     }
     else if ( tok->idx==-2 )
     {
@@ -1184,7 +1183,10 @@ static int func_strlen(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
     }
     else
     {
-        rtok->values[0] = strlen(tok->str_value.s);
+        if ( !tok->str_value.s[1] && tok->str_value.s[0]=='.' )
+            rtok->values[0] = 0;
+        else
+            rtok->values[0] = strlen(tok->str_value.s);
         rtok->nvalues = 1;
     }
     return 1;
