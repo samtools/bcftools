@@ -1064,7 +1064,38 @@ output VCF and are ignored for the prediction analysis.
     reference sequence in fasta format (required)
 
 *-g, --gff-annot* 'FILE'::
-    GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
+    GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
+    An example of a minimal working GFF file:
+----
+    # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
+    # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
+    # the gene (determined from the transcript's "Parent=gene:" attribute), and the biotype
+    # (the most interesting is "protein_coding").
+    #
+    # Attributes required for
+    #   gene lines:
+    #   - ID=gene:<gene_id> 
+    #   - biotype=<biotype>
+    #   - Name=<gene_name>      [optional]
+    #
+    #   transcript lines:
+    #   - ID=transcript:<transcript_id>
+    #   - Parent=gene:<gene_id>
+    #   - biotype=<biotype>
+    #
+    #   other lines (CDS, exon, five_prime_UTR, three_prime_UTR):
+    #   - Parent=transcript:<transcript_id>
+    #
+    # Supported biotypes:
+    #   - see the function gff_parse_biotype() in bcftools/csq.c
+
+    1   ignored_field  gene            21  2148  .   -   .   ID=gene:GeneId;biotype=protein_coding;Name=GeneName
+    1   ignored_field  transcript      21  2148  .   -   .   ID=transcript:TranscriptId;Parent=gene:GeneId;biotype=protein_coding
+    1   ignored_field  three_prime_UTR 21  2054  .   -   .   Parent=transcript:TranscriptId
+    1   ignored_field  exon            21  2148  .   -   .   Parent=transcript:TranscriptId
+    1   ignored_field  CDS             21  2148  .   -   1   Parent=transcript:TranscriptId
+    1   ignored_field  five_prime_UTR  210 2148  .   -   .   Parent=transcript:TranscriptId
+----
 
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
