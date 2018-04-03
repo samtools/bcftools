@@ -1,0 +1,15 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic Depth">
+##FORMAT=<ID=AF,Number=R,Type=Float,Description="Genotype likelihoods">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Genotype likelihoods">
+##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype likelihoods">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3000001	.	C	T	.	.	.	GT:AD:AF:PL:GL	.:1,2:1,2:3,4:3,4	.:8,9:8,9:10,11,12:10,11,12
+1	3000002	.	C	CT,T	.	.	.	GT:AD:AF:PL:GL	1/0:1,2,3:1,2,3:1,2,3,4,5,6:1,2,3,4,5,6	0/1:10,11,12:10,11,12:10,11,12,13,14,15:10,11,12,13,14,15
+1	3000003	.	C	CTT	.	.	.	GT:AD:AF:PL:GL	1/0:1,2:1,2:1,2,3:1,2,3	0/1:4,5:4,5:4,5,6:4,5,6
+X	3000001	.	C	T	.	.	.	GT:AD:AF:PL:GL	.:1,2:1,2:3,4:3,4	.:8,9:8,9:10,11,12:10,11,12
+X	3000002	.	C	CT,T	.	.	.	GT:AD:AF:PL:GL	0:1,2,3:1,2,3:1,2,3:1,2,3	0/1:10,11,12:10,11,12:10,11,12,13,14,15:10,11,12,13,14,15
+X	3000003	.	C	CTT	.	.	.	GT:AD:AF:PL:GL	0:1,2:1,2:1,2:1,2	0/1:4,5:4,5:4,5,6:4,5,6

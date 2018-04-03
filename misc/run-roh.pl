@@ -51,12 +51,15 @@ sub error
         "Options:\n",
         "   -a, --af-annots <file>      Allele frequency annotations [1000GP-AFs/AFs.tab.gz]\n",
         "   -i, --indir <dir>           Input directory with VCF files\n",
+        "       --include <expr>        Select sites for which the expression is true\n",
+        "       --exclude <expr>        Exclude sites for which the epxression is true\n",
         "   -l, --min-length <num>      Filter input regions shorter than this [1e6]\n",
         "   -m, --genmap <dir>          Directory with genetic map in IMPUTE2 format (optional)\n",
         "   -M, --rec-rate <float>      constant recombination rate per bp (optional)\n",
         "   -n, --min-markers <num>     Filter input regions with fewer marker than this [100]\n",
         "   -o, --outdir <dir>          Output directory\n",
         "   -q, --min-qual <num>        Filter input regions with quality smaller than this [10]\n",
+        "       --roh-args <string>     Extra arguments to pass to bcftools roh\n",
         "   -s, --silent                Quiet output, do not print commands\n",
         "   -h, -?, --help              This help message\n",
         "\n";
@@ -71,9 +74,13 @@ sub parse_params
         min_length  => 1e6,
         min_markers => 100,
         min_qual    => 10,
+        roh_args    => '',
     };
     while (defined(my $arg=shift(@ARGV)))
     {
+        if (                 $arg eq '--roh-args' ) { $$opts{roh_args}=shift(@ARGV); next }
+        if (                 $arg eq '--include' ) { $$opts{include_expr}=shift(@ARGV); next }
+        if (                 $arg eq '--exclude' ) { $$opts{exclude_expr}=shift(@ARGV); next }
         if ( $arg eq '-q' || $arg eq '--min-qual' ) { $$opts{min_qual}=shift(@ARGV); next }
         if ( $arg eq '-l' || $arg eq '--min-length' ) { $$opts{min_length}=shift(@ARGV); next }
         if ( $arg eq '-n' || $arg eq '--min-markers' ) { $$opts{min_markers}=shift(@ARGV); next }
@@ -92,6 +99,8 @@ sub parse_params
     if ( ! -e "$$opts{af_annots}.tbi" ) { error("The annotation file is not indexed: $$opts{af_annots}.tbi\n"); }
     if ( ! -e "$$opts{af_annots}.hdr" ) { error("The annotation file has no header: $$opts{af_annots}.hdr\n"); }
     if ( exists($$opts{genmap}) && ! -d "$$opts{genmap}" ) { error("The directory with genetic maps does not exist: $$opts{genmap}\n"); }
+    if ( exists($$opts{include_expr}) ) { $$opts{include_expr} =~ s/\'/\'\\\'\'/g; $$opts{inc_exc} .= qq[ -i '$$opts{include_expr}']; }
+    if ( exists($$opts{exclude_expr}) ) { $$opts{exclude_expr} =~ s/\'/\'\\\'\'/g; $$opts{inc_exc} .= qq[ -e '$$opts{exclude_expr}']; }
     return $opts;
 }
 
@@ -196,10 +205,19 @@ sub run_roh
         my $outfile = "$$opts{outdir}/$`.bcf";
         push @files,$outfile;
         if ( -e $outfile ) { next; }
-        cmd(
+
+        my $cmd = 
             "bcftools annotate --rename-chrs $chr_fname '$$opts{indir}/$file' -Ou | " .
-            "bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h $$opts{af_annots}.hdr -a $$opts{af_annots} -Ob -o $outfile.part && " .
-            "mv $outfile.part $outfile",%$opts);
+            "bcftools annotate -c CHROM,POS,REF,ALT,AF1KG -h $$opts{af_annots}.hdr -a $$opts{af_annots} ";
+
+        if ( exists($$opts{inc_exc}) )
+        {
+            $cmd .= " -Ou | bcftools view $$opts{inc_exc} ";
+        }
+        $cmd .= "-Ob -o $outfile.part && ";
+        $cmd .= "mv $outfile.part $outfile";
+
+        cmd($cmd, %$opts);
     }
     closedir($dh) or error("close failed: $$opts{indir}");
 
@@ -209,7 +227,7 @@ sub run_roh
     for my $file (@files)
     {
         if ( -e "$file.txt.gz" ) { next; }
-        my @out = cmd("bcftools roh --AF-tag AF1KG $genmap $file -Orz -o $file.txt.gz.part 2>&1 | tee -a $file.log",%$opts);
+        my @out = cmd("bcftools roh $$opts{roh_args} --AF-tag AF1KG $genmap $file -Orz -o $file.txt.gz.part 2>&1 | tee -a $file.log",%$opts);
         for my $line (@out)
         {
             if ( !($line=~m{total/processed:\s+(\d+)/(\d+)}) ) { next; }

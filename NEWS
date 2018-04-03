@@ -1,3 +1,18 @@
+## Release 1.8 (April 2018)
+
+* `-i, -e` filtering: Support for custom perl scripts
+
+* `+contrast`: New plugin to annotate genotype differences between groups of samples
+
+* `+fixploidy`: New options for simpler ploidy usage
+
+* `+setGT`: Target genotypes can be set to phased by giving `--new-gt p`
+
+* `run-roh.pl`: Allow to pass options directly to `bcftools roh`
+
+* Number of bug fixes
+
+
 ## Release 1.7 (February 2018)
 
 * `-i, -e` filtering: Major revamp, improved filtering by FORMAT fields

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp144864"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25098944"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -8,7 +8,7 @@ will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2018-02-12</strong></span> and refers to bcftools git version <span class="strong"><strong>1.7</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2018-04-03</strong></span> and refers to bcftools git version <span class="strong"><strong>1.8</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -1036,8 +1036,36 @@ output VCF and are ignored for the prediction analysis.</p><div class="variablel
 </dd><dt><span class="term">
 <span class="strong"><strong>-g, --gff-annot</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
-    GFF3 annotation file (required), such as <a class="ulink" href="ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/" target="_top">ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/</a>
-</dd><dt><span class="term">
+    GFF3 annotation file (required), such as <a class="ulink" href="ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens" target="_top">ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens</a>.
+    An example of a minimal working GFF file:
+</dd></dl></div><pre class="screen">    # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
+    # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
+    # the gene (determined from the transcript's "Parent=gene:" attribute), and the biotype
+    # (the most interesting is "protein_coding").
+    #
+    # Attributes required for
+    #   gene lines:
+    #   - ID=gene:&lt;gene_id&gt;
+    #   - biotype=&lt;biotype&gt;
+    #   - Name=&lt;gene_name&gt;      [optional]
+    #
+    #   transcript lines:
+    #   - ID=transcript:&lt;transcript_id&gt;
+    #   - Parent=gene:&lt;gene_id&gt;
+    #   - biotype=&lt;biotype&gt;
+    #
+    #   other lines (CDS, exon, five_prime_UTR, three_prime_UTR):
+    #   - Parent=transcript:&lt;transcript_id&gt;
+    #
+    # Supported biotypes:
+    #   - see the function gff_parse_biotype() in bcftools/csq.c
+
+    1   ignored_field  gene            21  2148  .   -   .   ID=gene:GeneId;biotype=protein_coding;Name=GeneName
+    1   ignored_field  transcript      21  2148  .   -   .   ID=transcript:TranscriptId;Parent=gene:GeneId;biotype=protein_coding
+    1   ignored_field  three_prime_UTR 21  2054  .   -   .   Parent=transcript:TranscriptId
+    1   ignored_field  exon            21  2148  .   -   .   Parent=transcript:TranscriptId
+    1   ignored_field  CDS             21  2148  .   -   1   Parent=transcript:TranscriptId
+    1   ignored_field  five_prime_UTR  210 2148  .   -   .   Parent=transcript:TranscriptId</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
@@ -1232,7 +1260,10 @@ And similarly here, the second is filtered:
 <span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div></div><div class="refsect2" title="bcftools gtcheck [OPTIONS] [-g genotypes.vcf.gz] query.vcf.gz"><a id="gtcheck"></a><h3>bcftools gtcheck [<span class="emphasis"><em>OPTIONS</em></span>] [<span class="strong"><strong>-g</strong></span> <span class="emphasis"><em>genotypes.vcf.gz</em></span>] <span class="emphasis"><em>query.vcf.gz</em></span></h3><p>Checks sample identity or, without <span class="strong"><strong>-g</strong></span>, multi-sample cross-check is performed.</p><div class="variablelist"><dl><dt><span class="term">
+</dd></dl></div></div><div class="refsect2" title="bcftools gtcheck [OPTIONS] [-g genotypes.vcf.gz] query.vcf.gz"><a id="gtcheck"></a><h3>bcftools gtcheck [<span class="emphasis"><em>OPTIONS</em></span>] [<span class="strong"><strong>-g</strong></span> <span class="emphasis"><em>genotypes.vcf.gz</em></span>] <span class="emphasis"><em>query.vcf.gz</em></span></h3><p>Checks sample identity. The program can operate in two modes. If the <span class="strong"><strong>-g</strong></span>
+option is given, the identity of the <span class="strong"><strong>-s</strong></span> sample from <span class="emphasis"><em>query.vcf.gz</em></span>
+is checked against the samples in the <span class="strong"><strong>-g</strong></span> file.
+Without the <span class="strong"><strong>-g</strong></span> option, multi-sample cross-check of samples in <span class="emphasis"><em>query.vcf.gz</em></span> is performed.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --all-sites</strong></span>
 </span></dt><dd>
     output for all sites
@@ -1304,20 +1335,18 @@ CN, Discordance
         <span class="strong"><strong>-G</strong></span>, the value <span class="emphasis"><em>1</em></span> can be used instead; the discordance value then
         gives exactly the number of differing genotypes.
 </dd><dt><span class="term">
-SM, Average Discordance
+ERR, error rate
 </span></dt><dd>
-        Average discordance between sample <span class="emphasis"><em>a</em></span> and all other samples.
+        Pairwise error rate calculated as number of differences divided
+        by the total number of comparisons.
 </dd><dt><span class="term">
-SM, Average Depth
+CLUSTER, TH, DOT
 </span></dt><dd>
-        Average depth at evaluated sites, or 1 if FORMAT/DP field is not
-        present.
-</dd><dt><span class="term">
-SM, Average Number of sites
-</span></dt><dd>
-        The average number of sites used to calculate the discordance.  In
-        other words, the average number of non-missing PLs/genotypes seen
-        both samples.
+        In presence of multiple samples, related samples and outliers can be
+        identified by clustering samples by error rate. A simple hierarchical
+        clustering based on minimization of standard deviation is used. This is
+        useful to detect sample swaps, for example in situations where one
+        sample has been sequenced in multiple runs.
 </dd></dl></div></div></div><div class="refsect2" title="bcftools index [OPTIONS] in.bcf|in.vcf.gz"><a id="index"></a><h3>bcftools index [<span class="emphasis"><em>OPTIONS</em></span>]  <span class="emphasis"><em>in.bcf</em></span>|<span class="emphasis"><em>in.vcf.gz</em></span></h3><p>Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate-sorted index) is created by default. The CSI format
 supports indexing of chromosomes up to length 2^31. TBI (tabix index)
@@ -1778,7 +1807,7 @@ the <span class="strong"><strong><a class="link" href="#fasta_ref">--fasta-ref</
     can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields.
 </dd><dt><span class="term">
-<span class="strong"><strong>-d, --rm-dup</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>any</em></span>
+<span class="strong"><strong>-d, --rm-dup</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>none</em></span>
 </span></dt><dd>
     If a record is present multiple times, output only the first instance,
     see <span class="strong"><strong>--collapse</strong></span> in <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>.
@@ -1786,7 +1815,7 @@ the <span class="strong"><strong><a class="link" href="#fasta_ref">--fasta-ref</
 <span class="strong"><strong>-D, --remove-duplicates</strong></span>
 </span></dt><dd>
     If a record is present in multiple files, output only the first instance.
-    Alias for <span class="strong"><strong>-d none</strong></span>.  Requires <span class="strong"><strong>-a, --allow-overlaps</strong></span>.
+    Alias for <span class="strong"><strong>-d none</strong></span>, deprecated.
 </dd><dt><span class="term">
 <span class="strong"><strong>-f, --fasta-ref</strong></span> <span class="emphasis"><em>FILE</em></span><a id="fasta_ref"></a>
 </span></dt><dd>
@@ -2278,11 +2307,21 @@ Transition probabilities:
     If neither <span class="strong"><strong>-e</strong></span> nor the other <span class="strong"><strong>--AF-…</strong></span> options are given, the allele frequency is
     estimated from AC and AN counts which are already present in the INFO field.
 </dd><dt><span class="term">
+<span class="strong"><strong>--exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
 <span class="strong"><strong>-G, --GTs-only</strong></span> <span class="emphasis"><em>FLOAT</em></span>
 </span></dt><dd>
     use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
     setting PL of unseen genotypes to <span class="emphasis"><em>FLOAT</em></span>. Safe value to use is 30 to
     account for GT errors.
+</dd><dt><span class="term">
+<span class="strong"><strong>--include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
+</span></dt><dd>
+    include only sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
+    <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-I, --skip-indels</strong></span>
 </span></dt><dd>
@@ -2707,18 +2746,23 @@ to require that all alleles are of the given type. Compare
 TYPE~"snp"
 TYPE!="snp"
 TYPE!~"snp"</pre></li><li class="listitem"><p class="simpara">
-array subscripts (0-based), "*" for any field, "-" to indicate a range. Note that
-for querying FORMAT vectors, the colon ":" can be used to select a sample and a subfield
-</p><pre class="literallayout">(DP4[0]+DP4[1])/(DP4[2]+DP4[3]) &gt; 0.3
-DP4[*] == 0
-CSQ[*] ~ "missense_variant.*deleterious"
+array subscripts (0-based), "*" for any element, "-" to indicate a range. Note that
+for querying FORMAT vectors, the colon ":" can be used to select a sample and an
+element of the vector, as shown in the examples below
+</p><pre class="literallayout">INFO/AF[0] &gt; 0.3             .. first AF value bigger than 0.3
+FORMAT/AD[0:0] &gt; 30          .. first AD value of the first sample bigger than 30
+FORMAT/AD[0:1]               .. first sample, second AD value
+FORMAT/AD[1:0]               .. second sample, first AD value
+DP4[*] == 0                  .. any DP4 value
 FORMAT/DP[0]   &gt; 30         .. DP of the first sample bigger than 30
 FORMAT/DP[1-3] &gt; 10         .. samples 2-4
 FORMAT/DP[1-]  &lt; 7          .. all samples but the first
 FORMAT/DP[0,2-4] &gt; 20       .. samples 1, 3-5
 FORMAT/AD[0:1]              .. first sample, second AD field
 FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
-FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field</pre></li><li class="listitem"><p class="simpara">
+FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
+(DP4[0]+DP4[1])/(DP4[2]+DP4[3]) &gt; 0.3
+CSQ[*] ~ "missense_variant.*deleterious"</pre></li><li class="listitem"><p class="simpara">
 function on FORMAT tags (over samples) and INFO tags (over vector fields)
 </p><pre class="literallayout">MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT</pre></li><li class="listitem"><p class="simpara">
 variables calculated on the fly if not present: number of alternate alleles;
@@ -2726,14 +2770,19 @@ number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype
-</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING</pre></li></ul></div><div class="itemizedlist" title="Notes:"><p class="title"><strong>Notes:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem">
+</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING</pre></li><li class="listitem"><p class="simpara">
+custom perl filtering. Note that this command is not compiled in by default, see
+the section <span class="strong"><strong>Optional Compilation with Perl</strong></span> in the INSTALL file for help
+and misc/demo-flt.pl for a working example. The demo defined the perl subroutine
+"severity" which can be invoked from the command line as follows:
+</p><pre class="literallayout">perl:path/to/script.pl; perl.severity(INFO/CSQ) &gt; 3</pre></li></ul></div><div class="itemizedlist" title="Notes:"><p class="title"><strong>Notes:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem">
 String comparisons and regular expressions are case-insensitive
 </li><li class="listitem">
 Variables and function names are case-insensitive, but not tag names. For example,
 "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
 not "dp" instead of "DP".
 </li><li class="listitem"><p class="simpara">
-When querying multiple subfields, all subfields are tested and the OR logic is
+When querying multiple values, all elements are tested and the OR logic is
 used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
 </p><pre class="literallayout">-i 'TAG[*]=1'   .. true, the record will be printed
 -i 'TAG[*]!=1'  .. true

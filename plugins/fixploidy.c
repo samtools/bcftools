@@ -38,6 +38,7 @@ static int *sample2sex = NULL;
 static int n_sample = 0, nsex = 0, *sex2ploidy = NULL;
 static int32_t ngt_arr = 0, *gt_arr = NULL, *gt_arr2 = NULL, ngt_arr2 = 0;
 static ploidy_t *ploidy = NULL;
+static int force_ploidy = -1;
 
 const char *about(void)
 {
@@ -54,9 +55,11 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -p, --ploidy <file>   space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n"
-        "   -s, --sex <file>      list of samples, \"NAME SEX\"\n"
-        "   -t, --tags <list>     VCF tags to fix [GT]\n"
+        "   -d, --default-ploidy <int>  default ploidy for regions unlisted in -p [2]\n"
+        "   -f, --force-ploidy <int>    ignore -p, set the same ploidy for all genotypes\n"
+        "   -p, --ploidy <file>         space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n"
+        "   -s, --sex <file>            list of samples, \"NAME SEX\"\n"
+        "   -t, --tags <list>           VCF tags to fix [GT]\n"
         "\n"
         "Example:\n"
         "   # Default ploidy, if -p not given. Unlisted regions have ploidy 2\n"
@@ -109,21 +112,32 @@ void set_samples(char *fname, bcf_hdr_t *hdr, ploidy_t *ploidy, int *sample2sex)
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
-    int c;
+    int c, default_ploidy = 2;
     char *tags_str = "GT";
     char *ploidy_fname = NULL, *sex_fname = NULL;
 
     static struct option loptions[] =
     {
+        {"default-ploidy",1,0,'d'},
+        {"force-ploidy",1,0,'f'},
         {"ploidy",1,0,'p'},
         {"sex",1,0,'s'},
         {"tags",1,0,'t'},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "?ht:s:p:",loptions,NULL)) >= 0)
+    char *tmp;
+    while ((c = getopt_long(argc, argv, "?ht:s:p:d:f:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'd': 
+                default_ploidy = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -d %s\n", optarg);
+                break;
+            case 'f': 
+                force_ploidy = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -f %s\n", optarg);
+                break;
             case 'p': ploidy_fname = optarg; break;
             case 's': sex_fname = optarg; break;
             case 't': tags_str = optarg; break;
@@ -140,8 +154,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     out_hdr    = out;
 
     if ( ploidy_fname )
-        ploidy = ploidy_init(ploidy_fname, 2);
-    else
+        ploidy = ploidy_init(ploidy_fname, default_ploidy);
+    else if ( force_ploidy==-1 )
     {
         ploidy = ploidy_init_string(
                 "X 1 60000 M 1\n"
@@ -151,14 +165,17 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 "MT 1 16569 M 1\n"
                 "MT 1 16569 F 1\n", 2);
     }
-    if ( !ploidy ) return -1;
+    if ( force_ploidy==-1 )
+    {
+        if ( !ploidy ) return -1;
 
-    // add default sex in case it was not included
-    int i, dflt_sex_id = ploidy_add_sex(ploidy, "F");
-    for (i=0; i<n_sample; i++) sample2sex[i] = dflt_sex_id; // by default all are F
-    if ( sex_fname ) set_samples(sex_fname, in, ploidy, sample2sex);
-    nsex = ploidy_nsex(ploidy);
-    sex2ploidy = (int*) malloc(sizeof(int)*nsex);
+        // add default sex in case it was not included
+        int i, dflt_sex_id = ploidy_add_sex(ploidy, "F");
+        for (i=0; i<n_sample; i++) sample2sex[i] = dflt_sex_id; // by default all are F
+        if ( sex_fname ) set_samples(sex_fname, in, ploidy, sample2sex);
+        nsex = ploidy_nsex(ploidy);
+        sex2ploidy = (int*) malloc(sizeof(int)*nsex);
+    }
 
     return 0;
 }
@@ -175,7 +192,10 @@ bcf1_t *process(bcf1_t *rec)
     if ( ngts % n_sample )
         error("Error at %s:%d: wrong number of GT fields\n",bcf_seqname(in_hdr,rec),rec->pos+1);
 
-    ploidy_query(ploidy, (char*)bcf_seqname(in_hdr,rec), rec->pos, sex2ploidy,NULL,&max_ploidy);
+    if ( force_ploidy==-1 )
+        ploidy_query(ploidy, (char*)bcf_seqname(in_hdr,rec), rec->pos, sex2ploidy,NULL,&max_ploidy);
+    else
+        max_ploidy = force_ploidy;
 
     ngts /= n_sample;
     if ( ngts < max_ploidy )
@@ -183,7 +203,7 @@ bcf1_t *process(bcf1_t *rec)
         hts_expand(int32_t,max_ploidy*n_sample,ngt_arr2,gt_arr2);
         for (i=0; i<n_sample; i++)
         {
-            int ploidy = sex2ploidy[ sample2sex[i] ];
+            int ploidy = force_ploidy!=-1 ? force_ploidy : sex2ploidy[ sample2sex[i] ];
             int32_t *src = &gt_arr[i*ngts];
             int32_t *dst = &gt_arr2[i*max_ploidy];
             j = 0;
@@ -201,7 +221,7 @@ bcf1_t *process(bcf1_t *rec)
     {
         for (i=0; i<n_sample; i++)
         {
-            int ploidy = sex2ploidy[ sample2sex[i] ];
+            int ploidy = force_ploidy!=-1 ? force_ploidy : sex2ploidy[ sample2sex[i] ];
             int32_t *gts = &gt_arr[i*ngts];
             j = 0;
             if ( !ploidy ) { gts[j] = bcf_gt_missing; j++; }
@@ -224,7 +244,7 @@ void destroy(void)
     free(gt_arr2);
     free(sample2sex);
     free(sex2ploidy);
-    ploidy_destroy(ploidy);
+    if ( ploidy ) ploidy_destroy(ploidy);
 }
 
 

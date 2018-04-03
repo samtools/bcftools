@@ -93,7 +93,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.7
+PACKAGE_VERSION = 1.8
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
@@ -135,7 +135,7 @@ ifdef USE_GPL
 endif
 
 bcftools: $(OBJS) $(HTSLIB)
-	$(CC) $(DYNAMIC_FLAGS) -pthread $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS)
+	$(CC) $(DYNAMIC_FLAGS) -pthread $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS) $(PERL_LIBS)
 
 # Plugin rules
 ifneq "$(PLUGINS_ENABLED)" "no"
@@ -212,7 +212,8 @@ ccall.o: ccall.c $(htslib_kfunc_h) $(call_h) kmin.h $(prob1_h)
 convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(convert_h)
 tsv2vcf.o: tsv2vcf.c $(tsv2vcf_h)
 em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)
-filter.o: filter.c $(htslib_khash_str2int_h) $(filter_h) $(bcftools_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h)
+filter.o: filter.c config.h $(htslib_khash_str2int_h) $(filter_h) $(bcftools_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h)
+	$(CC) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(PERL_CFLAGS) -c -o $@ $<
 gvcf.o: gvcf.c gvcf.h $(call_h)
 kmin.o: kmin.c kmin.h
 mcall.o: mcall.c $(htslib_kfunc_h) $(call_h)

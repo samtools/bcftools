@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2018-02-12
+.\"      Date: 2018-04-03
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2018\-02\-12" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2018\-04\-03" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2018\-02\-12\fR and refers to bcftools git version \fB1\&.7\fR\&.
+This manual page was last updated \fB2018\-04\-03\fR and refers to bcftools git version \fB1\&.8\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1796,8 +1796,45 @@ reference sequence in fasta format (required)
 \fB\-g, \-\-gff\-annot\fR \fIFILE\fR
 .RS 4
 GFF3 annotation file (required), such as
-ftp://ftp\&.ensembl\&.org/pub/current_gff3/homo_sapiens/
+ftp://ftp\&.ensembl\&.org/pub/current_gff3/homo_sapiens\&. An example of a minimal working GFF file:
 .RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
+    # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
+    # the gene (determined from the transcript\*(Aqs "Parent=gene:" attribute), and the biotype
+    # (the most interesting is "protein_coding")\&.
+    #
+    # Attributes required for
+    #   gene lines:
+    #   \- ID=gene:<gene_id>
+    #   \- biotype=<biotype>
+    #   \- Name=<gene_name>      [optional]
+    #
+    #   transcript lines:
+    #   \- ID=transcript:<transcript_id>
+    #   \- Parent=gene:<gene_id>
+    #   \- biotype=<biotype>
+    #
+    #   other lines (CDS, exon, five_prime_UTR, three_prime_UTR):
+    #   \- Parent=transcript:<transcript_id>
+    #
+    # Supported biotypes:
+    #   \- see the function gff_parse_biotype() in bcftools/csq\&.c
+
+    1   ignored_field  gene            21  2148  \&.   \-   \&.   ID=gene:GeneId;biotype=protein_coding;Name=GeneName
+    1   ignored_field  transcript      21  2148  \&.   \-   \&.   ID=transcript:TranscriptId;Parent=gene:GeneId;biotype=protein_coding
+    1   ignored_field  three_prime_UTR 21  2054  \&.   \-   \&.   Parent=transcript:TranscriptId
+    1   ignored_field  exon            21  2148  \&.   \-   \&.   Parent=transcript:TranscriptId
+    1   ignored_field  CDS             21  2148  \&.   \-   1   Parent=transcript:TranscriptId
+    1   ignored_field  five_prime_UTR  210 2148  \&.   \-   \&.   Parent=transcript:TranscriptId
+.fi
+.if n \{\
+.RE
+.\}
 .PP
 \fB\-i, \-\-include\fR \fIEXPRESSION\fR
 .RS 4
@@ -2096,7 +2133,7 @@ see
 .RE
 .SS "bcftools gtcheck [\fIOPTIONS\fR] [\-g \fIgenotypes\&.vcf\&.gz\fR] \fIquery\&.vcf\&.gz\fR"
 .sp
-Checks sample identity or, without \fB\-g\fR, multi\-sample cross\-check is performed\&.
+Checks sample identity\&. The program can operate in two modes\&. If the \fB\-g\fR option is given, the identity of the \fB\-s\fR sample from \fIquery\&.vcf\&.gz\fR is checked against the samples in the \fB\-g\fR file\&. Without the \fB\-g\fR option, multi\-sample cross\-check of samples in \fIquery\&.vcf\&.gz\fR is performed\&.
 .PP
 \fB\-a, \-\-all\-sites\fR
 .RS 4
@@ -2227,21 +2264,14 @@ is used for the unseen genotypes\&. With
 can be used instead; the discordance value then gives exactly the number of differing genotypes\&.
 .RE
 .PP
-SM, Average Discordance
+ERR, error rate
 .RS 4
-Average discordance between sample
-\fIa\fR
-and all other samples\&.
+Pairwise error rate calculated as number of differences divided by the total number of comparisons\&.
 .RE
 .PP
-SM, Average Depth
+CLUSTER, TH, DOT
 .RS 4
-Average depth at evaluated sites, or 1 if FORMAT/DP field is not present\&.
-.RE
-.PP
-SM, Average Number of sites
-.RS 4
-The average number of sites used to calculate the discordance\&. In other words, the average number of non\-missing PLs/genotypes seen both samples\&.
+In presence of multiple samples, related samples and outliers can be identified by clustering samples by error rate\&. A simple hierarchical clustering based on minimization of standard deviation is used\&. This is useful to detect sample swaps, for example in situations where one sample has been sequenced in multiple runs\&.
 .RE
 .RE
 .SS "bcftools index [\fIOPTIONS\fR] \fIin\&.bcf\fR|\fIin\&.vcf\&.gz\fR"
@@ -2986,7 +3016,7 @@ and
 can swap alleles and will update genotypes (GT) and AC counts, but will not attempt to fix PL or other fields\&.
 .RE
 .PP
-\fB\-d, \-\-rm\-dup\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIany\fR
+\fB\-d, \-\-rm\-dup\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR
 .RS 4
 If a record is present multiple times, output only the first instance, see
 \fB\-\-collapse\fR
@@ -2997,8 +3027,7 @@ in
 \fB\-D, \-\-remove\-duplicates\fR
 .RS 4
 If a record is present in multiple files, output only the first instance\&. Alias for
-\fB\-d none\fR\&. Requires
-\fB\-a, \-\-allow\-overlaps\fR\&.
+\fB\-d none\fR, deprecated\&.
 .RE
 .PP
 \fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
@@ -3864,10 +3893,26 @@ nor the other
 options are given, the allele frequency is estimated from AC and AN counts which are already present in the INFO field\&.
 .RE
 .PP
+\fB\-\-exclude\fR \fIEXPRESSION\fR
+.RS 4
+exclude sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
+.RE
+.PP
 \fB\-G, \-\-GTs\-only\fR \fIFLOAT\fR
 .RS 4
 use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL), setting PL of unseen genotypes to
 \fIFLOAT\fR\&. Safe value to use is 30 to account for GT errors\&.
+.RE
+.PP
+\fB\-\-include\fR \fIEXPRESSION\fR
+.RS 4
+include only sites for which
+\fIEXPRESSION\fR
+is true\&. For valid expressions see
+\fBEXPRESSIONS\fR\&.
 .RE
 .PP
 \fB\-I, \-\-skip\-indels\fR
@@ -4680,15 +4725,17 @@ TYPE!~"snp"
 .sp -1
 .IP \(bu 2.3
 .\}
-array subscripts (0\-based), "*" for any field, "\-" to indicate a range\&. Note that for querying FORMAT vectors, the colon ":" can be used to select a sample and a subfield
+array subscripts (0\-based), "*" for any element, "\-" to indicate a range\&. Note that for querying FORMAT vectors, the colon ":" can be used to select a sample and an element of the vector, as shown in the examples below
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-(DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0\&.3
-DP4[*] == 0
-CSQ[*] ~ "missense_variant\&.*deleterious"
+INFO/AF[0] > 0\&.3             \&.\&. first AF value bigger than 0\&.3
+FORMAT/AD[0:0] > 30          \&.\&. first AD value of the first sample bigger than 30
+FORMAT/AD[0:1]               \&.\&. first sample, second AD value
+FORMAT/AD[1:0]               \&.\&. second sample, first AD value
+DP4[*] == 0                  \&.\&. any DP4 value
 FORMAT/DP[0]   > 30         \&.\&. DP of the first sample bigger than 30
 FORMAT/DP[1\-3] > 10         \&.\&. samples 2\-4
 FORMAT/DP[1\-]  < 7          \&.\&. all samples but the first
@@ -4696,6 +4743,8 @@ FORMAT/DP[0,2\-4] > 20       \&.\&. samples 1, 3\-5
 FORMAT/AD[0:1]              \&.\&. first sample, second AD field
 FORMAT/AD[0:*], AD[0:] or AD[0] \&.\&. first sample, any AD field
 FORMAT/AD[*:1] or AD[:1]        \&.\&. any sample, second AD field
+(DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0\&.3
+CSQ[*] ~ "missense_variant\&.*deleterious"
 .fi
 .if n \{\
 .RE
@@ -4743,6 +4792,29 @@ N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING
 .RE
 .\}
 .RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+custom perl filtering\&. Note that this command is not compiled in by default, see the section
+\fBOptional Compilation with Perl\fR
+in the INSTALL file for help and misc/demo\-flt\&.pl for a working example\&. The demo defined the perl subroutine "severity" which can be invoked from the command line as follows:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+perl:path/to/script\&.pl; perl\&.severity(INFO/CSQ) > 3
+.fi
+.if n \{\
+.RE
+.\}
+.RE
 .PP
 \fBNotes:\fR
 .sp
@@ -4776,7 +4848,7 @@ Variables and function names are case\-insensitive, but not tag names\&. For exa
 .sp -1
 .IP \(bu 2.3
 .\}
-When querying multiple subfields, all subfields are tested and the OR logic is used on the result\&. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
+When querying multiple values, all elements are tested and the OR logic is used on the result\&. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
 .sp
 .if n \{\
 .RS 4

@@ -1,0 +1,9 @@
+##fileformat=VCFv4.1
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=X,assembly=b37,length=155270560>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA00001	NA00002	NA00003
+X	2699450	.	A	C	.	.	.	GT	0|0	0|0	1|0
+X	2699451	.	A	C	.	.	.	GT	0	0	1
+X	2699968	.	A	G	.	.	.	GT	.|.	0|.	1|.
+X	2699970	.	T	C	.	.	.	GT	.|0	0|.	1|.
+X	2699990	.	C	<INS:ME:LINE1>	.	.	.	GT	0|0	0|0	1|0

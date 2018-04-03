@@ -66,6 +66,12 @@ AC_ARG_WITH([bcf-plugin-path],
   [with_bcf_plugin_path=$with_bcf_plugin_dir])
 AC_SUBST([PLUGINPATH], $with_bcf_plugin_path)
 
+AC_ARG_ENABLE([perl-filters],
+  [AS_HELP_STRING([--enable-perl-filters],
+                  [do not build support for PERL scripts in -i/-e filtering expressions])],
+  [], [enable_perl_filters=no])
+AC_SUBST(enable_perl_filters)
+
 AC_ARG_ENABLE([libgsl],
   [AS_HELP_STRING([--enable-libgsl],
                   [build options that require the GNU scientific library (changes bcftools license to GPL, see INSTALL for details)])],
@@ -197,6 +203,19 @@ Either configure with --disable-libgsl or resolve this error to build bcftools.
   USE_GPL=1
   AC_SUBST([USE_GPL])
   AC_SUBST([GSL_LIBS])
+])
+
+AS_IF([test "$enable_perl_filters" != "no" ], [dnl
+    if ! perl -MExtUtils::Embed -e ccopts -e ldopts &>/dev/null ; then
+       AC_MSG_ERROR([Cannot `perl -MExtUtils::Embed -e ccopts -e ldopts`])
+    fi
+    AC_DEFINE([ENABLE_PERL_FILTERS], 1, [Define if BCFtools should enable for support PERL scripts in -i/-e filtering expressions.])
+    PERL_CCOPTS="`perl -MExtUtils::Embed -e ccopts`"
+    PERL_LIBS="`perl -MExtUtils::Embed -e ldopts`"
+    AC_SUBST([PERL_CCOPTS])
+    AC_SUBST([PERL_LIBS])
+    USE_GPL=1
+    AC_SUBST([USE_GPL])
 ])
 
 AC_CONFIG_FILES([config.mk])

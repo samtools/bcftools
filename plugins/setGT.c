@@ -195,7 +195,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {
             case 'i': args->filter_str = optarg; args->filter_logic = FLT_INCLUDE; break;
             case 'e': args->filter_str = optarg; args->filter_logic = FLT_EXCLUDE; break;
-            case 'n': args->new_mask = bcf_gt_phased(0); 
+            case 'n': args->new_mask = 0;
                 if ( strchr(optarg,'.') ) args->new_mask |= GT_MISSING;
                 if ( strchr(optarg,'0') ) args->new_mask |= GT_REF;
                 if ( strchr(optarg,'M') ) args->new_mask |= GT_MAJOR;
@@ -230,6 +230,19 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->filter_str ) args->filter = filter_init(in,args->filter_str);
 
     return 0;
+}
+
+static inline int phase_gt(int32_t *ptr, int ngts)
+{
+    int j, changed = 0;
+    for (j=0; j<ngts; j++)
+    {
+        if ( ptr[j]==bcf_int32_vector_end ) break;
+        if ( bcf_gt_is_phased(ptr[j]) ) continue;
+        ptr[j] = bcf_gt_phased(bcf_gt_allele(ptr[j]));    // add phasing; this may need a fix, I think the flag should be set for one allele only?
+        changed++;
+    }
+    return changed;
 }
 
 static inline int unphase_gt(int32_t *ptr, int ngts)
@@ -348,6 +361,8 @@ bcf1_t *process(bcf1_t *rec)
 
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(ptr, ngts);
+            else if ( args->new_mask==GT_PHASED )
+                changed += phase_gt(ptr, ngts);
             else
                 changed += set_gt(ptr, ngts, args->new_gt);
         }
@@ -379,6 +394,8 @@ bcf1_t *process(bcf1_t *rec)
             if ( !args->smpl_pass[i] ) continue;
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(args->gts + i*ngts, ngts);
+            else if ( args->new_mask==GT_PHASED )
+                changed += phase_gt(args->gts + i*ngts, ngts);
             else
                 changed += set_gt(args->gts + i*ngts, ngts, args->new_gt);
         }
@@ -405,6 +422,8 @@ bcf1_t *process(bcf1_t *rec)
 
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(ptr, ngts);
+            else if ( args->new_mask==GT_PHASED )
+                changed += phase_gt(ptr, ngts);
             else
                 changed += set_gt(ptr, ngts, args->new_gt);
         }

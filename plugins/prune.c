@@ -182,8 +182,9 @@ static void process(args_t *args)
         if ( ld_rec && args->info_r2 )
         {
             float tmp = ld_val;
+            int32_t tmp_pos = ld_rec->pos + 1;
             bcf_update_info_float(args->hdr, rec, args->info_r2, &tmp, 1);
-            bcf_update_info_int32(args->hdr, rec, args->info_pos, &ld_rec->pos, 1);
+            bcf_update_info_int32(args->hdr, rec, args->info_pos, &tmp_pos, 1);
         }
     }
     sr->buffer[0] = vcfbuf_push(args->vcfbuf, rec, 1);

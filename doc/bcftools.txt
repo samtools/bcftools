@@ -1064,7 +1064,38 @@ output VCF and are ignored for the prediction analysis.
     reference sequence in fasta format (required)
 
 *-g, --gff-annot* 'FILE'::
-    GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
+    GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
+    An example of a minimal working GFF file:
+----
+    # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
+    # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
+    # the gene (determined from the transcript's "Parent=gene:" attribute), and the biotype
+    # (the most interesting is "protein_coding").
+    #
+    # Attributes required for
+    #   gene lines:
+    #   - ID=gene:<gene_id> 
+    #   - biotype=<biotype>
+    #   - Name=<gene_name>      [optional]
+    #
+    #   transcript lines:
+    #   - ID=transcript:<transcript_id>
+    #   - Parent=gene:<gene_id>
+    #   - biotype=<biotype>
+    #
+    #   other lines (CDS, exon, five_prime_UTR, three_prime_UTR):
+    #   - Parent=transcript:<transcript_id>
+    #
+    # Supported biotypes:
+    #   - see the function gff_parse_biotype() in bcftools/csq.c
+
+    1   ignored_field  gene            21  2148  .   -   .   ID=gene:GeneId;biotype=protein_coding;Name=GeneName
+    1   ignored_field  transcript      21  2148  .   -   .   ID=transcript:TranscriptId;Parent=gene:GeneId;biotype=protein_coding
+    1   ignored_field  three_prime_UTR 21  2054  .   -   .   Parent=transcript:TranscriptId
+    1   ignored_field  exon            21  2148  .   -   .   Parent=transcript:TranscriptId
+    1   ignored_field  CDS             21  2148  .   -   1   Parent=transcript:TranscriptId
+    1   ignored_field  five_prime_UTR  210 2148  .   -   .   Parent=transcript:TranscriptId
+----
 
 *-i, --include* 'EXPRESSION'::
     include only sites for which 'EXPRESSION' is true. For valid expressions see
@@ -1255,7 +1286,10 @@ And similarly here, the second is filtered:
 
 [[gtcheck]]
 === bcftools gtcheck ['OPTIONS'] [*-g* 'genotypes.vcf.gz'] 'query.vcf.gz'
-Checks sample identity or, without *-g*, multi-sample cross-check is performed.
+Checks sample identity. The program can operate in two modes. If the *-g*
+option is given, the identity of the *-s* sample from 'query.vcf.gz'
+is checked against the samples in the *-g* file.
+Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' is performed.
 
 *-a, --all-sites*::
     output for all sites
@@ -1319,17 +1353,16 @@ Checks sample identity or, without *-g*, multi-sample cross-check is performed.
         *-G*, the value '1' can be used instead; the discordance value then
         gives exactly the number of differing genotypes.
 
-    SM, Average Discordance;;
-        Average discordance between sample 'a' and all other samples.
+    ERR, error rate;;
+        Pairwise error rate calculated as number of differences divided
+        by the total number of comparisons.
 
-    SM, Average Depth;;
-        Average depth at evaluated sites, or 1 if FORMAT/DP field is not
-        present.
-
-    SM, Average Number of sites;;
-        The average number of sites used to calculate the discordance.  In
-        other words, the average number of non-missing PLs/genotypes seen
-        both samples.
+    CLUSTER, TH, DOT;;
+        In presence of multiple samples, related samples and outliers can be
+        identified by clustering samples by error rate. A simple hierarchical
+        clustering based on minimization of standard deviation is used. This is
+        useful to detect sample swaps, for example in situations where one
+        sample has been sequenced in multiple runs.
 
 //    MD, Maximum Deviation;;
 //        The maximum absolute deviation from average score of the sample
@@ -1807,13 +1840,13 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields.
 
-*-d, --rm-dup* 'snps'|'indels'|'both'|'any'::
+*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
     If a record is present multiple times, output only the first instance,
     see *--collapse* in *<<common_options,Common Options>>*.
 
 *-D, --remove-duplicates*::
     If a record is present in multiple files, output only the first instance.
-    Alias for *-d none*.  Requires *-a, --allow-overlaps*.
+    Alias for *-d none*, deprecated.
 
 *-f, --fasta-ref* 'FILE'[[fasta_ref]]::
     reference sequence. Supplying this option will turn on left-alignment
@@ -2310,10 +2343,18 @@ Transition probabilities:
     If neither *-e* nor the other *--AF-...* options are given, the allele frequency is
     estimated from AC and AN counts which are already present in the INFO field.
 
+*--exclude* 'EXPRESSION'::
+    exclude sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
+
 *-G, --GTs-only* 'FLOAT'::
     use genotypes (FORMAT/GT fields) ignoring genotype likelihoods (FORMAT/PL),
     setting PL of unseen genotypes to 'FLOAT'. Safe value to use is 30 to
     account for GT errors.
+
+*--include* 'EXPRESSION'::
+    include only sites for which 'EXPRESSION' is true. For valid expressions see
+    *<<expressions,EXPRESSIONS>>*.
 
 *-I, --skip-indels*::
     skip indels as their genotypes are usually enriched for errors
@@ -2743,12 +2784,15 @@ to require that all alleles are of the given type. Compare
         TYPE!="snp"
         TYPE!~"snp"
 
-* array subscripts (0-based), "*" for any field, "-" to indicate a range. Note that
-for querying FORMAT vectors, the colon ":" can be used to select a sample and a subfield
-
-        (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
-        DP4[*] == 0
-        CSQ[*] ~ "missense_variant.*deleterious"
+* array subscripts (0-based), "*" for any element, "-" to indicate a range. Note that
+for querying FORMAT vectors, the colon ":" can be used to select a sample and an
+element of the vector, as shown in the examples below
+    
+        INFO/AF[0] > 0.3             .. first AF value bigger than 0.3
+        FORMAT/AD[0:0] > 30          .. first AD value of the first sample bigger than 30
+        FORMAT/AD[0:1]               .. first sample, second AD value
+        FORMAT/AD[1:0]               .. second sample, first AD value
+        DP4[*] == 0                  .. any DP4 value
         FORMAT/DP[0]   > 30         .. DP of the first sample bigger than 30
         FORMAT/DP[1-3] > 10         .. samples 2-4
         FORMAT/DP[1-]  < 7          .. all samples but the first
@@ -2756,6 +2800,8 @@ for querying FORMAT vectors, the colon ":" can be used to select a sample and a 
         FORMAT/AD[0:1]              .. first sample, second AD field
         FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
         FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
+        (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
+        CSQ[*] ~ "missense_variant.*deleterious"
 
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
@@ -2769,6 +2815,13 @@ number of samples with missing genotype; fraction of samples with missing genoty
 
         N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING
 
+* custom perl filtering. Note that this command is not compiled in by default, see
+the section *Optional Compilation with Perl* in the INSTALL file for help
+and misc/demo-flt.pl for a working example. The demo defined the perl subroutine
+"severity" which can be invoked from the command line as follows:
+
+        perl:path/to/script.pl; perl.severity(INFO/CSQ) > 3
+
 
 .Notes:
 
@@ -2776,7 +2829,7 @@ number of samples with missing genotype; fraction of samples with missing genoty
 * Variables and function names are case-insensitive, but not tag names. For example,
 "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
 not "dp" instead of "DP".
-* When querying multiple subfields, all subfields are tested and the OR logic is
+* When querying multiple values, all elements are tested and the OR logic is
 used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
 
     -i 'TAG[*]=1'   .. true, the record will be printed
