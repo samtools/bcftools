@@ -1791,7 +1791,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         tok->tag = (char*) calloc(len+1,sizeof(char));
         memcpy(tok->tag,str,len);
         tok->tag[len] = 0;
-        char *fname = expand_path(tok->tag);
+        char *fname = expand_path(tok->tag+1);
         int i, n;
         char **list = hts_readlist(fname, 1, &n);
         if ( !list ) error("Could not read: %s\n", fname);
