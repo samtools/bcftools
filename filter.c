@@ -2081,7 +2081,6 @@ static int perl_exec(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack
 {
 #if ENABLE_PERL_FILTERS
 
-    assert( rtok->nargs == nstack );
     PerlInterpreter *perl = flt->perl;
 
     dSP;
@@ -2089,8 +2088,8 @@ static int perl_exec(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack
     SAVETMPS;
 
     PUSHMARK(SP);
-    int i,j;
-    for (i=1; i<nstack; i++)
+    int i,j, istack = nstack - rtok->nargs;
+    for (i=istack+1; i<nstack; i++)
     {
         token_t *tok = stack[i];
         if ( tok->is_str )
@@ -2116,7 +2115,7 @@ static int perl_exec(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack
     // expressions like this don't work yet
     //          perl.filter(FMT/AD)[1:0]
 
-    int nret = call_pv(stack[0]->str_value.s, G_ARRAY);
+    int nret = call_pv(stack[istack]->str_value.s, G_ARRAY);
 
     SPAGAIN;
 
