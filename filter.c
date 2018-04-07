@@ -1258,6 +1258,8 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
 
 static int vector_logic_or(filter_t *filter, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
+    if ( nstack < 2 ) error("Error occurred while processing the filter \"%s\"\n", filter->str);
+
     token_t *atok = stack[nstack-2];
     token_t *btok = stack[nstack-1];
     tok_init_samples(atok, btok, rtok);
@@ -1318,6 +1320,8 @@ static int vector_logic_or(filter_t *filter, bcf1_t *line, token_t *rtok, token_
 }
 static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
+    if ( nstack < 2 ) error("Error occurred while processing the filter \"%s\"\n", filter->str);
+
     token_t *atok = stack[nstack-2];
     token_t *btok = stack[nstack-1];
     tok_init_samples(atok, btok, rtok);
@@ -2346,6 +2350,9 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     int i;
     for (i=0; i<nout; i++)
     {
+        if ( i+1<nout && (out[i].tok_type==TOK_LT || out[i].tok_type==TOK_BT) && out[i+1].tok_type==TOK_EQ )
+            error("Error parsing the expression: \"%s\"\n", filter->str);
+
         if ( out[i].tok_type==TOK_OR || out[i].tok_type==TOK_OR_VEC )
             out[i].func = vector_logic_or;
         if ( out[i].tok_type==TOK_AND || out[i].tok_type==TOK_AND_VEC )
