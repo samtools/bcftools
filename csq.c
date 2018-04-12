@@ -1876,7 +1876,7 @@ fprintf(stderr,"del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
         splice->kalt.l = 0; kputsn(splice->vcf.alt + splice->tbeg, splice->vcf.alen, &splice->kalt); 
         if ( (splice->ref_beg+1 < ex_beg && splice->ref_end >= ex_beg) || (splice->ref_beg+1 < ex_end && splice->ref_end >= ex_end) ) // ouch, ugly ENST00000409523/long-overlapping-del.vcf
         {
-            splice->csq |= (splice->ref_end - splice->ref_beg + 1)%3 ? CSQ_FRAMESHIFT_VARIANT : CSQ_INFRAME_DELETION;
+            splice->csq |= (splice->ref_end - splice->ref_beg)%3 ? CSQ_FRAMESHIFT_VARIANT : CSQ_INFRAME_DELETION;
             return SPLICE_OVERLAP;
         }
     }
@@ -2074,7 +2074,6 @@ fprintf(stderr,"cds splice_csq: %d [%s][%s] .. beg,end=%d %d, ret=%d, csq=%d\n\n
         child->var  = str.s;
         child->type = HAP_SSS;
         child->csq  = splice.csq;
-        child->prev = parent->type==HAP_SSS ? parent->prev : parent;
         child->rec  = rec;
         return 0;
     }
@@ -2092,7 +2091,7 @@ fprintf(stderr,"cds splice_csq: %d [%s][%s] .. beg,end=%d %d, ret=%d, csq=%d\n\n
         assert( dbeg <= splice.kalt.l );
     }
 
-    if ( parent->type==HAP_SSS ) parent = parent->prev;
+    assert( parent->type!=HAP_SSS );
     if ( parent->type==HAP_CDS )    
     {
         i = parent->icds;
@@ -2769,26 +2768,20 @@ void hap_finalize(args_t *args, hap_t *hap)
         hap->upstream_stop = 0;
 
         int i = 1, dlen = 0, ibeg, indel = 0;
-        while ( i<istack && hap->stack[i].node->type == HAP_SSS ) i++;
         hap->sbeg = hap->stack[i].node->sbeg;
-
+        assert( hap->stack[istack].node->type != HAP_SSS );
         if ( tr->strand==STRAND_FWD )
         {
             i = 0, ibeg = -1;
             while ( ++i <= istack )
             {
-                if ( hap->stack[i].node->type == HAP_SSS )
-                {
-                    // start/stop/splice site overlap: don't know how to build the haplotypes correctly, skipping
-                    hap_add_csq(args,hap,node,0,i,i,0,0);
-                    continue;
-                }
+                assert( hap->stack[i].node->type != HAP_SSS );
+
                 dlen += hap->stack[i].node->dlen;
                 if ( hap->stack[i].node->dlen ) indel = 1;
 
-                // This condition extends compound variants. Note that s/s/s sites are forced out to always break
-                // a compound block. See ENST00000271583/splice-acceptor.vcf for motivation.
-                if ( i<istack && hap->stack[i+1].node->type != HAP_SSS )
+                // This condition extends compound variants.
+                if ( i<istack )
                 {
                     if ( dlen%3 )   // frameshift
                     {
@@ -2839,14 +2832,10 @@ void hap_finalize(args_t *args, hap_t *hap)
             i = istack + 1, ibeg = -1;
             while ( --i > 0 )
             {
-                if ( hap->stack[i].node->type == HAP_SSS )
-                {
-                    hap_add_csq(args,hap,node,0,i,i,0,0);
-                    continue;
-                }
+                assert ( hap->stack[i].node->type != HAP_SSS );
                 dlen += hap->stack[i].node->dlen;
                 if ( hap->stack[i].node->dlen ) indel = 1;
-                if ( i>1 && hap->stack[i-1].node->type != HAP_SSS )
+                if ( i>1 )
                 {
                     if ( dlen%3 )
                     {
@@ -3352,7 +3341,8 @@ int test_cds(args_t *args, bcf1_t *rec)
             if ( rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*' ) { continue; }
             hap_node_t *parent = tr->hap[0] ? tr->hap[0] : tr->root;
             hap_node_t *child  = (hap_node_t*)calloc(1,sizeof(hap_node_t));
-            if ( (hap_ret=hap_init(args, parent, child, cds, rec, 1))!=0 )
+            hap_ret = hap_init(args, parent, child, cds, rec, 1);
+            if ( hap_ret!=0 )
             {
                 // overlapping or intron variant, cannot apply
                 if ( hap_ret==1 )
@@ -3364,6 +3354,21 @@ int test_cds(args_t *args, bcf1_t *rec)
                 }
                 else ret = 1;   // prevent reporting as intron in test_tscript
                 free(child);
+                continue;
+            }
+            if ( child->type==HAP_SSS )
+            {
+                csq_t csq; 
+                memset(&csq, 0, sizeof(csq_t));
+                csq.pos          = rec->pos;
+                csq.type.biotype = tr->type;
+                csq.type.strand  = tr->strand;
+                csq.type.trid    = tr->id;
+                csq.type.gene    = tr->gene->name;
+                csq.type.type = child->csq;
+                csq_stage(args, &csq, rec);
+                free(child);
+                ret = 1;
                 continue;
             }
             parent->nend--;
@@ -3434,7 +3439,8 @@ int test_cds(args_t *args, bcf1_t *rec)
                 }
 
                 hap_node_t *child = (hap_node_t*)calloc(1,sizeof(hap_node_t));
-                if ( (hap_ret=hap_init(args, parent, child, cds, rec, ial))!=0 )
+                hap_ret = hap_init(args, parent, child, cds, rec, ial);
+                if ( hap_ret!=0 )
                 {
                     // overlapping or intron variant, cannot apply
                     if ( hap_ret==1 )
@@ -3449,7 +3455,20 @@ int test_cds(args_t *args, bcf1_t *rec)
                     free(child);
                     continue;
                 }
-
+                if ( child->type==HAP_SSS )
+                {
+                    csq_t csq; 
+                    memset(&csq, 0, sizeof(csq_t));
+                    csq.pos          = rec->pos;
+                    csq.type.biotype = tr->type;
+                    csq.type.strand  = tr->strand;
+                    csq.type.trid    = tr->id;
+                    csq.type.gene    = tr->gene->name;
+                    csq.type.type = child->csq;
+                    csq_stage(args, &csq, rec);
+                    free(child);
+                    continue;
+                }
                 if ( parent->cur_rec!=rec )
                 {
                     hts_expand(int,rec->n_allele,parent->mcur_child,parent->cur_child);
