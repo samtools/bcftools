@@ -790,6 +790,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     of *--regions-file* in *<<common_options,Common Options>>* for file
     format details.
 
+*-M, --missing* 'CHAR'::
+    instead of skipping the missing genotypes, output the character CHAR (e.g. "?")
+
 *-o, --output* 'FILE'::
     write output to a file
 
