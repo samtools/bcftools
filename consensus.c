@@ -73,6 +73,8 @@ typedef struct
     int fa_length;      // region's length in the original sequence (in case end_pos not provided in the FASTA header)
     int fa_case;        // output upper case or lower case?
     int fa_src_pos;     // last genomic coordinate read from the input fasta (0-based)
+    char prev_base;     // this is only to validate the REF allele in the VCF - the modified fa_buf cannot be used for inserts following deletions, see 600#issuecomment-383186778
+    int prev_base_pos;  // the position of prev_base
 
     rbuf_t vcf_rbuf;
     bcf1_t **vcf_buf;
@@ -284,7 +286,8 @@ static void init_region(args_t *args, char *line)
     args->chr = strdup(line);
     args->rid = bcf_hdr_name2id(args->hdr,line);
     if ( args->rid<0 ) fprintf(stderr,"Warning: Sequence \"%s\" not in %s\n", line,args->fname);
-    args->fa_buf.l = 0;
+    args->prev_base_pos = -1;
+    args->fa_buf.l  = 0;
     args->fa_length = 0;
     args->fa_end_pos = to;
     args->fa_ori_pos = from;
@@ -567,21 +570,37 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     }
     else if ( strncasecmp(rec->d.allele[0],args->fa_buf.s+idx,rec->rlen) )
     {
-        // fprintf(stderr,"%d .. [%s], idx=%d ori=%d off=%d\n",args->fa_ori_pos,args->fa_buf.s,idx,args->fa_ori_pos,args->fa_mod_off);
-        char tmp = 0;
-        if ( args->fa_buf.l - idx > rec->rlen ) 
-        { 
-            tmp = args->fa_buf.s[idx+rec->rlen];
-            args->fa_buf.s[idx+rec->rlen] = 0;
+        // This is hacky, handle a special case: if insert follows a deletion (AAC>A, C>CAA),
+        // the reference base in fa_buf is lost and the check fails. We do not keep a buffer
+        // with the original sequence as it should not be necessary, we should encounter max
+        // one base overlap
+
+        int fail = 1;
+        if ( args->prev_base_pos==rec->pos && toupper(rec->d.allele[0][0])==toupper(args->prev_base) )
+        {
+            if ( rec->rlen==1 ) fail = 0;
+            else if ( !strncasecmp(rec->d.allele[0]+1,args->fa_buf.s+idx+1,rec->rlen-1) ) fail = 0;
         }
-        error(
-            "The fasta sequence does not match the REF allele at %s:%d:\n"
-            "   .vcf: [%s]\n" 
-            "   .vcf: [%s] <- (ALT)\n" 
-            "   .fa:  [%s]%c%s\n",
-            bcf_seqname(args->hdr,rec),rec->pos+1, rec->d.allele[0], rec->d.allele[ialt], args->fa_buf.s+idx, 
-            tmp?tmp:' ',tmp?args->fa_buf.s+idx+rec->rlen+1:""
-            );
+
+        if ( fail )
+        {
+            char tmp = 0;
+            if ( args->fa_buf.l - idx > rec->rlen ) 
+            { 
+                tmp = args->fa_buf.s[idx+rec->rlen];
+                args->fa_buf.s[idx+rec->rlen] = 0;
+            }
+            error(
+                    "The fasta sequence does not match the REF allele at %s:%d:\n"
+                    "   .vcf: [%s]\n" 
+                    "   .vcf: [%s] <- (ALT)\n" 
+                    "   .fa:  [%s]%c%s\n",
+                    bcf_seqname(args->hdr,rec),rec->pos+1, rec->d.allele[0], rec->d.allele[ialt], args->fa_buf.s+idx, 
+                    tmp?tmp:' ',tmp?args->fa_buf.s+idx+rec->rlen+1:""
+                 );
+        }
+        alen = strlen(rec->d.allele[ialt]);
+        len_diff = alen - rec->rlen;
     }
     else
     {
@@ -600,7 +619,11 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         for (i=0; i<alen; i++)
             args->fa_buf.s[idx+i] = rec->d.allele[ialt][i];
         if ( len_diff )
+        {
+            args->prev_base = rec->d.allele[0][rec->rlen - 1];
+            args->prev_base_pos = rec->pos + rec->rlen - 1;
             memmove(args->fa_buf.s+idx+alen,args->fa_buf.s+idx+rec->rlen,args->fa_buf.l-idx-rec->rlen);
+        }
     }
     else
     {
