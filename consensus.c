@@ -765,7 +765,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --sample (and, optionally, --haplotype) option will apply genotype\n");
     fprintf(stderr, "       (or haplotype) calls from FORMAT/GT. The program ignores allelic depth\n");
     fprintf(stderr, "       information, such as INFO/AD or FORMAT/AD.\n");
-    fprintf(stderr, "Usage:   bcftools consensus [OPTIONS] <file.vcf>\n");
+    fprintf(stderr, "Usage:   bcftools consensus [OPTIONS] <file.vcf.gz>\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -c, --chain <file>         write a chain file for liftover\n");
     fprintf(stderr, "    -e, --exclude <expr>       exclude sites for which the expression is true (see man page for details)\n");
