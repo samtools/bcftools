@@ -1512,7 +1512,7 @@ unless the option *--force-samples* is given.  The sample names can be
 also given explicitly using the *--print-header* and *--use-header* options.
 
 Note that only records from different files can be merged, never from the same file.
-For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
+For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcftools norm>> -m* instead.
 
 
 *--force-samples*::
