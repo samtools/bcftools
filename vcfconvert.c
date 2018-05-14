@@ -1112,7 +1112,7 @@ static inline int tsv_setter_aa1(args_t *args, char *ss, char *se, int alleles[]
     {
         // missing GT
         gts[0] = bcf_gt_missing;
-        gts[1] = bcf_int32_vector_end;
+        gts[1] = bcf_gt_missing;
         args->n.missing++;
         return 0;
     }
