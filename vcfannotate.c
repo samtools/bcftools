@@ -463,6 +463,34 @@ static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
         return bcf_update_id(args->hdr_out,line,rec->d.id);
     return 0;
 }
+static int vcf_setter_ref(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    if ( !strcmp(rec->d.allele[0],line->d.allele[0]) ) return 0;    // no update necessary
+    const char **als = (const char**) malloc(sizeof(char*)*line->n_allele);
+    als[0] = rec->d.allele[0];
+    int i;
+    for (i=1; i<line->n_allele; i++) als[i] = line->d.allele[i];
+    bcf_update_alleles(args->hdr_out, line, als, line->n_allele);
+    free(als);
+    return 0;
+}
+static int vcf_setter_alt(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    int i;
+    if ( rec->n_allele==line->n_allele )
+    {
+        for (i=1; i<rec->n_allele; i++) if ( strcmp(rec->d.allele[i],line->d.allele[i]) ) break;
+        if ( i==rec->n_allele ) return 0;   // no update necessary
+    }
+    const char **als = (const char**) malloc(sizeof(char*)*rec->n_allele);
+    als[0] = line->d.allele[0];
+    for (i=1; i<rec->n_allele; i++) als[i] = rec->d.allele[i];
+    bcf_update_alleles(args->hdr_out, line, als, rec->n_allele);
+    free(als);
+    return 0;
+}
 static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
@@ -1580,8 +1608,30 @@ static void init_columns(args_t *args)
         else if ( !strcasecmp("POS",str.s) ) args->from_idx = icol;
         else if ( !strcasecmp("FROM",str.s) ) args->from_idx = icol;
         else if ( !strcasecmp("TO",str.s) ) args->to_idx = icol;
-        else if ( !strcasecmp("REF",str.s) ) args->ref_idx = icol;
-        else if ( !strcasecmp("ALT",str.s) ) args->alt_idx = icol;
+        else if ( !strcasecmp("REF",str.s) )
+        {
+            if ( args->tgts_is_vcf )
+            {
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                col->setter = vcf_setter_ref;
+                col->hdr_key_src = strdup(str.s);
+                col->hdr_key_dst = strdup(str.s);
+            }
+            else args->ref_idx = icol;
+        }
+        else if ( !strcasecmp("ALT",str.s) )
+        {
+            if ( args->tgts_is_vcf )
+            {
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                col->setter = vcf_setter_alt;
+                col->hdr_key_src = strdup(str.s);
+                col->hdr_key_dst = strdup(str.s);
+            }
+            else args->alt_idx = icol;
+        }
         else if ( !strcasecmp("ID",str.s) )
         {
             if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
