@@ -1254,7 +1254,7 @@ int main_vcfroh(int argc, char *argv[])
     fprintf(stderr,"Number of lines filtered/no AF/not biallelic/dup: %d/%d/%d/%d\n", args->nfiltered,args->nno_af,args->nnot_biallelic,args->ndup);
     if ( nmin==0 )
     {
-        fprintf(stderr,"No usable sites were found.\n", args->nno_af);
+        fprintf(stderr,"No usable sites were found.\n");
         if ( !naf_opts && !args->dflt_AF ) fprintf(stderr, " Consider using one of the AF options.\n");
     }
     destroy_data(args);

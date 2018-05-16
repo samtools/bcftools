@@ -50,7 +50,7 @@ THE SOFTWARE.  */
 #  define __FUNCTION__ __func__
 #endif
 
-static filter_ninit = 0;
+static int filter_ninit = 0;
 
 uint64_t bcf_double_missing    = 0x7ff0000000000001;
 uint64_t bcf_double_vector_end = 0x7ff0000000000002;
@@ -283,7 +283,6 @@ char *expand_path(char *path)
 #endif
 
     kstring_t str = {0,0,0};
-    int i;
 
     if ( path[0] == '~' )
     {
@@ -2155,7 +2154,10 @@ static void perl_init(filter_t *filter, char **str)
     if ( ++filter_ninit == 1 )
     {
         // must be executed only once, even for multiple filters; first time here
-        PERL_SYS_INIT3(0, NULL, NULL);
+        int argc = 0;
+        char **argv = NULL;
+        char **env  = NULL;
+        PERL_SYS_INIT3(&argc, &argv, &env);
     }
     
     filter->perl = perl_alloc();
