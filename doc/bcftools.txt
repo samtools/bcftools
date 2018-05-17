@@ -2796,11 +2796,11 @@ element of the vector, as shown in the examples below
         FORMAT/AD[0:1]               .. first sample, second AD value
         FORMAT/AD[1:0]               .. second sample, first AD value
         DP4[*] == 0                  .. any DP4 value
-        FORMAT/DP[0]   > 30         .. DP of the first sample bigger than 30
-        FORMAT/DP[1-3] > 10         .. samples 2-4
-        FORMAT/DP[1-]  < 7          .. all samples but the first
-        FORMAT/DP[0,2-4] > 20       .. samples 1, 3-5
-        FORMAT/AD[0:1]              .. first sample, second AD field
+        FORMAT/DP[0]   > 30          .. DP of the first sample bigger than 30
+        FORMAT/DP[1-3] > 10          .. samples 2-4
+        FORMAT/DP[1-]  < 7           .. all samples but the first
+        FORMAT/DP[0,2-4] > 20        .. samples 1, 3-5
+        FORMAT/AD[0:1]               .. first sample, second AD field
         FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
         FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
         (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
@@ -2809,6 +2809,13 @@ element of the vector, as shown in the examples below
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
         MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT
+
+* two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
+  and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
+  homozygous genotypes.
+
+        binom(FMT/AD)                .. GT can be used to determine the correct index
+        binom(AD[0],AD[1])           .. or the fields can be given explicitly
 
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to

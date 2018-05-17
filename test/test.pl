@@ -135,6 +135,9 @@ test_vcf_query($opts,in=>'query.filter.3',out=>'query.53.out',args=>q[-f'%POS[\\
 test_vcf_query($opts,in=>'filter.5',out=>'query.54.out',args=>q[-f'[%POS  %SAMPLE  %AD\\n]\\n' -i'AD[:0]+AD[:1] > 12']);
 test_vcf_query($opts,in=>'query.filter.4',out=>'query.55.out',args=>q[-f'%POS\\t%REF\\t%ALT[\\t%GT]\\n' -e'TYPE!="snp" || ALT="*"']);
 test_vcf_query($opts,in=>'view',out=>'query.56.out',args=>q[-f'%ID\\n' -i 'ID=@].$$opts{path}.q[/query.56.out']);
+test_vcf_query($opts,in=>'query.filter.5',out=>'query.57.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GT\\t%AD\\n]' -i'GT="het" & binom(FMT/AD)>0.01']);
+test_vcf_query($opts,in=>'query.filter.5',out=>'query.58.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GT\\t%AD\\n]' -i'GT="het" & binom(FMT/AD[:0],FMT/AD[:1])>0.01']);
+test_vcf_query($opts,in=>'query.filter.5',out=>'query.59.out',args=>q[-f'%POS\\t%AD\\n' -i'binom(INFO/AD[0],INFO/AD[1])>0.01']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
@@ -200,11 +203,11 @@ test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.out',args=>'-cv --ploidy
 test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.2.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.2.samples');
 test_vcf_filter($opts,in=>'filter.1',out=>'filter.1.out',args=>'-mx -g2 -G2');
 test_vcf_filter($opts,in=>'filter.2',out=>'filter.2.out',args=>q[-e'QUAL==59.2 || (INDEL=0 & (FMT/GQ=25 | FMT/DP=10))' -sModified -S.]);
-test_vcf_filter($opts,in=>'filter.3',out=>'filter.3.out',args=>q[-e'DP=19'],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
-test_vcf_filter($opts,in=>'filter.3',out=>'filter.4.out',args=>q[-e'DP=19' -s XX],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
-test_vcf_filter($opts,in=>'filter.3',out=>'filter.5.out',args=>q[-e'DP=19' -s XX -m+],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
-test_vcf_filter($opts,in=>'filter.3',out=>'filter.6.out',args=>q[-e'DP=19' -s XX -mx],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
-test_vcf_filter($opts,in=>'filter.3',out=>'filter.7.out',args=>q[-e'DP=19' -s XX -m+x],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.3',out=>'filter.3.out',args=>q[-e'INFO/DP=19'],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.3',out=>'filter.4.out',args=>q[-e'INFO/DP=19' -s XX],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.3',out=>'filter.5.out',args=>q[-e'INFO/DP=19' -s XX -m+],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.3',out=>'filter.6.out',args=>q[-e'INFO/DP=19' -s XX -mx],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
+test_vcf_filter($opts,in=>'filter.3',out=>'filter.7.out',args=>q[-e'INFO/DP=19' -s XX -m+x],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.3.out',args=>q[-e'FMT/GT="0/2"'],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.4.out',args=>q[-e'FMT/GT="0/2"' -s XX],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
 test_vcf_filter($opts,in=>'filter.3',out=>'filter.5.out',args=>q[-e'FMT/GT="0/2"' -s XX -m+],fmt=>'%POS\\t%FILTER\\t%DP[\\t%GT]\\n');
