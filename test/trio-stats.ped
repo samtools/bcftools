@@ -1,0 +1,6 @@
+HG00100 child1 father1 mother1 2 0 CEU
+HG00101 father1 0 0 1 0 CEU
+HG00102 mother1 0 0 2 0 CEU
+HG00200 child2 father2 mother2 2 0 CEU
+HG00201 father2 0 0 1 0 CEU
+HG00202 mother2 0 0 2 0 CEU
