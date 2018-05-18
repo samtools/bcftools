@@ -396,7 +396,6 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         if ( fmt->type!=BCF_BT_INT8 )
             error("Todo: GT field represented with BCF_BT_INT8, too many alleles at %s:%d?\n",bcf_seqname(args->hdr,rec),rec->pos+1);
         uint8_t *ptr = fmt->p + fmt->size*args->isample;
-
         if ( args->haplotype )
         {
             if ( args->haplotype > fmt->n )
@@ -418,8 +417,8 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             }
             else
             {
-                ialt = ptr[args->haplotype-1];
-                if ( bcf_gt_is_missing(ialt) || ialt==bcf_int32_vector_end )
+                ialt = (int8_t)ptr[args->haplotype-1];
+                if ( bcf_gt_is_missing(ialt) || ialt==bcf_int8_vector_end )
                 {
                     if ( !args->missing_allele ) return;
                     ialt = -1;
