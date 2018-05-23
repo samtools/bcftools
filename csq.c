@@ -2401,12 +2401,12 @@ fprintf(stderr,"csq_push: %d .. %d\n",rec->pos+1,csq->type.type);
 #endif
     khint_t k = kh_get(pos2vbuf, args->pos2vbuf, (int)csq->pos);
     vbuf_t *vbuf = (k == kh_end(args->pos2vbuf)) ? NULL : kh_val(args->pos2vbuf, k);
-    if ( !vbuf ) error("This should not happen. %s:%d  %s\n",bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr);
+    if ( !vbuf ) error("This should not happen. %s:%d  %s\n",bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr.s);
 
     int i;
     for (i=0; i<vbuf->n; i++)
         if ( vbuf->vrec[i]->line==rec ) break;
-    if ( i==vbuf->n ) error("This should not happen.. %s:%d  %s\n", bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr);
+    if ( i==vbuf->n ) error("This should not happen.. %s:%d  %s\n", bcf_seqname(args->hdr,rec),csq->pos+1,csq->type.vstr.s);
     vrec_t *vrec = vbuf->vrec[i];
 
     // if the variant overlaps donor/acceptor and also splice region, report only donor/acceptor

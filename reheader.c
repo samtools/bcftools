@@ -30,6 +30,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <math.h>
 #include <htslib/vcf.h>
@@ -301,16 +302,16 @@ static void reheader_vcf(args_t *args)
 
     int out = args->output_fname ? open(args->output_fname, O_WRONLY|O_CREAT|O_TRUNC, 0666) : STDOUT_FILENO;
     if ( out==-1 ) error("%s: %s\n", args->output_fname,strerror(errno));
-    if ( write(out, hdr.s, hdr.l)!=hdr.l ) error("Failed to write %d bytes\n", hdr.l);
+    if ( write(out, hdr.s, hdr.l)!=hdr.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)hdr.l);
     free(hdr.s);
     if ( fp->line.l )
     {
-        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %d bytes\n", fp->line.l);
+        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
     }
     while ( hts_getline(fp, KS_SEP_LINE, &fp->line) >=0 )   // uncompressed file implies small size, we don't worry about speed
     {
         kputc('\n',&fp->line);
-        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %d bytes\n", fp->line.l);
+        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
     }
     hts_close(fp);
     close(out);

@@ -457,7 +457,7 @@ bcf1_t *process(bcf1_t *rec)
             int len, win = rec->pos > 100 ? 100 : rec->pos, beg = rec->pos - win, end = rec->pos + win;
             char *ref = faidx_fetch_seq(args.fai, (char*)bcf_seqname(args.hdr,rec), beg,end, &len);
             if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
-            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%d  (%d %d %d)\n", win,len, bcf_seqname(args.hdr,rec),rec->pos+1);
+            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%d  (%d %d)\n", win,len, bcf_seqname(args.hdr,rec),rec->pos+1, end,beg);
 
             int i, mid = rec->pos - beg, strand = 0;
             for (i=1; i<=win; i++)

@@ -520,7 +520,7 @@ static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *
 
     if ( str[0]=='1' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,1);
     if ( str[0]=='0' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,0);
-    error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+    error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
     return -1;
 }
 static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
@@ -539,7 +539,7 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int ntmpi2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
@@ -573,7 +573,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     {
         int val = strtol(str, &end, 10); 
         if ( end==str )
-            error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+            error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
         ntmpi++;
         hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
         args->tmpi[ntmpi-1] = val;
@@ -619,7 +619,7 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int ntmpf2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpf2, &args->mtmpf2);
@@ -653,7 +653,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     {
         double val = strtod(str, &end);
         if ( end==str )
-            error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+            error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
         ntmpf++;
         hts_expand(float,ntmpf,args->mtmpf,args->tmpf);
         args->tmpf[ntmpf-1] = val;
@@ -706,7 +706,7 @@ static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, in
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int i, empty = 0, nstr, mstr = args->tmpks.m;
@@ -1186,7 +1186,7 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
     // create mapping from src to dst genotypes, haploid and diploid version
     int nmap_hap = col->number==BCF_VL_G || col->number==BCF_VL_R ? rec->n_allele : rec->n_allele - 1;
     int *map_hap = vcmp_map_ARvalues(args->vcmp,nmap_hap,line->n_allele,line->d.allele,rec->n_allele,rec->d.allele);
-    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     int i, j;
     if ( rec->n_allele==line->n_allele )
@@ -1294,7 +1294,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
     // create mapping from src to dst genotypes, haploid and diploid version
     int nmap_hap = col->number==BCF_VL_G || col->number==BCF_VL_R ? rec->n_allele : rec->n_allele - 1;
     int *map_hap = vcmp_map_ARvalues(args->vcmp,nmap_hap,line->n_allele,line->d.allele,rec->n_allele,rec->d.allele);
-    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     int i, j;
     if ( rec->n_allele==line->n_allele )

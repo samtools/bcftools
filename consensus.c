@@ -555,7 +555,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         }
     }
     if ( idx>=args->fa_buf.l ) 
-        error("FIXME: %s:%d .. idx=%d, ori_pos=%d, len=%d, off=%d\n",bcf_seqname(args->hdr,rec),rec->pos+1,idx,args->fa_ori_pos,args->fa_buf.l,args->fa_mod_off);
+        error("FIXME: %s:%d .. idx=%d, ori_pos=%d, len=%"PRIu64", off=%d\n",bcf_seqname(args->hdr,rec),rec->pos+1,idx,args->fa_ori_pos,(uint64_t)args->fa_buf.l,args->fa_mod_off);
 
     // sanity check the reference base
     if ( rec->d.allele[ialt][0]=='<' )

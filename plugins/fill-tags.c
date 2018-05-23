@@ -290,7 +290,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         }
     }
 
-    if ( optind != argc ) error(usage());
+    if ( optind != argc ) error("%s",usage());
 
     args->gt_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
     if ( args->gt_id<0 ) error("Error: GT field is not present\n");

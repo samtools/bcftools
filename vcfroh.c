@@ -26,6 +26,7 @@ THE SOFTWARE.  */
 #include <unistd.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kstring.h>
@@ -384,7 +385,7 @@ static int load_genmap(args_t *args, const char *chr)
 
     hts_getline(fp, KS_SEP_LINE, &str);
     if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") )
-        error("Unexpected header, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
+        error("Unexpected header in %s, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
 
     args->ngenmap = args->igenmap = 0;
     while ( hts_getline(fp, KS_SEP_LINE, &str) > 0 )
@@ -950,7 +951,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
         {
             hts_expand(uint32_t,smpl->nsites+1,smpl->msites,smpl->sites);
             smpl->eprob = (double*) realloc(smpl->eprob,sizeof(*smpl->eprob)*smpl->msites*2);
-            if ( !smpl->eprob ) error("Error: failed to alloc %d bytes\n", sizeof(*smpl->eprob)*smpl->msites*2);
+            if ( !smpl->eprob ) error("Error: failed to alloc %"PRIu64" bytes\n", (uint64_t)(sizeof(*smpl->eprob)*smpl->msites*2));
         }
         
         // Calculate emission probabilities P(D|AZ) and P(D|HW)
@@ -1207,8 +1208,8 @@ int main_vcfroh(int argc, char *argv[])
     else fname = argv[optind];
 
     if ( args->vi_training && args->buffer_size ) error("Error: cannot use -b with -V\n");
-    if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1]\n", args->t2AZ);
-    if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1]\n", args->t2HW);
+    if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1] .. %e\n", args->t2AZ);
+    if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1] .. %e\n", args->t2HW);
     if ( naf_opts>1 ) error("Error: The options --AF-tag, --AF-file and -e are mutually exclusive\n");
     if ( args->af_fname && args->targets_list ) error("Error: The options --AF-file and -t are mutually exclusive\n");
     if ( args->regions_list )

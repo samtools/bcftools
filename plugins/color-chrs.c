@@ -173,7 +173,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             default: error("%s", usage()); break;
         }
     }
-    if ( optind != argc ) error(usage());
+    if ( optind != argc ) error("%s",usage());
     if ( trio_samples && unrelated_samples ) error("Expected only one of the -t/-u options\n");
     if ( !trio_samples && !unrelated_samples ) error("Expected one of the -t/-u options\n");
     if ( !args.prefix ) error("Expected the -p option\n");
