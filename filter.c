@@ -2297,7 +2297,7 @@ static int perl_exec(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack
 #else
     error("\nPerl filtering requires running `configure --enable-perl-filters` at compile time.\n\n");
 #endif
-    return nstack;
+    return rtok->nargs;
 }
 static void perl_init(filter_t *filter, char **str)
 {
