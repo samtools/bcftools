@@ -286,21 +286,25 @@ static void report_stats(args_t *args)
     int i = 0,j;
     FILE *fh = !args->output_fname || !strcmp("-",args->output_fname) ? stdout : fopen(args->output_fname,"w");
     if ( !fh ) error("Could not open the file for writing: %s\n", args->output_fname);
+    fprintf(fh,"# CMD line shows the command line used to generate this output\n");
     fprintf(fh,"# DEF lines define expressions for all tested thresholds\n");
     fprintf(fh,"# FLT* lines report numbers for every threshold and every trio:\n");
     fprintf(fh,"#   %d) filter id\n", ++i);
     fprintf(fh,"#   %d) child\n", ++i);
     fprintf(fh,"#   %d) father\n", ++i);
     fprintf(fh,"#   %d) mother\n", ++i);
-    fprintf(fh,"#   %d) number of valid trio genotypes (pass filters, all non-missing)\n", ++i);
-    fprintf(fh,"#   %d) number of non-reference trio GTs\n", ++i);
+    fprintf(fh,"#   %d) number of valid trio genotypes (all trio members pass filters, all non-missing)\n", ++i);
+    fprintf(fh,"#   %d) number of non-reference trio GTs (at least one trio member carries an alternate allele)\n", ++i);
     fprintf(fh,"#   %d) number of Mendelian errors\n", ++i);
     fprintf(fh,"#   %d) number of novel singleton alleles in the child (counted also as a Mendelian error)\n", ++i);
-    fprintf(fh,"#   %d) number of singleton alleles, present only in one parent and not transmitted to the child\n", ++i);
-    fprintf(fh,"#   %d) number of doubleton alleles, present only in one parent and the child\n", ++i);
+    fprintf(fh,"#   %d) number of untransmitted singletons, present only in one parent\n", ++i);
+    fprintf(fh,"#   %d) number of transmitted singletons, present only in one parent and the child\n", ++i);
     fprintf(fh,"#   %d) number of transitions, all ALT alleles present in the trio are considered\n", ++i);
     fprintf(fh,"#   %d) number of transversions, all ALT alleles present in the trio are considered\n", ++i);
     fprintf(fh,"#   %d) overall ts/tv, all ALT alleles present in the trio are considered\n", ++i);
+    fprintf(fh, "CMD\t%s", args->argv[0]);
+    for (i=1; i<args->argc; i++) fprintf(fh, " %s",args->argv[i]);
+    fprintf(fh, "\n");
     for (i=0; i<args->nfilters; i++)
     {
         flt_stats_t *flt = &args->filters[i];
@@ -394,6 +398,8 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             }
             if ( !pass_site ) return;
         }
+        else
+            for (i=0; i<args->ntrio; i++) args->trio[i].pass = 1;
     }
 
     // Find out the allele counts. Try to use INFO/AC, if not present, determine from the genotypes

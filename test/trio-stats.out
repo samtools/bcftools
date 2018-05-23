@@ -1,15 +1,16 @@
+# CMD line shows the command line used to generate this output
 # DEF lines define expressions for all tested thresholds
 # FLT* lines report numbers for every threshold and every trio:
 #   1) filter id
 #   2) child
 #   3) father
 #   4) mother
-#   5) number of valid trio genotypes (pass filters, all non-missing)
-#   6) number of non-reference trio GTs
+#   5) number of valid trio genotypes (all trio members pass filters, all non-missing)
+#   6) number of non-reference trio GTs (at least one trio member carries an alternate allele)
 #   7) number of Mendelian errors
 #   8) number of novel singleton alleles in the child (counted also as a Mendelian error)
-#   9) number of singleton alleles, present only in one parent and not transmitted to the child
-#   10) number of doubleton alleles, present only in one parent and the child
+#   9) number of untransmitted singletons, present only in one parent
+#   10) number of transmitted singletons, present only in one parent and the child
 #   11) number of transitions, all ALT alleles present in the trio are considered
 #   12) number of transversions, all ALT alleles present in the trio are considered
 #   13) overall ts/tv, all ALT alleles present in the trio are considered
