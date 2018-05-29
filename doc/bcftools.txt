@@ -1477,9 +1477,11 @@ Create intersection and complements of two sets saving the output in dir/*
     bcftools isec -p dir A.vcf.gz B.vcf.gz
 ----
 
-Filter sites in A and B (but not in C) and create intersection
+Filter sites in A (require INFO/MAF>=0.01) and B (require INFO/dbSNP) but not in C,
+and create an intersection, including only sites which appear in at least two of
+the files after filters have been applied
 ----
-    bcftools isec -e'MAF<0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -p dir
+    bcftools isec -e'MAF<0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -n +2 -p dir
 ----
 
 Extract and write records from A shared by both A and B using exact allele match
