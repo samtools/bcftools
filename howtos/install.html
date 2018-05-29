@@ -80,74 +80,11 @@
 <div class="content">
 <pre>git clone git://github.com/samtools/htslib.git
 git clone git://github.com/samtools/bcftools.git
-cd bcftools; make</pre>
+cd bcftools
+ # The following is optional:
+ #   autoheader &amp;&amp; autoconf &amp;&amp; ./configure --enable-libgsl --enable-perl-filters
+make</pre>
 </div>
-</div>
-<div class="paragraph">
-<p>Note that if also the <code>polysomy</code> command should be included, the
-compilation instructions differ, see <a href="#gsl">Optional Compilation with GSL</a> below.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_system_requirements">System Requirements</h3>
-<div class="paragraph">
-<p>BCFtools and HTSlib depend on the <code>zlib</code> library <a href="http://zlib.net" class="bare">http://zlib.net</a>.  Building
-them requires <code>zlib</code> development files to be installed on the build machine;
-you may need to ensure a package such as <code>zlib1g-dev</code> (on Debian or Ubuntu Linux)
-or <code>zlib-devel</code> (on RPM/yum-based distributions) is installed.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_compilation">Compilation</h3>
-<div class="paragraph">
-<p><code>cd</code> to the bcftools directory containing the package&#8217;s source and type
-<code>make</code> to compile BCFtools.</p>
-</div>
-<div class="paragraph">
-<p>If you already have a system-installed HTSlib or another HTSlib
-that you would prefer to build against, you can arrange this by overriding
-<code>$(HTSDIR)</code> by typing <code>make HTSDIR=/path/to/htslib-source</code>&#8201;&#8212;&#8201;see the Makefile
-for details.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="gsl">Optional Compilation with GSL</h3>
-<div class="paragraph">
-<p>The <code>polysomy</code> command depends on the GNU Scientific Library (GSL) and is not
-enabled by default. In order to compile it, type</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>make clean &amp;&amp; make USE_GPL=1</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Note that GSL is distributed under a GPL license, so when <code>USE_GPL=1</code> is used to
-compile bcftools, the resulting program must only be distributed under terms
-compatible with that license.</p>
-</div>
-<div class="paragraph">
-<p>In the default compilation mode the program is dual licensed and you may
-choose to be licensed under the terms of the MIT/Expat license or the
-GNU General Public License (GPL).</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_installation_2">Installation</h3>
-<div class="paragraph">
-<p>Type <code>make install</code> to install the bcftools executable and associated scripts
-and a manual page to <code>/usr/local</code>.</p>
-</div>
-<div class="paragraph">
-<p>Type <code>make prefix=/path/to/dir install</code> to install everything under your
-choice of installation directory.  The install target also understands
-<code>DESTDIR</code> and the other usual installation directory variables.</p>
-</div>
-<div class="paragraph">
-<p>The bgzip and tabix utilities are provided by HTSlib.  If you have not also
-installed HTSlib separately, you may wish to install these utilities by hand
-by copying <code>bcftools/htslib/{bgzip,tabix}</code> to the same bin directory
-to which you have installed bcftools et al.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -162,6 +99,206 @@ be set and point to the correct location:<br>
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>Note that if also the <code>polysomy</code> command or support for Perl filtering should
+be included, the compilation instructions differ, see <a href="#gsl">Optional
+Compilation with GSL</a> and <a href="#perl">Optional Compilation with Perl</a> below.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_system_requirements">System Requirements</h3>
+<div class="paragraph">
+<p>BCFtools and HTSlib depend on the <code>zlib</code> library <a href="http://zlib.net" class="bare">http://zlib.net</a>, the <code>bzip2</code>
+library <a href="http://bzip.org/" class="bare">http://bzip.org/</a> and <code>liblzma</code> <a href="http://tukaani.org/xz/" class="bare">http://tukaani.org/xz/</a>.  Building
+them requires development files to be installed on the build machine;
+note that some Linux distributions package these separately from the library
+itself (see below).</p>
+</div>
+<div class="paragraph">
+<p>The <code>bzip2</code> and <code>liblzma</code> dependencies can be removed if full CRAM support
+is not needed - see HTSlib&#8217;s INSTALL file for details.</p>
+</div>
+<div class="paragraph">
+<p>Packages for dpkg-based Linux distributions (Debian / Ubuntu) are:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>zlib1g-dev
+libbz2-dev
+liblzma-dev</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Packages for rpm or yum-based Linux distributions (RedHat / Fedora / CentOS)
+are:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>zlib-devel
+bzip2-devel
+xz-devel</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To build BCFtools, you will need:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>GNU make
+C compiler (e.g. gcc or clang)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In addition, building the configure script requires:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>autoheader
+autoconf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Running the configure script uses awk, along with a number of
+standard UNIX tools (cat, cp, grep, mv, rm, sed, among others).  Almost
+all installations will have these already.</p>
+</div>
+<div class="paragraph">
+<p>Running the test harness (make test) uses:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bash
+perl</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_building_configure">Building Configure</h3>
+<div class="paragraph">
+<p>This step is only needed if configure.ac has been changed, or if configure
+does not exist (for example, when building from a git clone).  The
+configure script and config.h.in can be built by running:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>autoheader
+autoconf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you have a full GNU autotools install, you can alternatively run:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>autoreconf</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Warnings like <code>AC_CONFIG_SUBDIRS: you should use literals</code> can be ignored
+or supressed using <code>autoconf -Wno-syntax</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_compilation">Compilation</h3>
+<div class="paragraph">
+<p><code>cd</code> to the bcftools directory containing the package&#8217;s source and type:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>./configure
+make</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This BCFtools release contains a copy of HTSlib which will be used to build
+BCFtools.  If you already have a system-installed HTSlib or another HTSlib
+that you would prefer to build against, you can arrange this by using the
+configure script&#8217;s <code>--with-htslib</code> option.  Use <code>--with-htslib=DIR</code> to point
+to an HTSlib source tree or installation in DIR; or <code>--with-htslib=system</code>
+to use a system-installed HTSlib.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="perl">Optional Compilation with Perl</h3>
+<div class="paragraph">
+<p>The <code>-i</code> and <code>-e</code> options can take external perl scripts for a more
+sophisticated filtering. This option can be enabled by supplying the
+<code>--enable-perl-filters</code> option to configure before running make:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>./configure --enable-perl-filters</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that enabling this option changes the license from MIT to GPL
+because bcftools need to be built with</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>perl -MExtUtils::Embed -e ccopts -e ldopts</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="gsl">Optional Compilation with GSL</h3>
+<div class="paragraph">
+<p>The <code>polysomy</code> command depends on the GNU Scientific Library (GSL) and is not
+enabled by default.  In order to compile it, supply the <code>--enable-libgsl</code>
+option to configure before running make:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>./configure --enable-libgsl</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The GNU Scientific Library depends on the cblas library.  The configure
+script will look for both libcblas and libgslcblas, in that order.  If
+you have more than one version of cblas installed and want to override its
+choice you can do this by using either <code>--with-cblas=cblas</code> or
+<code>--with-cblas=gslcblas</code>.</p>
+</div>
+<div class="paragraph">
+<p>Note that GSL is distributed under the GNU General Public License (GPL).
+When --enable-libgsl is used to compile bcftools, the resulting program
+will also be GPL licensed.  If you want to distribute the program, you MUST
+do so under terms compatible with that license.  A copy of the GPL is included
+in the LICENSE file, or can be downloaded from
+<a href="http://www.gnu.org/copyleft/gpl.html" class="bare">http://www.gnu.org/copyleft/gpl.html</a>.</p>
+</div>
+<div class="paragraph">
+<p>In the default compilation mode the program is dual licensed and you may
+choose to be licensed under the terms of the MIT/Expat license or the
+GNU General Public License (GPL).</p>
+</div>
+<div class="paragraph">
+<p>Information on the GNU Scientific Library, including the rationale for
+its choice of license can be found at <a href="https://www.gnu.org/software/gsl/" class="bare">https://www.gnu.org/software/gsl/</a>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_installation_2">Installation</h3>
+<div class="paragraph">
+<p>Type <code>make install</code> to install the bcftools executable and associated scripts
+and a manual page to <code>/usr/local</code>. This can be
+changed by using the configure script&#8217;s <code>--prefix</code> option:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>./configure --prefix=/path/to/install/dir</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The install target also understands DESTDIR and the other usual installation
+directory variables.</p>
+</div>
+<div class="paragraph">
+<p>The bgzip and tabix utilities are provided by HTSlib.  If you have not also
+installed HTSlib separately, you may wish to install these utilities by hand
+by copying the programs to the same bin directory
+to which you have installed bcftools et al.</p>
 </div>
 </div>
 <div class="sect2">
