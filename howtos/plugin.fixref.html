@@ -71,6 +71,20 @@
 <div class="sect1">
 <h2 id="_plugin_fixref">Plugin fixref</h2>
 <div class="sectionbody">
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Warning</div>
+</td>
+<td class="content">
+Do not use the program blindly, make an effort to understand what
+strand convention your data uses! Make sure the reason for mismatching REF
+alleles is not a different reference build!!
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>This tool helps to determine and fix strand orientation.
 Currently it can collect and print numbers useful in determining
@@ -123,8 +137,7 @@ wget ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b146_GRCh37p13/VCF/All_2015
 bcftools +fixref broken.bcf -Ob -o fixref.bcf -- -d -f /path/to/reference.fasta -i All_20151104.vcf.gz
 
 # The above command might have changed the coordinates, we must sort the VCF.
-# Use `vcf-sort` from the vcftools package or a command like this:
-(bcftools view -h fixref.bcf; bcftools view -H fixref.bcf | sort -k1,1d -k2,2n;) | bcftools view -Ob -o fixref.srt.bcf</pre>
+bcftools sort fixref.bcf -Ob -o fixref.sorted.bcf</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -137,9 +150,9 @@ the unambigous alleles onto the forward strand and drop the ambigous genotypes.<
 </div>
 </div>
 <div class="paragraph">
-<p>Note that this is an extremely unsafe operation and can result in nonsense
-genotypes. If you decide to use it, make sure to check the sanity of the
-result with the <a href="plugin.af-dist.html">af-dist plugin</a>.</p>
+<p><strong>Note that this is an extremely unsafe operation and will most likely result in nonsense
+genotypes.</strong> If you decide to use it anyway, make sure to <strong>check the sanity of the
+result</strong> with the <a href="plugin.af-dist.html">af-dist plugin</a>.</p>
 </div>
 <div class="admonitionblock warning">
 <table>
