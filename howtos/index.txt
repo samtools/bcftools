@@ -5,7 +5,7 @@ BCFtools HowTo
 
 === About this document
 
-Blah blah.  Please help us improve this documentation by either editing
+Please help us improve this documentation by either editing
 it and sending a pull request or by opening an issue on
 https://github.com/samtools/bcftools/issues[github].
 
