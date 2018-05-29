@@ -193,6 +193,8 @@ static int filters_next_token(char **str, int *len)
     if ( !strncasecmp(tmp,"FORMAT/",7) ) tmp += 7;
     if ( !strncasecmp(tmp,"FMT/",4) ) tmp += 4;
     if ( !strncasecmp(tmp,"PERL.",5) ) { (*str) += 5; return -TOK_PERLSUB; }
+    if ( !strncasecmp(tmp,"N_PASS(",7) ) { *len = 6; (*str) += 6; return -TOK_FUNC; }
+    if ( !strncasecmp(tmp,"F_PASS(",7) ) { *len = 6; (*str) += 6; return -TOK_FUNC; }
 
     if ( tmp[0]=='@' )  // file name
     {
@@ -985,6 +987,36 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
     }
     tok->nvalues = 1;
     tok->values[0] = tok->tag[0]=='N' ? nmissing : (double)nmissing / line->n_sample;
+}
+static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    if ( nstack==0 ) error("Error parsing the expresion\n");
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) error("The function %s works with FORMAT fields\n", rtok->tag);
+
+    rtok->nsamples = tok->nsamples;
+    memcpy(rtok->pass_samples, tok->pass_samples, rtok->nsamples*sizeof(*rtok->pass_samples));
+
+    assert(tok->usmpl);
+    if ( !rtok->usmpl )
+    {
+        rtok->usmpl = (uint8_t*) malloc(tok->nsamples*sizeof(*rtok->usmpl));
+        memcpy(rtok->usmpl, tok->usmpl, tok->nsamples*sizeof(*rtok->usmpl));
+    }
+
+    int i, npass = 0;
+    for (i=0; i<rtok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        if ( rtok->pass_samples[i] ) npass++;
+    }
+
+    assert( rtok->values );
+    rtok->nvalues = 1;
+    rtok->values[0] = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
+    rtok->nsamples = 0;
+
+    return 1;
 }
 static void filters_set_nalt(filter_t *flt, bcf1_t *line, token_t *tok)
 {
@@ -2369,9 +2401,10 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     filter->hdr = hdr;
     filter->max_unpack |= BCF_UN_STR;
 
-    int nops = 0, mops = 0, *ops = NULL;    // operators stack
-    int nout = 0, mout = 0;                 // filter tokens, RPN
+    int nops = 0, mops = 0;    // operators stack
+    int nout = 0, mout = 0;    // filter tokens, RPN
     token_t *out = NULL;
+    token_t *ops = NULL;
     char *tmp = filter->str;
     perl_init(filter, &tmp);
 
@@ -2388,19 +2421,21 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         if ( ret==TOK_LFT )         // left bracket
         {
             nops++;
-            hts_expand(int, nops, mops, ops);
-            ops[nops-1] = ret;
+            hts_expand0(token_t, nops, mops, ops);
+            ops[nops-1].tok_type = ret;
         }
         else if ( ret==TOK_RGT )    // right bracket
         {
-            while ( nops>0 && ops[nops-1]!=TOK_LFT )
+            while ( nops>0 && ops[nops-1].tok_type!=TOK_LFT )
             {
                 nout++;
                 hts_expand0(token_t, nout, mout, out);
-                out[nout-1].tok_type = ops[nops-1];
+                out[nout-1] = ops[nops-1];
+                memset(&ops[nops-1],0,sizeof(token_t));
                 nops--;
             }
             if ( nops<=0 ) error("Could not parse: %s\n", str);
+            memset(&ops[nops-1],0,sizeof(token_t));
             nops--;
         }
         else if ( ret!=TOK_VAL )    // one of the operators
@@ -2416,6 +2451,22 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
                 tok->pass_site = -1;
                 tok->threshold = -1.0;
                 ret = TOK_MULT;
+            }
+            else if ( ret == -TOK_FUNC )
+            {
+                // this is different from TOK_PERLSUB,TOK_BINOM in that the expression inside the
+                // brackets gets evaluated as normal expression
+                nops++;
+                hts_expand0(token_t, nops, mops, ops);
+                token_t *tok = &ops[nops-1];
+                tok->tok_type  = -ret;
+                tok->hdr_id    = -1;
+                tok->pass_site = -1;
+                tok->threshold = -1.0;
+                if ( !strncasecmp(tmp-len,"N_PASS",6) ) { tok->func = func_npass; tok->tag = strdup("N_PASS"); }
+                else if ( !strncasecmp(tmp-len,"F_PASS",6) ) { tok->func = func_npass; tok->tag = strdup("F_PASS"); }
+                else error("The function \"%s\" is not supported\n", tmp-len);
+                continue;
             }
             else if ( ret < 0 )     // variable number of arguments: TOK_PERLSUB,TOK_BINOM
             {
@@ -2473,17 +2524,18 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             }
             else
             {
-                while ( nops>0 && op_prec[ret] < op_prec[ops[nops-1]] )
+                while ( nops>0 && op_prec[ret] < op_prec[ops[nops-1].tok_type] )
                 {
                     nout++;
                     hts_expand0(token_t, nout, mout, out);
-                    out[nout-1].tok_type = ops[nops-1];
+                    out[nout-1] = ops[nops-1];
+                    memset(&ops[nops-1],0,sizeof(token_t));
                     nops--;
                 }
             }
             nops++;
-            hts_expand(int, nops, mops, ops);
-            ops[nops-1] = ret;
+            hts_expand0(token_t, nops, mops, ops);
+            ops[nops-1].tok_type = ret;
         }
         else if ( !len )
         {
@@ -2504,10 +2556,11 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     }
     while ( nops>0 )
     {
-        if ( ops[nops-1]==TOK_LFT || ops[nops-1]==TOK_RGT ) error("Could not parse the expression: [%s]\n", filter->str);
+        if ( ops[nops-1].tok_type==TOK_LFT || ops[nops-1].tok_type==TOK_RGT ) error("Could not parse the expression: [%s]\n", filter->str);
         nout++;
         hts_expand0(token_t, nout, mout, out);
-        out[nout-1].tok_type = ops[nops-1];
+        out[nout-1] = ops[nops-1];
+        memset(&ops[nops-1],0,sizeof(token_t));
         nops--;
     }
 
@@ -2704,7 +2757,6 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
     for (i=0; i<filter->nfilters; i++)
     {
         filter->filters[i].pass_site = 0;
-
         if ( filter->filters[i].tok_type == TOK_VAL )
         {
             if ( filter->filters[i].setter )    // variable, query the VCF line
