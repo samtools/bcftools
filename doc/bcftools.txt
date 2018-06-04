@@ -2808,6 +2808,11 @@ element of the vector, as shown in the examples below
         (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
         CSQ[*] ~ "missense_variant.*deleterious"
 
+* with many samples it can be more practical to provide a file with sample names,
+one sample name per line
+
+        GT[@samples.txt]="het" & binom(AD)<0.01
+
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
         MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT

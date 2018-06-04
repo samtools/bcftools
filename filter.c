@@ -206,22 +206,25 @@ static int filters_next_token(char **str, int *len)
     int square_brackets = 0;
     while ( tmp[0] )
     {
-        if ( tmp[0]=='"' ) break;
-        if ( tmp[0]=='\'' ) break;
-        if ( isspace(tmp[0]) ) break;
-        if ( tmp[0]=='<' ) break;
-        if ( tmp[0]=='>' ) break;
-        if ( tmp[0]=='=' ) break;
-        if ( tmp[0]=='!' ) break;
-        if ( tmp[0]=='&' ) break;
-        if ( tmp[0]=='|' ) break;
-        if ( tmp[0]=='(' ) break;
-        if ( tmp[0]==')' ) break;
-        if ( tmp[0]=='+' ) break;
-        if ( tmp[0]=='*' && !square_brackets ) break;
-        if ( tmp[0]=='-' && !square_brackets ) break;
-        if ( tmp[0]=='/' ) break;
-        if ( tmp[0]=='~' ) break;
+        if ( !square_brackets )
+        {
+            if ( tmp[0]=='"' ) break;
+            if ( tmp[0]=='\'' ) break;
+            if ( isspace(tmp[0]) ) break;
+            if ( tmp[0]=='<' ) break;
+            if ( tmp[0]=='>' ) break;
+            if ( tmp[0]=='=' ) break;
+            if ( tmp[0]=='!' ) break;
+            if ( tmp[0]=='&' ) break;
+            if ( tmp[0]=='|' ) break;
+            if ( tmp[0]=='(' ) break;
+            if ( tmp[0]==')' ) break;
+            if ( tmp[0]=='+' ) break;
+            if ( tmp[0]=='*' ) break;
+            if ( tmp[0]=='-' ) break;
+            if ( tmp[0]=='/' ) break;
+            if ( tmp[0]=='~' ) break;
+        }
         if ( tmp[0]==']' ) { if (square_brackets) tmp++; break; }
         if ( tmp[0]=='[' ) square_brackets++; 
         tmp++;
@@ -1871,8 +1874,44 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
     int *idxs2 = NULL, nidxs2 = 0, idx2 = 0;
 
     int set_samples = 0;
-    char *colon = index(tag_idx, ':');
-    if ( colon )
+    char *colon = rindex(tag_idx, ':');
+    if ( tag_idx[0]=='@' )     // file list with sample names
+    {
+        if ( !is_fmt ) error("Could not parse \"%s\". (Not a FORMAT tag yet a sample list provided.)\n", ori);
+        char *fname = expand_path(tag_idx+1);
+        int nsmpl;
+        char **list = hts_readlist(fname, 1, &nsmpl);
+        if ( !list && colon )
+        {
+            if ( parse_idxs(colon+1, &idxs2, &nidxs2, &idx2) != 0 ) error("Could not parse the index: %s\n", ori);
+            tok->idxs  = idxs2;
+            tok->nidxs = nidxs2;
+            tok->idx   = idx2;
+            colon = rindex(fname, ':');
+            *colon = 0;
+            list = hts_readlist(fname, 1, &nsmpl);
+        }
+        if ( !list ) error("Could not read: %s\n", fname);
+        free(fname);
+        tok->nsamples = bcf_hdr_nsamples(hdr);
+        tok->usmpl = (uint8_t*) calloc(tok->nsamples,1); 
+        for (i=0; i<nsmpl; i++)
+        {
+            int ismpl = bcf_hdr_id2int(hdr,BCF_DT_SAMPLE,list[i]);
+            if ( ismpl<0 ) error("No such sample in the VCF: \"%s\"\n", list[i]);
+            free(list[i]);
+            tok->usmpl[ismpl] = 1;
+        }
+        free(list);
+        if ( !colon )
+        {
+            tok->idxs = (int*) malloc(sizeof(int));
+            tok->idxs[0] = -1;
+            tok->nidxs   = 1;
+            tok->idx     = -2;
+        }
+    }
+    else if ( colon )
     {
         if ( !is_fmt ) error("Could not parse the index \"%s\". (Not a FORMAT tag yet sample index implied.)\n", ori);
         *colon = 0;

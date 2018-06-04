@@ -259,6 +259,8 @@ test_vcf_annotate($opts,in=>'annotate11',vcf=>'annots11',out=>'annotate15.out',a
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
+test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.2.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{PATH}/setGT.samples.txt]="het"\'');
+test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.3.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{PATH}/setGT.samples.txt]="het" & binom(AD[@{PATH}/setGT.samples.txt])<0.1\'');
 test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args=>'-c CHROM,POS,REF,ALT,+ID');
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'dosage.out',cmd=>'+dosage');
