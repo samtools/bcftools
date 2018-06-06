@@ -1306,13 +1306,11 @@ static void gvcf_to_vcf(args_t *args)
         {
             int pass = filter_test(args->filter, line, NULL);
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
-            if ( !pass ) continue;
-        }
-
-        if (!bcf_has_filter(hdr,line,"PASS"))
-        {
-            bcf_write(out_fh,hdr,line);
-            continue;
+            if ( !pass ) 
+            {
+                bcf_write(out_fh,hdr,line);
+                continue;
+            }
         }
 
         // check if alleles compatible with being a gVCF record

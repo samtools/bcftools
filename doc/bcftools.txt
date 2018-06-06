@@ -901,8 +901,11 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 ==== gVCF conversion:
 *--gvcf2vcf*::
-    convert gVCF to VCF, expanding REF blocks into sites. Only sites
-    with FILTER set to "PASS" or "." will be expanded.
+    convert gVCF to VCF, expanding REF blocks into sites. Note that
+    the *-i* and *-e* options work differently with this switch. In this situation
+    the filtering expressions define which sites should be expanded and
+    which sites should be left unmodified, but all sites are printed on
+    output. In order to drop sites, stream first through *<<view,bcftools view>>*.
 
 *-f, --fasta-ref* 'file'::
     reference sequence in fasta format. Must be indexed with samtools faidx
