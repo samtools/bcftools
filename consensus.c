@@ -36,6 +36,7 @@
 #include <htslib/kstring.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
+#include <htslib/bgzf.h>
 #include "regidx.h"
 #include "bcftools.h"
 #include "rbuf.h"
@@ -672,10 +673,10 @@ static void mask_region(args_t *args, char *seq, int len)
 
 static void consensus(args_t *args)
 {
-    htsFile *fasta = hts_open(args->ref_fname, "rb");
+    BGZF *fasta = bgzf_open(args->ref_fname, "r");
     if ( !fasta ) error("Error reading %s\n", args->ref_fname);
     kstring_t str = {0,0,0};
-    while ( hts_getline(fasta, KS_SEP_LINE, &str) > 0 )
+    while ( bgzf_getline(fasta, '\n', &str) > 0 )
     {
         if ( str.s[0]=='>' )
         {
@@ -752,7 +753,7 @@ static void consensus(args_t *args)
         destroy_chain(args);
     }
     flush_fa_buffer(args, 0);
-    hts_close(fasta);
+    bgzf_close(fasta);
     free(str.s);
 }
 
