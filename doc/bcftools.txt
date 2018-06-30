@@ -2901,7 +2901,7 @@ ref-ref hom, alt-alt hom, ref-alt het, alt-alt het, haploid ref, haploid alt
         GT="R"
         GT="A"
 
-* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other). Use the regex
+* TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 
