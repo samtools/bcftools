@@ -1,0 +1,19 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1>
+##contig=<ID=2>
+##contig=<ID=3>
+##contig=<ID=4>
+##contig=<ID=5>
+##contig=<ID=6>
+##contig=<ID=7>
+##contig=<ID=8>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+1	11	rs1535632	A	T	.	.	.	GT	0/0
+2	11	rs363334	C	G	.	.	.	GT	0/0
+3	11	rs7101540	A	T	.	.	.	GT	0/0
+4	11	rs7113791	A	T	.	.	.	GT	0/0
+5	11	rs778833	C	G	.	.	.	GT	0/0
+6	11	rs4933195	A	T	.	.	.	GT	0/0
+7	11	rs903997	C	G	.	.	.	GT	0/0
+8	11	rs1942968	C	G	.	.	.	GT	0/0

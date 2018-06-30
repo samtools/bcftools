@@ -27,6 +27,8 @@
 
 * `+dosage`: output all alleles and all their dosages at multiallelic sites
 
+* `+fixref`: fix serious bug in -m top conversion
+
 * `-i/-e` filtering expressions:
 
     - add two-tailed binomial test
