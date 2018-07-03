@@ -1379,7 +1379,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
                 }
             }
             if ( col->number==BCF_VL_G )
-                for (j=line->n_allele; j<ndst1; j++) { bcf_float_set_vector_end(ptr_dst[j]); j++; }
+                for (j=line->n_allele; j<ndst1; j++) bcf_float_set_vector_end(ptr_dst[j]);
         }
         else
         {
