@@ -221,8 +221,6 @@ AS_IF([test "$enable_perl_filters" != "no" ], [dnl
     PERL_LIBS="`perl -MExtUtils::Embed -e ldopts`"
     AC_SUBST([PERL_CCOPTS])
     AC_SUBST([PERL_LIBS])
-    USE_GPL=1
-    AC_SUBST([USE_GPL])
 ])
 
 dnl Apply value from HTS_PROG_CC_WERROR (if set)
