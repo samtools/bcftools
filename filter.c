@@ -44,14 +44,14 @@ THE SOFTWARE.  */
 #  include <perl.h>
 #  undef filter_t
 #  define my_perl perl
+
+static int filter_ninit = 0;
 #endif
 
 
 #ifndef __FUNCTION__
 #  define __FUNCTION__ __func__
 #endif
-
-static int filter_ninit = 0;
 
 uint64_t bcf_double_missing    = 0x7ff0000000000001;
 uint64_t bcf_double_vector_end = 0x7ff0000000000002;
