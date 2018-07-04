@@ -285,7 +285,7 @@ static void report_stats(args_t *args)
         fprintf(fh,"\t%.2f", stats->ntv ? (float)stats->nts/stats->ntv : INFINITY);
         fprintf(fh,"\n");
     }
-    if ( fclose(fh)!=0 ) error("Close failed: %s\n", args->output_fname || strcmp("-",args->output_fname) ? "stdout" : args->output_fname);
+    if ( fclose(fh)!=0 ) error("Close failed: %s\n", (args->output_fname && strcmp("-", args->output_fname) != 0)? args->output_fname : "stdout");
 }
 
 static inline int parse_genotype(int32_t *arr, int ngt1, int idx, int als[2])
