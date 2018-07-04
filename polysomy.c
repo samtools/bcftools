@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2013-2015 Genome Research Ltd.
+   Copyright (c) 2013-2018 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -50,11 +50,11 @@ dist_t;
 
 typedef struct
 {
-    int ndist, nbins, ra_rr_scaling;
+    int ndist, nbins, ra_rr_scaling, smooth;
     double *xvals;
     dist_t *dist;
     char **argv, *output_dir;
-    double fit_th, peak_symmetry, cn_penalty, bump_size, min_fraction;
+    double fit_th, peak_symmetry, cn_penalty, min_peak_size, min_fraction;
     int argc, plot, verbose, regions_is_file, targets_is_file, include_aa, force_cn;
     char *dat_fname, *fname, *regions_list, *targets_list, *sample;
     FILE *dat_fp;
@@ -70,15 +70,31 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
 
     // smooth the distribution, this is just to find the peaks
     double *tmp = (double*) malloc(sizeof(double)*n);
-    int win = 0.04*n < 1 ? 1 : 0.04*n;
-    double avg = 0;
-    for (i=0; i<win; i++) avg += dist->yvals[i];
-    for (i=0; i<n-win; i++)
+    int win  = args->smooth ? fabs(args->smooth)*2 + 1 : 7;   // must be an odd number
+    int hwin = win/2;
+    double avg = tmp[0] = dist->yvals[0];
+    for (i=1; i<hwin; i++)
     {
-        tmp[i] = avg / win;
-        avg += -dist->yvals[i] + dist->yvals[i+win];
+        avg += dist->yvals[2*i-1]; 
+        tmp[i] = avg/(2*i+1);
     }
-    for (; i<n; i++) tmp[i] = avg;
+    avg = 0;
+    for (i=0; i<n; i++)
+    {
+        avg += dist->yvals[i];
+        if ( i>=win-1 )
+        {
+            tmp[i-hwin] = avg/win;
+            avg -= dist->yvals[i-win+1];
+        }
+    }
+    for (i=n-hwin; i<n; i++)
+    {
+        avg -= dist->yvals[i-hwin];
+        hwin--;
+        tmp[i] = avg/(2*hwin+1);
+        avg -= dist->yvals[i-hwin];
+    }
 
     // find the extremes; first a simple approach: find a gap
     for (irr=0,i=0; i<n/2; i++) if ( tmp[i] < tmp[irr] ) irr = i;
@@ -87,6 +103,7 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
     iaa += win*0.5;
     if ( iaa>=n ) iaa = n-1;
     if ( irr>=iaa ) error("FIXME: oops, dist normalization failed for %s: %d vs %d\n", dist->chr,irr,iaa); // we may need to be smarter
+    if ( args->smooth>0 ) for (i=0; i<n; i++) dist->yvals[i] = tmp[i];
     free(tmp);
 
     // clean the data: the AA peak is occasionally not centered at 1.0 but is closer to the center, chop off
@@ -248,7 +265,7 @@ static void init_data(args_t *args)
         "\n"
         "def read_dat(dat,fit,cn):\n"
         "   csv.register_dialect('tab', delimiter='\t', quoting=csv.QUOTE_NONE)\n"
-        "   with open(outdir+'/dist.dat', 'rb') as f:\n"
+        "   with open(outdir+'/dist.dat', 'r') as f:\n"
         "      reader = csv.reader(f, 'tab')\n"
         "      for row in reader:\n"
         "          if row[0][0]=='#': continue\n"
@@ -425,6 +442,7 @@ static void fit_curves(args_t *args)
         peakfit_get_params(pkf,0,cn3rra_params,5);
         peakfit_get_params(pkf,1,cn3raa_params,5);
         double cn3_dx = (0.5-cn3rra_params[1] + cn3raa_params[1]-0.5)*0.5;
+        if ( cn3_dx > 0.5/3 ) cn3_dx = 0.5/3;   // CN3 peaks should not be separated by more than 1/3
         peakfit_reset(pkf);
         peakfit_add_gaussian(pkf, cn3rra_params[0],0.5-cn3_dx,cn3rra_params[2], 5);
         peakfit_add_gaussian(pkf, cn3raa_params[0],0.5+cn3_dx,cn3raa_params[2], 5);
@@ -438,10 +456,13 @@ static void fit_curves(args_t *args)
         double cn3_dy      = cn3rra_size > cn3raa_size ? cn3raa_size/cn3rra_size : cn3rra_size/cn3raa_size;
         double cn3_frac    = (1 - 2*cn3rra_params[1]) / cn3rra_params[1];
         double cn3_fit     = cn3ra_fit + cn3aa_fit;
+        // A very reasonable heuristics: check if the peak's width converged, exclude far too broad or far too narrow peaks
+        if ( cn3rra_params[2]>0.3  || cn3raa_params[2]>0.3 ) cn3_fit = HUGE_VAL;
+        if ( cn3rra_params[2]<1e-2 || cn3raa_params[2]<1e-2 ) cn3_fit = HUGE_VAL;
 
 
         // CN4 (contaminations)
-        // - similarly to CN3, fit three peaks, then enforce the symmetry and fit again
+        // - first fit only the [0,0.5] part of the data, then enforce the symmetry and fit again
         // - min_frac=1 (resp. 0.5) is interpreted as 50:50% (rep. 75:25%) contamination
         double cn4AAaa_params[3] = {1,1,1} ,cn4AAra_params[3] = {1,1,1}, cn4RAra_params[3], cn4RArr_params[5], cn4RAaa_params[5];
         double cn4aa_fit = 0, cn4ra_fit;
@@ -460,18 +481,20 @@ static void fit_curves(args_t *args)
             peakfit_get_params(pkf,1,cn4AAra_params,5);
         }
         peakfit_reset(pkf);
+        // first fit only the [0,0.5] part of the data
         peakfit_add_gaussian(pkf, 1.0,0.5,0.03, 5);
         peakfit_add_bounded_gaussian(pkf, 0.6,0.3,0.03, xrr,xra-min_dx4, 7);
         peakfit_set_mc(pkf, xrr,xra-min_dx4,2,nmc);
         peakfit_run(pkf, nrr_ra , xrr_vals, yrr_vals);
-        // suggest symmetry around x=0.5
+        // now forcet symmetry around x=0.5
         peakfit_get_params(pkf,0,cn4RAra_params,3);
         peakfit_get_params(pkf,1,cn4RArr_params,5);
         double cn4_dx = 0.5-cn4RArr_params[1];
+        if ( cn4_dx > 0.25 ) cn4_dx = 0.25;   // CN4 peaks should not be separated by more than 0.5
         peakfit_reset(pkf);
         peakfit_add_gaussian(pkf, cn4RAra_params[0],0.5,cn4RAra_params[2], 5);
-        peakfit_add_gaussian(pkf, cn4RArr_params[0],0.5-cn4_dx,cn4RArr_params[2], 7);
-        peakfit_add_gaussian(pkf, cn4RArr_params[0],0.5+cn4_dx,cn4RArr_params[2], 7);
+        peakfit_add_gaussian(pkf, cn4RArr_params[0],0.5-cn4_dx,cn4RArr_params[2], 5);
+        peakfit_add_gaussian(pkf, cn4RArr_params[0],0.5+cn4_dx,cn4RArr_params[2], 5);
         peakfit_set_mc(pkf, 0.1,cn4RAra_params[0],0,nmc);
         peakfit_set_mc(pkf, 0.01,0.1,2,nmc);
         cn4ra_fit  = peakfit_run(pkf, nrr_aa , xrr_vals, yrr_vals);
@@ -489,6 +512,9 @@ static void fit_curves(args_t *args)
         cn4_dx              = (cn4RAaa_params[1]-0.5) - (0.5-cn4RArr_params[1]);
         double cn4_frac     = cn4RAaa_params[1] - cn4RArr_params[1];
         double cn4_fit      = cn4ra_fit + cn4aa_fit;
+        // A very reasonable heuristics: check if the peak's width converged, exclude far too broad or far too narrow peaks
+        if ( cn4RAra_params[2]>0.3 || cn4RArr_params[2]>0.3 || cn4RAaa_params[2]>0.3 ) cn4_fit = HUGE_VAL;
+        if ( cn4RAra_params[2]<1e-2 || cn4RArr_params[2]<1e-2 || cn4RAaa_params[2]<1e-2 ) cn4_fit = HUGE_VAL;
 
 
         // Choose the best match
@@ -499,7 +525,7 @@ static void fit_curves(args_t *args)
         else if ( cn3_dy < args->peak_symmetry ) cn3_fail = 'y';    // size difference is too big
 
         if ( cn4_fit > args->fit_th ) cn4_fail = 'f';
-        else if ( cn4_ymin < args->bump_size ) cn4_fail = 'y';      // side peak is too small
+        else if ( cn4_ymin < args->min_peak_size ) cn4_fail = 'y';      // side peak is too small
         else if ( cn4_dy < args->peak_symmetry ) cn4_fail = 'Y';    // size difference is too big
         else if ( cn4_dx > 0.1 ) cn4_fail = 'x';                    // side peaks placed assymetrically
 
@@ -507,8 +533,8 @@ static void fit_curves(args_t *args)
         if ( cn2_fail == '*' ) { cn = 2; fit = cn2_fit; }
         if ( cn3_fail == '*' )
         {
-            // use cn_penalty as a tiebreaker
-            if ( cn<0 || cn3_fit < args->cn_penalty * fit )
+            // Use cn_penalty as a tiebreaker. If set to 0.3, cn3_fit must be 30% smaller than cn2_fit.
+            if ( cn<0 || cn3_fit < (1-args->cn_penalty) * fit )
             {
                 cn = 2 + cn3_frac; 
                 fit = cn3_fit; 
@@ -518,7 +544,7 @@ static void fit_curves(args_t *args)
         }
         if ( cn4_fail == '*' )
         {
-            if ( cn<0 || cn4_fit < args->cn_penalty * fit )
+            if ( cn<0 || cn4_fit < (1-args->cn_penalty) * fit )
             {
                 cn = 3 + cn4_frac;
                 fit = cn4_fit;
@@ -535,12 +561,20 @@ static void fit_curves(args_t *args)
             fprintf(stderr,"\t            RA:   %f %f %f\n", cn2ra_params[0],cn2ra_params[1],cn2ra_params[2]);
             fprintf(stderr,"\t       .. %e\n", cn2aa_fit);
             fprintf(stderr,"\t            AA:   %f %f %f\n", cn2aa_params[0],cn2aa_params[1],cn2aa_params[2]);
+            fprintf(stderr,"\t      func:\n");
+            fprintf(stderr,"\t            %s\n", cn2ra_func);
+            fprintf(stderr,"\t            %s\n", cn2aa_func);
+            fprintf(stderr,"\n");
             fprintf(stderr,"\tcn3 %c fit=%e  frac=%f  symmetry=%f\n", cn3_fail, cn3_fit, cn3_frac, cn3_dy);
             fprintf(stderr,"\t       .. %e\n", cn3ra_fit);
             fprintf(stderr,"\t            RRA:  %f %f %f\n", cn3rra_params[0],cn3rra_params[1],cn3rra_params[2]);
             fprintf(stderr,"\t            RAA:  %f %f %f\n", cn3raa_params[0],cn3raa_params[1],cn3raa_params[2]);
             fprintf(stderr,"\t       .. %e\n", cn3aa_fit);
             fprintf(stderr,"\t            AAA:  %f %f %f\n", cn3aa_params[0],cn3aa_params[1],cn3aa_params[2]);
+            fprintf(stderr,"\t      func:\n");
+            fprintf(stderr,"\t            %s\n", cn3ra_func);
+            fprintf(stderr,"\t            %s\n", cn3aa_func);
+            fprintf(stderr,"\n");
             fprintf(stderr,"\tcn4 %c fit=%e  frac=%f  symmetry=%f ymin=%f\n", cn4_fail, cn4_fit, cn4_frac, cn4_dy, cn4_ymin);
             fprintf(stderr,"\t       .. %e\n", cn4ra_fit);
             fprintf(stderr,"\t            RArr:  %f %f %f\n", cn4RArr_params[0],cn4RArr_params[1],cn4RArr_params[2]);
@@ -548,6 +582,10 @@ static void fit_curves(args_t *args)
             fprintf(stderr,"\t            RAaa:  %f %f %f\n", cn4RAaa_params[0],cn4RAaa_params[1],cn4RAaa_params[2]);
             fprintf(stderr,"\t       .. %e\n", cn4aa_fit);
             fprintf(stderr,"\t            AAaa:  %f %f %f\n", cn4AAaa_params[0],cn4AAaa_params[1],cn4AAaa_params[2]);
+            fprintf(stderr,"\t      func:\n");
+            fprintf(stderr,"\t            %s\n", cn4ra_func);
+            fprintf(stderr,"\t            %s\n", cn4aa_func);
+            fprintf(stderr,"\n");
         }
 
         if ( args->force_cn==2 || cn2_fail == '*' )
@@ -593,12 +631,12 @@ static void usage(args_t *args)
     fprintf(stderr, "    -v, --verbose                  \n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Algorithm options:\n");
-    fprintf(stderr, "    -b, --bump-size <float>        minimum bump size (larger is stricter) [0.1]\n");
-    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (smaller is stricter) [0.3]\n");
-    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (smaller is stricter) [3.3]\n");
+    fprintf(stderr, "    -b, --peak-size <float>        minimum peak size (0-1, larger is stricter) [0.1]\n");
+    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (0-1, larger is stricter) [0.7]\n");
+    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (>0, smaller is stricter) [3.3]\n");
     fprintf(stderr, "    -i, --include-aa               include the AA peak in CN2 and CN3 evaluation\n");
     fprintf(stderr, "    -m, --min-fraction <float>     minimum distinguishable fraction of aberrant cells [0.1]\n");
-    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (larger is stricter) [0.5]\n");
+    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (0-1, larger is stricter) [0.5]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -609,17 +647,21 @@ int main_polysomy(int argc, char *argv[])
     args->argc   = argc; args->argv = argv;
     args->nbins  = 150;
     args->fit_th = 3.3;
-    args->cn_penalty = 0.3;
+    args->cn_penalty = 0.7;
     args->peak_symmetry = 0.5;
-    args->bump_size = 0.1;
+    args->min_peak_size = 0.1;
     args->ra_rr_scaling = 1;
     args->min_fraction = 0.1;
+    args->smooth = -3;
 
     static struct option loptions[] =
     {
         {"ra-rr-scaling",0,0,1},    // hidden option
         {"force-cn",1,0,2},         // hidden option
+        {"smooth",1,0,'S'},         // hidden option
+        {"nbins",1,0,'n'},          // hidden option
         {"include-aa",0,0,'i'},
+        {"peak-size",1,0,'b'},
         {"min-fraction",1,0,'m'},
         {"verbose",0,0,'v'},
         {"fit-th",1,0,'f'},
@@ -633,14 +675,22 @@ int main_polysomy(int argc, char *argv[])
         {"regions-file",1,0,'R'},
         {0,0,0,0}
     };
-    char c, *tmp;
-    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:",loptions,NULL)) >= 0)
+    char *tmp;
+    int c;
+    while ((c = getopt_long(argc, argv, "h?o:vt:T:r:R:s:f:p:c:im:b:n:S:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
             case  1 : args->ra_rr_scaling = 0; break;
             case  2 : args->force_cn = atoi(optarg); break;
+            case 'n': args->nbins = atoi(optarg); break;
+            case 'S': args->smooth = atoi(optarg); break;
             case 'i': args->include_aa = 1; break;
+            case 'b':
+                args->min_peak_size = strtod(optarg,&tmp);
+                if ( *tmp ) error("Could not parse: -b %s\n", optarg);
+                if ( args->min_peak_size<0 || args->min_peak_size>1 ) error("Range error: -b %s\n", optarg);
+                break;
             case 'm':
                 args->min_fraction = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: -n %s\n", optarg);

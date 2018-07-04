@@ -1,0 +1,3 @@
+44572	T	TC	splice_donor&splice_region|SMAD5|ENST00000545279|protein_coding
+44572	T	TC	splice_donor&splice_region|SMAD5|ENST00000545279|protein_coding
+

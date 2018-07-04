@@ -1,0 +1,16 @@
+
+rev strand
+c .. CDS
+u .. UTR
+. .. outside the transcript
+
+32388      32399
+89012345678901234
+ccccccccccccuuuuu....
+GTCCGTCGGCATAAACTT-----------------TCCGTCGGCATAAACTTTCCGTCCGCGCGCCACAGCCGGAAC       ref
+GTCCGTCGGCATAAACTTTCCGTCGGCATAAACTT                                                 alt
+
+G-----------------TCCGTCGGCATAAACTTTCCGTCGGCATAAACTTTCCGTCCGCGCGCCACAGCCGGAAC       ref
+GTCCGTCGGCATAAACTTTCCGTCGGCATAAACTT                                                 alt
+
+

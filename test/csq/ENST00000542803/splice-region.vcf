@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	263634	.	G	A	.	.	EXP=missense|NTNG1|ENST00000542803|protein_coding|+|361C>361Y|263634G>A,splice_region|NTNG1|ENST00000542803|protein_coding;type=ENST00000542803:107946262-G-A

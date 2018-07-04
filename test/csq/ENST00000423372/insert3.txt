@@ -1,0 +1,6 @@
+2723	G	GAAA	splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+2723	G	GAAA	splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3630	T	TAAA	stop_lost&inframe_insertion|AL627309.1|ENST00000423372|protein_coding|-|260*>260CL|3630T>TAAA
+3630	T	TAAA	stop_lost&inframe_insertion|AL627309.1|ENST00000423372|protein_coding|-|260*>260CL|3630T>TAAA
+

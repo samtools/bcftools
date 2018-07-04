@@ -1,2 +1,2 @@
-plugins/fixploidy.so: plugins/fixploidy.c version.h version.c ploidy.h ploidy.c $(HTSDIR)/libhts.so
-	$(CC) -fPIC -shared $(CFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS) -L$(HTSDIR) $(LDFLAGS) -o $@ ploidy.c version.c $< -lhts $(LIBS)
+plugins/fixploidy.so: plugins/fixploidy.c version.h version.c regidx.h regidx.c ploidy.h ploidy.c
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ ploidy.c regidx.c version.c $< $(LIBS)

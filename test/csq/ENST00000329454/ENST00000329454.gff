@@ -1,0 +1,8 @@
+1	ensembl_havana	gene	1	4572	.	+	.	ID=gene:ENSG00000183888;Name=C1orf64;biotype=protein_coding;description=chromosome 1 open reading frame 64 [Source:HGNC Symbol%3BAcc:28339];gene_id=ENSG00000183888;logic_name=ensembl_havana_gene;version=4
+1	ensembl_havana	transcript	1	4572	.	+	.	ID=transcript:ENST00000329454;Parent=gene:ENSG00000183888;Name=C1orf64-001;biotype=protein_coding;ccdsid=CCDS166.1;havana_transcript=OTTHUMT00000026317;havana_version=1;tag=basic;transcript_id=ENST00000329454;version=2
+1	ensembl_havana	five_prime_UTR	1	68	.	+	.	Parent=transcript:ENST00000329454
+1	ensembl_havana	exon	1	150	.	+	.	Parent=transcript:ENST00000329454;Name=ENSE00001310857;constitutive=1;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00001310857;rank=1;version=2
+1	ensembl_havana	CDS	69	150	.	+	0	ID=CDS:ENSP00000332162;Parent=transcript:ENST00000329454;protein_id=ENSP00000332162
+1	ensembl_havana	CDS	1684	2111	.	+	2	ID=CDS:ENSP00000332162;Parent=transcript:ENST00000329454;protein_id=ENSP00000332162
+1	ensembl_havana	exon	1684	4572	.	+	.	Parent=transcript:ENST00000329454;Name=ENSE00001294049;constitutive=1;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00001294049;rank=2;version=3
+1	ensembl_havana	three_prime_UTR	2112	4572	.	+	.	Parent=transcript:ENST00000329454

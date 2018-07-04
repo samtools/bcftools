@@ -1,6 +1,6 @@
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014-2018 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -30,11 +30,14 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
+#include <htslib/tbx.h> // for hts_get_bgzfp()
 #include <htslib/kseq.h>
+#include <htslib/thread_pool.h>
 #include "bcftools.h"
 #include "khash_str2str.h"
 
@@ -43,7 +46,8 @@ typedef struct _args_t
     char **argv, *fname, *samples_fname, *header_fname, *output_fname;
     htsFile *fp;
     htsFormat type;
-    int argc;
+    htsThreadPool *threads;
+    int argc, n_threads;
 }
 args_t;
 
@@ -69,22 +73,41 @@ static void read_header_file(char *fname, kstring_t *hdr)
 static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int idx)
 {
     int i, j, n;
+    kstring_t key = {0,0,0};
+    kstring_t val = {0,0,0};
 
     // Are these samples "old-name new-name" pairs?
     void *hash = khash_str2str_init();
     for (i=0; i<nsamples; i++)
     {
-        char *key, *value;
-        key = value = samples[i];
-        while ( *value && !isspace(*value) ) value++;
-        if ( !*value ) break;
-        *value = 0; value++;
-        while ( isspace(*value) ) value++;
-        khash_str2str_set(hash,key,value);
+        char *ptr = samples[i];
+        key.l = val.l = 0;
+        int escaped = 0;
+        while ( *ptr )
+        {
+            if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+            if ( isspace(*ptr) && !escaped ) break;
+            kputc(*ptr, &key);
+            escaped = 0;
+            ptr++;
+        }
+        if ( !*ptr ) break;
+        while ( *ptr && isspace(*ptr) ) ptr++;
+        while ( *ptr )
+        {
+            if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+            if ( isspace(*ptr) && !escaped ) break;
+            kputc(*ptr, &val);
+            escaped = 0;
+            ptr++;
+        }
+        khash_str2str_set(hash,strdup(key.s),strdup(val.s));
     }
+    free(key.s);
+    free(val.s);
     if ( i!=nsamples )  // not "old-name new-name" pairs
     {
-        khash_str2str_destroy(hash);
+        khash_str2str_destroy_free_all(hash);
         return 0;
     }
 
@@ -117,7 +140,7 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
     char *ori = khash_str2str_get(hash,hdr->s+idx+j);
     kputs(ori ? ori : hdr->s+idx+j, &tmp);
 
-    if ( hash ) khash_str2str_destroy(hash);
+    khash_str2str_destroy_free_all(hash);
 
     hdr->l = idx;
     kputs(tmp.s, hdr);
@@ -183,7 +206,8 @@ static void reheader_vcf_gz(args_t *args)
             if ( skip_until>=fp->block_length )
             {
                 kputsn(buffer,skip_until,&hdr);
-                if ( bgzf_read_block(fp) != 0 || !fp->block_length ) error("FIXME: No body in the file: %s\n", args->fname);
+                if ( bgzf_read_block(fp) != 0 ) error("Error reading %s\n", args->fname);
+                if ( !fp->block_length ) break;
                 skip_until = 0;
             }
             // The header has finished
@@ -197,7 +221,8 @@ static void reheader_vcf_gz(args_t *args)
         if ( skip_until>=fp->block_length )
         {
             kputsn(buffer,fp->block_length,&hdr);
-            if (bgzf_read_block(fp) != 0 || !fp->block_length) error("FIXME: No body in the file: %s\n", args->fname);
+            if ( bgzf_read_block(fp) != 0 ) error("Error reading %s\n", args->fname);
+            if ( !fp->block_length ) break;
             skip_until = 0;
         }
     }
@@ -220,12 +245,8 @@ static void reheader_vcf_gz(args_t *args)
     }
 
     // Output the modified header
-    BGZF *bgzf_out;
-    if ( args->output_fname )
-        bgzf_out = bgzf_open(args->output_fname,"w");
-    else
-        bgzf_out = bgzf_dopen(fileno(stdout), "w");
-    bgzf_write(bgzf_out, hdr.s, hdr.l);
+    BGZF *bgzf_out = bgzf_open(args->output_fname ? args->output_fname : "-","w");;
+    if ( bgzf_write(bgzf_out, hdr.s, hdr.l) < 0 ) error("Can't write BGZF header (code %d)\n", bgzf_out->errcode);
     free(hdr.s);
 
     // Output all remainig data read with the header block
@@ -237,8 +258,8 @@ static void reheader_vcf_gz(args_t *args)
 
     // Stream the rest of the file without as it is, without decompressing
     ssize_t nread;
-    int page_size = getpagesize();
-    char *buf = (char*) valloc(page_size);
+    const size_t page_size = 32768;
+    char *buf = (char*) malloc(page_size);
     while (1)
     {
         nread = bgzf_raw_read(fp, buf, page_size);
@@ -247,8 +268,8 @@ static void reheader_vcf_gz(args_t *args)
         int count = bgzf_raw_write(bgzf_out, buf, nread);
         if (count != nread) error("Write failed, wrote %d instead of %d bytes.\n", count,(int)nread);
     }
-    if (bgzf_close(bgzf_out) < 0) error("Error: %d\n",bgzf_out->errcode);
-    if (bgzf_close(fp) < 0) error("Error: %d\n",fp->errcode);
+    if (bgzf_close(bgzf_out) < 0) error("Error closing %s: %d\n",args->output_fname ? args->output_fname : "-",bgzf_out->errcode);
+    if (hts_close(args->fp)) error("Error closing %s: %d\n",args->fname,fp->errcode);
     free(buf);
 }
 static void reheader_vcf(args_t *args)
@@ -281,16 +302,16 @@ static void reheader_vcf(args_t *args)
 
     int out = args->output_fname ? open(args->output_fname, O_WRONLY|O_CREAT|O_TRUNC, 0666) : STDOUT_FILENO;
     if ( out==-1 ) error("%s: %s\n", args->output_fname,strerror(errno));
-    if ( write(out, hdr.s, hdr.l)!=hdr.l ) error("Failed to write %d bytes\n", hdr.l);
+    if ( write(out, hdr.s, hdr.l)!=hdr.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)hdr.l);
     free(hdr.s);
     if ( fp->line.l )
     {
-        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %d bytes\n", fp->line.l);
+        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
     }
     while ( hts_getline(fp, KS_SEP_LINE, &fp->line) >=0 )   // uncompressed file implies small size, we don't worry about speed
     {
         kputc('\n',&fp->line);
-        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %d bytes\n", fp->line.l);
+        if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
     }
     hts_close(fp);
     close(out);
@@ -351,11 +372,19 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
 static void reheader_bcf(args_t *args, int is_compressed)
 {
     htsFile *fp = args->fp;
+
+    if ( args->n_threads > 0 )
+    {
+        args->threads = calloc(1, sizeof(*args->threads));
+        if ( !args->threads ) error("Could not allocate memory\n");
+        if ( !(args->threads->pool = hts_tpool_init(args->n_threads)) ) error("Could not initialize threading\n");
+        BGZF *bgzf = hts_get_bgzfp(fp);
+        if ( bgzf ) bgzf_thread_pool(bgzf, args->threads->pool, args->threads->qsize);
+    }
+
     bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to read the header: %s\n", args->fname);
     kstring_t htxt = {0,0,0};
-    int hlen;
-    htxt.s = bcf_hdr_fmt_text(hdr, 1, &hlen);
-    htxt.l = hlen;
+    bcf_hdr_format(hdr, 1, &htxt);
 
     int i, nsamples = 0;
     char **samples = NULL;
@@ -380,6 +409,11 @@ static void reheader_bcf(args_t *args, int is_compressed)
     // write the header and the body
     htsFile *fp_out = hts_open(args->output_fname ? args->output_fname : "-",is_compressed ? "wb" : "wbu");
     if ( !fp_out ) error("%s: %s\n", args->output_fname ? args->output_fname : "-", strerror(errno));
+    if ( args->threads )
+    {
+        BGZF *bgzf = hts_get_bgzfp(fp_out);
+        if ( bgzf ) bgzf_thread_pool(bgzf, args->threads->pool, args->threads->qsize);
+    }
     bcf_hdr_write(fp_out, hdr_out);
 
     bcf1_t *rec = bcf_init();
@@ -434,6 +468,11 @@ static void reheader_bcf(args_t *args, int is_compressed)
     hts_close(fp);
     bcf_hdr_destroy(hdr_out);
     bcf_hdr_destroy(hdr);
+    if ( args->threads )
+    {
+        hts_tpool_destroy(args->threads->pool);
+        free(args->threads);
+    }
 }
 
 
@@ -447,6 +486,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -h, --header <file>     new header\n");
     fprintf(stderr, "    -o, --output <file>     write output to a file [standard output]\n");
     fprintf(stderr, "    -s, --samples <file>    new sample names\n");
+    fprintf(stderr, "        --threads <int>     number of extra compression threads (BCF only) [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -456,18 +496,20 @@ int main_reheader(int argc, char *argv[])
     int c;
     args_t *args  = (args_t*) calloc(1,sizeof(args_t));
     args->argc    = argc; args->argv = argv;
-
+    
     static struct option loptions[] =
     {
         {"output",1,0,'o'},
         {"header",1,0,'h'},
         {"samples",1,0,'s'},
+        {"threads",1,NULL,1},
         {0,0,0,0}
     };
     while ((c = getopt_long(argc, argv, "s:h:o:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
+            case  1 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'o': args->output_fname = optarg; break;
             case 's': args->samples_fname = optarg; break;
             case 'h': args->header_fname = optarg; break;

@@ -1,0 +1,16 @@
+5	ensembl_havana	gene	21	45822	.	-	.	ID=gene:ENSG00000039600;Name=SOX30;biotype=protein_coding;description=SRY (sex determining region Y)-box 30 [Source:HGNC Symbol%3BAcc:30635];gene_id=ENSG00000039600;logic_name=ensembl_havana_gene;version=6
+5	ensembl_havana	transcript	517	45822	.	-	.	ID=transcript:ENST00000519442;Parent=gene:ENSG00000039600;Name=SOX30-004;biotype=protein_coding;havana_transcript=OTTHUMT00000373922;havana_version=1;tag=basic;transcript_id=ENST00000519442;version=1
+5	ensembl_havana	three_prime_UTR	517	681	.	-	.	Parent=transcript:ENST00000519442
+5	ensembl_havana	exon	517	1063	.	-	.	Parent=transcript:ENST00000519442;Name=ENSE00001596998;constitutive=0;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00001596998;rank=6;version=3
+5	ensembl_havana	CDS	682	1063	.	-	1	ID=CDS:ENSP00000427984;Parent=transcript:ENST00000519442;protein_id=ENSP00000427984
+5	ensembl_havana	exon	12572	13064	.	-	.	Parent=transcript:ENST00000519442;Name=ENSE00000972591;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00000972591;rank=5;version=1
+5	ensembl_havana	CDS	12572	13064	.	-	2	ID=CDS:ENSP00000427984;Parent=transcript:ENST00000519442;protein_id=ENSP00000427984
+5	ensembl_havana	exon	20979	21158	.	-	.	Parent=transcript:ENST00000519442;Name=ENSE00001234728;constitutive=1;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00001234728;rank=4;version=1
+5	ensembl_havana	CDS	20979	21158	.	-	2	ID=CDS:ENSP00000427984;Parent=transcript:ENST00000519442;protein_id=ENSP00000427984
+5	ensembl_havana	exon	22999	23238	.	-	.	Parent=transcript:ENST00000519442;Name=ENSE00000797253;constitutive=1;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00000797253;rank=3;version=1
+5	ensembl_havana	CDS	22999	23238	.	-	2	ID=CDS:ENSP00000427984;Parent=transcript:ENST00000519442;protein_id=ENSP00000427984
+5	ensembl_havana	CDS	42140	42191	.	-	0	ID=CDS:ENSP00000427984;Parent=transcript:ENST00000519442;protein_id=ENSP00000427984
+5	ensembl_havana	exon	42140	42194	.	-	.	Parent=transcript:ENST00000519442;Name=ENSE00002105000;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00002105000;rank=2;version=1
+5	ensembl_havana	five_prime_UTR	42192	42194	.	-	.	Parent=transcript:ENST00000519442
+5	ensembl_havana	exon	45672	45822	.	-	.	Parent=transcript:ENST00000519442;Name=ENSE00002116582;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002116582;rank=1;version=1
+5	ensembl_havana	five_prime_UTR	45672	45822	.	-	.	Parent=transcript:ENST00000519442

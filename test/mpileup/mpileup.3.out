@@ -1,0 +1,30 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=17,length=4200>
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of reads supporting an indel">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
+##INFO=<ID=RPB,Number=1,Type=Float,Description="Mann-Whitney U test of Read Position Bias (bigger is better)">
+##INFO=<ID=MQB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality Bias (bigger is better)">
+##INFO=<ID=BQB,Number=1,Type=Float,Description="Mann-Whitney U test of Base Quality Bias (bigger is better)">
+##INFO=<ID=MQSB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
+##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
+##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00100
+17	1050	.	A	<*>	0	.	DP=6;I16=6,0,0,0,232,9002,0,0,360,21600,0,0,113,2597,0,0;QS=1,0;MQ0F=0	PL	0,18,152
+17	1051	.	A	<*>	0	.	DP=5;I16=5,0,0,0,191,7317,0,0,300,18000,0,0,115,2675,0,0;QS=1,0;MQ0F=0	PL	0,15,135
+17	1052	.	A	<*>	0	.	DP=5;I16=5,0,0,0,189,7223,0,0,300,18000,0,0,117,2757,0,0;QS=1,0;MQ0F=0	PL	0,15,135
+17	1053	.	A	<*>	0	.	DP=5;I16=5,0,0,0,187,7027,0,0,300,18000,0,0,119,2843,0,0;QS=1,0;MQ0F=0	PL	0,15,133
+17	1054	.	C	<*>	0	.	DP=5;I16=5,0,0,0,184,6852,0,0,300,18000,0,0,121,2933,0,0;QS=1,0;MQ0F=0	PL	0,15,132
+17	1055	.	C	<*>	0	.	DP=7;I16=7,0,0,0,255,9635,0,0,420,25200,0,0,123,3027,0,0;QS=1,0;MQ0F=0	PL	0,21,161
+17	1056	.	C	<*>	0	.	DP=7;I16=7,0,0,0,252,9454,0,0,420,25200,0,0,127,3127,0,0;QS=1,0;MQ0F=0	PL	0,21,159
+17	1057	.	T	<*>	0	.	DP=7;I16=7,0,0,0,269,10389,0,0,420,25200,0,0,129,3133,0,0;QS=1,0;MQ0F=0	PL	0,21,164
+17	1058	.	G	<*>	0	.	DP=7;I16=7,0,0,0,281,11297,0,0,420,25200,0,0,131,3143,0,0;QS=1,0;MQ0F=0	PL	0,21,170
+17	1059	.	T	<*>	0	.	DP=7;I16=7,0,0,0,257,9509,0,0,420,25200,0,0,133,3157,0,0;QS=1,0;MQ0F=0	PL	0,21,157
+17	1060	.	C	<*>	0	.	DP=7;I16=7,0,0,0,268,10392,0,0,420,25200,0,0,135,3175,0,0;QS=1,0;MQ0F=0	PL	0,21,164

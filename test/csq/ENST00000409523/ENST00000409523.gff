@@ -1,0 +1,16 @@
+2	ensembl_havana	gene	21	64624	.	-	.	ID=gene:ENSG00000186132;Name=C2orf76;biotype=protein_coding;description=chromosome 2 open reading frame 76 [Source:HGNC Symbol%3BAcc:27017];gene_id=ENSG00000186132;logic_name=ensembl_havana_gene;version=10
+2	ensembl_havana	transcript	240	64478	.	-	.	ID=transcript:ENST00000409523;Parent=gene:ENSG00000186132;Name=C2orf76-004;biotype=protein_coding;ccdsid=CCDS42739.1;havana_transcript=OTTHUMT00000330585;havana_version=1;tag=basic;transcript_id=ENST00000409523;version=1
+2	ensembl_havana	three_prime_UTR	240	267	.	-	.	Parent=transcript:ENST00000409523
+2	ensembl_havana	exon	240	344	.	-	.	Parent=transcript:ENST00000409523;Name=ENSE00001581014;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00001581014;rank=6;version=1
+2	ensembl_havana	CDS	268	344	.	-	2	ID=CDS:ENSP00000386714;Parent=transcript:ENST00000409523;protein_id=ENSP00000386714
+2	ensembl_havana	exon	9418	9499	.	-	.	Parent=transcript:ENST00000409523;Name=ENSE00001335430;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00001335430;rank=5;version=1
+2	ensembl_havana	CDS	9418	9499	.	-	0	ID=CDS:ENSP00000386714;Parent=transcript:ENST00000409523;protein_id=ENSP00000386714
+2	ensembl_havana	exon	15262	15299	.	-	.	Parent=transcript:ENST00000409523;Name=ENSE00001335434;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00001335434;rank=4;version=1
+2	ensembl_havana	CDS	15262	15299	.	-	2	ID=CDS:ENSP00000386714;Parent=transcript:ENST00000409523;protein_id=ENSP00000386714
+2	ensembl_havana	exon	18950	19000	.	-	.	Parent=transcript:ENST00000409523;Name=ENSE00001335435;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00001335435;rank=3;version=1
+2	ensembl_havana	CDS	18950	19000	.	-	2	ID=CDS:ENSP00000386714;Parent=transcript:ENST00000409523;protein_id=ENSP00000386714
+2	ensembl_havana	CDS	37623	37755	.	-	0	ID=CDS:ENSP00000386714;Parent=transcript:ENST00000409523;protein_id=ENSP00000386714
+2	ensembl_havana	exon	37623	37767	.	-	.	Parent=transcript:ENST00000409523;Name=ENSE00003687102;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00003687102;rank=2;version=1
+2	ensembl_havana	five_prime_UTR	37756	37767	.	-	.	Parent=transcript:ENST00000409523
+2	ensembl_havana	exon	64153	64478	.	-	.	Parent=transcript:ENST00000409523;Name=ENSE00001584682;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001584682;rank=1;version=1
+2	ensembl_havana	five_prime_UTR	64153	64478	.	-	.	Parent=transcript:ENST00000409523

@@ -1,0 +1,23 @@
+##fileformat=VCFv4.2
+##reference=file:///ref.fa
+##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
+##contig=<ID=3,length=2147483647>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+3	105	.	T	C	.	.	.
+3	104	.	T	C	.	.	.
+3	103	.	T	C	.	.	.
+3	102	.	T	C	.	.	.
+3	101	.	T	C	.	.	.
+2	105	.	T	C	.	.	.
+2	104	.	T	C	.	.	.
+2	103	.	T	C	.	.	.
+2	102	.	T	C	.	.	.
+2	101	.	T	C	.	.	.
+1	105	.	T	C	.	.	.
+1	104	.	T	C	.	.	.
+1	103	.	T	C	.	.	.
+1	102	.	T	C	.	.	.
+1	101	.	T	TC	.	.	.
+1	101	.	T	C,A	.	.	.
+1	101	.	T	CC,A	.	.	.

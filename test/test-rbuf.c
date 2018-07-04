@@ -29,8 +29,10 @@ DEALINGS IN THE SOFTWARE.  */
 void debug_print(rbuf_t *rbuf, int *dat)
 {
     int i;
-    for (i=-1; rbuf_next(rbuf, &i); ) printf(" %2d", i); printf("\n");
-    for (i=-1; rbuf_next(rbuf, &i); ) printf(" %2d", dat[i]); printf("\n");
+    for (i=-1; rbuf_next(rbuf, &i); ) printf(" %2d", i);
+    printf("\n");
+    for (i=-1; rbuf_next(rbuf, &i); ) printf(" %2d", dat[i]);
+    printf("\n");
 }
 
 int main(int argc, char **argv)
@@ -64,7 +66,7 @@ int main(int argc, char **argv)
     debug_print(&rbuf, dat);
 
     printf("Expanding:\n");
-    rbuf_expand0(&rbuf,int,dat);
+    rbuf_expand0(&rbuf,int,rbuf.n+1,dat);
     debug_print(&rbuf, dat);
 
     free(dat);

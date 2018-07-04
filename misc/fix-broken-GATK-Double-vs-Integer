@@ -1,0 +1,178 @@
+#!/usr/bin/env perl
+#
+#  The MIT License
+#  
+#  Copyright (c) 2017 Genome Research Ltd.
+#  
+#  Author: Petr Danecek <pd3@sanger.ac.uk>
+#  
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#  
+#  The above copyright notice and this permission notice shall be included in
+#  all copies or substantial portions of the Software.
+#  
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+#  THE SOFTWARE.
+
+use strict;
+use warnings;
+use Carp;
+
+my $opts = parse_params();
+fix($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print 
+        "About:\n",
+        "   Some parts of GATK throw errors like\n",
+        "       \"java.lang.Double cannot be cast to java.lang.Integer\"\n",
+        "   This is caused by a bug in GATK which incorrectly parses valid float number expressions, for example\n",
+        "   it would not accept \"0\", only \"0.0\". Such unnecessary strictness violates the VCF specification\n",
+        "   (and common sense). This script reformats floating point fields to work around this.\n",
+        "\n",
+        "Usage: fix-broken-GATK-Double-vs-Integer [OPTIONS]\n",
+        "Options:\n",
+        "   -c, --check-only    check for problems, do not output VCF\n",
+        "   -h, --help          this help message\n",
+        "\n",
+        "Example:\n",
+        "   gunzip -c ori.vcf.gz | fix-broken-GATK-Double-vs-Integer | bgzip -c > new.vcf.gz\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = 
+    {
+        nflt => 0,
+        nint => 0,
+    };
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-c' || $arg eq '--check-only' ) { $$opts{check_only} = 1; next; }
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    return $opts;
+}
+
+sub fix
+{
+    my ($opts) = @_;
+    while (my $line=<STDIN>)
+    {
+        if ( $line=~/^#/ )
+        {
+            $line = parse_header($opts,$line);
+        }
+        else
+        {
+            $line = fix_line($opts,$line);
+        }
+        if ( !$$opts{check_only} ) { print $line; }
+    }
+    print STDERR "Modified $$opts{nflt} float values, $$opts{nint} integer values\n";
+}
+
+sub parse_header
+{
+    my ($opts,$line) = @_;
+
+    my $coltype = undef;
+    if ( $line=~/^##INFO/ ) { $coltype = 'info'; }
+    elsif ( $line=~/^##FORMAT/ ) { $coltype = 'fmt'; }
+    else { return $line; }
+
+    if ( !($line=~/ID=([^,>]+)/) ) { return $line; }
+    my $id = $1;
+
+    my $type = undef;
+    if ( $line=~/Type=Float/ ) { $type = 'float'; }
+    elsif ( $line=~/Type=Integer/ ) { $type = 'int'; }
+    else { return $line; }
+
+    $$opts{$coltype}{$id} = $type;
+
+    return $line;
+}
+
+sub fix_line
+{
+    my ($opts,$line) = @_;
+    my $info = $$opts{info};
+    my $fmt  = $$opts{fmt};
+    my @cols = split(/\t/,$line);
+    my @info = split(/;/,$cols[7]);
+    my @fmt  = split(/:/,$cols[8]);
+    my $pos  = "$cols[0]:$cols[1]";
+    chomp($cols[-1]);
+    for (my $i=0; $i<@info; $i++)
+    {
+        my ($key,$val) = split(/=/,$info[$i]);
+        if ( !defined $val or !exists($$info{$key}) ) { next; }
+        $val = $$info{$key} eq 'float' ? fix_float($opts,$pos,$key,$val) : fix_int($opts,$pos,$key,$val);
+        $info[$i] = "$key=$val";
+    }
+    $cols[7] = join(';',@info);
+    for (my $j=9; $j<@cols; $j++)
+    {
+        my @vals = split(/:/,$cols[$j]);
+        for (my $i=0; $i<@fmt; $i++)
+        {
+            my $key = $fmt[$i];
+            if ( !exists($$fmt{$key}) ) { next; }
+            if ( !exists($vals[$i]) ) { last; }
+            $vals[$i] = $$fmt{$key} eq 'float' ? fix_float($opts,$pos,$key,$vals[$i]) : fix_int($opts,$pos,$key,$vals[$i]);
+        }
+        $cols[$j] = join(':',@vals);
+    }
+    return join("\t",@cols)."\n";
+}
+
+sub fix_int
+{
+    my ($opts,$pos,$key,$vals) = @_;
+    my @vals = split(/,/,$vals);
+    for (my $i=0; $i<@vals; $i++)
+    {
+        if ( $vals[$i] eq '.' ) { next; }
+        if ( $vals[$i] =~ /^-?[0-9]+$/ ) { next; }
+        if ( $$opts{check_only} ) { print "$pos\t$key\tInteger\t$vals[$i]\n"; }
+        error("todo: $pos\t$key\tInteger\t$vals[$i]\n");
+        $$opts{nint}++;
+    }
+    return $vals;
+}
+sub fix_float
+{
+    my ($opts,$pos,$key,$vals) = @_;
+    my @vals = split(/,/,$vals);
+    for (my $i=0; $i<@vals; $i++)
+    {
+        if ( $vals[$i] eq '.' ) { next; }
+        if ( $vals[$i] =~ /\./ ) { next; }
+        if ( $vals[$i] =~ /[eE]/ ) { next; }
+        if ( $$opts{check_only} ) { print "$pos\t$key\tFloat\t$vals[$i]\n"; }
+        $vals[$i] .= '.';
+        $$opts{nflt}++;
+    }
+    return join(',',@vals);
+}
+

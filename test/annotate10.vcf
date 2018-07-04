@@ -1,0 +1,17 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=q99,Description="Quality below 10">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=FLAG,Number=0,Type=Flag,Description="Test type">
+##INFO=<ID=IINT,Number=.,Type=Integer,Description="Test type">
+##INFO=<ID=IFLT,Number=.,Type=Float,Description="Test type">
+##INFO=<ID=ISTR,Number=.,Type=String,Description="Test type">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##bcftools_annotateVersion=1.2-207-g2038312-dirty+htslib-1.2.1-158-g6876a07-dirty
+##bcftools_annotateCommand=annotate -x FMT test/annots2.vcf
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	B	A
+1	3000001	.	C	T	.	.	.	GT	.	.
+1	3000002	id	C	T	99	q99	FLAG;IINT=88,99;IFLT=8.8,9.9;ISTR=888,999	GT	1|1	0|1
+1	3000003	id	C	T	99	q99	FLAG;IINT=88,99;IFLT=8.8,9.9;ISTR=888,999	GT	1|1	0|1
+1	3000004	id	C	T	99	q99	FLAG;IINT=88,99;IFLT=8.8,9.9;ISTR=888,999	GT	1|1	0|1

@@ -1,0 +1,27 @@
+1	ensembl_havana	gene	1	19696	.	+	.	ID=gene:ENSG00000187634;Name=SAMD11;biotype=protein_coding;description=sterile alpha motif domain containing 11 [Source:HGNC Symbol%3BAcc:28706];gene_id=ENSG00000187634;logic_name=ensembl_havana_gene;version=6
+1	ensembl_havana	transcript	5433	19696	.	+	.	ID=transcript:ENST00000341065;Parent=gene:ENSG00000187634;Name=SAMD11-001;biotype=protein_coding;havana_transcript=OTTHUMT00000097860;havana_version=4;transcript_id=ENST00000341065;version=4
+1	havana	exon	5433	5457	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00001768193;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00001768193;rank=1;version=1
+1	havana	CDS	5433	5457	.	+	2	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	6160	6210	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00002696520;constitutive=0;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSE00002696520;rank=2;version=1
+1	havana	CDS	6160	6210	.	+	1	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	10893	11017	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00002703998;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00002703998;rank=3;version=1
+1	havana	CDS	10893	11017	.	+	1	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	14161	14250	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00002686739;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00002686739;rank=4;version=1
+1	havana	CDS	14161	14250	.	+	2	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	14396	14533	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00001708361;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00001708361;rank=5;version=1
+1	havana	CDS	14396	14533	.	+	2	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	16265	16427	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00003477353;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00003477353;rank=6;version=1
+1	havana	CDS	16265	16427	.	+	2	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	17257	17372	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00003681266;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00003681266;rank=7;version=1
+1	havana	CDS	17257	17372	.	+	1	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	17531	17609	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00003675531;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00003675531;rank=8;version=1
+1	havana	CDS	17531	17609	.	+	2	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	17680	18179	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00002728091;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00002728091;rank=9;version=1
+1	havana	CDS	17680	18179	.	+	1	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	18374	18498	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00002733131;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00002733131;rank=10;version=1
+1	havana	CDS	18374	18498	.	+	2	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	18819	18929	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00002692620;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00002692620;rank=11;version=1
+1	havana	CDS	18819	18929	.	+	0	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	CDS	19029	19274	.	+	0	ID=CDS:ENSP00000349216;Parent=transcript:ENST00000341065;protein_id=ENSP00000349216
+1	havana	exon	19029	19696	.	+	.	Parent=transcript:ENST00000341065;Name=ENSE00001804027;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00001804027;rank=12;version=1
+1	havana	three_prime_UTR	19275	19696	.	+	.	Parent=transcript:ENST00000341065

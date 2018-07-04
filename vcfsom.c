@@ -351,9 +351,9 @@ static som_t *som_init(args_t *args)
     som->bmu_th = args->bmu_th;
     som->size   = pow(som->nbin,som->ndim);
     som->w = (double*) malloc(sizeof(double)*som->size*som->kdim);
-    if ( !som->w ) error("Could not alloc %d bytes [nbin=%d ndim=%d kdim=%d]\n", sizeof(double)*som->size*som->kdim,som->nbin,som->ndim,som->kdim);
+    if ( !som->w ) error("Could not alloc %"PRIu64" bytes [nbin=%d ndim=%d kdim=%d]\n", (uint64_t)(sizeof(double)*som->size*som->kdim),som->nbin,som->ndim,som->kdim);
     som->c = (double*) calloc(som->size,sizeof(double));
-    if ( !som->w ) error("Could not alloc %d bytes [nbin=%d ndim=%d]\n", sizeof(double)*som->size,som->nbin,som->ndim);
+    if ( !som->w ) error("Could not alloc %"PRIu64" bytes [nbin=%d ndim=%d]\n", (uint64_t)(sizeof(double)*som->size),som->nbin,som->ndim);
     int i;
     for (i=0; i<som->size*som->kdim; i++)
         som->w[i] = (double)random()/RAND_MAX;
@@ -453,7 +453,7 @@ static void create_eval_plot(args_t *args)
             "import csv\n"
             "csv.register_dialect('tab', delimiter='\\t', quoting=csv.QUOTE_NONE)\n"
             "dat = []\n"
-            "with open('%s.eval', 'rb') as f:\n"
+            "with open('%s.eval', 'r') as f:\n"
             "\treader = csv.reader(f, 'tab')\n"
             "\tfor row in reader:\n"
             "\t\tif row[0][0]!='#': dat.append(row)\n"

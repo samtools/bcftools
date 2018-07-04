@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=8,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+8	213028	.	AAAGCCCGAGTCC	A	.	.	EXP=inframe_deletion|TPD52|ENST00000520795|protein_coding|-|3GLGLW>3W|213028AAAGCCCGAGTCC>A;type=ENST00000520795:81083598-AAAGCCCGAGTCC-A

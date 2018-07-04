@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,length=248956422>
+##reference=file:///home/dnanexus/genome.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	t1
+1	11080563	.	AACACAC	A,AAC	4321.7	.	.	GT	0/2
+1	11080564	.	ACACAC	AACAC,*	5809.43	.	.	GT	0/1
+1	11080566	.	ACACAC	A,AAC,*	5215.77	.	.	GT	0/2

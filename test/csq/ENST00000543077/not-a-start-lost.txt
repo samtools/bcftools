@@ -1,0 +1,3 @@
+16063	A	G	synonymous|FGF6|ENST00000543077|protein_coding|-|1T|16063A>G
+16063	A	G	synonymous|FGF6|ENST00000543077|protein_coding|-|1T|16063A>G
+

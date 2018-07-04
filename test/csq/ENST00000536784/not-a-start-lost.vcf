@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=11,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+11	899	.	A	G	.	.	EXP=synonymous|SLC15A3|ENST00000536784|protein_coding|-|1G|899A>G;type=ENST00000536784:60705454-A-G:incomplete 5'cds

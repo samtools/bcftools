@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=15,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+15	90	.	CCCTCACTGTGTCTCTCGCACAGTAATACACGGCCCTGT	C	.	.	EXP=coding_sequence|IGHV4OR15-8|ENST00000557788|IG_V;type=ENST00000557788:22472907-CCCTCACTGTGTCTCTCGCACAGTAATACACGGCCCTGT-C

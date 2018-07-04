@@ -1,0 +1,22 @@
+4	ensembl_havana	gene	21	37429	.	-	.	ID=gene:ENSG00000173376;Name=NDNF;biotype=protein_coding;description=neuron-derived neurotrophic factor [Source:HGNC Symbol%3BAcc:26256];gene_id=ENSG00000173376;logic_name=ensembl_havana_gene;version=9
+4	ensembl_havana	transcript	21	36926	.	-	.	ID=transcript:ENST00000379692;Parent=gene:ENSG00000173376;Name=NDNF-001;biotype=protein_coding;ccdsid=CCDS3717.2;havana_transcript=OTTHUMT00000256532;havana_version=2;tag=basic;transcript_id=ENST00000379692;version=4
+4	ensembl_havana	three_prime_UTR	21	671	.	-	.	Parent=transcript:ENST00000379692
+4	ensembl_havana	exon	21	2065	.	-	.	Parent=transcript:ENST00000379692;Name=ENSE00001740431;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00001740431;rank=4;version=2
+4	ensembl_havana	CDS	672	2065	.	-	2	ID=CDS:ENSP00000369014;Parent=transcript:ENST00000379692;protein_id=ENSP00000369014
+4	ensembl_havana	exon	4338	4462	.	-	.	Parent=transcript:ENST00000379692;Name=ENSE00001611953;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00001611953;rank=3;version=1
+4	ensembl_havana	CDS	4338	4462	.	-	1	ID=CDS:ENSP00000369014;Parent=transcript:ENST00000379692;protein_id=ENSP00000369014
+4	ensembl_havana	CDS	10058	10245	.	-	0	ID=CDS:ENSP00000369014;Parent=transcript:ENST00000379692;protein_id=ENSP00000369014
+4	ensembl_havana	exon	10058	10246	.	-	.	Parent=transcript:ENST00000379692;Name=ENSE00001784917;constitutive=0;ensembl_end_phase=2;ensembl_phase=-1;exon_id=ENSE00001784917;rank=2;version=1
+4	ensembl_havana	five_prime_UTR	10246	10246	.	-	.	Parent=transcript:ENST00000379692
+4	ensembl_havana	exon	36401	36926	.	-	.	Parent=transcript:ENST00000379692;Name=ENSE00001205012;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001205012;rank=1;version=4
+4	ensembl_havana	five_prime_UTR	36401	36926	.	-	.	Parent=transcript:ENST00000379692
+4	ensembl_havana	transcript	1944	37429	.	-	.	ID=transcript:ENST00000515757;Parent=gene:ENSG00000173376;Name=NDNF-002;biotype=protein_coding;havana_transcript=OTTHUMT00000364461;havana_version=1;transcript_id=ENST00000515757;version=1
+4	havana	exon	1944	2065	.	-	.	Parent=transcript:ENST00000515757;Name=ENSE00002059010;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00002059010;rank=4;version=1
+4	havana	CDS	1944	2065	.	-	2	ID=CDS:ENSP00000423352;Parent=transcript:ENST00000515757;protein_id=ENSP00000423352
+4	havana	exon	4338	4462	.	-	.	Parent=transcript:ENST00000515757;Name=ENSE00001611953;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00001611953;rank=3;version=1
+4	havana	CDS	4338	4462	.	-	1	ID=CDS:ENSP00000423352;Parent=transcript:ENST00000515757;protein_id=ENSP00000423352
+4	havana	CDS	10058	10245	.	-	0	ID=CDS:ENSP00000423352;Parent=transcript:ENST00000515757;protein_id=ENSP00000423352
+4	havana	exon	10058	10246	.	-	.	Parent=transcript:ENST00000515757;Name=ENSE00001784917;constitutive=0;ensembl_end_phase=2;ensembl_phase=-1;exon_id=ENSE00001784917;rank=2;version=1
+4	havana	five_prime_UTR	10246	10246	.	-	.	Parent=transcript:ENST00000515757
+4	havana	exon	37302	37429	.	-	.	Parent=transcript:ENST00000515757;Name=ENSE00002032155;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002032155;rank=1;version=1
+4	havana	five_prime_UTR	37302	37429	.	-	.	Parent=transcript:ENST00000515757

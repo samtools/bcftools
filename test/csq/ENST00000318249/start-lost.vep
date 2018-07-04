@@ -1,0 +1,14 @@
+21771579	GA	G	-|frameshift_variant&start_lost|HIGH|NBPF3|ENSG00000142794|Transcript|ENST00000318249|protein_coding|2/15||||351|1|1|M/X|Atg/tg|||1|HGNC|25076
+
+1   4959    GA  G
+
+gene            1       44878   .   +   .   ID=gene:ENSG00000142794;Name=NBPF3;biotype=protein_coding;
+transcript      11      44772   .   +   .   ID=transcript:ENST00000318249;Parent=gene:ENSG00000142794;
+exon            11      221     .   +   .   Parent=transcript:ENST00000318249;Name=ENSE00001542593;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1
+five_prime_UTR  11      221     .   +   .   Parent=transcript:ENST00000318249
+five_prime_UTR  4821    4959    .   +   .   Parent=transcript:ENST00000318249
+exon            4821    5092    .   +   .   Parent=transcript:ENST00000318249;Name=ENSE00003631247;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00003631247;rank=2;vers
+CDS             4960    5092    .   +   0   ID=CDS:ENSP00000316782;Parent=transcript:ENST00000318249;protein_id=ENSP00000316782
+exon            28561   28770   .   +   .   Parent=transcript:ENST00000318249;Name=ENSE00003487448;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003487448;rank=3;versi
+CDS             28561   28770   .   +   2   ID=CDS:ENSP00000316782;Parent=transcript:ENST00000318249;protein_id=ENSP00000316782
+

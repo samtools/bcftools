@@ -1,0 +1,19 @@
+##fileformat=VCFv4.2
+##ALT=<ID=DEL,Description="Deletion">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=X,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C
+1	1000	.	G	A	.	PASS	.	GT	0/0	0/1	1/1
+1	1001	.	G	A,C	.	PASS	.	GT	0/0	1/2	2/2
+1	1002	.	G	A,GA	.	PASS	.	GT	0/0	1/2	1/1
+1	1003	.	CC	TT	.	PASS	.	GT	0/0	0/1	1/1
+1	1003	.	CC	TT,CT	.	PASS	.	GT	0/0	0/1	1/1
+1	1003	.	CACC	TAT	.	PASS	.	GT	0/0	0/1	1/1
+1	1004	.	C	<DEL>	.	PASS	.	GT	0/0	0/1	1/1
+1	1005	.	C	.	.	PASS	.	GT	0/0	0/0	0/0
+1	1006	.	CC	CC	.	PASS	.	GT	0/0	0/1	1/1
+1	1006	.	C	G,T	.	PASS	.	GT	0/0	1/1	2/2
+X	1000	.	C	A	.	PASS	.	GT	0/0	0	1
+X	1001	.	C	A	.	PASS	.	GT	./.	0	.

@@ -1,0 +1,3 @@
+35931	A	AAAC	intron|IL5RA||protein_coding
+35931	A	AAAC	intron|IL5RA||protein_coding
+

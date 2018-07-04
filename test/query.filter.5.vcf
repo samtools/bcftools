@@ -1,0 +1,17 @@
+##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting the allele">
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Number of reads supporting the allele">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3000150	.	C	T,A	59.2	PASS	AD=0,0,0  	GT:AD	./.:0,0,0	./.:0,0,0
+1	3000151	.	C	T,A	59.2	PASS	AD=10,0,0 	GT:AD	0/0:10,0,0	0/0:010,0,0
+1	3000152	.	C	T,A	59.2	PASS	AD=0,11,0 	GT:AD	1/1:0,11,0	1/1:0,110,0
+1	3000153	.	C	T,A	59.2	PASS	AD=0,0,21 	GT:AD	2/2:0,0,20	2/2:0,0,210
+1	3000154	.	C	T,A	59.2	PASS	AD=30,13,0	GT:AD	0/1:30,13,0	0/1:300,13,0
+1	3000155	.	C	T,A	59.2	PASS	AD=20,0,10	GT:AD	0/2:20,0,10	0/2:200,0,10
+1	3000156	.	C	T,A	59.2	PASS	AD=30,14,0	GT:AD	1/0:30,14,0	1/0:300,14,0
+1	3000157	.	C	T,A	59.2	PASS	AD=0,40,10	GT:AD	1/2:0,40,10	1/2:0,400,10
+1	3000158	.	C	T,A	59.2	PASS	AD=0,5,30	GT:AD	2/0:0,5,30	2/0:0,5,300
+1	3000158	.	C	T,A	59.2	PASS	AD=0,110,30	GT:AD	2/0:1,0,110	2/0:1,0,1100

@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=X,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+X	6453	.	ATCCTCGAGGCAGCC	A	.	.	EXP=5_prime_utr|NUDT11|ENST00000375992|protein_coding,start_lost|NUDT11|ENST00000375992|protein_coding|-;type=ENST00000375992:51239295-ATCCTCGAGGCAGCC-A, could be realigned if del moved to right

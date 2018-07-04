@@ -2,8 +2,20 @@ bcftools
 *.o
 /version.h
 plugins/*.so
+plugins/*.dSYM
 plugins/*.P
 
+aclocal.m4
+autom4te.cache
+config.cache
+config.h
+config.h.in
+config.log
+config.mk
+config.status
+configure
+
 /test/test-rbuf
+/test/test-regidx
 
 /TAGS

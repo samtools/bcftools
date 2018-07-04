@@ -1,0 +1,117 @@
+1	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+1	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+3	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+4	T	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+4	T	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+5	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+5	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+9	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+9	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+10	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+10	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+2712	A	C	intron|AL627309.1||protein_coding
+2712	A	C	intron|AL627309.1||protein_coding
+
+2713	G	A	splice_region|AL627309.1|ENST00000423372|protein_coding
+2713	G	A	splice_region|AL627309.1|ENST00000423372|protein_coding
+
+2717	G	A	splice_region|AL627309.1|ENST00000423372|protein_coding
+2717	G	A	splice_region|AL627309.1|ENST00000423372|protein_coding
+
+2718	G	A	splice_region|AL627309.1|ENST00000423372|protein_coding
+2718	G	A	splice_region|AL627309.1|ENST00000423372|protein_coding
+
+2719	G	A	splice_donor|AL627309.1|ENST00000423372|protein_coding
+2719	G	A	splice_donor|AL627309.1|ENST00000423372|protein_coding
+
+2721	C	A	splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+2721	C	A	splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+2723	G	A	splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+2723	G	A	splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+2724	G	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+2724	G	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+2725	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+2725	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+2729	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+2729	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+2730	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+2730	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3621	G	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+3621	G	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3622	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+3622	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3626	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+3626	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3627	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+3627	C	A	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3628	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+3628	A	C	3_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+3630	T	A	@3632
+3630	T	A	stop_lost|AL627309.1|ENST00000423372|protein_coding|-|260*>260C|3630T>A
+
+3632	A	C	stop_lost|AL627309.1|ENST00000423372|protein_coding|-|260*>260G|3630T>A+3632A>C
+3632	A	C	stop_lost|AL627309.1|ENST00000423372|protein_coding|-|260*>260G|3632A>C
+
+3633	T	A	@3634
+3633	T	A	missense|AL627309.1|ENST00000423372|protein_coding|-|259L>259F|3633T>A
+
+3634	A	C	missense|AL627309.1|ENST00000423372|protein_coding|-|259L>259C|3633T>A+3634A>C
+3634	A	C	stop_gained|AL627309.1|ENST00000423372|protein_coding|-|259L>259*|3634A>C
+
+3638	T	A	missense|AL627309.1|ENST00000423372|protein_coding|-|258N>258Y|3638T>A
+3638	T	A	missense|AL627309.1|ENST00000423372|protein_coding|-|258N>258Y|3638T>A
+
+3639	G	A	synonymous|AL627309.1|ENST00000423372|protein_coding|-|257P|3639G>A
+3639	G	A	synonymous|AL627309.1|ENST00000423372|protein_coding|-|257P|3639G>A
+
+4401	C	A	@4402
+4401	C	A	synonymous|AL627309.1|ENST00000423372|protein_coding|-|3L|4401C>A
+
+4402	A	C	missense|AL627309.1|ENST00000423372|protein_coding|-|3L>3R|4401C>A+4402A>C
+4402	A	C	missense|AL627309.1|ENST00000423372|protein_coding|-|3L>3R|4402A>C
+
+4406	A	C	missense|AL627309.1|ENST00000423372|protein_coding|-|2S>2A|4406A>C
+4406	A	C	missense|AL627309.1|ENST00000423372|protein_coding|-|2S>2A|4406A>C
+
+4407	G	A	@4408
+4407	G	A	synonymous|AL627309.1|ENST00000423372|protein_coding|-|1T|4407G>A
+
+4408	G	A	missense|AL627309.1|ENST00000423372|protein_coding|-|1T>1I|4407G>A+4408G>A
+4408	G	A	missense|AL627309.1|ENST00000423372|protein_coding|-|1T>1I|4408G>A
+
+4410	A	C	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+4410	A	C	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+4412	A	C	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+4412	A	C	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+4413	A	C	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+4413	A	C	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+4414	G	A	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+4414	G	A	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+4418	G	A	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+4418	G	A	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+
+4419	G	A	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+4419	G	A	5_prime_utr|AL627309.1|ENST00000423372|protein_coding
+

@@ -1,0 +1,3 @@
+263634	G	A	missense|NTNG1|ENST00000542803|protein_coding|+|361C>361Y|263634G>A,splice_region|NTNG1|ENST00000542803|protein_coding
+263634	G	A	missense|NTNG1|ENST00000542803|protein_coding|+|361C>361Y|263634G>A,splice_region|NTNG1|ENST00000542803|protein_coding
+

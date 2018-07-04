@@ -1,6 +1,6 @@
 /*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -28,16 +28,19 @@ THE SOFTWARE.  */
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
+#include <htslib/bgzf.h>
+#include <htslib/tbx.h> // for hts_get_bgzfp()
 #include "bcftools.h"
 
 typedef struct _args_t
 {
     bcf_srs_t *files;
     htsFile *out_fh;
-    int output_type;
+    int output_type, n_threads, record_cmd_line;
     bcf_hdr_t *out_hdr;
     int *seen_seq;
 
@@ -48,8 +51,9 @@ typedef struct _args_t
     int nbuf, mbuf, prev_chr, min_PQ, prev_pos_check;
     int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
-    char **argv, *output_fname, *file_list, **fnames, *regions_list;
-    int argc, nfnames, allow_overlaps, phased_concat, remove_dups, regions_is_file;
+    char **argv, *output_fname, *file_list, **fnames, *remove_dups, *regions_list;
+    int argc, nfnames, allow_overlaps, phased_concat, regions_is_file;
+    int compact_PS, phase_set_changed, naive_concat;
 }
 args_t;
 
@@ -72,20 +76,15 @@ static void init_data(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
-        if ( !args->out_hdr )
-            args->out_hdr = bcf_hdr_dup(hdr);
-        else
-        {
-            bcf_hdr_combine(args->out_hdr, hdr);
+        args->out_hdr = bcf_hdr_merge(args->out_hdr,hdr);
+        if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
+            error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
 
-            if ( bcf_hdr_nsamples(hdr) != bcf_hdr_nsamples(args->out_hdr) )
-                error("Different number of samples in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
+        int j;
+        for (j=0; j<bcf_hdr_nsamples(hdr); j++)
+            if ( strcmp(args->out_hdr->samples[j],hdr->samples[j]) )
+                error("Different sample names in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
 
-            int j;
-            for (j=0; j<bcf_hdr_nsamples(hdr); j++)
-                if ( strcmp(args->out_hdr->samples[j],hdr->samples[j]) )
-                    error("Different sample names in %s. Perhaps \"bcftools merge\" is what you are looking for?\n", args->fnames[i]);
-        }
         if ( args->phased_concat )
         {
             int ret = bcf_read(fp, hdr, line);
@@ -110,9 +109,10 @@ static void init_data(args_t *args)
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PQ,Number=1,Type=Integer,Description=\"Phasing Quality (bigger is better)\">");
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase Set\">");
     }
-    bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
+    if (args->record_cmd_line) bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+    if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 
     bcf_hdr_write(args->out_fh, args->out_hdr);
 
@@ -124,6 +124,16 @@ static void init_data(args_t *args)
         {
             if ( bcf_sr_set_regions(args->files, args->regions_list, args->regions_is_file)<0 )
                 error("Failed to read the regions: %s\n", args->regions_list);
+        }
+        if ( args->remove_dups )
+        {
+            if ( !strcmp(args->remove_dups,"snps") ) args->files->collapse |= COLLAPSE_SNPS;
+            else if ( !strcmp(args->remove_dups,"indels") ) args->files->collapse |= COLLAPSE_INDELS;
+            else if ( !strcmp(args->remove_dups,"both") ) args->files->collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
+            else if ( !strcmp(args->remove_dups,"any") ) args->files->collapse |= COLLAPSE_ANY;
+            else if ( !strcmp(args->remove_dups,"all") ) args->files->collapse |= COLLAPSE_ANY;
+            else if ( !strcmp(args->remove_dups,"none") ) args->files->collapse = COLLAPSE_NONE;
+            else error("The -D string \"%s\" not recognised.\n", args->remove_dups);
         }
         for (i=0; i<args->nfnames; i++)
             if ( !bcf_sr_add_reader(args->files,args->fnames[i]) ) error("Failed to open %s: %s\n", args->fnames[i],bcf_sr_strerror(args->files->errnum));
@@ -169,8 +179,11 @@ static void destroy_data(args_t *args)
     for (i=0; i<args->nfnames; i++) free(args->fnames[i]);
     free(args->fnames);
     if ( args->files ) bcf_sr_destroy(args->files);
-    if ( hts_close(args->out_fh)!=0 ) error("hts_close error\n");
-    bcf_hdr_destroy(args->out_hdr);
+    if ( args->out_fh )
+    {
+        if ( hts_close(args->out_fh)!=0 ) error("hts_close error\n");
+    }
+    if ( args->out_hdr ) bcf_hdr_destroy(args->out_hdr);
     free(args->seen_seq);
     free(args->start_pos);
     free(args->swap_phase);
@@ -190,6 +203,7 @@ int vcf_write_line(htsFile *fp, kstring_t *line);
 static void phase_update(args_t *args, bcf_hdr_t *hdr, bcf1_t *rec)
 {
     int i, nGTs = bcf_get_genotypes(hdr, rec, &args->GTa, &args->mGTa);
+    if ( nGTs <= 0 ) return;    // GT field is not present
     for (i=0; i<bcf_hdr_nsamples(hdr); i++)
     {
         if ( !args->swap_phase[i] ) continue;
@@ -209,6 +223,7 @@ static void phased_flush(args_t *args)
     bcf_hdr_t *bhdr = args->files->readers[1].header;
 
     int i, j, nsmpl = bcf_hdr_nsamples(args->out_hdr);
+    static int gt_absent_warned = 0;
 
     for (i=0; i<args->nbuf; i+=2)
     {
@@ -216,10 +231,26 @@ static void phased_flush(args_t *args)
         bcf1_t *brec = args->buf[i+1];
 
         int nGTs = bcf_get_genotypes(ahdr, arec, &args->GTa, &args->mGTa);
-        if ( nGTs < 0 ) error("GT is not present at %s:%d\n", bcf_seqname(ahdr,arec), arec->pos+1);
+        if ( nGTs < 0 ) 
+        {
+            if ( !gt_absent_warned )
+            {
+                fprintf(stderr,"GT is not present at %s:%d. (This warning is printed only once.)\n", bcf_seqname(ahdr,arec), arec->pos+1);
+                gt_absent_warned = 1;
+            }
+            continue;
+        }
         if ( nGTs != 2*nsmpl ) continue;    // not diploid
         nGTs = bcf_get_genotypes(bhdr, brec, &args->GTb, &args->mGTb);
-        if ( nGTs < 0 ) error("GT is not present at %s:%d\n", bcf_seqname(bhdr,brec), brec->pos+1);
+        if ( nGTs < 0 )
+        {
+            if ( !gt_absent_warned )
+            {
+                fprintf(stderr,"GT is not present at %s:%d. (This warning is printed only once.)\n", bcf_seqname(bhdr,brec), brec->pos+1);
+                gt_absent_warned = 1;
+            }
+            continue;
+        }
         if ( nGTs != 2*nsmpl ) continue;    // not diploid
 
         for (j=0; j<nsmpl; j++)
@@ -246,7 +277,11 @@ static void phased_flush(args_t *args)
         bcf_translate(args->out_hdr, args->files->readers[0].header, arec);
         if ( args->nswap )
             phase_update(args, args->out_hdr, arec);
-        bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+        if ( !args->compact_PS || args->phase_set_changed )
+        {
+            bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+            args->phase_set_changed = 0;
+        }
         bcf_write(args->out_fh, args->out_hdr, arec);
 
         if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [1]\n", bcf_seqname(args->files->readers[0].header,arec),arec->pos+1,args->prev_pos_check+1);
@@ -283,11 +318,20 @@ static void phased_flush(args_t *args)
             bcf_update_format_int32(args->out_hdr,brec,"PQ",args->phase_qual,nsmpl);
             PQ_printed = 1;
             for (j=0; j<nsmpl; j++)
-                if ( args->phase_qual[j] < args->min_PQ ) args->phase_set[j] = brec->pos+1;
+                if ( args->phase_qual[j] < args->min_PQ ) 
+                {
+                    args->phase_set[j] = brec->pos+1;
+                    args->phase_set_changed = 1;
+                }
+                else if ( args->compact_PS ) args->phase_set[j] = bcf_int32_missing;
         }
         if ( args->nswap )
             phase_update(args, args->out_hdr, brec);
-        bcf_update_format_int32(args->out_hdr,brec,"PS",args->phase_set,nsmpl);
+        if ( !args->compact_PS || args->phase_set_changed )
+        {
+            bcf_update_format_int32(args->out_hdr,brec,"PS",args->phase_set,nsmpl);
+            args->phase_set_changed = 0;
+        }
         bcf_write(args->out_fh, args->out_hdr, brec);
 
         if ( brec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [2]\n", bcf_seqname(args->files->readers[1].header,brec),brec->pos+1,args->prev_pos_check+1);
@@ -311,6 +355,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
 
         for (i=0; i<nsmpl; i++)
             args->phase_set[i] = arec->pos+1;
+        args->phase_set_changed = 1;
 
         if ( args->seen_seq[chr_id] ) error("The chromosome block %s is not contiguous\n", bcf_seqname(args->files->readers[0].header,arec));
         args->seen_seq[chr_id] = 1;
@@ -323,7 +368,11 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
         bcf_translate(args->out_hdr, args->files->readers[0].header, arec);
         if ( args->nswap )
             phase_update(args, args->out_hdr, arec);
-        bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+        if ( !args->compact_PS || args->phase_set_changed )
+        {
+            bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
+            args->phase_set_changed = 0;
+        }
         bcf_write(args->out_fh, args->out_hdr, arec);
 
         if ( arec->pos < args->prev_pos_check )
@@ -474,7 +523,7 @@ static void concat(args_t *args)
                     args->seen_seq[chr_id] = 1;
                     prev_chr_id = chr_id;
 
-                    if ( vcf_write_line(args->out_fh, &fp->line)!=0 ) error("Failed to write %d bytes\n", fp->line.l);
+                    if ( vcf_write_line(args->out_fh, &fp->line)!=0 ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
                 }
             }
             else
@@ -507,27 +556,174 @@ static void concat(args_t *args)
     }
 }
 
+int print_vcf_gz_header(BGZF *fp, BGZF *bgzf_out, int print_header, kstring_t *tmp)
+{
+    char *buffer = (char*) fp->uncompressed_block;
+
+    // Read the header and find the position of the data block
+    if ( buffer[0]!='#' ) error("Could not parse the header, expected '#', found '%c'\n", buffer[0]);
+
+    int nskip = 1;     // end of the header in the current uncompressed block
+    while (1)
+    {
+        if ( buffer[nskip]=='\n' )
+        {
+            nskip++;
+            if ( nskip>=fp->block_length )
+            {
+                kputsn(buffer,nskip,tmp);
+                if ( bgzf_read_block(fp) != 0 ) return -1;
+                if ( !fp->block_length ) break;
+                nskip = 0;
+            }
+            // The header has finished
+            if ( buffer[nskip]!='#' )
+            {
+                kputsn(buffer,nskip,tmp);
+                break;
+            }
+        }
+        nskip++;
+        if ( nskip>=fp->block_length )
+        {
+            kputsn(buffer,fp->block_length,tmp);
+            if ( bgzf_read_block(fp) != 0 ) return -1;
+            if ( !fp->block_length ) break;
+            nskip = 0;
+        }
+    }
+    if ( print_header )
+    {
+        if ( bgzf_write(bgzf_out,tmp->s,tmp->l) != tmp->l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)tmp->l);
+        tmp->l = 0;
+    }
+    return nskip;
+}
+
+static inline int unpackInt16(const uint8_t *buffer)
+{
+    return buffer[0] | buffer[1] << 8;
+}
+static int check_header(const uint8_t *header)
+{
+    if ( header[0] != 31 || header[1] != 139 || header[2] != 8 ) return -2;
+    return ((header[3] & 4) != 0
+            && unpackInt16((uint8_t*)&header[10]) == 6
+            && header[12] == 'B' && header[13] == 'C'
+            && unpackInt16((uint8_t*)&header[14]) == 2) ? 0 : -1;
+}
+static void naive_concat(args_t *args)
+{
+    // only compressed BCF atm
+    BGZF *bgzf_out = bgzf_open(args->output_fname,"w");;
+
+    const size_t page_size = BGZF_MAX_BLOCK_SIZE;
+    uint8_t *buf = (uint8_t*) malloc(page_size);
+    kstring_t tmp = {0,0,0};
+    int i, file_types = 0;
+    for (i=0; i<args->nfnames; i++)
+    {
+        htsFile *hts_fp = hts_open(args->fnames[i],"r");
+        if ( !hts_fp ) error("Failed to open: %s\n", args->fnames[i]);
+        htsFormat type = *hts_get_format(hts_fp);
+
+        if ( type.compression!=bgzf )
+            error("The --naive option works only for compressed BCFs or VCFs, sorry :-/\n");
+        file_types |= type.format==vcf ? 1 : 2;
+        if ( file_types==3 )
+            error("The --naive option works only for compressed files of the same type, all BCFs or all VCFs :-/\n");
+
+        BGZF *fp = hts_get_bgzfp(hts_fp);
+        if ( !fp || bgzf_read_block(fp) != 0 || !fp->block_length )
+            error("Failed to read %s: %s\n", args->fnames[i], strerror(errno));
+
+        int nskip;
+        if ( type.format==bcf )
+        {
+            uint8_t magic[5];
+            if ( bgzf_read(fp, magic, 5) != 5 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
+            if (strncmp((char*)magic, "BCF\2\2", 5) != 0) error("Invalid BCF magic string in %s\n", args->fnames[i]);
+
+            if ( bgzf_read(fp, &tmp.l, 4) != 4 ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
+            hts_expand(char,tmp.l,tmp.m,tmp.s);
+            if ( bgzf_read(fp, tmp.s, tmp.l) != tmp.l ) error("Failed to read the BCF header in %s\n", args->fnames[i]);
+
+            // write only the first header
+            if ( i==0 )
+            {
+                if ( bgzf_write(bgzf_out, "BCF\2\2", 5) !=5 ) error("Failed to write %d bytes to %s\n", 5,args->output_fname);
+                if ( bgzf_write(bgzf_out, &tmp.l, 4) !=4 ) error("Failed to write %d bytes to %s\n", 4,args->output_fname);
+                if ( bgzf_write(bgzf_out, tmp.s, tmp.l) != tmp.l) error("Failed to write %"PRId64" bytes to %s\n", (uint64_t)tmp.l,args->output_fname);
+            }
+            nskip = fp->block_offset;
+        }
+        else
+        {
+            nskip = print_vcf_gz_header(fp, bgzf_out, i==0?1:0, &tmp);
+            if ( nskip==-1 ) error("Error reading %s\n", args->fnames[i]);
+        }
+
+        // Output all non-header data that were read together with the header block
+        if ( fp->block_length - nskip > 0 )
+        {
+            if ( bgzf_write(bgzf_out, (char *)fp->uncompressed_block+nskip, fp->block_length-nskip)<0 ) error("Error: %d\n",fp->errcode);
+        }
+        if ( bgzf_flush(bgzf_out)<0 ) error("Error: %d\n",bgzf_out->errcode);
+
+
+        // Stream the rest of the file as it is, without recompressing, but remove BGZF EOF blocks
+        // The final bgzf eof block will be added by bgzf_close.
+        ssize_t nread, nblock, nwr;
+        const int nheader = 18, neof = 28;
+        const uint8_t *eof = (uint8_t*) "\037\213\010\4\0\0\0\0\0\377\6\0\102\103\2\0\033\0\3\0\0\0\0\0\0\0\0\0";
+        while (1)
+        {
+            nread = bgzf_raw_read(fp, buf, nheader);
+            if ( !nread ) break;
+            if ( nread != nheader || check_header(buf)!=0 ) error("Could not parse the header of a bgzf block: %s\n",args->fnames[i]);
+            nblock = unpackInt16(buf+16) + 1;
+            assert( nblock <= page_size && nblock >= nheader );
+            nread += bgzf_raw_read(fp, buf+nheader, nblock - nheader);
+            if ( nread!=nblock ) error("Could not read %"PRId64" bytes: %s\n",(uint64_t)nblock,args->fnames[i]);
+            if ( nread==neof && !memcmp(buf,eof,neof) ) continue;
+            nwr = bgzf_raw_write(bgzf_out, buf, nread);
+            if ( nwr != nread ) error("Write failed, wrote %"PRId64" instead of %d bytes.\n", (uint64_t)nwr,(int)nread);
+        }
+        if (hts_close(hts_fp)) error("Close failed: %s\n",args->fnames[i]);
+    }
+    free(buf);
+    free(tmp.s);
+    if (bgzf_close(bgzf_out) < 0) error("Error: %d\n",bgzf_out->errcode);
+}
+
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Concatenate or combine VCF/BCF files. All source files must have the same sample\n");
-    fprintf(stderr, "         columns appearing in the same order. Can be used, for example, to\n");
+    fprintf(stderr, "         columns appearing in the same order. The program can be used, for example, to\n");
     fprintf(stderr, "         concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel\n");
     fprintf(stderr, "         VCF into one. The input files must be sorted by chr and position. The files\n");
     fprintf(stderr, "         must be given in the correct order to produce sorted VCF on output unless\n");
-    fprintf(stderr, "         the -a, --allow-overlaps option is specified.\n");
+    fprintf(stderr, "         the -a, --allow-overlaps option is specified. With the --naive option, the files\n");
+    fprintf(stderr, "         are concatenated without being recompressed, which is very fast but dangerous\n");
+    fprintf(stderr, "         if the BCF headers differ.\n");
     fprintf(stderr, "Usage:   bcftools concat [options] <A.vcf.gz> [<B.vcf.gz> [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
-    fprintf(stderr, "   -D, --remove-duplicates        Output only once records present in multiple files.\n");
+    fprintf(stderr, "   -c, --compact-PS               Do not output PS tag at each site, only at the start of a new phase set block.\n");
+    fprintf(stderr, "   -d, --rm-dups <string>         Output duplicate records present in multiple files only once: <snps|indels|both|all|none>\n");
+    fprintf(stderr, "   -D, --remove-duplicates        Alias for -d none\n");
     fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
-    fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
+    fprintf(stderr, "       --no-version               Do not append version and command line to the header\n");
+    fprintf(stderr, "   -n, --naive                    Concatenate files without recompression (dangerous, use with caution)\n");
     fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -r, --regions <region>         restrict to comma-separated list of regions\n");
-    fprintf(stderr, "   -R, --regions-file <file>      restrict to regions listed in a file\n");
+    fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
+    fprintf(stderr, "   -r, --regions <region>         Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file <file>      Restrict to regions listed in a file\n");
+    fprintf(stderr, "       --threads <int>            Number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -539,32 +735,42 @@ int main_vcfconcat(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
+    args->record_cmd_line = 1;
     args->min_PQ  = 30;
 
     static struct option loptions[] =
     {
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"remove-duplicates",0,0,'D'},
-        {"allow-overlaps",0,0,'a'},
-        {"ligate",0,0,'l'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"file-list",1,0,'f'},
-        {"min-PQ",1,0,'q'},
-        {0,0,0,0}
+        {"naive",no_argument,NULL,'n'},
+        {"compact-PS",no_argument,NULL,'c'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"remove-duplicates",no_argument,NULL,'D'},
+        {"rm-dups",required_argument,NULL,'d'},
+        {"allow-overlaps",no_argument,NULL,'a'},
+        {"ligate",no_argument,NULL,'l'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"file-list",required_argument,NULL,'f'},
+        {"min-PQ",required_argument,NULL,'q'},
+        {"no-version",no_argument,NULL,8},
+        {NULL,0,NULL,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dr:R:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:f:alq:Dd:r:R:cn",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'c': args->compact_PS = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
-            case 'D': args->remove_dups = 1; break;
+            case 'd': args->remove_dups = optarg; break;
+            case 'D': args->remove_dups = "none"; break;
             case 'q': 
                 args->min_PQ = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --min-PQ %s\n", optarg);
                 break;
+            case 'n': args->naive_concat = 1; break;
             case 'a': args->allow_overlaps = 1; break;
             case 'l': args->phased_concat = 1; break;
             case 'f': args->file_list = optarg; break;
@@ -578,6 +784,8 @@ int main_vcfconcat(int argc, char *argv[])
                     default: error("The output type \"%s\" not recognised\n", optarg);
                 };
                 break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
+            case  8 : args->record_cmd_line = 0; break;
             case 'h':
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
@@ -591,6 +799,7 @@ int main_vcfconcat(int argc, char *argv[])
         optind++;
     }
     if ( args->allow_overlaps && args->phased_concat ) args->allow_overlaps = 0;
+    if ( args->compact_PS && !args->phased_concat ) error("The -c option is intended only with -l\n");
     if ( args->file_list )
     {
         if ( args->nfnames ) error("Cannot combine -l with file names on command line.\n");
@@ -600,6 +809,15 @@ int main_vcfconcat(int argc, char *argv[])
     if ( !args->nfnames ) usage(args);
     if ( args->remove_dups && !args->allow_overlaps ) error("The -D option is supported only with -a\n");
     if ( args->regions_list && !args->allow_overlaps ) error("The -r/-R option is supported only with -a\n");
+    if ( args->naive_concat )
+    {
+        if ( args->allow_overlaps ) error("The option --naive cannot be combined with --allow-overlaps\n");
+        if ( args->phased_concat ) error("The option --naive cannot be combined with --ligate\n");
+        naive_concat(args);
+        destroy_data(args);
+        free(args);
+        return 0;
+    }
     init_data(args);
     concat(args);
     destroy_data(args);

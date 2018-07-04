@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=5,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+5	1443	.	A	ACCCGGCCGCACGCTCTCA	.	.	EXP=splice_donor|MRPL36|ENST00000382647|protein_coding;type=ENST00000382647:1799922-A-ACCCGGCCGCACGCTCTCA, should be synonymous splice region if seq were checked: ...GCTCTCAc|ccggcg

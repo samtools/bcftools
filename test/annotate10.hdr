@@ -1,0 +1,3 @@
+##FORMAT=<ID=FINT,Number=.,Type=Integer,Description="Test type">
+##FORMAT=<ID=FFLT,Number=.,Type=Float,Description="Test type">
+##FORMAT=<ID=FSTR,Number=.,Type=String,Description="Test type">

@@ -1,0 +1,66 @@
+#  Optional configure Makefile overrides for bcftools.
+#
+#    Copyright (C) 2015,2017 Genome Research Ltd.
+#
+#    Author: John Marshall <jm18@sanger.ac.uk>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
+# This is @configure_input@
+#
+# If you use configure, this file overrides variables and augments rules
+# in the Makefile to reflect your configuration choices.  If you don't run
+# configure, the main Makefile contains suitable conservative defaults.
+
+prefix       = @prefix@
+exec_prefix  = @exec_prefix@
+bindir       = @bindir@
+libexecdir   = @libexecdir@
+datarootdir  = @datarootdir@
+mandir       = @mandir@
+
+CC       = @CC@
+CPPFLAGS = @CPPFLAGS@
+CFLAGS   = @CFLAGS@
+LDFLAGS  = @LDFLAGS@
+LIBS     = @LIBS@
+
+DYNAMIC_FLAGS = @CC_RDYNAMIC_OPT@
+
+USE_GPL = @USE_GPL@
+GSL_LIBS = @GSL_LIBS@
+PERL_CFLAGS = @PERL_CCOPTS@
+PERL_LIBS = @PERL_LIBS@
+
+PLATFORM   = @PLATFORM@
+PLUGINS_ENABLED = @enable_bcftools_plugins@
+plugindir = @bcf_plugindir@
+PLUGIN_EXT = @PLUGIN_EXT@
+
+@Hsource@HTSDIR = @HTSDIR@
+@Hsource@include $(HTSDIR)/htslib.mk
+@Hsource@include $(HTSDIR)/htslib_static.mk
+@Hsource@HTSLIB = $(HTSDIR)/libhts.a
+@Hsource@HTSLIB_LIB = $(HTSLIB) $(HTSLIB_static_LIBS)
+@Hsource@HTSLIB_LDFLAGS = $(HTSLIB_static_LDFLAGS)
+@Hsource@BGZIP = $(HTSDIR)/bgzip
+@Hsource@TABIX = $(HTSDIR)/tabix
+HTSLIB_CPPFLAGS = @HTSLIB_CPPFLAGS@
+@Hinstall@HTSLIB_LDFLAGS = @HTSLIB_LDFLAGS@
+@Hinstall@HTSLIB_LIB = -lhts

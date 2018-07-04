@@ -1,0 +1,17 @@
+1	ensembl_havana	gene	21	59446	.	-	.	ID=gene:ENSG00000079277;Name=MKNK1;biotype=protein_coding;description=MAP kinase interacting serine/threonine kinase 1 [Source:HGNC Symbol%3BAcc:7110];gene_id=ENSG00000079277;logic_name=ensembl_havana_gene;version=15
+1	ensembl_havana	transcript	14712	28862	.	-	.	ID=transcript:ENST00000528237;Parent=gene:ENSG00000079277;Name=MKNK1-022;biotype=protein_coding;havana_transcript=OTTHUMT00000387152;havana_version=1;transcript_id=ENST00000528237;version=1
+1	havana	exon	14712	14770	.	-	.	Parent=transcript:ENST00000528237;Name=ENSE00002192432;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00002192432;rank=7;version=1
+1	havana	CDS	14712	14770	.	-	2	ID=CDS:ENSP00000432665;Parent=transcript:ENST00000528237;protein_id=ENSP00000432665
+1	havana	exon	17550	17623	.	-	.	Parent=transcript:ENST00000528237;Name=ENSE00003471601;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00003471601;rank=6;version=1
+1	havana	CDS	17550	17623	.	-	1	ID=CDS:ENSP00000432665;Parent=transcript:ENST00000528237;protein_id=ENSP00000432665
+1	havana	exon	19178	19257	.	-	.	Parent=transcript:ENST00000528237;Name=ENSE00003580253;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003580253;rank=5;version=1
+1	havana	CDS	19178	19257	.	-	0	ID=CDS:ENSP00000432665;Parent=transcript:ENST00000528237;protein_id=ENSP00000432665
+1	havana	exon	23133	23230	.	-	.	Parent=transcript:ENST00000528237;Name=ENSE00003517498;constitutive=0;ensembl_end_phase=0;ensembl_phase=1;exon_id=ENSE00003517498;rank=4;version=1
+1	havana	CDS	23133	23230	.	-	2	ID=CDS:ENSP00000432665;Parent=transcript:ENST00000528237;protein_id=ENSP00000432665
+1	havana	exon	25831	25932	.	-	.	Parent=transcript:ENST00000528237;Name=ENSE00003482318;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00003482318;rank=3;version=1
+1	havana	CDS	25831	25932	.	-	2	ID=CDS:ENSP00000432665;Parent=transcript:ENST00000528237;protein_id=ENSP00000432665
+1	havana	CDS	28477	28492	.	-	0	ID=CDS:ENSP00000432665;Parent=transcript:ENST00000528237;protein_id=ENSP00000432665
+1	havana	exon	28477	28577	.	-	.	Parent=transcript:ENST00000528237;Name=ENSE00003620146;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00003620146;rank=2;version=1
+1	havana	five_prime_UTR	28493	28577	.	-	.	Parent=transcript:ENST00000528237
+1	havana	exon	28837	28862	.	-	.	Parent=transcript:ENST00000528237;Name=ENSE00002159407;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002159407;rank=1;version=1
+1	havana	five_prime_UTR	28837	28862	.	-	.	Parent=transcript:ENST00000528237

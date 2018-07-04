@@ -1,0 +1,11 @@
+9	ensembl_havana	gene	21	137364	.	-	.	ID=gene:ENSG00000187764;Name=SEMA4D;biotype=protein_coding;description=sema domain%2C immunoglobulin domain (Ig)%2C transmembrane domain (TM) and short cytoplasmic domain%2C (semaphorin) 4D [Source:HGNC Symbol%3BAcc:10732];gene_id=ENSG00000187764;logic_name=ensembl_havana_gene;version=7
+9	ensembl_havana	transcript	44688	136666	.	-	.	ID=transcript:ENST00000420670;Parent=gene:ENSG00000187764;Name=SEMA4D-015;biotype=protein_coding;havana_transcript=OTTHUMT00000342408;havana_version=1;transcript_id=ENST00000420670;version=1
+9	havana	CDS	44688	44690	.	-	0	ID=CDS:ENSP00000405652;Parent=transcript:ENST00000420670;protein_id=ENSP00000405652
+9	havana	exon	44688	44933	.	-	.	Parent=transcript:ENST00000420670;Name=ENSE00001755185;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001755185;rank=4;version=1
+9	havana	five_prime_UTR	44691	44933	.	-	.	Parent=transcript:ENST00000420670
+9	havana	exon	57290	57352	.	-	.	Parent=transcript:ENST00000420670;Name=ENSE00001419415;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001419415;rank=3;version=1
+9	havana	five_prime_UTR	57290	57352	.	-	.	Parent=transcript:ENST00000420670
+9	havana	exon	95122	95187	.	-	.	Parent=transcript:ENST00000420670;Name=ENSE00001424804;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001424804;rank=2;version=1
+9	havana	five_prime_UTR	95122	95187	.	-	.	Parent=transcript:ENST00000420670
+9	havana	exon	136609	136666	.	-	.	Parent=transcript:ENST00000420670;Name=ENSE00001692264;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001692264;rank=1;version=1
+9	havana	five_prime_UTR	136609	136666	.	-	.	Parent=transcript:ENST00000420670

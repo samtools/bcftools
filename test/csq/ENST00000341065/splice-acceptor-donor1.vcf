@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	16255	.	CCC	CC	.	.	EXP=intron|SAMD11||protein_coding;type=splice should not be called, can be normalized
+1	16261	.	CCA	CA	.	.	EXP=splice_region|SAMD11|ENST00000341065|protein_coding;type=splice_region but not splice_acceptor
+1	16429	.	TA	T	.	.	EXP=splice_region|SAMD11|ENST00000341065|protein_coding;type=splice_region but not splice_donor
+1	16438	.	GG	G	.	.	EXP=intron|SAMD11||protein_coding;type=splice should not be called
+1	18365	.	A	AA	.	.	EXP=intron|SAMD11||protein_coding;type=same as 16255 but an insertion
+1	18371	.	C	CA	.	.	EXP=splice_region|SAMD11|ENST00000341065|protein_coding;type=same as 16261 but an insertion
+1	18500	.	T	TA	.	.	EXP=splice_region|SAMD11|ENST00000341065|protein_coding;type=same as 16429 but an insertion
+1	18506	.	G	GA	.	.	EXP=intron|SAMD11||protein_coding;type=same as 16438 but an insertion
+1	18816	.	CAGGTCT	CAGGTCT	.	.	EXP=.;type=ref not a variant
+1	18826	.	G	A	.	.	EXP=missense|SAMD11|ENST00000341065|protein_coding|+|473R>473K|18826G>A
+1	19026	.	CAGGTGGCCAG	CAGGTGAG	.	.	EXP=inframe_deletion|SAMD11|ENST00000341065|protein_coding|+|508VA>508V|19026CAGGTGGCCAG>CAGGTGAG;type=indel inside exon not splice

@@ -1,6 +1,6 @@
-/*  vcfannotate.c -- Annotate and edit VCF/BCF files.
+/*  vcfplugin.c -- plugin modules for operating on VCF/BCF files.
 
-    Copyright (C) 2013-2014 Genome Research Ltd.
+    Copyright (C) 2013-2017 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -22,7 +22,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.  */
 
+#include "config.h"
 #include <stdio.h>
+#include <strings.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <ctype.h>
@@ -41,13 +43,15 @@ THE SOFTWARE.  */
 #include "vcmp.h"
 #include "filter.h"
 
+#ifdef ENABLE_BCF_PLUGINS
+
 typedef struct _plugin_t plugin_t;
 
 /**
  *   Plugin API:
  *   ----------
  *   const char *about(void)
- *      - short description used by 'bcftools plugin -l'
+ *      - short description used by 'bcftools plugin -lv'
  *
  *   const char *usage(void)
  *      - longer description used by 'bcftools +name -h'
@@ -129,7 +133,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hdr_out;
     htsFile *out_fh;
-    int output_type;
+    int output_type, n_threads;
 
     filter_t *filter;
     char *filter_str;
@@ -140,7 +144,7 @@ typedef struct _args_t
     char **plugin_paths;
 
     char **argv, *output_fname, *regions_list, *targets_list;
-    int argc, drop_header, verbose;
+    int argc, drop_header, verbose, record_cmd_line;
 }
 args_t;
 
@@ -170,11 +174,11 @@ static void add_plugin_paths(args_t *args, const char *path)
                 args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
                 args->plugin_paths[args->nplugin_paths] = dir;
                 args->nplugin_paths++;
-                if ( args->verbose ) fprintf(stderr, "plugin directory %s .. ok\n", dir);
+                if ( args->verbose > 1 ) fprintf(stderr, "plugin directory %s .. ok\n", dir);
             }
             else
             {
-                if ( args->verbose ) fprintf(stderr, "plugin directory %s .. %s\n", dir, strerror(errno));
+                if ( args->verbose > 1 ) fprintf(stderr, "plugin directory %s .. %s\n", dir, strerror(errno));
                 free(dir);
             }
 
@@ -208,9 +212,9 @@ static void *dlopen_plugin(args_t *args, const char *fname)
         int i;
         for (i=0; i<args->nplugin_paths; i++)
         {
-            tmp = msprintf("%s/%s.so", args->plugin_paths[i],fname);
+	    tmp = msprintf("%s/%s%s", args->plugin_paths[i], fname, PLUGIN_EXT);
             handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
-            if ( args->verbose )
+            if ( args->verbose > 1 )
             {
                 if ( !handle ) fprintf(stderr,"%s:\n\tdlopen   .. %s\n", tmp,dlerror());
                 else fprintf(stderr,"%s:\n\tdlopen   .. ok\n", tmp);
@@ -221,7 +225,7 @@ static void *dlopen_plugin(args_t *args, const char *fname)
     }
 
     handle = dlopen(fname, RTLD_NOW);
-    if ( args->verbose )
+    if ( args->verbose > 1 )
     {
         if ( !handle ) fprintf(stderr,"%s:\n\tdlopen   .. %s\n", fname,dlerror());
         else fprintf(stderr,"%s:\n\tdlopen   .. ok\n", fname);
@@ -239,13 +243,6 @@ static void print_plugin_usage_hint(void)
         fprintf(stderr,
                 " in\n\tBCFTOOLS_PLUGINS=\"%s\".\n\n"
                 "- Is the plugin path correct?\n\n"
-                "- Are all shared libraries, namely libhts.so, accessible? Verify with\n"
-                "   on Mac OS X: `otool -L your/plugin.so` and set DYLD_LIBRARY_PATH if they are not\n"
-                "   on Linux:    `ldd your/plugin.so` and set LD_LIBRARY_PATH if they are not\n"
-                "\n"
-                "- If not installed systemwide, set the environment variable LD_LIBRARY_PATH (linux) or\n"
-                "DYLD_LIBRARY_PATH (mac) to include directory where *libhts.so* is located.\n"
-                "\n"
                 "- Run \"bcftools plugin -lv\" for more detailed error output.\n"
                 "\n",
                 getenv("BCFTOOLS_PLUGINS")
@@ -273,19 +270,19 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     if ( ret )
         plugin->init = NULL;
     else
-        if ( args->verbose ) fprintf(stderr,"\tinit     .. ok\n");
+        if ( args->verbose > 1 ) fprintf(stderr,"\tinit     .. ok\n");
 
     plugin->run = (dl_run_f) dlsym(plugin->handle, "run");
     ret = dlerror();
     if ( ret )
         plugin->run = NULL;
     else
-        if ( args->verbose ) fprintf(stderr,"\trun      .. ok\n");
+        if ( args->verbose > 1 ) fprintf(stderr,"\trun      .. ok\n");
 
     if ( !plugin->init && !plugin->run )
     {
         if ( exit_on_error ) error("Could not initialize %s, neither run or init found \n", plugin->name);
-        else if ( args->verbose ) fprintf(stderr,"\tinit/run .. not found\n");
+        else if ( args->verbose > 1 ) fprintf(stderr,"\tinit/run .. not found\n");
         return -1;
     }
 
@@ -294,7 +291,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     if ( ret )
     {
         if ( exit_on_error ) error("Could not initialize %s, version string not found\n", plugin->name);
-        else if ( args->verbose ) fprintf(stderr,"\tversion  .. not found\n");
+        else if ( args->verbose > 1 ) fprintf(stderr,"\tversion  .. not found\n");
         return -1;
     }
 
@@ -368,6 +365,7 @@ static int list_plugins(args_t *args)
     init_plugin_paths(args);
 
     kstring_t str = {0,0,0};
+    int plugin_ext_len = strlen(PLUGIN_EXT);
     int i;
     for (i=0; i<args->nplugin_paths; i++)
     {
@@ -378,7 +376,7 @@ static int list_plugins(args_t *args)
         while ( (ep=readdir(dp)) )
         {
             int len = strlen(ep->d_name);
-            if ( strcasecmp(".so",ep->d_name+len-3) ) continue;
+            if ( strcasecmp(PLUGIN_EXT,ep->d_name+len-plugin_ext_len) ) continue;
             str.l = 0;
             ksprintf(&str,"%s/%s", args->plugin_paths[i],ep->d_name);
             hts_expand(plugin_t, nplugins+1, mplugins, plugins);
@@ -399,8 +397,13 @@ static int list_plugins(args_t *args)
         qsort(plugins, nplugins, sizeof(plugins[0]), cmp_plugin_name);
 
         for (i=0; i<nplugins; i++)
-            printf("\n-- %s --\n%s", plugins[i].name, plugins[i].about());
-        printf("\n");
+        {
+            if ( args->verbose )
+                printf("\n-- %s --\n%s", plugins[i].name, plugins[i].about());
+            else
+                printf("%s\n", plugins[i].name);
+        }
+        if ( args->verbose ) printf("\n");
     }
     else
         print_plugin_usage_hint();
@@ -418,11 +421,12 @@ static void init_data(args_t *args)
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
 
-    bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_plugin");
+    if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_plugin");
     if ( !args->drop_header )
     {
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+        if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
         bcf_hdr_write(args->out_fh, args->hdr_out);
     }
 }
@@ -459,16 +463,40 @@ static void usage(args_t *args)
     fprintf(stderr, "   -t, --targets <region>      similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>   similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "VCF output options:\n");
+    fprintf(stderr, "       --no-version            do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>         write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "       --threads <int>         number of extra output compression threads [0]\n");
     fprintf(stderr, "Plugin options:\n");
     fprintf(stderr, "   -h, --help                  list plugin's options\n");
     fprintf(stderr, "   -l, --list-plugins          list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
-    fprintf(stderr, "   -v, --verbose               print debugging information on plugin failure\n");
+    fprintf(stderr, "   -v, --verbose               print verbose information, -vv increases verbosity\n");
+    fprintf(stderr, "   -V, --version               print version string and exit\n");
     fprintf(stderr, "\n");
     exit(1);
 }
 
+static int is_verbose(int argc, char *argv[])
+{
+    int c, verbose = 0, opterr_ori = opterr;
+    static struct option loptions[] =
+    {
+        {"verbose",no_argument,NULL,'v'},
+        {NULL,0,NULL,0}
+    };
+    opterr = 0;
+    while ((c = getopt_long(argc, argv, "-v",loptions,NULL)) >= 0)
+    {
+        switch (c) {
+            case 'v': verbose++; break;
+            case 1:
+            default: break;
+        }
+    }
+    opterr = opterr_ori;
+    optind = 0;
+    return verbose;
+}
 int main_plugin(int argc, char *argv[])
 {
     int c;
@@ -476,32 +504,53 @@ int main_plugin(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->n_threads = 0;
+    args->record_cmd_line = 1;
     args->nplugin_paths = -1;
-    int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0;
+    int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0, version_only = 0;
 
     if ( argc==1 ) usage(args);
+
     char *plugin_name = NULL;
-    if ( argv[1][0]!='-' ) { plugin_name = argv[1]; argc--; argv++; }
+    if ( argv[1][0]!='-' )
+    {
+        args->verbose = is_verbose(argc, argv);
+        plugin_name = argv[1]; 
+        argc--; 
+        argv++; 
+        load_plugin(args, plugin_name, 1, &args->plugin);
+        if ( args->plugin.run )
+        {
+            int ret = args->plugin.run(argc, argv);
+            destroy_data(args);
+            free(args);
+            return ret;
+        }
+    }
 
     static struct option loptions[] =
     {
-        {"verbose",0,0,'v'},
-        {"help",0,0,'h'},
-        {"list-plugins",0,0,'l'},
-        {"output",1,0,'o'},
-        {"output-type",1,0,'O'},
-        {"include",1,0,'i'},
-        {"exclude",1,0,'e'},
-        {"regions",1,0,'r'},
-        {"regions-file",1,0,'R'},
-        {"targets",1,0,'t'},
-        {"targets-file",1,0,'T'},
-        {0,0,0,0}
+        {"version",no_argument,NULL,'V'},
+        {"verbose",no_argument,NULL,'v'},
+        {"help",no_argument,NULL,'h'},
+        {"list-plugins",no_argument,NULL,'l'},
+        {"output",required_argument,NULL,'o'},
+        {"output-type",required_argument,NULL,'O'},
+        {"threads",required_argument,NULL,9},
+        {"include",required_argument,NULL,'i'},
+        {"exclude",required_argument,NULL,'e'},
+        {"regions",required_argument,NULL,'r'},
+        {"regions-file",required_argument,NULL,'R'},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"no-version",no_argument,NULL,8},
+        {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:v",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:vV",loptions,NULL)) >= 0)
     {
         switch (c) {
-            case 'v': args->verbose = 1; break;
+            case 'V': version_only = 1; break;
+            case 'v': args->verbose++; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
                 switch (optarg[0]) {
@@ -519,6 +568,8 @@ int main_plugin(int argc, char *argv[])
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'l': plist_only = 1; break;
+            case  9 : args->n_threads = strtol(optarg, 0, 0); break;
+            case  8 : args->record_cmd_line = 0; break;
             case '?':
             case 'h': usage_only = 1; break;
             default: error("Unknown argument: %s\n", optarg);
@@ -527,7 +578,14 @@ int main_plugin(int argc, char *argv[])
     if ( plist_only )  return list_plugins(args);
     if ( usage_only && ! plugin_name ) usage(args);
 
-    load_plugin(args, plugin_name, 1, &args->plugin);
+    if ( version_only )
+    {
+        const char *bver, *hver;
+        args->plugin.version(&bver, &hver);
+        printf("bcftools  %s using htslib %s\n", bcftools_version(), hts_version());
+        printf("plugin at %s using htslib %s\n\n", bver, hver);
+        return 0;
+    }
 
     if ( usage_only )
     {
@@ -536,15 +594,6 @@ int main_plugin(int argc, char *argv[])
         else
             fprintf(stderr,"Usage: bcftools +%s [General Options] -- [Plugin Options]\n",plugin_name);
         return 0;
-    }
-
-    if ( args->plugin.run )
-    {
-        int iopt = optind; optind = 0;
-        int ret = args->plugin.run(argc-iopt, argv+iopt);
-        destroy_data(args);
-        free(args);
-        return ret;
     }
 
     char *fname = NULL;
@@ -562,7 +611,6 @@ int main_plugin(int argc, char *argv[])
         args->plugin.argv = argv + optind;
     }
     optind = 0;
-    args->plugin.argv[0] = plugin_name;
 
     args->files = bcf_sr_init();
     if ( args->regions_list )
@@ -589,7 +637,11 @@ int main_plugin(int argc, char *argv[])
             if ( !pass ) continue;
         }
         line = args->plugin.process(line);
-        if ( line ) bcf_write1(args->out_fh, args->hdr_out, line);
+        if ( line )
+        {
+            if ( line->errcode ) error("[E::main_plugin] Unchecked error (%d), exiting\n",line->errcode);
+            bcf_write1(args->out_fh, args->hdr_out, line);
+        }
     }
     destroy_data(args);
     bcf_sr_destroy(args->files);
@@ -597,3 +649,13 @@ int main_plugin(int argc, char *argv[])
     return 0;
 }
 
+#else /* ENABLE_BCF_PLUGINS */
+
+int main_plugin(int argc, char *argv[])
+{
+    fprintf(stderr, "bcftools plugins are disabled.  To use them, you will need to rebuild\n"
+	    "bcftools from the source distribution with plugins enabled.\n");
+    return 1;
+}
+
+#endif /* ENABLE_BCF_PLUGINS */

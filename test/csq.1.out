@@ -1,0 +1,99 @@
+90	C	T	5_prime_utr|XYZ|ENST00000000001|protein_coding
+90	C	T	5_prime_utr|XYZ|ENST00000000001|protein_coding
+
+102	C	T	synonymous|XYZ|ENST00000000001|protein_coding|+|1Y|102C>T
+102	C	T	synonymous|XYZ|ENST00000000001|protein_coding|+|1Y|102C>T
+
+103	G	A	missense|XYZ|ENST00000000001|protein_coding|+|2V>2I|103G>A
+103	G	A	missense|XYZ|ENST00000000001|protein_coding|+|2V>2I|103G>A
+
+103	G	C	missense|XYZ|ENST00000000001|protein_coding|+|2V>2L|103G>C
+103	G	C	missense|XYZ|ENST00000000001|protein_coding|+|2V>2L|103G>C
+
+107	G	A	missense|XYZ|ENST00000000001|protein_coding|+|3R>3Q|107G>A+108T>A
+107	G	A	missense|XYZ|ENST00000000001|protein_coding|+|3R>3Q|107G>A+108T>A
+
+108	T	A	@107,splice_region|XYZ|ENST00000000001|protein_coding
+108	T	A	@107,splice_region|XYZ|ENST00000000001|protein_coding
+
+121	ACG	A	inframe_deletion|XYZ|ENST00000000001|protein_coding|+|5TY>5I|121ACG>A+124TA>T,splice_region|XYZ|ENST00000000001|protein_coding
+121	ACG	A	inframe_deletion|XYZ|ENST00000000001|protein_coding|+|5TY>5I|121ACG>A+124TA>T,splice_region|XYZ|ENST00000000001|protein_coding
+
+124	TA	T	@121
+124	TA	T	@121
+
+128	T	C	missense|XYZ|ENST00000000001|protein_coding|+|7V>6A|128T>C+129A>C,splice_region|XYZ|ENST00000000001|protein_coding
+128	T	C	missense|XYZ|ENST00000000001|protein_coding|+|7V>6A|128T>C+129A>C,splice_region|XYZ|ENST00000000001|protein_coding
+
+129	A	C	@128,splice_region|XYZ|ENST00000000001|protein_coding
+129	A	C	@128,splice_region|XYZ|ENST00000000001|protein_coding
+
+140	TA	AACG	inframe_insertion|XYZ|ENST00000000001|protein_coding|+|8LR>7QRR|140TA>AACG+142C>CC,splice_region|XYZ|ENST00000000001|protein_coding
+140	TA	AACG	inframe_insertion|XYZ|ENST00000000001|protein_coding|+|8LR>7QRR|140TA>AACG+142C>CC,splice_region|XYZ|ENST00000000001|protein_coding
+
+142	C	CC	@140,splice_region|XYZ|ENST00000000001|protein_coding
+142	C	CC	@140,splice_region|XYZ|ENST00000000001|protein_coding
+
+145	AC	TA	stop_gained|XYZ|ENST00000000001|protein_coding|+|10T>10*|145AC>TA
+145	AC	TA	stop_gained|XYZ|ENST00000000001|protein_coding|+|10T>10*|145AC>TA
+
+160	TA	T	*frameshift|XYZ|ENST00000000001|protein_coding|+|12YVRT>12SYV|160TA>T,splice_region|XYZ|ENST00000000001|protein_coding
+160	TA	T	*frameshift|XYZ|ENST00000000001|protein_coding|+|12YVRT>12SYV|160TA>T,splice_region|XYZ|ENST00000000001|protein_coding
+
+190	C	T	3_prime_utr|XYZ|ENST00000000001|protein_coding
+190	C	T	3_prime_utr|XYZ|ENST00000000001|protein_coding
+
+97	A	C	3_prime_utr|ABC|ENST00000000002|protein_coding
+97	A	C	3_prime_utr|ABC|ENST00000000002|protein_coding
+
+105	AC	A	@121
+105	AC	A	@121
+
+121	AC	A	frameshift|ABC|ENST00000000002|protein_coding|-|11VVRTY>11*|105AC>A+121AC>A,splice_region|ABC|ENST00000000002|protein_coding
+121	AC	A	frameshift|ABC|ENST00000000002|protein_coding|-|11VVRTY>11*|105AC>A+121AC>A,splice_region|ABC|ENST00000000002|protein_coding
+
+126	C	CTT	@127
+126	C	CTT	@127
+
+127	G	GG	inframe_insertion|ABC|ENST00000000002|protein_coding|-|9T>8TK|126C>CTT+127G>GG
+127	G	GG	inframe_insertion|ABC|ENST00000000002|protein_coding|-|9T>8TK|126C>CTT+127G>GG
+
+144	TAC	T	@148
+144	TAC	T	@148
+
+148	TA	T	inframe_deletion|ABC|ENST00000000002|protein_coding|-|5YV>5T|144TAC>T+148TA>T,splice_region|ABC|ENST00000000002|protein_coding
+148	TA	T	inframe_deletion|ABC|ENST00000000002|protein_coding|-|5YV>5T|144TAC>T+148TA>T,splice_region|ABC|ENST00000000002|protein_coding
+
+164	T	G	missense|ABC|ENST00000000002|protein_coding|-|3T>3P|164T>G
+164	T	G	missense|ABC|ENST00000000002|protein_coding|-|3T>3P|164T>G
+
+165	A	C	synonymous|ABC|ENST00000000002|protein_coding|-|2R|165A>C
+165	A	C	synonymous|ABC|ENST00000000002|protein_coding|-|2R|165A>C
+
+169	A	G	@170
+169	A	G	@170
+
+170	C	T	missense|ABC|ENST00000000002|protein_coding|-|1V>1T|169A>G+170C>T
+170	C	T	missense|ABC|ENST00000000002|protein_coding|-|1V>1T|169A>G+170C>T
+
+199	G	T	5_prime_utr|ABC|ENST00000000002|protein_coding
+199	G	T	5_prime_utr|ABC|ENST00000000002|protein_coding
+
+20	T	A	non_coding|mir-007||lincRNA
+20	T	A	non_coding|mir-007||lincRNA
+
+109	ACGTACGT	A	splice_acceptor|QWRTY|ENST00000000003|protein_coding
+109	ACGTACGT	A	splice_acceptor|QWRTY|ENST00000000003|protein_coding
+
+113	A	T	splice_region|QWRTY|ENST00000000003|protein_coding
+113	A	T	splice_region|QWRTY|ENST00000000003|protein_coding
+
+120	T	A	intron|QWRTY||protein_coding
+120	T	A	intron|QWRTY||protein_coding
+
+152	T	A	splice_region|QWRTY|ENST00000000003|protein_coding
+152	T	A	splice_region|QWRTY|ENST00000000003|protein_coding
+
+159	G	A	splice_donor|QWRTY|ENST00000000003|protein_coding
+159	G	A	splice_donor|QWRTY|ENST00000000003|protein_coding
+

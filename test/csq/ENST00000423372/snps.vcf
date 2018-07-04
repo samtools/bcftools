@@ -1,0 +1,45 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1	.	A	C	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=gene:0,transcript:0,exon:0,three_prime_UTR:0
+1	3	.	C	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=gene:2,transcript:2,exon:2,three_prime_UTR:2
+1	4	.	T	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=gene:3,transcript:3,exon:3,three_prime_UTR:3
+1	5	.	A	C	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=gene:4,transcript:4,exon:4,three_prime_UTR:4
+1	9	.	A	C	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=gene:8,transcript:8,exon:8,three_prime_UTR:8
+1	10	.	A	C	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=gene:9,transcript:9,exon:9,three_prime_UTR:9
+1	2712	.	A	C	.	.	EXP=intron|AL627309.1||protein_coding;type=three_prime_UTR:-9,exon:-9
+1	2713	.	G	A	.	.	EXP=splice_region|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:-8,exon:-8
+1	2717	.	G	A	.	.	EXP=splice_region|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:-4,exon:-4
+1	2718	.	G	A	.	.	EXP=splice_region|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:-3,exon:-3
+1	2719	.	G	A	.	.	EXP=splice_donor|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:-2,exon:-2
+1	2721	.	C	A	.	.	EXP=splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:0,exon:0
+1	2723	.	G	A	.	.	EXP=splice_region&3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:2,exon:2
+1	2724	.	G	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:3,exon:3
+1	2725	.	A	C	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:4,exon:4
+1	2729	.	C	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:8,exon:8
+1	2730	.	C	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=three_prime_UTR:9,exon:9
+1	3621	.	G	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=CDS:-9
+1	3622	.	C	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=CDS:-8
+1	3626	.	A	C	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=CDS:-4
+1	3627	.	C	A	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=CDS:-3
+1	3628	.	A	C	.	.	EXP=3_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=CDS:-2
+1	3630	.	T	A	.	.	EXP=@3632;EXPL=stop_lost|AL627309.1|ENST00000423372|protein_coding|-|260*>260C|3630T>A;type=CDS:0
+1	3632	.	A	C	.	.	EXP=stop_lost|AL627309.1|ENST00000423372|protein_coding|-|260*>260G|3630T>A+3632A>C;EXPL=stop_lost|AL627309.1|ENST00000423372|protein_coding|-|260*>260G|3632A>C;type=CDS:2
+1	3633	.	T	A	.	.	EXP=@3634;EXPL=missense|AL627309.1|ENST00000423372|protein_coding|-|259L>259F|3633T>A;type=CDS:3
+1	3634	.	A	C	.	.	EXP=missense|AL627309.1|ENST00000423372|protein_coding|-|259L>259C|3633T>A+3634A>C;EXPL=stop_gained|AL627309.1|ENST00000423372|protein_coding|-|259L>259*|3634A>C;type=CDS:4
+1	3638	.	T	A	.	.	EXP=missense|AL627309.1|ENST00000423372|protein_coding|-|258N>258Y|3638T>A;type=CDS:8
+1	3639	.	G	A	.	.	EXP=synonymous|AL627309.1|ENST00000423372|protein_coding|-|257P|3639G>A;type=CDS:9
+1	4401	.	C	A	.	.	EXP=@4402;EXPL=synonymous|AL627309.1|ENST00000423372|protein_coding|-|3L|4401C>A;type=five_prime_UTR:-9
+1	4402	.	A	C	.	.	EXP=missense|AL627309.1|ENST00000423372|protein_coding|-|3L>3R|4401C>A+4402A>C;EXPL=missense|AL627309.1|ENST00000423372|protein_coding|-|3L>3R|4402A>C;type=five_prime_UTR:-8
+1	4406	.	A	C	.	.	EXP=missense|AL627309.1|ENST00000423372|protein_coding|-|2S>2A|4406A>C;type=five_prime_UTR:-4
+1	4407	.	G	A	.	.	EXP=@4408;EXPL=synonymous|AL627309.1|ENST00000423372|protein_coding|-|1T|4407G>A;type=five_prime_UTR:-3
+1	4408	.	G	A	.	.	EXP=missense|AL627309.1|ENST00000423372|protein_coding|-|1T>1I|4407G>A+4408G>A;EXPL=missense|AL627309.1|ENST00000423372|protein_coding|-|1T>1I|4408G>A;type=five_prime_UTR:-2-incomplete 5'cds,not a start
+1	4410	.	A	C	.	.	EXP=5_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=five_prime_UTR:0
+1	4412	.	A	C	.	.	EXP=5_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=five_prime_UTR:2
+1	4413	.	A	C	.	.	EXP=5_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=five_prime_UTR:3
+1	4414	.	G	A	.	.	EXP=5_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=five_prime_UTR:4
+1	4418	.	G	A	.	.	EXP=5_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=five_prime_UTR:8
+1	4419	.	G	A	.	.	EXP=5_prime_utr|AL627309.1|ENST00000423372|protein_coding;type=five_prime_UTR:9

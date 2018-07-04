@@ -1,0 +1,3 @@
+32176	T	C	splice_region|C16orf62|ENST00000448695|protein_coding,synonymous|C16orf62|ENST00000448695|protein_coding|+|92A|32176T>C
+32176	T	C	splice_region|C16orf62|ENST00000448695|protein_coding,synonymous|C16orf62|ENST00000448695|protein_coding|+|92A|32176T>C
+

@@ -1,0 +1,8 @@
+5	ensembl_havana	gene	21	3001	.	-	.	ID=gene:ENSG00000171421;Name=MRPL36;biotype=protein_coding;description=mitochondrial ribosomal protein L36 [Source:HGNC Symbol%3BAcc:14490];gene_id=ENSG00000171421;logic_name=ensembl_havana_gene;version=8
+5	ensembl_havana	transcript	25	1473	.	-	.	ID=transcript:ENST00000382647;Parent=gene:ENSG00000171421;Name=MRPL36-003;biotype=protein_coding;ccdsid=CCDS3865.1;havana_transcript=OTTHUMT00000365909;havana_version=2;tag=basic;transcript_id=ENST00000382647;version=7
+5	havana	three_prime_UTR	25	258	.	-	.	Parent=transcript:ENST00000382647
+5	havana	exon	25	582	.	-	.	Parent=transcript:ENST00000382647;Name=ENSE00003238927;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00003238927;rank=2;version=1
+5	havana	CDS	259	570	.	-	0	ID=CDS:ENSP00000372093;Parent=transcript:ENST00000382647;protein_id=ENSP00000372093
+5	havana	five_prime_UTR	571	582	.	-	.	Parent=transcript:ENST00000382647
+5	havana	exon	1445	1473	.	-	.	Parent=transcript:ENST00000382647;Name=ENSE00001492895;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001492895;rank=1;version=5
+5	havana	five_prime_UTR	1445	1473	.	-	.	Parent=transcript:ENST00000382647

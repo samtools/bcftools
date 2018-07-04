@@ -1,0 +1,3 @@
+6453	ATCCTCGAGGCAGCC	A	5_prime_utr|NUDT11|ENST00000375992|protein_coding,start_lost|NUDT11|ENST00000375992|protein_coding|-
+6453	ATCCTCGAGGCAGCC	A	5_prime_utr|NUDT11|ENST00000375992|protein_coding,start_lost|NUDT11|ENST00000375992|protein_coding|-
+

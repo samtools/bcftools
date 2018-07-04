@@ -1,0 +1,6 @@
+11	ensembl_havana	gene	1	1074	.	+	.	ID=gene:ENSG00000172487;Name=OR8J1;biotype=protein_coding;description=olfactory receptor%2C family 8%2C subfamily J%2C member 1 [Source:HGNC Symbol%3BAcc:14855];gene_id=ENSG00000172487;logic_name=ensembl_havana_gene;version=3
+11	ensembl_havana	transcript	1	1074	.	+	.	ID=transcript:ENST00000303039;Parent=gene:ENSG00000172487;Name=OR8J1-001;biotype=protein_coding;ccdsid=CCDS31529.1;havana_transcript=OTTHUMT00000391606;havana_version=2;tag=basic;transcript_id=ENST00000303039;version=3
+11	ensembl_havana	five_prime_UTR	1	32	.	+	.	Parent=transcript:ENST00000303039
+11	ensembl_havana	exon	1	1074	.	+	.	Parent=transcript:ENST00000303039;Name=ENSE00001172518;constitutive=1;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001172518;rank=1;version=3
+11	ensembl_havana	CDS	33	983	.	+	0	ID=CDS:ENSP00000304060;Parent=transcript:ENST00000303039;protein_id=ENSP00000304060
+11	ensembl_havana	three_prime_UTR	984	1074	.	+	.	Parent=transcript:ENST00000303039

@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=20,length=81195210>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00100	HG00101	HG00102	HG00200	HG00201	HG00202
+20	302	.	T	TA	999	.	.	GT	0|1	1|0	1|1	0|1	1|0	1|1
+20	828	.	T	C	999	.	.	GT	0|1	1|1	1|1	0|1	1|0	1|1
+20	834	.	G	A	999	.	.	GT	0|1	0|1	1|1	1|0	1|0	1|1
+20	1665	.	T	C	999	.	.	GT	1|0	0|1	0|1	0|1	1|0	1|1
+20	1869	.	A	T	999	.	.	GT	0|1	0|0	1|1	0|1	1|0	1|1
+20	2041	.	G	A	999	.	.	GT	0|1	1|1	1|1	0|1	1|0	1|1
+20	2220	.	G	A	999	.	.	GT	0|1	1|0	1|1	0|1	1|0	1|1
+20	2564	.	A	G	999	.	.	GT	0|1	1|1	1|1	0|1	1|0	1|1
+20	3104	.	C	T	999	.	.	GT	0|0	0|0	0|1	0|1	1|0	1|1
+20	3587	.	G	A	999	.	.	GT	0|1	0|1	1|1	0|1	1|0	1|1
+20	3936	.	A	G	999	.	.	GT	0|1	1|1	1|1	0|1	1|0	1|1

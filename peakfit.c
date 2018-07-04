@@ -26,6 +26,7 @@
 
 #include "peakfit.h"
 #include <stdio.h>
+#include <gsl/gsl_version.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_multifit_nlin.h>
 #include <htslib/hts.h>
@@ -134,12 +135,12 @@ double bounded_gaussian_convert_set(peak_t *pk, int iparam, double value)
 }
 void bounded_gaussian_convert_get(peak_t *pk, double *params)
 {
-    params[0] = fabs(params[0]);
-    params[2] = fabs(params[2]);
-    double b = params[1];
-    double d = params[3];
-    double e = params[4];
-    params[1] = 0.5*(cos(b)+1)*(e-d) + d;
+    params[0] = fabs(pk->params[0]);
+    params[2] = fabs(pk->params[2]);
+    double center = pk->params[1];
+    double d = pk->params[3];
+    double e = pk->params[4];
+    params[1] = 0.5*(cos(center)+1)*(e-d) + d;
 }
 
 void peakfit_add_bounded_gaussian(peakfit_t *pkf, double a, double b, double c, double d, double e, int fit_mask)
@@ -226,8 +227,9 @@ void gaussian_sprint_func(struct _peak_t *pk, kstring_t *str)
 }
 void gaussian_convert_get(peak_t *pk, double *params)
 {
-    params[0] = fabs(params[0]);
-    params[2] = fabs(params[2]);
+    params[0] = fabs(pk->params[0]);
+    params[1] = fabs(pk->params[1]);
+    params[2] = fabs(pk->params[2]);
 }
 
 
@@ -306,9 +308,9 @@ void exp_sprint_func(struct _peak_t *pk, kstring_t *str)
 }
 void exp_convert_get(peak_t *pk, double *params)
 {
-    params[0] = fabs(params[0]);
-    params[1] = fabs(params[1]);
-    params[2] = fabs(params[2]);
+    params[0] = fabs(pk->params[0]);
+    params[1] = fabs(pk->params[1]);
+    params[2] = fabs(pk->params[2]);
 }
 
 void peakfit_add_exp(peakfit_t *pkf, double a, double b, double c, int fit_mask)
@@ -352,9 +354,12 @@ void peakfit_set_params(peakfit_t *pkf, int ipk, double *params, int nparams)
 void peakfit_get_params(peakfit_t *pkf, int ipk, double *params, int nparams)
 {
     peak_t *pk = &pkf->peaks[ipk];
-    int i;
-    for (i=0; i<nparams; i++) params[i] = pk->params[i];
     if ( pk->convert_get ) pk->convert_get(pk, params);
+    else
+    {
+        int i;
+        for (i=0; i<nparams; i++) params[i] = pk->params[i];
+    }
 }
 
 peakfit_t *peakfit_init(void)
@@ -546,9 +551,14 @@ double peakfit_run(peakfit_t *pkf, int nvals, double *xvals, double *yvals)
             }
             if ( ret ) break;
 
+#if GSL_MAJOR_VERSION >= 2
+            int info;
+            test1 = gsl_multifit_fdfsolver_test(solver, 1e-8,1e-8, 0.0, &info);
+#else
             gsl_multifit_gradient(solver->J, solver->f, grad);
             test1 = gsl_multifit_test_gradient(grad, 1e-8);
             test2 = gsl_multifit_test_delta(solver->dx, solver->x, 1e-8, 1e-8);
+#endif
         }
         while ((test1==GSL_CONTINUE || test2==GSL_CONTINUE) && ++niter<niter_max);
         if ( pkf->verbose >1 )

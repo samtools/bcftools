@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=X,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+X	107	.	CATG	C	.	.	EXP=inframe_deletion&start_lost&splice_region|TLR8|ENST00000218032|protein_coding
+X	12455	.	T	G	.	.	EXP=missense|TLR8|ENST00000218032|protein_coding|+|5F>5C|12455T>G

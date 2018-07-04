@@ -1,0 +1,6 @@
+15	havana	gene	101	536	.	-	.	ID=gene:ENSG00000259261;Name=IGHV4OR15-8;biotype=IG_V_gene;description=immunoglobulin heavy variable 4/OR15-8 (non-functional) [Source:HGNC Symbol%3BAcc:5658];gene_id=ENSG00000259261;logic_name=havana_ig_gene;version=2
+15	havana	transcript	101	536	.	-	.	ID=transcript:ENST00000557788;Parent=gene:ENSG00000259261;Name=IGHV4OR15-8-001;biotype=IG_V_gene;havana_transcript=OTTHUMT00000415968;havana_version=2;tag=basic;transcript_id=ENST00000557788;version=2
+15	havana	exon	101	407	.	-	.	Parent=transcript:ENST00000557788;Name=ENSE00002563019;constitutive=1;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00002563019;rank=2;version=2
+15	havana	CDS	101	407	.	-	2	ID=CDS:ENSP00000473987;Parent=transcript:ENST00000557788;protein_id=ENSP00000473987
+15	havana	exon	491	536	.	-	.	Parent=transcript:ENST00000557788;Name=ENSE00002569579;constitutive=1;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00002569579;rank=1;version=2
+15	havana	CDS	491	536	.	-	0	ID=CDS:ENSP00000473987;Parent=transcript:ENST00000557788;protein_id=ENSP00000473987

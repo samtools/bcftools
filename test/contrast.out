@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1>
+##INFO=<ID=NOVELAL,Number=.,Type=String,Description="List of samples with novel alleles">
+##INFO=<ID=NOVELGT,Number=.,Type=String,Description="List of samples with novel genotypes. Note that only samples w/o a novel allele are listed.">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	a	b	c
+1	100	.	A	G	.	.	.	GT	0/0	0/0	0/0
+1	101	.	A	G	.	.	NOVELAL=c	GT	0/0	0/0	0/1
+1	102	.	A	G	.	.	NOVELGT=c	GT	0/0	0/1	1/1
+1	103	.	A	G	.	.	NOVELAL=c	GT	1/1	1/1	0/1
