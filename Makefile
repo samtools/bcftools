@@ -33,6 +33,7 @@ PLUGINS_ENABLED = yes
 PLUGIN_EXT = .so
 
 OBJS     = main.o vcfindex.o tabix.o \
+           variantkey.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
@@ -177,7 +178,8 @@ plugins: $(PLUGINS)
 bcftools_h = bcftools.h $(htslib_hts_defs_h) $(htslib_vcf_h)
 bin_h = bin.h $(htslib_hts_h)
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
-convert_h = convert.h $(htslib_vcf_h)
+variantkey_h = variantkey.h
+convert_h = convert.h $(htslib_vcf_h) $(variantkey_h)
 tsv2vcf_h = tsv2vcf.h $(htslib_vcf_h)
 filter_h = filter.h $(htslib_vcf_h)
 ploidy_h = ploidy.h regidx.h
@@ -209,6 +211,7 @@ vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfu
 reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_kseq_h) $(bcftools_h)
 tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
 ccall.o: ccall.c $(htslib_kfunc_h) $(call_h) kmin.h $(prob1_h)
+variantkey.o: variantkey.c $(variantkey_h)
 convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(convert_h)
 tsv2vcf.o: tsv2vcf.c $(tsv2vcf_h)
 em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)

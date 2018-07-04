@@ -35,7 +35,9 @@ THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <inttypes.h>
 #include "bcftools.h"
+#include "variantkey.h"
 #include "convert.h"
 
 #define T_CHROM   1
@@ -67,6 +69,8 @@ THE SOFTWARE.  */
 #define T_END          27
 #define T_POS0         28
 #define T_END0         29
+#define T_RSX          30   // RSID HEX
+#define T_VKX          31   // VARIANTKEY HEX
 
 typedef struct _fmt_t
 {
@@ -1020,6 +1024,26 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
     str->s[--str->l] = 0;     // delete the last space
 }
 
+static void process_rsid_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    char *ptr = line->d.id;
+    ptr += 2; // remove 'rs'
+    ksprintf(str, "%08"PRIx32"", (uint32_t)strtoul(ptr, NULL, 10));
+}
+
+static void process_variantkey_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    uint64_t vk = variantkey(
+        convert->header->id[BCF_DT_CTG][line->rid].key,
+        strlen(convert->header->id[BCF_DT_CTG][line->rid].key),
+        line->pos,
+        line->d.allele[0],
+        strlen(line->d.allele[0]),
+        line->d.allele[1],
+        strlen(line->d.allele[1]));
+    ksprintf(str, "%016"PRIx64"", vk);
+}
+
 static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
 {
     convert->nfmt++;
@@ -1054,6 +1078,8 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
             else if ( !strcmp("QUAL",key) ) { fmt->type = T_QUAL; }
             else if ( !strcmp("FILTER",key) ) { fmt->type = T_FILTER; }
             else if ( !strcmp("_CHROM_POS_ID",key) ) { fmt->type = T_CHROM_POS_ID; }
+            else if ( !strcmp("RSX",key) ) { fmt->type = T_RSX; }
+            else if ( !strcmp("VKX",key) ) { fmt->type = T_VKX; }
             else if ( id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) )
             {
                 fmt->type = T_INFO;
@@ -1093,6 +1119,8 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_GT_TO_HAP2: fmt->handler = &process_gt_to_hap2; convert->max_unpack |= BCF_UN_FMT; break;
         case T_TBCSQ: fmt->handler = &process_tbcsq; fmt->destroy = &destroy_tbcsq; convert->max_unpack |= BCF_UN_FMT; break;
         case T_LINE: fmt->handler = &process_line; convert->max_unpack |= BCF_UN_FMT; break;
+        case T_RSX: fmt->handler = &process_rsid_hex; break;
+        case T_VKX: fmt->handler = &process_variantkey_hex; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
     if ( key && fmt->type==T_INFO )
@@ -1187,6 +1215,8 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "_GP_TO_PROB3") ) register_tag(convert, T_GP_TO_PROB3, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_HAP") ) register_tag(convert, T_GT_TO_HAP, str.s, is_gtf);
         else if ( !strcmp(str.s, "_GT_TO_HAP2") ) register_tag(convert, T_GT_TO_HAP2, str.s, is_gtf);
+        else if ( !strcmp(str.s, "RSX") ) register_tag(convert, T_RSX, str.s, is_gtf);
+        else if ( !strcmp(str.s, "VKX") ) register_tag(convert, T_VKX, str.s, is_gtf);
         else if ( !strcmp(str.s, "INFO") )
         {
             if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);

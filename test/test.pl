@@ -66,6 +66,7 @@ test_vcf_merge($opts,in=>['merge.gvcf.2.a','merge.gvcf.2.b','merge.gvcf.2.c'],ou
 test_vcf_merge($opts,in=>['merge.gvcf.3.a','merge.gvcf.3.b'],out=>'merge.gvcf.3.out',args=>'--gvcf - -i SRC:join');
 test_vcf_merge($opts,in=>['merge.5.a','merge.5.b'],out=>'merge.5.out');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
+test_vcf_query($opts,in=>'query.variantkey',out=>'query.variantkey.hex.out',args=>q[-f '%RSX\\t%VKX\\n']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i'XRI[*]>1111']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.3.out',args=>q[-f'%XRF\\n' -i'XRF[*]=2e6']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.4.out',args=>q[-f'%XGS\\n' -i'XGS[5]="PQR"']);
@@ -269,6 +270,9 @@ test_vcf_plugin($opts,in=>'view.PL',out=>'guess-ploidy.PL.out',cmd=>'+guess-ploi
 test_vcf_plugin($opts,in=>'view.GL',out=>'guess-ploidy.GL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view.GL',out=>'view.PL.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gl-to-pl');
 test_vcf_plugin($opts,in=>'view.GP',out=>'view.GT.vcf',cmd=>'+tag2tag --no-version',args=>'-- -r --gp-to-gt -t 0.2');
+test_vcf_plugin($opts,in=>'query.variantkey',out=>'query.add-variantkey.vcf',cmd=>'+add-variantkey',args=>'');
+test_vcf_plugin($opts,in=>'query.variantkey',out=>'variantkey-hex.out',cmd=>'+variantkey-hex',args=>'test/');
+test_vcf_plugin($opts,in=>'query.nucleotide',out=>'query.allele-length.tsv',cmd=>'+allele-length',args=>'');
 test_vcf_plugin($opts,in=>'merge.a',out=>'fill-tags.out',cmd=>'+fill-tags --no-version',args=>'-- -t AN,AC,AC_Hom,AC_Het,AC_Hemi');
 test_vcf_plugin($opts,in=>'view',out=>'fill-tags.2.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,MAF,NS');
 test_vcf_plugin($opts,in=>'view',out=>'fill-tags.3.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC -S {PATH}/fill-tags.3.smpl');
