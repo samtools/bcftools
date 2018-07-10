@@ -1,0 +1,29 @@
+include::header.inc[]
+
+
+Frequently Asked Questions
+--------------------------
+
+Incorrect number of fields at chr1:1234567::
+
+[#incorrect-nfields]
+This error is triggered when the number of values in the data line does not match
+its definition in the header.
+A common error is to define a tag with variable number of fields
+(such as `Number=G` or `Number=A` or `Number=R` in the header) and output incorrect
+number of values at multiallelic the data lines.  The number of values
+must correspond to the number of alleles as explained in the section 1.4.2 of the link:http://samtools.github.io/hts-specs/VCFv4.3.pdf[VCF specification].
+
+_How to verify and fix:_ +
+Look up the tag definition in the header (`bcftools view -H file.vcf.gz | grep TAG`) to check the expected number
+of values and then check the number of alleles and values in the data line (`bcftools view -h file.vcf.gz -r chr1:1234567`).
+Note that the program only works with ploidy 1 or 2, so if defined as `Number=G` and the ploidy is bigger,
+the program will fail.
+If the tag is not important for your analysis, a quick and dirty workaround is to remove the
+tag from the VCF completely (`bcftools annotate -x TAG`).
+
+
+
+include::footer.inc[]
+
+

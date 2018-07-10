@@ -19,6 +19,7 @@
 * link:query.html[Extracting information]
 * link:filtering.html[Filtering expressions]
 * link:plugins.html[Plugins]
+* link:FAQ.html[FAQ]
 
 ****
 

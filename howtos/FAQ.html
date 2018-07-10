@@ -5,7 +5,7 @@
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 1.5.2">
-<title>Plugin mendelian</title>
+<title>Frequently Asked Questions</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -72,60 +72,29 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_plugin_mendelian">Plugin mendelian</h2>
+<h2 id="_frequently_asked_questions">Frequently Asked Questions</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>This plugin is intended for detecting Mendelian inconsistencies. On input the program requires
-a valid VCF and a trio definition, for example:</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Incorrect number of fields at chr1:1234567</dt>
+</dl>
 </div>
-<div class="listingblock">
-<div class="content">
-<pre>$ bcftools +mendelian file.vcf -- -t mother,father,child</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Multiple trios can be tested at once by providing a list of trios:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>$ bcftools +mendelian file.vcf -- -T trios.txt
-$ cat trios.txt
-mother1,father1,child1
-mother2,father2,child2</pre>
-</div>
+<div id="incorrect-nfields" class="paragraph">
+<p>This error is triggered when the number of values in the data line does not match
+its definition in the header.
+A common error is to define a tag with variable number of fields
+(such as <code>Number=G</code> or <code>Number=A</code> or <code>Number=R</code> in the header) and output incorrect
+number of values at multiallelic the data lines.  The number of values
+must correspond to the number of alleles as explained in the section 1.4.2 of the <a href="http://samtools.github.io/hts-specs/VCFv4.3.pdf">VCF specification</a>.</p>
 </div>
 <div class="paragraph">
-<p>The inconsistent genotypes can be deleted by setting to <code>./.</code> (with the <code>-d, --delete</code> option),
-inconsistent sites can be counted (give the <code>-c, --count</code> option) or listed (the <code>-l, --list</code> option).</p>
-</div>
-<div class="paragraph">
-<p>On output three values are printed for each trio</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre># [1]nOK  [2]nBad  [3]nSkipped  [4]Trio
-334518    4621     996          mother,father,child</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>where</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>nOK .. number of genotypes at which the trio had no missingness and no Mendelian error</p>
-</li>
-<li>
-<p>nBad .. number of genotypes at which the trio had a Mendelian error</p>
-</li>
-<li>
-<p>nSkipped .. number of genotypes at which that trio had at least one individual missing and therefore could not be considered</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>The program takes the genotypes as they are, <strong>not</strong> considering genotype quality (FORMAT/GQ).
-If pre-filtering is desired, the plugin <code>setGT</code> can be used.</p>
+<p><em>How to verify and fix:</em><br>
+Look up the tag definition in the header (<code>bcftools view -H file.vcf.gz | grep TAG</code>) to check the expected number
+of values and then check the number of alleles and values in the data line (<code>bcftools view -h file.vcf.gz -r chr1:1234567</code>).
+Note that the program only works with ploidy 1 or 2, so if defined as <code>Number=G</code> and the ploidy is bigger,
+the program will fail.
+If the tag is not important for your analysis, a quick and dirty workaround is to remove the
+tag from the VCF completely (<code>bcftools annotate -x TAG</code>).</p>
 </div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>
