@@ -267,7 +267,7 @@ static void init_region(args_t *args, char *line)
     char *ss, *se = line;
     while ( *se && !isspace(*se) && *se!=':' ) se++;
     int from = 0, to = 0;
-    char tmp, *tmp_ptr = NULL;
+    char tmp = 0, *tmp_ptr = NULL;
     if ( *se )
     {
         tmp = *se; *se = 0; tmp_ptr = se;
