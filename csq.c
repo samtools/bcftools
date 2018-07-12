@@ -595,6 +595,7 @@ typedef struct _args_t
     csq_t *csq_buf;             // pool of csq not managed by hap_node_t, i.e. non-CDS csqs
     int ncsq_buf, mcsq_buf;
     id_tbl_t tscript_ids;       // mapping between transcript id (eg. Zm00001d027245_T001) and a numeric idx
+    int force;                  // force run under various conditions. Currently only to skip out-of-phase transcripts
 
     faidx_t *fai;
     kstring_t str, str2;
@@ -1111,15 +1112,26 @@ void tscript_init_cds(args_t *args)
             tr->cds[0]->len -= tr->cds[0]->phase;
             tr->cds[0]->phase = 0;
 
-            // sanity check phase
+            // sanity check phase; the phase number in gff tells us how many bases to skip in this
+            // feature to reach the first base of the next codon
+            int tscript_ok = 1;
             for (i=0; i<tr->ncds; i++)
             {
                 int phase = tr->cds[i]->phase ? 3 - tr->cds[i]->phase : 0;
                 if ( phase!=len%3)
-                    error("GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
-                assert( phase == len%3 );
+                {
+                    if ( args->force )
+                    {
+                        if ( args->quiet < 2 )
+                            fprintf(stderr,"Warning: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                        tscript_ok = 0;
+                        break;
+                    }
+                    error("Error: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                }
                 len += tr->cds[i]->len; 
             }
+            if ( !tscript_ok ) continue;    // skip this transcript
         }
         else
         {
@@ -1140,13 +1152,24 @@ void tscript_init_cds(args_t *args)
             tr->cds[i]->phase = 0;
 
             // sanity check phase
+            int tscript_ok = 1;
             for (i=tr->ncds-1; i>=0; i--)
             {
                 int phase = tr->cds[i]->phase ? 3 - tr->cds[i]->phase : 0;
                 if ( phase!=len%3)
-                    error("GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                {
+                    if ( args->force )
+                    {
+                        if ( args->quiet < 2 )
+                            fprintf(stderr,"Warning: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                        tscript_ok = 0;
+                        break;
+                    }
+                    error("Error: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                }
                 len += tr->cds[i]->len;
             }
+            if ( !tscript_ok ) continue;    // skip this transcript
         }
 
         // set len. At the same check that CDS within a transcript do not overlap
@@ -3727,6 +3750,7 @@ static const char *usage(void)
         "                                     s: skip unphased hets\n"
         "Options:\n"
         "   -e, --exclude <expr>            exclude sites for which the expression is true\n"
+        "       --force                     run even if some sanity checks fail\n"
         "   -i, --include <expr>            select sites for which the expression is true\n"
         "   -o, --output <file>             write output to a file [standard output]\n"
         "   -O, --output-type <b|u|z|v|t>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF\n"
@@ -3758,6 +3782,7 @@ int main_csq(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"force",0,0,1},
         {"help",0,0,'h'},
         {"ncsq",1,0,'n'},
         {"custom-tag",1,0,'c'},
@@ -3784,6 +3809,7 @@ int main_csq(int argc, char *argv[])
     {
         switch (c) 
         {
+            case  1 : args->force = 1; break;
             case 'l': args->local_csq = 1; break;
             case 'c': args->bcsq_tag = optarg; break;
             case 'q': args->quiet++; break;
