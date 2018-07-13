@@ -1,6 +1,10 @@
 ## Release 1.9
 
-* `annotate`: also the REF and ALT columns can be now transferred from the annotation file
+* `annotate`
+
+    - REF and ALT columns can be now transferred from the annotation file.
+
+    - fixed bug when setting vector_end values.
 
 * `consensus`
 
@@ -22,8 +26,13 @@
       records will be expanded. In order to drop records completely, one can stream
       through "bcftools view" first.
 
-* `csq`: since the real consequence of start/splice events are not known, the aminoacid
-  positions at subsequent variants should stay unchanged
+* `csq`
+
+    - since the real consequence of start/splice events are not known, the aminoacid
+      positions at subsequent variants should stay unchanged
+
+    - add `--force` option to skip malformatted transcripts in GFFs with out-of-phase
+      CDS exons.
 
 * `+dosage`: output all alleles and all their dosages at multiallelic sites
 
@@ -42,6 +51,9 @@
     - allow multiple perl functions in the expressions and some bug fixes
 
     - fix a parsing problem, '@' was not removed from '@filename' expressions
+
+* `mpileup`: fixed bug where, if samples were renamed using the `-G` (`--read-groups`)
+  option, some samples could be omitted from the output file.
 
 * `norm`: update INFO/END when normalizing indels
 
