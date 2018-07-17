@@ -477,7 +477,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                     ialt = -1;
                     break;
                 }
-                if ( ptr[i]==bcf_int32_vector_end ) break;
+                if ( ptr[i]==(uint8_t)bcf_int8_vector_end ) break;
                 ialt = bcf_gt_allele(ptr[i]);
                 if ( i>0 && ialt!=bcf_gt_allele(ptr[i-1]) ) { is_hom = 0; break; }
             }
@@ -486,7 +486,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                 int prev_len = 0, jalt;
                 for (i=0; i<fmt->n; i++)
                 {
-                    if ( ptr[i]==bcf_int32_vector_end ) break;
+                    if ( ptr[i]==(uint8_t)bcf_int8_vector_end ) break;
                     jalt = bcf_gt_allele(ptr[i]);
                     if ( rec->n_allele <= jalt ) error("Broken VCF, too few alts at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
                     if ( args->allele & (PICK_LONG|PICK_SHORT) )

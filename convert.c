@@ -774,7 +774,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
             {
                 str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '-'; str->s[str->l++] = ' ';
             }
-            else if ( ptr[0]==bcf_int32_missing )   /* . */
+            else if ( ptr[0]==bcf_int8_missing )   /* . */
             {
                 str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
             }
