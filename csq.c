@@ -3376,7 +3376,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                         fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%d\t%s>%s\n", chr,rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 }
                 else ret = 1;   // prevent reporting as intron in test_tscript
-                free(child);
+                hap_destroy(child);
                 continue;
             }
             if ( child->type==HAP_SSS )
@@ -3390,7 +3390,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                 csq.type.gene    = tr->gene->name;
                 csq.type.type = child->csq;
                 csq_stage(args, &csq, rec);
-                free(child);
+                hap_destroy(child);
                 ret = 1;
                 continue;
             }
@@ -3475,7 +3475,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                             fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%d, sample %s\t%s>%s\n",
                                     chr,rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
                     }
-                    free(child);
+                    hap_destroy(child);
                     continue;
                 }
                 if ( child->type==HAP_SSS )
@@ -3489,7 +3489,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                     csq.type.gene    = tr->gene->name;
                     csq.type.type = child->csq;
                     csq_stage(args, &csq, rec);
-                    free(child);
+                    hap_destroy(child);
                     continue;
                 }
                 if ( parent->cur_rec!=rec )

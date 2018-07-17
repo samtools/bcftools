@@ -1,6 +1,6 @@
 /*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-    Copyright (C) 2013-2017 Genome Research Ltd.
+    Copyright (C) 2013-2018 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -749,9 +749,9 @@ int estimate_AF_from_PL(args_t *args, bcf_fmt_t *fmt_pl, int ial, double *alt_fr
                 if ( p[irr]<0 || p[ira]<0 || p[iaa]<0 ) continue;    /* missing value */ \
                 if ( p[irr]==p[ira] && p[irr]==p[iaa] ) continue;    /* all values are the same */ \
                 double prob[3], norm = 0; \
-                prob[0] = p[irr] < (type_t)256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
-                prob[1] = p[ira] < (type_t)256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
-                prob[2] = p[iaa] < (type_t)256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
+                prob[0] = p[irr] < 256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
+                prob[1] = p[ira] < 256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
+                prob[2] = p[iaa] < 256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
                 for (j=0; j<3; j++) norm += prob[j]; \
                 for (j=0; j<3; j++) prob[j] /= norm; \
                 af += 0.5*prob[1] + prob[2]; \
@@ -779,9 +779,9 @@ int estimate_AF_from_PL(args_t *args, bcf_fmt_t *fmt_pl, int ial, double *alt_fr
                 if ( p[irr]<0 || p[ira]<0 || p[iaa]<0 ) continue;    /* missing value */ \
                 if ( p[irr]==p[ira] && p[irr]==p[iaa] ) continue;    /* all values are the same */ \
                 double prob[3], norm = 0; \
-                prob[0] = p[irr] < (type_t)256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
-                prob[1] = p[ira] < (type_t)256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
-                prob[2] = p[iaa] < (type_t)256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
+                prob[0] = p[irr] < 256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
+                prob[1] = p[ira] < 256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
+                prob[2] = p[iaa] < 256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
                 for (j=0; j<3; j++) norm += prob[j]; \
                 for (j=0; j<3; j++) prob[j] /= norm; \
                 af += 0.5*prob[1] + prob[2]; \
@@ -926,9 +926,9 @@ int process_line(args_t *args, bcf1_t *line, int ial)
                 type_t *p = (type_t*)fmt_pl->p + fmt_pl->n*ismpl; \
                 if ( p[irr]<0 || p[ira]<0 || p[iaa]<0 ) continue;    /* missing value */ \
                 if ( p[irr]==p[ira] && p[irr]==p[iaa] ) continue;    /* all values are the same */ \
-                pdg[0] = p[irr] < (type_t)256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
-                pdg[1] = p[ira] < (type_t)256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
-                pdg[2] = p[iaa] < (type_t)256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
+                pdg[0] = p[irr] < 256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
+                pdg[1] = p[ira] < 256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
+                pdg[2] = p[iaa] < 256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
             }
             switch (fmt_pl->type) {
                 case BCF_BT_INT8:  BRANCH(int8_t); break;

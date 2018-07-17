@@ -1,7 +1,7 @@
 /*  bam_sample.c -- group data by sample.
 
     Copyright (C) 2010, 2011 Broad Institute.
-    Copyright (C) 2013, 2016 Genome Research Ltd.
+    Copyright (C) 2013, 2016-2018 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>, Petr Danecek <pd3@sanger.ac.uk>
 
@@ -238,6 +238,7 @@ int bam_smpl_add_bam(bam_smpl_t *bsmpl, char *bam_hdr, const char *fname)
     {
         // no suitable read group is available in this bam: ignore the whole file.
         free(file->fname);
+        if ( file->rg2idx ) khash_str2int_destroy_free(file->rg2idx);
         bsmpl->nfiles--;
         return -1;
     }
