@@ -30,6 +30,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <inttypes.h>
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
@@ -756,7 +757,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
     if ( line->n_allele > 100 )
         error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
     if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
-        error("Could not alloc %d bytes\n", str->l + convert->nsamples*8);
+        error("Could not alloc %"PRIu64" bytes\n", (uint64_t)(str->l + convert->nsamples*8));
 
     if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
         error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
@@ -773,7 +774,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
             {
                 str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '-'; str->s[str->l++] = ' ';
             }
-            else if ( ptr[0]==bcf_int32_missing )   /* . */
+            else if ( ptr[0]==bcf_int8_missing )   /* . */
             {
                 str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
             }
@@ -910,7 +911,7 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
     if ( line->n_allele > 100 )
         error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
     if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
-        error("Could not alloc %d bytes\n", str->l + convert->nsamples*8);
+        error("Could not alloc %"PRIu64" bytes\n", (uint64_t)(str->l + convert->nsamples*8));
 
     if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
         error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);

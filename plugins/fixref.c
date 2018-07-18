@@ -432,7 +432,8 @@ bcf1_t *process(bcf1_t *rec)
     }
     else if ( args.mode==MODE_TOP2FWD )
     {
-        if ( ia==0 && (ib==1 || ib==2) )    // unambiguous pair: A/C or A/G
+        int pair = 1 << ia | 1 << ib;
+        if ( pair != 0x9 && pair != 0x6 )    // unambiguous pair: A/C or A/G
         {
             if ( ir==ia ) return ret;
 
@@ -457,7 +458,7 @@ bcf1_t *process(bcf1_t *rec)
             int len, win = rec->pos > 100 ? 100 : rec->pos, beg = rec->pos - win, end = rec->pos + win;
             char *ref = faidx_fetch_seq(args.fai, (char*)bcf_seqname(args.hdr,rec), beg,end, &len);
             if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
-            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%d  (%d %d %d)\n", win,len, bcf_seqname(args.hdr,rec),rec->pos+1);
+            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%d  (%d %d)\n", win,len, bcf_seqname(args.hdr,rec),rec->pos+1, end,beg);
 
             int i, mid = rec->pos - beg, strand = 0;
             for (i=1; i<=win; i++)
@@ -465,9 +466,9 @@ bcf1_t *process(bcf1_t *rec)
                 int ra = nt2int(ref[mid-i]);
                 int rb = nt2int(ref[mid+i]);
                 if ( ra<0 || rb<0 || ra==rb ) continue;     // skip N's and non-infomative pairs: A/A, C/C, G/G, T/T
-                int pair = 1 << ra | 1 << rb;
+                pair = 1 << ra | 1 << rb;
                 if ( pair==0x9 || pair==0x6 ) continue;     // skip ambiguous pairs: A/T or C/G
-                strand = ra & 0x9 ? 1 : -1;
+                strand = 1 << ra & 0x9 ? 1 : -1;
                 break;
             }
             free(ref);

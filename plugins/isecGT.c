@@ -109,7 +109,7 @@ int run(int argc, char **argv)
         }
     }
 
-    if ( optind+2!=argc ) error(usage_text());
+    if ( optind+2!=argc ) error("%s",usage_text());
 
     args->sr = bcf_sr_init();
     args->sr->require_index = 1;

@@ -74,7 +74,7 @@ int cmp_bcf_pos(const void *aptr, const void *bptr)
 
     if ( !a->unpacked ) bcf_unpack(a, BCF_UN_STR);
     if ( !b->unpacked ) bcf_unpack(b, BCF_UN_STR);
-    int i, ret;
+    int i;
     for (i=0; i<a->n_allele; i++)
     { 
         if ( i >= b->n_allele ) return 1;

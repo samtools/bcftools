@@ -339,7 +339,7 @@ int run(int argc, char **argv)
             case 'T': trio_file = optarg; break;
             case 'h':
             case '?':
-            default: error(usage()); break;
+            default: error("%s",usage()); break;
         }
     }
     if ( rules_fname )
@@ -354,7 +354,7 @@ int run(int argc, char **argv)
     if ( optind>=argc || argv[optind][0]=='-' )
     {
         if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
-        else error(usage());
+        else error("%s",usage());
     }
     else
         fname = argv[optind];

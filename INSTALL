@@ -1,27 +1,31 @@
 System Requirements
 ===================
 
-BCFtools and HTSlib depend on the zlib library <http://zlib.net>, the bzip2
-library <http://bzip.org/> and liblzma <http://tukaani.org/xz/>.  Building
-them requires development files to be installed on the build machine;
+BCFtools and HTSlib depend on the following libraries:
+
+  BCFtools:
+    zlib       <http://zlib.net>
+    gsl        <https://www.gnu.org/software/gsl/>
+               (optional, for the 'polysomy' command)
+    libperl    <http://www.perl.org/>
+               (optional, to support filters using perl syntax)
+
+  HTSlib:
+    zlib       <http://zlib.net>
+    libbz2     <http://bzip.org/>
+    liblzma    <http://tukaani.org/xz/>
+    libcurl    <https://curl.haxx.se/>
+               (optional but strongly recommended, for network access)
+    libcrypto  <https://www.openssl.org/>
+               (optional, for Amazon S3 support; not needed on MacOS)
+
+Building them requires development files to be installed on the build machine;
 note that some Linux distributions package these separately from the library
-itself (see below).
+itself.  See the "System Specific Details" below for guidance on how to install
+these on a variety of systems.
 
 The bzip2 and liblzma dependencies can be removed if full CRAM support
 is not needed - see HTSlib's INSTALL file for details.
-
-Packages for dpkg-based Linux distributions (Debian / Ubuntu) are:
-
-  zlib1g-dev
-  libbz2-dev
-  liblzma-dev
-
-Packages for rpm or yum-based Linux distributions (RedHat / Fedora / CentOS)
-are:
-
-  zlib-devel
-  bzip2-devel
-  xz-devel
 
 To build BCFtools, you will need:
 
@@ -85,12 +89,6 @@ sophisticated filtering. This option can be enabled by supplying the
 
     ./configure --enable-perl-filters
 
-Note that enabling this option changes the license from MIT to GPL
-because bcftools need to be built with
-
-    perl -MExtUtils::Embed -e ccopts -e ldopts
-
-
 Optional Compilation with GSL
 =============================
 
@@ -136,3 +134,42 @@ The bgzip and tabix utilities are provided by HTSlib.  If you have not also
 installed HTSlib separately, you may wish to install these utilities by hand
 by copying bcftools-1.x/htslib-1.x/{bgzip,tabix} to the same bin directory
 to which you have installed bcftools et al.
+
+
+System Specific Details
+=======================
+
+Installing the prerequisites is system dependent and there is more
+than one correct way of satisfying these, including downloading them
+from source, compiling and installing them yourself.
+
+For people with super-user access, we provide an example set of commands
+below for installing the dependencies on a variety of operating system
+distributions.  Note these are not specific recommendations on distribution,
+compiler or SSL implementation.  It is assumed you already have the core set
+of packages for the given distribution - the lists may be incomplete if
+this is not the case.
+
+Debian / Ubuntu
+---------------
+
+sudo apt-get update  # Ensure the package list is up to date
+sudo apt-get install autoconf automake make gcc perl zlib1g-dev libbz2-dev liblzma-dev libcurl4-gnutls-dev libssl-dev libperl-dev libgsl0-dev
+
+Note: libcurl4-openssl-dev can be used as an alternative to libcurl4-gnutls-dev.
+
+RedHat / CentOS
+---------------
+
+sudo yum install autoconf automake make gcc perl-Data-Dumper zlib-devel bzip2 bzip2-devel xz-devel curl-devel openssl-devel gsl-devel perl-ExtUtils-Embed
+
+Alpine Linux
+------------
+
+sudo apk update  # Ensure the package list is up to date
+sudo apk add autoconf automake make gcc musl-dev perl bash zlib-dev bzip2-dev xz-dev curl-dev libressl-dev gsl-dev perl-dev
+
+OpenSUSE
+--------
+
+sudo zypper install autoconf automake make gcc perl zlib-devel libbz2-devel xz-devel libcurl-devel libopenssl-devel gsl-devel

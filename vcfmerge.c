@@ -1471,17 +1471,23 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             {
                 // if all fields are missing then n==1 is valid
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori )
-                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=G, but found\n"
+                          "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
+                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
             }
             else if ( length==BCF_VL_A )
             {
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori-1 )
-                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=A, but found\n"
+                          "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
+                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
             }
             else if ( length==BCF_VL_R )
             {
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori )
-                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=R, but found\n"
+                          "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
+                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
             }
         }
 
@@ -2179,7 +2185,7 @@ int can_merge(args_t *args)
             }
             // normalize alleles
             maux->als = merge_alleles(line->d.allele, line->n_allele, buf->rec[j].map, maux->als, &maux->nals, &maux->mals);
-            if ( !maux->als ) error("Failed to merge alleles at %s:%d in %s\n",bcf_seqname(args->out_hdr,line),line->pos+1,reader->fname);
+            if ( !maux->als ) error("Failed to merge alleles at %s:%d in %s\n",maux->chr,line->pos+1,reader->fname);
             hts_expand0(int, maux->nals, maux->ncnt, maux->cnt);
             for (k=1; k<line->n_allele; k++)
                 maux->cnt[ buf->rec[j].map[k] ]++;    // how many times an allele appears in the files

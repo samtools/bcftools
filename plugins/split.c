@@ -52,7 +52,7 @@ typedef struct
     uint8_t *info_tags, *fmt_tags;
     int ninfo_tags, minfo_tags, nfmt_tags, mfmt_tags, keep_info, keep_fmt;
     int argc, region_is_file, target_is_file, output_type;
-    char **argv, *region, *target, *fname, *output_dir, *keep_tags, **smpl;
+    char **argv, *region, *target, *fname, *output_dir, *keep_tags, **bnames, *samples_fname;
     bcf_hdr_t *hdr_in, *hdr_out;
     bcf_srs_t *sr;
 }
@@ -78,6 +78,7 @@ static const char *usage_text(void)
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
         "   -r, --regions REGION            restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
+        "   -S, --samples-file FILE         list of samples to keep with second (optional) column for basename of the new file\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
         "Examples:\n"
@@ -97,6 +98,64 @@ static const char *usage_text(void)
 
 void mkdir_p(const char *fmt, ...);
 
+char **set_file_base_names(args_t *args)
+{
+    int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
+    char **fnames = (char**) calloc(nsmpl,sizeof(char*));
+    if ( args->samples_fname )
+    {
+        kstring_t str = {0,0,0};
+        int nsamples = 0;
+        char **samples = NULL;
+        samples = hts_readlines(args->samples_fname, &nsamples);
+        for (i=0; i<nsamples; i++)
+        {
+            str.l = 0;
+            int escaped = 0;
+            char *ptr = samples[i];
+            while ( *ptr )
+            {
+                if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+                if ( isspace(*ptr) && !escaped ) break;
+                kputc(*ptr, &str);
+                escaped = 0;
+                ptr++;
+            }
+            int idx = bcf_hdr_id2int(args->hdr_in, BCF_DT_SAMPLE, str.s);
+            if ( idx<0 )
+            {
+                fprintf(stderr,"Warning: The sample \"%s\" is not present in %s\n", str.s,args->fname);
+                continue;
+            }
+            while ( *ptr && isspace(*ptr) ) ptr++;
+            if ( !*ptr )
+            {
+                fnames[idx] = strdup(str.s);
+                continue;
+            }
+            str.l = 0;
+            while ( *ptr )
+            {
+                if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+                if ( isspace(*ptr) && !escaped ) break;
+                kputc(*ptr, &str);
+                escaped = 0;
+                ptr++;
+            }
+            fnames[idx] = strdup(str.s);
+        }
+        for (i=0; i<nsamples; i++) free(samples[i]);
+        free(samples);
+        free(str.s);
+    }
+    else
+    {
+        for (i=0; i<nsmpl; i++)
+            fnames[i] = strdup(args->hdr_in->samples[i]);
+    }
+    return fnames;
+}
+
 static void init_data(args_t *args)
 {
     args->sr = bcf_sr_init();
@@ -113,20 +172,21 @@ static void init_data(args_t *args)
     if ( args->filter_str )
         args->filter = filter_init(args->hdr_in, args->filter_str);
 
-    mkdir_p(args->output_dir);
+    mkdir_p("%s/",args->output_dir);
 
     int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
     if ( !nsmpl ) error("No samples to split: %s\n", args->fname);
-    args->fh = (htsFile**)malloc(sizeof(*args->fh)*nsmpl);
-    args->smpl = (char**)malloc(sizeof(*args->smpl)*nsmpl);
+    args->fh = (htsFile**)calloc(nsmpl,sizeof(*args->fh));
+    args->bnames = set_file_base_names(args);
     kstring_t str = {0,0,0};
     for (i=0; i<nsmpl; i++)
     {
+        if ( !args->bnames[i] ) continue;
         str.l = 0;
         kputs(args->output_dir, &str);
         if ( str.s[str.l-1] != '/' ) kputc('/', &str);
         int k, l = str.l;
-        kputs(args->hdr_in->samples[i], &str);
+        kputs(args->bnames[i], &str);
         for (k=l; k<str.l; k++) if ( isspace(str.s[k]) ) str.s[k] = '_';
         if ( args->output_type & FT_BCF ) kputs(".bcf", &str);
         else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &str);
@@ -134,7 +194,7 @@ static void init_data(args_t *args)
         args->fh[i] = hts_open(str.s, hts_bcf_wmode(args->output_type));
         if ( args->fh[i] == NULL ) error("Can't write to \"%s\": %s\n", str.s, strerror(errno));
         bcf_hdr_nsamples(args->hdr_out) = 1;
-        args->hdr_out->samples[0] = args->smpl[i] = strdup(args->hdr_in->samples[i]);
+        args->hdr_out->samples[0] = args->bnames[i];
         bcf_hdr_write(args->fh[i], args->hdr_out);
     }
     free(str.s);
@@ -185,10 +245,10 @@ static void destroy_data(args_t *args)
     int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
     for (i=0; i<nsmpl; i++)
     {
-        if ( hts_close(args->fh[i])!=0 ) error("Error: close failed!\n");
-        free(args->smpl[i]);
+        if ( args->fh[i] && hts_close(args->fh[i])!=0 ) error("Error: close failed!\n");
+        free(args->bnames[i]);
     }
-    free(args->smpl);
+    free(args->bnames);
     free(args->fh);
     bcf_sr_destroy(args->sr);
     bcf_hdr_destroy(args->hdr_out);
@@ -274,6 +334,7 @@ static void process(args_t *args)
     bcf1_t *out = NULL; 
     for (i=0; i<rec->n_sample; i++)
     {
+        if ( !args->fh[i] ) continue;
         if ( !smpl_pass && !site_pass ) continue;
         if ( smpl_pass )
         {
@@ -299,21 +360,23 @@ int run(int argc, char **argv)
         {"include",required_argument,NULL,'i'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"samples-file",required_argument,NULL,'S'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:S:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case 'k': args->keep_tags = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-            case 'T': args->target_is_file = 1; 
+            case 'T': args->target = optarg; args->target_is_file = 1; break;
             case 't': args->target = optarg; break; 
-            case 'R': args->region_is_file = 1; 
+            case 'R': args->region = optarg; args->region_is_file = 1;  break;
+            case 'S': args->samples_fname = optarg; break;
             case 'r': args->region = optarg; break; 
             case 'o': args->output_dir = optarg; break;
             case 'O':
@@ -333,9 +396,9 @@ int run(int argc, char **argv)
     if ( optind==argc )
     {
         if ( !isatty(fileno((FILE *)stdin)) ) args->fname = "-";  // reading from stdin
-        else { error(usage_text()); }
+        else { error("%s", usage_text()); }
     }
-    else if ( optind+1!=argc ) error(usage_text());
+    else if ( optind+1!=argc ) error("%s", usage_text());
     else args->fname = argv[optind];
 
     if ( !args->output_dir ) error("Missing the -o option\n");

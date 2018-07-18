@@ -1,6 +1,6 @@
 /*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-    Copyright (C) 2013-2017 Genome Research Ltd.
+    Copyright (C) 2013-2018 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -26,6 +26,7 @@ THE SOFTWARE.  */
 #include <unistd.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kstring.h>
@@ -384,7 +385,7 @@ static int load_genmap(args_t *args, const char *chr)
 
     hts_getline(fp, KS_SEP_LINE, &str);
     if ( strcmp(str.s,"position COMBINED_rate(cM/Mb) Genetic_Map(cM)") )
-        error("Unexpected header, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
+        error("Unexpected header in %s, found:\n\t[%s], but expected:\n\t[position COMBINED_rate(cM/Mb) Genetic_Map(cM)]\n", fname, str.s);
 
     args->ngenmap = args->igenmap = 0;
     while ( hts_getline(fp, KS_SEP_LINE, &str) > 0 )
@@ -748,9 +749,9 @@ int estimate_AF_from_PL(args_t *args, bcf_fmt_t *fmt_pl, int ial, double *alt_fr
                 if ( p[irr]<0 || p[ira]<0 || p[iaa]<0 ) continue;    /* missing value */ \
                 if ( p[irr]==p[ira] && p[irr]==p[iaa] ) continue;    /* all values are the same */ \
                 double prob[3], norm = 0; \
-                prob[0] = p[irr] < (type_t)256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
-                prob[1] = p[ira] < (type_t)256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
-                prob[2] = p[iaa] < (type_t)256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
+                prob[0] = p[irr] < 256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
+                prob[1] = p[ira] < 256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
+                prob[2] = p[iaa] < 256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
                 for (j=0; j<3; j++) norm += prob[j]; \
                 for (j=0; j<3; j++) prob[j] /= norm; \
                 af += 0.5*prob[1] + prob[2]; \
@@ -778,9 +779,9 @@ int estimate_AF_from_PL(args_t *args, bcf_fmt_t *fmt_pl, int ial, double *alt_fr
                 if ( p[irr]<0 || p[ira]<0 || p[iaa]<0 ) continue;    /* missing value */ \
                 if ( p[irr]==p[ira] && p[irr]==p[iaa] ) continue;    /* all values are the same */ \
                 double prob[3], norm = 0; \
-                prob[0] = p[irr] < (type_t)256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
-                prob[1] = p[ira] < (type_t)256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
-                prob[2] = p[iaa] < (type_t)256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
+                prob[0] = p[irr] < 256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
+                prob[1] = p[ira] < 256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
+                prob[2] = p[iaa] < 256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
                 for (j=0; j<3; j++) norm += prob[j]; \
                 for (j=0; j<3; j++) prob[j] /= norm; \
                 af += 0.5*prob[1] + prob[2]; \
@@ -925,9 +926,9 @@ int process_line(args_t *args, bcf1_t *line, int ial)
                 type_t *p = (type_t*)fmt_pl->p + fmt_pl->n*ismpl; \
                 if ( p[irr]<0 || p[ira]<0 || p[iaa]<0 ) continue;    /* missing value */ \
                 if ( p[irr]==p[ira] && p[irr]==p[iaa] ) continue;    /* all values are the same */ \
-                pdg[0] = p[irr] < (type_t)256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
-                pdg[1] = p[ira] < (type_t)256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
-                pdg[2] = p[iaa] < (type_t)256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
+                pdg[0] = p[irr] < 256 ? args->pl2p[ p[irr] ] : args->pl2p[255]; \
+                pdg[1] = p[ira] < 256 ? args->pl2p[ p[ira] ] : args->pl2p[255]; \
+                pdg[2] = p[iaa] < 256 ? args->pl2p[ p[iaa] ] : args->pl2p[255]; \
             }
             switch (fmt_pl->type) {
                 case BCF_BT_INT8:  BRANCH(int8_t); break;
@@ -950,7 +951,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
         {
             hts_expand(uint32_t,smpl->nsites+1,smpl->msites,smpl->sites);
             smpl->eprob = (double*) realloc(smpl->eprob,sizeof(*smpl->eprob)*smpl->msites*2);
-            if ( !smpl->eprob ) error("Error: failed to alloc %d bytes\n", sizeof(*smpl->eprob)*smpl->msites*2);
+            if ( !smpl->eprob ) error("Error: failed to alloc %"PRIu64" bytes\n", (uint64_t)(sizeof(*smpl->eprob)*smpl->msites*2));
         }
         
         // Calculate emission probabilities P(D|AZ) and P(D|HW)
@@ -1207,8 +1208,8 @@ int main_vcfroh(int argc, char *argv[])
     else fname = argv[optind];
 
     if ( args->vi_training && args->buffer_size ) error("Error: cannot use -b with -V\n");
-    if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1]\n", args->t2AZ);
-    if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1]\n", args->t2HW);
+    if ( args->t2AZ<0 || args->t2AZ>1 ) error("Error: The parameter --hw-to-az is not in [0,1] .. %e\n", args->t2AZ);
+    if ( args->t2HW<0 || args->t2HW>1 ) error("Error: The parameter --az-to-hw is not in [0,1] .. %e\n", args->t2HW);
     if ( naf_opts>1 ) error("Error: The options --AF-tag, --AF-file and -e are mutually exclusive\n");
     if ( args->af_fname && args->targets_list ) error("Error: The options --AF-file and -t are mutually exclusive\n");
     if ( args->regions_list )
@@ -1254,7 +1255,7 @@ int main_vcfroh(int argc, char *argv[])
     fprintf(stderr,"Number of lines filtered/no AF/not biallelic/dup: %d/%d/%d/%d\n", args->nfiltered,args->nno_af,args->nnot_biallelic,args->ndup);
     if ( nmin==0 )
     {
-        fprintf(stderr,"No usable sites were found.\n", args->nno_af);
+        fprintf(stderr,"No usable sites were found.\n");
         if ( !naf_opts && !args->dflt_AF ) fprintf(stderr, " Consider using one of the AF options.\n");
     }
     destroy_data(args);

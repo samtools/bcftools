@@ -790,6 +790,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     of *--regions-file* in *<<common_options,Common Options>>* for file
     format details.
 
+*-M, --missing* 'CHAR'::
+    instead of skipping the missing genotypes, output the character CHAR (e.g. "?")
+
 *-o, --output* 'FILE'::
     write output to a file
 
@@ -898,8 +901,11 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 ==== gVCF conversion:
 *--gvcf2vcf*::
-    convert gVCF to VCF, expanding REF blocks into sites. Only sites
-    with FILTER set to "PASS" or "." will be expanded.
+    convert gVCF to VCF, expanding REF blocks into sites. Note that
+    the *-i* and *-e* options work differently with this switch. In this situation
+    the filtering expressions define which sites should be expanded and
+    which sites should be left unmodified, but all sites are printed on
+    output. In order to drop sites, stream first through *<<view,bcftools view>>*.
 
 *-f, --fasta-ref* 'file'::
     reference sequence in fasta format. Must be indexed with samtools faidx
@@ -1062,6 +1068,10 @@ output VCF and are ignored for the prediction analysis.
 
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format (required)
+
+*--force*::
+    run even if some sanity checks fail. Currently the option allows to skip
+    transcripts in malformatted GFFs with incorrect phase
 
 *-g, --gff-annot* 'FILE'::
     GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
@@ -1474,9 +1484,11 @@ Create intersection and complements of two sets saving the output in dir/*
     bcftools isec -p dir A.vcf.gz B.vcf.gz
 ----
 
-Filter sites in A and B (but not in C) and create intersection
+Filter sites in A (require INFO/MAF>=0.01) and B (require INFO/dbSNP) but not in C,
+and create an intersection, including only sites which appear in at least two of
+the files after filters have been applied
 ----
-    bcftools isec -e'MAF<0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -p dir
+    bcftools isec -e'MAF<0.01' -i'dbSNP=1' -e- A.vcf.gz B.vcf.gz C.vcf.gz -n +2 -p dir
 ----
 
 Extract and write records from A shared by both A and B using exact allele match
@@ -1509,7 +1521,7 @@ unless the option *--force-samples* is given.  The sample names can be
 also given explicitly using the *--print-header* and *--use-header* options.
 
 Note that only records from different files can be merged, never from the same file.
-For "vertical" merge take a look at *<<norm,bcftools norm>>* instead.
+For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcftools norm>> -m* instead.
 
 
 *--force-samples*::
@@ -2793,27 +2805,44 @@ element of the vector, as shown in the examples below
         FORMAT/AD[0:1]               .. first sample, second AD value
         FORMAT/AD[1:0]               .. second sample, first AD value
         DP4[*] == 0                  .. any DP4 value
-        FORMAT/DP[0]   > 30         .. DP of the first sample bigger than 30
-        FORMAT/DP[1-3] > 10         .. samples 2-4
-        FORMAT/DP[1-]  < 7          .. all samples but the first
-        FORMAT/DP[0,2-4] > 20       .. samples 1, 3-5
-        FORMAT/AD[0:1]              .. first sample, second AD field
+        FORMAT/DP[0]   > 30          .. DP of the first sample bigger than 30
+        FORMAT/DP[1-3] > 10          .. samples 2-4
+        FORMAT/DP[1-]  < 7           .. all samples but the first
+        FORMAT/DP[0,2-4] > 20        .. samples 1, 3-5
+        FORMAT/AD[0:1]               .. first sample, second AD field
         FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
         FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
         (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
         CSQ[*] ~ "missense_variant.*deleterious"
 
+* with many samples it can be more practical to provide a file with sample names,
+one sample name per line
+
+        GT[@samples.txt]="het" & binom(AD)<0.01
+
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
         MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT
+
+* two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
+  and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
+  homozygous genotypes.
+
+        binom(FMT/AD)                .. GT can be used to determine the correct index
+        binom(AD[0],AD[1])           .. or the fields can be given explicitly
 
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
-number of samples with missing genotype; fraction of samples with missing genotype
+number of samples with missing genotype; fraction of samples with missing genotype;
 
         N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING
+
+* the number (N_PASS) or fraction (F_PASS) of samples which pass the expression
+
+        N_PASS(GQ>90 & GT!="mis") > 90
+        F_PASS(GQ>90 & GT!="mis") > 0.9
 
 * custom perl filtering. Note that this command is not compiled in by default, see
 the section *Optional Compilation with Perl* in the INSTALL file for help

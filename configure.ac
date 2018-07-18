@@ -23,13 +23,14 @@
 # DEALINGS IN THE SOFTWARE.
 
 dnl Process this file with autoconf to produce a configure script
-AC_INIT([BCFtools], m4_esyscmd_s([make print-version]),
+AC_INIT([BCFtools], m4_esyscmd_s([./version.sh 2>/dev/null]),
         [samtools-help@lists.sourceforge.net], [], [http://www.htslib.org/])
 AC_PREREQ([2.63])  dnl This version introduced 4-argument AC_CHECK_HEADER
 AC_CONFIG_SRCDIR([main.c])
 AC_CONFIG_HEADERS([config.h])
 
 m4_include([m4/ax_with_htslib.m4])
+m4_include([m4/hts_prog_cc_warnings.m4])
 
 dnl Copyright notice to be copied into the generated configure script
 AC_COPYRIGHT([Portions copyright (C) 2015,2017 Genome Research Ltd.
@@ -38,6 +39,12 @@ This configure script is free software: you are free to change and
 redistribute it.  There is NO WARRANTY, to the extent permitted by law.])
 
 AC_PROG_CC
+
+dnl Turn on compiler warnings, if possible
+HTS_PROG_CC_WARNINGS
+dnl Flags to treat warnings as errors.  These need to be applied to CFLAGS
+dnl later as they can interfere with some of the tests (notably AC_SEARCH_LIBS)
+HTS_PROG_CC_WERROR(hts_late_cflags)
 
 AC_SYS_LARGEFILE
 
@@ -214,9 +221,10 @@ AS_IF([test "$enable_perl_filters" != "no" ], [dnl
     PERL_LIBS="`perl -MExtUtils::Embed -e ldopts`"
     AC_SUBST([PERL_CCOPTS])
     AC_SUBST([PERL_LIBS])
-    USE_GPL=1
-    AC_SUBST([USE_GPL])
 ])
+
+dnl Apply value from HTS_PROG_CC_WERROR (if set)
+AS_IF([test "x$hts_late_cflags" != x],[CFLAGS="$CFLAGS $hts_late_cflags"])
 
 AC_CONFIG_FILES([config.mk])
 AC_OUTPUT

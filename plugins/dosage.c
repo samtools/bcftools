@@ -27,6 +27,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <math.h>
 #include <getopt.h>
+#include "bcftools.h"
 
 
 /*
@@ -60,6 +61,8 @@ uint8_t *buf = NULL;
 int nbuf = 0;   // NB: number of elements, not bytes
 char **tags = NULL;
 int ntags = 0;
+float *vals = NULL, *dsg = NULL;
+int mvals, mdsg;
 
 typedef int (*dosage_f) (bcf1_t *);
 dosage_f *handlers = NULL;
@@ -72,19 +75,39 @@ int calc_dosage_PL(bcf1_t *rec)
     if ( nret<0 ) return -1;
 
     nret /= rec->n_sample;
+    if ( nret != rec->n_allele*(rec->n_allele+1)/2 ) return -1;     // not diploid
+    hts_expand(float, nret, mvals, vals);
+    hts_expand(float, rec->n_allele, mdsg, dsg);
     #define BRANCH(type_t,is_missing,is_vector_end) \
     { \
         type_t *ptr = (type_t*) buf; \
         for (i=0; i<rec->n_sample; i++) \
         { \
-            float vals[3] = {0,0,0}; \
+            float sum = 0; \
             for (j=0; j<nret; j++) \
             { \
                 if ( is_missing || is_vector_end ) break; \
                 vals[j] = exp(-0.1*ptr[j]); \
+                sum += vals[j]; \
             } \
-            float sum = vals[0] + vals[1] + vals[2]; \
-            printf("\t%.1f", sum==0 ? -1 : (vals[1] + 2*vals[2]) / sum); \
+            if ( j<nret ) \
+                for (j=0; j<rec->n_allele; j++) dsg[j] = -1; \
+            else \
+            { \
+                if ( sum ) for (j=0; j<nret; j++) vals[j] /= sum; \
+                memset(dsg, 0, sizeof(float)*rec->n_allele); \
+                int k, l = 0; \
+                for (j=0; j<rec->n_allele; j++) \
+                { \
+                    for (k=0; k<=j; k++) \
+                    { \
+                        dsg[j] += vals[l]; \
+                        dsg[k] += vals[l]; \
+                    } \
+                } \
+            } \
+            for (j=1; j<rec->n_allele; j++) \
+                printf("%c%.1f",j==1?'\t':',',dsg[j]); \
             ptr += nret; \
         } \
     }
@@ -103,20 +126,41 @@ int calc_dosage_GL(bcf1_t *rec)
     if ( nret<0 ) return -1;
 
     nret /= rec->n_sample;
+    if ( nret != rec->n_allele*(rec->n_allele+1)/2 ) return -1;     // not diploid
+    hts_expand(float, nret, mvals, vals);
+    hts_expand(float, rec->n_allele, mdsg, dsg);
     #define BRANCH(type_t,is_missing,is_vector_end) \
     { \
         type_t *ptr = (type_t*) buf; \
         for (i=0; i<rec->n_sample; i++) \
         { \
-            float vals[3] = {0,0,0}; \
+            float sum = 0; \
             for (j=0; j<nret; j++) \
             { \
                 if ( is_missing || is_vector_end ) break; \
                 vals[j] = exp(ptr[j]); \
+                sum += vals[j]; \
             } \
-            float sum = vals[0] + vals[1] + vals[2]; \
-            printf("\t%.1f", sum==0 ? -1 : (vals[1] + 2*vals[2]) / sum); \
-            ptr  += nret; \
+            if ( j<nret ) \
+                for (j=0; j<rec->n_allele; j++) dsg[j] = -1; \
+            else \
+            { \
+                for (; j<nret; j++) vals[j] = 0; \
+                if ( sum ) for (j=0; j<nret; j++) vals[j] /= sum; \
+                memset(dsg, 0, sizeof(float)*rec->n_allele); \
+                int k, l = 0; \
+                for (j=0; j<rec->n_allele; j++) \
+                { \
+                    for (k=0; k<=j; k++) \
+                    { \
+                        dsg[j] += vals[l]; \
+                        dsg[k] += vals[l]; \
+                    } \
+                } \
+            } \
+            for (j=1; j<rec->n_allele; j++) \
+                printf("%c%.1f",j==1?'\t':',',dsg[j]); \
+            ptr += nret; \
         } \
     }
     switch (pl_type)
@@ -135,15 +179,21 @@ int calc_dosage_GT(bcf1_t *rec)
 
     nret /= rec->n_sample;
     int32_t *ptr = (int32_t*) buf;
+    hts_expand(float, rec->n_allele, mdsg, dsg);
     for (i=0; i<rec->n_sample; i++)
     {
-        float dsg = 0;
+        memset(dsg, 0, sizeof(float)*rec->n_allele);
         for (j=0; j<nret; j++)
         {
             if ( ptr[j]==bcf_int32_vector_end || bcf_gt_is_missing(ptr[j]) ) break;
-            if ( bcf_gt_allele(ptr[j]) ) dsg += 1;
+            int idx = bcf_gt_allele(ptr[j]);
+            if ( idx > rec->n_allele ) error("The allele index is out of range at %s:%d\n", bcf_seqname(in_hdr,rec),rec->pos+1);
+            dsg[idx] += 1;
         }
-        printf("\t%.1f", j>0 ? dsg : -1);
+        if ( !j )
+            for (j=0; j<rec->n_allele; j++) dsg[j] = -1;
+        for (j=1; j<rec->n_allele; j++)
+            printf("%c%.1f",j==1?'\t':',',dsg[j]);
         ptr += nret;
     }
     return 0;
@@ -248,12 +298,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
 bcf1_t *process(bcf1_t *rec)
 {
-    int i, ret;
+    int i,j, ret;
 
-    printf("%s\t%d\t%s\t%s", bcf_seqname(in_hdr,rec),rec->pos+1,rec->d.allele[0],rec->n_allele>1 ? rec->d.allele[1] : ".");
+    printf("%s\t%d\t%s", bcf_seqname(in_hdr,rec),rec->pos+1,rec->d.allele[0]);
+    if ( rec->n_allele == 1 ) printf("\t.");
+    else for (i=1; i<rec->n_allele; i++) printf("%c%s", i==1?'\t':',', rec->d.allele[i]);
     if ( rec->n_allele==1 )
     {
-        for (i=0; i<rec->n_sample; i++) printf("\t0.0");
+        for (j=0; j<rec->n_sample; j++) printf("\t0.0");
     }
     else
     {
@@ -276,6 +328,8 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
+    free(vals);
+    free(dsg);
     free(handlers);
     free(buf);
 }

@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2018-04-03
+.\"      Date: 2018-07-18
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2018\-04\-03" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2018\-07\-18" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2018\-04\-03\fR and refers to bcftools git version \fB1\&.8\fR\&.
+This manual page was last updated \fB2018\-07\-18\fR and refers to bcftools git version \fB1\&.9\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1359,6 +1359,11 @@ in
 for file format details\&.
 .RE
 .PP
+\fB\-M, \-\-missing\fR \fICHAR\fR
+.RS 4
+instead of skipping the missing genotypes, output the character CHAR (e\&.g\&. "?")
+.RE
+.PP
 \fB\-o, \-\-output\fR \fIFILE\fR
 .RS 4
 write output to a file
@@ -1563,7 +1568,12 @@ output VCF IDs in the second column instead of CHROM:POS_REF_ALT
 .PP
 \fB\-\-gvcf2vcf\fR
 .RS 4
-convert gVCF to VCF, expanding REF blocks into sites\&. Only sites with FILTER set to "PASS" or "\&." will be expanded\&.
+convert gVCF to VCF, expanding REF blocks into sites\&. Note that the
+\fB\-i\fR
+and
+\fB\-e\fR
+options work differently with this switch\&. In this situation the filtering expressions define which sites should be expanded and which sites should be left unmodified, but all sites are printed on output\&. In order to drop sites, stream first through
+\fBbcftools view\fR\&.
 .RE
 .PP
 \fB\-f, \-\-fasta\-ref\fR \fIfile\fR
@@ -1791,6 +1801,11 @@ is true\&. For valid expressions see
 \fB\-f, \-\-fasta\-ref\fR \fIFILE\fR
 .RS 4
 reference sequence in fasta format (required)
+.RE
+.PP
+\fB\-\-force\fR
+.RS 4
+run even if some sanity checks fail\&. Currently the option allows to skip transcripts in malformatted GFFs with incorrect phase
 .RE
 .PP
 \fB\-g, \-\-gff\-annot\fR \fIFILE\fR
@@ -2464,13 +2479,13 @@ Create intersection and complements of two sets saving the output in dir/*
 .RE
 .\}
 .sp
-Filter sites in A and B (but not in C) and create intersection
+Filter sites in A (require INFO/MAF>=0\&.01) and B (require INFO/dbSNP) but not in C, and create an intersection, including only sites which appear in at least two of the files after filters have been applied
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-    bcftools isec \-e\*(AqMAF<0\&.01\*(Aq \-i\*(AqdbSNP=1\*(Aq \-e\- A\&.vcf\&.gz B\&.vcf\&.gz C\&.vcf\&.gz \-p dir
+    bcftools isec \-e\*(AqMAF<0\&.01\*(Aq \-i\*(AqdbSNP=1\*(Aq \-e\- A\&.vcf\&.gz B\&.vcf\&.gz C\&.vcf\&.gz \-n +2 \-p dir
 .fi
 .if n \{\
 .RE
@@ -2518,7 +2533,7 @@ Merge multiple VCF/BCF files from non\-overlapping sample sets to create one mul
 .sp
 Note that it is responsibility of the user to ensure that the sample names are unique across all files\&. If they are not, the program will exit with an error unless the option \fB\-\-force\-samples\fR is given\&. The sample names can be also given explicitly using the \fB\-\-print\-header\fR and \fB\-\-use\-header\fR options\&.
 .sp
-Note that only records from different files can be merged, never from the same file\&. For "vertical" merge take a look at \fBbcftools norm\fR instead\&.
+Note that only records from different files can be merged, never from the same file\&. For "vertical" merge take a look at \fBbcftools concat\fR or \fBbcftools norm\fR\fB \-m\fR instead\&.
 .PP
 \fB\-\-force\-samples\fR
 .RS 4
@@ -4736,15 +4751,36 @@ FORMAT/AD[0:0] > 30          \&.\&. first AD value of the first sample bigger th
 FORMAT/AD[0:1]               \&.\&. first sample, second AD value
 FORMAT/AD[1:0]               \&.\&. second sample, first AD value
 DP4[*] == 0                  \&.\&. any DP4 value
-FORMAT/DP[0]   > 30         \&.\&. DP of the first sample bigger than 30
-FORMAT/DP[1\-3] > 10         \&.\&. samples 2\-4
-FORMAT/DP[1\-]  < 7          \&.\&. all samples but the first
-FORMAT/DP[0,2\-4] > 20       \&.\&. samples 1, 3\-5
-FORMAT/AD[0:1]              \&.\&. first sample, second AD field
+FORMAT/DP[0]   > 30          \&.\&. DP of the first sample bigger than 30
+FORMAT/DP[1\-3] > 10          \&.\&. samples 2\-4
+FORMAT/DP[1\-]  < 7           \&.\&. all samples but the first
+FORMAT/DP[0,2\-4] > 20        \&.\&. samples 1, 3\-5
+FORMAT/AD[0:1]               \&.\&. first sample, second AD field
 FORMAT/AD[0:*], AD[0:] or AD[0] \&.\&. first sample, any AD field
 FORMAT/AD[*:1] or AD[:1]        \&.\&. any sample, second AD field
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0\&.3
 CSQ[*] ~ "missense_variant\&.*deleterious"
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+with many samples it can be more practical to provide a file with sample names, one sample name per line
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+GT[@samples\&.txt]="het" & binom(AD)<0\&.01
 .fi
 .if n \{\
 .RE
@@ -4780,13 +4816,57 @@ MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT
 .sp -1
 .IP \(bu 2.3
 .\}
-variables calculated on the fly if not present: number of alternate alleles; number of samples; count of alternate alleles; minor allele count (similar to AC but is always smaller than 0\&.5); frequency of alternate alleles (AF=AC/AN); frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes; number of samples with missing genotype; fraction of samples with missing genotype
+two\-tailed binomial test\&. Note that for N=0 the test evaluates to a missing value and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for homozygous genotypes\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+binom(FMT/AD)                \&.\&. GT can be used to determine the correct index
+binom(AD[0],AD[1])           \&.\&. or the fields can be given explicitly
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+variables calculated on the fly if not present: number of alternate alleles; number of samples; count of alternate alleles; minor allele count (similar to AC but is always smaller than 0\&.5); frequency of alternate alleles (AF=AC/AN); frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes; number of samples with missing genotype; fraction of samples with missing genotype;
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
 N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+the number (N_PASS) or fraction (F_PASS) of samples which pass the expression
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+N_PASS(GQ>90 & GT!="mis") > 90
+F_PASS(GQ>90 & GT!="mis") > 0\&.9
 .fi
 .if n \{\
 .RE

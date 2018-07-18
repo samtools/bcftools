@@ -1,0 +1,6 @@
+107	CATG	C	inframe_deletion&start_lost&splice_region|TLR8|ENST00000218032|protein_coding
+107	CATG	C	inframe_deletion&start_lost&splice_region|TLR8|ENST00000218032|protein_coding
+
+12455	T	G	missense|TLR8|ENST00000218032|protein_coding|+|5F>5C|12455T>G
+12455	T	G	missense|TLR8|ENST00000218032|protein_coding|+|5F>5C|12455T>G
+

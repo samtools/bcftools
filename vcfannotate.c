@@ -463,6 +463,34 @@ static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
         return bcf_update_id(args->hdr_out,line,rec->d.id);
     return 0;
 }
+static int vcf_setter_ref(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    if ( !strcmp(rec->d.allele[0],line->d.allele[0]) ) return 0;    // no update necessary
+    const char **als = (const char**) malloc(sizeof(char*)*line->n_allele);
+    als[0] = rec->d.allele[0];
+    int i;
+    for (i=1; i<line->n_allele; i++) als[i] = line->d.allele[i];
+    bcf_update_alleles(args->hdr_out, line, als, line->n_allele);
+    free(als);
+    return 0;
+}
+static int vcf_setter_alt(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    bcf1_t *rec = (bcf1_t*) data;
+    int i;
+    if ( rec->n_allele==line->n_allele )
+    {
+        for (i=1; i<rec->n_allele; i++) if ( strcmp(rec->d.allele[i],line->d.allele[i]) ) break;
+        if ( i==rec->n_allele ) return 0;   // no update necessary
+    }
+    const char **als = (const char**) malloc(sizeof(char*)*rec->n_allele);
+    als[0] = line->d.allele[0];
+    for (i=1; i<rec->n_allele; i++) als[i] = rec->d.allele[i];
+    bcf_update_alleles(args->hdr_out, line, als, rec->n_allele);
+    free(als);
+    return 0;
+}
 static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
@@ -492,7 +520,7 @@ static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *
 
     if ( str[0]=='1' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,1);
     if ( str[0]=='0' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,0);
-    error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+    error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
     return -1;
 }
 static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
@@ -511,7 +539,7 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int ntmpi2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
@@ -545,7 +573,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     {
         int val = strtol(str, &end, 10); 
         if ( end==str )
-            error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+            error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
         ntmpi++;
         hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
         args->tmpi[ntmpi-1] = val;
@@ -591,7 +619,7 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int ntmpf2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpf2, &args->mtmpf2);
@@ -625,7 +653,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     {
         double val = strtod(str, &end);
         if ( end==str )
-            error("Could not parse %s at %s:%d .. [%s]\n", bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+            error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
         ntmpf++;
         hts_expand(float,ntmpf,args->mtmpf,args->tmpf);
         args->tmpf[ntmpf-1] = val;
@@ -678,7 +706,7 @@ static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, in
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int i, empty = 0, nstr, mstr = args->tmpks.m;
@@ -1158,7 +1186,7 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
     // create mapping from src to dst genotypes, haploid and diploid version
     int nmap_hap = col->number==BCF_VL_G || col->number==BCF_VL_R ? rec->n_allele : rec->n_allele - 1;
     int *map_hap = vcmp_map_ARvalues(args->vcmp,nmap_hap,line->n_allele,line->d.allele,rec->n_allele,rec->d.allele);
-    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     int i, j;
     if ( rec->n_allele==line->n_allele )
@@ -1266,7 +1294,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
     // create mapping from src to dst genotypes, haploid and diploid version
     int nmap_hap = col->number==BCF_VL_G || col->number==BCF_VL_R ? rec->n_allele : rec->n_allele - 1;
     int *map_hap = vcmp_map_ARvalues(args->vcmp,nmap_hap,line->n_allele,line->d.allele,rec->n_allele,rec->d.allele);
-    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n");
+    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
 
     int i, j;
     if ( rec->n_allele==line->n_allele )
@@ -1351,7 +1379,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
                 }
             }
             if ( col->number==BCF_VL_G )
-                for (j=line->n_allele; j<ndst1; j++) { bcf_float_set_vector_end(ptr_dst[j]); j++; }
+                for (j=line->n_allele; j<ndst1; j++) bcf_float_set_vector_end(ptr_dst[j]);
         }
         else
         {
@@ -1580,8 +1608,30 @@ static void init_columns(args_t *args)
         else if ( !strcasecmp("POS",str.s) ) args->from_idx = icol;
         else if ( !strcasecmp("FROM",str.s) ) args->from_idx = icol;
         else if ( !strcasecmp("TO",str.s) ) args->to_idx = icol;
-        else if ( !strcasecmp("REF",str.s) ) args->ref_idx = icol;
-        else if ( !strcasecmp("ALT",str.s) ) args->alt_idx = icol;
+        else if ( !strcasecmp("REF",str.s) )
+        {
+            if ( args->tgts_is_vcf )
+            {
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                col->setter = vcf_setter_ref;
+                col->hdr_key_src = strdup(str.s);
+                col->hdr_key_dst = strdup(str.s);
+            }
+            else args->ref_idx = icol;
+        }
+        else if ( !strcasecmp("ALT",str.s) )
+        {
+            if ( args->tgts_is_vcf )
+            {
+                args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+                annot_col_t *col = &args->cols[args->ncols-1];
+                col->setter = vcf_setter_alt;
+                col->hdr_key_src = strdup(str.s);
+                col->hdr_key_dst = strdup(str.s);
+            }
+            else args->alt_idx = icol;
+        }
         else if ( !strcasecmp("ID",str.s) )
         {
             if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
