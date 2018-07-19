@@ -46,13 +46,6 @@ static inline int aztoupper(int c)
     return c;
 }
 
-static inline void prepend_char(const unsigned char pre, char *string, size_t *size)
-{
-    memmove(string + 1, string, (*size + 1));
-    string[0] = pre;
-    (*size)++;
-}
-
 inline uint8_t encode_chrom(const char *chrom, size_t size)
 {
     // X > 23 ; Y > 24 ; M > 25
@@ -60,9 +53,9 @@ inline uint8_t encode_chrom(const char *chrom, size_t size)
     {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        /*                                    X                                Y  M                  */
+        /*                                    M                                X  Y                  */
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,23,24, 0, 0, 0, 0, 0, 0,
-        /*                                    x                                y  m                  */
+        /*                                    m                                x  y                  */
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,23,24, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
