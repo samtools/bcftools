@@ -262,7 +262,11 @@ regidx_t *regidx_init(const char *fname, regidx_parse_f parser, regidx_free_f fr
     }
 
     free(str.s);
-    hts_close(fp);
+    if ( hts_close(fp)!=0 )
+    {
+        fprintf(stderr,"[%s] Error: close failed .. %s\n", __func__,fname);
+        goto error;
+    }
     return idx;
 
 error:

@@ -129,7 +129,7 @@ static void destroy_data(args_t *args)
     if ( args->itr ) hts_itr_destroy(args->itr);
     if ( args->tbx ) tbx_destroy(args->tbx);
     if ( args->idx ) hts_idx_destroy(args->idx);
-    hts_close(args->fp);
+    if ( hts_close(args->fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fname);
 }
 
 static void report(args_t *args, const char *reg)

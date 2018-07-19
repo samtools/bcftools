@@ -376,7 +376,7 @@ static void init_header_lines(args_t *args)
         if ( bcf_hdr_append(args->hdr_out,str.s) ) error("Could not parse %s: %s\n", args->header_fname, str.s);
         bcf_hdr_append(args->hdr,str.s);    // the input file may not have the header line if run with -h (and nothing else)
     }
-    hts_close(file);
+    if ( hts_close(file)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->header_fname);
     free(str.s);
     bcf_hdr_sync(args->hdr_out);
     bcf_hdr_sync(args->hdr);
@@ -1958,10 +1958,10 @@ static void init_data(args_t *args)
         if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);
 
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
-        if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+        if ( args->out_fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__,args->output_fname, strerror(errno));
         if ( args->n_threads )
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p);
-        bcf_hdr_write(args->out_fh, args->hdr_out);
+        if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: failed to write the header to %s\n", __func__,args->output_fname);
     }
 }
 
@@ -2319,12 +2319,12 @@ int main_vcfannotate(int argc, char *argv[])
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
             if ( !pass ) 
             {
-                if ( args->keep_sites ) bcf_write1(args->out_fh, args->hdr_out, line);
+                if ( args->keep_sites && bcf_write1(args->out_fh, args->hdr_out, line)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
                 continue;
             }
         }
         annotate(args, line);
-        bcf_write1(args->out_fh, args->hdr_out, line);
+        if ( bcf_write1(args->out_fh, args->hdr_out, line)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
     }
     destroy_data(args);
     bcf_sr_destroy(args->files);

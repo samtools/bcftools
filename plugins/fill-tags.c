@@ -180,7 +180,7 @@ void parse_samples(args_t *args, char *fname)
     khash_str2int_destroy_free(smpli);
     free(str.s);
     free(off);
-    hts_close(fp);
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
 }
 
 void init_pops(args_t *args)

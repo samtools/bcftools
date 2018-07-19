@@ -188,7 +188,7 @@ static void flush_buffer(args_t *args, int n)
                 if ( args->snp_gap && rec->d.flt[j]==args->SnpGap_id ) { pass = 0; break; }
             }
         }
-        if ( pass ) bcf_write1(args->out_fh, args->hdr, rec);
+        if ( pass && bcf_write1(args->out_fh, args->hdr, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
 }
 
@@ -534,7 +534,7 @@ int main_vcffilter(int argc, char *argv[])
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);
-    bcf_hdr_write(args->out_fh, args->hdr);
+    if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname);
     while ( bcf_sr_next_line(args->files) )
     {
         bcf1_t *line = bcf_sr_get_line(args->files, 0);
@@ -558,14 +558,16 @@ int main_vcffilter(int argc, char *argv[])
             }
             if ( args->set_gts ) set_genotypes(args, line, pass);
             if ( !args->rbuf_lines )
-                bcf_write1(args->out_fh, args->hdr, line);
+            {
+                if ( bcf_write1(args->out_fh, args->hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+            }
             else
                 buffered_filters(args, line);
         }
     }
     buffered_filters(args, NULL);
 
-    hts_close(args->out_fh);
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     destroy_data(args);
     bcf_sr_destroy(args->files);
     free(args);

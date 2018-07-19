@@ -368,8 +368,7 @@ int run(int argc, char **argv)
     args.hdr = bcf_sr_get_header(args.sr, 0);
     args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
     if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
-    bcf_hdr_write(args.out_fh, args.hdr);
-
+    if ( bcf_hdr_write(args.out_fh, args.hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
 
     int i, n = 0;
     char **list;
@@ -420,7 +419,7 @@ int run(int argc, char **argv)
         if ( line )
         {
             if ( line->errcode ) error("TODO: Unchecked error (%d), exiting\n",line->errcode);
-            bcf_write1(args.out_fh, args.hdr, line);
+            if ( bcf_write1(args.out_fh, args.hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
         }
     }
 

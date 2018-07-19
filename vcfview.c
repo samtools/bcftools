@@ -742,7 +742,9 @@ int main_vcfview(int argc, char *argv[])
     init_data(args);
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);
     if (args->print_header)
-        bcf_hdr_write(args->out, out_hdr);
+    {
+        if ( bcf_hdr_write(args->out, out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->fn_out);
+    }
     else if ( args->output_type & FT_BCF )
         error("BCF output requires header, cannot proceed with -H\n");
 
@@ -753,8 +755,7 @@ int main_vcfview(int argc, char *argv[])
         {
             bcf1_t *line = args->files->readers[0].buffer[0];
             if ( line->errcode && out_hdr!=args->hdr ) error("Undefined tags in the header, cannot proceed in the sample subset mode.\n");
-            if ( subset_vcf(args, line) )
-                bcf_write1(args->out, out_hdr, line);
+            if ( subset_vcf(args, line) && bcf_write1(args->out, out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->fn_out);
         }
         ret = args->files->errnum;
         if ( ret ) fprintf(stderr,"Error: %s\n", bcf_sr_strerror(args->files->errnum));

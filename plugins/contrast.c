@@ -134,12 +134,12 @@ static void init_data(args_t *args)
 
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-    bcf_hdr_write(args->out_fh, args->hdr_out);
+    if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 }
 static void destroy_data(args_t *args)
 {
     bcf_hdr_destroy(args->hdr_out);
-    hts_close(args->out_fh);
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     free(args->novel_als_smpl.s);
     free(args->novel_gts_smpl.s);
     free(args->gts);
@@ -354,7 +354,7 @@ int run(int argc, char **argv)
             if ( !pass ) continue;
         }
         process_record(args, rec);
-        bcf_write(args->out_fh, args->hdr_out, rec);
+        if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
 
     fprintf(stderr,"Total/processed/skipped/novel_allele/novel_gt:\t%d\t%d\t%d\t%d\t%d\n", args->ntotal, args->ntested, args->nskipped, args->nnovel_al, args->nnovel_gt);

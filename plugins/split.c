@@ -192,10 +192,10 @@ static void init_data(args_t *args)
         else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &str);
         else kputs(".vcf", &str);
         args->fh[i] = hts_open(str.s, hts_bcf_wmode(args->output_type));
-        if ( args->fh[i] == NULL ) error("Can't write to \"%s\": %s\n", str.s, strerror(errno));
+        if ( args->fh[i] == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, str.s, strerror(errno));
         bcf_hdr_nsamples(args->hdr_out) = 1;
         args->hdr_out->samples[0] = args->bnames[i];
-        bcf_hdr_write(args->fh[i], args->hdr_out);
+        if ( bcf_hdr_write(args->fh[i], args->hdr_out)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,str.s);
     }
     free(str.s);
 
@@ -245,7 +245,7 @@ static void destroy_data(args_t *args)
     int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
     for (i=0; i<nsmpl; i++)
     {
-        if ( args->fh[i] && hts_close(args->fh[i])!=0 ) error("Error: close failed!\n");
+        if ( args->fh[i] && hts_close(args->fh[i])!=0 ) error("Error: close failed .. %s\n",args->bnames[i]);
         free(args->bnames[i]);
     }
     free(args->bnames);
@@ -343,7 +343,7 @@ static void process(args_t *args)
         }
         if ( !out ) out = rec_set_info(args, rec);
         rec_set_format(args, rec, i, out);
-        bcf_write(args->fh[i], args->hdr_out, out);
+        if ( bcf_write(args->fh[i], args->hdr_out, out)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
     }
     if ( out ) bcf_destroy(out);
 }

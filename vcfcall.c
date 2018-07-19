@@ -366,7 +366,7 @@ static void print_missed_line(bcf_sr_regions_t *regs, void *data)
     missed->pos  = regs->start;
     bcf_update_alleles_str(call->hdr, missed,ss);
 
-    bcf_write1(args->out_fh, call->hdr, missed);
+    if ( bcf_write1(args->out_fh, call->hdr, missed)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
 }
 
 static void init_data(args_t *args)
@@ -452,7 +452,7 @@ static void init_data(args_t *args)
     }
 
     args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
-    if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+    if ( args->out_fh == NULL ) error("Error: cannot write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 
     if ( args->flag & CF_QCALL )
@@ -468,7 +468,7 @@ static void init_data(args_t *args)
     bcf_hdr_remove(args->aux.hdr, BCF_HL_INFO, "I16");
 
     if (args->record_cmd_line) bcf_hdr_append_version(args->aux.hdr, args->argc, args->argv, "bcftools_call");
-    bcf_hdr_write(args->out_fh, args->aux.hdr);
+    if ( bcf_hdr_write(args->out_fh, args->aux.hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname);
 
     if ( args->flag&CF_INS_MISSED ) init_missed_line(args);
 }
@@ -498,7 +498,7 @@ static void destroy_data(args_t *args)
     free(args->aux.ploidy);
     if ( args->gvcf ) gvcf_destroy(args->gvcf);
     bcf_hdr_destroy(args->aux.hdr);
-    hts_close(args->out_fh);
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     bcf_sr_destroy(args->aux.srs);
 }
 
@@ -858,8 +858,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( (args.aux.flag & CALL_VARONLY) && ret==0 && !args.gvcf ) continue;     // not a variant
         if ( args.gvcf )
             bcf_rec = gvcf_write(args.gvcf, args.out_fh, args.aux.hdr, bcf_rec, ret==1?1:0);
-        if ( bcf_rec )
-            bcf_write1(args.out_fh, args.aux.hdr, bcf_rec);
+        if ( bcf_rec && bcf_write1(args.out_fh, args.aux.hdr, bcf_rec)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args.output_fname);
     }
     if ( args.gvcf ) gvcf_write(args.gvcf, args.out_fh, args.aux.hdr, NULL, 0);
     if ( args.flag & CF_INS_MISSED ) bcf_sr_regions_flush(args.aux.srs->targets);

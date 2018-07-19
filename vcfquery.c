@@ -128,7 +128,7 @@ static void query_vcf(args_t *args)
     if ( args->print_header )
     {
         convert_header(args->convert,&str);
-        fwrite(str.s, str.l, 1, args->out);
+        if ( fwrite(str.s, str.l, 1, args->out)!=1 ) error("[%s] Error: cannot write to %s\n", __func__,args->fn_out?args->fn_out:"standard output");
     }
 
     int i,max_convert_unpack = convert_max_unpack(args->convert);
@@ -168,8 +168,7 @@ static void query_vcf(args_t *args)
 
         str.l = 0;
         convert_line(args->convert, line, &str);
-        if ( str.l )
-            fwrite(str.s, str.l, 1, args->out);
+        if ( str.l && fwrite(str.s, str.l, 1, args->out)!=1 ) error("[%s] Error: cannot write to %s\n", __func__,args->fn_out?args->fn_out:"standard output");
     }
     if ( str.m ) free(str.s);
 }
@@ -357,7 +356,7 @@ int main_vcfquery(int argc, char *argv[])
         free(args->format_str);
         destroy_data(args);
         bcf_sr_destroy(args->files);
-        fclose(args->out);
+        if ( fclose(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fn_out);
         free(args);
         return 0;
     }
@@ -395,7 +394,7 @@ int main_vcfquery(int argc, char *argv[])
         destroy_data(args);
         bcf_sr_destroy(args->files);
     }
-    fclose(args->out);
+    if ( fclose(args->out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fn_out);;
     destroy_list(fnames, nfiles);
     destroy_list(prev_samples, prev_nsamples);
     free(args->format_str);

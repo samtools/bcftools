@@ -226,9 +226,9 @@ static void init_sample_files(sample_t *smpl, char *dir)
 }
 static void close_sample_files(sample_t *smpl)
 {
-    fclose(smpl->dat_fh);
-    fclose(smpl->cn_fh);
-    fclose(smpl->summary_fh);
+    if ( fclose(smpl->dat_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,smpl->dat_fname);
+    if ( fclose(smpl->cn_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,smpl->cn_fname);
+    if ( fclose(smpl->summary_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,smpl->summary_fname);
 }
 
 static double norm_cdf(double mean, double dev);

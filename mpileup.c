@@ -280,7 +280,7 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
 {
     if ( !conf->gvcf )
     {
-        if ( rec ) bcf_write1(fp, hdr, rec);
+        if ( rec && bcf_write1(fp, hdr, rec)!=0 ) error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
         return;
     }
 
@@ -298,7 +298,7 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
         if ( rec->d.allele[1][0]=='<' && rec->d.allele[1][1]=='*' && rec->d.allele[1][2]=='>' ) is_ref = 1;
     }
     rec = gvcf_write(conf->gvcf, fp, hdr, rec, is_ref);
-    if ( rec ) bcf_write1(fp,hdr,rec);
+    if ( rec && bcf_write1(fp,hdr,rec)!=0 ) error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
 }
 
 static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
@@ -571,7 +571,7 @@ static int mpileup(mplp_conf_t *conf)
     const char **smpl = bam_smpl_get_samples(conf->bsmpl, &nsmpl);
     for (i=0; i<nsmpl; i++)
         bcf_hdr_add_sample(conf->bcf_hdr, smpl[i]);
-    bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr);
+    if ( bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr)!=0 ) error("[%s] Error: failed to write the header to %s\n",__func__,conf->output_fname?conf->output_fname:"standard output");
 
     conf->bca = bcf_call_init(-1., conf->min_baseQ);
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
@@ -656,7 +656,7 @@ static int mpileup(mplp_conf_t *conf)
     bcf_destroy1(conf->bcf_rec);
     if (conf->bcf_fp)
     {
-        hts_close(conf->bcf_fp);
+        if ( hts_close(conf->bcf_fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,conf->output_fname);
         bcf_hdr_destroy(conf->bcf_hdr);
         bcf_call_destroy(conf->bca);
         free(conf->bc.PL);
@@ -738,7 +738,7 @@ int read_file_list(const char *file_list,int *n,char **argv[])
         files = (char**) realloc(files,nfiles*sizeof(char*));
         files[nfiles-1] = strdup(buf);
     }
-    fclose(fh);
+    if ( fclose(fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,file_list);
     if ( !nfiles )
     {
         fprintf(stderr,"No files read from %s\n", file_list);

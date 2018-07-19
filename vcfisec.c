@@ -144,7 +144,7 @@ void isec_vcf(args_t *args)
         if ( out_fh == NULL ) error("Can't write to %s: %s\n", args->output_fname? args->output_fname : "standard output", strerror(errno));
         if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
         if (args->record_cmd_line) bcf_hdr_append_version(files->readers[args->iwrite].header,args->argc,args->argv,"bcftools_isec");
-        bcf_hdr_write(out_fh, files->readers[args->iwrite].header);
+        if ( bcf_hdr_write(out_fh, files->readers[args->iwrite].header)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
     }
     if ( !args->nwrite && !out_std && !args->prefix )
         fprintf(stderr,"Note: -w option not given, printing list of sites...\n");
@@ -195,8 +195,8 @@ void isec_vcf(args_t *args)
 
         if ( out_std )
         {
-            if ( bcf_sr_has_line(files,args->iwrite) )
-                bcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0]);
+            if ( bcf_sr_has_line(files,args->iwrite) && bcf_write1(out_fh, files->readers[args->iwrite].header, files->readers[args->iwrite].buffer[0])!=0 )
+                error("[%s] Error: cannot write to %s\n", __func__, args->output_fname ? args->output_fname : "standard output");
             continue;
         }
         else if ( args->fh_sites )
@@ -218,7 +218,8 @@ void isec_vcf(args_t *args)
             for (i=0; i<files->nreaders; i++)
                 kputc(bcf_sr_has_line(files,i)?'1':'0', &str);
             kputc('\n', &str);
-            fwrite(str.s,sizeof(char),str.l,args->fh_sites);
+            if ( fwrite(str.s,sizeof(char),str.l,args->fh_sites)!=str.l )
+                error("[%s] Error: failed to write %d bytes to %s\n", __func__,(int)str.l,args->output_fname ? args->output_fname : "standard output");
         }
 
         if ( args->prefix )
@@ -226,9 +227,15 @@ void isec_vcf(args_t *args)
             if ( args->isec_op==OP_VENN && ret==3 )
             {
                 if ( !args->nwrite || args->write[0] )
-                    bcf_write1(args->fh_out[2], bcf_sr_get_header(files,0), bcf_sr_get_line(files,0));
+                {
+                    if ( bcf_write1(args->fh_out[2], bcf_sr_get_header(files,0), bcf_sr_get_line(files,0))!=0 )
+                         error("[%s] Error: cannot write\n", __func__);
+                }
                 if ( !args->nwrite || args->write[1] )
-                    bcf_write1(args->fh_out[3], bcf_sr_get_header(files,1), bcf_sr_get_line(files,1));
+                {
+                    if ( bcf_write1(args->fh_out[3], bcf_sr_get_header(files,1), bcf_sr_get_line(files,1))!=0 )
+                        error("[%s] Error: cannot write\n", __func__);
+                }
             }
             else
             {
@@ -236,13 +243,13 @@ void isec_vcf(args_t *args)
                 {
                     if ( !bcf_sr_has_line(files,i) ) continue;
                     if ( args->write && !args->write[i] ) continue;
-                    bcf_write1(args->fh_out[i], files->readers[i].header, files->readers[i].buffer[0]);
+                    if ( bcf_write1(args->fh_out[i], files->readers[i].header, files->readers[i].buffer[0])!=0 ) error("[%s] Error: cannot write\n", __func__);
                 }
             }
         }
     }
     if ( str.s ) free(str.s);
-    if ( out_fh ) hts_close(out_fh);
+    if ( out_fh && hts_close(out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname? args->output_fname : "-");
 }
 
 static void add_filter(args_t *args, char *expr, int logic)
@@ -352,7 +359,7 @@ static void init_data(args_t *args)
                 if ( !args->fh_out[i] ) error("Could not open %s\n", args->fnames[i]); \
                 if ( args->n_threads ) hts_set_threads(args->fh_out[i], args->n_threads); \
                 if (args->record_cmd_line) bcf_hdr_append_version(args->files->readers[j].header,args->argc,args->argv,"bcftools_isec"); \
-                bcf_hdr_write(args->fh_out[i], args->files->readers[j].header); \
+                if ( bcf_hdr_write(args->fh_out[i], args->files->readers[j].header)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->fnames[i]); \
             }
             if ( !args->nwrite || args->write[0] )
             {
@@ -425,7 +432,7 @@ static void destroy_data(args_t *args)
         for (i=0; i<n; i++)
         {
             if ( !args->fnames[i] ) continue;
-            hts_close(args->fh_out[i]);
+            if ( hts_close(args->fh_out[i])!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fnames[i]);
             if ( args->output_type==FT_VCF_GZ )
             {
                 tbx_conf_t conf = tbx_conf_vcf;

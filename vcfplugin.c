@@ -427,7 +427,7 @@ static void init_data(args_t *args)
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
-        bcf_hdr_write(args->out_fh, args->hdr_out);
+        if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
 }
 
@@ -445,7 +445,7 @@ static void destroy_data(args_t *args)
     }
     if ( args->filter )
         filter_destroy(args->filter);
-    if (args->out_fh) hts_close(args->out_fh);
+    if (args->out_fh && hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 }
 
 static void usage(args_t *args)
@@ -640,7 +640,7 @@ int main_plugin(int argc, char *argv[])
         if ( line )
         {
             if ( line->errcode ) error("[E::main_plugin] Unchecked error (%d), exiting\n",line->errcode);
-            bcf_write1(args->out_fh, args->hdr_out, line);
+            if ( bcf_write1(args->out_fh, args->hdr_out, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
         }
     }
     destroy_data(args);

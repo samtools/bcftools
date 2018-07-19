@@ -313,8 +313,8 @@ static void reheader_vcf(args_t *args)
         kputc('\n',&fp->line);
         if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
     }
-    hts_close(fp);
-    close(out);
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fname);
+    if ( close(out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 }
 
 static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
@@ -414,7 +414,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
         BGZF *bgzf = hts_get_bgzfp(fp_out);
         if ( bgzf ) bgzf_thread_pool(bgzf, args->threads->pool, args->threads->qsize);
     }
-    bcf_hdr_write(fp_out, hdr_out);
+    if ( bcf_hdr_write(fp_out, hdr_out)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname ? args->output_fname : "standard output");
 
     bcf1_t *rec = bcf_init();
     while ( bcf_read(fp, hdr, rec)==0 )
@@ -459,13 +459,13 @@ static void reheader_bcf(args_t *args, int is_compressed)
         if ( i!=rec->n_fmt )
             error("The FORMAT tag is not defined: \"%s\"\n", bcf_hdr_int2id(hdr,BCF_DT_ID,rec->d.fmt[i].id));
 
-        bcf_write(fp_out,hdr_out,rec);
+        if ( bcf_write(fp_out,hdr_out,rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname ? args->output_fname : "standard output");
     }
     bcf_destroy(rec);
 
     free(htxt.s);
-    hts_close(fp_out);
-    hts_close(fp);
+    if ( hts_close(fp_out)!=0 ) error("[%s] Error: failed to close the file %s\n",__func__,args->output_fname ? args->output_fname : "standard output");
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fname);
     bcf_hdr_destroy(hdr_out);
     bcf_hdr_destroy(hdr);
     if ( args->threads )

@@ -131,14 +131,14 @@ int run(int argc, char **argv)
     smpl_ilist_t *smpl = smpl_ilist_map(args->hdr_a, args->hdr_b, SMPL_STRICT);
     args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-    bcf_hdr_write(args->out_fh, args->hdr_a);
+    if ( bcf_hdr_write(args->out_fh, args->hdr_a)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     
     while ( bcf_sr_next_line(args->sr) )
     {
         if ( !bcf_sr_has_line(args->sr,0) ) continue;
         if ( !bcf_sr_has_line(args->sr,1) )
         {
-            bcf_write(args->out_fh, args->hdr_a, bcf_sr_get_line(args->sr,0));
+            if ( bcf_write(args->out_fh, args->hdr_a, bcf_sr_get_line(args->sr,0))!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
             continue;
         }
 
@@ -163,7 +163,7 @@ int run(int argc, char **argv)
             }
         }
         if ( dirty ) bcf_update_genotypes(args->hdr_a, line_a, args->arr_a, ngt_a*smpl->n);
-        bcf_write(args->out_fh, args->hdr_a, line_a);
+        if ( bcf_write(args->out_fh, args->hdr_a, line_a)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
 
     if ( hts_close(args->out_fh)!=0 ) error("Close failed: %s\n",args->output_fname);

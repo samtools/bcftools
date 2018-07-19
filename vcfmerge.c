@@ -1814,7 +1814,7 @@ void gvcf_write_block(args_t *args, int start, int end)
     }
     else
         bcf_update_info_int32(args->out_hdr, out, "END", NULL, 0);
-    bcf_write1(args->out_fh, args->out_hdr, out);
+    if ( bcf_write1(args->out_fh, args->out_hdr, out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     bcf_clear1(out);
 
 
@@ -2286,7 +2286,7 @@ void merge_line(args_t *args)
     if ( args->do_gvcf )
         bcf_update_info_int32(args->out_hdr, out, "END", NULL, 0);
     merge_format(args, out);
-    bcf_write1(args->out_fh, args->out_hdr, out);
+    if ( bcf_write1(args->out_fh, args->out_hdr, out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     bcf_clear1(out);
 }
 
@@ -2340,11 +2340,11 @@ void merge_vcf(args_t *args)
     info_rules_init(args);
 
     bcf_hdr_set_version(args->out_hdr, bcf_hdr_get_version(args->files->readers[0].header));
-    bcf_hdr_write(args->out_fh, args->out_hdr);
+    if ( bcf_hdr_write(args->out_fh, args->out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     if ( args->header_only )
     {
         bcf_hdr_destroy(args->out_hdr);
-        hts_close(args->out_fh);
+        if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
         return;
     }
 
@@ -2379,7 +2379,7 @@ void merge_vcf(args_t *args)
     info_rules_destroy(args);
     maux_destroy(args->maux);
     bcf_hdr_destroy(args->out_hdr);
-    hts_close(args->out_fh);
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     bcf_destroy1(args->out_line);
     kh_destroy(strdict, args->tmph);
     if ( args->tmps.m ) free(args->tmps.s);
