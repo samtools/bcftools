@@ -107,13 +107,13 @@ sub parse_params
     $0 =~ s{^.+/}{};
     my $opts =
     {
-        pdf_plots  => 1,
         use_sample_names => 0,
         verbose    => 1,
         make_pdf   => 1,
         make_plots => 1,
         merge      => 0,
         args       => join(' ',$0,@ARGV),
+        img_fmt    => 'pdf',
         img_width  => 11/2.54,
         img_height => 10/2.54,
         id2col     => [ 'orange', 'red', 'darkgreen' ],
@@ -249,7 +249,7 @@ sub parse_params
     {
         if (                 $arg eq '--no-plots' ) { $$opts{make_plots}=0; next; }
         if ( $arg eq '-P' || $arg eq '--no-PDF' ) { $$opts{make_pdf}=0; next; }
-        if ( $arg eq '-r' || $arg eq '--rasterize' ) { $$opts{rasterize}=1; $$opts{pdf_plots} = 0; next; }
+        if ( $arg eq '-r' || $arg eq '--rasterize' ) { $$opts{img_fmt} = 'png'; next; }
         if ( $arg eq '-m' || $arg eq '--merge' ) { $$opts{make_plots}=0; $$opts{make_pdf}=0; $$opts{merge}=1; next; }
         if ( $arg eq '-s' || $arg eq '--sample-names' ) { $$opts{use_sample_names}=1; next; }
         if ( $arg eq '-t' || $arg eq '--title' ) { push @{$$opts{titles}},shift(@ARGV); next; }
@@ -679,8 +679,7 @@ sub init_plots
         #
         $titles
 
-        # Set to 1 to plot in PDF instead of PNG
-        pdf_plots = $$opts{pdf_plots}
+        img_fmt = '$$opts{img_fmt}'
 
         # Use logarithimic X axis for allele frequency plots
         af_xlog = 0
@@ -825,7 +824,7 @@ sub plot_venn_bars
             \\tplt.title('Number of SNPs')
             \\tplt.subplots_adjust(right=0.95,bottom=0.15)
             \\tplt.savefig('venn_bars.snps.png')
-            \\tif pdf_plots: plt.savefig('venn_bars.snps.pdf')
+            \\tif img_fmt != 'png': plt.savefig('venn_bars.snps.' + img_fmt)
             \\tplt.close()
 
 
@@ -839,7 +838,7 @@ sub plot_venn_bars
             \\tplt.title('Number of indels')
             \\tplt.subplots_adjust(right=0.95,bottom=0.15)
             \\tplt.savefig('venn_bars.indels.png')
-            \\tif pdf_plots: plt.savefig('venn_bars.indels.pdf')
+            \\tif img_fmt != 'png': plt.savefig('venn_bars.indels.' + img_fmt)
             \\tplt.close()
 
         ];
@@ -891,7 +890,7 @@ sub plot_per_sample_stats
             \\t\\t     ax1.set_xlabel('Sample ID')
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
 
@@ -909,7 +908,7 @@ sub plot_per_sample_stats
             \\t\\t     ax1.set_xlabel('Sample ID')
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img2.png')
-            \\tif pdf_plots: plt.savefig('$img2.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img2.' + img_fmt)
             \\tplt.close()
 
 
@@ -927,7 +926,7 @@ sub plot_per_sample_stats
             \\t\\t     ax1.set_xlabel('Sample ID')
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img3.png')
-            \\tif pdf_plots: plt.savefig('$img3.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img3.' + img_fmt)
             \\tplt.close()
 
 
@@ -945,7 +944,7 @@ sub plot_per_sample_stats
             \\t\\t     ax1.set_xlabel('Sample ID')
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img4.png')
-            \\tif pdf_plots: plt.savefig('$img4.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img4.' + img_fmt)
             \\tplt.close()
 
 
@@ -963,7 +962,7 @@ sub plot_per_sample_stats
             \\t\\t     ax1.set_xlabel('Sample ID')
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img5.png')
-            \\tif pdf_plots: plt.savefig('$img5.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img5.' + img_fmt)
             \\tplt.close()
 
 
@@ -981,7 +980,7 @@ sub plot_per_sample_stats
             \\t\\t     ax1.set_xlabel('Sample ID')
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img6.png')
-            \\tif pdf_plots: plt.savefig('$img6.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img6.' + img_fmt)
             \\tplt.close()
 
         ";
@@ -1029,7 +1028,7 @@ sub plot_DP
             \\tplt.subplots_adjust(left=0.15,bottom=0.15,right=0.87)
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
         ";
@@ -1091,7 +1090,7 @@ sub plot_hwe
             \\tplt.subplots_adjust(left=0.15,bottom=0.15,right=0.86)
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
         ";
@@ -1147,7 +1146,7 @@ sub plot_tstv_by_AF
             \\tplt.subplots_adjust(right=0.88,left=0.15,bottom=0.11)
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
         ";
@@ -1215,7 +1214,7 @@ sub plot_tstv_by_QUAL
             \\tplt.subplots_adjust(right=0.88,left=0.15,bottom=0.15)
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
         ";
@@ -1312,7 +1311,7 @@ sub plot_concordance_by_AF
             \\tif af_xlog: ax2.set_xscale('log')
             \\tplt.subplots_adjust(left=0.15,right=0.83,bottom=0.11)
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
             if plot_r2_by_af and len(dat)>1:
@@ -1332,7 +1331,7 @@ sub plot_concordance_by_AF
             \\tax1.set_xlabel('Non-ref allele frequency')
             \\tplt.subplots_adjust(left=0.19,right=0.83,bottom=0.11)
             \\tplt.savefig('$img2.png')
-            \\tif pdf_plots: plt.savefig('$img2.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img2.' + img_fmt)
             \\tplt.close()
 
         ";
@@ -1376,7 +1375,7 @@ sub plot_concordance_by_sample
             \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
             \\t\\t     ax1.set_xlabel('Sample ID')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
 
@@ -1447,7 +1446,7 @@ sub plot_counts_by_AF_col
             \\t\\tplt.title('$title count by AF')
             \\t\\tplt.subplots_adjust(bottom=0.2,left=0.1,right=0.95)
             \\t\\tplt.savefig('$img.png')
-            \\t\\tif pdf_plots: plt.savefig('$img.pdf')
+            \\t\\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\t\\tplt.close()
 
 
@@ -1519,7 +1518,7 @@ sub plot_overlap_by_AF_col
         \\tplt.title('$title overlap by AF')
         \\tplt.subplots_adjust(bottom=0.2,left=0.1,right=0.95)
         \\tplt.savefig('$img.png')
-        \\tif pdf_plots: plt.savefig('$img.pdf')
+        \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
         \\tplt.close()
     ";
 }
@@ -1576,7 +1575,7 @@ sub plot_indel_distribution
             \\tplt.subplots_adjust(bottom=0.17)
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
         ";
 }
@@ -1611,7 +1610,7 @@ sub plot_substitutions
             \\tplt.xticks([row[0] for row in dat],[row[1] for row in dat],rotation=45)
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
+            \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
             \\tplt.close()
 
         ";
@@ -1659,15 +1658,15 @@ sub fmt_slide3v
     my $n = 0;
     for my $id (0..2)
     {
-        if ( -e "$image.$id.$$opts{fmt}" ) { $n++; }
+        if ( -e "$image.$id.$$opts{img_fmt}" ) { $n++; }
     }
     if ( !$n ) { return ''; }
     my $h = $$opts{tex}{slide3v}{"height$n"};
     my $slide = q[\vbox{];
     for my $id (0..2)
     {
-        if ( !-e "$image.$id.$$opts{fmt}" ) { next; }
-        $slide .= qq[\\centerline{\\includegraphics[$$opts{ext},height=$h]{$image.$id}}];
+        if ( !-e "$image.$id.$$opts{img_fmt}" ) { next; }
+        $slide .= qq[\\centerline{\\includegraphics[height=$h]{\{$image.$id\}.$$opts{img_fmt}}}];
     }
     $slide .= '}';
     return qq[
@@ -1683,15 +1682,15 @@ sub fmt_slide3h
     my $n = 0;
     for my $id (0..2)
     {
-        if ( -e "$image.$id.$$opts{fmt}" ) { $n++; }
+        if ( -e "$image.$id.$$opts{img_fmt}" ) { $n++; }
     }
     if ( !$n ) { return ''; }
     my $w = $$opts{tex}{slide3h}{"width$n"};
     my $slide = '';
     for my $id (0..2)
     {
-        if ( !-e "$image.$id.$$opts{fmt}" ) { next; }
-        $slide .= qq[\\includegraphics[$$opts{ext},width=$w]{$image.$id}];
+        if ( !-e "$image.$id.$$opts{img_fmt}" ) { next; }
+        $slide .= qq[\\includegraphics[width=$w]{\{$image.$id\}.$$opts{img_fmt}}];
     }
     return qq[
             % $title
@@ -1728,11 +1727,7 @@ sub create_pdf
     my $width1  = "23cm";
     my $width2  = @ids==3 ? "10.5cm" : "10.5cm";
     my $width3  = @ids==3 ? "8cm" : "15cm";
-    my $fmt     = $$opts{rasterize} ? 'png' : 'pdf';
-    my $ext     = "type=$fmt,ext=.$fmt,read=.$fmt";
-    my $args    = { ext=>$ext, width3=>$width3, n=>scalar @ids };
-    $$opts{fmt} = $fmt;
-    $$opts{ext} = $ext;
+    my $args    = { width3=>$width3, n=>scalar @ids };
 
     my $engine = '';
     system('command -v pdflatex >/dev/null');
@@ -1820,7 +1815,7 @@ sub create_pdf
             \\newcommand*{\\hslide}[2]{%
                     \\head{#1}%
                     \\begin{vplace}[0.5]\\centerline{#2}\\end{vplace}\\newpage}
-            \\newcommand{\\pdf}[2]{\\IfFileExists{#2.$fmt}{\\includegraphics[#1]{#2}}{}}
+            \\newcommand{\\pdf}[2]{\\IfFileExists{#2}{\\includegraphics[#1]{#2}}{}}
 
 
             % The actual slides
@@ -1922,8 +1917,8 @@ sub create_pdf
             % Venn numbers
             %
             \\hslide{Total counts}{%
-                \\includegraphics[$ext,width=$width2]{venn_bars.snps}%
-                \\includegraphics[$ext,width=$width2]{venn_bars.indels}
+                \\includegraphics[width=$width2]{{venn_bars.snps}.$$opts{img_fmt}}%
+                \\includegraphics[width=$width2]{{venn_bars.indels}.$$opts{img_fmt}}
             }
         ];
     }
@@ -1939,7 +1934,7 @@ sub create_pdf
         tprint $tex, qq[
             % Genotype discordance by sample
             %
-            \\hslide{Genotype discordance by sample}{\\pdf{$ext,width=$width1}{gts_by_sample}}
+            \\hslide{Genotype discordance by sample}{\\pdf{width=$width1}{gts_by_sample.$$opts{img_fmt}}}
 
             ];
     }
@@ -1965,30 +1960,30 @@ sub create_pdf
                 % Genotype discordance by AF
                 %
                 \\head{Genotype discordance by AF}\\begin{vplace}[0.7]\\centerline{$table}%
-                \\centerline{\\pdf{$ext,height=$height1}{gts_by_af}}\\end{vplace}
+                \\centerline{\\pdf{height=$height1}{gts_by_af.$$opts{img_fmt}}}\\end{vplace}
                 \\newpage
 
                 % dosage r2 by AF
                 %
-                \\hslide{Allelic R\$^2\$ by AF}{\\pdf{$ext,height=$height1}{r2_by_af}}
+                \\hslide{Allelic R\$^2\$ by AF}{\\pdf{height=$height1}{r2_by_af.$$opts{img_fmt}}}
             ];
     }
-    if ( -e "counts_by_af.snps.$fmt" && -e "counts_by_af.indels.$fmt" )
+    if ( -e "counts_by_af.snps.$$opts{img_fmt}" && -e "counts_by_af.indels.$$opts{img_fmt}" )
     {
         tprint $tex, qq[
             % SNP and indel counts by AF
             %
-            \\hslide{}{\\vbox{\\noindent\\includegraphics[$ext,width=$width1]{counts_by_af.snps}\\\\%
-                \\noindent\\includegraphics[$ext,width=$width1]{counts_by_af.indels}}}
+            \\hslide{}{\\vbox{\\noindent\\includegraphics[width=$width1]{{counts_by_af.snps}.$$opts{img_fmt}}\\\\%
+                \\noindent\\includegraphics[width=$width1]{{counts_by_af.indels}.$$opts{img_fmt}}}}
             ];
     }
-    if ( -e "overlap_by_af.snps.$fmt" && -e "overlap_by_af.indels.$fmt" )
+    if ( -e "overlap_by_af.snps.$$opts{img_fmt}" && -e "overlap_by_af.indels.$$opts{img_fmt}" )
     {
         tprint $tex, qq[
             % SNP and indel overlap by AF
             %
-            \\hslide{}{\\vbox{\\noindent\\includegraphics[$ext,width=$width1]{overlap_by_af.snps}\\\\%
-                \\noindent\\includegraphics[$ext,width=$width1]{overlap_by_af.indels}}}
+            \\hslide{}{\\vbox{\\noindent\\includegraphics[width=$width1]{{overlap_by_af.snps}.$$opts{img_fmt}}\\\\%
+                \\noindent\\includegraphics[width=$width1]{{overlap_by_af.indels}.$$opts{img_fmt}}}}
             ];
     }
     tprint $tex, fmt_slide3h($opts, "tstv_by_af", 'Ts/Tv by AF');
