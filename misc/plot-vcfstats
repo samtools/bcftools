@@ -1734,8 +1734,17 @@ sub create_pdf
     $$opts{fmt} = $fmt;
     $$opts{ext} = $ext;
 
+    my $engine = '';
+    system('command -v pdflatex >/dev/null');
+    if ($? == 0) { $engine = 'pdflatex'; }
+    else
+    {
+        system('command -v tectonic >/dev/null');
+        if ($? == 0) { $engine = 'tectonic'; }
+    }
+    if (! $engine) { error('Neither pdflatex or tectonic were found in your PATH, impossible to create a PDF') }
     # Check that xcolor is available
-    my @has_xcolor = `kpsewhich xcolor.sty`;
+    my @has_xcolor = $engine eq 'tectonic' || `kpsewhich xcolor.sty`;
     if ( !@has_xcolor )
     {
         warn("Note: The xcolor.sty package not available, black and white tables only...\n\n");
@@ -1749,7 +1758,7 @@ sub create_pdf
             %   $$opts{args}
             %
             % Edit as necessary and recreate the PDF by running
-            %   pdflatex $tex_file
+            %   $engine $tex_file
             %
 
             % Slides style and dimensions
@@ -1995,10 +2004,10 @@ sub create_pdf
     close($tex);
 
     $tex_file =~ s{^.+/}{};
-    my $cmd = "pdflatex $tex_file >$$opts{logfile} 2>&1";
+    my $cmd = "$engine $tex_file >$$opts{logfile} 2>&1";
     print STDERR "Creating PDF: $cmd\n" unless !$$opts{verbose};
     system($cmd);
-    if ( $? ) { error("The command exited with non-zero status, please consult the output of pdflatex: $$opts{dir}$$opts{logfile}\n\n"); }
+    if ( $? ) { error("The command exited with non-zero status, please consult the output of $engine: $$opts{dir}$$opts{logfile}\n\n"); }
     print STDERR "Finished: $$opts{dir}/$pdf_file\n" unless !$$opts{verbose};
 }
 
