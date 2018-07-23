@@ -392,7 +392,8 @@ typedef struct
 {
     bcf1_t *line;
     uint32_t *smpl;     // bitmask of sample consequences with first/second haplotype interleaved
-    uint32_t nfmt:4, nvcsq:28, mvcsq;
+    uint32_t nfmt:4,    // the bitmask size (the number of integers per sample)
+             nvcsq:28, mvcsq;
     vcsq_t *vcsq;       // there can be multiple consequences for a single VCF record
 }
 vrec_t;
@@ -2136,6 +2137,8 @@ fprintf(stderr,"cds splice_csq: %d [%s][%s] .. beg,end=%d %d, ret=%d, csq=%d\n\n
             if ( len < 0 )   // overlapping variants
             {
                 free(str.s);
+                free(splice.kref.s);
+                free(splice.kalt.s);
                 return 1;
             }
             kputsn_(tr->ref + N_REF_PAD + parent->rbeg + parent->rlen - tr->beg, len, &str);
@@ -3067,12 +3070,23 @@ void vbuf_push(args_t *args, bcf1_t **rec_ptr)
 
 void vbuf_flush(args_t *args)
 {
-    if ( args->active_tr->ndat ) return; // cannot output buffered VCF lines (args.vbuf) until all active transcripts are gone
-
     int i,j;
-    while ( (i=rbuf_shift(&args->vcf_rbuf))>=0 )
+    while ( args->vcf_rbuf.n )
     {
-        vbuf_t *vbuf = args->vcf_buf[i];
+        vbuf_t *vbuf;
+        if ( !args->local_csq && args->active_tr->ndat )
+        {
+            // check if the first active transcript starts beyond the first buffered VCF record,
+            // cannot output buffered VCF lines (args.vbuf) until the active transcripts are gone
+            vbuf = args->vcf_buf[ args->vcf_rbuf.f ];
+            assert( vbuf->n );
+            if ( vbuf->vrec[0]->line->pos >= args->active_tr->dat[0]->beg ) break;    // cannot flush
+        }
+
+        i = rbuf_shift(&args->vcf_rbuf);
+        assert( i>=0 );
+        vbuf = args->vcf_buf[i];
+        int pos = vbuf->n ? vbuf->vrec[0]->line->pos : -1;
         for (i=0; i<vbuf->n; i++)
         {
             vrec_t *vrec = vbuf->vrec[i];
@@ -3084,6 +3098,9 @@ void vbuf_flush(args_t *args)
             if ( !vrec->nvcsq )
             {
                 if ( bcf_write(args->out_fh, args->hdr, vrec->line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
+                int save_pos = vrec->line->pos;
+                bcf_empty(vrec->line);
+                vrec->line->pos = save_pos;  // this is necessary for compound variants
                 continue;
             }
             
@@ -3098,19 +3115,24 @@ void vbuf_flush(args_t *args)
             if ( args->hdr_nsmpl )
             {
                 if ( vrec->nfmt < args->nfmt_bcsq )
-                    for (j=1; j<args->hdr_nsmpl; j++) memcpy(vrec->smpl+j*vrec->nfmt, vrec->smpl+j*args->nfmt_bcsq, vrec->nfmt*sizeof(*vrec->smpl));
+                    for (j=1; j<args->hdr_nsmpl; j++)
+                        memmove(&vrec->smpl[j*vrec->nfmt], &vrec->smpl[j*args->nfmt_bcsq], vrec->nfmt*sizeof(*vrec->smpl));
                 bcf_update_format_int32(args->hdr, vrec->line, args->bcsq_tag, vrec->smpl, args->hdr_nsmpl*vrec->nfmt);
             }
             vrec->nvcsq = 0;
             if ( bcf_write(args->out_fh, args->hdr, vrec->line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
+            int save_pos = vrec->line->pos;
+            bcf_empty(vrec->line);
+            vrec->line->pos = save_pos;
         }
-        if ( vbuf->n )
+        if ( pos!=-1 )
         {
-            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, vbuf->vrec[0]->line->pos);
+            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, pos);
             if ( k != kh_end(args->pos2vbuf) ) kh_del(pos2vbuf, args->pos2vbuf, k);
         }
         vbuf->n = 0;
     }
+    if ( args->active_tr->ndat ) return;
 
     for (i=0; i<args->nrm_tr; i++)
     {
@@ -3690,7 +3712,6 @@ void process(args_t *args, bcf1_t **rec_ptr)
     }
 
     bcf1_t *rec = *rec_ptr;
-
     int call_csq = 1;
     if ( !rec->n_allele ) call_csq = 0;   // no alternate allele
     else if ( rec->n_allele==2 && (rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*') ) call_csq = 0;     // gVCF, no alt allele
@@ -3883,7 +3904,6 @@ int main_csq(int argc, char *argv[])
     destroy_data(args);
     bcf_sr_destroy(args->sr);
     free(args);
-
     return 0;
 }
 
