@@ -33,7 +33,7 @@ DEALINGS IN THE SOFTWARE.  */
 
 const char *FILE_VKRS = "vkrs.unsorted.hex";
 const char *FILE_RSVK = "rsvk.unsorted.hex";
-const char *FILE_VKNR = "vknr.unsorted.hex";
+const char *FILE_VKNR = "vknr.unsorted.tsv";
 
 FILE *fp_vkrs; // VariantKey -> rsID
 FILE *fp_rsvk; // rsID -> VariantKey
@@ -99,15 +99,6 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     return 1;
 }
 
-void str2hex(const char *str, char *hex)
-{
-    int i = 0;
-    while (*str)
-    {
-        sprintf(hex+(i++)*2, "%02x", (uint8_t) *str++);
-    }
-}
-
 // Called for each VCF record. Return rec to output the line or NULL to suppress output.
 bcf1_t *process(bcf1_t *rec)
 {
@@ -129,11 +120,7 @@ bcf1_t *process(bcf1_t *rec)
     if (vk & 1)
     {
         // map VariantKey to REF and ALT
-        char hex_ref[2*len_ref+1];
-        char hex_alt[2*len_alt+1];
-        str2hex(rec->d.allele[0], hex_ref);
-        str2hex(rec->d.allele[1], hex_alt);
-        fprintf(fp_vknr, "%016" PRIx64 "\t%016" PRIx64 "\t%02" PRIx8 "\t%02" PRIx8 "\t%s\t%s\n", vk, (uint64_t)(len_ref + len_alt + 2), len_ref, len_alt, hex_ref, hex_alt);
+        fprintf(fp_vknr, "%016" PRIx64 "\t%s\t%s\n", vk, rec->d.allele[0], rec->d.allele[1]);
         nrv++;
     }
     numvar++;

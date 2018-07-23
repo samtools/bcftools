@@ -65,7 +65,7 @@ extern "C" {
 typedef struct variantkey_t
 {
     uint8_t chrom;   //!< Chromosome encoded number (only the LSB 5 bit are used)
-    uint32_t pos;    //!< Reference position, with the 1st base having position 0 (only the LSB 28 bit are used)
+    uint32_t pos;    //!< Reference position, with the first base having position 0 (only the LSB 28 bit are used)
     uint32_t refalt; //!< Code for Reference and Alternate allele (only the LSB 31 bits are used)
 } variantkey_t;
 
@@ -130,7 +130,7 @@ size_t decode_refalt(uint32_t code, char *ref, size_t *sizeref, char *alt, size_
 /** @brief Returns a 64 bit variant key based on the pre-encoded CHROM, POS (0-based) and REF+ALT.
  *
  * @param chrom      Encoded Chromosome (see encode_chrom).
- * @param pos        Position. The reference position, with the 1st base having position 0.
+ * @param pos        Position. The reference position, with the first base having position 0.
  * @param refalt     Encoded Reference + Alternate (see encode_refalt).
  *
  * @return      VariantKey 64 bit code.
@@ -174,7 +174,7 @@ void decode_variantkey(uint64_t code, variantkey_t *vk);
  *
  * @param chrom      Chromosome. An identifier from the reference genome, no white-space or leading zeros permitted.
  * @param sizechrom  Length of the chrom string, excluding the terminating null byte.
- * @param pos        Position. The reference position, with the 1st base having position 0.
+ * @param pos        Position. The reference position, with the first base having position 0.
  * @param ref        Reference allele. String containing a sequence of nucleotide letters.
  *                   The value in the pos field refers to the position of the first nucleotide in the String.
  *                   Characters must be A-Z, a-z or *
@@ -190,8 +190,8 @@ uint64_t variantkey(const char *chrom, size_t sizechrom, uint32_t pos, const cha
 /** @brief Returns minimum and maximum VariantKeys for range searches.
  *
  * @param chrom     Chromosome encoded number.
- * @param pos_min   Start reference position, with the 1st base having position 0.
- * @param pos_max   End reference position, with the 1st base having position 0.
+ * @param pos_min   Start reference position, with the first base having position 0.
+ * @param pos_max   End reference position, with the first base having position 0.
  * @param range     VariantKey range values.
  *
  * @return      Min and Max variant keys for any given REF+ALT encoding.
@@ -223,15 +223,15 @@ int compare_variantkey_chrom_pos(uint64_t vka, uint64_t vkb);
  *   - 28 bit for POS
  *   - 31 bit for REF+ALT
  *
- * @param code  VariantKey code.
- * @param str   String buffer to be returned (it must be sized 17 bytes at leasr).
+ * @param vk    VariantKey code.
+ * @param str   String buffer to be returned (it must be sized 17 bytes at least).
  *
  * @return      Upon successful return, these function returns the number of characters processed
  *              (excluding the null byte used to end output to strings).
  *              If the buffer size is not sufficient, then the return value is the number of characters required for
  *              buffer string, including the terminating null byte.
  */
-size_t variantkey_hex(uint64_t code, char *str);
+size_t variantkey_hex(uint64_t vk, char *str);
 
 /** @brief Parses a VariantKey hexadecimal string and returns the code.
  *

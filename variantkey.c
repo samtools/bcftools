@@ -329,9 +329,9 @@ inline int compare_variantkey_chrom_pos(uint64_t vka, uint64_t vkb)
     return compare_uint64_t((vka >> VKSHIFT_POS), (vkb >> VKSHIFT_POS));
 }
 
-inline size_t variantkey_hex(uint64_t code, char *str)
+inline size_t variantkey_hex(uint64_t vk, char *str)
 {
-    return sprintf(str, "%016" PRIx64, code);
+    return sprintf(str, "%016" PRIx64, vk);
 }
 
 inline uint64_t parse_variantkey_hex(const char *vs)
