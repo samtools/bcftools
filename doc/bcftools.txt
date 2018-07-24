@@ -2058,6 +2058,15 @@ By default, appropriate system directories are searched for installed plugins.
 *trio-switch-rate*::
     calculate phase switch rate in trio samples, children samples must have phased GTs.
 
+*add-variantkey*::
+    add VariantKey INFO fields VKX and RSX
+
+*variantkey-hex*::
+    generate unsorted VariantKey-RSid index files in hexadecimal format
+
+*allele-length*::
+    count the frequency of the length of REF, ALT and REF+ALT
+
 
 ==== Examples:
 
