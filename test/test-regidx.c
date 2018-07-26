@@ -259,6 +259,11 @@ void test(set_line_f set_line, regidx_parse_f parse)
         set_line(line,chr,start,end);
         debug("insert: %s", line);
         if ( regidx_insert(idx,line)!=0 ) error("insert failed: %s\n", line);
+
+        start = 20000*i; end = start + 2000;
+        set_line(line,chr,start,end);
+        debug("insert: %s", line);
+        if ( regidx_insert(idx,line)!=0 ) error("insert failed: %s\n", line);
     }
 
     regitr_t *itr = regitr_init(idx);
@@ -311,6 +316,19 @@ void test(set_line_f set_line, regidx_parse_f parse)
         }
         if ( nhit!=2 ) error("query failed, expected two hits, found %d: %s:%d-%d\n",nhit,chr,start,end);
 
+        // fully contained interval, one hit
+        start = 20000*i - 5000; end = 20000*i + 3000;
+        set_line(line,chr,start,end);
+        if ( !regidx_overlap(idx,chr,start-1,end-1,itr) ) error("query failed, there should be a hit: %s:%d-%d\n",chr,start,end);
+        debug("ok: overlap(s) found for %s:%d-%d\n",chr,start,end);
+        nhit = 0;
+        while ( regitr_overlap(itr) )
+        {
+            if ( itr->beg > end-1 || itr->end < start-1 ) error("query failed, incorrect region: %d-%d for %d-%d\n",itr->beg+1,itr->end+1,start,end);
+            debug("\t %d-%d\n",itr->beg+1,itr->end+1);
+            nhit++;
+        }
+        if ( nhit!=1 ) error("query failed, expected one hit, found %d: %s:%d-%d\n",nhit,chr,start,end);
     }
     regitr_destroy(itr);
     regidx_destroy(idx);
