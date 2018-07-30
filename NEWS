@@ -1,5 +1,14 @@
 ## Release a.b
 
+* `csq`
+
+    - significant reduction of memory usage in the local -l mode for VCFs
+      with thousands of samples and 20% reduction in the non-local
+      haplotype-aware mode.
+
+    - fixes a small memory leak and formatting issue in FORMAT/BCSQ at
+      sites with many consequences
+
 ## Release 1.9 (18th July 2018)
 
 * `annotate`

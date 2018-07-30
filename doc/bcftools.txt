@@ -1850,7 +1850,11 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     exit ('e'), warn ('w'), exclude ('x'), or set/fix ('s') bad sites.
     The 'w' option can be combined with 'x' and 's'. Note that 's'
     can swap alleles and will update genotypes (GT) and AC counts,
-    but will not attempt to fix PL or other fields.
+    but will not attempt to fix PL or other fields. Also note, and this
+    cannot be stressed enough, that 's' will NOT fix strand issues in
+    your VCF, do NOT use it for that purpose!!! (Instead see 
+    <http://samtools.github.io/bcftools/howtos/plugin.af-dist.html> and
+    <http://samtools.github.io/bcftools/howtos/plugin.fixref.html>.)
 
 *-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
     If a record is present multiple times, output only the first instance,
