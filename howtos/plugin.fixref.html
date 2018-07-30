@@ -81,9 +81,10 @@
 <div class="title">Warning</div>
 </td>
 <td class="content">
-Do not use the program blindly, make an effort to understand what
+<strong>Do not use the program blindly, make an effort to understand what
 strand convention your data uses! Make sure the reason for mismatching REF
-alleles is not a different reference build!!
+alleles is not a different reference build!! Also do NOT use <code>bcftools norm --check-ref s</code> for this purpose,
+as it will result in nonsense genotypes!!!</strong>
 </td>
 </tr>
 </table>
@@ -155,7 +156,7 @@ the unambigous alleles onto the forward strand and drop the ambigous genotypes.<
 <div class="paragraph">
 <p><strong>Note that this is an extremely unsafe operation and will most likely result in nonsense
 genotypes.</strong> If you decide to use it anyway, make sure to <strong>check the sanity of the
-result</strong> with the <a href="plugin.af-dist.html">af-dist plugin</a>.</p>
+result</strong> with the <a href="plugin.af-dist.html">af-dist plugin</a>!!</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -164,9 +165,10 @@ result</strong> with the <a href="plugin.af-dist.html">af-dist plugin</a>.</p>
 <div class="title">Warning</div>
 </td>
 <td class="content">
-Do not use the program blindly, make an effort to understand what
+<strong>Do not use the program blindly, make an effort to understand what
 strand convention your data uses! Make sure the reason for mismatching REF
-alleles is not a different reference build!!
+alleles is not a different reference build!! Also do NOT use <code>bcftools norm --check-ref s</code> for this purpose,
+as it will result in nonsense genotypes!!!</strong>
 </td>
 </tr>
 </table>

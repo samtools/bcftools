@@ -4,9 +4,10 @@ include::header.inc[]
 Plugin fixref
 -------------
 
-WARNING: Do not use the program blindly, make an effort to understand what
+WARNING: **Do not use the program blindly, make an effort to understand what
 strand convention your data uses! Make sure the reason for mismatching REF
-alleles is not a different reference build!!
+alleles is not a different reference build!! Also do NOT use `bcftools norm --check-ref s` for this purpose,
+as it will result in nonsense genotypes!!!**
 
 This tool helps to determine and fix strand orientation.
 Currently it can collect and print numbers useful in determining
@@ -59,11 +60,12 @@ bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m flip -d
 ----
 **Note that this is an extremely unsafe operation and will most likely result in nonsense 
 genotypes.** If you decide to use it anyway, make sure to **check the sanity of the
-result** with the link:plugin.af-dist.html[af-dist plugin].
+result** with the link:plugin.af-dist.html[af-dist plugin]!!
 
-WARNING: Do not use the program blindly, make an effort to understand what
+WARNING: **Do not use the program blindly, make an effort to understand what
 strand convention your data uses! Make sure the reason for mismatching REF
-alleles is not a different reference build!!
+alleles is not a different reference build!! Also do NOT use `bcftools norm --check-ref s` for this purpose,
+as it will result in nonsense genotypes!!!**
 
 
 include::footer.inc[]
