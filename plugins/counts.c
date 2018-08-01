@@ -1,6 +1,6 @@
 /*  plugins/counts.c -- counts SNPs, Indels, and total number of sites.
 
-    Copyright (C) 2013, 2014 Genome Research Ltd.
+    Copyright (C) 2013-2018 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -24,9 +24,10 @@ DEALINGS IN THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 
-int nsamples, nsnps, nindels, nmnps, nothers, nsites;
+uint64_t nsamples, nsnps, nindels, nmnps, nothers, nsites;
 
 /*
     This short description is used to generate the output of `bcftools plugin -l`.
@@ -71,12 +72,12 @@ bcf1_t *process(bcf1_t *rec)
 */
 void destroy(void)
 {
-    printf("Number of samples: %d\n", nsamples);
-    printf("Number of SNPs:    %d\n", nsnps);
-    printf("Number of INDELs:  %d\n", nindels);
-    printf("Number of MNPs:    %d\n", nmnps);
-    printf("Number of others:  %d\n", nothers);
-    printf("Number of sites:   %d\n", nsites);
+    printf("Number of samples: %"PRIu64"\n", nsamples);
+    printf("Number of SNPs:    %"PRIu64"\n", nsnps);
+    printf("Number of INDELs:  %"PRIu64"\n", nindels);
+    printf("Number of MNPs:    %"PRIu64"\n", nmnps);
+    printf("Number of others:  %"PRIu64"\n", nothers);
+    printf("Number of sites:   %"PRIu64"\n", nsites);
 }
 
 
