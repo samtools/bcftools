@@ -265,7 +265,9 @@ test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.2.out',cmd=>'+setGT --no-version
 test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.3.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{PATH}/setGT.samples.txt]="het" & binom(AD[@{PATH}/setGT.samples.txt])<0.1\'');
 test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args=>'-c CHROM,POS,REF,ALT,+ID');
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC --no-version');
-test_vcf_plugin($opts,in=>'plugin1',out=>'dosage.out',cmd=>'+dosage');
+test_vcf_plugin($opts,in=>'dosage',out=>'dosage.1.out',cmd=>'+dosage',args=>'-- -t PL');
+test_vcf_plugin($opts,in=>'dosage',out=>'dosage.2.out',cmd=>'+dosage',args=>'-- -t GL');
+test_vcf_plugin($opts,in=>'dosage',out=>'dosage.3.out',cmd=>'+dosage',args=>'-- -t GT');
 test_vcf_plugin($opts,in=>'fixploidy',out=>'fixploidy.out',cmd=>'+fixploidy --no-version',args=>'-- -s {PATH}/fixploidy.samples -p {PATH}/fixploidy.ploidy');
 test_vcf_plugin($opts,in=>'view.PL',out=>'guess-ploidy.PL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view.GL',out=>'guess-ploidy.GL.out',cmd=>'+guess-ploidy',args=>'-vrX | grep -v bcftools');

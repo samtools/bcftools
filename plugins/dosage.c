@@ -1,6 +1,6 @@
 /*  plugins/dosage.c -- prints genotype dosage.
 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014-2018 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -87,7 +87,7 @@ int calc_dosage_PL(bcf1_t *rec)
             for (j=0; j<nret; j++) \
             { \
                 if ( is_missing || is_vector_end ) break; \
-                vals[j] = exp(-0.1*ptr[j]); \
+                vals[j] = pow(10,-0.1*ptr[j]); \
                 sum += vals[j]; \
             } \
             if ( j<nret ) \
@@ -95,6 +95,7 @@ int calc_dosage_PL(bcf1_t *rec)
             else \
             { \
                 if ( sum ) for (j=0; j<nret; j++) vals[j] /= sum; \
+                vals[0] = 0; \
                 memset(dsg, 0, sizeof(float)*rec->n_allele); \
                 int k, l = 0; \
                 for (j=0; j<rec->n_allele; j++) \
@@ -103,11 +104,12 @@ int calc_dosage_PL(bcf1_t *rec)
                     { \
                         dsg[j] += vals[l]; \
                         dsg[k] += vals[l]; \
+                        l++; \
                     } \
                 } \
             } \
             for (j=1; j<rec->n_allele; j++) \
-                printf("%c%.1f",j==1?'\t':',',dsg[j]); \
+                printf("%c%f",j==1?'\t':',',dsg[j]); \
             ptr += nret; \
         } \
     }
@@ -122,7 +124,7 @@ int calc_dosage_PL(bcf1_t *rec)
 
 int calc_dosage_GL(bcf1_t *rec)
 {
-    int i, j, nret = bcf_get_format_values(in_hdr,rec,"GL",(void**)&buf,&nbuf,pl_type);
+    int i, j, nret = bcf_get_format_values(in_hdr,rec,"GL",(void**)&buf,&nbuf,gl_type);
     if ( nret<0 ) return -1;
 
     nret /= rec->n_sample;
@@ -138,15 +140,15 @@ int calc_dosage_GL(bcf1_t *rec)
             for (j=0; j<nret; j++) \
             { \
                 if ( is_missing || is_vector_end ) break; \
-                vals[j] = exp(ptr[j]); \
+                vals[j] = pow(10,ptr[j]); \
                 sum += vals[j]; \
             } \
             if ( j<nret ) \
                 for (j=0; j<rec->n_allele; j++) dsg[j] = -1; \
             else \
             { \
-                for (; j<nret; j++) vals[j] = 0; \
                 if ( sum ) for (j=0; j<nret; j++) vals[j] /= sum; \
+                vals[0] = 0; \
                 memset(dsg, 0, sizeof(float)*rec->n_allele); \
                 int k, l = 0; \
                 for (j=0; j<rec->n_allele; j++) \
@@ -155,15 +157,16 @@ int calc_dosage_GL(bcf1_t *rec)
                     { \
                         dsg[j] += vals[l]; \
                         dsg[k] += vals[l]; \
+                        l++; \
                     } \
                 } \
             } \
             for (j=1; j<rec->n_allele; j++) \
-                printf("%c%.1f",j==1?'\t':',',dsg[j]); \
+                printf("%c%f",j==1?'\t':',',dsg[j]); \
             ptr += nret; \
         } \
     }
-    switch (pl_type)
+    switch (gl_type)
     {
         case BCF_HT_INT:  BRANCH(int32_t,ptr[j]==bcf_int32_missing,ptr[j]==bcf_int32_vector_end); break;
         case BCF_HT_REAL: BRANCH(float,bcf_float_is_missing(ptr[j]),bcf_float_is_vector_end(ptr[j])); break;
