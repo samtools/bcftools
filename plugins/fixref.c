@@ -90,6 +90,7 @@
 #define MODE_TOP2FWD  2
 #define MODE_FLIP2FWD 3
 #define MODE_USE_ID   4
+#define MODE_REF_ALT  5
 
 typedef struct
 {
@@ -128,15 +129,19 @@ const char *usage(void)
         "\n"
         "About: This tool helps to determine and fix strand orientation.\n"
         "       Currently the following modes are recognised:\n"
-        "           flip  .. flips non-ambiguous SNPs and ignores the rest\n"
-        "           id    .. swap REF/ALT and GTs using the ID column to determine the REF allele\n"
-        "           stats .. collect and print stats\n"
-        "           top   .. converts from Illumina TOP strand to fwd\n"
+        "           flip    .. flip REF/ALT columns and GTs for non-ambiguous SNPs and ignore the rest\n"
+        "           id      .. swap REF/ALT columns and GTs using the ID column to determine the REF allele\n"
+        "           ref-alt .. swap REF/ALT columns to match the reference but not modify the genotypes\n"
+        "           stats   .. collect and print stats\n"
+        "           top     .. convert from Illumina TOP strand to fwd\n"
         "\n"
         "       WARNING: Do not use the program blindly, make an effort to\n"
         "       understand what strand convention your data uses! Make sure\n"
         "       the reason for mismatching REF alleles is not a different\n"
         "       reference build!!\n"
+        "\n"
+        "       Please check this page before messing up your VCF even more\n"
+        "           http://samtools.github.io/bcftools/howtos/plugin.fixref.html\n"
         "\n"
         "Usage: bcftools +fixref [General Options] -- [Plugin Options]\n"
         "Options:\n"
@@ -148,7 +153,7 @@ const char *usage(void)
         "   -i, --use-id <file.vcf>     Swap REF/ALT using the ID column to determine the REF allele, implies -m id.\n"
         "                               Download the dbSNP file from\n"
         "                                   https://www.ncbi.nlm.nih.gov/variation/docs/human_variation_vcf\n"
-        "   -m, --mode <string>         Collect stats (\"stats\") or convert (\"flip\", \"id\", \"top\") [stats]\n"
+        "   -m, --mode <string>         Collect stats (\"stats\") or convert (\"flip\", \"id\", \"ref-alt\", \"top\") [stats]\n"
         "\n"
         "Examples:\n"
         "   # run stats\n"
@@ -189,6 +194,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 if ( !strcasecmp(optarg,"top") ) args.mode = MODE_TOP2FWD; 
                 else if ( !strcasecmp(optarg,"flip") ) args.mode = MODE_FLIP2FWD; 
                 else if ( !strcasecmp(optarg,"id") ) args.mode = MODE_USE_ID; 
+                else if ( !strcasecmp(optarg,"ref-alt") ) args.mode = MODE_REF_ALT; 
                 else if ( !strcasecmp(optarg,"stats") ) args.mode = MODE_STATS; 
                 else error("The source strand convention not recognised: %s\n", optarg);
                 break;
@@ -415,6 +421,14 @@ bcf1_t *process(bcf1_t *rec)
         }
         args.pos = rec->pos;
         return ret;
+    }
+    else if ( args.mode==MODE_REF_ALT ) // only change the REF/ALT column, leave the genotypes as is
+    {
+        if ( ir==ia ) return ret;
+        if ( ir==ib ) { args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),0); }
+        if ( ir==revint(ia) ) { args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
+        if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),0); }
+        error("FIXME: this should not happen %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
     }
     else if ( args.mode==MODE_FLIP2FWD )
     {

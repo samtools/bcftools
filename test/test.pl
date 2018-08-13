@@ -295,6 +295,8 @@ test_vcf_plugin($opts,in=>'ad-bias',out=>'ad-bias.out',cmd=>'+ad-bias',args=>'--
 test_vcf_plugin($opts,in=>'af-dist',out=>'af-dist.out',cmd=>'+af-dist',args=>' | grep -v bcftools');
 test_vcf_plugin($opts,in=>'fixref.2a',out=>'fixref.2.out',index=>['fixref.2b'],cmd=>'+fixref',args=>'-- -f {PATH}/norm.fa -i {TMP}/fixref.2b.vcf.gz');
 test_vcf_plugin($opts,in=>'fixref.3',out=>'fixref.3.out',cmd=>'+fixref',args=>'-- -f {PATH}/fixref.3.fa -m top');
+test_vcf_plugin($opts,in=>'fixref.2a',out=>'fixref.4.out',index=>['fixref.2b'],cmd=>'+fixref',args=>'-- -f {PATH}/norm.fa -m ref-alt');
+test_vcf_plugin($opts,in=>'fixref.2a',out=>'fixref.5.out',index=>['fixref.2b'],cmd=>'+fixref',args=>'-- -f {PATH}/norm.fa -m flip');
 test_vcf_plugin($opts,in=>'aa',out=>'aa.out',cmd=>'+fill-from-fasta',args=>'-- -f {PATH}/aa.fa -c AA -h {PATH}/aa.hdr -i \'TYPE="snp"\'');
 test_vcf_plugin($opts,in=>'ref',out=>'ref.out',cmd=>'+fill-from-fasta',args=>'-- -f {PATH}/norm.fa -c REF');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTsubset.NA1.out',cmd=>'+GTsubset --no-version',args=>'-- -s NA00001');
