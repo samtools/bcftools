@@ -314,7 +314,7 @@ static int realign(args_t *args, bcf1_t *line)
         if ( args->check_ref==CHECK_REF_EXIT )
             error("Reference allele mismatch at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
         if ( args->check_ref & CHECK_REF_WARN )
-            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0],ref);
         free(ref);
         return ERR_REF_MISMATCH;
     }
