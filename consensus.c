@@ -37,7 +37,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
 #include <htslib/bgzf.h>
-#include "regidx.h"
+#include <htslib/regidx.h>
 #include "bcftools.h"
 #include "rbuf.h"
 #include "filter.h"

@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <unistd.h>     // for isatty
 #include "bcftools.h"
-#include "regidx.h"
+#include <htslib/regidx.h>
 
 #define MODE_COUNT     1
 #define MODE_LIST_GOOD 2

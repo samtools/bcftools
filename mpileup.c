@@ -39,7 +39,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/kstring.h>
 #include <htslib/khash_str2int.h>
 #include <assert.h>
-#include "regidx.h"
+#include <htslib/regidx.h>
 #include "bcftools.h"
 #include "bam2bcf.h"
 #include "bam_sample.h"
