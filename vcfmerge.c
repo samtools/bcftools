@@ -36,7 +36,7 @@ THE SOFTWARE.  */
 #include <ctype.h>
 #include <time.h>
 #include "bcftools.h"
-#include "regidx.h"
+#include <htslib/regidx.h>
 #include "vcmp.h"
 
 #define DBG 0

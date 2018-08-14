@@ -146,7 +146,7 @@
 #include <ctype.h>
 #include "bcftools.h"
 #include "filter.h"
-#include "regidx.h"
+#include <htslib/regidx.h>
 #include "kheap.h"
 #include "smpl_ilist.h"
 #include "rbuf.h"
