@@ -330,7 +330,11 @@ int main_vcfquery(int argc, char *argv[])
         return 0;
     }
 
-    if ( !args->format_str ) usage();
+    if ( !args->format_str )
+    {
+        if ( argc==1 && !fname ) usage();
+        error("Error: Missing the --format option\n");
+    }
     args->out = args->fn_out ? fopen(args->fn_out, "w") : stdout;
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
 

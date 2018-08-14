@@ -9,6 +9,10 @@
     - fixes a small memory leak and formatting issue in FORMAT/BCSQ at
       sites with many consequences
 
+* `+dosage`: fix some serious bugs
+
+* VariantKey support
+
 ## Release 1.9 (18th July 2018)
 
 * `annotate`
