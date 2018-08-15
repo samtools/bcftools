@@ -2762,7 +2762,7 @@ These filtering expressions are accepted by most of the commands.
 
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        FILTER, QUAL, ID, POS, REF, ALT[0]
+        FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 
 * 1 (or 0) to test the presence (or absence) of a flag
 
