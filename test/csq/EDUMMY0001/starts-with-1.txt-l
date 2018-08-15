@@ -1,0 +1,66 @@
+1	T	TTAACTACCATTCAACAT	frameshift|gtrV|gtrV|protein_coding|+|1LRLFFY*>1LTTIQH*|1T>TTAACTACCATTCAACAT+175T>C+198C>G+202C>G+213G>A+274C>T+313A>C+471G>A+472C>T+544A>T+554A>G+607C>A+643G>T+706C>T+718G>A+872G>A+946T>C+1090C>G+1124G>C+1149C>T+1189T>C+1205C>G
+1	T	TTAACTACCATTCAACAT	frameshift|gtrV|gtrV|protein_coding|+|1LRLFFY*>1LTTIQH*|1T>TTAACTACCATTCAACAT
+
+175	T	C	@1
+175	T	C	missense|gtrV|gtrV|protein_coding|+|59Y>59H|175T>C
+
+198	C	G	@1
+198	C	G	synonymous|gtrV|gtrV|protein_coding|+|66V|198C>G
+
+202	C	G	@1
+202	C	G	missense|gtrV|gtrV|protein_coding|+|68L>68V|202C>G
+
+213	G	A	@1
+213	G	A	missense|gtrV|gtrV|protein_coding|+|71M>71I|213G>A
+
+274	C	T	@1
+274	C	T	missense|gtrV|gtrV|protein_coding|+|92P>92S|274C>T
+
+313	A	C	@1
+313	A	C	synonymous|gtrV|gtrV|protein_coding|+|105R|313A>C
+
+471	G	A	@1
+471	G	A	stop_gained|gtrV|gtrV|protein_coding|+|157W>157*|471G>A
+
+472	C	T	@1
+472	C	T	stop_gained|gtrV|gtrV|protein_coding|+|158Q>158*|472C>T
+
+544	A	T	@1
+544	A	T	missense|gtrV|gtrV|protein_coding|+|182S>182C|544A>T
+
+554	A	G	@1
+554	A	G	missense|gtrV|gtrV|protein_coding|+|185N>185S|554A>G
+
+607	C	A	@1
+607	C	A	missense|gtrV|gtrV|protein_coding|+|203Q>203K|607C>A
+
+643	G	T	@1
+643	G	T	missense|gtrV|gtrV|protein_coding|+|215D>215Y|643G>T
+
+706	C	T	@1
+706	C	T	missense|gtrV|gtrV|protein_coding|+|236H>236Y|706C>T
+
+718	G	A	@1
+718	G	A	missense|gtrV|gtrV|protein_coding|+|240A>240T|718G>A
+
+872	G	A	@1
+872	G	A	missense|gtrV|gtrV|protein_coding|+|291C>291Y|872G>A
+
+946	T	C	@1
+946	T	C	missense|gtrV|gtrV|protein_coding|+|316Y>316H|946T>C
+
+1090	C	G	@1
+1090	C	G	missense|gtrV|gtrV|protein_coding|+|364P>364A|1090C>G
+
+1124	G	C	@1
+1124	G	C	missense|gtrV|gtrV|protein_coding|+|375S>375T|1124G>C
+
+1149	C	T	@1
+1149	C	T	synonymous|gtrV|gtrV|protein_coding|+|383C|1149C>T
+
+1189	T	C	@1
+1189	T	C	missense|gtrV|gtrV|protein_coding|+|397C>397R|1189T>C
+
+1205	C	G	@1
+1205	C	G	missense|gtrV|gtrV|protein_coding|+|402T>402S|1205C>G
+

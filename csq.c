@@ -3742,8 +3742,11 @@ void process(args_t *args, bcf1_t **rec_ptr)
     hit += test_splice(args, rec);
     if ( !hit ) test_tscript(args, rec);
 
-    hap_flush(args, rec->pos-1);
-    vbuf_flush(args);
+    if ( rec->pos > 0 )
+    {
+        hap_flush(args, rec->pos-1);
+        vbuf_flush(args);
+    }
 
     return;
 }
