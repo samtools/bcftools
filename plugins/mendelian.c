@@ -363,12 +363,22 @@ int run(int argc, char **argv)
     if ( !args.mode ) error("Expected one of the -c, -d or -l options\n");
     if ( args.mode&MODE_DELETE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD;
 
+    FILE *log_fh = stderr;
+    if ( args.mode==MODE_COUNT )
+    {
+        log_fh = strcmp("-",args.output_fname) ? fopen(args.output_fname,"w") : stdout;
+        if ( !log_fh ) error("Error: cannot write to %s\n", args.output_fname);
+    }
+
     args.sr = bcf_sr_init();
     if ( !bcf_sr_add_reader(args.sr, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args.sr->errnum));
     args.hdr = bcf_sr_get_header(args.sr, 0);
-    args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
-    if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
-    if ( bcf_hdr_write(args.out_fh, args.hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
+    if ( args.mode!=MODE_COUNT )
+    {
+        args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
+        if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
+        if ( bcf_hdr_write(args.out_fh, args.hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
+    }
 
     int i, n = 0;
     char **list;
@@ -419,29 +429,30 @@ int run(int argc, char **argv)
         if ( line )
         {
             if ( line->errcode ) error("TODO: Unchecked error (%d), exiting\n",line->errcode);
-            if ( bcf_write1(args.out_fh, args.hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
+            if ( args.out_fh && bcf_write1(args.out_fh, args.hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
         }
     }
+    if ( args.out_fh && hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
 
-
-    fprintf(stderr,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio\n");
+    fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio\n");
     for (i=0; i<args.ntrios; i++)
     {
         trio_t *trio = &args.trios[i];
-        fprintf(stderr,"%d\t%d\t%d\t%s,%s,%s\n", 
+        fprintf(log_fh,"%d\t%d\t%d\t%s,%s,%s\n", 
             trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
             bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
             bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
             bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
             );
     }
+    if ( log_fh!=stderr && log_fh!=stdout && fclose(log_fh) ) error("Error: close failed for %s\n", args.output_fname);
+
     free(args.gt_arr);
     free(args.trios);
     regitr_destroy(args.itr);
     regitr_destroy(args.itr_ori);
     regidx_destroy(args.rules);
     bcf_sr_destroy(args.sr);
-    if ( hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
     return 0;
 }
 
