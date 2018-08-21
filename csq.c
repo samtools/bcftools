@@ -3159,11 +3159,12 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
     int pad_end = len - (tr->end - tr->beg + 1 + pad_beg);
     if ( pad_beg + pad_end != 2*N_REF_PAD )
     {
-        char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD);
+        char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD + 1);
         for (i=0; i < N_REF_PAD - pad_beg; i++) ref[i] = 'N';
         memcpy(ref+i, tr->ref, len);
         len += i;
         for (i=0; i < N_REF_PAD - pad_end; i++) ref[i+len] = 'N';
+        ref[i+len] = 0;
         free(tr->ref);
         tr->ref = ref;
     }
@@ -3171,11 +3172,12 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
 
 static void sanity_check_ref(args_t *args, tscript_t *tr, bcf1_t *rec)
 {
-    int vbeg = rec->pos >= tr->beg ? 0 : tr->beg - rec->pos;
+    int vbeg = 0;
     int rbeg = rec->pos - tr->beg + N_REF_PAD;
+    if ( rbeg < 0 ) { vbeg += abs(rbeg); rbeg = 0; }
     char *ref = tr->ref + rbeg;
     char *vcf = rec->d.allele[0] + vbeg;
-    assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) );
+    assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) && ref - tr->ref < tr->end - tr->beg + 2*N_REF_PAD );
     int i = 0;
     while ( ref[i] && vcf[i] )
     {
