@@ -80,7 +80,7 @@ typedef struct
     rbuf_t vcf_rbuf;
     bcf1_t **vcf_buf;
     int nvcf_buf, rid;
-    char *chr;
+    char *chr, *chr_prefix;
 
     regidx_t *mask;
     regitr_t *itr;
@@ -299,7 +299,7 @@ static void init_region(args_t *args, char *line)
     args->vcf_rbuf.n = 0;
     bcf_sr_seek(args->files,line,args->fa_ori_pos);
     if ( tmp_ptr ) *tmp_ptr = tmp;
-    fprintf(args->fp_out,">%s\n",line);
+    fprintf(args->fp_out,">%s%s\n",args->chr_prefix?args->chr_prefix:"",line);
     if (args->chain_fname )
     {
         args->chain = init_chain(args->chain, args->fa_ori_pos);
@@ -783,6 +783,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -m, --mask <file>          replace regions with N\n");
     fprintf(stderr, "    -M, --missing <char>       output <char> instead of skipping the missing genotypes\n");
     fprintf(stderr, "    -o, --output <file>        write output to a file [standard output]\n");
+    fprintf(stderr, "    -p, --prefix <string>      prefix to add to output sequence names\n");
     fprintf(stderr, "    -s, --sample <name>        apply variants of the given sample\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Get the consensus for one region. The fasta header lines are then expected\n");
@@ -809,13 +810,15 @@ int main_consensus(int argc, char *argv[])
         {"mask",1,0,'m'},
         {"missing",1,0,'M'},
         {"chain",1,0,'c'},
+        {"prefix",required_argument,0,'p'},
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "h?s:1Ii:e:H:f:o:m:c:M:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h?s:1Ii:e:H:f:o:m:c:M:p:",loptions,NULL)) >= 0) 
     {
         switch (c) 
         {
+            case 'p': args->chr_prefix = optarg; break;
             case 's': args->sample = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'I': args->output_iupac = 1; break;
