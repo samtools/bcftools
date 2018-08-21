@@ -194,7 +194,7 @@ sub parse_params
             {
                 id=>'PSC',
                 header=>'PSC, Per-sample counts',
-                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons"
+                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons\t[12]nHapRef\t[13]nHapAlt\t[14]nMissing"
             },
             {
                 id=>'PSI',
@@ -739,7 +739,7 @@ sub init_plots
         \\telse:
         \\t\\tw = eval('numpy.'+window+'(window_len)')
         \\ty = numpy.convolve(w/w.sum(),s,mode='valid')
-        \\treturn y[(window_len/2-1):-(window_len/2)]
+        \\treturn y[(window_len//2-1):-(window_len//2)]
 
         ];
     $$opts{plt_fh} = $fh;
