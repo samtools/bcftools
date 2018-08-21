@@ -3162,6 +3162,7 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
         char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD);
         for (i=0; i < N_REF_PAD - pad_beg; i++) ref[i] = 'N';
         memcpy(ref+i, tr->ref, len);
+        len += i;
         for (i=0; i < N_REF_PAD - pad_end; i++) ref[i+len] = 'N';
         free(tr->ref);
         tr->ref = ref;
@@ -3170,15 +3171,18 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
 
 static void sanity_check_ref(args_t *args, tscript_t *tr, bcf1_t *rec)
 {
-    char *ref = tr->ref + (rec->pos + N_REF_PAD >= tr->beg ? rec->pos - tr->beg + N_REF_PAD : 0);
-    char *vcf = rec->d.allele[0] + (rec->pos + N_REF_PAD >= tr->beg ? 0 : tr->beg - N_REF_PAD - rec->pos);
+    int vbeg = rec->pos >= tr->beg ? 0 : tr->beg - rec->pos;
+    int rbeg = rec->pos - tr->beg + N_REF_PAD;
+    char *ref = tr->ref + rbeg;
+    char *vcf = rec->d.allele[0] + vbeg;
     assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) );
-    while ( *ref && *vcf )
+    int i = 0;
+    while ( ref[i] && vcf[i] )
     {
-        if ( *ref!=*vcf && toupper(*ref)!=toupper(*vcf) ) 
-            error("Error: the fasta reference does not match the VCF REF allele at %s:%d .. %s\n", bcf_seqname(args->hdr,rec),rec->pos+1,rec->d.allele[0]);
-        ref++;
-        vcf++;
+        if ( ref[i]!=vcf[i] && toupper(ref[i])!=toupper(vcf[i]) ) 
+            error("Error: the fasta reference does not match the VCF REF allele at %s:%d .. fasta=%c vcf=%c\n",
+                    bcf_seqname(args->hdr,rec),rec->pos+vbeg+1,ref[i],vcf[i]);
+        i++;
     }
 }
 
