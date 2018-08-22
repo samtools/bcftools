@@ -444,6 +444,8 @@ static void filters_cmp_id(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *
         return;
     }
 
+    if ( !btok->str_value.l ) error("Error occurred while evaluating the expression\n");
+
     if ( rtok->tok_type==TOK_EQ ) 
         rtok->pass_site = strcmp(btok->str_value.s,line->d.id) ? 0 : 1;
     else
@@ -2621,7 +2623,8 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     // list of operators and convert the strings (e.g. "PASS") to BCF ids. The string value token must be
     // just before or after the FILTER token and they must be followed with a comparison operator.
     // At this point we also initialize regex expressions which, in RPN, must preceed the LIKE/NLIKE operator.
-    // Additionally, treat "." as missing value rather than a string in numeric equalities.
+    // Additionally, treat "." as missing value rather than a string in numeric equalities; that
+    // @file is only used with ID; etc.
     // This code is fragile: improve me.
     int i;
     for (i=0; i<nout; i++)
@@ -2629,6 +2632,12 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         if ( i+1<nout && (out[i].tok_type==TOK_LT || out[i].tok_type==TOK_BT) && out[i+1].tok_type==TOK_EQ )
             error("Error parsing the expression: \"%s\"\n", filter->str);
 
+        if ( out[i].hash )
+        {
+            int j = out[i+1].tok_type==TOK_VAL ? i+1 : i-1;
+            if ( out[j].comparator!=filters_cmp_id )
+                error("Error: could not parse the expression. Note that the \"@file_name\" syntax can be currently used with ID column only.\n");
+        }
         if ( out[i].tok_type==TOK_OR || out[i].tok_type==TOK_OR_VEC )
             out[i].func = vector_logic_or;
         if ( out[i].tok_type==TOK_AND || out[i].tok_type==TOK_AND_VEC )
@@ -2888,6 +2897,8 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         }
         else
         {
+            if ( is_str==1 ) error("Error: cannot use arithmetic operators to compare strings and numbers\n");
+
             // Determine what to do with one [1] or both [2] sides missing. The first field [0] gives [1]|[2]
             int missing_logic[] = {0,0,0};
             if ( filter->filters[i].tok_type == TOK_EQ ) { missing_logic[0] = missing_logic[2] = 1; }
@@ -2907,7 +2918,6 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
                 CMP_VECTORS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],>=,missing_logic)
             else
                 error("todo: %s:%d .. type=%d\n", __FILE__,__LINE__,filter->filters[i].tok_type);
-
         }
         filter->flt_stack[nstack-2] = &filter->filters[i];
         nstack--;
