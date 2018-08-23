@@ -1647,11 +1647,15 @@ multiple regions and many alignment files are processed.
     enabled, the recommended value for BWA is 50. [0]
 
 *-d, --max-depth* 'INT'::
-    At a position, read maximally 'INT' reads per input file. Note that bcftools
-    has a minimum value of '8000/n' where 'n' is the number of input files given
-    to mpileup.  This means the default is highly likely to be increased. Once
-    above the cross-sample minimum of 8000 the -d parameter will have an effect.
-    [250]
+    At a position, read maximally 'INT' reads per input file. Note that
+    the original *samtools mpileup* command had a minimum value of '8000/n'
+    where 'n' was the number of input files given to mpileup. This means that
+    in *samtools mpileup* the default was highly likely to be increased and the
+    *-d* parameter would have an effect only once above the cross-sample minimum of 8000.
+    This behavior was problematic when working with a combination of
+    single- and multi-sample bams, therefore in *bcftools mpileup* the user
+    is given the full control (and responsibility), and an informative message
+    is printed instead [250]
 
 *-E, --redo-BAQ*::
     Recalculate BAQ on the fly, ignore existing BQ tags
@@ -2730,7 +2734,8 @@ These filtering expressions are accepted by most of the commands.
 
 .Valid expressions may contain:
 
-* numerical constants, string constants, file names
+* numerical constants, string constants, file names (this is currently
+  supported only to filter by the ID column)
 
         1, 1.0, 1e-4
         "String"

@@ -1,6 +1,6 @@
 /*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
-    Copyright (C) 2008-2017 Genome Research Ltd.
+    Copyright (C) 2008-2018 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -604,6 +604,7 @@ static int mpileup(mplp_conf_t *conf)
     // init mpileup
     conf->iter = bam_mplp_init(conf->nfiles, mplp_func, (void**)conf->mplp_data);
     if ( conf->flag & MPLP_SMART_OVERLAPS ) bam_mplp_init_overlaps(conf->iter);
+    fprintf(stderr, "[%s] maximum number of reads per input file set to -d %d\n",  __func__, conf->max_depth);
     if ( (double)conf->max_depth * conf->nfiles > 1<<20)
         fprintf(stderr, "Warning: Potential memory hog, up to %.0fM reads in the pileup!\n", (double)conf->max_depth*conf->nfiles);
     if ( (double)conf->max_depth * conf->nfiles / nsmpl < 250 )
@@ -818,7 +819,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
 "  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
 "  -C, --adjust-MQ INT     adjust mapping quality; recommended:50, disable:0 [0]\n"
-"  -d, --max-depth INT     max per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
+"  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
     fprintf(fp,
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
 "  -f, --fasta-ref FILE    faidx indexed reference sequence file\n"
