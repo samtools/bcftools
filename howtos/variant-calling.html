@@ -113,6 +113,10 @@ uncompressed BCF output:</p>
 <div class="ulist">
 <ul>
 <li>
+<p>Check the <code>bcftools mpileup --max-depth</code> option, most likely it should be
+increased. Note that by default only 250 reads per-file are considered at a position!</p>
+</li>
+<li>
 <p>The calling can be made more sensitive or restrictive by using a different prior.
 Stricter calls are obtained by using smaller value, more benevolent calls are
 obtained by using bigger value.  The default is <code>bcftools call -P 1.1e-3</code>.</p>
