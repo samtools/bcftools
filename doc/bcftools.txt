@@ -2291,6 +2291,11 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
 Modify header of VCF/BCF files, change sample names.
 
+*-f, --fai* 'FILE'::
+    add to the header contig names and their lengths from the provided fasta index file (.fai).
+    Lengths of existing contig lines will be updated and contig lines not present in
+    the fai file will be removed
+
 *-h, --header* 'FILE'::
     new VCF header
 
@@ -2304,6 +2309,9 @@ Modify header of VCF/BCF files, change sample names.
     each on a separate line. If a sample name contains spaces, the
     spaces can be escaped using the backslash character, for example
     "Not\ a\ good\ sample\ name".
+
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 [[roh]]

@@ -11,6 +11,10 @@
 
 * `+dosage`: fix some serious bugs
 
+* `reheader`
+
+    - new -f, --fai option for updating contig lines in the VCF header
+
 * VariantKey support
 
 ## Release 1.9 (18th July 2018)

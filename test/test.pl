@@ -322,6 +322,8 @@ test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.3.out',samples=>'reheader.samples3');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.4.out',samples=>'reheader.samples4');
 test_vcf_reheader($opts,in=>'empty',out=>'reheader.empty.out',header=>'reheader.empty.hdr');
+test_vcf_reheader($opts,in=>'reheader.2',out=>'reheader.5.out',args=>'-f {PATH}/reheader.fai',nostdin=>1);
+test_vcf_reheader($opts,in=>'reheader.2',out=>'reheader.5.out',args=>'-h {PATH}/reheader.2.hdr -f {PATH}/reheader.fai',nostdin=>1);
 test_rename_chrs($opts,in=>'annotate');
 test_vcf_convert($opts,in=>'convert',out=>'convert.gs.gt.gen',args=>'-g -,.');
 test_vcf_convert($opts,in=>'convert',out=>'convert.gs.gt.samples',args=>'-g .,-');
@@ -987,14 +989,27 @@ sub test_vcf_reheader
     cmd("$$opts{bin}/bcftools view --no-version -Ob $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools view --no-version -Oz $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.vcf.gz");
 
-    my $arg = exists($args{header}) ? "-h $$opts{path}/$args{header}" : "-s $$opts{path}/$args{samples}";
+    my $arg;
+    if ( exists($args{args}) )
+    {
+        $arg = $args{args};
+        $arg =~ s/{PATH}/$$opts{path}/g;
+    }
+    elsif ( exists($args{header}) )
+    {
+        $arg = "-h $$opts{path}/$args{header}";
+    }
+    else
+    {
+        $arg = "-s $$opts{path}/$args{samples}";
+    }
     for my $file ("$$opts{path}/$args{in}.vcf","$$opts{tmp}/$args{in}.bcf","$$opts{tmp}/$args{in}.vcf.gz")
     {
         # bcf header lines can come in different order
         my %bcf_args = ();
         if ( $file=~/\.bcf$/ && -e "$$opts{path}/$args{out}.bcf" ) { %bcf_args = ( out=>"$args{out}.bcf" ); }
         test_cmd($opts,%args,%bcf_args,cmd=>"$$opts{bin}/bcftools reheader $arg $file | $$opts{bin}/bcftools view --no-version");
-        test_cmd($opts,%args,%bcf_args,cmd=>"cat $file | $$opts{bin}/bcftools reheader $arg | $$opts{bin}/bcftools view --no-version");
+        test_cmd($opts,%args,%bcf_args,cmd=>"cat $file | $$opts{bin}/bcftools reheader $arg | $$opts{bin}/bcftools view --no-version") unless $args{nostdin};
     }
 }
 sub test_rename_chrs
