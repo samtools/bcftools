@@ -259,6 +259,8 @@ test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate12.out',arg
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate13.out',args=>'-x INFO -c INFO/IINT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate14.out',args=>q[-x INFO -c INFO/IINT -e'POS=3000001' -k]);
 test_vcf_annotate($opts,in=>'annotate11',vcf=>'annots11',out=>'annotate15.out',args=>q[-c FMT]);
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate16.out',args=>'-c FMT/newGT:=GT');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots12',out=>'annotate17.out',args=>'-c FMT/GT:=newGT');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
