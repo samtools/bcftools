@@ -1028,7 +1028,6 @@ static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
     rtok->nvalues = 1;
     rtok->values[0] = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
     rtok->nsamples = 0;
-
     return 1;
 }
 static void filters_set_nalt(filter_t *flt, bcf1_t *line, token_t *tok)
@@ -2127,12 +2126,14 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         }
         else if ( !strncasecmp(str,"N_MISSING",len) )
         {
+            filter->max_unpack |= BCF_UN_FMT;
             tok->setter = &filters_set_nmissing;
             tok->tag = strdup("N_MISSING");
             return 0;
         }
         else if ( !strncasecmp(str,"F_MISSING",len) )
         {
+            filter->max_unpack |= BCF_UN_FMT;
             tok->setter = &filters_set_nmissing;
             tok->tag = strdup("F_MISSING");
             return 0;
@@ -2519,8 +2520,18 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
                 tok->hdr_id    = -1;
                 tok->pass_site = -1;
                 tok->threshold = -1.0;
-                if ( !strncasecmp(tmp-len,"N_PASS",6) ) { tok->func = func_npass; tok->tag = strdup("N_PASS"); }
-                else if ( !strncasecmp(tmp-len,"F_PASS",6) ) { tok->func = func_npass; tok->tag = strdup("F_PASS"); }
+                if ( !strncasecmp(tmp-len,"N_PASS",6) )
+                {
+                    filter->max_unpack |= BCF_UN_FMT;
+                    tok->func = func_npass;
+                    tok->tag = strdup("N_PASS");
+                }
+                else if ( !strncasecmp(tmp-len,"F_PASS",6) )
+                {
+                    filter->max_unpack |= BCF_UN_FMT;
+                    tok->func = func_npass;
+                    tok->tag = strdup("F_PASS");
+                }
                 else error("The function \"%s\" is not supported\n", tmp-len);
                 continue;
             }
