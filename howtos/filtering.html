@@ -132,7 +132,7 @@ genotype in any sample, the expression <code>-i 'GT!="."'</code> is not going to
 </div>
 </div>
 <div class="paragraph">
-<div class="title"><strong>FORMAT columns and boolean expressions</strong></div>
+<div class="title"><strong>FORMAT columns and boolean expressions (<code>&amp;&amp;</code> vs <code>&amp;</code> and <code>||</code> vs <code>|</code>)</strong></div>
 <p>Say our VCF contains the per-sample depth and genotype quality annotations
 and we want to include only sites where one or more samples have big enough coverage
 (<code>DP&gt;10</code>) and genotype quality (<code>GQ&gt;20</code>). The expression <code>-i 'FMT/DP&gt;10 &amp; FMT/GQ&gt;20'</code> selects
@@ -156,8 +156,29 @@ not necessarily in the same sample, we use the <code>&amp;&amp;</code> operator 
 </div>
 </div>
 <div class="paragraph">
-<div class="title"><strong>Combining scalar and vector fields</strong></div>
-<p>The <code>filter -S.</code> example..</p>
+<p>Similarly, the <code>|</code> operator can select just the matching samples:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f'[%POS %SAMPLE %DP\n]\n' -i'FMT/DP=19 | FMT/DP="."' test/view.filter.vcf
+3162006 A 19
+
+3162007 A .
+3162007 B .</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or the whole record when <code>||</code> is used:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f'[%POS %SAMPLE %DP\n]\n' -i'FMT/DP=19 || FMT/DP="."' test/view.filter.vcf
+3162006 A 19
+3162006 B 1
+
+3162007 A .
+3162007 B .</pre>
+</div>
 </div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>

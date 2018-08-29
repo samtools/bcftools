@@ -8,7 +8,7 @@
                 Please refer to <a href="http://www.htslib.org/doc/bcftools.html">htslib.org</a> for
                 documentation for the latest <b>versioned release</b>.
                 </div>
-            <div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25097104"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+            <div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp163664"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -16,7 +16,7 @@ will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2018-08-23 11:32 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-35-g73201b8+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2018-08-29 10:25 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-37-g90cca6a+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -2276,6 +2276,12 @@ bcftools query -f 'GQ:[ %GQ] \t GT:[ %GT]\n' file.vcf</pre><pre class="literalla
 bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n' file.bcf</pre><pre class="literallayout"># Print only samples with alternate (non-reference) genotypes
 bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i'GT="alt"' file.bcf</pre><pre class="literallayout"># Print all samples at sites with at least one alternate genotype
 bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-f, --fai</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    add to the header contig names and their lengths from the provided fasta index file (.fai).
+    Lengths of existing contig lines will be updated and contig lines not present in
+    the fai file will be removed
+</dd><dt><span class="term">
 <span class="strong"><strong>-h, --header</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     new VCF header
@@ -2292,6 +2298,10 @@ bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE
     each on a separate line. If a sample name contains spaces, the
     spaces can be escaped using the backslash character, for example
     "Not\ a\ good\ sample\ name".
+</dd><dt><span class="term">
+<span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect2" title="bcftools roh [OPTIONS] file.vcf.gz"><a id="roh"></a><h3>bcftools roh [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>A program for detecting runs of homo/autozygosity. Only bi-allelic sites
 are considered.</p><div class="refsect3" title="The HMM model:"><a id="_the_hmm_model"></a><h4>The HMM model:</h4><pre class="screen">Notation:
   D  = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity),
@@ -2750,8 +2760,9 @@ regex operators "~" and its negation "!~". The expressions are case sensitive un
 INFO/HAYSTACK ~ "NEEDless/i"</pre></li><li class="listitem"><p class="simpara">
 parentheses
 </p><pre class="literallayout">(, )</pre></li><li class="listitem"><p class="simpara">
-logical operators
-</p><pre class="literallayout">&amp;&amp; (same as &amp;), ||,  |</pre></li><li class="listitem"><p class="simpara">
+logical operators. See also the examples below and the <a class="ulink" href="http://samtools.github.io/bcftools/howtos/filtering.html" target="_top">filtering tutorial</a>
+about the distinction between "&amp;&amp;" vs "&amp;" and "||" vs "|".
+</p><pre class="literallayout">&amp;&amp;,  &amp;, ||,  |</pre></li><li class="listitem"><p class="simpara">
 INFO tags, FORMAT tags, column names
 </p><pre class="literallayout">INFO/DP or DP
 FORMAT/DV, FMT/DV, or DV
