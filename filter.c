@@ -1605,7 +1605,7 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                     { \
                         if ( missing_logic[nmiss] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
                     } \
-                    else if ( atok->values[i] CMP_OP btok->values[j] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
+                    else if ( (float)atok->values[i] CMP_OP (float)btok->values[j] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
                 } \
             } \
         } \
@@ -1665,7 +1665,7 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                         { \
                             if ( missing_logic[nmiss] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
                         } \
-                        else if ( xptr[j] CMP_OP yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
+                        else if ( (float)xptr[j] CMP_OP (float)yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
                     } \
                 } \
             } \
@@ -2284,13 +2284,14 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     // is it a value? Here we parse as integer/float separately and use strtof
     // rather than strtod, because the more accurate double representation
     // would invalidate floating point comparisons like QUAL=59.2, obtained via
-    // htslib/vcf parser
+    // htslib/vcf parser.
+    // Update: use strtod() and force floats only in comparisons
     char *end;
     tok->threshold = strtol(tmp.s, &end, 10);   // integer?
     if ( end - tmp.s != strlen(tmp.s) )
     {
         errno = 0;
-        tok->threshold = strtof(tmp.s, &end);   // float?
+        tok->threshold = strtod(tmp.s, &end);   // float?
         if ( errno!=0 || end!=tmp.s+len ) error("[%s:%d %s] Error: the tag \"%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
     }
     tok->is_constant = 1;
