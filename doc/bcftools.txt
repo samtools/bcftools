@@ -2767,9 +2767,10 @@ These filtering expressions are accepted by most of the commands.
 
         (, )
 
-* logical operators
+* logical operators. See also the examples below and the http://samtools.github.io/bcftools/howtos/filtering.html[filtering tutorial]
+about the distinction between "&&" vs "&" and "||" vs "|".
 
-        && (same as &), ||,  |
+        &&,  &, ||,  |
 
 * INFO tags, FORMAT tags, column names
 
