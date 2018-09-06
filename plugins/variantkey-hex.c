@@ -33,11 +33,11 @@ DEALINGS IN THE SOFTWARE.  */
 
 const char *FILE_VKRS = "vkrs.unsorted.hex";
 const char *FILE_RSVK = "rsvk.unsorted.hex";
-const char *FILE_VKNR = "vknr.unsorted.tsv";
+const char *FILE_NRVK = "nrvk.unsorted.tsv";
 
 FILE *fp_vkrs; // VariantKey -> rsID
 FILE *fp_rsvk; // rsID -> VariantKey
-FILE *fp_vknr; // VariantKey non-reversible map (maps VariantKey to REF and ALT)
+FILE *fp_nrvk; // VariantKey non-reversible map (maps VariantKey to REF and ALT)
 
 static uint64_t numvar; // number of variants
 static uint64_t nrv; // number of non-reversible variants
@@ -90,9 +90,9 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         fprintf(stderr, "%s: %s\n", path, strerror(errno));
     }
     strcpy(path, dir);
-    strcat(path, FILE_VKNR);
-    fp_vknr = fopen(path, "w");
-    if (!fp_vknr)
+    strcat(path, FILE_NRVK);
+    fp_nrvk = fopen(path, "w");
+    if (!fp_nrvk)
     {
         fprintf(stderr, "%s: %s\n", path, strerror(errno));
     }
@@ -120,7 +120,7 @@ bcf1_t *process(bcf1_t *rec)
     if (vk & 1)
     {
         // map VariantKey to REF and ALT
-        fprintf(fp_vknr, "%016" PRIx64 "\t%s\t%s\n", vk, rec->d.allele[0], rec->d.allele[1]);
+        fprintf(fp_nrvk, "%016" PRIx64 "\t%s\t%s\n", vk, rec->d.allele[0], rec->d.allele[1]);
         nrv++;
     }
     numvar++;

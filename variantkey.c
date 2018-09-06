@@ -2,7 +2,7 @@
 //
 // variantkey.c
 //
-// @category   Tools
+// @category   Libraries
 // @author     Nicola Asuni <nicola.asuni@genomicsplc.com>
 // @copyright  2017-2018 GENOMICS plc
 // @license    MIT (see LICENSE)
@@ -29,24 +29,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-//
-// VariantKey by Nicola Asuni
 
-#include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
 #include "variantkey.h"
 
-static inline int aztoupper(int c)
-{
-    if (c >= 'a')
-    {
-        return (c ^ ('a' - 'A'));
-    }
-    return c;
-}
-
-inline uint8_t encode_chrom(const char *chrom, size_t size)
+uint8_t encode_chrom(const char *chrom, size_t size)
 {
     // X > 23 ; Y > 24 ; M > 25
     static const uint8_t onecharmap[] =
@@ -91,12 +78,12 @@ inline uint8_t encode_chrom(const char *chrom, size_t size)
     }
     if ((size == 1) || ((size == 2) && ((chrom[1] == 'T') || (chrom[1] == 't'))))
     {
-        return onecharmap[((unsigned char)chrom[0])];
+        return onecharmap[((uint8_t)chrom[0])];
     }
     return 0; // NA
 }
 
-inline size_t decode_chrom(uint8_t code, char *chrom)
+size_t decode_chrom(uint8_t code, char *chrom)
 {
     if ((code < 1) || (code > 25))
     {
@@ -110,43 +97,43 @@ inline size_t decode_chrom(uint8_t code, char *chrom)
     return sprintf(chrom, "%s", map[(code - 23)]);
 }
 
-static inline uint32_t encode_base(const unsigned char c)
+static inline uint32_t encode_base(const uint8_t c)
 {
     /*
       Encode base:
-
       A > 0
       C > 1
       G > 2
       T > 3
     */
-    static const uint32_t map[] = {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                   4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                   /*A   C       G                         T*/
-                                   4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4,
-                                   /*a   c       g                         t*/
-                                   4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4,
-                                   4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                   4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                   4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                   4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-                                  };
+    static const uint32_t map[] =
+    {
+        4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+        /*A   C       G                         T*/
+        4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4,
+        /*a   c       g                         t*/
+        4,0,4,1,4,4,4,2,4,4,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+    };
     return map[c];
 }
 
 static inline int encode_allele(uint32_t *h, uint8_t *bitpos, const char *str, size_t size)
 {
-    int c;
     uint32_t v;
-    while ((c = *str++) && (size--))
+    while (size--)
     {
-        v = encode_base(c);
+        v = encode_base(*str++);
         if (v > 3)
         {
             return -1;
         }
         *bitpos -= 2;
-        *h |= (v << *bitpos); // A will be coded as 1
+        *h |= (v << *bitpos);
     }
     return 0;
 }
@@ -165,32 +152,64 @@ static inline uint32_t encode_refalt_rev(const char *ref, size_t sizeref, const 
     return h;
 }
 
-static inline uint32_t pack_chars(const char *str, size_t size)
+// Mix two 32 bit hash numbers using a MurmurHash3-like algorithm
+static inline uint32_t muxhash(uint32_t k, uint32_t h)
 {
-    int c;
-    uint32_t h = 0;
-    uint8_t bitpos = VKSHIFT_POS;
-    while ((c = aztoupper(*str++)) && (size--))
+    k *= 0xcc9e2d51;
+    k = (k >> 17) | (k << 15);
+    k *= 0x1b873593;
+    h ^= k;
+    h = (h >> 19) | (h << 13);
+    return ((h * 5) + 0xe6546b64);
+}
+
+static inline uint32_t encode_packchar(int c)
+{
+    if (c < 'A')
     {
-        if (c == '*')
-        {
-            c = ('Z' + 1);
-        }
-        bitpos -= 5;
-        h |= ((c - 'A' + 1) << bitpos); // 'A' will be coded as 1
+        return 27;
+    }
+    if (c >= 'a')
+    {
+        return (uint32_t)(c - 'a' + 1);
+    }
+    return (uint32_t)(c - 'A' + 1);
+}
+
+// pack blocks of 6 characters in 32 bit (6 x 5 bit + 2 spare bit) [ 01111122 22233333 44444555 55666660 ]
+static inline uint32_t pack_chars_tail(const char *str, size_t size)
+{
+    uint32_t h = 0;
+    const char *pos = (str + size - 1);
+    switch (size)
+    {
+    case 5:
+        h ^= encode_packchar(*pos--) << (1 + (5 * 1));
+    // fall through
+    case 4:
+        h ^= encode_packchar(*pos--) << (1 + (5 * 2));
+    // fall through
+    case 3:
+        h ^= encode_packchar(*pos--) << (1 + (5 * 3));
+    // fall through
+    case 2:
+        h ^= encode_packchar(*pos--) << (1 + (5 * 4));
+    // fall through
+    case 1:
+        h ^= encode_packchar(*pos) << (1 + (5 * 5));
     }
     return h;
 }
 
-// Mix two 32 bit hash numbers using the MurmurHash3 algorithm
-static inline uint32_t muxhash(uint32_t k, uint32_t h)
+static inline uint32_t pack_chars(const char *str)
 {
-    k *= 0xcc9e2d51;
-    k = (k >> 17) | (k << (32 - 17));
-    k *= 0x1b873593;
-    h ^= k;
-    h = (h >> 19) | (h << (32 - 19));
-    return ((h * 5) + 0xe6546b64);
+    const char *pos = (str + 5);
+    return ((encode_packchar(*pos) << 1)
+            ^ (encode_packchar(*(pos-1)) << (1 + (5 * 1)))
+            ^ (encode_packchar(*(pos-2)) << (1 + (5 * 2)))
+            ^ (encode_packchar(*(pos-3)) << (1 + (5 * 3)))
+            ^ (encode_packchar(*(pos-4)) << (1 + (5 * 4)))
+            ^ (encode_packchar(*(pos-5)) << (1 + (5 * 5))));
 }
 
 // Return a 32 bit hash of a nucleotide string
@@ -198,17 +217,15 @@ static inline uint32_t hash32(const char *str, size_t size)
 {
     uint32_t h = 0;
     size_t len = 6;
-    while (size > 0)
+    while (size >= len)
     {
-        if (size < len)
-        {
-            len = size;
-        }
-        // [ 01111122 22233333 44444555 55666660 ]
-        // pack blocks of 6 characters in 32 bit (6 x 5 bit + 2 spare bit)
-        h = muxhash(pack_chars(str, len), h);
-        size -= len;
+        h = muxhash(pack_chars(str), h);
         str += len;
+        size -= len;
+    }
+    if (size > 0)
+    {
+        h = muxhash(pack_chars_tail(str, size), h);
     }
     return h;
 }
@@ -217,7 +234,7 @@ static inline uint32_t encode_refalt_hash(const char *ref, size_t sizeref, const
 {
     // 0x3 is the separator character between REF and ALT [00000000 00000000 00000000 00000011]
     uint32_t h = muxhash(hash32(alt, sizealt), muxhash(0x3, hash32(ref, sizeref)));
-    // finalization mix - MurmurHash3 algorithm
+    // MurmurHash3 finalization mix - force all bits of a hash block to avalanche
     h ^= h >> 16;
     h *= 0x85ebca6b;
     h ^= h >> 13;
@@ -226,7 +243,7 @@ static inline uint32_t encode_refalt_hash(const char *ref, size_t sizeref, const
     return ((h >> 1) | 0x1); // 0x1 is the set bit to indicate HASH mode [00000000 00000000 00000000 00000001]
 }
 
-inline uint32_t encode_refalt(const char *ref, size_t sizeref, const char *alt, size_t sizealt)
+uint32_t encode_refalt(const char *ref, size_t sizeref, const char *alt, size_t sizealt)
 {
     if ((sizeref + sizealt) <= 11)
     {
@@ -249,24 +266,77 @@ static inline size_t decode_refalt_rev(uint32_t code, char *ref, size_t *sizeref
 {
     *sizeref = (size_t)((code & 0x78000000) >> 27); // [01111000 00000000 00000000 00000000]
     *sizealt = (size_t)((code & 0x07800000) >> 23); // [00000111 10000000 00000000 00000000]
-    uint8_t bitpos = 23;
-    size_t i = 0;
-    for(i = 0; i < *sizeref; i++)
+    switch (*sizeref)
     {
-        bitpos -= 2;
-        ref[i] = decode_base(code, bitpos);
+    case 10:
+        ref[9] = decode_base(code, (3 + (2 * 0)));
+    // fall through
+    case 9:
+        ref[8] = decode_base(code, (3 + (2 * 1)));
+    // fall through
+    case 8:
+        ref[7] = decode_base(code, (3 + (2 * 2)));
+    // fall through
+    case 7:
+        ref[6] = decode_base(code, (3 + (2 * 3)));
+    // fall through
+    case 6:
+        ref[5] = decode_base(code, (3 + (2 * 4)));
+    // fall through
+    case 5:
+        ref[4] = decode_base(code, (3 + (2 * 5)));
+    // fall through
+    case 4:
+        ref[3] = decode_base(code, (3 + (2 * 6)));
+    // fall through
+    case 3:
+        ref[2] = decode_base(code, (3 + (2 * 7)));
+    // fall through
+    case 2:
+        ref[1] = decode_base(code, (3 + (2 * 8)));
+    // fall through
+    case 1:
+        ref[0] = decode_base(code, (3 + (2 * 9)));
     }
-    ref[i] = 0;
-    for(i = 0; i < *sizealt; i++)
+    ref[*sizeref] = 0;
+    uint8_t bitpos = (23 - ((*sizeref) << 1));
+    switch (*sizealt)
     {
-        bitpos -= 2;
-        alt[i] = decode_base(code, bitpos);
+    case 10:
+        alt[9] = decode_base(code, bitpos - (2 * 10));
+    // fall through
+    case 9:
+        alt[8] = decode_base(code, bitpos - (2 * 9));
+    // fall through
+    case 8:
+        alt[7] = decode_base(code, bitpos - (2 * 8));
+    // fall through
+    case 7:
+        alt[6] = decode_base(code, bitpos - (2 * 7));
+    // fall through
+    case 6:
+        alt[5] = decode_base(code, bitpos - (2 * 6));
+    // fall through
+    case 5:
+        alt[4] = decode_base(code, bitpos - (2 * 5));
+    // fall through
+    case 4:
+        alt[3] = decode_base(code, bitpos - (2 * 4));
+    // fall through
+    case 3:
+        alt[2] = decode_base(code, bitpos - (2 * 3));
+    // fall through
+    case 2:
+        alt[1] = decode_base(code, bitpos - (2 * 2));
+    // fall through
+    case 1:
+        alt[0] = decode_base(code, bitpos - (2 * 1));
     }
-    alt[i] = 0;
+    alt[*sizealt] = 0;
     return (*sizeref + *sizealt);
 }
 
-inline size_t decode_refalt(uint32_t code, char *ref, size_t *sizeref, char *alt, size_t *sizealt)
+size_t decode_refalt(uint32_t code, char *ref, size_t *sizeref, char *alt, size_t *sizealt)
 {
     if (code & 0x1) // check last bit
     {
@@ -275,66 +345,66 @@ inline size_t decode_refalt(uint32_t code, char *ref, size_t *sizeref, char *alt
     return decode_refalt_rev(code, ref, sizeref, alt, sizealt);
 }
 
-inline uint64_t encode_variantkey(uint8_t chrom, uint32_t pos, uint32_t refalt)
+uint64_t encode_variantkey(uint8_t chrom, uint32_t pos, uint32_t refalt)
 {
     return (((uint64_t)chrom << VKSHIFT_CHROM) | ((uint64_t)pos << VKSHIFT_POS) | (uint64_t)refalt);
 }
 
-inline uint8_t extract_variantkey_chrom(uint64_t vk)
+uint8_t extract_variantkey_chrom(uint64_t vk)
 {
     return (uint8_t)((vk & VKMASK_CHROM) >> VKSHIFT_CHROM);
 }
 
-inline uint32_t extract_variantkey_pos(uint64_t vk)
+uint32_t extract_variantkey_pos(uint64_t vk)
 {
     return (uint32_t)((vk & VKMASK_POS) >> VKSHIFT_POS);
 }
 
-inline uint32_t extract_variantkey_refalt(uint64_t vk)
+uint32_t extract_variantkey_refalt(uint64_t vk)
 {
     return (uint32_t)(vk & VKMASK_REFALT);
 }
 
-inline void decode_variantkey(uint64_t code, variantkey_t *vk)
+void decode_variantkey(uint64_t code, variantkey_t *vk)
 {
     vk->chrom = extract_variantkey_chrom(code);
     vk->pos = extract_variantkey_pos(code);
     vk->refalt = extract_variantkey_refalt(code);
 }
 
-inline uint64_t variantkey(const char *chrom, size_t sizechrom, uint32_t pos, const char *ref, size_t sizeref, const char *alt, size_t sizealt)
+uint64_t variantkey(const char *chrom, size_t sizechrom, uint32_t pos, const char *ref, size_t sizeref, const char *alt, size_t sizealt)
 {
     return encode_variantkey(encode_chrom(chrom, sizechrom), pos, encode_refalt(ref, sizeref, alt, sizealt));
 }
 
-inline void variantkey_range(uint8_t chrom, uint32_t pos_min, uint32_t pos_max, vkrange_t *range)
+void variantkey_range(uint8_t chrom, uint32_t pos_min, uint32_t pos_max, vkrange_t *range)
 {
     uint64_t c = ((uint64_t)chrom << VKSHIFT_CHROM);
     range->min = (c | ((uint64_t)pos_min << VKSHIFT_POS));
     range->max = (c | ((uint64_t)pos_max << VKSHIFT_POS) | VKMASK_REFALT);
 }
 
-static inline int compare_uint64_t(uint64_t a, uint64_t b)
+static inline int8_t compare_uint64_t(uint64_t a, uint64_t b)
 {
     return (a < b) ? -1 : (a > b);
 }
 
-inline int compare_variantkey_chrom(uint64_t vka, uint64_t vkb)
+int8_t compare_variantkey_chrom(uint64_t vka, uint64_t vkb)
 {
     return compare_uint64_t((vka >> VKSHIFT_CHROM), (vkb >> VKSHIFT_CHROM));
 }
 
-inline int compare_variantkey_chrom_pos(uint64_t vka, uint64_t vkb)
+int8_t compare_variantkey_chrom_pos(uint64_t vka, uint64_t vkb)
 {
     return compare_uint64_t((vka >> VKSHIFT_POS), (vkb >> VKSHIFT_POS));
 }
 
-inline size_t variantkey_hex(uint64_t vk, char *str)
+size_t variantkey_hex(uint64_t vk, char *str)
 {
     return sprintf(str, "%016" PRIx64, vk);
 }
 
-inline uint64_t parse_variantkey_hex(const char *vs)
+uint64_t parse_variantkey_hex(const char *vs)
 {
     uint64_t v = 0;
     uint8_t b;
