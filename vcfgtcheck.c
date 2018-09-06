@@ -515,7 +515,7 @@ static void check_gt(args_t *args)
 
     if ( args->plot )
     {
-        fclose(fp);
+        if ( fclose(fp)!=0 ) error("[%s] Error: close failed\n", __func__);
         plot_check(args, args->target_sample ? args->target_sample : "", args->sm_hdr->samples[query_isample]);
     }
 }

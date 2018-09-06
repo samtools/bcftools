@@ -376,7 +376,7 @@ static void init_header_lines(args_t *args)
         if ( bcf_hdr_append(args->hdr_out,str.s) ) error("Could not parse %s: %s\n", args->header_fname, str.s);
         bcf_hdr_append(args->hdr,str.s);    // the input file may not have the header line if run with -h (and nothing else)
     }
-    hts_close(file);
+    if ( hts_close(file)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->header_fname);
     free(str.s);
     bcf_hdr_sync(args->hdr_out);
     bcf_hdr_sync(args->hdr);
@@ -785,12 +785,64 @@ static int vcf_setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, voi
     bcf_update_info_string(args->hdr_out,line,col->hdr_key_dst,args->tmps);
     return 0;
 }
+static int genotypes_to_string(args_t *args, int nsrc1, int32_t *src, int nsmpl_dst, kstring_t *str)
+{
+    int i, isrc, idst;
+    int blen = nsrc1 > 1 ? nsrc1 + 1 : 1;   // typically the genotypes take three bytes 0/1, no 0-termination is needed
+
+gt_length_too_big:
+    str->l = 0;
+    for (idst=0; idst<nsmpl_dst; idst++)
+    {
+        isrc = args->sample_map ? args->sample_map[idst] : idst;
+        if ( isrc==-1 )
+        {
+            kputc_('.', str);
+            for (i=1; i < blen; i++) kputc_(0, str);
+            continue;
+        }
+
+        size_t plen = str->l;
+        int32_t *ptr = src + isrc*nsrc1;
+        for (i=0; i<nsrc1 && ptr[i]!=bcf_int32_vector_end; i++)
+        {
+            if ( i ) kputc("/|"[bcf_gt_is_phased(ptr[i])], str);
+            if ( bcf_gt_is_missing(ptr[i]) ) kputc('.', str); 
+            else kputw(bcf_gt_allele(ptr[i]), str); 
+        }
+        if ( i==0 ) kputc('.', str);
+        if ( str->l - plen > blen )
+        {
+            // too many alternate alleles or ploidy is too large, the genotype does not fit
+            // three characters ("0/0" vs "10/10").
+            blen *= 2;
+            goto gt_length_too_big;
+        }
+        plen = str->l - plen;
+        while ( plen < blen )
+        {
+            kputc_(0, str);
+            plen++;
+        }
+    }
+    return 0;
+}
 static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
     int nsrc = bcf_get_genotypes(args->files->readers[1].header,rec,&args->tmpi,&args->mtmpi);
     if ( nsrc==-3 ) return 0;    // the tag is not present
     if ( nsrc<=0 ) return 1;     // error
+
+    // Genotypes are internally represented as integers. This is a complication when
+    // adding as a different Type=String field, such as FMT/newGT:=GT
+    if ( strcmp(col->hdr_key_src,col->hdr_key_dst) )
+    {
+        int nsmpl_dst = bcf_hdr_nsamples(args->hdr_out);
+        int nsmpl_src = bcf_hdr_nsamples(args->files->readers[1].header);
+        genotypes_to_string(args,nsrc/nsmpl_src,args->tmpi,nsmpl_dst,&args->tmpks);
+        return bcf_update_format_char(args->hdr_out,line,col->hdr_key_dst,args->tmpks.s,args->tmpks.l);
+    }
 
     if ( !args->sample_map )
         return bcf_update_genotypes(args->hdr_out,line,args->tmpi,nsrc);
@@ -1281,7 +1333,6 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
 }
 static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-
     bcf1_t *rec = (bcf1_t*) data;
     int nsrc = bcf_get_format_float(args->files->readers[1].header,rec,col->hdr_key_src,&args->tmpf,&args->mtmpf);
     if ( nsrc==-3 ) return 0;    // the tag is not present
@@ -1407,7 +1458,66 @@ static int vcf_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, v
     args->tmps = args->tmpp[0]; // tmps might be realloced
     if ( ret==-3 ) return 0;    // the tag is not present
     if ( ret<=0 ) return 1;     // error
-    return core_setter_format_str(args,line,col,args->tmpp);
+    if ( strcmp("GT",col->hdr_key_dst) )
+        return core_setter_format_str(args,line,col,args->tmpp);
+
+    // Genotypes are internally represented as integers. This is a complication for FMT/GT:=oldGT
+    // First determine the maximum number of alleles per-sample ndst1
+    int nsmpl_src = bcf_hdr_nsamples(args->files->readers[1].header);
+    int nsmpl_dst = bcf_hdr_nsamples(args->hdr_out);
+    int isrc,idst, ndst1 = 0, nsrc1 = ret / nsmpl_src;
+    char *ptr = args->tmps, *ptr_end = ptr + ret;
+    while ( ptr < ptr_end )
+    {
+        char *smpl_end = ptr + nsrc1;
+        int n = 1;
+        while ( ptr < smpl_end )
+        {
+            if ( *ptr=='/' || *ptr=='|' ) n++;
+            ptr++;
+        }
+        if ( ndst1 < n ) ndst1 = n;
+    }
+    assert( ndst1 );
+    
+    int ndst = ndst1*nsmpl_dst;
+    hts_expand(int32_t,ndst,args->mtmpi,args->tmpi);
+    hts_expand(char,ret+1,args->mtmps,args->tmps); args->tmps[ret] = 0; // the FORMAT string may not be 0-terminated
+    for (idst=0; idst<nsmpl_dst; idst++)
+    {
+        int i = 0, is_phased = 0;
+        int32_t *dst = args->tmpi + idst*ndst1;
+        isrc = args->sample_map ? args->sample_map[idst] : idst;
+        if ( isrc==-1 )
+        {
+            dst[0] = bcf_gt_missing;
+            for (i=1; i<ndst1; i++) dst[i] = bcf_int32_vector_end;
+            continue;
+        }
+        char *beg = args->tmps + isrc*nsrc1, *tmp;
+        char *keep_ptr = beg+nsrc1, keep = *keep_ptr; *keep_ptr = 0;
+        while ( *beg )
+        {
+            char *end = beg;
+            while ( *end && *end!='/' && *end!='|' ) end++;
+            if ( *beg=='.' && end-beg==1 ) dst[i] = bcf_gt_missing;
+            else
+            {
+                if ( *end=='|' ) is_phased = 1;
+                dst[i] = strtol(beg, &tmp, 10);
+                if ( tmp!=end )
+                    error("Could not parse the %s field at %s:%d in %s\n", col->hdr_key_src,bcf_seqname(args->files->readers[1].header,rec),rec->pos+1,args->targets_fname);
+                if ( dst[i] >= line->n_allele )
+                    error("The source allele index is bigger than the number of destination alleles at %s:%d\n", bcf_seqname(args->files->readers[1].header,rec),rec->pos+1);
+                dst[i] = is_phased ? bcf_gt_phased(dst[i]) : bcf_gt_unphased(dst[i]);
+            }
+            beg = *end ? end+1 : end;
+            i++;
+        }
+        *keep_ptr = keep;
+        for (; i<ndst1; i++) dst[i] = bcf_int32_vector_end;
+    }
+    return bcf_update_genotypes(args->hdr_out,line,args->tmpi,ndst);
 }
 static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
 {
@@ -1811,13 +1921,30 @@ static void init_columns(args_t *args)
         {
             if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
             if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO/TAG feature has not been implemented yet.\n");
-            char *key_dst = !strncasecmp("INFO/",str.s,5) ? str.s + 5 : str.s;
+            int explicit_info = 0;
+            char *key_dst;
+            if ( !strncasecmp("INFO/",str.s,5) )
+            {
+                key_dst = str.s + 5;
+                explicit_info = 1;
+            }
+            else
+                key_dst = str.s;
             char *key_src = strstr(key_dst,":=");
             if ( key_src )
             {
                 *key_src = 0;
                 key_src += 2;
-                if ( !strncasecmp("INFO/",key_src,5) ) key_src += 5;
+                if ( !strncasecmp("INFO/",key_src,5) )
+                {
+                    key_src += 5;
+                    explicit_info = 1;
+                }
+                else if ( !strncasecmp("FMT/",key_src,4) || !strncasecmp("FORMAT/",key_src,5) )
+                {
+                    key_src[-2] = ':';
+                    error("Did you mean \"FMT/%s\" rather than \"%s\"?\n",str.s,str.s);
+                }
             }
             else
                 key_src = key_dst;
@@ -1827,7 +1954,13 @@ static void init_columns(args_t *args)
                 if ( args->tgts_is_vcf ) // reading annotations from a VCF, add a new header line
                 {
                     bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_INFO, "ID", key_src, NULL);
-                    if ( !hrec ) error("The tag \"%s\" is not defined in %s\n", str.s,args->files->readers[1].fname);
+                    if ( !hrec )
+                    {
+                        if ( !explicit_info && bcf_hdr_get_hrec(args->files->readers[1].header, BCF_HL_FMT, "ID", key_src, NULL) )
+                            error("Did you mean \"FMT/%s\" rather than \"%s\"?\n",str.s,str.s);
+                    fprintf(stderr,"[%s] %d\n",key_src,explicit_info);
+                        error("The tag \"%s\" is not defined in %s\n", key_src,args->files->readers[1].fname);
+                    }
                     tmp.l = 0;
                     bcf_hrec_format_rename(hrec, key_dst, &tmp);
                     bcf_hdr_append(args->hdr_out, tmp.s);
@@ -1958,10 +2091,10 @@ static void init_data(args_t *args)
         if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);
 
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
-        if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
+        if ( args->out_fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__,args->output_fname, strerror(errno));
         if ( args->n_threads )
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p);
-        bcf_hdr_write(args->out_fh, args->hdr_out);
+        if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: failed to write the header to %s\n", __func__,args->output_fname);
     }
 }
 
@@ -2294,6 +2427,7 @@ int main_vcfannotate(int argc, char *argv[])
     if ( args->targets_fname )
     {
         htsFile *fp = hts_open(args->targets_fname,"r"); 
+        if ( !fp ) error("Failed to open %s\n", args->targets_fname);
         htsFormat type = *hts_get_format(fp);
         hts_close(fp);
 
@@ -2319,12 +2453,12 @@ int main_vcfannotate(int argc, char *argv[])
             if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
             if ( !pass ) 
             {
-                if ( args->keep_sites ) bcf_write1(args->out_fh, args->hdr_out, line);
+                if ( args->keep_sites && bcf_write1(args->out_fh, args->hdr_out, line)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
                 continue;
             }
         }
         annotate(args, line);
-        bcf_write1(args->out_fh, args->hdr_out, line);
+        if ( bcf_write1(args->out_fh, args->hdr_out, line)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
     }
     destroy_data(args);
     bcf_sr_destroy(args->files);

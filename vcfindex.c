@@ -112,7 +112,7 @@ int vcf_index_stats(char *fname, int stats)
     }
     if (stats&2) printf("%" PRIu64 "\n", sum);
     free(seq);
-    hts_close(fp);
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed\n", __func__);
     bcf_hdr_destroy(hdr);
     if (tbx)
         tbx_destroy(tbx);

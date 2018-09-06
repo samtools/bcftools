@@ -38,18 +38,162 @@ THE SOFTWARE.  */
 #include <htslib/tbx.h> // for hts_get_bgzfp()
 #include <htslib/kseq.h>
 #include <htslib/thread_pool.h>
+#include <htslib/faidx.h>
+#include <htslib/khash_str2int.h>
 #include "bcftools.h"
 #include "khash_str2str.h"
 
 typedef struct _args_t
 {
     char **argv, *fname, *samples_fname, *header_fname, *output_fname;
+    char *fai_fname, *rm_tmpfile;
     htsFile *fp;
     htsFormat type;
     htsThreadPool *threads;
     int argc, n_threads;
 }
 args_t;
+
+static inline int is_escaped(const char *min, const char *str)
+{
+    int n = 0;
+    while ( --str>=min && *str=='\\' ) n++;
+    return n%2;
+}
+static char *copy_and_update_contig_line(faidx_t *fai, char *line, void *chr_seen, kstring_t *dst)
+{
+    kstring_t key = {0,0,0}, val = {0,0,0}, tmp = {0,0,0};
+    char *chr_name = NULL, *p, *q = line + 9;   // skip ##contig=
+    char *end = q;
+    int nopen = 1, chr_len = 0;
+    while ( *end && *end!='\n' ) end++;
+    while ( *q && *q!='\n' && nopen>0 )
+    {
+        p = ++q;
+        while ( *q && (*q==' ' || *q=='\t') ) { p++; q++; }
+        // ^[A-Za-z_][0-9A-Za-z_.]*$
+        if (p==q && *q && (isalpha(*q) || *q=='_'))
+        {
+            q++;
+            while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
+        }
+        int n = q-p;
+        int m = 0;
+        while ( *q && (*q==' ' || *q=='\t') ) { q++; m++; }
+        if ( *q!='=' || !n )
+        {
+            char *x = q;
+            while ( *x && *x!='\n' ) x++; *x = 0;
+            error("Could not parse the line: %s [%s][%s]\n", line,p,q);
+        }
+        key.l = 0;
+        kputsn(p,q-p-m,&key);
+        p = ++q;
+        while ( *q && (*q==' ' || *q=='\t') ) { p++; q++; }
+        int quoted = *p=='"' ? 1 : 0;
+        if ( quoted ) p++, q++;
+        while ( *q && *q != '\n' )
+        {
+            if ( quoted ) { if ( *q=='"' && !is_escaped(p,q) ) break; }
+            else
+            {
+                if ( *q=='<' ) nopen++;
+                if ( *q=='>' ) nopen--;
+                if ( !nopen ) break;
+                if ( *q==',' && nopen==1 ) break;
+            }
+            q++;
+        }
+        char *r = q;
+        while ( r > p && r[-1] == ' ' ) r--;
+        val.l = 0;
+        kputsn(p,r-p,&val);
+        if ( quoted && *q=='"' ) q++;
+        if ( *q=='>' ) { nopen--; q++; }
+        if ( !strcmp("length",key.s) ) continue;
+        if ( !strcmp("ID",key.s) )
+        {
+            if ( khash_str2int_has_key(chr_seen,val.s) ) continue;
+            chr_len = faidx_seq_len(fai, val.s);
+            if ( chr_len==-1 )
+            {
+                free(val.s); free(key.s); free(tmp.s);
+                return end;   // the sequence is not in fai, remove
+            }
+            chr_name = strdup(val.s);
+            khash_str2int_inc(chr_seen, chr_name);
+            continue;
+        }
+        kputc(',',&tmp);
+        kputs(key.s,&tmp);
+        kputc('=',&tmp);
+        if ( quoted ) kputc('"',&tmp);
+        kputs(val.s,&tmp);
+        if ( quoted ) kputc('"',&tmp);
+    }
+    if ( !chr_name ) return end;
+    ksprintf(dst,"##contig=<ID=%s,length=%d%s>",chr_name,chr_len,tmp.l ? tmp.s : "");
+    free(key.s); free(val.s); free(tmp.s);
+    return q;
+}
+static void update_from_fai(args_t *args)
+{
+    if ( !strcmp("-",args->fname) )
+        error("Cannot use the --fai option when reading from standard input.\n");
+
+    faidx_t *fai = fai_load3(args->fai_fname,args->fai_fname,NULL,FAI_FASTA);
+    if ( !fai ) error("Could not parse %s\n", args->fai_fname);
+    
+    args->rm_tmpfile = strdup("/tmp/bcftools-fai-header-XXXXXX");
+    int fd = mkstemp(args->rm_tmpfile);
+    if ( fd<0 ) error("Could not open a temporary file for writing: %s\n", args->rm_tmpfile);
+
+    // get a template header: either from the original VCF or from --header
+    char *ori_hdr_fname = args->header_fname ? args->header_fname : args->fname;
+    htsFile *fp = hts_open(ori_hdr_fname,"r");
+    if ( !fp ) error("Failed to open: %s\n", ori_hdr_fname);
+    bcf_hdr_t *hdr = bcf_hdr_read(fp);
+    if ( !hdr ) error("Failed to read the header: %s\n", ori_hdr_fname);
+    hts_close(fp);  // no need to check the return status here
+
+    // put the header in a text buffer
+    kstring_t hdr_txt_ori = {0,0,0}, hdr_txt_new = {0,0,0};
+    bcf_hdr_format(hdr, 0, &hdr_txt_ori);
+    bcf_hdr_destroy(hdr);
+
+    // update the existing contig lines and remove lines not present in the fai file
+    void *chr_seen = khash_str2int_init();
+    char *tmp, *beg = hdr_txt_ori.s;
+    while ( beg && *beg )
+    {
+        tmp = strstr(beg, "\n##contig=<");
+        if ( !tmp ) break;
+        kputsn(beg, tmp-beg+1, &hdr_txt_new);
+        size_t l_prev = hdr_txt_new.l;
+        beg = copy_and_update_contig_line(fai,tmp+1,chr_seen, &hdr_txt_new);
+        if ( l_prev==hdr_txt_new.l ) hdr_txt_new.l--;   // nothing was added, remove the newline
+    }
+    if ( !beg || !(tmp=strstr(beg,"\n#CHROM")) ) error("Failed to parse the header, #CHROM not found\n");
+    kputsn(beg, tmp-beg+1, &hdr_txt_new);
+
+    // add any new contig lines
+    int i, n = faidx_nseq(fai);
+    for (i=0; i<n; i++)
+    {
+        if ( khash_str2int_has_key(chr_seen,faidx_iseq(fai,i)) ) continue;
+        ksprintf(&hdr_txt_new,"##contig=<ID=%s,length=%d>\n",faidx_iseq(fai,i),faidx_seq_len(fai,faidx_iseq(fai,i)));
+    }
+    kputs(tmp+1,&hdr_txt_new);
+
+    if ( write(fd, hdr_txt_new.s, hdr_txt_new.l)!=hdr_txt_new.l ) error("Failed to write %zu bytes to %s\n", hdr_txt_new.l,args->rm_tmpfile);
+    if ( close(fd)!=0 ) error("Failed to close %s\n", args->rm_tmpfile);
+    args->header_fname = args->rm_tmpfile;
+
+    free(hdr_txt_ori.s);
+    free(hdr_txt_new.s);
+    fai_destroy(fai);
+    khash_str2int_destroy_free(chr_seen);
+}
 
 static void read_header_file(char *fname, kstring_t *hdr)
 {
@@ -313,8 +457,8 @@ static void reheader_vcf(args_t *args)
         kputc('\n',&fp->line);
         if ( write(out, fp->line.s, fp->line.l)!=fp->line.l ) error("Failed to write %"PRIu64" bytes\n", (uint64_t)fp->line.l);
     }
-    hts_close(fp);
-    close(out);
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fname);
+    if ( close(out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 }
 
 static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
@@ -414,7 +558,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
         BGZF *bgzf = hts_get_bgzfp(fp_out);
         if ( bgzf ) bgzf_thread_pool(bgzf, args->threads->pool, args->threads->qsize);
     }
-    bcf_hdr_write(fp_out, hdr_out);
+    if ( bcf_hdr_write(fp_out, hdr_out)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname ? args->output_fname : "standard output");
 
     bcf1_t *rec = bcf_init();
     while ( bcf_read(fp, hdr, rec)==0 )
@@ -459,13 +603,13 @@ static void reheader_bcf(args_t *args, int is_compressed)
         if ( i!=rec->n_fmt )
             error("The FORMAT tag is not defined: \"%s\"\n", bcf_hdr_int2id(hdr,BCF_DT_ID,rec->d.fmt[i].id));
 
-        bcf_write(fp_out,hdr_out,rec);
+        if ( bcf_write(fp_out,hdr_out,rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname ? args->output_fname : "standard output");
     }
     bcf_destroy(rec);
 
     free(htxt.s);
-    hts_close(fp_out);
-    hts_close(fp);
+    if ( hts_close(fp_out)!=0 ) error("[%s] Error: failed to close the file %s\n",__func__,args->output_fname ? args->output_fname : "standard output");
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fname);
     bcf_hdr_destroy(hdr_out);
     bcf_hdr_destroy(hdr);
     if ( args->threads )
@@ -483,6 +627,7 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools reheader [OPTIONS] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -f, --fai <file>        update sequences and their lengths from the .fai file\n");
     fprintf(stderr, "    -h, --header <file>     new header\n");
     fprintf(stderr, "    -o, --output <file>     write output to a file [standard output]\n");
     fprintf(stderr, "    -s, --samples <file>    new sample names\n");
@@ -499,17 +644,19 @@ int main_reheader(int argc, char *argv[])
     
     static struct option loptions[] =
     {
+        {"fai",1,0,'f'},
         {"output",1,0,'o'},
         {"header",1,0,'h'},
         {"samples",1,0,'s'},
         {"threads",1,NULL,1},
         {0,0,0,0}
     };
-    while ((c = getopt_long(argc, argv, "s:h:o:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "s:h:o:f:",loptions,NULL)) >= 0)
     {
         switch (c)
         {
             case  1 : args->n_threads = strtol(optarg, 0, 0); break;
+            case 'f': args->fai_fname = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 's': args->samples_fname = optarg; break;
             case 'h': args->header_fname = optarg; break;
@@ -525,6 +672,7 @@ int main_reheader(int argc, char *argv[])
     }
     else args->fname = argv[optind];
 
+    if ( args->fai_fname ) update_from_fai(args);
     if ( !args->samples_fname && !args->header_fname ) usage(args);
     if ( !args->fname ) usage(args);
 
@@ -542,6 +690,11 @@ int main_reheader(int argc, char *argv[])
     else
         reheader_bcf(args, args->type.compression==bgzf || args->type.compression==gzip);
 
+    if ( args->rm_tmpfile )
+    {
+        unlink(args->rm_tmpfile);
+        free(args->rm_tmpfile);
+    }
     free(args);
     return 0;
 }

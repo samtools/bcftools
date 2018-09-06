@@ -314,7 +314,7 @@ static int realign(args_t *args, bcf1_t *line)
         if ( args->check_ref==CHECK_REF_EXIT )
             error("Reference allele mismatch at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
         if ( args->check_ref & CHECK_REF_WARN )
-            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0],ref);
         free(ref);
         return ERR_REF_MISMATCH;
     }
@@ -1608,7 +1608,8 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
         {
             if ( mrows_ready_to_flush(args, args->lines[k]) )
             {
-                while ( (line=mrows_flush(args)) ) bcf_write1(file, args->hdr, line);
+                while ( (line=mrows_flush(args)) )
+                    if ( bcf_write1(file, args->hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
             }
             int merge = 1;
             if ( args->mrows_collapse!=COLLAPSE_BOTH && args->mrows_collapse!=COLLAPSE_ANY )
@@ -1641,11 +1642,12 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
             prev_type |= line_type;
             if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args, args->lines[k]);
         }
-        bcf_write1(file, args->hdr, args->lines[k]);
+        if ( bcf_write1(file, args->hdr, args->lines[k])!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
     if ( args->mrows_op==MROWS_MERGE && !args->rbuf.n )
     {
-        while ( (line=mrows_flush(args)) ) bcf_write1(file, args->hdr, line);
+        while ( (line=mrows_flush(args)) )
+            if ( bcf_write1(file, args->hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
 }
 
@@ -1754,7 +1756,7 @@ static void normalize_vcf(args_t *args)
     if ( args->n_threads )
         hts_set_opt(out, HTS_OPT_THREAD_POOL, args->files->p);
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_norm");
-    bcf_hdr_write(out, args->hdr);
+    if ( bcf_hdr_write(out, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
     int prev_rid = -1, prev_pos = -1, prev_type = 0;
     while ( bcf_sr_next_line(args->files) )
@@ -1819,7 +1821,7 @@ static void normalize_vcf(args_t *args)
         if ( j>0 ) flush_buffer(args, out, j);
     }
     flush_buffer(args, out, args->rbuf.n);
-    hts_close(out);
+    if ( hts_close(out)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
 
     fprintf(stderr,"Lines   total/split/realigned/skipped:\t%d/%d/%d/%d\n", args->ntotal,args->nsplit,args->nchanged,args->nskipped);
     if ( args->check_ref & CHECK_REF_FIX )

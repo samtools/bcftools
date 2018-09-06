@@ -97,7 +97,7 @@ static void init_data(args_t *args)
             }
         }
         bcf_hdr_destroy(hdr);
-        hts_close(fp);
+        if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->fnames[i]);
     }
     free(str.s);
     if ( line ) bcf_destroy(line);
@@ -114,7 +114,7 @@ static void init_data(args_t *args)
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 
-    bcf_hdr_write(args->out_fh, args->out_hdr);
+    if ( bcf_hdr_write(args->out_fh, args->out_hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname);
 
     if ( args->allow_overlaps )
     {
@@ -282,7 +282,7 @@ static void phased_flush(args_t *args)
             bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
             args->phase_set_changed = 0;
         }
-        bcf_write(args->out_fh, args->out_hdr, arec);
+        if ( bcf_write(args->out_fh, args->out_hdr, arec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
         if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [1]\n", bcf_seqname(args->files->readers[0].header,arec),arec->pos+1,args->prev_pos_check+1);
         args->prev_pos_check = arec->pos;
@@ -332,7 +332,7 @@ static void phased_flush(args_t *args)
             bcf_update_format_int32(args->out_hdr,brec,"PS",args->phase_set,nsmpl);
             args->phase_set_changed = 0;
         }
-        bcf_write(args->out_fh, args->out_hdr, brec);
+        if ( bcf_write(args->out_fh, args->out_hdr, brec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
         if ( brec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [2]\n", bcf_seqname(args->files->readers[1].header,brec),brec->pos+1,args->prev_pos_check+1);
         args->prev_pos_check = brec->pos;
@@ -373,7 +373,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
             bcf_update_format_int32(args->out_hdr,arec,"PS",args->phase_set,nsmpl);
             args->phase_set_changed = 0;
         }
-        bcf_write(args->out_fh, args->out_hdr, arec);
+        if ( bcf_write(args->out_fh, args->out_hdr, arec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
         if ( arec->pos < args->prev_pos_check )
             error("FIXME, disorder: %s:%d in %s vs %d written  [3]\n", bcf_seqname(args->files->readers[0].header,arec), arec->pos+1,args->files->readers[0].fname, args->prev_pos_check+1);
@@ -483,7 +483,7 @@ static void concat(args_t *args)
                 bcf1_t *line = bcf_sr_get_line(args->files,i);
                 if ( !line ) continue;
                 bcf_translate(args->out_hdr, args->files->readers[i].header, line);
-                bcf_write1(args->out_fh, args->out_hdr, line);
+                if ( bcf_write1(args->out_fh, args->out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
                 if ( args->remove_dups ) break;
             }
         }

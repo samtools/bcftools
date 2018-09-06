@@ -101,15 +101,15 @@ void buf_flush(args_t *args)
 
     htsFile *fh = hts_open(blk->fname, "wbu");
     if ( fh == NULL ) error("Cannot write %s: %s\n", blk->fname, strerror(errno));
-    bcf_hdr_write(fh, args->hdr);
+    if ( bcf_hdr_write(fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,blk->fname);
     
     int i;
     for (i=0; i<args->nbuf; i++)
     {
-        bcf_write(fh, args->hdr, args->buf[i]);
+        if ( bcf_write(fh, args->hdr, args->buf[i])!=0 ) error("[%s] Error: cannot write to %s\n", __func__,blk->fname);
         bcf_destroy(args->buf[i]);
     }
-    hts_close(fh);
+    if ( hts_close(fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,blk->fname);
 
     args->nbuf = 0;
     args->mem  = 0;
@@ -192,11 +192,11 @@ void merge_blocks(args_t *args)
     }
 
     htsFile *out = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
-    bcf_hdr_write(out, args->hdr);
+    if ( bcf_hdr_write(out, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     while ( bhp->ndat )
     {
         blk_t *blk = bhp->dat[0];
-        bcf_write(out, args->hdr, blk->rec);
+        if ( bcf_write(out, args->hdr, blk->rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
         khp_delete(blk, bhp);
         blk_read(bhp, args->hdr, blk);
     }

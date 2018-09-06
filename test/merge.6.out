@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AFS,Number=A,Type=String,Description="Some string">
+##FORMAT=<ID=RFS,Number=R,Type=String,Description="Some string">
+##contig=<ID=1,length=248956422>
+##reference=file:///home/dnanexus/genome.fa
+##FORMAT=<ID=FFS,Number=2,Type=String,Description="Some string">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	t1	t2
+1	11080563	.	A	C	.	.	.	GT:RFS:AFS:FFS	0/1:a,c:c:.	0/1:A,C:C:xx,yy
+1	11080564	.	A	C,T	.	.	.	GT:RFS:AFS:FFS	0/1:a,c,.:c,.:.	0/2:A,.,T:.,T:xx,yy

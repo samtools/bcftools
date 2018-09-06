@@ -444,6 +444,8 @@ static void filters_cmp_id(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *
         return;
     }
 
+    if ( !btok->str_value.l ) error("Error occurred while evaluating the expression\n");
+
     if ( rtok->tok_type==TOK_EQ ) 
         rtok->pass_site = strcmp(btok->str_value.s,line->d.id) ? 0 : 1;
     else
@@ -497,6 +499,14 @@ static int bcf_get_info_value(bcf1_t *line, int info_id, int ivec, void *value)
     }
     #undef BRANCH
     return -1;  // this shouldn't happen
+}
+
+static void filters_set_chrom(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    tok->str_value.l = 0;
+    kputs(bcf_seqname(flt->hdr,line), &tok->str_value);
+    tok->nvalues = tok->str_value.l;
+    tok->is_str  = 1;
 }
 
 static void filters_set_pos(filter_t *flt, bcf1_t *line, token_t *tok)
@@ -1018,7 +1028,6 @@ static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
     rtok->nvalues = 1;
     rtok->values[0] = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
     rtok->nsamples = 0;
-
     return 1;
 }
 static void filters_set_nalt(filter_t *flt, bcf1_t *line, token_t *tok)
@@ -1595,7 +1604,7 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                     { \
                         if ( missing_logic[nmiss] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
                     } \
-                    else if ( atok->values[i] CMP_OP btok->values[j] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
+                    else if ( (float)atok->values[i] CMP_OP (float)btok->values[j] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
                 } \
             } \
         } \
@@ -1655,7 +1664,7 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                         { \
                             if ( missing_logic[nmiss] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
                         } \
-                        else if ( xptr[j] CMP_OP yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
+                        else if ( (float)xptr[j] CMP_OP (float)yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
                     } \
                 } \
             } \
@@ -2073,6 +2082,12 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
             tok->tag = strdup("ID");
             return 0;
         }
+        else if ( !strncasecmp(str,"CHROM",len) )
+        {
+            tok->setter = &filters_set_chrom;
+            tok->tag = strdup("CHROM");
+            return 0;
+        }
         else if ( !strncasecmp(str,"POS",len) )
         {
             tok->setter = &filters_set_pos;
@@ -2111,12 +2126,14 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         }
         else if ( !strncasecmp(str,"N_MISSING",len) )
         {
+            filter->max_unpack |= BCF_UN_FMT;
             tok->setter = &filters_set_nmissing;
             tok->tag = strdup("N_MISSING");
             return 0;
         }
         else if ( !strncasecmp(str,"F_MISSING",len) )
         {
+            filter->max_unpack |= BCF_UN_FMT;
             tok->setter = &filters_set_nmissing;
             tok->tag = strdup("F_MISSING");
             return 0;
@@ -2268,13 +2285,14 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
     // is it a value? Here we parse as integer/float separately and use strtof
     // rather than strtod, because the more accurate double representation
     // would invalidate floating point comparisons like QUAL=59.2, obtained via
-    // htslib/vcf parser
+    // htslib/vcf parser.
+    // Update: use strtod() and force floats only in comparisons
     char *end;
     tok->threshold = strtol(tmp.s, &end, 10);   // integer?
     if ( end - tmp.s != strlen(tmp.s) )
     {
         errno = 0;
-        tok->threshold = strtof(tmp.s, &end);   // float?
+        tok->threshold = strtod(tmp.s, &end);   // float?
         if ( errno!=0 || end!=tmp.s+len ) error("[%s:%d %s] Error: the tag \"%s\" is not defined in the VCF header\n", __FILE__,__LINE__,__FUNCTION__,tmp.s);
     }
     tok->is_constant = 1;
@@ -2502,8 +2520,18 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
                 tok->hdr_id    = -1;
                 tok->pass_site = -1;
                 tok->threshold = -1.0;
-                if ( !strncasecmp(tmp-len,"N_PASS",6) ) { tok->func = func_npass; tok->tag = strdup("N_PASS"); }
-                else if ( !strncasecmp(tmp-len,"F_PASS",6) ) { tok->func = func_npass; tok->tag = strdup("F_PASS"); }
+                if ( !strncasecmp(tmp-len,"N_PASS",6) )
+                {
+                    filter->max_unpack |= BCF_UN_FMT;
+                    tok->func = func_npass;
+                    tok->tag = strdup("N_PASS");
+                }
+                else if ( !strncasecmp(tmp-len,"F_PASS",6) )
+                {
+                    filter->max_unpack |= BCF_UN_FMT;
+                    tok->func = func_npass;
+                    tok->tag = strdup("F_PASS");
+                }
                 else error("The function \"%s\" is not supported\n", tmp-len);
                 continue;
             }
@@ -2607,7 +2635,8 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     // list of operators and convert the strings (e.g. "PASS") to BCF ids. The string value token must be
     // just before or after the FILTER token and they must be followed with a comparison operator.
     // At this point we also initialize regex expressions which, in RPN, must preceed the LIKE/NLIKE operator.
-    // Additionally, treat "." as missing value rather than a string in numeric equalities.
+    // Additionally, treat "." as missing value rather than a string in numeric equalities; that
+    // @file is only used with ID; etc.
     // This code is fragile: improve me.
     int i;
     for (i=0; i<nout; i++)
@@ -2615,6 +2644,12 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         if ( i+1<nout && (out[i].tok_type==TOK_LT || out[i].tok_type==TOK_BT) && out[i+1].tok_type==TOK_EQ )
             error("Error parsing the expression: \"%s\"\n", filter->str);
 
+        if ( out[i].hash )
+        {
+            int j = out[i+1].tok_type==TOK_VAL ? i+1 : i-1;
+            if ( out[j].comparator!=filters_cmp_id )
+                error("Error: could not parse the expression. Note that the \"@file_name\" syntax can be currently used with ID column only.\n");
+        }
         if ( out[i].tok_type==TOK_OR || out[i].tok_type==TOK_OR_VEC )
             out[i].func = vector_logic_or;
         if ( out[i].tok_type==TOK_AND || out[i].tok_type==TOK_AND_VEC )
@@ -2874,6 +2909,8 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
         }
         else
         {
+            if ( is_str==1 ) error("Error: cannot use arithmetic operators to compare strings and numbers\n");
+
             // Determine what to do with one [1] or both [2] sides missing. The first field [0] gives [1]|[2]
             int missing_logic[] = {0,0,0};
             if ( filter->filters[i].tok_type == TOK_EQ ) { missing_logic[0] = missing_logic[2] = 1; }
@@ -2893,7 +2930,6 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
                 CMP_VECTORS(filter->flt_stack[nstack-2],filter->flt_stack[nstack-1],&filter->filters[i],>=,missing_logic)
             else
                 error("todo: %s:%d .. type=%d\n", __FILE__,__LINE__,filter->filters[i].tok_type);
-
         }
         filter->flt_stack[nstack-2] = &filter->filters[i];
         nstack--;

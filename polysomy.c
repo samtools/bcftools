@@ -350,8 +350,8 @@ static void init_data(args_t *args)
         args->output_dir);
 //---------------------------------------
     chmod(fname, S_IWUSR|S_IRUSR|S_IRGRP|S_IROTH|S_IXUSR|S_IXGRP|S_IXOTH);
+    if ( fclose(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
     free(fname);
-    fclose(fp);
 }
 
 static void destroy_data(args_t *args)
@@ -364,8 +364,8 @@ static void destroy_data(args_t *args)
     }
     free(args->dist);
     free(args->xvals);
+    if ( fclose(args->dat_fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->dat_fname);
     free(args->dat_fname);
-    fclose(args->dat_fp);
 }
 
 static void save_dist(args_t *args, dist_t *dist)

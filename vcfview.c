@@ -589,7 +589,7 @@ int main_vcfview(int argc, char *argv[])
     char *tmp;
     while ((c = getopt_long(argc, argv, "l:t:T:r:R:o:O:s:S:Gf:knv:V:m:M:auUhHc:C:Ii:e:xXpPq:Q:g:",loptions,NULL)) >= 0)
     {
-        char allele_type[8] = "nref";
+        char allele_type[9] = "nref";
         switch (c)
         {
             case 'O':
@@ -641,7 +641,7 @@ int main_vcfview(int argc, char *argv[])
             case 'c':
             {
                 args->min_ac_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%d:%s",&args->min_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->min_ac)!=1 )
+                if ( sscanf(optarg,"%d:%8s",&args->min_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->min_ac)!=1 )
                     error("Error: Could not parse --min-ac %s\n", optarg);
                 set_allele_type(&args->min_ac_type, allele_type);
                 args->calc_ac = 1;
@@ -650,7 +650,7 @@ int main_vcfview(int argc, char *argv[])
             case 'C':
             {
                 args->max_ac_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%d:%s",&args->max_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->max_ac)!=1 )
+                if ( sscanf(optarg,"%d:%8s",&args->max_ac, allele_type)!=2 && sscanf(optarg,"%d",&args->max_ac)!=1 )
                     error("Error: Could not parse --max-ac %s\n", optarg);
                 set_allele_type(&args->max_ac_type, allele_type);
                 args->calc_ac = 1;
@@ -659,8 +659,8 @@ int main_vcfview(int argc, char *argv[])
             case 'q':
             {
                 args->min_af_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%f:%s",&args->min_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 )
-                    error("Error: Could not parse --min_af %s\n", optarg);
+                if ( sscanf(optarg,"%f:%8s",&args->min_af, allele_type)!=2 && sscanf(optarg,"%f",&args->min_af)!=1 )
+                    error("Error: Could not parse --min-af %s\n", optarg);
                 set_allele_type(&args->min_af_type, allele_type);
                 args->calc_ac = 1;
                 break;
@@ -668,8 +668,8 @@ int main_vcfview(int argc, char *argv[])
             case 'Q':
             {
                 args->max_af_type = ALLELE_NONREF;
-                if ( sscanf(optarg,"%f:%s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->max_af)!=1 )
-                    error("Error: Could not parse --min_af %s\n", optarg);
+                if ( sscanf(optarg,"%f:%8s",&args->max_af, allele_type)!=2 && sscanf(optarg,"%f",&args->max_af)!=1 )
+                    error("Error: Could not parse --max-af %s\n", optarg);
                 set_allele_type(&args->max_af_type, allele_type);
                 args->calc_ac = 1;
                 break;
@@ -742,7 +742,9 @@ int main_vcfview(int argc, char *argv[])
     init_data(args);
     bcf_hdr_t *out_hdr = args->hnull ? args->hnull : (args->hsub ? args->hsub : args->hdr);
     if (args->print_header)
-        bcf_hdr_write(args->out, out_hdr);
+    {
+        if ( bcf_hdr_write(args->out, out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->fn_out);
+    }
     else if ( args->output_type & FT_BCF )
         error("BCF output requires header, cannot proceed with -H\n");
 
@@ -753,8 +755,7 @@ int main_vcfview(int argc, char *argv[])
         {
             bcf1_t *line = args->files->readers[0].buffer[0];
             if ( line->errcode && out_hdr!=args->hdr ) error("Undefined tags in the header, cannot proceed in the sample subset mode.\n");
-            if ( subset_vcf(args, line) )
-                bcf_write1(args->out, out_hdr, line);
+            if ( subset_vcf(args, line) && bcf_write1(args->out, out_hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->fn_out);
         }
         ret = args->files->errnum;
         if ( ret ) fprintf(stderr,"Error: %s\n", bcf_sr_strerror(args->files->errnum));

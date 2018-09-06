@@ -80,7 +80,7 @@ typedef struct
     rbuf_t vcf_rbuf;
     bcf1_t **vcf_buf;
     int nvcf_buf, rid;
-    char *chr;
+    char *chr, *chr_prefix;
 
     regidx_t *mask;
     regitr_t *itr;
@@ -267,7 +267,7 @@ static void init_region(args_t *args, char *line)
     char *ss, *se = line;
     while ( *se && !isspace(*se) && *se!=':' ) se++;
     int from = 0, to = 0;
-    char tmp, *tmp_ptr = NULL;
+    char tmp = 0, *tmp_ptr = NULL;
     if ( *se )
     {
         tmp = *se; *se = 0; tmp_ptr = se;
@@ -299,7 +299,7 @@ static void init_region(args_t *args, char *line)
     args->vcf_rbuf.n = 0;
     bcf_sr_seek(args->files,line,args->fa_ori_pos);
     if ( tmp_ptr ) *tmp_ptr = tmp;
-    fprintf(args->fp_out,">%s\n",line);
+    fprintf(args->fp_out,">%s%s\n",args->chr_prefix?args->chr_prefix:"",line);
     if (args->chain_fname )
     {
         args->chain = init_chain(args->chain, args->fa_ori_pos);
@@ -477,7 +477,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                     ialt = -1;
                     break;
                 }
-                if ( ptr[i]==bcf_int32_vector_end ) break;
+                if ( ptr[i]==(uint8_t)bcf_int8_vector_end ) break;
                 ialt = bcf_gt_allele(ptr[i]);
                 if ( i>0 && ialt!=bcf_gt_allele(ptr[i-1]) ) { is_hom = 0; break; }
             }
@@ -486,7 +486,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                 int prev_len = 0, jalt;
                 for (i=0; i<fmt->n; i++)
                 {
-                    if ( ptr[i]==bcf_int32_vector_end ) break;
+                    if ( ptr[i]==(uint8_t)bcf_int8_vector_end ) break;
                     jalt = bcf_gt_allele(ptr[i]);
                     if ( rec->n_allele <= jalt ) error("Broken VCF, too few alts at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
                     if ( args->allele & (PICK_LONG|PICK_SHORT) )
@@ -783,6 +783,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -m, --mask <file>          replace regions with N\n");
     fprintf(stderr, "    -M, --missing <char>       output <char> instead of skipping the missing genotypes\n");
     fprintf(stderr, "    -o, --output <file>        write output to a file [standard output]\n");
+    fprintf(stderr, "    -p, --prefix <string>      prefix to add to output sequence names\n");
     fprintf(stderr, "    -s, --sample <name>        apply variants of the given sample\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Get the consensus for one region. The fasta header lines are then expected\n");
@@ -809,13 +810,15 @@ int main_consensus(int argc, char *argv[])
         {"mask",1,0,'m'},
         {"missing",1,0,'M'},
         {"chain",1,0,'c'},
+        {"prefix",required_argument,0,'p'},
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "h?s:1Ii:e:H:f:o:m:c:M:",loptions,NULL)) >= 0) 
+    while ((c = getopt_long(argc, argv, "h?s:1Ii:e:H:f:o:m:c:M:p:",loptions,NULL)) >= 0) 
     {
         switch (c) 
         {
+            case 'p': args->chr_prefix = optarg; break;
             case 's': args->sample = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'I': args->output_iupac = 1; break;

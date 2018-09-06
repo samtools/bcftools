@@ -1,0 +1,3 @@
+chr1	.	gene	1	1254	.	+	.	ID=gene:gtrV;Name=gtrV;locus_tag=locus0000;gene_biotype=protein_coding;
+chr1	.	transcript	1	1254	.	+	.	ID=transcript:gtrV;Parent=gene:gtrV;locus_tag=locus0000;gene_biotype=protein_coding;
+chr1	.	CDS	1	1254	.	+	.	Parent=transcript:gtrV;gene=gene:gtrV

@@ -141,7 +141,7 @@ void parse_ped(args_t *args, char *fname)
     khash_str2int_destroy(pop2i);
     free(str.s);
     free(off);
-    hts_close(fp);
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
 }
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)

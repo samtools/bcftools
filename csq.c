@@ -392,7 +392,8 @@ typedef struct
 {
     bcf1_t *line;
     uint32_t *smpl;     // bitmask of sample consequences with first/second haplotype interleaved
-    uint32_t nfmt:4, nvcsq:28, mvcsq;
+    uint32_t nfmt:4,    // the bitmask size (the number of integers per sample)
+             nvcsq:28, mvcsq;
     vcsq_t *vcsq;       // there can be multiple consequences for a single VCF record
 }
 vrec_t;
@@ -595,6 +596,7 @@ typedef struct _args_t
     csq_t *csq_buf;             // pool of csq not managed by hap_node_t, i.e. non-CDS csqs
     int ncsq_buf, mcsq_buf;
     id_tbl_t tscript_ids;       // mapping between transcript id (eg. Zm00001d027245_T001) and a numeric idx
+    int force;                  // force run under various conditions. Currently only to skip out-of-phase transcripts
 
     faidx_t *fai;
     kstring_t str, str2;
@@ -1111,15 +1113,26 @@ void tscript_init_cds(args_t *args)
             tr->cds[0]->len -= tr->cds[0]->phase;
             tr->cds[0]->phase = 0;
 
-            // sanity check phase
+            // sanity check phase; the phase number in gff tells us how many bases to skip in this
+            // feature to reach the first base of the next codon
+            int tscript_ok = 1;
             for (i=0; i<tr->ncds; i++)
             {
                 int phase = tr->cds[i]->phase ? 3 - tr->cds[i]->phase : 0;
                 if ( phase!=len%3)
-                    error("GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
-                assert( phase == len%3 );
+                {
+                    if ( args->force )
+                    {
+                        if ( args->quiet < 2 )
+                            fprintf(stderr,"Warning: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                        tscript_ok = 0;
+                        break;
+                    }
+                    error("Error: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                }
                 len += tr->cds[i]->len; 
             }
+            if ( !tscript_ok ) continue;    // skip this transcript
         }
         else
         {
@@ -1140,13 +1153,24 @@ void tscript_init_cds(args_t *args)
             tr->cds[i]->phase = 0;
 
             // sanity check phase
+            int tscript_ok = 1;
             for (i=tr->ncds-1; i>=0; i--)
             {
                 int phase = tr->cds[i]->phase ? 3 - tr->cds[i]->phase : 0;
                 if ( phase!=len%3)
-                    error("GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                {
+                    if ( args->force )
+                    {
+                        if ( args->quiet < 2 )
+                            fprintf(stderr,"Warning: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                        tscript_ok = 0;
+                        break;
+                    }
+                    error("Error: GFF3 assumption failed for transcript %s, CDS=%d: phase!=len%%3 (phase=%d, len=%d)\n",args->tscript_ids.str[tr->id],tr->cds[i]->beg+1,phase,len);
+                }
                 len += tr->cds[i]->len;
             }
+            if ( !tscript_ok ) continue;    // skip this transcript
         }
 
         // set len. At the same check that CDS within a transcript do not overlap
@@ -1357,12 +1381,12 @@ void init_data(args_t *args)
     else
     {
         args->out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode(args->output_type));
-        if ( args->out_fh == NULL ) error("Can't write to %s: %s\n", args->output_fname? args->output_fname : "standard output", strerror(errno));
+        if ( args->out_fh == NULL ) error("[%s] Error: cannot write to %s: %s\n", __func__,args->output_fname? args->output_fname : "standard output", strerror(errno));
         bcf_hdr_append_version(args->hdr,args->argc,args->argv,"bcftools/csq");
         bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq. Format: '[*]consequence|gene|transcript|biotype[|strand|amino_acid_change|dna_change]' or, for consequences of variants split across multiple sites, a pointer to the record storing the consequences '@position'. '*' prefix indicates a consequence downstream from a stop \">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware");
         if ( args->hdr_nsmpl ) 
             bcf_hdr_printf(args->hdr,"##FORMAT=<ID=%s,Number=.,Type=Integer,Description=\"Bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype. Use \\\"bcftools query -f'[%%CHROM\\t%%POS\\t%%SAMPLE\\t%%TBCSQ\\n]'\\\" to translate.\">",args->bcsq_tag);
-        bcf_hdr_write(args->out_fh, args->hdr);
+        if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
     }
     if ( !args->quiet ) fprintf(stderr,"Calling...\n");
 }
@@ -2113,6 +2137,8 @@ fprintf(stderr,"cds splice_csq: %d [%s][%s] .. beg,end=%d %d, ret=%d, csq=%d\n\n
             if ( len < 0 )   // overlapping variants
             {
                 free(str.s);
+                free(splice.kref.s);
+                free(splice.kalt.s);
                 return 1;
             }
             kputsn_(tr->ref + N_REF_PAD + parent->rbeg + parent->rlen - tr->beg, len, &str);
@@ -3044,12 +3070,23 @@ void vbuf_push(args_t *args, bcf1_t **rec_ptr)
 
 void vbuf_flush(args_t *args)
 {
-    if ( args->active_tr->ndat ) return; // cannot output buffered VCF lines (args.vbuf) until all active transcripts are gone
-
     int i,j;
-    while ( (i=rbuf_shift(&args->vcf_rbuf))>=0 )
+    while ( args->vcf_rbuf.n )
     {
-        vbuf_t *vbuf = args->vcf_buf[i];
+        vbuf_t *vbuf;
+        if ( !args->local_csq && args->active_tr->ndat )
+        {
+            // check if the first active transcript starts beyond the first buffered VCF record,
+            // cannot output buffered VCF lines (args.vbuf) until the active transcripts are gone
+            vbuf = args->vcf_buf[ args->vcf_rbuf.f ];
+            assert( vbuf->n );
+            if ( vbuf->vrec[0]->line->pos >= args->active_tr->dat[0]->beg ) break;    // cannot flush
+        }
+
+        i = rbuf_shift(&args->vcf_rbuf);
+        assert( i>=0 );
+        vbuf = args->vcf_buf[i];
+        int pos = vbuf->n ? vbuf->vrec[0]->line->pos : -1;
         for (i=0; i<vbuf->n; i++)
         {
             vrec_t *vrec = vbuf->vrec[i];
@@ -3060,7 +3097,10 @@ void vbuf_flush(args_t *args)
             }
             if ( !vrec->nvcsq )
             {
-                bcf_write(args->out_fh, args->hdr, vrec->line);
+                if ( bcf_write(args->out_fh, args->hdr, vrec->line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
+                int save_pos = vrec->line->pos;
+                bcf_empty(vrec->line);
+                vrec->line->pos = save_pos;  // this is necessary for compound variants
                 continue;
             }
             
@@ -3075,19 +3115,24 @@ void vbuf_flush(args_t *args)
             if ( args->hdr_nsmpl )
             {
                 if ( vrec->nfmt < args->nfmt_bcsq )
-                    for (j=1; j<args->hdr_nsmpl; j++) memcpy(vrec->smpl+j*vrec->nfmt, vrec->smpl+j*args->nfmt_bcsq, vrec->nfmt*sizeof(*vrec->smpl));
+                    for (j=1; j<args->hdr_nsmpl; j++)
+                        memmove(&vrec->smpl[j*vrec->nfmt], &vrec->smpl[j*args->nfmt_bcsq], vrec->nfmt*sizeof(*vrec->smpl));
                 bcf_update_format_int32(args->hdr, vrec->line, args->bcsq_tag, vrec->smpl, args->hdr_nsmpl*vrec->nfmt);
             }
             vrec->nvcsq = 0;
-            bcf_write(args->out_fh, args->hdr, vrec->line);
+            if ( bcf_write(args->out_fh, args->hdr, vrec->line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname?args->output_fname:"standard output");
+            int save_pos = vrec->line->pos;
+            bcf_empty(vrec->line);
+            vrec->line->pos = save_pos;
         }
-        if ( vbuf->n )
+        if ( pos!=-1 )
         {
-            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, vbuf->vrec[0]->line->pos);
+            khint_t k = kh_get(pos2vbuf, args->pos2vbuf, pos);
             if ( k != kh_end(args->pos2vbuf) ) kh_del(pos2vbuf, args->pos2vbuf, k);
         }
         vbuf->n = 0;
     }
+    if ( args->active_tr->ndat ) return;
 
     for (i=0; i<args->nrm_tr; i++)
     {
@@ -3114,10 +3159,12 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
     int pad_end = len - (tr->end - tr->beg + 1 + pad_beg);
     if ( pad_beg + pad_end != 2*N_REF_PAD )
     {
-        char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD);
+        char *ref = (char*) malloc(tr->end - tr->beg + 1 + 2*N_REF_PAD + 1);
         for (i=0; i < N_REF_PAD - pad_beg; i++) ref[i] = 'N';
         memcpy(ref+i, tr->ref, len);
+        len += i;
         for (i=0; i < N_REF_PAD - pad_end; i++) ref[i+len] = 'N';
+        ref[i+len] = 0;
         free(tr->ref);
         tr->ref = ref;
     }
@@ -3125,15 +3172,19 @@ void tscript_init_ref(args_t *args, tscript_t *tr, const char *chr)
 
 static void sanity_check_ref(args_t *args, tscript_t *tr, bcf1_t *rec)
 {
-    char *ref = tr->ref + (rec->pos + N_REF_PAD >= tr->beg ? rec->pos - tr->beg + N_REF_PAD : 0);
-    char *vcf = rec->d.allele[0] + (rec->pos + N_REF_PAD >= tr->beg ? 0 : tr->beg - N_REF_PAD - rec->pos);
-    assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) );
-    while ( *ref && *vcf )
+    int vbeg = 0;
+    int rbeg = rec->pos - tr->beg + N_REF_PAD;
+    if ( rbeg < 0 ) { vbeg += abs(rbeg); rbeg = 0; }
+    char *ref = tr->ref + rbeg;
+    char *vcf = rec->d.allele[0] + vbeg;
+    assert( vcf - rec->d.allele[0] < strlen(rec->d.allele[0]) && ref - tr->ref < tr->end - tr->beg + 2*N_REF_PAD );
+    int i = 0;
+    while ( ref[i] && vcf[i] )
     {
-        if ( *ref!=*vcf && toupper(*ref)!=toupper(*vcf) ) 
-            error("Error: the fasta reference does not match the VCF REF allele at %s:%d .. %s\n", bcf_seqname(args->hdr,rec),rec->pos+1,rec->d.allele[0]);
-        ref++;
-        vcf++;
+        if ( ref[i]!=vcf[i] && toupper(ref[i])!=toupper(vcf[i]) ) 
+            error("Error: the fasta reference does not match the VCF REF allele at %s:%d .. fasta=%c vcf=%c\n",
+                    bcf_seqname(args->hdr,rec),rec->pos+vbeg+1,ref[i],vcf[i]);
+        i++;
     }
 }
 
@@ -3353,7 +3404,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                         fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%d\t%s>%s\n", chr,rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 }
                 else ret = 1;   // prevent reporting as intron in test_tscript
-                free(child);
+                hap_destroy(child);
                 continue;
             }
             if ( child->type==HAP_SSS )
@@ -3367,7 +3418,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                 csq.type.gene    = tr->gene->name;
                 csq.type.type = child->csq;
                 csq_stage(args, &csq, rec);
-                free(child);
+                hap_destroy(child);
                 ret = 1;
                 continue;
             }
@@ -3452,7 +3503,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                             fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%d, sample %s\t%s>%s\n",
                                     chr,rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
                     }
-                    free(child);
+                    hap_destroy(child);
                     continue;
                 }
                 if ( child->type==HAP_SSS )
@@ -3466,7 +3517,7 @@ int test_cds(args_t *args, bcf1_t *rec)
                     csq.type.gene    = tr->gene->name;
                     csq.type.type = child->csq;
                     csq_stage(args, &csq, rec);
-                    free(child);
+                    hap_destroy(child);
                     continue;
                 }
                 if ( parent->cur_rec!=rec )
@@ -3667,7 +3718,6 @@ void process(args_t *args, bcf1_t **rec_ptr)
     }
 
     bcf1_t *rec = *rec_ptr;
-
     int call_csq = 1;
     if ( !rec->n_allele ) call_csq = 0;   // no alternate allele
     else if ( rec->n_allele==2 && (rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*') ) call_csq = 0;     // gVCF, no alt allele
@@ -3698,8 +3748,11 @@ void process(args_t *args, bcf1_t **rec_ptr)
     hit += test_splice(args, rec);
     if ( !hit ) test_tscript(args, rec);
 
-    hap_flush(args, rec->pos-1);
-    vbuf_flush(args);
+    if ( rec->pos > 0 )
+    {
+        hap_flush(args, rec->pos-1);
+        vbuf_flush(args);
+    }
 
     return;
 }
@@ -3727,6 +3780,7 @@ static const char *usage(void)
         "                                     s: skip unphased hets\n"
         "Options:\n"
         "   -e, --exclude <expr>            exclude sites for which the expression is true\n"
+        "       --force                     run even if some sanity checks fail\n"
         "   -i, --include <expr>            select sites for which the expression is true\n"
         "   -o, --output <file>             write output to a file [standard output]\n"
         "   -O, --output-type <b|u|z|v|t>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF\n"
@@ -3758,6 +3812,7 @@ int main_csq(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"force",0,0,1},
         {"help",0,0,'h'},
         {"ncsq",1,0,'n'},
         {"custom-tag",1,0,'c'},
@@ -3784,6 +3839,7 @@ int main_csq(int argc, char *argv[])
     {
         switch (c) 
         {
+            case  1 : args->force = 1; break;
             case 'l': args->local_csq = 1; break;
             case 'c': args->bcsq_tag = optarg; break;
             case 'q': args->quiet++; break;
@@ -3857,7 +3913,6 @@ int main_csq(int argc, char *argv[])
     destroy_data(args);
     bcf_sr_destroy(args->sr);
     free(args);
-
     return 0;
 }
 

@@ -128,6 +128,8 @@ typedef struct
     bcf_srs_t *files;
     int gvcf_min, gvcf_break;   // min buffered gvcf END position (NB: gvcf_min is 1-based) or 0 if no active lines are present
     gvcf_aux_t *gvcf;           // buffer of gVCF lines
+    int nout_smpl;
+    kstring_t *str;
 }
 maux_t;
 
@@ -677,6 +679,8 @@ maux_t *maux_init(args_t *args)
     int i, n_smpl = 0;
     for (i=0; i<ma->n; i++)
         n_smpl += bcf_hdr_nsamples(files->readers[i].header);
+    ma->nout_smpl = n_smpl;
+    assert( n_smpl==bcf_hdr_nsamples(args->out_hdr) );
     if ( args->do_gvcf )
     {
         ma->gvcf = (gvcf_aux_t*) calloc(ma->n,sizeof(gvcf_aux_t));
@@ -688,11 +692,14 @@ maux_t *maux_init(args_t *args)
     ma->buf = (buffer_t*) calloc(ma->n,sizeof(buffer_t));
     for (i=0; i<ma->n; i++)
         ma->buf[i].rid = -1;
+    ma->str = (kstring_t*) calloc(n_smpl,sizeof(kstring_t));
     return ma;
 }
 void maux_destroy(maux_t *ma)
 {
     int i,j;
+    for (i=0; i<ma->nout_smpl; i++) free(ma->str[i].s);
+    free(ma->str);
     for (i=0; i<ma->mals; i++)
     {
         free(ma->als[i]);
@@ -1008,7 +1015,7 @@ int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst
     int end_src = start_src;
     while ( end_src<src_len && src[end_src] && src[end_src]!=',' ) end_src++;
 
-    int nsrc_cpy = end_src - start_src;
+    int nsrc_cpy = end_src - start_src;     // number of chars to copy (excluding \0)
     if ( nsrc_cpy==1 && src[start_src]=='.' ) return 0;   // don't write missing values, dst is already initialized
 
     int ith_dst = 0, start_dst = 0;
@@ -1412,6 +1419,107 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     bcf_update_format_int32(out_hdr, out, "GT", (int32_t*)ma->tmp_arr, nsamples*nsize);
 }
 
+void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf1_t *out, int length, int nsize)
+{
+    bcf_srs_t *files = args->files;
+    bcf_hdr_t *out_hdr = args->out_hdr;
+    maux_t *ma = args->maux;
+    int i,j, nsamples = bcf_hdr_nsamples(out_hdr);
+
+    // initialize empty strings, a dot for each value, e.g. ".,.,."
+    int nmax = 0;
+    for (i=0; i<nsamples; i++)
+    {
+        kstring_t *str = &ma->str[i];
+        if ( length==BCF_VL_FIXED || length==BCF_VL_VAR )
+        {
+            str->l = 1;
+            ks_resize(str, str->l+1);
+            str->s[0] = '.';
+        }
+        else
+        {
+            str->l = nsize*2 - 1;
+            ks_resize(str, str->l+1);
+            str->s[0] = '.';
+            for (j=1; j<nsize; j++) str->s[j*2-1] = ',', str->s[j*2] = '.';
+        }
+        str->s[str->l] = 0;
+        if ( nmax < str->l ) nmax = str->l;
+    }
+
+    // fill in values for each sample
+    int ismpl = 0;
+    for (i=0; i<files->nreaders; i++)
+    {
+        bcf_sr_t *reader = &files->readers[i];
+        bcf_hdr_t *hdr = reader->header;
+        bcf_fmt_t *fmt_ori = fmt_map[i];
+        if ( !fmt_ori )
+        {
+            // the field is not present in this file
+            ismpl += bcf_hdr_nsamples(hdr);
+            continue;
+        }
+
+        bcf1_t *line = maux_get_line(args, i);
+        int irec = ma->buf[i].cur;
+        char *src = (char*) fmt_ori->p;
+
+        if ( length==BCF_VL_FIXED || length==BCF_VL_VAR || (line->n_allele==out->n_allele && !ma->buf[i].rec[irec].als_differ) )
+        {
+            // alleles unchanged, copy over
+            for (j=0; j<bcf_hdr_nsamples(hdr); j++)
+            {
+                kstring_t *str = &ma->str[ismpl++];
+                str->l = 0;
+                kputs(src, str);
+                if ( nmax < str->l ) nmax = str->l;
+                src += fmt_ori->n;
+            }
+            continue;
+        }
+        // NB, what is below is not the fastest way, copy_string_field() keeps
+        // finding the indexes repeatedly at multiallelic sites
+        if ( length==BCF_VL_A || length==BCF_VL_R )
+        {
+            int ifrom = length==BCF_VL_A ? 1 : 0;
+            for (j=0; j<bcf_hdr_nsamples(hdr); j++)
+            {
+                kstring_t *str = &ma->str[ismpl++];
+                int iori,inew;
+                for (iori=ifrom; iori<line->n_allele; iori++)
+                {
+                    inew = ma->buf[i].rec[irec].map[iori] - ifrom; 
+                    int ret = copy_string_field(src, iori - ifrom, fmt_ori->size, str, inew);
+                    if ( ret<-1 ) error("[E::%s] fixme: internal error at %s:%d .. %d\n",__func__,bcf_seqname(hdr,line),line->pos+1,ret);
+                }
+                src += fmt_ori->size;
+            }
+            continue;
+        }
+        assert( length==BCF_VL_G );
+        error("[E::%s] Merging of Number=G FORMAT strings (in your case FORMAT/%s) is not supported yet, sorry!\n"
+              "Please open an issue on github if this feature is essential for you. However, note that using FORMAT strings is not\n"
+              "a good idea in general - it is slow to parse and does not compress well, it is better to use integer codes instead.\n"
+              "If you don't really need it, use `bcftools annotate -x` to remove the annotation before merging.\n", __func__,key);
+    }
+    // update the record
+    if ( ma->ntmp_arr < nsamples*nmax )
+    {
+        ma->ntmp_arr = nsamples*nmax;
+        ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
+    }
+    char *tgt = (char*) ma->tmp_arr;
+    for (i=0; i<nsamples; i++)
+    {
+        memcpy(tgt, ma->str[i].s, ma->str[i].l);
+        if ( ma->str[i].l < nmax ) memset(tgt + ma->str[i].l, 0, nmax - ma->str[i].l);
+        tgt += nmax;
+    }
+    bcf_update_format_char(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nmax);
+}
+
 void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
 {
     bcf_srs_t *files = args->files;
@@ -1447,6 +1555,11 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         }
         if ( fmt_map[i]->n > nsize ) nsize = fmt_map[i]->n;
     }
+    if ( type==BCF_BT_CHAR )
+    {
+        merge_format_string(args, key, fmt_map, out, length, nsize);
+        return;
+    }
 
     int msize = sizeof(float)>sizeof(int32_t) ? sizeof(float) : sizeof(int32_t);
     if ( ma->ntmp_arr < nsamples*nsize*msize )
@@ -1463,6 +1576,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         bcf_fmt_t *fmt_ori = fmt_map[i];
         bcf1_t *line = maux_get_line(args, i);
         int irec = ma->buf[i].cur;
+
         if ( fmt_ori )
         {
             type = fmt_ori->type;
@@ -1471,17 +1585,23 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             {
                 // if all fields are missing then n==1 is valid
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori )
-                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=G, but found\n"
+                          "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
+                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
             }
             else if ( length==BCF_VL_A )
             {
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori-1 )
-                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=A, but found\n"
+                          "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
+                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
             }
             else if ( length==BCF_VL_R )
             {
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori )
-                    error("Incorrect number of %s fields (%d) at %s:%d, cannot merge.\n", key,fmt_ori->n,bcf_seqname(args->out_hdr,out),out->pos+1);
+                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=R, but found\n"
+                          "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
+                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
             }
         }
 
@@ -1613,15 +1733,12 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             case BCF_BT_INT16: BRANCH(int32_t, int16_t, *src==bcf_int16_missing, *src==bcf_int16_vector_end, *tgt=bcf_int32_missing, *tgt=bcf_int32_vector_end); break;
             case BCF_BT_INT32: BRANCH(int32_t, int32_t, *src==bcf_int32_missing, *src==bcf_int32_vector_end, *tgt=bcf_int32_missing, *tgt=bcf_int32_vector_end); break;
             case BCF_BT_FLOAT: BRANCH(float, float, bcf_float_is_missing(*src), bcf_float_is_vector_end(*src), bcf_float_set_missing(*tgt), bcf_float_set_vector_end(*tgt)); break;
-            case BCF_BT_CHAR:  BRANCH(uint8_t, uint8_t, *src==bcf_str_missing, *src==bcf_str_vector_end, *tgt=bcf_str_missing, *tgt=bcf_str_vector_end); break;
             default: error("Unexpected case: %d, %s\n", type, key);
         }
         #undef BRANCH
     }
     if ( type==BCF_BT_FLOAT )
         bcf_update_format_float(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
-    else if ( type==BCF_BT_CHAR )
-        bcf_update_format_char(out_hdr, out, key, (float*)ma->tmp_arr, nsamples*nsize);
     else
         bcf_update_format_int32(out_hdr, out, key, (int32_t*)ma->tmp_arr, nsamples*nsize);
 }
@@ -1808,7 +1925,7 @@ void gvcf_write_block(args_t *args, int start, int end)
     }
     else
         bcf_update_info_int32(args->out_hdr, out, "END", NULL, 0);
-    bcf_write1(args->out_fh, args->out_hdr, out);
+    if ( bcf_write1(args->out_fh, args->out_hdr, out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     bcf_clear1(out);
 
 
@@ -2280,7 +2397,7 @@ void merge_line(args_t *args)
     if ( args->do_gvcf )
         bcf_update_info_int32(args->out_hdr, out, "END", NULL, 0);
     merge_format(args, out);
-    bcf_write1(args->out_fh, args->out_hdr, out);
+    if ( bcf_write1(args->out_fh, args->out_hdr, out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     bcf_clear1(out);
 }
 
@@ -2334,11 +2451,11 @@ void merge_vcf(args_t *args)
     info_rules_init(args);
 
     bcf_hdr_set_version(args->out_hdr, bcf_hdr_get_version(args->files->readers[0].header));
-    bcf_hdr_write(args->out_fh, args->out_hdr);
+    if ( bcf_hdr_write(args->out_fh, args->out_hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     if ( args->header_only )
     {
         bcf_hdr_destroy(args->out_hdr);
-        hts_close(args->out_fh);
+        if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
         return;
     }
 
@@ -2373,7 +2490,7 @@ void merge_vcf(args_t *args)
     info_rules_destroy(args);
     maux_destroy(args->maux);
     bcf_hdr_destroy(args->out_hdr);
-    hts_close(args->out_fh);
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     bcf_destroy1(args->out_line);
     kh_destroy(strdict, args->tmph);
     if ( args->tmps.m ) free(args->tmps.s);

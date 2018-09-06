@@ -1069,6 +1069,10 @@ output VCF and are ignored for the prediction analysis.
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format (required)
 
+*--force*::
+    run even if some sanity checks fail. Currently the option allows to skip
+    transcripts in malformatted GFFs with incorrect phase
+
 *-g, --gff-annot* 'FILE'::
     GFF3 annotation file (required), such as ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens.
     An example of a minimal working GFF file:
@@ -1643,11 +1647,15 @@ multiple regions and many alignment files are processed.
     enabled, the recommended value for BWA is 50. [0]
 
 *-d, --max-depth* 'INT'::
-    At a position, read maximally 'INT' reads per input file. Note that bcftools
-    has a minimum value of '8000/n' where 'n' is the number of input files given
-    to mpileup.  This means the default is highly likely to be increased. Once
-    above the cross-sample minimum of 8000 the -d parameter will have an effect.
-    [250]
+    At a position, read maximally 'INT' reads per input file. Note that
+    the original *samtools mpileup* command had a minimum value of '8000/n'
+    where 'n' was the number of input files given to mpileup. This means that
+    in *samtools mpileup* the default was highly likely to be increased and the
+    *-d* parameter would have an effect only once above the cross-sample minimum of 8000.
+    This behavior was problematic when working with a combination of
+    single- and multi-sample bams, therefore in *bcftools mpileup* the user
+    is given the full control (and responsibility), and an informative message
+    is printed instead [250]
 
 *-E, --redo-BAQ*::
     Recalculate BAQ on the fly, ignore existing BQ tags
@@ -1846,7 +1854,11 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     exit ('e'), warn ('w'), exclude ('x'), or set/fix ('s') bad sites.
     The 'w' option can be combined with 'x' and 's'. Note that 's'
     can swap alleles and will update genotypes (GT) and AC counts,
-    but will not attempt to fix PL or other fields.
+    but will not attempt to fix PL or other fields. Also note, and this
+    cannot be stressed enough, that 's' will NOT fix strand issues in
+    your VCF, do NOT use it for that purpose!!! (Instead see 
+    <http://samtools.github.io/bcftools/howtos/plugin.af-dist.html> and
+    <http://samtools.github.io/bcftools/howtos/plugin.fixref.html>.)
 
 *-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
     If a record is present multiple times, output only the first instance,
@@ -2279,6 +2291,11 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
 Modify header of VCF/BCF files, change sample names.
 
+*-f, --fai* 'FILE'::
+    add to the header contig names and their lengths from the provided fasta index file (.fai).
+    Lengths of existing contig lines will be updated and contig lines not present in
+    the fai file will be removed
+
 *-h, --header* 'FILE'::
     new VCF header
 
@@ -2292,6 +2309,9 @@ Modify header of VCF/BCF files, change sample names.
     each on a separate line. If a sample name contains spaces, the
     spaces can be escaped using the backslash character, for example
     "Not\ a\ good\ sample\ name".
+
+*--threads* 'INT'::
+    see *<<common_options,Common Options>>*
 
 
 [[roh]]
@@ -2722,7 +2742,8 @@ These filtering expressions are accepted by most of the commands.
 
 .Valid expressions may contain:
 
-* numerical constants, string constants, file names
+* numerical constants, string constants, file names (this is currently
+  supported only to filter by the ID column)
 
         1, 1.0, 1e-4
         "String"
@@ -2746,15 +2767,16 @@ These filtering expressions are accepted by most of the commands.
 
         (, )
 
-* logical operators
+* logical operators. See also the examples below and the http://samtools.github.io/bcftools/howtos/filtering.html[filtering tutorial]
+about the distinction between "&&" vs "&" and "||" vs "|".
 
-        && (same as &), ||,  |
+        &&,  &, ||,  |
 
 * INFO tags, FORMAT tags, column names
 
         INFO/DP or DP
         FORMAT/DV, FMT/DV, or DV
-        FILTER, QUAL, ID, POS, REF, ALT[0]
+        FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 
 * 1 (or 0) to test the presence (or absence) of a flag
 

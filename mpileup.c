@@ -1,6 +1,6 @@
 /*  mpileup.c -- mpileup subcommand. Previously bam_plcmd.c from samtools
 
-    Copyright (C) 2008-2017 Genome Research Ltd.
+    Copyright (C) 2008-2018 Genome Research Ltd.
     Portions copyright (C) 2009-2012 Broad Institute.
 
     Author: Heng Li <lh3@sanger.ac.uk>
@@ -280,7 +280,7 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
 {
     if ( !conf->gvcf )
     {
-        if ( rec ) bcf_write1(fp, hdr, rec);
+        if ( rec && bcf_write1(fp, hdr, rec)!=0 ) error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
         return;
     }
 
@@ -298,7 +298,7 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
         if ( rec->d.allele[1][0]=='<' && rec->d.allele[1][1]=='*' && rec->d.allele[1][2]=='>' ) is_ref = 1;
     }
     rec = gvcf_write(conf->gvcf, fp, hdr, rec, is_ref);
-    if ( rec ) bcf_write1(fp,hdr,rec);
+    if ( rec && bcf_write1(fp,hdr,rec)!=0 ) error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
 }
 
 static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
@@ -571,7 +571,7 @@ static int mpileup(mplp_conf_t *conf)
     const char **smpl = bam_smpl_get_samples(conf->bsmpl, &nsmpl);
     for (i=0; i<nsmpl; i++)
         bcf_hdr_add_sample(conf->bcf_hdr, smpl[i]);
-    bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr);
+    if ( bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr)!=0 ) error("[%s] Error: failed to write the header to %s\n",__func__,conf->output_fname?conf->output_fname:"standard output");
 
     conf->bca = bcf_call_init(-1., conf->min_baseQ);
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
@@ -604,6 +604,7 @@ static int mpileup(mplp_conf_t *conf)
     // init mpileup
     conf->iter = bam_mplp_init(conf->nfiles, mplp_func, (void**)conf->mplp_data);
     if ( conf->flag & MPLP_SMART_OVERLAPS ) bam_mplp_init_overlaps(conf->iter);
+    fprintf(stderr, "[%s] maximum number of reads per input file set to -d %d\n",  __func__, conf->max_depth);
     if ( (double)conf->max_depth * conf->nfiles > 1<<20)
         fprintf(stderr, "Warning: Potential memory hog, up to %.0fM reads in the pileup!\n", (double)conf->max_depth*conf->nfiles);
     if ( (double)conf->max_depth * conf->nfiles / nsmpl < 250 )
@@ -656,7 +657,7 @@ static int mpileup(mplp_conf_t *conf)
     bcf_destroy1(conf->bcf_rec);
     if (conf->bcf_fp)
     {
-        hts_close(conf->bcf_fp);
+        if ( hts_close(conf->bcf_fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,conf->output_fname);
         bcf_hdr_destroy(conf->bcf_hdr);
         bcf_call_destroy(conf->bca);
         free(conf->bc.PL);
@@ -738,7 +739,7 @@ int read_file_list(const char *file_list,int *n,char **argv[])
         files = (char**) realloc(files,nfiles*sizeof(char*));
         files[nfiles-1] = strdup(buf);
     }
-    fclose(fh);
+    if ( fclose(fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,file_list);
     if ( !nfiles )
     {
         fprintf(stderr,"No files read from %s\n", file_list);
@@ -818,7 +819,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
 "  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
 "  -C, --adjust-MQ INT     adjust mapping quality; recommended:50, disable:0 [0]\n"
-"  -d, --max-depth INT     max per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
+"  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
     fprintf(fp,
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
 "  -f, --fasta-ref FILE    faidx indexed reference sequence file\n"

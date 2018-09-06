@@ -778,7 +778,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
             {
                 str->s[str->l++] = '0'; str->s[str->l++] = ' '; str->s[str->l++] = '-'; str->s[str->l++] = ' ';
             }
-            else if ( ptr[0]==bcf_int32_missing )   /* . */
+            else if ( ptr[0]==bcf_int8_missing )   /* . */
             {
                 str->s[str->l++] = '?'; str->s[str->l++] = ' '; str->s[str->l++] = '?'; str->s[str->l++] = ' ';
             }
@@ -1366,7 +1366,15 @@ int convert_header(convert_t *convert, kstring_t *str)
 int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
 {
     if ( !convert->allow_undef_tags && convert->undef_info_tag )
-        error("Error: no such tag defined in the VCF header: INFO/%s. FORMAT fields must be in square brackets, e.g. \"[ %s]\"\n", convert->undef_info_tag,convert->undef_info_tag);
+    {
+        kstring_t msg = {0,0,0};
+        ksprintf(&msg,"Error: no such tag defined in the VCF header: INFO/%s", convert->undef_info_tag);
+
+        int hdr_id = bcf_hdr_id2int(convert->header,BCF_DT_ID,convert->undef_info_tag);
+        if ( hdr_id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,hdr_id) )
+            ksprintf(&msg,". FORMAT fields must be enclosed in square brackets, e.g. \"[ %%%s]\"", convert->undef_info_tag);
+        error("%s\n", msg.s);
+    }
 
     int l_ori = str->l;
     bcf_unpack(line, convert->max_unpack);

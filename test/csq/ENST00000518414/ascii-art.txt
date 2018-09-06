@@ -1,0 +1,5 @@
+           eeeeeeeee|iiiiiiiiii
+CACAAAGAATAAGCTTACTG|CAAGGTGAGCTCTAAGAAGC
+                A---|-----------CTAAGAAGC   .. this one is called
+                ACT-|-------------AAGAAGC   .. but also this one is possible
+

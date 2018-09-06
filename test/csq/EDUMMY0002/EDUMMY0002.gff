@@ -1,0 +1,6 @@
+1	.	gene	1	1479	.	+	.	ID=gene:wzx1_5;Name=wzx1_5;locus_tag=locus0000;gene_biotype=protein_coding;
+1	.	transcript	1	1479	.	+	.	ID=transcript:wzx1_5;Parent=gene:wzx1_5;locus_tag=locus0000;gene_biotype=protein_coding;
+1	.	CDS	1	1479	.	+	.	Parent=transcript:wzx1_5;gene=gene:wzx1_5
+2	.	gene	22	30	.	+	.	ID=gene:g2;Name=dummy2;gene_biotype=protein_coding;
+2	.	transcript	22	30	.	+	.	ID=transcript:t2;Parent=gene:g2;gene_biotype=protein_coding;
+2	.	CDS	22	30	.	+	.	Parent=transcript:t2
