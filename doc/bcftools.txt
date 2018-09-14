@@ -1992,17 +1992,17 @@ By default, appropriate system directories are searched for installed plugins.
 
 ==== List of plugins coming with the distribution:
 
-*GTisec*::
-    count genotype intersections across all possible sample subsets in a vcf file
-
-*GTsubset*::
-    output only sites where the requested samples all exclusively share a genotype
-
 *ad-bias*::
     find positions with wildly varying ALT allele frequency (Fisher test on FMT/AD)
 
+*add-variantkey*::
+    add VariantKey INFO fields VKX and RSX
+
 *af-dist*::
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
+
+*allele-length*::
+    count the frequency of the length of REF, ALT and REF+ALT
 
 *check-ploidy*::
     check if ploidy of samples is consistent for all sites
@@ -2013,6 +2013,10 @@ By default, appropriate system directories are searched for installed plugins.
 *color-chrs*::
     color shared chromosomal segments, requires trio VCF with phased GTs
 
+*contrast*::
+    finds novel alleles and genotypes in two groups of samples. Adds an annotation which lists samples with a
+    novel allele (INFO/NOVELAL) or a novel genotype (INFO/NOVELGT)
+
 *counts*::
     a minimal plugin which counts number of SNPs, Indels, and total number of sites.
 
@@ -2020,14 +2024,11 @@ By default, appropriate system directories are searched for installed plugins.
     print genotype dosage. By default the plugin searches for PL, GL and GT, in
     that order.
 
-*fill-AN-AC*::
-    fill INFO fields AN and AC.
-
 *fill-from-fasta*::
     fill INFO or REF field based on values in a fasta file
 
 *fill-tags*::
-    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS
+    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
 
 *fix-ploidy*::
     sets correct ploidy
@@ -2037,6 +2038,12 @@ By default, appropriate system directories are searched for installed plugins.
 
 *frameshifts*::
     annotate frameshift indels
+
+*GTisec*::
+    count genotype intersections across all possible sample subsets in a vcf file
+
+*GTsubset*::
+    output only sites where the requested samples all exclusively share a genotype
 
 *guess-ploidy*::
     determine sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT)
@@ -2060,20 +2067,23 @@ By default, appropriate system directories are searched for installed plugins.
 *setGT*::
     general tool to set genotypes according to rules requested by the user
 
+*smpl-stats*::
+    calculates basic per-sample stats
+
 *tag2tag*::
     convert between similar tags, such as GL and GP
 
-*trio-switch-rate*::
-    calculate phase switch rate in trio samples, children samples must have phased GTs.
+*trio-dnm*::
+    screen variants for possible de-novo mutations in trios
 
-*add-variantkey*::
-    add VariantKey INFO fields VKX and RSX
+*trio-stats*::
+    calculate transmission rate in trio children
+
+*trio-switch-rate*::
+    calculate phase switch rate in trio samples, children samples must have phased GTs
 
 *variantkey-hex*::
     generate unsorted VariantKey-RSid index files in hexadecimal format
-
-*allele-length*::
-    count the frequency of the length of REF, ALT and REF+ALT
 
 
 ==== Examples:

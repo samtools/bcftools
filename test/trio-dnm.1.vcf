@@ -1,0 +1,31 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=LowQual,Description="Low quality">
+##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
+##INFO=<ID=TP,Number=0,Type=Flag,Description="true positive">
+##INFO=<ID=FP,Number=0,Type=Flag,Description="false positive">
+##INFO=<ID=UN,Number=0,Type=Flag,Description="uncertain">
+##contig=<ID=1,length=249250621>
+##contig=<ID=2,length=249250621>
+##contig=<ID=3,length=249250621>
+##reference=file:///lustre/scratch113/resources/ref/Homo_sapiens/1000Genomes_hs37d5/hs37d5.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	proband	father	mother
+1	1	.	G	A,T	.	.	TP	GT:AD:PL	0/2:62,0,27:733,919,3060,0,2141,2060	0/0:35,0,0:0,99,1485,99,1485,1485	0/0:38,0,0:0,102,1530,102,1530,1530
+1	2	.	G	T,A	.	.	TP	GT:AD:PL	0/1:67,14,0:257,0,2105,458,2146,2605	0/0:36,0,0:0,99,1485,99,1485,1485	0/0:36,0,0:0,99,1485,99,1485,1485
+1	3	.	G	A	.	.	TP	GT:AD:PL	0/1:71,14:241,0,2314	0/0:45,0:0,101,1530	0/0:43,0:0,99,1485
+1	4	.	C	T	.	.	TP	GT:AD:PL	0/1:111,24:504,0,3776	0/0:35,0:0,99,1485	0/0:36,0:0,99,1485
+1	5	.	C	A	.	.	TP	GT:AD:PL	0/1:30,6:124,0,981	0/0:37,0:0,99,1485	0/0:32,0:0,90,1350
+1	8	.	A	G	.	.	TP	GT:AD:PL	0/1:434,52:859,0,18086	0/0:38,0:0,99,1485	0/0:38,0:0,99,1485
+2	1	.	A	G	.	.	UN	GT:AD:PL	0/1:2,5:179,0,55	0/0:7,0:0,0,180	0/0:4,0:0,12,148
+2	2	.	A	G	.	.	UN	GT:AD:PL	0/1:4,5:159,0,126	0/0:1,0:0,3,39	0/0:4,0:0,9,135
+2	3	.	A	G	.	.	UN	GT:AD:PL	0/1:4,4:137,0,107	0/0:6,0:0,18,213	0/0:8,0:0,0,232
+3	1	.	A	G	.	.	FP	GT:AD:PL	0/1:7,9:357,0,408	0/0:15,0:0,39,585	0/1:4,3:114,0,550
+3	2	.	C	A	.	.	FP	GT:AD:PL	0/1:13,15:453,0,442	0/1:29,30:913,0,1011	0/0:39,0:0,99,1485
+3	3	.	A	G	.	.	FP	GT:AD:PL	0/1:11,12:361,0,358	0/0:21,0:0,51,765	0/1:10,15:538,0,292
+3	4	.	A	G,C	.	.	FP	GT:PL:AD	0/0:0,255,255,255,255,255:306,11,0	0/0:0,255,255,255,255,255:328,1,1	0/0:0,255,255,255,255,255:318,0,0
+3	5	.	A	G	.	.	FP	GT:AD:PL	0/1:33,32:890,0,963	0/1:56,45:1328,0,1809	0/0:36,0:0,99,1485
+3	6	.	A	G	.	.	FP	GT:AD:PL	0/1:19,24:737,0,649	0/0:48,0:0,108,1620	0/1:25,22:644,0,836
+3	7	.	A	G	.	.	FP	GT:AD:PL	0/1:73,90:2864,0,2197	0/0:42,0:0,99,1485	0/1:69,74:2395,0,2064
+3	8	.	A	G	.	.	FP	GT:AD:PL	0/1:115,128:4130,0,3542	0/0:34,0:0,99,1360	0/1:137,89:2571,0,4411
+3	9	.	A	G	.	.	FP	GT:AD:PL	0/1:18,11:311,0,627	0/1:3,3:51,0,105	0/0:19,0:0,57,764
