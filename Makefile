@@ -33,7 +33,6 @@ PLUGINS_ENABLED = yes
 PLUGIN_EXT = .so
 
 OBJS     = main.o vcfindex.o tabix.o \
-           variantkey.o \
            vcfstats.o vcfisec.o vcfmerge.o vcfquery.o vcffilter.o filter.o vcfsom.o \
            vcfnorm.o vcfgtcheck.o vcfview.o vcfannotate.o vcfroh.o vcfconcat.o \
            vcfcall.o mcall.o vcmp.o gvcf.o reheader.o convert.o vcfconvert.o tsv2vcf.o \
@@ -212,7 +211,6 @@ vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfu
 reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_kseq_h) $(htslib_thread_pool_h) $(bcftools_h) $(khash_str2str_h)
 tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
 ccall.o: ccall.c $(htslib_kfunc_h) $(call_h) kmin.h $(prob1_h)
-variantkey.o: variantkey.c $(variantkey_h)
 convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(convert_h)
 tsv2vcf.o: tsv2vcf.c $(tsv2vcf_h)
 em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)

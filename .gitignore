@@ -19,3 +19,5 @@ configure
 /test/test-regidx
 
 /TAGS
+
+test/nrvk.unsorted.tsv
