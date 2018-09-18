@@ -1556,62 +1556,25 @@ static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
     args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
     for (i=0; i<args->nsample_map; i++) args->sample_map[i] = -1;
 
-    // possible todo: could do with smpl_ilist only
-    smpl_ilist_t *ilist = smpl_ilist_init(dst, args->sample_names, args->sample_is_file, SMPL_STRICT);
-    if ( !ilist || !ilist->n ) error("Could not parse: %s\n", args->sample_names);
-    char **samples = (char**) malloc(sizeof(char*)*ilist->n);
-    for (i=0; i<ilist->n; i++) samples[i] = strdup(dst->samples[i]);
+    int flags = !src ? SMPL_STRICT|SMPL_SINGLE : SMPL_STRICT|SMPL_SINGLE|SMPL_PAIR2; // is vcf vs tab annotation file
+    smpl_ilist_t *ilist = smpl_ilist_init(dst, args->sample_names, args->sample_is_file, flags);    // gives mapping dst->src
+    if ( !ilist || !ilist->n ) error("Could not parse the samples: %s\n", args->sample_names);
     args->nsmpl_annot = ilist->n;
-    smpl_ilist_destroy(ilist);
     int need_sample_map = args->nsmpl_annot==bcf_hdr_nsamples(dst) ? 0 : 1;
-    if ( !src )
+    for (i=0; i<args->nsmpl_annot; i++)
     {
-        // tab annotation file
-        for (i=0; i<args->nsmpl_annot; i++)
+        int idst = ilist->idx[i];
+        const char *src_name = ilist->pair && ilist->pair[i] ? ilist->pair[i] : bcf_hdr_int2id(dst, BCF_DT_SAMPLE, idst);
+        int isrc = i;
+        if ( src )     // the annotation file is a VCF, not a tab-delimited file
         {
-            int idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE, samples[i]);
-            if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", samples[i]);
-            args->sample_map[idst] = i;
-            if ( idst!=i ) need_sample_map = 1;
+            isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE, src_name);
+            if ( isrc==-1 ) error("Sample \"%s\" not found in the annotation file\n", src_name);
         }
+        if ( isrc!=idst ) need_sample_map = 1;
+        args->sample_map[idst] = isrc;
     }
-    else
-    {
-        // vcf annotation file
-        for (i=0; i<args->nsmpl_annot; i++)
-        {
-            int isrc, idst;
-            char *ss = samples[i], *se = samples[i];
-            while ( *se && !isspace(*se) ) se++;
-            if ( !*se ) 
-            {
-                // only one sample name
-                isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE,ss);
-                if ( isrc==-1 ) error("Sample \"%s\" not found in the source file\n", ss);
-                idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE,ss);
-                if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", ss);
-                args->sample_map[idst] = isrc;
-                if ( idst!=isrc ) need_sample_map = 1;
-                continue;
-            }
-            *se = 0;
-            isrc = bcf_hdr_id2int(src, BCF_DT_SAMPLE,ss);
-            if ( isrc==-1 ) error("Sample \"%s\" not found in the source file\n", ss);
-
-            ss = se+1;
-            while ( isspace(*ss) ) ss++;
-            se = ss;
-            while ( *se && !isspace(*se) ) se++;
-
-            idst = bcf_hdr_id2int(dst, BCF_DT_SAMPLE,ss);
-            if ( idst==-1 ) error("Sample \"%s\" not found in the destination file\n", ss);
-
-            args->sample_map[idst] = isrc;
-            if ( idst!=isrc ) need_sample_map = 1;
-        }
-    }
-    for (i=0; i<args->nsmpl_annot; i++) free(samples[i]);
-    free(samples);
+    smpl_ilist_destroy(ilist);
     return need_sample_map;
 }
 static char *columns_complement(char *columns, void **skip_info, void **skip_fmt)

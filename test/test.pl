@@ -256,6 +256,9 @@ test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',arg
 test_vcf_annotate($opts,in=>'annotate',vcf=>'annots',out=>'annotate3.out',args=>'-c STR,ID,QUAL,FILTER');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate4.out',args=>'-c ID,QUAL,FILTER,INFO,FMT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate5.out',args=>'-c ID,QUAL,+FILTER,+INFO,FMT/GT -s A');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate18.out',args=>'-c ID,QUAL,+FILTER,+INFO,FMT/GT -s "A B"');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate19.out',args=>'-c ID,QUAL,+FILTER,+INFO,FMT/GT -s "A C"');
+test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate20.out',args=>'-c ID,QUAL,+FILTER,+INFO,FMT/GT -s "B C"');
 test_vcf_annotate($opts,in=>'annotate3',out=>'annotate6.out',args=>'-x ID,QUAL,^FILTER/fltA,FILTER/fltB,^INFO/AA,INFO/BB,^FMT/GT,FMT/PL');
 test_vcf_annotate($opts,in=>'annotate3',out=>'annotate7.out',args=>'-x FORMAT');
 test_vcf_annotate($opts,in=>'annotate4',vcf=>'annots4',out=>'annotate8.out',args=>'-c +INFO');
