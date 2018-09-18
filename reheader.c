@@ -83,7 +83,8 @@ static char *copy_and_update_contig_line(faidx_t *fai, char *line, void *chr_see
         if ( *q!='=' || !n )
         {
             char *x = q;
-            while ( *x && *x!='\n' ) x++; *x = 0;
+            while ( *x && *x!='\n' ) x++;
+            *x = '\0';
             error("Could not parse the line: %s [%s][%s]\n", line,p,q);
         }
         key.l = 0;
@@ -519,11 +520,10 @@ static void reheader_bcf(args_t *args, int is_compressed)
 
     if ( args->n_threads > 0 )
     {
-        args->threads = calloc(1, sizeof(*args->threads));
+        args->threads = (htsThreadPool *) calloc(1, sizeof(htsThreadPool));
         if ( !args->threads ) error("Could not allocate memory\n");
         if ( !(args->threads->pool = hts_tpool_init(args->n_threads)) ) error("Could not initialize threading\n");
-        BGZF *bgzf = hts_get_bgzfp(fp);
-        if ( bgzf ) bgzf_thread_pool(bgzf, args->threads->pool, args->threads->qsize);
+        hts_set_thread_pool(fp, args->threads);
     }
 
     bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to read the header: %s\n", args->fname);
@@ -554,10 +554,7 @@ static void reheader_bcf(args_t *args, int is_compressed)
     htsFile *fp_out = hts_open(args->output_fname ? args->output_fname : "-",is_compressed ? "wb" : "wbu");
     if ( !fp_out ) error("%s: %s\n", args->output_fname ? args->output_fname : "-", strerror(errno));
     if ( args->threads )
-    {
-        BGZF *bgzf = hts_get_bgzfp(fp_out);
-        if ( bgzf ) bgzf_thread_pool(bgzf, args->threads->pool, args->threads->qsize);
-    }
+        hts_set_thread_pool(fp_out, args->threads);
     if ( bcf_hdr_write(fp_out, hdr_out)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->output_fname ? args->output_fname : "standard output");
 
     bcf1_t *rec = bcf_init();
