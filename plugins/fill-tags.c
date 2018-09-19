@@ -33,6 +33,7 @@
 #include <htslib/kseq.h>
 #include <htslib/vcf.h>
 #include <htslib/khash_str2int.h>
+#include <htslib/kbitset.h>
 #include "bcftools.h"
 
 #define SET_AN      (1<<0)
@@ -72,6 +73,7 @@ typedef struct
     double *hwe_probs;
     int mhwe_probs;
     kstring_t str;
+    kbitset_t *bset;
 }
 args_t;
 
@@ -389,19 +391,17 @@ void calc_hwe(args_t *args, int nref, int nalt, int nhet, float *p_hwe, float *p
     *p_hwe = prob;
 }
 
-static inline void set_counts(pop_t *pop, int is_half, int is_hom, int is_hemi, int als)
+static inline void set_counts(pop_t *pop, int is_half, int is_hom, int is_hemi, kbitset_t *bset)
 {
-    int ial;
-    for (ial=0; als; ial++)
+    kbitset_iter_t itr;
+    int i;
+    kbs_start(&itr);
+    while ((i = kbs_next(bset, &itr)) >= 0)
     {
-        if ( als&1 )
-        { 
-            if ( is_half ) pop->counts[ial].nac++;
-            else if ( !is_hom ) pop->counts[ial].nhet++;
-            else if ( !is_hemi ) pop->counts[ial].nhom += 2;
-            else pop->counts[ial].nhemi++;
-        }
-        als >>= 1;
+        if ( is_half ) pop->counts[i].nac++;
+        else if ( !is_hom ) pop->counts[i].nhet++;
+        else if ( !is_hemi ) pop->counts[i].nhom += 2;
+        else pop->counts[i].nhemi++;
     }
     pop->ns++;
 }
@@ -429,14 +429,15 @@ bcf1_t *process(bcf1_t *rec)
     for (i=0; i<args->npop; i++)
         clean_counts(&args->pop[i], rec->n_allele);
 
-    assert( rec->n_allele < 8*sizeof(int) );
+    if ( kbs_resize(&args->bset, rec->n_allele) < 0 ) error("kbs_resize: failed to store %d bits\n", rec->n_allele);
 
     #define BRANCH_INT(type_t,vector_end) \
     { \
         for (i=0; i<nsmpl; i++) \
         { \
             type_t *p = (type_t*) (fmt_gt->p + i*fmt_gt->size); \
-            int ial, als = 0, nals = 0, is_half, is_hom, is_hemi; \
+            int ial, nbits = 0, nals = 0, is_half, is_hom, is_hemi; \
+            kbs_clear(args->bset); \
             for (ial=0; ial<fmt_gt->n; ial++) \
             { \
                 if ( p[ial]==vector_end ) break; /* smaller ploidy */ \
@@ -446,10 +447,11 @@ bcf1_t *process(bcf1_t *rec)
                 \
                 if ( idx >= rec->n_allele ) \
                     error("Incorrect allele (\"%d\") in %s at %s:%d\n",idx,args->in_hdr->samples[i],bcf_seqname(args->in_hdr,rec),rec->pos+1); \
-                als |= (1<<idx);  /* this breaks with too many alleles */ \
+                if ( !kbs_exists(args->bset, idx) ) nbits++; \
+                kbs_insert(args->bset, idx); \
             } \
             if ( nals==0 ) continue; /* missing genotype */ \
-            is_hom = als && !(als & (als-1)); /* only one bit is set */ \
+            is_hom = nbits==1 ? 1 : 0; /* only one bit is set for homs */ \
             if ( nals!=ial ) \
             { \
                 if ( args->drop_missing ) is_hemi = 0, is_half = 1; \
@@ -458,7 +460,7 @@ bcf1_t *process(bcf1_t *rec)
             else if ( nals==1 ) is_hemi = 1, is_half = 0; \
             else is_hemi = 0, is_half = 0; \
             pop_t **pop = &args->smpl2pop[i*(args->npop+1)]; \
-            while ( *pop ) { set_counts(*pop,is_half,is_hom,is_hemi,als); pop++; }\
+            while ( *pop ) { set_counts(*pop,is_half,is_hom,is_hemi,args->bset); pop++; } \
         } \
     }
     switch (fmt_gt->type) {
@@ -650,6 +652,7 @@ void destroy(void)
         free(args->pop[i].smpl);
         free(args->pop[i].counts);
     }
+    kbs_destroy(args->bset);
     free(args->str.s);
     free(args->pop);
     free(args->smpl2pop);
