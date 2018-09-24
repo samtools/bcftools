@@ -1277,13 +1277,13 @@ int main_vcfcnv(int argc, char *argv[])
         {"LRR-weight",1,0,'l'},
         {"same-prob",1,0,'P'},
         {"xy-prob",1,0,'x'},
-        {"sample",1,0,'s'},
-        {"control",1,0,'c'},
+        {"query-sample",1,0,'s'},
+        {"control-sample",1,0,'c'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
-        {"plot",1,0,'p'},
+        {"plot-threshold",1,0,'p'},
         {"output-dir",1,0,'o'},
         {0,0,0,0}
     };
