@@ -1370,6 +1370,47 @@ static int mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
         qsum[i] = call->als_map[i]<nqs ? call->qsum[call->als_map[i]] : 0;
     bcf_update_info_float(call->hdr, rec, "QS", qsum, nals);
 
+    // update any Number=R tags
+    void *tmp_ori = call->itmp, *tmp_new = call->PLs;  // reusing PLs storage which is not used at this point
+    int ntmp_ori = call->n_itmp, ntmp_new = call->mPLs;
+    for (i=0; i<rec->n_fmt; i++)
+    {
+        bcf_fmt_t *fmt = &rec->d.fmt[i];
+        int vlen = bcf_hdr_id2length(call->hdr,BCF_HL_FMT,fmt->id);
+        if ( vlen!=BCF_VL_R ) continue; // not a Number=R tag
+
+        // NB:works only for BCF_HT_INT and BCF_HT_REAL
+        int type = bcf_hdr_id2type(call->hdr,BCF_HL_FMT,fmt->id);
+        assert( type==BCF_HT_INT || type==BCF_HT_REAL );
+        assert( sizeof(float)==sizeof(int32_t) );
+
+        const char *key = bcf_hdr_int2id(call->hdr,BCF_DT_ID,fmt->id);
+        int nret = bcf_get_format_values(call->hdr, rec, key, &tmp_ori, &ntmp_ori, type);
+        if (nret<=0) continue;
+        int nsmpl = bcf_hdr_nsamples(call->hdr);
+        int size1 = sizeof(float);
+
+        for (j=0; j<nsmpl; j++)
+        {
+            void *ptr_ori = tmp_ori + j*size1*fmt->n;
+            void *ptr_new = tmp_new + j*nals*size1;
+            for (k=0; k<nals; k++)
+            {
+                void *dst = ptr_new + size1*k;
+                void *src = ptr_ori + size1*call->als_map[k]; 
+                memcpy(dst,src,size1);
+            }
+        }
+        ntmp_new = nsmpl*rec->n_allele;
+        nret = bcf_update_format(call->hdr, rec, key, tmp_new, ntmp_new, type);
+        assert( nret==0 );
+    }
+    call->PLs    = (int32_t*) tmp_new;
+    call->mPLs   = ntmp_new;
+    call->itmp   = (int32_t*) tmp_ori;
+    call->n_itmp = ntmp_ori;
+
+
     if ( *unseen ) *unseen = nals-1;
     return 0;
 }
