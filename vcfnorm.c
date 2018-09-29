@@ -704,6 +704,7 @@ static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int i
 {
     const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id);
     int ret = bcf_get_format_char(args->hdr,src,tag,&args->tmp_arr1,&args->ntmp_arr1);
+    if ( !ret ) return; // all values can be empty, leave out the tag, no need to panic
     assert( ret>0 );
 
     kstring_t str;
