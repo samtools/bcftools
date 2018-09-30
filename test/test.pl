@@ -145,6 +145,7 @@ test_vcf_query($opts,in=>'query.negative',out=>'query.61.out',args=>q[-f'%POS\\t
 test_vcf_query($opts,in=>'query.negative',out=>'query.61.out',args=>q[-f'%POS\\t%TAGV1\\n' -i'(TAGV1>=-129 && TAGV1<=-120) || (TAGV1>=-32769 && TAGV1<=-32760)']);
 test_vcf_query($opts,in=>'query.negative',out=>'query.62.out',args=>q[-f'%POS\\t%TAG2\\n' -i'(TAG2>=-129 && TAG2<=-120) || (TAG2>=-32769 && TAG2<=-32760)']);
 test_vcf_query($opts,in=>'query.negative',out=>'query.62.out',args=>q[-f'%POS\\t%TAGV2\\n' -i'(TAGV2>=-129 && TAGV2<=-120) || (TAGV2>=-32769 && TAGV2<=-32760)']);
+test_vcf_query($opts,in=>'query',out=>'query.63.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GQ\\n]' -i'N_PASS(GQ<20)==1']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');

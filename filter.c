@@ -1024,10 +1024,17 @@ static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
         if ( rtok->pass_samples[i] ) npass++;
     }
 
-    assert( rtok->values );
-    rtok->nvalues = 1;
-    rtok->values[0] = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
-    rtok->nsamples = 0;
+    hts_expand(double,rtok->nsamples,rtok->mvalues,rtok->values);
+    double value = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
+    rtok->nval1 = 1;
+    rtok->nvalues = rtok->nsamples;
+
+    // Set per-sample status so that `query -i 'F_PASS(GT!="mis" & GQ >= 20) > 0.5'` or +trio-stats
+    // consider only the passing site AND samples. The values for failed samples is set to -1 so
+    // that it can never conflict with valid expressions.
+    for (i=0; i<rtok->nsamples; i++)
+        rtok->values[i] = rtok->pass_samples[i] ? value : -1;
+
     return 1;
 }
 static void filters_set_nalt(filter_t *flt, bcf1_t *line, token_t *tok)
