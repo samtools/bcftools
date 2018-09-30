@@ -79,7 +79,7 @@ typedef struct
     int argc, filter_logic, regions_is_file, targets_is_file;
     int nflt_str;
     char *filter_str, **flt_str;
-    char **argv, *ped_fname, *output_fname, *fname, *regions, *targets;
+    char **argv, *ped_fname, *pfm, *output_fname, *fname, *regions, *targets;
     bcf_srs_t *sr;
     bcf_hdr_t *hdr;
     trio_t *trio;
@@ -110,6 +110,7 @@ static const char *usage_text(void)
         "   -i, --include EXPR          include sites and samples for which the expression is true\n"
         "   -o, --output FILE           output file name [stdout]\n"
         "   -p, --ped FILE              PED file\n"
+        "   -P, --pfm P,F,M             sample names of proband, father, and mother\n"
         "   -r, --regions REG           restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE     restrict to regions listed in a file\n"
         "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
@@ -169,6 +170,7 @@ static void parse_ped(args_t *args, char *fname)
     while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 );
 
     fprintf(stderr,"Identified %d complete trios in the VCF file\n", args->ntrio);
+    if ( !args->ntrio ) error("No complete trio identified\n");
 
     // sort the sample by index so that they are accessed more or less sequentially
     qsort(args->trio,args->ntrio,sizeof(trio_t),cmp_trios);
@@ -231,7 +233,33 @@ static void init_data(args_t *args)
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
 
-    parse_ped(args, args->ped_fname);
+    if ( args->ped_fname )
+        parse_ped(args, args->ped_fname);
+    else
+    {
+        args->ntrio = 1;
+        args->trio = (trio_t*) calloc(1,sizeof(trio_t));
+        int ibeg, iend = 0;
+        while ( args->pfm[iend] && args->pfm[iend]!=',' ) iend++;
+        if ( !args->pfm[iend] ) error("Could not parse -P %s\n", args->pfm);
+        args->pfm[iend] = 0;
+        int child = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->pfm);
+        if ( child<0 ) error("No such sample: \"%s\"\n", args->pfm);
+        args->pfm[iend] = ',';
+        ibeg = ++iend;
+        while ( args->pfm[iend] && args->pfm[iend]!=',' ) iend++;
+        if ( !args->pfm[iend] ) error("Could not parse -P %s\n", args->pfm);
+        args->pfm[iend] = 0;
+        int father = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->pfm+ibeg);
+        if ( father<0 ) error("No such sample: \"%s\"\n", args->pfm+ibeg);
+        args->pfm[iend] = ',';
+        ibeg = ++iend;
+        int mother = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,args->pfm+ibeg);
+        if ( mother<0 ) error("No such sample: \"%s\"\n", args->pfm+ibeg);
+        args->trio[0].idx[iFATHER] = father;
+        args->trio[0].idx[iMOTHER] = mother;
+        args->trio[0].idx[iCHILD]  = child;
+    }
     parse_filters(args);
 
     int i;
@@ -504,6 +532,7 @@ int run(int argc, char **argv)
         {"exclude",required_argument,0,'e'},
         {"output",required_argument,NULL,'o'},
         {"ped",required_argument,NULL,'p'},
+        {"pfm",required_argument,NULL,'P'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
@@ -511,7 +540,7 @@ int run(int argc, char **argv)
         {NULL,0,NULL,0}
     };
     int c, i;
-    while ((c = getopt_long(argc, argv, "p:o:s:i:e:r:R:t:T:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -523,6 +552,7 @@ int run(int argc, char **argv)
             case 'R': args->regions = optarg; args->regions_is_file = 1; break;
             case 'o': args->output_fname = optarg; break;
             case 'p': args->ped_fname = optarg; break;
+            case 'P': args->pfm = optarg; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -536,7 +566,7 @@ int run(int argc, char **argv)
     else if ( optind+1!=argc ) error("%s", usage_text());
     else args->fname = argv[optind];
 
-    if ( !args->ped_fname ) error("Missing the -p, --ped option\n");
+    if ( !args->ped_fname && !args->pfm ) error("Missing the -p or -P option\n");
 
     init_data(args);
 
