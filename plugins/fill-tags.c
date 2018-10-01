@@ -342,7 +342,7 @@ void calc_hwe(args_t *args, int nref, int nalt, int nhet, float *p_hwe, float *p
     double *probs = args->hwe_probs;
 
     // start at midpoint
-    int mid = nrare * (nref + nalt - nrare) / (nref + nalt);
+    int mid = (double)nrare * (nref + nalt - nrare) / (nref + nalt);
 
     // check to ensure that midpoint and rare alleles have same parity
     if ( (nrare & 1) ^ (mid & 1) ) mid++;
