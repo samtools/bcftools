@@ -1,0 +1,15 @@
+##fileformat=VCFv4.2
+##contig=<ID=10,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##ALT=<ID=INS:ME:ALU,Description="Insertion of ALU element">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+10	280440	.	A	<INS:ME:ALU>	.	.	END=280440;type=ENST00000373886:60553319-A-<INS:ME:ALU>;EXP=coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315639	.	T	<INS:ME:ALU>	.	.	END=315639;type=ENST00000373886:60588518-G-<INS:ME:ALU>;EXP=splice_region&feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315640	.	A	<INS:ME:ALU>	.	.	END=315640;type=ENST00000373886:60588519-G-<INS:ME:ALU>;EXP=splice_acceptor&feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315641	.	G	<INS:ME:ALU>	.	.	END=315641;type=ENST00000373886:60588520-G-<INS:ME:ALU>;EXP=splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315642	.	A	<INS:ME:ALU>	.	.	END=315642;type=ENST00000373886:60588521-A-<INS:ME:ALU>;EXP=splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315771	.	A	<INS:ME:ALU>	.	.	END=315771;type=ENST00000373886:60588651-A-<INS:ME:ALU>;EXP=coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+10	315772	.	G	<INS:ME:ALU>	.	.	END=315772;type=ENST00000373886:60588651-G-<INS:ME:ALU>;EXP=feature_elongation|BICC1|ENST00000373886|protein_coding

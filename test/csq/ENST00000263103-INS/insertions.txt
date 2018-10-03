@@ -1,0 +1,21 @@
+280440	A	<INS:ME:ALU>	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+280440	A	<INS:ME:ALU>	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+
+315639	T	<INS:ME:ALU>	splice_region&feature_elongation|BICC1|ENST00000373886|protein_coding
+315639	T	<INS:ME:ALU>	splice_region&feature_elongation|BICC1|ENST00000373886|protein_coding
+
+315640	A	<INS:ME:ALU>	splice_acceptor&feature_elongation|BICC1|ENST00000373886|protein_coding
+315640	A	<INS:ME:ALU>	splice_acceptor&feature_elongation|BICC1|ENST00000373886|protein_coding
+
+315641	G	<INS:ME:ALU>	splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+315641	G	<INS:ME:ALU>	splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+
+315642	A	<INS:ME:ALU>	splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+315642	A	<INS:ME:ALU>	splice_region&coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+
+315771	A	<INS:ME:ALU>	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+315771	A	<INS:ME:ALU>	coding_sequence&feature_elongation|BICC1|ENST00000373886|protein_coding
+
+315772	G	<INS:ME:ALU>	feature_elongation|BICC1|ENST00000373886|protein_coding
+315772	G	<INS:ME:ALU>	feature_elongation|BICC1|ENST00000373886|protein_coding
+
