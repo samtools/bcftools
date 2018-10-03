@@ -761,6 +761,7 @@ static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int i
                 if ( *se==',' ) nfields++;
                 se++;
             }
+            if ( nfields==1 && se-ptr==1 && *ptr=='.' ) continue;   // missing value
             if ( nfields!=src->n_allele*(src->n_allele+1)/2 && nfields!=src->n_allele )
                 error("Error: wrong number of fields in FMT/%s at %s:%d, expected %d or %d, found %d\n",
                         tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele*(src->n_allele+1)/2,src->n_allele,nfields);
