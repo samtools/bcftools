@@ -1,0 +1,14 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##ALT=<ID=DEL,Description="Deletion">
+##reference=file://some/path/human_g1k_v37.fasta
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+##contig=<ID=3,assembly=b37,length=249250621>
+##contig=<ID=4,assembly=b37,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1	.	C	T	.	.	.
+1	1	.	C	CAAA	.	.	.
+1	5	.	CATA	C	.	.	.
+1	8	.	A	AGGG	.	.	.

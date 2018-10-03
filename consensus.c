@@ -570,7 +570,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     }
     else if ( strncasecmp(rec->d.allele[0],args->fa_buf.s+idx,rec->rlen) )
     {
-        // This is hacky, handle a special case: if insert follows a deletion (AAC>A, C>CAA),
+        // This is hacky, handle a special case: if SNP or an insert follows a deletion (AAC>A, C>CAA),
         // the reference base in fa_buf is lost and the check fails. We do not keep a buffer
         // with the original sequence as it should not be necessary, we should encounter max
         // one base overlap
@@ -618,19 +618,27 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         // deletion or same size event
         for (i=0; i<alen; i++)
             args->fa_buf.s[idx+i] = rec->d.allele[ialt][i];
+
         if ( len_diff )
-        {
-            args->prev_base = rec->d.allele[0][rec->rlen - 1];
-            args->prev_base_pos = rec->pos + rec->rlen - 1;
             memmove(args->fa_buf.s+idx+alen,args->fa_buf.s+idx+rec->rlen,args->fa_buf.l-idx-rec->rlen);
-        }
+
+        args->prev_base = rec->d.allele[0][rec->rlen - 1];
+        args->prev_base_pos = rec->pos + rec->rlen - 1;
     }
     else
     {
         // insertion
         ks_resize(&args->fa_buf, args->fa_buf.l + len_diff);
         memmove(args->fa_buf.s + idx + rec->rlen + len_diff, args->fa_buf.s + idx + rec->rlen, args->fa_buf.l - idx - rec->rlen);
-        for (i=0; i<alen; i++)
+
+        // This can get tricky, make sure the bases unchanged by the insertion do not overwrite preceeding variants.
+        // For example, here we want to get TAA:
+        //      POS REF ALT
+        //      1   C   T
+        //      1   C   CAA
+        int ibeg = 0;
+        while ( ibeg<alen && rec->d.allele[0][ibeg]==rec->d.allele[ialt][ibeg] && rec->pos + ibeg <= args->prev_base_pos  ) ibeg++;
+        for (i=ibeg; i<alen; i++)
             args->fa_buf.s[idx+i] = rec->d.allele[ialt][i];
     }
     if (args->chain && len_diff != 0)
