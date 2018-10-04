@@ -2049,6 +2049,9 @@ By default, appropriate system directories are searched for installed plugins.
     determine sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT)
     in the non-PAR region of chrX.
 
+*gvcfz*::
+    compress gVCF file by resizing non-variant blocks according to specified criteria
+
 *impute-info*::
     add imputation information metrics to the INFO field based on selected FORMAT tags
 
