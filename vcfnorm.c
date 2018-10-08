@@ -61,6 +61,13 @@ typedef struct
     char *ref, *alt;
     void *hash;
 }
+cmpals1_t;
+
+typedef struct
+{
+    cmpals1_t *cmpals;
+    int ncmpals, mcmpals;
+}
 cmpals_t;
 
 typedef struct
@@ -83,8 +90,7 @@ typedef struct
     int aln_win;            // the realignment window size (maximum repeat size)
     bcf_srs_t *files;       // using the synced reader only for -r option
     bcf_hdr_t *hdr;
-    cmpals_t *cmpals;
-    int ncmpals, mcmpals;
+    cmpals_t cmpals_in, cmpals_out;
     faidx_t *fai;
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
@@ -1535,11 +1541,11 @@ static bcf1_t *mrows_flush(args_t *args)
     }
     return NULL;
 }
-static void cmpals_add(args_t *args, bcf1_t *rec)
+static void cmpals_add(cmpals_t *ca, bcf1_t *rec)
 {
-    args->ncmpals++;
-    hts_expand0(cmpals_t, args->ncmpals, args->mcmpals, args->cmpals);
-    cmpals_t *cmpals = args->cmpals + args->ncmpals - 1;
+    ca->ncmpals++;
+    hts_expand0(cmpals1_t, ca->ncmpals, ca->mcmpals, ca->cmpals);
+    cmpals1_t *cmpals = ca->cmpals + ca->ncmpals - 1;
     free(cmpals->ref);
     cmpals->ref = strdup(rec->d.allele[0]);
     cmpals->n   = rec->n_allele;
@@ -1557,12 +1563,12 @@ static void cmpals_add(args_t *args, bcf1_t *rec)
             khash_str2int_inc(cmpals->hash, strdup(rec->d.allele[i]));
     }
 }
-static int cmpals_match(args_t *args, bcf1_t *rec)
+static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
 {
     int i, j;
-    for (i=0; i<args->ncmpals; i++)
+    for (i=0; i<ca->ncmpals; i++)
     {
-        cmpals_t *cmpals = args->cmpals + i;
+        cmpals1_t *cmpals = ca->cmpals + i;
         if ( rec->n_allele != cmpals->n ) continue;
 
         // NB. assuming both are normalized
@@ -1581,21 +1587,20 @@ static int cmpals_match(args_t *args, bcf1_t *rec)
         if ( j<rec->n_allele ) continue;
         return 1;
     }
-    cmpals_add(args, rec);
     return 0;
 }
-static void cmpals_reset(args_t *args) { args->ncmpals = 0; }
-static void cmpals_destroy(args_t *args)
+static void cmpals_reset(cmpals_t *ca) { ca->ncmpals = 0; }
+static void cmpals_destroy(cmpals_t *ca)
 {
     int i;
-    for (i=0; i<args->mcmpals; i++)
+    for (i=0; i<ca->mcmpals; i++)
     {
-        cmpals_t *cmpals = args->cmpals + i;
+        cmpals1_t *cmpals = ca->cmpals + i;
         free(cmpals->ref);
         free(cmpals->alt);
         if ( cmpals->hash ) khash_str2int_destroy_free(cmpals->hash);
     }
-    free(args->cmpals);
+    free(ca->cmpals);
 }
 
 static void flush_buffer(args_t *args, htsFile *file, int n)
@@ -1632,17 +1637,17 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
                 if ( args->rmdup & BCF_SR_PAIR_ANY ) continue;    // rmdup by position only
                 if ( args->rmdup & BCF_SR_PAIR_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) continue;
                 if ( args->rmdup & BCF_SR_PAIR_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) continue;
-                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, args->lines[k]) ) continue;
+                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(&args->cmpals_out, args->lines[k]) ) continue;
             }
             else
             {
                 prev_rid  = args->lines[k]->rid;
                 prev_pos  = args->lines[k]->pos;
                 prev_type = 0;
-                if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_reset(args);
+                if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_reset(&args->cmpals_out);
             }
             prev_type |= line_type;
-            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args, args->lines[k]);
+            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(&args->cmpals_out, args->lines[k]);
         }
         if ( bcf_write1(file, args->hdr, args->lines[k])!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
@@ -1673,7 +1678,8 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
-    cmpals_destroy(args);
+    cmpals_destroy(&args->cmpals_in);
+    cmpals_destroy(&args->cmpals_out);
     int i;
     for (i=0; i<args->rbuf.m; i++)
         if ( args->lines[i] ) bcf_destroy1(args->lines[i]);
@@ -1774,17 +1780,17 @@ static void normalize_vcf(args_t *args)
                 if ( args->rmdup & BCF_SR_PAIR_ANY ) continue;    // rmdup by position only
                 if ( args->rmdup & BCF_SR_PAIR_SNPS && line_type&(VCF_SNP|VCF_MNP) && prev_type&(VCF_SNP|VCF_MNP) ) continue;
                 if ( args->rmdup & BCF_SR_PAIR_INDELS && line_type&(VCF_INDEL) && prev_type&(VCF_INDEL) ) continue;
-                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(args, line) ) continue;
+                if ( args->rmdup & BCF_SR_PAIR_EXACT && cmpals_match(&args->cmpals_in, line) ) continue;
             }
             else
             {
                 prev_rid  = line->rid;
                 prev_pos  = line->pos;
                 prev_type = 0;
-                if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_reset(args);
+                if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_reset(&args->cmpals_in);
             }
             prev_type |= line_type;
-            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(args, line);
+            if ( args->rmdup & BCF_SR_PAIR_EXACT ) cmpals_add(&args->cmpals_in, line);
         }
 
         // still on the same chromosome?
