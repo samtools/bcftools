@@ -604,7 +604,7 @@ ploidy_t *init_ploidy(char *alias)
 static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
-    fprintf(stderr, "About:   SNP/indel variant calling from VCF/BCF. To be used in conjunction with samtools mpileup.\n");
+    fprintf(stderr, "About:   SNP/indel variant calling from VCF/BCF. To be used in conjunction with bcftools mpileup.\n");
     fprintf(stderr, "         This command replaces the former \"bcftools view\" caller. Some of the original\n");
     fprintf(stderr, "         functionality has been temporarily lost in the process of transition to htslib,\n");
     fprintf(stderr, "         but will be added back on popular demand. The original calling model can be\n");
