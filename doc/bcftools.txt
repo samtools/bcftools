@@ -2271,6 +2271,8 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %TGT            Translated genotype (e.g. C/A)
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
+    %INFO           Prints the whole INFO column
+    %FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
     %SAMPLE         Sample name
     %POS0           POS in 0-based coordinates
     %END            End position of the REF allele

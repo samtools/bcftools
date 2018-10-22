@@ -200,13 +200,44 @@ static inline void _copy_field(char *src, uint32_t len, int idx, kstring_t *str)
 }
 static void process_info(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
+    int i;
+    if ( !fmt->key )    // the whole INFO column
+    {
+        int first = 1;
+        for (i=0; i<line->n_info; i++)
+        {
+            bcf_info_t *inf = &line->d.info[i];
+            if ( !inf->vptr ) continue;
+            if ( !first ) kputc(';', str);
+            first = 0;
+            if ( inf->key >= convert->header->n[BCF_DT_ID] ) continue;
+            kputs(convert->header->id[BCF_DT_ID][inf->key].key, str);
+            if ( inf->len <= 0 ) continue;
+            kputc('=', str);
+            if ( inf->len == 1 )
+            {
+                switch (inf->type)
+                {
+                    case BCF_BT_INT8:  if ( inf->v1.i==bcf_int8_missing ) kputc('.', str); else kputw(inf->v1.i, str); break;
+                    case BCF_BT_INT16: if ( inf->v1.i==bcf_int16_missing ) kputc('.', str); else kputw(inf->v1.i, str); break;
+                    case BCF_BT_INT32: if ( inf->v1.i==bcf_int32_missing ) kputc('.', str); else kputw(inf->v1.i, str); break;
+                    case BCF_BT_FLOAT: if ( bcf_float_is_missing(inf->v1.f) ) kputc('.', str); else kputd(inf->v1.f, str); break;
+                    case BCF_BT_CHAR:  kputc(inf->v1.i, str); break;
+                    default: error("Unexpected type %d", inf->type); break;
+                }
+            }
+            else bcf_fmt_array(str, inf->len, inf->type, inf->vptr);
+        }
+        if ( first ) kputc('.', str);
+        return;
+    }
+
     if ( fmt->id<0 )
     {
         kputc('.', str);
         return;
     }
 
-    int i;
     for (i=0; i<line->n_info; i++)
         if ( line->d.info[i].key == fmt->id ) break;
 
@@ -279,6 +310,50 @@ static void init_format(convert_t *convert, bcf1_t *line, fmt_t *fmt)
         error("Error: no such tag defined in the VCF header: FORMAT/%s\n", fmt->key);
 
     fmt->ready = 1;
+}
+static void process_complete_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    if ( convert->nsamples )
+    {
+        int i,j;
+        if ( line->n_fmt)
+        {
+            int gt_i = -1;
+            bcf_fmt_t *fmt = line->d.fmt;
+            int first = 1;
+            for (i=0; i<(int)line->n_fmt; i++)
+            {
+                if ( !fmt[i].p || fmt[i].id<0 ) continue;
+                if ( !first ) kputc(':', str);
+                first = 0;
+                kputs(convert->header->id[BCF_DT_ID][fmt[i].id].key, str);
+                if ( strcmp(convert->header->id[BCF_DT_ID][fmt[i].id].key, "GT") == 0) gt_i = i;
+            }
+            if ( first ) kputc('.', str);
+            for (j=0; j<convert->nsamples; j++)
+            {
+                kputc('\t', str);
+                first = 1;
+                for (i=0; i<(int)line->n_fmt; i++)
+                {
+                    bcf_fmt_t *f = &fmt[i];
+                    if ( !f->p ) continue;
+                    if ( !first ) kputc(':', str);
+                    first = 0;
+                    if (gt_i == i)
+                        bcf_format_gt(f,convert->samples[j],str);
+                    else
+                        bcf_fmt_array(str, f->n, f->type, f->p + convert->samples[j] * f->size);
+                }
+                if ( first ) kputc('.', str);
+            }
+        }
+        else
+            for (j=0; j<=line->n_sample; j++)
+                kputs("\t.", str);
+    }
+    else
+        kputc('.',str);
 }
 static void process_format(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
 {
@@ -1106,7 +1181,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_QUAL: fmt->handler = &process_qual; break;
         case T_FILTER: fmt->handler = &process_filter; convert->max_unpack |= BCF_UN_FLT; break;
         case T_INFO: fmt->handler = &process_info; convert->max_unpack |= BCF_UN_INFO; break;
-        case T_FORMAT: fmt->handler = &process_format; convert->max_unpack |= BCF_UN_FMT; break;
+        case T_FORMAT: fmt->handler = fmt->key ? &process_format : &process_complete_format; convert->max_unpack |= BCF_UN_FMT; break;
         case T_SAMPLE: fmt->handler = &process_sample; break;
         case T_SEP: fmt->handler = &process_sep; break;
         case T_IS_TS: fmt->handler = &process_is_ts; break;
@@ -1219,15 +1294,21 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "VKX") ) register_tag(convert, T_VKX, str.s, is_gtf);
         else if ( !strcmp(str.s, "INFO") )
         {
-            if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);
-            p = ++q;
-            str.l = 0;
-            while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
-            if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
-            kputsn(p, q-p, &str);
-            fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
-            fmt->subscript = parse_subscript(&q);
+            if ( *q=='/' )
+            {
+                p = ++q;
+                str.l = 0;
+                while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
+                if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
+                kputsn(p, q-p, &str);
+                fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
+                fmt->subscript = parse_subscript(&q);
+            }
+            else
+                register_tag(convert, T_INFO, NULL, is_gtf);    // the whole INFO
         }
+        else if ( !strcmp(str.s, "FORMAT") )
+             register_tag(convert, T_FORMAT, NULL, 0);
         else
         {
             fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
