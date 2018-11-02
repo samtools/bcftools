@@ -226,7 +226,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -m, --max-mem <float>[kMG]    maximum memory to use [768M]\n");    // using metric units, 1M=1e6
     fprintf(stderr, "    -o, --output-file <file>      output file name [stdout]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "    -T, --temp-dir <dir>          temporary files [/tmp/bcftools-sort.XXXXXX/]\n");
+    fprintf(stderr, "    -T, --temp-dir <dir>          temporary files [/tmp/bcftools-sort.XXXXXX]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -245,17 +245,16 @@ size_t parse_mem_string(char *str)
 void mkdir_p(const char *fmt, ...);
 void init(args_t *args)
 {
-    if ( !args->tmp_dir )
+    args->tmp_dir = args->tmp_dir ? strdup(args->tmp_dir) : strdup("/tmp/bcftools-sort.XXXXXX");
+    size_t len = strlen(args->tmp_dir);
+    if ( !strcmp("XXXXXX",args->tmp_dir+len-6) )
     {
-        args->tmp_dir = strdup("/tmp/bcftools-sort.XXXXXX");
         char *tmp_dir = mkdtemp(args->tmp_dir);
         if ( !tmp_dir ) error("mkdtemp(%s) failed: %s\n", args->tmp_dir,strerror(errno));
     }
     else
-    {
-        args->tmp_dir = strdup(args->tmp_dir);
-        mkdir_p(args->tmp_dir);
-    }
+        mkdir_p("%s/",args->tmp_dir);
+
     fprintf(stderr,"Writing to %s\n", args->tmp_dir);
 }
 void destroy(args_t *args)
