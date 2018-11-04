@@ -333,6 +333,7 @@ test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>
 test_vcf_plugin($opts,in=>'trio-dnm.1',out=>'trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.2.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GQ>10; FLT:-' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
+test_vcf_plugin($opts,in=>'gvcfz.2',out=>'gvcfz.2.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP]\\n']);
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');

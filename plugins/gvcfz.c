@@ -44,9 +44,14 @@
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
 
+#define GQ_KEY_NONE NULL
+#define GQ_KEY_GQ   "GQ"
+#define GQ_KEY_RGQ  "RGQ"
+
 typedef struct
 {
-    int32_t end, min_dp, gq, pl[3], grp, is_rgq;
+    int32_t end, min_dp, gq, pl[3], grp;
+    char *gq_key;
     bcf1_t *rec;
 }
 block_t;
@@ -186,13 +191,15 @@ static void flush_block(args_t *args, bcf1_t *rec)
         error("Could not update INFO/END at %s:%d\n", bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
     if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,"DP",&gvcf->min_dp,1) != 0 )
         error("Could not update FORMAT/DP at %s:%d\n", bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
-    char *key = gvcf->is_rgq ? "RGQ" : "GQ";
-    if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,key,&gvcf->gq,1) != 0 )
-        error("Could not update FORMAT/%s at %s:%d\n", key, bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
+    if ( gvcf->gq_key )
+    {
+        if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,gvcf->gq_key,&gvcf->gq,1) != 0 )
+            error("Could not update FORMAT/%s at %s:%d\n", gvcf->gq_key, bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
+    }
     if ( gvcf->pl[0] >=0 )
     {
         if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,"PL",&gvcf->pl,3) != 0 )
-            error("Could not update FORMAT/GQ at %s:%d\n", bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
+            error("Could not update FORMAT/PL at %s:%d\n", bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
     }
     if ( gvcf->grp < args->ngrp && args->grp[gvcf->grp].flt_id >= 0 ) 
         bcf_add_filter(args->hdr_out, gvcf->rec, args->grp[gvcf->grp].flt_id);
@@ -240,16 +247,15 @@ static void process_gvcf(args_t *args)
     int ret = bcf_get_info_int32(args->hdr_in,rec,"END",&args->tmpi,&args->mtmpi);
     int32_t end = ret==1 ? args->tmpi[0] : rec->pos + 1;
 
-    int is_rgq = 0;
-    ret = bcf_get_format_int32(args->hdr_in,rec,"GQ",&args->tmpi,&args->mtmpi);
+    char *gq_key = GQ_KEY_GQ;
+    ret = bcf_get_format_int32(args->hdr_in,rec,gq_key,&args->tmpi,&args->mtmpi);
     if ( ret!=1 )
     {
-        if ( ret<1 ) ret = bcf_get_format_int32(args->hdr_in,rec,"RGQ",&args->tmpi,&args->mtmpi);
-        if ( ret!=1 )
-            error("Expected one FORMAT/GQ or FORMAT/RGQ value at %s:%d\n", bcf_seqname(args->hdr_in,rec),rec->pos+1);
-        is_rgq = 1;
+        gq_key = GQ_KEY_RGQ;
+        if ( ret<1 ) ret = bcf_get_format_int32(args->hdr_in,rec,gq_key,&args->tmpi,&args->mtmpi);
+        if ( ret!=1 ) gq_key = GQ_KEY_NONE;
     }
-    int32_t gq = args->tmpi[0];
+    int32_t gq = ret==1 ? args->tmpi[0] : 0;
 
     int32_t min_dp = 0;
     if ( bcf_get_format_int32(args->hdr_in,rec,"MIN_DP",&args->tmpi,&args->mtmpi)==1 )
@@ -279,7 +285,7 @@ static void process_gvcf(args_t *args)
     if ( args->gvcf.grp >= 0 ) // extend an existing block
     {
         if ( args->gvcf.end < end ) args->gvcf.end = end;
-        if ( args->gvcf.gq > gq ) args->gvcf.gq = gq;
+        if ( args->gvcf.gq_key!=GQ_KEY_NONE && gq_key!=GQ_KEY_NONE && args->gvcf.gq > gq ) args->gvcf.gq = gq;
         if ( args->gvcf.min_dp > min_dp ) args->gvcf.min_dp = min_dp;
         if ( args->gvcf.pl[0] > pl[0] ) args->gvcf.pl[0] = pl[0];
         if ( args->gvcf.pl[1] > pl[1] ) args->gvcf.pl[1] = pl[1];
@@ -292,11 +298,11 @@ static void process_gvcf(args_t *args)
     args->gvcf.grp = i;
     args->gvcf.min_dp   = min_dp;
     args->gvcf.end      = end;
-    args->gvcf.gq       = gq;
     args->gvcf.pl[0]    = pl[0];
     args->gvcf.pl[1]    = pl[1];
     args->gvcf.pl[2]    = pl[2];
-    args->gvcf.is_rgq   = is_rgq;
+    args->gvcf.gq_key   = gq_key;
+    if ( gq_key!=GQ_KEY_NONE ) args->gvcf.gq = gq;
 }
 
 int run(int argc, char **argv)
