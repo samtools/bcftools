@@ -34,6 +34,7 @@
 #include <htslib/kseq.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <htslib/kbitset.h>
 #include "bcftools.h"
 #include "filter.h"
 
@@ -76,6 +77,19 @@ flt_stats_t;
 
 typedef struct
 {
+    kbitset_t *sd_bset; // singleton (1) or doubleton (0) trio?
+    uint32_t
+        nalt,   // number of all alternate trios
+        nsd,    // number of singleton or doubleton trios
+        *idx;   // indexes of the singleton and doubleon trios 
+}
+alt_trios_t;    // for one alt allele
+
+typedef struct
+{
+    int max_alt_trios;      // maximum number of alternate trios [1]
+    int malt_trios;
+    alt_trios_t *alt_trios;
     int argc, filter_logic, regions_is_file, targets_is_file;
     int nflt_str;
     char *filter_str, **flt_str;
@@ -106,6 +120,8 @@ static const char *usage_text(void)
         "       a range of values simultaneously\n"
         "Usage: bcftools +trio-stats [Plugin Options]\n"
         "Plugin options:\n"
+        "   -a, --alt-trios INT         for transmission rate consider only sites with at most this\n"
+        "                                   many alternate trios, 0 for unlimited [1]\n"
         "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
         "   -i, --include EXPR          include sites and samples for which the expression is true\n"
         "   -o, --output FILE           output file name [stdout]\n"
@@ -290,6 +306,41 @@ static void init_data(args_t *args)
     for (i=0; i<args->nfilters; i++)
         args->filters[i].stats = (trio_stats_t*) calloc(args->ntrio,sizeof(trio_stats_t));
 }
+static void alt_trios_reset(args_t *args, int nals)
+{
+    int i;
+    hts_expand0(alt_trios_t, nals, args->malt_trios, args->alt_trios);
+    for (i=0; i<nals; i++) 
+    {
+        alt_trios_t *tr = &args->alt_trios[i];
+        if ( !tr->idx )
+        {
+            tr->idx = (uint32_t*)malloc(sizeof(*tr->idx)*args->ntrio);
+            tr->sd_bset = kbs_init(args->ntrio);
+        }
+        else
+            kbs_clear(tr->sd_bset);
+        tr->nsd  = 0;
+        tr->nalt = 0;
+    }
+}
+static void alt_trios_destroy(args_t *args)
+{
+    if ( !args->max_alt_trios ) return;
+    int i;
+    for (i=0; i<args->malt_trios; i++)
+    {
+        free(args->alt_trios[i].idx);
+        kbs_destroy(args->alt_trios[i].sd_bset);
+    }
+    free(args->alt_trios);
+}
+static inline void alt_trios_add(args_t *args, int itrio, int ial, int is_singleton)
+{
+    alt_trios_t *tr = &args->alt_trios[ial];
+    if ( is_singleton ) kbs_insert(tr->sd_bset, tr->nsd);
+    tr->idx[ tr->nsd++ ] = itrio;
+}
 static void destroy_data(args_t *args)
 {
     int i;
@@ -303,6 +354,7 @@ static void destroy_data(args_t *args)
     for (i=0; i<args->nflt_str; i++) free(args->flt_str[i]);
     free(args->flt_str);
     bcf_sr_destroy(args->sr);
+    alt_trios_destroy(args);
     free(args->trio);
     free(args->ac);
     free(args->ac_trio);
@@ -325,8 +377,8 @@ static void report_stats(args_t *args)
     fprintf(fh,"#   %d) number of non-reference trio GTs (at least one trio member carries an alternate allele)\n", ++i);
     fprintf(fh,"#   %d) number of Mendelian errors\n", ++i);
     fprintf(fh,"#   %d) number of novel singleton alleles in the child (counted also as a Mendelian error)\n", ++i);
-    fprintf(fh,"#   %d) number of untransmitted singletons, present only in one parent\n", ++i);
-    fprintf(fh,"#   %d) number of transmitted singletons, present only in one parent and the child\n", ++i);
+    fprintf(fh,"#   %d) number of untransmitted trio singletons (one alternate allele present in one parent)\n", ++i);
+    fprintf(fh,"#   %d) number of transmitted trio singletons (one alternate allele present in one parent and the child)\n", ++i);
     fprintf(fh,"#   %d) number of transitions, all ALT alleles present in the trio are considered\n", ++i);
     fprintf(fh,"#   %d) number of transversions, all ALT alleles present in the trio are considered\n", ++i);
     fprintf(fh,"#   %d) overall ts/tv, all ALT alleles present in the trio are considered\n", ++i);
@@ -448,6 +500,9 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
     for (i=1; i<rec->n_allele; i++)
         if ( !rec->d.allele[i][1] && rec->d.allele[i][0]=='*' ) { star_allele = i; break; }
 
+    // number of non-reference trios
+    if ( args->max_alt_trios ) alt_trios_reset(args, rec->n_allele);
+
     // Run the stats
     for (i=0; i<args->ntrio; i++)
     {
@@ -469,8 +524,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
         for (j=0; j<6; j++)
         {
             if ( als[j]==star_allele ) { has_star_allele = 1; continue; }
-            if ( als[j]==0 ) continue;
-            has_nonref = 1;
+            if ( als[j]!=0 ) has_nonref = 1;
             args->ac_trio[ als[j] ]++;
         }
         if ( !has_nonref ) continue;   // only ref or * in this trio
@@ -506,16 +560,40 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
         if ( !mendel_ok ) stats->nmendel_err++;
 
         // Is this a singleton, doubleton, neither?
-        for (j=1; j<rec->n_allele; j++)
+        for (j=0; j<rec->n_allele; j++)
         {
-            if ( args->ac_trio[j]==1 && args->ac[j]==1 )  // singleton (in parent) or novel (in child)
+            if ( !args->ac_trio[j] ) continue;
+            if ( args->max_alt_trios ) args->alt_trios[j].nalt++;
+
+            if ( args->ac_trio[j]==1 )  // singleton (in parent) or novel (in child)
             {
                 if ( als_child[0]==j || als_child[1]==j ) stats->nnovel++;
-                else stats->nsingleton++;
+                else
+                {
+                    if ( !args->max_alt_trios ) stats->nsingleton++;
+                    else alt_trios_add(args, i,j,1);
+                }
             }
-            else if ( args->ac_trio[j]==2 && args->ac[j]==2 )   // possibly a doubleton
+            else if ( args->ac_trio[j]==2 ) // possibly a doubleton
             {
-                if ( (als_child[0]==j || als_child[1]==j) && (als_child[0]!=j || als_child[1]!=j) ) stats->ndoubleton++;
+                if ( (als_child[0]!=j && als_child[1]!=j) || (als_child[0]==j && als_child[1]==j) ) continue;
+                if ( (als_father[0]==j && als_father[1]==j) || (als_mother[0]==j && als_mother[1]==j) ) continue;
+                if ( !args->max_alt_trios ) stats->ndoubleton++;
+                else alt_trios_add(args, i,j,0);
+            }
+        }
+    }
+    if ( args->max_alt_trios )
+    {
+        for (j=0; j<rec->n_allele; j++)
+        {
+            alt_trios_t *tr = &args->alt_trios[j];
+            if ( !tr->nsd || tr->nalt > args->max_alt_trios ) continue;
+            for (i=0; i<tr->nsd; i++)
+            {
+                trio_stats_t *stats = &flt->stats[ tr->idx[i] ];
+                if ( kbs_exists(tr->sd_bset,i) ) stats->nsingleton++;
+                else stats->ndoubleton++;
             }
         }
     }
@@ -528,6 +606,7 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     static struct option loptions[] =
     {
+        {"alt-trios",required_argument,0,'a'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
         {"output",required_argument,NULL,'o'},
@@ -539,11 +618,13 @@ int run(int argc, char **argv)
         {"targets-file",1,0,'T'},
         {NULL,0,NULL,0}
     };
+    args->max_alt_trios = 1;
     int c, i;
-    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:a:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'a': args->max_alt_trios = atoi(optarg); break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
