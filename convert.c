@@ -35,6 +35,7 @@ THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <htslib/kfunc.h>
 #include <inttypes.h>
 #include "bcftools.h"
 #include "variantkey.h"
@@ -71,6 +72,7 @@ THE SOFTWARE.  */
 #define T_END0         29
 #define T_RSX          30   // RSID HEX
 #define T_VKX          31   // VARIANTKEY HEX
+#define T_PBINOM       32
 
 typedef struct _fmt_t
 {
@@ -1119,6 +1121,71 @@ static void process_variantkey_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt,
     ksprintf(str, "%016"PRIx64"", vk);
 }
 
+static void process_pbinom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
+{
+    int i;
+    if ( !fmt->ready )
+    {
+        fmt->fmt = NULL;    // AD
+        fmt->usr = NULL;    // GT
+
+        for (i=0; i<(int)line->n_fmt; i++)
+            if ( line->d.fmt[i].id==fmt->id ) { fmt->fmt = &line->d.fmt[i]; break; }
+
+        // Check that the first field is GT
+        int gt_id = bcf_hdr_id2int(convert->header, BCF_DT_ID, "GT");
+        if ( !bcf_hdr_idinfo_exists(convert->header, BCF_HL_FMT, fmt->id)  ) error("Error: FORMAT/GT is not defined in the header\n");
+        for (i=0; i<(int)line->n_fmt; i++)
+            if ( line->d.fmt[i].id==gt_id ) { fmt->usr = &line->d.fmt[i]; break; }  // it should always be first according to VCF spec, but...
+
+        if ( fmt->usr && line->d.fmt[i].type!=BCF_BT_INT8 )   // skip sites with many alleles
+            fmt->usr = NULL;
+
+        fmt->ready = 1;
+    }
+    bcf_fmt_t *gt_fmt = (bcf_fmt_t*) fmt->usr;
+    if ( !fmt->fmt || !gt_fmt || gt_fmt->n!=2 ) goto invalid;
+
+    int n[2] = {0,0};
+    int8_t *gt = (int8_t*)(gt_fmt->p + isample*gt_fmt->size);
+    for (i=0; i<2; i++)
+    {
+        if ( bcf_gt_is_missing(gt[i]) || gt[i] == bcf_int8_vector_end ) goto invalid;
+        int al = bcf_gt_allele(gt[i]);
+        if ( al > line->n_allele || al >= fmt->fmt->n ) goto invalid;
+
+        #define BRANCH(type_t, missing, vector_end) { \
+            type_t val = ((type_t *) fmt->fmt->p)[al + isample*fmt->fmt->n]; \
+            if ( val==missing || val==vector_end ) goto invalid; \
+            else n[i] = val; \
+        }
+        switch (fmt->fmt->type)
+        {
+            case BCF_BT_INT8:  BRANCH(int8_t,  bcf_int8_missing,  bcf_int8_vector_end); break;
+            case BCF_BT_INT16: BRANCH(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
+            case BCF_BT_INT32: BRANCH(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+            default: goto invalid; break;
+        }
+        #undef BRANCH
+    }
+
+    if ( n[0]==n[1] ) kputc(n[0]==0 ? '.':'0', str);
+    else 
+    {
+        double pval = n[0] < n[1] ? kf_betai(n[1], n[0] + 1, 0.5) : kf_betai(n[0], n[1] + 1, 0.5);
+        pval *= 2;
+        assert( pval-1 < 1e-10 );
+        if ( pval>=1 ) pval = 0;     // this can happen, machine precision error, eg. kf_betai(1,0,0.5)
+        else
+            pval = -4.34294481903*log(pval);
+        kputd(pval, str);
+    }
+    return;
+
+invalid:
+    kputc('.', str);
+}
+
 static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
 {
     convert->nfmt++;
@@ -1161,6 +1228,11 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
                 fprintf(stderr,"Warning: Assuming INFO/%s\n", key);
             }
         }
+        if ( fmt->type==T_PBINOM )
+        {
+            fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, fmt->key);
+            if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT, fmt->id)  ) error("No such FORMAT tag defined in the header: %s\n", fmt->key);
+        }
     }
 
     switch (fmt->type)
@@ -1196,6 +1268,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_LINE: fmt->handler = &process_line; convert->max_unpack |= BCF_UN_FMT; break;
         case T_RSX: fmt->handler = &process_rsid_hex; break;
         case T_VKX: fmt->handler = &process_variantkey_hex; break;
+        case T_PBINOM: fmt->handler = &process_pbinom; convert->max_unpack |= BCF_UN_FMT; break;
         default: error("TODO: handler for type %d\n", fmt->type);
     }
     if ( key && fmt->type==T_INFO )
@@ -1256,6 +1329,17 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
             fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
             fmt->subscript = parse_subscript(&q);
         }
+        else if ( !strcmp(str.s,"PBINOM") )
+        {
+            if ( *q!='(' ) error("Could not parse the expression: %s\n", convert->format_str);
+            p = ++q;
+            str.l = 0;
+            while ( *q && *q!=')' ) q++;
+            if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
+            kputsn(p, q-p, &str);
+            register_tag(convert, T_PBINOM, str.s, is_gtf);
+            q++;
+        }
         else
         {
             fmt_t *fmt = register_tag(convert, T_FORMAT, str.s, is_gtf);
@@ -1292,6 +1376,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "_GT_TO_HAP2") ) register_tag(convert, T_GT_TO_HAP2, str.s, is_gtf);
         else if ( !strcmp(str.s, "RSX") ) register_tag(convert, T_RSX, str.s, is_gtf);
         else if ( !strcmp(str.s, "VKX") ) register_tag(convert, T_VKX, str.s, is_gtf);
+        else if ( !strcmp(str.s,"pbinom") ) error("Error: pbinom() is currently supported only with FORMAT tags. (todo)\n");
         else if ( !strcmp(str.s, "INFO") )
         {
             if ( *q=='/' )

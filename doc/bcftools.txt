@@ -2260,23 +2260,24 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 ==== Format:
 
     %CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
-    %INFO/TAG       Any tag in the INFO column
-    %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
-    %MASK           Indicates presence of the site in other files (with multiple files)
-    %TAG{INT}       Curly brackets to subscript vectors (0-based)
-    %FIRST_ALT      Alias for %ALT{0}
-    []              Format fields must be enclosed in brackets to loop over all samples
-    %GT             Genotype (e.g. 0/1)
-    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
-    %TGT            Translated genotype (e.g. C/A)
-    %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
-    %LINE           Prints the whole line
-    %INFO           Prints the whole INFO column
-    %FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
-    %SAMPLE         Sample name
-    %POS0           POS in 0-based coordinates
     %END            End position of the REF allele
     %END0           End position of the REF allele in 0-based cordinates
+    %FIRST_ALT      Alias for %ALT{0}
+    %FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
+    %GT             Genotype (e.g. 0/1)
+    %INFO           Prints the whole INFO column
+    %INFO/TAG       Any tag in the INFO column
+    %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
+    %LINE           Prints the whole line
+    %MASK           Indicates presence of the site in other files (with multiple files)
+    %POS0           POS in 0-based coordinates
+    %PBINOM(TAG)    Calculate phred-scaled binomial probability, the allele index is determined from GT
+    %SAMPLE         Sample name
+    %TAG{INT}       Curly brackets to subscript vectors (0-based)
+    %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
+    %TGT            Translated genotype (e.g. C/A)
+    %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
+    []              Format fields must be enclosed in brackets to loop over all samples
     \n              new line
     \t              tab character
 
@@ -2301,6 +2302,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
     # Print all samples at sites with at least one alternate genotype
     bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
+
+    # Print phred-scaled binomial probablity from FORMAT/AD tag for all heterozygous genotypes
+    bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %pbinom(AD)\n]' file.vcf
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
@@ -2872,6 +2876,7 @@ one sample name per line
 
         binom(FMT/AD)                .. GT can be used to determine the correct index
         binom(AD[0],AD[1])           .. or the fields can be given explicitly
+        phred(binom())               .. the same as binom but phred-scaled
 
 * variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to

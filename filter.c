@@ -151,6 +151,7 @@ struct _filter_t
 #define TOK_CNT     26
 #define TOK_PERLSUB 27
 #define TOK_BINOM   28
+#define TOK_PHRED   29
 
 //                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27
 //                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p
@@ -185,6 +186,7 @@ static int filters_next_token(char **str, int *len)
     if ( !strncasecmp(tmp,"COUNT(",4) ) { (*str) += 5; return TOK_CNT; }
     if ( !strncasecmp(tmp,"STRLEN(",7) ) { (*str) += 6; return TOK_LEN; }
     if ( !strncasecmp(tmp,"BINOM(",6) ) { (*str) += 5; return -TOK_BINOM; }
+    if ( !strncasecmp(tmp,"PHRED(",6) ) { (*str) += 5; return TOK_PHRED; }
     if ( !strncasecmp(tmp,"%MAX(",5) ) { (*str) += 4; return TOK_MAX; } // for backward compatibility
     if ( !strncasecmp(tmp,"%MIN(",5) ) { (*str) += 4; return TOK_MIN; } // for backward compatibility
     if ( !strncasecmp(tmp,"%AVG(",5) ) { (*str) += 4; return TOK_AVG; } // for backward compatibility
@@ -1396,6 +1398,31 @@ static int func_binom(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
         }
     }
     return rtok->nargs;
+}
+static int func_phred(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( tok->is_str ) error("PHRED() can be applied only on numeric values\n");
+
+    rtok->nsamples = tok->nsamples;
+    rtok->nval1 = tok->nval1;
+    memcpy(rtok->pass_samples, tok->pass_samples, rtok->nsamples*sizeof(*rtok->pass_samples));
+    assert(tok->usmpl);
+    if ( !rtok->usmpl )
+    {
+        rtok->usmpl = (uint8_t*) malloc(tok->nsamples*sizeof(*rtok->usmpl));
+        memcpy(rtok->usmpl, tok->usmpl, tok->nsamples*sizeof(*rtok->usmpl));
+    }
+    rtok->nvalues = tok->nvalues;
+    if ( !tok->nvalues ) return 1;
+
+    hts_expand(double, rtok->nvalues, rtok->mvalues, rtok->values);
+    int i;
+    for (i=0; i<tok->nvalues; i++)
+        if ( bcf_double_is_missing(tok->values[i]) ) bcf_double_set_missing(rtok->values[i]);
+        else rtok->values[i] = -4.34294481903*log(tok->values[i]);
+
+    return 1;
 }
 inline static void tok_init_values(token_t *atok, token_t *btok, token_t *rtok)
 {
@@ -2781,6 +2808,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         else if ( out[i].tok_type==TOK_ABS ) { out[i].func = func_abs; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
         else if ( out[i].tok_type==TOK_CNT ) { out[i].func = func_count; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
         else if ( out[i].tok_type==TOK_LEN ) { out[i].func = func_strlen; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
+        else if ( out[i].tok_type==TOK_PHRED ) { out[i].func = func_phred; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
         else if ( out[i].tok_type==TOK_BINOM ) { out[i].func = func_binom; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_PERLSUB ) { out[i].func = perl_exec; out[i].tok_type = TOK_FUNC; }
         hts_expand0(double,1,out[i].mvalues,out[i].values);
