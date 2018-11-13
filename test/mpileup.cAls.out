@@ -1,0 +1,40 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##samtoolsVersion=1.1-19-g6b249e2+htslib-1.1-74-g845c515
+##samtoolsCommand=samtools mpileup -uvDV -b xxx//mpileup.bam.list -f xxx//mpileup.ref.fa.gz
+##reference=file://xxx//mpileup.ref.fa.gz
+##contig=<ID=17,length=81195210>
+##ALT=<ID=X,Description="Represents allele(s) other than observed.">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of reads supporting an indel">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
+##INFO=<ID=RPB,Number=1,Type=Float,Description="Mann-Whitney U test of Read Position Bias (bigger is better)">
+##INFO=<ID=MQB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality Bias (bigger is better)">
+##INFO=<ID=BQB,Number=1,Type=Float,Description="Mann-Whitney U test of Base Quality Bias (bigger is better)">
+##INFO=<ID=MQSB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of high-quality non-reference bases">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=ICB,Number=1,Type=Float,Description="Inbreeding Coefficient Binomial test (bigger is better)">
+##INFO=<ID=HOB,Number=1,Type=Float,Description="Bias in the number of HOMs number (smaller is better)">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00100	HG00101	HG00102
+17	1	.	A	G,T	52	.	DP=11;MQ0F=0;AC=0,0;AN=0;DP4=11,0,0,0;MQ=29	GT:PL:DP:DV	./.:0,0,0,0,0,0:5:0	./.:.:3:0	./.:.:3:0
+17	2	.	A	T,G	52	.	DP=11;MQ0F=0;AC=0,0;AN=0;DP4=11,0,0,0;MQ=29	GT:PL:DP:DV	./.:0,0,0,0,0,0:5:0	./.:.:3:0	./.:.:3:0
+17	3	.	A	C	26.0007	.	DP=11;MQ0F=0;AC=0;AN=0;DP4=11,0,0,0;MQ=29	GT:PL:DP:DV	./.:0,0,0:5:0	./.:.:3:0	./.:.:3:0
+17	4	.	A	G,T,C	21.815	.	DP=11;MQ0F=0;AC=0,0,0;AN=2;DP4=11,0,0,0;MQ=29	GT:PL:DP:DV	0/0:1,2,3,7,8,10,11,12,14,15:5:0	./.:.:3:0	./.:.:3:0
+17	5	.	A	G,T	26.0007	.	DP=11;MQ0F=0;AC=0,0;AN=0;DP4=11,0,0,0;MQ=29	GT:PL:DP:DV	./.:0,0,0,0,0,0:5:0	./.:.:3:0	./.:.:3:0
+17	6	.	A	T,G	26.0007	.	DP=11;MQ0F=0;AC=0,0;AN=0;DP4=11,0,0,0;MQ=29	GT:PL:DP:DV	./.:0,0,0,0,0,0:5:0	./.:.:3:0	./.:.:3:0
+17	7	.	A	T,G,C	21.5769	.	DP=11;MQ0F=0;AC=0,0,0;AN=2;DP4=11,0,0,0;MQ=29	GT:PL:DP:DV	0/0:1,2,3,4,5,6,2,3,5,3:5:0	./.:.:3:0	./.:.:3:0
+17	828	.	T	C	409	.	DP=25;VDB=0.842082;SGB=-4.20907;RPB=0.950652;MQB=1;MQSB=1;BQB=0.929717;MQ0F=0;ICB=0.8;HOB=0.222222;AC=4;AN=6;DP4=2,4,8,11;MQ=60	GT:PL:DP:DV	0/1:211,0,35:12:10	0/1:116,0,91:9:5	1/1:120,12,0:4:4
+17	1665	.	T	C	3.10665	.	DP=20;VDB=0.1;SGB=0.346553;RPB=0.222222;MQB=0.611111;MQSB=0.988166;BQB=0.944444;MQ0F=0;ICB=0.128205;HOB=0.0555556;AC=1;AN=6;DP4=7,11,1,1;MQ=55	GT:PL:DP:DV	0/0:0,21,185:7:0	0/0:0,27,222:9:0	0/1:35,0,51:4:2
+17	2220	.	G	C	189	.	DP=21;VDB=0.532753;SGB=-3.51597;RPB=0.964198;MQB=0.898397;MQSB=0.875769;BQB=0.0354359;MQ0F=0;AC=0;AN=6;DP4=6,2,1,11;MQ=58	GT:PL:DP:DV	0/0:139,157,255:12:6	0/0:69,75,119:4:2	0/0:131,131,131:4:4
+17	2564	.	A	AG	166	.	DP=15;VDB=0.690812;SGB=-3.20711;RPB=0.197899;MQB=1;MQSB=1;BQB=0.965069;MQ0F=0;AC=0;AN=6;DP4=1,4,4,5;MQ=60	GT:PL:DP:DV	0/0:88,98,171:6:3	0/0:57,63,117:4:2	0/0:124,124,124:4:4
