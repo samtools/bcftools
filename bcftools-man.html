@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp163664"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25135584"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -8,7 +8,7 @@ will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2018-08-29 10:25 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-37-g90cca6a+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2018-11-13 12:46 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-73-g53c48eb+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -192,19 +192,11 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     formats examples:
 </dd></dl></div><pre class="screen">    sample1    1
     sample2    2
-    sample3    2
-
-  or
-
-    sample1    M
+    sample3    2</pre><pre class="literallayout">or</pre><pre class="screen">    sample1    M
     sample2    F
-    sample3    F
-
-  or a .ped file (here is shown a minimum working example, the first column is
-  ignored and the last indicates sex: 1=male, 2=female)
-
-    ignored daughterA fatherA motherA 2
-    ignored sonB fatherB motherB 1</pre><div class="variablelist"><dl><dt><span class="term">
+    sample3    F</pre><pre class="literallayout">or a .ped file (here is shown a minimum working example, the first column is
+ignored and the last indicates sex: 1=male, 2=female)</pre><pre class="screen">    ignored_column  daughterA fatherA  motherA  2
+    ignored_column  sonB      fatherB  motherB  1</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-t, --targets</strong></span> [^]<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     Similar as <span class="strong"><strong>-r, --regions</strong></span>, but the next position is accessed by streaming the
@@ -1971,21 +1963,21 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     print version string and exit
 </dd></dl></div></div><div class="refsect3" title="List of plugins coming with the distribution:"><a id="_list_of_plugins_coming_with_the_distribution"></a><h4>List of plugins coming with the distribution:</h4><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>GTisec</strong></span>
-</span></dt><dd>
-    count genotype intersections across all possible sample subsets in a vcf file
-</dd><dt><span class="term">
-<span class="strong"><strong>GTsubset</strong></span>
-</span></dt><dd>
-    output only sites where the requested samples all exclusively share a genotype
-</dd><dt><span class="term">
 <span class="strong"><strong>ad-bias</strong></span>
 </span></dt><dd>
     find positions with wildly varying ALT allele frequency (Fisher test on FMT/AD)
 </dd><dt><span class="term">
+<span class="strong"><strong>add-variantkey</strong></span>
+</span></dt><dd>
+    add VariantKey INFO fields VKX and RSX
+</dd><dt><span class="term">
 <span class="strong"><strong>af-dist</strong></span>
 </span></dt><dd>
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
+</dd><dt><span class="term">
+<span class="strong"><strong>allele-length</strong></span>
+</span></dt><dd>
+    count the frequency of the length of REF, ALT and REF+ALT
 </dd><dt><span class="term">
 <span class="strong"><strong>check-ploidy</strong></span>
 </span></dt><dd>
@@ -1999,6 +1991,11 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     color shared chromosomal segments, requires trio VCF with phased GTs
 </dd><dt><span class="term">
+<span class="strong"><strong>contrast</strong></span>
+</span></dt><dd>
+    finds novel alleles and genotypes in two groups of samples. Adds an annotation which lists samples with a
+    novel allele (INFO/NOVELAL) or a novel genotype (INFO/NOVELGT)
+</dd><dt><span class="term">
 <span class="strong"><strong>counts</strong></span>
 </span></dt><dd>
     a minimal plugin which counts number of SNPs, Indels, and total number of sites.
@@ -2008,17 +2005,13 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
     print genotype dosage. By default the plugin searches for PL, GL and GT, in
     that order.
 </dd><dt><span class="term">
-<span class="strong"><strong>fill-AN-AC</strong></span>
-</span></dt><dd>
-    fill INFO fields AN and AC.
-</dd><dt><span class="term">
 <span class="strong"><strong>fill-from-fasta</strong></span>
 </span></dt><dd>
     fill INFO or REF field based on values in a fasta file
 </dd><dt><span class="term">
 <span class="strong"><strong>fill-tags</strong></span>
 </span></dt><dd>
-    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS
+    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
 </dd><dt><span class="term">
 <span class="strong"><strong>fix-ploidy</strong></span>
 </span></dt><dd>
@@ -2032,10 +2025,22 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     annotate frameshift indels
 </dd><dt><span class="term">
+<span class="strong"><strong>GTisec</strong></span>
+</span></dt><dd>
+    count genotype intersections across all possible sample subsets in a vcf file
+</dd><dt><span class="term">
+<span class="strong"><strong>GTsubset</strong></span>
+</span></dt><dd>
+    output only sites where the requested samples all exclusively share a genotype
+</dd><dt><span class="term">
 <span class="strong"><strong>guess-ploidy</strong></span>
 </span></dt><dd>
     determine sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT)
     in the non-PAR region of chrX.
+</dd><dt><span class="term">
+<span class="strong"><strong>gvcfz</strong></span>
+</span></dt><dd>
+    compress gVCF file by resizing non-variant blocks according to specified criteria
 </dd><dt><span class="term">
 <span class="strong"><strong>impute-info</strong></span>
 </span></dt><dd>
@@ -2061,25 +2066,29 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     general tool to set genotypes according to rules requested by the user
 </dd><dt><span class="term">
+<span class="strong"><strong>smpl-stats</strong></span>
+</span></dt><dd>
+    calculates basic per-sample stats
+</dd><dt><span class="term">
 <span class="strong"><strong>tag2tag</strong></span>
 </span></dt><dd>
     convert between similar tags, such as GL and GP
 </dd><dt><span class="term">
+<span class="strong"><strong>trio-dnm</strong></span>
+</span></dt><dd>
+    screen variants for possible de-novo mutations in trios
+</dd><dt><span class="term">
+<span class="strong"><strong>trio-stats</strong></span>
+</span></dt><dd>
+    calculate transmission rate in trio children
+</dd><dt><span class="term">
 <span class="strong"><strong>trio-switch-rate</strong></span>
 </span></dt><dd>
-    calculate phase switch rate in trio samples, children samples must have phased GTs.
-</dd><dt><span class="term">
-<span class="strong"><strong>add-variantkey</strong></span>
-</span></dt><dd>
-    add VariantKey INFO fields VKX and RSX
+    calculate phase switch rate in trio samples, children samples must have phased GTs
 </dd><dt><span class="term">
 <span class="strong"><strong>variantkey-hex</strong></span>
 </span></dt><dd>
     generate unsorted VariantKey-RSid index files in hexadecimal format
-</dd><dt><span class="term">
-<span class="strong"><strong>allele-length</strong></span>
-</span></dt><dd>
-    count the frequency of the length of REF, ALT and REF+ALT
 </dd></dl></div></div><div class="refsect3" title="Examples:"><a id="_examples_3"></a><h4>Examples:</h4><pre class="screen"># List options common to all plugins
 bcftools plugin
 
@@ -2245,21 +2254,24 @@ file for help.</p><div class="refsect3" title="General options:"><a id="_general
 </span></dt><dd>
     process multiple VCFs listed in the file
 </dd></dl></div><div class="refsect3" title="Format:"><a id="_format"></a><h4>Format:</h4><pre class="literallayout">%CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
-%INFO/TAG       Any tag in the INFO column
-%TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
-%MASK           Indicates presence of the site in other files (with multiple files)
-%TAG{INT}       Curly brackets to subscript vectors (0-based)
-%FIRST_ALT      Alias for %ALT{0}
-[]              Format fields must be enclosed in brackets to loop over all samples
-%GT             Genotype (e.g. 0/1)
-%TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
-%TGT            Translated genotype (e.g. C/A)
-%IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
-%LINE           Prints the whole line
-%SAMPLE         Sample name
-%POS0           POS in 0-based coordinates
 %END            End position of the REF allele
 %END0           End position of the REF allele in 0-based cordinates
+%FIRST_ALT      Alias for %ALT{0}
+%FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
+%GT             Genotype (e.g. 0/1)
+%INFO           Prints the whole INFO column
+%INFO/TAG       Any tag in the INFO column
+%IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
+%LINE           Prints the whole line
+%MASK           Indicates presence of the site in other files (with multiple files)
+%POS0           POS in 0-based coordinates
+%PBINOM(TAG)    Calculate phred-scaled binomial probability, the allele index is determined from GT
+%SAMPLE         Sample name
+%TAG{INT}       Curly brackets to subscript vectors (0-based)
+%TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
+%TGT            Translated genotype (e.g. C/A)
+%TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
+[]              Format fields must be enclosed in brackets to loop over all samples
 \n              new line
 \t              tab character</pre><pre class="literallayout">Everything else is printed verbatim.</pre></div><div class="refsect3" title="Examples:"><a id="_examples_4"></a><h4>Examples:</h4><pre class="literallayout"># Print chromosome, position, ref allele and the first alternate allele
 bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz</pre><pre class="literallayout"># Similar to above, but use tabs instead of spaces, add sample name and genotype
@@ -2267,7 +2279,8 @@ bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz</pre><
 bcftools query -f 'GQ:[ %GQ] \t GT:[ %GT]\n' file.vcf</pre><pre class="literallayout"># Make a BED file: chr, pos (0-based), end pos (1-based), id
 bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n' file.bcf</pre><pre class="literallayout"># Print only samples with alternate (non-reference) genotypes
 bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i'GT="alt"' file.bcf</pre><pre class="literallayout"># Print all samples at sites with at least one alternate genotype
-bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
+bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'</pre><pre class="literallayout"># Print phred-scaled binomial probablity from FORMAT/AD tag for all heterozygous genotypes
+bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %pbinom(AD)\n]' file.vcf</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-f, --fai</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     add to the header contig names and their lengths from the provided fasta index file (.fai).
@@ -2818,7 +2831,8 @@ two-tailed binomial test. Note that for N=0 the test evaluates to a missing valu
   and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
   homozygous genotypes.
 </p><pre class="literallayout">binom(FMT/AD)                .. GT can be used to determine the correct index
-binom(AD[0],AD[1])           .. or the fields can be given explicitly</pre></li><li class="listitem"><p class="simpara">
+binom(AD[0],AD[1])           .. or the fields can be given explicitly
+phred(binom())               .. the same as binom but phred-scaled</pre></li><li class="listitem"><p class="simpara">
 variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
