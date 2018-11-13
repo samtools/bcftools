@@ -153,9 +153,9 @@ struct _filter_t
 #define TOK_BINOM   28
 #define TOK_PHRED   29
 
-//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27
-//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8};
+//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
+//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8};
 #define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcp"
 
 // Return negative values if it is a function with variable number of arguments
@@ -2801,14 +2801,14 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     filter->nsamples = filter->max_unpack&BCF_UN_FMT ? bcf_hdr_nsamples(filter->hdr) : 0;
     for (i=0; i<nout; i++)
     {
-        if ( out[i].tok_type==TOK_MAX )      { out[i].func = func_max; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
-        else if ( out[i].tok_type==TOK_MIN ) { out[i].func = func_min; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
-        else if ( out[i].tok_type==TOK_AVG ) { out[i].func = func_avg; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
-        else if ( out[i].tok_type==TOK_SUM ) { out[i].func = func_sum; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
-        else if ( out[i].tok_type==TOK_ABS ) { out[i].func = func_abs; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
-        else if ( out[i].tok_type==TOK_CNT ) { out[i].func = func_count; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
-        else if ( out[i].tok_type==TOK_LEN ) { out[i].func = func_strlen; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
-        else if ( out[i].tok_type==TOK_PHRED ) { out[i].func = func_phred; out[i].tok_type = TOK_FUNC; out[i].tok_type = 1; }
+        if ( out[i].tok_type==TOK_MAX )      { out[i].func = func_max; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_MIN ) { out[i].func = func_min; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_AVG ) { out[i].func = func_avg; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_SUM ) { out[i].func = func_sum; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_ABS ) { out[i].func = func_abs; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_CNT ) { out[i].func = func_count; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_LEN ) { out[i].func = func_strlen; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_PHRED ) { out[i].func = func_phred; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_BINOM ) { out[i].func = func_binom; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_PERLSUB ) { out[i].func = perl_exec; out[i].tok_type = TOK_FUNC; }
         hts_expand0(double,1,out[i].mvalues,out[i].values);
