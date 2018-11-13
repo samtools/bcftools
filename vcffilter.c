@@ -278,7 +278,7 @@ static void buffered_filters(args_t *args, bcf1_t *line)
         if ( k_flush || !line )
         {
             // Select the best indel from the cluster of k_flush indels
-            int k = 0, max_ac = -1, imax_ac = -1;
+            int k = 0, max_ac = -1, imax_ac = -1, max_qual = -1, imax_qual = -1;
             for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
             {
                 k++;
@@ -287,9 +287,10 @@ static void buffered_filters(args_t *args, bcf1_t *line)
                 hts_expand(int, rec->n_allele, args->ntmpi, args->tmpi);
                 int ret = bcf_calc_ac(args->hdr, rec, args->tmpi, BCF_UN_ALL);
                 if ( imax_ac==-1 || (ret && max_ac < args->tmpi[1]) ) { max_ac = args->tmpi[1]; imax_ac = i; }
+                if ( imax_qual==-1 || max_qual < rec->qual ) { max_qual = rec->qual; imax_qual = i; }
             }
 
-            // Filter all but the best indel (with max AF or first if AF not available)
+            // Filter all but the best indel (with the best QUAL, bigger AC, or take the first if neither QUAL nor AC are available)
             k = 0;
             for (i=-1; rbuf_next(&args->rbuf,&i) && k<k_flush; )
             {
@@ -297,7 +298,14 @@ static void buffered_filters(args_t *args, bcf1_t *line)
                 bcf1_t *rec = args->rbuf_lines[i];
                 if ( !(rec->d.var_type & IndelGap_set) ) continue;
                 rec->d.var_type |= IndelGap_flush;
-                if ( i!=imax_ac ) bcf_add_filter(args->hdr, args->rbuf_lines[i], args->IndelGap_id);
+
+                int do_filter = 0;
+                if ( max_qual>0 )
+                {
+                    if ( i!=imax_qual ) do_filter = 1;
+                }
+                else if ( i!=imax_ac ) do_filter = 1;
+                if ( do_filter ) bcf_add_filter(args->hdr, args->rbuf_lines[i], args->IndelGap_id);
             }
         }
     }
