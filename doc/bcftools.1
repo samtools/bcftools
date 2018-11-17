@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2018-11-17 15:59 GMT
+.\"      Date: 2018-11-17 16:35 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2018\-11\-17 15:59 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2018\-11\-17 16:35 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2018\-11\-17 15:59 GMT\fR and refers to bcftools git version \fB1\&.9\-76\-g55209b7+\fR\&.
+This manual page was last updated \fB2018\-11\-17 16:35 GMT\fR and refers to bcftools git version \fB1\&.9\-77\-gd0cf724+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -607,7 +607,7 @@ Add or remove annotations\&.
 .PP
 \fB\-a, \-\-annotations\fR \fIfile\fR
 .RS 4
-Bgzip\-compressed and tabix\-indexed file with annotations\&. The file can be VCF, BED, or a tab\-delimited file with mandatory columns CHROM, POS (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary number of annotation columns\&. BED files are expected to have the "\&.bed" or "\&.bed\&.gz" suffix (case\-insensitive), otherwise a tab\-delimited file is assumed\&. Note that in case of tab\-delimited file, the coordinates POS, FROM and TO are one\-based and inclusive\&. When REF and ALT are present, only matching VCF records will be annotated\&. When multiple ALT alleles are present in the annotation file (given as comma\-separated list of alleles), at least one must match one of the alleles in the corresponding VCF record\&. Similarly, at least one alternate allele from a multi\-allelic VCF record must be present in the annotation file\&. Note that flag types, such as "INFO/FLAG", can be annotated by including a field with the value "1" to set the flag, "0" to remove it, or "\&." to keep existing flags\&. See also
+Bgzip\-compressed and tabix\-indexed file with annotations\&. The file can be VCF, BED, or a tab\-delimited file with mandatory columns CHROM, POS (or, alternatively, FROM and TO), optional columns REF and ALT, and arbitrary number of annotation columns\&. BED files are expected to have the "\&.bed" or "\&.bed\&.gz" suffix (case\-insensitive), otherwise a tab\-delimited file is assumed\&. Note that in case of tab\-delimited file, the coordinates POS, FROM and TO are one\-based and inclusive\&. When REF and ALT are present, only matching VCF records will be annotated\&. When multiple ALT alleles are present in the annotation file (given as comma\-separated list of alleles), at least one must match one of the alleles in the corresponding VCF record\&. Similarly, at least one alternate allele from a multi\-allelic VCF record must be present in the annotation file\&. Missing values can be added by providing "\&." in place of actual value\&. Note that flag types, such as "INFO/FLAG", can be annotated by including a field with the value "1" to set the flag, "0" to remove it, or "\&." to keep existing flags\&. See also
 \fB\-c, \-\-columns\fR
 and
 \fB\-h, \-\-header\-lines\fR\&.

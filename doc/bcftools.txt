@@ -292,6 +292,7 @@ Add or remove annotations.
     alleles in the corresponding VCF record. Similarly, at least one
     alternate allele from a multi-allelic VCF record must be present in the
     annotation file.
+    Missing values can be added by providing "." in place of actual value.
     Note that flag types, such as "INFO/FLAG", can be annotated by including
     a field with the value "1" to set the flag, "0" to remove it, or "." to
     keep existing flags.
