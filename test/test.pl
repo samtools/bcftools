@@ -212,6 +212,8 @@ test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-fil
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.2.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.2.samples');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_call_cAls($opts,in=>'mpileup.2',out=>'mpileup.cAls.2.out',tab=>'mpileup.2');
+test_vcf_call_cAls($opts,in=>'mpileup.3',out=>'mpileup.cAls.3.out',tab=>'mpileup.3',args=>'-i');
+test_vcf_call_cAls($opts,in=>'mpileup.3',out=>'mpileup.cAls.4.out',tab=>'mpileup.4',args=>'-i');
 test_vcf_call($opts,in=>'mpileup.c',out=>'mpileup.c.1.out',args=>'-cv');
 # test_vcf_call($opts,in=>'mpileup.c',out=>'mpileup.c.2.out',args=>'-cg0');
 test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.samples');
@@ -793,9 +795,10 @@ sub test_vcf_call
 sub test_vcf_call_cAls
 {
     my ($opts,%args) = @_;
+    my $args = exists($args{args}) ? $args{args} : '';
     bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call --no-version -mA -C alleles -T $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf 2>/dev/null");
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -Ob -mA -C alleles -T $$opts{tmp}/$args{tab}.tab.gz $$opts{path}/$args{in}.vcf 2>/dev/null | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call --no-version -mA -C alleles -T $$opts{tmp}/$args{tab}.tab.gz $args $$opts{path}/$args{in}.vcf 2>/dev/null");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools call -Ob -mA -C alleles -T $$opts{tmp}/$args{tab}.tab.gz $args $$opts{path}/$args{in}.vcf 2>/dev/null | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
 }
 sub test_vcf_filter
 {

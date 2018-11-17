@@ -49,6 +49,13 @@ typedef struct
 }
 family_t;
 
+typedef struct
+{
+    int n:31, used:1;
+    char **allele;
+}
+tgt_als_t;
+
 typedef struct _ccall_t ccall_t;
 typedef struct
 {
@@ -73,6 +80,7 @@ typedef struct
     int32_t *ugts, *cgts;   // unconstraind and constrained GTs
     uint32_t output_tags;
     char *prior_AN, *prior_AC;  // reference panel AF tags (AF=AC/AN)
+    tgt_als_t *tgt_als;     // for CALL_CONSTR_ALLELES
 
     // ccall only
     double indel_frac, min_perm_p, min_lrt;

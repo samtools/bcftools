@@ -42,6 +42,7 @@ THE SOFTWARE.  */
 #include "prob1.h"
 #include "ploidy.h"
 #include "gvcf.h"
+#include "regidx.h"
 
 void error(const char *format, ...);
 
@@ -76,6 +77,8 @@ typedef struct
     int nsamples, *samples_map; // mapping from output sample names to original VCF
     char *regions, *targets;    // regions to process
     int regions_is_file, targets_is_file;
+    regidx_t *tgt_idx;
+    regitr_t *tgt_itr, *tgt_itr_prev;
 
     char *samples_fname;
     int samples_is_file;
@@ -347,26 +350,121 @@ static void init_missed_line(args_t *args)
     bcf_float_set_missing(args->missed_line->qual);
 }
 
-static void print_missed_line(bcf_sr_regions_t *regs, void *data)
+static int tgt_parse(const char *line, char **chr_beg, char **chr_end, uint32_t *beg, uint32_t *end, void *payload, void *usr)
 {
-    args_t *args = (args_t*) data;
-    call_t *call = &args->aux;
-    bcf1_t *missed = args->missed_line;
+    char *ss = (char*) line;
+    while ( *ss && isspace(*ss) ) ss++;
+    if ( !*ss ) { fprintf(stderr,"Could not parse the line: %s\n", line); return -2; }
+    if ( *ss=='#' ) return -1;  // skip comments
 
-    char *ss = regs->line.s;
-    int i = 0;
-    while ( i<args->aux.srs->targets_als-1 && *ss )
+    char *se = ss;
+    while ( *se && !isspace(*se) ) se++;
+
+    *chr_beg = ss;
+    *chr_end = se-1;
+
+    if ( !*se ) { fprintf(stderr,"Could not parse the line: %s\n", line); return -2; }
+
+    ss = se+1;
+    *beg = strtod(ss, &se);
+    if ( ss==se ) { fprintf(stderr,"Could not parse tab line: %s\n", line); return -2; }
+    if ( *beg==0 ) { fprintf(stderr,"Could not parse tab line, expected 1-based coordinate: %s\n", line); return -2; }
+    (*beg)--;
+    *end = *beg;
+
+    if ( !usr ) return 0; // allele information not required
+
+    ss = se+1;
+    tgt_als_t *als = (tgt_als_t*)payload;
+    als->used   = 0;
+    als->n      = 0;
+    als->allele = NULL;
+    while ( *ss )
     {
-        if ( *ss=='\t' ) i++;
-        ss++;
+        se = ss;
+        while ( *se && *se!=',' ) se++;
+        als->n++;
+        als->allele = (char**)realloc(als->allele,als->n*sizeof(*als->allele));
+        als->allele[als->n-1] = (char*)malloc(se-ss+1);
+        memcpy(als->allele[als->n-1],ss,se-ss);
+        als->allele[als->n-1][se-ss] = 0;
+        ss = se+1;
+        if ( !*se ) break;
     }
-    if ( !*ss ) error("Could not parse: [%s] (%d)\n", regs->line.s,args->aux.srs->targets_als);
+    return 0;
+}
+static void tgt_free(void *payload)
+{
+    tgt_als_t *als = (tgt_als_t*)payload;
+    int i;
+    for (i=0; i<als->n; i++) free(als->allele[i]);
+    free(als->allele);
+}
+static int tgt_overlap(args_t *args, bcf1_t *rec)
+{
+    if ( !regidx_overlap(args->tgt_idx, bcf_seqname(args->aux.hdr,rec),rec->pos,rec->pos,args->tgt_itr) ) return 0;
+    while ( regitr_overlap(args->tgt_itr) )
+    {
+        if ( args->tgt_itr->beg != rec->pos ) continue;
+        if ( args->aux.flag & CALL_CONSTR_ALLELES )
+        {
+            args->aux.tgt_als = &regitr_payload(args->tgt_itr,tgt_als_t);
+            args->aux.tgt_als->used = 1;
+        }
+        if ( args->flag & CF_INS_MISSED )
+        {
+            if ( !args->tgt_itr_prev ) args->tgt_itr_prev = regitr_init(args->tgt_idx);
+            regitr_copy(args->tgt_itr_prev, args->tgt_itr);
+        }
+        return 1;
+    }
+    return 0;
+}
+static void tgt_flush_region(args_t *args, char *chr, uint32_t beg, uint32_t end)
+{
+    if ( !regidx_overlap(args->tgt_idx, chr,beg,end,args->tgt_itr) ) return;
+    while ( regitr_overlap(args->tgt_itr) )
+    {
+        if ( args->tgt_itr->beg < beg ) continue;
 
-    missed->rid  = bcf_hdr_name2id(call->hdr,regs->seq_names[regs->prev_seq]);
-    missed->pos  = regs->start;
-    bcf_update_alleles_str(call->hdr, missed,ss);
+        tgt_als_t *tgt_als = &regitr_payload(args->tgt_itr,tgt_als_t);
+        if ( tgt_als->used ) return;
 
-    if ( bcf_write1(args->out_fh, call->hdr, missed)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
+        tgt_als->used = 1;
+        args->missed_line->rid  = bcf_hdr_name2id(args->aux.hdr,chr);
+        args->missed_line->pos  = args->tgt_itr->beg;
+        bcf_update_alleles(args->aux.hdr, args->missed_line, (const char**)tgt_als->allele, tgt_als->n);
+        if ( bcf_write1(args->out_fh, args->aux.hdr, args->missed_line)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
+    }
+}
+static void tgt_flush(args_t *args, bcf1_t *rec)
+{
+    if ( rec )
+    {
+        char *chr = (char*)bcf_seqname(args->aux.hdr,rec);
+
+        if ( !args->tgt_itr_prev )                  // first record
+            tgt_flush_region(args,chr,0,rec->pos-1);
+
+        else if ( strcmp(chr,args->tgt_itr->seq) )  // first record on a new chromosome
+        {
+            tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg+1,REGIDX_MAX);
+            tgt_flush_region(args,chr,0,rec->pos-1);
+        }
+        else                                        // another record on the same chromosome
+            tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg+1,rec->pos-1);
+    }
+    else
+    {
+        // flush everything
+        if ( args->tgt_itr_prev )
+            tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg+1,REGIDX_MAX);
+
+        int i, nchr = 0;
+        char **chr = regidx_seq_names(args->tgt_idx, &nchr);
+        for (i=0; i<nchr; i++)
+            tgt_flush_region(args,chr[i],0,REGIDX_MAX);
+    }
 }
 
 static void init_data(args_t *args)
@@ -376,15 +474,10 @@ static void init_data(args_t *args)
     // Open files for input and output, initialize structures
     if ( args->targets )
     {
-        if ( bcf_sr_set_targets(args->aux.srs, args->targets, args->targets_is_file, args->aux.flag&CALL_CONSTR_ALLELES ? 3 : 0)<0 )
-            error("Failed to read the targets: %s\n", args->targets);
-
-        if ( args->aux.flag&CALL_CONSTR_ALLELES && args->flag&CF_INS_MISSED )
-        {
-            args->aux.srs->targets->missed_reg_handler = print_missed_line;
-            args->aux.srs->targets->missed_reg_data = args;
-        }
+        args->tgt_idx = regidx_init(args->targets, tgt_parse, tgt_free, sizeof(tgt_als_t), args->aux.flag&CALL_CONSTR_ALLELES ? args : NULL);
+        args->tgt_itr = regitr_init(args->tgt_idx);
     }
+
     if ( args->regions )
     {
         if ( bcf_sr_set_regions(args->aux.srs, args->regions, args->regions_is_file)<0 )
@@ -475,6 +568,12 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    if ( args->tgt_idx )
+    {
+        regidx_destroy(args->tgt_idx);
+        regitr_destroy(args->tgt_itr);
+        if ( args->tgt_itr_prev ) regitr_destroy(args->tgt_itr_prev);
+    }
     if ( args->flag & CF_CCALL ) ccall_destroy(&args->aux);
     else if ( args->flag & CF_MCALL ) mcall_destroy(&args->aux);
     else if ( args->flag & CF_QCALL ) qcall_destroy(&args->aux);
@@ -819,6 +918,11 @@ int main_vcfcall(int argc, char *argv[])
         if ( (args.flag & CF_INDEL_ONLY) && !is_indel ) continue;
         if ( (args.flag & CF_NO_INDEL) && is_indel ) continue;
         if ( (args.flag & CF_ACGT_ONLY) && (bcf_rec->d.allele[0][0]=='N' || bcf_rec->d.allele[0][0]=='n') ) continue;   // REF[0] is 'N'
+        if ( args.tgt_idx )
+        {
+            if ( !tgt_overlap(&args, bcf_rec) ) continue;
+            if ( args.flag & CF_INS_MISSED ) tgt_flush(&args,bcf_rec);
+        }
 
         // Which allele is symbolic? All SNPs should have it, but not indels
         args.aux.unseen = 0;
@@ -862,7 +966,7 @@ int main_vcfcall(int argc, char *argv[])
         if ( bcf_rec && bcf_write1(args.out_fh, args.aux.hdr, bcf_rec)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args.output_fname);
     }
     if ( args.gvcf ) gvcf_write(args.gvcf, args.out_fh, args.aux.hdr, NULL, 0);
-    if ( args.flag & CF_INS_MISSED ) bcf_sr_regions_flush(args.aux.srs->targets);
+    if ( args.flag & CF_INS_MISSED ) tgt_flush(&args,NULL);
     destroy_data(&args);
     return 0;
 }

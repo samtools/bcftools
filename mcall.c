@@ -1272,28 +1272,28 @@ void mcall_trim_numberR(call_t *call, bcf1_t *rec, int nals, int nout_als, int o
 //
 static int mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
 {
-    bcf_sr_regions_t *tgt = call->srs->targets;
-    if ( tgt->nals>5 ) error("Maximum accepted number of alleles is 5, got %d\n", tgt->nals);
-    hts_expand(char*,tgt->nals+1,call->nals,call->als);
+    assert( call->tgt_als->n );
+    if ( call->tgt_als->n>5 ) error("Maximum accepted number of alleles is 5, got %d\n", call->tgt_als->n);
+    hts_expand(char*,call->tgt_als->n+1,call->nals,call->als);
 
     int has_new = 0;
 
     int i, j, nals = 1;
     for (i=1; i<call->nals_map; i++) call->als_map[i] = -1;
 
-    if ( vcmp_set_ref(call->vcmp, rec->d.allele[0], tgt->als[0]) < 0 )
-        error("The reference alleles are not compatible at %s:%d .. %s vs %s\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1,tgt->als[0],rec->d.allele[0]);
+    if ( vcmp_set_ref(call->vcmp, rec->d.allele[0], call->tgt_als->allele[0]) < 0 )
+        error("The reference alleles are not compatible at %s:%d .. %s vs %s\n", call->hdr->id[BCF_DT_CTG][rec->rid].key,rec->pos+1,call->tgt_als->allele[0],rec->d.allele[0]);
 
     // create mapping from new to old alleles
-    call->als[0] = tgt->als[0];
+    call->als[0] = call->tgt_als->allele[0];
     call->als_map[0] = 0;
 
-    for (i=1; i<tgt->nals; i++)
+    for (i=1; i<call->tgt_als->n; i++)
     {
-        call->als[nals] = tgt->als[i];
-        j = vcmp_find_allele(call->vcmp, rec->d.allele+1, rec->n_allele - 1, tgt->als[i]);
+        call->als[nals] = call->tgt_als->allele[i];
+        j = vcmp_find_allele(call->vcmp, rec->d.allele+1, rec->n_allele - 1, call->tgt_als->allele[i]);
 
-        if ( j+1==*unseen ) { fprintf(stderr,"fixme? Cannot constrain to %s\n",tgt->als[i]); return -1; }
+        if ( j+1==*unseen ) { fprintf(stderr,"fixme? Cannot constrain to %s\n",call->tgt_als->allele[i]); return -1; }
         
         if ( j>=0 )
         {
