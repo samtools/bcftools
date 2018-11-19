@@ -1,0 +1,4 @@
+5500	C	T	.	missense|SAMD11|ENST00000342066|protein_coding|+|56R>56C|5500C>T
+
+14483	G	A	.	synonymous|SAMD11|ENST00000455979|protein_coding|+|9G|14483G>A,synonymous|SAMD11|ENST00000342066|protein_coding|+|159G|14483G>A
+

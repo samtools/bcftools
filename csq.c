@@ -411,6 +411,7 @@ struct _vbuf_t
 {
     vrec_t **vrec;   // buffer of VCF lines with the same position
     int n, m;
+    uint32_t keep_until;    // the maximum transcript end position
 };
 KHASH_MAP_INIT_INT(pos2vbuf, vbuf_t*)
 
@@ -2579,7 +2580,6 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
     int i;
     tscript_t *tr = hap->tr;
     int ref_node = tr->strand==STRAND_FWD ? ibeg : iend;
-
     int icsq = node->ncsq_list++;
     hts_expand0(csq_t,node->ncsq_list,node->mcsq_list,node->csq_list);
     csq_t *csq = &node->csq_list[icsq];
@@ -2994,7 +2994,6 @@ void hap_flush(args_t *args, uint32_t pos)
     {
         tscript_t *tr = heap->dat[0];
         khp_delete(trhp, heap);
-
         args->hap->tr = tr;
         if ( tr->root && tr->root->nchild ) // normal, non-localized calling
         {
@@ -3033,7 +3032,7 @@ void hap_flush(args_t *args, uint32_t pos)
 
 #define SWAP(type_t, a, b) { type_t t = a; a = b; b = t; }
 
-void vbuf_push(args_t *args, bcf1_t **rec_ptr)
+vbuf_t *vbuf_push(args_t *args, bcf1_t **rec_ptr)
 {
     int i;
 
@@ -3049,6 +3048,7 @@ void vbuf_push(args_t *args, bcf1_t **rec_ptr)
         i = rbuf_append(&args->vcf_rbuf);
         if ( !args->vcf_buf[i] ) args->vcf_buf[i] = (vbuf_t*) calloc(1,sizeof(vbuf_t));
         args->vcf_buf[i]->n = 0;
+        args->vcf_buf[i]->keep_until = 0;
     }
     vbuf_t *vbuf = args->vcf_buf[i];
     vbuf->n++;
@@ -3068,9 +3068,11 @@ void vbuf_push(args_t *args, bcf1_t **rec_ptr)
     int ret;
     khint_t k = kh_put(pos2vbuf, args->pos2vbuf, (int)rec->pos, &ret);
     kh_val(args->pos2vbuf,k) = vbuf;
+
+    return vbuf;
 }
 
-void vbuf_flush(args_t *args)
+void vbuf_flush(args_t *args, uint32_t pos)
 {
     int i,j;
     while ( args->vcf_rbuf.n )
@@ -3081,8 +3083,8 @@ void vbuf_flush(args_t *args)
             // check if the first active transcript starts beyond the first buffered VCF record,
             // cannot output buffered VCF lines (args.vbuf) until the active transcripts are gone
             vbuf = args->vcf_buf[ args->vcf_rbuf.f ];
+            if ( vbuf->keep_until > pos ) break;
             assert( vbuf->n );
-            if ( vbuf->vrec[0]->line->pos >= args->active_tr->dat[0]->beg ) break;    // cannot flush
         }
 
         i = rbuf_shift(&args->vcf_rbuf);
@@ -3360,7 +3362,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
     return ret;
 }
 
-int test_cds(args_t *args, bcf1_t *rec)
+int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
 {
     int i, ret = 0, hap_ret;
     const char *chr = bcf_seqname(args->hdr,rec);
@@ -3371,6 +3373,7 @@ int test_cds(args_t *args, bcf1_t *rec)
         gf_cds_t *cds = regitr_payload(args->itr,gf_cds_t*);
         tscript_t *tr = cds->tr;
         if ( !GF_is_coding(tr->type) ) continue;
+        if ( vbuf->keep_until < tr->end ) vbuf->keep_until = tr->end;
         ret = 1;
         if ( !tr->root )
         {
@@ -3815,7 +3818,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     if ( !rec_ptr )
     {
         hap_flush(args, REGIDX_MAX);
-        vbuf_flush(args);
+        vbuf_flush(args, REGIDX_MAX);
         return;
     }
 
@@ -3836,21 +3839,21 @@ void process(args_t *args, bcf1_t **rec_ptr)
     {
         if ( !args->out_fh ) return;    // not a VCF output
         vbuf_push(args, rec_ptr);
-        vbuf_flush(args);
+        vbuf_flush(args, REGIDX_MAX);
         return;
     }
 
     if ( args->rid != rec->rid ) 
     {
         hap_flush(args, REGIDX_MAX);
-        vbuf_flush(args);
+        vbuf_flush(args, REGIDX_MAX);
     }
     args->rid = rec->rid;
-    vbuf_push(args, rec_ptr);
+    vbuf_t *vbuf = vbuf_push(args, rec_ptr);
 
     if ( rec->d.allele[1][0]!='<' )
     {
-        int hit = args->local_csq ? test_cds_local(args, rec) : test_cds(args, rec);
+        int hit = args->local_csq ? test_cds_local(args, rec) : test_cds(args, rec, vbuf);
         hit += test_utr(args, rec);
         hit += test_splice(args, rec);
         if ( !hit ) test_tscript(args, rec);
@@ -3861,7 +3864,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     if ( rec->pos > 0 )
     {
         hap_flush(args, rec->pos-1);
-        vbuf_flush(args);
+        vbuf_flush(args, rec->pos-1);
     }
 
     return;

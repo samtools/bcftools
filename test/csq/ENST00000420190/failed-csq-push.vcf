@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##contig=<ID=chrM,length=16571,assembly=hg19>
+##contig=<ID=1,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+1	5500	.	C	T	.	.	EXP=missense|SAMD11|ENST00000342066|protein_coding|+|56R>56C|5500C>T	GT	0|1
+1	14483	.	G	A	.	.	EXP=synonymous|SAMD11|ENST00000455979|protein_coding|+|9G|14483G>A,synonymous|SAMD11|ENST00000342066|protein_coding|+|159G|14483G>A	GT	0|1
