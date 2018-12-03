@@ -409,7 +409,7 @@ for chr in dat_gt:
             for rg in dat_rg1[chr][smpl]:
                 rect = patches.Rectangle((rg[0]+off,3*y+0.5), rg[1]-rg[0]+1, 2, color='#d9534f')
                 ax1.add_patch(rect)
-        ax1.plot([x[0]+off for x in dat_gt[chr][smpl]],[x[1]+3*y for x in dat_gt[chr][smpl]],'.',color=cols[icol])
+        ax1.plot([x[0]+off for x in dat_gt[chr][smpl]],[x[1]+3*y for x in dat_gt[chr][smpl]],'.',color=cols[icol%len(cols)])
         if min_x==-1 or min_x > dat_gt[chr][smpl][0][0]+off: min_x = dat_gt[chr][smpl][0][0]+off
         if max_x < dat_gt[chr][smpl][-1][0]+off: max_x = dat_gt[chr][smpl][-1][0]+off
         if max < dat_gt[chr][smpl][-1][0]: max = dat_gt[chr][smpl][-1][0]
