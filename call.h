@@ -51,7 +51,7 @@ family_t;
 
 typedef struct
 {
-    int n:31, used:1;
+    uint32_t n:31, used:1;
     char **allele;
 }
 tgt_als_t;

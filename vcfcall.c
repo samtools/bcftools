@@ -69,6 +69,13 @@ void error(const char *format, ...);
 
 typedef struct
 {
+    tgt_als_t *als;
+    int indel, nmatch, itgt;
+}
+tgt_candidate_t;
+
+typedef struct
+{
     int flag;   // combination of CF_* flags above
     int output_type, n_threads, record_cmd_line;
     htsFile *bcf_in, *out_fh;
@@ -79,6 +86,8 @@ typedef struct
     int regions_is_file, targets_is_file;
     regidx_t *tgt_idx;
     regitr_t *tgt_itr, *tgt_itr_prev, *tgt_itr_tmp;
+    tgt_candidate_t *tgt_dup;
+    int mtgt_dup;
 
     char *samples_fname;
     int samples_is_file;
@@ -409,13 +418,13 @@ static void tgt_flush_region(args_t *args, char *chr, uint32_t beg, uint32_t end
         if ( args->tgt_itr_tmp->beg < beg ) continue;
 
         tgt_als_t *tgt_als = &regitr_payload(args->tgt_itr_tmp,tgt_als_t);
-        if ( tgt_als->used ) return;
+        if ( tgt_als->used ) continue;
 
-        tgt_als->used = 1;
         args->missed_line->rid  = bcf_hdr_name2id(args->aux.hdr,chr);
         args->missed_line->pos  = args->tgt_itr_tmp->beg;
         bcf_unpack(args->missed_line,BCF_UN_ALL);
         bcf_update_alleles(args->aux.hdr, args->missed_line, (const char**)tgt_als->allele, tgt_als->n);
+        tgt_als->used = 1;
         if ( bcf_write1(args->out_fh, args->aux.hdr, args->missed_line)!=0 ) error("[%s] Error: failed to write to %s\n", __func__,args->output_fname);
     }
 }
@@ -428,13 +437,13 @@ static void tgt_flush(args_t *args, bcf1_t *rec)
         if ( !args->tgt_itr_prev )                  // first record
             tgt_flush_region(args,chr,0,rec->pos-1);
 
-        else if ( strcmp(chr,args->tgt_itr->seq) )  // first record on a new chromosome
+        else if ( strcmp(chr,args->tgt_itr_prev->seq) )  // first record on a new chromosome
         {
             tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg+1,REGIDX_MAX);
             tgt_flush_region(args,chr,0,rec->pos-1);
         }
         else                                        // another record on the same chromosome
-            tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg+1,rec->pos-1);
+            tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg,rec->pos-1);
     }
     else
     {
@@ -448,26 +457,107 @@ static void tgt_flush(args_t *args, bcf1_t *rec)
             tgt_flush_region(args,chr[i],0,REGIDX_MAX);
     }
 }
+// sort by: records to be skipped last; used; fewer matching alleles; snp or indel?
+static int cmp_tgt_candidate(const void *aptr, const void *bptr)
+{
+    tgt_candidate_t *a = (tgt_candidate_t*)aptr;
+    tgt_candidate_t *b = (tgt_candidate_t*)bptr;
+    if ( !a->als || !b->als )
+    {
+        if ( !a->als && !b->als ) return 0;
+        if ( !b->als ) return -1;
+        return 1;
+    }
+    if ( a->als->used || b->als->used )
+    {
+        if ( a->als->used && b->als->used ) return 0;
+        if ( b->als->used ) return -1;
+        return 1;
+    }
+    if ( a->nmatch > b->nmatch ) return -1;
+    if ( a->nmatch < b->nmatch ) return 1;
+    if ( b->indel ) return -1;
+    if ( a->indel ) return 1;
+    return 0;
+}
+inline static int is_indel(char *ref, char *alt)
+{
+    if ( *alt=='<' ) return 0;  // this is mpileup output, no other symbolic alleles than <*>
+    int i = 0;
+    while ( ref[i] && alt[i] ) i++;
+    if ( !ref[i] && !alt[i] ) return 0;
+    return 1;
+}
 static int tgt_overlap(args_t *args, bcf1_t *rec)
 {
     if ( !regidx_overlap(args->tgt_idx, bcf_seqname(args->aux.hdr,rec),rec->pos,rec->pos,args->tgt_itr) ) return 0;
-    while ( regitr_overlap(args->tgt_itr) )
+    if ( !(args->aux.flag & CALL_CONSTR_ALLELES) )
     {
-        if ( args->tgt_itr->beg != rec->pos ) continue;
-        if ( args->aux.flag & CALL_CONSTR_ALLELES )
+        while ( regitr_overlap(args->tgt_itr) )
         {
-            args->aux.tgt_als = &regitr_payload(args->tgt_itr,tgt_als_t);
-            args->aux.tgt_als->used = 1;
+            if ( args->tgt_itr->beg != rec->pos ) continue;
+            return 1;
         }
-        if ( args->flag & CF_INS_MISSED )
-        {
-            tgt_flush(args,rec);
-            if ( !args->tgt_itr_prev ) args->tgt_itr_prev = regitr_init(args->tgt_idx);
-            regitr_copy(args->tgt_itr_prev, args->tgt_itr);
-        }
-        return 1;
+        return 0;
     }
-    return 0;
+
+    // from multiple overlapping records choose the one with best matching set of alleles
+    int i, ntgt = 0, has_tgt = 0;
+    regitr_t *tmp_itr = regitr_init(args->tgt_idx);
+    regitr_copy(tmp_itr, args->tgt_itr);
+    while ( regitr_overlap(tmp_itr) )
+    {
+        ntgt++;
+        hts_expand(tgt_candidate_t,ntgt,args->mtgt_dup,args->tgt_dup);
+        args->tgt_dup[ntgt-1].als = NULL;
+        if ( args->tgt_itr->beg != rec->pos ) continue;
+
+        tgt_als_t *als = &regitr_payload(tmp_itr,tgt_als_t);
+        args->tgt_dup[ntgt-1].als    = als;
+        args->tgt_dup[ntgt-1].itgt   = ntgt-1;
+        args->tgt_dup[ntgt-1].nmatch = 0;
+        args->tgt_dup[ntgt-1].indel  = 0;
+        for (i=1; i<als->n; i++)
+        {
+            args->tgt_dup[ntgt-1].indel = is_indel(als->allele[0],als->allele[i]);
+            if ( args->tgt_dup[ntgt-1].indel ) break;
+        }
+
+        vcmp_t *vcmp = vcmp_init();
+        int ret = vcmp_set_ref(vcmp, rec->d.allele[0], als->allele[0]);
+        if ( ret==0 )
+        {
+            args->tgt_dup[ntgt-1].nmatch = 1;
+            if ( rec->n_allele > 1 && als->n > 1 )
+            {
+                for (i=1; i<als->n; i++)
+                {
+                    if ( vcmp_find_allele(vcmp, rec->d.allele+1, rec->n_allele-1, als->allele[i])>=0 ) args->tgt_dup[ntgt-1].nmatch++;
+                }
+            }
+        }
+        vcmp_destroy(vcmp);
+
+        if ( !als->used ) has_tgt = 1;
+    }
+    regitr_destroy(tmp_itr);
+    if ( !has_tgt ) return 0;
+
+    qsort(args->tgt_dup, ntgt, sizeof(tgt_candidate_t), cmp_tgt_candidate);
+
+    for (i=0; i<=args->tgt_dup[0].itgt; i++)
+        regitr_overlap(args->tgt_itr);
+
+    args->aux.tgt_als = &regitr_payload(args->tgt_itr,tgt_als_t);
+    args->aux.tgt_als->used = 1;
+
+    if ( args->flag & CF_INS_MISSED )
+    {
+        tgt_flush(args,rec);
+        if ( !args->tgt_itr_prev ) args->tgt_itr_prev = regitr_init(args->tgt_idx);
+        regitr_copy(args->tgt_itr_prev, args->tgt_itr);
+    }
+    return 1;
 }
 
 static void init_data(args_t *args)
@@ -572,6 +662,7 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    free(args->tgt_dup);
     if ( args->tgt_idx )
     {
         regidx_destroy(args->tgt_idx);
