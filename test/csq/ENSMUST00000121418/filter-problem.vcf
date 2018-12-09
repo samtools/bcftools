@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##contig=<ID=19,length=249250621>
+##INFO=<ID=type,Number=.,Type=String,Description="">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">
+##FILTER=<ID=IndelGap,Description="Indel within 10 bp of an indel">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+19	25105	.	G	A	.	PASS	.
+19	25496	.	ACAAA	ACAAAGCAAA	.	PASS	.
+19	25500	.	AACAA	AACAAGACAA	.	IndelGap	.

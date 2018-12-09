@@ -1196,24 +1196,39 @@ sub test_csq_real
         opendir(my $tmp,"$dirname/$dir") or error("opendir: $dirname/$dir: $!");
         while (my $file=readdir($tmp))
         {
-            if ( !($file=~/\.vcf$/) ) { next; }
-            my $vcf   = "$dirname/$dir/$file";
-            my @nsmpl = `$$opts{bin}/bcftools query -l $vcf`;
-            my $cmd;
-            if ( !@nsmpl )
+            my $cmd = undef;
+            
+            if ( $file=~/\.vcf$/ )
             {
-                $cmd = "$$opts{bin}/test/csq/sort-csq | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'";
+                my $bname = $`;
+                my $vcf   = "$dirname/$dir/$file";
+                my $out   = "$args{in}/$dir/$bname.txt";
+                my $outl  = "$args{in}/$dir/$bname.txt-l";
+
+                my @nsmpl = `$$opts{bin}/bcftools query -l $vcf`;
+                if ( !@nsmpl )
+                {
+                    $cmd = "| $$opts{bin}/test/csq/sort-csq | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%EXP\\n%POS\\t%REF\\t%ALT\\t%BCSQ\\n\\n'";
+                }
+                else
+                {
+                    $cmd = "| $$opts{bin}/bcftools query -f'[%POS\\t%REF\\t%ALT\\t%TBCSQ\\n]\\n'";
+                }
+                if ( -e "$$opts{path}/$out")
+                {
+                    test_cmd($opts,%args,out=>$out,cmd=>"$$opts{bin}/bcftools csq -f $ref -g $gff $vcf $cmd");
+                }
+                if ( -e "$$opts{path}/$outl" )
+                {
+                    test_cmd($opts,%args,out=>$outl,cmd=>"$$opts{bin}/bcftools csq -l -f $ref -g $gff $vcf $cmd");
+                }
+                next;
             }
-            else
+            if ( $file=~/\.cmd$/ )
             {
-                $cmd = "$$opts{bin}/bcftools query -f'[%POS\\t%REF\\t%ALT\\t%TBCSQ\\n]\\n'";
-            }
-            my $out  = "$args{in}/$dir/$`.txt";
-            my $outl = "$args{in}/$dir/$`.txt-l";
-            test_cmd($opts,%args,out=>$out,cmd=>"$$opts{bin}/bcftools csq -f $ref -g $gff $vcf | $cmd");
-            if ( -e "$$opts{path}/$outl" )
-            {
-                test_cmd($opts,%args,out=>$outl,cmd=>"$$opts{bin}/bcftools csq -l -f $ref -g $gff $vcf | $cmd");
+                chomp(my $cmd = (`cat $dirname/$dir/$file`)[0]);
+                $cmd =~ s/{bin}/$$opts{bin}/g;
+                test_cmd($opts,%args,out=>"$args{in}/$dir/$file.out",cmd=>"cd $dirname/$dir && $cmd");
             }
         }
         closedir($tmp);

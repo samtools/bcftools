@@ -3839,7 +3839,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     {
         if ( !args->out_fh ) return;    // not a VCF output
         vbuf_push(args, rec_ptr);
-        vbuf_flush(args, REGIDX_MAX);
+        vbuf_flush(args, rec->pos-1);
         return;
     }
 
