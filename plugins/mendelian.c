@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015 Genome Research Ltd.
+   Copyright (c) 2015-2018 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -35,8 +35,8 @@
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>     // for isatty
-#include "bcftools.h"
-#include "regidx.h"
+#include "../bcftools.h"
+#include "../regidx.h"
 
 #define MODE_COUNT     1
 #define MODE_LIST_GOOD 2
