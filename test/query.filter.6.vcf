@@ -1,0 +1,14 @@
+##fileformat=VCFv4.3
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	16777215	.	C	T	.	.	.
+1	16777216	.	C	T	.	.	.
+1	16777217	.	C	T	.	.	.
+1	33554432	.	C	T	.	.	.
+1	33554433	.	C	T	.	.	.
+1	33554434	.	C	T	.	.	.
+1	33554435	.	C	T	.	.	.
+1	33554436	.	C	T	.	.	.
+1	118673904	.	CACCT	*,CCCT	.	.	.
+1	118673906	.	C	CACA,CACACA,CACACACA	.	.	.

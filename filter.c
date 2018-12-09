@@ -1638,6 +1638,10 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                     { \
                         if ( missing_logic[nmiss] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
                     } \
+                    else if ( atok->values[i] > 16777216 || btok->values[j] > 16777216 ) /* Ugly, see #871 */ \
+                    { \
+                        if ( atok->values[i] CMP_OP btok->values[j] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
+                    } \
                     else if ( (float)atok->values[i] CMP_OP (float)btok->values[j] ) { rtok->pass_site = 1; i = atok->nvalues; break; } \
                 } \
             } \
@@ -1697,6 +1701,10 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                         if ( nmiss ) \
                         { \
                             if ( missing_logic[nmiss] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
+                        } \
+                        else if ( xptr[j] > 16777216 || yptr[k] > 16777216 ) /* Ugly, see #871 */ \
+                        { \
+                            if ( xptr[j] CMP_OP yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
                         } \
                         else if ( (float)xptr[j] CMP_OP (float)yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
                     } \
