@@ -121,7 +121,7 @@ typedef struct
     int nfmt_map;        // number of rows in the fmt_map array
     int *agr_map, nagr_map, magr_map;   // mapping between Number=AGR element indexes
     void *tmp_arr;
-    int ntmp_arr;
+    size_t ntmp_arr;
     buffer_t *buf;
     AGR_info_t *AGR_info;
     int nAGR_info, mAGR_info;
@@ -1528,7 +1528,8 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     int i, ismpl = 0, nsamples = bcf_hdr_nsamples(out_hdr);
 
     const char *key = NULL;
-    int nsize = 0, length = BCF_VL_FIXED, type = -1;
+    size_t nsize = 0, length = BCF_VL_FIXED;
+    int type = -1;
     for (i=0; i<files->nreaders; i++)
     {
         if ( !maux_get_line(args,i) ) continue;
@@ -1561,11 +1562,12 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         return;
     }
 
-    int msize = sizeof(float)>sizeof(int32_t) ? sizeof(float) : sizeof(int32_t);
+    size_t msize = sizeof(float)>sizeof(int32_t) ? sizeof(float) : sizeof(int32_t);
     if ( ma->ntmp_arr < nsamples*nsize*msize )
     {
         ma->ntmp_arr = nsamples*nsize*msize;
         ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
+        if ( !ma->tmp_arr ) error("Failed to allocate %zu bytes at %s:%d for FORMAT/%s\n", ma->ntmp_arr,bcf_seqname(args->out_hdr,out),out->pos+1,key);
     }
 
     // Fill the temp array for all samples by collecting values from all files
