@@ -230,11 +230,11 @@ static void report_stats(args_t *args)
     fprintf(fh,"#   %d) number of indels\n", ++i);
     fprintf(fh,"#   %d) number of singletons\n", ++i);
     fprintf(fh,"#   %d) number of missing genotypes (./., ., ./0, etc)\n", ++i);
-    fprintf(fh,"#   %d) number of transitions (genotypes such as \"1/2\" are counted twice)\n", ++i);
-    fprintf(fh,"#   %d) number of transversions (genotypes such as \"1/2\" are counted twice)\n", ++i);
+    fprintf(fh,"#   %d) number of transitions (alt het genotypes such as \"1/2\" are counted twice)\n", ++i);
+    fprintf(fh,"#   %d) number of transversions (alt het genotypes such as \"1/2\" are counted twice)\n", ++i);
     fprintf(fh,"#   %d) overall ts/tv\n", ++i);
     i = 0;
-    fprintf(fh,"# SITE* lines report numbers for every threshold and site:\n");
+    fprintf(fh,"# SITE* lines report numbers for every threshold:\n");
     fprintf(fh,"#   %d) filter id\n", ++i);
     fprintf(fh,"#   %d) number of sites which pass the filter\n", ++i);
     fprintf(fh,"#   %d) number of SNVs\n", ++i);
