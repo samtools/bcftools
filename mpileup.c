@@ -624,7 +624,7 @@ static int mpileup(mplp_conf_t *conf)
             if ( ireg++ > 0 )
             {
                 conf->buf.l = 0;
-                ksprintf(&conf->buf,"%s:%u-%u",conf->reg_itr->seq,conf->reg_itr->beg,conf->reg_itr->end);
+                ksprintf(&conf->buf,"%s:%u-%u",conf->reg_itr->seq,conf->reg_itr->beg+1,conf->reg_itr->end+1);
 
                 for (i=0; i<conf->nfiles; i++) 
                 {
