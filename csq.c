@@ -3227,6 +3227,7 @@ int test_cds_local(args_t *args, bcf1_t *rec)
 
         for (i=1; i<rec->n_allele; i++)
         {
+            if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             if ( hap_init(args, &root, &node, cds, rec, i)!=0 ) continue;
 
             csq_t csq; 
@@ -3627,7 +3628,7 @@ int test_utr(args_t *args, bcf1_t *rec)
         tscript_t *tr = splice.tr = utr->tr;
         for (i=1; i<rec->n_allele; i++)
         {
-            if ( rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*' ) { continue; }
+            if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
             splice.csq     = 0;
             int splice_ret = splice_csq(args, &splice, utr->beg, utr->end);
@@ -3694,7 +3695,7 @@ int test_tscript(args_t *args, bcf1_t *rec)
         tscript_t *tr = splice.tr = regitr_payload(args->itr, tscript_t*);
         for (i=1; i<rec->n_allele; i++)
         {
-            if ( rec->d.allele[1][0]=='<' || rec->d.allele[1][0]=='*' ) { continue; }
+            if ( rec->d.allele[i][0]=='<' || rec->d.allele[i][0]=='*' ) { continue; }
             splice.vcf.alt = rec->d.allele[i];
             splice.csq     = 0;
             int splice_ret = splice_csq(args, &splice, tr->beg, tr->end);
@@ -3825,7 +3826,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     bcf1_t *rec = *rec_ptr;
     int call_csq = 1;
     if ( !rec->n_allele ) call_csq = 0;   // no alternate allele
-    else if ( rec->n_allele==2 && (rec->d.allele[1][0]=='*' || rec->d.allele[1][1]=='*') ) call_csq = 0;     // gVCF, no an alt allele
+    else if ( rec->n_allele==2 && (rec->d.allele[1][0]=='*' || rec->d.allele[1][1]=='*') ) call_csq = 0;     // gVCF, not an alt allele
     else if ( rec->d.allele[1][0]=='<' )
     {
         if ( strncmp("<INS",rec->d.allele[1], 4) ) call_csq = 0;    // only <INS[:.*]> is supported at the moment
