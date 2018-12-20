@@ -1325,6 +1325,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     bcf_hdr_t *out_hdr = args->out_hdr;
     maux_t *ma = args->maux;
     int i, ismpl = 0, nsamples = bcf_hdr_nsamples(out_hdr);
+    static int warned = 0;
 
     int nsize = 0, msize = sizeof(int32_t);
     for (i=0; i<files->nreaders; i++)
@@ -1340,6 +1341,13 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     {
         ma->ntmp_arr = nsamples*nsize*msize;
         ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
+        if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",ma->ntmp_arr);
+        if ( ma->ntmp_arr > 2147483647 )
+        {
+            if ( !warned ) fprintf(stderr,"Warning: Too many genotypes at %s:%d, requires %zu bytes, skipping.\n", bcf_seqname(out_hdr,out),out->pos+1,ma->ntmp_arr);
+            warned = 1;
+            return;
+        }
     }
     memset(ma->smpl_ploidy,0,nsamples*sizeof(int));
 
@@ -1425,6 +1433,7 @@ void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf
     bcf_hdr_t *out_hdr = args->out_hdr;
     maux_t *ma = args->maux;
     int i,j, nsamples = bcf_hdr_nsamples(out_hdr);
+    static int warned = 0;
 
     // initialize empty strings, a dot for each value, e.g. ".,.,."
     int nmax = 0;
@@ -1509,6 +1518,13 @@ void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf
     {
         ma->ntmp_arr = nsamples*nmax;
         ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
+        if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",ma->ntmp_arr);
+        if ( ma->ntmp_arr > 2147483647 )
+        {
+            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%d, requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),out->pos+1,ma->ntmp_arr);
+            warned = 1;
+            return;
+        }
     }
     char *tgt = (char*) ma->tmp_arr;
     for (i=0; i<nsamples; i++)
@@ -1526,6 +1542,7 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     bcf_hdr_t *out_hdr = args->out_hdr;
     maux_t *ma = args->maux;
     int i, ismpl = 0, nsamples = bcf_hdr_nsamples(out_hdr);
+    static int warned = 0;
 
     const char *key = NULL;
     size_t nsize = 0, length = BCF_VL_FIXED;
@@ -1568,6 +1585,12 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         ma->ntmp_arr = nsamples*nsize*msize;
         ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
         if ( !ma->tmp_arr ) error("Failed to allocate %zu bytes at %s:%d for FORMAT/%s\n", ma->ntmp_arr,bcf_seqname(args->out_hdr,out),out->pos+1,key);
+        if ( ma->ntmp_arr > 2147483647 )
+        {
+            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%d, requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),out->pos+1,ma->ntmp_arr);
+            warned = 1;
+            return;
+        }
     }
 
     // Fill the temp array for all samples by collecting values from all files
