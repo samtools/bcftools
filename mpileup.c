@@ -310,7 +310,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
 
     while ( (ret=bam_mplp_auto(conf->iter, &tid, &pos, conf->n_plp, conf->plp)) > 0) 
     {
-        if ( end && (pos<beg || pos>end) ) continue;
+        if ( pos<beg || pos>end ) continue;
         if ( conf->bed && tid >= 0 )
         {
             int overlap = regidx_overlap(conf->bed, hdr->target_name[tid], pos, pos, NULL);
@@ -648,7 +648,7 @@ static int mpileup(mplp_conf_t *conf)
         while ( regitr_loop(conf->reg_itr) );
     }
     else
-        mpileup_reg(conf,0,0);
+        mpileup_reg(conf,0,UINT32_MAX);
 
     flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, NULL);
 
