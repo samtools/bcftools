@@ -76,6 +76,7 @@ typedef struct
     int fa_src_pos;     // last genomic coordinate read from the input fasta (0-based)
     char prev_base;     // this is only to validate the REF allele in the VCF - the modified fa_buf cannot be used for inserts following deletions, see 600#issuecomment-383186778
     int prev_base_pos;  // the position of prev_base
+    int prev_is_insert;
 
     rbuf_t vcf_rbuf;
     bcf1_t **vcf_buf;
@@ -531,11 +532,18 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         ialt = 1;
     }
 
-    // Overlapping variant? Can be still OK iff this is an insertion
-    if ( rec->pos <= args->fa_frz_pos && (rec->pos!=args->fa_frz_pos || rec->d.allele[0][0]!=rec->d.allele[ialt][0]) )
+    // Overlapping variant?
+    if ( rec->pos <= args->fa_frz_pos )
     {
-        fprintf(stderr,"The site %s:%d overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),rec->pos+1);
-        return;
+        // Can be still OK iff this is an insertion (and which does not follow another insertion, see #888).
+        // This still may not be enough for more complicated cases with multiple duplicate positions
+        // and other types in between. In such case let the user normalize the VCF and remove duplicates.
+        if ( !(bcf_get_variant_type(rec,ialt) & VCF_INDEL) || rec->d.var[ialt].n <= 0 || args->prev_is_insert )
+        {
+            fprintf(stderr,"The site %s:%d overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            return;
+        }
+        
     }
 
     int len_diff = 0, alen = 0;
@@ -592,7 +600,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             }
             error(
                     "The fasta sequence does not match the REF allele at %s:%d:\n"
-                    "   .vcf: [%s]\n" 
+                    "   .vcf: [%s] <- (REF)\n" 
                     "   .vcf: [%s] <- (ALT)\n" 
                     "   .fa:  [%s]%c%s\n",
                     bcf_seqname(args->hdr,rec),rec->pos+1, rec->d.allele[0], rec->d.allele[ialt], args->fa_buf.s+idx, 
@@ -624,9 +632,13 @@ static void apply_variant(args_t *args, bcf1_t *rec)
 
         args->prev_base = rec->d.allele[0][rec->rlen - 1];
         args->prev_base_pos = rec->pos + rec->rlen - 1;
+        args->prev_is_insert = 0;
     }
     else
     {
+        args->prev_is_insert = 1;
+        args->prev_base_pos = rec->pos;
+
         // insertion
         ks_resize(&args->fa_buf, args->fa_buf.l + len_diff);
         memmove(args->fa_buf.s + idx + rec->rlen + len_diff, args->fa_buf.s + idx + rec->rlen, args->fa_buf.l - idx - rec->rlen);

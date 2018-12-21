@@ -1,0 +1,7 @@
+##fileformat=VCFv4.1
+##reference=ftp://ftp.1000genomes.ebi.ac.uk//vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz
+##contig=<ID=4,assembly=b37,length=191154276>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00119
+4	86698932	rs34791496	G	GTGAA	100	PASS	.	GT	0|1
+4	86698932	rs538589807;rs569662225	GTGAA	GTGAATGAA,G	100	PASS	.	GT	0|1
