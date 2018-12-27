@@ -89,14 +89,21 @@ and an indexed VCF with the variants <code>calls.bcf</code>. The command is:</p>
 </div>
 </div>
 <div class="paragraph">
-<p>This assumes we have already made the calls. There is
+<p>This assumes we have already made the calls, normalized indels and filtered. There is
 <a href="variant-calling.html">another page</a> which goes deeper and is devoted just
 to this, but in brief, the variant calling command in its simplest form is:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
-tabix calls.vcf.gz</pre>
+<pre># call variants
+bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
+bcftools index calls.vcf.gz
+
+# normalize indels
+bcftools norm -f reference.fa calls.vcf.gz -Ob -o calls.norm.bcf
+
+# filter adjacent indels within 5bp
+bcftools --IndelGap 5 calls.norm.bcf -Ob -o calls.norm.flt-indels.bcf</pre>
 </div>
 </div>
 <div class="sect2">

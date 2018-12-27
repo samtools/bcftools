@@ -15,13 +15,20 @@ and an indexed VCF with the variants ``calls.bcf``. The command is:
 cat reference.fa | bcftools consensus calls.vcf.gz > consensus.fa
 ----
 
-This assumes we have already made the calls. There is
+This assumes we have already made the calls, normalized indels and filtered. There is
 link:variant-calling.html[another page] which goes deeper and is devoted just
 to this, but in brief, the variant calling command in its simplest form is:
 
 ----
+# call variants
 bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Oz -o calls.vcf.gz
-tabix calls.vcf.gz
+bcftools index calls.vcf.gz
+
+# normalize indels
+bcftools norm -f reference.fa calls.vcf.gz -Ob -o calls.norm.bcf
+
+# filter adjacent indels within 5bp
+bcftools --IndelGap 5 calls.norm.bcf -Ob -o calls.norm.flt-indels.bcf
 ----
 
 
