@@ -538,7 +538,11 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         // Can be still OK iff this is an insertion (and which does not follow another insertion, see #888).
         // This still may not be enough for more complicated cases with multiple duplicate positions
         // and other types in between. In such case let the user normalize the VCF and remove duplicates.
-        if ( !(bcf_get_variant_type(rec,ialt) & VCF_INDEL) || rec->d.var[ialt].n <= 0 || args->prev_is_insert )
+        int overlap = 0;
+        if ( rec->pos < args->fa_frz_pos || !(bcf_get_variant_type(rec,ialt) & VCF_INDEL) ) overlap = 1;
+        else if ( rec->d.var[ialt].n <= 0 || args->prev_is_insert ) overlap = 1;
+
+        if ( overlap )
         {
             fprintf(stderr,"The site %s:%d overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),rec->pos+1);
             return;
