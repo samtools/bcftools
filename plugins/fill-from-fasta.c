@@ -132,7 +132,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         }
         hts_close(file);
         free(str.s);
-        bcf_hdr_sync(out_hdr);
+        if (bcf_hdr_sync(out_hdr) < 0)
+            error_errno("[%s] Failed to update header", __func__);
     }
     if (!strcasecmp("REF", column)) anno = ANNO_REF;
     else {

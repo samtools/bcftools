@@ -85,11 +85,14 @@ static void init_data(args_t *args)
 
     if (args->calc_ac && args->update_info)
     {
-        bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">");
-        bcf_hdr_append(args->hdr,"##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">");
+        if (bcf_hdr_append(args->hdr,"##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes\">") < 0)
+            error_errno("[%s] Failed to add \"AC\" INFO header", __func__);
+        if (bcf_hdr_append(args->hdr,"##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">") < 0)
+            error_errno("[%s] Failed to add \"AN\" INFO header", __func__);
     }
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_view");
-    else bcf_hdr_sync(args->hdr);
+    else if (bcf_hdr_sync(args->hdr) < 0)
+        error_errno("[%s] Failed to update header", __func__);
 
     // setup sample data
     if (args->sample_names)

@@ -491,12 +491,14 @@ static bcf_hdr_t *strip_header(bcf_hdr_t *src, bcf_hdr_t *dst)
             if ( j>=0 )
             {
                 j = atoi(src_hrec->vals[j]);
-                hrec_add_idx(tmp, j);
+                if (hrec_add_idx(tmp, j) < 0)
+                    error_errno("[%s] Failed to add IDX header", __func__);
             }
             bcf_hdr_add_hrec(out, tmp);
         }
     }
-    bcf_hdr_sync(out);
+    if (bcf_hdr_sync(out) < 0)
+        error_errno("[%s] Failed to update header", __func__);
     for (i=0; i<dst->nhrec; i++)
     {
         // finally add new structured fields
