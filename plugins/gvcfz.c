@@ -138,7 +138,8 @@ static void init_groups(args_t *args)
         if ( strcmp(flt,"PASS") ) 
         {
             bcf_hdr_printf(args->hdr_out, "##FILTER=<ID=%s,Description=\"%s\">", flt, hdr_str);
-            bcf_hdr_sync(args->hdr_out);
+            if (bcf_hdr_sync(args->hdr_out) < 0)
+                error_errno("[%s] Failed to update header", __func__);
         }
         args->ngrp++;
         args->grp = (grp_t*) realloc(args->grp,sizeof(grp_t)*args->ngrp);

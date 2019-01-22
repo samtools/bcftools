@@ -2429,26 +2429,39 @@ void merge_line(args_t *args)
 void bcf_hdr_append_version(bcf_hdr_t *hdr, int argc, char **argv, const char *cmd)
 {
     kstring_t str = {0,0,0};
-    ksprintf(&str,"##%sVersion=%s+htslib-%s\n", cmd, bcftools_version(), hts_version());
-    bcf_hdr_append(hdr,str.s);
+    int e = 0;
+    if (ksprintf(&str,"##%sVersion=%s+htslib-%s\n", cmd, bcftools_version(), hts_version()) < 0)
+        goto fail;
+    if (bcf_hdr_append(hdr,str.s) < 0)
+        goto fail;
 
     str.l = 0;
-    ksprintf(&str,"##%sCommand=%s", cmd, argv[0]);
+    e |= ksprintf(&str,"##%sCommand=%s", cmd, argv[0]) < 0;
     int i;
     for (i=1; i<argc; i++)
     {
         if ( strchr(argv[i],' ') )
-            ksprintf(&str, " '%s'", argv[i]);
+            e |= ksprintf(&str, " '%s'", argv[i]) < 0;
         else
-            ksprintf(&str, " %s", argv[i]);
+            e |= ksprintf(&str, " %s", argv[i]) < 0;
     }
-    kputs("; Date=", &str);
-    time_t tm; time(&tm); kputs(ctime(&tm), &str);
-    kputc('\n', &str);
-    bcf_hdr_append(hdr,str.s);
-    free(str.s);
+    e |= kputs("; Date=", &str) < 0;
+    time_t tm; time(&tm);
+    e |= kputs(ctime(&tm), &str) < 0;
+    e |= kputc('\n', &str) < 0;
+    if (e)
+        goto fail;
+    if (bcf_hdr_append(hdr,str.s) < 0)
+        goto fail;
+    free(ks_release(&str));
 
-    bcf_hdr_sync(hdr);
+    if (bcf_hdr_sync(hdr) < 0)
+        goto fail;
+    return;
+
+ fail:
+    free(str.s);
+    error_errno("[%s] Failed to add program information to header", __func__);
 }
 
 void merge_vcf(args_t *args)
@@ -2471,7 +2484,8 @@ void merge_vcf(args_t *args)
             merge_headers(args->out_hdr, args->files->readers[i].header,buf,args->force_samples);
         }
         if (args->record_cmd_line) bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_merge");
-        bcf_hdr_sync(args->out_hdr);
+        if (bcf_hdr_sync(args->out_hdr) < 0)
+            error_errno("[%s] Failed to update header", __func__);
     }
     info_rules_init(args);
 

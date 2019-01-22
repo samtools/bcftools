@@ -223,7 +223,10 @@ static void remove_hdr_lines(bcf_hdr_t *hdr, int type)
             memmove(&hdr->hrec[i],&hdr->hrec[i+1],(hdr->nhrec-i)*sizeof(bcf_hrec_t*));
         bcf_hrec_destroy(hrec);
     }
-    if ( nrm ) bcf_hdr_sync(hdr);
+    if ( nrm ) {
+        if (bcf_hdr_sync(hdr) < 0)
+            error_errno("[%s] Failed to update header", __func__);
+    }
 }
 
 static void init_remove_annots(args_t *args)
@@ -364,7 +367,8 @@ static void init_remove_annots(args_t *args)
     }
     khash_str2int_destroy_free(keep);
     if ( !args->nrm ) error("No matching tag in -x %s\n", args->remove_annots);
-    bcf_hdr_sync(args->hdr_out);
+    if (bcf_hdr_sync(args->hdr_out) < 0)
+        error_errno("[%s] Failed to update header", __func__);
 }
 static void init_header_lines(args_t *args)
 {
@@ -378,8 +382,10 @@ static void init_header_lines(args_t *args)
     }
     if ( hts_close(file)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->header_fname);
     free(str.s);
-    bcf_hdr_sync(args->hdr_out);
-    bcf_hdr_sync(args->hdr);
+    if (bcf_hdr_sync(args->hdr_out) < 0)
+        error_errno("[%s] Failed to update output header", __func__);
+    if (bcf_hdr_sync(args->hdr) < 0)
+        error_errno("[%s] Failed to update input header", __func__);
 }
 static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
@@ -1740,7 +1746,8 @@ static void init_columns(args_t *args)
                     bcf_hrec_format(hrec, &tmp);
                     bcf_hdr_append(args->hdr_out, tmp.s);
                 }
-                bcf_hdr_sync(args->hdr_out);
+                if (bcf_hdr_sync(args->hdr_out) < 0)
+                    error_errno("[%s] Failed to update header", __func__);
             }
         }
         else if ( !strcasecmp("QUAL",str.s) )
@@ -1771,7 +1778,8 @@ static void init_columns(args_t *args)
                 tmp.l = 0;
                 bcf_hrec_format(hrec, &tmp);
                 bcf_hdr_append(args->hdr_out, tmp.s);
-                bcf_hdr_sync(args->hdr_out);
+                if (bcf_hdr_sync(args->hdr_out) < 0)
+                    error_errno("[%s] Failed to update header", __func__);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
                 args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
                 annot_col_t *col = &args->cols[args->ncols-1];
@@ -1805,7 +1813,8 @@ static void init_columns(args_t *args)
                 tmp.l = 0;
                 bcf_hrec_format(hrec, &tmp);
                 bcf_hdr_append(args->hdr_out, tmp.s);
-                bcf_hdr_sync(args->hdr_out);
+                if (bcf_hdr_sync(args->hdr_out) < 0)
+                    error_errno("[%s] Failed to update header", __func__);
                 int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
                 args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
                 annot_col_t *col = &args->cols[args->ncols-1];
@@ -1847,7 +1856,8 @@ static void init_columns(args_t *args)
                 tmp.l = 0;
                 bcf_hrec_format_rename(hrec, key_dst, &tmp);
                 bcf_hdr_append(args->hdr_out, tmp.s);
-                bcf_hdr_sync(args->hdr_out);
+                if (bcf_hdr_sync(args->hdr_out) < 0)
+                    error_errno("[%s] Failed to update header", __func__);
             }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key_dst);
             if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_FMT,hdr_id) )
@@ -1927,7 +1937,8 @@ static void init_columns(args_t *args)
                     tmp.l = 0;
                     bcf_hrec_format_rename(hrec, key_dst, &tmp);
                     bcf_hdr_append(args->hdr_out, tmp.s);
-                    bcf_hdr_sync(args->hdr_out);
+                    if (bcf_hdr_sync(args->hdr_out) < 0)
+                        error_errno("[%s] Failed to update header", __func__);
                     hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key_dst);
                 }
                 else
