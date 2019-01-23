@@ -2312,7 +2312,7 @@ fprintf(stderr,"translate: %d %d %d  fill=%d  seq.l=%d\n",sbeg,rbeg,rend,fill,(i
 #if DBG>1
         fprintf(stderr,"    npad: %d\n",npad);
 #endif
-if ( !(npad>=0 && sbeg+seq.l+npad<=seq.m) ) fprintf(stderr,"sbeg=%d  seq.l=%d seq.m=%d\n",sbeg,(int)seq.l,(int)seq.m);
+        // if ( !(npad>=0 && sbeg+seq.l+npad<=seq.m) ) fprintf(stderr,"sbeg=%d  seq.l=%d seq.m=%d\n",sbeg,(int)seq.l,(int)seq.m);
         assert( npad>=0 && sbeg+seq.l+npad<=seq.m );  // todo: first codon on the rev strand
 
         if ( npad==2 )
@@ -3814,6 +3814,31 @@ void test_symbolic_alt(args_t *args, bcf1_t *rec)
     }
 }
 
+void debug_print_buffers(args_t *args, int pos)
+{
+    int i,j;
+    fprintf(stderr,"debug_print_buffers at %d\n", pos);
+    fprintf(stderr,"vbufs:\n");
+    for (i=0; i<args->vcf_rbuf.n; i++)
+    {
+        int k = rbuf_kth(&args->vcf_rbuf, i);
+        vbuf_t *vbuf = args->vcf_buf[k];
+
+        fprintf(stderr,"\tvbuf %d:\n", i);
+        for (j=0; j<vbuf->n; j++)
+        {
+            vrec_t *vrec = vbuf->vrec[j];
+            fprintf(stderr,"\t\t%d .. nvcsq=%d\n", vrec->line->pos+1, vrec->nvcsq);
+        }
+    }
+    fprintf(stderr,"pos2vbuf:");
+    khint_t k;
+    for (k = 0; k < kh_end(args->pos2vbuf); ++k)
+        if (kh_exist(args->pos2vbuf, k)) fprintf(stderr," %d",1+(int)kh_key(args->pos2vbuf, k));
+    fprintf(stderr,"\n");
+    fprintf(stderr,"active_tr: %d\n", args->active_tr->ndat);
+}
+
 void process(args_t *args, bcf1_t **rec_ptr)
 {
     if ( !rec_ptr )
@@ -3840,6 +3865,7 @@ void process(args_t *args, bcf1_t **rec_ptr)
     {
         if ( !args->out_fh ) return;    // not a VCF output
         vbuf_push(args, rec_ptr);
+        hap_flush(args, rec->pos-1);
         vbuf_flush(args, rec->pos-1);
         return;
     }
