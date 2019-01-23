@@ -1353,7 +1353,8 @@ void init_data(args_t *args)
         if ( args->output_type==FT_TAB_TEXT ) 
         {
             // significant speedup for plain VCFs
-            bcf_hdr_set_samples(args->hdr,NULL,0);
+            if (bcf_hdr_set_samples(args->hdr,NULL,0) < 0)
+                error_errno("[%s] Couldn't build sample filter", __func__);
         }
         args->phase = PHASE_DROP_GT;
     }
