@@ -148,7 +148,7 @@ const char *usage(void)
         "   -r, --rules <assembly>[?]   predefined rules, 'list' to print available settings, append '?' for details\n"
         "   -R, --rules-file <file>     inheritance rules, see example below\n"
         "   -t, --trio <m,f,c>          names of mother, father and the child\n"
-        "   -T, --trio-file <file>      list of trios, one per line\n"
+        "   -T, --trio-file <file>      list of trios, one per line (mother,father,child)\n"
         "\n"
         "Example:\n"
         "   # Default inheritance patterns, override with -r\n"
