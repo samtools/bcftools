@@ -1,6 +1,6 @@
 /*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-    Copyright (C) 2012-2016 Genome Research Ltd.
+    Copyright (C) 2012-2019 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -783,7 +783,7 @@ void maux_reset(maux_t *ma)
         }
         ma->buf[i].end = j;
         ma->buf[i].cur = -1;
-        if ( ma->buf[i].beg < ma->buf[i].end ) 
+        if ( ma->buf[i].beg < ma->buf[i].end )
         {
             ma->buf[i].lines = ma->files->readers[i].buffer;
             if ( ma->gvcf ) ma->gvcf[i].active = 0;     // gvcf block cannot overlap with the next record
@@ -2118,7 +2118,11 @@ void clean_buffer(args_t *args)
     {
         // Invalidate pointer to reader's buffer or else gvcf_flush will attempt
         // to use the old lines via maux_get_line()
-        if ( ma->gvcf && !ma->gvcf[ir].active ) ma->buf[ir].cur = -1;
+        if ( ma->gvcf )
+        {
+            if ( ma->gvcf[ir].active && ma->pos >= ma->gvcf[ir].end )  ma->gvcf[ir].active = 0;
+            if ( !ma->gvcf[ir].active ) ma->buf[ir].cur = -1;
+        }
 
         bcf_sr_t *reader = bcf_sr_get_reader(args->files,ir);
         if ( !reader->nbuffer ) continue;   // nothing to clean
@@ -2183,6 +2187,7 @@ void debug_state(args_t *args)
         }
         fprintf(stderr,"\n");
     }
+    fprintf(stderr,"gvcf_min=%d\n", args->maux->gvcf_min);
     for (i=0; i<args->files->nreaders; i++)
     {
         fprintf(stderr,"reader %d:\tgvcf_active=%d", i,maux->gvcf[i].active);
