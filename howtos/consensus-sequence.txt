@@ -28,7 +28,7 @@ bcftools index calls.vcf.gz
 bcftools norm -f reference.fa calls.vcf.gz -Ob -o calls.norm.bcf
 
 # filter adjacent indels within 5bp
-bcftools --IndelGap 5 calls.norm.bcf -Ob -o calls.norm.flt-indels.bcf
+bcftools filter --IndelGap 5 calls.norm.bcf -Ob -o calls.norm.flt-indels.bcf
 ----
 
 
