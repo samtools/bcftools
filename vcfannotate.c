@@ -2315,7 +2315,7 @@ int main_vcfannotate(int argc, char *argv[])
 
     static struct option loptions[] =
     {
-        {"keep-sites",required_argument,NULL,'k'},
+        {"keep-sites",no_argument,NULL,'k'},
         {"mark-sites",required_argument,NULL,'m'},
         {"set-id",required_argument,NULL,'I'},
         {"output",required_argument,NULL,'o'},
