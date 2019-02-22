@@ -2732,7 +2732,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         }
         if ( out[i].tok_type!=TOK_VAL ) continue;
         if ( !out[i].tag ) continue;
-        if ( !strcmp(out[i].tag,"TYPE") )
+        if ( out[i].setter==filters_set_type )
         {
             if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
             int itok, ival;
