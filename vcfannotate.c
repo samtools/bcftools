@@ -43,6 +43,7 @@ THE SOFTWARE.  */
 #include "filter.h"
 #include "convert.h"
 #include "smpl_ilist.h"
+#include "regidx.h"
 
 struct _args_t;
 
@@ -65,15 +66,25 @@ typedef struct
 }
 annot_line_t;
 
-#define REPLACE_MISSING  0  // replace only missing values
-#define REPLACE_ALL      1  // replace both missing and existing values
-#define REPLACE_NON_MISSING 2  // replace only if tgt is not missing
-#define SET_OR_APPEND    3  // set new value if missing or non-existent, append otherwise
+#define REPLACE_MISSING  0      // replace only missing values
+#define REPLACE_ALL      1      // replace both missing and existing values
+#define REPLACE_NON_MISSING 2   // replace only if tgt is not missing
+#define SET_OR_APPEND    3      // set new value if missing or non-existent, append otherwise
+#define MM_FIRST   0
+#define MM_APPEND  1
+#define MM_UNIQUE  2
+#define MM_SUM     3
+#define MM_AVG     4
+#define MM_MIN     5
+#define MM_MAX     6
 typedef struct _annot_col_t
 {
     int icol, replace, number;  // number: one of BCF_VL_* types
     char *hdr_key_src, *hdr_key_dst;
     int (*setter)(struct _args_t *, bcf1_t *, struct _annot_col_t *, void*);
+    int merge_method;               // one of the MM_* defines
+    khash_t(str2int) *mm_str_hash;  // lookup table to ensure uniqueness of added string values
+    kstring_t mm_kstr;
 }
 annot_col_t;
 
@@ -92,6 +103,10 @@ typedef struct _args_t
     int output_type, n_threads;
     bcf_sr_regions_t *tgts;
 
+    regidx_t *tgt_idx;
+    regitr_t *tgt_itr;
+    int tgt_is_bed;
+
     filter_t *filter;
     char *filter_str;
     int filter_logic;   // include or exclude sites which match the filters? One of FLT_INCLUDE/FLT_EXCLUDE
@@ -104,7 +119,7 @@ typedef struct _args_t
     vcmp_t *vcmp;           // for matching annotation and VCF lines by allele
     annot_line_t *alines;   // buffered annotation lines
     int nalines, malines;
-    int ref_idx, alt_idx, chr_idx, from_idx, to_idx;   // -1 if not present
+    int ref_idx, alt_idx, chr_idx, beg_idx, end_idx;   // -1 if not present
     annot_col_t *cols;      // column indexes and setters
     int ncols;
 
@@ -125,11 +140,26 @@ typedef struct _args_t
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
+    char *merge_method_str;
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic;
 }
 args_t;
 
 char *msprintf(const char *fmt, ...);
+
+int parse_with_payload(const char *line, char **chr_beg, char **chr_end, uint32_t *beg, uint32_t *end, void *payload, void *usr)
+{
+    args_t *args = (args_t*) usr;
+    int ret = args->tgt_is_bed ? regidx_parse_bed(line, chr_beg, chr_end, beg, end, NULL, NULL) : regidx_parse_tab(line, chr_beg, chr_end, beg, end, NULL, NULL);
+    if ( ret<0 ) return ret;
+    *((char **)payload) = strdup(line);
+    return 0;
+}
+void free_payload(void *payload)
+{
+    char *str = *((char**)payload);
+    free(str);
+}
 
 void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
@@ -389,6 +419,8 @@ static void init_header_lines(args_t *args)
 }
 static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with FILTER (yet?)\n");
+
     // note: so far this works only with one filter, not a list of filters
     annot_line_t *tab = (annot_line_t*) data;
     if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
@@ -438,6 +470,8 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
 }
 static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with ID (yet?)\n");
+
     // possible cases:
     //      IN  ANNOT   OUT     ACHIEVED_BY
     //      x   y       x        -c +ID
@@ -499,6 +533,8 @@ static int vcf_setter_alt(args_t *args, bcf1_t *line, annot_col_t *col, void *da
 }
 static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with QUAL (yet?)\n");
+
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol];
     if ( str[0]=='.' && str[1]==0 ) return 0;   // empty
@@ -520,6 +556,8 @@ static int vcf_setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 }
 static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with INFO type=Flag (yet?)\n");
+
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol];
     if ( str[0]=='.' && str[1]==0 ) return 0;
@@ -570,6 +608,8 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
 }
 static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with INFO type=Integer (yet?)\n");
+
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
@@ -650,6 +690,8 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
 }
 static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with INFO type=Float (yet?)\n");
+
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol], *end = str;
     if ( str[0]=='.' && str[1]==0 ) return 0;
@@ -699,6 +741,8 @@ static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, vo
 int copy_string_field(char *src, int isrc, int src_len, kstring_t *dst, int idst); // see vcfmerge.c
 static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als)
 {
+    assert( col->merge_method==MM_FIRST );
+    
     int nsrc = 1, lsrc = 0;
     while ( args->tmps[lsrc] )
     {
@@ -752,22 +796,71 @@ static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, in
     bcf_update_info_string(args->hdr_out,line,col->hdr_key_dst,args->tmpks.s);
     return 0;
 }
+void khash_str2int_clear_free(void *_hash)
+{
+    khash_t(str2int) *hash = (khash_t(str2int)*)_hash;
+    khint_t k;
+    if (hash == 0) return;
+    for (k = 0; k < kh_end(hash); ++k)
+        if (kh_exist(hash, k)) free((char*)kh_key(hash, k));
+    kh_clear(str2int, hash);
+}
 static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    annot_line_t *tab = (annot_line_t*) data;
-    int len = strlen(tab->cols[col->icol]);
-    if ( !len ) return 0;
-    hts_expand(char,len+1,args->mtmps,args->tmps);
-    memcpy(args->tmps,tab->cols[col->icol],len+1);
-    if ( args->tmps[0]=='.' && args->tmps[1]==0 ) return 0;
-
-    if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
-        return setter_ARinfo_string(args,line,col,tab->nals,tab->als);
-
-    if ( col->replace==REPLACE_MISSING )
+    if ( col->replace==REPLACE_MISSING && !col->number==BCF_VL_A && !col->number==BCF_VL_R )
     {
         int ret = bcf_get_info_string(args->hdr, line, col->hdr_key_dst, &args->tmps2, &args->mtmps2);
         if ( ret>0 && (args->tmps2[0]!='.' || args->tmps2[1]!=0) ) return 0;
+    }
+
+    annot_line_t *tab = (annot_line_t*) data;
+    
+    int len = 0;
+    if ( tab )
+    {
+        len = strlen(tab->cols[col->icol]);
+        if ( !len ) return 0;
+        if ( len==1 && tab->cols[col->icol][0]=='.' ) return 0;
+    }
+
+    if ( col->merge_method!=MM_FIRST )
+    {
+        if ( col->number==BCF_VL_A || col->number==BCF_VL_R )
+            error("Error: the --merge-logic option cannot be used with INFO tags Type=String,Number={A,R,G}\n");
+
+        if ( data )
+        {
+            assert( col->merge_method==MM_APPEND || col->merge_method==MM_UNIQUE );
+            if ( col->merge_method==MM_UNIQUE )
+            {
+                if ( !col->mm_str_hash ) col->mm_str_hash = khash_str2int_init();
+                if ( khash_str2int_has_key(col->mm_str_hash, tab->cols[col->icol]) ) return 0;
+                khash_str2int_inc(col->mm_str_hash, strdup(tab->cols[col->icol]));
+            }
+
+            if ( col->mm_kstr.l ) kputc(',',&col->mm_kstr);
+            kputs(tab->cols[col->icol], &col->mm_kstr);
+            return 0;
+        }
+
+        hts_expand(char,col->mm_kstr.l+1,args->mtmps,args->tmps);
+        memcpy(args->tmps,col->mm_kstr.s,col->mm_kstr.l+1);
+
+        if ( !data )
+        {
+            if ( col->merge_method==MM_UNIQUE )
+                khash_str2int_clear_free(col->mm_str_hash);
+            col->mm_kstr.l = 0;
+        }
+    }
+    else
+    {
+        assert(tab);
+        hts_expand(char,len+1,args->mtmps,args->tmps);
+        memcpy(args->tmps,tab->cols[col->icol],len+1);
+
+        if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
+            return setter_ARinfo_string(args,line,col,tab->nals,tab->als);
     }
 
     bcf_update_info_string(args->hdr_out,line,col->hdr_key_dst,args->tmps);
@@ -1115,6 +1208,8 @@ static int core_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, 
 }
 static int setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with FORMAT tags (yet?)\n");
+
     annot_line_t *tab = (annot_line_t*) data;
     if ( col->icol+args->nsmpl_annot > tab->ncols ) 
         error("Incorrect number of values for %s at %s:%d\n",col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
@@ -1152,6 +1247,8 @@ static int setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void 
 }
 static int setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with FORMAT tags (yet?)\n");
+
     annot_line_t *tab = (annot_line_t*) data;
     if ( col->icol+args->nsmpl_annot > tab->ncols ) 
         error("Incorrect number of values for %s at %s:%d\n",col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
@@ -1190,6 +1287,8 @@ static int setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void
 }
 static int setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
+    if ( !data ) error("Error: the --merge-logic option cannot be used with FORMAT tags (yet?)\n");
+
     annot_line_t *tab = (annot_line_t*) data;
     if ( col->icol+args->nsmpl_annot > tab->ncols ) 
         error("Incorrect number of values for %s at %s:%d\n",col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
@@ -1684,9 +1783,9 @@ static void init_columns(args_t *args)
         kputsn(ss, se-ss, &str);
         if ( !str.s[0] || !strcasecmp("-",str.s) ) ;
         else if ( !strcasecmp("CHROM",str.s) ) args->chr_idx = icol;
-        else if ( !strcasecmp("POS",str.s) ) args->from_idx = icol;
-        else if ( !strcasecmp("FROM",str.s) ) args->from_idx = icol;
-        else if ( !strcasecmp("TO",str.s) ) args->to_idx = icol;
+        else if ( !strcasecmp("POS",str.s) ) args->beg_idx = icol;
+        else if ( !strcasecmp("FROM",str.s) || !strcasecmp("BEG",str.s) ) args->beg_idx = icol;
+        else if ( !strcasecmp("TO",str.s) || !strcasecmp("END",str.s) ) args->end_idx = icol;
         else if ( !strcasecmp("REF",str.s) )
         {
             if ( args->tgts_is_vcf )
@@ -1967,7 +2066,6 @@ static void init_columns(args_t *args)
     }
     free(str.s);
     free(tmp.s);
-    if ( args->to_idx==-1 ) args->to_idx = args->from_idx;
     free(args->columns);
     if ( skip_info ) khash_str2int_destroy_free(skip_info);
     if ( skip_fmt ) khash_str2int_destroy_free(skip_fmt);
@@ -1985,6 +2083,46 @@ static void init_columns(args_t *args)
     }
     else if ( sample_map_ok<0 )
         error("No matching samples in source and destination file?\n");
+}
+static void init_merge_method(args_t *args)
+{
+    int i;
+    for (i=0; i<args->ncols; i++)
+    {
+        args->cols[i].merge_method = MM_FIRST;
+        args->cols[i].mm_str_hash = NULL;
+        memset(&args->cols[i].mm_kstr, 0, sizeof(args->cols[i].mm_kstr));
+    }
+    if ( !args->merge_method_str ) return;
+    if ( args->tgts_is_vcf ) error("Error: the --merge-logic is intended for use with BED or TAB-delimited files only.\n");
+    if ( !args->tgt_idx ) error("Error: BEG,END (or FROM,TO) columns are expected with the --merge-logic option.\n");
+    char *sb = args->merge_method_str;
+    while ( *sb )
+    {
+        char *se = sb;
+        while ( *se && *se!=',' ) se++;
+        args->tmpks.l = 0;
+        kputsn(sb, se-sb, &args->tmpks);
+        kputc(0, &args->tmpks);
+        char *mm_type_str = args->tmpks.s + args->tmpks.l;
+        while ( *mm_type_str!=':' && mm_type_str > args->tmpks.s ) mm_type_str--;
+        if ( *mm_type_str!=':' )
+            error("Error: could not parse the argument to --merge-logic: %s\n", args->merge_method_str);
+        *mm_type_str = 0;
+        mm_type_str++;
+        int mm_type = MM_FIRST;
+        if ( !strcasecmp("unique",mm_type_str) ) mm_type = MM_UNIQUE;
+        else if ( !strcasecmp("append",mm_type_str) ) mm_type = MM_APPEND;
+        else error("Error: could not parse --merge-logic %s. The logic \"%s\" has not been implemented (yet?)\n", args->merge_method_str,mm_type_str);
+        for (i=0; i<args->ncols; i++)
+        {
+            if ( strcmp(args->cols[i].hdr_key_dst,args->tmpks.s) ) continue;
+            args->cols[i].merge_method = mm_type;
+            break;
+        }
+        if ( i==args->ncols ) error("No such tag in the destination file: %s\n", args->tmpks.s);
+        sb = *se ? se + 1 : se;
+    }
 }
 
 static void rename_chrs(args_t *args, char *fname)
@@ -2034,13 +2172,25 @@ static void init_data(args_t *args)
     {
         if ( !args->columns ) error("The -c option not given\n");
         if ( args->chr_idx==-1 ) error("The -c CHROM option not given\n");
-        if ( args->from_idx==-1 ) error("The -c POS option not given\n");
-        if ( args->to_idx==-1 ) args->to_idx = -args->from_idx - 1;
-
-        args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->from_idx,args->to_idx);
-        if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
-        if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
+        if ( args->beg_idx==-1 ) error("The -c POS option not given\n");
+        if ( args->end_idx==-1 )
+        {
+            args->end_idx = -args->beg_idx - 1;
+            args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->beg_idx,args->end_idx);
+            if ( !args->tgts ) error("Could not initialize the annotation file: %s\n", args->targets_fname);
+            if ( !args->tgts->tbx ) error("Expected tabix-indexed annotation file: %s\n", args->targets_fname);
+        }
+        else
+        {
+            if ( args->ref_idx!=-1 ) error("Error: the REF columns will be ignored when BEG,END (or FROM,TO) is present. Replace END (or TO) with \"-\".\n");
+            args->tgt_idx = regidx_init(args->targets_fname,parse_with_payload,free_payload,sizeof(char*),args);
+            if ( !args->tgt_idx ) error("Failed to parse: %s\n", args->targets_fname);
+            args->tgt_itr = regitr_init(args->tgt_idx);
+            args->nalines++;
+            hts_expand0(annot_line_t,args->nalines,args->malines,args->alines);
+        }
     }
+    init_merge_method(args);
     args->vcmp = vcmp_init();
 
     if ( args->filter_str )
@@ -2083,6 +2233,8 @@ static void destroy_data(args_t *args)
     {
         free(args->cols[i].hdr_key_src);
         free(args->cols[i].hdr_key_dst);
+        free(args->cols[i].mm_kstr.s);
+        if ( args->cols[i].mm_str_hash ) khash_str2int_destroy_free(args->cols[i].mm_str_hash);
     }
     free(args->cols);
     for (i=0; i<args->malines; i++)
@@ -2092,6 +2244,11 @@ static void destroy_data(args_t *args)
         free(args->alines[i].line.s);
     }
     free(args->alines);
+    if ( args->tgt_idx )
+    {
+        regidx_destroy(args->tgt_idx);
+        regitr_destroy(args->tgt_itr);
+    }
     if ( args->tgts ) bcf_sr_regions_destroy(args->tgts);
     free(args->tmpks.s);
     free(args->tmpi);
@@ -2114,6 +2271,48 @@ static void destroy_data(args_t *args)
     free(args->sample_map);
 }
 
+static void parse_annot_line(args_t *args, char *str, annot_line_t *tmp)
+{
+    tmp->line.l = 0;
+    kputs(str, &tmp->line);
+    char *s = tmp->line.s;
+    tmp->ncols = 1;
+    hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
+    tmp->cols[0] = s;
+    while ( *s )
+    {
+        if ( *s=='\t' )
+        {
+            tmp->ncols++;
+            hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
+            tmp->cols[tmp->ncols-1] = s+1;
+            *s = 0;
+        }
+        s++;
+    }
+    if ( args->ref_idx != -1 )
+    {
+        if ( args->ref_idx >= tmp->ncols ) 
+            error("Could not parse the line, expected %d+ columns, found %d:\n\t%s\n",args->ref_idx+1,tmp->ncols,str);
+        if ( args->alt_idx >= tmp->ncols )
+            error("Could not parse the line, expected %d+ columns, found %d:\n\t%s\n",args->alt_idx+1,tmp->ncols,str);
+        tmp->nals = 2;
+        hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
+        tmp->als[0] = tmp->cols[args->ref_idx];
+        tmp->als[1] = s = tmp->cols[args->alt_idx];
+        while ( *s )
+        {
+            if ( *s==',' )
+            {
+                tmp->nals++;
+                hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
+                tmp->als[tmp->nals-1] = s+1;
+                *s = 0;
+            }
+            s++;
+        }
+    }
+}
 static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int end_pos)
 {
     if ( args->nalines && args->alines[0].rid != line->rid ) args->nalines = 0;
@@ -2144,44 +2343,9 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
         tmp->rid   = line->rid;
         tmp->start = args->tgts->start;
         tmp->end   = args->tgts->end;
-        tmp->line.l = 0;
-        kputs(args->tgts->line.s, &tmp->line);
-        char *s = tmp->line.s;
-        tmp->ncols = 1;
-        hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
-        tmp->cols[0] = s;
-        while ( *s )
-        {
-            if ( *s=='\t' )
-            {
-                tmp->ncols++;
-                hts_expand(char*,tmp->ncols,tmp->mcols,tmp->cols);
-                tmp->cols[tmp->ncols-1] = s+1;
-                *s = 0;
-            }
-            s++;
-        }
+        parse_annot_line(args, args->tgts->line.s, tmp);
         if ( args->ref_idx != -1 )
         {
-            if ( args->ref_idx >= tmp->ncols ) 
-                error("Could not parse the line, expected %d+ columns, found %d:\n\t%s\n",args->ref_idx+1,tmp->ncols,args->tgts->line.s);
-            if ( args->alt_idx >= tmp->ncols )
-                error("Could not parse the line, expected %d+ columns, found %d:\n\t%s\n",args->alt_idx+1,tmp->ncols,args->tgts->line.s);
-            tmp->nals = 2;
-            hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
-            tmp->als[0] = tmp->cols[args->ref_idx];
-            tmp->als[1] = s = tmp->cols[args->alt_idx];
-            while ( *s )
-            {
-                if ( *s==',' )
-                {
-                    tmp->nals++;
-                    hts_expand(char*,tmp->nals,tmp->mals,tmp->als);
-                    tmp->als[tmp->nals-1] = s+1;
-                    *s = 0;
-                }
-                s++;
-            }
             int iseq = args->tgts->iseq;
             if ( bcf_sr_regions_next(args->tgts)<0 || args->tgts->iseq!=iseq ) break;
         }
@@ -2195,7 +2359,30 @@ static void annotate(args_t *args, bcf1_t *line)
     for (i=0; i<args->nrm; i++)
         args->rm[i].handler(args, line, &args->rm[i]);
 
-    if ( args->tgts )
+    int has_overlap = 0;
+
+    if ( args->tgt_idx )
+    {
+        if ( regidx_overlap(args->tgt_idx, bcf_seqname(args->hdr,line),line->pos,line->pos+line->rlen-1, args->tgt_itr) )
+        {
+            while ( regitr_overlap(args->tgt_itr) )
+            {
+                annot_line_t *tmp = &args->alines[0];
+                tmp->rid   = line->rid;
+                tmp->start = args->tgt_itr->beg;
+                tmp->end   = args->tgt_itr->end;
+                parse_annot_line(args, regitr_payload(args->tgt_itr,char*), tmp);
+                for (j=0; j<args->ncols; j++)
+                    if ( args->cols[j].setter(args,line,&args->cols[j],tmp) )
+                        error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+            }
+            has_overlap = 1;
+        }
+        for (j=0; j<args->ncols; j++)
+            if ( args->cols[j].merge_method != MM_FIRST )
+                args->cols[j].setter(args,line,&args->cols[j],NULL);
+    }
+    else if ( args->tgts )
     {
         // Buffer annotation lines. When multiple ALT alleles are present in the
         // annotation file, at least one must match one of the VCF alleles.
@@ -2227,17 +2414,8 @@ static void annotate(args_t *args, bcf1_t *line)
             for (j=0; j<args->ncols; j++)
                 if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) )
                     error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
-
         }
-
-        if ( args->mark_sites )
-        {
-            // ideally, we'd like to be far more general than this in future, see https://github.com/samtools/bcftools/issues/87
-            if ( args->mark_sites_logic==MARK_LISTED )
-                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,i<args->nalines?1:0);
-            else
-                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,i<args->nalines?0:1);
-        }
+        has_overlap = i<args->nalines ? 1 : 0;
     }
     else if ( args->files->nreaders == 2 )
     {
@@ -2248,11 +2426,8 @@ static void annotate(args_t *args, bcf1_t *line)
                 if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
                     error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
 
-            if ( args->mark_sites )
-                bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,args->mark_sites_logic==MARK_LISTED ? 1 : 0);
+            has_overlap = 1;
         }
-        else if ( args->mark_sites )
-            bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL, args->mark_sites_logic==MARK_UNLISTED ? 1 : 0);
     }
     if ( args->set_ids )
     {
@@ -2266,6 +2441,15 @@ static void annotate(args_t *args, bcf1_t *line)
             if ( replace )
                 bcf_update_id(args->hdr_out,line,args->tmpks.s);
         }
+    }
+
+    if ( args->mark_sites )
+    {
+        // ideally, we'd like to be far more general than this in future, see https://github.com/samtools/bcftools/issues/87
+        if ( args->mark_sites_logic==MARK_LISTED )
+            bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,has_overlap?1:0);
+        else
+            bcf_update_info_flag(args->hdr_out,line,args->mark_sites,NULL,has_overlap?0:1);
     }
 }
 
@@ -2284,6 +2468,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man page for details\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "   -k, --keep-sites               leave -i/-e sites unchanged instead of discarding them\n");
+    fprintf(stderr, "   -l, --merge-logic <tag:type>   merge logic for multiple overlapping regions (see man page for details), EXPERIMENTAL\n");
     fprintf(stderr, "   -m, --mark-sites [+-]<tag>     add INFO/tag flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
     fprintf(stderr, "       --no-version               do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>            write output to a file [standard output]\n");
@@ -2309,7 +2494,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->output_type = FT_VCF;
     args->n_threads = 0;
     args->record_cmd_line = 1;
-    args->ref_idx = args->alt_idx = args->chr_idx = args->from_idx = args->to_idx = -1;
+    args->ref_idx = args->alt_idx = args->chr_idx = args->beg_idx = args->end_idx = -1;
     args->set_ids_replace = 1;
     int regions_is_file = 0, collapse = 0;
 
@@ -2322,6 +2507,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"output-type",required_argument,NULL,'O'},
         {"threads",required_argument,NULL,9},
         {"annotations",required_argument,NULL,'a'},
+        {"merge-logic",required_argument,NULL,'l'},
         {"collapse",required_argument,NULL,2},
         {"include",required_argument,NULL,'i'},
         {"exclude",required_argument,NULL,'e'},
@@ -2336,7 +2522,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:k",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:kl:",loptions,NULL)) >= 0)
     {
         switch (c) {
             case 'k': args->keep_sites = 1; break;
@@ -2346,6 +2532,7 @@ int main_vcfannotate(int argc, char *argv[])
                 else if ( optarg[0]=='-' ) { args->mark_sites = optarg+1; args->mark_sites_logic = MARK_UNLISTED; }
                 else args->mark_sites = optarg; 
                 break;
+            case 'l': args->merge_method_str = optarg; break;
             case 'I': args->set_ids_fmt = optarg; break;
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;

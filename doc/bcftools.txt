@@ -333,6 +333,8 @@ Add or remove annotations.
     +
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
+    +
+    See also the *-l, --merge-logic* option.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
@@ -360,6 +362,18 @@ Add or remove annotations.
 
 *-k, --keep-sites*::
     keep sites wich do not pass *-i* and *-e* expressions instead of discarding them
+
+*-l, --merge-logic* 'tag':'first'|'append'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
+    if multiple regions overlap a single record, the option defines how treat the multiple
+    annotation values when setting the tag 'tag' in the destination file: use the first encountered ignoring
+    the rest ('first'); append allowing duplicities ('append'); append discarding duplicate values ('unique');
+    sum the values ('sum', numeric fields only); average the values ('avg'); use the minimum value ('min') or
+    the maximum ('max').
+    +
+    Note that this option is intended for use with BED or TAB-delimited annotation files only. Moreover,
+    it is effective only if 'BEG' and 'END' *--columns* are present.
+    +
+    This is an experimental feature.
 
 *-m, --mark-sites* [+-]'TAG'::
     annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag

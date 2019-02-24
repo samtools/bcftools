@@ -269,7 +269,8 @@ test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_regions($opts,in=>'regions');
 test_vcf_annotate($opts,in=>'annotate',tab=>'annotate',out=>'annotate.out',args=>'-c CHROM,POS,REF,ALT,ID,QUAL,INFO/T_INT,INFO/T_FLOAT,INDEL');
-test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,FROM,TO,T_STR');
+test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate2.out',args=>'-c CHROM,POS,-,T_STR');
+test_vcf_annotate($opts,in=>'annotate',tab=>'annotate2',out=>'annotate22.out',args=>'-c CHROM,FROM,TO,T_STR');
 test_vcf_annotate($opts,in=>'annotate',vcf=>'annots',out=>'annotate3.out',args=>'-c STR,ID,QUAL,FILTER');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate4.out',args=>'-c ID,QUAL,FILTER,INFO,FMT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate5.out',args=>'-c ID,QUAL,+FILTER,+INFO,FMT/GT -s A');
@@ -289,6 +290,9 @@ test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate14.out',arg
 test_vcf_annotate($opts,in=>'annotate11',vcf=>'annots11',out=>'annotate15.out',args=>q[-c FMT]);
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots2',out=>'annotate16.out',args=>'-c FMT/newGT:=GT');
 test_vcf_annotate($opts,in=>'annotate2',vcf=>'annots12',out=>'annotate17.out',args=>'-c FMT/GT:=newGT');
+test_vcf_annotate($opts,in=>'annotate13',tab=>'annots13',out=>'annotate21.out',args=>'-c CHROM,BEG,END,ABC');
+test_vcf_annotate($opts,in=>'annotate13',tab=>'annots13',out=>'annotate23.out',args=>'-c CHROM,BEG,END,ABC -l ABC:append');
+test_vcf_annotate($opts,in=>'annotate13',tab=>'annots13',out=>'annotate24.out',args=>'-c CHROM,BEG,END,ABC -l ABC:unique');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
