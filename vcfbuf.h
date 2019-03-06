@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2017 Genome Research Ltd.
+   Copyright (c) 2017-2019 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -44,6 +44,7 @@ typedef enum
     VCFBUF_NSITES,          // leave at max this many sites in the window
     VCFBUF_AF_TAG,          // use this INFO tag with LD_NSITES
     VCFBUF_OVERLAP_WIN,     // keep only overlapping variants in the window
+    VCFBUF_RMDUP,           // remove duplicate sites (completely)
 }
 vcfbuf_opt_t;
 

@@ -2083,6 +2083,9 @@ By default, appropriate system directories are searched for installed plugins.
 *prune*::
     prune sites by missingness or linkage disequilibrium
 
+*remove-overlaps*::
+    remove overlapping variants and duplicate sites
+
 *setGT*::
     general tool to set genotypes according to rules requested by the user
 
