@@ -2183,6 +2183,10 @@ static void init_data(args_t *args)
         else
         {
             if ( args->ref_idx!=-1 ) error("Error: the REF columns will be ignored when BEG,END (or FROM,TO) is present. Replace END (or TO) with \"-\".\n");
+            int len = strlen(args->targets_fname);
+            if ( len>=7 && !strcasecmp(".bed.gz",args->targets_fname+len-7) ) args->tgt_is_bed = 1;
+            else if ( len>=8 && !strcasecmp(".bed.bgz",args->targets_fname+len-8) ) args->tgt_is_bed = 1;
+            else if ( len>=4 && !strcasecmp(".bed",args->targets_fname+len-4) ) args->tgt_is_bed = 1;
             args->tgt_idx = regidx_init(args->targets_fname,parse_with_payload,free_payload,sizeof(char*),args);
             if ( !args->tgt_idx ) error("Failed to parse: %s\n", args->targets_fname);
             args->tgt_itr = regitr_init(args->tgt_idx);
