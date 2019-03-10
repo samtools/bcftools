@@ -47,6 +47,8 @@
 #define iFATHER 1
 #define iMOTHER 2
 
+#define VERBOSE_MENDEL 1
+
 typedef struct
 {
     int idx[3];     // VCF sample index for father, mother and child
@@ -102,6 +104,8 @@ typedef struct
     int nfilters;
     int32_t *gt_arr, *ac, *ac_trio;
     int mgt_arr, mac, mac_trio;
+    int verbose;
+    FILE *fp_out;
 }
 args_t;
 
@@ -131,6 +135,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE     restrict to regions listed in a file\n"
         "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE     similar to -R but streams rather than index-jumps\n"
+        "   -v, --verbose TYPE          currently supported TYPEs: mendel-errors\n"
         "\n"
         "Example:\n"
         "   bcftools +trio-stats -p file.ped -i 'GQ>{10,20,30,40,50}' file.bcf\n"
@@ -305,6 +310,29 @@ static void init_data(args_t *args)
     }
     for (i=0; i<args->nfilters; i++)
         args->filters[i].stats = (trio_stats_t*) calloc(args->ntrio,sizeof(trio_stats_t));
+
+    args->fp_out = !args->output_fname || !strcmp("-",args->output_fname) ? stdout : fopen(args->output_fname,"w");
+    if ( !args->fp_out ) error("Could not open the file for writing: %s\n", args->output_fname);
+    fprintf(args->fp_out,"# CMD line shows the command line used to generate this output\n");
+    fprintf(args->fp_out,"# DEF lines define expressions for all tested thresholds\n");
+    fprintf(args->fp_out,"# FLT* lines report numbers for every threshold and every trio:\n");
+    i = 0;
+    fprintf(args->fp_out,"#   %d) filter id\n", ++i);
+    fprintf(args->fp_out,"#   %d) child\n", ++i);
+    fprintf(args->fp_out,"#   %d) father\n", ++i);
+    fprintf(args->fp_out,"#   %d) mother\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of valid trio genotypes (all trio members pass filters, all non-missing)\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of non-reference trio GTs (at least one trio member carries an alternate allele)\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of Mendelian errors\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of novel singleton alleles in the child (counted also as a Mendelian error)\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of untransmitted trio singletons (one alternate allele present in one parent)\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of transmitted trio singletons (one alternate allele present in one parent and the child)\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of transitions, all ALT alleles present in the trio are considered\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of transversions, all ALT alleles present in the trio are considered\n", ++i);
+    fprintf(args->fp_out,"#   %d) overall ts/tv, all ALT alleles present in the trio are considered\n", ++i);
+    fprintf(args->fp_out, "CMD\t%s", args->argv[0]);
+    for (i=1; i<args->argc; i++) fprintf(args->fp_out, " %s",args->argv[i]);
+    fprintf(args->fp_out, "\n");
 }
 static void alt_trios_reset(args_t *args, int nals)
 {
@@ -359,60 +387,39 @@ static void destroy_data(args_t *args)
     free(args->ac);
     free(args->ac_trio);
     free(args->gt_arr);
+    if ( fclose(args->fp_out)!=0 ) error("Close failed: %s\n", (!args->output_fname || !strcmp("-",args->output_fname)) ? "stdout" : args->output_fname);
     free(args);
 }
 static void report_stats(args_t *args)
 {
     int i = 0,j;
-    FILE *fh = !args->output_fname || !strcmp("-",args->output_fname) ? stdout : fopen(args->output_fname,"w");
-    if ( !fh ) error("Could not open the file for writing: %s\n", args->output_fname);
-    fprintf(fh,"# CMD line shows the command line used to generate this output\n");
-    fprintf(fh,"# DEF lines define expressions for all tested thresholds\n");
-    fprintf(fh,"# FLT* lines report numbers for every threshold and every trio:\n");
-    fprintf(fh,"#   %d) filter id\n", ++i);
-    fprintf(fh,"#   %d) child\n", ++i);
-    fprintf(fh,"#   %d) father\n", ++i);
-    fprintf(fh,"#   %d) mother\n", ++i);
-    fprintf(fh,"#   %d) number of valid trio genotypes (all trio members pass filters, all non-missing)\n", ++i);
-    fprintf(fh,"#   %d) number of non-reference trio GTs (at least one trio member carries an alternate allele)\n", ++i);
-    fprintf(fh,"#   %d) number of Mendelian errors\n", ++i);
-    fprintf(fh,"#   %d) number of novel singleton alleles in the child (counted also as a Mendelian error)\n", ++i);
-    fprintf(fh,"#   %d) number of untransmitted trio singletons (one alternate allele present in one parent)\n", ++i);
-    fprintf(fh,"#   %d) number of transmitted trio singletons (one alternate allele present in one parent and the child)\n", ++i);
-    fprintf(fh,"#   %d) number of transitions, all ALT alleles present in the trio are considered\n", ++i);
-    fprintf(fh,"#   %d) number of transversions, all ALT alleles present in the trio are considered\n", ++i);
-    fprintf(fh,"#   %d) overall ts/tv, all ALT alleles present in the trio are considered\n", ++i);
-    fprintf(fh, "CMD\t%s", args->argv[0]);
-    for (i=1; i<args->argc; i++) fprintf(fh, " %s",args->argv[i]);
-    fprintf(fh, "\n");
     for (i=0; i<args->nfilters; i++)
     {
         flt_stats_t *flt = &args->filters[i];
-        fprintf(fh,"DEF\tFLT%d\t%s\n", i, flt->expr);
+        fprintf(args->fp_out,"DEF\tFLT%d\t%s\n", i, flt->expr);
     }
     for (i=0; i<args->nfilters; i++)
     {
         flt_stats_t *flt = &args->filters[i];
         for (j=0; j<args->ntrio; j++)
         {
-            fprintf(fh,"FLT%d", i);
-            fprintf(fh,"\t%s",args->hdr->samples[args->trio[j].idx[iCHILD]]);
-            fprintf(fh,"\t%s",args->hdr->samples[args->trio[j].idx[iFATHER]]);
-            fprintf(fh,"\t%s",args->hdr->samples[args->trio[j].idx[iMOTHER]]);
+            fprintf(args->fp_out,"FLT%d", i);
+            fprintf(args->fp_out,"\t%s",args->hdr->samples[args->trio[j].idx[iCHILD]]);
+            fprintf(args->fp_out,"\t%s",args->hdr->samples[args->trio[j].idx[iFATHER]]);
+            fprintf(args->fp_out,"\t%s",args->hdr->samples[args->trio[j].idx[iMOTHER]]);
             trio_stats_t *stats = &flt->stats[j];
-            fprintf(fh,"\t%d", stats->npass);
-            fprintf(fh,"\t%d", stats->nnon_ref);
-            fprintf(fh,"\t%d", stats->nmendel_err);
-            fprintf(fh,"\t%d", stats->nnovel);
-            fprintf(fh,"\t%d", stats->nsingleton);
-            fprintf(fh,"\t%d", stats->ndoubleton);
-            fprintf(fh,"\t%d", stats->nts);
-            fprintf(fh,"\t%d", stats->ntv);
-            fprintf(fh,"\t%.2f", stats->ntv ? (float)stats->nts/stats->ntv : INFINITY);
-            fprintf(fh,"\n");
+            fprintf(args->fp_out,"\t%d", stats->npass);
+            fprintf(args->fp_out,"\t%d", stats->nnon_ref);
+            fprintf(args->fp_out,"\t%d", stats->nmendel_err);
+            fprintf(args->fp_out,"\t%d", stats->nnovel);
+            fprintf(args->fp_out,"\t%d", stats->nsingleton);
+            fprintf(args->fp_out,"\t%d", stats->ndoubleton);
+            fprintf(args->fp_out,"\t%d", stats->nts);
+            fprintf(args->fp_out,"\t%d", stats->ntv);
+            fprintf(args->fp_out,"\t%.2f", stats->ntv ? (float)stats->nts/stats->ntv : INFINITY);
+            fprintf(args->fp_out,"\n");
         }
     }
-    if ( fclose(fh)!=0 ) error("Close failed: %s\n", (!args->output_fname || !strcmp("-",args->output_fname)) ? "stdout" : args->output_fname);
 }
 
 static inline int parse_genotype(int32_t *arr, int ngt1, int idx, int als[2])
@@ -557,7 +564,16 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
         // Detect mendelian errors
         int mendel_ok = (als_child[0]==als_father[0] || als_child[0]==als_father[1]) && (als_child[1]==als_mother[0] || als_child[1]==als_mother[1]) ? 1 : 0;
         if ( !mendel_ok ) mendel_ok = (als_child[1]==als_father[0] || als_child[1]==als_father[1]) && (als_child[0]==als_mother[0] || als_child[0]==als_mother[1]) ? 1 : 0;
-        if ( !mendel_ok ) stats->nmendel_err++;
+        if ( !mendel_ok )
+        {
+            stats->nmendel_err++;
+            if ( args->verbose & VERBOSE_MENDEL )
+                fprintf(args->fp_out,"MERR\t%s\t%d\t%s\t%s\t%s\n", bcf_seqname(args->hdr,rec),rec->pos+1,
+                    args->hdr->samples[args->trio[i].idx[iCHILD]],
+                    args->hdr->samples[args->trio[i].idx[iFATHER]],
+                    args->hdr->samples[args->trio[i].idx[iMOTHER]]
+                    );
+        }
 
         // Is this a singleton, doubleton, neither?
         for (j=0; j<rec->n_allele; j++)
@@ -606,6 +622,8 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     static struct option loptions[] =
     {
+        {"verbose",required_argument,0,'v'},
+        {"alt-trios",required_argument,0,'a'},
         {"alt-trios",required_argument,0,'a'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
@@ -620,10 +638,14 @@ int run(int argc, char **argv)
     };
     args->max_alt_trios = 1;
     int c, i;
-    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:a:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:a:v:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'v': 
+                if ( !strcasecmp("mendel-errors",optarg) ) args->verbose |= VERBOSE_MENDEL;
+                else error("Error: The option --verbose %s is not recognised\n", optarg);
+                break;
             case 'a': args->max_alt_trios = atoi(optarg); break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
