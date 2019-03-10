@@ -509,8 +509,10 @@ bcf1_t *process(bcf1_t *rec)
                     args->farr[j-1] += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
                 an = pop->counts[0].nhet + pop->counts[0].nhom + pop->counts[0].nhemi + pop->counts[0].nac;
                 for (j=1; j<rec->n_allele; j++) an += args->farr[j-1];
-                if ( !an ) continue;
-                for (j=1; j<rec->n_allele; j++) args->farr[j-1] /= an;
+                if ( an )
+                    for (j=1; j<rec->n_allele; j++) args->farr[j-1] /= an;
+                else
+                    for (j=1; j<rec->n_allele; j++) bcf_float_set_missing(args->farr[j-1]);
             }
             if ( args->tags & SET_AF )
             {
@@ -521,9 +523,11 @@ bcf1_t *process(bcf1_t *rec)
             }
             if ( args->tags & SET_MAF )
             {
-                if ( !an ) continue;
-                for (j=1; j<rec->n_allele; j++)
-                    if ( args->farr[j-1] > 0.5 ) args->farr[j-1] = 1 - args->farr[j-1];     // todo: this is incorrect for multiallelic sites
+                if ( an )
+                {
+                    for (j=1; j<rec->n_allele; j++)
+                        if ( args->farr[j-1] > 0.5 ) args->farr[j-1] = 1 - args->farr[j-1];     // todo: this is incorrect for multiallelic sites
+                }
                 args->str.l = 0;
                 ksprintf(&args->str, "MAF%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )

@@ -528,8 +528,8 @@ demand. The original calling model can be invoked with the *-c* option.
     # Extract AN,AC values from an existing VCF, such 1000Genomes
     bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' 1000Genomes.bcf | bgzip -c > AFs.tab.gz
 
-    # If the tags AN,AC are not already present, use the +fill-AN-AC plugin
-    bcftools +fill-AN-AC 1000Genomes.bcf | bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' | bgzip -c > AFs.tab.gz
+    # If the tags AN,AC are not already present, use the +fill-tags plugin
+    bcftools +fill-tags 1000Genomes.bcf | bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' | bgzip -c > AFs.tab.gz
     tabix -s1 -b2 -e2 AFs.tab.gz
 
     # Create a VCF header description, here we name the tags REF_AN,REF_AC
@@ -2091,6 +2091,9 @@ By default, appropriate system directories are searched for installed plugins.
 
 *smpl-stats*::
     calculates basic per-sample stats
+
+*split*::
+    split VCF by sample, creating single-sample VCFs
 
 *tag2tag*::
     convert between similar tags, such as GL and GP
