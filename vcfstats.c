@@ -968,6 +968,7 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
         fmt1 = bcf_get_fmt(files->readers[1].header,files->readers[1].buffer[0],"GT"); if ( !fmt1 ) return;
 
         // only the first ALT allele is considered
+        if (args->ntmp_iaf <= 1) return; // Do not consider invariate sites
         int iaf = args->tmp_iaf[1];
         int line_type = bcf_get_variant_types(files->readers[0].buffer[0]);
         gtcmp_t *af_stats = line_type&VCF_SNP ? args->af_gts_snps : args->af_gts_indels;
