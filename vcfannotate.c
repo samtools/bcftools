@@ -807,7 +807,7 @@ void khash_str2int_clear_free(void *_hash)
 }
 static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( col->replace==REPLACE_MISSING && !col->number==BCF_VL_A && !col->number==BCF_VL_R )
+    if ( col->replace==REPLACE_MISSING && col->number!=BCF_VL_A && col->number!=BCF_VL_R )
     {
         int ret = bcf_get_info_string(args->hdr, line, col->hdr_key_dst, &args->tmps2, &args->mtmps2);
         if ( ret>0 && (args->tmps2[0]!='.' || args->tmps2[1]!=0) ) return 0;
