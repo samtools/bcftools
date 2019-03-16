@@ -55,6 +55,13 @@ bzip2-devel
 xz-devel
 ----
 
+Packages on MacOS, assuming Xcode is installed:
+
+----
+xz
+gsl (optional)
+----
+
 To build BCFtools, you will need:
 
 ----
@@ -111,12 +118,12 @@ or supressed using ``autoconf -Wno-syntax``.
 make
 ----
 
-This BCFtools release contains a copy of HTSlib which will be used to build
-BCFtools.  If you already have a system-installed HTSlib or another HTSlib
-that you would prefer to build against, you can arrange this by using the
-configure script's ``--with-htslib`` option.  Use ``--with-htslib=DIR`` to point
-to an HTSlib source tree or installation in DIR; or ``--with-htslib=system``
-to use a system-installed HTSlib.
+If installing from a tarballs (as opposed form github), BCFtools release contains a copy of HTSlib which will
+be used to build BCFtools.  If you already have a system-installed HTSlib or another HTSlib that you would
+prefer to build against, you can arrange this by using the configure script's ``--with-htslib`` option.  Use
+``--with-htslib=DIR`` to point to an HTSlib source tree or installation in DIR; or ``--with-htslib=system`` to
+use a system-installed HTSlib. When downloaded from github and ``--with-htslib`` option is not given, the directory
+``../htslib`` is used.
 
 
 [[perl]]
@@ -137,6 +144,9 @@ because bcftools need to be built with
 perl -MExtUtils::Embed -e ccopts -e ldopts
 ----
 
+Note that when compiling on MacOS, the default options for linking with Perl
+provided by the system sometimes do not work. It was reported that removing
+the occurance of ``-arch i386`` from ``config.mk`` solved the problem.
 
 
 
