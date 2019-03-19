@@ -1208,8 +1208,8 @@ static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
     double *vals = (double*) malloc(tok->nvalues * sizeof(double));
-    int n = 0;
-    for (int i=0; i<tok->nvalues; i++)
+    int i, n = 0;
+    for (i=0; i<tok->nvalues; i++)
         if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
     if ( n )
     {
