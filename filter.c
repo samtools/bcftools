@@ -1213,7 +1213,7 @@ static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
         if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
     if ( n )
     {
-        rtok->values[0] = vals[0]; //median(vals, n);
+        rtok->values[0] = median(vals, n);
         rtok->nvalues   = 1;
     }
     free(vals);
