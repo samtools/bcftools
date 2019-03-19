@@ -2890,7 +2890,7 @@ one sample name per line
 
 * function on FORMAT tags (over samples) and INFO tags (over vector fields)
 
-        MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT
+        MAX, MIN, MEAN, MEDIAN, MODE, STDEV, SUM, STRLEN, ABS, COUNT
 
 * two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
   and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
@@ -2961,7 +2961,7 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 
     COUNT(GT="hom")=0
 
-    MIN(DP)>35 && AVG(GQ)>50
+    MIN(DP)>35 && MEAN(GQ)>50
 
     ID=@file       .. selects lines with ID present in the file
 
