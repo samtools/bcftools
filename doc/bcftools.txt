@@ -2961,7 +2961,7 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 
     COUNT(GT="hom")=0
 
-    MIN(DP)>35 && MEAN(GQ)>50
+    MIN(DP)>35 && MEDIAN(GQ)>50
 
     ID=@file       .. selects lines with ID present in the file
 
