@@ -1230,12 +1230,13 @@ static double mode(double *vals, const int n)
             qsort(vals, n, sizeof(double), compare_doubles);
             // discretize real values
             int *int_vals = (int*) malloc(n * sizeof(int));
-            for (int i=0; i<n; i++) int_vals[i] = vals[i];
+            int i;
+            for (i=0; i<n; i++) int_vals[i] = vals[i];
             // find mode of discrete samples
             int mode_count = 0, mode_idx = 0;
-            for (int i=0; i<n; i++) {
-                int j = i + 1;
-                for (; j < n && vals[i] == vals[j]; ++j);
+            for (i=0; i<n; i++) {
+                int j;
+                for (j = i + 1; j < n && vals[i] == vals[j]; ++j);
                 int count = j - i;
                 if (count > mode_count) {
                     mode_idx = i;
@@ -1253,8 +1254,8 @@ static int func_mode(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
     double *vals = (double*) malloc(tok->nvalues * sizeof(double));
-    int n = 0;
-    for (int i=0; i<tok->nvalues; i++)
+    int i, n = 0;
+    for (i=0; i<tok->nvalues; i++)
         if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
     if ( n )
     {
@@ -1271,7 +1272,8 @@ static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
 static double sum(double *vals, const int n)
 {
     double result = 0;
-    for (int i=0; i < n; i++) result += vals[i];
+    int i;
+    for (i=0; i < n; i++) result += vals[i];
     return result;
 }
 static double mean(double *vals, const int n)
@@ -1282,7 +1284,8 @@ static double stdev(double *vals, const int n)
 {
     const double m = mean(vals, n);
     double ss = 0;
-    for (int i=0; i < n; i++) ss += (vals[i] - m) * (vals[i] - m);
+    int i;
+    for (i=0; i < n; i++) ss += (vals[i] - m) * (vals[i] - m);
     return sqrt(ss / n);
 }
 static int func_stdev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
@@ -1291,8 +1294,8 @@ static int func_stdev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
     double *vals = (double*) malloc(tok->nvalues * sizeof(double));
-    int n = 0;
-    for (int i=0; i<tok->nvalues; i++)
+    int i, n = 0;
+    for (i=0; i<tok->nvalues; i++)
         if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
     if ( n )
     {
