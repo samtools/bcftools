@@ -152,11 +152,15 @@ struct _filter_t
 #define TOK_PERLSUB 27
 #define TOK_BINOM   28
 #define TOK_PHRED   29
+#define TOK_MEAN    30
+#define TOK_MEDIAN  31
+#define TOK_MODE    32
+#define TOK_STDEV   33
 
-//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
-//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8};
-#define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcp"
+//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33
+//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  n  i  d s
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
+#define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcpmids"
 
 // Return negative values if it is a function with variable number of arguments
 static int filters_next_token(char **str, int *len)
@@ -180,7 +184,11 @@ static int filters_next_token(char **str, int *len)
 
     if ( !strncasecmp(tmp,"MAX(",4) ) { (*str) += 3; return TOK_MAX; }
     if ( !strncasecmp(tmp,"MIN(",4) ) { (*str) += 3; return TOK_MIN; }
+    if ( !strncasecmp(tmp,"MEAN(",5) ) { (*str) += 4; return TOK_MEAN; }
+    if ( !strncasecmp(tmp,"MEDIAN(",7) ) { (*str) += 6; return TOK_MEDIAN; }
+    if ( !strncasecmp(tmp,"MODE(",5) ) { (*str) += 4; return TOK_MODE; }
     if ( !strncasecmp(tmp,"AVG(",4) ) { (*str) += 3; return TOK_AVG; }
+    if ( !strncasecmp(tmp,"STDEV(",6) ) { (*str) += 5; return TOK_STDEV; }
     if ( !strncasecmp(tmp,"SUM(",4) ) { (*str) += 3; return TOK_SUM; }
     if ( !strncasecmp(tmp,"ABS(",4) ) { (*str) += 3; return TOK_ABS; }
     if ( !strncasecmp(tmp,"COUNT(",4) ) { (*str) += 5; return TOK_CNT; }
@@ -1152,7 +1160,7 @@ static int func_min(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     }
     return 1;
 }
-static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+static int func_mean(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
     rtok->nvalues = 0;
@@ -1166,6 +1174,132 @@ static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
         rtok->values[0] = val / n;
         rtok->nvalues   = 1;
     }
+    return 1;
+}
+static int compare_doubles(const void *lhs, const void *rhs)
+{
+    double arg1 = *(const double*) lhs;
+    double arg2 = *(const double*) rhs;
+    if (arg1 < arg2) return -1;
+    if (arg1 > arg2) return 1;
+    return 0;
+}
+static double median(double *vals, const int n)
+{
+    switch (n) {
+        case 0: return 0;
+        case 1: return vals[0];
+        case 2: return (vals[0] + vals[1]) / 2;
+        default:
+        {
+            qsort(vals, n, sizeof(double), compare_doubles);
+            const int middle = n / 2;
+            if (n % 2 == 1) {
+                return vals[middle];
+            } else {
+                return (vals[middle - 1] + vals[middle]) / 2;
+            }
+        }
+    }
+}
+static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    rtok->nvalues = 0;
+    if ( !tok->nvalues ) return 1;
+    double *vals = (double*) malloc(tok->nvalues * sizeof(double));
+    int n = 0;
+    for (int i=0; i<tok->nvalues; i++)
+        if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
+    if ( n )
+    {
+        rtok->values[0] = vals[0]; //median(vals, n);
+        rtok->nvalues   = 1;
+    }
+    free(vals);
+    return 1;
+}
+static double mode(double *vals, const int n)
+{
+    switch (n) {
+        case 0: return 0;
+        case 1: return vals[0];
+        case 2: return vals[0] < vals[1] ? vals[0] : vals[1];
+        default:
+        {
+            qsort(vals, n, sizeof(double), compare_doubles);
+            // discretize real values
+            int *int_vals = (int*) malloc(n * sizeof(int));
+            for (int i=0; i<n; i++) int_vals[i] = vals[i];
+            // find mode of discrete samples
+            int mode_count = 0, mode_idx = 0;
+            for (int i=0; i<n; i++) {
+                int j = i + 1;
+                for (; j < n && vals[i] == vals[j]; ++j);
+                int count = j - i;
+                if (count > mode_count) {
+                    mode_idx = i;
+                    mode_count = count;
+                }
+            }
+            free(int_vals);
+            return median(vals + mode_idx, mode_count);
+        }
+    }
+}
+static int func_mode(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    rtok->nvalues = 0;
+    if ( !tok->nvalues ) return 1;
+    double *vals = (double*) malloc(tok->nvalues * sizeof(double));
+    int n = 0;
+    for (int i=0; i<tok->nvalues; i++)
+        if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
+    if ( n )
+    {
+        rtok->values[0] = mode(vals, n);
+        rtok->nvalues   = 1;
+    }
+    free(vals);
+    return 1;
+}
+static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    return func_mean(flt, line, rtok, stack, nstack);
+}
+static double sum(double *vals, const int n)
+{
+    double result = 0;
+    for (int i=0; i < n; i++) result += vals[i];
+    return result;
+}
+static double mean(double *vals, const int n)
+{
+    return sum(vals, n) / n;
+}
+static double stdev(double *vals, const int n)
+{
+    const double m = mean(vals, n);
+    double ss = 0;
+    for (int i=0; i < n; i++) ss += (vals[i] - m) * (vals[i] - m);
+    return sqrt(ss / n);
+}
+static int func_stdev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    rtok->nvalues = 0;
+    if ( !tok->nvalues ) return 1;
+    double *vals = (double*) malloc(tok->nvalues * sizeof(double));
+    int n = 0;
+    for (int i=0; i<tok->nvalues; i++)
+        if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
+    if ( n )
+    {
+        rtok->values[0] = stdev(vals, n);
+        rtok->nvalues   = 1;
+    }
+    free(vals);
     return 1;
 }
 static int func_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
@@ -2811,7 +2945,11 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     {
         if ( out[i].tok_type==TOK_MAX )      { out[i].func = func_max; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_MIN ) { out[i].func = func_min; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_MEAN ) { out[i].func = func_mean; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_MEDIAN ) { out[i].func = func_median; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_MODE ) { out[i].func = func_mode; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_AVG ) { out[i].func = func_avg; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_STDEV ) { out[i].func = func_stdev; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_SUM ) { out[i].func = func_sum; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_ABS ) { out[i].func = func_abs; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_CNT ) { out[i].func = func_count; out[i].tok_type = TOK_FUNC; }
