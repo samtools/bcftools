@@ -1234,7 +1234,7 @@ static double mode(double *vals, const int n)
             for (i=0; i<n; i++) int_vals[i] = vals[i];
             // find mode of discrete samples
             int mode_count = 0, mode_idx = 0;
-            for (i=0; i<n; i++) {
+            for (i=0; i<n;) {
                 int j;
                 for (j = i + 1; j < n && int_vals[i] == int_vals[j]; j++);
                 int count = j - i;
@@ -1242,6 +1242,7 @@ static double mode(double *vals, const int n)
                     mode_idx = i;
                     mode_count = count;
                 }
+                i += count;
             }
             free(int_vals);
             return median(vals + mode_idx, mode_count);
