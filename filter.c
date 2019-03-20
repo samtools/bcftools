@@ -1236,7 +1236,7 @@ static double mode(double *vals, const int n)
             int mode_count = 0, mode_idx = 0;
             for (i=0; i<n; i++) {
                 int j;
-                for (j = i + 1; j < n && vals[i] == vals[j]; ++j);
+                for (j = i + 1; j < n && int_vals[i] == int_vals[j]; j++);
                 int count = j - i;
                 if (count > mode_count) {
                     mode_idx = i;
