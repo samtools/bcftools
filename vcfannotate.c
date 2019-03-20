@@ -141,7 +141,7 @@ typedef struct _args_t
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
     char *merge_method_str;
-    int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic;
+    int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force;
 }
 args_t;
 
@@ -167,6 +167,12 @@ void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
 }
 void remove_filter(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
+    if ( tag->hdr_id<0 )
+    {
+        assert(args->force);
+        tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
+        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Error: parsing error\n");    // this should not happen
+    }
     if ( !tag->key ) bcf_update_filter(args->hdr, line, NULL, args->flt_keep_pass);
     else bcf_remove_filter(args->hdr, line, tag->hdr_id, args->flt_keep_pass);
 }
@@ -297,8 +303,14 @@ static void init_remove_annots(args_t *args)
                 tag->handler = remove_filter;
                 tag->key = strdup(str.s);
                 tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
-                if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Cannot remove %s, not defined in the header.\n", str.s);
-                if ( !args->keep_sites ) bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
+                if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) )
+                {
+                    if ( args->keep_sites )
+                        error("Error: The filter \"%s\" is not defined in the header, cannot use the -k option\n", str.s);
+                    else
+                        fprintf(stderr,"Warning: The filter \"%s\" is not defined in the header\n", str.s);
+                }
+                else if ( !args->keep_sites ) bcf_hdr_remove(args->hdr_out,BCF_HL_FLT,tag->key);
             }
             else
             {
@@ -313,8 +325,14 @@ static void init_remove_annots(args_t *args)
             int id = bcf_hdr_id2int(args->hdr,BCF_DT_ID,str.s);
             if ( !bcf_hdr_idinfo_exists(args->hdr,type,id) )
             {
-                fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
-                args->nrm--;
+                if ( args->keep_sites )
+                    error("Error: The tag \"%s\" is not defined in the header, cannot use the -k option\n", str.s);
+                else
+                    fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
+
+                tag->key = strdup(str.s);
+                if ( type==BCF_HL_INFO ) tag->handler = remove_info_tag;
+                else if ( type==BCF_HL_FMT ) tag->handler = remove_format_tag;
             }
             else if ( (type==BCF_HL_FMT && keep_fmt) || (type==BCF_HL_INFO && keep_info) )
             {
@@ -2468,6 +2486,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --collapse <string>        matching records by <snps|indels|both|all|some|none>, see man page for details [some]\n");
     fprintf(stderr, "   -c, --columns <list>           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
     fprintf(stderr, "   -e, --exclude <expr>           exclude sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "       --force                    continue despite parsing error (at your own risk!)\n");
     fprintf(stderr, "   -h, --header-lines <file>      lines which should be appended to the VCF header\n");
     fprintf(stderr, "   -I, --set-id [+]<format>       set ID column, see man page for details\n");
     fprintf(stderr, "   -i, --include <expr>           select sites for which the expression is true (see man page for details)\n");
@@ -2524,11 +2543,13 @@ int main_vcfannotate(int argc, char *argv[])
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
         {"no-version",no_argument,NULL,8},
+        {"force",no_argument,NULL,'f'},
         {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:kl:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:i:e:S:s:I:m:kl:f",loptions,NULL)) >= 0)
     {
         switch (c) {
+            case 'f': args->force = 1; break;
             case 'k': args->keep_sites = 1; break;
             case 'm': 
                 args->mark_sites_logic = MARK_LISTED;
@@ -2606,12 +2627,24 @@ int main_vcfannotate(int argc, char *argv[])
     if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
 
+    static int line_errcode_warned = 0;
     init_data(args);
     while ( bcf_sr_next_line(args->files) )
     {
         if ( !bcf_sr_has_line(args->files,0) ) continue;
         bcf1_t *line = bcf_sr_get_line(args->files,0);
-        if ( line->errcode ) error("Encountered error, cannot proceed. Please check the error output above.\n");
+        if ( line->errcode )
+        {
+            if ( !args->force )
+                error("Encountered an error, cannot proceed. Please check the error output above.\n"
+                      "If feeling adventurous, use the --force option. (At your own risk!)\n");
+            else if ( !line_errcode_warned )
+            {
+                fprintf(stderr,"Warning: Encountered an error, proceeding only because --force was given.\n");
+                line_errcode_warned = 1;
+                line->errcode = 0;
+            }
+        }
         if ( args->filter )
         {
             int pass = filter_test(args->filter, line, NULL);

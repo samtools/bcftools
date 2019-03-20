@@ -340,6 +340,11 @@ Add or remove annotations.
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*--force*::
+    continue even when parsing errors, such as undefined tags, are encountered. Note
+    this can be an unsafe operation and can result in corrupted BCF files. If this
+    option is used, make sure to sanity check the result thoroughly.
+
 *-h, --header-lines* 'file'::
     Lines to append to the VCF header, see also *-c, --columns* and *-a, --annotations*. For example:
 ----
