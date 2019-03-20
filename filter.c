@@ -1202,7 +1202,7 @@ static double median(double *vals, const int n)
         }
     }
 }
-static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+static int func_stat_helper(double (*stat_func)(double*, int), filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
     rtok->nvalues = 0;
@@ -1213,7 +1213,7 @@ static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
         if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
     if ( n )
     {
-        rtok->values[0] = median(vals, n);
+        rtok->values[0] = stat_func(vals, n);
         rtok->nvalues   = 1;
     }
     free(vals);
@@ -1249,22 +1249,13 @@ static double mode(double *vals, const int n)
         }
     }
 }
+static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    return func_stat_helper(median, flt, line, rtok, stack, nstack);
+}
 static int func_mode(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
-    token_t *tok = stack[nstack - 1];
-    rtok->nvalues = 0;
-    if ( !tok->nvalues ) return 1;
-    double *vals = (double*) malloc(tok->nvalues * sizeof(double));
-    int i, n = 0;
-    for (i=0; i<tok->nvalues; i++)
-        if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
-    if ( n )
-    {
-        rtok->values[0] = mode(vals, n);
-        rtok->nvalues   = 1;
-    }
-    free(vals);
-    return 1;
+    return func_stat_helper(mode, flt, line, rtok, stack, nstack);
 }
 static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
@@ -1291,20 +1282,7 @@ static double stdev(double *vals, const int n)
 }
 static int func_stdev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
-    token_t *tok = stack[nstack - 1];
-    rtok->nvalues = 0;
-    if ( !tok->nvalues ) return 1;
-    double *vals = (double*) malloc(tok->nvalues * sizeof(double));
-    int i, n = 0;
-    for (i=0; i<tok->nvalues; i++)
-        if ( !bcf_double_is_missing(tok->values[i]) ) { vals[n] = tok->values[i]; n++; }
-    if ( n )
-    {
-        rtok->values[0] = stdev(vals, n);
-        rtok->nvalues   = 1;
-    }
-    free(vals);
-    return 1;
+    return func_stat_helper(stdev, flt, line, rtok, stack, nstack);
 }
 static int func_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
