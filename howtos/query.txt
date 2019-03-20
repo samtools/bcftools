@@ -9,7 +9,7 @@ Combined with standard UNIX commands, this gives a powerful tool for
 quick querying of VCFs.
 
 Below is a list of some of the most common tasks with explanation how it works.
-For a full list of options, see the link:bcftools.html#query[manual page].
+For a full list of options, see the link:../bcftools.html#query[manual page].
 
 .**List of samples**
 ----
@@ -50,7 +50,7 @@ $ bcftools query -f '%CHROM %POS %REF %ALT\n' file.bcf | head -3
 ----
 
 .**Extract allele frequency at each position**
-Assuming the INFO/AF tag is present, we can write:
+Assuming the INFO/AF tag is present, we can refer to it using `%INFO/AF` or, if unambiguous, using `%AF`:
 ----
 $ bcftools query -f '%CHROM %POS %AF\n' file.bcf | head -3
 1 13380 7.69515e-05

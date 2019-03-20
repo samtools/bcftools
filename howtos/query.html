@@ -81,7 +81,7 @@ quick querying of VCFs.</p>
 </div>
 <div class="paragraph">
 <p>Below is a list of some of the most common tasks with explanation how it works.
-For a full list of options, see the <a href="bcftools.html#query">manual page</a>.</p>
+For a full list of options, see the <a href="../bcftools.html#query">manual page</a>.</p>
 </div>
 <div class="listingblock">
 <div class="title"><strong>List of samples</strong></div>
@@ -132,7 +132,7 @@ The <code>| head -3</code> part limited the output to the first three lines.</p>
 </div>
 <div class="paragraph">
 <div class="title"><strong>Extract allele frequency at each position</strong></div>
-<p>Assuming the INFO/AF tag is present, we can write:</p>
+<p>Assuming the INFO/AF tag is present, we can refer to it using <code>%INFO/AF</code> or, if unambiguous, using <code>%AF</code>:</p>
 </div>
 <div class="listingblock">
 <div class="content">
