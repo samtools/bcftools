@@ -391,7 +391,7 @@ bcf1_t *process(bcf1_t *rec)
 
         for (i=0; i<rec->n_sample; i++)
         {
-            if ( !args->smpl_pass[i] ) continue;
+            if ( args->smpl_pass && !args->smpl_pass[i] ) continue;
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(args->gts + i*ngts, ngts);
             else if ( args->new_mask==GT_PHASED )
