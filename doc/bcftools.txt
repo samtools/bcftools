@@ -2100,6 +2100,10 @@ By default, appropriate system directories are searched for installed plugins.
 *split*::
     split VCF by sample, creating single-sample VCFs
 
+*split-vep*::
+    extract fields from structured annotations such as INFO/CSQ created by VEP. These
+    can be added as a new INFO field to the VCF or in a custom text format
+
 *tag2tag*::
     convert between similar tags, such as GL and GP
 
