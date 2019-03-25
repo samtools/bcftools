@@ -84,6 +84,7 @@ subfields:</p>
 <div class="listingblock">
 <div class="content">
 <pre>bcftools +split-vep test/split-vep.vcf -l | head
+
 0   Allele
 1   Consequence
 2   IMPACT
@@ -105,6 +106,7 @@ subfields:</p>
 <div class="listingblock">
 <div class="content">
 <pre>bcftools +split-vep test/split-vep.vcf -f '%Consequence\n' | head -1
+
 non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,downstream_gene_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,regulatory_region_variant</pre>
 </div>
 </div>
@@ -116,6 +118,7 @@ the name of the affected gene:</p>
 <div class="listingblock">
 <div class="content">
 <pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %SYMBOL %Consequence\n' -s worst | head -5
+
 1:14464 . regulatory_region_variant
 1:14469 . regulatory_region_variant
 1:14522 WASH7P non_coding_transcript_exon_variant
@@ -129,6 +132,7 @@ the name of the affected gene:</p>
 <div class="listingblock">
 <div class="content">
 <pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Gene %Consequence\n' -s worst:missense+ | head -5
+
 1:15004 ENSG00000227232 splice_donor_variant&amp;non_coding_transcript_variant
 1:16856 ENSG00000227232 splice_donor_variant&amp;non_coding_transcript_variant
 1:17365 ENSG00000227232 splice_acceptor_variant&amp;non_coding_transcript_variant
