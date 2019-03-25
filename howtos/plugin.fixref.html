@@ -90,98 +90,150 @@ as it will result in nonsense genotypes!!!</strong>
 </table>
 </div>
 <div class="paragraph">
-<p>This tool helps to determine and fix strand orientation.
+<p>If you are reading this page, your VCF probably has incorrect REF alleles. This can
+be easy to fix, but it also can turn out to be quite problematic. In order to appreciate
+the problem, consider the following example. Let&#8217;s say your VCF contains these records:</p>
+</div>
+<div class="paragraph">
+<p>&#8230;&#8203;</p>
+</div>
+<div class="paragraph">
+<p>/nfs/users/nfs_p/pd3/sandbox/tmp/rmme/iserver-fixref
+/nfs/users/nfs_v/vr-impute/iserver/trash/aborted.1c9e2bb622601560a68ca0e7b5d63837/
+Gwendoline Arendse &lt;<a href="mailto:ARNGWE001@myuct.ac.za">ARNGWE001@myuct.ac.za</a>&gt;
+To: Sanger Imputation Service &lt;<a href="mailto:vr-impute@sanger.ac.uk">vr-impute@sanger.ac.uk</a>&gt;
+Subject:    Aborted jobs
+Date:   Wed, 1 Aug 2018 14:21:23 +0000 (01/08/18 16:21:23)</p>
+</div>
+<div class="paragraph">
+<p>Reference allele mismatch at 1:873558 .. REF_SEQ:'G' vs VCF:'T'
+1   873558  rs1110052   T   G
+RefSNP Alleles: G/T (FWD)</p>
+</div>
+<table class="tableblock frame-all grid-all" style="width: 25%;">
+<colgroup>
+<col style="width: 16%;">
+<col style="width: 16%;">
+<col style="width: 16%;">
+<col style="width: 16%;">
+<col style="width: 16%;">
+<col style="width: 16%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">CHROM</th>
+<th class="tableblock halign-left valign-top">POS</th>
+<th class="tableblock halign-left valign-top">ID</th>
+<th class="tableblock halign-left valign-top">REF</th>
+<th class="tableblock halign-left valign-top">ALT</th>
+<th class="tableblock halign-left valign-top">GT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">916294</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rs4970403</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">T</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">T/T</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>|CHROM|POS|ID|REF|ALT|GT|T</p>
+</div>
+<div class="paragraph">
+<p>|1
+|916294
+|rs4970403
+|T
+|A
+|T/T</p>
+</div>
+<div class="paragraph">
+<p>1:916294:T/A
+rs4970403
+# [1]chrom  [2]pos  [3]alleles on TOP   [4]input strand [5]REF/ALT on fwd
+1   916294  T,A rev A/T</p>
+</div>
+<table class="tableblock frame-all grid-all spread">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This problem can be easy to fix, if you know the strand convention of your VCF.
+For example
+</p><p class="tableblock">Before
+you start copy and pasting the commands below, please think
+</p><p class="tableblock"><a href="https://www.ncbi.nlm.nih.gov/SNP/snp_ref.cgi?searchType=adhoc_search&amp;type=rs&amp;rs=rs2980319" class="bare">https://www.ncbi.nlm.nih.gov/SNP/snp_ref.cgi?searchType=adhoc_search&amp;type=rs&amp;rs=rs2980319</a>
+$bt query -i'(REF="A" &amp;&amp; ALT="T")</p></td>
+<td class="tableblock halign-left valign-top"></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">(REF="T" &amp;&amp; ALT="A")' -f'%CHROM:%POS\t%ID\t%REF\t%ALT[\t%GT]\n' /nfs/users/nfs_p/pd3/sandbox/tmp/rmme/rmme-iserver-fixref/plink.raw.bcf -s 1328_NA06989,1377_NA11891,1349_NA11843</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">head
+find an ambigous top-bot example do demonstrate the problem
+&#8230;&#8203;..
+</p><p class="tableblock">bullets - order of reliability
+</p><p class="tableblock"></p><p class="tableblock">This tool helps to determine and fix strand orientation.
 Currently it can collect and print numbers useful in determining
 the strand convention (the <code>stats</code> mode), swap REF/ALT alleles based on the
 SNP reference ID (the <code>id</code> mode),
 flip or swap non-ambiguous SNPs (the <code>flip</code> mode),
 or convert from the
 <a href="http://www.illumina.com/documents/products/technotes/technote_topbot.pdf">Illumina TOP strand</a>
-convention to the forward strand (the <code>top</code> mode).</p>
-</div>
-<div class="paragraph">
-<p>Run the stats to learn the number of REF allele mismatches and the number of
-non-biallelic sites:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>bcftools +fixref test.bcf -- -f ref.fa</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Another tool for checking the reference allele mismatches:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>bcftools norm --check-ref e -f /path/to/reference.fasta input.vcf.gz -Ou -o /dev/null</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If there are no REF mismatches and the number of multi-allelic sites is small, we are done.
+convention to the forward strand (the <code>top</code> mode).
+</p><p class="tableblock">Run the stats to learn the number of REF allele mismatches and the number of
+non-biallelic sites:
+----
+bcftools fixref test.bcf -- -f ref.fa
+----
+</p><p class="tableblock">Another tool for checking the reference allele mismatches:
+----
+bcftools norm --check-ref e -f /path/to/reference.fasta input.vcf.gz -Ou -o /dev/null
+----
+</p><p class="tableblock">If there are no REF mismatches and the number of multi-allelic sites is small, we are done.
 If the output shows that the VCF is TOP-compatible, the following command can be
-used to fix the strand:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m top</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If the file contains dbSNP reference identificators (rsXXX in the ID column), the following
-commands can be used to swap the reference and alternate alleles:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre># Get the dbSNP annotation file. Make sure the correct reference build is used (e.g. b37)
+used to fix the strand:
+----
+bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m top
+----
+</p><p class="tableblock"></p><p class="tableblock">If the file contains dbSNP reference identificators (rsXXX in the ID column), the following
+commands can be used to swap the reference and alternate alleles:
+----
+# Get the dbSNP annotation file. Make sure the correct reference build is used (e.g. b37)
 #   https://www.ncbi.nlm.nih.gov/variation/docs/human_variation_vcf/
 wget ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b146_GRCh37p13/VCF/All_20151104.vcf.gz
 wget ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b146_GRCh37p13/VCF/All_20151104.vcf.gz.tbi
-
-# Swap the alleles
+</p><p class="tableblock"># Swap the alleles
 bcftools +fixref broken.bcf -Ob -o fixref.bcf -- -d -f /path/to/reference.fasta -i All_20151104.vcf.gz
-
-# The above command might have changed the coordinates, we must sort the VCF.
-bcftools sort fixref.bcf -Ob -o fixref.sorted.bcf</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>In the most extreme case when nothing else is working, one can simply force
-the unambigous alleles onto the forward strand and drop the ambigous genotypes.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m flip -d</pre>
-</div>
-</div>
-<div class="paragraph">
-<p><strong>Note that this is an extremely unsafe operation and will most likely result in nonsense
-genotypes.</strong> If you decide to use it anyway, make sure to <strong>check the sanity of the
-result</strong> with the <a href="plugin.af-dist.html">af-dist plugin</a>!!</p>
-</div>
-<div class="admonitionblock warning">
-<table>
-<tr>
-<td class="icon">
-<div class="title">Warning</div>
-</td>
-<td class="content">
-<strong>Do not use the program blindly, make an effort to understand what
+</p><p class="tableblock"># The above command might have changed the coordinates, we must sort the VCF.
+bcftools sort fixref.bcf -Ob -o fixref.sorted.bcf
+----
+</p><p class="tableblock"></p><p class="tableblock">In the most extreme case when nothing else is working, one can simply force
+the unambigous alleles onto the forward strand and drop the ambigous genotypes.
+----
+bcftools +fixref test.bcf -Ob -o output.bcf -- -f ref.fa -m flip -d
+----
+**Note that this is an extremely unsafe operation and will most likely result in nonsense
+genotypes.** If you decide to use it anyway, make sure to **check the sanity of the
+result** with the link:plugin.af-dist.html[af-dist plugin]!!
+</p><p class="tableblock">WARNING: **Do not use the program blindly, make an effort to understand what
 strand convention your data uses! Make sure the reason for mismatching REF
-alleles is not a different reference build!! Also do NOT use <code>bcftools norm --check-ref s</code> for this purpose,
-as it will result in nonsense genotypes!!!</strong>
-</td>
-</tr>
-</table>
-</div>
-<div class="sect2">
-<h3 id="_feedback">Feedback</h3>
-<div class="paragraph">
-<p>We welcome your feedback, please help us improve this page by
+alleles is not a different reference build!! Also do NOT use `bcftools norm --check-ref s` for this purpose,
+as it will result in nonsense genotypes!!!**
+</p><p class="tableblock"></p><p class="tableblock"></p><p class="tableblock">=== Feedback
+We welcome your feedback, please help us improve this page by
 either opening an issue on github or editing it directly and sending
-a pull request.</p>
-</div>
-</div>
-</div>
+a pull request.
+</p><p class="tableblock">+
+</div></p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 </div>

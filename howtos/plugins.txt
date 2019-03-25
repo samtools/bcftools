@@ -19,7 +19,11 @@ Please read link:plugin.api.html[here].
 ad-bias:: Finds positions with ALT allele frequency significantly different
     between two samples. Performs a Fisher test on the FORMAT/AD annotation.
 
+add-variantkey:: add VariantKey INFO fields VKX and RSX
+
 link:plugin.af-dist.html[af-dist]:: Collects AF deviation stats and GT probability distribution given AF and assuming HWE
+
+allele-length:: count the frequency of the length of REF, ALT and REF+ALT
 
 check-ploidy:: Checks if ploidy of samples is consistent for all sites.
 
@@ -50,20 +54,35 @@ GTsubset:: Outputs sites where the requested samples all exclusively share a gen
 
 guess-ploidy:: Determines sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT) in the non-PAR region of chrX.
 
+gvcfz:: compress gVCF file by resizing non-variant blocks according to specified criteria
+
 impute-info:: Adds imputation information metrics to the INFO field based on selected FORMAT tags. Only the IMPUTE2 INFO metric from FORMAT/GP tags is currently available.
 
 isecGT:: Compares two files and set non-identical genotypes in the first file to missing.
 
 link:plugin.mendelian.html[mendelian]:: Count Mendelian consistent / inconsistent genotypes
 
+missing2ref:: sets missing genotypes ("./.") to ref allele ("0/0" or "0|0"). DEPRECATED, use setGT instead.
+
 prune:: Prunes sites by missingness or linkage disequilibrium.
 
 setGT:: Sets genotypes according to the specified criteria and filtering expressions. For example, missing genotypes can be set to ref, but much more than that.
 
+smpl-stats:: calculates basic per-sample stats
+
+split:: split VCF by sample, creating single-sample VCFs
+
+link:plugin.split-vep.html[split-vep]:: extract fields from structured annotations such as INFO/CSQ created by VEP. These can be added as a new INFO field to the VCF or in a custom text format
+
 tag2tag:: Converts between similar tags, such as GL, PL and GP.
+
+trio-dnm:: screen variants for possible de-novo mutations in trios
+
+trio-stats:: calculate transmission rate in trio children
 
 trio-switch-rate:: Calculates phase switch rate in trio children.
 
+variantkey-hex:: generate unsorted VariantKey-RSid index files in hexadecimal format
 
 include::footer.inc[]
 

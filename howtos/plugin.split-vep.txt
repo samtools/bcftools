@@ -1,0 +1,63 @@
+include::header.inc[]
+
+
+Plugin split-vep
+----------------
+
+The plugin allows to extract fields from structured annotations such as INFO/CSQ created by VEP.
+
+Assuming the tag added by VEP is the INFO/CSQ field, let's start with printing the list of available
+subfields:
+----
+bcftools +split-vep test/split-vep.vcf -l | head
+0   Allele
+1   Consequence
+2   IMPACT
+3   SYMBOL
+4   Gene
+5   Feature_type
+6   Feature
+7   BIOTYPE
+8   EXON
+9   INTRON
+----
+
+The default tag can be changed using the `-a, -annotation` option.
+
+Extract the `Consequence` field using a `bcftools query` like output:
+----
+bcftools +split-vep test/split-vep.vcf -f '%Consequence\n' | head -1
+non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,downstream_gene_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,regulatory_region_variant
+----
+
+This printed the consequence prediction for all transcripts. Now limit the output
+to transcript with the most severe consequence printing also the coordinates and
+the name of the affected gene:
+----
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %SYMBOL %Consequence\n' -s worst | head -5
+1:14464 . regulatory_region_variant
+1:14469 . regulatory_region_variant
+1:14522 WASH7P non_coding_transcript_exon_variant
+1:14542 WASH7P non_coding_transcript_exon_variant
+1:14574 WASH7P non_coding_transcript_exon_variant
+----
+
+Limit the output to missense or more severe variants:
+----
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Gene %Consequence\n' -s worst:missense+ | head -5
+1:15004 ENSG00000227232 splice_donor_variant&non_coding_transcript_variant
+1:16856 ENSG00000227232 splice_donor_variant&non_coding_transcript_variant
+1:17365 ENSG00000227232 splice_acceptor_variant&non_coding_transcript_variant
+1:69428 ENSG00000186092 missense_variant
+1:69469 ENSG00000186092 frameshift_variant
+----
+
+Rather than printing a formatted text, create two INFO fields MySYMBOL with the gene name and 
+MyConsequence:
+----
+bcftools +split-vep test/split-vep.vcf -c SYMBOL,Consequence -s worst:missense+ -p My | less
+----
+
+include::footer.inc[]
+
+

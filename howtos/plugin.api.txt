@@ -40,7 +40,7 @@ A few tips:
 - The simplest plugin to build upon is link:https://github.com/samtools/bcftools/blob/develop/plugins/counts.c[counts.c].
 - Check the source code other link:https://github.com/samtools/bcftools/tree/develop/plugins[plugins] for inspiration.
 - ``bcftools +name -vv`` explains why a given plugin would not load
-- ``bcftools +file.so`` is a way to load a plugin without having to specify the BCFTOOLS_PLUGINS environmental variable
+- ``bcftools +path/to/file.so`` is a way to load a plugin without having to specify the BCFTOOLS_PLUGINS environmental variable
 
 include::footer.inc[]
 

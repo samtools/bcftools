@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Plugin split-vep</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling and filtering</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering expressions</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+<li>
+<p><a href="FAQ.html">FAQ</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_plugin_split_vep">Plugin split-vep</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The plugin allows to extract fields from structured annotations such as INFO/CSQ created by VEP.</p>
+</div>
+<div class="paragraph">
+<p>Assuming the tag added by VEP is the INFO/CSQ field, let&#8217;s start with printing the list of available
+subfields:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -l | head
+0   Allele
+1   Consequence
+2   IMPACT
+3   SYMBOL
+4   Gene
+5   Feature_type
+6   Feature
+7   BIOTYPE
+8   EXON
+9   INTRON</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The default tag can be changed using the <code>-a, -annotation</code> option.</p>
+</div>
+<div class="paragraph">
+<p>Extract the <code>Consequence</code> field using a <code>bcftools query</code> like output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -f '%Consequence\n' | head -1
+non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,downstream_gene_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,regulatory_region_variant</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This printed the consequence prediction for all transcripts. Now limit the output
+to transcript with the most severe consequence printing also the coordinates and
+the name of the affected gene:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %SYMBOL %Consequence\n' -s worst | head -5
+1:14464 . regulatory_region_variant
+1:14469 . regulatory_region_variant
+1:14522 WASH7P non_coding_transcript_exon_variant
+1:14542 WASH7P non_coding_transcript_exon_variant
+1:14574 WASH7P non_coding_transcript_exon_variant</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Limit the output to missense or more severe variants:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Gene %Consequence\n' -s worst:missense+ | head -5
+1:15004 ENSG00000227232 splice_donor_variant&amp;non_coding_transcript_variant
+1:16856 ENSG00000227232 splice_donor_variant&amp;non_coding_transcript_variant
+1:17365 ENSG00000227232 splice_acceptor_variant&amp;non_coding_transcript_variant
+1:69428 ENSG00000186092 missense_variant
+1:69469 ENSG00000186092 frameshift_variant</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Rather than printing a formatted text, create two INFO fields MySYMBOL with the gene name and
+MyConsequence:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -c SYMBOL,Consequence -s worst:missense+ -p My | less</pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an issue on github or editing it directly and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>
