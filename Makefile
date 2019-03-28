@@ -39,7 +39,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcnv.o HMM.o vcfplugin.o consensus.o ploidy.o bin.o hclust.o version.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
-           vcfsort.o \
+           vcfsort.o cols.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 
 prefix      = /usr/local
@@ -225,6 +225,7 @@ ploidy.o: ploidy.c $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_hts_h) $(
 polysomy.o: polysomy.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(bcftools_h) peakfit.h
 peakfit.o: peakfit.c peakfit.h $(htslib_hts_h) $(htslib_kstring_h)
 bin.o: bin.c $(bcftools_h) bin.h
+cols.o: cols.c cols.h
 regidx.o: regidx.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) regidx.h
 consensus.o: consensus.c $(htslib_vcf_h) $(htslib_kstring_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) regidx.h $(bcftools_h) rbuf.h $(filter_h)
 mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) regidx.h $(bcftools_h) $(bam2bcf_h) $(bam_sample_h) $(gvcf_h)
