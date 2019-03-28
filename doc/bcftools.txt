@@ -2893,9 +2893,11 @@ one sample name per line
 
         GT[@samples.txt]="het" & binom(AD)<0.01
 
-* function on FORMAT tags (over samples) and INFO tags (over vector fields)
+* function on FORMAT tags (over samples) and INFO tags (over vector fields):
+  maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median;
+  standard deviation; sum; string length; absolute value; number of elements.
 
-        MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT
+        MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT
 
 * two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
   and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
@@ -2964,9 +2966,9 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 
     TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
 
-    COUNT(GT="hom")=0
+    COUNT(GT="hom")=0      .. no homozygous genotypes at the site 
 
-    MIN(DP)>35 && AVG(GQ)>50
+    AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger than 50
 
     ID=@file       .. selects lines with ID present in the file
 
