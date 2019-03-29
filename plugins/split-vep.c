@@ -139,7 +139,7 @@ static const char *usage_text(void)
         "   -p, --annot-prefix          prefix of INFO annotations to be created after splitting the CSQ string\n"
         "   -s, --select TR:CSQ         TR, transcript: worst,primary,all             [all]\n"
         "                               CSQ, consequence: any,missense,missense+,etc  [any]\n"
-        "   -S, --severity ?|FILE       ?: print the default severity scale\n"
+        "   -S, --severity -|FILE       -: print the default severity scale\n"
         "                               FILE: override the default scale\n"
         "Common options:\n"
         "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
@@ -155,6 +155,9 @@ static const char *usage_text(void)
         "   # List available fields of the INFO/CSQ annotation\n"
         "   bcftools +split-vep -l file.vcf.gz\n"
         "\n"
+        "   # List the default severity scale\n"
+        "   bcftools +split-vep -S -\n"
+        "\n"
         "   # Extract Consequence, IMPACT and gene SYMBOL of the most severe consequence into\n"
         "   # INFO annotations starting with the prefix \"vep\". For brevity, the columns can\n"
         "   # be given also as 0-based indexes\n"
@@ -162,7 +165,7 @@ static const char *usage_text(void)
         "   bcftools +split-vep -c 1-3 -s worst -p vep file.vcf.gz\n"
         "\n"
         "   # Same as above but use the text output of the \"bcftools query\" format\n"
-        "   bcftools +split-vep -c Consequence,IMPACT,SYMBOL -s worst -f '%CHROM %POS %Consequence %IMPACT %SYMBOL\\n' file.vcf.gz\n"
+        "   bcftools +split-vep -s worst -f '%CHROM %POS %Consequence %IMPACT %SYMBOL\\n' file.vcf.gz\n"
         "\n";
 }
 
