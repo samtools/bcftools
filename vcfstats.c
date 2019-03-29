@@ -70,7 +70,7 @@ idist_t;
 
 typedef struct
 {
-    int n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals, n_records, n_noalts;
+    uint32_t n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals, n_records, n_noalts;
     int *af_ts, *af_tv, *af_snps;   // first bin of af_* stats are singletons
     #if HWE_STATS
         int *af_hwe;
@@ -1163,14 +1163,14 @@ static void print_stats(args_t *args)
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
-        printf("SN\t%d\tnumber of records:\t%d\n", id, stats->n_records);
-        printf("SN\t%d\tnumber of no-ALTs:\t%d\n", id, stats->n_noalts);
-        printf("SN\t%d\tnumber of SNPs:\t%d\n", id, stats->n_snps);
-        printf("SN\t%d\tnumber of MNPs:\t%d\n", id, stats->n_mnps);
-        printf("SN\t%d\tnumber of indels:\t%d\n", id, stats->n_indels);
-        printf("SN\t%d\tnumber of others:\t%d\n", id, stats->n_others);
-        printf("SN\t%d\tnumber of multiallelic sites:\t%d\n", id, stats->n_mals);
-        printf("SN\t%d\tnumber of multiallelic SNP sites:\t%d\n", id, stats->n_snp_mals);
+        printf("SN\t%d\tnumber of records:\t%u\n", id, stats->n_records);
+        printf("SN\t%d\tnumber of no-ALTs:\t%u\n", id, stats->n_noalts);
+        printf("SN\t%d\tnumber of SNPs:\t%u\n", id, stats->n_snps);
+        printf("SN\t%d\tnumber of MNPs:\t%u\n", id, stats->n_mnps);
+        printf("SN\t%d\tnumber of indels:\t%u\n", id, stats->n_indels);
+        printf("SN\t%d\tnumber of others:\t%u\n", id, stats->n_others);
+        printf("SN\t%d\tnumber of multiallelic sites:\t%u\n", id, stats->n_mals);
+        printf("SN\t%d\tnumber of multiallelic SNP sites:\t%u\n", id, stats->n_snp_mals);
     }
     printf("# TSTV, transitions/transversions:\n# TSTV\t[2]id\t[3]ts\t[4]tv\t[5]ts/tv\t[6]ts (1st ALT)\t[7]tv (1st ALT)\t[8]ts/tv (1st ALT)\n");
     for (id=0; id<args->nstats; id++)
