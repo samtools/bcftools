@@ -34,8 +34,12 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <math.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
+#include <htslib/hts_os.h>
 #include "kheap.h"
 #include "bcftools.h"
 
@@ -245,12 +249,23 @@ size_t parse_mem_string(char *str)
 void mkdir_p(const char *fmt, ...);
 void init(args_t *args)
 {
+#ifdef _WIN32
+    char tmp_path[MAX_PATH];
+    int ret = GetTempPath(MAX_PATH, tmp_path);
+    if (!ret || ret > MAX_PATH)
+        error("Could not get the path to the temporary folder\n");
+    if (strlen(tmp_path) + strlen("/bcftools-sort.XXXXXX") >= MAX_PATH)
+        error("Full path to the temporary folder is too long\n");
+    strcat(tmp_path, "/bcftools-sort.XXXXXX");
+    args->tmp_dir = strdup(tmp_path);
+#else
     args->tmp_dir = args->tmp_dir ? strdup(args->tmp_dir) : strdup("/tmp/bcftools-sort.XXXXXX");
+#endif
     size_t len = strlen(args->tmp_dir);
     if ( !strcmp("XXXXXX",args->tmp_dir+len-6) )
     {
-        char *tmp_dir = mkdtemp(args->tmp_dir);
-        if ( !tmp_dir ) error("mkdtemp(%s) failed: %s\n", args->tmp_dir,strerror(errno));
+        int ret = mkdir(mktemp(args->tmp_dir), 0700);
+        if ( ret ) error("mkdir(%s) failed: %s\n", args->tmp_dir,strerror(errno));
     }
     else
         mkdir_p("%s/",args->tmp_dir);

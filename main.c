@@ -53,7 +53,9 @@ int main_vcfcnv(int argc, char *argv[]);
 #if USE_GPL
 int main_polysomy(int argc, char *argv[]);
 #endif
+#ifdef ENABLE_BCF_PLUGINS
 int main_plugin(int argc, char *argv[]);
+#endif
 int main_consensus(int argc, char *argv[]);
 int main_csq(int argc, char *argv[]);
 int bam_mpileup(int argc, char *argv[]);
@@ -110,15 +112,12 @@ static cmd_t cmds[] =
       .alias = "norm",
       .help  = "left-align and normalize indels"
     },
+#ifdef ENABLE_BCF_PLUGINS
     { .func  = main_plugin,
       .alias = "plugin",
-#ifdef ENABLE_BCF_PLUGINS
       .help  = "user-defined plugins"
-#else
-      /* Do not advertise when plugins disabled. */
-      .help  = "-user-defined plugins"
-#endif
     },
+#endif
     { .func  = main_vcfquery,
       .alias = "query",
       .help  = "transform VCF/BCF into user-defined formats"

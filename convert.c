@@ -30,13 +30,13 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/kfunc.h>
-#include <inttypes.h>
 #include "bcftools.h"
 #include "variantkey.h"
 #include "convert.h"
@@ -838,7 +838,7 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
     if ( line->n_allele > 100 )
         error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
     if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
-        error("Could not alloc %"PRIu64" bytes\n", (uint64_t)(str->l + convert->nsamples*8));
+        error("Could not alloc %" PRIu64 " bytes\n", (uint64_t)(str->l + convert->nsamples*8));
 
     if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
         error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
@@ -992,7 +992,7 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
     if ( line->n_allele > 100 )
         error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
     if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
-        error("Could not alloc %"PRIu64" bytes\n", (uint64_t)(str->l + convert->nsamples*8));
+        error("Could not alloc %" PRIu64 " bytes\n", (uint64_t)(str->l + convert->nsamples*8));
 
     if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
         error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
@@ -1105,7 +1105,7 @@ static void process_rsid_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt, int i
 {
     char *ptr = line->d.id;
     ptr += 2; // remove 'rs'
-    ksprintf(str, "%08"PRIx32"", (uint32_t)strtoul(ptr, NULL, 10));
+    ksprintf(str, "%08" PRIx32 "", (uint32_t)strtoul(ptr, NULL, 10));
 }
 
 static void process_variantkey_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)
@@ -1118,7 +1118,7 @@ static void process_variantkey_hex(convert_t *convert, bcf1_t *line, fmt_t *fmt,
         strlen(line->d.allele[0]),
         line->d.allele[1],
         strlen(line->d.allele[1]));
-    ksprintf(str, "%016"PRIx64"", vk);
+    ksprintf(str, "%016" PRIx64 "", vk);
 }
 
 static void process_pbinom(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isample, kstring_t *str)

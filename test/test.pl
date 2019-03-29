@@ -795,6 +795,7 @@ sub test_vcf_convert_hls2vcf
 {
     my ($opts,%args) = @_;
     my $hls = join(',', map { "$$opts{path}/$_" }( $args{h}, $args{l}, $args{s} ) );
+    $hls = $^O =~ /^msys/ ? ($hls =~ /^\// ? $hls : "/$hls") : $hls;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hls 2>/dev/null | grep -v ^##");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hls -Ou 2>/dev/null | $$opts{bin}/bcftools view | grep -v ^##");
 }
@@ -802,6 +803,7 @@ sub test_vcf_convert_hs2vcf
 {
     my ($opts,%args) = @_;
     my $hs = join(',', map { "$$opts{path}/$_" }( $args{h}, $args{s} ) );
+    $hs = $^O =~ /^msys/ ? ($hs =~ /^\// ? $hs : "/$hs") : $hs;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hs 2>/dev/null | grep -v ^##");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hs -Ou 2>/dev/null | $$opts{bin}/bcftools view | grep -v ^##");
 }
@@ -1206,20 +1208,16 @@ sub test_mpileup
         {
             print $fh1 "$$opts{path}/mpileup/$file.bam\n";
             print $fh2 "$$opts{path}/mpileup/$file.cram\n";
-	    if ($^O =~ /^msys/) {
-		print $fh3 "file:///", cygpath(abs_path("$$opts{path}/mpileup/mpileup.$file.bam")), "\n";
-		print $fh4 "file:///", cygpath(abs_path("$$opts{path}/mpileup/mpileup.$file.cram")), "\n";
-	    } else {
-		print $fh3 "file://", abs_path("$$opts{path}/mpileup/mpileup.$file.bam"), "\n";
-		print $fh4 "file://", abs_path("$$opts{path}/mpileup/mpileup.$file.cram"), "\n";
-	    }
+            my $atmp = $^O =~ /^msys/ ? cygpath("$$opts{path}/mpileup") : abs_path("$$opts{path}/mpileup");
+            unless ($atmp =~ /^\//) { $atmp = "/$atmp"; }
+            print $fh3 "file://$atmp/$file.bam\n";
+            print $fh4 "file://$atmp/$file.cram\n";
         }
         close($fh1);
         close($fh2);
         close($fh3);
         close($fh4);
-	}
-
+    }
     my $ref = exists($args{ref}) ? $args{ref} : "mpileup.ref.fa";
 
     $args{args} =~ s/{PATH}/$$opts{path}/g;
