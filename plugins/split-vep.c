@@ -324,7 +324,7 @@ static void init_data(args_t *args)
     }
     if ( args->format_str )
     {
-        if ( !args->column_str ) error("Error: No %s field selected in the formatting expression (a typo?)\n",args->vep_tag);
+        if ( !args->column_str && !args->select ) error("Error: No %s field selected in the formatting expression and -s not given: a typo?\n",args->vep_tag);
         args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
         if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
     }
@@ -492,7 +492,6 @@ static int csq_severity_pass(args_t *args, char *csq)
 
     int min_severity, max_severity;
     csq_to_severity(args, csq, &min_severity, &max_severity);
-
     if ( max_severity < args->min_severity ) return 0;
     if ( min_severity > args->max_severity ) return 0;
     return 1;
@@ -553,6 +552,7 @@ static void process_record(args_t *args, bcf1_t *rec)
         itr_min = itr_max = get_worst_transcript(args, rec, args->cols_tr);
 
     annot_reset(args->annot, args->nannot);
+    int severity_pass = 0;
     for (i=itr_min; i<=itr_max; i++)
     {
         args->cols_csq = cols_split(args->cols_tr->off[i], args->cols_csq, '|');
@@ -561,6 +561,7 @@ static void process_record(args_t *args, bcf1_t *rec)
 
         char *csq = args->cols_csq->off[args->csq_idx];
         if ( !csq_severity_pass(args, csq) ) continue;
+        severity_pass = 1;
 
         for (j=0; j<args->nannot; j++)
         {
@@ -588,7 +589,14 @@ static void process_record(args_t *args, bcf1_t *rec)
     }
     if ( args->format_str )
     {
-        if ( !updated ) return;
+        if ( args->nannot )
+        {
+            if ( !updated ) return;         // the standard case: using -f to print the CSQ subfields, skipping if missing
+        }
+        else
+        {
+            if ( !severity_pass ) return;   // request to print only non-CSQ tags at sites that pass severity
+        }
 
         args->kstr.l = 0;
         convert_line(args->convert, rec, &args->kstr);
