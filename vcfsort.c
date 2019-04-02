@@ -247,7 +247,7 @@ size_t parse_mem_string(char *str)
 }
 
 void mkdir_p(const char *fmt, ...);
-void init(args_t *args)
+static void init(args_t *args)
 {
 #ifdef _WIN32
     char tmp_path[MAX_PATH];
@@ -272,7 +272,7 @@ void init(args_t *args)
 
     fprintf(stderr,"Writing to %s\n", args->tmp_dir);
 }
-void destroy(args_t *args)
+static void destroy(args_t *args)
 {
     bcf_hdr_destroy(args->hdr);
     free(args->tmp_dir);

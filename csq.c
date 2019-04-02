@@ -3836,7 +3836,7 @@ void debug_print_buffers(args_t *args, int pos)
     fprintf(stderr,"active_tr: %d\n", args->active_tr->ndat);
 }
 
-void process(args_t *args, bcf1_t **rec_ptr)
+static void process(args_t *args, bcf1_t **rec_ptr)
 {
     if ( !rec_ptr )
     {

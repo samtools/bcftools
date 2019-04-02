@@ -58,6 +58,7 @@ PLUGIN_EXT = @PLUGIN_EXT@
 @Hsource@include $(HTSDIR)/htslib_static.mk
 @Hsource@HTSLIB = $(HTSDIR)/libhts.a
 @Hsource@HTSLIB_LIB = $(HTSLIB) $(HTSLIB_static_LIBS)
+@Hsource@HTSLIB_DLL = $(HTSDIR)/hts.dll.a
 @Hsource@HTSLIB_LDFLAGS = $(HTSLIB_static_LDFLAGS)
 @Hsource@BGZIP = $(HTSDIR)/bgzip
 @Hsource@TABIX = $(HTSDIR)/tabix

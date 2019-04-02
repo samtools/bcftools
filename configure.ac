@@ -120,8 +120,18 @@ AS_IF([test "$enable_bcftools_plugins" != "no"], [dnl
     [*-cygwin* | *-CYGWIN*],[dnl
       host_result="Cygwin DLL"
       PLATFORM=CYGWIN
-      PLUGIN_EXT=.cygdll],
+      PLUGIN_EXT=.cygdll
+	  ],
 
+    [*-msys* | *-MSYS* | *-mingw* | *-MINGW*],[dnl
+      host_result="MSYS dll"
+      PLATFORM=MSYS
+      PLUGIN_EXT=.dll
+	  # This also sets __USE_MINGW_ANSI_STDIO which in turn makes PRId64,
+      # %lld and %z printf formats work.  It also enforces the snprintf to
+      # be C99 compliant so it returns the correct values (in kstring.c).
+      CPPFLAGS="$CPPCFLAGS -D_XOPEN_SOURCE=600"],
+  
     [*-darwin* | *-Darwin*],[dnl
       host_result="Darwin dylib"
       PLATFORM=Darwin
@@ -139,12 +149,20 @@ AS_IF([test "$enable_bcftools_plugins" != "no"], [dnl
   AC_DEFINE([ENABLE_BCF_PLUGINS], 1,
             [Define if BCFtools should enable plugins.])
 
-  AC_SEARCH_LIBS([dlopen], [dl], [],
-    [AC_MSG_ERROR([dlopen() not found
-
+  AS_CASE([$PLUGIN_EXT],
+    [*cygdll | *so],
+	  [AC_SEARCH_LIBS([dlopen], [dl], [],
+        [AC_MSG_ERROR([dlopen() not found
 Plugin support requires dynamic linking facilities from the operating system.
 Either configure with --disable-bcftools-plugins or resolve this error to
-build bcftools.])])
+build bcftools.])])],
+    [*dll],
+	  [AC_SEARCH_LIBS([LoadLibraryA], [], [],
+        [AC_MSG_ERROR([LoadLibraryA() not found
+Plugin support requires dynamic linking facilities from the operating system.
+Either configure with --disable-bcftools-plugins or resolve this error to
+build bcftools.])])],
+	)
 
   AC_MSG_CHECKING([if the compiler accepts -rdynamic])
   save_CFLAGS=$CFLAGS

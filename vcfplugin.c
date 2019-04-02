@@ -38,7 +38,11 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
 #include <htslib/khash_str2int.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <dlfcn.h>
+#endif
 #include "bcftools.h"
 #include "vcmp.h"
 #include "filter.h"
@@ -154,7 +158,11 @@ static void add_plugin_paths(args_t *args, const char *path)
 {
     while (1)
     {
+#ifdef _WIN32
+        size_t len = strcspn(path, ";"); // Windows style path list delimiter
+#else
         size_t len = strcspn(path, ":");
+#endif
 
         if ( len == 0 )
         {
@@ -212,23 +220,41 @@ static void *dlopen_plugin(args_t *args, const char *fname)
         int i;
         for (i=0; i<args->nplugin_paths; i++)
         {
-	    tmp = msprintf("%s/%s%s", args->plugin_paths[i], fname, PLUGIN_EXT);
+            tmp = msprintf("%s/%s%s", args->plugin_paths[i], fname, PLUGIN_EXT);
+#ifdef _WIN32
+            handle = LoadLibraryA(tmp);
+#else
             handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
+#endif
             if ( args->verbose > 1 )
             {
-                if ( !handle ) fprintf(stderr,"%s:\n\tdlopen   .. %s\n", tmp,dlerror());
-                else fprintf(stderr,"%s:\n\tdlopen   .. ok\n", tmp);
+                if ( !handle )
+#ifdef _WIN32
+                    fprintf(stderr,"%s:\n\tLoadLibraryA   .. %lu\n", tmp, GetLastError());
+#else
+                    fprintf(stderr,"%s:\n\tdlopen   .. %s\n", tmp, dlerror());
+#endif
+                else fprintf(stderr,"%s:\n\tplugin open   .. ok\n", tmp);
             }
             free(tmp);
             if ( handle ) return handle;
         }
     }
 
+#ifdef _WIN32
+    handle = LoadLibraryA(fname);
+#else
     handle = dlopen(fname, RTLD_NOW);
+#endif
     if ( args->verbose > 1 )
     {
-        if ( !handle ) fprintf(stderr,"%s:\n\tdlopen   .. %s\n", fname,dlerror());
-        else fprintf(stderr,"%s:\n\tdlopen   .. ok\n", fname);
+        if ( !handle )
+#ifdef _WIN32
+            fprintf(stderr,"%s:\n\tLoadLibraryA   .. %lu\n", fname, GetLastError());
+#else
+            fprintf(stderr,"%s:\n\tdlopen   .. %s\n", fname, dlerror());
+#endif
+        else fprintf(stderr,"%s:\n\tplugin open   .. ok\n", fname);
     }
 
     return handle;
@@ -264,6 +290,55 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
         return -1;
     }
 
+#ifdef _WIN32
+    plugin->init = (dl_init_f) GetProcAddress(plugin->handle, "init");
+    if ( plugin->init && args->verbose > 1 ) fprintf(stderr,"\tinit     .. ok\n");
+
+    plugin->run = (dl_run_f) GetProcAddress(plugin->handle, "run");
+    if ( plugin->run && args->verbose > 1 ) fprintf(stderr,"\trun     .. ok\n");
+
+    if ( !plugin->init && !plugin->run )
+    {
+        if ( exit_on_error ) error("Could not initialize %s, neither run or init found \n", plugin->name);
+        else if ( args->verbose > 1 ) fprintf(stderr,"\tinit/run .. not found\n");
+        return -1;
+    }
+
+    plugin->version = (dl_version_f) GetProcAddress(plugin->handle, "version");
+    if ( !plugin->version )
+    {
+        if ( exit_on_error ) error("Could not initialize %s: version string not found\n", plugin->name);
+        else if ( args->verbose > 1 ) fprintf(stderr,"\tversion  .. not found\n");
+        return -1;
+    }
+
+    plugin->about = (dl_about_f) GetProcAddress(plugin->handle, "about");
+    if ( !plugin->about )
+    {
+        if ( exit_on_error ) error("Could not initialize %s: about string not found\n", plugin->name);
+        return -1;
+    }
+
+    plugin->usage = (dl_about_f) GetProcAddress(plugin->handle, "usage");
+    if ( !plugin->usage )
+        plugin->usage = plugin->about;
+
+    if ( plugin->run ) return 0;
+
+    plugin->process = (dl_process_f) GetProcAddress(plugin->handle, "process");
+    if ( !plugin->process )
+    {
+        if ( exit_on_error ) error("Could not initialize %s: process method not found\n", plugin->name);
+        return -1;
+    }
+
+    plugin->destroy = (dl_destroy_f) GetProcAddress(plugin->handle, "destroy");
+    if ( !plugin->destroy )
+    {
+        if ( exit_on_error ) error("Could not initialize %s: destroy method not found\n", plugin->name);
+        return -1;
+    }
+#else
     dlerror();
     plugin->init = (dl_init_f) dlsym(plugin->handle, "init");
     char *ret = dlerror();
@@ -325,6 +400,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
         if ( exit_on_error ) error("Could not initialize %s: %s\n", plugin->name, ret);
         return -1;
     }
+#endif
 
     return 0;
 }
@@ -435,7 +511,11 @@ static void destroy_data(args_t *args)
 {
     free(args->plugin.name);
     if ( args->plugin.destroy ) args->plugin.destroy();
+#ifdef _WIN32
+    FreeLibrary(args->plugin.handle);
+#else
     dlclose(args->plugin.handle);
+#endif
     if ( args->hdr_out ) bcf_hdr_destroy(args->hdr_out);
     if ( args->nplugin_paths>0 )
     {
