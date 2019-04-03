@@ -218,7 +218,7 @@ static void init_data(args_t *args)
         khash_str2int_set(args->field2idx, args->field[i], i);
     }
 
-    // Create a text output as with `bcftools query -f`. For this we need to determine the fields to be exracted
+    // Create a text output as with `bcftools query -f`. For this we need to determine the fields to be extracted
     // from the formatting expression
     kstring_t str = {0,0,0};
     if ( args->format_str && !args->column_str )
@@ -229,33 +229,25 @@ static void init_data(args_t *args)
             kputc('%',&str);
             kputs(args->field[i],&str);
             char *ptr = strstr(args->format_str,str.s);
-            if ( !ptr )
-            {
-                str.l = 0;
-                kputs("%INFO/",&str);
-                kputs(args->field[i],&str);
-                ptr = strstr(args->format_str,str.s);
-            }
             if ( !ptr ) continue;
             char end = ptr[str.l];
             if ( isalnum(end) || end=='_' || end=='.' ) continue;
             ptr[str.l] = 0;
-            int tag_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, ptr);
-            if ( tag_id<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,tag_id) )
+            int tag_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, ptr+1);
+            if ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,tag_id) )
+                fprintf(stderr,"Note: ambigous key %s, using the %s subfield of %s, not the INFO/%s tag\n", ptr,ptr+1,args->vep_tag,ptr+1);
+
+            int olen = args->column_str ? strlen(args->column_str) : 0;
+            int nlen = strlen(ptr) - 1;
+            args->column_str = realloc(args->column_str, olen + nlen + 2);
+            if ( olen )
             {
-                int olen = args->column_str ? strlen(args->column_str) : 0;
-                int nlen = strlen(ptr) - 1;
-                args->column_str = realloc(args->column_str, olen + nlen + 2);
-                if ( olen )
-                {
-                    memcpy(args->column_str+olen,",",1);
-                    olen++;
-                }
-                memcpy(args->column_str+olen,ptr+1,nlen);
-                args->column_str[olen+nlen] = 0;
+                memcpy(args->column_str+olen,",",1);
+                olen++;
             }
-            else
-                fprintf(stderr,"Note: ambigous key %s, using INFO/%s\n", ptr,ptr);
+            memcpy(args->column_str+olen,ptr+1,nlen);
+            args->column_str[olen+nlen] = 0;
+
             ptr[str.l] = end;
         }
     }
