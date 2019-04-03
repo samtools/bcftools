@@ -1320,7 +1320,14 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         else if ( !strcmp(str.s, "IUPACGT") ) register_tag(convert, T_IUPAC_GT, "GT", is_gtf);
         else if ( !strcmp(str.s, "INFO") )
         {
-            if ( *q!='/' ) error("Could not parse format string: %s\n", convert->format_str);
+            if ( *q!='/' )
+            {
+                int id = bcf_hdr_id2int(convert->header, BCF_DT_ID, str.s);
+                if ( bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) )
+                    error("Could not parse format string \"%s\". Did you mean %%INFO/%s?\n", convert->format_str,str.s);
+                else
+                    error("Could not parse format string: %s\n", convert->format_str);
+            }
             p = ++q;
             str.l = 0;
             while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
