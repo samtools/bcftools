@@ -94,6 +94,7 @@ typedef struct
         *cols_csq;      // the current CSQ transcript split into fields
     int min_severity, max_severity;     // ignore consequences outside this severity range
     int select_tr;                      // one of SELECT_TR_*
+    uint8_t *smpl_pass;                 // for filtering at sample level, used with -f
 }
 args_t;
 
@@ -326,6 +327,8 @@ static void init_data(args_t *args)
         args->filter = filter_init(args->hdr_out, args->filter_str);
         max_unpack |= filter_max_unpack(args->filter);
         args->sr->max_unpack = max_unpack;
+        if ( max_unpack & BCF_UN_FMT )
+            convert_set_option(args->convert, subset_samples, &args->smpl_pass);
     }
 
     // Severity scale
@@ -575,7 +578,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     }
     if ( args->filter )
     {
-        int pass = filter_test(args->filter, rec, NULL);
+        int pass = filter_test(args->filter, rec, (const uint8_t**) &args->smpl_pass);
         if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
         if ( !pass ) return;
     }

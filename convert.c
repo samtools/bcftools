@@ -1222,11 +1222,7 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
             else if ( !strcmp("_CHROM_POS_ID",key) ) { fmt->type = T_CHROM_POS_ID; }
             else if ( !strcmp("RSX",key) ) { fmt->type = T_RSX; }
             else if ( !strcmp("VKX",key) ) { fmt->type = T_VKX; }
-            else if ( id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) )
-            {
-                fmt->type = T_INFO;
-                fprintf(stderr,"Warning: Assuming INFO/%s\n", key);
-            }
+            else if ( id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) ) { fmt->type = T_INFO; }
         }
         if ( fmt->type==T_PBINOM )
         {
@@ -1568,7 +1564,7 @@ int convert_line(convert_t *convert, bcf1_t *line, kstring_t *str)
             for (js=0; js<convert->nsamples; js++)
             {
                 // Skip samples when filtering was requested
-                if ( *convert->subset_samples && !(*convert->subset_samples)[js] ) continue;
+                if ( convert->subset_samples && *convert->subset_samples && !(*convert->subset_samples)[js] ) continue;
 
                 // Here comes a hack designed for TBCSQ. When running on large files,
                 // such as 1000GP, there are too many empty fields in the output and
