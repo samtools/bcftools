@@ -2651,8 +2651,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
 
 ==== Subset options:
 *-a, --trim-alt-alleles*::
-    trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT
-    fields will also be trimmed
+    remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
+    remains after trimming, the record itself is not removed but ALT is set to ".".
+    If the option *-s* or *-S* is given, removes alleles not seen in the subset.
+    INFO and FORMAT tags declared as Type=A, G or R will be trimmed as well.
 
 *--force-samples*::
     only warn about unknown subset samples

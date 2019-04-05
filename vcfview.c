@@ -509,7 +509,7 @@ static void usage(args_t *args)
     fprintf(stderr, "        --threads <int>                 number of extra (de)compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
-    fprintf(stderr, "    -a, --trim-alt-alleles        trim alternate alleles not seen in the subset\n");
+    fprintf(stderr, "    -a, --trim-alt-alleles        trim ALT alleles not seen in the genotype fields (or their subset with -s/-S)\n");
     fprintf(stderr, "    -I, --no-update               do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)\n");
     fprintf(stderr, "    -s, --samples [^]<list>       comma separated list of samples to include (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "    -S, --samples-file [^]<file>  file of samples to include (or exclude with \"^\" prefix)\n");
