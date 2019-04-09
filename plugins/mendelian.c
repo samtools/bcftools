@@ -434,7 +434,7 @@ int run(int argc, char **argv)
     }
     if ( args.out_fh && hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
 
-    fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio\n");
+    fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio (mother,father,child)\n");
     for (i=0; i<args.ntrios; i++)
     {
         trio_t *trio = &args.trios[i];
