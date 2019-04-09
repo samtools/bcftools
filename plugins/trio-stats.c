@@ -61,11 +61,13 @@ typedef struct
     uint32_t
         npass,          // number of genotypes passing the filter
         nnon_ref,       // number of non-reference genotypes
-        nmendel_err,    // number of mendelian errors
+        nmendel_err,    // number of DNMs / mendelian errors
         nnovel,         // a singleton allele, but observed only in the child. Counted as mendel_err as well.
         nsingleton,     // het mother or father different from everyone else
         ndoubleton,     // het mother+child or father+child different from everyone else
-        nts, ntv;       // number of transitions and transversions
+        nts, ntv,       // number of transitions and transversions
+        ndnm_recurrent, // number of recurrent DNMs / mendelian errors (counted as GTs, not sites; in ambiguous cases the allele with smaller AF is chosen)
+        ndnm_hom;       // number of homozygous DNMs / mendelian errors
 }
 trio_stats_t;
 
@@ -102,8 +104,8 @@ typedef struct
     int ntrio, mtrio;
     flt_stats_t *filters;
     int nfilters;
-    int32_t *gt_arr, *ac, *ac_trio;
-    int mgt_arr, mac, mac_trio;
+    int32_t *gt_arr, *ac, *ac_trio, *dnm_als;
+    int mgt_arr, mac, mac_trio, mdnm_als;
     int verbose;
     FILE *fp_out;
 }
@@ -323,13 +325,15 @@ static void init_data(args_t *args)
     fprintf(args->fp_out,"#   %d) mother\n", ++i);
     fprintf(args->fp_out,"#   %d) number of valid trio genotypes (all trio members pass filters, all non-missing)\n", ++i);
     fprintf(args->fp_out,"#   %d) number of non-reference trio GTs (at least one trio member carries an alternate allele)\n", ++i);
-    fprintf(args->fp_out,"#   %d) number of Mendelian errors\n", ++i);
-    fprintf(args->fp_out,"#   %d) number of novel singleton alleles in the child (counted also as a Mendelian error)\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of DNMs/Mendelian errors\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of novel singleton alleles in the child (counted also as DNM / Mendelian error)\n", ++i);
     fprintf(args->fp_out,"#   %d) number of untransmitted trio singletons (one alternate allele present in one parent)\n", ++i);
     fprintf(args->fp_out,"#   %d) number of transmitted trio singletons (one alternate allele present in one parent and the child)\n", ++i);
-    fprintf(args->fp_out,"#   %d) number of transitions, all ALT alleles present in the trio are considered\n", ++i);
-    fprintf(args->fp_out,"#   %d) number of transversions, all ALT alleles present in the trio are considered\n", ++i);
-    fprintf(args->fp_out,"#   %d) overall ts/tv, all ALT alleles present in the trio are considered\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of transitions, all distinct ALT alleles present in the trio are considered\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of transversions, all distinct ALT alleles present in the trio are considered\n", ++i);
+    fprintf(args->fp_out,"#   %d) overall ts/tv, all distinct ALT alleles present in the trio are considered\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of homozygous DNMs/Mendelian errors (likely genotyping errors)\n", ++i);
+    fprintf(args->fp_out,"#   %d) number of recurrent DNMs/Mendelian errors (non-inherited alleles present in other samples; counts GTs, not sites)\n", ++i);
     fprintf(args->fp_out, "CMD\t%s", args->argv[0]);
     for (i=1; i<args->argc; i++) fprintf(args->fp_out, " %s",args->argv[i]);
     fprintf(args->fp_out, "\n");
@@ -417,6 +421,8 @@ static void report_stats(args_t *args)
             fprintf(args->fp_out,"\t%d", stats->nts);
             fprintf(args->fp_out,"\t%d", stats->ntv);
             fprintf(args->fp_out,"\t%.2f", stats->ntv ? (float)stats->nts/stats->ntv : INFINITY);
+            fprintf(args->fp_out,"\t%d", stats->ndnm_hom);
+            fprintf(args->fp_out,"\t%d", stats->ndnm_recurrent);
             fprintf(args->fp_out,"\n");
         }
     }
@@ -493,6 +499,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
     hts_expand(int, rec->n_allele, args->mac, args->ac);
     if ( !bcf_calc_ac(args->hdr, rec, args->ac, BCF_UN_INFO|BCF_UN_FMT) ) return;
     hts_expand(int, rec->n_allele, args->mac_trio, args->ac_trio);
+    hts_expand(int, rec->n_allele, args->mdnm_als, args->dnm_als);
 
     // Get the genotypes
     int ngt = bcf_get_genotypes(args->hdr, rec, &args->gt_arr, &args->mgt_arr);
@@ -562,17 +569,37 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
         if ( has_star_allele ) continue;
 
         // Detect mendelian errors
-        int mendel_ok = (als_child[0]==als_father[0] || als_child[0]==als_father[1]) && (als_child[1]==als_mother[0] || als_child[1]==als_mother[1]) ? 1 : 0;
-        if ( !mendel_ok ) mendel_ok = (als_child[1]==als_father[0] || als_child[1]==als_father[1]) && (als_child[0]==als_mother[0] || als_child[0]==als_mother[1]) ? 1 : 0;
-        if ( !mendel_ok )
+        int a0F = als_child[0]==als_father[0] || als_child[0]==als_father[1] ? 1 : 0;
+        int a1M = als_child[1]==als_mother[0] || als_child[1]==als_mother[1] ? 1 : 0;
+        if ( !a0F || !a1M )
         {
-            stats->nmendel_err++;
-            if ( args->verbose & VERBOSE_MENDEL )
-                fprintf(args->fp_out,"MERR\t%s\t%d\t%s\t%s\t%s\n", bcf_seqname(args->hdr,rec),rec->pos+1,
-                    args->hdr->samples[args->trio[i].idx[iCHILD]],
-                    args->hdr->samples[args->trio[i].idx[iFATHER]],
-                    args->hdr->samples[args->trio[i].idx[iMOTHER]]
-                    );
+            int a0M = als_child[0]==als_mother[0] || als_child[0]==als_mother[1] ? 1 : 0;
+            int a1F = als_child[1]==als_father[0] || als_child[1]==als_father[1] ? 1 : 0;
+            if ( !a0M || !a1F )
+            {
+                stats->nmendel_err++;
+
+                int dnm_hom = 0;
+                if ( als_child[0]==als_child[1] ) { stats->ndnm_hom++; dnm_hom = 1; }
+
+                int culprit;    // neglecting the unlikely possibility of alt het 1/2 DNM genotype
+                if ( !a0F && !a0M ) culprit = als_child[0];
+                else if ( !a1F && !a1M ) culprit = als_child[1];
+                else if ( args->ac[als_child[0]] < args->ac[als_child[1]] ) culprit = als_child[0];
+                else culprit = als_child[1];
+
+                int dnm_recurrent = 0;
+                if ( (!dnm_hom && args->ac[culprit]>1) || (dnm_hom && args->ac[culprit]>2) ) { stats->ndnm_recurrent++; dnm_recurrent = 1; }
+
+                if ( args->verbose & VERBOSE_MENDEL )
+                    fprintf(args->fp_out,"MERR\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n", bcf_seqname(args->hdr,rec),rec->pos+1,
+                            args->hdr->samples[args->trio[i].idx[iCHILD]],
+                            args->hdr->samples[args->trio[i].idx[iFATHER]],
+                            args->hdr->samples[args->trio[i].idx[iMOTHER]],
+                            dnm_hom ? "HOM" : "-",
+                            dnm_recurrent ? "RECURRENT" : "-"
+                           );
+            }
         }
 
         // Is this a singleton, doubleton, neither?
