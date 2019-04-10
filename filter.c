@@ -2013,15 +2013,15 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
     int *idxs2 = NULL, nidxs2 = 0, idx2 = 0;
 
     int set_samples = 0;
-#ifdef _WIN32
-    char *colon = strrchr(tag_idx, ';');
-#else
     char *colon = strrchr(tag_idx, ':');
-#endif
     if ( tag_idx[0]=='@' )     // file list with sample names
     {
         if ( !is_fmt ) error("Could not parse \"%s\". (Not a FORMAT tag yet a sample list provided.)\n", ori);
         char *fname = expand_path(tag_idx+1);
+#ifdef _WIN32
+        if (fname && strlen(fname) > 2 && fname[1] == ':') // Deal with Windows paths, such as 'C:\..'
+            colon = strrchr(fname+2, ':');
+#endif
         int nsmpl;
         char **list = hts_readlist(fname, 1, &nsmpl);
         if ( !list && colon )
@@ -2030,11 +2030,7 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
             tok->idxs  = idxs2;
             tok->nidxs = nidxs2;
             tok->idx   = idx2;
-#ifdef _WIN32
-            colon = strrchr(fname, ';');
-#else
             colon = strrchr(fname, ':');
-#endif
             *colon = 0;
             list = hts_readlist(fname, 1, &nsmpl);
         }

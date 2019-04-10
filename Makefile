@@ -170,7 +170,6 @@ PLUGIN_FLAGS = -fPIC -shared -Wl,-export-all-symbols
 PLUGIN_LIBS = libbcftools.a $(HTSLIB_DLL) $(ALL_LIBS)
 # On windows, plugins need to be fully linked, including bcftools_version() symbol
 # from the application they will be loaded into.
-BCFTOOLS_IMPLIB = -Wl,-out-implib,libbcftools.a
 else
 PLUGIN_FLAGS = -fPIC -shared
 endif
@@ -182,7 +181,7 @@ libbcftools.a: $(OBJS)
 
 vcfplugin.o: EXTRA_CPPFLAGS += -DPLUGINPATH='"$(pluginpath)"'
 
-%.dll: %.c version.h version.c libbcftools.a
+%.dll: %.c version.h version.c libbcftools.a $(HTSLIB_DLL)
 	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS)
 %.so: %.c version.h version.c
 	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(LIBS)
@@ -328,7 +327,7 @@ clean: testclean clean-plugins
 	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
 
 clean-plugins:
-	-rm -f plugins/*.so plugins/*.P
+	-rm -f plugins/*.so plugins/*.P plugins/*.dll
 	-rm -rf plugins/*.dSYM
 
 testclean:

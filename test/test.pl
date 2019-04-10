@@ -307,8 +307,8 @@ test_vcf_annotate($opts,in=>'annotate15',tab=>'annotate15',out=>'annotate27.out'
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
-test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.2.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{PATH}/setGT.samples.txt]="het"\'');
-test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.3.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{PATH}/setGT.samples.txt]="het" & binom(AD[@{PATH}/setGT.samples.txt])<0.1\'');
+test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.2.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{QPATH}/setGT.samples.txt]="het"\'');
+test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.3.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{QPATH}/setGT.samples.txt]="het" & binom(AD[@{QPATH}/setGT.samples.txt])<0.1\'');
 test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args=>'-c CHROM,POS,REF,ALT,+ID');
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC --no-version');
 test_vcf_plugin($opts,in=>'dosage',out=>'dosage.1.out',cmd=>'+dosage',args=>'-- -t PL');
@@ -505,8 +505,8 @@ sub parse_params
     $$opts{bin}  = $FindBin::RealBin;
     $$opts{bin}  =~ s{/test/?$}{};
     if ($^O =~ /^msys/) {
-	$$opts{path} = cygpath($$opts{path});
-	$$opts{bin}  = cygpath($$opts{bin});
+        $$opts{path} = cygpath($$opts{path});
+        $$opts{bin}  = cygpath($$opts{bin});
     }
     
     return $opts;
@@ -1043,6 +1043,12 @@ sub test_vcf_plugin
     if ( !$$opts{test_plugins} ) { return; }
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
     if ( !exists($args{args}) ) { $args{args} = ''; }
+    my $wpath = $$opts{path}; 
+    if ($^O =~ /^msys/) {
+        $wpath = `cygpath -w $$opts{path}`;
+        $wpath =~ s/\r?\n//;
+    }
+    $args{args} =~ s/{QPATH}/$wpath/g;
     $args{args} =~ s/{PATH}/$$opts{path}/g;
     $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
     $args{args} =~ s/{TMP}/$$opts{tmp}/g;
