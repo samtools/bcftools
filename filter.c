@@ -53,8 +53,8 @@ static int filter_ninit = 0;
 #  define __FUNCTION__ __func__
 #endif
 
-uint64_t bcf_double_missing    = 0x7ff0000000000001;
-uint64_t bcf_double_vector_end = 0x7ff0000000000002;
+static const uint64_t bcf_double_missing    = 0x7ff0000000000001;
+static const uint64_t bcf_double_vector_end = 0x7ff0000000000002;
 static inline void bcf_double_set(double *ptr, uint64_t value)
 {
     union { uint64_t i; double d; } u;
