@@ -391,6 +391,7 @@ static void destroy_data(args_t *args)
     free(args->ac);
     free(args->ac_trio);
     free(args->gt_arr);
+    free(args->dnm_als);
     if ( fclose(args->fp_out)!=0 ) error("Close failed: %s\n", (!args->output_fname || !strcmp("-",args->output_fname)) ? "stdout" : args->output_fname);
     free(args);
 }
