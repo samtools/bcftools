@@ -193,7 +193,11 @@ static void add_plugin_paths(args_t *args, const char *path)
         }
 
         path += len;
+#ifdef _WIN32
+        if ( *path == ';' ) path++;
+#else
         if ( *path == ':' ) path++;
+#endif
         else break;
     }
 }

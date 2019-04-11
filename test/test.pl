@@ -795,7 +795,7 @@ sub test_vcf_convert_hls2vcf
 {
     my ($opts,%args) = @_;
     my $hls = join(',', map { "$$opts{path}/$_" }( $args{h}, $args{l}, $args{s} ) );
-    $hls = $^O =~ /^msys/ ? ($hls =~ /^\// ? $hls : "/$hls") : $hls;
+    if($^O =~ /^msys/) { $hls =~ s/\//\\\\/g; }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hls 2>/dev/null | grep -v ^##");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hls -Ou 2>/dev/null | $$opts{bin}/bcftools view | grep -v ^##");
 }
@@ -803,7 +803,7 @@ sub test_vcf_convert_hs2vcf
 {
     my ($opts,%args) = @_;
     my $hs = join(',', map { "$$opts{path}/$_" }( $args{h}, $args{s} ) );
-    $hs = $^O =~ /^msys/ ? ($hs =~ /^\// ? $hs : "/$hs") : $hs;
+    if($^O =~ /^msys/) { $hs =~ s/\//\\\\/g; }
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hs 2>/dev/null | grep -v ^##");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools convert $args{args} $hs -Ou 2>/dev/null | $$opts{bin}/bcftools view | grep -v ^##");
 }
