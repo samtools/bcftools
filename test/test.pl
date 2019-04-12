@@ -302,6 +302,8 @@ test_vcf_annotate($opts,in=>'annotate13',tab=>'annots13',out=>'annotate21.out',a
 test_vcf_annotate($opts,in=>'annotate13',tab=>'annots13',out=>'annotate23.out',args=>'-c CHROM,BEG,END,ABC -l ABC:append');
 test_vcf_annotate($opts,in=>'annotate13',tab=>'annots13',out=>'annotate24.out',args=>'-c CHROM,BEG,END,ABC -l ABC:unique');
 test_vcf_annotate($opts,in=>'annotate14',out=>'annotate25.out',args=>'-x FILTER/XX,INFO/XX --force');
+test_vcf_annotate($opts,in=>'annotate15',tab=>'annotate15',out=>'annotate26.out',args=>'-s SAMPLE1 -c CHROM,FROM,TO,FMT/FOO,BAR');
+test_vcf_annotate($opts,in=>'annotate15',tab=>'annotate15',out=>'annotate27.out',args=>'-s SAMPLE2 -c CHROM,FROM,TO,FMT/FOO,BAR');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');

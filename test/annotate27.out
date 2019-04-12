@@ -1,0 +1,8 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=249250621,assembly=b37>
+##FORMAT=<ID=FOO,Number=1,Type=String,Description="Some description">
+##INFO=<ID=BAR,Number=1,Type=Integer,Description="Some description">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1	SAMPLE2
+1	752567	.	A	C	.	.	BAR=12345	FOO	.	FooValue1
+1	752722	.	G	A	.	.	BAR=67890	FOO	.	FooValue2
