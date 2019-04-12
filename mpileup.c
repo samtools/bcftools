@@ -1050,7 +1050,7 @@ int bam_mpileup(int argc, char *argv[])
 
     if ( mplp.gvcf && !(mplp.fmt_flag&B2B_FMT_DP) )
     {
-        fprintf(stderr,"[warning] The -t DP option is required with --gvcf, switching on.\n");
+        fprintf(stderr,"[warning] The -a DP option is required with --gvcf, switching on.\n");
         mplp.fmt_flag |= B2B_FMT_DP;
     }
     if ( mplp.flag&(MPLP_BCF|MPLP_VCF|MPLP_NO_COMP) )
