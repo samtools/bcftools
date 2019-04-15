@@ -587,6 +587,7 @@ typedef struct _args_t
     int phase, quiet, local_csq;
     int ncsq_max, nfmt_bcsq;    // maximum number of csq per site that can be accessed from FORMAT/BCSQ
     int ncsq_small_warned;
+    int brief_predictions;
     
     int rid;                    // current chromosome
     tr_heap_t *active_tr;       // heap of active transcripts for quick flushing
@@ -2576,6 +2577,20 @@ void kput_vcsq(args_t *args, vcsq_t *csq, kstring_t *str)
         kputs(csq->vstr.s, str);
 }
 
+void kprint_aa_prediction(args_t *args, int beg, kstring_t *aa, kstring_t *str)
+{
+    if ( !args->brief_predictions )
+        kputs(aa->s, str);
+    else
+    {
+        int len = aa->l;
+        if ( aa->s[len-1]=='*' ) len--;
+        kputc(aa->s[0], str);
+        kputs("..", str);
+        kputw(beg+len, str);
+    }
+}
+
 void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg, int iend, int dlen, int indel)
 {
     int i;
@@ -2684,12 +2699,12 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
     int aa_sbeg = tr->strand==STRAND_FWD ? node2sbeg(ibeg)/3+1 : (tlen - node2send(iend))/3+1;
     kputc_('|', &str);
     kputw(aa_rbeg, &str);
-    kputs(hap->tref.s, &str);
+    kprint_aa_prediction(args,aa_rbeg,&hap->tref,&str);
     if ( !(csq->type.type & CSQ_SYNONYMOUS_VARIANT) )
     {
         kputc_('>', &str);
         kputw(aa_sbeg, &str);
-        kputs(hap->tseq.s, &str);
+        kprint_aa_prediction(args,aa_sbeg,&hap->tseq,&str);
     }
     kputc_('|', &str);
 
@@ -3324,12 +3339,12 @@ int test_cds_local(args_t *args, bcf1_t *rec)
                     int aa_sbeg = tr->strand==STRAND_FWD ? node.sbeg/3+1 : (tr->nsref - 2*N_REF_PAD + node.dlen - node.sbeg - alen)/3+1;
                     kputc_('|', &str);
                     kputw(aa_rbeg, &str);
-                    kputs(tref->s, &str);
+                    kprint_aa_prediction(args,aa_rbeg,tref,&str);
                     if ( !(csq_type & CSQ_SYNONYMOUS_VARIANT) )
                     {
                         kputc_('>', &str);
                         kputw(aa_sbeg, &str);
-                        kputs(tseq->s, &str);
+                        kprint_aa_prediction(args,aa_sbeg,tseq,&str);
                     }
                     kputc_('|', &str);
                     kputw(rec->pos+1, &str);
@@ -3901,6 +3916,7 @@ static const char *usage(void)
         "   -g, --gff-annot <file>          gff3 annotation file\n"
         "\n"
         "CSQ options:\n"
+        "   -b, --brief-predictions         annotate with abbreviated protein-changing predictions\n"
         "   -c, --custom-tag <string>       use this tag instead of the default BCSQ\n"
         "   -l, --local-csq                 localized predictions, consider only one VCF record at a time\n"
         "   -n, --ncsq <int>                maximum number of consequences to consider per site [16]\n"
@@ -3947,6 +3963,7 @@ int main_csq(int argc, char *argv[])
         {"force",0,0,1},
         {"help",0,0,'h'},
         {"ncsq",1,0,'n'},
+        {"brief-predictions",0,0,'b'},
         {"custom-tag",1,0,'c'},
         {"local-csq",0,0,'l'},
         {"gff-annot",1,0,'g'},
@@ -3967,11 +3984,12 @@ int main_csq(int argc, char *argv[])
     };
     int c, targets_is_file = 0, regions_is_file = 0; 
     char *targets_list = NULL, *regions_list = NULL;
-    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:b",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case  1 : args->force = 1; break;
+            case 'b': args->brief_predictions = 1; break;
             case 'l': args->local_csq = 1; break;
             case 'c': args->bcsq_tag = optarg; break;
             case 'q': args->quiet++; break;
