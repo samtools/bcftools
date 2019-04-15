@@ -1234,7 +1234,7 @@ int main_vcfroh(int argc, char *argv[])
     }
     if ( args->n_threads && bcf_sr_set_threads(args->files, args->n_threads)<0)
         error("Failed to create threads\n");
-    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
+    if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->files->errnum));
 
     init_data(args);
     while ( bcf_sr_next_line(args->files) )

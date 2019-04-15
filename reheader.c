@@ -676,7 +676,7 @@ int main_reheader(int argc, char *argv[])
     if ( !args->fname ) usage(args);
 
     args->fp = hts_open(args->fname,"r");
-    if ( !args->fp ) error("Failed to open: %s\n", args->fname);
+    if ( !args->fp ) error("Failed to read from %s\n", !strcmp("-",args->fname)?"standard input":args->fname);
     args->type = *hts_get_format(args->fp);
 
     if ( args->type.format==vcf )

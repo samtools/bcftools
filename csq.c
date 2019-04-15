@@ -1365,7 +1365,7 @@ void init_data(args_t *args)
     if ( args->output_type==FT_TAB_TEXT )
     {
         args->out = args->output_fname ? fopen(args->output_fname,"w") : stdout;
-        if ( !args->out ) error("Failed to open %s: %s\n", args->output_fname,strerror(errno));
+        if ( !args->out ) error("Failed to write to %s: %s\n", !strcmp("-",args->output_fname)?"standard output":args->output_fname,strerror(errno));
 
         fprintf(args->out,"# This file was produced by: bcftools +csq(%s+htslib-%s)\n", bcftools_version(),hts_version());
         fprintf(args->out,"# The command line was:\tbcftools +%s", args->argv[0]);
@@ -4032,7 +4032,7 @@ int main_csq(int argc, char *argv[])
     if ( regions_list && bcf_sr_set_regions(args->sr, regions_list, regions_is_file)<0 )
         error("Failed to read the regions: %s\n", regions_list);
     if ( !bcf_sr_add_reader(args->sr, fname) )
-        error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->sr->errnum));
+        error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
 
     init_data(args);

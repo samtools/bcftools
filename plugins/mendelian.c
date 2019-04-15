@@ -371,7 +371,7 @@ int run(int argc, char **argv)
     }
 
     args.sr = bcf_sr_init();
-    if ( !bcf_sr_add_reader(args.sr, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args.sr->errnum));
+    if ( !bcf_sr_add_reader(args.sr, fname) ) error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args.sr->errnum));
     args.hdr = bcf_sr_get_header(args.sr, 0);
     if ( args.mode!=MODE_COUNT )
     {

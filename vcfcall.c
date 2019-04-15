@@ -578,7 +578,8 @@ static void init_data(args_t *args)
             error("Failed to read the regions: %s\n", args->regions);
     }
 
-    if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) ) error("Failed to open %s: %s\n", args->bcf_fname,bcf_sr_strerror(args->aux.srs->errnum));
+    if ( !bcf_sr_add_reader(args->aux.srs, args->bcf_fname) )
+        error("Failed to read from %s: %s\n", !strcmp("-",args->bcf_fname)?"standard input":args->bcf_fname,bcf_sr_strerror(args->aux.srs->errnum));
     args->aux.hdr = bcf_sr_get_header(args->aux.srs,0);
 
     int i;

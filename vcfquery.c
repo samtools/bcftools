@@ -323,7 +323,7 @@ int main_vcfquery(int argc, char *argv[])
     {
         if ( !fname ) error("Missing the VCF file name\n");
         args->files = bcf_sr_init();
-        if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
+        if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->files->errnum));
         list_columns(args);
         bcf_sr_destroy(args->files);
         free(args);
@@ -352,7 +352,7 @@ int main_vcfquery(int argc, char *argv[])
         }
         while ( fname )
         {
-            if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args->files->errnum));
+            if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->files->errnum));
             fname = ++optind < argc ? argv[optind] : NULL;
         }
         init_data(args);
