@@ -2970,7 +2970,7 @@ static inline void hap_stage_vcf(args_t *args, tscript_t *tr, int ismpl, int iha
             if ( !args->quiet && !args->ncsq_small_warned )
             {
                 fprintf(stderr,
-                    "Warning: too many consequences for %s at %s:%d, annotating the first %d and skipping the rest.\n"
+                    "Warning: too many consequences for sample %s at %s:%d, keeping the first %d and skipping the rest.\n"
                     "         The limit can be increased by setting the --ncsq parameter. This warning is printed only once.\n",
                     args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),vrec->line->pos+1,csq->idx);
                 args->ncsq_small_warned = 1;
@@ -3590,19 +3590,14 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
             if ( icsq >= args->ncsq_max ) // more than ncsq_max consequences, so can't fit it in FMT
             {
                 int ismpl = args->smpl->idx[i];
-                int print_warning = 1;
-                if ( args->quiet )
+                if ( !args->quiet && !args->ncsq_small_warned )
                 {
-                    if ( args->quiet > 1 || args->ncsq_small_warned ) print_warning = 0;
+                    fprintf(stderr,
+                            "Warning: too many consequences for sample %s at %s:%d, keeping the first %d and skipping the rest.\n"
+                            "         The limit can be increased by setting the --ncsq parameter. This warning is printed only once.\n",
+                            args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),vrec->line->pos+1,icsq+1);
                     args->ncsq_small_warned = 1;
                 }
-                if ( print_warning )
-                {
-                    fprintf(stderr,"Warning: --ncsq %d is too small to annotate %s at %s:%d with %d-th csq\n",
-                            args->ncsq_max/2,args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),vrec->line->pos+1,csq->idx+1);
-                    if ( args->quiet ) fprintf(stderr,"(This warning is printed only once)\n");
-                }
-                break;
             }
             if ( vrec->nfmt < 1 + icsq/32 ) vrec->nfmt = 1 + icsq/32;
             vrec->smpl[i*args->nfmt_bcsq + icsq/32] |= 1 << (icsq % 32);
