@@ -43,6 +43,7 @@ THE SOFTWARE.  */
 #include "ploidy.h"
 #include "gvcf.h"
 #include "regidx.h"
+#include "vcfbuf.h"
 
 void error(const char *format, ...);
 
@@ -70,9 +71,9 @@ void error(const char *format, ...);
 typedef struct
 {
     tgt_als_t *als;
-    int indel, nmatch, itgt;
+    int nmatch_als, ibuf;
 }
-tgt_candidate_t;
+rec_tgt_t;
 
 typedef struct
 {
@@ -86,8 +87,7 @@ typedef struct
     int regions_is_file, targets_is_file;
     regidx_t *tgt_idx;
     regitr_t *tgt_itr, *tgt_itr_prev, *tgt_itr_tmp;
-    tgt_candidate_t *tgt_dup;
-    int mtgt_dup;
+    vcfbuf_t *vcfbuf;
 
     char *samples_fname;
     int samples_is_file;
@@ -449,7 +449,7 @@ static void tgt_flush(args_t *args, bcf1_t *rec)
     {
         // flush everything
         if ( args->tgt_itr_prev )
-            tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg+1,REGIDX_MAX);
+            tgt_flush_region(args,args->tgt_itr_prev->seq,args->tgt_itr_prev->beg,REGIDX_MAX);
 
         int i, nchr = 0;
         char **chr = regidx_seq_names(args->tgt_idx, &nchr);
@@ -457,108 +457,158 @@ static void tgt_flush(args_t *args, bcf1_t *rec)
             tgt_flush_region(args,chr[i],0,REGIDX_MAX);
     }
 }
-// sort by: records to be skipped last; used; fewer matching alleles; snp or indel?
-static int cmp_tgt_candidate(const void *aptr, const void *bptr)
+inline static int is_indel(int nals, char **als)
 {
-    tgt_candidate_t *a = (tgt_candidate_t*)aptr;
-    tgt_candidate_t *b = (tgt_candidate_t*)bptr;
-    if ( !a->als || !b->als )
+    // This is mpileup output, we can make some assumption:
+    //  - no MNPs
+    //  - "<*>" is not present at indels sites and there are no other symbolic alleles than <*>
+    if ( als[1][0]=='<' ) return 0;
+
+    int i;
+    for (i=0; i<nals; i++)
     {
-        if ( !a->als && !b->als ) return 0;
-        if ( !b->als ) return -1;
-        return 1;
+        if ( als[i][0]=='<' ) continue;
+        if ( als[i][1] ) return 1;
     }
-    if ( a->als->used || b->als->used )
-    {
-        if ( a->als->used && b->als->used ) return 0;
-        if ( b->als->used ) return -1;
-        return 1;
-    }
-    if ( a->nmatch > b->nmatch ) return -1;
-    if ( a->nmatch < b->nmatch ) return 1;
-    if ( b->indel ) return -1;
-    if ( a->indel ) return 1;
     return 0;
 }
-inline static int is_indel(char *ref, char *alt)
+bcf1_t *next_line(args_t *args)
 {
-    if ( *alt=='<' ) return 0;  // this is mpileup output, no other symbolic alleles than <*>
-    int i = 0;
-    while ( ref[i] && alt[i] ) i++;
-    if ( !ref[i] && !alt[i] ) return 0;
-    return 1;
-}
-static int tgt_overlap(args_t *args, bcf1_t *rec)
-{
-    if ( !regidx_overlap(args->tgt_idx, bcf_seqname(args->aux.hdr,rec),rec->pos,rec->pos,args->tgt_itr) ) return 0;
-    if ( !(args->aux.flag & CALL_CONSTR_ALLELES) )
+    bcf1_t *rec = NULL;
+    if ( !args->vcfbuf )
     {
-        while ( regitr_overlap(args->tgt_itr) )
+        while ( bcf_sr_next_line(args->aux.srs) )
         {
-            if ( args->tgt_itr->beg != rec->pos ) continue;
-            return 1;
+            rec = args->aux.srs->readers[0].buffer[0];
+            if ( args->aux.srs->errnum || rec->errcode ) error("Error: could not parse the input VCF\n");
+            if ( args->tgt_idx )
+            {
+                if ( !regidx_overlap(args->tgt_idx, bcf_seqname(args->aux.hdr,rec),rec->pos,rec->pos,args->tgt_itr) ) continue;
+
+                // For backward compatibility: require the exact position, not an interval overlap
+                int pos_match = 0;
+                while ( regitr_overlap(args->tgt_itr) )
+                {
+                    if ( args->tgt_itr->beg != rec->pos ) continue;
+                    pos_match = 1;
+                    break;
+                }
+                if ( !pos_match ) continue;
+            }
+            if ( args->samples_map ) bcf_subset(args->aux.hdr, rec, args->nsamples, args->samples_map);
+            bcf_unpack(rec, BCF_UN_STR);
+            return rec;
         }
-        return 0;
+        return NULL;
     }
 
-    // from multiple overlapping records choose the one with best matching set of alleles
-    int i, ntgt = 0, has_tgt = 0;
+    // If we are here,-C alleles was given and vcfbuf and tgt_idx are set
+
+    // Fill the buffer with duplicate lines
+    int vcfbuf_full = 1;
+    int nbuf = vcfbuf_nsites(args->vcfbuf);
+    bcf1_t *rec0 = NULL, *recN = NULL;
+    if ( nbuf==0 ) vcfbuf_full = 0;
+    else if ( nbuf==1 )
+    {
+        vcfbuf_full = 0;
+        rec0 = vcfbuf_peek(args->vcfbuf, 0);
+    }
+    else
+    {
+        rec0 = vcfbuf_peek(args->vcfbuf, 0);
+        recN = vcfbuf_peek(args->vcfbuf, nbuf-1);
+        if ( rec0->rid == recN->rid && rec0->pos == recN->pos ) vcfbuf_full = 0;
+    }
+    if ( !vcfbuf_full )
+    {
+        while ( bcf_sr_next_line(args->aux.srs) )
+        {
+            rec = args->aux.srs->readers[0].buffer[0];
+            if ( args->aux.srs->errnum || rec->errcode ) error("Error: could not parse the input VCF\n");
+            if ( !regidx_overlap(args->tgt_idx, bcf_seqname(args->aux.hdr,rec),rec->pos,rec->pos,args->tgt_itr) ) continue;
+            // as above: require the exact position, not an interval overlap
+            int exact_match = 0;
+            while ( regitr_overlap(args->tgt_itr) )
+            {
+                if ( args->tgt_itr->beg != rec->pos ) continue;
+                exact_match = 1;
+                break;
+            }
+            if ( !exact_match ) continue;
+
+            if ( args->samples_map ) bcf_subset(args->aux.hdr, rec, args->nsamples, args->samples_map);
+            bcf_unpack(rec, BCF_UN_STR);
+            if ( !rec0 ) rec0 = rec;
+            recN = rec;
+            args->aux.srs->readers[0].buffer[0] = vcfbuf_push(args->vcfbuf, rec, 1);
+            if ( rec0->rid!=recN->rid || rec0->pos!=recN->pos ) break;
+        }
+    }
+
+    nbuf = vcfbuf_nsites(args->vcfbuf);
+    int n, i,j;
+    for (n=nbuf; n>1; n--)
+    {
+        recN = vcfbuf_peek(args->vcfbuf, n-1);
+        if ( rec0->rid==recN->rid && rec0->pos==recN->pos ) break;
+    }
+    if ( n==0 )
+    {
+        assert( !nbuf );
+        return NULL;
+    }
+
+    // Find the VCF and tab record with the best matching combination of alleles, prioritize 
+    // records of the same type (snp vs indel)
+    rec_tgt_t rec_tgt;
+    memset(&rec_tgt,0,sizeof(rec_tgt));
+    regidx_overlap(args->tgt_idx, bcf_seqname(args->aux.hdr,rec0),rec0->pos,rec0->pos,args->tgt_itr);
     regitr_t *tmp_itr = regitr_init(args->tgt_idx);
     regitr_copy(tmp_itr, args->tgt_itr);
-    while ( regitr_overlap(tmp_itr) )
+    for (i=0; i<n; i++)
     {
-        ntgt++;
-        hts_expand(tgt_candidate_t,ntgt,args->mtgt_dup,args->tgt_dup);
-        args->tgt_dup[ntgt-1].als = NULL;
-        if ( args->tgt_itr->beg != rec->pos ) continue;
-
-        tgt_als_t *als = &regitr_payload(tmp_itr,tgt_als_t);
-        args->tgt_dup[ntgt-1].als    = als;
-        args->tgt_dup[ntgt-1].itgt   = ntgt-1;
-        args->tgt_dup[ntgt-1].nmatch = 0;
-        args->tgt_dup[ntgt-1].indel  = 0;
-        for (i=1; i<als->n; i++)
+        rec = vcfbuf_peek(args->vcfbuf, i);
+        int rec_indel = is_indel(rec->n_allele, rec->d.allele) ? 1 : -1;
+        while ( regitr_overlap(tmp_itr) )
         {
-            args->tgt_dup[ntgt-1].indel = is_indel(als->allele[0],als->allele[i]);
-            if ( args->tgt_dup[ntgt-1].indel ) break;
-        }
-
-        vcmp_t *vcmp = vcmp_init();
-        int ret = vcmp_set_ref(vcmp, rec->d.allele[0], als->allele[0]);
-        if ( ret==0 )
-        {
-            args->tgt_dup[ntgt-1].nmatch = 1;
-            if ( rec->n_allele > 1 && als->n > 1 )
+            if ( tmp_itr->beg != rec->pos ) continue;
+            tgt_als_t *als = &regitr_payload(tmp_itr,tgt_als_t);
+            if ( als->used ) continue;
+            int nmatch_als = 0;
+            vcmp_t *vcmp = vcmp_init();
+            int ret = vcmp_set_ref(vcmp, rec->d.allele[0], als->allele[0]);
+            if ( ret==0 )
             {
-                for (i=1; i<als->n; i++)
+                nmatch_als++;
+                if ( rec->n_allele > 1 && als->n > 1 )
                 {
-                    if ( vcmp_find_allele(vcmp, rec->d.allele+1, rec->n_allele-1, als->allele[i])>=0 ) args->tgt_dup[ntgt-1].nmatch++;
+                    for (j=1; j<als->n; j++)
+                    {
+                        if ( vcmp_find_allele(vcmp, rec->d.allele+1, rec->n_allele-1, als->allele[j])>=0 ) nmatch_als++;
+                    }
                 }
             }
+            int als_indel = is_indel(als->n, als->allele) ? 1 : -1;
+            nmatch_als *= rec_indel*als_indel;
+            if ( nmatch_als > rec_tgt.nmatch_als || !rec_tgt.als )
+            {
+                rec_tgt.nmatch_als = nmatch_als;
+                rec_tgt.als  = als;
+                rec_tgt.ibuf = i;
+            }
+            vcmp_destroy(vcmp);
         }
-        vcmp_destroy(vcmp);
-
-        if ( !als->used ) has_tgt = 1;
     }
     regitr_destroy(tmp_itr);
-    if ( !has_tgt ) return 0;
 
-    qsort(args->tgt_dup, ntgt, sizeof(tgt_candidate_t), cmp_tgt_candidate);
+    args->aux.tgt_als = rec_tgt.als;
+    if ( rec_tgt.als ) rec_tgt.als->used = 1;
 
-    for (i=0; i<=args->tgt_dup[0].itgt; i++)
-        regitr_overlap(args->tgt_itr);
-
-    args->aux.tgt_als = &regitr_payload(args->tgt_itr,tgt_als_t);
-    args->aux.tgt_als->used = 1;
-
-    if ( args->flag & CF_INS_MISSED )
-    {
-        tgt_flush(args,rec);
-        if ( !args->tgt_itr_prev ) args->tgt_itr_prev = regitr_init(args->tgt_idx);
-        regitr_copy(args->tgt_itr_prev, args->tgt_itr);
-    }
-    return 1;
+    rec = vcfbuf_remove(args->vcfbuf, rec_tgt.ibuf);
+    return rec;
 }
+
 
 static void init_data(args_t *args)
 {
@@ -639,6 +689,9 @@ static void init_data(args_t *args)
         }
     }
 
+    if ( args->aux.flag & CALL_CONSTR_ALLELES )
+        args->vcfbuf = vcfbuf_init(args->aux.hdr, 0);
+
     args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Error: cannot write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
@@ -663,7 +716,7 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
-    free(args->tgt_dup);
+    if ( args->vcfbuf ) vcfbuf_destroy(args->vcfbuf);
     if ( args->tgt_idx )
     {
         regidx_destroy(args->tgt_idx);
@@ -1004,19 +1057,17 @@ int main_vcfcall(int argc, char *argv[])
     if ( args.aux.flag&CALL_VARONLY && args.gvcf ) error("The two options cannot be combined: --variants-only and --gvcf\n");
     init_data(&args);
 
-    while ( bcf_sr_next_line(args.aux.srs) )
+    bcf1_t *bcf_rec;
+    while ( (bcf_rec = next_line(&args)) )
     {
-        bcf1_t *bcf_rec = args.aux.srs->readers[0].buffer[0];
-        if ( args.aux.srs->errnum || bcf_rec->errcode ) error("Error: could not parse the input VCF\n");
-        if ( args.samples_map ) bcf_subset(args.aux.hdr, bcf_rec, args.nsamples, args.samples_map);
-        bcf_unpack(bcf_rec, BCF_UN_STR);
+        // Skip duplicate positions with all matching `-C alleles -T` used up
+        if ( args.aux.flag&CALL_CONSTR_ALLELES && !args.aux.tgt_als ) continue;
 
         // Skip unwanted sites
         int i, is_indel = bcf_is_snp(bcf_rec) ? 0 : 1;
         if ( (args.flag & CF_INDEL_ONLY) && !is_indel ) continue;
         if ( (args.flag & CF_NO_INDEL) && is_indel ) continue;
         if ( (args.flag & CF_ACGT_ONLY) && (bcf_rec->d.allele[0][0]=='N' || bcf_rec->d.allele[0][0]=='n') ) continue;   // REF[0] is 'N'
-        if ( args.tgt_idx && !tgt_overlap(&args, bcf_rec) ) continue;
 
         // Which allele is symbolic? All SNPs should have it, but not indels
         args.aux.unseen = 0;
@@ -1042,6 +1093,13 @@ int main_vcfcall(int argc, char *argv[])
         {
             qcall(&args.aux, bcf_rec);
             continue;
+        }
+
+        if ( args.flag & CF_INS_MISSED )
+        {
+            tgt_flush(&args,bcf_rec);
+            if ( !args.tgt_itr_prev ) args.tgt_itr_prev = regitr_init(args.tgt_idx);
+            regitr_copy(args.tgt_itr_prev, args.tgt_itr);
         }
 
         // Calling modes which output VCFs

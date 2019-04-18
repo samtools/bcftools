@@ -1,0 +1,26 @@
+##fileformat=VCFv4.2
+##reference=hs37d5.fa
+##contig=<ID=6,length=171115067>
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of raw reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of raw reads supporting an indel">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
+##INFO=<ID=RPB,Number=1,Type=Float,Description="Mann-Whitney U test of Read Position Bias (bigger is better)">
+##INFO=<ID=MQB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality Bias (bigger is better)">
+##INFO=<ID=BQB,Number=1,Type=Float,Description="Mann-Whitney U test of Base Quality Bias (bigger is better)">
+##INFO=<ID=MQSB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
+##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
+##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##FORMAT=<ID=SP,Number=1,Type=Integer,Description="Phred-scaled strand bias P-value">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Allelic depths on the forward strand">
+##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Allelic depths on the reverse strand">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12878
+6	263708	.	C	<*>	0	.	DP=211;I16=117,27,0,0,4635,154411,0,0,8284,486348,0,0,2730,59520,0,0;QS=1,0;MQSB=0.901445;MQ0F=0	PL:DP:SP:ADF:ADR:AD	0,255,255:144:0:117,0:27,0:144,0
+6	263708	.	CTTTTTTTTTTTTTT	CTTTTTTTTTTTTT,CTTTTTTTTTTTTTTT,CTTTTTTTTTTTT	0	.	INDEL;IDV=27;IMF=0.127358;DP=212;I16=100,83,20,9,3133,71279,800,23372,10402,608546,1663,97179,3447,74011,628,14310;QS=0.84686,0.0839802,0.0494001,0.0197601;VDB=0.0105186;SGB=-0.693079;MQSB=0.971475;MQ0F=0	PL:DP:SP:ADF:ADR:AD	0,255,39,255,51,39,255,74,57,39:212:8:100,12,7,1:83,5,3,1:183,17,10,2

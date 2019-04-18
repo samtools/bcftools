@@ -134,6 +134,21 @@ bcf1_t *vcfbuf_push(vcfbuf_t *buf, bcf1_t *rec, int swap)
     return ret;
 }
 
+bcf1_t *vcfbuf_peek(vcfbuf_t *buf, int idx)
+{
+    int i = rbuf_kth(&buf->rbuf, idx);
+    return i<0 ? NULL : buf->vcf[i].rec;
+}
+
+bcf1_t *vcfbuf_remove(vcfbuf_t *buf, int idx)
+{
+    int i = rbuf_kth(&buf->rbuf, idx);
+    if ( i<0 ) return NULL;
+    bcf1_t *rec = buf->vcf[i].rec;
+	rbuf_remove_kth(&buf->rbuf, vcfrec_t, idx, buf->vcf);
+    return rec;
+}
+
 static int cmpvrec(const void *_a, const void *_b)
 {
     vcfrec_t *a = *((vcfrec_t**) _a);

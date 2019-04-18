@@ -49,6 +49,8 @@ typedef struct
 }
 family_t;
 
+
+// For the `-C alleles -i` constrained calling
 typedef struct
 {
     uint32_t n:31, used:1;

@@ -65,6 +65,18 @@ void vcfbuf_destroy(vcfbuf_t *buf);
  */
 bcf1_t *vcfbuf_push(vcfbuf_t *buf, bcf1_t *rec, int swap);
 
+/*
+ *  vcfbuf_peek() - return pointer to i-th record in the buffer but do not remove it from the buffer
+ *  @idx:  0-based index to buffered lines
+ */
+bcf1_t *vcfbuf_peek(vcfbuf_t *buf, int idx);
+
+/*
+ *  vcfbuf_remove() - return pointer to i-th record in the buffer and remove it from the buffer
+ *  @idx:  0-based index to buffered lines
+ */
+bcf1_t *vcfbuf_remove(vcfbuf_t *buf, int idx);
+
 bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all);
 
 /*
