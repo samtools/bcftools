@@ -228,8 +228,8 @@ test_vcf_call_cAls($opts,in=>'mpileup.3',out=>'mpileup.cAls.4.out',tab=>'mpileup
 test_vcf_call_cAls($opts,in=>'mpileup.3',out=>'mpileup.cAls.5.out',tab=>'mpileup.5',args=>'-i');
 test_vcf_call_cAls($opts,in=>'mpileup.4',out=>'mpileup.cAls.6.out',tab=>'mpileup.6',args=>'-i');
 test_vcf_call_cAls($opts,in=>'mpileup.5',out=>'mpileup.cAls.7.out',tab=>'mpileup.7',args=>'-i');
-test_vcf_call_cAls($opts,in=>'mpileup.cals.1',out=>'mpileup.cals.1.out',tab=>'mpileup.cals.1',args=>'');
-test_vcf_call_cAls($opts,in=>'mpileup.cals.2',out=>'mpileup.cals.2.out',tab=>'mpileup.cals.2',args=>'');
+test_vcf_call_cAls($opts,in=>'mpileup.cals.1',out=>'mpileup.cals.8.out',tab=>'mpileup.cals.1',args=>'');
+test_vcf_call_cAls($opts,in=>'mpileup.cals.2',out=>'mpileup.cals.9.out',tab=>'mpileup.cals.2',args=>'');
 test_vcf_call($opts,in=>'mpileup.c',out=>'mpileup.c.1.out',args=>'-cv');
 # test_vcf_call($opts,in=>'mpileup.c',out=>'mpileup.c.2.out',args=>'-cg0');
 test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.samples');
