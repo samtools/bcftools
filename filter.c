@@ -203,6 +203,7 @@ static int filters_next_token(char **str, int *len)
     if ( !strncasecmp(tmp,"PERL.",5) ) { (*str) += 5; return -TOK_PERLSUB; }
     if ( !strncasecmp(tmp,"N_PASS(",7) ) { *len = 6; (*str) += 6; return -TOK_FUNC; }
     if ( !strncasecmp(tmp,"F_PASS(",7) ) { *len = 6; (*str) += 6; return -TOK_FUNC; }
+    if ( !strncasecmp(tmp,"%ILEN",5) ) { *len = 5; return TOK_VAL; }    // to be able to distinguish between INFO/ILEN and on-the-fly ILEN
 
     if ( tmp[0]=='@' )  // file name
     {
@@ -951,6 +952,19 @@ gt_length_too_big:
     assert( tok->nsamples == nsmpl );
     tok->nvalues = tok->str_value.l;
     tok->nval1 = blen;
+}
+static void filters_set_ilen(filter_t *flt, bcf1_t *line, token_t *tok)
+{
+    tok->nvalues = line->n_allele - 1;
+    hts_expand(double,tok->nvalues,tok->mvalues,tok->values);
+
+    int i, rlen = strlen(line->d.allele[0]);
+    for (i=1; i<line->n_allele; i++)
+    {
+        int alen = strlen(line->d.allele[i]);
+        if ( rlen==alen ) bcf_double_set_missing(tok->values[i-1]);
+        else tok->values[i-1] = alen - rlen;
+    }
 }
 static void filters_set_ref_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
@@ -2399,6 +2413,14 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         filter->max_unpack |= max_ac_an_unpack(filter->hdr);
         tok->setter = &filters_set_maf;
         tok->tag = strdup("MAF");
+        free(tmp.s);
+        return 0;
+    }
+    else if ( !strcasecmp(tmp.s,"ILEN") || !strcasecmp(tmp.s,"%ILEN") )
+    {
+        filter->max_unpack |= BCF_UN_STR;
+        tok->setter = &filters_set_ilen;
+        tok->tag = strdup("ILEN");
         free(tmp.s);
         return 0;
     }
