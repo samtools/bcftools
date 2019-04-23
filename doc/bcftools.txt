@@ -3024,7 +3024,7 @@ chromosome separately), plots graphs and creates a PDF presentation.
     Skip the PDF creation step.
 
 *-r, --rasterize*::
-    Rasterize PDF images for faster rendering.
+    Rasterize PDF images for faster rendering. This is the default and the opposite of *-v, --vectors*.
 
 *-s, --sample-names*::
     Use sample names for xticks rather than numeric IDs.
@@ -3034,9 +3034,24 @@ chromosome separately), plots graphs and creates a PDF presentation.
     times, for each ID in the *<<stats,bcftools stats>>* output. If not
     present, the script will use abbreviated source file names for the titles.
 
+*-v, --vectors*::
+    Generate vector graphics for PDF images, the opposite of *-r, --rasterize*.
+
 *-T, --main-title* 'STRING'::
     Main title for the PDF.
 
+*Example:*
+--
+    # Generate the stats
+    bcftools stats -s - > file.vchk
+
+    # Plot the stats
+    plot-vcfstats -p outdir file.vchk
+
+    # The final looks can be customized by editing the generated
+    # 'outdir/plot.py' script and re-running manually
+    cd outdir && python plot.py && pdflatex summary.tex
+--
 
 PERFORMANCE
 -----------

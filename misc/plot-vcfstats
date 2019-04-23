@@ -77,18 +77,29 @@ exit;
 sub usage
 {
     print STDERR
-        "About: Plots output of \"bcftools stats\"\n",
-        "Usage: plot-vcfstats [OPTIONS] file.chk ...\n",
-        "       plot-vcfstats -p outdir/ file.chk ...\n",
+        "About: Plots the output of \"bcftools stats\"\n",
+        "Usage: plot-vcfstats [OPTIONS] -p outdir file.chk ...\n",
         "Options:\n",
         "   -m, --merge                         Merge vcfstats files to STDOUT, skip plotting.\n",
         "   -p, --prefix <dir>                  Output directory.\n",
         "   -P, --no-PDF                        Skip the PDF creation step.\n",
-        "   -r, --rasterize                     Rasterize PDF images for fast rendering.\n",
+        "   -r, --rasterize                     Rasterize PDF images for fast rendering, the default and opposite of -v.\n",
         "   -s, --sample-names                  Use sample names for xticks rather than numeric IDs.\n",
         "   -t, --title <string>                Identify files by these titles in plots. Can be given multiple times.\n",
         "   -T, --main-title <string>           Main title for the PDF.\n",
+        "   -v, --vectors                       Generate vector graphics for PDF images, the opposite of -r\n",
         "   -h, -?, --help                      This help message.\n",
+        "\n",
+        "Example:\n",
+        "   # Generate the stats\n",
+        "   bcftools stats -s - > file.vchk\n",
+        "\n",
+        "   # Plot the stats\n",
+        "   plot-vcfstats -p outdir file.vchk\n",
+        "\n",
+        "   # The final looks can be customized by editing the generated\n",
+        "   # 'outdir/plot.py' script and re-running manually\n",
+        "   cd outdir && python plot.py && pdflatex summary.tex\n",
         "\n";
 }
 
@@ -113,7 +124,7 @@ sub parse_params
         make_plots => 1,
         merge      => 0,
         args       => join(' ',$0,@ARGV),
-        img_fmt    => 'pdf',
+        img_fmt    => 'png',
         img_width  => 11/2.54,
         img_height => 10/2.54,
         id2col     => [ 'orange', 'red', 'darkgreen' ],
@@ -250,6 +261,7 @@ sub parse_params
         if (                 $arg eq '--no-plots' ) { $$opts{make_plots}=0; next; }
         if ( $arg eq '-P' || $arg eq '--no-PDF' ) { $$opts{make_pdf}=0; next; }
         if ( $arg eq '-r' || $arg eq '--rasterize' ) { $$opts{img_fmt} = 'png'; next; }
+        if ( $arg eq '-v' || $arg eq '--vectors' ) { $$opts{img_fmt} = 'pdf'; next; }
         if ( $arg eq '-m' || $arg eq '--merge' ) { $$opts{make_plots}=0; $$opts{make_pdf}=0; $$opts{merge}=1; next; }
         if ( $arg eq '-s' || $arg eq '--sample-names' ) { $$opts{use_sample_names}=1; next; }
         if ( $arg eq '-t' || $arg eq '--title' ) { push @{$$opts{titles}},shift(@ARGV); next; }
@@ -1016,7 +1028,7 @@ sub plot_DP
             \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
 
             if plot_dp_dist:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+            \\tfig = plt.figure(figsize=($$opts{img_width}*1.2,$$opts{img_height}))
             \\tax1 = fig.add_subplot(111)
             \\tax1.plot([row[0] for row in dat], [row[2] for row in dat], '-^', color='k')
             \\tax1.set_ylabel('Number of genotypes [%]',color='k')
@@ -1025,7 +1037,7 @@ sub plot_DP
             \\tax2.plot([row[0] for row in dat], [row[1] for row in dat], '-o', color='$$opts{id2col}[$id]')
             \\tax2.set_ylabel('Cumulative number of genotypes [%]',color='$$opts{id2col}[$id]')
             \\tfor tl in ax2.get_yticklabels(): tl.set_color('$$opts{id2col}[$id]')
-            \\tplt.subplots_adjust(left=0.15,bottom=0.15,right=0.87)
+            \\tplt.subplots_adjust(left=0.2,bottom=0.15,right=0.8)
             \\tplt.title('$$opts{title}{$id}')
             \\tplt.savefig('$img.png')
             \\tif img_fmt != 'png': plt.savefig('$img.' + img_fmt)
@@ -1072,7 +1084,7 @@ sub plot_hwe
 
             \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
             \\tax1 = fig.add_subplot(111)
-            \\tplots  = ax1.plot(x,hwe,'--',color='#ff9900',label='HWE')
+            \\tplots  = ax1.plot(x,hwe,'--',color='#ff9900',label='Expected (HWE)')
             \\tplots += ax1.plot(x,y2,color='#ff9900',label='Median')
             \\tplots += ax1.plot(x,y3,color='#ffe0b2',label='25-75th percentile')
             \\tax1.fill_between(x,y1,y3, facecolor='#ffeacc',edgecolor='#ffe0b2')
