@@ -210,7 +210,7 @@ sub parse_params
             {
                 id=>'PSI',
                 header=>'PSI, Per-sample Indels',
-                exp=>"# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio\t[8]nHets\t[9]nAA"
+                exp=>"# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio\t[8]nInsHets\t[9]nDelHets\t[10]nInsAltHoms\t[11]nDelAltHoms"
             },
             {
                 id=>'DP',
