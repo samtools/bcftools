@@ -2090,6 +2090,9 @@ By default, appropriate system directories are searched for installed plugins.
 *missing2ref*::
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
 
+*parental-origin*::
+    determine parental origin of a CNV region
+
 *prune*::
     prune sites by missingness or linkage disequilibrium
 

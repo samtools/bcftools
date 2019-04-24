@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=20,length=81195210>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Genotype Likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	proband	father	mother
+20	100	.	A	C	.	.	.	GT:PL:AD	0/0:0,30,50:10,0	0/0:0,30,50:10,0	1/1:50,30,0:0,10
+20	101	.	A	C	.	.	.	GT:PL:AD	0/0:0,30,50:10,0	0/1:30,0,50:10,0	1/1:50,30,0:0,10
+20	102	.	A	C	.	.	.	GT:PL:AD	1/1:50,30,0:10,0	0/1:30,0,50:10,0	0/0:0,30,50:0,10
+20	103	.	A	C	.	.	.	GT:PL:AD	0/1:30,0,50:7,3	0/0:0,30,50:10,0	0/1:30,0,50:5,5
+20	104	.	A	C	.	.	.	GT:PL:AD	0/1:30,0,50:3,7	0/0:0,30,50:10,0	0/1:30,0,50:5,5
