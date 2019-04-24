@@ -130,7 +130,8 @@ static const char *usage_text(void)
 {
     return 
         "\n"
-        "About: Query structured annotations such INFO/CSQ created by VEP\n"
+        "About: Query structured annotations such INFO/CSQ created by bcftools/csq or VEP. For more\n"
+        "   more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
         "Usage: bcftools +split-vep [Plugin Options]\n"
         "Plugin options:\n"
         "   -a, --annotation STR        annotation to parse [CSQ]\n"
@@ -440,7 +441,7 @@ static void list_header(args_t *args)
     for (i=0; i<args->nfield; i++) printf("%d\t%s\n", i,args->field[i]);
 }
 
-static void csq_to_severity(args_t *args, char *csq, int *min_severity, int *max_severity)
+static void csq_to_severity(args_t *args, char *csq, int *min_severity, int *max_severity, int exact_match)
 {
     *min_severity = INT_MAX;
     *max_severity = -1;
@@ -472,8 +473,20 @@ static void csq_to_severity(args_t *args, char *csq, int *min_severity, int *max
 
             if ( khash_str2int_get(args->csq2severity, bp, &severity)!=0 ) error("FIXME: failed to look up the consequence \"%s\"\n", bp);
         }
-        if ( *min_severity > severity ) *min_severity = severity;
-        if ( *max_severity < severity ) *max_severity = severity;
+        if ( exact_match < 0 )
+        {
+            if ( *min_severity > severity ) *min_severity = severity;
+            if ( *max_severity < severity ) *max_severity = severity;
+        }
+        else
+        {
+            if ( severity==exact_match )
+            {
+                *min_severity = *max_severity = severity;
+                *ep = tmp;
+                return;
+            }
+        }
 
         if ( !tmp ) break;
         *ep = tmp;
@@ -485,8 +498,8 @@ static int csq_severity_pass(args_t *args, char *csq)
 {
     if ( args->min_severity==args->max_severity && args->min_severity==SELECT_CSQ_ANY ) return 1;
 
-    int min_severity, max_severity;
-    csq_to_severity(args, csq, &min_severity, &max_severity);
+    int min_severity, max_severity, exact_match = args->min_severity==args->max_severity ? args->min_severity : -1;
+    csq_to_severity(args, csq, &min_severity, &max_severity, exact_match);
     if ( max_severity < args->min_severity ) return 0;
     if ( min_severity > args->max_severity ) return 0;
     return 1;
@@ -515,7 +528,7 @@ static int get_worst_transcript(args_t *args, bcf1_t *rec, cols_t *cols_tr)     
         char *csq = args->cols_csq->off[args->csq_idx];
 
         int min, max;
-        csq_to_severity(args, csq, &min, &max);
+        csq_to_severity(args, csq, &min, &max, -1);
         if ( max_severity < max ) { imax_severity = i; max_severity = max; }
     }
     return imax_severity;
