@@ -2109,7 +2109,7 @@ By default, appropriate system directories are searched for installed plugins.
     split VCF by sample, creating single-sample VCFs
 
 *split-vep*::
-    extract fields from structured annotations such as INFO/CSQ created by VEP. These
+    extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
     can be added as a new INFO field to the VCF or in a custom text format
 
 *tag2tag*::
