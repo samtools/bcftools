@@ -94,6 +94,8 @@ typedef struct
     idist_t dp, dp_sites;
     int nusr;
     user_stats_t *usr;
+    double *dvaf;   // distribution of the mean indel-allele frequency by length: -m_indel,-(m_indel-1),...-1,0,1,..,m_indel
+    uint32_t *nvaf;
 }
 stats_t;
 
@@ -491,6 +493,8 @@ static void init_stats(args_t *args)
             #endif
             if ( args->exons_fname )
                 stats->smpl_frm_shifts = (int*) calloc(args->files->n_smpl*3,sizeof(int));
+            stats->nvaf = (uint32_t*) calloc(stats->m_indel*2+1,sizeof(*stats->nvaf));
+            stats->dvaf = (double*) calloc(stats->m_indel*2+1,sizeof(*stats->dvaf));
         }
         idist_init(&stats->dp, args->dp_min,args->dp_max,args->dp_step);
         idist_init(&stats->dp_sites, args->dp_min,args->dp_max,args->dp_step);
@@ -580,6 +584,8 @@ static void destroy_stats(args_t *args)
         }
         free(stats->usr);
         if ( args->exons ) free(stats->smpl_frm_shifts);
+        free(stats->nvaf);
+        free(stats->dvaf);
     }
     for (j=0; j<args->nusr; j++) free(args->usr[j].tag);
     if ( args->af_bins ) bin_destroy(args->af_bins);
@@ -848,6 +854,34 @@ static void do_snp_stats(args_t *args, stats_t *stats, bcf_sr_t *reader)
     }
 }
 
+static inline void update_dvaf(stats_t *stats, bcf1_t *line, bcf_fmt_t *fmt, int ismpl, int ial, int jal)
+{
+    if ( !fmt ) return;
+
+    float dvaf;
+    #define BRANCH_INT(type_t,missing,vector_end) { \
+        type_t *p = (type_t *) (fmt->p + fmt->size*ismpl); \
+        if ( p[ial]==vector_end || p[jal]==vector_end ) return; \
+        if ( p[ial]==missing || p[jal]==missing ) return; \
+        if ( !p[ial] && !p[jal] ) return; \
+        dvaf = (float)p[ial]/(p[ial]+p[jal]); \
+    }
+    switch (fmt->type) {
+        case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_missing, bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_missing, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_missing, bcf_int32_vector_end); break;
+        default: fprintf(stderr, "[E::%s] todo: %d\n", __func__, fmt->type); exit(1); break;
+    }
+    #undef BRANCH_INT
+
+    int len = line->d.var[ial].n;
+    if ( len < -stats->m_indel ) len = -stats->m_indel;
+    else if ( len > stats->m_indel ) len = stats->m_indel;
+    int bin = stats->m_indel + len;
+    stats->nvaf[bin]++;
+    stats->dvaf[bin] += dvaf; 
+}
+
 static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int matched)
 {
     bcf_srs_t *files = args->files;
@@ -858,6 +892,8 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
 
     if ( (fmt_ptr = bcf_get_fmt(reader->header,reader->buffer[0],"GT")) )
     {
+        bcf_fmt_t *ad_fmt_ptr = bcf_get_variant_types(line)&VCF_INDEL ? bcf_get_fmt(reader->header,reader->buffer[0],"AD") : NULL;
+
         int ref = bcf_acgt2int(*line->d.allele[0]);
         int is, n_nref = 0, i_nref = 0;
         for (is=0; is<args->files->n_smpl; is++)
@@ -922,11 +958,13 @@ static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int 
                         {
                             if ( line->d.var[ial].n < 0 ) is_del = 1;
                             else is_ins = 1;
+                            update_dvaf(stats,line,ad_fmt_ptr,is,ial,jal);
                         }
                         if ( bcf_get_variant_type(line,jal)&VCF_INDEL )
                         {
                             if ( line->d.var[jal].n < 0 ) is_del = 1;
                             else is_ins = 1;
+                            update_dvaf(stats,line,ad_fmt_ptr,is,jal,ial);
                         }
                         // Note that alt-het genotypes with both ins and del allele are counted twice!!
                         if ( is_del ) stats->smpl_del_hets[is]++;
@@ -1344,14 +1382,33 @@ static void print_stats(args_t *args)
             }
         }
     }
-    printf("# IDD, InDel distribution:\n# IDD\t[2]id\t[3]length (deletions negative)\t[4]count\n");
+    printf("# IDD, InDel distribution:\n# IDD\t[2]id\t[3]length (deletions negative)\t[4]number of sites\t[5]number of genotypes\t[6]mean VAF\n");
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
         for (i=stats->m_indel-1; i>=0; i--)
-            if ( stats->deletions[i] ) printf("IDD\t%d\t%d\t%d\n", id,-i-1,stats->deletions[i]);
+        {
+            if ( !stats->deletions[i] ) continue;
+            // whops, differently organized arrow, dels are together with ins
+            int bin = stats->m_indel - i - 1;
+            printf("IDD\t%d\t%d\t%d\t", id,-i-1,stats->deletions[i]);
+            if ( stats->nvaf && stats->nvaf[bin] )
+                printf("%u\t%.2f",stats->nvaf[bin],stats->dvaf[bin]/stats->nvaf[bin]);
+            else
+                printf("0\t.");
+            printf("\n");
+        }
         for (i=0; i<stats->m_indel; i++)
-            if ( stats->insertions[i] ) printf("IDD\t%d\t%d\t%d\n", id,i+1,stats->insertions[i]);
+        {
+            if ( !stats->insertions[i] ) continue;
+            int bin = stats->m_indel + i + 1;
+            printf("IDD\t%d\t%d\t%d\t", id,i+1,stats->insertions[i]);
+            if ( stats->nvaf && stats->nvaf[bin] )
+                printf("%u\t%.2f",stats->nvaf[bin],stats->dvaf[bin]/stats->nvaf[bin]);
+            else
+                printf("0\t.");
+            printf("\n");
+        }
     }
     printf("# ST, Substitution types:\n# ST\t[2]id\t[3]type\t[4]count\n");
     for (id=0; id<args->nstats; id++)

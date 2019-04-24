@@ -1,0 +1,7 @@
+##fileformat=VCFv4.3
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=ILEN,Number=A,Type=Integer,Description="number">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100	.	C	CTT	.	.	ILEN=1
+1	101	.	C	CT	.	.	ILEN=2

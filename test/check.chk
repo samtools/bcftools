@@ -50,15 +50,15 @@ QUAL	0	82	0	0	0	1
 QUAL	0	90	1	1	0	0
 QUAL	0	342	0	0	0	1
 # IDD, InDel distribution:
-# IDD	[2]id	[3]length (deletions negative)	[4]count
-IDD	0	-10	1
-IDD	0	-8	1
-IDD	0	-4	3
-IDD	0	-3	4
-IDD	0	-2	1
-IDD	0	-1	2
-IDD	0	1	1
-IDD	0	2	1
+# IDD	[2]id	[3]length (deletions negative)	[4]number of sites	[5]number of genotypes	[6]mean VAF
+IDD	0	-10	1	0	.
+IDD	0	-8	1	0	.
+IDD	0	-4	3	0	.
+IDD	0	-3	4	0	.
+IDD	0	-2	1	0	.
+IDD	0	-1	2	0	.
+IDD	0	1	1	0	.
+IDD	0	2	1	0	.
 # ST, Substitution types:
 # ST	[2]id	[3]type	[4]count
 ST	0	A>C	0
