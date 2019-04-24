@@ -4,7 +4,7 @@ include::header.inc[]
 Plugin split-vep
 ----------------
 
-The plugin allows to extract fields from structured annotations such as INFO/CSQ created by VEP.
+The plugin allows to extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP.
 
 Assuming the tag added by VEP is the INFO/CSQ field, let's start with printing the list of available
 subfields:

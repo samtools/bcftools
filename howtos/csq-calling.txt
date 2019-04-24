@@ -32,7 +32,15 @@ The typical command looks like this
 bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf -Ob -o out.bcf
 ----
 
-For more details please see the link:../bcftools-man.html#csq[manual page].
+The program adds a consequence annotation in a format similar to VEP:
+----
+Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change
+----
+The last three fields are omitted when empty. Consequences of compound variants
+which span multiple sites are printed in one record only, the remaining records
+link to it by '@position'. The consequence can start with the asterisk '*' prefix indicating
+a consequence downstream from a stop.  For more details and examples please see the link:../bcftools-man.html#csq[manual page]
+and the link:plugin.split-vep.html[split-vep] plugin.
 
 
 === References

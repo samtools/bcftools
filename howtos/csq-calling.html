@@ -108,7 +108,19 @@ file. Currently, only Ensembl GFF3 files are supported, see for example <a href=
 </div>
 </div>
 <div class="paragraph">
-<p>For more details please see the <a href="../bcftools-man.html#csq">manual page</a>.</p>
+<p>The program adds a consequence annotation in a format similar to VEP:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The last three fields are omitted when empty. Consequences of compound variants
+which span multiple sites are printed in one record only, the remaining records
+link to it by '@position'. The consequence can start with the asterisk '*' prefix indicating
+a consequence downstream from a stop.  For more details and examples please see the <a href="../bcftools-man.html#csq">manual page</a>
+and the <a href="plugin.split-vep.html">split-vep</a> plugin.</p>
 </div>
 <div class="sect2">
 <h3 id="_references">References</h3>

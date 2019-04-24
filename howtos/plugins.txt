@@ -64,6 +64,8 @@ link:plugin.mendelian.html[mendelian]:: Count Mendelian consistent / inconsisten
 
 missing2ref:: sets missing genotypes ("./.") to ref allele ("0/0" or "0|0"). DEPRECATED, use setGT instead.
 
+parental-origin:: determine parental origin of a CNV region
+
 prune:: Prunes sites by missingness or linkage disequilibrium.
 
 setGT:: Sets genotypes according to the specified criteria and filtering expressions. For example, missing genotypes can be set to ref, but much more than that.
@@ -72,7 +74,7 @@ smpl-stats:: calculates basic per-sample stats
 
 split:: split VCF by sample, creating single-sample VCFs
 
-link:plugin.split-vep.html[split-vep]:: extract fields from structured annotations such as INFO/CSQ created by VEP. These can be added as a new INFO field to the VCF or in a custom text format
+link:plugin.split-vep.html[split-vep]:: extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These can be added as a new INFO field to the VCF or in a custom text format
 
 tag2tag:: Converts between similar tags, such as GL, PL and GP.
 

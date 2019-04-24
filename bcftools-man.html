@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25135776"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25162448"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -8,7 +8,7 @@ will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-03-10 16:00 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-111-gf1ea770+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-04-24 14:45 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-150-g6d93d87+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -285,6 +285,12 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 </span></dt><dd>
     exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
     <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>--force</strong></span>
+</span></dt><dd>
+    continue even when parsing errors, such as undefined tags, are encountered. Note
+    this can be an unsafe operation and can result in corrupted BCF files. If this
+    option is used, make sure to sanity check the result thoroughly.
 </dd><dt><span class="term">
 <span class="strong"><strong>-h, --header-lines</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
@@ -1036,6 +1042,12 @@ output VCF and are ignored for the prediction analysis.</p><div class="variablel
 <span class="strong"><strong>-c, --custom-tag</strong></span> <span class="emphasis"><em>STRING</em></span>
 </span></dt><dd>
     use this custom tag to store consequences rather than the default BCSQ tag
+</dd><dt><span class="term">
+<span class="strong"><strong>-b, --brief-predictions</strong></span>
+</span></dt><dd>
+    annotate with abbreviated protein-changing predictions. That is, instead of writing
+    the whole modified protein sequence with potentially hundreds of aminoacids, only an
+    abbreviated version such as <span class="emphasis"><em>25E..329&gt;25G..94</em></span> will be written
 </dd><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
@@ -2071,6 +2083,10 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
 </dd><dt><span class="term">
+<span class="strong"><strong>parental-origin</strong></span>
+</span></dt><dd>
+    determine parental origin of a CNV region
+</dd><dt><span class="term">
 <span class="strong"><strong>prune</strong></span>
 </span></dt><dd>
     prune sites by missingness or linkage disequilibrium
@@ -2090,6 +2106,11 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 <span class="strong"><strong>split</strong></span>
 </span></dt><dd>
     split VCF by sample, creating single-sample VCFs
+</dd><dt><span class="term">
+<span class="strong"><strong>split-vep</strong></span>
+</span></dt><dd>
+    extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
+    can be added as a new INFO field to the VCF or in a custom text format
 </dd><dt><span class="term">
 <span class="strong"><strong>tag2tag</strong></span>
 </span></dt><dd>
@@ -2632,8 +2653,10 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </dd></dl></div></div><div class="refsect3" title="Subset options:"><a id="_subset_options"></a><h4>Subset options:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --trim-alt-alleles</strong></span>
 </span></dt><dd>
-    trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT
-    fields will also be trimmed
+    remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
+    remains after trimming, the record itself is not removed but ALT is set to ".".
+    If the option <span class="strong"><strong>-s</strong></span> or <span class="strong"><strong>-S</strong></span> is given, removes alleles not seen in the subset.
+    INFO and FORMAT tags declared as Type=A, G or R will be trimmed as well.
 </dd><dt><span class="term">
 <span class="strong"><strong>--force-samples</strong></span>
 </span></dt><dd>
@@ -2846,8 +2869,10 @@ CSQ[*] ~ "missense_variant.*deleterious"</pre></li><li class="listitem"><p class
 with many samples it can be more practical to provide a file with sample names,
 one sample name per line
 </p><pre class="literallayout">GT[@samples.txt]="het" &amp; binom(AD)&lt;0.01</pre></li><li class="listitem"><p class="simpara">
-function on FORMAT tags (over samples) and INFO tags (over vector fields)
-</p><pre class="literallayout">MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT</pre></li><li class="listitem"><p class="simpara">
+function on FORMAT tags (over samples) and INFO tags (over vector fields):
+  maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median;
+  standard deviation; sum; string length; absolute value; number of elements.
+</p><pre class="literallayout">MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT</pre></li><li class="listitem"><p class="simpara">
 two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
   and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
   homozygous genotypes.
@@ -2859,7 +2884,8 @@ number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
-</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING</pre></li><li class="listitem"><p class="simpara">
+indel length (deletions negative, insertions positive)
+</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN</pre></li><li class="listitem"><p class="simpara">
 the number (N_PASS) or fraction (F_PASS) of samples which pass the expression
 </p><pre class="literallayout">N_PASS(GQ&gt;90 &amp; GT!="mis") &gt; 90
 F_PASS(GQ&gt;90 &amp; GT!="mis") &gt; 0.9</pre></li><li class="listitem"><p class="simpara">
@@ -2883,7 +2909,7 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 -i 'TAG[0]=1'   .. true
 -i 'TAG[0]!=1'  .. false
 -e 'TAG[0]=1'   .. false
--e 'TAG[0]!=1'  .. true</pre></li></ul></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">MIN(DV)&gt;5</pre><pre class="literallayout">MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">MIN(DP)&gt;10 &amp; MIN(DV)&gt;3</pre><pre class="literallayout">FMT/DP&gt;10  &amp; FMT/GQ&gt;10 .. both conditions must be satisfied within one sample</pre><pre class="literallayout">FMT/DP&gt;10 &amp;&amp; FMT/GQ&gt;10 .. the conditions can be satisfied in different samples</pre><pre class="literallayout">QUAL&gt;10 |  FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, but selects only samples with GQ&gt;10</pre><pre class="literallayout">QUAL&gt;10 || FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, plus selects all samples at such sites</pre><pre class="literallayout">TYPE="snp" &amp;&amp; QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">COUNT(GT="hom")=0</pre><pre class="literallayout">MIN(DP)&gt;35 &amp;&amp; AVG(GQ)&gt;50</pre><pre class="literallayout">ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">ID!=@~/file    .. skip lines with ID present in the ~/file</pre><pre class="literallayout">MAF[0]&lt;0.05    .. select rare variants at 5% cutoff</pre><pre class="literallayout">POS&gt;=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
+-e 'TAG[0]!=1'  .. true</pre></li></ul></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">MIN(DV)&gt;5</pre><pre class="literallayout">MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">MIN(DP)&gt;10 &amp; MIN(DV)&gt;3</pre><pre class="literallayout">FMT/DP&gt;10  &amp; FMT/GQ&gt;10 .. both conditions must be satisfied within one sample</pre><pre class="literallayout">FMT/DP&gt;10 &amp;&amp; FMT/GQ&gt;10 .. the conditions can be satisfied in different samples</pre><pre class="literallayout">QUAL&gt;10 |  FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, but selects only samples with GQ&gt;10</pre><pre class="literallayout">QUAL&gt;10 || FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, plus selects all samples at such sites</pre><pre class="literallayout">TYPE="snp" &amp;&amp; QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">COUNT(GT="hom")=0      .. no homozygous genotypes at the site</pre><pre class="literallayout">AVG(GQ)&gt;50             .. average (arithmetic mean) of genotype qualities bigger than 50</pre><pre class="literallayout">ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">ID!=@~/file    .. skip lines with ID present in the ~/file</pre><pre class="literallayout">MAF[0]&lt;0.05    .. select rare variants at 5% cutoff</pre><pre class="literallayout">POS&gt;=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
 have special meaning in the shell.
 An example of expression enclosed in single quotes which cause
 that the whole expression is passed to the program as intended:</p><pre class="literallayout">bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre><p>Please refer to the documentation of your shell for details.</p></div><div class="refsect1" title="SCRIPTS AND OPTIONS"><a id="_scripts_and_options"></a><h2>SCRIPTS AND OPTIONS</h2><div class="refsect2" title="plot-vcfstats [OPTIONS] file.vchk […]"><a id="plot-vcfstats"></a><h3>plot-vcfstats [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vchk</em></span> […]</h3><p>Script for processing output of <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats [OPTIONS] A.vcf.gz [B.vcf.gz]">bcftools stats</a></strong></span>. It can merge
@@ -2903,7 +2929,7 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
 </dd><dt><span class="term">
 <span class="strong"><strong>-r, --rasterize</strong></span>
 </span></dt><dd>
-    Rasterize PDF images for faster rendering.
+    Rasterize PDF images for faster rendering. This is the default and the opposite of <span class="strong"><strong>-v, --vectors</strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-s, --sample-names</strong></span>
 </span></dt><dd>
@@ -2915,10 +2941,18 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
     times, for each ID in the <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats [OPTIONS] A.vcf.gz [B.vcf.gz]">bcftools stats</a></strong></span> output. If not
     present, the script will use abbreviated source file names for the titles.
 </dd><dt><span class="term">
+<span class="strong"><strong>-v, --vectors</strong></span>
+</span></dt><dd>
+    Generate vector graphics for PDF images, the opposite of <span class="strong"><strong>-r, --rasterize</strong></span>.
+</dd><dt><span class="term">
 <span class="strong"><strong>-T, --main-title</strong></span> <span class="emphasis"><em>STRING</em></span>
 </span></dt><dd>
     Main title for the PDF.
-</dd></dl></div></div></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+</dd></dl></div><p><span class="strong"><strong>Example:</strong></span></p><pre class="literallayout"># Generate the stats
+bcftools stats -s - &gt; file.vchk</pre><pre class="literallayout"># Plot the stats
+plot-vcfstats -p outdir file.vchk</pre><pre class="literallayout"># The final looks can be customized by editing the generated
+# 'outdir/plot.py' script and re-running manually
+cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex</pre></div></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
 are internally converted into BCF representation. Simple operations, like removing
 a single column from a VCF file, can be therefore done much faster with standard
 UNIX commands, such as <span class="strong"><strong>awk</strong></span> or <span class="strong"><strong>cut</strong></span>.

@@ -193,6 +193,10 @@ all selected samples must have the same GT, while non of the others can have it.
 <dd>
 <p>sets missing genotypes ("./.") to ref allele ("0/0" or "0|0"). DEPRECATED, use setGT instead.</p>
 </dd>
+<dt class="hdlist1">parental-origin</dt>
+<dd>
+<p>determine parental origin of a CNV region</p>
+</dd>
 <dt class="hdlist1">prune</dt>
 <dd>
 <p>Prunes sites by missingness or linkage disequilibrium.</p>
@@ -211,7 +215,7 @@ all selected samples must have the same GT, while non of the others can have it.
 </dd>
 <dt class="hdlist1"><a href="plugin.split-vep.html">split-vep</a></dt>
 <dd>
-<p>extract fields from structured annotations such as INFO/CSQ created by VEP. These can be added as a new INFO field to the VCF or in a custom text format</p>
+<p>extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These can be added as a new INFO field to the VCF or in a custom text format</p>
 </dd>
 <dt class="hdlist1">tag2tag</dt>
 <dd>
