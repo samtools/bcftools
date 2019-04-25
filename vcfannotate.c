@@ -167,7 +167,7 @@ void remove_id(args_t *args, bcf1_t *line, rm_tag_t *tag)
 }
 void remove_filter(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
-    if ( tag->hdr_id<0 )
+    if ( tag->key && tag->hdr_id<0 )
     {
         assert(args->force);
         tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
