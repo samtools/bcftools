@@ -16,7 +16,7 @@
 ##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
 ##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
-##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
 000000F	392	.	C	<*>	0	.	DP=1;I16=1,0,0,0,32,1024,0,0,60,3600,0,0,0,0,0,0;QS=1,0;MQ0F=0	PL:AD	0,3,32:1,0
 000000F	393	.	A	<*>	0	.	DP=1;I16=1,0,0,0,32,1024,0,0,60,3600,0,0,1,1,0,0;QS=1,0;MQ0F=0	PL:AD	0,3,32:1,0
