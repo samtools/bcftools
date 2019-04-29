@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=20,length=81195210>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##INFO=<ID=CSQ,Number=.,Type=String,Description="Local consequence annotation from BCFtools/csq. Format: '[*]consequence|gene|transcript|biotype[|strand|amino_acid_change|dna_change]'">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	child1	father1	mother1	child2	father2	mother2
+20	310	.	T	A,C	.	.	.	GT	1/1	1/1	1/1	1/2	2/1	1/1
+20	311	.	T	TA	.	.	.	GT:AD	1/1:0,20	0/0:20,0	0/0:20,0	0/1:10,10	.	0/0:20,0
+20	312	.	TAA	T	.	.	CSQ=inframe_deletion|SAMD11|ENST00000420190|protein_coding|+|74EDG>74D|865683AGGATGG>A	GT:AD	0/1:10,10	1/0:10,10	0/0:20,0	0/0:20,0	0/0:20,0	0/0:20,0
+20	313	.	A	ATT	.	.	CSQ=frameshift|SAMD11|ENST00000342066|protein_coding|+|333LPPAQA	GT:AD	0/1:10,10	0/0:10,10	0/0:20,0	0/0:20,0	0/0:20,0	0/0:20,0
