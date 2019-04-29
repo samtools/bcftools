@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=FILTER,Number=1,Type=String,Description="Test">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##contig=<ID=1,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3162006	.	G	CA	238	PASS	.	GT:FILTER	0/1:aaa	0/1:bbbb
+1	3162007	.	G	CA	238	PASS	.	GT:FILTER	0/1:cc	0/1:d
