@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2019-04-24 14:45 BST
+.\"      Date: 2019-05-03 14:49 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2019\-04\-24 14:45 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2019\-05\-03 14:49 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2019\-04\-24 14:45 BST\fR and refers to bcftools git version \fB1\&.9\-150\-g6d93d87+\fR\&.
+This manual page was last updated \fB2019\-05\-03 14:49 BST\fR and refers to bcftools git version \fB1\&.9\-154\-g4c250d8+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -3349,7 +3349,62 @@ color shared chromosomal segments, requires trio VCF with phased GTs
 .PP
 \fBcontrast\fR
 .RS 4
-finds novel alleles and genotypes in two groups of samples\&. Adds an annotation which lists samples with a novel allele (INFO/NOVELAL) or a novel genotype (INFO/NOVELGT)
+runs a basic association test, per\-site or in a region, and checks for novel alleles and genotypes in two groups of samples\&. Adds the following INFO annotations:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+PASSOC \&.\&. Fisher\(cqs exact test probability of genotypic association (REF vs non\-REF allele)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+FASSOC \&.\&. proportion of non\-REF allele in controls and cases
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+NASSOC \&.\&. number of control\-ref, control\-alt, case\-ref and case\-alt alleles
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+NOVELAL \&.\&. lists samples with a novel allele not observed in the control group
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+NOVELGT \&.\&. lists samples with a novel genotype not observed in the control group
+.RE
 .RE
 .PP
 \fBcounts\fR
@@ -3412,6 +3467,14 @@ compress gVCF file by resizing non\-variant blocks according to specified criter
 add imputation information metrics to the INFO field based on selected FORMAT tags
 .RE
 .PP
+\fBindel\-stats\fR
+.RS 4
+calculates per\-sample or de novo indels stats\&. The usage and format is similar to
+\fBsmpl\-stats\fR
+and
+\fBtrio\-stats\fR
+.RE
+.PP
 \fBisecGT\fR
 .RS 4
 compare two files and set non\-identical genotypes to missing
@@ -3449,7 +3512,10 @@ general tool to set genotypes according to rules requested by the user
 .PP
 \fBsmpl\-stats\fR
 .RS 4
-calculates basic per\-sample stats
+calculates basic per\-sample stats\&. The usage and format is similar to
+\fBindel\-stats\fR
+and
+\fBtrio\-stats\fR\&.
 .RE
 .PP
 \fBsplit\fR
@@ -3474,7 +3540,10 @@ screen variants for possible de\-novo mutations in trios
 .PP
 \fBtrio\-stats\fR
 .RS 4
-calculate transmission rate in trio children
+calculate transmission rate in trio children\&. The usage and format is similar to
+\fBindel\-stats\fR
+and
+\fBsmpl\-stats\fR\&.
 .RE
 .PP
 \fBtrio\-switch\-rate\fR
@@ -3806,7 +3875,7 @@ process multiple VCFs listed in the file
 %POS0           POS in 0\-based coordinates
 %PBINOM(TAG)    Calculate phred\-scaled binomial probability, the allele index is determined from GT
 %SAMPLE         Sample name
-%TAG{INT}       Curly brackets to subscript vectors (0\-based)
+%TAG{INT}       Curly brackets to print a subfield (e\&.g\&. INFO/TAG{1}, the indexes are 0\-based)
 %TBCSQ          Translated FORMAT/BCSQ\&. See the csq command above for explanation and examples\&.
 %TGT            Translated genotype (e\&.g\&. C/A)
 %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
@@ -3909,6 +3978,19 @@ bcftools view \-i\*(AqGT="alt"\*(Aq file\&.bcf \-Ou | bcftools query \-f\*(Aq[%C
 .nf
 # Print phred\-scaled binomial probablity from FORMAT/AD tag for all heterozygous genotypes
 bcftools query \-i\*(AqGT="het"\*(Aq \-f\*(Aq[%CHROM:%POS %SAMPLE %GT %pbinom(AD)\en]\*(Aq file\&.vcf
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Print the second value of AC field if bigger than 10\&. Note the (unfortunate) difference in
+# index subscript notation: formatting expressions (\-f) uses "{}" while filtering expressions
+# (\-i) use "[]"\&. This is for historic reasons and backward\-compatibility\&.
+bcftools query \-f \*(Aq%AC{1}\en\*(Aq \-i \*(AqAC[1]>10\*(Aq file\&.vcf\&.gz
 .fi
 .if n \{\
 .RE

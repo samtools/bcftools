@@ -2040,8 +2040,13 @@ By default, appropriate system directories are searched for installed plugins.
     color shared chromosomal segments, requires trio VCF with phased GTs
 
 *contrast*::
-    finds novel alleles and genotypes in two groups of samples. Adds an annotation which lists samples with a
-    novel allele (INFO/NOVELAL) or a novel genotype (INFO/NOVELGT)
+    runs a basic association test, per-site or in a region, and checks for novel alleles and
+    genotypes in two groups of samples. Adds the following INFO annotations:
+    - PASSOC  .. Fisher's exact test probability of genotypic association (REF vs non-REF allele)
+    - FASSOC  .. proportion of non-REF allele in controls and cases
+    - NASSOC  .. number of control-ref, control-alt, case-ref and case-alt alleles
+    - NOVELAL .. lists samples with a novel allele not observed in the control group
+    - NOVELGT .. lists samples with a novel genotype not observed in the control group
 
 *counts*::
     a minimal plugin which counts number of SNPs, Indels, and total number of sites.
@@ -2081,6 +2086,10 @@ By default, appropriate system directories are searched for installed plugins.
 *impute-info*::
     add imputation information metrics to the INFO field based on selected FORMAT tags
 
+*indel-stats*::
+    calculates per-sample or de novo indels stats. The usage and format is similar
+    to *smpl-stats* and *trio-stats*
+
 *isecGT*::
     compare two files and set non-identical genotypes to missing
 
@@ -2103,7 +2112,8 @@ By default, appropriate system directories are searched for installed plugins.
     general tool to set genotypes according to rules requested by the user
 
 *smpl-stats*::
-    calculates basic per-sample stats
+    calculates basic per-sample stats. The usage and format is similar to
+    *indel-stats* and *trio-stats*.
 
 *split*::
     split VCF by sample, creating single-sample VCFs
@@ -2119,7 +2129,8 @@ By default, appropriate system directories are searched for installed plugins.
     screen variants for possible de-novo mutations in trios
 
 *trio-stats*::
-    calculate transmission rate in trio children
+    calculate transmission rate in trio children. The usage and format is similar to
+    *indel-stats* and *smpl-stats*.
 
 *trio-switch-rate*::
     calculate phase switch rate in trio samples, children samples must have phased GTs
@@ -2312,7 +2323,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %POS0           POS in 0-based coordinates
     %PBINOM(TAG)    Calculate phred-scaled binomial probability, the allele index is determined from GT
     %SAMPLE         Sample name
-    %TAG{INT}       Curly brackets to subscript vectors (0-based)
+    %TAG{INT}       Curly brackets to print a subfield (e.g. INFO/TAG{1}, the indexes are 0-based)
     %TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
     %TGT            Translated genotype (e.g. C/A)
     %TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
@@ -2344,6 +2355,11 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 
     # Print phred-scaled binomial probablity from FORMAT/AD tag for all heterozygous genotypes
     bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %pbinom(AD)\n]' file.vcf
+
+    # Print the second value of AC field if bigger than 10. Note the (unfortunate) difference in
+    # index subscript notation: formatting expressions (-f) uses "{}" while filtering expressions
+    # (-i) use "[]". This is for historic reasons and backward-compatibility.
+    bcftools query -f '%AC{1}\n' -i 'AC[1]>10' file.vcf.gz
 
 [[reheader]]
 === bcftools reheader ['OPTIONS'] 'file.vcf.gz'
