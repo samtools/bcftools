@@ -83,7 +83,7 @@ typedef struct _token_t
     char *tag;          // for debugging and printout only, VCF tag name
     double threshold;   // filtering threshold
     int is_constant;    // the threshold is set
-    int hdr_id, type;   // BCF header lookup ID and one of BCF_HT_* types
+    int hdr_id, tag_type;   // BCF header lookup ID and one of BCF_HL_* types
     int idx;            // 0-based index to VCF vectors,
                         //  -2: list (e.g. [0,1,2] or [1..3] or [1..] or any field[*], which is equivalent to [0..])
     int *idxs;          // set indexes to 0 to exclude, to 1 to include, and last element negative if unlimited
@@ -2139,6 +2139,7 @@ static int max_ac_an_unpack(bcf_hdr_t *hdr)
 }
 static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
 {
+    tok->tag_type  = -1;
     tok->tok_type  = TOK_VAL;
     tok->hdr_id    = -1;
     tok->pass_site = -1;
@@ -2209,6 +2210,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
             tok->comparator = filters_cmp_filter;
             tok->tag = strdup("FILTER");
             filter->max_unpack |= BCF_UN_FLT;
+            tok->tag_type = BCF_HL_FLT;
             return 0;
         }
         else if ( !strncasecmp(str,"ID",len) || !strncasecmp(str,"%ID",len) /* for backward compatibility */ )
@@ -2306,7 +2308,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         for (i=0; i<tok->nsamples; i++) tok->usmpl[i] = 1;
     }
 
-    tok->type = is_fmt ? BCF_HL_FMT : BCF_HL_INFO;
+    tok->tag_type = is_fmt ? BCF_HL_FMT : BCF_HL_INFO;
     if ( is_fmt ) filter->max_unpack |= BCF_UN_FMT;
     if ( tok->hdr_id>=0 )
     {
@@ -2807,7 +2809,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
                 int set_missing = 0;
                 if ( out[k].hdr_id>0 )
                 {
-                    int type = bcf_hdr_id2type(filter->hdr,out[k].type,out[k].hdr_id);
+                    int type = bcf_hdr_id2type(filter->hdr,out[k].tag_type,out[k].hdr_id);
                     if ( type==BCF_HT_INT ) set_missing = 1;
                     else if ( type==BCF_HT_REAL ) set_missing = 1;
                 }
@@ -2881,7 +2883,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             else if ( !strcasecmp(out[ival].key,"r") ) { out[i].setter = filters_set_genotype2; out[ival].key[0]='r'; out[ival].key[1]=0; }  // r
             continue;
         }
-        if ( !strcmp(out[i].tag,"FILTER") )
+        if ( out[i].tag_type==BCF_HL_FLT )
         {
             if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
             int itok = i, ival;
