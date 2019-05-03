@@ -31,7 +31,12 @@ check-sparsity:: Prints samples without genotypes in a region (-r/-R) or chromos
 
 color-chrs:: Colors shared chromosomal segments shared. Requires phased GTs.
 
-contrast:: Finds novel alleles and genotypes in two groups of samples. Adds an annotation which lists samples with a novel allele (INFO/NOVELAL) or a novel genotype (INFO/NOVELGT)
+contrast:: Runs a basic association test, per-site or in a region, and checks for novel alleles and genotypes in two groups of samples. Adds the following INFO annotations:
+    - PASSOC  .. Fisher's exact test probability of genotypic association (REF vs non-REF allele)
+    - FASSOC  .. proportion of non-REF allele in controls and cases
+    - NASSOC  .. number of control-ref, control-alt, case-ref and case-alt alleles
+    - NOVELAL .. lists samples with a novel allele not observed in the control group
+    - NOVELGT .. lists samples with a novel genotype not observed in the control group
 
 counts:: A minimal plugin which counts number of samples, SNPs, INDELs, MNPs and total number of sites.
 
@@ -58,6 +63,8 @@ gvcfz:: compress gVCF file by resizing non-variant blocks according to specified
 
 impute-info:: Adds imputation information metrics to the INFO field based on selected FORMAT tags. Only the IMPUTE2 INFO metric from FORMAT/GP tags is currently available.
 
+indel-stats:: Calculates per-sample or de novo indels stats. The usage and format is similar to ``smpl-stats`` and ``trio-stats``.
+
 isecGT:: Compares two files and set non-identical genotypes in the first file to missing.
 
 link:plugin.mendelian.html[mendelian]:: Count Mendelian consistent / inconsistent genotypes
@@ -70,7 +77,7 @@ prune:: Prunes sites by missingness or linkage disequilibrium.
 
 setGT:: Sets genotypes according to the specified criteria and filtering expressions. For example, missing genotypes can be set to ref, but much more than that.
 
-smpl-stats:: calculates basic per-sample stats
+smpl-stats:: calculates basic per-sample stats. The usage and format is similar to ``indel-stats`` and ``trio-stats``.
 
 split:: split VCF by sample, creating single-sample VCFs
 
@@ -80,7 +87,7 @@ tag2tag:: Converts between similar tags, such as GL, PL and GP.
 
 trio-dnm:: screen variants for possible de-novo mutations in trios
 
-trio-stats:: calculate transmission rate in trio children
+trio-stats:: Calculate transmission rate in trio children. The usage and format is similar to ``indel-stats`` and ``smpl-stats``. 
 
 trio-switch-rate:: Calculates phase switch rate in trio children.
 

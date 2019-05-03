@@ -130,7 +130,26 @@ between two samples. Performs a Fisher test on the FORMAT/AD annotation.</p>
 </dd>
 <dt class="hdlist1">contrast</dt>
 <dd>
-<p>Finds novel alleles and genotypes in two groups of samples. Adds an annotation which lists samples with a novel allele (INFO/NOVELAL) or a novel genotype (INFO/NOVELGT)</p>
+<p>Runs a basic association test, per-site or in a region, and checks for novel alleles and genotypes in two groups of samples. Adds the following INFO annotations:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>PASSOC  .. Fisher&#8217;s exact test probability of genotypic association (REF vs non-REF allele)</p>
+</li>
+<li>
+<p>FASSOC  .. proportion of non-REF allele in controls and cases</p>
+</li>
+<li>
+<p>NASSOC  .. number of control-ref, control-alt, case-ref and case-alt alleles</p>
+</li>
+<li>
+<p>NOVELAL .. lists samples with a novel allele not observed in the control group</p>
+</li>
+<li>
+<p>NOVELGT .. lists samples with a novel genotype not observed in the control group</p>
+</li>
+</ul>
+</div>
 </dd>
 <dt class="hdlist1">counts</dt>
 <dd>
@@ -181,6 +200,10 @@ all selected samples must have the same GT, while non of the others can have it.
 <dd>
 <p>Adds imputation information metrics to the INFO field based on selected FORMAT tags. Only the IMPUTE2 INFO metric from FORMAT/GP tags is currently available.</p>
 </dd>
+<dt class="hdlist1">indel-stats</dt>
+<dd>
+<p>Calculates per-sample or de novo indels stats. The usage and format is similar to <code>smpl-stats</code> and <code>trio-stats</code>.</p>
+</dd>
 <dt class="hdlist1">isecGT</dt>
 <dd>
 <p>Compares two files and set non-identical genotypes in the first file to missing.</p>
@@ -207,7 +230,7 @@ all selected samples must have the same GT, while non of the others can have it.
 </dd>
 <dt class="hdlist1">smpl-stats</dt>
 <dd>
-<p>calculates basic per-sample stats</p>
+<p>calculates basic per-sample stats. The usage and format is similar to <code>indel-stats</code> and <code>trio-stats</code>.</p>
 </dd>
 <dt class="hdlist1">split</dt>
 <dd>
@@ -227,7 +250,7 @@ all selected samples must have the same GT, while non of the others can have it.
 </dd>
 <dt class="hdlist1">trio-stats</dt>
 <dd>
-<p>calculate transmission rate in trio children</p>
+<p>Calculate transmission rate in trio children. The usage and format is similar to <code>indel-stats</code> and <code>smpl-stats</code>.</p>
 </dd>
 <dt class="hdlist1">trio-switch-rate</dt>
 <dd>
