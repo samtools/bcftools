@@ -1,0 +1,35 @@
+# CMD line shows the command line used to generate this output
+# DEF lines define expressions for all tested thresholds
+# FLT* lines report numbers for every threshold and every sample:
+#   1) filter id
+#   2) sample
+#   3) number of genotypes which pass the filter
+#   4) number of non-reference genotypes
+#   5) number of homozygous ref genotypes (0/0 or 0)
+#   6) number of homozygous alt genotypes (1/1, 2/2, etc)
+#   7) number of heterozygous genotypes (0/1, 1/2, etc)
+#   8) number of hemizygous genotypes (0, 1, etc)
+#   9) number of SNVs
+#   10) number of indels
+#   11) number of singletons
+#   12) number of missing genotypes (./., ., ./0, etc)
+#   13) number of transitions (alt het genotypes such as "1/2" are counted twice)
+#   14) number of transversions (alt het genotypes such as "1/2" are counted twice)
+#   15) overall ts/tv
+# SITE* lines report numbers for every threshold:
+#   1) filter id
+#   2) number of sites which pass the filter
+#   3) number of SNVs
+#   4) number of indels
+#   5) number of singletons
+#   6) number of transitions (counted at most once at multiallelic sites)
+#   7) number of transversions (counted at most once at multiallelic sites)
+#   8) overall ts/tv
+DEF	FLT0	all
+FLT0	child1	4	4	0	2	2	0	1	3	1	0	0	1	0.00
+FLT0	father1	4	2	2	1	1	0	1	1	0	0	0	1	0.00
+FLT0	mother1	4	1	3	1	0	0	1	0	0	0	0	1	0.00
+FLT0	child2	4	2	2	0	2	0	1	1	0	0	1	1	1.00
+FLT0	father2	3	1	2	0	1	0	1	0	0	1	1	1	1.00
+FLT0	mother2	4	1	3	1	0	0	1	0	0	0	0	1	0.00
+SITE0	4	1	3	1	1	1	1.00

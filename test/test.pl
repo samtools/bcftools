@@ -345,6 +345,7 @@ test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.mv.out',cmd=>'+GTisec',args=>
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.v.out',cmd=>'+GTisec',args=>'-- -v | grep -v bcftools');
 test_vcf_plugin($opts,in=>'trio',out=>'trio.out',cmd=>'+trio-switch-rate',args=>'-- -p {PATH}/trio.ped | grep -v bcftools');
 test_vcf_plugin($opts,in=>'trio-stats',out=>'trio-stats.out',cmd=>'+trio-stats',args=>'-p {PATH}/trio-stats.ped -v mendel-errors | grep -v ^CMD');
+test_vcf_plugin($opts,in=>'indel-stats',out=>'smpl-stats.1.out',cmd=>'+smpl-stats',args=>'| grep -v ^CMD');
 test_vcf_plugin($opts,in=>'indel-stats',out=>'indel-stats.1.out',cmd=>'+indel-stats',args=>'| grep -v ^CMD');
 test_vcf_plugin($opts,in=>'indel-stats',out=>'indel-stats.2.out',cmd=>'+indel-stats',args=>' -p {PATH}/trio-stats.ped | grep -v ^CMD');
 test_vcf_plugin($opts,in=>'indel-stats',out=>'indel-stats.3.out',cmd=>'+indel-stats',args=>' -p {PATH}/trio-stats.2.ped | grep -v ^CMD');
@@ -363,6 +364,7 @@ test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.1.out',cmd=>'+mendelian',a
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.2.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -l+');
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.3.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -lx');
 test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-0 a,b -1 c');
+test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-0 {PATH}/contrast0.txt -1 {PATH}/contrast1.txt');
 test_vcf_plugin($opts,in=>'trio-dnm.1',out=>'trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.2.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GQ>10; FLT:-' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
