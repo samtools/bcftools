@@ -609,7 +609,6 @@ bcf1_t *next_line(args_t *args)
     return rec;
 }
 
-
 static void init_data(args_t *args)
 {
     args->aux.srs = bcf_sr_init();
@@ -879,6 +878,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");
     fprintf(stderr, "   -f, --format-fields <list>      output format fields: GQ,GP (lowercase allowed) []\n");
     fprintf(stderr, "   -F, --prior-freqs <AN,AC>       use prior allele frequencies\n");
+    fprintf(stderr, "   -G, --group-samples <file|->    group samples by population (file with \"sample\\tgroup\") or \"-\" for single-sample calling\n");
     fprintf(stderr, "   -g, --gvcf <int>,[...]          group non-variant sites into gVCF blocks by minimum per-sample DP\n");
     fprintf(stderr, "   -i, --insert-missed             output also sites missed by mpileup but present in -T\n");
     fprintf(stderr, "   -M, --keep-masked-ref           keep sites with masked reference allele (REF=N)\n");
@@ -892,6 +892,10 @@ static void usage(args_t *args)
     fprintf(stderr, "   -n, --novel-rate <float>,[...]  likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
     fprintf(stderr, "   -p, --pval-threshold <float>    variant if P(ref|D)<FLOAT with -c [0.5]\n");
     fprintf(stderr, "   -P, --prior <float>             mutation rate (use bigger for greater sensitivity), use with -m [1.1e-3]\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Example:\n");
+    fprintf(stderr, "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n");
+    fprintf(stderr, "   bcftools mpileup -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n");
 
     // todo (and more)
     // fprintf(stderr, "\nContrast calling and association test options:\n");
@@ -930,6 +934,7 @@ int main_vcfcall(int argc, char *argv[])
         {"format-fields",required_argument,NULL,'f'},
         {"prior-freqs",required_argument,NULL,'F'},
         {"gvcf",required_argument,NULL,'g'},
+        {"group-samples",required_argument,NULL,'G'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"regions",required_argument,NULL,'r'},
@@ -960,7 +965,7 @@ int main_vcfcall(int argc, char *argv[])
     };
 
     char *tmp = NULL;
-    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:n:P:f:ig:XYF:", loptions, NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "h?o:O:r:R:s:S:t:T:ANMV:vcmp:C:n:P:f:ig:XYF:G:", loptions, NULL)) >= 0)
     {
         switch (c)
         {
@@ -968,6 +973,7 @@ int main_vcfcall(int argc, char *argv[])
             case  1 : ploidy = optarg; break;
             case 'X': ploidy = "X"; fprintf(stderr,"Warning: -X will be deprecated, please use --ploidy instead.\n"); break;
             case 'Y': ploidy = "Y"; fprintf(stderr,"Warning: -Y will be deprecated, please use --ploidy instead.\n"); break;
+            case 'G': args.aux.sample_groups = optarg; break;
             case 'f': args.aux.output_tags |= parse_format_flag(optarg); break;
             case 'M': args.flag &= ~CF_ACGT_ONLY; break;     // keep sites where REF is N
             case 'N': args.flag |= CF_ACGT_ONLY; break;      // omit sites where first base in REF is N (the new default)
@@ -1055,6 +1061,7 @@ int main_vcfcall(int argc, char *argv[])
     }
     if ( args.flag & CF_INS_MISSED && !(args.aux.flag&CALL_CONSTR_ALLELES) ) error("The -i option requires -C alleles\n");
     if ( args.aux.flag&CALL_VARONLY && args.gvcf ) error("The two options cannot be combined: --variants-only and --gvcf\n");
+    if ( args.aux.sample_groups && !(args.flag & CF_MCALL) ) error("The -G feature is supported only with the -m calling mode\n");
     init_data(&args);
 
     bcf1_t *bcf_rec;
