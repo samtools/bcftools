@@ -287,8 +287,10 @@ static void init_sample_groups(call_t *call)
                 grps->ngrp++;
             }
             int igrp;
-            if ( khash_str2int_get(grp2idx, ptr+1, &igrp)!=0 ) error("This should not happen, fixme: %s\n",ptr+1);
-            smpl2grp1[ismpl] = igrp+1;
+            if ( khash_str2int_get(grp2idx, ptr+1, &igrp)==0 )
+                smpl2grp1[ismpl] = igrp+1;
+            else
+                error("This should not happen, fixme: %s\n",ptr+1);
         }
         khash_str2int_destroy(grp2idx);
 
