@@ -366,6 +366,12 @@ static void report_stats(args_t *args)
     fprintf(fh,"#   %d) maximum indel length\n", ++i);
     fprintf(fh,"#   %d-%d) mean fraction at indel lengths (-max,..,0,..,max)\n", i+1, i+MAX_LEN*2+1);
     fprintf(fh,"#\n");
+    i = 0;
+    fprintf(fh,"# NFRAC* lines report the number of indels informing the DFRAC distribution.\n");
+    fprintf(fh,"#   %d) NFRAC*, filter id\n", ++i);
+    fprintf(fh,"#   %d) maximum indel length\n", ++i);
+    fprintf(fh,"#   %d-%d) counts at indel lengths (-max,..,0,..,max)\n", i+1, i+MAX_LEN*2+1);
+    fprintf(fh,"#\n");
     fprintf(fh, "CMD\t%s", args->argv[0]);
     for (i=1; i<args->argc; i++) fprintf(fh, " %s",args->argv[i]);
     fprintf(fh, "\n");
@@ -404,6 +410,11 @@ static void report_stats(args_t *args)
         for (j=0; j<MAX_LEN*2+1; j++)
             if ( stats->nfrac[j] ) fprintf(fh,"\t%.2f",stats->dfrac[j]/stats->nfrac[j]);
             else fprintf(fh,"\t.");
+        fprintf(fh,"\n");
+
+        fprintf(fh,"NFRAC%d", i);
+        fprintf(fh,"\t%d", MAX_LEN);
+        for (j=0; j<MAX_LEN*2+1; j++) fprintf(fh,"\t%u",stats->nfrac[j]);
         fprintf(fh,"\n");
     }
     if ( fclose(fh)!=0 ) error("Close failed: %s\n", (!args->output_fname || !strcmp("-",args->output_fname)) ? "stdout" : args->output_fname);
