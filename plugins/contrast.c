@@ -363,13 +363,10 @@ static int process_record(args_t *args, bcf1_t *rec)
                 kputs(smpl, &args->case_als_smpl);
             }
         }
-        else if ( !binary_search(gt, args->control_gts, args->ncontrol_gts) )
+        else if ( (args->annots & PRINT_NOVELGT) && !binary_search(gt, args->control_gts, args->ncontrol_gts) )
         {
-            if ( args->annots & PRINT_NOVELGT )
-            {
-                if ( args->case_gts_smpl.l ) kputc(',', &args->case_gts_smpl);
-                kputs(smpl, &args->case_gts_smpl);
-            }
+            if ( args->case_gts_smpl.l ) kputc(',', &args->case_gts_smpl);
+            kputs(smpl, &args->case_gts_smpl);
         }
     }
     if ( !has_gt )
