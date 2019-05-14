@@ -547,7 +547,9 @@ int main_vcfisec(int argc, char *argv[])
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;
             case 'f': args->files->apply_filters = optarg; break;
-            case 'C': args->isec_op = OP_COMPLEMENT; break;
+            case 'C':
+                if ( args->isec_op!=0 && args->isec_op!=OP_COMPLEMENT ) error("Error: either -C or -n should be given, not both.\n");
+                args->isec_op = OP_COMPLEMENT; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 't': args->targets_list = optarg; break;
@@ -558,6 +560,8 @@ int main_vcfisec(int argc, char *argv[])
             case 'e': add_filter(args, optarg, FLT_EXCLUDE); break;
             case 'n':
                 {
+                    if ( args->isec_op!=0 && args->isec_op==OP_COMPLEMENT ) error("Error: either -C or -n should be given, not both.\n");
+                    if ( args->isec_op!=0 ) error("Error: -n should be given only once.\n");
                     char *p = optarg;
                     if ( *p=='-' ) { args->isec_op = OP_MINUS; p++; }
                     else if ( *p=='+' ) { args->isec_op = OP_PLUS; p++; }

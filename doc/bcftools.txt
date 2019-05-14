@@ -546,6 +546,14 @@ demand. The original calling model can be invoked with the *-c* option.
     bcftools mpileup [...] -Ou | bcftools annotate -a AFs.tab.gz -h AFs.hdr -c CHROM,POS,REF,ALT,REF_AN,REF_AC -Ou | bcftools call -mv -F REF_AN,REF_AC [...]
 ----
 
+*-G, --group-samples* 'FILE'|'-'::
+    by default, all samples are assumed to come from a single population. This option allows to group samples
+    into populations and apply the HWE assumption within but not across the populations. 'FILE' is a tab-delimited
+    text file with sample names in the first column and group names in the second column. If '-' is
+    given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
+    in low coverage data this inflates the rate of false positives.) The *-G* option requires the presence of
+    FORMAT/AD generated at the *bcftools mpileup* step by providing the *-a FMT/AD* option.
+
 *-g, --gvcf* 'INT'::
     output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
     minimum per-sample depth required to include a site in the non-variant

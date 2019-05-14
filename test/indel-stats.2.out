@@ -31,8 +31,14 @@
 #   2) maximum indel length
 #   3-43) mean fraction at indel lengths (-max,..,0,..,max)
 #
+# NFRAC* lines report the number of indels informing the DFRAC distribution.
+#   1) NFRAC*, filter id
+#   2) maximum indel length
+#   3-43) counts at indel lengths (-max,..,0,..,max)
+#
 DEF	FLT0	all
 SN0	2	3	2	2	2	0	1	0
 DVAF0	20	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1
 DLEN0	20	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
 DFRAC0	20	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	0.50	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+NFRAC0	20	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0

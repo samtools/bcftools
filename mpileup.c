@@ -871,6 +871,10 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -P, --platforms STR     comma separated list of platforms for indels [all]\n"
 "\n"
 "Notes: Assuming diploid individuals.\n"
+"\n"
+"Example:\n"
+"   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
+"   bcftools mpileup -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n"
 "\n");
 
     free(tmp_require);

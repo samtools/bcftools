@@ -227,6 +227,11 @@ test_vcf_call($opts,in=>'mpileup',out=>'mpileup.5.out',args=>'-mv -S {PATH}/mpil
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.samples');
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.ped');
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.2.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.2.samples');
+test_vcf_call($opts,in=>'mpileup.NA19213.NA19129',out=>'mpileup.hwe.1.out',args=>'-mv');
+test_vcf_call($opts,in=>'mpileup.NA19213.NA19129',out=>'mpileup.hwe.1.out',args=>'-mv -G -');
+test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.2.out',args=>'-mv');
+test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.3.out',args=>'-mv -G -');
+test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.4.out',args=>'-mv -G {PATH}/mpileup.hwe.samples');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_call_cAls($opts,in=>'mpileup.2',out=>'mpileup.cAls.2.out',tab=>'mpileup.2');
 test_vcf_call_cAls($opts,in=>'mpileup.3',out=>'mpileup.cAls.3.out',tab=>'mpileup.3',args=>'-i');
