@@ -98,16 +98,43 @@ subfields:</p>
 </div>
 </div>
 <div class="paragraph">
-<p>The default tag can be changed using the <code>-a, -annotation</code> option.</p>
+<p>The default tag can be changed using the <code>-a, -annotation</code> option. For example, if the tag is named <code>XXX</code>, add
+the <code>-a XXX</code> option.</p>
 </div>
 <div class="paragraph">
 <p>Extract the <code>Consequence</code> field using a <code>bcftools query</code> like output:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools +split-vep test/split-vep.vcf -f '%Consequence\n' | head -1
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Consequence\n'
 
-non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,downstream_gene_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,regulatory_region_variant</pre>
+1:14464 non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,...</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To print each consequence on a separate line, rather than as a comma-separated string on a
+single line, use the <code>-d, --duplicate</code> option:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Consequence\n' -d
+
+1:14464 non_coding_transcript_exon_variant
+1:14464 downstream_gene_variant
+1:14464 regulatory_region_variant</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Any number of subfields can be printed this way. If you want to print all
+subfields, use the <code>-A</code> option to avoid creating a very lengthy formatting
+expression:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %CSQ\n' -d -A tab
+
+14464   T   non_coding_transcript_exon_variant  MODIFIER    WASH7P  ENSG00000227232 ...
+14464   T   regulatory_region_variant   MODIFIER    .   .   RegulatoryFeature   ENSR00000000002 ...</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -117,12 +144,9 @@ the name of the affected gene:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %SYMBOL %Consequence\n' -s worst | head -5
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %SYMBOL %Consequence\n' -s worst
 
 1:14464 . regulatory_region_variant
-1:14469 . regulatory_region_variant
-1:14522 WASH7P non_coding_transcript_exon_variant
-1:14542 WASH7P non_coding_transcript_exon_variant
 1:14574 WASH7P non_coding_transcript_exon_variant</pre>
 </div>
 </div>
@@ -131,13 +155,24 @@ the name of the affected gene:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Gene %Consequence\n' -s worst:missense+ | head -5
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Gene %Consequence\n' -s worst:missense+
 
-1:15004 ENSG00000227232 splice_donor_variant&amp;non_coding_transcript_variant
 1:16856 ENSG00000227232 splice_donor_variant&amp;non_coding_transcript_variant
 1:17365 ENSG00000227232 splice_acceptor_variant&amp;non_coding_transcript_variant
 1:69428 ENSG00000186092 missense_variant
 1:69469 ENSG00000186092 frameshift_variant</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It is also possible to use the standard <code>-i/-e</code> expressions to query the fields. For
+example, filter consequences predicted to be damaging by PolyPhen:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Consequence %PolyPhen\n' -d -i 'PolyPhen~"damaging"'
+
+1:69428 missense_variant probably_damaging(0.984)
+1:69559 missense_variant possibly_damaging(0.675)</pre>
 </div>
 </div>
 <div class="paragraph">

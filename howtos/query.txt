@@ -89,6 +89,9 @@ $ bcftools query -f '%CHROM %POS  GTs:[ %GT]\t PLs:[ %PL]\n' file.bcf | head -3
 ----
 
 
+.**Extracting structured VEP annotations**
+
+Please see the plugin link:plugin.split-vep.html[split-vep].
 
 include::footer.inc[]
 

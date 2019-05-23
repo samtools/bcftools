@@ -23,37 +23,65 @@ bcftools +split-vep test/split-vep.vcf -l | head
 9   INTRON
 ----
 
-The default tag can be changed using the `-a, -annotation` option.
+The default tag can be changed using the `-a, -annotation` option. For example, if the tag is named `XXX`, add
+the `-a XXX` option.
 
 Extract the `Consequence` field using a `bcftools query` like output:
 ----
-bcftools +split-vep test/split-vep.vcf -f '%Consequence\n' | head -1
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Consequence\n'
 
-non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,downstream_gene_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,regulatory_region_variant
+1:14464 non_coding_transcript_exon_variant,non_coding_transcript_exon_variant,...
 ----
+
+To print each consequence on a separate line, rather than as a comma-separated string on a
+single line, use the `-d, --duplicate` option:
+----
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Consequence\n' -d
+
+1:14464 non_coding_transcript_exon_variant
+1:14464 downstream_gene_variant
+1:14464 regulatory_region_variant
+----
+
+
+Any number of subfields can be printed this way. If you want to print all
+subfields, use the `-A` option to avoid creating a very lengthy formatting
+expression:
+----
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %CSQ\n' -d -A tab
+
+14464   T   non_coding_transcript_exon_variant  MODIFIER    WASH7P  ENSG00000227232 ...
+14464   T   regulatory_region_variant   MODIFIER    .   .   RegulatoryFeature   ENSR00000000002 ...
+----
+
 
 This printed the consequence prediction for all transcripts. Now limit the output
 to transcript with the most severe consequence printing also the coordinates and
 the name of the affected gene:
 ----
-bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %SYMBOL %Consequence\n' -s worst | head -5
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %SYMBOL %Consequence\n' -s worst
 
 1:14464 . regulatory_region_variant
-1:14469 . regulatory_region_variant
-1:14522 WASH7P non_coding_transcript_exon_variant
-1:14542 WASH7P non_coding_transcript_exon_variant
 1:14574 WASH7P non_coding_transcript_exon_variant
 ----
 
 Limit the output to missense or more severe variants:
 ----
-bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Gene %Consequence\n' -s worst:missense+ | head -5
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Gene %Consequence\n' -s worst:missense+
 
-1:15004 ENSG00000227232 splice_donor_variant&non_coding_transcript_variant
 1:16856 ENSG00000227232 splice_donor_variant&non_coding_transcript_variant
 1:17365 ENSG00000227232 splice_acceptor_variant&non_coding_transcript_variant
 1:69428 ENSG00000186092 missense_variant
 1:69469 ENSG00000186092 frameshift_variant
+----
+
+It is also possible to use the standard `-i/-e` expressions to query the fields. For
+example, filter consequences predicted to be damaging by PolyPhen:
+----
+bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Consequence %PolyPhen\n' -d -i 'PolyPhen~"damaging"'
+
+1:69428 missense_variant probably_damaging(0.984)
+1:69559 missense_variant possibly_damaging(0.675)
 ----
 
 Rather than printing a formatted text, create two INFO fields MySYMBOL with the gene name and 
