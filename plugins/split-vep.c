@@ -95,6 +95,8 @@ typedef struct
     int min_severity, max_severity;     // ignore consequences outside this severity range
     int select_tr;                      // one of SELECT_TR_*
     uint8_t *smpl_pass;                 // for filtering at sample level, used with -f
+    int duplicate;              // the -d, --duplicate option is set
+    char *all_fields_delim;     // the -A, --all-fields option is set
 }
 args_t;
 
@@ -135,7 +137,12 @@ static const char *usage_text(void)
         "Usage: bcftools +split-vep [Plugin Options]\n"
         "Plugin options:\n"
         "   -a, --annotation STR        annotation to parse [CSQ]\n"
+        "   -A, --all-fields DELIM      output all fields replacing the -a tag (\"%CSQ\" by default) in the -f\n"
+        "                               filtering expression using the output field delimiter DELIM. This can be\n"
+        "                               \"tab\", \"space\" or an arbitrary string.\n"
         "   -c, --columns LIST          extract the fields listed either as indexes or names\n"
+        "   -d, --duplicate             output per transcript/allele consequences on a new line rather rather than\n"
+        "                               as comma-separated fields on a single line\n"
         "   -f, --format <string>       formatting expression, see man page for `bcftools query -f`\n"
         "   -l, --list                  parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix          prefix of INFO annotations to be created after splitting the CSQ string\n"
@@ -168,7 +175,43 @@ static const char *usage_text(void)
         "\n"
         "   # Same as above but use the text output of the \"bcftools query\" format\n"
         "   bcftools +split-vep -s worst -f '%CHROM %POS %Consequence %IMPACT %SYMBOL\\n' file.vcf.gz\n"
+        "\n"
+        "   # Print all subfields (tab-delimited) in place of %CSQ, each consequence on a new line\n"
+        "   bcftools +split-vep '%CHROM %POS %CSQ\\n' -d -A tab file.vcf.gz\n"
         "\n";
+}
+
+static void expand_csq_expression(args_t *args, kstring_t *str)
+{
+    if ( !args->all_fields_delim ) return;
+
+    str->l = 0;
+    kputc('%',str);
+    kputs(args->vep_tag,str);
+    char *ptr = strstr(args->format_str,str->s);
+    if ( !ptr ) return;
+    char *end = ptr + str->l, tmp = *end;
+    if ( isalnum(tmp) || tmp=='_' || tmp=='.' ) return;
+    *end = 0;
+
+    str->l = 0;
+    kputsn(args->format_str, ptr - args->format_str, str);
+
+    int i;
+    for (i=0; i<args->nfield; i++)
+    {
+        if ( i>0 ) kputs(args->all_fields_delim, str);
+        kputc('%', str);
+        kputs(args->field[i], str);
+    }
+
+    *end = tmp;
+    kputs(end, str);
+
+    free(args->format_str);
+    args->format_str = str->s;
+    str->l = str->m = 0;
+    str->s = NULL;
 }
 
 static void init_data(args_t *args)
@@ -184,7 +227,7 @@ static void init_data(args_t *args)
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
 
-    // Parse the header CSQ line, must contain Descriptionw with "Format: ..." declaration
+    // Parse the header CSQ line, must contain Description with "Format: ..." declaration
     bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr, BCF_HL_INFO, NULL, args->vep_tag, NULL);
     if ( !hrec ) error("The tag INFO/%s not found in the header\n", args->vep_tag);
     int ret = bcf_hrec_find_key(hrec, "Description");
@@ -225,15 +268,28 @@ static void init_data(args_t *args)
     kstring_t str = {0,0,0};
     if ( args->format_str && !args->column_str )
     {
+        // Special case: -A was given, extract all fields, for this the -a tag (%CSQ) must be present
+        if ( args->all_fields_delim ) expand_csq_expression(args, &str);
+
         for (i=0; i<args->nfield; i++)
         {
             str.l = 0;
             kputc('%',&str);
             kputs(args->field[i],&str);
-            char *ptr = strstr(args->format_str,str.s);
+            char end, *ptr = args->format_str;
+            while ( ptr )
+            {
+                ptr = strstr(ptr,str.s);
+                if ( !ptr ) break;
+                end = ptr[str.l];
+                if ( isalnum(end) || end=='_' || end=='.' )
+                {
+                    ptr++;
+                    continue;
+                }
+                break;
+            }
             if ( !ptr ) continue;
-            char end = ptr[str.l];
-            if ( isalnum(end) || end=='_' || end=='.' ) continue;
             ptr[str.l] = 0;
             int tag_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, ptr+1);
             if ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,tag_id) )
@@ -543,45 +599,9 @@ static void annot_append(annot_t *ann, char *value)
     if ( ann->str.l ) kputc(',',&ann->str);
     kputs(value, &ann->str);
 }
-static void process_record(args_t *args, bcf1_t *rec)
+static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int all_missing)
 {
-    int len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
-    if ( len<=0 ) return;
-
-    args->cols_tr = cols_split(args->csq_str, args->cols_tr, ',');
-
-    int i,j, itr_min = 0, itr_max = args->cols_tr->n - 1;
-    if ( args->select_tr==SELECT_TR_PRIMARY )
-    {
-        itr_min = itr_max = get_primary_transcript(args, rec, args->cols_tr);
-        if ( itr_min<0 ) itr_max = itr_min - 1;
-    }
-    else if ( args->select_tr==SELECT_TR_WORST )
-        itr_min = itr_max = get_worst_transcript(args, rec, args->cols_tr);
-
-    annot_reset(args->annot, args->nannot);
-    int severity_pass = 0;
-    for (i=itr_min; i<=itr_max; i++)
-    {
-        args->cols_csq = cols_split(args->cols_tr->off[i], args->cols_csq, '|');
-        if ( args->csq_idx >= args->cols_csq->n )
-            error("Too few columns at %s:%d .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),rec->pos+1,args->csq_idx,args->cols_csq->n);
-
-        char *csq = args->cols_csq->off[args->csq_idx];
-        if ( !csq_severity_pass(args, csq) ) continue;
-        severity_pass = 1;
-
-        for (j=0; j<args->nannot; j++)
-        {
-            annot_t *ann = &args->annot[j];
-            if ( ann->idx >= args->cols_csq->n )
-                error("Too few %s fields at %s:%d .. %d >= %d\n", args->vep_tag,bcf_seqname(args->hdr,rec),rec->pos+1,ann->idx,args->cols_csq->n);
-
-            if ( !*args->cols_csq->off[ann->idx] ) continue;     // missing value
-            annot_append(ann, args->cols_csq->off[ann->idx]);
-        }
-    }
-    int updated = 0;
+    int i, updated = 0;
     for (i=0; i<args->nannot; i++)
     {
         annot_t *ann = &args->annot[i];
@@ -599,7 +619,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     {
         if ( args->nannot )
         {
-            if ( !updated ) return;         // the standard case: using -f to print the CSQ subfields, skipping if missing
+            if ( !updated || all_missing ) return;         // the standard case: using -f to print the CSQ subfields, skipping if missing
         }
         else
         {
@@ -615,6 +635,60 @@ static void process_record(args_t *args, bcf1_t *rec)
     if ( bcf_write(args->fh_vcf, args->hdr_out,rec)!=0 )
         error("Failed to write to %s\n", args->output_fname);
 }
+static void process_record(args_t *args, bcf1_t *rec)
+{
+    int len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
+    if ( len<=0 ) return;
+
+    args->cols_tr = cols_split(args->csq_str, args->cols_tr, ',');
+
+    int i,j, itr_min = 0, itr_max = args->cols_tr->n - 1;
+    if ( args->select_tr==SELECT_TR_PRIMARY )
+    {
+        itr_min = itr_max = get_primary_transcript(args, rec, args->cols_tr);
+        if ( itr_min<0 ) itr_max = itr_min - 1;
+    }
+    else if ( args->select_tr==SELECT_TR_WORST )
+        itr_min = itr_max = get_worst_transcript(args, rec, args->cols_tr);
+
+    annot_reset(args->annot, args->nannot);
+    int severity_pass = 0;  // consequence severity requested via the -s option (BCF record may be output but not annotated)
+    int all_missing   = 1;  // transcripts with all requested annotations missing will be discarded if -f was given
+    for (i=itr_min; i<=itr_max; i++)
+    {
+        args->cols_csq = cols_split(args->cols_tr->off[i], args->cols_csq, '|');
+        if ( args->csq_idx >= args->cols_csq->n )
+            error("Too few columns at %s:%d .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),rec->pos+1,args->csq_idx,args->cols_csq->n);
+
+        char *csq = args->cols_csq->off[args->csq_idx];
+        if ( !csq_severity_pass(args, csq) ) continue;
+        severity_pass = 1;
+
+        for (j=0; j<args->nannot; j++)
+        {
+            annot_t *ann = &args->annot[j];
+            if ( ann->idx >= args->cols_csq->n )
+                error("Too few %s fields at %s:%d .. %d >= %d\n", args->vep_tag,bcf_seqname(args->hdr,rec),rec->pos+1,ann->idx,args->cols_csq->n);
+
+            if ( !*args->cols_csq->off[ann->idx] )
+                annot_append(ann, "."); // missing value
+            else
+            {
+                annot_append(ann, args->cols_csq->off[ann->idx]);
+                all_missing = 0;
+            }
+        }
+        if ( args->duplicate )
+        {
+            filter_and_output(args, rec, severity_pass, all_missing);
+            annot_reset(args->annot, args->nannot);
+            all_missing   = 1;
+            severity_pass = 0;
+        }
+    }
+    if ( !args->duplicate )
+        filter_and_output(args, rec, severity_pass, all_missing);
+}
 
 int run(int argc, char **argv)
 {
@@ -625,6 +699,8 @@ int run(int argc, char **argv)
     args->vep_tag = "CSQ";
     static struct option loptions[] =
     {
+        {"all-fields",no_argument,0,'A'},
+        {"duplicate",no_argument,0,'d'},
         {"format",required_argument,0,'f'},
         {"annotation",required_argument,0,'a'},
         {"annot-prefix",required_argument,0,'p'},
@@ -643,10 +719,16 @@ int run(int argc, char **argv)
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'A':
+                if ( !strcasecmp(optarg,"tab") ) args->all_fields_delim = "\t";
+                else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
+                else args->all_fields_delim = optarg;
+                break;
+            case 'd': args->duplicate = 1; break;
             case 'f': args->format_str = strdup(optarg); break;
             case 'a': args->vep_tag = optarg; break;
             case 'p': args->annot_prefix = optarg; break;
@@ -675,6 +757,7 @@ int run(int argc, char **argv)
             default: error("%s", usage_text()); break;
         }
     }
+    if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());
     if ( optind==argc )
     {
@@ -690,6 +773,7 @@ int run(int argc, char **argv)
         list_header(args);
     else
     {
+        if ( !args->format_str && !args->column_str ) error("Error: neither -c nor -f was given, use \"bcftools view\" instead.\n");
 
         if ( args->format_str )
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");

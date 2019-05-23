@@ -40,6 +40,8 @@ automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.
+(Note that files with non-standard index names can be accessed as e.g.
+"`bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name`".)
 
 BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
@@ -2128,7 +2130,8 @@ By default, appropriate system directories are searched for installed plugins.
 
 *split-vep*::
     extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
-    can be added as a new INFO field to the VCF or in a custom text format
+    can be added as a new INFO field to the VCF or in a custom text format. See
+    <http://samtools.github.io/bcftools/howtos/plugin.split-vep.html> for more.
 
 *tag2tag*::
     convert between similar tags, such as GL and GP
