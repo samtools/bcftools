@@ -266,8 +266,11 @@ static void process_record(args_t *args, bcf1_t *rec)
                       glP[2]*(0.5*glM[2]*glF[2] + 2/3.*glM[2]*glF[1] + glM[2]*glF[0] + 1/3.*glM[1]*glF[2] + 0.5*glM[1]*glF[1] + glM[1]*glF[0]);
         double ppat = glP[0]*(0.5*glM[0]*glF[0] + 2/3.*glM[1]*glF[0] + glM[2]*glF[0] + 1/3.*glM[0]*glF[1] + 0.5*glM[1]*glF[1] + glM[2]*glF[1]) +
                       glP[2]*(0.5*glM[2]*glF[2] + 2/3.*glM[1]*glF[2] + glM[0]*glF[2] + 1/3.*glM[2]*glF[1] + 0.5*glM[1]*glF[1] + glM[0]*glF[1]);
-        args->pmat += log(pmat);
-        args->ppat += log(ppat);
+
+        // NB: pmat/ppat is the probability of parental origin of the observed, not the deleted allele;
+        //     args->pmat/ppat is the probability of parental origin of the deleted allele
+        args->pmat += log(ppat);
+        args->ppat += log(pmat);
         args->ntest++;
 
         if ( args->debug )
