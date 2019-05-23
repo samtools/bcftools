@@ -90,6 +90,56 @@ MyConsequence:
 bcftools +split-vep test/split-vep.vcf -c SYMBOL,Consequence -s worst:missense+ -p My | less
 ----
 
+The complete usage page obtained by `bcftools +split-vep -h`:
+----
+About: Query structured annotations such INFO/CSQ created by bcftools/csq or VEP. For more
+   more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html
+Usage: bcftools +split-vep [Plugin Options]
+Plugin options:
+   -a, --annotation STR        annotation to parse [CSQ]
+   -A, --all-fields DELIM      output all fields replacing the -a tag ("%CSQ" by default) in the -f
+                               filtering expression using the output field delimiter DELIM. This can be
+                               "tab", "space" or an arbitrary string.
+   -c, --columns LIST          extract the fields listed either as indexes or names
+   -d, --duplicate             output per transcript/allele consequences on a new line rather rather than
+                               as comma-separated fields on a single line
+   -f, --format <string>       formatting expression, see man page for `bcftools query -f`
+   -l, --list                  parse the VCF header and list the annotation fields
+   -p, --annot-prefix          prefix of INFO annotations to be created after splitting the CSQ string
+   -s, --select TR:CSQ         TR, transcript: worst,primary,all             [all]
+                               CSQ, consequence: any,missense,missense+,etc  [any]
+   -S, --severity -|FILE       -: print the default severity scale
+                               FILE: override the default scale
+Common options:
+   -e, --exclude EXPR          exclude sites and samples for which the expression is true
+   -i, --include EXPR          include sites and samples for which the expression is true
+   -o, --output FILE           output file name [stdout]
+   -O, --output-type b|u|z|v   b: compressed BCF, u: uncompressed BCF, z: compressed VCF or text, v: uncompressed VCF or text [v]
+   -r, --regions REG           restrict to comma-separated list of regions
+   -R, --regions-file FILE     restrict to regions listed in a file
+   -t, --targets REG           similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE     similar to -R but streams rather than index-jumps
+
+Examples:
+   # List available fields of the INFO/CSQ annotation
+   bcftools +split-vep -l file.vcf.gz
+
+   # List the default severity scale
+   bcftools +split-vep -S -
+
+   # Extract Consequence, IMPACT and gene SYMBOL of the most severe consequence into
+   # INFO annotations starting with the prefix "vep". For brevity, the columns can
+   # be given also as 0-based indexes
+   bcftools +split-vep -c Consequence,IMPACT,SYMBOL -s worst -p vep file.vcf.gz
+   bcftools +split-vep -c 1-3 -s worst -p vep file.vcf.gz
+
+   # Same as above but use the text output of the "bcftools query" format
+   bcftools +split-vep -s worst -f '%CHROM %POS %Consequence %IMPACT %SYMBOL\n' file.vcf.gz
+
+   # Print all subfields (tab-delimited) in place of %CSQ, each consequence on a new line
+   bcftools +split-vep '%CHROM %POS %CSQ\n' -d -A tab file.vcf.gz
+----
+
 include::footer.inc[]
 
 

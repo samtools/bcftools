@@ -128,13 +128,14 @@ Sample3     Group2</pre>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS.
+<pre>About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS.
 Usage: bcftools +fill-tags [General Options] -- [Plugin Options]
 Options:
    run "bcftools plugin" for a list of common options
 
 Plugin options:
    -d, --drop-missing          do not count half-missing genotypes "./1" as hemizygous
+   -l, --list-tags             list available tags with description
    -t, --tags LIST             list of output tags. By default, all tags are filled.
    -S, --samples-file FILE     list of samples (first column) and comma-separated list of populations (second column)
 
