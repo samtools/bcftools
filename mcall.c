@@ -1466,20 +1466,19 @@ static int mcall_constrain_alleles(call_t *call, bcf1_t *rec, int *unseen)
         if (nret<=0) continue;
         int nsmpl = bcf_hdr_nsamples(call->hdr);
         int size1 = sizeof(float);
-
+        hts_expand(float, nsmpl * nals, ntmp_new, tmp_new);
         for (j=0; j<nsmpl; j++)
         {
-            void *ptr_ori = tmp_ori + j*size1*fmt->n;
-            void *ptr_new = tmp_new + j*nals*size1;
+            uint8_t *ptr_ori = (uint8_t *) tmp_ori + j*size1*fmt->n;
+            uint8_t *ptr_new = (uint8_t *) tmp_new + j*nals*size1;
             for (k=0; k<nals; k++)
             {
-                void *dst = ptr_new + size1*k;
-                void *src = ptr_ori + size1*call->als_map[k]; 
+                uint8_t *dst = ptr_new + size1*k;
+                uint8_t *src = ptr_ori + size1*call->als_map[k];
                 memcpy(dst,src,size1);
             }
         }
-        ntmp_new = nsmpl*rec->n_allele;
-        nret = bcf_update_format(call->hdr, rec, key, tmp_new, ntmp_new, type);
+        nret = bcf_update_format(call->hdr, rec, key, tmp_new, nsmpl*nals, type);
         assert( nret==0 );
     }
     call->PLs    = (int32_t*) tmp_new;
