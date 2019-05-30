@@ -24,6 +24,11 @@ matrix:
     - os: osx
       compiler: clang
       env: USE_CONFIG=yes
+    # An optimised build with address, leak and undefined behavior checking
+    - os: linux
+      compiler: clang
+      sudo: required
+      env: CFLAGS="-fsanitize=address" LDFLAGS="-fsanitize=address" USE_CONFIG=yes
 
 env:
   global:
