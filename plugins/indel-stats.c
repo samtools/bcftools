@@ -51,7 +51,7 @@ static inline int len2bin(int len)
     if ( len > MAX_LEN ) return 2*MAX_LEN;
     return MAX_LEN + len;
 }
-static inline int bin2len(int bin)
+HTS_UNUSED static inline int bin2len(int bin)
 {
     return bin - MAX_LEN;
 }
@@ -59,7 +59,7 @@ static inline int vaf2bin(float vaf)
 {
     return vaf*(NVAF-1);
 }
-static inline float bin2vaf(int bin)
+HTS_UNUSED static inline float bin2vaf(int bin)
 {
     return (float)bin/(NVAF-1);
 }
