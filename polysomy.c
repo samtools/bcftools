@@ -70,7 +70,7 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
 
     // smooth the distribution, this is just to find the peaks
     double *tmp = (double*) malloc(sizeof(double)*n);
-    int win  = args->smooth ? fabs(args->smooth)*2 + 1 : 7;   // must be an odd number
+    int win  = args->smooth ? abs(args->smooth)*2 + 1 : 7;   // must be an odd number
     int hwin = win/2;
     double avg = tmp[0] = dist->yvals[0];
     for (i=1; i<hwin; i++)
