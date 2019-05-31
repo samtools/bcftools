@@ -1482,7 +1482,7 @@ void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf
             {
                 kstring_t *str = &ma->str[ismpl++];
                 str->l = 0;
-                kputs(src, str);
+                kputsn(src, fmt_ori->n, str);
                 if ( nmax < str->l ) nmax = str->l;
                 src += fmt_ori->n;
             }
