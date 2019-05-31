@@ -310,7 +310,7 @@ static void set_samples(args_t *args, const char *fn, int is_file)
         if ( ismpl < 0 ) { fprintf(stderr,"Warning: No such sample in the VCF: %s\n",ss); continue; }
         if ( old2new[ismpl] != -1 ) { fprintf(stderr,"Warning: The sample is listed multiple times: %s\n",ss); continue; }
 
-        ss = se+1;
+        ss = se+(x != '\0');
         while ( *ss && isspace(*ss) ) ss++;
         if ( !*ss ) ss = "2";   // default ploidy
         se = ss;
