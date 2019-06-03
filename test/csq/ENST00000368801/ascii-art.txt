@@ -1,0 +1,15 @@
+
+
+1   4310    .   A   G   .   .   EXP=@11191;type=ENST00000368801:152188847-A-G
+1   6298    .   G   A   .   .   EXP=@11191;type=ENST00000368801:152190835-G-A
+1   11191   .   AT  A
+
+1   ensembl_havana  CDS 1015    9429    .   -   0   ID=CDS:ENSP00000357791;Parent=transcript:ENST00000368801;protein_id=ENSP00000357791
+1   ensembl_havana  CDS 11055   11192   .   -   0   ID=CDS:ENSP00000357791;Parent=transcript:ENST00000368801;protein_id=ENSP00000357791
+
+
+         11191
+eeeeeeeeeee..........
+AGTTTAGGCATTTTTTTTTTT
+AGTTTAGGCA-TTTTTTTTTT
+

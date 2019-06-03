@@ -25,6 +25,7 @@
  */
 /*
     Things that would be nice to have
+        - dynamic N_REF_PAD
         - for stop-lost events (also in frameshifts) report the number of truncated aa's
         - memory could be greatly reduced by indexing gff (but it is quite compact already)
         - deletions that go beyond transcript boundaries are not checked at sequence level
@@ -95,6 +96,7 @@
         splice_region_variant   .. change within 1-3 bases of the exon or 3-8 bases of the intron
         synonymous_variant      .. DNA sequence variant resulting in no amino acid change
         stop_retained_variant   .. different stop codon
+        start_retained_variant  .. start codon retained by indel realignment
         non_coding_variant      .. variant in non-coding sequence, such as RNA gene
         5_prime_UTR_variant
         3_prime_UTR_variant
@@ -209,13 +211,14 @@
 #define CSQ_INCOMPLETE_CDS      (1<<20)     // to remove START/STOP in incomplete CDS, see ENSG00000173376/synon.vcf
 #define CSQ_CODING_SEQUENCE     (1<<21)     // cannot tell exactly what it is, but it does affect the coding sequence
 #define CSQ_ELONGATION          (1<<22)     // symbolic insertion
+#define CSQ_START_RETAINED      (1<<23)
 
 // Haplotype-aware consequences, printed in one vcf record only, the rest has a reference @12345
 #define CSQ_COMPOUND (CSQ_SYNONYMOUS_VARIANT|CSQ_MISSENSE_VARIANT|CSQ_STOP_LOST|CSQ_STOP_GAINED| \
                       CSQ_INFRAME_DELETION|CSQ_INFRAME_INSERTION|CSQ_FRAMESHIFT_VARIANT| \
                       CSQ_START_LOST|CSQ_STOP_RETAINED|CSQ_INFRAME_ALTERING|CSQ_INCOMPLETE_CDS| \
-                      CSQ_UPSTREAM_STOP)
-#define CSQ_START_STOP          (CSQ_STOP_LOST|CSQ_STOP_GAINED|CSQ_STOP_RETAINED|CSQ_START_LOST)
+                      CSQ_UPSTREAM_STOP|CSQ_START_RETAINED)
+#define CSQ_START_STOP          (CSQ_STOP_LOST|CSQ_STOP_GAINED|CSQ_STOP_RETAINED|CSQ_START_LOST|CSQ_START_RETAINED)
 
 #define CSQ_PRN_STRAND(csq)     ((csq)&CSQ_COMPOUND && !((csq)&(CSQ_SPLICE_ACCEPTOR|CSQ_SPLICE_DONOR|CSQ_SPLICE_REGION)))
 #define CSQ_PRN_TSCRIPT         (~(CSQ_INTRON|CSQ_NON_CODING))
@@ -246,7 +249,8 @@ const char *csq_strings[] =
     NULL,
     NULL,
     "coding_sequence",
-    "feature_elongation"
+    "feature_elongation",
+    "start_retained"
 };
 
 
@@ -1770,14 +1774,103 @@ fprintf(stderr,"ins: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
     return SPLICE_INSIDE;
 }
 
+int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
+{
+    static int small_ref_padding_warned = 0;
+    tscript_t *tr = splice->tr;
+
+#if XDBG
+    fprintf(stderr,"shifted_del_synonymous: %d-%d  %s\n",ex_beg,ex_end, tr->strand==STRAND_FWD?"fwd":"rev");
+    fprintf(stderr,"   %d  ..  %s > %s\n",splice->vcf.pos+1,splice->vcf.ref,splice->vcf.alt);
+#endif
+
+    // is there enough ref sequence for the extension? All coordinates are 0-based
+    int ref_len = strlen(splice->vcf.ref);
+    int alt_len = strlen(splice->vcf.alt);
+    assert( ref_len > alt_len );
+    int ndel = ref_len - alt_len;
+
+    if ( tr->strand==STRAND_REV )
+    {
+        int32_t vcf_ref_end = splice->vcf.pos + ref_len - 1;  // end pos of the VCF REF allele
+        int32_t tr_ref_end  = splice->tr->end + N_REF_PAD;    // the end pos of accessible cached ref seq
+        if ( vcf_ref_end + ndel > tr_ref_end )
+        {
+            if ( !small_ref_padding_warned )
+            {
+                fprintf(stderr,"Warning: could not verify synonymous start/stop at %s:%d due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
+                small_ref_padding_warned = 1;
+            }
+            return 0;
+        }
+
+        char *ptr_vcf = splice->vcf.ref + alt_len;                         // the first deleted base in the VCF REF allele
+        char *ptr_ref = splice->tr->ref + N_REF_PAD + (vcf_ref_end + 1 - splice->tr->beg);  // the first ref base after the ndel bases deleted
+#if XDBG
+        fprintf(stderr,"vcf: %s\nref: %s\n",ptr_vcf,ptr_ref);
+#endif
+        int i = 0;
+        while ( ptr_vcf[i] && ptr_vcf[i]==ptr_ref[i] ) i++;
+        if ( ptr_vcf[i] ) return 0;       // the deleted sequence cannot be replaced
+    }
+    else 
+    {
+        // STRAND_FWD
+        int32_t vcf_block_beg = splice->vcf.pos + ref_len - 2*ndel;        // the position of the first base of the ref block that could potentially replace the deletion
+        if ( vcf_block_beg < 0 ) return 0;
+
+        assert( vcf_block_beg < ex_beg );
+
+#if XDBG
+        fprintf(stderr,"vcf_block_beg: %d\n",vcf_block_beg+1);
+#endif
+
+        if ( N_REF_PAD + vcf_block_beg < ex_beg )
+        {
+            if ( !small_ref_padding_warned )
+            {
+                fprintf(stderr,"Warning: could not verify synonymous start/stop at %s:%d due to small N_REF_PAD. (Improve me?)\n",bcf_seqname(args->hdr,splice->vcf.rec),splice->vcf.pos+1);
+                small_ref_padding_warned = 1;
+            }
+            return 0;
+        }
+
+        char *ptr_vcf = splice->vcf.ref + alt_len;                                      // the first deleted base in the VCF REF allele
+        char *ptr_ref = splice->tr->ref + N_REF_PAD + vcf_block_beg - splice->tr->beg;  // the replacement ref block
+#if XDBG
+        fprintf(stderr,"vcf: %s\nref: %s\n",ptr_vcf,ptr_ref);
+#endif
+
+        int i = 0;
+        while ( ptr_vcf[i] && ptr_vcf[i]==ptr_ref[i] ) i++;
+        if ( ptr_vcf[i] ) return 0;       // the deleted sequence cannot be replaced
+    }
+
+    return 1;
+}
+
 static inline int splice_csq_del(args_t *args, splice_t *splice, uint32_t ex_beg, uint32_t ex_end)
 {
+    if ( splice->check_start )
+    {
+        // check for synonymous start
+        //      test/csq/ENST00000375992/incorrect-synon-del-not-start-lost.txt
+        //      test/csq/ENST00000368801.2/start-lost.txt
+        //      test/csq/ENST00000318249.2/synonymous-start-lost.txt
+        int is_synonymous = shifted_del_synonymous(args, splice, ex_beg, ex_end);
+        if ( is_synonymous )
+        {
+            splice->csq |= CSQ_START_RETAINED;
+            return SPLICE_OVERLAP;
+        }
+    }
+
     // coordinates that matter for consequences, eg AC>ACG trimmed to C>CG
     splice->ref_beg = splice->vcf.pos + splice->tbeg - 1;                       // 1b before the deleted base
     splice->ref_end = splice->vcf.pos + splice->vcf.rlen - splice->tend - 1;    // the last deleted base
 
 #if XDBG
-fprintf(stderr,"del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_utr=%d start,stop,beg,end=%d,%d,%d,%d\n", splice->vcf.ref,splice->vcf.alt,ex_beg,ex_end,splice->ref_beg,splice->ref_end,splice->tbeg,splice->tend,splice->check_utr,splice->check_start,splice->check_stop,splice->check_region_beg,splice->check_region_end);
+fprintf(stderr,"splice_csq_del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_utr=%d start,stop,beg,end=%d,%d,%d,%d\n", splice->vcf.ref,splice->vcf.alt,ex_beg,ex_end,splice->ref_beg,splice->ref_end,splice->tbeg,splice->tend,splice->check_utr,splice->check_start,splice->check_stop,splice->check_region_beg,splice->check_region_end);
 #endif
 
     if ( splice->ref_beg + 1 < ex_beg )     // the part before the exon; ref_beg is off by -1
@@ -1881,7 +1974,6 @@ fprintf(stderr,"del: %s>%s .. ex=%d,%d  beg,end=%d,%d  tbeg,tend=%d,%d  check_ut
         csq_stage_splice(args, splice->vcf.rec, splice->tr, splice->csq);
         return SPLICE_OUTSIDE;
     }
-
     if ( splice->ref_beg < ex_beg + 2 ) // ref_beg is off by -1
     {
         if ( splice->check_region_beg ) splice->csq |= CSQ_SPLICE_REGION;
@@ -2044,6 +2136,7 @@ static inline int splice_csq(args_t *args, splice_t *splice, uint32_t ex_beg, ui
     return 0;
 }
 
+
 // return value: 0 added, 1 overlapping variant, 2 silent discard (intronic,alt=ref)
 int hap_init(args_t *args, hap_node_t *parent, hap_node_t *child, gf_cds_t *cds, bcf1_t *rec, int ial)
 {
@@ -2076,7 +2169,7 @@ int hap_init(args_t *args, hap_node_t *parent, hap_node_t *child, gf_cds_t *cds,
     if ( child->icds!=tr->ncds-1 ) splice.check_region_end = 1;
 
 #if XDBG
-fprintf(stderr,"\n%d [%s][%s]   check start:%d,stop:%d\n",splice.vcf.pos+1,splice.vcf.ref,splice.vcf.alt,splice.check_start,splice.check_stop);
+fprintf(stderr,"\nhap_init: %d [%s][%s]   check start:%d,stop:%d\n",splice.vcf.pos+1,splice.vcf.ref,splice.vcf.alt,splice.check_start,splice.check_stop);
 #endif
     int ret = splice_csq(args, &splice, cds->beg, cds->beg + cds->len - 1);
 #if XDBG
@@ -2181,6 +2274,7 @@ fprintf(stderr,"cds splice_csq: %d [%s][%s] .. beg,end=%d %d, ret=%d, csq=%d\n\n
         if ( !child->csq ) child->csq |= CSQ_CODING_SEQUENCE;  // hack, specifically for ENST00000390520/deletion-overlap.vcf
     }
 
+
     free(splice.kref.s);
     free(splice.kalt.s);
     return 0;
@@ -2214,7 +2308,7 @@ void hap_destroy(hap_node_t *hap)
 void cds_translate(kstring_t *_ref, kstring_t *_seq, uint32_t sbeg, uint32_t rbeg, uint32_t rend, int strand, kstring_t *tseq, int fill)
 {
 #if XDBG
-fprintf(stderr,"translate: %d %d %d  fill=%d  seq.l=%d\n",sbeg,rbeg,rend,fill,(int)_seq->l);
+fprintf(stderr,"\ntranslate: %d %d %d  fill=%d  seq.l=%d\n",sbeg,rbeg,rend,fill,(int)_seq->l);
 #endif
     char tmp[3], *codon, *end;
     int i, len, npad;
@@ -2314,7 +2408,7 @@ fprintf(stderr,"translate: %d %d %d  fill=%d  seq.l=%d\n",sbeg,rbeg,rend,fill,(i
 #if DBG>1
         fprintf(stderr,"    npad: %d\n",npad);
 #endif
-        // if ( !(npad>=0 && sbeg+seq.l+npad<=seq.m) ) fprintf(stderr,"sbeg=%d  seq.l=%d seq.m=%d\n",sbeg,(int)seq.l,(int)seq.m);
+        if ( !(npad>=0 && sbeg+seq.l+npad<=seq.m) ) fprintf(stderr,"sbeg=%d  seq.l=%d seq.m=%d npad=%d\n",sbeg,(int)seq.l,(int)seq.m,npad);
         assert( npad>=0 && sbeg+seq.l+npad<=seq.m );  // todo: first codon on the rev strand
 
         if ( npad==2 )
@@ -2335,8 +2429,8 @@ fprintf(stderr,"translate: %d %d %d  fill=%d  seq.l=%d\n",sbeg,rbeg,rend,fill,(i
         for (; i>=0 && end>seq.s; i--) tmp[i] = *(--end);
 #if DBG>1
         fprintf(stderr,"\t i=%d\n", i);
-        if(i==1)fprintf(stderr,"[0]    %c\n",tmp[2]);
-        if(i==0)fprintf(stderr,"[0]  %c%c\n",tmp[1],tmp[2]);
+        if(i==1)fprintf(stderr,"[0]  %c\n",tmp[2]);
+        if(i==0)fprintf(stderr,"[0] %c%c\n",tmp[1],tmp[2]);
 #endif
         if ( i==-1 )
         {
@@ -3001,7 +3095,6 @@ void hap_flush(args_t *args, uint32_t pos)
 {
     int i,j;
     tr_heap_t *heap = args->active_tr;
-
     while ( heap->ndat && heap->dat[0]->end<=pos )
     {
         tscript_t *tr = heap->dat[0];

@@ -118,7 +118,7 @@ static const char *default_severity(void)
         "non_coding\n"
         "regulatory\n"
         "5_prime_utr 3_prime_utr\n"
-        "stop_retained synonymous\n"
+        "stop_retained start_retained synonymous\n"
         "splice_region\n"
         "coding_sequence\n"
         "missense\n"
