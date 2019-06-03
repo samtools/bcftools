@@ -1607,21 +1607,24 @@ sub plot_indel_vaf_distribution
     my @vals = get_values($opts,$id,'IDD');
     if ( !@vals ) { return; }
 
-    my $fh  = $$opts{plt_fh};
-    my $img = "indel_vaf.$id";
     my ($xmin,$xmax);
-
-    open(my $tfh,'>',"$img.dat") or error("$img.dat: $!");
-    print $tfh "# [1]Indel length\t[2]Mean VAF\n";
+    my @dat = ();
     for my $val (@vals)
     {
         if ( $$val[2] eq '0' or $$val[3] eq '.' ) { next; }
         if ( !defined $xmin or $$val[0]<$xmin ) { $xmin = $$val[0]; }
         if ( !defined $xmax or $$val[0]>$xmax ) { $xmax = $$val[0]; }
-        print $tfh "$$val[0]\t$$val[3]\n";
+        push @dat, "$$val[0]\t$$val[3]\n";
     }
+    if ( !@dat ) { return; }
+
+    my $img = "indel_vaf.$id";
+    open(my $tfh,'>',"$img.dat") or error("$img.dat: $!");
+    print $tfh "# [1]Indel length\t[2]Mean VAF\n";
+    print $tfh @dat;
     close($tfh);
 
+    my $fh  = $$opts{plt_fh};
     tprint $fh, "
 
             dat = []
