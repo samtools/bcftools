@@ -2849,6 +2849,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             else if ( !strcasecmp(out[ival].key,"mnp") || !strcasecmp(out[ival].key,"mnps") ) { out[ival].threshold = VCF_MNP<<1; out[ival].is_str = 0; }
             else if ( !strcasecmp(out[ival].key,"other") ) { out[ival].threshold = VCF_OTHER<<1; out[ival].is_str = 0; }
             else if ( !strcasecmp(out[ival].key,"bnd") ) { out[ival].threshold = VCF_BND<<1; out[ival].is_str = 0; }
+            else if ( !strcasecmp(out[ival].key,"overlap") ) { out[ival].threshold = VCF_OVERLAP<<1; out[ival].is_str = 0; }
             else if ( !strcasecmp(out[ival].key,"ref") ) { out[ival].threshold = 1; out[ival].is_str = 0; }
             else error("The type \"%s\" not recognised: %s\n", out[ival].key, filter->str);
             if ( out[itok].tok_type==TOK_LIKE || out[itok].tok_type==TOK_NLIKE ) out[itok].comparator = filters_cmp_bit_and;
