@@ -1,0 +1,7 @@
+4	ensembl_havana	gene	-15	64876	.	+	.	ID=gene:ENSG00000185619;Name=PCGF3;biotype=protein_coding;description=polycomb group ring finger 3 [Source:HGNC Symbol%3BAcc:10066];gene_id=ENSG00000185619;logic_name=ensembl_havana_gene;version=13
+4	ensembl_havana	transcript	21	28716	.	+	.	ID=transcript:ENST00000400151;Parent=gene:ENSG00000185619;Name=PCGF3-009;biotype=protein_coding;havana_transcript=OTTHUMT00000318560;havana_version=1;tag=basic;transcript_id=ENST00000400151;version=2
+4	havana	exon	21	207	.	+	.	Parent=transcript:ENST00000400151;Name=ENSE00001435879;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001435879;rank=1;version=3
+4	havana	exon	24867	24905	.	+	.	Parent=transcript:ENST00000400151;Name=ENSE00001354124;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001354124;rank=2;version=2
+4	havana	exon	25207	25347	.	+	.	Parent=transcript:ENST00000400151;Name=ENSE00001354120;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001354120;rank=3;version=2
+4	havana	exon	27909	28716	.	+	.	Parent=transcript:ENST00000400151;Name=ENSE00001556838;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00001556838;rank=4;version=1
+4	havana	CDS	27918	28439	.	+	0	ID=CDS:ENSP00000383015;Parent=transcript:ENST00000400151;protein_id=ENSP00000383015
