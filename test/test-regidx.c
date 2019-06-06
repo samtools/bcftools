@@ -32,6 +32,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <htslib/kstring.h>
+#include <htslib/hts_os.h>
 #include <time.h>
 #include "regidx.h"
 

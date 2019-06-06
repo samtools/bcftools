@@ -4,6 +4,7 @@ bcftools
 plugins/*.so
 plugins/*.dSYM
 plugins/*.P
+plugins/*.dll
 
 aclocal.m4
 autom4te.cache

@@ -28,7 +28,9 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <math.h>
 #include <sys/types.h>
+#ifndef _WIN32
 #include <pwd.h>
+#endif
 #include <regex.h>
 #include <htslib/khash_str2int.h>
 #include <htslib/hts_defs.h>
@@ -289,28 +291,30 @@ static int filters_next_token(char **str, int *len)
 }
 
 
-/* 
+/*
     Simple path expansion, expands ~/, ~user, $var. The result must be freed by the caller.
     
-    Based on jkb's staden code with some adjustements.
+    Based on jkb's staden code with some adjustments.
     https://sourceforge.net/p/staden/code/HEAD/tree/staden/trunk/src/Misc/getfile.c#l123
 */
 char *expand_path(char *path)
 {
-#ifdef _WIN32
-    return strdup(path);    // windows expansion: todo
-#endif
-
     kstring_t str = {0,0,0};
 
     if ( path[0] == '~' )
     {
         if ( !path[1] || path[1] == '/' )
         {
+#ifdef _WIN32
+            kputs(getenv("HOMEDRIVE"), &str);
+            kputs(getenv("HOMEPATH"), &str);
+#else
             // ~ or ~/path
             kputs(getenv("HOME"), &str);
             if ( path[1] ) kputs(path+1, &str);
+#endif
         }
+#ifndef _WIN32
         else
         {
             // user name: ~pd3/path
@@ -324,13 +328,18 @@ char *expand_path(char *path)
             else kputs(pwentry->pw_dir, &str);
             kputs(end, &str);
         }
-        return str.s;
+#endif
+        return ks_release(&str);
     }
     if ( path[0] == '$' )
     {
         char *var = getenv(path+1);
-        if ( var ) path = var;
+        if ( var ) {
+            kputs(var, &str);
+            return ks_release(&str);
+        }
     }
+
     return strdup(path);
 }
 
@@ -2018,11 +2027,15 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
     int *idxs2 = NULL, nidxs2 = 0, idx2 = 0;
 
     int set_samples = 0;
-    char *colon = rindex(tag_idx, ':');
+    char *colon = strrchr(tag_idx, ':');
     if ( tag_idx[0]=='@' )     // file list with sample names
     {
         if ( !is_fmt ) error("Could not parse \"%s\". (Not a FORMAT tag yet a sample list provided.)\n", ori);
         char *fname = expand_path(tag_idx+1);
+#ifdef _WIN32
+        if (fname && strlen(fname) > 2 && fname[1] == ':') // Deal with Windows paths, such as 'C:\..'
+            colon = strrchr(fname+2, ':');
+#endif
         int nsmpl;
         char **list = hts_readlist(fname, 1, &nsmpl);
         if ( !list && colon )
@@ -2031,7 +2044,7 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
             tok->idxs  = idxs2;
             tok->nidxs = nidxs2;
             tok->idx   = idx2;
-            colon = rindex(fname, ':');
+            colon = strrchr(fname, ':');
             *colon = 0;
             list = hts_readlist(fname, 1, &nsmpl);
         }
@@ -2618,7 +2631,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         if ( ret==-1 ) error("Missing quotes in: %s\n", str);
 
         // fprintf(stderr,"token=[%c] .. [%s] %d\n", TOKEN_STRING[ret], tmp, len);
-        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c", TOKEN_STRING[ops[i]]); fprintf(stderr,"\n");
+        // int i; for (i=0; i<nops; i++) fprintf(stderr," .%c", TOKEN_STRING[ops[i].tok_type]); fprintf(stderr,"\n");
 
         if ( ret==TOK_LFT )         // left bracket
         {

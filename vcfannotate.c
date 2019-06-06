@@ -37,7 +37,6 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
 #include <htslib/khash_str2int.h>
-#include <dlfcn.h>
 #include "bcftools.h"
 #include "vcmp.h"
 #include "filter.h"
@@ -851,7 +850,7 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             assert( col->merge_method==MM_APPEND || col->merge_method==MM_UNIQUE );
             if ( col->merge_method==MM_UNIQUE )
             {
-                if ( !col->mm_str_hash ) col->mm_str_hash = khash_str2int_init();
+                if ( !col->mm_str_hash ) col->mm_str_hash = (khash_t(str2int)*)khash_str2int_init();
                 if ( khash_str2int_has_key(col->mm_str_hash, tab->cols[col->icol]) ) return 0;
                 khash_str2int_inc(col->mm_str_hash, strdup(tab->cols[col->icol]));
             }

@@ -33,6 +33,9 @@ THE SOFTWARE.  */
 #include <inttypes.h>
 #include <fcntl.h>
 #include <math.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
 #include <htslib/tbx.h> // for hts_get_bgzfp()
@@ -144,8 +147,18 @@ static void update_from_fai(args_t *args)
 
     faidx_t *fai = fai_load3(args->fai_fname,args->fai_fname,NULL,FAI_FASTA);
     if ( !fai ) error("Could not parse %s\n", args->fai_fname);
-    
+#ifdef _WIN32
+    char tmp_path[MAX_PATH];
+    int ret = GetTempPath(MAX_PATH, tmp_path);
+    if (!ret || ret > MAX_PATH)
+        error("Could not get the path to the temporary folder\n");
+    if (strlen(tmp_path) + strlen("/bcftools-fai-header-XXXXXX") >= MAX_PATH)
+        error("Full path to the temporary folder is too long\n");
+    strcat(tmp_path, "/bcftools-fai-header-XXXXXX");
+    args->rm_tmpfile = strdup(tmp_path);
+#else
     args->rm_tmpfile = strdup("/tmp/bcftools-fai-header-XXXXXX");
+#endif
     int fd = mkstemp(args->rm_tmpfile);
     if ( fd<0 ) error("Could not open a temporary file for writing: %s\n", args->rm_tmpfile);
 
