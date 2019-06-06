@@ -1826,9 +1826,6 @@ int shifted_del_synonymous(args_t *args, splice_t *splice, uint32_t ex_beg, uint
         int32_t vcf_block_beg = splice->vcf.pos + ref_len - 2*ndel;        // the position of the first base of the ref block that could potentially replace the deletion
         if ( vcf_block_beg < 0 ) return 0;
 
-        if ( !(vcf_block_beg < ex_beg) ) fprintf(stderr,"vcf_pos=%d  ref_len=%d  ndel=%d  ..  vcf_block_beg=%d ?< ex_beg=%d\n",splice->vcf.pos,ref_len,ndel,vcf_block_beg,ex_beg);
-        assert( vcf_block_beg < ex_beg );
-
 #if XDBG
         fprintf(stderr,"vcf_block_beg: %d\n",vcf_block_beg+1);
 #endif
@@ -2185,7 +2182,7 @@ fprintf(stderr,"cds splice_csq: %d [%s][%s] .. beg,end=%d %d, ret=%d, csq=%d\n\n
 #endif
 
     if ( ret==SPLICE_VAR_REF ) return 2;  // not a variant, eg REF=CA ALT=CA
-    if ( ret==SPLICE_OUTSIDE || ret==SPLICE_OVERLAP )  // not a coding csq
+    if ( ret==SPLICE_OUTSIDE || ret==SPLICE_OVERLAP || splice.csq==CSQ_START_LOST )  // not a coding csq
     {
         free(splice.kref.s);
         free(splice.kalt.s);

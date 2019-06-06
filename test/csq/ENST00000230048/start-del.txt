@@ -1,0 +1,3 @@
+214	AT	A	start_lost|ACOT13|ENST00000230048|protein_coding|+
+214	AT	A	start_lost|ACOT13|ENST00000230048|protein_coding|+
+

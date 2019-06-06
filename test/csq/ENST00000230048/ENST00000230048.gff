@@ -1,0 +1,8 @@
+6	ensembl_havana	gene	-15	38015	.	+	.	ID=gene:ENSG00000112304;Name=ACOT13;biotype=protein_coding;description=acyl-CoA thioesterase 13 [Source:HGNC Symbol%3BAcc:20999];gene_id=ENSG00000112304;logic_name=ensembl_havana_gene;version=6
+6	ensembl_havana	transcript	21	37996	.	+	.	ID=transcript:ENST00000230048;Parent=gene:ENSG00000112304;Name=ACOT13-001;biotype=protein_coding;ccdsid=CCDS4558.1;havana_transcript=OTTHUMT00000040010;havana_version=2;tag=basic;transcript_id=ENST00000230048;version=4
+6	ensembl_havana	exon	21	294	.	+	.	Parent=transcript:ENST00000230048;Name=ENSE00001174688;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00001174688;rank=1;version=3
+6	ensembl_havana	CDS	214	294	.	+	0	ID=CDS:ENSP00000230048;Parent=transcript:ENST00000230048;protein_id=ENSP00000230048
+6	ensembl_havana	exon	30833	31017	.	+	.	Parent=transcript:ENST00000230048;Name=ENSE00003657839;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003657839;rank=2;version=1
+6	ensembl_havana	CDS	30833	31017	.	+	0	ID=CDS:ENSP00000230048;Parent=transcript:ENST00000230048;protein_id=ENSP00000230048
+6	ensembl_havana	CDS	34409	34565	.	+	1	ID=CDS:ENSP00000230048;Parent=transcript:ENST00000230048;protein_id=ENSP00000230048
+6	ensembl_havana	exon	34409	37996	.	+	.	Parent=transcript:ENST00000230048;Name=ENSE00003680711;constitutive=0;ensembl_end_phase=-1;ensembl_phase=2;exon_id=ENSE00003680711;rank=3;version=2
