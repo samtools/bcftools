@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##reference=file://some/path/human_g1k_v37.fasta
+##ALT=<ID=DEL,Description="Deletion">
+##contig=<ID=1,assembly=b37,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA001
+1	2	.	C	A	.	.	.	GT	0|1
+1	3	.	G	A	.	.	.	GT	0|1
+1	4	.	T	A	.	.	.	GT	0|1
+1	6	.	C	A	.	.	.	GT	0/1
+1	7	.	G	A	.	.	.	GT	0/1
+1	8	.	T	A	.	.	.	GT	0/1

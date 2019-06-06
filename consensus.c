@@ -50,6 +50,7 @@
 #define PICK_ALT   2
 #define PICK_LONG  4
 #define PICK_SHORT 8
+#define PICK_IUPAC 16
 
 typedef struct
 {
@@ -99,7 +100,7 @@ typedef struct
     FILE *fp_out;
     FILE *fp_chain;
     char **argv;
-    int argc, output_iupac, haplotype, allele, isample;
+    int argc, output_iupac, haplotype, allele, isample, napplied;
     char *fname, *ref_fname, *sample, *output_fname, *mask_fname, *chain_fname, missing_allele;
 }
 args_t;
@@ -398,7 +399,16 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         if ( fmt->type!=BCF_BT_INT8 )
             error("Todo: GT field represented with BCF_BT_INT8, too many alleles at %s:%d?\n",bcf_seqname(args->hdr,rec),rec->pos+1);
         uint8_t *ptr = fmt->p + fmt->size*args->isample;
-        if ( args->haplotype )
+
+        enum { use_hap, use_iupac, pick_one } action = use_hap;
+        if ( args->allele==PICK_IUPAC )
+        {
+            if ( !bcf_gt_is_phased(ptr[0]) && !bcf_gt_is_phased(ptr[fmt->n-1]) ) action = use_iupac;
+        }
+        else if ( args->output_iupac ) action = use_iupac;
+        else if ( !args->haplotype ) action = pick_one;
+
+        if ( action==use_hap )
         {
             if ( args->haplotype > fmt->n )
             {
@@ -429,7 +439,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                     ialt = bcf_gt_allele(ialt);
             }
         }
-        else if ( args->output_iupac ) 
+        else if ( action==use_iupac ) 
         {
             ialt = ptr[0];
             if ( bcf_gt_is_missing(ialt) || ialt==bcf_int32_vector_end )
@@ -674,6 +684,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     args->fa_buf.l += len_diff;
     args->fa_mod_off += len_diff;
     args->fa_frz_pos  = rec->pos + rec->rlen - 1;
+    args->napplied++;
 }
 
 
@@ -779,6 +790,7 @@ static void consensus(args_t *args)
     flush_fa_buffer(args, 0);
     bgzf_close(fasta);
     free(str.s);
+    fprintf(stderr,"Applied %d variants\n", args->napplied);
 }
 
 static void usage(args_t *args)
@@ -796,12 +808,13 @@ static void usage(args_t *args)
     fprintf(stderr, "    -f, --fasta-ref <file>     reference sequence in fasta format\n");
     fprintf(stderr, "    -H, --haplotype <which>    choose which allele to use from the FORMAT/GT field, note\n");
     fprintf(stderr, "                               the codes are case-insensitive:\n");
-    fprintf(stderr, "                                   1: first allele from GT\n");
-    fprintf(stderr, "                                   2: second allele\n");
+    fprintf(stderr, "                                   1: first allele from GT, regardless of phasing\n");
+    fprintf(stderr, "                                   2: second allele from GT, regardless of phasing\n");
     fprintf(stderr, "                                   R: REF allele in het genotypes\n");
     fprintf(stderr, "                                   A: ALT allele\n");
     fprintf(stderr, "                                   LR,LA: longer allele and REF/ALT if equal length\n");
     fprintf(stderr, "                                   SR,SA: shorter allele and REF/ALT if equal length\n");
+    fprintf(stderr, "                                   1pIu,2pIu: first/second allele for phased and IUPAC code for unphased GTs\n");
     fprintf(stderr, "    -i, --include <expr>       select sites for which the expression is true (see man page for details)\n");
     fprintf(stderr, "    -I, --iupac-codes          output variants in the form of IUPAC ambiguity codes\n");
     fprintf(stderr, "    -m, --mask <file>          replace regions with N\n");
@@ -864,10 +877,14 @@ int main_consensus(int argc, char *argv[])
                 else if ( !strcasecmp(optarg,"LA") ) args->allele |= PICK_LONG|PICK_ALT;
                 else if ( !strcasecmp(optarg,"SR") ) args->allele |= PICK_SHORT|PICK_REF;
                 else if ( !strcasecmp(optarg,"SA") ) args->allele |= PICK_SHORT|PICK_ALT;
+                else if ( !strcasecmp(optarg,"1pIu") ) args->allele |= PICK_IUPAC, args->haplotype = 1;
+                else if ( !strcasecmp(optarg,"2pIu") ) args->allele |= PICK_IUPAC, args->haplotype = 2;
                 else
                 {
-                    args->haplotype = optarg[0] - '0'; 
-                    if ( args->haplotype <=0 ) error("Expected positive integer with --haplotype\n");
+                    char *tmp;
+                    args->haplotype = strtol(optarg, &tmp, 10);
+                    if ( tmp==optarg || *tmp ) error("Error: Could not parse --haplotype %s, expected numeric argument\n", optarg);
+                    if ( args->haplotype <=0 ) error("Error: Expected positive integer with --haplotype\n");
                 }
                 break;
             default: usage(args); break;
