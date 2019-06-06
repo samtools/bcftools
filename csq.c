@@ -608,6 +608,7 @@ typedef struct _args_t
     int ncsq_buf, mcsq_buf;
     id_tbl_t tscript_ids;       // mapping between transcript id (eg. Zm00001d027245_T001) and a numeric idx
     int force;                  // force run under various conditions. Currently only to skip out-of-phase transcripts
+    int n_threads;              // extra compression/decompression threads
 
     faidx_t *fai;
     kstring_t str, str2;
@@ -1394,6 +1395,8 @@ void init_data(args_t *args)
     {
         args->out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("[%s] Error: cannot write to %s: %s\n", __func__,args->output_fname? args->output_fname : "standard output", strerror(errno));
+        if ( args->n_threads > 0)
+            hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->sr->p);
         bcf_hdr_append_version(args->hdr,args->argc,args->argv,"bcftools/csq");
         bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change\">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware");
         if ( args->hdr_nsmpl ) 
@@ -4061,6 +4064,7 @@ static const char *usage(void)
         "   -S, --samples-file <file>       samples to include\n"
         "   -t, --targets <region>          similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n"
+        "       --threads <int>             number of extra (de)compression threads [0]\n"
         "   -v, --verbose <int>             verbosity level 0-2 [1]\n"
         "\n"
         "Example:\n"
@@ -4084,6 +4088,7 @@ int main_csq(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"force",0,0,1},
+        {"threads",required_argument,NULL,2},
         {"help",0,0,'h'},
         {"ncsq",1,0,'n'},
         {"brief-predictions",0,0,'b'},
@@ -4107,12 +4112,16 @@ int main_csq(int argc, char *argv[])
         {0,0,0,0}
     };
     int c, targets_is_file = 0, regions_is_file = 0; 
-    char *targets_list = NULL, *regions_list = NULL;
+    char *targets_list = NULL, *regions_list = NULL, *tmp;
     while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:bv:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case  1 : args->force = 1; break;
+            case  2 :
+                args->n_threads = strtol(optarg,&tmp,10);
+                if ( *tmp ) error("Could not parse argument: --threads  %s\n", optarg);
+                break;
             case 'b': args->brief_predictions = 1; break;
             case 'l': args->local_csq = 1; break;
             case 'c': args->bcsq_tag = optarg; break;
@@ -4177,6 +4186,7 @@ int main_csq(int argc, char *argv[])
         error("Failed to read the targets: %s\n", targets_list);
     if ( regions_list && bcf_sr_set_regions(args->sr, regions_list, regions_is_file)<0 )
         error("Failed to read the regions: %s\n", regions_list);
+    if ( bcf_sr_set_threads(args->sr, args->n_threads)<0 ) error("Failed to create %d extra threads\n", args->n_threads);
     if ( !bcf_sr_add_reader(args->sr, fname) )
         error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
