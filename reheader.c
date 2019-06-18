@@ -645,6 +645,16 @@ static void usage(args_t *args)
     fprintf(stderr, "    -s, --samples <file>    new sample names\n");
     fprintf(stderr, "        --threads <int>     number of extra compression threads (BCF only) [0]\n");
     fprintf(stderr, "\n");
+    fprintf(stderr, "Example:\n");
+    fprintf(stderr, "   # Write out the header to be modified\n");
+    fprintf(stderr, "   bcftools view -h old.bcf > header.txt\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # Edit the header using your favorite text editor\n");
+    fprintf(stderr, "   vi header.txt\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # Reheader the file\n");
+    fprintf(stderr, "   bcftools reheader -h header.txt -o new.bcf old.bcf\n");
+    fprintf(stderr, "\n");
     exit(1);
 }
 
