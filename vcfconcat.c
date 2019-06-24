@@ -393,6 +393,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
 
 static void concat(args_t *args)
 {
+    static int site_drop_warned = 0;
     int i;
     if ( args->phased_concat )  // phased concat
     {
@@ -429,8 +430,20 @@ static void concat(args_t *args)
                 if ( !bcf_sr_has_line(args->files,0) )  // no input from the first reader
                 {
                     // We are assuming that there is a perfect overlap, sites which are not present in both files are dropped
-                    if ( ! bcf_sr_region_done(args->files,0) ) continue;
-
+                    if ( ! bcf_sr_region_done(args->files,0) )
+                    {
+                        if ( !site_drop_warned )
+                        {
+                            fprintf(stderr,
+                                "Warning: Dropping the site %s:%d. The --ligate option is intended for VCFs with perfect\n"
+                                "         overlap, sites in overlapping regions present in one but missing in other are dropped.\n"
+                                "         This warning is printed only once.\n",
+                                bcf_seqname(bcf_sr_get_header(args->files,1),bcf_sr_get_line(args->files,1)), bcf_sr_get_line(args->files,1)->pos+1
+                                );
+                            site_drop_warned = 1;
+                        }
+                        continue;
+                    }
                     phased_flush(args);
                     bcf_sr_remove_reader(args->files, 0);
                 }
@@ -798,7 +811,7 @@ int main_vcfconcat(int argc, char *argv[])
         args->fnames[args->nfnames-1] = strdup(argv[optind]);
         optind++;
     }
-    if ( args->allow_overlaps && args->phased_concat ) args->allow_overlaps = 0;
+    if ( args->allow_overlaps && args->phased_concat ) error("The options -a and -l should not be combined. Please run with -l only.\n");
     if ( args->compact_PS && !args->phased_concat ) error("The -c option is intended only with -l\n");
     if ( args->file_list )
     {
