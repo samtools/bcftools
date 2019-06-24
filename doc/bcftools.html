@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25136464"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25206192"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -10,7 +10,7 @@ read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non-standard index names can be accessed as e.g.
 "<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-05-23 10:07 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-172-g00011a5+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-06-24 16:57 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-201-ga110d3a+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -703,7 +703,9 @@ if the BCF headers differ.</p><div class="variablelist"><dl><dt><span class="ter
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --ligate</strong></span>
 </span></dt><dd>
-    Ligate phased VCFs by matching phase at overlapping haplotypes
+    Ligate phased VCFs by matching phase at overlapping haplotypes.
+    Note that the option is intended for VCFs with perfect overlap, sites
+    in overlapping regions present in one but missing in other are dropped.
 </dd><dt><span class="term">
 <span class="strong"><strong>--no-version</strong></span>
 </span></dt><dd>
@@ -760,17 +762,17 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 </span></dt><dd>
     reference sequence in fasta format
 </dd><dt><span class="term">
-<span class="strong"><strong>-H, --haplotype</strong></span> <span class="emphasis"><em>1</em></span>|<span class="emphasis"><em>2</em></span>|<span class="emphasis"><em>R</em></span>|<span class="emphasis"><em>A</em></span>|<span class="emphasis"><em>LR</em></span>|<span class="emphasis"><em>LA</em></span>|<span class="emphasis"><em>SR</em></span>|<span class="emphasis"><em>SA</em></span>
+<span class="strong"><strong>-H, --haplotype</strong></span> <span class="emphasis"><em>1</em></span>|<span class="emphasis"><em>2</em></span>|<span class="emphasis"><em>R</em></span>|<span class="emphasis"><em>A</em></span>|<span class="emphasis"><em>LR</em></span>|<span class="emphasis"><em>LA</em></span>|<span class="emphasis"><em>SR</em></span>|<span class="emphasis"><em>SA</em></span>|<span class="emphasis"><em>1pIu</em></span>|<span class="emphasis"><em>2pIu</em></span>
 </span></dt><dd><p class="simpara">
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
 </p><div class="variablelist"><dl><dt><span class="term">
 <span class="emphasis"><em>1</em></span>
 </span></dt><dd>
-            the first allele
+            the first allele, regardless of phasing
 </dd><dt><span class="term">
 <span class="emphasis"><em>2</em></span>
 </span></dt><dd>
-            the second allele
+            the second allele, regardless of phasing
 </dd><dt><span class="term">
 <span class="emphasis"><em>R</em></span>
 </span></dt><dd>
@@ -785,8 +787,12 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
             the longer allele. If both have the same length, use the REF allele (LR), or the ALT allele  (LA)
 </dd><dt><span class="term">
 <span class="emphasis"><em>SR, SA</em></span>
-</span></dt><dd><p class="simpara">
+</span></dt><dd>
             the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)
+</dd><dt><span class="term">
+<span class="emphasis"><em>1pIu, 2pIu</em></span>
+</span></dt><dd><p class="simpara">
+            first/second allele for phased genotypes and IUPAC code for unphased genotypes
 </p><pre class="literallayout">This option requires *-s*, unless exactly one sample is present in the VCF</pre></dd></dl></div></dd><dt><span class="term">
 <span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
@@ -1739,25 +1745,25 @@ multiple regions and many alignment files are processed.</p><div class="refsect3
     Disable read-pair overlap detection.
 </dd></dl></div></div><div class="refsect3" title="Output options"><a id="_output_options"></a><h4>Output options</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annotate</strong></span> <span class="emphasis"><em>LIST</em></span>
-</span></dt><dd><p class="simpara">
+</span></dt><dd>
     Comma-separated list of FORMAT and INFO tags to output. (case-insensitive,
     the "FORMAT/" prefix is optional, and use "?" to list available annotations
     on the command line) [null]:
-</p><pre class="literallayout">*FORMAT/AD* .. Allelic depth (Number=R,Type=Integer)
-*FORMAT/ADF* .. Allelic depths on the forward strand (Number=R,Type=Integer)
-*FORMAT/ADR* .. Allelic depths on the reverse strand (Number=R,Type=Integer)
-*FORMAT/DP* .. Number of high-quality bases (Number=1,Type=Integer)
-*FORMAT/SP* .. Phred-scaled strand bias P-value (Number=1,Type=Integer)</pre><pre class="literallayout">*INFO/AD* .. Total allelic depth (Number=R,Type=Integer)
-*INFO/ADF* .. Total allelic depths on the forward strand (Number=R,Type=Integer)
-*INFO/ADR* .. Total allelic depths on the reverse strand (Number=R,Type=Integer)</pre><pre class="literallayout">*FORMAT/DV* .. Deprecated in favor of FORMAT/AD;
-        Number of high-quality non-reference bases, (Number=1,Type=Integer)
-*FORMAT/DP4* .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR;
-        Number of high-quality ref-forward, ref-reverse,
-        alt-forward and alt-reverse bases (Number=4,Type=Integer)
-*FORMAT/DPR* .. Deprecated in favor of FORMAT/AD;
-        Number of high-quality bases for each observed allele (Number=R,Type=Integer)
-*INFO/DPR* .. Deprecated in favor of INFO/AD;
-        Number of high-quality bases for each observed allele (Number=R,Type=Integer)</pre></dd><dt><span class="term">
+</dd></dl></div><pre class="screen">FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)
+FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)
+FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)
+FORMAT/DP   .. Number of high-quality bases (Number=1,Type=Integer)
+FORMAT/SP   .. Phred-scaled strand bias P-value (Number=1,Type=Integer)
+
+INFO/AD     .. Total allelic depth (Number=R,Type=Integer)
+INFO/ADF    .. Total allelic depths on the forward strand (Number=R,Type=Integer)
+INFO/ADR    .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+
+FORMAT/DV   .. Deprecated in favor of FORMAT/AD; Number of high-quality non-reference bases, (Number=1,Type=Integer)
+FORMAT/DP4  .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high-quality ref-forward, ref-reverse,
+               alt-forward and alt-reverse bases (Number=4,Type=Integer)
+FORMAT/DPR  .. Deprecated in favor of FORMAT/AD; Number of high-quality bases for each observed allele (Number=R,Type=Integer)
+INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for each observed allele (Number=R,Type=Integer)</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-g, --gvcf</strong></span> <span class="emphasis"><em>INT</em></span>[,…]
 </span></dt><dd>
     output gVCF blocks of homozygous REF calls, with depth (DP) ranges
@@ -2874,7 +2880,7 @@ GT="RA" or GT="AR"
 GT="Aa" or GT="aA"
 GT="R"
 GT="A"</pre></li><li class="listitem"><p class="simpara">
-TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other). Use the regex
+TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 </p><pre class="literallayout">TYPE="snp"

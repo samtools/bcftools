@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2019-05-23 10:07 BST
+.\"      Date: 2019-06-24 16:57 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2019\-05\-23 10:07 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2019\-06\-24 16:57 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2019\-05\-23 10:07 BST\fR and refers to bcftools git version \fB1\&.9\-172\-g00011a5+\fR\&.
+This manual page was last updated \fB2019\-06\-24 16:57 BST\fR and refers to bcftools git version \fB1\&.9\-201\-ga110d3a+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -1272,7 +1272,7 @@ Read file names from
 .PP
 \fB\-l, \-\-ligate\fR
 .RS 4
-Ligate phased VCFs by matching phase at overlapping haplotypes
+Ligate phased VCFs by matching phase at overlapping haplotypes\&. Note that the option is intended for VCFs with perfect overlap, sites in overlapping regions present in one but missing in other are dropped\&.
 .RE
 .PP
 \fB\-\-no\-version\fR
@@ -1345,18 +1345,18 @@ is true\&. For valid expressions see
 reference sequence in fasta format
 .RE
 .PP
-\fB\-H, \-\-haplotype\fR \fI1\fR|\fI2\fR|\fIR\fR|\fIA\fR|\fILR\fR|\fILA\fR|\fISR\fR|\fISA\fR
+\fB\-H, \-\-haplotype\fR \fI1\fR|\fI2\fR|\fIR\fR|\fIA\fR|\fILR\fR|\fILA\fR|\fISR\fR|\fISA\fR|\fI1pIu\fR|\fI2pIu\fR
 .RS 4
 choose which allele from the FORMAT/GT field to use (the codes are case\-insensitive):
 .PP
 \fI1\fR
 .RS 4
-the first allele
+the first allele, regardless of phasing
 .RE
 .PP
 \fI2\fR
 .RS 4
-the second allele
+the second allele, regardless of phasing
 .RE
 .PP
 \fIR\fR
@@ -1377,6 +1377,11 @@ the longer allele\&. If both have the same length, use the REF allele (LR), or t
 \fISR, SA\fR
 .RS 4
 the shorter allele\&. If both have the same length, use the REF allele (SR), or the ALT allele (SA)
+.RE
+.PP
+\fI1pIu, 2pIu\fR
+.RS 4
+first/second allele for phased genotypes and IUPAC code for unphased genotypes
 .sp
 .if n \{\
 .RS 4
@@ -2902,51 +2907,31 @@ Disable read\-pair overlap detection\&.
 \fB\-a, \-\-annotate\fR \fILIST\fR
 .RS 4
 Comma\-separated list of FORMAT and INFO tags to output\&. (case\-insensitive, the "FORMAT/" prefix is optional, and use "?" to list available annotations on the command line) [null]:
+.RE
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-*FORMAT/AD* \&.\&. Allelic depth (Number=R,Type=Integer)
-*FORMAT/ADF* \&.\&. Allelic depths on the forward strand (Number=R,Type=Integer)
-*FORMAT/ADR* \&.\&. Allelic depths on the reverse strand (Number=R,Type=Integer)
-*FORMAT/DP* \&.\&. Number of high\-quality bases (Number=1,Type=Integer)
-*FORMAT/SP* \&.\&. Phred\-scaled strand bias P\-value (Number=1,Type=Integer)
+FORMAT/AD   \&.\&. Allelic depth (Number=R,Type=Integer)
+FORMAT/ADF  \&.\&. Allelic depths on the forward strand (Number=R,Type=Integer)
+FORMAT/ADR  \&.\&. Allelic depths on the reverse strand (Number=R,Type=Integer)
+FORMAT/DP   \&.\&. Number of high\-quality bases (Number=1,Type=Integer)
+FORMAT/SP   \&.\&. Phred\-scaled strand bias P\-value (Number=1,Type=Integer)
+
+INFO/AD     \&.\&. Total allelic depth (Number=R,Type=Integer)
+INFO/ADF    \&.\&. Total allelic depths on the forward strand (Number=R,Type=Integer)
+INFO/ADR    \&.\&. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+
+FORMAT/DV   \&.\&. Deprecated in favor of FORMAT/AD; Number of high\-quality non\-reference bases, (Number=1,Type=Integer)
+FORMAT/DP4  \&.\&. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high\-quality ref\-forward, ref\-reverse,
+               alt\-forward and alt\-reverse bases (Number=4,Type=Integer)
+FORMAT/DPR  \&.\&. Deprecated in favor of FORMAT/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
+INFO/DPR    \&.\&. Deprecated in favor of INFO/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
 .fi
 .if n \{\
 .RE
 .\}
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-*INFO/AD* \&.\&. Total allelic depth (Number=R,Type=Integer)
-*INFO/ADF* \&.\&. Total allelic depths on the forward strand (Number=R,Type=Integer)
-*INFO/ADR* \&.\&. Total allelic depths on the reverse strand (Number=R,Type=Integer)
-.fi
-.if n \{\
-.RE
-.\}
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-*FORMAT/DV* \&.\&. Deprecated in favor of FORMAT/AD;
-        Number of high\-quality non\-reference bases, (Number=1,Type=Integer)
-*FORMAT/DP4* \&.\&. Deprecated in favor of FORMAT/ADF and FORMAT/ADR;
-        Number of high\-quality ref\-forward, ref\-reverse,
-        alt\-forward and alt\-reverse bases (Number=4,Type=Integer)
-*FORMAT/DPR* \&.\&. Deprecated in favor of FORMAT/AD;
-        Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
-*INFO/DPR* \&.\&. Deprecated in favor of INFO/AD;
-        Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
-.fi
-.if n \{\
-.RE
-.\}
-.RE
 .PP
 \fB\-g, \-\-gvcf\fR \fIINT\fR[,\&...]
 .RS 4
@@ -4959,7 +4944,7 @@ GT="A"
 .sp -1
 .IP \(bu 2.3
 .\}
-TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other)\&. Use the regex operator "\e~" to require at least one allele of the given type or the equal sign "=" to require that all alleles are of the given type\&. Compare
+TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap)\&. Use the regex operator "\e~" to require at least one allele of the given type or the equal sign "=" to require that all alleles are of the given type\&. Compare
 .sp
 .if n \{\
 .RS 4
