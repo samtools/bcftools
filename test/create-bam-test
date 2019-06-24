@@ -76,6 +76,7 @@ sub create_test
         if ( $vals[7] < $beg or $vals[7] > $end ) { $mate_mapped = 0; }
         if ( !$mate_mapped ) { $vals[1] &= ~0x8; $vals[6] = '*'; $vals[7] = 0;  }
 
+        chomp($vals[-1]);
         if ( !$$opts{keep_samples} )
         {
             my $i;
@@ -83,7 +84,6 @@ sub create_test
             if ( $i!=@vals ) { splice(@vals,$i,1); }
             push @vals,"RG:Z:rg";
         }
-        chomp($vals[-1]);
         push @reads, \@vals;
     }
     close($fh) or error("close failed: $cmd");
