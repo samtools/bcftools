@@ -1242,8 +1242,8 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         case T_CHROM: fmt->handler = &process_chrom; break;
         case T_POS: fmt->handler = &process_pos; break;
         case T_POS0: fmt->handler = &process_pos0; break;
-        case T_END: fmt->handler = &process_end; break;
-        case T_END0: fmt->handler = &process_end0; break;
+        case T_END: fmt->handler = &process_end; convert->max_unpack |= BCF_UN_INFO; break;
+        case T_END0: fmt->handler = &process_end0; convert->max_unpack |= BCF_UN_INFO; break;
         case T_ID: fmt->handler = &process_id; break;
         case T_REF: fmt->handler = &process_ref; break;
         case T_ALT: fmt->handler = &process_alt; break;
