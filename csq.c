@@ -1329,7 +1329,9 @@ void init_gff(args_t *args)
         for (i = kh_begin(ign); i < kh_end(ign); i++)
         {
             if ( !kh_exist(ign,i)) continue;
-            fprintf(stderr,"\t%dx\t.. %s\n", kh_value(ign,i), kh_key(ign,i));
+            const char *biotype = kh_key(ign,i);
+            if ( !strcmp(biotype,"TCE") ) biotype = "TCE (\"To be Experimentally Confirmed\")";
+            fprintf(stderr,"\t%dx\t.. %s\n", kh_value(ign,i), biotype);
         }
     }
     khash_str2int_destroy_free(aux->ignored_biotypes);
