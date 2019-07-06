@@ -860,8 +860,11 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             return 0;
         }
 
-        hts_expand(char,col->mm_kstr.l+1,args->mtmps,args->tmps);
-        memcpy(args->tmps,col->mm_kstr.s,col->mm_kstr.l+1);
+        if ( col->mm_kstr.l )
+        {
+            hts_expand(char,col->mm_kstr.l+1,args->mtmps,args->tmps);
+            memcpy(args->tmps,col->mm_kstr.s,col->mm_kstr.l+1);
+        }
 
         if ( !data )
         {

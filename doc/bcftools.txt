@@ -371,8 +371,8 @@ Add or remove annotations.
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them
 
 *-l, --merge-logic* 'tag':'first'|'append'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
-    if multiple regions overlap a single record, the option defines how treat the multiple
-    annotation values when setting the tag 'tag' in the destination file: use the first encountered ignoring
+    if multiple regions overlap a single record, the option defines how to treat multiple
+    annotation values when setting 'tag' in the destination file: use the first encountered value ignoring
     the rest ('first'); append allowing duplicates ('append'); append discarding duplicate values ('unique');
     sum the values ('sum', numeric fields only); average the values ('avg'); use the minimum value ('min') or
     the maximum ('max').
