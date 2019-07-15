@@ -69,9 +69,9 @@ annot_line_t;
 #define REPLACE_ALL      1      // replace both missing and existing values
 #define REPLACE_NON_MISSING 2   // replace only if tgt is not missing
 #define SET_OR_APPEND    3      // set new value if missing or non-existent, append otherwise
-#define MM_FIRST   0
-#define MM_APPEND  1
-#define MM_UNIQUE  2
+#define MM_FIRST   0    // if multiple annotation lines overlap a VCF record, use the first, discarding the rest
+#define MM_APPEND  1    // append, possibly multiple times
+#define MM_UNIQUE  2    // append, only unique values
 #define MM_SUM     3
 #define MM_AVG     4
 #define MM_MIN     5
@@ -865,8 +865,10 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             hts_expand(char,col->mm_kstr.l+1,args->mtmps,args->tmps);
             memcpy(args->tmps,col->mm_kstr.s,col->mm_kstr.l+1);
         }
+        else
+            return 0;
 
-        if ( !data )
+        if ( !data )    // flush the line
         {
             if ( col->merge_method==MM_UNIQUE )
                 khash_str2int_clear_free(col->mm_str_hash);
