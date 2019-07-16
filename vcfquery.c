@@ -387,7 +387,10 @@ int main_vcfquery(int argc, char *argv[])
             if ( !bcf_sr_add_reader(args->files, argv[k]) ) error("Failed to open %s: %s\n", argv[k],bcf_sr_strerror(args->files->errnum));
         init_data(args);
         if ( i==0 )
+        {
             prev_samples = copy_header(args->header, args->files->readers[0].header->samples, bcf_hdr_nsamples(args->files->readers[0].header));
+            prev_nsamples = bcf_hdr_nsamples(args->files->readers[0].header);
+        }
         else
         {
             args->print_header = 0;
