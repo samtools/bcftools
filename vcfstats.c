@@ -1799,7 +1799,7 @@ int main_vcfstats(int argc, char *argv[])
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
-            case '?': usage();
+            case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

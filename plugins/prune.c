@@ -251,9 +251,9 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp("kb",tmp) ) args->ld_win *= -1000;
                 else error("Could not parse: --window %s\n", optarg);
                 break;
-            case 'T': args->target_is_file = 1; 
+            case 'T': args->target_is_file = 1; // fall-through
             case 't': args->target = optarg; break; 
-            case 'R': args->region_is_file = 1; 
+            case 'R': args->region_is_file = 1; // fall-through
             case 'r': args->region = optarg; break; 
             case 'o': args->output_fname = optarg; break;
             case 'O':

@@ -697,7 +697,7 @@ int main_vcfview(int argc, char *argv[])
             }
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
-            case '?': usage(args);
+            case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

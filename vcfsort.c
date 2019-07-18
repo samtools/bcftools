@@ -163,6 +163,7 @@ void sort_blocks(args_t *args)
     htsFile *in = hts_open(args->fname, "r");
     if ( !in ) clean_files_and_throw(args, "Could not read %s\n", args->fname);
     args->hdr = bcf_hdr_read(in);
+    if ( !args->hdr) clean_files_and_throw(args, "Could not read VCF/BCF headers from %s\n", args->fname);
 
     while ( 1 )
     {
@@ -335,8 +336,8 @@ int main_sort(int argc, char *argv[])
                           default: error("The output type \"%s\" not recognised\n", optarg);
                       };
                       break;
-            case 'h': usage(args);
-            case '?': usage(args);
+            case 'h':
+            case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

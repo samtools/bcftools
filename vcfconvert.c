@@ -1511,7 +1511,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 10 : args->record_cmd_line = 0; break;
             case 11 : args->sex_fname = optarg; break;
-            case '?': usage();
+            case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

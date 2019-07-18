@@ -397,7 +397,8 @@ int run(int argc, char **argv)
 
     int i;
     printf("# bcftools +%s", args->argv[0]);
-    for (i=1; i<args->argc; i++) printf(" %s",args->argv[i]); printf("\n");
+    for (i=1; i<args->argc; i++) printf(" %s",args->argv[i]);
+    printf("\n");
     printf("# [1]type\t[2]predicted_origin\t[3]quality\t[4]nmarkers\n");
     printf("%s\t%s\t%f\t%d\n", args->cnv_type==CNV_DUP ? "dup" : "del", origin, qual, args->ntest);
 

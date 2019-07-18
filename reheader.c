@@ -682,7 +682,7 @@ int main_reheader(int argc, char *argv[])
             case 'o': args->output_fname = optarg; break;
             case 's': args->samples_fname = optarg; break;
             case 'h': args->header_fname = optarg; break;
-            case '?': usage(args);
+            case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }
