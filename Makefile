@@ -23,8 +23,8 @@
 # DEALINGS IN THE SOFTWARE.
 
 CC       = gcc
-AR     = ar
-RANLIB = ranlib
+AR       = ar
+RANLIB   = ranlib
 CPPFLAGS =
 CFLAGS   = -g -Wall -Wc++-compat -O2
 LDFLAGS  =
@@ -81,11 +81,7 @@ PLUGINM =
 
 ALL_CPPFLAGS = -I. $(HTSLIB_CPPFLAGS) $(CPPFLAGS)
 ALL_LDFLAGS  = $(HTSLIB_LDFLAGS) $(LDFLAGS)
-ifeq "$(shell uname -o)" "Msys"
-ALL_LIBS     = -lz $(LIBS)
-else
-ALL_LIBS     = -lz -ldl $(LIBS)
-endif
+ALL_LIBS     = -lz $(DL_LIBS) $(LIBS)
 
 all: $(PROGRAMS) $(TEST_PROGRAMS) plugins
 
@@ -163,15 +159,18 @@ endif
 ifeq "$(PLATFORM)" "Darwin"
 $(PLUGINS): | bcftools
 PLUGIN_FLAGS = -bundle -bundle_loader bcftools -Wl,-undefined,dynamic_lookup
-else ifeq "$(shell uname -o)" "Msys"
+DL_LIBS =
+else ifneq "$(filter MINGW% MSYS%,$(PLATFORM))" ""
 DYNAMIC_FLAGS =
 $(PLUGINS): | bcftools
 PLUGIN_FLAGS = -fPIC -shared -Wl,-export-all-symbols
 PLUGIN_LIBS = libbcftools.a $(HTSLIB_DLL) $(ALL_LIBS)
 # On windows, plugins need to be fully linked, including bcftools_version() symbol
 # from the application they will be loaded into.
+DL_LIBS =
 else
 PLUGIN_FLAGS = -fPIC -shared
+DL_LIBS = -ldl
 endif
 
 libbcftools.a: $(OBJS)
