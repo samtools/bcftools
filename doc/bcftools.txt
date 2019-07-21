@@ -714,8 +714,7 @@ concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
 VCF into one. The input files must be sorted by chr and position. The files
 must be given in the correct order to produce sorted VCF on output unless
 the *-a, --allow-overlaps* option is specified. With the --naive option, the files
-are concatenated without being recompressed, which is very fast but dangerous
-if the BCF headers differ.
+are concatenated without being recompressed, which is very fast..
 
 
 *-a, --allow-overlaps*::
@@ -745,9 +744,12 @@ if the BCF headers differ.
 *-n, --naive*::
     Concatenate VCF or BCF files without recompression. This is very fast but requires
     that all files are of the same type (all VCF or all BCF) and have the same headers.
-    This is because all tags and chromosome names in the BCF body rely on the implicit
-    order of the contig and tag definitions in the header. Currently no sanity checks
-    are in place. Dangerous, use with caution.
+    This is because all tags and chromosome names in the BCF body rely on the order
+    of the contig and tag definitions in the header. A header check compatibility
+    is performed and the program throws an error if it is not safe to use the option.
+
+*--naive-force*::
+    Same as --naive, but header compatibility is not checked. Dangerous, use with caution.
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*

@@ -1228,7 +1228,7 @@ sub test_naive_concat
     }
 
     my $bcfs = join('.bcf ',@files).'.bcf';
-    test_cmd($opts,exp=>$exp,out=>"concat.naive.bcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $bcfs | $$opts{bin}/bcftools view -H");
+    test_cmd($opts,exp=>$exp,out=>"concat.naive.bcf.out",cmd=>"$$opts{bin}/bcftools concat --naive-force $bcfs | $$opts{bin}/bcftools view -H");
 
     my $vcfs = join('.vcf.gz ',@files).'.vcf.gz';
     test_cmd($opts,exp=>$exp,out=>"concat.naive.vcf.out",cmd=>"$$opts{bin}/bcftools concat --naive $vcfs | $$opts{bin}/bcftools view -H");
