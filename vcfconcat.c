@@ -698,6 +698,7 @@ static void naive_concat_check_headers(args_t *args)
     {
         htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("Failed to open: %s\n", args->fnames[i]);
         bcf_hdr_t *hdr = bcf_hdr_read(fp); if ( !hdr ) error("Failed to parse header: %s\n", args->fnames[i]);
+        htsFormat type = *hts_get_format(fp);
         hts_close(fp);
 
         if ( i==0 )
@@ -714,10 +715,13 @@ static void naive_concat_check_headers(args_t *args)
                 error("Cannot concatenate, different samples in %s vs %s\n",args->fnames[0],args->fnames[i]);
 
         // if BCF, check if tag IDs are consistent in the dictionary of strings
-        htsFormat type = *hts_get_format(fp);
         if ( type.compression!=bgzf )
             error("The --naive option works only for compressed BCFs or VCFs, sorry :-/\n");
-        if ( type.format==vcf ) continue;
+        if ( type.format==vcf )
+        {
+            bcf_hdr_destroy(hdr);
+            continue;
+        }
 
         _check_hrecs(hdr0,hdr,args->fnames[0],args->fnames[i]);
         _check_hrecs(hdr,hdr0,args->fnames[i],args->fnames[0]);
