@@ -2565,7 +2565,7 @@ static void usage(void)
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
-    fprintf(stderr, "        --threads <int>                number of extra output compression threads [0]\n");
+    fprintf(stderr, "        --threads <int>                use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }

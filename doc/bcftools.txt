@@ -271,8 +271,8 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 ----
 
 *--threads* 'INT'::
-    Number of output compression threads to use in addition to main thread.
-    Only used when '--output-type' is 'b' or 'z'. Default: 0.
+    Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
+    output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
 
 
 [[annotate]]

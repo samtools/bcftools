@@ -4066,7 +4066,7 @@ static const char *usage(void)
         "   -S, --samples-file <file>       samples to include\n"
         "   -t, --targets <region>          similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n"
-        "       --threads <int>             number of extra (de)compression threads [0]\n"
+        "       --threads <int>             use multithreading with <int> worker threads [0]\n"
         "   -v, --verbose <int>             verbosity level 0-2 [1]\n"
         "\n"
         "Example:\n"

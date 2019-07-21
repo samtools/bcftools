@@ -426,7 +426,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -S, --set-GTs <.|0>           set genotypes of failed samples to missing (.) or ref (0)\n");
     fprintf(stderr, "    -t, --targets <region>        similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>     similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "        --threads <int>           number of extra output compression threads [0]\n");
+    fprintf(stderr, "        --threads <int>           use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }

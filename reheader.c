@@ -643,7 +643,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -h, --header <file>     new header\n");
     fprintf(stderr, "    -o, --output <file>     write output to a file [standard output]\n");
     fprintf(stderr, "    -s, --samples <file>    new sample names\n");
-    fprintf(stderr, "        --threads <int>     number of extra compression threads (BCF only) [0]\n");
+    fprintf(stderr, "        --threads <int>     use multithreading with <int> worker threads (BCF only) [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Example:\n");
     fprintf(stderr, "   # Write out the header to be modified\n");

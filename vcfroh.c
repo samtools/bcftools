@@ -1094,7 +1094,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -S, --samples-file <file>          file of samples to analyze [all samples]\n");
     fprintf(stderr, "    -t, --targets <region>             similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>          similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "        --threads <int>                number of extra decompression threads [0]\n");
+    fprintf(stderr, "        --threads <int>                use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "HMM Options:\n");
     fprintf(stderr, "    -a, --hw-to-az <float>             P(AZ|HW) transition probability from HW (Hardy-Weinberg) to AZ (autozygous) state [6.7e-8]\n");

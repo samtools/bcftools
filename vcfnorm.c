@@ -1859,7 +1859,7 @@ static void usage(void)
     fprintf(stderr, "    -s, --strict-filter               when merging (-m+), merged site is PASS only if all sites being merged PASS\n");
     fprintf(stderr, "    -t, --targets <region>            similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "        --threads <int>               number of extra (de)compression threads [0]\n");
+    fprintf(stderr, "        --threads <int>               use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win <int>              buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "\n");
     exit(1);

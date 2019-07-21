@@ -868,7 +868,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -S, --samples-file <file>       PED file or a file with an optional column with sex (see man page for details) [all samples]\n");
     fprintf(stderr, "   -t, --targets <region>          similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "   -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "       --threads <int>             number of extra output compression threads [0]\n");
+    fprintf(stderr, "       --threads <int>             use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
     fprintf(stderr, "   -A, --keep-alts                 keep all possible alternate alleles at variant sites\n");

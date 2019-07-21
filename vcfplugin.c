@@ -550,7 +550,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --no-version            do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>         write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "       --threads <int>         number of extra output compression threads [0]\n");
+    fprintf(stderr, "       --threads <int>         use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "Plugin options:\n");
     fprintf(stderr, "   -h, --help                  list plugin's options\n");
     fprintf(stderr, "   -l, --list-plugins          list available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");

@@ -1387,7 +1387,7 @@ static void usage(void)
     fprintf(stderr, "       --no-version               do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output <file>            output file name [stdout]\n");
     fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "       --threads <int>            number of extra output compression threads [0]\n");
+    fprintf(stderr, "       --threads <int>            use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "GEN/SAMPLE conversion (input/output from IMPUTE2):\n");
     fprintf(stderr, "   -G, --gensample2vcf <...>   <prefix>|<gen-file>,<sample-file>\n");

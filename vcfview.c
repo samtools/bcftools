@@ -506,7 +506,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -R, --regions-file <file>           restrict to regions listed in a file\n");
     fprintf(stderr, "    -t, --targets [^]<region>           similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
     fprintf(stderr, "    -T, --targets-file [^]<file>        similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n");
-    fprintf(stderr, "        --threads <int>                 number of extra (de)compression threads [0]\n");
+    fprintf(stderr, "        --threads <int>                 use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subset options:\n");
     fprintf(stderr, "    -a, --trim-alt-alleles        trim ALT alleles not seen in the genotype fields (or their subset with -s/-S)\n");

@@ -851,7 +851,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -o, --output FILE       write output to FILE [standard output]\n"
 "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
 "                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
-"      --threads INT       number of extra output compression threads [0]\n"
+"      --threads INT       use multithreading with INT worker threads [0]\n"
 "\n"
 "SNP/INDEL genotype likelihoods options:\n"
 "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
