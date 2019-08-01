@@ -176,9 +176,9 @@ int run(int argc, char **argv)
             case 'v': args->verbose = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-            case 'T': args->target_is_file = 1; 
+            case 'T': args->target_is_file = 1; // fall-through
             case 't': args->target = optarg; break; 
-            case 'R': args->region_is_file = 1; 
+            case 'R': args->region_is_file = 1; // fall-through
             case 'r': args->region = optarg; break; 
             case 'o': args->output_fname = optarg; break;
             case 'O':

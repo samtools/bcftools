@@ -444,7 +444,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"hg38") ) region = "chrX:2781480-155701381";
                 else error("The argument not recognised, expected --genome b37, b38, hg19 or hg38: %s\n", optarg);
                 break;
-            case 'R': region_is_file = 1; 
+            case 'R': region_is_file = 1; // fall-through
             case 'r': region = optarg; break; 
             case 'v': args->verbose++; break; 
             case 't':

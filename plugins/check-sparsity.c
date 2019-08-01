@@ -247,7 +247,7 @@ int run(int argc, char **argv)
                 args->min_sites = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse: -n %s\n", optarg);
                 break;
-            case 'R': args->region_is_file = 1; 
+            case 'R': args->region_is_file = 1; // fall-through
             case 'r': args->region = optarg; break; 
             case 'h':
             case '?':

@@ -2485,7 +2485,7 @@ void merge_vcf(args_t *args)
         int i;
         for (i=0; i<args->files->nreaders; i++)
         {
-            char buf[10]; snprintf(buf,10,"%d",i+1);
+            char buf[24]; snprintf(buf,sizeof buf,"%d",i+1);
             merge_headers(args->out_hdr, args->files->readers[i].header,buf,args->force_samples);
         }
         if (args->record_cmd_line) bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_merge");
@@ -2652,7 +2652,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 'h':
-            case '?': usage();
+            case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

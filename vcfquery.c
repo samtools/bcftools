@@ -307,7 +307,7 @@ int main_vcfquery(int argc, char *argv[])
             case 's': args->sample_list = optarg; break;
             case 'S': args->sample_list = optarg; args->sample_is_file = 1; break;
             case 'h':
-            case '?': usage();
+            case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

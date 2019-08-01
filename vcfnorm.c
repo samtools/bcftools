@@ -348,7 +348,7 @@ static int realign(args_t *args, bcf1_t *line)
         if ( has_non_acgtn(line->d.allele[i],line->shared.l) )
         {
             if ( args->check_ref==CHECK_REF_EXIT )
-                error("Non-ACGTN alternate allele at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[i]);
+                error("Non-ACGTN alternate allele at %s:%d .. VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[i]);
             if ( args->check_ref & CHECK_REF_WARN )
                 fprintf(stderr,"NON_ACGTN_ALT\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[i]);
             return ERR_REF_MISMATCH;
@@ -1962,7 +1962,7 @@ int main_vcfnorm(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 'h':
-            case '?': usage();
+            case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

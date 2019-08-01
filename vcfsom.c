@@ -696,7 +696,7 @@ int main_vcfsom(int argc, char *argv[])
             case 't': args->action = SOM_TRAIN; break;
             case 'c': args->action = SOM_CLASSIFY; break;
             case 'h':
-            case '?': usage();
+            case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }

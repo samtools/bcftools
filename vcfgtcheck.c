@@ -788,7 +788,7 @@ int main_vcfgtcheck(int argc, char *argv[])
             case 't': targets = optarg; break;
             case 'T': targets = optarg; targets_is_file = 1; break;
             case 'h':
-            case '?': usage();
+            case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
     }
