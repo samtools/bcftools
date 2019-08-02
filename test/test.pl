@@ -478,6 +478,9 @@ test_mpileup($opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',a
 test_mpileup($opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
 test_mpileup($opts,in=>[qw(mpileup.3 mpileup.4)],out=>'mpileup/mpileup.11.out',args=>q[-G {PATH}/mplp.11.rgs]);
 test_mpileup($opts,in=>[qw(indel-AD.1)],out=>'mpileup/indel-AD.1.out',ref=>'indel-AD.1.fa',args=>q[-a AD]);
+test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
+test_csq_real($opts,in=>'csq');
+
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};

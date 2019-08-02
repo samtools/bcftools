@@ -591,7 +591,7 @@ typedef struct _args_t
     char *outdir, **argv, *fa_fname, *gff_fname, *output_fname;
     char *bcsq_tag;
     int argc, output_type;
-    int phase, verbosity, local_csq;
+    int phase, verbosity, local_csq, record_cmd_line;
     int ncsq_max, nfmt_bcsq;    // maximum number of csq per site that can be accessed from FORMAT/BCSQ
     int ncsq_small_warned;
     int brief_predictions;
@@ -1399,7 +1399,7 @@ void init_data(args_t *args)
         if ( args->out_fh == NULL ) error("[%s] Error: cannot write to %s: %s\n", __func__,args->output_fname? args->output_fname : "standard output", strerror(errno));
         if ( args->n_threads > 0)
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->sr->p);
-        bcf_hdr_append_version(args->hdr,args->argc,args->argv,"bcftools/csq");
+        if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr,args->argc,args->argv,"bcftools/csq");
         bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=.,Type=String,Description=\"%s consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change\">",args->bcsq_tag, args->local_csq ? "Local" : "Haplotype-aware");
         if ( args->hdr_nsmpl ) 
             bcf_hdr_printf(args->hdr,"##FORMAT=<ID=%s,Number=.,Type=Integer,Description=\"Bitmask of indexes to INFO/BCSQ, with interleaved first/second haplotype. Use \\\"bcftools query -f'[%%CHROM\\t%%POS\\t%%SAMPLE\\t%%TBCSQ\\n]'\\\" to translate.\">",args->bcsq_tag);
@@ -3984,7 +3984,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
 
     bcf1_t *rec = *rec_ptr;
     int call_csq = 1;
-    if ( !rec->n_allele ) call_csq = 0;   // no alternate allele
+    if ( rec->n_allele < 2 ) call_csq = 0;   // no alternate allele
     else if ( rec->n_allele==2 && (rec->d.allele[1][0]=='*' || rec->d.allele[1][1]=='*') ) call_csq = 0;     // gVCF, not an alt allele
     else if ( rec->d.allele[1][0]=='<' )
     {
@@ -4057,6 +4057,7 @@ static const char *usage(void)
         "   -e, --exclude <expr>            exclude sites for which the expression is true\n"
         "       --force                     run even if some sanity checks fail\n"
         "   -i, --include <expr>            select sites for which the expression is true\n"
+        "       --no-version                do not append version and command line to the header\n"
         "   -o, --output <file>             write output to a file [standard output]\n"
         "   -O, --output-type <b|u|z|v|t>   b: compressed BCF, u: uncompressed BCF, z: compressed VCF\n"
         "                                   v: uncompressed VCF, t: plain tab-delimited text output [v]\n"
@@ -4086,6 +4087,7 @@ int main_csq(int argc, char *argv[])
     args->bcsq_tag = "BCSQ";
     args->ncsq_max = 2*16;
     args->verbosity = 1;
+    args->record_cmd_line = 1;
 
     static struct option loptions[] =
     {
@@ -4111,6 +4113,7 @@ int main_csq(int argc, char *argv[])
         {"samples-file",1,0,'S'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"no-version",no_argument,NULL,3},
         {0,0,0,0}
     };
     int c, targets_is_file = 0, regions_is_file = 0; 
@@ -4124,6 +4127,7 @@ int main_csq(int argc, char *argv[])
                 args->n_threads = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --threads  %s\n", optarg);
                 break;
+            case  3 : args->record_cmd_line = 0; break;
             case 'b': args->brief_predictions = 1; break;
             case 'l': args->local_csq = 1; break;
             case 'c': args->bcsq_tag = optarg; break;

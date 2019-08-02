@@ -1164,6 +1164,9 @@ output VCF and are ignored for the prediction analysis.
     The default value is 16 which corresponds to one integer per diploid
     sample. Note that increasing the value leads to increased memory and is rarely necessary.
 
+*--no-version*::
+    see *<<common_options,Common Options>>*
+
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
