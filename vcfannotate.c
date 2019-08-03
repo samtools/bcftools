@@ -84,6 +84,7 @@ typedef struct _annot_col_t
     int merge_method;               // one of the MM_* defines
     khash_t(str2int) *mm_str_hash;  // lookup table to ensure uniqueness of added string values
     kstring_t mm_kstr;
+    double mm_dbl_nalloc, mm_dbl_nused, mm_dbl_ndat, *mm_dbl;
 }
 annot_col_t;
 
@@ -625,22 +626,65 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
 }
 static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( !data ) error("Error: the --merge-logic option cannot be used with INFO type=Integer (yet?)\n");
-
     annot_line_t *tab = (annot_line_t*) data;
-    char *str = tab->cols[col->icol], *end = str;
-    if ( str[0]=='.' && str[1]==0 ) return 0;
 
-    int ntmpi = 0;
-    while ( *end )
+    if ( !tab )
     {
-        int val = strtol(str, &end, 10); 
-        if ( end==str )
-            error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
-        ntmpi++;
+        if ( col->merge_method!=MM_SUM && col->merge_method!=MM_AVG && col->merge_method!=MM_MIN && col->merge_method!=MM_MAX )
+            error("Error: at the moment only the sum,avg,min,max options are supported with --merge-logic for INFO type=Integer\n");
+    }
+
+    int i,ntmpi = 0;
+    if ( tab )
+    {
+        char *str = tab->cols[col->icol], *end = str;
+        if ( str[0]=='.' && str[1]==0 ) return 0;
+
+        while ( *end )
+        {
+            int val = strtol(str, &end, 10); 
+            if ( end==str )
+                error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+            ntmpi++;
+            hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
+            args->tmpi[ntmpi-1] = val;
+            str = end+1;
+        }
+        if ( col->merge_method!=MM_FIRST )
+        {
+            if ( !col->mm_dbl_nused )
+            {
+                col->mm_dbl_nused = ntmpi;
+                hts_expand(double,col->mm_dbl_nused,col->mm_dbl_nalloc,col->mm_dbl);
+                for (i=0; i<ntmpi; i++)
+                    col->mm_dbl[i] = args->tmpi[i];
+            }
+            else
+            {
+                if ( ntmpi!=col->mm_dbl_nused ) error("Error: cannot merge fields of unequal length\n");
+                if ( col->merge_method==MM_SUM || col->merge_method==MM_AVG )
+                    for (i=0; i<ntmpi; i++) col->mm_dbl[i] += args->tmpi[i];
+                else if ( col->merge_method==MM_MIN )
+                    for (i=0; i<ntmpi; i++) { if ( col->mm_dbl[i] > args->tmpi[i] ) col->mm_dbl[i] = args->tmpi[i]; }
+                else if ( col->merge_method==MM_MAX )
+                    for (i=0; i<ntmpi; i++) { if ( col->mm_dbl[i] < args->tmpi[i] ) col->mm_dbl[i] = args->tmpi[i]; }
+            }
+            col->mm_dbl_ndat++;
+        }
+    }
+    else if ( col->merge_method==MM_SUM || col->merge_method==MM_MIN || col->merge_method==MM_MAX )
+    {
+        ntmpi = col->mm_dbl_nused;
         hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
-        args->tmpi[ntmpi-1] = val;
-        str = end+1;
+        for (i=0; i<ntmpi; i++) args->tmpi[i] = col->mm_dbl[i];
+        col->mm_dbl_nused = col->mm_dbl_ndat = 0;
+    }
+    else if ( col->merge_method==MM_AVG )
+    {
+        ntmpi = col->mm_dbl_nused;
+        hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
+        for (i=0; i<ntmpi; i++) args->tmpi[i] = col->mm_dbl[i]/col->mm_dbl_ndat;
+        col->mm_dbl_nused = col->mm_dbl_ndat = 0;
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
@@ -707,22 +751,65 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
 }
 static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( !data ) error("Error: the --merge-logic option cannot be used with INFO type=Float (yet?)\n");
-
     annot_line_t *tab = (annot_line_t*) data;
-    char *str = tab->cols[col->icol], *end = str;
-    if ( str[0]=='.' && str[1]==0 ) return 0;
 
-    int ntmpf = 0;
-    while ( *end )
+    if ( !tab )
     {
-        double val = strtod(str, &end);
-        if ( end==str )
-            error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
-        ntmpf++;
-        hts_expand(float,ntmpf,args->mtmpf,args->tmpf);
-        args->tmpf[ntmpf-1] = val;
-        str = end+1;
+        if ( col->merge_method!=MM_SUM && col->merge_method!=MM_AVG && col->merge_method!=MM_MIN && col->merge_method!=MM_MAX )
+            error("Error: at the moment only the sum,avg,min,max options are supported with --merge-logic for INFO type=Float\n");
+    }
+
+    int i,ntmpf = 0;
+    if ( tab )
+    {
+        char *str = tab->cols[col->icol], *end = str;
+        if ( str[0]=='.' && str[1]==0 ) return 0;
+
+        while ( *end )
+        {
+            double val = strtod(str, &end);
+            if ( end==str )
+                error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+            ntmpf++;
+            hts_expand(float,ntmpf,args->mtmpf,args->tmpf);
+            args->tmpf[ntmpf-1] = val;
+            str = end+1;
+        }
+        if ( col->merge_method!=MM_FIRST )
+        {
+            if ( !col->mm_dbl_nused )
+            {
+                col->mm_dbl_nused = ntmpf;
+                hts_expand(double,col->mm_dbl_nused,col->mm_dbl_nalloc,col->mm_dbl);
+                for (i=0; i<ntmpf; i++)
+                    col->mm_dbl[i] = args->tmpf[i];
+            }
+            else
+            {
+                if ( ntmpf!=col->mm_dbl_nused ) error("Error: cannot merge fields of unequal length\n");
+                if ( col->merge_method==MM_SUM || col->merge_method==MM_AVG )
+                    for (i=0; i<ntmpf; i++) col->mm_dbl[i] += args->tmpf[i];
+                else if ( col->merge_method==MM_MIN )
+                    for (i=0; i<ntmpf; i++) { if ( col->mm_dbl[i] > args->tmpf[i] ) col->mm_dbl[i] = args->tmpf[i]; }
+                else if ( col->merge_method==MM_MAX )
+                    for (i=0; i<ntmpf; i++) { if ( col->mm_dbl[i] < args->tmpf[i] ) col->mm_dbl[i] = args->tmpf[i]; }
+            }
+            col->mm_dbl_ndat++;
+        }
+    }
+    else if ( col->merge_method==MM_SUM || col->merge_method==MM_MIN || col->merge_method==MM_MAX )
+    {
+        ntmpf = col->mm_dbl_nused;
+        hts_expand(int32_t,ntmpf,args->mtmpf,args->tmpf);
+        for (i=0; i<ntmpf; i++) args->tmpf[i] = col->mm_dbl[i];
+        col->mm_dbl_nused = col->mm_dbl_ndat = 0;
+    }
+    else if ( col->merge_method==MM_AVG )
+    {
+        ntmpf = col->mm_dbl_nused;
+        hts_expand(int32_t,ntmpf,args->mtmpf,args->tmpf);
+        for (i=0; i<ntmpf; i++) args->tmpf[i] = col->mm_dbl[i]/col->mm_dbl_ndat;
+        col->mm_dbl_nused = col->mm_dbl_ndat = 0;
     }
 
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
@@ -2113,6 +2200,8 @@ static void init_merge_method(args_t *args)
     {
         args->cols[i].merge_method = MM_FIRST;
         args->cols[i].mm_str_hash = NULL;
+        args->cols[i].mm_dbl = NULL;
+        args->cols[i].mm_dbl_nalloc = args->cols[i].mm_dbl_nused = args->cols[i].mm_dbl_ndat = 0;
         memset(&args->cols[i].mm_kstr, 0, sizeof(args->cols[i].mm_kstr));
     }
     if ( !args->merge_method_str ) return;
@@ -2135,7 +2224,11 @@ static void init_merge_method(args_t *args)
         int mm_type = MM_FIRST;
         if ( !strcasecmp("unique",mm_type_str) ) mm_type = MM_UNIQUE;
         else if ( !strcasecmp("append",mm_type_str) ) mm_type = MM_APPEND;
-        else error("Error: could not parse --merge-logic %s. The logic \"%s\" has not been implemented (yet?)\n", args->merge_method_str,mm_type_str);
+        else if ( !strcasecmp("sum",mm_type_str) ) mm_type = MM_SUM;
+        else if ( !strcasecmp("avg",mm_type_str) ) mm_type = MM_AVG;
+        else if ( !strcasecmp("min",mm_type_str) ) mm_type = MM_MIN;
+        else if ( !strcasecmp("max",mm_type_str) ) mm_type = MM_MAX;
+        else error("Error: could not parse --merge-logic %s, the logic \"%s\" is not recognised\n", args->merge_method_str,mm_type_str);
         for (i=0; i<args->ncols; i++)
         {
             if ( strcmp(args->cols[i].hdr_key_dst,args->tmpks.s) ) continue;
@@ -2261,6 +2354,7 @@ static void destroy_data(args_t *args)
         free(args->cols[i].hdr_key_dst);
         free(args->cols[i].mm_kstr.s);
         if ( args->cols[i].mm_str_hash ) khash_str2int_destroy_free(args->cols[i].mm_str_hash);
+        free(args->cols[i].mm_dbl);
     }
     free(args->cols);
     for (i=0; i<args->malines; i++)
