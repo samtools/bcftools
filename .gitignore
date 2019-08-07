@@ -21,4 +21,6 @@ configure
 
 /TAGS
 
+test/vkrs.unsorted.hex
+test/rsvk.unsorted.hex
 test/nrvk.unsorted.tsv

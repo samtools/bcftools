@@ -331,6 +331,7 @@ clean-plugins:
 
 testclean:
 	-rm -f test/*.o test/*~ $(TEST_PROGRAMS)
+	-rm -f test/*.hex
 
 distclean: clean
 	-rm -f config.cache config.h config.log config.mk config.status

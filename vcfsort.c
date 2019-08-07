@@ -288,13 +288,19 @@ static void init(args_t *args)
     size_t len = strlen(args->tmp_dir);
     if ( !strcmp("XXXXXX",args->tmp_dir+len-6) )
     {
+#ifdef _WIN32
+        int ret = mkdir(mktemp(args->tmp_dir), 0700);
+        if ( ret ) error("mkdir(%s) failed: %s\n", args->tmp_dir,strerror(errno));
+#else
         char *tmp = mkdtemp(args->tmp_dir);
         if ( !tmp ) error("mkdtemp(%s) failed: %s\n",  args->tmp_dir,strerror(errno));
         int ret = chmod(tmp, S_IRUSR|S_IWUSR|S_IXUSR);
         if ( ret ) error("chmod(%s,S_IRUSR|S_IWUSR|S_IXUSR) failed: %s\n", args->tmp_dir,strerror(errno));
+#endif
     }
-    else
+    else {
         mkdir_p("%s/",args->tmp_dir);
+    }
 
     fprintf(stderr,"Writing to %s\n", args->tmp_dir);
 }
