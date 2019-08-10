@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##contig=<ID=1,length=310827022>
+##reference=ref.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	1	.	GAAAA	GAAA,G	.	PASS	.	AD	1,2,3	3,2,1
+1	2	.	A	AAAT,AAAGGATGGTAT	.	PASS	.	AD	5,6,7	7,6,5

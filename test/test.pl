@@ -161,6 +161,8 @@ test_vcf_query($opts,in=>'query.filter.7',out=>'query.68.out',args=>q[-f'%POS\\t
 test_vcf_query($opts,in=>'query.filter.7',out=>'query.68.out',args=>q[-f'%POS\\t%II[\\t%FI]\\n' -i'median(FORMAT/FI)==1.5']);
 test_vcf_query($opts,in=>'query.filter.8',out=>'query.69.out',args=>q[-f'%POS\\t%REF\\t%ALT\\t%ILEN\\n' -i'%ILEN==1']);
 test_vcf_query($opts,in=>'query.filter.8',out=>'query.70.out',args=>q[-f'%POS\\t%REF\\t%ALT\\t%ILEN\\n' -i'ILEN==1']);
+test_vcf_query($opts,in=>'query.filter.9',out=>'query.71.out',args=>q[-f'[%POS  %SAMPLE  %AD\\n]' -i'FMT/AD[:0] < FMT/AD[:1]']);
+test_vcf_query($opts,in=>'query.filter.9',out=>'query.72.out',args=>q[-f'[%POS  %SAMPLE  %AD\\n]' -i'FMT/AD[:0] > FMT/AD[:1]']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');

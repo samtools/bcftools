@@ -1711,7 +1711,6 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
 { \
     token_t *rtok = _rtok; \
     int i, j, k; \
-    assert( !atok->nsamples || !btok->nsamples ); \
     tok_init_samples(atok, btok, rtok); \
     if ( !atok->nsamples && !btok->nsamples ) \
     { \
@@ -1783,6 +1782,32 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                         miss |= bcf_double_is_missing_or_vector_end(ptr[j]) ? 1 : 0; \
                     if ( missing_logic[++miss] ) { rtok->pass_samples[i] = missing_logic[miss]; rtok->pass_site = 1; } \
                 } \
+        } \
+        else if ( atok->nsamples && btok->nsamples ) \
+        { \
+            if ( atok->nval1!=btok->nval1 ) error("Incompatible number of per-sample values in comparison: %d vs %d\n",atok->nval1,btok->nval1); \
+            if ( atok->nsamples!=btok->nsamples ) error("Incompatible number samples in comparison: %d vs %d\n",atok->nsamples,btok->nsamples); \
+            for (i=0; i<atok->nsamples; i++) \
+            { \
+                if ( !atok->usmpl[i] || !btok->usmpl[i] ) { rtok->usmpl[i] = 0; continue; } \
+                double *aptr = atok->values + i*atok->nval1; \
+                double *bptr = btok->values + i*btok->nval1; \
+                for (j=0; j<atok->nval1; j++) \
+                { \
+                    int nmiss = bcf_double_is_missing_or_vector_end(aptr[j]) ? 1 : 0; \
+                    if ( nmiss && !missing_logic[0] ) continue; /* any is missing => result is false */ \
+                    nmiss += (bcf_double_is_missing_or_vector_end(bptr[j]) ? 1 : 0); \
+                    if ( nmiss ) \
+                    { \
+                        if ( missing_logic[nmiss] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; break; } \
+                    } \
+                    else if ( aptr[j] > 16777216 || bptr[j] > 16777216 ) /* Ugly, see #871 */ \
+                    { \
+                        if ( aptr[j] CMP_OP bptr[j] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; break; } \
+                    } \
+                    else if ( (float)aptr[j] CMP_OP (float)bptr[j] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; break; } \
+                } \
+            } \
         } \
         else \
         { \
