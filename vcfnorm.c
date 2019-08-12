@@ -38,10 +38,10 @@ THE SOFTWARE.  */
 #include "bcftools.h"
 #include "rbuf.h"
 
-#define CHECK_REF_EXIT 0
-#define CHECK_REF_WARN 1
-#define CHECK_REF_SKIP 2
-#define CHECK_REF_FIX  4
+#define CHECK_REF_EXIT 1
+#define CHECK_REF_WARN 2
+#define CHECK_REF_SKIP 4
+#define CHECK_REF_FIX  8
 
 #define MROWS_SPLIT 1
 #define MROWS_MERGE  2
@@ -1976,7 +1976,8 @@ int main_vcfnorm(int argc, char *argv[])
     else fname = argv[optind];
 
     if ( !args->ref_fname && !args->mrows_op && !args->rmdup ) error("Expected -f, -m, -D or -d option\n");
-    if ( !args->ref_fname && args->check_ref&CHECK_REF_FIX ) error("Expected --fasta-ref with --check-ref s\n");
+    if ( !args->check_ref && args->ref_fname ) args->check_ref = CHECK_REF_EXIT;
+    if ( args->check_ref && !args->ref_fname ) error("Expected --fasta-ref with --check-ref\n");
 
     if ( args->region )
     {
