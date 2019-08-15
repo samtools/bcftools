@@ -1303,11 +1303,22 @@ static int func_abs(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
 static int func_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    if ( !tok->nsamples ) error("COUNT() can be applied only on FORMAT fields\n");
-
     int i, cnt = 0;
-    for (i=0; i<tok->nsamples; i++)
-        if ( tok->pass_samples[i] ) cnt++;
+    if ( !tok->nsamples )
+    {
+        if ( tok->is_str )
+        {
+            if ( tok->str_value.l ) cnt = 1;
+            for (i=0; i<tok->str_value.l; i++) if ( tok->str_value.s[i]==',' ) cnt++;
+        }
+        else
+            cnt = tok->nvalues;
+    }
+    else
+    {
+        for (i=0; i<tok->nsamples; i++)
+            if ( tok->pass_samples[i] ) cnt++;
+    }
 
     rtok->nvalues = 1;
     rtok->values[0] = cnt;

@@ -1,0 +1,9 @@
+##fileformat=VCFv4.3
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=NUM_TAG,Number=.,Type=Integer,Description="test">
+##INFO=<ID=STR_TAG,Number=.,Type=String,Description="test">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100	.	C	T	.	.	NUM_TAG=1;STR_TAG=x
+1	101	.	C	T	.	.	NUM_TAG=1,2;STR_TAG=x,y
+1	102	.	C	T	.	.	NUM_TAG=1,2,3;STR_TAG=x,y,z
