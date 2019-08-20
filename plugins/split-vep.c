@@ -655,6 +655,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     annot_reset(args->annot, args->nannot);
     int severity_pass = 0;  // consequence severity requested via the -s option (BCF record may be output but not annotated)
     int all_missing   = 1;  // transcripts with all requested annotations missing will be discarded if -f was given
+    static int too_few_fields_warned = 0;
     for (i=itr_min; i<=itr_max; i++)
     {
         args->cols_csq = cols_split(args->cols_tr->off[i], args->cols_csq, '|');
@@ -669,7 +670,15 @@ static void process_record(args_t *args, bcf1_t *rec)
         {
             annot_t *ann = &args->annot[j];
             if ( ann->idx >= args->cols_csq->n )
-                error("Too few %s fields at %s:%d .. %d >= %d\n", args->vep_tag,bcf_seqname(args->hdr,rec),rec->pos+1,ann->idx,args->cols_csq->n);
+            {
+                if ( !too_few_fields_warned )
+                {
+                    fprintf(stderr, "Warning: fewer %s fields than expected at %s:%d, filling with dots. This warning is printed only once.\n", args->vep_tag,bcf_seqname(args->hdr,rec),rec->pos+1);
+                    too_few_fields_warned = 1;
+                }
+                annot_append(ann, ".");
+                continue;
+            }
 
             if ( !*args->cols_csq->off[ann->idx] )
                 annot_append(ann, "."); // missing value
