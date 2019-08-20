@@ -178,7 +178,7 @@ static const char *usage_text(void)
         "   bcftools +split-vep -s worst -f '%CHROM %POS %Consequence %IMPACT %SYMBOL\\n' file.vcf.gz\n"
         "\n"
         "   # Print all subfields (tab-delimited) in place of %CSQ, each consequence on a new line\n"
-        "   bcftools +split-vep '%CHROM %POS %CSQ\\n' -d -A tab file.vcf.gz\n"
+        "   bcftools +split-vep -f '%CHROM %POS %CSQ\\n' -d -A tab file.vcf.gz\n"
         "\n";
 }
 
