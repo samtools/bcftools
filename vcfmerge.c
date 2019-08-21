@@ -28,6 +28,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
@@ -399,7 +400,7 @@ static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, inf
 {
     int msize = args->maux->ntmp_arr / rule->type_size;
     int ret = bcf_get_info_values(hdr, line, rule->hdr_tag, &args->maux->tmp_arr, &msize, rule->type);
-    if ( ret<=0 ) error("FIXME: error parsing %s at %s:%d .. %d\n", rule->hdr_tag,bcf_seqname(hdr,line),line->pos+1,ret);
+    if ( ret<=0 ) error("FIXME: error parsing %s at %s:%"PRId64" .. %d\n", rule->hdr_tag,bcf_seqname(hdr,line),(int64_t) line->pos+1,ret);
     args->maux->ntmp_arr = msize * rule->type_size;
 
     rule->nblocks++;
@@ -418,7 +419,7 @@ static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, inf
     int i, j;
     if ( var_len==BCF_VL_A )
     {
-        if ( ret!=line->n_allele-1 ) error("Wrong number of %s fields at %s:%d\n",rule->hdr_tag,bcf_seqname(hdr,line),line->pos+1);
+        if ( ret!=line->n_allele-1 ) error("Wrong number of %s fields at %s:%"PRId64"\n",rule->hdr_tag,bcf_seqname(hdr,line),(int64_t) line->pos+1);
         args->maux->nagr_map = ret;
         hts_expand(int,args->maux->nagr_map,args->maux->magr_map,args->maux->agr_map);
         // create mapping from source file ALT indexes to dst file indexes
@@ -427,7 +428,7 @@ static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, inf
     }
     else if ( var_len==BCF_VL_R )
     {
-        if ( ret!=line->n_allele ) error("Wrong number of %s fields at %s:%d\n",rule->hdr_tag,bcf_seqname(hdr,line),line->pos+1);
+        if ( ret!=line->n_allele ) error("Wrong number of %s fields at %s:%"PRId64"\n",rule->hdr_tag,bcf_seqname(hdr,line),(int64_t) line->pos+1);
         args->maux->nagr_map = ret;
         hts_expand(int,args->maux->nagr_map,args->maux->magr_map,args->maux->agr_map);
         for (i=0; i<ret; i++) args->maux->agr_map[i] = als->map[i];
@@ -462,7 +463,7 @@ static int info_rules_add_values(args_t *args, bcf_hdr_t *hdr, bcf1_t *line, inf
     else
     {
         if ( rule->nblocks>1 && ret!=rule->block_size )
-            error("Mismatch in number of values for INFO/%s at %s:%d\n", rule->hdr_tag,bcf_seqname(hdr,line),line->pos+1);
+            error("Mismatch in number of values for INFO/%s at %s:%"PRId64"\n", rule->hdr_tag,bcf_seqname(hdr,line),(int64_t) line->pos+1);
         rule->block_size = ret;
         args->maux->nagr_map = 0;
     }
@@ -1073,7 +1074,7 @@ static void merge_AGR_info_tag(bcf_hdr_t *hdr, bcf1_t *line, bcf_info_t *info, i
             agr->mbuf = tmp.m; agr->nbuf = tmp.l; agr->buf = (uint8_t*)tmp.s;
         }
         else
-            error("Not ready for type [%d]: %s at %d\n", info->type,agr->hdr_tag,line->pos+1);
+            error("Not ready for type [%d]: %s at %"PRId64"\n", info->type,agr->hdr_tag,(int64_t) line->pos+1);
     }
 
     if ( info->type==BCF_BT_INT8 || info->type==BCF_BT_INT16 || info->type==BCF_BT_INT32 || info->type==BCF_BT_FLOAT )
@@ -1144,7 +1145,7 @@ static void merge_AGR_info_tag(bcf_hdr_t *hdr, bcf1_t *line, bcf_info_t *info, i
             {
                 int ret = copy_string_field((char*)info->vptr, iori-ifrom, info->len, &tmp, als->map[iori]-ifrom);
                 if ( ret )
-                    error("Error at %s:%d: wrong number of fields in %s?\n", bcf_seqname(hdr,line),line->pos+1,agr->hdr_tag);
+                    error("Error at %s:%"PRId64": wrong number of fields in %s?\n", bcf_seqname(hdr,line),(int64_t) line->pos+1,agr->hdr_tag);
             }
         }
         else
@@ -1160,7 +1161,7 @@ static void merge_AGR_info_tag(bcf_hdr_t *hdr, bcf1_t *line, bcf_info_t *info, i
                     int knew = bcf_alleles2gt(inew,jnew);
                     int ret  = copy_string_field((char*)info->vptr, kori, info->len, &tmp, knew);
                     if ( ret )
-                        error("Error at %s:%d: wrong number of fields in %s?\n", bcf_seqname(hdr,line),line->pos+1,agr->hdr_tag);
+                        error("Error at %s:%"PRId64": wrong number of fields in %s?\n", bcf_seqname(hdr,line),(int64_t) line->pos+1,agr->hdr_tag);
                 }
             }
         }
@@ -1234,7 +1235,7 @@ void merge_info(args_t *args, bcf1_t *out)
                 }
                 kitr = kh_get(strdict, tmph, key);
                 int idx = kh_val(tmph, kitr);
-                if ( idx<0 ) error("Error occurred while processing INFO tag \"%s\" at %s:%d\n", key,bcf_seqname(hdr,line),line->pos+1);
+                if ( idx<0 ) error("Error occurred while processing INFO tag \"%s\" at %s:%"PRId64"\n", key,bcf_seqname(hdr,line),(int64_t) line->pos+1);
                 merge_AGR_info_tag(hdr, line,inf,len,&ma->buf[i].rec[irec],&ma->AGR_info[idx]);
                 continue;
             }
@@ -1344,7 +1345,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
         if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",ma->ntmp_arr);
         if ( ma->ntmp_arr > 2147483647 )
         {
-            if ( !warned ) fprintf(stderr,"Warning: Too many genotypes at %s:%d, requires %zu bytes, skipping.\n", bcf_seqname(out_hdr,out),out->pos+1,ma->ntmp_arr);
+            if ( !warned ) fprintf(stderr,"Warning: Too many genotypes at %s:%"PRId64", requires %zu bytes, skipping.\n", bcf_seqname(out_hdr,out),(int64_t) out->pos+1,ma->ntmp_arr);
             warned = 1;
             return;
         }
@@ -1501,7 +1502,7 @@ void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf
                 {
                     inew = ma->buf[i].rec[irec].map[iori] - ifrom; 
                     int ret = copy_string_field(src, iori - ifrom, fmt_ori->size, str, inew);
-                    if ( ret<-1 ) error("[E::%s] fixme: internal error at %s:%d .. %d\n",__func__,bcf_seqname(hdr,line),line->pos+1,ret);
+                    if ( ret<-1 ) error("[E::%s] fixme: internal error at %s:%"PRId64" .. %d\n",__func__,bcf_seqname(hdr,line),(int64_t) line->pos+1,ret);
                 }
                 src += fmt_ori->size;
             }
@@ -1521,7 +1522,7 @@ void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf
         if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",ma->ntmp_arr);
         if ( ma->ntmp_arr > 2147483647 )
         {
-            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%d, requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),out->pos+1,ma->ntmp_arr);
+            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%"PRId64", requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),(int64_t) out->pos+1,ma->ntmp_arr);
             warned = 1;
             return;
         }
@@ -1584,10 +1585,10 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     {
         ma->ntmp_arr = nsamples*nsize*msize;
         ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
-        if ( !ma->tmp_arr ) error("Failed to allocate %zu bytes at %s:%d for FORMAT/%s\n", ma->ntmp_arr,bcf_seqname(args->out_hdr,out),out->pos+1,key);
+        if ( !ma->tmp_arr ) error("Failed to allocate %zu bytes at %s:%"PRId64" for FORMAT/%s\n", ma->ntmp_arr,bcf_seqname(args->out_hdr,out),(int64_t) out->pos+1,key);
         if ( ma->ntmp_arr > 2147483647 )
         {
-            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%d, requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),out->pos+1,ma->ntmp_arr);
+            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%"PRId64", requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),(int64_t) out->pos+1,ma->ntmp_arr);
             warned = 1;
             return;
         }
@@ -1610,23 +1611,23 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
             {
                 // if all fields are missing then n==1 is valid
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori*(nals_ori+1)/2 && fmt_map[i]->n != nals_ori )
-                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=G, but found\n"
+                    error("Incorrect number of FORMAT/%s values at %s:%"PRId64", cannot merge. The tag is defined as Number=G, but found\n"
                           "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
-                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
+                          key,bcf_seqname(args->out_hdr,out),(int64_t) out->pos+1,fmt_ori->n,nals_ori);
             }
             else if ( length==BCF_VL_A )
             {
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori-1 )
-                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=A, but found\n"
+                    error("Incorrect number of FORMAT/%s values at %s:%"PRId64", cannot merge. The tag is defined as Number=A, but found\n"
                           "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
-                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
+                          key,bcf_seqname(args->out_hdr,out),(int64_t) out->pos+1,fmt_ori->n,nals_ori);
             }
             else if ( length==BCF_VL_R )
             {
                 if ( fmt_ori->n!=1 && fmt_ori->n != nals_ori )
-                    error("Incorrect number of FORMAT/%s values at %s:%d, cannot merge. The tag is defined as Number=R, but found\n"
+                    error("Incorrect number of FORMAT/%s values at %s:%"PRId64", cannot merge. The tag is defined as Number=R, but found\n"
                           "%d values and %d alleles. See also http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields\n",
-                          key,bcf_seqname(args->out_hdr,out),out->pos+1,fmt_ori->n,nals_ori);
+                          key,bcf_seqname(args->out_hdr,out),(int64_t) out->pos+1,fmt_ori->n,nals_ori);
             }
         }
 
@@ -1875,7 +1876,7 @@ void gvcf_set_alleles(args_t *args)
             if ( !maux->als )
             {
                 bcf_hdr_t *hdr = bcf_sr_get_header(args->files,i);
-                error("Failed to merge alleles at %s:%d\n",bcf_seqname(hdr,line),line->pos+1);
+                error("Failed to merge alleles at %s:%"PRId64"\n",bcf_seqname(hdr,line),(int64_t) line->pos+1);
             }
         }
     }
@@ -2183,7 +2184,7 @@ void debug_state(args_t *args)
             bcf_hdr_t *hdr = bcf_sr_get_header(args->files,i);
             const char *chr = bcf_hdr_id2name(hdr, maux->buf[i].rid);
             fprintf(stderr,"\t");
-            for (j=maux->buf[i].beg; j<maux->buf[i].end; j++) fprintf(stderr," %s:%d",chr,maux->buf[i].lines[j]->pos+1);
+            for (j=maux->buf[i].beg; j<maux->buf[i].end; j++) fprintf(stderr," %s:%"PRId64,chr,(int64_t) maux->buf[i].lines[j]->pos+1);
         }
         fprintf(stderr,"\n");
     }
@@ -2191,7 +2192,7 @@ void debug_state(args_t *args)
     for (i=0; i<args->files->nreaders; i++)
     {
         fprintf(stderr,"reader %d:\tgvcf_active=%d", i,maux->gvcf[i].active);
-        if ( maux->gvcf[i].active ) fprintf(stderr,"\tpos,end=%d,%d", maux->gvcf[i].line->pos+1,maux->gvcf[i].end+1);
+        if ( maux->gvcf[i].active ) fprintf(stderr,"\tpos,end=%"PRId64",%"PRId64, (int64_t) maux->gvcf[i].line->pos+1,(int64_t) maux->gvcf[i].end+1);
         fprintf(stderr,"\n");
     }
     fprintf(stderr,"\n");
@@ -2326,7 +2327,7 @@ int can_merge(args_t *args)
             }
             // normalize alleles
             maux->als = merge_alleles(line->d.allele, line->n_allele, buf->rec[j].map, maux->als, &maux->nals, &maux->mals);
-            if ( !maux->als ) error("Failed to merge alleles at %s:%d in %s\n",maux->chr,line->pos+1,reader->fname);
+            if ( !maux->als ) error("Failed to merge alleles at %s:%"PRId64" in %s\n",maux->chr,(int64_t) line->pos+1,reader->fname);
             hts_expand0(int, maux->nals, maux->ncnt, maux->cnt);
             for (k=1; k<line->n_allele; k++)
                 maux->cnt[ buf->rec[j].map[k] ]++;    // how many times an allele appears in the files

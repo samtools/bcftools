@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <math.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -298,13 +299,13 @@ static void process_record(args_t *args, bcf1_t *rec)
         nret = bcf_get_format_int32(args->hdr,rec,"AD",&args->ad,&args->mad);
         if ( nret<=0 ) has_fmt_ad = 0;
         else if ( nret != nsmpl * rec->n_allele )
-            error("Incorrect number of fields for FORMAT/AD at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            error("Incorrect number of fields for FORMAT/AD at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
     nret = bcf_get_format_int32(args->hdr,rec,"PL",&args->pl,&args->mpl);
-    if ( nret<=0 ) error("The FORMAT/PL tag not present at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+    if ( nret<=0 ) error("The FORMAT/PL tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     int npl1  = nret/nsmpl;
     if ( npl1!=rec->n_allele*(rec->n_allele+1)/2 )
-        error("fixme: not a diploid site at %s:%d: %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),rec->pos+1,rec->n_allele,npl1);
+        error("fixme: not a diploid site at %s:%"PRId64": %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_allele,npl1);
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
     int i, j, k, al0, al1, write_dnm = 0;
     for (i=0; i<nsmpl; i++) args->dnm_qual[i] = bcf_int32_missing;
@@ -338,9 +339,9 @@ static void process_record(args_t *args, bcf1_t *rec)
     if ( write_dnm )
     {
         if ( bcf_update_format_int32(args->hdr_out,rec,"DNM",args->dnm_qual,nsmpl)!=0 )
-            error("Failed to write FORMAT/DNM at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            error("Failed to write FORMAT/DNM at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         if ( has_fmt_ad && bcf_update_format_int32(args->hdr_out,rec,"VAF",args->vaf,nsmpl)!=0 )
-            error("Failed to write FORMAT/VAF at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            error("Failed to write FORMAT/VAF at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
     if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 }

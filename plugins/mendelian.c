@@ -29,6 +29,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
@@ -460,7 +461,7 @@ static void warn_ploidy(bcf1_t *rec)
 {
     static int warned = 0;
     if ( warned ) return;
-    fprintf(stderr,"Incorrect ploidy at %s:%d, skipping the trio. (This warning is printed only once.)\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+    fprintf(stderr,"Incorrect ploidy at %s:%"PRId64", skipping the trio. (This warning is printed only once.)\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
     warned = 1;
 }
 
@@ -565,7 +566,7 @@ bcf1_t *process(bcf1_t *rec)
     }
 
     if ( needs_update && bcf_update_genotypes(args.hdr,rec,args.gt_arr,ngt*bcf_hdr_nsamples(args.hdr)) )
-        error("Could not update GT field at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+        error("Could not update GT field at %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
 
     if ( args.mode&MODE_DELETE ) return rec;
     if ( args.mode&MODE_LIST_GOOD ) return has_bad ? NULL : rec;

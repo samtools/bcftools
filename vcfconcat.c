@@ -259,7 +259,7 @@ static void phased_flush(args_t *args)
         {
             if ( !gt_absent_warned )
             {
-                fprintf(stderr,"GT is not present at %s:%d. (This warning is printed only once.)\n", bcf_seqname(ahdr,arec), arec->pos+1);
+                fprintf(stderr,"GT is not present at %s:%"PRId64". (This warning is printed only once.)\n", bcf_seqname(ahdr,arec), (int64_t) arec->pos+1);
                 gt_absent_warned = 1;
             }
             continue;
@@ -270,7 +270,7 @@ static void phased_flush(args_t *args)
         {
             if ( !gt_absent_warned )
             {
-                fprintf(stderr,"GT is not present at %s:%d. (This warning is printed only once.)\n", bcf_seqname(bhdr,brec), brec->pos+1);
+                fprintf(stderr,"GT is not present at %s:%"PRId64". (This warning is printed only once.)\n", bcf_seqname(bhdr,brec), (int64_t) brec->pos+1);
                 gt_absent_warned = 1;
             }
             continue;
@@ -308,7 +308,7 @@ static void phased_flush(args_t *args)
         }
         if ( bcf_write(args->out_fh, args->out_hdr, arec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
-        if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [1]\n", bcf_seqname(args->files->readers[0].header,arec),arec->pos+1,args->prev_pos_check+1);
+        if ( arec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%"PRId64" vs %d  [1]\n", bcf_seqname(args->files->readers[0].header,arec),(int64_t) arec->pos+1,args->prev_pos_check+1);
         args->prev_pos_check = arec->pos;
     }
     args->nswap = 0;
@@ -358,7 +358,7 @@ static void phased_flush(args_t *args)
         }
         if ( bcf_write(args->out_fh, args->out_hdr, brec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
-        if ( brec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%d vs %d  [2]\n", bcf_seqname(args->files->readers[1].header,brec),brec->pos+1,args->prev_pos_check+1);
+        if ( brec->pos < args->prev_pos_check ) error("FIXME, disorder: %s:%"PRId64" vs %d  [2]\n", bcf_seqname(args->files->readers[1].header,brec),(int64_t) brec->pos+1,args->prev_pos_check+1);
         args->prev_pos_check = brec->pos;
     }
     args->nbuf = 0;
@@ -367,9 +367,9 @@ static void phased_flush(args_t *args)
 static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
 {
     if ( arec && arec->errcode )
-        error("Parse error at %s:%d, cannot proceed: %s\n", bcf_seqname(args->files->readers[0].header,arec),arec->pos+1, args->files->readers[0].fname);
+        error("Parse error at %s:%"PRId64", cannot proceed: %s\n", bcf_seqname(args->files->readers[0].header,arec),(int64_t) arec->pos+1, args->files->readers[0].fname);
     if ( brec && brec->errcode )
-        error("Parse error at %s:%d, cannot proceed: %s\n", bcf_seqname(args->files->readers[1].header,brec),brec->pos+1, args->files->readers[1].fname);
+        error("Parse error at %s:%"PRId64", cannot proceed: %s\n", bcf_seqname(args->files->readers[1].header,brec),(int64_t) brec->pos+1, args->files->readers[1].fname);
 
     int i, nsmpl = bcf_hdr_nsamples(args->out_hdr);
     int chr_id = bcf_hdr_name2id(args->out_hdr, bcf_seqname(args->files->readers[0].header,arec));
@@ -400,7 +400,7 @@ static void phased_push(args_t *args, bcf1_t *arec, bcf1_t *brec)
         if ( bcf_write(args->out_fh, args->out_hdr, arec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
         if ( arec->pos < args->prev_pos_check )
-            error("FIXME, disorder: %s:%d in %s vs %d written  [3]\n", bcf_seqname(args->files->readers[0].header,arec), arec->pos+1,args->files->readers[0].fname, args->prev_pos_check+1);
+            error("FIXME, disorder: %s:%"PRId64" in %s vs %d written  [3]\n", bcf_seqname(args->files->readers[0].header,arec), (int64_t) arec->pos+1,args->files->readers[0].fname, args->prev_pos_check+1);
         args->prev_pos_check = arec->pos;
         return;
     }
@@ -459,10 +459,10 @@ static void concat(args_t *args)
                         if ( !site_drop_warned )
                         {
                             fprintf(stderr,
-                                "Warning: Dropping the site %s:%d. The --ligate option is intended for VCFs with perfect\n"
+                                "Warning: Dropping the site %s:%"PRId64". The --ligate option is intended for VCFs with perfect\n"
                                 "         overlap, sites in overlapping regions present in one but missing in other are dropped.\n"
                                 "         This warning is printed only once.\n",
-                                bcf_seqname(bcf_sr_get_header(args->files,1),bcf_sr_get_line(args->files,1)), bcf_sr_get_line(args->files,1)->pos+1
+                                bcf_seqname(bcf_sr_get_header(args->files,1),bcf_sr_get_line(args->files,1)), (int64_t) bcf_sr_get_line(args->files,1)->pos+1
                                 );
                             site_drop_warned = 1;
                         }

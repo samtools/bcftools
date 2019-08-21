@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -437,7 +438,7 @@ static inline int parse_genotype(int32_t *arr, int ngt1, int idx, int als[2])
 static inline void update_indel_stats(args_t *args, bcf1_t *rec, stats_t *stats, int ismpl, int *als)
 {
     int j;
-    if ( als[0] >= args->nad1 || als[1] >= args->nad1 ) error("Incorrect GT allele at %s:%d .. %d/%d\n", bcf_seqname(args->hdr,rec),rec->pos+1,als[0],als[1]);
+    if ( als[0] >= args->nad1 || als[1] >= args->nad1 ) error("Incorrect GT allele at %s:%"PRId64" .. %d/%d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,als[0],als[1]);
     int32_t *ad_ptr = args->ad_arr + ismpl*args->nad1;
 
     // find the allele with most support
@@ -455,7 +456,7 @@ static inline void update_indel_stats(args_t *args, bcf1_t *rec, stats_t *stats,
     int al0 = als[0], al1 = als[1];
     if ( !(bcf_get_variant_type(rec,al0) & VCF_INDEL) )
     {
-        if ( !(bcf_get_variant_type(rec,al1) & VCF_INDEL) ) error("FIXME: this should not happen .. %s:%d .. %d/%d\n", bcf_seqname(args->hdr,rec),rec->pos+1,al0,al1);
+        if ( !(bcf_get_variant_type(rec,al1) & VCF_INDEL) ) error("FIXME: this should not happen .. %s:%"PRId64" .. %d/%d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,al0,al1);
         al0 = als[1]; al1 = als[0];
     }
     else if ( (bcf_get_variant_type(rec,al1) & VCF_INDEL) && al0!=al1 )
@@ -578,7 +579,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             // Get the AD counts
             args->nad = bcf_get_format_int32(args->hdr, rec, "AD", &args->ad_arr, &args->mad_arr);
             args->nad1 = args->nad / rec->n_sample;
-            if ( args->nad>0 && args->nad1 != rec->n_allele ) error("Incorrect number of FORMAT/AD values at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            if ( args->nad>0 && args->nad1 != rec->n_allele ) error("Incorrect number of FORMAT/AD values at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         }
     }
 

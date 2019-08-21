@@ -190,7 +190,7 @@ bcf1_t *process(bcf1_t *rec)
         return rec;     // GT field not present
 
     if ( ngts % n_sample )
-        error("Error at %s:%d: wrong number of GT fields\n",bcf_seqname(in_hdr,rec),rec->pos+1);
+        error("Error at %s:%"PRId64": wrong number of GT fields\n",bcf_seqname(in_hdr,rec),(int64_t) rec->pos+1);
 
     if ( force_ploidy==-1 )
         ploidy_query(ploidy, (char*)bcf_seqname(in_hdr,rec), rec->pos, sex2ploidy,NULL,&max_ploidy);
@@ -215,7 +215,7 @@ bcf1_t *process(bcf1_t *rec)
             while ( j<max_ploidy ) { dst[j] = bcf_int32_vector_end; j++; }
         }
         if ( bcf_update_genotypes(out_hdr,rec,gt_arr2,n_sample*max_ploidy) )
-            error("Could not update GT field at %s:%d\n", bcf_seqname(in_hdr,rec),rec->pos+1);
+            error("Could not update GT field at %s:%"PRId64"\n", bcf_seqname(in_hdr,rec),(int64_t) rec->pos+1);
     }
     else if ( ngts!=1 || max_ploidy!=1 )
     {
@@ -232,7 +232,7 @@ bcf1_t *process(bcf1_t *rec)
             while ( j<ngts ) { gts[j] = bcf_int32_vector_end; j++; }
         }
         if ( bcf_update_genotypes(out_hdr,rec,gt_arr,n_sample*ngts) )
-            error("Could not update GT field at %s:%d\n", bcf_seqname(in_hdr,rec),rec->pos+1);
+            error("Could not update GT field at %s:%"PRId64"\n", bcf_seqname(in_hdr,rec),(int64_t) rec->pos+1);
     }
     return rec;
 }

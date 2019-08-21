@@ -26,6 +26,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdlib.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include "bcftools.h"
@@ -217,8 +218,8 @@ bcf1_t *process(bcf1_t *rec)
             }
 
             if ( j!=nals*(nals+1)/2 )
-                error("Wrong number of GP values for diploid genotype at %s:%d, expected %d, found %d\n",
-                    bcf_seqname(in_hdr,rec),rec->pos+1, nals*(nals+1)/2,j);
+                error("Wrong number of GP values for diploid genotype at %s:%"PRId64", expected %d, found %d\n",
+                    bcf_seqname(in_hdr,rec),(int64_t) rec->pos+1, nals*(nals+1)/2,j);
 
             if (ptr[jmax] < 1-thresh)
             {

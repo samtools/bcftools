@@ -31,6 +31,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/faidx.h>
@@ -143,7 +144,7 @@ static void fix_ref(args_t *args, bcf1_t *line)
     }
 
     char *ref = faidx_fetch_seq(args->fai, (char*)bcf_seqname(args->hdr,line), line->pos, line->pos+maxlen-1, &len);
-    if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+    if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     replace_iupac_codes(ref,len);
 
     args->nref.tot++;
@@ -301,7 +302,7 @@ static int realign(args_t *args, bcf1_t *line)
     // Sanity check REF
     int i, nref, reflen = strlen(line->d.allele[0]);
     char *ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos, line->pos+reflen-1, &nref);
-    if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
+    if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
     seq_to_upper(ref,0);
     replace_iupac_codes(ref,nref);  // any non-ACGT character in fasta ref is replaced with N
 
@@ -309,18 +310,18 @@ static int realign(args_t *args, bcf1_t *line)
     if ( has_non_acgtn(line->d.allele[0],reflen) )
     {
         if ( args->check_ref==CHECK_REF_EXIT )
-            error("Non-ACGTN reference allele at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
+            error("Non-ACGTN reference allele at %s:%"PRId64" .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1,ref,line->d.allele[0]);
         if ( args->check_ref & CHECK_REF_WARN )
-            fprintf(stderr,"NON_ACGTN_REF\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0]);
+            fprintf(stderr,"NON_ACGTN_REF\t%s\t%"PRId64"\t%s\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1,line->d.allele[0]);
         free(ref);
         return ERR_REF_MISMATCH;
     }
     if ( strcasecmp(ref,line->d.allele[0]) )
     {
         if ( args->check_ref==CHECK_REF_EXIT )
-            error("Reference allele mismatch at %s:%d .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,ref,line->d.allele[0]);
+            error("Reference allele mismatch at %s:%"PRId64" .. REF_SEQ:'%s' vs VCF:'%s'\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1,ref,line->d.allele[0]);
         if ( args->check_ref & CHECK_REF_WARN )
-            fprintf(stderr,"REF_MISMATCH\t%s\t%d\t%s\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[0],ref);
+            fprintf(stderr,"REF_MISMATCH\t%s\t%"PRId64"\t%s\t%s\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1,line->d.allele[0],ref);
         free(ref);
         return ERR_REF_MISMATCH;
     }
@@ -348,9 +349,9 @@ static int realign(args_t *args, bcf1_t *line)
         if ( has_non_acgtn(line->d.allele[i],line->shared.l) )
         {
             if ( args->check_ref==CHECK_REF_EXIT )
-                error("Non-ACGTN alternate allele at %s:%d .. VCF:'%s'\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[i]);
+                error("Non-ACGTN alternate allele at %s:%"PRId64" .. VCF:'%s'\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1,line->d.allele[i]);
             if ( args->check_ref & CHECK_REF_WARN )
-                fprintf(stderr,"NON_ACGTN_ALT\t%s\t%d\t%s\n", bcf_seqname(args->hdr,line),line->pos+1,line->d.allele[i]);
+                fprintf(stderr,"NON_ACGTN_ALT\t%s\t%"PRId64"\t%s\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1,line->d.allele[i]);
             return ERR_REF_MISMATCH;
         }
 
@@ -386,7 +387,7 @@ static int realign(args_t *args, bcf1_t *line)
             int npad = line->pos >= args->aln_win ? args->aln_win : line->pos;
             free(ref);
             ref = faidx_fetch_seq(args->fai, (char*)args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-npad, line->pos-1, &nref);
-            if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", args->hdr->id[BCF_DT_CTG][line->rid].key, line->pos-npad+1);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", args->hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos-npad+1);
             replace_iupac_codes(ref,nref);
             for (i=0; i<line->n_allele; i++)
             {
@@ -465,23 +466,23 @@ static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int 
         if ( len==BCF_VL_A ) \
         { \
             if ( ret!=src->n_allele-1 ) \
-                error("Error: wrong number of fields in INFO/%s at %s:%d, expected %d, found %d\n", \
-                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele-1,ret); \
+                error("Error: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele-1,ret); \
             bcf_update_info_##type(args->hdr,dst,tag,vals+ialt,1); \
         } \
         else if ( len==BCF_VL_R ) \
         { \
             if ( ret!=src->n_allele ) \
-                error("Error: wrong number of fields in INFO/%s at %s:%d, expected %d, found %d\n", \
-                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele,ret); \
+                error("Error: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele,ret); \
             if ( ialt!=0 ) vals[1] = vals[ialt+1]; \
             bcf_update_info_##type(args->hdr,dst,tag,vals,2); \
         } \
         else if ( len==BCF_VL_G ) \
         { \
             if ( ret!=src->n_allele*(src->n_allele+1)/2 ) \
-                error("Error: wrong number of fields in INFO/%s at %s:%d, expected %d, found %d\n", \
-                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele*(src->n_allele+1)/2,ret); \
+                error("Error: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele*(src->n_allele+1)/2,ret); \
             if ( ialt!=0 ) \
             { \
                 vals[1] = vals[bcf_alleles2gt(0,ialt+1)]; \
@@ -626,8 +627,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         if ( len==BCF_VL_A ) \
         { \
             if ( nvals!=(src->n_allele-1)*nsmpl ) \
-                error("Error: wrong number of fields in FMT/%s at %s:%d, expected %d, found %d\n", \
-                    tag,bcf_seqname(args->hdr,src),src->pos+1,(src->n_allele-1)*nsmpl,nvals); \
+                error("Error: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d, found %d\n", \
+                    tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,(src->n_allele-1)*nsmpl,nvals); \
             nvals /= nsmpl; \
             type_t *src_vals = vals, *dst_vals = vals; \
             for (i=0; i<nsmpl; i++) \
@@ -641,8 +642,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         else if ( len==BCF_VL_R ) \
         { \
             if ( nvals!=src->n_allele*nsmpl ) \
-                error("Error: wrong number of fields in FMT/%s at %s:%d, expected %d, found %d\n", \
-                    tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele*nsmpl,nvals); \
+                error("Error: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d, found %d\n", \
+                    tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele*nsmpl,nvals); \
             nvals /= nsmpl; \
             type_t *src_vals = vals, *dst_vals = vals; \
             for (i=0; i<nsmpl; i++) \
@@ -657,7 +658,7 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         else if ( len==BCF_VL_G ) \
         { \
             if ( nvals!=src->n_allele*(src->n_allele+1)/2*nsmpl && nvals!=src->n_allele*nsmpl ) \
-                error("Error at %s:%d, the tag %s has wrong number of fields\n", bcf_seqname(args->hdr,src),src->pos+1,bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id)); \
+                error("Error at %s:%"PRId64", the tag %s has wrong number of fields\n", bcf_seqname(args->hdr,src),(int64_t) src->pos+1,bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id)); \
             nvals /= nsmpl; \
             int all_haploid = nvals==src->n_allele ? 1 : 0; \
             type_t *src_vals = vals, *dst_vals = vals; \
@@ -769,8 +770,8 @@ static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int i
             }
             if ( nfields==1 && se-ptr==1 && *ptr=='.' ) continue;   // missing value
             if ( nfields!=src->n_allele*(src->n_allele+1)/2 && nfields!=src->n_allele )
-                error("Error: wrong number of fields in FMT/%s at %s:%d, expected %d or %d, found %d\n",
-                        tag,bcf_seqname(args->hdr,src),src->pos+1,src->n_allele*(src->n_allele+1)/2,src->n_allele,nfields);
+                error("Error: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d or %d, found %d\n",
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele*(src->n_allele+1)/2,src->n_allele,nfields);
 
             int len = 0;
             if ( nfields==src->n_allele )   // haploid
@@ -896,7 +897,7 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
         if ( len==BCF_VL_A ) \
         { \
             if (nvals_ori!=lines[0]->n_allele - 1) \
-                error("vcfnorm: number of fields in first record at position %s:%d for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele-1); \
+                error("vcfnorm: number of fields in first record at position %s:%"PRId64" for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),(int64_t) lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele-1); \
             int nvals = dst->n_allele - 1; \
             ENLARGE_ARRAY(type_t,set_missing,args->tmp_arr1,args->ntmp_arr1,1,nvals_ori,nvals); \
             vals = (type_t*) args->tmp_arr1; \
@@ -907,7 +908,7 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
                 if (nvals2<0) continue; /* info tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 if (nvals2!=lines[i]->n_allele-1) \
-                    error("vcfnorm: could not merge INFO tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
+                    error("vcfnorm: could not merge INFO tag %s at position %s:%"PRId64"\n", tag, bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1); \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (k=0; k<nvals2; k++) \
                 { \
@@ -920,7 +921,7 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
         else if ( len==BCF_VL_R ) \
         { \
             if (nvals_ori!=lines[0]->n_allele) \
-                error("vcfnorm: number of fields in first record at position %s:%d for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele); \
+                error("vcfnorm: number of fields in first record at position %s:%"PRId64" for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),(int64_t) lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele); \
             int nvals = dst->n_allele; \
             ENLARGE_ARRAY(type_t,set_missing,args->tmp_arr1,args->ntmp_arr1,1,nvals_ori,nvals); \
             vals = (type_t*) args->tmp_arr1; \
@@ -931,7 +932,7 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
                 if (nvals2<0) continue; /* info tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 if (nvals2!=lines[i]->n_allele) \
-                    error("vcfnorm: could not merge INFO tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
+                    error("vcfnorm: could not merge INFO tag %s at position %s:%"PRId64"\n", tag, bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1); \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (k=0; k<nvals2; k++) \
                 { \
@@ -946,7 +947,7 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
             /* expecting diploid gt in INFO */ \
             if (nvals_ori!=lines[0]->n_allele*(lines[0]->n_allele+1)/2) { \
                 fprintf(stderr, "todo: merge Number=G INFO fields for haploid sites\n"); \
-                error("vcfnorm: number of fields in first record at position %s:%d for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele*(lines[0]->n_allele+1)/2); \
+                error("vcfnorm: number of fields in first record at position %s:%"PRId64" for INFO tag %s not as expected [found: %d vs expected:%d]\n", bcf_seqname(args->hdr,lines[0]),(int64_t) lines[0]->pos+1, tag, nvals_ori, lines[0]->n_allele*(lines[0]->n_allele+1)/2); \
             } \
             int nvals = dst->n_allele*(dst->n_allele+1)/2; \
             ENLARGE_ARRAY(type_t,set_missing,args->tmp_arr1,args->ntmp_arr1,1,nvals_ori,nvals); \
@@ -958,7 +959,7 @@ static void merge_info_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_inf
                 if (nvals2<0) continue; /* info tag does not exist in this record, skip */ \
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 if (nvals2!=lines[i]->n_allele*(lines[i]->n_allele+1)/2) \
-                    error("vcfnorm: could not merge INFO tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
+                    error("vcfnorm: could not merge INFO tag %s at position %s:%"PRId64"\n", tag, bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1); \
                 vals2 = (type_t*) args->tmp_arr2; \
                 int ia,ib; \
                 k = 0; \
@@ -1070,7 +1071,7 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
         int ngts2 = bcf_get_genotypes(args->hdr,lines[i],&args->tmp_arr2,&ntmp2);
         args->ntmp_arr2 = ntmp2 * 4;
         ngts2 /= nsmpl;
-        if ( ngts!=ngts2 ) error("Error at %s:%d: cannot combine diploid with haploid genotype\n", bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1);
+        if ( ngts!=ngts2 ) error("Error at %s:%"PRId64": cannot combine diploid with haploid genotype\n", bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1);
 
         int32_t *gt  = (int32_t*) args->tmp_arr1;
         int32_t *gt2 = (int32_t*) args->tmp_arr2;
@@ -1084,7 +1085,7 @@ static void merge_format_genotype(args_t *args, bcf1_t **lines, int nlines, bcf_
                 else
                 {
                     int ial = bcf_gt_allele(gt2[k]);
-                    if ( ial>=args->maps[i].nals ) error("Error at %s:%d: incorrect allele index %d\n",bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1,ial);
+                    if ( ial>=args->maps[i].nals ) error("Error at %s:%"PRId64": incorrect allele index %d\n",bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1,ial);
                     gt[k] = bcf_gt_unphased( args->maps[i].map[ial] ) | bcf_gt_is_phased(gt[k]);
                 }
             }
@@ -1131,7 +1132,7 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 nvals2 /= nsmpl; \
                 if (nvals2!=lines[i]->n_allele-1) \
-                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
+                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%"PRId64"\n", tag, bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1); \
                 vals  = (type_t*) args->tmp_arr1; \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (j=0; j<nsmpl; j++) \
@@ -1159,7 +1160,7 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
                 args->ntmp_arr2 = ntmp2 * sizeof(type_t); \
                 nvals2 /= nsmpl; \
                 if (nvals2!=lines[i]->n_allele) \
-                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
+                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%"PRId64"\n", tag, bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1); \
                 vals  = (type_t*) args->tmp_arr1; \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (j=0; j<nsmpl; j++) \
@@ -1206,7 +1207,7 @@ static void merge_format_numeric(args_t *args, bcf1_t **lines, int nlines, bcf_f
                 int ndiploid = lines[i]->n_allele*(lines[i]->n_allele+1)/2; \
                 int line_diploid = nvals2==ndiploid ? 1 : 0; \
                 if (!(nvals2==1 || nvals2==lines[i]->n_allele || nvals2==lines[i]->n_allele*(lines[i]->n_allele+1)/2)) \
-                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%d\n", tag, bcf_seqname(args->hdr,lines[i]),lines[i]->pos+1); \
+                    error("vcfnorm: could not merge FORMAT tag %s at position %s:%"PRId64"\n", tag, bcf_seqname(args->hdr,lines[i]),(int64_t) lines[i]->pos+1); \
                 vals  = (type_t*) args->tmp_arr1; \
                 vals2 = (type_t*) args->tmp_arr2; \
                 for (j=0; j<nsmpl; j++) \
@@ -1327,7 +1328,7 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
                 haploid[i] = 0;
                 nfields = dst->n_allele*(dst->n_allele+1)/2;
             }
-            else error("The field %s at %s:%d neither diploid nor haploid?\n", tag,bcf_seqname(args->hdr,dst),dst->pos+1);
+            else error("The field %s at %s:%"PRId64" neither diploid nor haploid?\n", tag,bcf_seqname(args->hdr,dst),(int64_t) dst->pos+1);
 
             kstring_t *tmp = &args->tmp_str[i];
             kputc('.',tmp);
@@ -1423,7 +1424,7 @@ static void merge_biallelics_to_multiallelic(args_t *args, bcf1_t *dst, bcf1_t *
         args->maps[i].nals = lines[i]->n_allele;
         hts_expand(int,args->maps[i].nals,args->maps[i].mals,args->maps[i].map);
         args->als = merge_alleles(lines[i]->d.allele, lines[i]->n_allele, args->maps[i].map, args->als, &args->nals, &args->mals);
-        if ( !args->als ) error("Failed to merge alleles at %s:%d\n", bcf_seqname(args->hdr,dst),dst->pos+1);
+        if ( !args->als ) error("Failed to merge alleles at %s:%"PRId64"\n", bcf_seqname(args->hdr,dst),(int64_t) dst->pos+1);
     }
     bcf_update_alleles(args->hdr, dst, (const char**)args->als, args->nals);
     for (i=0; i<args->nals; i++)
@@ -1737,9 +1738,9 @@ static void normalize_line(args_t *args, bcf1_t **line_ptr)
                 if ( args->check_ref & CHECK_REF_FIX )
                     fix_dup_alt(args, line);
                 else if ( args->check_ref==CHECK_REF_EXIT )
-                    error("Duplicate alleles at %s:%d; run with -cw to turn the error into warning or with -cs to fix.\n", bcf_seqname(args->hdr,line),line->pos+1);
+                    error("Duplicate alleles at %s:%"PRId64"; run with -cw to turn the error into warning or with -cs to fix.\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
                 else if ( args->check_ref & CHECK_REF_WARN )
-                    fprintf(stderr,"ALT_DUP\t%s\t%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+                    fprintf(stderr,"ALT_DUP\t%s\t%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
             }
         }
     }

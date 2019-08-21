@@ -109,7 +109,7 @@ bcf1_t *process(bcf1_t *rec)
             }
         }
         else{
-            fprintf(stderr,"Warning: Could not calculate allele count at position %d\n", rec->pos);
+            fprintf(stderr,"Warning: Could not calculate allele count at position %"PRId64"\n", (int64_t) rec->pos);
             exit(1);
         }
 

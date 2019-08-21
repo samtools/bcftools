@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kstring.h>
@@ -1190,10 +1191,10 @@ static void cnv_next_line(args_t *args, bcf1_t *line)
         args->control_sample.lrr[args->nsites-1] = lrr2;
         args->control_sample.baf[args->nsites-1] = baf2;
         if ( baf2>=0 )  // skip missing values
-            fprintf(args->control_sample.dat_fh,"%s\t%d\t%.3f\t%.3f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), line->pos+1,baf2,lrr2);
+            fprintf(args->control_sample.dat_fh,"%s\t%"PRId64"\t%.3f\t%.3f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), (int64_t) line->pos+1,baf2,lrr2);
     }
     if ( baf1>=0 )  // skip missing values
-        fprintf(args->query_sample.dat_fh,"%s\t%d\t%.3f\t%.3f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), line->pos+1,baf1,lrr1);
+        fprintf(args->query_sample.dat_fh,"%s\t%"PRId64"\t%.3f\t%.3f\n",bcf_hdr_id2name(args->hdr,args->prev_rid), (int64_t) line->pos+1,baf1,lrr1);
 
     if ( baf1>=0 )
     {

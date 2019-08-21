@@ -33,6 +33,7 @@ THE SOFTWARE.  */
 #include <sys/types.h>
 #include <dirent.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/kseq.h>
@@ -561,7 +562,7 @@ static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 
     line->qual = strtod(str, &str);
     if ( str == tab->cols[col->icol] )
-        error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+        error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
     return 0;
 }
 static int vcf_setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
@@ -582,7 +583,7 @@ static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *
 
     if ( str[0]=='1' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,1);
     if ( str[0]=='0' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,0);
-    error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+    error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
     return -1;
 }
 static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
@@ -595,13 +596,13 @@ static int vcf_setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, vo
 static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als, int ntmpi)
 {
     if ( col->number==BCF_VL_A && ntmpi!=nals-1 && (ntmpi!=1 || args->tmpi[0]!=bcf_int32_missing || args->tmpi[1]!=bcf_int32_vector_end) )
-        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpi,col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", ntmpi,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     else if ( col->number==BCF_VL_R && ntmpi!=nals && (ntmpi!=1 || args->tmpi[0]!=bcf_int32_missing || args->tmpi[1]!=bcf_int32_vector_end) )
-        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpi,col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", ntmpi,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+    if ( !map ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int ntmpi2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
@@ -644,7 +645,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
         {
             int val = strtol(str, &end, 10); 
             if ( end==str )
-                error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+                error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
             ntmpi++;
             hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
             args->tmpi[ntmpi-1] = val;
@@ -720,13 +721,13 @@ static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, voi
 static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int nals, char **als, int ntmpf)
 {
     if ( col->number==BCF_VL_A && ntmpf!=nals-1 && (ntmpf!=1 || !bcf_float_is_missing(args->tmpf[0]) || !bcf_float_is_vector_end(args->tmpf[0])) )
-        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpf,col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", ntmpf,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     else if ( col->number==BCF_VL_R && ntmpf!=nals && (ntmpf!=1 || !bcf_float_is_missing(args->tmpf[0]) || !bcf_float_is_vector_end(args->tmpf[0])) )
-        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", ntmpf,col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", ntmpf,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+    if ( !map ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int ntmpf2 = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpf2, &args->mtmpf2);
@@ -769,7 +770,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
         {
             double val = strtod(str, &end);
             if ( end==str )
-                error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+                error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
             ntmpf++;
             hts_expand(float,ntmpf,args->mtmpf,args->tmpf);
             args->tmpf[ntmpf-1] = val;
@@ -854,13 +855,13 @@ static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, in
         lsrc++;
     }
     if ( col->number==BCF_VL_A && nsrc!=nals-1 && (nsrc!=1 || args->tmps[0]!='.' || args->tmps[1]!=0 ) )
-        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", nsrc,col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", nsrc,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     else if ( col->number==BCF_VL_R && nsrc!=nals && (nsrc!=1 || args->tmps[0]!='.' || args->tmps[1]!=0 ) )
-        error("Incorrect number of values (%d) for the %s tag at %s:%d\n", nsrc,col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values (%d) for the %s tag at %s:%"PRId64"\n", nsrc,col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     int ndst = col->number==BCF_VL_A ? line->n_allele - 1 : line->n_allele;
     int *map = vcmp_map_ARvalues(args->vcmp,ndst,nals,als,line->n_allele,line->d.allele);
-    if ( !map ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+    if ( !map ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     // fill in any missing values in the target VCF (or all, if not present)
     int i, empty = 0, nstr, mstr = args->tmpks.m;
@@ -1321,7 +1322,7 @@ static int setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void 
 
     annot_line_t *tab = (annot_line_t*) data;
     if ( col->icol+args->nsmpl_annot > tab->ncols ) 
-        error("Incorrect number of values for %s at %s:%d\n",col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values for %s at %s:%"PRId64"\n",col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     int nvals = count_vals(tab,col->icol,col->icol+args->nsmpl_annot);
     hts_expand(int32_t,nvals*args->nsmpl_annot,args->mtmpi,args->tmpi);
 
@@ -1344,7 +1345,7 @@ static int setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, void 
             char *end = str;
             ptr[ival] = strtol(str, &end, 10); 
             if ( end==str )
-                error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+                error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
 
             ival++;
             str = *end ? end+1 : end;
@@ -1360,7 +1361,7 @@ static int setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void
 
     annot_line_t *tab = (annot_line_t*) data;
     if ( col->icol+args->nsmpl_annot > tab->ncols ) 
-        error("Incorrect number of values for %s at %s:%d\n",col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values for %s at %s:%"PRId64"\n",col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
     int nvals = count_vals(tab,col->icol,col->icol+args->nsmpl_annot);
     hts_expand(float,nvals*args->nsmpl_annot,args->mtmpf,args->tmpf);
 
@@ -1384,7 +1385,7 @@ static int setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, void
             char *end = str;
             ptr[ival] = strtod(str, &end); 
             if ( end==str )
-                error("Could not parse %s at %s:%d .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1,tab->cols[col->icol]);
+                error("Could not parse %s at %s:%"PRId64" .. [%s]\n", col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1,tab->cols[col->icol]);
 
             ival++;
             str = *end ? end+1 : end;
@@ -1400,7 +1401,7 @@ static int setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, void 
 
     annot_line_t *tab = (annot_line_t*) data;
     if ( col->icol+args->nsmpl_annot > tab->ncols ) 
-        error("Incorrect number of values for %s at %s:%d\n",col->hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+        error("Incorrect number of values for %s at %s:%"PRId64"\n",col->hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     int ismpl;
     for (ismpl=0; ismpl<args->nsmpl_annot; ismpl++)
@@ -1452,7 +1453,7 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
     // create mapping from src to dst genotypes, haploid and diploid version
     int nmap_hap = col->number==BCF_VL_G || col->number==BCF_VL_R ? rec->n_allele : rec->n_allele - 1;
     int *map_hap = vcmp_map_ARvalues(args->vcmp,nmap_hap,line->n_allele,line->d.allele,rec->n_allele,rec->d.allele);
-    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+    if ( !map_hap ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     int i, j;
     if ( rec->n_allele==line->n_allele )
@@ -1492,15 +1493,15 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
         }
         int pld_src = determine_ploidy(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
         if ( pld_src<0 )
-            error("Unexpected number of %s values (%d) for %d alleles at %s:%d\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),rec->pos+1);
+            error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),(int64_t) rec->pos+1);
         int pld_dst = determine_ploidy(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
         if ( pld_dst<0 )
-            error("Unexpected number of %s values (%d) for %d alleles at %s:%d\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),line->pos+1);
+            error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
         int ndst1_new = pld_dst==1 ? line->n_allele : line->n_allele*(line->n_allele+1)/2;
         if ( ndst1_new != ndst1 )
         {
-            if ( ndst1 ) error("todo: %s ndst1!=ndst .. %d %d  at %s:%d\n",col->hdr_key_src,ndst1_new,ndst1,bcf_seqname(args->hdr,line),line->pos+1);
+            if ( ndst1 ) error("todo: %s ndst1!=ndst .. %d %d  at %s:%"PRId64"\n",col->hdr_key_src,ndst1_new,ndst1,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
             ndst1 = ndst1_new;
             hts_expand(int32_t, ndst1*nsmpl_dst, args->mtmpi2, args->tmpi2);
         }
@@ -1520,7 +1521,7 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
         if ( col->number==BCF_VL_G )
         {
             if ( args->src_smpl_pld[ii] > 0 && args->dst_smpl_pld[i] > 0 && args->src_smpl_pld[ii]!=args->dst_smpl_pld[i] )
-                error("Sample ploidy differs at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+                error("Sample ploidy differs at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
             if ( !args->dst_smpl_pld[i] )
                 for (j=0; j<ndst1; j++) ptr_dst[j] = bcf_int32_missing;
         }
@@ -1559,7 +1560,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
     // create mapping from src to dst genotypes, haploid and diploid version
     int nmap_hap = col->number==BCF_VL_G || col->number==BCF_VL_R ? rec->n_allele : rec->n_allele - 1;
     int *map_hap = vcmp_map_ARvalues(args->vcmp,nmap_hap,line->n_allele,line->d.allele,rec->n_allele,rec->d.allele);
-    if ( !map_hap ) error("REF alleles not compatible at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+    if ( !map_hap ) error("REF alleles not compatible at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
     int i, j;
     if ( rec->n_allele==line->n_allele )
@@ -1599,15 +1600,15 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
         }
         int pld_src = determine_ploidy(rec->n_allele, args->tmpi, nsrc1, args->src_smpl_pld, nsmpl_src);
         if ( pld_src<0 )
-            error("Unexpected number of %s values (%d) for %d alleles at %s:%d\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),rec->pos+1);
+            error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_src, rec->n_allele, bcf_seqname(bcf_sr_get_header(args->files,1),rec),(int64_t) rec->pos+1);
         int pld_dst = determine_ploidy(line->n_allele, args->tmpi2, ndst1, args->dst_smpl_pld, nsmpl_dst);
         if ( pld_dst<0 )
-            error("Unexpected number of %s values (%d) for %d alleles at %s:%d\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),line->pos+1);
+            error("Unexpected number of %s values (%d) for %d alleles at %s:%"PRId64"\n", col->hdr_key_src,-pld_dst, line->n_allele, bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
         int ndst1_new = pld_dst==1 ? line->n_allele : line->n_allele*(line->n_allele+1)/2;
         if ( ndst1_new != ndst1 )
         {
-            if ( ndst1 ) error("todo: %s ndst1!=ndst .. %d %d  at %s:%d\n",col->hdr_key_src,ndst1_new,ndst1,bcf_seqname(args->hdr,line),line->pos+1);
+            if ( ndst1 ) error("todo: %s ndst1!=ndst .. %d %d  at %s:%"PRId64"\n",col->hdr_key_src,ndst1_new,ndst1,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
             ndst1 = ndst1_new;
             hts_expand(float, ndst1*nsmpl_dst, args->mtmpf2, args->tmpf2);
         }
@@ -1627,7 +1628,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
         if ( col->number==BCF_VL_G )
         {
             if ( args->src_smpl_pld[ii] > 0 && args->dst_smpl_pld[i] > 0 && args->src_smpl_pld[ii]!=args->dst_smpl_pld[i] )
-                error("Sample ploidy differs at %s:%d\n", bcf_seqname(args->hdr,line),line->pos+1);
+                error("Sample ploidy differs at %s:%"PRId64"\n", bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
             if ( !args->dst_smpl_pld[i] )
                 for (j=0; j<ndst1; j++) bcf_float_set_missing(ptr_dst[j]);
         }
@@ -1720,9 +1721,9 @@ static int vcf_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, v
                 if ( *end=='|' ) is_phased = 1;
                 dst[i] = strtol(beg, &tmp, 10);
                 if ( tmp!=end )
-                    error("Could not parse the %s field at %s:%d in %s\n", col->hdr_key_src,bcf_seqname(args->files->readers[1].header,rec),rec->pos+1,args->targets_fname);
+                    error("Could not parse the %s field at %s:%"PRId64" in %s\n", col->hdr_key_src,bcf_seqname(args->files->readers[1].header,rec),(int64_t) rec->pos+1,args->targets_fname);
                 if ( dst[i] >= line->n_allele )
-                    error("The source allele index is bigger than the number of destination alleles at %s:%d\n", bcf_seqname(args->files->readers[1].header,rec),rec->pos+1);
+                    error("The source allele index is bigger than the number of destination alleles at %s:%"PRId64"\n", bcf_seqname(args->files->readers[1].header,rec),(int64_t) rec->pos+1);
                 dst[i] = is_phased ? bcf_gt_phased(dst[i]) : bcf_gt_unphased(dst[i]);
             }
             beg = *end ? end+1 : end;
@@ -2494,7 +2495,7 @@ static void annotate(args_t *args, bcf1_t *line)
                 parse_annot_line(args, regitr_payload(args->tgt_itr,char*), tmp);
                 for (j=0; j<args->ncols; j++)
                     if ( args->cols[j].setter(args,line,&args->cols[j],tmp) )
-                        error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+                        error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
             }
             has_overlap = 1;
         }
@@ -2533,7 +2534,7 @@ static void annotate(args_t *args, bcf1_t *line)
             // there is a matching line
             for (j=0; j<args->ncols; j++)
                 if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) )
-                    error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+                    error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
         }
         has_overlap = i<args->nalines ? 1 : 0;
     }
@@ -2544,7 +2545,7 @@ static void annotate(args_t *args, bcf1_t *line)
             bcf1_t *aline = bcf_sr_get_line(args->files,1);
             for (j=0; j<args->ncols; j++)
                 if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
-                    error("fixme: Could not set %s at %s:%d\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),line->pos+1);
+                    error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
 
             has_overlap = 1;
         }

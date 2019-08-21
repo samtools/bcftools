@@ -274,9 +274,9 @@ bcf1_t *process(bcf1_t *rec)
         kt_fisher_exact(n11,n12,n21,n22, &left,&right,&fisher);
         if ( fisher >= args.th ) continue;
 
-        printf("FT\t%s\t%s\t%s\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%e",
+        printf("FT\t%s\t%s\t%s\t%"PRId64"\t%s\t%s\t%d\t%d\t%d\t%d\t%e",
             pair->smpl_name,pair->ctrl_name,
-            bcf_hdr_id2name(args.hdr,rec->rid), rec->pos+1,
+            bcf_hdr_id2name(args.hdr,rec->rid), (int64_t) rec->pos+1,
             rec->d.allele[iref],rec->d.allele[ialt],
             n11,n12,n21,n22, fisher
             );

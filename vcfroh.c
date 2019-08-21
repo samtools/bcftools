@@ -832,7 +832,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
         if ( ret>0 )
             alt_freq = args->AFs[ial-1];
         if ( ret==-2 )
-            error("Type mismatch for INFO/%s tag at %s:%d\n", args->af_tag, bcf_seqname(args->hdr,line), line->pos+1);
+            error("Type mismatch for INFO/%s tag at %s:%"PRId64"\n", args->af_tag, bcf_seqname(args->hdr,line), (int64_t) line->pos+1);
     }
     else if ( args->af_fname ) 
     {

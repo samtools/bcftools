@@ -76,6 +76,7 @@
 #include <strings.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -281,7 +282,7 @@ static int fetch_ref(args_t *args, bcf1_t *rec)
             args->skip_rid = rec->rid;
             return -2;
         }
-        error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
     int ir = nt2int(*ref);
     free(ref);
@@ -336,7 +337,7 @@ static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
 
     ref = kh_val(args->i2m, k).ref;
 	if ( ref!=ir ) 
-        error("Reference base mismatch at %s:%d .. %c vs %c\n",bcf_seqname(args->hdr,rec),rec->pos+1,int2nt(ref),int2nt(ir));
+        error("Reference base mismatch at %s:%"PRId64" .. %c vs %c\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,int2nt(ref),int2nt(ir));
 
     if ( ia==ref ) return rec;
     if ( ib==ref ) { args->nswap++; return set_ref_alt(args,rec,int2nt(ib),int2nt(ia),1); }
@@ -414,9 +415,9 @@ bcf1_t *process(bcf1_t *rec)
         if ( !args.unsorted && args.pos > rec->pos )
         {
             fprintf(stderr,
-                "Warning: corrected position(s) results in unsorted VCF, for example %s:%d comes after %s:%d\n"
+                "Warning: corrected position(s) results in unsorted VCF, for example %s:%"PRId64" comes after %s:%d\n"
                 "         The standard unix `sort` or `vcf-sort` from vcftools can be used to fix the order.\n",
-                bcf_seqname(args.hdr,rec),rec->pos+1,bcf_seqname(args.hdr,rec),args.pos);
+                bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1,bcf_seqname(args.hdr,rec),args.pos);
             args.unsorted = 1;
         }
         args.pos = rec->pos;
@@ -428,7 +429,7 @@ bcf1_t *process(bcf1_t *rec)
         if ( ir==ib ) { args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),0); }
         if ( ir==revint(ia) ) { args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
         if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),0); }
-        error("FIXME: this should not happen %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+        error("FIXME: this should not happen %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
     }
     else if ( args.mode==MODE_FLIP2FWD )
     {
@@ -442,7 +443,7 @@ bcf1_t *process(bcf1_t *rec)
         if ( ir==ib ) { args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),1); }
         if ( ir==revint(ia) ) { args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
         if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),1); }
-        error("FIXME: this should not happen %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+        error("FIXME: this should not happen %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
     }
     else if ( args.mode==MODE_TOP2FWD )
     {
@@ -471,8 +472,8 @@ bcf1_t *process(bcf1_t *rec)
         {
             int len, win = rec->pos > 100 ? 100 : rec->pos, beg = rec->pos - win, end = rec->pos + win;
             char *ref = faidx_fetch_seq(args.fai, (char*)bcf_seqname(args.hdr,rec), beg,end, &len);
-            if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
-            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%d  (%d %d)\n", win,len, bcf_seqname(args.hdr,rec),rec->pos+1, end,beg);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
+            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%"PRId64"  (%d %d)\n", win,len, bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1, end,beg);
 
             int i, mid = rec->pos - beg, strand = 0;
             for (i=1; i<=win; i++)

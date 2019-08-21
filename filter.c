@@ -28,6 +28,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <math.h>
 #include <sys/types.h>
+#include <inttypes.h>
 #ifndef _WIN32
 #include <pwd.h>
 #endif
@@ -668,7 +669,7 @@ static void filters_set_info_flag(filter_t *flt, bcf1_t *line, token_t *tok)
 static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     if ( line->n_sample != tok->nsamples )
-        error("Incorrect number of FORMAT fields at %s:%d .. %s, %d vs %d\n", bcf_seqname(flt->hdr,line),line->pos+1,tok->tag,line->n_sample,tok->nsamples);
+        error("Incorrect number of FORMAT fields at %s:%"PRId64" .. %s, %d vs %d\n", bcf_seqname(flt->hdr,line),(int64_t) line->pos+1,tok->tag,line->n_sample,tok->nsamples);
 
     int nvals;
     if ( (nvals=bcf_get_format_int32(flt->hdr,line,tok->tag,&flt->tmpi,&flt->mtmpi))<0 )
@@ -731,7 +732,7 @@ static void filters_set_format_int(filter_t *flt, bcf1_t *line, token_t *tok)
 static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     if ( line->n_sample != tok->nsamples )
-        error("Incorrect number of FORMAT fields at %s:%d .. %s, %d vs %d\n", bcf_seqname(flt->hdr,line),line->pos+1,tok->tag,line->n_sample,tok->nsamples);
+        error("Incorrect number of FORMAT fields at %s:%"PRId64" .. %s, %d vs %d\n", bcf_seqname(flt->hdr,line),(int64_t) line->pos+1,tok->tag,line->n_sample,tok->nsamples);
 
     int nvals;
     if ( (nvals=bcf_get_format_float(flt->hdr,line,tok->tag,&flt->tmpf,&flt->mtmpf))<0 )
@@ -794,7 +795,7 @@ static void filters_set_format_float(filter_t *flt, bcf1_t *line, token_t *tok)
 static void filters_set_format_string(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     if ( line->n_sample != tok->nsamples )
-        error("Incorrect number of FORMAT fields at %s:%d .. %s, %d vs %d\n", bcf_seqname(flt->hdr,line),line->pos+1,tok->tag,line->n_sample,tok->nsamples);
+        error("Incorrect number of FORMAT fields at %s:%"PRId64" .. %s, %d vs %d\n", bcf_seqname(flt->hdr,line),(int64_t) line->pos+1,tok->tag,line->n_sample,tok->nsamples);
 
     int i, ndim = tok->str_value.m;
     int nstr = bcf_get_format_char(flt->hdr, line, tok->tag, &tok->str_value.s, &ndim);
@@ -914,7 +915,7 @@ static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int
         case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
         case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
         case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
-        default: error("The GT type is not lineognised: %d at %s:%d\n",fmt->type, bcf_seqname(flt->hdr,line),line->pos+1); break;
+        default: error("The GT type is not lineognised: %d at %s:%"PRId64"\n",fmt->type, bcf_seqname(flt->hdr,line),(int64_t) line->pos+1); break;
     }
 #undef BRANCH_INT
     assert( tok->nsamples == nsmpl );
@@ -1434,8 +1435,8 @@ static int func_binom(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
                 }
                 int idx1 = bcf_gt_allele(ptr[0]);
                 int idx2 = bcf_gt_allele(ptr[1]);
-                if ( idx1>=line->n_allele ) error("Incorrect allele index at %s:%d, sample %s\n", bcf_seqname(flt->hdr,line),line->pos+1,flt->hdr->samples[i]);
-                if ( idx2>=line->n_allele ) error("Incorrect allele index at %s:%d, sample %s\n", bcf_seqname(flt->hdr,line),line->pos+1,flt->hdr->samples[i]);
+                if ( idx1>=line->n_allele ) error("Incorrect allele index at %s:%"PRId64", sample %s\n", bcf_seqname(flt->hdr,line),(int64_t) line->pos+1,flt->hdr->samples[i]);
+                if ( idx2>=line->n_allele ) error("Incorrect allele index at %s:%"PRId64", sample %s\n", bcf_seqname(flt->hdr,line),(int64_t) line->pos+1,flt->hdr->samples[i]);
                 double *vals = tok->values + tok->nval1*i;
                 if ( bcf_double_is_missing_or_vector_end(vals[idx1]) || bcf_double_is_missing_or_vector_end(vals[idx2]) )
                 {
@@ -1455,7 +1456,7 @@ static int func_binom(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
             // the fields given explicitly: binom(AD[:0],AD[:1])
             token_t *tok2 = stack[istack+1];
             if ( tok->nval1!=1 || tok2->nval1!=1 )
-                error("Expected one value per binom() argument, found %d and %d at %s:%d\n",tok->nval1,tok2->nval1, bcf_seqname(flt->hdr,line),line->pos+1);
+                error("Expected one value per binom() argument, found %d and %d at %s:%"PRId64"\n",tok->nval1,tok2->nval1, bcf_seqname(flt->hdr,line),(int64_t) line->pos+1);
             for (i=0; i<rtok->nsamples; i++)
             {
                 if ( !rtok->usmpl[i] ) continue;

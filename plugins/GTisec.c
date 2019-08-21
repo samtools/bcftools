@@ -320,7 +320,7 @@ bcf1_t *process(bcf1_t *rec)
     int gte_smp = 0; // number GT array entries per sample (should be 2, one entry per allele)
     if ( (gte_smp = bcf_get_genotypes(args.hdr, rec, &(args.gt_arr), &(args.ngt_arr) ) ) <= 0 )
     {
-        error("GT not present at %s: %d\n", args.hdr->id[BCF_DT_CTG][rec->rid].key, rec->pos+1);
+        error("GT not present at %s: %"PRId64"\n", args.hdr->id[BCF_DT_CTG][rec->rid].key, (int64_t) rec->pos+1);
     }
 
     gte_smp /= args.nsmp; // divide total number of genotypes array entries (= args.ngt_arr) by number of samples

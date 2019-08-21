@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <htslib/vcf.h>
 #include <htslib/vcfutils.h>
@@ -189,18 +190,18 @@ static void flush_block(args_t *args, bcf1_t *rec)
     if ( rec && gvcf->end - 1 >= rec->pos ) gvcf->end = rec->pos; // NB: end is 1-based, rec->pos is 0-based
 
     if ( gvcf->rec->pos+1 < gvcf->end && bcf_update_info_int32(args->hdr_out,gvcf->rec,"END",&gvcf->end,1) != 0 )
-        error("Could not update INFO/END at %s:%d\n", bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
+        error("Could not update INFO/END at %s:%"PRId64"\n", bcf_seqname(args->hdr_out,gvcf->rec),(int64_t) gvcf->rec->pos+1);
     if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,"DP",&gvcf->min_dp,1) != 0 )
-        error("Could not update FORMAT/DP at %s:%d\n", bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
+        error("Could not update FORMAT/DP at %s:%"PRId64"\n", bcf_seqname(args->hdr_out,gvcf->rec),(int64_t) gvcf->rec->pos+1);
     if ( gvcf->gq_key )
     {
         if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,gvcf->gq_key,&gvcf->gq,1) != 0 )
-            error("Could not update FORMAT/%s at %s:%d\n", gvcf->gq_key, bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
+            error("Could not update FORMAT/%s at %s:%"PRId64"\n", gvcf->gq_key, bcf_seqname(args->hdr_out,gvcf->rec),(int64_t) gvcf->rec->pos+1);
     }
     if ( gvcf->pl[0] >=0 )
     {
         if ( bcf_update_format_int32(args->hdr_out,gvcf->rec,"PL",&gvcf->pl,3) != 0 )
-            error("Could not update FORMAT/PL at %s:%d\n", bcf_seqname(args->hdr_out,gvcf->rec),gvcf->rec->pos+1);
+            error("Could not update FORMAT/PL at %s:%"PRId64"\n", bcf_seqname(args->hdr_out,gvcf->rec),(int64_t) gvcf->rec->pos+1);
     }
     if ( gvcf->grp < args->ngrp && args->grp[gvcf->grp].flt_id >= 0 ) 
         bcf_add_filter(args->hdr_out, gvcf->rec, args->grp[gvcf->grp].flt_id);
@@ -226,7 +227,7 @@ static void process_gvcf(args_t *args)
         {
             bcf_unpack(rec, BCF_UN_ALL);
             if ( bcf_trim_alleles(args->hdr_in, rec)<0 )
-                error("Error: Could not trim alleles at %s:%d\n", bcf_seqname(args->hdr_in, rec), rec->pos+1);
+                error("Error: Could not trim alleles at %s:%"PRId64"\n", bcf_seqname(args->hdr_in, rec),(int64_t)  rec->pos+1);
 
             // trim the ref allele if necessary
             if ( rec->d.allele[0][1] )
@@ -264,11 +265,11 @@ static void process_gvcf(args_t *args)
     else if ( bcf_get_format_int32(args->hdr_in,rec,"DP",&args->tmpi,&args->mtmpi)==1 )
         min_dp = args->tmpi[0];
     else
-        error("Expected one FORMAT/MIN_DP or FORMAT/DP value at %s:%d\n", bcf_seqname(args->hdr_in,rec),rec->pos+1);
+        error("Expected one FORMAT/MIN_DP or FORMAT/DP value at %s:%"PRId64"\n", bcf_seqname(args->hdr_in,rec),(int64_t) rec->pos+1);
 
     int32_t pl[3] = {-1,-1,-1};
     ret = bcf_get_format_int32(args->hdr_in,rec,"PL",&args->tmpi,&args->mtmpi);
-    if ( ret>3 ) error("Expected three FORMAT/PL values at %s:%d\n", bcf_seqname(args->hdr_in,rec),rec->pos+1);
+    if ( ret>3 ) error("Expected three FORMAT/PL values at %s:%"PRId64"\n", bcf_seqname(args->hdr_in,rec),(int64_t) rec->pos+1);
     else if ( ret==3 )
     {
         pl[0] = args->tmpi[0];

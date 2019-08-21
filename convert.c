@@ -672,7 +672,7 @@ static void process_gt_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         // for (i=0; i<convert->nsamples; i++) kputs(" 0.33 0.33 0.33", str);
         // return;
 
-        error("Error parsing GT tag at %s:%d\n", bcf_seqname(convert->header,line),line->pos+1);
+        error("Error parsing GT tag at %s:%"PRId64"\n", bcf_seqname(convert->header,line),(int64_t) line->pos+1);
     }
 
     n /= convert->nsamples;
@@ -723,7 +723,7 @@ static void process_pl_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         // for (i=0; i<convert->nsamples; i++) kputs(" 0.33 0.33 0.33", str);
         // return;
 
-        error("Error parsing PL tag at %s:%d\n", bcf_seqname(convert->header,line),line->pos+1);
+        error("Error parsing PL tag at %s:%"PRId64"\n", bcf_seqname(convert->header,line),(int64_t) line->pos+1);
     }
 
     n /= convert->nsamples;
@@ -772,7 +772,7 @@ static void process_gp_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         // for (i=0; i<convert->nsamples; i++) kputs(" 0.33 0.33 0.33", str);
         // return;
 
-        error("Error parsing GP tag at %s:%d\n", bcf_seqname(convert->header,line),line->pos+1);
+        error("Error parsing GP tag at %s:%"PRId64"\n", bcf_seqname(convert->header,line),(int64_t) line->pos+1);
     }
 
     n /= convert->nsamples;
@@ -784,7 +784,7 @@ static void process_gp_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         {
             if ( ptr[j]==bcf_int32_vector_end ) break;
             if ( ptr[j]==bcf_int32_missing ) { ptr[j]=0; continue; }
-            if ( ptr[j]<0 || ptr[j]>1 ) error("[%s:%d:%f] GP value outside range [0,1]; bcftools convert expects the VCF4.3+ spec for the GP field encoding genotype posterior probabilities", bcf_seqname(convert->header,line),line->pos+1,ptr[j]);
+            if ( ptr[j]<0 || ptr[j]>1 ) error("[%s:%"PRId64":%f] GP value outside range [0,1]; bcftools convert expects the VCF4.3+ spec for the GP field encoding genotype posterior probabilities", bcf_seqname(convert->header,line),(int64_t) line->pos+1,ptr[j]);
             sum+=ptr[j];
         }
         if ( j==line->n_allele )
@@ -827,24 +827,24 @@ static void process_gt_to_hap(convert_t *convert, bcf1_t *line, fmt_t *fmt, int 
 
     int i, gt_id = bcf_hdr_id2int(convert->header, BCF_DT_ID, "GT");
     if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,gt_id) )
-        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+        error("FORMAT/GT tag not present at %s:%"PRId64"\n", bcf_seqname(convert->header, line),(int64_t) line->pos+1);
     if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
     bcf_fmt_t *fmt_gt = NULL;
     for (i=0; i<line->n_fmt; i++)
         if ( line->d.fmt[i].id==gt_id ) { fmt_gt = &line->d.fmt[i]; break; }
     if ( !fmt_gt )
-        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+        error("FORMAT/GT tag not present at %s:%"PRId64"\n", bcf_seqname(convert->header, line),(int64_t) line->pos+1);
 
     // Alloc all memory in advance to avoid kput routines. The biggest allowed allele index is 99
     if ( line->n_allele > 100 )
-        error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
+        error("Too many alleles (%d) at %s:%"PRId64"\n", line->n_allele, bcf_seqname(convert->header, line),(int64_t) line->pos+1);
     if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
         error("Could not alloc %" PRIu64 " bytes\n", (uint64_t)(str->l + convert->nsamples*8));
 
     if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
-        error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
+        error("Uh, too many alleles (%d) or redundant BCF representation at %s:%"PRId64"\n", line->n_allele, bcf_seqname(convert->header, line),(int64_t) line->pos+1);
     if ( fmt_gt->n!=1 && fmt_gt->n!=2 )
-        error("Uh, ploidy of %d not supported, see %s:%d\n", fmt_gt->n, bcf_seqname(convert->header, line), line->pos+1);
+        error("Uh, ploidy of %d not supported, see %s:%"PRId64"\n", fmt_gt->n, bcf_seqname(convert->header, line),(int64_t) line->pos+1);
 
     int8_t *ptr = ((int8_t*) fmt_gt->p) - fmt_gt->n;
     for (i=0; i<convert->nsamples; i++)
@@ -981,22 +981,22 @@ static void process_gt_to_hap2(convert_t *convert, bcf1_t *line, fmt_t *fmt, int
 
     int i, gt_id = bcf_hdr_id2int(convert->header, BCF_DT_ID, "GT");
     if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,gt_id) )
-        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+        error("FORMAT/GT tag not present at %s:%"PRId64"\n", bcf_seqname(convert->header, line),(int64_t) line->pos+1);
     if ( !(line->unpacked & BCF_UN_FMT) ) bcf_unpack(line, BCF_UN_FMT);
     bcf_fmt_t *fmt_gt = NULL;
     for (i=0; i<line->n_fmt; i++)
         if ( line->d.fmt[i].id==gt_id ) { fmt_gt = &line->d.fmt[i]; break; }
     if ( !fmt_gt )
-        error("FORMAT/GT tag not present at %s:%d\n", bcf_seqname(convert->header, line), line->pos+1);
+        error("FORMAT/GT tag not present at %s:%"PRId64"\n", bcf_seqname(convert->header, line),(int64_t)  line->pos+1);
 
     // Alloc all memory in advance to avoid kput routines. The biggest allowed allele index is 99
     if ( line->n_allele > 100 )
-        error("Too many alleles (%d) at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
+        error("Too many alleles (%d) at %s:%"PRId64"\n", line->n_allele, bcf_seqname(convert->header, line),(int64_t) line->pos+1);
     if ( ks_resize(str, str->l+convert->nsamples*8) != 0 )
         error("Could not alloc %" PRIu64 " bytes\n", (uint64_t)(str->l + convert->nsamples*8));
 
     if ( fmt_gt->type!=BCF_BT_INT8 )    // todo: use BRANCH_INT if the VCF is valid
-        error("Uh, too many alleles (%d) or redundant BCF representation at %s:%d\n", line->n_allele, bcf_seqname(convert->header, line), line->pos+1);
+        error("Uh, too many alleles (%d) or redundant BCF representation at %s:%"PRId64"\n", line->n_allele, bcf_seqname(convert->header, line),(int64_t) line->pos+1);
 
     int8_t *ptr = ((int8_t*) fmt_gt->p) - fmt_gt->n;
     for (i=0; i<convert->nsamples; i++)

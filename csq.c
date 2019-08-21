@@ -138,6 +138,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
@@ -147,7 +148,6 @@
 #include <htslib/faidx.h>
 #include <errno.h>
 #include <unistd.h>
-#include <stdint.h>
 #include <ctype.h>
 #include "bcftools.h"
 #include "filter.h"
@@ -3089,8 +3089,8 @@ static inline void hap_stage_vcf(args_t *args, tscript_t *tr, int ismpl, int iha
             if ( args->verbosity && (!args->ncsq_small_warned || args->verbosity > 1) )
             {
                 fprintf(stderr,
-                    "Warning: Too many consequences for sample %s at %s:%d, keeping the first %d and skipping the rest.\n",
-                    args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),vrec->line->pos+1,csq->idx);
+                    "Warning: Too many consequences for sample %s at %s:%"PRId64", keeping the first %d and skipping the rest.\n",
+                    args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),(int64_t) vrec->line->pos+1,csq->idx);
                 if ( !args->ncsq_small_warned )
                     fprintf(stderr,"         The limit can be increased by setting the --ncsq parameter. This warning is printed only once.\n");
                 args->ncsq_small_warned = 1;
@@ -3302,8 +3302,8 @@ static void sanity_check_ref(args_t *args, tscript_t *tr, bcf1_t *rec)
     while ( ref[i] && vcf[i] )
     {
         if ( ref[i]!=vcf[i] && toupper(ref[i])!=toupper(vcf[i]) ) 
-            error("Error: the fasta reference does not match the VCF REF allele at %s:%d .. fasta=%c vcf=%c\n",
-                    bcf_seqname(args->hdr,rec),rec->pos+vbeg+1,ref[i],vcf[i]);
+            error("Error: the fasta reference does not match the VCF REF allele at %s:%"PRId64" .. fasta=%c vcf=%c\n",
+                    bcf_seqname(args->hdr,rec),(int64_t) rec->pos+vbeg+1,ref[i],vcf[i]);
         i++;
     }
 }
@@ -3525,14 +3525,14 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                     if ( args->verbosity && (!overlaps_warned || args->verbosity > 1) )
                     {
                         fprintf(stderr,
-                            "Warning: Skipping overlapping variants at %s:%d\t%s>%s.\n",
-                            chr,rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                            "Warning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s.\n",
+                            chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                         if ( !overlaps_warned )
                             fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
                         overlaps_warned = 1;
                     }
                     if ( args->out ) 
-                        fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%d\t%s>%s\n", chr,rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                        fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%"PRId64"\t%s>%s\n", chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 }
                 else ret = 1;   // prevent reporting as intron in test_tscript
                 hap_destroy(child);
@@ -3571,14 +3571,14 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
             if ( args->verbosity && (!multiploid_warned || args->verbosity > 1) )
             {
                 fprintf(stderr,
-                    "Warning: Skipping site with non-diploid/non-haploid genotypes at %s:%d\t%s>%s.\n",
-                    chr,rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                    "Warning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s.\n",
+                    chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
                 if ( !multiploid_warned )
                     fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
                 multiploid_warned = 1;
             }
             if ( args->out ) 
-                fprintf(args->out,"LOG\tWarning: Skipping site with non-diploid/non-haploid genotypes at %s:%d\t%s>%s\n", chr,rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
+                fprintf(args->out,"LOG\tWarning: Skipping site with non-diploid/non-haploid genotypes at %s:%"PRId64"\t%s>%s\n", chr,(int64_t) rec->pos+1,rec->d.allele[0],rec->d.allele[1]);
             continue;
         }
         for (ismpl=0; ismpl<args->smpl->n; ismpl++)
@@ -3595,7 +3595,7 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                 if ( !bcf_gt_is_phased(gt[0]) && !bcf_gt_is_phased(gt[1]) )
                 {
                     if ( args->phase==PHASE_REQUIRE )
-                        error("Unphased heterozygous genotype at %s:%d, sample %s. See the --phase option.\n", chr,rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
+                        error("Unphased heterozygous genotype at %s:%"PRId64", sample %s. See the --phase option.\n", chr,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]]);
                     if ( args->phase==PHASE_SKIP )
                         continue;
                     if ( args->phase==PHASE_NON_REF )
@@ -3637,15 +3637,15 @@ int test_cds(args_t *args, bcf1_t *rec, vbuf_t *vbuf)
                         if ( args->verbosity && (!overlaps_warned || args->verbosity > 1) )
                         {
                             fprintf(stderr,
-                                    "Warning: Skipping overlapping variants at %s:%d, sample %s\t%s>%s.\n",
-                                    chr,rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
+                                    "Warning: Skipping overlapping variants at %s:%"PRId64", sample %s\t%s>%s.\n",
+                                    chr,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
                             if ( !overlaps_warned )
                                 fprintf(stderr,"         This message is printed only once, the verbosity can be increased with `--verbose 2`\n");
                             overlaps_warned = 1;
                         }
                         if ( args->out  )
-                            fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%d, sample %s\t%s>%s\n",
-                                    chr,rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
+                            fprintf(args->out,"LOG\tWarning: Skipping overlapping variants at %s:%"PRId64", sample %s\t%s>%s\n",
+                                    chr,(int64_t) rec->pos+1,args->hdr->samples[args->smpl->idx[ismpl]],rec->d.allele[0],rec->d.allele[ial]);
                     }
                     hap_destroy(child);
                     continue;
@@ -3734,8 +3734,8 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
                 if ( args->verbosity && (!args->ncsq_small_warned || args->verbosity > 1) )
                 {
                     fprintf(stderr,
-                            "Warning: Too many consequences for sample %s at %s:%d, keeping the first %d and skipping the rest.\n",
-                            args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),vrec->line->pos+1,icsq+1);
+                            "Warning: Too many consequences for sample %s at %s:%"PRId64", keeping the first %d and skipping the rest.\n",
+                            args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),(int64_t) vrec->line->pos+1,icsq+1);
                     if ( !args->ncsq_small_warned )
                         fprintf(stderr,"         The limit can be increased by setting the --ncsq parameter. This warning is printed only once.\n");
                     args->ncsq_small_warned = 1;
@@ -3962,7 +3962,7 @@ void debug_print_buffers(args_t *args, int pos)
         for (j=0; j<vbuf->n; j++)
         {
             vrec_t *vrec = vbuf->vrec[j];
-            fprintf(stderr,"\t\t%d .. nvcsq=%d\n", vrec->line->pos+1, vrec->nvcsq);
+            fprintf(stderr,"\t\t%"PRId64" .. nvcsq=%d\n", (int64_t) vrec->line->pos+1, vrec->nvcsq);
         }
     }
     fprintf(stderr,"pos2vbuf:");

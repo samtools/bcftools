@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <math.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -197,24 +198,24 @@ static void process_record(args_t *args, bcf1_t *rec)
     int nret = bcf_get_format_int32(args->hdr,rec,"AD",&args->ad,&args->mad);
     if ( nret<=0 )
     {
-        printf("The FORMAT/AD tag not present at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        printf("The FORMAT/AD tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         return;
     }
     int nad1 = nret/nsmpl;
 
     nret = bcf_get_format_int32(args->hdr,rec,"PL",&args->pl,&args->mpl);
-    if ( nret<=0 ) error("The FORMAT/PL tag not present at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+    if ( nret<=0 ) error("The FORMAT/PL tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     int npl1 = nret/nsmpl;
     if ( npl1!=rec->n_allele*(rec->n_allele+1)/2 )
     {
-        printf("todo: not a diploid site at %s:%d: %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),rec->pos+1,rec->n_allele,npl1);
+        printf("todo: not a diploid site at %s:%"PRId64": %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_allele,npl1);
         return;
     }
 
     nret = bcf_get_genotypes(args->hdr,rec,&args->gt,&args->mgt);
-    if ( nret<=0 ) error("The FORMAT/GT tag not present at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+    if ( nret<=0 ) error("The FORMAT/GT tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     int ngt1 = nret/nsmpl;
-    if ( ngt1!=2 ) error("Todo: assuming diploid fields for now .. %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+    if ( ngt1!=2 ) error("Todo: assuming diploid fields for now .. %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
 
     // number of ref and alt alleles in the proband
     int32_t ad[6], *adP = ad, *adF = ad+2, *adM = ad+4;
@@ -276,7 +277,7 @@ static void process_record(args_t *args, bcf1_t *rec)
         if ( args->debug )
         {
             // output: position, paternal probability, maternal probability, PLs of child, father, mother
-            printf("DBG\t%d\t%e\t%e\t", rec->pos+1,ppat,pmat);
+            printf("DBG\t%"PRId64"\t%e\t%e\t", (int64_t) rec->pos+1,ppat,pmat);
             for (i=0; i<3; i++)
             {
                 for (j=0; j<3; j++)  printf(" %d",args->pl[npl1*args->trio.idx[i]+j]);
@@ -312,7 +313,7 @@ static void process_record(args_t *args, bcf1_t *rec)
         if ( args->debug )
         {
             // output: position; paternal probability; maternal probability; ADs of child, father,mother; PLs of child, father, mother
-            printf("DBG\t%d\t%e\t%e\t", rec->pos+1,ppat,pmat);
+            printf("DBG\t%"PRId64"\t%e\t%e\t", (int64_t) rec->pos+1,ppat,pmat);
             for (i=0; i<3; i++)
             {
                 printf("%d %d\t",ad[2*i],ad[2*i+1]);
