@@ -294,6 +294,7 @@ static void dbsnp_init(args_t *args, const char *chr)
     args->i2m = kh_init(i2m);
     bcf_srs_t *sr = bcf_sr_init();
     if ( bcf_sr_set_regions(sr, chr, 0) != 0 ) goto done;
+    if ( !args->dbsnp_fname ) error("No ID file specified, use -i/--use-id\n");
     if ( !bcf_sr_add_reader(sr,args->dbsnp_fname) ) error("Failed to open %s: %s\n", args->dbsnp_fname,bcf_sr_strerror(sr->errnum));
     while ( bcf_sr_next_line(sr) )
     {
