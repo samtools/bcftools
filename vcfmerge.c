@@ -504,20 +504,24 @@ void merge_headers(bcf_hdr_t *hw, const bcf_hdr_t *hr, const char *clash_prefix,
     int i;
     for (i=0; i<bcf_hdr_nsamples(hr); i++)
     {
-        char *name = hr->samples[i];
-        if ( bcf_hdr_id2int(hw, BCF_DT_SAMPLE, name)!=-1 )
+        char *rmme = NULL, *name = hr->samples[i];
+        while ( bcf_hdr_id2int(hw, BCF_DT_SAMPLE, name)!=-1 )
         {
             // there is a sample with the same name
             if ( !force_samples ) error("Error: Duplicate sample names (%s), use --force-samples to proceed anyway.\n", name);
 
-            int len = strlen(hr->samples[i]) + strlen(clash_prefix) + 1;
-            name = (char*) malloc(sizeof(char)*(len+1));
-            sprintf(name,"%s:%s",clash_prefix,hr->samples[i]);
-            bcf_hdr_add_sample(hw,name);
-            free(name);
+            // Resolve conflicting samples names. For example, replace:
+            //  A + A       with    A,2:A
+            //  A,2:A + A   with    A,2:A,2:2:A
+
+            int len = strlen(name) + strlen(clash_prefix) + 1;
+            char *tmp = (char*) malloc(sizeof(char)*(len+1));
+            sprintf(tmp,"%s:%s",clash_prefix,name);
+            free(rmme);
+            rmme = name = tmp;
         }
-        else
-            bcf_hdr_add_sample(hw,name);
+        bcf_hdr_add_sample(hw,name);
+        free(rmme);
     }
 }
 
