@@ -84,7 +84,7 @@ info_rule_t;
 typedef struct
 {
     bcf1_t *line;
-    int end, active;
+    int end, active;    // end: 0-based INFO/END
 }
 gvcf_aux_t;
 
@@ -126,8 +126,9 @@ typedef struct
     AGR_info_t *AGR_info;
     int nAGR_info, mAGR_info;
     bcf_srs_t *files;
-    int gvcf_min, gvcf_break;   // min buffered gvcf END position (NB: gvcf_min is 1-based) or 0 if no active lines are present
-    gvcf_aux_t *gvcf;           // buffer of gVCF lines
+    int gvcf_min,       // min buffered gvcf END position (NB: gvcf_min is 1-based) or 0 if no active lines are present
+        gvcf_break;     // 0-based position of a next record which breaks a gVCF block
+    gvcf_aux_t *gvcf;   // buffer of gVCF lines, for each reader one line
     int nout_smpl;
     kstring_t *str;
 }
@@ -1854,6 +1855,7 @@ void gvcf_set_alleles(args_t *args)
     {
         if ( !gaux[i].active ) continue;
         bcf1_t *line = maux_get_line(args, i);
+        if ( !line ) continue;
         int irec = maux->buf[i].cur;
 
         hts_expand(int, line->n_allele, maux->buf[i].rec[irec].mmap, maux->buf[i].rec[irec].map);
@@ -1884,6 +1886,7 @@ void gvcf_set_alleles(args_t *args)
 /*
     Output staged gVCF blocks, end is the last position of the block. Assuming
     gaux[i].active flags are set and maux_get_line returns correct lines.
+    Both start,end coordinates are 0-based.
 */
 void gvcf_write_block(args_t *args, int start, int end)
 {
@@ -1893,7 +1896,7 @@ void gvcf_write_block(args_t *args, int start, int end)
     assert(gaux);
 
     // Update POS
-    int min = INT_MAX;
+    int min = INT_MAX;  // the minimum active gVCF INFO/END (0-based)
     char ref = 'N';
     for (i=0; i<args->files->nreaders; i++)
     {
@@ -1914,7 +1917,7 @@ void gvcf_write_block(args_t *args, int start, int end)
         if ( min > gaux[i].end ) min = gaux[i].end;
     }
     // Check for valid gVCF blocks in this region
-    if ( min==INT_MAX )
+    if ( min==INT_MAX ) // this probably should not happen
     {
     assert(0);
         maux->gvcf_min = 0;
@@ -2008,7 +2011,7 @@ void gvcf_flush(args_t *args, int done)
     }
 
     // When called on a region, trim the blocks accordingly
-    int start = maux->gvcf_break>=0 ? maux->gvcf_break + 1 : maux->pos;
+    int start = maux->gvcf_break>=0 ? maux->gvcf_break + 1 : maux->pos;     // the start of a new gvcf block to output
     if ( args->regs )
     {
         int rstart = -1, rend = -1;
@@ -2028,7 +2031,7 @@ void gvcf_flush(args_t *args, int done)
         // does the block end before the new line or is it interrupted?
         int tmp = maux->gvcf_min < flush_until ? maux->gvcf_min : flush_until;
         if ( start > tmp-1 ) break;
-        gvcf_write_block(args,start,tmp-1); // gvcf_min is 1-based
+        gvcf_write_block(args,start,tmp-1); // gvcf_min is 1-based, passing 0-based coordinates
         start = tmp;
     }
 }
@@ -2037,6 +2040,7 @@ void gvcf_flush(args_t *args, int done)
     Check incoming lines for new gVCF blocks, set pointer to the current source
     buffer (gvcf or readers).  In contrast to gvcf_flush, this function can be
     called only after maux_reset as it relies on updated maux buffers.
+    The coordinate is 0-based
 */
 void gvcf_stage(args_t *args, int pos)
 {
@@ -2071,8 +2075,16 @@ void gvcf_stage(args_t *args, int pos)
         int ret = bcf_get_info_int32(hdr,line,"END",&end,&nend);
         if ( ret==1 )
         {
+            if ( end[0] == line->pos + 1 )  // POS and INFO/END are identical, treat as if a normal w/o INFO/END
+            {
+                maux->gvcf_break = line->pos;
+                continue;
+            }
+            if ( end[0] <= line->pos ) error("Error: Incorrect END at %s:%d .. END=%d\n", bcf_seqname(hdr,line),line->pos+1,end[0]);
+
             // END is set, this is a new gVCF block. Cache this line in gaux[i] and swap with
             // an empty record: the gaux line must be kept until we reach its END.
+
             gaux[i].active = 1;
             gaux[i].end = end[0] - 1;
             SWAP(bcf1_t*,args->files->readers[i].buffer[irec],gaux[i].line);
@@ -2120,7 +2132,11 @@ void clean_buffer(args_t *args)
         // to use the old lines via maux_get_line()
         if ( ma->gvcf )
         {
-            if ( ma->gvcf[ir].active && ma->pos >= ma->gvcf[ir].end )  ma->gvcf[ir].active = 0;
+            if ( ma->gvcf[ir].active )
+            {
+                if ( ma->pos >= ma->gvcf[ir].end )  ma->gvcf[ir].active = 0;
+                else if ( ma->buf[ir].cur==-1 ) ma->buf[ir].cur = ma->buf[ir].beg;  // re-activate interrupted gVCF block
+            }
             if ( !ma->gvcf[ir].active ) ma->buf[ir].cur = -1;
         }
 
