@@ -223,6 +223,8 @@ static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char
     if ( !swap ) return rec;    // only fix the alleles, leaving GTs unchanged
 
     int ngts = bcf_get_genotypes(args->hdr, rec, &args->gts, &args->ngts);
+    if ( ngts<=0 ) return rec;  // no samples, no genotypes
+
     int i, j, nsmpl = bcf_hdr_nsamples(args->hdr);
     ngts /= nsmpl;
     for (i=0; i<nsmpl; i++)
