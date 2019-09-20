@@ -10,6 +10,7 @@
 ##contig=<ID=1>
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##FILTER=<ID=XX>
 ##bcftools_viewVersion=1.9+htslib-1.9
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Molz1
 1	752566	.	G	A	.	XX	XX=1;DP=16;AC=2;AN=2	GT:AD:DP:GQ:PL:GG	1/1:0,16:16:48:472,48,0:0,48,48,48,616,511,616,472,511,616
