@@ -223,6 +223,8 @@ static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char
     if ( !swap ) return rec;    // only fix the alleles, leaving GTs unchanged
 
     int ngts = bcf_get_genotypes(args->hdr, rec, &args->gts, &args->ngts);
+    if ( ngts<=0 ) return rec;  // no samples, no genotypes
+
     int i, j, nsmpl = bcf_hdr_nsamples(args->hdr);
     ngts /= nsmpl;
     for (i=0; i<nsmpl; i++)
@@ -294,6 +296,7 @@ static void dbsnp_init(args_t *args, const char *chr)
     args->i2m = kh_init(i2m);
     bcf_srs_t *sr = bcf_sr_init();
     if ( bcf_sr_set_regions(sr, chr, 0) != 0 ) goto done;
+    if ( !args->dbsnp_fname ) error("No ID file specified, use -i/--use-id\n");
     if ( !bcf_sr_add_reader(sr,args->dbsnp_fname) ) error("Failed to open %s: %s\n", args->dbsnp_fname,bcf_sr_strerror(sr->errnum));
     while ( bcf_sr_next_line(sr) )
     {

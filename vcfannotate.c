@@ -169,9 +169,10 @@ void remove_filter(args_t *args, bcf1_t *line, rm_tag_t *tag)
 {
     if ( tag->key && tag->hdr_id<0 )
     {
-        assert(args->force);
-        tag->hdr_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, tag->key);
-        if ( !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FLT,tag->hdr_id) ) error("Error: parsing error\n");    // this should not happen
+        error("Error: Cannot proceed, not even with the --force option, bad things could happen.\n"
+              "       Note that \"bcftools annotate -x FILTER\" can be used to remove ALL filters.\n"
+              "       Even better, use \"bcftools view -h\" and \"bcftools reheader\" to fix the header!\n"
+              );
     }
     if ( !tag->key ) bcf_update_filter(args->hdr, line, NULL, args->flt_keep_pass);
     else bcf_remove_filter(args->hdr, line, tag->hdr_id, args->flt_keep_pass);
@@ -2738,7 +2739,9 @@ int main_vcfannotate(int argc, char *argv[])
                       "If feeling adventurous, use the --force option. (At your own risk!)\n");
             else if ( !line_errcode_warned )
             {
-                fprintf(stderr,"Warning: Encountered an error, proceeding only because --force was given.\n");
+                fprintf(stderr,
+                    "Warning: Encountered an error, proceeding only because --force was given.\n"
+                    "         Note that this can result in a segfault or a silent corruption of the output file!\n");
                 line_errcode_warned = 1;
                 line->errcode = 0;
             }

@@ -36,7 +36,6 @@ THE SOFTWARE.  */
 #include <htslib/kfunc.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/khash_str2int.h>
-#include <htslib/hts_os.h>
 #include <ctype.h>
 #include "bcftools.h"
 #include "call.h"
