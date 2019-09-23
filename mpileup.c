@@ -246,13 +246,28 @@ static int mplp_func(void *data, bam1_t *b)
 
 // Called once per new bam added to the pileup.
 // We cache sample information here so we don't have to keep recomputing this
-// on each and every pileup column.
+// on each and every pileup column. If FMT/SCR annotation is requested, a flag
+// is set to indicate the presence of a soft clip.
 //
 // Cd is an arbitrary block of data we can write into, which ends up in
-// the pileup structures.  We stash the sample ID there.
-static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd) {
+// the pileup structures. We stash the sample ID there:
+//      has_soft_clip .. cd->i & 1
+//      sample_id     .. cd->i >> 1
+static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
+{
     mplp_aux_t *ma = (mplp_aux_t *)data;
-    cd->i = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b);
+    cd->i = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b) << 1;
+    if ( ma->conf->fmt_flag & (B2B_INFO_SCR|B2B_FMT_SCR) )
+    {
+        int i;
+        for (i=0; i<b->core.n_cigar; i++)
+        {
+            int cig = bam_get_cigar(b)[i] & BAM_CIGAR_MASK;
+            if ( cig!=BAM_CSOFT_CLIP ) continue;
+            cd->i |= 1;
+            break;
+        }
+    }
     return 0;
 }
 
@@ -265,7 +280,7 @@ static void group_smpl(mplp_pileup_t *m, bam_smpl_t *bsmpl, int n, int *n_plp, c
         for (j = 0; j < n_plp[i]; ++j)  // iterate over all reads available at this position
         {
             const bam_pileup1_t *p = plp[i] + j;
-            int id = p->cd.i;
+            int id = PLP_SAMPLE_ID(p->cd.i);
             if (m->n_plp[id] == m->m_plp[id]) 
             {
                 m->m_plp[id] = m->m_plp[id]? m->m_plp[id]<<1 : 8;
@@ -524,8 +539,10 @@ static int mpileup(mplp_conf_t *conf)
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=IDV,Number=1,Type=Integer,Description=\"Maximum number of raw reads supporting an indel\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=IMF,Number=1,Type=Float,Description=\"Maximum fraction of raw reads supporting an indel\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Raw read depth\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=VDB,Number=1,Type=Float,Description=\"Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)\",Version=\"3\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
+    if ( conf->fmt_flag&B2B_INFO_VDB )
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=VDB,Number=1,Type=Float,Description=\"Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)\",Version=\"3\">");
+    if ( conf->fmt_flag&B2B_INFO_RPB )
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias (bigger is better)\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
@@ -562,6 +579,10 @@ static int mpileup(mplp_conf_t *conf)
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Total allelic depths (high-quality bases)\">");
     if ( conf->fmt_flag&B2B_INFO_ADF )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=ADF,Number=R,Type=Integer,Description=\"Total allelic depths on the forward strand (high-quality bases)\">");
+    if ( conf->fmt_flag&B2B_INFO_SCR )
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SCR,Number=1,Type=Integer,Description=\"Number of soft-clipped reads (at high-quality bases)\">");
+    if ( conf->fmt_flag&B2B_FMT_SCR )
+        bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=SCR,Number=1,Type=Integer,Description=\"Per-sample number of soft-clipped reads (at high-quality bases)\">");
     if ( conf->fmt_flag&B2B_INFO_ADR )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=ADR,Number=R,Type=Integer,Description=\"Total allelic depths on the reverse strand (high-quality bases)\">");
     if ( conf->gvcf )
@@ -579,6 +600,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bca->min_frac = conf->min_frac;
     conf->bca->min_support = conf->min_support;
     conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
+    conf->bca->fmt_flag = conf->fmt_flag;
 
     conf->bc.bcf_hdr = conf->bcf_hdr;
     conf->bc.n  = nsmpl;
@@ -599,6 +621,8 @@ static int mpileup(mplp_conf_t *conf)
                 conf->bcr[i].ADF = conf->bc.ADF + (i+1)*B2B_MAX_ALLELES;
             }
         }
+        if ( conf->fmt_flag&(B2B_INFO_SCR|B2B_FMT_SCR) )
+            conf->bc.SCR = (int32_t*) malloc((nsmpl+1)*sizeof(*conf->bc.SCR));
     }
 
     // init mpileup
@@ -766,6 +790,8 @@ int parse_format_flag(const char *str)
         else if ( !strcasecmp(tags[i],"AD") || !strcasecmp(tags[i],"FORMAT/AD") || !strcasecmp(tags[i],"FMT/AD") ) flag |= B2B_FMT_AD;
         else if ( !strcasecmp(tags[i],"ADF") || !strcasecmp(tags[i],"FORMAT/ADF") || !strcasecmp(tags[i],"FMT/ADF") ) flag |= B2B_FMT_ADF;
         else if ( !strcasecmp(tags[i],"ADR") || !strcasecmp(tags[i],"FORMAT/ADR") || !strcasecmp(tags[i],"FMT/ADR") ) flag |= B2B_FMT_ADR;
+        else if ( !strcasecmp(tags[i],"SCR") || !strcasecmp(tags[i],"FORMAT/SCR") || !strcasecmp(tags[i],"FMT/SCR") ) flag |= B2B_FMT_SCR;
+        else if ( !strcasecmp(tags[i],"INFO/SCR") ) flag |= B2B_INFO_SCR;
         else if ( !strcasecmp(tags[i],"INFO/AD") ) flag |= B2B_INFO_AD;
         else if ( !strcasecmp(tags[i],"INFO/ADF") ) flag |= B2B_INFO_ADF;
         else if ( !strcasecmp(tags[i],"INFO/ADR") ) flag |= B2B_INFO_ADR;
@@ -780,6 +806,9 @@ int parse_format_flag(const char *str)
     return flag;
 }
 
+// todo: make it possible to turn off some annotations or change the defaults,
+//      specifically RPB, VDB, MWU, SGB tests. It would be good to do some
+//      benchmarking first to see if it's worth it.
 static void list_annotations(FILE *fp)
 {
     fprintf(fp,
@@ -791,12 +820,14 @@ static void list_annotations(FILE *fp)
 "  FORMAT/ADR .. Allelic depths on the reverse strand (Number=R,Type=Integer)\n"
 "  FORMAT/DP  .. Number of high-quality bases (Number=1,Type=Integer)\n"
 "  FORMAT/SP  .. Phred-scaled strand bias P-value (Number=1,Type=Integer)\n"
+"  FORMAT/SCR .. Number of soft-clipped reads (Number=1,Type=Integer)\n"
 "\n"
 "INFO annotation tags available:\n"
 "\n"
 "  INFO/AD  .. Total allelic depth (Number=R,Type=Integer)\n"
 "  INFO/ADF .. Total allelic depths on the forward strand (Number=R,Type=Integer)\n"
 "  INFO/ADR .. Total allelic depths on the reverse strand (Number=R,Type=Integer)\n"
+"  INFO/SCR .. Number of soft-clipped reads (Number=1,Type=Integer)\n"
 "\n");
 }
 
@@ -902,6 +933,7 @@ int bam_mpileup(int argc, char *argv[])
     mplp.record_cmd_line = 1;
     mplp.n_threads = 0;
     mplp.bsmpl = bam_smpl_init();
+    mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB;    // the default to be changed in future, see also parse_format_flag()
 
     static const struct option lopts[] =
     {

@@ -1793,10 +1793,12 @@ FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)
 FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)
 FORMAT/DP   .. Number of high-quality bases (Number=1,Type=Integer)
 FORMAT/SP   .. Phred-scaled strand bias P-value (Number=1,Type=Integer)
+FORMAT/SCR  .. Number of soft-clipped reads (Number=1,Type=Integer)
 
 INFO/AD     .. Total allelic depth (Number=R,Type=Integer)
 INFO/ADF    .. Total allelic depths on the forward strand (Number=R,Type=Integer)
 INFO/ADR    .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+INFO/SCR    .. Number of soft-clipped reads (Number=1,Type=Integer)
 
 FORMAT/DV   .. Deprecated in favor of FORMAT/AD; Number of high-quality non-reference bases, (Number=1,Type=Integer)
 FORMAT/DP4  .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high-quality ref-forward, ref-reverse,
