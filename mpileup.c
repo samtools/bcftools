@@ -688,6 +688,7 @@ static int mpileup(mplp_conf_t *conf)
         free(conf->bc.DP4);
         free(conf->bc.ADR);
         free(conf->bc.ADF);
+        free(conf->bc.SCR);
         free(conf->bc.fmt_arr);
         free(conf->bcr);
     }
