@@ -328,8 +328,8 @@ test_vcf_annotate($opts,in=>'annotate16',out=>'annotate28.out',args=>'-x FILTER'
 test_vcf_annotate($opts,in=>'annotate17.1',tab=>'annotate17.1',out=>'annotate17.1.out',args=>'-c CHROM,BEG,END,A,B -l A:append,B:append');
 test_vcf_annotate($opts,in=>'annotate17.2',tab=>'annotate17.1',out=>'annotate17.2.out',args=>'-c CHROM,BEG,END,A,B -l A:append,B:append');
 test_vcf_annotate($opts,in=>'annotate17.3',tab=>'annotate17.3',out=>'annotate17.3.out',args=>'-c CHROM,BEG,END,A,B -l A:append,B:append');
-test_vcf_annotate($opts,in=>'annotate18.1',tab=>'annotate18.1',out=>'annotate18.1.out',args=>'-c CHROM,BEG,END,A,B,C,D -l A:sum,B:avg,C:min,D:max');
-test_vcf_annotate($opts,in=>'annotate18.2',tab=>'annotate18.2',out=>'annotate18.2.out',args=>'-c CHROM,BEG,END,A,B,C,D -l A:sum,B:avg,C:min,D:max');
+test_vcf_annotate($opts,in=>'annotate18.1',tab=>'annotate18.1',out=>'annotate18.1.out',args=>'-c CHROM,BEG,END,A,B,C,D,E -l A:sum,B:avg,C:min,D:max,E:append');
+test_vcf_annotate($opts,in=>'annotate18.2',tab=>'annotate18.2',out=>'annotate18.2.out',args=>'-c CHROM,BEG,END,A,B,C,D,E -l A:sum,B:avg,C:min,D:max,E:append');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');

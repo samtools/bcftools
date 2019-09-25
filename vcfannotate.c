@@ -1,6 +1,6 @@
 /*  vcfannotate.c -- Annotate and edit VCF/BCF files.
 
-    Copyright (C) 2013-2018 Genome Research Ltd.
+    Copyright (C) 2013-2019 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -85,7 +85,11 @@ typedef struct _annot_col_t
     int merge_method;               // one of the MM_* defines
     khash_t(str2int) *mm_str_hash;  // lookup table to ensure uniqueness of added string values
     kstring_t mm_kstr;
-    double mm_dbl_nalloc, mm_dbl_nused, mm_dbl_ndat, *mm_dbl;
+    double
+        mm_dbl_nalloc,  // the allocated size --merge-logic values array
+        mm_dbl_nused,   // the number of used elements in the mm_dbl array
+        mm_dbl_ndat,    // the number of merged rows (for calculating the average)
+        *mm_dbl;
 }
 annot_col_t;
 
@@ -632,8 +636,8 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 
     if ( !tab )
     {
-        if ( col->merge_method!=MM_SUM && col->merge_method!=MM_AVG && col->merge_method!=MM_MIN && col->merge_method!=MM_MAX )
-            error("Error: at the moment only the sum,avg,min,max options are supported with --merge-logic for INFO type=Integer\n");
+        if ( col->merge_method!=MM_SUM && col->merge_method!=MM_AVG && col->merge_method!=MM_MIN && col->merge_method!=MM_MAX && col->merge_method!=MM_APPEND )
+            error("Error: at the moment only the sum,avg,min,max,append options are supported with --merge-logic for INFO type=Integer\n");
     }
 
     int i,ntmpi = 0;
@@ -663,18 +667,29 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             }
             else
             {
-                if ( ntmpi!=col->mm_dbl_nused ) error("Error: cannot merge fields of unequal length\n");
-                if ( col->merge_method==MM_SUM || col->merge_method==MM_AVG )
-                    for (i=0; i<ntmpi; i++) col->mm_dbl[i] += args->tmpi[i];
-                else if ( col->merge_method==MM_MIN )
-                    for (i=0; i<ntmpi; i++) { if ( col->mm_dbl[i] > args->tmpi[i] ) col->mm_dbl[i] = args->tmpi[i]; }
-                else if ( col->merge_method==MM_MAX )
-                    for (i=0; i<ntmpi; i++) { if ( col->mm_dbl[i] < args->tmpi[i] ) col->mm_dbl[i] = args->tmpi[i]; }
+                if ( col->merge_method==MM_APPEND )
+                {
+                    int nori = col->mm_dbl_nused;
+                    col->mm_dbl_nused += ntmpi;
+                    hts_expand(double,col->mm_dbl_nused,col->mm_dbl_nalloc,col->mm_dbl);
+                    for (i=0; i<ntmpi; i++)
+                        col->mm_dbl[i+nori] = args->tmpi[i];
+                }
+                else
+                {
+                    if ( ntmpi!=col->mm_dbl_nused ) error("Error: cannot merge fields of unequal length\n");
+                    if ( col->merge_method==MM_SUM || col->merge_method==MM_AVG )
+                        for (i=0; i<ntmpi; i++) col->mm_dbl[i] += args->tmpi[i];
+                    else if ( col->merge_method==MM_MIN )
+                        for (i=0; i<ntmpi; i++) { if ( col->mm_dbl[i] > args->tmpi[i] ) col->mm_dbl[i] = args->tmpi[i]; }
+                    else if ( col->merge_method==MM_MAX )
+                        for (i=0; i<ntmpi; i++) { if ( col->mm_dbl[i] < args->tmpi[i] ) col->mm_dbl[i] = args->tmpi[i]; }
+                }
             }
             col->mm_dbl_ndat++;
         }
     }
-    else if ( col->merge_method==MM_SUM || col->merge_method==MM_MIN || col->merge_method==MM_MAX )
+    else if ( col->merge_method==MM_SUM || col->merge_method==MM_MIN || col->merge_method==MM_MAX || col->merge_method==MM_APPEND )
     {
         ntmpi = col->mm_dbl_nused;
         hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
@@ -757,8 +772,8 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
 
     if ( !tab )
     {
-        if ( col->merge_method!=MM_SUM && col->merge_method!=MM_AVG && col->merge_method!=MM_MIN && col->merge_method!=MM_MAX )
-            error("Error: at the moment only the sum,avg,min,max options are supported with --merge-logic for INFO type=Float\n");
+        if ( col->merge_method!=MM_SUM && col->merge_method!=MM_AVG && col->merge_method!=MM_MIN && col->merge_method!=MM_MAX && col->merge_method!=MM_APPEND )
+            error("Error: at the moment only the sum,avg,min,max,append options are supported with --merge-logic for INFO type=Float\n");
     }
 
     int i,ntmpf = 0;
@@ -788,18 +803,29 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
             }
             else
             {
-                if ( ntmpf!=col->mm_dbl_nused ) error("Error: cannot merge fields of unequal length\n");
-                if ( col->merge_method==MM_SUM || col->merge_method==MM_AVG )
-                    for (i=0; i<ntmpf; i++) col->mm_dbl[i] += args->tmpf[i];
-                else if ( col->merge_method==MM_MIN )
-                    for (i=0; i<ntmpf; i++) { if ( col->mm_dbl[i] > args->tmpf[i] ) col->mm_dbl[i] = args->tmpf[i]; }
-                else if ( col->merge_method==MM_MAX )
-                    for (i=0; i<ntmpf; i++) { if ( col->mm_dbl[i] < args->tmpf[i] ) col->mm_dbl[i] = args->tmpf[i]; }
+                if ( col->merge_method==MM_APPEND )
+                {
+                    int nori = col->mm_dbl_nused;
+                    col->mm_dbl_nused += ntmpf;
+                    hts_expand(double,col->mm_dbl_nused,col->mm_dbl_nalloc,col->mm_dbl);
+                    for (i=0; i<ntmpf; i++)
+                        col->mm_dbl[i+nori] = args->tmpf[i];
+                }
+                else
+                {
+                    if ( ntmpf!=col->mm_dbl_nused ) error("Error: cannot merge fields of unequal length\n");
+                    if ( col->merge_method==MM_SUM || col->merge_method==MM_AVG )
+                        for (i=0; i<ntmpf; i++) col->mm_dbl[i] += args->tmpf[i];
+                    else if ( col->merge_method==MM_MIN )
+                        for (i=0; i<ntmpf; i++) { if ( col->mm_dbl[i] > args->tmpf[i] ) col->mm_dbl[i] = args->tmpf[i]; }
+                    else if ( col->merge_method==MM_MAX )
+                        for (i=0; i<ntmpf; i++) { if ( col->mm_dbl[i] < args->tmpf[i] ) col->mm_dbl[i] = args->tmpf[i]; }
+                }
             }
             col->mm_dbl_ndat++;
         }
     }
-    else if ( col->merge_method==MM_SUM || col->merge_method==MM_MIN || col->merge_method==MM_MAX )
+    else if ( col->merge_method==MM_SUM || col->merge_method==MM_MIN || col->merge_method==MM_MAX || col->merge_method==MM_APPEND )
     {
         ntmpf = col->mm_dbl_nused;
         hts_expand(int32_t,ntmpf,args->mtmpf,args->tmpf);
@@ -2234,6 +2260,8 @@ static void init_merge_method(args_t *args)
         for (i=0; i<args->ncols; i++)
         {
             if ( strcmp(args->cols[i].hdr_key_dst,args->tmpks.s) ) continue;
+            if ( mm_type==MM_APPEND && args->cols[i].number!=BCF_VL_VAR )
+                error("Error: --merge-logic append can be requested only for tags of variable length (Number=.)\n");
             args->cols[i].merge_method = mm_type;
             break;
         }
