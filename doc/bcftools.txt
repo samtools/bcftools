@@ -415,6 +415,12 @@ Add or remove annotations.
     given as "src_name dst_name\n", separated by whitespaces, each pair on a
     separate line.
 
+*--single-overlaps*::
+    use this option to keep memory requirements low with very large annotation
+    files. Note, however, that this comes at a cost, only single overlapping intervals
+    are considered in this mode. This was the default mode until the commit 
+    af6f0c9 (Feb 24 2019).
+
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 

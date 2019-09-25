@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25206192"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp214480"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -10,7 +10,7 @@ read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non-standard index names can be accessed as e.g.
 "<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-06-24 16:57 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-201-ga110d3a+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-09-25 15:32 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9-242-gf638e90+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -222,8 +222,8 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 </dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c &gt; als.tsv.gz &amp;&amp; tabix -s1 -b2 -e2 als.tsv.gz</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
-    Number of output compression threads to use in addition to main thread.
-    Only used when <span class="emphasis"><em>--output-type</em></span> is <span class="emphasis"><em>b</em></span> or <span class="emphasis"><em>z</em></span>. Default: 0.
+    Use multithreading with <span class="emphasis"><em>INT</em></span> worker threads. The option is currently used only for the compression of the
+    output stream, only when <span class="emphasis"><em>--output-type</em></span> is <span class="emphasis"><em>b</em></span> or <span class="emphasis"><em>z</em></span>. Default: 0.
 </dd></dl></div></div><div class="refsect2" title="bcftools annotate [OPTIONS] FILE"><a id="annotate"></a><h3>bcftools annotate <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>Add or remove annotations.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annotations</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
@@ -317,8 +317,8 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --merge-logic</strong></span> <span class="emphasis"><em>tag</em></span>:'first'|<span class="emphasis"><em>append</em></span>|<span class="emphasis"><em>unique</em></span>|<span class="emphasis"><em>sum</em></span>|<span class="emphasis"><em>avg</em></span>|<span class="emphasis"><em>min</em></span>|<span class="emphasis"><em>max</em></span>[,…]
 </span></dt><dd>
-    if multiple regions overlap a single record, the option defines how treat the multiple
-    annotation values when setting the tag <span class="emphasis"><em>tag</em></span> in the destination file: use the first encountered ignoring
+    if multiple regions overlap a single record, the option defines how to treat multiple
+    annotation values when setting <span class="emphasis"><em>tag</em></span> in the destination file: use the first encountered value ignoring
     the rest (<span class="emphasis"><em>first</em></span>); append allowing duplicates (<span class="emphasis"><em>append</em></span>); append discarding duplicate values (<span class="emphasis"><em>unique</em></span>);
     sum the values (<span class="emphasis"><em>sum</em></span>, numeric fields only); average the values (<span class="emphasis"><em>avg</em></span>); use the minimum value (<span class="emphasis"><em>min</em></span>) or
     the maximum (<span class="emphasis"><em>max</em></span>).
@@ -368,6 +368,13 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
     target VCF and the <span class="strong"><strong>-a, --annotations</strong></span> VCF, the name mapping can be
     given as "src_name dst_name\n", separated by whitespaces, each pair on a
     separate line.
+</dd><dt><span class="term">
+<span class="strong"><strong>--single-overlaps</strong></span>
+</span></dt><dd>
+    use this option to keep memory requirements low with very large annotation
+    files. Note, however, that this comes at a cost, only single overlapping intervals
+    are considered in this mode. This was the default mode until the commit
+    af6f0c9 (Feb 24 2019).
 </dd><dt><span class="term">
 <span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
@@ -678,8 +685,7 @@ concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
 VCF into one. The input files must be sorted by chr and position. The files
 must be given in the correct order to produce sorted VCF on output unless
 the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is specified. With the --naive option, the files
-are concatenated without being recompressed, which is very fast but dangerous
-if the BCF headers differ.</p><div class="variablelist"><dl><dt><span class="term">
+are concatenated without being recompressed, which is very fast..</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --allow-overlaps</strong></span>
 </span></dt><dd>
     First coordinate of the next file can precede last record of the current file.
@@ -715,9 +721,13 @@ if the BCF headers differ.</p><div class="variablelist"><dl><dt><span class="ter
 </span></dt><dd>
     Concatenate VCF or BCF files without recompression. This is very fast but requires
     that all files are of the same type (all VCF or all BCF) and have the same headers.
-    This is because all tags and chromosome names in the BCF body rely on the implicit
-    order of the contig and tag definitions in the header. Currently no sanity checks
-    are in place. Dangerous, use with caution.
+    This is because all tags and chromosome names in the BCF body rely on the order
+    of the contig and tag definitions in the header. A header check compatibility
+    is performed and the program throws an error if it is not safe to use the option.
+</dd><dt><span class="term">
+<span class="strong"><strong>--naive-force</strong></span>
+</span></dt><dd>
+    Same as --naive, but header compatibility is not checked. Dangerous, use with caution.
 </dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -1128,6 +1138,10 @@ output VCF and are ignored for the prediction analysis.</p><div class="variablel
     all consequences, but only the first <span class="emphasis"><em>INT</em></span> will be referenced by the FORMAT/BCSQ fields.
     The default value is 16 which corresponds to one integer per diploid
     sample. Note that increasing the value leads to increased memory and is rarely necessary.
+</dd><dt><span class="term">
+<span class="strong"><strong>--no-version</strong></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -1754,10 +1768,12 @@ FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)
 FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)
 FORMAT/DP   .. Number of high-quality bases (Number=1,Type=Integer)
 FORMAT/SP   .. Phred-scaled strand bias P-value (Number=1,Type=Integer)
+FORMAT/SCR  .. Number of soft-clipped reads (Number=1,Type=Integer)
 
 INFO/AD     .. Total allelic depth (Number=R,Type=Integer)
 INFO/ADF    .. Total allelic depths on the forward strand (Number=R,Type=Integer)
 INFO/ADR    .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+INFO/SCR    .. Number of soft-clipped reads (Number=1,Type=Integer)
 
 FORMAT/DV   .. Deprecated in favor of FORMAT/AD; Number of high-quality non-reference bases, (Number=1,Type=Integer)
 FORMAT/DP4  .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high-quality ref-forward, ref-reverse,
@@ -2909,7 +2925,8 @@ one sample name per line
 </p><pre class="literallayout">GT[@samples.txt]="het" &amp; binom(AD)&lt;0.01</pre></li><li class="listitem"><p class="simpara">
 function on FORMAT tags (over samples) and INFO tags (over vector fields):
   maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median;
-  standard deviation; sum; string length; absolute value; number of elements.
+  standard deviation; sum; string length; absolute value; number of elements
+  (matching columns for FORMAT tags or number of fields for INFO tags).
 </p><pre class="literallayout">MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT</pre></li><li class="listitem"><p class="simpara">
 two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
   and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for

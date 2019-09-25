@@ -146,7 +146,7 @@ typedef struct _args_t
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
     char *merge_method_str;
-    int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force;
+    int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
 }
 args_t;
 
@@ -2318,7 +2318,8 @@ static void init_data(args_t *args)
         if ( !args->columns ) error("The -c option not given\n");
         if ( args->chr_idx==-1 ) error("The -c CHROM option not given\n");
         if ( args->beg_idx==-1 ) error("The -c POS option not given\n");
-        if ( args->end_idx==-1 )
+        if ( args->single_overlaps && args->merge_method_str ) error("The options --merge-logic and --single-overlaps cannot be combined\n");
+        if ( args->end_idx==-1 || (args->single_overlaps && !args->merge_method_str) )
         {
             args->end_idx = -args->beg_idx - 1;
             args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->beg_idx,args->end_idx);
@@ -2629,6 +2630,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --rename-chrs <file>       rename sequences according to map file: from\\tto\n");
     fprintf(stderr, "   -s, --samples [^]<list>        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -S, --samples-file [^]<file>   file of samples to annotate (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "       --single-overlaps          keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
     fprintf(stderr, "   -x, --remove <list>            list of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
     fprintf(stderr, "       --threads <int>            number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
@@ -2670,6 +2672,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"header-lines",required_argument,NULL,'h'},
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
+        {"single-overlaps",no_argument,NULL,10},
         {"no-version",no_argument,NULL,8},
         {"force",no_argument,NULL,'f'},
         {NULL,0,NULL,0}
@@ -2720,6 +2723,7 @@ int main_vcfannotate(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
+            case 10 : args->single_overlaps = 1; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
