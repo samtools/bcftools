@@ -3986,7 +3986,7 @@ static void process(args_t *args, bcf1_t **rec_ptr)
     static int32_t prev_rid = -1, prev_pos = -1;
     if ( prev_rid!=rec->rid ) { prev_rid = rec->rid; prev_pos = rec->pos; }
     if ( prev_pos > rec->pos )
-        error("Error: The file is not sorted, %s:%d comes before %s:%d\n",bcf_seqname(args->hdr,rec),prev_pos+1,bcf_seqname(args->hdr,rec),rec->pos+1);
+        error("Error: The file is not sorted, %s:%d comes before %s:%"PRId64"\n",bcf_seqname(args->hdr,rec),prev_pos+1,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
 
     int call_csq = 1;
     if ( rec->n_allele < 2 ) call_csq = 0;   // no alternate allele
