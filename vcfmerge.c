@@ -2085,7 +2085,7 @@ void gvcf_stage(args_t *args, int pos)
                 maux->gvcf_break = line->pos;
                 continue;
             }
-            if ( end[0] <= line->pos ) error("Error: Incorrect END at %s:%d .. END=%d\n", bcf_seqname(hdr,line),line->pos+1,end[0]);
+            if ( end[0] <= line->pos ) error("Error: Incorrect END at %s:%"PRId64" .. END=%d\n", bcf_seqname(hdr,line),(int64_t) line->pos+1,end[0]);
 
             // END is set, this is a new gVCF block. Cache this line in gaux[i] and swap with
             // an empty record: the gaux line must be kept until we reach its END.
