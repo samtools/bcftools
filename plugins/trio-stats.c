@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -554,7 +555,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             {
                 if ( als[j]==0 || als[j]==star_allele ) continue;
                 if ( als[j] >= rec->n_allele )
-                    error("The GT index is out of range at %s:%d in %s\n", bcf_seqname(args->hdr,rec),rec->pos+1,args->hdr->samples[args->trio[i].idx[j/2]]);
+                    error("The GT index is out of range at %s:%"PRId64" in %s\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->hdr->samples[args->trio[i].idx[j/2]]);
                 if ( rec->d.allele[als[j]][1] ) continue;
 
                 int alt = bcf_acgt2int(rec->d.allele[als[j]][0]);
@@ -593,7 +594,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
                 if ( (!dnm_hom && args->ac[culprit]>1) || (dnm_hom && args->ac[culprit]>2) ) { stats->ndnm_recurrent++; dnm_recurrent = 1; }
 
                 if ( args->verbose & VERBOSE_MENDEL )
-                    fprintf(args->fp_out,"MERR\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n", bcf_seqname(args->hdr,rec),rec->pos+1,
+                    fprintf(args->fp_out,"MERR\t%s\t%"PRId64"\t%s\t%s\t%s\t%s\t%s\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,
                             args->hdr->samples[args->trio[i].idx[iCHILD]],
                             args->hdr->samples[args->trio[i].idx[iFATHER]],
                             args->hdr->samples[args->trio[i].idx[iMOTHER]],

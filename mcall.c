@@ -23,6 +23,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.  */
 
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/kfunc.h>
 #include <htslib/khash_str2int.h>
 #include "call.h"
@@ -1605,7 +1606,7 @@ int mcall(call_t *call, bcf1_t *rec)
     int out_als, nout;
     if ( nals > 8*sizeof(out_als) )
     { 
-        fprintf(stderr,"Too many alleles at %s:%d, skipping.\n", bcf_seqname(call->hdr,rec),rec->pos+1); 
+        fprintf(stderr,"Too many alleles at %s:%"PRId64", skipping.\n", bcf_seqname(call->hdr,rec),(int64_t) rec->pos+1);
         return 0; 
     }
     nout = mcall_find_best_alleles(call, nals, &out_als);
@@ -1649,7 +1650,7 @@ int mcall(call_t *call, bcf1_t *rec)
         {
             if ( nout>4 ) 
             { 
-                fprintf(stderr,"Too many alleles at %s:%d, skipping.\n", bcf_seqname(call->hdr,rec),rec->pos+1); 
+                fprintf(stderr,"Too many alleles at %s:%"PRId64", skipping.\n", bcf_seqname(call->hdr,rec),(int64_t) rec->pos+1);
                 return 0; 
             }
             mcall_call_trio_genotypes(call, rec, nals,nout,out_als);

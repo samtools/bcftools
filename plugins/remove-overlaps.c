@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
@@ -125,7 +126,7 @@ static void flush(args_t *args, int flush_all)
         if ( nbuf>2 || (nbuf>1 && flush_all) )
         {
             args->nrm++;
-            if ( args->verbose ) printf("%s\t%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            if ( args->verbose ) printf("%s\t%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
             if ( args->print_overlaps && bcf_write1(args->out_fh, args->hdr, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
             continue;     // skip overlapping variants
         }

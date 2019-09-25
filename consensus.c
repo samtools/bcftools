@@ -333,7 +333,7 @@ static void unread_vcf_line(args_t *args, bcf1_t **rec_ptr)
 {
     bcf1_t *rec = *rec_ptr;
     if ( args->vcf_rbuf.n >= args->vcf_rbuf.m )
-        error("FIXME: too many overlapping records near %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        error("FIXME: too many overlapping records near %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
 
     // Insert the new record in the buffer. The line would be overwritten in
     // the next bcf_sr_next_line call, therefore we need to swap it with an
@@ -397,7 +397,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         if ( !fmt ) return;
 
         if ( fmt->type!=BCF_BT_INT8 )
-            error("Todo: GT field represented with BCF_BT_INT8, too many alleles at %s:%d?\n",bcf_seqname(args->hdr,rec),rec->pos+1);
+            error("Todo: GT field represented with BCF_BT_INT8, too many alleles at %s:%"PRId64"?\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         uint8_t *ptr = fmt->p + fmt->size*args->isample;
 
         enum { use_hap, use_iupac, pick_one } action = use_hap;
@@ -421,7 +421,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                 {
                     if ( !warned_haplotype )
                     {
-                        fprintf(stderr, "Can't apply %d-th haplotype at %s:%d. (This warning is printed only once.)\n", args->haplotype,bcf_seqname(args->hdr,rec),rec->pos+1);
+                        fprintf(stderr, "Can't apply %d-th haplotype at %s:%"PRId64". (This warning is printed only once.)\n", args->haplotype,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                         warned_haplotype = 1;
                     }
                     return;
@@ -467,7 +467,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
 
             if ( ialt>=0 )
             {
-                if ( rec->n_allele <= ialt || rec->n_allele <= jalt ) error("Invalid VCF, too few ALT alleles at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+                if ( rec->n_allele <= ialt || rec->n_allele <= jalt ) error("Invalid VCF, too few ALT alleles at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                 if ( ialt!=jalt && !rec->d.allele[ialt][1] && !rec->d.allele[jalt][1] ) // is this a het snp?
                 {
                     char ial = rec->d.allele[ialt][0];
@@ -499,7 +499,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                 {
                     if ( ptr[i]==(uint8_t)bcf_int8_vector_end ) break;
                     jalt = bcf_gt_allele(ptr[i]);
-                    if ( rec->n_allele <= jalt ) error("Broken VCF, too few alts at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+                    if ( rec->n_allele <= jalt ) error("Broken VCF, too few alts at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                     if ( args->allele & (PICK_LONG|PICK_SHORT) )
                     {
                         int len = jalt==0 ? rec->rlen : strlen(rec->d.allele[jalt]);
@@ -521,7 +521,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             }
         }
         if ( !ialt ) return;  // ref allele
-        if ( rec->n_allele <= ialt ) error("Broken VCF, too few alts at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        if ( rec->n_allele <= ialt ) error("Broken VCF, too few alts at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
     else if ( args->output_iupac && !rec->d.allele[0][1] && !rec->d.allele[1][1] )
     {
@@ -554,7 +554,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
 
         if ( overlap )
         {
-            fprintf(stderr,"The site %s:%d overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            fprintf(stderr,"The site %s:%"PRId64" overlaps with another variant, skipping...\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
             return;
         }
         
@@ -564,7 +564,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     int idx = rec->pos - args->fa_ori_pos + args->fa_mod_off;
     if ( idx<0 )
     {
-        fprintf(stderr,"Warning: ignoring overlapping variant starting at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        fprintf(stderr,"Warning: ignoring overlapping variant starting at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         return;
     }
     if ( rec->rlen > args->fa_buf.l - idx )
@@ -574,17 +574,17 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         if ( alen > rec->rlen )
         {
             rec->d.allele[ialt][rec->rlen] = 0;
-            fprintf(stderr,"Warning: trimming variant starting at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+            fprintf(stderr,"Warning: trimming variant starting at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( idx>=args->fa_buf.l ) 
-        error("FIXME: %s:%d .. idx=%d, ori_pos=%d, len=%"PRIu64", off=%d\n",bcf_seqname(args->hdr,rec),rec->pos+1,idx,args->fa_ori_pos,(uint64_t)args->fa_buf.l,args->fa_mod_off);
+        error("FIXME: %s:%"PRId64" .. idx=%d, ori_pos=%d, len=%"PRIu64", off=%d\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,idx,args->fa_ori_pos,(uint64_t)args->fa_buf.l,args->fa_mod_off);
 
     // sanity check the reference base
     if ( rec->d.allele[ialt][0]=='<' )
     {
         if ( strcasecmp(rec->d.allele[ialt], "<DEL>") )
-            error("Symbolic alleles other than <DEL> are currently not supported: %s at %s:%d\n",rec->d.allele[ialt],bcf_seqname(args->hdr,rec),rec->pos+1);
+            error("Symbolic alleles other than <DEL> are currently not supported: %s at %s:%"PRId64"\n",rec->d.allele[ialt],bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         assert( rec->d.allele[0][1]==0 );           // todo: for now expecting strlen(REF) = 1
         len_diff = 1-rec->rlen;
         rec->d.allele[ialt] = rec->d.allele[0];     // according to VCF spec, REF must precede the event
@@ -613,11 +613,11 @@ static void apply_variant(args_t *args, bcf1_t *rec)
                 args->fa_buf.s[idx+rec->rlen] = 0;
             }
             error(
-                    "The fasta sequence does not match the REF allele at %s:%d:\n"
+                    "The fasta sequence does not match the REF allele at %s:%"PRId64":\n"
                     "   .vcf: [%s] <- (REF)\n" 
                     "   .vcf: [%s] <- (ALT)\n" 
                     "   .fa:  [%s]%c%s\n",
-                    bcf_seqname(args->hdr,rec),rec->pos+1, rec->d.allele[0], rec->d.allele[ialt], args->fa_buf.s+idx, 
+                    bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1, rec->d.allele[0], rec->d.allele[ialt], args->fa_buf.s+idx,
                     tmp?tmp:' ',tmp?args->fa_buf.s+idx+rec->rlen+1:""
                  );
         }

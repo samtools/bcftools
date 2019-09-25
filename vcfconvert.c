@@ -31,6 +31,7 @@ THE SOFTWARE.  */
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <inttypes.h>
 #include <htslib/faidx.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
@@ -942,9 +943,9 @@ static void vcf_to_haplegendsample(args_t *args)
         if (legend_fname) {
             str.l = 0;
             if ( args->output_vcf_ids && (line->d.id[0]!='.' || line->d.id[1]!=0) )
-                ksprintf(&str, "%s %d %s %s\n", line->d.id, line->pos+1, line->d.allele[0], line->d.allele[1]);
+                ksprintf(&str, "%s %"PRId64" %s %s\n", line->d.id, (int64_t) line->pos+1, line->d.allele[0], line->d.allele[1]);
             else
-                ksprintf(&str, "%s:%d_%s_%s %d %s %s\n", bcf_seqname(args->header, line), line->pos+1, line->d.allele[0], line->d.allele[1], line->pos+1, line->d.allele[0], line->d.allele[1]);
+                ksprintf(&str, "%s:%"PRId64"_%s_%s %"PRId64" %s %s\n", bcf_seqname(args->header, line), (int64_t) line->pos+1, line->d.allele[0], line->d.allele[1], (int64_t) line->pos+1, line->d.allele[0], line->d.allele[1]);
 
             // write legend file
             ret = bgzf_write(lout, str.s, str.l);
@@ -1145,7 +1146,7 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
 
     int len;
     char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(args->header,rec->rid), rec->pos, rec->pos, &len);
-    if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(args->header,rec->rid), rec->pos+1);
+    if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_hdr_id2name(args->header,rec->rid),(int64_t) rec->pos+1);
 
     int nals = 1, alleles[5] = { -1, -1, -1, -1, -1 };    // a,c,g,t,n
     ref[0] = toupper(ref[0]);
@@ -1160,10 +1161,10 @@ static int tsv_setter_aa(tsv_t *tsv, bcf1_t *rec, void *usr)
         if ( i>0 )
         {
             ret = tsv_next(tsv);
-            if ( ret==-1 ) error("Too few columns for %d samples at %s:%d\n", rec->n_sample,bcf_hdr_id2name(args->header,rec->rid), rec->pos+1);
+            if ( ret==-1 ) error("Too few columns for %d samples at %s:%"PRId64"\n", rec->n_sample,bcf_hdr_id2name(args->header,rec->rid),(int64_t) rec->pos+1);
         }
         ret = tsv_setter_aa1(args, tsv->ss, tsv->se, alleles, &nals, iref, args->gts+i*2);
-        if ( ret==-1 ) error("Error parsing the site %s:%d, expected two characters\n", bcf_hdr_id2name(args->header,rec->rid), rec->pos+1);
+        if ( ret==-1 ) error("Error parsing the site %s:%"PRId64", expected two characters\n", bcf_hdr_id2name(args->header,rec->rid),(int64_t) rec->pos+1);
         if ( ret==-2 ) 
         {
             // something else than a SNP
@@ -1355,7 +1356,7 @@ static void gvcf_to_vcf(args_t *args)
         {
             line->pos = pos;
             char *ref = faidx_fetch_seq(args->ref, (char*)bcf_hdr_id2name(hdr,line->rid), line->pos, line->pos, &len);
-            if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(hdr,line->rid), line->pos+1);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_hdr_id2name(hdr,line->rid),(int64_t) line->pos+1);
             strncpy(line->d.allele[0],ref,len);
             if ( bcf_write(out_fh,hdr,line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
             free(ref);

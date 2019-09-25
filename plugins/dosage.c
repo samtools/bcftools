@@ -27,6 +27,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/vcf.h>
 #include <math.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include "bcftools.h"
 
 
@@ -190,7 +191,7 @@ int calc_dosage_GT(bcf1_t *rec)
         {
             if ( ptr[j]==bcf_int32_vector_end || bcf_gt_is_missing(ptr[j]) ) break;
             int idx = bcf_gt_allele(ptr[j]);
-            if ( idx > rec->n_allele ) error("The allele index is out of range at %s:%d\n", bcf_seqname(in_hdr,rec),rec->pos+1);
+            if ( idx > rec->n_allele ) error("The allele index is out of range at %s:%"PRId64"\n", bcf_seqname(in_hdr,rec),(int64_t) rec->pos+1);
             dsg[idx] += 1;
         }
         if ( !j )
@@ -303,7 +304,7 @@ bcf1_t *process(bcf1_t *rec)
 {
     int i,j, ret;
 
-    printf("%s\t%d\t%s", bcf_seqname(in_hdr,rec),rec->pos+1,rec->d.allele[0]);
+    printf("%s\t%"PRId64"\t%s", bcf_seqname(in_hdr,rec),(int64_t) rec->pos+1,rec->d.allele[0]);
     if ( rec->n_allele == 1 ) printf("\t.");
     else for (i=1; i<rec->n_allele; i++) printf("%c%s", i==1?'\t':',', rec->d.allele[i]);
     if ( rec->n_allele==1 )

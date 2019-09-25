@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/bgzf.h>
@@ -569,7 +570,7 @@ static int get_primary_transcript(args_t *args, bcf1_t *rec, cols_t *cols_tr)   
     {
         args->cols_csq = cols_split(cols_tr->off[i], args->cols_csq, '|');
         if ( args->primary_id >= args->cols_csq->n )
-            error("Too few columns at %s:%d .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),rec->pos+1,args->primary_id,args->cols_csq->n);
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->primary_id,args->cols_csq->n);
         if ( !strcmp("YES",args->cols_csq->off[args->primary_id]) ) return i;
     }
     return -1;
@@ -581,7 +582,7 @@ static int get_worst_transcript(args_t *args, bcf1_t *rec, cols_t *cols_tr)     
     {
         args->cols_csq = cols_split(cols_tr->off[i], args->cols_csq, '|');
         if ( args->csq_idx >= args->cols_csq->n )
-            error("Too few columns at %s:%d .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),rec->pos+1,args->csq_idx,args->cols_csq->n);
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,args->cols_csq->n);
         char *csq = args->cols_csq->off[args->csq_idx];
 
         int min, max;
@@ -660,7 +661,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     {
         args->cols_csq = cols_split(args->cols_tr->off[i], args->cols_csq, '|');
         if ( args->csq_idx >= args->cols_csq->n )
-            error("Too few columns at %s:%d .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),rec->pos+1,args->csq_idx,args->cols_csq->n);
+            error("Too few columns at %s:%"PRId64" .. %d (Consequence) >= %d\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->csq_idx,args->cols_csq->n);
 
         char *csq = args->cols_csq->off[args->csq_idx];
         if ( !csq_severity_pass(args, csq) ) continue;
@@ -673,7 +674,7 @@ static void process_record(args_t *args, bcf1_t *rec)
             {
                 if ( !too_few_fields_warned )
                 {
-                    fprintf(stderr, "Warning: fewer %s fields than expected at %s:%d, filling with dots. This warning is printed only once.\n", args->vep_tag,bcf_seqname(args->hdr,rec),rec->pos+1);
+                    fprintf(stderr, "Warning: fewer %s fields than expected at %s:%"PRId64", filling with dots. This warning is printed only once.\n", args->vep_tag,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                     too_few_fields_warned = 1;
                 }
                 annot_append(ann, ".");

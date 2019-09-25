@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -301,7 +302,7 @@ static int process_record(args_t *args, bcf1_t *rec)
             {
                 if ( !warned )
                 {
-                    fprintf(stderr,"Too many alleles (>32) at %s:%d, skipping the site.\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+                    fprintf(stderr,"Too many alleles (>32) at %s:%"PRId64", skipping the site.\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                     warned = 1;
                 }
                 args->nskipped++;
@@ -340,7 +341,7 @@ static int process_record(args_t *args, bcf1_t *rec)
             {
                 if ( !warned )
                 {
-                    fprintf(stderr,"Too many alleles (>32) at %s:%d, skipping. (todo?)\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+                    fprintf(stderr,"Too many alleles (>32) at %s:%"PRId64", skipping. (todo?)\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                     warned = 1;
                 }
                 args->nskipped++;

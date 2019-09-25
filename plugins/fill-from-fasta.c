@@ -26,6 +26,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdlib.h>
 #include <strings.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <htslib/vcf.h>
 #include <htslib/faidx.h>
 #include <htslib/kseq.h>
@@ -182,7 +183,7 @@ bcf1_t *process(bcf1_t *rec)
     // could be sped up here by fetching the whole chromosome? could assume
     // sorted, but revert to this when non-sorted records found?
     char *fa = faidx_fetch_seq(faidx, bcf_seqname(in_hdr,rec), rec->pos, rec->pos+ref_len-1, &fa_len);
-    if ( !fa ) error("faidx_fetch_seq failed at %s:%d\n", bcf_hdr_id2name(in_hdr,rec->rid), rec->pos+1);
+    if ( !fa ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_hdr_id2name(in_hdr,rec->rid),(int64_t) rec->pos+1);
     for (i=0; i<fa_len; i++)
         if ( (int)fa[i]>96 ) fa[i] -= 32;
 

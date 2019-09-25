@@ -170,12 +170,12 @@ bcf1_t *process(bcf1_t *rec)
         if ( dosage==1 )
         {
             args->prob_dist[iRA]++;
-            if ( list_RA ) printf("GT\t%s\t%d\t%s\t1\t%f\n",chr,rec->pos+1,args->hdr->samples[i],pRA);
+            if ( list_RA ) printf("GT\t%s\t%"PRId64"\t%s\t1\t%f\n",chr,(int64_t) rec->pos+1,args->hdr->samples[i],pRA);
         }
         else if ( dosage==2 )
         {
             args->prob_dist[iAA]++;
-            if ( list_AA ) printf("GT\t%s\t%d\t%s\t2\t%f\n",chr,rec->pos+1,args->hdr->samples[i],pAA);
+            if ( list_AA ) printf("GT\t%s\t%"PRId64"\t%s\t2\t%f\n",chr,(int64_t) rec->pos+1,args->hdr->samples[i],pAA);
         }
     }
 

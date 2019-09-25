@@ -302,7 +302,7 @@ static int fake_PLs(args_t *args, bcf_hdr_t *hdr, bcf1_t *line)
     int fake_PL = args->no_PLs ? args->no_PLs : 99;    // with 1, discordance is the number of non-matching GTs
     int nsm_gt, i;
     if ( (nsm_gt=bcf_get_genotypes(hdr, line, &args->tmp_arr, &args->ntmp_arr)) <= 0 )
-        error("GT not present at %s:%d?\n", hdr->id[BCF_DT_CTG][line->rid].key, line->pos+1);
+        error("GT not present at %s:%"PRId64"?\n", hdr->id[BCF_DT_CTG][line->rid].key, (int64_t) line->pos+1);
     nsm_gt /= bcf_hdr_nsamples(hdr);
     int npl = line->n_allele*(line->n_allele+1)/2;
     hts_expand(int,npl*bcf_hdr_nsamples(hdr),args->npl_arr,args->pl_arr);
@@ -399,7 +399,7 @@ static void check_gt(args_t *args)
         // Target genotypes
         int ngt, npl;
         if ( (ngt=bcf_get_genotypes(args->gt_hdr, gt_line, &gt_arr, &ngt_arr)) <= 0 )
-            error("GT not present at %s:%d?", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
+            error("GT not present at %s:%"PRId64"?", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, (int64_t) gt_line->pos+1);
         ngt /= bcf_hdr_nsamples(args->gt_hdr);
         if ( ngt!=2 ) continue; // checking only diploid genotypes
 
@@ -415,7 +415,7 @@ static void check_gt(args_t *args)
                     npl = fake_PLs(args, args->sm_hdr, sm_line);
                 }
                 else
-                    error("PL not present at %s:%d?\n", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, sm_line->pos+1);
+                    error("PL not present at %s:%"PRId64"?\n", args->sm_hdr->id[BCF_DT_CTG][sm_line->rid].key, (int64_t) sm_line->pos+1);
             }
             else
                 npl /= bcf_hdr_nsamples(args->sm_hdr);
@@ -460,7 +460,7 @@ static void check_gt(args_t *args)
             int a = bcf_gt_allele(gt_ptr[0]);
             int b = bcf_gt_allele(gt_ptr[1]);
             if ( args->hom_only && a!=b ) continue; // heterozygous genotype
-            fprintf(fp, "SC\t%s\t%d", args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, gt_line->pos+1);
+            fprintf(fp, "SC\t%s\t%"PRId64, args->gt_hdr->id[BCF_DT_CTG][gt_line->rid].key, (int64_t) gt_line->pos+1);
             for (i=0; i<gt_line->n_allele; i++) fprintf(fp, "%c%s", i==0?'\t':',', gt_line->d.allele[i]);
             fprintf(fp, "\t%s/%s", a>=0 ? gt_line->d.allele[a] : ".", b>=0 ? gt_line->d.allele[b] : ".");
             fprintf(fp, "\t%f", args->lks[query_isample]-prev_lk);

@@ -29,6 +29,7 @@
 #include <strings.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/kseq.h>
 #include <htslib/vcf.h>
@@ -446,7 +447,7 @@ bcf1_t *process(bcf1_t *rec)
                 nals++; \
                 \
                 if ( idx >= rec->n_allele ) \
-                    error("Incorrect allele (\"%d\") in %s at %s:%d\n",idx,args->in_hdr->samples[i],bcf_seqname(args->in_hdr,rec),rec->pos+1); \
+                    error("Incorrect allele (\"%d\") in %s at %s:%"PRId64"\n",idx,args->in_hdr->samples[i],bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1); \
                 if ( !kbs_exists(args->bset, idx) ) nbits++; \
                 kbs_insert(args->bset, idx); \
             } \
@@ -467,7 +468,7 @@ bcf1_t *process(bcf1_t *rec)
         case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
         case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
         case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
-        default: error("The GT type is not recognised: %d at %s:%d\n",fmt_gt->type, bcf_seqname(args->in_hdr,rec),rec->pos+1); break;
+        default: error("The GT type is not recognised: %d at %s:%"PRId64"\n",fmt_gt->type, bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1); break;
     }
     #undef BRANCH_INT
 
@@ -478,7 +479,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "NS%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,&args->pop[i].ns,1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AN )
@@ -493,7 +494,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AN%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,&an,1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & (SET_AF | SET_MAF) )
@@ -519,7 +520,7 @@ bcf1_t *process(bcf1_t *rec)
                 args->str.l = 0;
                 ksprintf(&args->str, "AF%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
             if ( args->tags & SET_MAF )
             {
@@ -531,7 +532,7 @@ bcf1_t *process(bcf1_t *rec)
                 args->str.l = 0;
                 ksprintf(&args->str, "MAF%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
         }
     }
@@ -549,7 +550,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AC_Het )
@@ -566,7 +567,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC_Het%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AC_Hom )
@@ -583,7 +584,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC_Hom%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AC_Hemi && rec->n_allele > 1 )
@@ -600,7 +601,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC_Hemi%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & (SET_HWE|SET_ExcHet) )
@@ -631,14 +632,14 @@ bcf1_t *process(bcf1_t *rec)
                 args->str.l = 0;
                 ksprintf(&args->str, "HWE%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,fhwe,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
             if ( args->tags & SET_ExcHet )
             {
                 args->str.l = 0;
                 ksprintf(&args->str, "ExcHet%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,fexc_het,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
         }
     }
