@@ -683,10 +683,16 @@ int main_plugin(int argc, char *argv[])
     char *fname = NULL;
     if ( optind>=argc || argv[optind][0]=='-' )
     {
-        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
-        else usage(args);
         args->plugin.argc = argc - optind + 1;
         args->plugin.argv = argv + optind - 1;
+
+        if ( !isatty(fileno((FILE *)stdin)) ) fname = "-";  // reading from stdin
+        else if ( optind>=argc ) usage(args);
+        else
+        {
+            optind = 1;
+            init_plugin(args);
+        }
     }
     else
     {
