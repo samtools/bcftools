@@ -55,6 +55,7 @@ const char *usage(void)
 "   -h, --header-lines <file>   optional file containing header lines to append\n"
 "   -i, --include <expr>        annotate only records passing filter expression\n"
 "   -e, --exclude <expr>        annotate only records failing filter expression\n"
+"   -N, --replace-non-ACGTN     replace non-ACGTN characters with N\n"
 
 "\n"
 "Examples:\n"
@@ -75,6 +76,7 @@ bcf_hdr_t *in_hdr = NULL, *out_hdr = NULL;
 faidx_t *faidx;
 int anno = 0;
 char *column = NULL;
+int replace_nonACGTN = 0;
 
 #define ANNO_REF 1
 #define ANNO_STRING 2
@@ -93,6 +95,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     char *ref_fname = NULL, *header_fname = NULL;
     static struct option loptions[] =
     {
+        {"replace-non-ACGTN",no_argument,NULL,'N'},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"column",required_argument,NULL,'c'},
@@ -100,12 +103,13 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"header-lines",required_argument,NULL,'h'},
         {NULL,0,NULL,0}
     };
-    while ((c = getopt_long(argc, argv, "c:f:?h:i:e:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "c:f:?h:i:e:N",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case 'e': filter_str = optarg; filter_logic |= FLT_EXCLUDE; break;
             case 'i': filter_str = optarg; filter_logic |= FLT_INCLUDE; break;
+            case 'N': replace_nonACGTN = 1; break;
             case 'c': column = optarg; break;
             case 'f': ref_fname = optarg; break;
             case 'h': header_fname = optarg; break;
@@ -185,7 +189,10 @@ bcf1_t *process(bcf1_t *rec)
     char *fa = faidx_fetch_seq(faidx, bcf_seqname(in_hdr,rec), rec->pos, rec->pos+ref_len-1, &fa_len);
     if ( !fa ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_hdr_id2name(in_hdr,rec->rid),(int64_t) rec->pos+1);
     for (i=0; i<fa_len; i++)
+    {
         if ( (int)fa[i]>96 ) fa[i] -= 32;
+        if ( replace_nonACGTN && fa[i]!='A' && fa[i]!='C' && fa[i]!='G' && fa[i]!='T' && fa[i]!='N' ) fa[i] = 'N';
+    }
 
     assert(ref_len == fa_len);
     if (anno==ANNO_REF)
