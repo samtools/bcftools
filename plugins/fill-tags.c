@@ -252,7 +252,7 @@ void ftf_destroy(args_t *args)
 int ftf_sum(args_t *args, bcf1_t *rec, ftf_t *ftf)
 {
     int nsmpl = bcf_hdr_nsamples(args->in_hdr);
-    int nval = bcf_get_format_int32(args->in_hdr, rec, ftf->src_tag, &args->iarr, &args->niarr);
+    int nval = bcf_get_format_int32(args->in_hdr, rec, ftf->src_tag, &args->iarr, &args->miarr);
     if ( nval<=0 ) return 0;
     nval /= nsmpl;
 
@@ -321,23 +321,18 @@ int parse_func(args_t *args, char *tag, char *expr)
     {
         args->str.l = 0;
         ksprintf(&args->str, "%s%s", ftf->dst_tag,args->pop[i].suffix);
-        id = bcf_hdr_id2int(args->out_hdr,BCF_DT_ID,args->str.s);
-        if ( bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_FMT,id) )
+        id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,args->str.s);
+        if ( bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
         {
-            if ( bcf_hdr_id2length(args->out_hdr,BCF_HL_FMT,id)!=BCF_VL_FIXED )
+            if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_FMT,id)!=BCF_VL_FIXED )
                 error("Error: the field INFO/%s already exists with a definition different from Number=1\n",args->str.s);
-            if ( bcf_hdr_id2number(args->out_hdr,BCF_HL_FMT,id)!=1 )
+            if ( bcf_hdr_id2number(args->in_hdr,BCF_HL_FMT,id)!=1 )
                 error("Error: the field INFO/%s already exists with a definition different from Number=1\n",args->str.s);
-            if ( bcf_hdr_id2type(args->out_hdr,BCF_HT_INT,id)!=BCF_HT_INT )
+            if ( bcf_hdr_id2type(args->in_hdr,BCF_HT_INT,id)!=BCF_HT_INT )
                 error("Error: the field INFO/%s already exists with a definition different from Type=Integer\n",args->str.s);
         }
         else
-        {   
-            kstring_t str = {0,0,0};
-            ksprintf(&str,"##INFO=<ID=%s%%s,Number=1,Type=Integer,Description=\"%s\">",args->str.s,tag);
-            hdr_append(args, str.s);
-            free(str.s);
-        }
+            bcf_hdr_printf(args->out_hdr, "##INFO=<ID=%s,Number=1,Type=Integer,Description=\"%s%s%s\">",args->str.s,tag,*args->pop[i].name ? " in " : "",args->pop[i].name);
     }
     return SET_FUNC;
 }
