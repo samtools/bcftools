@@ -791,6 +791,7 @@ void destroy(void)
     free(args->iarr);
     free(args->farr);
     free(args->hwe_probs);
+    ftf_destroy(args);
     free(args);
 }
 

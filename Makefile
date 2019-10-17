@@ -314,14 +314,14 @@ install: $(PROGRAMS) $(PLUGINS)
 	$(INSTALL_PROGRAM) $(PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_SCRIPT) $(MISC_SCRIPTS) $(DESTDIR)$(misc_bindir)
 	$(INSTALL_MAN) doc/bcftools.1 $(DESTDIR)$(man1dir)
-	$(INSTALL_PROGRAM) plugins/*.so $(DESTDIR)$(plugindir)
+	$(INSTALL_PROGRAM) plugins/*$(PLUGIN_EXT) $(DESTDIR)$(plugindir)
 
 clean: testclean clean-plugins
-	-rm -f gmon.out *.o *.a *~ $(PROGRAMS) version.h plugins/*.so plugins/*.P
-	-rm -rf *.dSYM plugins/*.dSYM test/*.dSYM
+	-rm -f gmon.out *.o *.a *~ $(PROGRAMS) version.h
+	-rm -rf *.dSYM test/*.dSYM
 
 clean-plugins:
-	-rm -f plugins/*.so plugins/*.P plugins/*.dll
+	-rm -f plugins/*$(PLUGIN_EXT) plugins/*.P
 	-rm -rf plugins/*.dSYM
 
 testclean:
