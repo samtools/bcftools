@@ -1203,7 +1203,7 @@ int main_vcfroh(int argc, char *argv[])
         }
     }
     if ( !args->output_fname ) args->output_fname = "stdout";
-    if ( !args->output_type ) args->output_type = OUTPUT_ST|OUTPUT_RG;
+    if ( !args->output_type || args->output_type==OUTPUT_GZ ) args->output_type |= OUTPUT_ST|OUTPUT_RG;
     char *fname = NULL;
     if ( optind==argc )
     {
