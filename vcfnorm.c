@@ -1848,7 +1848,7 @@ static void usage(void)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -c, --check-ref <e|w|x|s>         check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [e]\n");
     fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
-    fprintf(stderr, "    -d, --rm-dup <type>               remove duplicate snps|indels|both|all|none\n");
+    fprintf(stderr, "    -d, --rm-dup <type>               remove duplicate snps|indels|both|all|exact\n");
     fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence (MANDATORY)\n");
     fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --no-version                  do not append version and command line to the header\n");
@@ -1915,6 +1915,7 @@ int main_vcfnorm(int argc, char *argv[])
                 else if ( !strcmp("all",optarg) ) args->rmdup = BCF_SR_PAIR_ANY;
                 else if ( !strcmp("any",optarg) ) args->rmdup = BCF_SR_PAIR_ANY;
                 else if ( !strcmp("none",optarg) ) args->rmdup = BCF_SR_PAIR_EXACT;
+                else if ( !strcmp("exact",optarg) ) args->rmdup = BCF_SR_PAIR_EXACT;
                 else error("The argument to -d not recognised: %s\n", optarg);
                 break;
             case 'm':

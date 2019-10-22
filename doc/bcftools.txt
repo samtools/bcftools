@@ -1911,9 +1911,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     <http://samtools.github.io/bcftools/howtos/plugin.af-dist.html> and
     <http://samtools.github.io/bcftools/howtos/plugin.fixref.html>.)
 
-*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'none'::
-    If a record is present multiple times, output only the first instance,
-    see *--collapse* in *<<common_options,Common Options>>*.
+*-d, --rm-dup* 'snps'|'indels'|'both'|'all'|'exact'::
+    If a record is present multiple times, output only the first instance.
+    See also *--collapse* in *<<common_options,Common Options>>*.
 
 *-D, --remove-duplicates*::
     If a record is present in multiple files, output only the first instance.
