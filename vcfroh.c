@@ -161,7 +161,7 @@ static void init_data(args_t *args)
         if ( !strncmp("GT,",args->estimate_AF,3) ) args->estimate_AF += 3;
         else if ( !strncmp("PL,",args->estimate_AF,3) ) { args->estimate_AF += 3; args->af_from_PL = 1; }
         if ( strcmp("-",args->estimate_AF) )
-            args->af_smpl = smpl_ilist_init(args->hdr, args->estimate_AF, 1, SMPL_NONE);
+            args->af_smpl = smpl_ilist_init(args->hdr, args->estimate_AF, 1, SMPL_NONE|SMPL_VERBOSE);
     }
 
     if ( args->estimate_AF || args->fake_PLs )
@@ -186,7 +186,7 @@ static void init_data(args_t *args)
             error("Error: The FORMAT/GT tag not found in the header\n");
     }
 
-    args->roh_smpl = smpl_ilist_init(args->hdr, args->samples, args->samples_is_file, SMPL_NONE);
+    args->roh_smpl = smpl_ilist_init(args->hdr, args->samples, args->samples_is_file, SMPL_NONE|SMPL_VERBOSE);
     if ( args->samples )
     {
         // we may be able to subset to a few samples, for a text VCF this can be a major speedup

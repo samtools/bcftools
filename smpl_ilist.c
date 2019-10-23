@@ -83,7 +83,11 @@ smpl_ilist_t *smpl_ilist_init(bcf_hdr_t *hdr, char *sample_list, int is_file, in
         int idx = bcf_hdr_id2int(hdr, BCF_DT_SAMPLE, smpl_name);
         if ( idx<0 )
         {
-            if ( !(flags&SMPL_STRICT) ) continue;
+            if ( !(flags&SMPL_STRICT) )
+            {
+                if ( flags&SMPL_VERBOSE ) fprintf(stderr,"No such sample: \"%s\"\n",smpl_name);
+                continue;
+            }
             error("No such sample: \"%s\"\n", smpl_name);
         }
 

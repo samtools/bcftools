@@ -30,11 +30,12 @@
 
 #include <htslib/vcf.h>
 
-#define SMPL_NONE   0   // flexible error recovery
-#define SMPL_STRICT 1   // samples must exist
-#define SMPL_SINGLE 2   // single sample expected
-#define SMPL_PAIR1  4   // two samples expected, the first is from the bcf hdr
-#define SMPL_PAIR2  8   // two samples expected, the second is from the bcf hdr
+#define SMPL_NONE     0   // flexible error recovery
+#define SMPL_STRICT   1   // samples must exist
+#define SMPL_SINGLE   2   // single sample expected
+#define SMPL_PAIR1    4   // two samples expected, the first is from the bcf hdr
+#define SMPL_PAIR2    8   // two samples expected, the second is from the bcf hdr
+#define SMPL_VERBOSE 16   // print warnings 
 
 typedef struct
 {
