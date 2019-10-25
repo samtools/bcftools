@@ -346,7 +346,7 @@ int parse_tags(args_t *args, const char *str)
     {
         if ( !strcasecmp(tags[i],"all") )
         {
-            for (j=0; j<=10; j++) args->tags |= 1<<j;
+            for (j=0; j<=10; j++) flag |= 1<<j;
         }
         else if ( !strcasecmp(tags[i],"AN") ) flag |= SET_AN;
         else if ( !strcasecmp(tags[i],"AC") ) flag |= SET_AC;
