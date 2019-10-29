@@ -1,6 +1,6 @@
 /*  vcfconcat.c -- Concatenate or combine VCF/BCF files.
 
-    Copyright (C) 2013-2015 Genome Research Ltd.
+    Copyright (C) 2013-2019 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -35,7 +35,7 @@ THE SOFTWARE.  */
 #include <htslib/bgzf.h>
 #include <htslib/tbx.h> // for hts_get_bgzfp()
 #include <htslib/thread_pool.h>
-#include <time.h>
+#include <sys/time.h>
 #include "bcftools.h"
 
 typedef struct _args_t
@@ -527,7 +527,7 @@ static void concat(args_t *args)
     }
     else    // concatenating
     {
-        struct timespec t0, t1;
+        struct timeval t0, t1;
         kstring_t tmp = {0,0,0};
         int prev_chr_id = -1, prev_pos;
         bcf1_t *line = bcf_init();
@@ -536,7 +536,7 @@ static void concat(args_t *args)
             if ( args->verbose )
             {
                 fprintf(stderr,"Concatenating %s", args->fnames[i]);
-                clock_gettime(CLOCK_MONOTONIC, &t0);
+                gettimeofday(&t0, NULL);
             }
             htsFile *fp = hts_open(args->fnames[i], "r"); if ( !fp ) error("\nFailed to open: %s\n", args->fnames[i]);
             if ( args->n_threads ) hts_set_opt(fp, HTS_OPT_THREAD_POOL, args->tpool);
@@ -596,8 +596,8 @@ static void concat(args_t *args)
             hts_close(fp);
             if ( args->verbose )
             {
-                clock_gettime(CLOCK_MONOTONIC, &t1);
-                double delta = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_nsec - t0.tv_nsec) / 1e3;
+                gettimeofday(&t1, NULL);
+                double delta = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_usec - t0.tv_usec);
                 fprintf(stderr,"\t%f seconds\n",delta/1e6);
             }
         }
@@ -739,7 +739,7 @@ static void naive_concat(args_t *args)
     // only compressed BCF atm
     BGZF *bgzf_out = bgzf_open(args->output_fname,"w");;
 
-    struct timespec t0, t1;
+    struct timeval t0, t1;
     const size_t page_size = BGZF_MAX_BLOCK_SIZE;
     uint8_t *buf = (uint8_t*) malloc(page_size);
     kstring_t tmp = {0,0,0};
@@ -749,7 +749,7 @@ static void naive_concat(args_t *args)
         if ( args->verbose )
         {
             fprintf(stderr,"Concatenating %s", args->fnames[i]);
-            clock_gettime(CLOCK_MONOTONIC, &t0);
+            gettimeofday(&t0, NULL);
         }
         htsFile *hts_fp = hts_open(args->fnames[i],"r");
         if ( !hts_fp ) error("\nFailed to open: %s\n", args->fnames[i]);
@@ -820,8 +820,8 @@ static void naive_concat(args_t *args)
         if (hts_close(hts_fp)) error("\nClose failed: %s\n",args->fnames[i]);
         if ( args->verbose )
         {
-            clock_gettime(CLOCK_MONOTONIC, &t1);
-            double delta = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_nsec - t0.tv_nsec) / 1e3;
+            gettimeofday(&t1, NULL);
+            double delta = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_usec - t0.tv_usec);
             fprintf(stderr,"\t%f seconds\n",delta/1e6);
         }
     }
