@@ -245,7 +245,7 @@ static void init_data(args_t *args)
         char tmp = *ep;
         *ep = 0;
         args->nfield++;
-        args->field = realloc(args->field,args->nfield*sizeof(*args->field));
+        args->field = (char**)realloc(args->field,args->nfield*sizeof(*args->field));
         args->field[args->nfield-1] = strdup(bp);
         if ( !tmp ) break;
         ep++;
@@ -299,7 +299,7 @@ static void init_data(args_t *args)
 
             int olen = args->column_str ? strlen(args->column_str) : 0;
             int nlen = strlen(ptr) - 1;
-            args->column_str = realloc(args->column_str, olen + nlen + 2);
+            args->column_str = (char*)realloc(args->column_str, olen + nlen + 2);
             if ( olen )
             {
                 memcpy(args->column_str+olen,",",1);
@@ -345,7 +345,7 @@ static void init_data(args_t *args)
 
             i = args->nannot;
             args->nannot += idx_end - idx_beg + 1;
-            column = realloc(column,args->nannot*sizeof(*column));
+            column = (int*)realloc(column,args->nannot*sizeof(*column));
             for (j=idx_beg; j<=idx_end; j++)
             {
                 if ( j >= args->nfield ) error("The index is too big: %d\n", j);
