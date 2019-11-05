@@ -24,6 +24,8 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from __future__ import print_function
+
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -33,8 +35,9 @@ import csv
 csv.register_dialect('tab', delimiter='\t', quoting=csv.QUOTE_NONE)
 
 if len(sys.argv) != 3:
-    print >> sys.stderr, 'About: Plot output of "bcftools +guess-ploidy -v"'
-    print >> sys.stderr, 'Usage: guess-ploidy.py <guess-ploidy.out> <image-prefix>'
+    print("""\
+About: Plot output of "bcftools +guess-ploidy -v"
+Usage: guess-ploidy.py <guess-ploidy.out> <image-prefix>""", file = sys.stderr)
     sys.exit()
 
 prefix = sys.argv[2]
