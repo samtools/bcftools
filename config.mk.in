@@ -50,7 +50,8 @@ PERL_LIBS = @PERL_LIBS@
 
 PLATFORM   = @PLATFORM@
 PLUGINS_ENABLED = @enable_bcftools_plugins@
-plugindir = @bcf_plugindir@
+plugindir  = @bcf_plugindir@
+pluginpath = @bcf_pluginpath@
 PLUGIN_EXT = @PLUGIN_EXT@
 
 @Hsource@HTSDIR = @HTSDIR@
