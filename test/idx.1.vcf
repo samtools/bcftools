@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,length=133851895>
+##reference=file://hs37d5.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	9	rs1_9_GGG_G	GGG	G	.	.	.
+1	9	rs1_9_G_T	G	T	.	.	.
+1	10	rs1_10_GGG_T	GGG	T	.	.	.
+1	10	rs1_10_G_T	G	T	.	.	.
+1	15	rs1_15_G_T	G	T	.	.	.

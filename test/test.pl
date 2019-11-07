@@ -53,6 +53,10 @@ test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.both.out',args=>'-n =2
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.any.out',args=>'-n =2 -c any');
 test_vcf_isec($opts,in=>['isec.a','isec.b'],out=>'isec.ab.C.out',args=>'-C -c any');
 test_vcf_isec2($opts,vcf_in=>['isec.a'],tab_in=>'isec',out=>'isec.tab.out',args=>'');
+test_vcf_isec($opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1.3'],out=>'isec-miss.1.1.out',args=>'-n +1 -r 20:100,20:140,12:55,20:140,20:100');
+test_vcf_isec($opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1.3'],out=>'isec-miss.1.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
+test_vcf_isec($opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-n +1 -r 20:100,20:140,12:55,20:140,20:100');
+test_vcf_isec($opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.out',args=>'--force-samples');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.2.out',args=>'--force-samples -Fx');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.3.out',args=>'--force-samples -0');
@@ -215,6 +219,11 @@ test_vcf_view($opts,in=>'view.filter',out=>'view.filter.4.out',args=>q[-H -i'FMT
 test_vcf_view($opts,in=>'view.filter',out=>'view.filter.5.out',args=>q[-H -i'TXT0="text"'],reg=>'');
 test_vcf_view($opts,in=>'view.chrs',out=>'view.chrs.out',args=>'',reg=>'',tgts=>'view.chrs.tab');
 test_vcf_view($opts,in=>'filter.2',out=>'filter.11.out',args=>q[-i 'POS>=3062917'],reg=>'1:3062917-3157410');
+test_vcf_view($opts,in=>'idx.1',out=>'idx.1.out',args=>q[-H -r 1:10,1:12,1:10]);
+test_vcf_view($opts,in=>'idx.2',out=>'idx.2.out',args=>q[-H -r 1:1172777-1172804,1:1172806-1172808]);
+test_vcf_view($opts,in=>'idx.2',out=>'idx.2.out',args=>q[-H -R {PATH}/idx.2.bed]);
+test_vcf_view($opts,in=>'idx.3',out=>'idx.3.out',args=>q[-H -R {PATH}/idx.3.bed]);
+test_vcf_view($opts,in=>'idx.4',out=>'idx.4.out',args=>q[-H -R {PATH}/idx.4.bed]);
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.6.out',args=>q[-S. -e'TXT0="text"'],reg=>'');
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.7.out',args=>q[-S. -e'FMT/FRS[*:1]="BB"'],reg=>'');
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.8.out',args=>q[-S. -e'FMT/FGS[*:0]="AAAAAA"'],reg=>'');
@@ -845,6 +854,7 @@ sub test_vcf_isec
         push @files, "$$opts{tmp}/$file.vcf.gz";
     }
     my $files = join(' ',@files);
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec $args{args} $files");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec -Ob $args{args} $files");
 }
@@ -858,6 +868,7 @@ sub test_vcf_isec2
         push @files, "$$opts{tmp}/$file.vcf.gz";
     }
     my $files = join(' ',@files);
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
     bgzip_tabix($opts,file=>$args{tab_in},suffix=>'tab',args=>'-s 1 -b 2 -e 3');
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec --no-version  $args{args} -T $$opts{tmp}/$args{tab_in}.tab.gz $files");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools isec -Ob $args{args} -T $$opts{tmp}/$args{tab_in}.tab.gz $files | $$opts{bin}/bcftools view | grep -v ^##bcftools_");
@@ -924,7 +935,9 @@ sub test_vcf_view
     bgzip_tabix_vcf($opts,$args{in});
 
     if ( !exists($args{args}) ) { $args{args} = ''; }
+    if ( !exists($args{reg}) ) { $args{reg} = ''; }
     if ( exists($args{tgts}) ) { $args{args} .= "-T $$opts{path}/$args{tgts}"; }
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view --no-version $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg}", exp_fix=>1);
     unless ($args{args} =~ /-H/) {
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | $$opts{bin}/bcftools view | grep -v ^##bcftools_", exp_fix=>1);
