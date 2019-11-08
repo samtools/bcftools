@@ -1,5 +1,46 @@
 ## Release a.b
 
+* Numerous bug fixes, usability improvements and sanity checks were added to prevent common user errors.
+
+* The -r, --regions (and -R, --regions-file) option should never create unsorted VCFs or duplicates
+  records again. This also fixes rare cases where a spanning deletion makes a subsequent record
+  invisible to `bcftools isec` and other commands.
+
+* Additions to filterig and formatting expressions
+
+    - support for the spanning deletion alternate allele (ALT=*)
+
+    - new ILEN filtering expression to be able to filter by indel length
+
+    - new MEAN, MEDIAN, MODE, STDEV, phred filtering functions
+
+    - new formatting expression %PBINOM (phred-scaled binomial probability), %INFO (the whole INFO column),
+      %FORMAT (the whole FORMAT column), %END (end position of the REF allele), %END0 (0-based end position
+      of the REF allele), %MASK (with multiple files indicates the presence of the site in other files)
+
+* New plugins
+
+    - `+gvcfz`: compress gVCF file by resizing gVCF blocks according to specified criteria
+
+    - `+indel-stats`: collect various indel-specific statistics
+
+    - `+parental-origin`: determine parental origin of a CNV region
+
+    - `+remove-overlaps`: remove overlapping variants.
+
+    - `+split-vep`: query structured annotations such INFO/CSQ created by bcftools/csq or VEP
+
+    - `+trio-dnm`: screen variants for possible de-novo mutations in trios
+
+* `annotate`
+
+    - new -l, --merge-logic option for combining multiple overlapping regions
+
+* `call`
+
+    - new `bcftools call -G, --group-samples` option which allows to to group samples into populations and
+      apply the HWE assumption within but not across the groups.
+
 * `csq`
 
     - significant reduction of memory usage in the local -l mode for VCFs
@@ -9,13 +50,62 @@
     - fixes a small memory leak and formatting issue in FORMAT/BCSQ at
       sites with many consequences
 
-* `+dosage`: fix some serious bugs
+    - do not print protein sequence of start_lost events
+
+    - support for "start_retained" consequence
+
+    - support for symbolic insertions (ALT="<INS...>"), "feature_elongation" consequence
+
+    - new -b, --brief-predictions option to output abbreviated protein predictions.
+
+* `concat`
+
+    - the `--naive` command now checks header compatibility when concatenating multiple files
+
+* `consensus`
+
+    - add a new `-H, --haplotype 1pIu/2pIu` feature to output first/second allele for phased genotypes
+      and the IUPAC code for unphased genotypes
+
+    - new -p, --prefix option to add a prefix to sequence names on output
+
+* `+contrast`
+
+    - added support for Fisher's test probability and other annotations
+
+* `+fill-from-fasta`
+
+    - new -N, --replace-non-ACGTN option
+
+* `+dosage`
+
+    - fix some serious bugs in dosage calculation
+
+* `+fill-tags`
+
+    - extended to perform simple on-the-fly calculations such as calculating INFO/DP from FORMAT/DP.
+
+* `merge`
+
+    - add support for merging FORMAT strings
+
+    - bug fixed in gVCF merging
+
+* `mpileup`
+
+    - a new optional SCR annotation for the number of soft-clipped reads
 
 * `reheader`
 
     - new -f, --fai option for updating contig lines in the VCF header
 
+* `+trio-stats`
+
+    - extend output to include DNM homs and recurrent DNMs
+
 * VariantKey support
+
+
 
 ## Release 1.9 (18th July 2018)
 
