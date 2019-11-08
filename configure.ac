@@ -71,7 +71,7 @@ AC_ARG_WITH([bcf-plugin-path],
      no)  with_bcf_plugin_path= ;;
    esac],
   [with_bcf_plugin_path=$with_bcf_plugin_dir])
-AC_SUBST([PLUGINPATH], $with_bcf_plugin_path)
+AC_SUBST([bcf_pluginpath], $with_bcf_plugin_path)
 
 AC_ARG_ENABLE([perl-filters],
   [AS_HELP_STRING([--enable-perl-filters],
