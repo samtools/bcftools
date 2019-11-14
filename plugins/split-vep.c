@@ -98,6 +98,9 @@ typedef struct
     uint8_t *smpl_pass;                 // for filtering at sample level, used with -f
     int duplicate;              // the -d, --duplicate option is set
     char *all_fields_delim;     // the -A, --all-fields option is set
+    float *farr;                // helper arrays for bcf_update_* functions
+    int32_t *iarr;
+    int niarr,miarr, nfarr,mfarr;
 }
 args_t;
 
@@ -137,11 +140,12 @@ static const char *usage_text(void)
         "   more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
         "Usage: bcftools +split-vep [Plugin Options]\n"
         "Plugin options:\n"
-        "   -a, --annotation STR        annotation to parse [CSQ]\n"
+        "   -a, --annotation STR        INFO annotation to parse [CSQ]\n"
         "   -A, --all-fields DELIM      output all fields replacing the -a tag (\"%CSQ\" by default) in the -f\n"
         "                               filtering expression using the output field delimiter DELIM. This can be\n"
         "                               \"tab\", \"space\" or an arbitrary string.\n"
-        "   -c, --columns LIST          extract the fields listed either as indexes or names\n"
+        "   -c, --columns LIST[:type]   extract the fields listed either as indexes or names. The default type\n"
+        "                               of the new annotation is String but can be also Integer/Int or Float/Real.\n"
         "   -d, --duplicate             output per transcript/allele consequences on a new line rather rather than\n"
         "                               as comma-separated fields on a single line\n"
         "   -f, --format <string>       formatting expression, see man page for `bcftools query -f`\n"
@@ -180,6 +184,10 @@ static const char *usage_text(void)
         "\n"
         "   # Print all subfields (tab-delimited) in place of %CSQ, each consequence on a new line\n"
         "   bcftools +split-vep -f '%CHROM %POS %CSQ\\n' -d -A tab file.vcf.gz\n"
+        "\n"
+        "   # Extract gnomAD_AF subfield into a new INFO/gnomAD_AF annotation of Type=Float so that\n"
+        "   # numeric filtering can be used.\n"
+        "   bcftools +split-vep -c gnomAD_AF:Float/1 -Ou file.vcf.gz | bcftools view -i'gnomAD_AF<0.001'\n"
         "\n";
 }
 
@@ -320,36 +328,67 @@ static void init_data(args_t *args)
     if ( args->column_str )
     {
         int *column = NULL;
+        int *types  = NULL;
         ep = args->column_str;
         while ( *ep )
         {
-            char *bp = ep;
+            char *tp, *bp = ep;
             while ( *ep && *ep!=',' ) ep++;
             char tmp = *ep;
             *ep = 0;
+            int type = BCF_HT_STR;
             int idx_beg, idx_end;
             if ( khash_str2int_get(args->field2idx, bp, &idx_beg)==0 )
                 idx_end = idx_beg;
+            else if ( (tp=strrchr(bp,':')) )
+            {
+                *tp = 0;
+                if ( khash_str2int_get(args->field2idx, bp, &idx_beg)!=0 )
+                {
+                    *tp = ':';
+                    error("No such column: \"%s\"\n", bp);
+                }
+                idx_end = idx_beg;
+                *tp = ':';
+                if ( !strcasecmp(tp+1,"string") ) type = BCF_HT_STR;
+                else if ( !strcasecmp(tp+1,"float") || !strcasecmp(tp+1,"real") ) type = BCF_HT_REAL;
+                else if ( !strcasecmp(tp+1,"integer") || !strcasecmp(tp+1,"int") ) type = BCF_HT_INT;
+                else if ( !strcasecmp(tp+1,"flag") ) type = BCF_HT_FLAG;
+                else error("The type \"%s\" (or column \"%s\"?) not recognised\n", tp+1,bp);
+            }
             else
             {
                 char *mp;
                 idx_beg = strtol(bp,&mp,10);
                 if ( !*mp ) idx_end = idx_beg;
                 else if ( *mp=='-' )
-                {
                     idx_end = strtol(mp+1,&mp,10);
-                    if ( *mp ) error("No such column: \"%s\"\n", bp);
+                if ( *mp )
+                {
+                    if ( *mp==':' )
+                    {
+                        idx_end = idx_beg;
+                        if ( !strcasecmp(mp+1,"string") ) type = BCF_HT_STR;
+                        else if ( !strcasecmp(mp+1,"float") || !strcasecmp(mp+1,"real") ) type = BCF_HT_REAL;
+                        else if ( !strcasecmp(mp+1,"integer") || !strcasecmp(mp+1,"int") ) type = BCF_HT_INT;
+                        else if ( !strcasecmp(mp+1,"flag") ) type = BCF_HT_FLAG;
+                        else error("The type \"%s\" (or column \"%s\"?) not recognised\n", mp+1,bp);
+                    }
+                    else 
+                        error("No such column: \"%s\"\n", bp);
                 }
-                else error("No such column: \"%s\"\n", bp);
             }
 
             i = args->nannot;
             args->nannot += idx_end - idx_beg + 1;
             column = (int*)realloc(column,args->nannot*sizeof(*column));
+            types  = (int*)realloc(types,args->nannot*sizeof(*types));
             for (j=idx_beg; j<=idx_end; j++)
             {
                 if ( j >= args->nfield ) error("The index is too big: %d\n", j);
-                column[i++] = j;
+                column[i] = j;
+                types[i]  = type;
+                i++;
             }
             if ( !tmp ) break;
             ep++;
@@ -359,7 +398,7 @@ static void init_data(args_t *args)
         for (i=0; i<args->nannot; i++)
         {
             annot_t *ann = &args->annot[i];
-            ann->type = BCF_HT_STR;
+            ann->type = types[i];
             ann->idx = j = column[i];
             ann->field = strdup(args->field[j]);
             int clen = strlen(args->field[j]);
@@ -367,9 +406,16 @@ static void init_data(args_t *args)
             if ( len ) memcpy(ann->tag,args->annot_prefix,len);
             memcpy(ann->tag+len,ann->field,clen);
             ann->tag[len+clen] = 0;
-            bcf_hdr_printf(args->hdr_out, "##INFO=<ID=%s,Number=.,Type=String,Description=\"The %s field from INFO/%s\">", ann->tag,ann->field,args->vep_tag);
+            args->kstr.l = 0;
+            char *type = "String";
+            if ( ann->type==BCF_HT_REAL ) type = "Float";
+            else if ( ann->type==BCF_HT_INT ) type = "Integer";
+            else if ( ann->type==BCF_HT_FLAG ) type = "Flag";
+            ksprintf(&args->kstr,"##INFO=<ID=%%s,Number=.,Type=%s,Description=\"The %%s field from INFO/%%s\">",type);
+            bcf_hdr_printf(args->hdr_out, args->kstr.s, ann->tag,ann->field,args->vep_tag);
         }
         free(column);
+        free(types);
 
         if ( bcf_hdr_sync(args->hdr_out)<0 )
             error_errno("[%s] Failed to update header", __func__);
@@ -464,6 +510,8 @@ static void init_data(args_t *args)
 }
 static void destroy_data(args_t *args)
 {
+    free(args->farr);
+    free(args->iarr);
     free(args->kstr.s);
     free(args->column_str);
     free(args->format_str);
@@ -601,6 +649,56 @@ static void annot_append(annot_t *ann, char *value)
     if ( ann->str.l ) kputc(',',&ann->str);
     kputs(value, &ann->str);
 }
+static inline void parse_array_real(char *str, float **arr, int *marr, int *narr)
+{
+    char *bp = str, *ep;
+    float *ptr = *arr;
+    int i, n = 1, m = *marr;
+    for (i=0; *bp; bp++)
+        if ( *bp == ',' ) n++;
+
+    hts_expand(float*,n,m,ptr);
+
+    i = 0;
+    bp = str;
+    while ( *bp )
+    {
+        ptr[i] = strtod(bp, &ep);
+        if ( bp==ep )
+            bcf_float_set_missing(ptr[i]);
+        i++;
+        while ( *ep && *ep!=',' ) ep++;
+        bp = *ep ? ep + 1 : ep;
+    }
+    *narr = i;
+    *marr = m;
+    *arr  = ptr;
+}
+static inline void parse_array_int32(char *str, int **arr, int *marr, int *narr)
+{
+    char *bp = str, *ep;
+    int32_t *ptr = *arr;
+    int i, n = 1, m = *marr;
+    for (i=0; *bp; bp++)
+        if ( *bp == ',' ) n++;
+
+    hts_expand(int32_t*,n,m,ptr);
+
+    i = 0;
+    bp = str;
+    while ( *bp )
+    {
+        ptr[i] = strtol(bp, &ep, 10);
+        if ( bp==ep )
+            ptr[i] = bcf_int32_missing;
+        i++;
+        while ( *ep && *ep!=',' ) ep++;
+        bp = *ep ? ep + 1 : ep;
+    }
+    *narr = i;
+    *marr = m;
+    *arr  = ptr;
+}
 static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int all_missing)
 {
     int i, updated = 0;
@@ -608,7 +706,18 @@ static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int 
     {
         annot_t *ann = &args->annot[i];
         if ( !ann->str.l ) continue;
-        bcf_update_info_string(args->hdr_out,rec,ann->tag,ann->str.s);
+        if ( ann->type==BCF_HT_REAL )
+        {
+            parse_array_real(ann->str.s,&args->farr,&args->mfarr,&args->nfarr);
+            bcf_update_info_float(args->hdr_out,rec,ann->tag,args->farr,args->nfarr);
+        }
+        else if ( ann->type==BCF_HT_INT )
+        {
+            parse_array_int32(ann->str.s,&args->iarr,&args->miarr,&args->niarr);
+            bcf_update_info_int32(args->hdr_out,rec,ann->tag,args->iarr,args->niarr);
+        }
+        else
+            bcf_update_info_string(args->hdr_out,rec,ann->tag,ann->str.s);
         updated++;
     }
     if ( args->filter )
@@ -689,6 +798,7 @@ static void process_record(args_t *args, bcf1_t *rec)
                 all_missing = 0;
             }
         }
+        
         if ( args->duplicate )
         {
             filter_and_output(args, rec, severity_pass, all_missing);
