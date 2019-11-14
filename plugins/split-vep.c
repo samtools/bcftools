@@ -187,7 +187,7 @@ static const char *usage_text(void)
         "\n"
         "   # Extract gnomAD_AF subfield into a new INFO/gnomAD_AF annotation of Type=Float so that\n"
         "   # numeric filtering can be used.\n"
-        "   bcftools +split-vep -c gnomAD_AF:Float/1 -Ou file.vcf.gz | bcftools view -i'gnomAD_AF<0.001'\n"
+        "   bcftools +split-vep -c gnomAD_AF:Float -Ou file.vcf.gz | bcftools view -i'gnomAD_AF<0.001'\n"
         "\n";
 }
 
