@@ -157,6 +157,11 @@ ifeq "$(PLATFORM)" "Darwin"
 $(PLUGINS): | bcftools
 PLUGIN_FLAGS = -bundle -bundle_loader bcftools -Wl,-undefined,dynamic_lookup
 DL_LIBS =
+else ifeq "$(PLATFORM)" "CYGWIN"
+$(PLUGINS): | bcftools
+PLUGIN_FLAGS = -fPIC -shared
+PLUGIN_LIBS = libbcftools.a $(HTSLIB_DLL) $(ALL_LIBS)
+DL_LIBS = -ldl
 else ifneq "$(filter MINGW% MSYS%,$(PLATFORM))" ""
 DYNAMIC_FLAGS =
 $(PLUGINS): | bcftools
@@ -177,7 +182,7 @@ libbcftools.a: $(OBJS)
 
 vcfplugin.o: EXTRA_CPPFLAGS += -DPLUGINPATH='"$(pluginpath)"'
 
-%.dll: %.c version.h version.c libbcftools.a $(HTSLIB_DLL)
+%.dll %.cygdll: %.c version.h version.c libbcftools.a $(HTSLIB_DLL)
 	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS)
 %.so: %.c version.h version.c
 	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(LIBS)

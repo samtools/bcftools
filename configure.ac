@@ -121,12 +121,14 @@ AS_IF([test "$enable_bcftools_plugins" != "no"], [dnl
       host_result="Cygwin DLL"
       PLATFORM=CYGWIN
       PLUGIN_EXT=.cygdll
+      HTSLIB_DLL=libhts.dll.a
 	  ],
 
     [*-msys* | *-MSYS* | *-mingw* | *-MINGW*],[dnl
       host_result="MSYS dll"
       PLATFORM=MSYS
       PLUGIN_EXT=.dll
+      HTSLIB_DLL=hts.dll.a
 	  # This also sets __USE_MINGW_ANSI_STDIO which in turn makes PRId64,
       # %lld and %z printf formats work.  It also enforces the snprintf to
       # be C99 compliant so it returns the correct values (in kstring.c).
@@ -146,6 +148,7 @@ AS_IF([test "$enable_bcftools_plugins" != "no"], [dnl
   AC_SUBST([PLUGIN_EXT])
   AC_DEFINE_UNQUOTED([PLUGIN_EXT], ["$PLUGIN_EXT"],
                      [Platform-dependent plugin filename extension.])
+  AC_SUBST([HTSLIB_DLL])
   AC_DEFINE([ENABLE_BCF_PLUGINS], 1,
             [Define if BCFtools should enable plugins.])
 
