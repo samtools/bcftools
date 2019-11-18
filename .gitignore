@@ -1,10 +1,13 @@
 bcftools
 *.o
+*.a
+*.exe
 /version.h
 plugins/*.so
 plugins/*.dSYM
 plugins/*.P
 plugins/*.dll
+plugins/*.cygdll
 
 aclocal.m4
 autom4te.cache
