@@ -94,6 +94,7 @@ typedef struct
     cols_t *cols_tr,    // the current CSQ tag split into transcripts
         *cols_csq;      // the current CSQ transcript split into fields
     int min_severity, max_severity;     // ignore consequences outside this severity range
+    int drop_sites;                     // the -x, --drop-sites option
     int select_tr;                      // one of SELECT_TR_*
     uint8_t *smpl_pass;                 // for filtering at sample level, used with -f
     int duplicate;              // the -d, --duplicate option is set
@@ -141,30 +142,33 @@ static const char *usage_text(void)
         "Usage: bcftools +split-vep [Plugin Options]\n"
         "Plugin options:\n"
         "   -a, --annotation STR        INFO annotation to parse [CSQ]\n"
-        "   -A, --all-fields DELIM      output all fields replacing the -a tag (\"%CSQ\" by default) in the -f\n"
-        "                               filtering expression using the output field delimiter DELIM. This can be\n"
-        "                               \"tab\", \"space\" or an arbitrary string.\n"
-        "   -c, --columns LIST[:type]   extract the fields listed either as indexes or names. The default type\n"
-        "                               of the new annotation is String but can be also Integer/Int or Float/Real.\n"
-        "   -d, --duplicate             output per transcript/allele consequences on a new line rather rather than\n"
-        "                               as comma-separated fields on a single line\n"
-        "   -f, --format <string>       formatting expression, see man page for `bcftools query -f`\n"
-        "   -l, --list                  parse the VCF header and list the annotation fields\n"
-        "   -p, --annot-prefix          prefix of INFO annotations to be created after splitting the CSQ string\n"
-        "   -s, --select TR:CSQ         TR, transcript: worst,primary(*),all          [all]\n"
-        "                               CSQ, consequence: any,missense,missense+,etc  [any]\n"
-        "                               (*) Primary transcripts have the field \"CANONICAL\" set to \"YES\"\n"
-        "   -S, --severity -|FILE       -: print the default severity scale\n"
-        "                               FILE: override the default scale\n"
+        "   -A, --all-fields DELIM      Output all fields replacing the -a tag (\"%CSQ\" by default) in the -f\n"
+        "                                 filtering expression using the output field delimiter DELIM. This can be\n"
+        "                                 \"tab\", \"space\" or an arbitrary string.\n"
+        "   -c, --columns LIST[:type]   Extract the fields listed either as indexes or names. The default type\n"
+        "                                 of the new annotation is String but can be also Integer/Int or Float/Real.\n"
+        "   -d, --duplicate             Output per transcript/allele consequences on a new line rather rather than\n"
+        "                                 as comma-separated fields on a single line\n"
+        "   -f, --format <string>       Formatting expression for non-VCF/BCF output, same as `bcftools query -f`\n"
+        "   -l, --list                  Parse the VCF header and list the annotation fields\n"
+        "   -p, --annot-prefix          Prefix of INFO annotations to be created after splitting the CSQ string\n"
+        "   -s, --select TR:CSQ         Select transcripts to extract by type and/or consequence. (See also the -x switch.)\n"
+        "                                 TR, transcript:   worst,primary(*),all        [all]\n"
+        "                                 CSQ, consequence: any,missense,missense+,etc  [any]\n"
+        "                                 (*) Primary transcripts have the field \"CANONICAL\" set to \"YES\"\n"
+        "   -S, --severity -|FILE       Pass \"-\" to print the default severity scale or FILE to override\n"
+        "                                 the default scale\n"
+        "   -x, --drop-sites            Drop sites with none of the consequences matching the severity specified by -s.\n"
+        "                                  This switch is intended for use with VCF/BCF output (i.e. -f not given).\n"
         "Common options:\n"
-        "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
-        "   -i, --include EXPR          include sites and samples for which the expression is true\n"
-        "   -o, --output FILE           output file name [stdout]\n"
+        "   -e, --exclude EXPR          Exclude sites and samples for which the expression is true\n"
+        "   -i, --include EXPR          Include sites and samples for which the expression is true\n"
+        "   -o, --output FILE           Output file name [stdout]\n"
         "   -O, --output-type b|u|z|v   b: compressed BCF, u: uncompressed BCF, z: compressed VCF or text, v: uncompressed VCF or text [v]\n"
-        "   -r, --regions REG           restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE     restrict to regions listed in a file\n"
-        "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE     similar to -R but streams rather than index-jumps\n"
+        "   -r, --regions REG           Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE     Restrict to regions listed in a file\n"
+        "   -t, --targets REG           Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE     Similar to -R but streams rather than index-jumps\n"
         "\n"
         "Examples:\n"
         "   # List available fields of the INFO/CSQ annotation\n"
@@ -187,7 +191,13 @@ static const char *usage_text(void)
         "\n"
         "   # Extract gnomAD_AF subfield into a new INFO/gnomAD_AF annotation of Type=Float so that\n"
         "   # numeric filtering can be used.\n"
-        "   bcftools +split-vep -c gnomAD_AF:Float -Ou file.vcf.gz | bcftools view -i'gnomAD_AF<0.001'\n"
+        "   bcftools +split-vep -c gnomAD_AF:Float file.vcf.gz -i'gnomAD_AF<0.001'\n"
+        "\n"
+        "   # Similar to above, but add the annotation only if the consequence severity is missense\n"
+        "   # or equivalent. In order to drop sites with different consequences completely, we add\n"
+        "   # the -x switch. See the online documentation referenced above for more examples.\n"
+        "   bcftools +split-vep -c gnomAD_AF:Float -s :missense    file.vcf.gz\n"
+        "   bcftools +split-vep -c gnomAD_AF:Float -s :missense -x file.vcf.gz\n"
         "\n";
 }
 
@@ -807,6 +817,7 @@ static void process_record(args_t *args, bcf1_t *rec)
             severity_pass = 0;
         }
     }
+    if ( !severity_pass && args->drop_sites ) return;
     if ( !args->duplicate )
         filter_and_output(args, rec, severity_pass, all_missing);
 }
@@ -820,6 +831,7 @@ int run(int argc, char **argv)
     args->vep_tag = "CSQ";
     static struct option loptions[] =
     {
+        {"drop-sites",no_argument,0,'x'},
         {"all-fields",no_argument,0,'A'},
         {"duplicate",no_argument,0,'d'},
         {"format",required_argument,0,'f'},
@@ -840,7 +852,7 @@ int run(int argc, char **argv)
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:x",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -849,6 +861,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"space") ) args->all_fields_delim = " ";
                 else args->all_fields_delim = optarg;
                 break;
+            case 'x': args->drop_sites = 1; break;
             case 'd': args->duplicate = 1; break;
             case 'f': args->format_str = strdup(optarg); break;
             case 'a': args->vep_tag = optarg; break;
@@ -878,6 +891,7 @@ int run(int argc, char **argv)
             default: error("%s", usage_text()); break;
         }
     }
+    if ( args->drop_sites && args->format_str ) error("Error: the -x behavior is the default (and only supported) with -f\n");
     if ( args->all_fields_delim && !args->format_str ) error("Error: the -A option must be used with -f\n");
     if ( args->severity && (!strcmp("?",args->severity) || !strcmp("-",args->severity)) ) error("%s", default_severity());
     if ( optind==argc )
@@ -894,7 +908,13 @@ int run(int argc, char **argv)
         list_header(args);
     else
     {
-        if ( !args->format_str && !args->column_str ) error("Error: neither -c nor -f was given, use \"bcftools view\" instead.\n");
+        if ( !args->format_str && !args->column_str )
+        {
+            if ( args->min_severity==SELECT_CSQ_ANY && args->max_severity==SELECT_CSQ_ANY )
+                error("Error: none of the -c,-f,-s options was given, why not use \"bcftools view\" instead?\n");
+            else if ( !args->drop_sites )
+                error("Error: when the -s option is used without -x, everything is printed; why not use \"bcftools view\" instead?\n");
+        }
 
         if ( args->format_str )
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
