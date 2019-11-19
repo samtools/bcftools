@@ -185,6 +185,38 @@ MyConsequence:</p>
 </div>
 </div>
 <div class="paragraph">
+<p>In this example we show the distinction between the VCF/BCF and custom text output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># Output VCF adding the INFO/Consequence column to every site. We pipe through `query` in order
+# to visualize the differences.
+bcftools +split-vep test/split-vep.5.vcf -c Consequence | bcftools query -f'%POS\t%Consequence\n' | head -2
+69270    synonymous_variant,regulatory_region_variant
+69428    missense_variant,regulatory_region_variant
+
+# Output VCF adding the INFO/Consequence column only to missense sites. However, outputs all sites.
+bcftools +split-vep test/split-vep.5.vcf -c Consequence -s :missense | bcftools query -f'%POS\t%Consequence\n' | head -2
+69270    .
+69428    missense_variant,regulatory_region_variant
+
+# Output VCF adding INFO/Consequence column to missense sites. By adding the -x option we only output the missense sites.
+bcftools +split-vep test/split-vep.5.vcf -c Consequence -s :missense -x | bcftools query -f'%POS\t%Consequence\n' | head -2
+69428    missense_variant
+69496    missense_variant
+
+# Create a custom text output, print all sites.
+bcftools +split-vep test/split-vep.5.vcf -f'%POS\t%Consequence\n' | head -2
+69270    synonymous_variant,regulatory_region_variant
+69428    missense_variant,regulatory_region_variant
+
+# Create a custom text output, print only missense consequences.
+bcftools +split-vep test/split-vep.5.vcf -f'%POS\t%Consequence\n' -s :missense | head -2
+69428    missense_variant
+69496    missense_variant</pre>
+</div>
+</div>
+<div class="paragraph">
 <p>The complete usage page obtained by <code>bcftools +split-vep -h</code>:</p>
 </div>
 <div class="listingblock">
@@ -193,29 +225,34 @@ MyConsequence:</p>
    more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html
 Usage: bcftools +split-vep [Plugin Options]
 Plugin options:
-   -a, --annotation STR        annotation to parse [CSQ]
-   -A, --all-fields DELIM      output all fields replacing the -a tag ("%CSQ" by default) in the -f
-                               filtering expression using the output field delimiter DELIM. This can be
-                               "tab", "space" or an arbitrary string.
-   -c, --columns LIST          extract the fields listed either as indexes or names
-   -d, --duplicate             output per transcript/allele consequences on a new line rather rather than
-                               as comma-separated fields on a single line
-   -f, --format &lt;string&gt;       formatting expression, see man page for `bcftools query -f`
-   -l, --list                  parse the VCF header and list the annotation fields
-   -p, --annot-prefix          prefix of INFO annotations to be created after splitting the CSQ string
-   -s, --select TR:CSQ         TR, transcript: worst,primary,all             [all]
-                               CSQ, consequence: any,missense,missense+,etc  [any]
-   -S, --severity -|FILE       -: print the default severity scale
-                               FILE: override the default scale
+   -a, --annotation STR        INFO annotation to parse [CSQ]
+   -A, --all-fields DELIM      Output all fields replacing the -a tag ("%CSQ" by default) in the -f
+                                 filtering expression using the output field delimiter DELIM. This can be
+                                 "tab", "space" or an arbitrary string.
+   -c, --columns LIST[:type]   Extract the fields listed either as indexes or names. The default type
+                                 of the new annotation is String but can be also Integer/Int or Float/Real.
+   -d, --duplicate             Output per transcript/allele consequences on a new line rather rather than
+                                 as comma-separated fields on a single line
+   -f, --format &lt;string&gt;       Formatting expression for non-VCF/BCF output, same as `bcftools query -f`
+   -l, --list                  Parse the VCF header and list the annotation fields
+   -p, --annot-prefix          Prefix of INFO annotations to be created after splitting the CSQ string
+   -s, --select TR:CSQ         Select transcripts to extract by type and/or consequence. (See also the -x switch.)
+                                 TR, transcript:   worst,primary(*),all        [all]
+                                 CSQ, consequence: any,missense,missense+,etc  [any]
+                                 (*) Primary transcripts have the field "CANONICAL" set to "YES"
+   -S, --severity -|FILE       Pass "-" to print the default severity scale or FILE to override
+                                 the default scale
+   -x, --drop-sites            Drop sites with none of the consequences matching the severity specified by -s.
+                                  This switch is intended for use with VCF/BCF output (i.e. -f not given).
 Common options:
-   -e, --exclude EXPR          exclude sites and samples for which the expression is true
-   -i, --include EXPR          include sites and samples for which the expression is true
-   -o, --output FILE           output file name [stdout]
+   -e, --exclude EXPR          Exclude sites and samples for which the expression is true
+   -i, --include EXPR          Include sites and samples for which the expression is true
+   -o, --output FILE           Output file name [stdout]
    -O, --output-type b|u|z|v   b: compressed BCF, u: uncompressed BCF, z: compressed VCF or text, v: uncompressed VCF or text [v]
-   -r, --regions REG           restrict to comma-separated list of regions
-   -R, --regions-file FILE     restrict to regions listed in a file
-   -t, --targets REG           similar to -r but streams rather than index-jumps
-   -T, --targets-file FILE     similar to -R but streams rather than index-jumps
+   -r, --regions REG           Restrict to comma-separated list of regions
+   -R, --regions-file FILE     Restrict to regions listed in a file
+   -t, --targets REG           Similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE     Similar to -R but streams rather than index-jumps
 
 Examples:
    # List available fields of the INFO/CSQ annotation
@@ -234,7 +271,17 @@ Examples:
    bcftools +split-vep -s worst -f '%CHROM %POS %Consequence %IMPACT %SYMBOL\n' file.vcf.gz
 
    # Print all subfields (tab-delimited) in place of %CSQ, each consequence on a new line
-   bcftools +split-vep '%CHROM %POS %CSQ\n' -d -A tab file.vcf.gz</pre>
+   bcftools +split-vep -f '%CHROM %POS %CSQ\n' -d -A tab file.vcf.gz
+
+   # Extract gnomAD_AF subfield into a new INFO/gnomAD_AF annotation of Type=Float so that
+   # numeric filtering can be used.
+   bcftools +split-vep -c gnomAD_AF:Float file.vcf.gz -i'gnomAD_AF&lt;0.001'
+
+   # Similar to above, but add the annotation only if the consequence severity is missense
+   # or equivalent. In order to drop sites with different consequences completely, we add
+   # the -x switch. See the online documentation referenced above for more examples.
+   bcftools +split-vep -c gnomAD_AF:Float -s :missense    file.vcf.gz
+   bcftools +split-vep -c gnomAD_AF:Float -s :missense -x file.vcf.gz</pre>
 </div>
 </div>
 <div class="sect2">
