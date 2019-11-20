@@ -377,7 +377,8 @@ test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.m.out',cmd=>'+GTisec',args=>'
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.mv.out',cmd=>'+GTisec',args=>'-- -mv | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.v.out',cmd=>'+GTisec',args=>'-- -v | grep -v bcftools');
 test_vcf_plugin($opts,in=>'trio',out=>'trio.out',cmd=>'+trio-switch-rate',args=>'-- -p {PATH}/trio.ped | grep -v bcftools');
-test_vcf_plugin($opts,in=>'trio-stats',out=>'trio-stats.out',cmd=>'+trio-stats',args=>'-p {PATH}/trio-stats.ped -v mendel-errors | grep -v ^CMD');
+test_vcf_plugin($opts,in=>'trio-stats',out=>'trio-stats.out',cmd=>'+trio-stats',args=>'-a 1 -p {PATH}/trio-stats.ped -d mendel-errors,transmitted | grep -v ^CMD');
+test_vcf_plugin($opts,in=>'trio-stats',out=>'trio-stats.2.out',cmd=>'+trio-stats',args=>'-p {PATH}/trio-stats.ped -d mendel-errors,transmitted | grep -v ^CMD');
 test_vcf_plugin($opts,in=>'indel-stats',out=>'smpl-stats.1.out',cmd=>'+smpl-stats',args=>'| grep -v ^CMD');
 test_vcf_plugin($opts,in=>'indel-stats',out=>'indel-stats.1.out',cmd=>'+indel-stats',args=>'| grep -v ^CMD');
 test_vcf_plugin($opts,in=>'indel-stats',out=>'indel-stats.2.out',cmd=>'+indel-stats',args=>' -p {PATH}/trio-stats.ped | grep -v ^CMD');

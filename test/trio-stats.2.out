@@ -16,16 +16,22 @@
 #   13) overall ts/tv, all distinct ALT alleles present in the trio are considered
 #   14) number of homozygous DNMs/Mendelian errors (likely genotyping errors)
 #   15) number of recurrent DNMs/Mendelian errors (non-inherited alleles present in other samples; counts GTs, not sites)
+TRANSMITTED	20	302	child2	father2	mother2	YES
 MERR	20	303	child1	father1	mother1	-	RECURRENT
+TRANSMITTED	20	303	child2	father2	mother2	YES
 MERR	20	304	child1	father1	mother1	HOM	RECURRENT
+TRANSMITTED	20	304	child2	father2	mother2	YES
 MERR	20	305	child1	father1	mother1	HOM	-
 TRANSMITTED	20	306	child1	father1	mother1	NO
+TRANSMITTED	20	307	child2	father2	mother2	YES
 TRANSMITTED	20	308	child2	father2	mother2	YES
 TRANSMITTED	20	308	child2	father2	mother2	NO
 MERR	20	309	child1	father1	mother1	-	-
 TRANSMITTED	20	310	child1	father1	mother1	NO
 TRANSMITTED	20	311	child2	father2	mother2	YES
 TRANSMITTED	20	312	child1	father1	mother1	YES
+TRANSMITTED	20	315	child1	father1	mother1	YES
+TRANSMITTED	20	315	child2	father2	mother2	NO
 DEF	FLT0	all
-FLT0	child1	father1	mother1	14	12	4	2	2	1	3	9	0.33	2	2
-FLT0	child2	father2	mother2	14	11	0	0	1	2	3	9	0.33	0	0
+FLT0	child1	father1	mother1	14	12	4	2	2	2	3	9	0.33	2	2
+FLT0	child2	father2	mother2	14	11	0	0	2	6	3	9	0.33	0	0

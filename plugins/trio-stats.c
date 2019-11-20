@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018 Genome Research Ltd.
+   Copyright (c) 2018-2019 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -49,6 +49,7 @@
 #define iMOTHER 2
 
 #define VERBOSE_MENDEL 1
+#define VERBOSE_TRANSMITTED 2
 
 typedef struct
 {
@@ -65,7 +66,7 @@ typedef struct
         nmendel_err,    // number of DNMs / mendelian errors
         nnovel,         // a singleton allele, but observed only in the child. Counted as mendel_err as well.
         nsingleton,     // het mother or father different from everyone else
-        ndoubleton,     // het mother+child or father+child different from everyone else
+        ndoubleton,     // het mother+child or father+child different from everyone else (transmitted alleles)
         nts, ntv,       // number of transitions and transversions
         ndnm_recurrent, // number of recurrent DNMs / mendelian errors (counted as GTs, not sites; in ambiguous cases the allele with smaller AF is chosen)
         ndnm_hom;       // number of homozygous DNMs / mendelian errors
@@ -128,7 +129,8 @@ static const char *usage_text(void)
         "Usage: bcftools +trio-stats [Plugin Options]\n"
         "Plugin options:\n"
         "   -a, --alt-trios INT         for transmission rate consider only sites with at most this\n"
-        "                                   many alternate trios, 0 for unlimited [1]\n"
+        "                                   many alternate trios, 0 for unlimited [0]\n"
+        "   -d, --debug TYPE            comma-separted list of features: {mendel-errors,transmitted}\n"
         "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
         "   -i, --include EXPR          include sites and samples for which the expression is true\n"
         "   -o, --output FILE           output file name [stdout]\n"
@@ -138,7 +140,6 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE     restrict to regions listed in a file\n"
         "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE     similar to -R but streams rather than index-jumps\n"
-        "   -v, --verbose TYPE          currently supported TYPEs: mendel-errors\n"
         "\n"
         "Example:\n"
         "   bcftools +trio-stats -p file.ped -i 'GQ>{10,20,30,40,50}' file.bcf\n"
@@ -615,7 +616,16 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
                 if ( als_child[0]==j || als_child[1]==j ) stats->nnovel++;
                 else
                 {
-                    if ( !args->max_alt_trios ) stats->nsingleton++;
+                    if ( !args->max_alt_trios )
+                    {
+                        stats->nsingleton++;
+                        if ( args->verbose & VERBOSE_TRANSMITTED )
+                            fprintf(args->fp_out,"TRANSMITTED\t%s\t%"PRId64"\t%s\t%s\t%s\tNO\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,
+                                    args->hdr->samples[args->trio[i].idx[iCHILD]],
+                                    args->hdr->samples[args->trio[i].idx[iFATHER]],
+                                    args->hdr->samples[args->trio[i].idx[iMOTHER]]
+                                   );
+                    }
                     else alt_trios_add(args, i,j,1);
                 }
             }
@@ -623,7 +633,16 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             {
                 if ( (als_child[0]!=j && als_child[1]!=j) || (als_child[0]==j && als_child[1]==j) ) continue;
                 if ( (als_father[0]==j && als_father[1]==j) || (als_mother[0]==j && als_mother[1]==j) ) continue;
-                if ( !args->max_alt_trios ) stats->ndoubleton++;
+                if ( !args->max_alt_trios ) 
+                {
+                    stats->ndoubleton++;
+                    if ( args->verbose & VERBOSE_TRANSMITTED )
+                        fprintf(args->fp_out,"TRANSMITTED\t%s\t%"PRId64"\t%s\t%s\t%s\tYES\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,
+                                args->hdr->samples[args->trio[i].idx[iCHILD]],
+                                args->hdr->samples[args->trio[i].idx[iFATHER]],
+                                args->hdr->samples[args->trio[i].idx[iMOTHER]]
+                               );
+                }
                 else alt_trios_add(args, i,j,0);
             }
         }
@@ -636,9 +655,28 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             if ( !tr->nsd || tr->nalt > args->max_alt_trios ) continue;
             for (i=0; i<tr->nsd; i++)
             {
-                trio_stats_t *stats = &flt->stats[ tr->idx[i] ];
-                if ( kbs_exists(tr->sd_bset,i) ) stats->nsingleton++;
-                else stats->ndoubleton++;
+                int itr = tr->idx[i];
+                trio_stats_t *stats = &flt->stats[itr];
+                if ( kbs_exists(tr->sd_bset,i) )
+                {
+                    stats->nsingleton++;
+                    if ( args->verbose & VERBOSE_TRANSMITTED )
+                        fprintf(args->fp_out,"TRANSMITTED\t%s\t%"PRId64"\t%s\t%s\t%s\tNO\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,
+                                args->hdr->samples[args->trio[itr].idx[iCHILD]],
+                                args->hdr->samples[args->trio[itr].idx[iFATHER]],
+                                args->hdr->samples[args->trio[itr].idx[iMOTHER]]
+                               );
+                }
+                else
+                {
+                    stats->ndoubleton++;
+                    if ( args->verbose & VERBOSE_TRANSMITTED )
+                        fprintf(args->fp_out,"TRANSMITTED\t%s\t%"PRId64"\t%s\t%s\t%s\tYES\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,
+                                args->hdr->samples[args->trio[itr].idx[iCHILD]],
+                                args->hdr->samples[args->trio[itr].idx[iFATHER]],
+                                args->hdr->samples[args->trio[itr].idx[iMOTHER]]
+                               );
+                }
             }
         }
     }
@@ -651,8 +689,7 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     static struct option loptions[] =
     {
-        {"verbose",required_argument,0,'v'},
-        {"alt-trios",required_argument,0,'a'},
+        {"debug",required_argument,0,'d'},
         {"alt-trios",required_argument,0,'a'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
@@ -665,16 +702,25 @@ int run(int argc, char **argv)
         {"targets-file",1,0,'T'},
         {NULL,0,NULL,0}
     };
-    args->max_alt_trios = 1;
     int c, i;
-    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:a:v:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "P:p:o:s:i:e:r:R:t:T:a:d:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
-            case 'v': 
-                if ( !strcasecmp("mendel-errors",optarg) ) args->verbose |= VERBOSE_MENDEL;
-                else error("Error: The option --verbose %s is not recognised\n", optarg);
+            case 'd': 
+            {
+                int n;
+                char **tmp = hts_readlist(optarg, 0, &n);
+                for(i=0; i<n; i++)
+                {
+                    if ( !strcasecmp(tmp[i],"mendel-errors") ) args->verbose |= VERBOSE_MENDEL;
+                    else if ( !strcasecmp(tmp[i],"transmitted") ) args->verbose |= VERBOSE_TRANSMITTED;
+                    else error("Error: The argument \"%s\" to option --debug is not recognised\n", tmp[i]);
+                    free(tmp[i]);
+                }
+                free(tmp);
                 break;
+            }
             case 'a': args->max_alt_trios = atoi(optarg); break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
