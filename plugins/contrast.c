@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <strings.h>
 #include <errno.h>
 #include <unistd.h>     // for isatty
 #include <inttypes.h>

@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>

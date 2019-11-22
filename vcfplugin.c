@@ -158,11 +158,7 @@ static void add_plugin_paths(args_t *args, const char *path)
 {
     while (1)
     {
-#ifdef _WIN32
-        size_t len = strcspn(path, ";"); // Windows style path list delimiter
-#else
-        size_t len = strcspn(path, ":");
-#endif
+        size_t len = strcspn(path, HTS_PATH_SEPARATOR_STR);
 
         if ( len == 0 )
         {
@@ -193,11 +189,7 @@ static void add_plugin_paths(args_t *args, const char *path)
         }
 
         path += len;
-#ifdef _WIN32
-        if ( *path == ';' ) path++;
-#else
-        if ( *path == ':' ) path++;
-#endif
+        if ( *path == HTS_PATH_SEPARATOR_CHAR ) path++;
         else break;
     }
 }
