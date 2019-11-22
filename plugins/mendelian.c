@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <getopt.h>
 #include <math.h>
 #include <inttypes.h>

@@ -27,6 +27,7 @@ THE SOFTWARE.  */
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <strings.h>
 #include <htslib/bgzf.h>
 #include <htslib/tbx.h>
 
