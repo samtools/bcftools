@@ -26,7 +26,7 @@ CC       = gcc
 AR       = ar
 RANLIB   = ranlib
 CPPFLAGS =
-CFLAGS   = -g -Wall -Wc++-compat -O2
+CFLAGS   = -g -Wall -O2
 LDFLAGS  =
 LIBS     =
 
