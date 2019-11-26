@@ -131,7 +131,7 @@ static void init_data(args_t *args)
         }
         else
         {
-            args->tpool = calloc(1, sizeof(*args->tpool));
+            args->tpool = (htsThreadPool*) calloc(1, sizeof(htsThreadPool));
             if ( !args->tpool ) error("Failed to allocate memory\n");
             if ( !(args->tpool->pool = hts_tpool_init(args->n_threads)) ) error("Failed to initialize %d threads\n",args->n_threads);
         }
