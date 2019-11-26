@@ -75,7 +75,7 @@ AC_SUBST([bcf_pluginpath], $with_bcf_plugin_path)
 
 AC_ARG_ENABLE([perl-filters],
   [AS_HELP_STRING([--enable-perl-filters],
-                  [do not build support for PERL scripts in -i/-e filtering expressions])],
+                  [build in support for PERL scripts in -i/-e filtering expressions])],
   [], [enable_perl_filters=no])
 AC_SUBST(enable_perl_filters)
 
