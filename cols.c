@@ -42,7 +42,7 @@ cols_t *cols_split(const char *line, cols_t *cols, char delim)
         if ( cols->n > cols->m )
         {
             cols->m += 10;
-            cols->off = realloc(cols->off, sizeof(*cols->off)*cols->m);
+            cols->off = (char**) realloc(cols->off, sizeof(*cols->off)*cols->m);
         }
         cols->off[ cols->n - 1 ] = ss;
         if ( !tmp ) break;
@@ -60,8 +60,8 @@ void cols_append(cols_t *cols, char *str)
         size_t tot_len = 2 + str_len + lst_len + (cols->off[ cols->n - 1 ] - cols->rmme);
 
         cols_t *tmp_cols = (cols_t*)calloc(1,sizeof(cols_t));
-        tmp_cols->rmme = calloc(tot_len,1);
-        tmp_cols->off  = calloc(cols->n+1,sizeof(*tmp_cols->off));
+        tmp_cols->rmme = (char*) calloc(tot_len,1);
+        tmp_cols->off  = (char**) calloc(cols->n+1,sizeof(*tmp_cols->off));
 
         char *ptr = tmp_cols->rmme;
         int i;
@@ -88,7 +88,7 @@ void cols_append(cols_t *cols, char *str)
     if ( cols->n > cols->m )
     {
         cols->m++;
-        cols->off = realloc(cols->off,sizeof(*cols->off)*cols->m);
+        cols->off = (char**) realloc(cols->off,sizeof(*cols->off)*cols->m);
     }
     cols->off[cols->n-1] = str;
 }
