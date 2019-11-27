@@ -211,7 +211,12 @@ static void *dlopen_plugin(args_t *args, const char *fname)
 
     void *handle;
     char *tmp;
-    if ( fname[0]!='/' )    // not an absolute path
+    /**
+     * Detects both Unix and Windows style absolute paths.
+     * Windows accepts both forward slash (/) and backslash (\) as folder separator
+     * and can have any path prefixed by the drive letter and a colon (:).
+     */
+    if ( fname[0]!='/' && fname[0]!='\\' && (fname[1]!=':' || (fname[2]!='/' && fname[2]!='\\')) )    // not an absolute path
     {
         int i;
         for (i=0; i<args->nplugin_paths; i++)
