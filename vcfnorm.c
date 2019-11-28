@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2017 Genome Research Ltd.
+    Copyright (C) 2013-2019 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -255,7 +255,7 @@ static void fix_dup_alt(args_t *args, bcf1_t *line)
     int i, j, nals = line->n_allele, nals_ori = line->n_allele;
     for (i=1, j=1; i<line->n_allele; i++)
     {
-        if ( strcmp(line->d.allele[0],line->d.allele[i]) )
+        if ( strcasecmp(line->d.allele[0],line->d.allele[i]) )
         {
             args->tmp_arr1[i] = j++;
             continue;
@@ -359,7 +359,7 @@ static int realign(args_t *args, bcf1_t *line)
         kputs(line->d.allele[i], &als[i]);
         seq_to_upper(als[i].s,0);
 
-        if ( i>0 && als[i].l==als[0].l && !strcmp(als[0].s,als[i].s) ) return ERR_DUP_ALLELE;
+        if ( i>0 && als[i].l==als[0].l && !strcasecmp(als[0].s,als[i].s) ) return ERR_DUP_ALLELE;
     }
 
     // trim from right
@@ -370,7 +370,7 @@ static int realign(args_t *args, bcf1_t *line)
         int min_len = als[0].l;
         for (i=1; i<line->n_allele; i++)
         {
-            if ( als[0].s[ als[0].l-1 ]!=als[i].s[ als[i].l-1 ] ) break;
+            if ( toupper(als[0].s[ als[0].l-1 ])!=toupper(als[i].s[ als[i].l-1 ]) ) break;
             if ( als[i].l < min_len ) min_len = als[i].l;
         }
         if ( i!=line->n_allele ) break; // there are differences, cannot be trimmed
@@ -427,7 +427,7 @@ static int realign(args_t *args, bcf1_t *line)
 
     // Have the alleles changed?
     als[0].s[ als[0].l ] = 0;  // in order for strcmp to work
-    if ( ori_pos==line->pos && !strcmp(line->d.allele[0],als[0].s) ) return ERR_OK;
+    if ( ori_pos==line->pos && !strcasecmp(line->d.allele[0],als[0].s) ) return ERR_OK;
 
     // Create new block of alleles and update
     args->tmp_als_str.l = 0;
@@ -1573,12 +1573,12 @@ static int cmpals_match(cmpals_t *ca, bcf1_t *rec)
         if ( rec->n_allele != cmpals->n ) continue;
 
         // NB. assuming both are normalized
-        if ( strcmp(rec->d.allele[0], cmpals->ref) ) continue;
+        if ( strcasecmp(rec->d.allele[0], cmpals->ref) ) continue;
 
         // the most frequent case
         if ( rec->n_allele==2 )
         {
-            if ( strcmp(rec->d.allele[1], cmpals->alt) ) continue;
+            if ( strcasecmp(rec->d.allele[1], cmpals->alt) ) continue;
             return 1;
         }
 

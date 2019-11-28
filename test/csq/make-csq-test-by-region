@@ -51,7 +51,6 @@ sub parse_params
         error("Unknown parameter \"$arg\". Run -h for help.\n");
     }
     if ( !exists($$opts{ref}) ) { error("Missing the -f option.\n") }
-    if ( !exists($$opts{gff}) ) { error("Missing the -g option.\n") }
     if ( !exists($$opts{out}) ) { error("Missing the -o option.\n") }
     if ( !exists($$opts{vcf}) ) { error("Missing the -v option.\n") }
     if ( !exists($$opts{region}) ) { error("Missing the -r option.\n") }
@@ -64,6 +63,14 @@ sub create_gff
     my $chr = $1;
     my $beg = $2;
     my $end = $3;
+
+    if ( !exists($$opts{gff}) )
+    {
+        $$opts{chr} = $chr;
+        $$opts{end} = $end;
+        $$opts{offset} = $beg;
+        return;
+    }
 
     my @buf = ();
     my $cmd = ($$opts{gff} =~ /\.gz$/i) ? "gunzip -c $$opts{gff}" : "cat $$opts{gff}";

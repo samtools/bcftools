@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2016 Genome Research Ltd.
+#   Copyright (C) 2012-2019 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -194,6 +194,7 @@ test_vcf_norm($opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.1.out',args=>'-d indel
 test_vcf_norm($opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args=>'-d any');
 test_vcf_norm($opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args=>'-d both');
 test_vcf_norm($opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args=>'-d snps');
+test_vcf_norm($opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
