@@ -568,7 +568,12 @@ sub parse_params
             'i|htsdir:s' => \$$opts{htsdir}
             );
     if ( !$ret or $help ) { error(); }
-    if ( $$opts{htsdir} ne "" ) { $ENV{PATH} = "$$opts{htsdir}/bin:"."$$opts{htsdir}/lib:".$ENV{PATH} };
+    if ( $$opts{htsdir} ) {
+        if ($^O eq 'cygwin' || $^O =~ /^msys/) {
+            # Set PATH so against-htslib-source builds can find the htslib dll
+            $ENV{PATH} = "$$opts{htsdir}:"."$$opts{htsdir}/bin:"."$$opts{htsdir}/lib:".$ENV{PATH};
+        }
+    }
     $$opts{tmp} = $$opts{keep_files} ? $$opts{keep_files} : safe_tempdir;
     if ( $$opts{keep_files} ) { cmd("mkdir -p $$opts{keep_files}"); }
     $$opts{path} = $FindBin::RealBin;
