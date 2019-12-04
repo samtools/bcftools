@@ -140,6 +140,7 @@ install)
   AC_CHECK_HEADER([htslib/sam.h],
     [AC_CHECK_LIB(hts, hts_version, [ax_cv_htslib=yes], [ax_cv_htslib=no])],
     [ax_cv_htslib=no], [;])
+  HTSDIR=
   CPPFLAGS=$ax_saved_CPPFLAGS
   LDFLAGS=$ax_saved_LDFLAGS
   ;;
