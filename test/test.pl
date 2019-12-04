@@ -556,7 +556,7 @@ sub safe_tempdir
 
 sub parse_params
 {
-    my $opts = { bgzip=>"bgzip", keep_files=>0, nok=>0, nfailed=>0, tabix=>"tabix", plugins=>0 };
+    my $opts = { bgzip=>"bgzip", keep_files=>0, nok=>0, nfailed=>0, tabix=>"tabix", plugins=>0, htsdir=>"" };
     my $help;
     Getopt::Long::Configure('bundling');
     my $ret = GetOptions (
@@ -564,9 +564,11 @@ sub parse_params
             't|temp-dir:s' => \$$opts{keep_files},
             'p|plugins' => \$$opts{test_plugins},
             'r|redo-outputs' => \$$opts{redo_outputs},
-            'h|?|help' => \$help
+            'h|?|help' => \$help,
+            'i|htsdir:s' => \$$opts{htsdir}
             );
     if ( !$ret or $help ) { error(); }
+    if ( $$opts{htsdir} ne "" ) { $ENV{PATH} = "$$opts{htsdir}/bin:"."$$opts{htsdir}/lib:".$ENV{PATH} };
     $$opts{tmp} = $$opts{keep_files} ? $$opts{keep_files} : safe_tempdir;
     if ( $$opts{keep_files} ) { cmd("mkdir -p $$opts{keep_files}"); }
     $$opts{path} = $FindBin::RealBin;

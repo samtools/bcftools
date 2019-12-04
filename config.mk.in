@@ -54,12 +54,14 @@ plugindir  = @bcf_plugindir@
 pluginpath = @bcf_pluginpath@
 PLUGIN_EXT = @PLUGIN_EXT@
 
-@Hsource@HTSDIR = @HTSDIR@
+HTSDIR = @HTSDIR@
 @Hsource@include $(HTSDIR)/htslib.mk
 @Hsource@include $(HTSDIR)/htslib_static.mk
 @Hsource@HTSLIB = $(HTSDIR)/libhts.a
+@Hinstall@HTSLIB = $(HTSDIR)/lib/libhts.a
 @Hsource@HTSLIB_LIB = $(HTSLIB) $(HTSLIB_static_LIBS)
 @Hsource@HTSLIB_DLL = $(HTSDIR)/@HTSLIB_DLL@
+@Hinstall@HTSLIB_DLL = $(HTSDIR)/lib/@HTSLIB_DLL@
 @Hsource@HTSLIB_LDFLAGS = $(HTSLIB_static_LDFLAGS)
 @Hsource@BGZIP = $(HTSDIR)/bgzip
 @Hsource@TABIX = $(HTSDIR)/tabix

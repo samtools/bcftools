@@ -282,12 +282,12 @@ csq.o: csq.c $(htslib_hts_h) $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(hts
 check test-no-plugins: $(PROGRAMS) $(TEST_PROGRAMS) $(BGZIP) $(TABIX)
 	./test/test-rbuf
 	./test/test-regidx
-	REF_PATH=: ./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX) $${TEST_OPTS:-}
+	REF_PATH=: ./test/test.pl --exec bgzip=$(BGZIP) --exec tabix=$(TABIX) --htsdir $(HTSDIR) $${TEST_OPTS:-}
 
 check-plugins test-plugins: $(PROGRAMS) $(TEST_PROGRAMS) $(BGZIP) $(TABIX) plugins
 	./test/test-rbuf
 	./test/test-regidx
-	REF_PATH=: ./test/test.pl --plugins --exec bgzip=$(BGZIP) --exec tabix=$(TABIX) $${TEST_OPTS:-}
+	REF_PATH=: ./test/test.pl --plugins --exec bgzip=$(BGZIP) --exec tabix=$(TABIX) --htsdir $(HTSDIR) $${TEST_OPTS:-}
 
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
@@ -296,8 +296,8 @@ test/test-rbuf: test/test-rbuf.o
 
 test/test-regidx.o: test/test-regidx.c $(htslib_kstring_h) $(htslib_hts_os_h) regidx.h
 
-test/test-regidx: test/test-regidx.o regidx.o $(HTSLIB)
-	$(CC) $(ALL_LDFLAGS) -o $@ $^ $(HTSLIB) -lpthread $(HTSLIB_LIB) $(ALL_LIBS)
+test/test-regidx: test/test-regidx.o regidx.o | $(HTSLIB)
+	$(CC) $(ALL_LDFLAGS) -o $@ $^ $(HTSLIB_LIB) -lpthread $(ALL_LIBS)
 
 
 # make docs target depends the a2x asciidoc program
