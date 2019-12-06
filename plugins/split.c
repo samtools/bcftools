@@ -178,26 +178,6 @@ static void init_data(args_t *args)
     if ( !nsmpl ) error("No samples to split: %s\n", args->fname);
     args->fh = (htsFile**)calloc(nsmpl,sizeof(*args->fh));
     args->bnames = set_file_base_names(args);
-    kstring_t str = {0,0,0};
-    for (i=0; i<nsmpl; i++)
-    {
-        if ( !args->bnames[i] ) continue;
-        str.l = 0;
-        kputs(args->output_dir, &str);
-        if ( str.s[str.l-1] != '/' ) kputc('/', &str);
-        int k, l = str.l;
-        kputs(args->bnames[i], &str);
-        for (k=l; k<str.l; k++) if ( isspace(str.s[k]) ) str.s[k] = '_';
-        if ( args->output_type & FT_BCF ) kputs(".bcf", &str);
-        else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &str);
-        else kputs(".vcf", &str);
-        args->fh[i] = hts_open(str.s, hts_bcf_wmode(args->output_type));
-        if ( args->fh[i] == NULL ) error("Can't write to \"%s\": %s\n", str.s, strerror(errno));
-        bcf_hdr_nsamples(args->hdr_out) = 1;
-        args->hdr_out->samples[0] = args->bnames[i];
-        bcf_hdr_write(args->fh[i], args->hdr_out);
-    }
-    free(str.s);
 
     // parse tags
     int is_info = 0, is_fmt = 0;
@@ -235,6 +215,57 @@ static void init_data(args_t *args)
     {
         args->keep_info = args->keep_fmt = 1;
     }
+    if ( !args->keep_fmt && !args->nfmt_tags ) args->keep_fmt = 1;
+    if ( !args->keep_info || args->ninfo_tags || args->nfmt_tags )
+    {
+        int j;
+        for (j=args->hdr_out->nhrec-1; j>=0; j--)
+        {
+            bcf_hrec_t *hrec = args->hdr_out->hrec[j];
+            if ( hrec->type!=BCF_HL_INFO && hrec->type!=BCF_HL_FMT ) continue;
+            int k = bcf_hrec_find_key(hrec,"ID");
+            assert( k>=0 ); // this should always be true for valid VCFs
+            int remove = 0;
+            if ( hrec->type==BCF_HL_INFO && (!args->keep_info || args->ninfo_tags) )
+            {
+                int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
+                if ( !args->keep_info || id >= args->ninfo_tags || !args->info_tags[id] ) remove = 1;
+            }
+            if ( hrec->type==BCF_HL_FMT && args->nfmt_tags )
+            {
+                int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
+                if ( id >= args->nfmt_tags || !args->fmt_tags[id] ) remove = 1;
+            }
+            if ( remove )
+            {
+                char *str = strdup(hrec->vals[k]);
+                bcf_hdr_remove(args->hdr_out,hrec->type,str);
+                free(str);
+            }
+        }
+        if ( bcf_hdr_sync(args->hdr_out)!=0 ) error("Failed to update the VCF header\n");
+    }
+
+    kstring_t str = {0,0,0};
+    for (i=0; i<nsmpl; i++)
+    {
+        if ( !args->bnames[i] ) continue;
+        str.l = 0;
+        kputs(args->output_dir, &str);
+        if ( str.s[str.l-1] != '/' ) kputc('/', &str);
+        int k, l = str.l;
+        kputs(args->bnames[i], &str);
+        for (k=l; k<str.l; k++) if ( isspace(str.s[k]) ) str.s[k] = '_';
+        if ( args->output_type & FT_BCF ) kputs(".bcf", &str);
+        else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &str);
+        else kputs(".vcf", &str);
+        args->fh[i] = hts_open(str.s, hts_bcf_wmode(args->output_type));
+        if ( args->fh[i] == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, str.s, strerror(errno));
+        bcf_hdr_nsamples(args->hdr_out) = 1;
+        args->hdr_out->samples[0] = args->bnames[i];
+        if ( bcf_hdr_write(args->fh[i], args->hdr_out)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,str.s);
+    }
+    free(str.s);
 }
 static void destroy_data(args_t *args)
 {
@@ -245,7 +276,7 @@ static void destroy_data(args_t *args)
     int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
     for (i=0; i<nsmpl; i++)
     {
-        if ( args->fh[i] && hts_close(args->fh[i])!=0 ) error("Error: close failed!\n");
+        if ( args->fh[i] && hts_close(args->fh[i])!=0 ) error("Error: close failed .. %s\n",args->bnames[i]);
         free(args->bnames[i]);
     }
     free(args->bnames);
@@ -307,7 +338,7 @@ static bcf1_t *rec_set_format(args_t *args, bcf1_t *src, int ismpl, bcf1_t *dst)
     {
         bcf_fmt_t *fmt = &src->d.fmt[i];
         int id = fmt->id;
-        if ( !args->keep_fmt && !args->fmt_tags[id] ) continue;
+        if ( !args->keep_fmt && (id>=args->nfmt_tags || !args->fmt_tags[id]) ) continue;
 
         bcf_enc_int1(&tmp, id);
         bcf_enc_size(&tmp, fmt->n, fmt->type);
@@ -343,7 +374,7 @@ static void process(args_t *args)
         }
         if ( !out ) out = rec_set_info(args, rec);
         rec_set_format(args, rec, i, out);
-        bcf_write(args->fh[i], args->hdr_out, out);
+        if ( bcf_write(args->fh[i], args->hdr_out, out)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
     }
     if ( out ) bcf_destroy(out);
 }

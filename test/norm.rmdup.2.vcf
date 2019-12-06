@@ -1,0 +1,14 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=22,length=2147483647>
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00096	HG00097	HG00099	HG00100	HG00101	HG00102	HG00103	HG00105	HG00106	HG00107
+22	16854058	.	C	G	.	.	AC=0;AN=20	GT	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0
+22	16854058	.	C	T	.	.	AC=0;AN=20	GT	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0
+22	16897908	.	C	A	.	.	AC=0;AN=20	GT	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0
+22	16897908	.	C	T	.	.	AC=2;AN=20	GT	0|0	0|1	0|0	0|0	0|0	0|0	0|0	0|0	1|0	0|0
+22	16930571	.	A	C	.	.	AC=0;AN=20	GT	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0
+22	16930571	.	A	G	.	.	AC=0;AN=20	GT	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0	0|0

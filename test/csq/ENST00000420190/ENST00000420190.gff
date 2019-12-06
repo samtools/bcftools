@@ -1,0 +1,15 @@
+1	ensembl_havana	gene	60	19755	.	+	.	ID=gene:ENSG00000187634;Name=SAMD11;biotype=protein_coding;description=sterile	alpha	motif	domain	containing	11	[Source:HGNC	Symbol%3BAcc:28706];gene_id=ENSG00000187634;logic_name=ensembl_havana_gene;version=6
+1	ensembl_havana	transcript	918	19755	.	+	.	ID=transcript:ENST00000342066;Parent=gene:ENSG00000187634;Name=SAMD11-010;biotype=protein_coding;ccdsid=CCDS2.2;havana_transcript=OTTHUMT00000276866;havana_version=2;tag=basic;transcript_id=ENST00000342066;version=3
+1	ensembl_havana	exon	5335	5516	.	+	.	Parent=transcript:ENST00000342066;Name=ENSE00002727207;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00002727207;rank=3;version=1
+1	ensembl_havana	CDS	5335	5516	.	+	0	ID=CDS:ENSP00000342313;Parent=transcript:ENST00000342066;protein_id=ENSP00000342313
+1	ensembl_havana	exon	6219	6269	.	+	.	Parent=transcript:ENST00000342066;Name=ENSE00002696520;constitutive=0;ensembl_end_phase=2;ensembl_phase=2;exon_id=ENSE00002696520;rank=4;version=1
+1	ensembl_havana	CDS	6219	6269	.	+	1	ID=CDS:ENSP00000342313;Parent=transcript:ENST00000342066;protein_id=ENSP00000342313
+1	ensembl_havana	exon	10952	11076	.	+	.	Parent=transcript:ENST00000342066;Name=ENSE00002703998;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00002703998;rank=5;version=1
+1	ensembl_havana	CDS	10952	11076	.	+	1	ID=CDS:ENSP00000342313;Parent=transcript:ENST00000342066;protein_id=ENSP00000342313
+1	ensembl_havana	exon	14220	14309	.	+	.	Parent=transcript:ENST00000342066;Name=ENSE00002686739;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00002686739;rank=6;version=1
+1	ensembl_havana	CDS	14220	14309	.	+	2	ID=CDS:ENSP00000342313;Parent=transcript:ENST00000342066;protein_id=ENSP00000342313
+1	ensembl_havana	exon	14455	14640	.	+	.	Parent=transcript:ENST00000342066;Name=ENSE00002715021;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00002715021;rank=7;version=1
+1	ensembl_havana	CDS	14455	14640	.	+	2	ID=CDS:ENSP00000342313;Parent=transcript:ENST00000342066;protein_id=ENSP00000342313
+1	ensembl_havana	transcript	14455	19439	.	+	.	ID=transcript:ENST00000455979;Parent=gene:ENSG00000187634;Name=SAMD11-004;biotype=protein_coding;havana_transcript=OTTHUMT00000097863;havana_version=4;transcript_id=ENST00000455979;version=1
+1	havana	exon	14455	14640	.	+	.	Parent=transcript:ENST00000455979;Name=ENSE00002715021;constitutive=0;ensembl_end_phase=1;ensembl_phase=1;exon_id=ENSE00002715021;rank=1;version=1
+1	havana	CDS	14455	14640	.	+	2	ID=CDS:ENSP00000412228;Parent=transcript:ENST00000455979;protein_id=ENSP00000412228

@@ -1,0 +1,3 @@
+4958	AGA	A	start_retained|NBPF3|ENST00000318249|protein_coding|+
+4958	AGA	A	start_retained|NBPF3|ENST00000318249|protein_coding|+
+

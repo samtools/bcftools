@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1141506	.	G	A	.	PASS	.
+1	1141517	.	C	A	.	PASS	.
+1	1141556	.	G	C	.	PASS	.
+1	1141570	.	G	C	.	PASS	.
+1	1141643	.	T	C	.	PASS	.

@@ -1,0 +1,28 @@
+##fileformat=VCFv4.2
+##reference=dummy.fa
+##contig=<ID=chr1,length=1254>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	1	.	T	TTAACTACCATTCAACAT	.	.	EXP=frameshift|gtrV|gtrV|protein_coding|+|1LRLFFY*>1LTTIQH*|1T>TTAACTACCATTCAACAT+175T>C+198C>G+202C>G+213G>A+274C>T+313A>C+471G>A+472C>T+544A>T+554A>G+607C>A+643G>T+706C>T+718G>A+872G>A+946T>C+1090C>G+1124G>C+1149C>T+1189T>C+1205C>G
+chr1	175	.	T	C	.	.	EXP=@1
+chr1	198	.	C	G	.	.	EXP=@1
+chr1	202	.	C	G	.	.	EXP=@1
+chr1	213	.	G	A	.	.	EXP=@1
+chr1	274	.	C	T	.	.	EXP=@1
+chr1	313	.	A	C	.	.	EXP=@1
+chr1	471	.	G	A	.	.	EXP=@1
+chr1	472	.	C	T	.	.	EXP=@1
+chr1	544	.	A	T	.	.	EXP=@1
+chr1	554	.	A	G	.	.	EXP=@1
+chr1	607	.	C	A	.	.	EXP=@1
+chr1	643	.	G	T	.	.	EXP=@1
+chr1	706	.	C	T	.	.	EXP=@1
+chr1	718	.	G	A	.	.	EXP=@1
+chr1	872	.	G	A	.	.	EXP=@1
+chr1	946	.	T	C	.	.	EXP=@1
+chr1	1090	.	C	G	.	.	EXP=@1
+chr1	1124	.	G	C	.	.	EXP=@1
+chr1	1149	.	C	T	.	.	EXP=@1
+chr1	1189	.	T	C	.	.	EXP=@1
+chr1	1205	.	C	G	.	.	EXP=@1

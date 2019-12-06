@@ -32,6 +32,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <htslib/kstring.h>
+#include <htslib/hts_os.h>
 #include <time.h>
 #include "regidx.h"
 
@@ -225,6 +226,54 @@ void test_random(int nregs, uint32_t min, uint32_t max)
     regidx_destroy(idx);
     free(str.s);
 }
+void test_explicit(char *tgt, char *qry, char *exp)
+{
+    regidx_t *idx = regidx_init(NULL,regidx_parse_reg,NULL,0,NULL);
+
+    char *beg = tgt, *end, *exp_ori = exp;
+    kstring_t str = {0,0,0};
+    while ( *beg )
+    {
+        end = tgt;
+        while ( *end && *end!=';' ) end++;
+        str.l = 0;
+        kputsn(beg, end-beg, &str);
+        debug("insert: %s\n", str.s);
+        if ( regidx_insert(idx,str.s)!=0 ) error("insert failed: %s\n", str.s);
+        beg = *end ? end + 1 : end;
+    }
+
+    beg = qry;
+    while ( *beg )
+    {
+        end = qry;
+        while ( *end && *end!=';' ) end++;
+        str.l = 0;
+        kputsn(beg, end-beg, &str);
+        beg = *end ? end + 1 : end;
+
+        char *chr_beg, *chr_end;
+        uint32_t reg_beg, reg_end;
+        if ( regidx_parse_reg(str.s, &chr_beg, &chr_end, &reg_beg, &reg_end, NULL, NULL)!=0 ) error("could not parse: %s in %s\n", str.s, qry);
+        chr_end[1] = 0;
+        int hit = regidx_overlap(idx,chr_beg,reg_beg,reg_end,NULL);
+        if ( *exp=='1' )
+        {
+            if ( !hit ) error("query failed, there should be a hit .. %s:%d-%d\n",chr_beg,reg_beg+1,reg_end+1);
+            debug("ok: overlap found for %s:%d-%d\n",chr_beg,reg_beg+1,reg_end+1);
+        }
+        else if ( *exp=='0' )
+        {
+            if ( hit ) error("query failed, there should be no hit .. %s:%d-%d\n",chr_beg,reg_beg+1,reg_end+1);
+            debug("ok: no overlap found for %s:%d-%d\n",chr_beg,reg_beg+1,reg_end+1);
+        }
+        else error("could not parse: %s\n", exp_ori);
+        exp++;
+    }
+
+    free(str.s);
+    regidx_destroy(idx);
+}
 
 void create_line_bed(char *line, char *chr, int start, int end)
 {
@@ -256,6 +305,11 @@ void test(set_line_f set_line, regidx_parse_f parse)
         if ( regidx_insert(idx,line)!=0 ) error("insert failed: %s\n", line);
 
         start = end = 10*i + 1;
+        set_line(line,chr,start,end);
+        debug("insert: %s", line);
+        if ( regidx_insert(idx,line)!=0 ) error("insert failed: %s\n", line);
+
+        start = 20000*i; end = start + 2000;
         set_line(line,chr,start,end);
         debug("insert: %s", line);
         if ( regidx_insert(idx,line)!=0 ) error("insert failed: %s\n", line);
@@ -311,6 +365,19 @@ void test(set_line_f set_line, regidx_parse_f parse)
         }
         if ( nhit!=2 ) error("query failed, expected two hits, found %d: %s:%d-%d\n",nhit,chr,start,end);
 
+        // fully contained interval, one hit
+        start = 20000*i - 5000; end = 20000*i + 3000;
+        set_line(line,chr,start,end);
+        if ( !regidx_overlap(idx,chr,start-1,end-1,itr) ) error("query failed, there should be a hit: %s:%d-%d\n",chr,start,end);
+        debug("ok: overlap(s) found for %s:%d-%d\n",chr,start,end);
+        nhit = 0;
+        while ( regitr_overlap(itr) )
+        {
+            if ( itr->beg > end-1 || itr->end < start-1 ) error("query failed, incorrect region: %d-%d for %d-%d\n",itr->beg+1,itr->end+1,start,end);
+            debug("\t %d-%d\n",itr->beg+1,itr->end+1);
+            nhit++;
+        }
+        if ( nhit!=1 ) error("query failed, expected one hit, found %d: %s:%d-%d\n",nhit,chr,start,end);
     }
     regitr_destroy(itr);
     regidx_destroy(idx);
@@ -362,6 +429,9 @@ int main(int argc, char **argv)
 
     info("Testing custom payload\n");
     test_custom_payload();
+
+    info("Testing cases encountered in past\n");
+    test_explicit("12:2064519-2064763","12:2064488-2067434","1");
 
     int i, ntest = 1000, nreg = 50;
     srandom(seed);

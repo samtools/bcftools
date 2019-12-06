@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -230,11 +231,11 @@ static void report_stats(args_t *args)
     fprintf(fh,"#   %d) number of indels\n", ++i);
     fprintf(fh,"#   %d) number of singletons\n", ++i);
     fprintf(fh,"#   %d) number of missing genotypes (./., ., ./0, etc)\n", ++i);
-    fprintf(fh,"#   %d) number of transitions (genotypes such as \"1/2\" are counted twice)\n", ++i);
-    fprintf(fh,"#   %d) number of transversions (genotypes such as \"1/2\" are counted twice)\n", ++i);
+    fprintf(fh,"#   %d) number of transitions (alt het genotypes such as \"1/2\" are counted twice)\n", ++i);
+    fprintf(fh,"#   %d) number of transversions (alt het genotypes such as \"1/2\" are counted twice)\n", ++i);
     fprintf(fh,"#   %d) overall ts/tv\n", ++i);
     i = 0;
-    fprintf(fh,"# SITE* lines report numbers for every threshold and site:\n");
+    fprintf(fh,"# SITE* lines report numbers for every threshold:\n");
     fprintf(fh,"#   %d) filter id\n", ++i);
     fprintf(fh,"#   %d) number of sites which pass the filter\n", ++i);
     fprintf(fh,"#   %d) number of SNVs\n", ++i);
@@ -390,7 +391,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             {
                 if ( als[j]==0 || als[j]==star_allele ) continue;
                 if ( als[j] >= rec->n_allele )
-                    error("The GT index is out of range at %s:%d in %s\n", bcf_seqname(args->hdr,rec),rec->pos+1,args->hdr->samples[j]);
+                    error("The GT index is out of range at %s:%"PRId64" in %s\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->hdr->samples[j]);
 
                 if ( args->ac[als[j]]==1 ) { stats->nsingleton++; site_singleton = 1; }
 

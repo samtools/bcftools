@@ -1,0 +1,16 @@
+8	ensembl_havana	gene	-264	14941	.	+	.	ID=gene:ENSG00000172748;Name=ZNF596;biotype=protein_coding;description=zinc finger protein 596 [Source:HGNC Symbol%3BAcc:27268];gene_id=ENSG00000172748;logic_name=ensembl_havana_gene;version=8
+8	ensembl_havana	transcript	21	11400	.	+	.	ID=transcript:ENST00000518414;Parent=gene:ENSG00000172748;Name=ZNF596-005;biotype=protein_coding;havana_transcript=OTTHUMT00000376344;havana_version=1;transcript_id=ENST00000518414;version=1
+8	havana	exon	21	293	.	+	.	Parent=transcript:ENST00000518414;Name=ENSE00002131504;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002131504;rank=1;version=1
+8	havana	exon	8423	8506	.	+	.	Parent=transcript:ENST00000518414;Name=ENSE00003704980;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00003704980;rank=2;version=1
+8	havana	CDS	8495	8506	.	+	0	ID=CDS:ENSP00000430552;Parent=transcript:ENST00000518414;protein_id=ENSP00000430552
+8	havana	exon	10486	10612	.	+	.	Parent=transcript:ENST00000518414;Name=ENSE00003704827;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSE00003704827;rank=3;version=1
+8	havana	CDS	10486	10612	.	+	0	ID=CDS:ENSP00000430552;Parent=transcript:ENST00000518414;protein_id=ENSP00000430552
+8	havana	exon	11321	11400	.	+	.	Parent=transcript:ENST00000518414;Name=ENSE00002123703;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSE00002123703;rank=4;version=1
+8	havana	CDS	11321	11400	.	+	2	ID=CDS:ENSP00000430552;Parent=transcript:ENST00000518414;protein_id=ENSP00000430552
+8	ensembl_havana	transcript	41	10604	.	+	.	ID=transcript:ENST00000521270;Parent=gene:ENSG00000172748;Name=ZNF596-007;biotype=protein_coding;havana_transcript=OTTHUMT00000376345;havana_version=1;transcript_id=ENST00000521270;version=1
+8	havana	exon	41	223	.	+	.	Parent=transcript:ENST00000521270;Name=ENSE00002106240;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002106240;rank=1;version=1
+8	havana	exon	7901	8095	.	+	.	Parent=transcript:ENST00000521270;Name=ENSE00002111129;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSE00002111129;rank=2;version=1
+8	havana	exon	8423	8506	.	+	.	Parent=transcript:ENST00000521270;Name=ENSE00003704980;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00003704980;rank=3;version=1
+8	havana	CDS	8495	8506	.	+	0	ID=CDS:ENSP00000429386;Parent=transcript:ENST00000521270;protein_id=ENSP00000429386
+8	havana	exon	10486	10604	.	+	.	Parent=transcript:ENST00000521270;Name=ENSE00002132143;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00002132143;rank=4;version=1
+8	havana	CDS	10486	10604	.	+	0	ID=CDS:ENSP00000429386;Parent=transcript:ENST00000521270;protein_id=ENSP00000429386

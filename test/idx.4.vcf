@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##ALT=<ID=NON_REF,Description="Represents any possible alternative allele at this location">
+##INFO=<ID=END,Number=1,Type=Integer,Description="Stop position of the interval">
+##contig=<ID=chr1,length=248956422,assembly=hg38>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	156134692	.	C	<NON_REF>	.	PASS	END=156135413

@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25133856"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp212896"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
 will work in all situations. Un-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
-read simultaneously, they must be indexed and therefore also compressed.</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
+read simultaneously, they must be indexed and therefore also compressed.
+(Note that files with non-standard index names can be accessed as e.g.
+"<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2018-07-18</strong></span> and refers to bcftools git version <span class="strong"><strong>1.9</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-12-06</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -185,26 +187,15 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     The sample order is updated to reflect that given in the input file.
     The command <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a></strong></span> accepts an optional second
     column indicating ploidy (0, 1 or 2) or sex (as defined by
-    <span class="strong"><strong><a class="link" href="#ploidy">--ploidy</a></strong></span>, for example "F" or "M"), and can parse also PED
-    files. If the second column is not present,
-    the sex "F" is assumed.
-    With <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a> -C</strong></span> <span class="emphasis"><em>trio</em></span>, PED file is expected. File
-    formats examples:
+    <span class="strong"><strong><a class="link" href="#ploidy">--ploidy</a></strong></span>, for example "F" or "M"), for example:
 </dd></dl></div><pre class="screen">    sample1    1
     sample2    2
-    sample3    2
-
-  or
-
-    sample1    M
+    sample3    2</pre><p>or</p><pre class="screen">    sample1    M
     sample2    F
-    sample3    F
-
-  or a .ped file (here is shown a minimum working example, the first column is
-  ignored and the last indicates sex: 1=male, 2=female)
-
-    ignored daughterA fatherA motherA 2
-    ignored sonB fatherB motherB 1</pre><div class="variablelist"><dl><dt><span class="term">
+    sample3    F</pre><p>If the second column is not present, the sex "F" is assumed.
+With <span class="strong"><strong><a class="link" href="#call" title="bcftools call [OPTIONS] FILE">bcftools call</a> -C</strong></span> <span class="emphasis"><em>trio</em></span>, PED file is expected.
+The program ignores the first column and the last indicates sex (1=male, 2=female), for example:</p><pre class="screen">    ignored_column  daughterA fatherA  motherA  2
+    ignored_column  sonB      fatherB  motherB  1</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-t, --targets</strong></span> [^]<span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
     Similar as <span class="strong"><strong>-r, --regions</strong></span>, but the next position is accessed by streaming the
@@ -231,8 +222,8 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
 </dd></dl></div><pre class="screen">    bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c &gt; als.tsv.gz &amp;&amp; tabix -s1 -b2 -e2 als.tsv.gz</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
-    Number of output compression threads to use in addition to main thread.
-    Only used when <span class="emphasis"><em>--output-type</em></span> is <span class="emphasis"><em>b</em></span> or <span class="emphasis"><em>z</em></span>. Default: 0.
+    Use multithreading with <span class="emphasis"><em>INT</em></span> worker threads. The option is currently used only for the compression of the
+    output stream, only when <span class="emphasis"><em>--output-type</em></span> is <span class="emphasis"><em>b</em></span> or <span class="emphasis"><em>z</em></span>. Default: 0.
 </dd></dl></div></div><div class="refsect2" title="bcftools annotate [OPTIONS] FILE"><a id="annotate"></a><h3>bcftools annotate <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>Add or remove annotations.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annotations</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
@@ -249,6 +240,7 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     alleles in the corresponding VCF record. Similarly, at least one
     alternate allele from a multi-allelic VCF record must be present in the
     annotation file.
+    Missing values can be added by providing "." in place of actual value.
     Note that flag types, such as "INFO/FLAG", can be annotated by including
     a field with the value "1" to set the flag, "0" to remove it, or "." to
     keep existing flags.
@@ -288,11 +280,19 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
    
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via <span class="strong"><strong>-h, --header-lines</strong></span>.
+   
+    See also the <span class="strong"><strong>-l, --merge-logic</strong></span> option.
 </dd><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
     <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>--force</strong></span>
+</span></dt><dd>
+    continue even when parsing errors, such as undefined tags, are encountered. Note
+    this can be an unsafe operation and can result in corrupted BCF files. If this
+    option is used, make sure to sanity check the result thoroughly.
 </dd><dt><span class="term">
 <span class="strong"><strong>-h, --header-lines</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
@@ -313,7 +313,20 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
 </dd><dt><span class="term">
 <span class="strong"><strong>-k, --keep-sites</strong></span>
 </span></dt><dd>
-    keep sites wich do not pass <span class="strong"><strong>-i</strong></span> and <span class="strong"><strong>-e</strong></span> expressions instead of discarding them
+    keep sites which do not pass <span class="strong"><strong>-i</strong></span> and <span class="strong"><strong>-e</strong></span> expressions instead of discarding them
+</dd><dt><span class="term">
+<span class="strong"><strong>-l, --merge-logic</strong></span> <span class="emphasis"><em>tag</em></span>:'first'|<span class="emphasis"><em>append</em></span>|<span class="emphasis"><em>unique</em></span>|<span class="emphasis"><em>sum</em></span>|<span class="emphasis"><em>avg</em></span>|<span class="emphasis"><em>min</em></span>|<span class="emphasis"><em>max</em></span>[,…]
+</span></dt><dd>
+    if multiple regions overlap a single record, the option defines how to treat multiple
+    annotation values when setting <span class="emphasis"><em>tag</em></span> in the destination file: use the first encountered value ignoring
+    the rest (<span class="emphasis"><em>first</em></span>); append allowing duplicates (<span class="emphasis"><em>append</em></span>); append discarding duplicate values (<span class="emphasis"><em>unique</em></span>);
+    sum the values (<span class="emphasis"><em>sum</em></span>, numeric fields only); average the values (<span class="emphasis"><em>avg</em></span>); use the minimum value (<span class="emphasis"><em>min</em></span>) or
+    the maximum (<span class="emphasis"><em>max</em></span>).
+   
+    Note that this option is intended for use with BED or TAB-delimited annotation files only. Moreover,
+    it is effective only if <span class="emphasis"><em>BEG</em></span> and <span class="emphasis"><em>END</em></span> <span class="strong"><strong>--columns</strong></span> are present.
+   
+    This is an experimental feature.
 </dd><dt><span class="term">
 <span class="strong"><strong>-m, --mark-sites</strong></span> <span class="emphasis"><em><span class="+-">TAG</span></em></span>
 </span></dt><dd>
@@ -356,6 +369,13 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     given as "src_name dst_name\n", separated by whitespaces, each pair on a
     separate line.
 </dd><dt><span class="term">
+<span class="strong"><strong>--single-overlaps</strong></span>
+</span></dt><dd>
+    use this option to keep memory requirements low with very large annotation
+    files. Note, however, that this comes at a cost, only single overlapping intervals
+    are considered in this mode. This was the default mode until the commit
+    af6f0c9 (Feb 24 2019).
+</dd><dt><span class="term">
 <span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
@@ -387,7 +407,7 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
 
     # Annotate from a tab-delimited file with regions (1-based coordinates, inclusive)
     tabix -s1 -b2 -e3 annots.tab.gz
-    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,FROM,TO,TAG inut.vcf
+    bcftools annotate -a annots.tab.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
 
     # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
     bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf</pre></div><div class="refsect2" title="bcftools call [OPTIONS] FILE"><a id="call"></a><h3>bcftools call <span class="emphasis"><em>[OPTIONS]</em></span> <span class="emphasis"><em>FILE</em></span></h3><p>This command replaces the former <span class="strong"><strong>bcftools view</strong></span> caller. Some of the original
@@ -473,8 +493,8 @@ demand. The original calling model can be invoked with the <span class="strong">
 </dd></dl></div><pre class="screen">    # Extract AN,AC values from an existing VCF, such 1000Genomes
     bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' 1000Genomes.bcf | bgzip -c &gt; AFs.tab.gz
 
-    # If the tags AN,AC are not already present, use the +fill-AN-AC plugin
-    bcftools +fill-AN-AC 1000Genomes.bcf | bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' | bgzip -c &gt; AFs.tab.gz
+    # If the tags AN,AC are not already present, use the +fill-tags plugin
+    bcftools +fill-tags 1000Genomes.bcf | bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AN\t%AC\n' | bgzip -c &gt; AFs.tab.gz
     tabix -s1 -b2 -e2 AFs.tab.gz
 
     # Create a VCF header description, here we name the tags REF_AN,REF_AC
@@ -484,6 +504,15 @@ demand. The original calling model can be invoked with the <span class="strong">
 
     # Now before calling, stream the raw mpileup output through `bcftools annotate` to add the frequencies
     bcftools mpileup [...] -Ou | bcftools annotate -a AFs.tab.gz -h AFs.hdr -c CHROM,POS,REF,ALT,REF_AN,REF_AC -Ou | bcftools call -mv -F REF_AN,REF_AC [...]</pre><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-G, --group-samples</strong></span> <span class="emphasis"><em>FILE</em></span>|<span class="emphasis"><em>-</em></span>
+</span></dt><dd>
+    by default, all samples are assumed to come from a single population. This option allows to group samples
+    into populations and apply the HWE assumption within but not across the populations. <span class="emphasis"><em>FILE</em></span> is a tab-delimited
+    text file with sample names in the first column and group names in the second column. If <span class="emphasis"><em>-</em></span> is
+    given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
+    in low coverage data this inflates the rate of false positives.) The <span class="strong"><strong>-G</strong></span> option requires the presence of
+    FORMAT/AD generated at the <span class="strong"><strong>bcftools mpileup</strong></span> step by providing the <span class="strong"><strong>-a FMT/AD</strong></span> option.
+</dd><dt><span class="term">
 <span class="strong"><strong>-g, --gvcf</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
     output also gVCF blocks of homozygous REF calls. The parameter <span class="emphasis"><em>INT</em></span> is the
@@ -523,7 +552,7 @@ demand. The original calling model can be invoked with the <span class="strong">
 </dd></dl></div></dd><dt><span class="term">
 <span class="strong"><strong>-m, --multiallelic-caller</strong></span>
 </span></dt><dd>
-    alternative modelfor multiallelic and rare-variant calling designed to
+    alternative model for multiallelic and rare-variant calling designed to
     overcome known limitations in <span class="strong"><strong>-c</strong></span> calling model (conflicts with <span class="strong"><strong>-c</strong></span>)
 </dd><dt><span class="term">
 <span class="strong"><strong>-n, --novel-rate</strong></span> <span class="emphasis"><em>float</em></span>[,…]
@@ -592,7 +621,7 @@ loss), 0 (complete loss), 3 (single-copy gain).</p><div class="refsect3" title="
 </dd><dt><span class="term">
 <span class="strong"><strong>-s, --query-sample</strong></span> <span class="emphasis"><em>string</em></span>
 </span></dt><dd>
-    query samply name
+    query sample name
 </dd><dt><span class="term">
 <span class="strong"><strong>-t, --targets</strong></span> <span class="emphasis"><em>LIST</em></span>
 </span></dt><dd>
@@ -656,8 +685,7 @@ concatenate chromosome VCFs into one VCF, or combine a SNP VCF and an indel
 VCF into one. The input files must be sorted by chr and position. The files
 must be given in the correct order to produce sorted VCF on output unless
 the <span class="strong"><strong>-a, --allow-overlaps</strong></span> option is specified. With the --naive option, the files
-are concatenated without being recompressed, which is very fast but dangerous
-if the BCF headers differ.</p><div class="variablelist"><dl><dt><span class="term">
+are concatenated without being recompressed, which is very fast..</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --allow-overlaps</strong></span>
 </span></dt><dd>
     First coordinate of the next file can precede last record of the current file.
@@ -681,7 +709,9 @@ if the BCF headers differ.</p><div class="variablelist"><dl><dt><span class="ter
 </dd><dt><span class="term">
 <span class="strong"><strong>-l, --ligate</strong></span>
 </span></dt><dd>
-    Ligate phased VCFs by matching phase at overlapping haplotypes
+    Ligate phased VCFs by matching phase at overlapping haplotypes.
+    Note that the option is intended for VCFs with perfect overlap, sites
+    in overlapping regions present in one but missing in other are dropped.
 </dd><dt><span class="term">
 <span class="strong"><strong>--no-version</strong></span>
 </span></dt><dd>
@@ -691,9 +721,13 @@ if the BCF headers differ.</p><div class="variablelist"><dl><dt><span class="ter
 </span></dt><dd>
     Concatenate VCF or BCF files without recompression. This is very fast but requires
     that all files are of the same type (all VCF or all BCF) and have the same headers.
-    This is because all tags and chromosome names in the BCF body rely on the implicit
-    order of the contig and tag definitions in the header. Currently no sanity checks
-    are in place. Dangerous, use with caution.
+    This is because all tags and chromosome names in the BCF body rely on the order
+    of the contig and tag definitions in the header. A header check compatibility
+    is performed and the program throws an error if it is not safe to use the option.
+</dd><dt><span class="term">
+<span class="strong"><strong>--naive-force</strong></span>
+</span></dt><dd>
+    Same as --naive, but header compatibility is not checked. Dangerous, use with caution.
 </dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -738,17 +772,17 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 </span></dt><dd>
     reference sequence in fasta format
 </dd><dt><span class="term">
-<span class="strong"><strong>-H, --haplotype</strong></span> <span class="emphasis"><em>1</em></span>|<span class="emphasis"><em>2</em></span>|<span class="emphasis"><em>R</em></span>|<span class="emphasis"><em>A</em></span>|<span class="emphasis"><em>LR</em></span>|<span class="emphasis"><em>LA</em></span>|<span class="emphasis"><em>SR</em></span>|<span class="emphasis"><em>SA</em></span>
+<span class="strong"><strong>-H, --haplotype</strong></span> <span class="emphasis"><em>1</em></span>|<span class="emphasis"><em>2</em></span>|<span class="emphasis"><em>R</em></span>|<span class="emphasis"><em>A</em></span>|<span class="emphasis"><em>LR</em></span>|<span class="emphasis"><em>LA</em></span>|<span class="emphasis"><em>SR</em></span>|<span class="emphasis"><em>SA</em></span>|<span class="emphasis"><em>1pIu</em></span>|<span class="emphasis"><em>2pIu</em></span>
 </span></dt><dd><p class="simpara">
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
 </p><div class="variablelist"><dl><dt><span class="term">
 <span class="emphasis"><em>1</em></span>
 </span></dt><dd>
-            the first allele
+            the first allele, regardless of phasing
 </dd><dt><span class="term">
 <span class="emphasis"><em>2</em></span>
 </span></dt><dd>
-            the second allele
+            the second allele, regardless of phasing
 </dd><dt><span class="term">
 <span class="emphasis"><em>R</em></span>
 </span></dt><dd>
@@ -763,8 +797,12 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
             the longer allele. If both have the same length, use the REF allele (LR), or the ALT allele  (LA)
 </dd><dt><span class="term">
 <span class="emphasis"><em>SR, SA</em></span>
-</span></dt><dd><p class="simpara">
+</span></dt><dd>
             the shorter allele. If both have the same length, use the REF allele (SR), or the ALT allele  (SA)
+</dd><dt><span class="term">
+<span class="emphasis"><em>1pIu, 2pIu</em></span>
+</span></dt><dd><p class="simpara">
+            first/second allele for phased genotypes and IUPAC code for unphased genotypes
 </p><pre class="literallayout">This option requires *-s*, unless exactly one sample is present in the VCF</pre></dd></dl></div></dd><dt><span class="term">
 <span class="strong"><strong>-i, --include</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
@@ -1016,7 +1054,7 @@ indels which in combination in fact are not frame-shifting.</p><p>The output VCF
 with the <span class="strong"><strong>-c</strong></span> option). The latter is a bitmask of indexes to INFO/BCSQ, with
 interleaved haplotypes. See the usage examples below for using the %TBCSQ
 converter in <span class="strong"><strong>query</strong></span> for extracting a more human readable form from this
-bitmask. The contruction of the bitmask limits the number of consequences
+bitmask. The construction of the bitmask limits the number of consequences
 that can be referenced in the FORMAT/BCSQ tags. By default this is 16, but
 if more are required, see the <span class="strong"><strong>--ncsq</strong></span> option.</p><p>The program requires on input a VCF/BCF file, the reference genome in fasta
 format (<span class="strong"><strong>--fasta-ref</strong></span>) and genomic features in the GFF3 format downloadable
@@ -1031,6 +1069,12 @@ output VCF and are ignored for the prediction analysis.</p><div class="variablel
 <span class="strong"><strong>-c, --custom-tag</strong></span> <span class="emphasis"><em>STRING</em></span>
 </span></dt><dd>
     use this custom tag to store consequences rather than the default BCSQ tag
+</dd><dt><span class="term">
+<span class="strong"><strong>-b, --brief-predictions</strong></span>
+</span></dt><dd>
+    annotate with abbreviated protein-changing predictions. That is, instead of writing
+    the whole modified protein sequence with potentially hundreds of aminoacids, only an
+    abbreviated version such as <span class="emphasis"><em>25E..329&gt;25G..94</em></span> will be written
 </dd><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
@@ -1094,6 +1138,10 @@ output VCF and are ignored for the prediction analysis.</p><div class="variablel
     all consequences, but only the first <span class="emphasis"><em>INT</em></span> will be referenced by the FORMAT/BCSQ fields.
     The default value is 16 which corresponds to one integer per diploid
     sample. Note that increasing the value leads to increased memory and is rarely necessary.
+</dd><dt><span class="term">
+<span class="strong"><strong>--no-version</strong></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
@@ -1163,7 +1211,7 @@ output VCF and are ignored for the prediction analysis.</p><div class="variablel
     #   %TBCSQ    .. print consequences in all haplotypes in separate columns
     #   %TBCSQ{0} .. print the first haplotype only
     #   %TBCSQ{1} .. print the second haplotype only
-    #   %TBCSQ{*} .. print a list of unique consquences present in either haplotype
+    #   %TBCSQ{*} .. print a list of unique consequences present in either haplotype
     bcftools query -f'[%CHROM\t%POS\t%SAMPLE\t%TBCSQ\n]' out.bcf</pre><p><span class="strong"><strong>Examples of BCSQ annotation:</strong></span></p><pre class="screen">    # Two separate VCF records at positions 2:122106101 and 2:122106102
     # change the same codon. This UV-induced C&gt;T dinucleotide mutation
     # has been annotated fully at the position 2:122106101 with
@@ -1483,7 +1531,7 @@ For "vertical" merge take a look at <span class="strong"><strong><a class="link"
 <span class="strong"><strong>--force-samples</strong></span>
 </span></dt><dd>
     if the merged files contain duplicate samples names, proceed anyway.
-    Duplicate sample names will be resolved by prepending index of the file
+    Duplicate sample names will be resolved by prepending the index of the file
     as it appeared on the command line to the conflicting sample name (see
     <span class="emphasis"><em>2:S3</em></span> in the above example).
 </dd><dt><span class="term">
@@ -1604,17 +1652,21 @@ multiple regions and many alignment files are processed.</p><div class="refsect3
 </span></dt><dd>
     Coefficient  for  downgrading mapping quality for reads containing
     excessive mismatches. Given a read with a phred-scaled probability q of
-    being generated from the mapped posi- tion, the new mapping quality is
+    being generated from the mapped position, the new mapping quality is
     about sqrt((INT-q)/INT)*INT. A zero value disables this functionality; if
     enabled, the recommended value for BWA is 50. [0]
 </dd><dt><span class="term">
 <span class="strong"><strong>-d, --max-depth</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
-    At a position, read maximally <span class="emphasis"><em>INT</em></span> reads per input file. Note that bcftools
-    has a minimum value of <span class="emphasis"><em>8000/n</em></span> where <span class="emphasis"><em>n</em></span> is the number of input files given
-    to mpileup.  This means the default is highly likely to be increased. Once
-    above the cross-sample minimum of 8000 the -d parameter will have an effect.
-    [250]
+    At a position, read maximally <span class="emphasis"><em>INT</em></span> reads per input file. Note that
+    the original <span class="strong"><strong>samtools mpileup</strong></span> command had a minimum value of <span class="emphasis"><em>8000/n</em></span>
+    where <span class="emphasis"><em>n</em></span> was the number of input files given to mpileup. This means that
+    in <span class="strong"><strong>samtools mpileup</strong></span> the default was highly likely to be increased and the
+    <span class="strong"><strong>-d</strong></span> parameter would have an effect only once above the cross-sample minimum of 8000.
+    This behavior was problematic when working with a combination of
+    single- and multi-sample bams, therefore in <span class="strong"><strong>bcftools mpileup</strong></span> the user
+    is given the full control (and responsibility), and an informative message
+    is printed instead [250]
 </dd><dt><span class="term">
 <span class="strong"><strong>-E, --redo-BAQ</strong></span>
 </span></dt><dd>
@@ -1707,25 +1759,27 @@ multiple regions and many alignment files are processed.</p><div class="refsect3
     Disable read-pair overlap detection.
 </dd></dl></div></div><div class="refsect3" title="Output options"><a id="_output_options"></a><h4>Output options</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --annotate</strong></span> <span class="emphasis"><em>LIST</em></span>
-</span></dt><dd><p class="simpara">
+</span></dt><dd>
     Comma-separated list of FORMAT and INFO tags to output. (case-insensitive,
     the "FORMAT/" prefix is optional, and use "?" to list available annotations
     on the command line) [null]:
-</p><pre class="literallayout">*FORMAT/AD* .. Allelic depth (Number=R,Type=Integer)
-*FORMAT/ADF* .. Allelic depths on the forward strand (Number=R,Type=Integer)
-*FORMAT/ADR* .. Allelic depths on the reverse strand (Number=R,Type=Integer)
-*FORMAT/DP* .. Number of high-quality bases (Number=1,Type=Integer)
-*FORMAT/SP* .. Phred-scaled strand bias P-value (Number=1,Type=Integer)</pre><pre class="literallayout">*INFO/AD* .. Total allelic depth (Number=R,Type=Integer)
-*INFO/ADF* .. Total allelic depths on the forward strand (Number=R,Type=Integer)
-*INFO/ADR* .. Total allelic depths on the reverse strand (Number=R,Type=Integer)</pre><pre class="literallayout">*FORMAT/DV* .. Deprecated in favor of FORMAT/AD;
-        Number of high-quality non-reference bases, (Number=1,Type=Integer)
-*FORMAT/DP4* .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR;
-        Number of high-quality ref-forward, ref-reverse,
-        alt-forward and alt-reverse bases (Number=4,Type=Integer)
-*FORMAT/DPR* .. Deprecated in favor of FORMAT/AD;
-        Number of high-quality bases for each observed allele (Number=R,Type=Integer)
-*INFO/DPR* .. Deprecated in favor of INFO/AD;
-        Number of high-quality bases for each observed allele (Number=R,Type=Integer)</pre></dd><dt><span class="term">
+</dd></dl></div><pre class="screen">FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)
+FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)
+FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)
+FORMAT/DP   .. Number of high-quality bases (Number=1,Type=Integer)
+FORMAT/SP   .. Phred-scaled strand bias P-value (Number=1,Type=Integer)
+FORMAT/SCR  .. Number of soft-clipped reads (Number=1,Type=Integer)
+
+INFO/AD     .. Total allelic depth (Number=R,Type=Integer)
+INFO/ADF    .. Total allelic depths on the forward strand (Number=R,Type=Integer)
+INFO/ADR    .. Total allelic depths on the reverse strand (Number=R,Type=Integer)
+INFO/SCR    .. Number of soft-clipped reads (Number=1,Type=Integer)
+
+FORMAT/DV   .. Deprecated in favor of FORMAT/AD; Number of high-quality non-reference bases, (Number=1,Type=Integer)
+FORMAT/DP4  .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high-quality ref-forward, ref-reverse,
+               alt-forward and alt-reverse bases (Number=4,Type=Integer)
+FORMAT/DPR  .. Deprecated in favor of FORMAT/AD; Number of high-quality bases for each observed allele (Number=R,Type=Integer)
+INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for each observed allele (Number=R,Type=Integer)</pre><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-g, --gvcf</strong></span> <span class="emphasis"><em>INT</em></span>[,…]
 </span></dt><dd>
     output gVCF blocks of homozygous REF calls, with depth (DP) ranges
@@ -1819,12 +1873,16 @@ the <span class="strong"><strong><a class="link" href="#fasta_ref">--fasta-ref</
     exit (<span class="emphasis"><em>e</em></span>), warn (<span class="emphasis"><em>w</em></span>), exclude (<span class="emphasis"><em>x</em></span>), or set/fix (<span class="emphasis"><em>s</em></span>) bad sites.
     The <span class="emphasis"><em>w</em></span> option can be combined with <span class="emphasis"><em>x</em></span> and <span class="emphasis"><em>s</em></span>. Note that <span class="emphasis"><em>s</em></span>
     can swap alleles and will update genotypes (GT) and AC counts,
-    but will not attempt to fix PL or other fields.
+    but will not attempt to fix PL or other fields. Also note, and this
+    cannot be stressed enough, that <span class="emphasis"><em>s</em></span> will NOT fix strand issues in
+    your VCF, do NOT use it for that purpose!!! (Instead see
+    <a class="ulink" href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" target="_top">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
+    <a class="ulink" href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html" target="_top">http://samtools.github.io/bcftools/howtos/plugin.fixref.html</a>.)
 </dd><dt><span class="term">
-<span class="strong"><strong>-d, --rm-dup</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>none</em></span>
+<span class="strong"><strong>-d, --rm-dup</strong></span> <span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>all</em></span>|<span class="emphasis"><em>exact</em></span>
 </span></dt><dd>
-    If a record is present multiple times, output only the first instance,
-    see <span class="strong"><strong>--collapse</strong></span> in <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>.
+    If a record is present multiple times, output only the first instance.
+    See also <span class="strong"><strong>--collapse</strong></span> in <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-D, --remove-duplicates</strong></span>
 </span></dt><dd>
@@ -1963,21 +2021,21 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     print version string and exit
 </dd></dl></div></div><div class="refsect3" title="List of plugins coming with the distribution:"><a id="_list_of_plugins_coming_with_the_distribution"></a><h4>List of plugins coming with the distribution:</h4><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>GTisec</strong></span>
-</span></dt><dd>
-    count genotype intersections across all possible sample subsets in a vcf file
-</dd><dt><span class="term">
-<span class="strong"><strong>GTsubset</strong></span>
-</span></dt><dd>
-    output only sites where the requested samples all exclusively share a genotype
-</dd><dt><span class="term">
 <span class="strong"><strong>ad-bias</strong></span>
 </span></dt><dd>
     find positions with wildly varying ALT allele frequency (Fisher test on FMT/AD)
 </dd><dt><span class="term">
+<span class="strong"><strong>add-variantkey</strong></span>
+</span></dt><dd>
+    add VariantKey INFO fields VKX and RSX
+</dd><dt><span class="term">
 <span class="strong"><strong>af-dist</strong></span>
 </span></dt><dd>
     collect AF deviation stats and GT probability distribution given AF and assuming HWE
+</dd><dt><span class="term">
+<span class="strong"><strong>allele-length</strong></span>
+</span></dt><dd>
+    count the frequency of the length of REF, ALT and REF+ALT
 </dd><dt><span class="term">
 <span class="strong"><strong>check-ploidy</strong></span>
 </span></dt><dd>
@@ -1991,6 +2049,21 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     color shared chromosomal segments, requires trio VCF with phased GTs
 </dd><dt><span class="term">
+<span class="strong"><strong>contrast</strong></span>
+</span></dt><dd><p class="simpara">
+    runs a basic association test, per-site or in a region, and checks for novel alleles and
+    genotypes in two groups of samples. Adds the following INFO annotations:
+</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+PASSOC  .. Fisher’s exact test probability of genotypic association (REF vs non-REF allele)
+</li><li class="listitem">
+FASSOC  .. proportion of non-REF allele in controls and cases
+</li><li class="listitem">
+NASSOC  .. number of control-ref, control-alt, case-ref and case-alt alleles
+</li><li class="listitem">
+NOVELAL .. lists samples with a novel allele not observed in the control group
+</li><li class="listitem">
+NOVELGT .. lists samples with a novel genotype not observed in the control group
+</li></ul></div></dd><dt><span class="term">
 <span class="strong"><strong>counts</strong></span>
 </span></dt><dd>
     a minimal plugin which counts number of SNPs, Indels, and total number of sites.
@@ -2000,17 +2073,13 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
     print genotype dosage. By default the plugin searches for PL, GL and GT, in
     that order.
 </dd><dt><span class="term">
-<span class="strong"><strong>fill-AN-AC</strong></span>
-</span></dt><dd>
-    fill INFO fields AN and AC.
-</dd><dt><span class="term">
 <span class="strong"><strong>fill-from-fasta</strong></span>
 </span></dt><dd>
     fill INFO or REF field based on values in a fasta file
 </dd><dt><span class="term">
 <span class="strong"><strong>fill-tags</strong></span>
 </span></dt><dd>
-    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, HWE, MAF, NS
+    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
 </dd><dt><span class="term">
 <span class="strong"><strong>fix-ploidy</strong></span>
 </span></dt><dd>
@@ -2024,14 +2093,31 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     annotate frameshift indels
 </dd><dt><span class="term">
+<span class="strong"><strong>GTisec</strong></span>
+</span></dt><dd>
+    count genotype intersections across all possible sample subsets in a vcf file
+</dd><dt><span class="term">
+<span class="strong"><strong>GTsubset</strong></span>
+</span></dt><dd>
+    output only sites where the requested samples all exclusively share a genotype
+</dd><dt><span class="term">
 <span class="strong"><strong>guess-ploidy</strong></span>
 </span></dt><dd>
     determine sample sex by checking genotype likelihoods (GL,PL) or genotypes (GT)
     in the non-PAR region of chrX.
 </dd><dt><span class="term">
+<span class="strong"><strong>gvcfz</strong></span>
+</span></dt><dd>
+    compress gVCF file by resizing non-variant blocks according to specified criteria
+</dd><dt><span class="term">
 <span class="strong"><strong>impute-info</strong></span>
 </span></dt><dd>
     add imputation information metrics to the INFO field based on selected FORMAT tags
+</dd><dt><span class="term">
+<span class="strong"><strong>indel-stats</strong></span>
+</span></dt><dd>
+    calculates per-sample or de novo indels stats. The usage and format is similar
+    to <span class="strong"><strong>smpl-stats</strong></span> and <span class="strong"><strong>trio-stats</strong></span>
 </dd><dt><span class="term">
 <span class="strong"><strong>isecGT</strong></span>
 </span></dt><dd>
@@ -2045,21 +2131,57 @@ the usage examples that each plugin comes with.</p><div class="refsect3" title="
 </span></dt><dd>
     sets missing genotypes ("./.") to ref allele ("0/0" or "0|0")
 </dd><dt><span class="term">
+<span class="strong"><strong>parental-origin</strong></span>
+</span></dt><dd>
+    determine parental origin of a CNV region
+</dd><dt><span class="term">
 <span class="strong"><strong>prune</strong></span>
 </span></dt><dd>
     prune sites by missingness or linkage disequilibrium
+</dd><dt><span class="term">
+<span class="strong"><strong>remove-overlaps</strong></span>
+</span></dt><dd>
+    remove overlapping variants and duplicate sites
 </dd><dt><span class="term">
 <span class="strong"><strong>setGT</strong></span>
 </span></dt><dd>
     general tool to set genotypes according to rules requested by the user
 </dd><dt><span class="term">
+<span class="strong"><strong>smpl-stats</strong></span>
+</span></dt><dd>
+    calculates basic per-sample stats. The usage and format is similar to
+    <span class="strong"><strong>indel-stats</strong></span> and <span class="strong"><strong>trio-stats</strong></span>.
+</dd><dt><span class="term">
+<span class="strong"><strong>split</strong></span>
+</span></dt><dd>
+    split VCF by sample, creating single-sample VCFs
+</dd><dt><span class="term">
+<span class="strong"><strong>split-vep</strong></span>
+</span></dt><dd>
+    extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
+    can be added as a new INFO field to the VCF or in a custom text format. See
+    <a class="ulink" href="http://samtools.github.io/bcftools/howtos/plugin.split-vep.html" target="_top">http://samtools.github.io/bcftools/howtos/plugin.split-vep.html</a> for more.
+</dd><dt><span class="term">
 <span class="strong"><strong>tag2tag</strong></span>
 </span></dt><dd>
     convert between similar tags, such as GL and GP
 </dd><dt><span class="term">
+<span class="strong"><strong>trio-dnm</strong></span>
+</span></dt><dd>
+    screen variants for possible de-novo mutations in trios
+</dd><dt><span class="term">
+<span class="strong"><strong>trio-stats</strong></span>
+</span></dt><dd>
+    calculate transmission rate in trio children. The usage and format is similar to
+    <span class="strong"><strong>indel-stats</strong></span> and <span class="strong"><strong>smpl-stats</strong></span>.
+</dd><dt><span class="term">
 <span class="strong"><strong>trio-switch-rate</strong></span>
 </span></dt><dd>
-    calculate phase switch rate in trio samples, children samples must have phased GTs.
+    calculate phase switch rate in trio samples, children samples must have phased GTs
+</dd><dt><span class="term">
+<span class="strong"><strong>variantkey-hex</strong></span>
+</span></dt><dd>
+    generate unsorted VariantKey-RSid index files in hexadecimal format
 </dd></dl></div></div><div class="refsect3" title="Examples:"><a id="_examples_3"></a><h4>Examples:</h4><pre class="screen"># List options common to all plugins
 bcftools plugin
 
@@ -2225,21 +2347,24 @@ file for help.</p><div class="refsect3" title="General options:"><a id="_general
 </span></dt><dd>
     process multiple VCFs listed in the file
 </dd></dl></div><div class="refsect3" title="Format:"><a id="_format"></a><h4>Format:</h4><pre class="literallayout">%CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
-%INFO/TAG       Any tag in the INFO column
-%TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
-%MASK           Indicates presence of the site in other files (with multiple files)
-%TAG{INT}       Curly brackets to subscript vectors (0-based)
+%END            End position of the REF allele
+%END0           End position of the REF allele in 0-based coordinates
 %FIRST_ALT      Alias for %ALT{0}
-[]              Format fields must be enclosed in brackets to loop over all samples
+%FORMAT         Prints all FORMAT fields or a subset of samples with -s or -S
 %GT             Genotype (e.g. 0/1)
-%TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
-%TGT            Translated genotype (e.g. C/A)
+%INFO           Prints the whole INFO column
+%INFO/TAG       Any tag in the INFO column
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
 %LINE           Prints the whole line
-%SAMPLE         Sample name
+%MASK           Indicates presence of the site in other files (with multiple files)
 %POS0           POS in 0-based coordinates
-%END            End position of the REF allele
-%END0           End position of the REF allele in 0-based cordinates
+%PBINOM(TAG)    Calculate phred-scaled binomial probability, the allele index is determined from GT
+%SAMPLE         Sample name
+%TAG{INT}       Curly brackets to print a subfield (e.g. INFO/TAG{1}, the indexes are 0-based)
+%TBCSQ          Translated FORMAT/BCSQ. See the csq command above for explanation and examples.
+%TGT            Translated genotype (e.g. C/A)
+%TYPE           Variant type (REF, SNP, MNP, INDEL, BND, OTHER)
+[]              Format fields must be enclosed in brackets to loop over all samples
 \n              new line
 \t              tab character</pre><pre class="literallayout">Everything else is printed verbatim.</pre></div><div class="refsect3" title="Examples:"><a id="_examples_4"></a><h4>Examples:</h4><pre class="literallayout"># Print chromosome, position, ref allele and the first alternate allele
 bcftools query -f '%CHROM  %POS  %REF  %ALT{0}\n' file.vcf.gz</pre><pre class="literallayout"># Similar to above, but use tabs instead of spaces, add sample name and genotype
@@ -2247,7 +2372,17 @@ bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%SAMPLE=%GT]\n' file.vcf.gz</pre><
 bcftools query -f 'GQ:[ %GQ] \t GT:[ %GT]\n' file.vcf</pre><pre class="literallayout"># Make a BED file: chr, pos (0-based), end pos (1-based), id
 bcftools query -f'%CHROM\t%POS0\t%END\t%ID\n' file.bcf</pre><pre class="literallayout"># Print only samples with alternate (non-reference) genotypes
 bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i'GT="alt"' file.bcf</pre><pre class="literallayout"># Print all samples at sites with at least one alternate genotype
-bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
+bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'</pre><pre class="literallayout"># Print phred-scaled binomial probability from FORMAT/AD tag for all heterozygous genotypes
+bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %pbinom(AD)\n]' file.vcf</pre><pre class="literallayout"># Print the second value of AC field if bigger than 10. Note the (unfortunate) difference in
+# index subscript notation: formatting expressions (-f) uses "{}" while filtering expressions
+# (-i) use "[]". This is for historic reasons and backward-compatibility.
+bcftools query -f '%AC{1}\n' -i 'AC[1]&gt;10' file.vcf.gz</pre></div></div><div class="refsect2" title="bcftools reheader [OPTIONS] file.vcf.gz"><a id="reheader"></a><h3>bcftools reheader [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>Modify header of VCF/BCF files, change sample names.</p><div class="variablelist"><dl><dt><span class="term">
+<span class="strong"><strong>-f, --fai</strong></span> <span class="emphasis"><em>FILE</em></span>
+</span></dt><dd>
+    add to the header contig names and their lengths from the provided fasta index file (.fai).
+    Lengths of existing contig lines will be updated and contig lines not present in
+    the fai file will be removed
+</dd><dt><span class="term">
 <span class="strong"><strong>-h, --header</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     new VCF header
@@ -2264,6 +2399,10 @@ bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE
     each on a separate line. If a sample name contains spaces, the
     spaces can be escaped using the backslash character, for example
     "Not\ a\ good\ sample\ name".
+</dd><dt><span class="term">
+<span class="strong"><strong>--threads</strong></span> <span class="emphasis"><em>INT</em></span>
+</span></dt><dd>
+    see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
 </dd></dl></div></div><div class="refsect2" title="bcftools roh [OPTIONS] file.vcf.gz"><a id="roh"></a><h3>bcftools roh [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vcf.gz</em></span></h3><p>A program for detecting runs of homo/autozygosity. Only bi-allelic sites
 are considered.</p><div class="refsect3" title="The HMM model:"><a id="_the_hmm_model"></a><h4>The HMM model:</h4><pre class="screen">Notation:
   D  = Data, AZ = autozygosity, HW = Hardy-Weinberg (non-autozygosity),
@@ -2568,8 +2707,10 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </dd></dl></div></div><div class="refsect3" title="Subset options:"><a id="_subset_options"></a><h4>Subset options:</h4><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-a, --trim-alt-alleles</strong></span>
 </span></dt><dd>
-    trim alternate alleles not seen in subset. Type A, G and R INFO and FORMAT
-    fields will also be trimmed
+    remove alleles not seen in the genotype fields from the ALT column. Note that if no alternate allele
+    remains after trimming, the record itself is not removed but ALT is set to ".".
+    If the option <span class="strong"><strong>-s</strong></span> or <span class="strong"><strong>-S</strong></span> is given, removes alleles not seen in the subset.
+    INFO and FORMAT tags declared as Type=A, G or R will be trimmed as well.
 </dd><dt><span class="term">
 <span class="strong"><strong>--force-samples</strong></span>
 </span></dt><dd>
@@ -2708,7 +2849,8 @@ the INFO column, e.g. <span class="emphasis"><em>--exclude AF&lt;0.1</em></span>
 If the name of a command is also given, e.g., bcftools help view, the detailed
 usage message for that particular command is displayed.</p></div><div class="refsect2" title="bcftools [--version|-v]"><a id="version"></a><h3>bcftools [<span class="emphasis"><em>--version</em></span>|<span class="emphasis"><em>-v</em></span>]</h3><p>Display the version numbers and copyright information for bcftools and the
 important libraries used by bcftools.</p></div><div class="refsect2" title="bcftools [--version-only]"><a id="version-only"></a><h3>bcftools [<span class="emphasis"><em>--version-only</em></span>]</h3><p>Display the full bcftools version number in a machine-readable format.</p></div></div><div class="refsect1" title="EXPRESSIONS"><a id="expressions"></a><h2>EXPRESSIONS</h2><p>These filtering expressions are accepted by most of the commands.</p><div class="itemizedlist" title="Valid expressions may contain:"><p class="title"><strong>Valid expressions may contain:</strong></p><ul class="itemizedlist" type="disc"><li class="listitem"><p class="simpara">
-numerical constants, string constants, file names
+numerical constants, string constants, file names (this is currently
+  supported only to filter by the ID column)
 </p><pre class="literallayout">1, 1.0, 1e-4
 "String"
 @file_name</pre></li><li class="listitem"><p class="simpara">
@@ -2721,12 +2863,13 @@ regex operators "~" and its negation "!~". The expressions are case sensitive un
 INFO/HAYSTACK ~ "NEEDless/i"</pre></li><li class="listitem"><p class="simpara">
 parentheses
 </p><pre class="literallayout">(, )</pre></li><li class="listitem"><p class="simpara">
-logical operators
-</p><pre class="literallayout">&amp;&amp; (same as &amp;), ||,  |</pre></li><li class="listitem"><p class="simpara">
+logical operators. See also the examples below and the <a class="ulink" href="http://samtools.github.io/bcftools/howtos/filtering.html" target="_top">filtering tutorial</a>
+about the distinction between "&amp;&amp;" vs "&amp;" and "||" vs "|".
+</p><pre class="literallayout">&amp;&amp;,  &amp;, ||,  |</pre></li><li class="listitem"><p class="simpara">
 INFO tags, FORMAT tags, column names
 </p><pre class="literallayout">INFO/DP or DP
 FORMAT/DV, FMT/DV, or DV
-FILTER, QUAL, ID, POS, REF, ALT[0]</pre></li><li class="listitem"><p class="simpara">
+FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]</pre></li><li class="listitem"><p class="simpara">
 1 (or 0) to test the presence (or absence) of a flag
 </p><pre class="literallayout">FlagA=1 &amp;&amp; FlagB=0</pre></li><li class="listitem"><p class="simpara">
 "." to test missing values
@@ -2753,7 +2896,7 @@ GT="RA" or GT="AR"
 GT="Aa" or GT="aA"
 GT="R"
 GT="A"</pre></li><li class="listitem"><p class="simpara">
-TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other). Use the regex
+TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
 operator "\~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 </p><pre class="literallayout">TYPE="snp"
@@ -2780,19 +2923,24 @@ CSQ[*] ~ "missense_variant.*deleterious"</pre></li><li class="listitem"><p class
 with many samples it can be more practical to provide a file with sample names,
 one sample name per line
 </p><pre class="literallayout">GT[@samples.txt]="het" &amp; binom(AD)&lt;0.01</pre></li><li class="listitem"><p class="simpara">
-function on FORMAT tags (over samples) and INFO tags (over vector fields)
-</p><pre class="literallayout">MAX, MIN, AVG, SUM, STRLEN, ABS, COUNT</pre></li><li class="listitem"><p class="simpara">
+function on FORMAT tags (over samples) and INFO tags (over vector fields):
+  maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median;
+  standard deviation; sum; string length; absolute value; number of elements
+  (matching columns for FORMAT tags or number of fields for INFO tags).
+</p><pre class="literallayout">MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT</pre></li><li class="listitem"><p class="simpara">
 two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
   and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
   homozygous genotypes.
 </p><pre class="literallayout">binom(FMT/AD)                .. GT can be used to determine the correct index
-binom(AD[0],AD[1])           .. or the fields can be given explicitly</pre></li><li class="listitem"><p class="simpara">
+binom(AD[0],AD[1])           .. or the fields can be given explicitly
+phred(binom())               .. the same as binom but phred-scaled</pre></li><li class="listitem"><p class="simpara">
 variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
 AC but is always smaller than 0.5); frequency of alternate alleles (AF=AC/AN);
 frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
-</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING</pre></li><li class="listitem"><p class="simpara">
+indel length (deletions negative, insertions positive)
+</p><pre class="literallayout">N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN</pre></li><li class="listitem"><p class="simpara">
 the number (N_PASS) or fraction (F_PASS) of samples which pass the expression
 </p><pre class="literallayout">N_PASS(GQ&gt;90 &amp; GT!="mis") &gt; 90
 F_PASS(GQ&gt;90 &amp; GT!="mis") &gt; 0.9</pre></li><li class="listitem"><p class="simpara">
@@ -2816,7 +2964,7 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 -i 'TAG[0]=1'   .. true
 -i 'TAG[0]!=1'  .. false
 -e 'TAG[0]=1'   .. false
--e 'TAG[0]!=1'  .. true</pre></li></ul></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">MIN(DV)&gt;5</pre><pre class="literallayout">MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">MIN(DP)&gt;10 &amp; MIN(DV)&gt;3</pre><pre class="literallayout">FMT/DP&gt;10  &amp; FMT/GQ&gt;10 .. both conditions must be satisfied within one sample</pre><pre class="literallayout">FMT/DP&gt;10 &amp;&amp; FMT/GQ&gt;10 .. the conditions can be satisfied in different samples</pre><pre class="literallayout">QUAL&gt;10 |  FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, but selects only samples with GQ&gt;10</pre><pre class="literallayout">QUAL&gt;10 || FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, plus selects all samples at such sites</pre><pre class="literallayout">TYPE="snp" &amp;&amp; QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">COUNT(GT="hom")=0</pre><pre class="literallayout">MIN(DP)&gt;35 &amp;&amp; AVG(GQ)&gt;50</pre><pre class="literallayout">ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">ID!=@~/file    .. skip lines with ID present in the ~/file</pre><pre class="literallayout">MAF[0]&lt;0.05    .. select rare variants at 5% cutoff</pre><pre class="literallayout">POS&gt;=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
+-e 'TAG[0]!=1'  .. true</pre></li></ul></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">MIN(DV)&gt;5</pre><pre class="literallayout">MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">MIN(DP)&gt;10 &amp; MIN(DV)&gt;3</pre><pre class="literallayout">FMT/DP&gt;10  &amp; FMT/GQ&gt;10 .. both conditions must be satisfied within one sample</pre><pre class="literallayout">FMT/DP&gt;10 &amp;&amp; FMT/GQ&gt;10 .. the conditions can be satisfied in different samples</pre><pre class="literallayout">QUAL&gt;10 |  FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, but selects only samples with GQ&gt;10</pre><pre class="literallayout">QUAL&gt;10 || FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, plus selects all samples at such sites</pre><pre class="literallayout">TYPE="snp" &amp;&amp; QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">COUNT(GT="hom")=0      .. no homozygous genotypes at the site</pre><pre class="literallayout">AVG(GQ)&gt;50             .. average (arithmetic mean) of genotype qualities bigger than 50</pre><pre class="literallayout">ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">ID!=@~/file    .. skip lines with ID present in the ~/file</pre><pre class="literallayout">MAF[0]&lt;0.05    .. select rare variants at 5% cutoff</pre><pre class="literallayout">POS&gt;=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
 have special meaning in the shell.
 An example of expression enclosed in single quotes which cause
 that the whole expression is passed to the program as intended:</p><pre class="literallayout">bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre><p>Please refer to the documentation of your shell for details.</p></div><div class="refsect1" title="SCRIPTS AND OPTIONS"><a id="_scripts_and_options"></a><h2>SCRIPTS AND OPTIONS</h2><div class="refsect2" title="plot-vcfstats [OPTIONS] file.vchk […]"><a id="plot-vcfstats"></a><h3>plot-vcfstats [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vchk</em></span> […]</h3><p>Script for processing output of <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats [OPTIONS] A.vcf.gz [B.vcf.gz]">bcftools stats</a></strong></span>. It can merge
@@ -2836,7 +2984,7 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
 </dd><dt><span class="term">
 <span class="strong"><strong>-r, --rasterize</strong></span>
 </span></dt><dd>
-    Rasterize PDF images for faster rendering.
+    Rasterize PDF images for faster rendering. This is the default and the opposite of <span class="strong"><strong>-v, --vectors</strong></span>.
 </dd><dt><span class="term">
 <span class="strong"><strong>-s, --sample-names</strong></span>
 </span></dt><dd>
@@ -2848,10 +2996,18 @@ chromosome separately), plots graphs and creates a PDF presentation.</p><div cla
     times, for each ID in the <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats [OPTIONS] A.vcf.gz [B.vcf.gz]">bcftools stats</a></strong></span> output. If not
     present, the script will use abbreviated source file names for the titles.
 </dd><dt><span class="term">
+<span class="strong"><strong>-v, --vectors</strong></span>
+</span></dt><dd>
+    Generate vector graphics for PDF images, the opposite of <span class="strong"><strong>-r, --rasterize</strong></span>.
+</dd><dt><span class="term">
 <span class="strong"><strong>-T, --main-title</strong></span> <span class="emphasis"><em>STRING</em></span>
 </span></dt><dd>
     Main title for the PDF.
-</dd></dl></div></div></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
+</dd></dl></div><p><span class="strong"><strong>Example:</strong></span></p><pre class="literallayout"># Generate the stats
+bcftools stats -s - &gt; file.vchk</pre><pre class="literallayout"># Plot the stats
+plot-vcfstats -p outdir file.vchk</pre><pre class="literallayout"># The final looks can be customized by editing the generated
+# 'outdir/plot.py' script and re-running manually
+cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex</pre></div></div><div class="refsect1" title="PERFORMANCE"><a id="_performance"></a><h2>PERFORMANCE</h2><p>HTSlib was designed with BCF format in mind. When parsing VCF files, all records
 are internally converted into BCF representation. Simple operations, like removing
 a single column from a VCF file, can be therefore done much faster with standard
 UNIX commands, such as <span class="strong"><strong>awk</strong></span> or <span class="strong"><strong>cut</strong></span>.

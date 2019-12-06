@@ -320,7 +320,7 @@ bcf1_t *process(bcf1_t *rec)
         hts_expand(int,rec->n_allele,args->marr,args->arr);
         int ret = bcf_calc_ac(args->in_hdr,rec,args->arr,BCF_UN_FMT);
         if ( ret<= 0 )
-            error("Could not calculate allele count at %s:%d\n", bcf_seqname(args->in_hdr,rec),rec->pos+1);
+            error("Could not calculate allele count at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
 
         for(i=0; i < rec->n_allele; ++i)
         {
@@ -353,8 +353,8 @@ bcf1_t *process(bcf1_t *rec)
             int ia = bcf_gt_allele(ptr[0]); 
             int ib = bcf_gt_allele(ptr[1]); 
             if ( ia>=nbinom || ib>=nbinom ) 
-                error("The sample %s has incorrect number of %s fields at %s:%d\n",
-                        args->in_hdr->samples[i],args->binom_tag,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("The sample %s has incorrect number of %s fields at %s:%"PRId64"\n",
+                        args->in_hdr->samples[i],args->binom_tag,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
 
             double prob = calc_binom(args->iarr[i*nbinom+ia],args->iarr[i*nbinom+ib]);
             if ( !args->binom_cmp(prob,args->binom_val) ) continue;
@@ -391,7 +391,7 @@ bcf1_t *process(bcf1_t *rec)
 
         for (i=0; i<rec->n_sample; i++)
         {
-            if ( !args->smpl_pass[i] ) continue;
+            if ( args->smpl_pass && !args->smpl_pass[i] ) continue;
             if ( args->new_mask&GT_UNPHASED )
                 changed += unphase_gt(args->gts + i*ngts, ngts);
             else if ( args->new_mask==GT_PHASED )

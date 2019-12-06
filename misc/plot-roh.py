@@ -29,26 +29,27 @@ csv.register_dialect('tab', delimiter='\t', quoting=csv.QUOTE_NONE)
 
 def usage(msg=None):
     if msg==None:
-        print 'Usage: plot.py [OPTIONS] <dir>'
-        print 'Options:'
-        print '   -H, --highlight +group1,-group2       Highlight calls shared within group1 but not present in group2'
-        print '   -i, --interactive                     Run interactively'
-        print '   -l, --min-length <num>                Filter input regions shorter than this [0]'
-        print '   -n, --min-markers <num>               Filter input regions with fewer marker than this [0]'
-        print '   -o, --outfile <file>                  Output file name [plot.png]'
-        print '   -q, --min-qual <num>                  Filter input regions with quality smaller than this [0]'
-        print '   -r, --region [^]<chr|chr:beg-end>     Plot this chromosome/region only'
-        print '   -s, --samples <file>                  List of samples to show, rename or group: "name[\\tnew_name[\\tgroup]]"'
-        print '   -h, --help                            This usage text'
-        print 'Matplotlib options:'
-        print '   +adj, --adjust <str>          Set plot adjust [bottom=0.18,left=0.07,right=0.98]'
-        print '   +dpi, --dpi <num>             Set bitmap DPI [150]'
-        print '   +sxt, --show-xticks           Show x-ticks (genomic coordinate)'
-        print '   +twh, --track-wh <num,num>    Set track width and height [20,1]'
-        print '   +xlb, --xlabel <str>          Set x-label'
-        print '   +xli, --xlimit <num>          Extend x-range by this fraction [0.05]'
+        print("""\
+Usage: plot-roh.py [OPTIONS] <dir>
+Options:
+   -H, --highlight +group1,-group2       Highlight calls shared within group1 but not present in group2
+   -i, --interactive                     Run interactively
+   -l, --min-length <num>                Filter input regions shorter than this [0]
+   -n, --min-markers <num>               Filter input regions with fewer marker than this [0]
+   -o, --outfile <file>                  Output file name [plot.png]
+   -q, --min-qual <num>                  Filter input regions with quality smaller than this [0]
+   -r, --region [^]<chr|chr:beg-end>     Plot this chromosome/region only
+   -s, --samples <file>                  List of samples to show, rename or group: "name[\\tnew_name[\\tgroup]]"
+   -h, --help                            This usage text
+Matplotlib options:
+   +adj, --adjust <str>          Set plot adjust [bottom=0.18,left=0.07,right=0.98]
+   +dpi, --dpi <num>             Set bitmap DPI [150]
+   +sxt, --show-xticks           Show x-ticks (genomic coordinate)
+   +twh, --track-wh <num,num>    Set track width and height [20,1]
+   +xlb, --xlabel <str>          Set x-label
+   +xli, --xlimit <num>          Extend x-range by this fraction [0.05]""")
     else:
-        print msg
+        print(msg)
     sys.exit(1)
 
 dir          = None
@@ -409,7 +410,7 @@ for chr in dat_gt:
             for rg in dat_rg1[chr][smpl]:
                 rect = patches.Rectangle((rg[0]+off,3*y+0.5), rg[1]-rg[0]+1, 2, color='#d9534f')
                 ax1.add_patch(rect)
-        ax1.plot([x[0]+off for x in dat_gt[chr][smpl]],[x[1]+3*y for x in dat_gt[chr][smpl]],'.',color=cols[icol])
+        ax1.plot([x[0]+off for x in dat_gt[chr][smpl]],[x[1]+3*y for x in dat_gt[chr][smpl]],'.',color=cols[icol%len(cols)])
         if min_x==-1 or min_x > dat_gt[chr][smpl][0][0]+off: min_x = dat_gt[chr][smpl][0][0]+off
         if max_x < dat_gt[chr][smpl][-1][0]+off: max_x = dat_gt[chr][smpl][-1][0]+off
         if max < dat_gt[chr][smpl][-1][0]: max = dat_gt[chr][smpl][-1][0]

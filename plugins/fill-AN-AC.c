@@ -33,7 +33,7 @@ int *arr = NULL, marr = 0;
 
 const char *about(void)
 {
-    return "Fill INFO fields AN and AC.\n";
+    return "Fill INFO fields AN and AC. This plugin is DEPRECATED, use fill-tags instead.\n";
 }
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)

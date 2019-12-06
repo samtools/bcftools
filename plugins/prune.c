@@ -129,7 +129,7 @@ static void init_data(args_t *args)
         bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"A site with r2>%e upstream\">",args->info_pos,args->max_ld);
         bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"A site with r2>%e upstream\">",args->info_r2,args->max_ld);
     }
-    bcf_hdr_write(args->out_fh, args->hdr);
+    if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     if ( args->filter_r2 )
         args->filter_r2_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->filter_r2);
 
@@ -147,7 +147,7 @@ static void destroy_data(args_t *args)
 {
     if ( args->filter )
         filter_destroy(args->filter);
-    hts_close(args->out_fh);
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     vcfbuf_destroy(args->vcfbuf);
     bcf_sr_destroy(args->sr);
     free(args->info_pos);
@@ -158,7 +158,7 @@ static void flush(args_t *args, int flush_all)
 {
     bcf1_t *rec;
     while ( (rec = vcfbuf_flush(args->vcfbuf, flush_all)) )
-        bcf_write1(args->out_fh, args->hdr, rec);
+        if ( bcf_write1(args->out_fh, args->hdr, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 }
 static void process(args_t *args)
 {
@@ -251,9 +251,9 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp("kb",tmp) ) args->ld_win *= -1000;
                 else error("Could not parse: --window %s\n", optarg);
                 break;
-            case 'T': args->target_is_file = 1; 
+            case 'T': args->target_is_file = 1; // fall-through
             case 't': args->target = optarg; break; 
-            case 'R': args->region_is_file = 1; 
+            case 'R': args->region_is_file = 1; // fall-through
             case 'r': args->region = optarg; break; 
             case 'o': args->output_fname = optarg; break;
             case 'O':

@@ -77,6 +77,6 @@ sub error
 {
     my (@msg) = @_;
     print STDERR @msg;
-    exit;
+    exit 1;
 }
 

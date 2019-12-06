@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3	S4	S5	S6	S7	S8	S9	S10
+1	3177144	.	G	T	45	PASS	.	GT	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0
+1	3177144	.	G	T	45	PASS	.	GT	1/0	1/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0
+1	3177144	.	G	T	45	PASS	.	GT	1/1	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0
+1	3177144	.	G	T,C	45	PASS	.	GT	1/0	1/0	1/0	1/0	1/0	1/0	1/0	1/0	1/0	1/0

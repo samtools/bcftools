@@ -1,0 +1,158 @@
+#!/usr/bin/env perl
+#
+# Author: petr.danecek@sanger
+#
+
+use strict;
+use warnings;
+use Carp;
+use FindBin;
+$ENV{PATH} = $FindBin::RealBin."/../../:$ENV{PATH}";
+
+my $opts = parse_params();
+create_gff($opts);
+create_ref($opts);
+create_vcf($opts);
+
+exit;
+
+#--------------------------------
+
+sub error
+{
+    my (@msg) = @_;
+    if ( scalar @msg ) { confess @msg; }
+    print 
+        "Usage: make-csq-test [OPTIONS]\n",
+        "Options:\n",
+        "   -f, --fasta-ref <file>          \n",
+        "   -g, --gff <file>                \n",
+        "   -o, --output <string>           \n",
+        "   -r, --region <chr:beg-end>      \n",
+        "   -v, --vcf <file>                \n",
+        "   -h, -?, --help                  This help message.\n",
+        "\n",
+        "Example:\n",
+        "   ./make-csq-test -f ref.fa -g file.gff -v file.vcf -o rmme -r 19:10026674-10027069\n",
+        "\n";
+    exit -1;
+}
+sub parse_params
+{
+    my $opts = { indels=>0, pad=>20 };
+    while (defined(my $arg=shift(@ARGV)))
+    {
+        if ( $arg eq '-f' || $arg eq '--fasta-ref' ) { $$opts{ref}=shift(@ARGV); next; }
+        if ( $arg eq '-g' || $arg eq '--gff' ) { $$opts{gff}=shift(@ARGV); next; }
+        if ( $arg eq '-o' || $arg eq '--output' ) { $$opts{out}=shift(@ARGV); next; }
+        if ( $arg eq '-v' || $arg eq '--vcf' ) { $$opts{vcf}=shift(@ARGV); next; }
+        if ( $arg eq '-r' || $arg eq '--region' ) { $$opts{region}=shift(@ARGV); next; }
+        if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
+        error("Unknown parameter \"$arg\". Run -h for help.\n");
+    }
+    if ( !exists($$opts{ref}) ) { error("Missing the -f option.\n") }
+    if ( !exists($$opts{out}) ) { error("Missing the -o option.\n") }
+    if ( !exists($$opts{vcf}) ) { error("Missing the -v option.\n") }
+    if ( !exists($$opts{region}) ) { error("Missing the -r option.\n") }
+    return $opts;
+}
+sub create_gff
+{
+    my ($opts) = @_;
+    if ( !($$opts{region}=~/^([^:]+):(\d+)-(\d+)$/) ) { error("Could not parse the region: $$opts{region}"); }
+    my $chr = $1;
+    my $beg = $2;
+    my $end = $3;
+
+    if ( !exists($$opts{gff}) )
+    {
+        $$opts{chr} = $chr;
+        $$opts{end} = $end;
+        $$opts{offset} = $beg;
+        return;
+    }
+
+    my @buf = ();
+    my $cmd = ($$opts{gff} =~ /\.gz$/i) ? "gunzip -c $$opts{gff}" : "cat $$opts{gff}";
+    open(my $fh,"$cmd |") or error("$cmd: $!");
+    while (my $line=<$fh>)
+    {
+        if ( $line=~/^#/ ) { next; }
+
+        my @vals = split(/\t/,$line);
+        if ( $vals[0] ne $chr ) { next; }
+        if ( $vals[4] < $beg ) { next; }
+        if ( $vals[3] > $end ) { last; }
+
+        if ( $vals[8]=~/ID=gene:([^;]+);/ )
+        {
+            if ( $vals[3] < $beg ) { $beg = $vals[3]; }
+            if ( $vals[4] > $end ) { $end = $vals[4]; }
+        }
+        push @buf,\@vals;
+    }
+
+    $$opts{offset} = $beg - 100;
+
+    my $fname = "$$opts{out}.gff";
+    open(my $out,'>',"$fname") or error("$fname: $!");
+    for my $line (@buf)
+    {
+        $$line[3] -= $$opts{offset};
+        $$line[4] -= $$opts{offset};
+        print $out join("\t",@$line);
+    }
+    close($out) or error("close failed: $$opts{out}.gff");
+
+    $$opts{chr} = $chr;
+    $$opts{end} = $end;
+}
+sub create_ref
+{
+    my ($opts) = @_;
+    my $chr = $$opts{chr};
+    my $beg = $$opts{offset} + 1;
+    my $end = $$opts{end};
+    my $ref = '';
+    open(my $out,'>',"$$opts{out}.fa") or error("$$opts{out}.fa: $!");
+    open(my $fh,"samtools faidx $$opts{ref} $chr:$beg-$end|") or error("samtools faidx $$opts{ref} $chr:$beg-$end: $!");
+    <$fh>;
+    print $out ">$chr\t$chr:$beg-$end\n";
+    while (my $line=<$fh>)
+    {
+        print $out $line;
+        chomp($line);
+        $ref .= $line;
+    }
+    close($fh);
+    close($out);
+}
+sub create_vcf
+{
+    my ($opts,$offset) = @_;
+    my $chr = $$opts{chr};
+
+    my $fname = "$$opts{out}.vcf";
+    open(my $out,'>',"$fname") or error("$fname: $!");
+    open(my $in,'<',$$opts{vcf}) or error("$$opts{vcf}: $!");
+    print $out qq[##fileformat=VCFv4.2\n];
+    print $out qq[##contig=<ID=$chr,length=249250621>\n];
+    print $out qq[##INFO=<ID=type,Number=.,Type=String,Description="">\n];
+    print $out qq[##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">\n];
+    print $out qq[##INFO=<ID=EXPL,Number=1,Type=String,Description="Expected consequence with bt/csq -l">\n];
+    print $out "#".join("\t", qw(CHROM POS ID REF ALT QUAL FILTER INFO))."\n";
+    while (my $line=<$in>)
+    {
+        if ( $line=~/^#/ ) { next; }
+        my @col = split(/\t/,$line);
+        my $chr = $col[0];
+        my $pos = $col[1];
+        my $ref = $col[3];
+        my $alt = $col[4];
+        my $flt = $col[6];
+        print $out join("\t",($chr,$pos-$$opts{offset},'.',$ref,$alt,'.',$flt,'.'))."\n";
+    }
+    close($out);
+    close($in);
+}
+

@@ -1,0 +1,9 @@
+##fileformat=VCFv4.1
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=A,Number=.,Type=String,Description="Test string type">
+##INFO=<ID=B,Number=.,Type=String,Description="Test string type">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	300	.	C	T	59.2	PASS	.
+1	400	.	C	T	59.2	PASS	.
+1	401	.	C	T	59.2	PASS	.

@@ -54,7 +54,7 @@ sub parse_params
         if ( $arg eq '-p' || $arg eq '--position' ) { push @{$$opts{pos}},shift(@ARGV); next; }
         if ( $arg eq '-i' || $arg eq '--indels' ) { $$opts{indels}=shift(@ARGV); next; }
         if ( $arg eq '-f' || $arg eq '--fasta-ref' ) { $$opts{ref}=shift(@ARGV); next; }
-        if ( $arg eq '-t' || $arg eq '--transcript' ) { $$opts{tscript}=shift(@ARGV); next; }
+        if ( $arg eq '-t' || $arg eq '--transcript' ) { push @{$$opts{tscript}},shift(@ARGV); next; }
         if ( $arg eq '-g' || $arg eq '--gff' ) { $$opts{gff}=shift(@ARGV); next; }
         if ( $arg eq '-o' || $arg eq '--output' ) { $$opts{out}=shift(@ARGV); next; }
         if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
@@ -64,22 +64,34 @@ sub parse_params
     if ( !exists($$opts{gff}) ) { error("Missing the -g option.\n") }
     if ( !exists($$opts{out}) ) { error("Missing the -o option.\n") }
     if ( !exists($$opts{tscript}) ) { error("Missing the -t option.\n") }
+    for my $tscript (@{$$opts{tscript}}) { $$opts{tscripts}{$tscript} = 0; }
     return $opts;
 }
 sub parse_gff
 {
     my ($opts) = @_;
+    my $ntscript = 0;
     my @buf = ();
-    open(my $fh,"gunzip -c $$opts{gff} |") or error("gunzip -c $$opts{gff}: $!");
+    my $cmd = ($$opts{gff} =~ /\.gz$/i) ? "gunzip -c $$opts{gff}" : "cat $$opts{gff}";
+    open(my $fh,"$cmd |") or error("$cmd: $!");
     while (my $line=<$fh>)
     {
         if ( $line=~/^###/ ) { @buf = (); next; }
         if ( $line=~/^#/ ) { next; }
         my @vals = split(/\t/,$line);
         push @buf,\@vals;
-        if ( $vals[8]=~/ID=transcript:$$opts{tscript};/  ) { last; }
+        if ( !($vals[8]=~/ID=transcript:([^;]+);/) ) { next; }
+        my $tscript = $1;
+        if ( !exists($$opts{tscripts}{$tscript}) ) { next; }
+        $$opts{tscripts}{$tscript} = ++$ntscript;
+        if ( $ntscript==scalar keys %{$$opts{tscripts}} ) { last; }
     }
-    if ( !@buf ) { error("Transcript $$opts{tscript} not found in $$opts{gff}\n"); }
+    if ( $ntscript!=scalar keys %{$$opts{tscripts}} )
+    { 
+        my @missing = ();
+        for my $tscript (keys %{$$opts{tscripts}}) { if (!$$opts{tscripts}{$tscript}) { push @missing,$tscript; } }
+        error("Transcript(s) not found in $$opts{gff}: ".join(",",@missing)."\n"); 
+    }
     if ( !($buf[-1][8]=~/Parent=gene:([^;\s+]+)/) ) { error("Gene ID not present: $buf[-1][8]\n"); }
     my $gene_id = $1;
     while (my $line=<$fh>)
@@ -90,18 +102,37 @@ sub parse_gff
     }
     my $tline;
     my @dat = ();
+    my ($chr,$beg_min,$end_max);
     for my $line (@buf)
     {
         if ( $$line[8]=~/ID=gene:$gene_id/ ) { push @dat,$line; next; }
-        if ( $$line[8]=~/ID=transcript:$$opts{tscript}/ ) { push @dat,$line; $tline = $line; next; }
+        if ( $$line[8]=~/ID=transcript:([^;]+)/ )
+        {
+            my $tscript = $1;
+            if ( exists($$opts{tscripts}{$tscript}) )
+            {
+                push @dat,$line;
+                if ( !defined $chr ) { $chr = $$line[0]; }
+                if ( !defined $beg_min or $beg_min > $$line[3] ) { $beg_min = $$line[3]; }
+                if ( !defined $end_max or $end_max < $$line[4] ) { $end_max = $$line[4]; }
+                $tline = $line;
+            }
+            next;
+        }
+        if ( $$line[8]=~/Parent=transcript:([^;]+)/ )
+        {
+            my $tscript = $1;
+            if ( exists($$opts{tscripts}{$tscript}) ) { push @dat,$line; }
+            next;
+        }
         if ( $$line[8]=~/Parent=transcript:$$opts{tscript}/ ) { push @dat,$line; next; }
     }
     close($fh);
     $$opts{dat} = \@dat;
-    $$opts{offset} = $$tline[3] - $$opts{pad} - 1;  # pos_new = pos_ori - offset
-    $$opts{tchr} = $$tline[0];
-    $$opts{tbeg} = $$tline[3];
-    $$opts{tend} = $$tline[4];
+    $$opts{offset} = $beg_min - $$opts{pad} - 1;  # pos_new = pos_ori - offset
+    $$opts{tchr} = $chr;
+    $$opts{tbeg} = $beg_min;
+    $$opts{tend} = $end_max;
 }
 sub get_type
 {
@@ -156,7 +187,7 @@ sub create_vcf
             my ($pos,$ref,$alt) = split(/-/,$pos_ref_alt);
             $dat{$pos}{ref} = $ref;
             $dat{$pos}{alt} = $alt;
-            push @{$dat{$pos}{type}}, "$$opts{tscript}:$pos_ref_alt";
+            push @{$dat{$pos}{type}}, join('-',@{$$opts{tscript}}).":$pos_ref_alt";
         }
     }
     else

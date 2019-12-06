@@ -1,0 +1,8 @@
+##fileformat=VCFv4.3
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=II,Number=.,Type=Integer,Description="test">
+##FORMAT=<ID=FI,Number=.,Type=Integer,Description="test">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	100	.	C	T	.	.	II=1,2,3	FI	1,2,3	1
+1	101	.	C	T	.	.	II=4,5,6	FI	4,5,6	1

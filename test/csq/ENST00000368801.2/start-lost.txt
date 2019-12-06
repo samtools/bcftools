@@ -1,0 +1,3 @@
+11191	AT	A	start_retained|HRNR|ENST00000368801|protein_coding|-
+11191	AT	A	start_retained|HRNR|ENST00000368801|protein_coding|-
+

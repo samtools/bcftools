@@ -1,0 +1,13 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=A,Number=1,Type=Float,Description="Test string type">
+##INFO=<ID=B,Number=1,Type=Float,Description="Test string type">
+##INFO=<ID=C,Number=1,Type=Float,Description="Test string type">
+##INFO=<ID=D,Number=1,Type=Float,Description="Test string type">
+##INFO=<ID=E,Number=.,Type=Float,Description="Test string type">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	300	.	C	T	59.2	PASS	.
+1	400	.	C	T	59.2	PASS	A=3.3;B=1.5;C=1.1;D=2.2;E=5.5,6.6
+1	401	.	C	T	59.2	PASS	A=3.3;B=1.5;C=1.1;D=2.2;E=5.5,6.6

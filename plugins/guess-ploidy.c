@@ -387,7 +387,7 @@ void process_region_guess(args_t *args)
             counts->pdip += log(pdip);
             counts->ncount++;
             if ( args->verbose>1 )
-                printf("DBG\t%s\t%d\t%s\t%e\t%e\t%e\t%e\t%e\t%e\n", bcf_seqname(args->hdr,rec),rec->pos+1,bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,ismpl),
+                printf("DBG\t%s\t%"PRId64"\t%s\t%e\t%e\t%e\t%e\t%e\t%e\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,bcf_hdr_int2id(args->hdr,BCF_DT_SAMPLE,ismpl),
                     freq[1],tmp[0],tmp[1],tmp[2],phap,pdip);
         }
     }
@@ -444,7 +444,7 @@ int run(int argc, char **argv)
                 else if ( !strcasecmp(optarg,"hg38") ) region = "chrX:2781480-155701381";
                 else error("The argument not recognised, expected --genome b37, b38, hg19 or hg38: %s\n", optarg);
                 break;
-            case 'R': region_is_file = 1; 
+            case 'R': region_is_file = 1; // fall-through
             case 'r': region = optarg; break; 
             case 'v': args->verbose++; break; 
             case 't':

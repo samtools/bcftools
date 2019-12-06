@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015 Genome Research Ltd.
+   Copyright (c) 2015-2019 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -29,10 +29,12 @@
 #include <strings.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/kseq.h>
 #include <htslib/vcf.h>
 #include <htslib/khash_str2int.h>
+#include <htslib/kbitset.h>
 #include "bcftools.h"
 
 #define SET_AN      (1<<0)
@@ -45,6 +47,17 @@
 #define SET_MAF     (1<<7)
 #define SET_HWE     (1<<8)
 #define SET_ExcHet  (1<<9)
+#define SET_FUNC    (1<<10)
+
+typedef struct _args_t args_t;
+typedef struct _ftf_t ftf_t;
+typedef int (*fill_tag_f)(args_t *, bcf1_t *, ftf_t *);
+struct _ftf_t
+{
+    char *src_tag, *dst_tag;
+    fill_tag_f func;
+    int *pop_vals;      // for now assuming only 1 integer value per annotation
+};
 
 typedef struct
 {
@@ -62,7 +75,7 @@ typedef struct
 }
 pop_t;
 
-typedef struct
+struct _args_t
 {
     bcf_hdr_t *in_hdr, *out_hdr;
     int npop, tags, drop_missing, gt_id;
@@ -72,21 +85,24 @@ typedef struct
     double *hwe_probs;
     int mhwe_probs;
     kstring_t str;
-}
-args_t;
+    kbitset_t *bset;
+    ftf_t *ftf;
+    int nftf;
+};
 
 static args_t *args;
 
 const char *about(void)
 {
-    return "Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS.\n";
+    return "Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS and more.\n";
 }
 
 const char *usage(void)
 {
     return 
         "\n"
-        "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS.\n"
+        "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS\n"
+        "   or custom INFO/TAG=func(FMT/TAG), use -l for detailed description\n"
         "Usage: bcftools +fill-tags [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
@@ -94,14 +110,24 @@ const char *usage(void)
         "Plugin options:\n"
         "   -d, --drop-missing          do not count half-missing genotypes \"./1\" as hemizygous\n"
         "   -l, --list-tags             list available tags with description\n"
-        "   -t, --tags LIST             list of output tags. By default, all tags are filled.\n"
+        "   -t, --tags LIST             list of output tags, \"all\" for all tags\n"
         "   -S, --samples-file FILE     list of samples (first column) and comma-separated list of populations (second column)\n"
         "\n"
         "Example:\n"
-        "   bcftools +fill-tags in.bcf -Ob -o out.bcf\n"
+        "   # Print a detailed list of available tags\n"
+        "   bcftools +fill-tags -- -l\n"
+        "\n"
+        "   # Fill INFO/AN and INFO/AC\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC\n"
-        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -d\n"
+        "\n"
+        "   # Fill all available tags\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t all\n"
+        "\n"
+        "   # Calculate HWE for sample groups (possibly multiple) read from a file\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE\n"
+        "\n"
+        "   # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP=sum(DP)'\n"
         "\n";
 }
 
@@ -180,7 +206,7 @@ void parse_samples(args_t *args, char *fname)
     khash_str2int_destroy_free(smpli);
     free(str.s);
     free(off);
-    hts_close(fp);
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
 }
 
 void init_pops(args_t *args)
@@ -211,13 +237,118 @@ void init_pops(args_t *args)
     }
 }
 
+void ftf_destroy(args_t *args)
+{
+    int i;
+    for (i=0; i<args->nftf; i++)
+    {
+        ftf_t *ftf = &args->ftf[i];
+        free(ftf->src_tag);
+        free(ftf->dst_tag);
+        free(ftf->pop_vals);
+    }
+    free(args->ftf);
+}
+int ftf_sum(args_t *args, bcf1_t *rec, ftf_t *ftf)
+{
+    int nsmpl = bcf_hdr_nsamples(args->in_hdr);
+    int nval = bcf_get_format_int32(args->in_hdr, rec, ftf->src_tag, &args->iarr, &args->miarr);
+    if ( nval<=0 ) return 0;
+    nval /= nsmpl;
+
+    int i;
+    for (i=0; i<args->npop; i++)
+        ftf->pop_vals[i] = -1;
+
+    for (i=0; i<nsmpl; i++)
+    {
+        if ( args->iarr[i*nval]==bcf_int32_missing || args->iarr[i*nval]==bcf_int32_vector_end ) continue;
+
+        pop_t **pop = &args->smpl2pop[i*(args->npop+1)];
+        while ( *pop )
+        {
+            int ipop = (int)(*pop - args->pop);
+            if ( ftf->pop_vals[ipop]<0 ) ftf->pop_vals[ipop] = 0;
+            ftf->pop_vals[ipop] += args->iarr[i*nval];
+            pop++;
+        }
+    }
+
+    for (i=0; i<args->npop; i++)
+    {
+        if ( ftf->pop_vals[i]<0 ) continue;
+        args->str.l = 0;
+        ksprintf(&args->str, "%s%s", ftf->dst_tag,args->pop[i].suffix);
+        if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,ftf->pop_vals+i,1)!=0 )
+            error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+    }
+
+    return 0;
+}
+
+void hdr_append(args_t *args, char *fmt)
+{
+    int i;
+    for (i=0; i<args->npop; i++)
+        bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
+}
+
+int parse_func(args_t *args, char *tag, char *expr)
+{
+    args->nftf++;
+    args->ftf = (ftf_t *)realloc(args->ftf,sizeof(*args->ftf)*args->nftf);
+    ftf_t *ftf = &args->ftf[ args->nftf - 1 ];
+
+    ftf->pop_vals = (int*)calloc(args->npop,sizeof(*ftf->pop_vals));
+    ftf->dst_tag = (char*)calloc(expr-tag,1);
+    memcpy(ftf->dst_tag, tag, expr-tag-1);
+
+    if ( !strncasecmp(expr,"sum(",4) ) { ftf->func  = ftf_sum; expr += 4; }
+    else error("Error: the expression not recognised: %s\n",tag);
+
+    char *tmp = expr; 
+    while ( *tmp && *tmp!=')' ) tmp++;
+    if ( !*tmp ) error("Error: could not parse: %s\n",tag);
+
+    ftf->src_tag = (char*)calloc(tmp-expr+2,1);
+    memcpy(ftf->src_tag, expr, tmp-expr);
+
+    int id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,ftf->src_tag);
+    if ( !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) ) error("Error: the field FORMAT/%s is not present\n",ftf->src_tag);
+
+    int i = 0;
+    for (i=0; i<args->npop; i++)
+    {
+        args->str.l = 0;
+        ksprintf(&args->str, "%s%s", ftf->dst_tag,args->pop[i].suffix);
+        id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,args->str.s);
+        if ( bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
+        {
+            if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_FMT,id)!=BCF_VL_FIXED )
+                error("Error: the field INFO/%s already exists with a definition different from Number=1\n",args->str.s);
+            if ( bcf_hdr_id2number(args->in_hdr,BCF_HL_FMT,id)!=1 )
+                error("Error: the field INFO/%s already exists with a definition different from Number=1\n",args->str.s);
+            if ( bcf_hdr_id2type(args->in_hdr,BCF_HT_INT,id)!=BCF_HT_INT )
+                error("Error: the field INFO/%s already exists with a definition different from Type=Integer\n",args->str.s);
+        }
+        else
+            bcf_hdr_printf(args->out_hdr, "##INFO=<ID=%s,Number=1,Type=Integer,Description=\"%s%s%s\">",args->str.s,tag,*args->pop[i].name ? " in " : "",args->pop[i].name);
+    }
+    return SET_FUNC;
+}
 int parse_tags(args_t *args, const char *str)
 {
-    int i, flag = 0, n_tags;
-    char **tags = hts_readlist(str, 0, &n_tags);
+    if ( !args->in_hdr ) error("%s", usage());
+
+    int i,j, flag = 0, n_tags;
+    char **tags = hts_readlist(str, 0, &n_tags), *ptr;
     for(i=0; i<n_tags; i++)
     {
-        if ( !strcasecmp(tags[i],"AN") ) flag |= SET_AN;
+        if ( !strcasecmp(tags[i],"all") )
+        {
+            for (j=0; j<=10; j++) flag |= 1<<j;
+        }
+        else if ( !strcasecmp(tags[i],"AN") ) flag |= SET_AN;
         else if ( !strcasecmp(tags[i],"AC") ) flag |= SET_AC;
         else if ( !strcasecmp(tags[i],"NS") ) flag |= SET_NS;
         else if ( !strcasecmp(tags[i],"AC_Hom") ) flag |= SET_AC_Hom;
@@ -227,6 +358,7 @@ int parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"MAF") ) flag |= SET_MAF;
         else if ( !strcasecmp(tags[i],"HWE") ) flag |= SET_HWE;
         else if ( !strcasecmp(tags[i],"ExcHet") ) flag |= SET_ExcHet;
+        else if ( (ptr=strchr(tags[i],'=')) ) flag |= parse_func(args,tags[i],ptr+1);
         else
         {
             fprintf(stderr,"Error parsing \"--tags %s\": the tag \"%s\" is not supported\n", str,tags[i]);
@@ -236,13 +368,6 @@ int parse_tags(args_t *args, const char *str)
     }
     if (n_tags) free(tags);
     return flag;
-}
-
-void hdr_append(args_t *args, char *fmt)
-{
-    int i;
-    for (i=0; i<args->npop; i++)
-        bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
 }
 
 void list_tags(void)
@@ -256,8 +381,10 @@ void list_tags(void)
         "INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
         "INFO/AF       Number:A  Type:Float    ..  Allele frequency\n"
         "INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency\n"
-        "INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306)\n"
-        "INFO/ExcHet   Number:A  Type:Float    ..  Probability of excess heterozygosity\n"
+        "INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
+        "INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
+        "TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined\n"
+        "    expressions such as \"DP=sum(DP)\". This is currently very basic, to be extended.\n"
         );
 }
 
@@ -266,7 +393,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args = (args_t*) calloc(1,sizeof(args_t));
     args->in_hdr  = in;
     args->out_hdr = out;
-    char *samples_fname = NULL;
+    char *samples_fname = NULL, *tags_str = "all";
     static struct option loptions[] =
     {
         {"list-tags",0,0,'l'},
@@ -282,7 +409,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {
             case 'l': list_tags(); break;
             case 'd': args->drop_missing = 1; break;
-            case 't': args->tags |= parse_tags(args,optarg); break;
+            case 't': tags_str = optarg; break;
             case 'S': samples_fname = optarg; break;
             case 'h':
             case '?':
@@ -295,11 +422,10 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     args->gt_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
     if ( args->gt_id<0 ) error("Error: GT field is not present\n");
 
-    if ( !args->tags )
-        for (c=0; c<=9; c++) args->tags |= 1<<c;    // by default all tags will be filled
-
     if ( samples_fname ) parse_samples(args, samples_fname);
     init_pops(args);
+
+    args->tags |= parse_tags(args,tags_str);
 
     if ( args->tags & SET_AN ) hdr_append(args, "##INFO=<ID=AN%s,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes%s%s\">");
     if ( args->tags & SET_AC ) hdr_append(args, "##INFO=<ID=AC%s,Number=A,Type=Integer,Description=\"Allele count in genotypes%s%s\">");
@@ -309,8 +435,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_AC_Hemi ) hdr_append(args, "##INFO=<ID=AC_Hemi%s,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes%s%s\">");
     if ( args->tags & SET_AF ) hdr_append(args, "##INFO=<ID=AF%s,Number=A,Type=Float,Description=\"Allele frequency%s%s\">");
     if ( args->tags & SET_MAF ) hdr_append(args, "##INFO=<ID=MAF%s,Number=A,Type=Float,Description=\"Minor Allele frequency%s%s\">");
-    if ( args->tags & SET_HWE ) hdr_append(args, "##INFO=<ID=HWE%s,Number=A,Type=Float,Description=\"HWE test%s%s (PMID:15789306)\">");
-    if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Probability of excess heterozygosity\">");
+    if ( args->tags & SET_HWE ) hdr_append(args, "##INFO=<ID=HWE%s,Number=A,Type=Float,Description=\"HWE test%s%s (PMID:15789306); 1=good, 0=bad\">");
+    if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Test excess heterozygosity%s%s; 1=good, 0=bad\">");
 
     return 0;
 }
@@ -340,7 +466,7 @@ void calc_hwe(args_t *args, int nref, int nalt, int nhet, float *p_hwe, float *p
     double *probs = args->hwe_probs;
 
     // start at midpoint
-    int mid = nrare * (nref + nalt - nrare) / (nref + nalt);
+    int mid = (double)nrare * (nref + nalt - nrare) / (nref + nalt);
 
     // check to ensure that midpoint and rare alleles have same parity
     if ( (nrare & 1) ^ (mid & 1) ) mid++;
@@ -389,19 +515,17 @@ void calc_hwe(args_t *args, int nref, int nalt, int nhet, float *p_hwe, float *p
     *p_hwe = prob;
 }
 
-static inline void set_counts(pop_t *pop, int is_half, int is_hom, int is_hemi, int als)
+static inline void set_counts(pop_t *pop, int is_half, int is_hom, int is_hemi, kbitset_t *bset)
 {
-    int ial;
-    for (ial=0; als; ial++)
+    kbitset_iter_t itr;
+    int i;
+    kbs_start(&itr);
+    while ((i = kbs_next(bset, &itr)) >= 0)
     {
-        if ( als&1 )
-        { 
-            if ( is_half ) pop->counts[ial].nac++;
-            else if ( !is_hom ) pop->counts[ial].nhet++;
-            else if ( !is_hemi ) pop->counts[ial].nhom += 2;
-            else pop->counts[ial].nhemi++;
-        }
-        als >>= 1;
+        if ( is_half ) pop->counts[i].nac++;
+        else if ( !is_hom ) pop->counts[i].nhet++;
+        else if ( !is_hemi ) pop->counts[i].nhom += 2;
+        else pop->counts[i].nhemi++;
     }
     pop->ns++;
 }
@@ -413,9 +537,13 @@ static void clean_counts(pop_t *pop, int nals)
 
 bcf1_t *process(bcf1_t *rec)
 {
+    bcf_unpack(rec, BCF_UN_FMT);
+
     int i,j, nsmpl = bcf_hdr_nsamples(args->in_hdr);;
 
-    bcf_unpack(rec, BCF_UN_FMT);
+    for (i=0; i<args->nftf; i++)
+        args->ftf[i].func(args, rec, &args->ftf[i]);
+
     bcf_fmt_t *fmt_gt = NULL;
     for (i=0; i<rec->n_fmt; i++)
         if ( rec->d.fmt[i].id==args->gt_id ) { fmt_gt = &rec->d.fmt[i]; break; }
@@ -429,14 +557,15 @@ bcf1_t *process(bcf1_t *rec)
     for (i=0; i<args->npop; i++)
         clean_counts(&args->pop[i], rec->n_allele);
 
-    assert( rec->n_allele < 8*sizeof(int) );
+    if ( kbs_resize(&args->bset, rec->n_allele) < 0 ) error("kbs_resize: failed to store %d bits\n", rec->n_allele);
 
     #define BRANCH_INT(type_t,vector_end) \
     { \
         for (i=0; i<nsmpl; i++) \
         { \
             type_t *p = (type_t*) (fmt_gt->p + i*fmt_gt->size); \
-            int ial, als = 0, nals = 0, is_half, is_hom, is_hemi; \
+            int ial, nbits = 0, nals = 0, is_half, is_hom, is_hemi; \
+            kbs_clear(args->bset); \
             for (ial=0; ial<fmt_gt->n; ial++) \
             { \
                 if ( p[ial]==vector_end ) break; /* smaller ploidy */ \
@@ -445,11 +574,12 @@ bcf1_t *process(bcf1_t *rec)
                 nals++; \
                 \
                 if ( idx >= rec->n_allele ) \
-                    error("Incorrect allele (\"%d\") in %s at %s:%d\n",idx,args->in_hdr->samples[i],bcf_seqname(args->in_hdr,rec),rec->pos+1); \
-                als |= (1<<idx);  /* this breaks with too many alleles */ \
+                    error("Incorrect allele (\"%d\") in %s at %s:%"PRId64"\n",idx,args->in_hdr->samples[i],bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1); \
+                if ( !kbs_exists(args->bset, idx) ) nbits++; \
+                kbs_insert(args->bset, idx); \
             } \
             if ( nals==0 ) continue; /* missing genotype */ \
-            is_hom = als && !(als & (als-1)); /* only one bit is set */ \
+            is_hom = nbits==1 ? 1 : 0; /* only one bit is set for homs */ \
             if ( nals!=ial ) \
             { \
                 if ( args->drop_missing ) is_hemi = 0, is_half = 1; \
@@ -458,14 +588,14 @@ bcf1_t *process(bcf1_t *rec)
             else if ( nals==1 ) is_hemi = 1, is_half = 0; \
             else is_hemi = 0, is_half = 0; \
             pop_t **pop = &args->smpl2pop[i*(args->npop+1)]; \
-            while ( *pop ) { set_counts(*pop,is_half,is_hom,is_hemi,als); pop++; }\
+            while ( *pop ) { set_counts(*pop,is_half,is_hom,is_hemi,args->bset); pop++; } \
         } \
     }
     switch (fmt_gt->type) {
         case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
         case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
         case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
-        default: error("The GT type is not recognised: %d at %s:%d\n",fmt_gt->type, bcf_seqname(args->in_hdr,rec),rec->pos+1); break;
+        default: error("The GT type is not recognised: %d at %s:%"PRId64"\n",fmt_gt->type, bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1); break;
     }
     #undef BRANCH_INT
 
@@ -476,7 +606,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "NS%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,&args->pop[i].ns,1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AN )
@@ -491,7 +621,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AN%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,&an,1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & (SET_AF | SET_MAF) )
@@ -507,25 +637,29 @@ bcf1_t *process(bcf1_t *rec)
                     args->farr[j-1] += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
                 an = pop->counts[0].nhet + pop->counts[0].nhom + pop->counts[0].nhemi + pop->counts[0].nac;
                 for (j=1; j<rec->n_allele; j++) an += args->farr[j-1];
-                if ( !an ) continue;
-                for (j=1; j<rec->n_allele; j++) args->farr[j-1] /= an;
+                if ( an )
+                    for (j=1; j<rec->n_allele; j++) args->farr[j-1] /= an;
+                else
+                    for (j=1; j<rec->n_allele; j++) bcf_float_set_missing(args->farr[j-1]);
             }
             if ( args->tags & SET_AF )
             {
                 args->str.l = 0;
                 ksprintf(&args->str, "AF%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
             if ( args->tags & SET_MAF )
             {
-                if ( !an ) continue;
-                for (j=1; j<rec->n_allele; j++)
-                    if ( args->farr[j-1] > 0.5 ) args->farr[j-1] = 1 - args->farr[j-1];     // todo: this is incorrect for multiallelic sites
+                if ( an )
+                {
+                    for (j=1; j<rec->n_allele; j++)
+                        if ( args->farr[j-1] > 0.5 ) args->farr[j-1] = 1 - args->farr[j-1];     // todo: this is incorrect for multiallelic sites
+                }
                 args->str.l = 0;
                 ksprintf(&args->str, "MAF%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
         }
     }
@@ -543,7 +677,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AC_Het )
@@ -560,7 +694,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC_Het%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AC_Hom )
@@ -577,7 +711,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC_Hom%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & SET_AC_Hemi && rec->n_allele > 1 )
@@ -594,7 +728,7 @@ bcf1_t *process(bcf1_t *rec)
             args->str.l = 0;
             ksprintf(&args->str, "AC_Hemi%s", args->pop[i].suffix);
             if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
-                error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( args->tags & (SET_HWE|SET_ExcHet) )
@@ -625,14 +759,14 @@ bcf1_t *process(bcf1_t *rec)
                 args->str.l = 0;
                 ksprintf(&args->str, "HWE%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,fhwe,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
             if ( args->tags & SET_ExcHet )
             {
                 args->str.l = 0;
                 ksprintf(&args->str, "ExcHet%s", args->pop[i].suffix);
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,fexc_het,rec->n_allele-1)!=0 )
-                    error("Error occurred while updating %s at %s:%d\n", args->str.s,bcf_seqname(args->in_hdr,rec),rec->pos+1);
+                    error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
         }
     }
@@ -650,12 +784,14 @@ void destroy(void)
         free(args->pop[i].smpl);
         free(args->pop[i].counts);
     }
+    kbs_destroy(args->bset);
     free(args->str.s);
     free(args->pop);
     free(args->smpl2pop);
     free(args->iarr);
     free(args->farr);
     free(args->hwe_probs);
+    ftf_destroy(args);
     free(args);
 }
 

@@ -1,9 +1,13 @@
 bcftools
 *.o
+*.a
+*.exe
 /version.h
 plugins/*.so
 plugins/*.dSYM
 plugins/*.P
+plugins/*.dll
+plugins/*.cygdll
 
 aclocal.m4
 autom4te.cache
@@ -19,3 +23,7 @@ configure
 /test/test-regidx
 
 /TAGS
+
+test/vkrs.unsorted.hex
+test/rsvk.unsorted.hex
+test/nrvk.unsorted.tsv

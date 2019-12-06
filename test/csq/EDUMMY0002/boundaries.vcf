@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##reference=EDUMMY0002.fa
+##contig=<ID=1,length=1479>
+##contig=<ID=2,length=1479>
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	6	.	C	A	.	.	EXP=missense|wzx1_5|wzx1_5|protein_coding|+|2S>2R|6C>A
+1	1474	.	G	C	.	.	EXP=missense|wzx1_5|wzx1_5|protein_coding|+|492G>492R|1474G>C
+1	1479	.	A	C	.	.	EXP=stop_lost|wzx1_5|wzx1_5|protein_coding|+|493*>493C|1479A>C
+2	11	.	GTGAAAAAACCATGA	G	.	.	EXP=coding_sequence|dummy2|t2|protein_coding

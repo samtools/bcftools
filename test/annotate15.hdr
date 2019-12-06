@@ -1,0 +1,2 @@
+##FORMAT=<ID=FOO,Number=1,Type=String,Description="Some description">
+##INFO=<ID=BAR,Number=1,Type=Integer,Description="Some description">

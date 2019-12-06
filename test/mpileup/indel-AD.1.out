@@ -3,8 +3,8 @@
 ##contig=<ID=000000F,length=686>
 ##ALT=<ID=*,Description="Represents allele(s) other than observed.">
 ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
-##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of reads supporting an indel">
-##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of reads supporting an indel">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of raw reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of raw reads supporting an indel">
 ##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
 ##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
 ##INFO=<ID=RPB,Number=1,Type=Float,Description="Mann-Whitney U test of Read Position Bias (bigger is better)">
@@ -16,7 +16,7 @@
 ##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
 ##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
-##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
 000000F	392	.	C	<*>	0	.	DP=1;I16=1,0,0,0,32,1024,0,0,60,3600,0,0,0,0,0,0;QS=1,0;MQ0F=0	PL:AD	0,3,32:1,0
 000000F	393	.	A	<*>	0	.	DP=1;I16=1,0,0,0,32,1024,0,0,60,3600,0,0,1,1,0,0;QS=1,0;MQ0F=0	PL:AD	0,3,32:1,0

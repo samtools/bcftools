@@ -76,6 +76,7 @@
 #include <strings.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
@@ -90,6 +91,7 @@
 #define MODE_TOP2FWD  2
 #define MODE_FLIP2FWD 3
 #define MODE_USE_ID   4
+#define MODE_REF_ALT  5
 
 typedef struct
 {
@@ -128,15 +130,19 @@ const char *usage(void)
         "\n"
         "About: This tool helps to determine and fix strand orientation.\n"
         "       Currently the following modes are recognised:\n"
-        "           flip  .. flips non-ambiguous SNPs and ignores the rest\n"
-        "           id    .. swap REF/ALT and GTs using the ID column to determine the REF allele\n"
-        "           stats .. collect and print stats\n"
-        "           top   .. converts from Illumina TOP strand to fwd\n"
+        "           flip    .. flip REF/ALT columns and GTs for non-ambiguous SNPs and ignore the rest\n"
+        "           id      .. swap REF/ALT columns and GTs using the ID column to determine the REF allele\n"
+        "           ref-alt .. swap REF/ALT columns to match the reference but not modify the genotypes\n"
+        "           stats   .. collect and print stats\n"
+        "           top     .. convert from Illumina TOP strand to fwd\n"
         "\n"
         "       WARNING: Do not use the program blindly, make an effort to\n"
         "       understand what strand convention your data uses! Make sure\n"
         "       the reason for mismatching REF alleles is not a different\n"
         "       reference build!!\n"
+        "\n"
+        "       Please check this page before messing up your VCF even more\n"
+        "           http://samtools.github.io/bcftools/howtos/plugin.fixref.html\n"
         "\n"
         "Usage: bcftools +fixref [General Options] -- [Plugin Options]\n"
         "Options:\n"
@@ -148,7 +154,7 @@ const char *usage(void)
         "   -i, --use-id <file.vcf>     Swap REF/ALT using the ID column to determine the REF allele, implies -m id.\n"
         "                               Download the dbSNP file from\n"
         "                                   https://www.ncbi.nlm.nih.gov/variation/docs/human_variation_vcf\n"
-        "   -m, --mode <string>         Collect stats (\"stats\") or convert (\"flip\", \"id\", \"top\") [stats]\n"
+        "   -m, --mode <string>         Collect stats (\"stats\") or convert (\"flip\", \"id\", \"ref-alt\", \"top\") [stats]\n"
         "\n"
         "Examples:\n"
         "   # run stats\n"
@@ -189,6 +195,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 if ( !strcasecmp(optarg,"top") ) args.mode = MODE_TOP2FWD; 
                 else if ( !strcasecmp(optarg,"flip") ) args.mode = MODE_FLIP2FWD; 
                 else if ( !strcasecmp(optarg,"id") ) args.mode = MODE_USE_ID; 
+                else if ( !strcasecmp(optarg,"ref-alt") ) args.mode = MODE_REF_ALT; 
                 else if ( !strcasecmp(optarg,"stats") ) args.mode = MODE_STATS; 
                 else error("The source strand convention not recognised: %s\n", optarg);
                 break;
@@ -217,6 +224,8 @@ static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char
     if ( !swap ) return rec;    // only fix the alleles, leaving GTs unchanged
 
     int ngts = bcf_get_genotypes(args->hdr, rec, &args->gts, &args->ngts);
+    if ( ngts<=0 ) return rec;  // no samples, no genotypes
+
     int i, j, nsmpl = bcf_hdr_nsamples(args->hdr);
     ngts /= nsmpl;
     for (i=0; i<nsmpl; i++)
@@ -275,7 +284,7 @@ static int fetch_ref(args_t *args, bcf1_t *rec)
             args->skip_rid = rec->rid;
             return -2;
         }
-        error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+        error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
     int ir = nt2int(*ref);
     free(ref);
@@ -288,6 +297,7 @@ static void dbsnp_init(args_t *args, const char *chr)
     args->i2m = kh_init(i2m);
     bcf_srs_t *sr = bcf_sr_init();
     if ( bcf_sr_set_regions(sr, chr, 0) != 0 ) goto done;
+    if ( !args->dbsnp_fname ) error("No ID file specified, use -i/--use-id\n");
     if ( !bcf_sr_add_reader(sr,args->dbsnp_fname) ) error("Failed to open %s: %s\n", args->dbsnp_fname,bcf_sr_strerror(sr->errnum));
     while ( bcf_sr_next_line(sr) )
     {
@@ -330,7 +340,7 @@ static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
 
     ref = kh_val(args->i2m, k).ref;
 	if ( ref!=ir ) 
-        error("Reference base mismatch at %s:%d .. %c vs %c\n",bcf_seqname(args->hdr,rec),rec->pos+1,int2nt(ref),int2nt(ir));
+        error("Reference base mismatch at %s:%"PRId64" .. %c vs %c\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,int2nt(ref),int2nt(ir));
 
     if ( ia==ref ) return rec;
     if ( ib==ref ) { args->nswap++; return set_ref_alt(args,rec,int2nt(ib),int2nt(ia),1); }
@@ -408,13 +418,21 @@ bcf1_t *process(bcf1_t *rec)
         if ( !args.unsorted && args.pos > rec->pos )
         {
             fprintf(stderr,
-                "Warning: corrected position(s) results in unsorted VCF, for example %s:%d comes after %s:%d\n"
+                "Warning: corrected position(s) results in unsorted VCF, for example %s:%"PRId64" comes after %s:%d\n"
                 "         The standard unix `sort` or `vcf-sort` from vcftools can be used to fix the order.\n",
-                bcf_seqname(args.hdr,rec),rec->pos+1,bcf_seqname(args.hdr,rec),args.pos);
+                bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1,bcf_seqname(args.hdr,rec),args.pos);
             args.unsorted = 1;
         }
         args.pos = rec->pos;
         return ret;
+    }
+    else if ( args.mode==MODE_REF_ALT ) // only change the REF/ALT column, leave the genotypes as is
+    {
+        if ( ir==ia ) return ret;
+        if ( ir==ib ) { args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),0); }
+        if ( ir==revint(ia) ) { args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
+        if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),0); }
+        error("FIXME: this should not happen %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
     }
     else if ( args.mode==MODE_FLIP2FWD )
     {
@@ -428,7 +446,7 @@ bcf1_t *process(bcf1_t *rec)
         if ( ir==ib ) { args.nswap++; return set_ref_alt(&args,rec,int2nt(ib),int2nt(ia),1); }
         if ( ir==revint(ia) ) { args.nflip++; return set_ref_alt(&args,rec,int2nt(revint(ia)),int2nt(revint(ib)),0); }
         if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),1); }
-        error("FIXME: this should not happen %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+        error("FIXME: this should not happen %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
     }
     else if ( args.mode==MODE_TOP2FWD )
     {
@@ -457,8 +475,8 @@ bcf1_t *process(bcf1_t *rec)
         {
             int len, win = rec->pos > 100 ? 100 : rec->pos, beg = rec->pos - win, end = rec->pos + win;
             char *ref = faidx_fetch_seq(args.fai, (char*)bcf_seqname(args.hdr,rec), beg,end, &len);
-            if ( !ref ) error("faidx_fetch_seq failed at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
-            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%d  (%d %d)\n", win,len, bcf_seqname(args.hdr,rec),rec->pos+1, end,beg);
+            if ( !ref ) error("faidx_fetch_seq failed at %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
+            if ( end - beg + 1 != len ) error("FIXME: check win=%d,len=%d at %s:%"PRId64"  (%d %d)\n", win,len, bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1, end,beg);
 
             int i, mid = rec->pos - beg, strand = 0;
             for (i=1; i<=win; i++)

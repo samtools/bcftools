@@ -1,0 +1,200 @@
+19	ensembl_havana	gene	100	36811	.	+	.	ID=gene:ENSMUSG00000024663;Name=Rab3il1;biotype=protein_coding;description=RAB3A interacting protein (rabin3)-like 1 [Source:MGI Symbol%3BAcc:MGI:1922010];gene_id=ENSMUSG00000024663;havana_gene=OTTMUSG00000028255;havana_version=2;logic_name=ensembl_havana_gene;version=17
+19	ensembl_havana	transcript	100	34017	.	+	.	ID=transcript:ENSMUST00000121418;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-001;biotype=protein_coding;havana_transcript=OTTMUST00000070009;havana_version=1;tag=basic;transcript_id=ENSMUST00000121418;transcript_support_level=1;version=7
+19	havana	exon	100	648	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000709314;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000709314;rank=1;version=1
+19	havana	five_prime_UTR	100	648	.	+	.	Parent=transcript:ENSMUST00000121418
+19	havana	exon	12311	12382	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000722123;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000722123;rank=2;version=1
+19	havana	five_prime_UTR	12311	12382	.	+	.	Parent=transcript:ENSMUST00000121418
+19	havana	exon	13313	13474	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000721296;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000721296;rank=3;version=1
+19	havana	five_prime_UTR	13313	13474	.	+	.	Parent=transcript:ENSMUST00000121418
+19	havana	exon	13662	13716	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000709373;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000709373;rank=4;version=1
+19	havana	five_prime_UTR	13662	13716	.	+	.	Parent=transcript:ENSMUST00000121418
+19	havana	five_prime_UTR	24961	25156	.	+	.	Parent=transcript:ENSMUST00000121418
+19	havana	exon	24961	25216	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00001258442;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSMUSE00001258442;rank=5;version=1
+19	havana	CDS	25157	25216	.	+	0	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	25815	25910	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000144236;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144236;rank=6;version=1
+19	havana	CDS	25815	25910	.	+	0	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	25991	26068	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000144231;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144231;rank=7;version=1
+19	havana	CDS	25991	26068	.	+	0	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	26716	26934	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000144232;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144232;rank=8;version=1
+19	havana	CDS	26716	26934	.	+	0	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	28581	28709	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000144233;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144233;rank=9;version=1
+19	havana	CDS	28581	28709	.	+	0	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	28800	28912	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000144237;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSMUSE00000144237;rank=10;version=1
+19	havana	CDS	28800	28912	.	+	0	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	30784	30883	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000144229;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSMUSE00000144229;rank=11;version=1
+19	havana	CDS	30784	30883	.	+	1	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	32175	32241	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00001262043;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSMUSE00001262043;rank=12;version=1
+19	havana	CDS	32175	32241	.	+	0	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	CDS	32888	32970	.	+	2	ID=CDS:ENSMUSP00000113828;Parent=transcript:ENSMUST00000121418;protein_id=ENSMUSP00000113828
+19	havana	exon	32888	34017	.	+	.	Parent=transcript:ENSMUST00000121418;Name=ENSMUSE00000144238;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSMUSE00000144238;rank=13;version=3
+19	havana	three_prime_UTR	32971	34017	.	+	.	Parent=transcript:ENSMUST00000121418
+19	ensembl_havana	transcript	13447	26007	.	+	.	ID=transcript:ENSMUST00000137637;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-005;biotype=protein_coding;havana_transcript=OTTMUST00000070013;havana_version=2;transcript_id=ENSMUST00000137637;transcript_support_level=3;version=7
+19	havana	exon	13447	13474	.	+	.	Parent=transcript:ENSMUST00000137637;Name=ENSMUSE00000723031;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000723031;rank=1;version=1
+19	havana	five_prime_UTR	13447	13474	.	+	.	Parent=transcript:ENSMUST00000137637
+19	havana	exon	13662	13716	.	+	.	Parent=transcript:ENSMUST00000137637;Name=ENSMUSE00000709373;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000709373;rank=2;version=1
+19	havana	five_prime_UTR	13662	13716	.	+	.	Parent=transcript:ENSMUST00000137637
+19	havana	exon	24811	24871	.	+	.	Parent=transcript:ENSMUST00000137637;Name=ENSMUSE00000805474;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000805474;rank=3;version=1
+19	havana	five_prime_UTR	24811	24871	.	+	.	Parent=transcript:ENSMUST00000137637
+19	havana	five_prime_UTR	24961	25156	.	+	.	Parent=transcript:ENSMUST00000137637
+19	havana	exon	24961	25216	.	+	.	Parent=transcript:ENSMUST00000137637;Name=ENSMUSE00001258442;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSMUSE00001258442;rank=4;version=1
+19	havana	CDS	25157	25216	.	+	0	ID=CDS:ENSMUSP00000120366;Parent=transcript:ENSMUST00000137637;protein_id=ENSMUSP00000120366
+19	havana	exon	25815	25910	.	+	.	Parent=transcript:ENSMUST00000137637;Name=ENSMUSE00000144236;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144236;rank=5;version=1
+19	havana	CDS	25815	25910	.	+	0	ID=CDS:ENSMUSP00000120366;Parent=transcript:ENSMUST00000137637;protein_id=ENSMUSP00000120366
+19	havana	exon	25991	26007	.	+	.	Parent=transcript:ENSMUST00000137637;Name=ENSMUSE00001000272;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSMUSE00001000272;rank=6;version=1
+19	havana	CDS	25991	26007	.	+	0	ID=CDS:ENSMUSP00000120366;Parent=transcript:ENSMUST00000137637;protein_id=ENSMUSP00000120366
+19	ensembl_havana	transcript	13475	25908	.	+	.	ID=transcript:ENSMUST00000149967;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-006;biotype=protein_coding;havana_transcript=OTTMUST00000070014;havana_version=2;transcript_id=ENSMUST00000149967;transcript_support_level=2;version=7
+19	havana	exon	13475	13716	.	+	.	Parent=transcript:ENSMUST00000149967;Name=ENSMUSE00000811640;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000811640;rank=1;version=1
+19	havana	five_prime_UTR	13475	13716	.	+	.	Parent=transcript:ENSMUST00000149967
+19	havana	five_prime_UTR	24961	25156	.	+	.	Parent=transcript:ENSMUST00000149967
+19	havana	exon	24961	25216	.	+	.	Parent=transcript:ENSMUST00000149967;Name=ENSMUSE00001258442;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSMUSE00001258442;rank=2;version=1
+19	havana	CDS	25157	25216	.	+	0	ID=CDS:ENSMUSP00000120401;Parent=transcript:ENSMUST00000149967;protein_id=ENSMUSP00000120401
+19	havana	exon	25815	25908	.	+	.	Parent=transcript:ENSMUST00000149967;Name=ENSMUSE00000760118;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSMUSE00000760118;rank=3;version=1
+19	havana	CDS	25815	25908	.	+	0	ID=CDS:ENSMUSP00000120401;Parent=transcript:ENSMUST00000149967;protein_id=ENSMUSP00000120401
+19	ensembl_havana	transcript	16624	33887	.	+	.	ID=transcript:ENSMUST00000113161;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-004;biotype=protein_coding;ccdsid=CCDS29569.1;havana_transcript=OTTMUST00000070012;havana_version=1;tag=basic;transcript_id=ENSMUST00000113161;transcript_support_level=5;version=8
+19	ensembl_havana	five_prime_UTR	16624	16779	.	+	.	Parent=transcript:ENSMUST00000113161
+19	ensembl_havana	exon	16624	16790	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000763287;constitutive=0;ensembl_end_phase=2;ensembl_phase=-1;exon_id=ENSMUSE00000763287;rank=1;version=1
+19	ensembl_havana	CDS	16780	16790	.	+	0	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	24961	25216	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00001306809;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSMUSE00001306809;rank=2;version=1
+19	ensembl_havana	CDS	24961	25216	.	+	1	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	25815	25910	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000144236;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144236;rank=3;version=1
+19	ensembl_havana	CDS	25815	25910	.	+	0	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	25991	26068	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000144231;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144231;rank=4;version=1
+19	ensembl_havana	CDS	25991	26068	.	+	0	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	26716	26934	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000144232;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144232;rank=5;version=1
+19	ensembl_havana	CDS	26716	26934	.	+	0	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	28581	28709	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000144233;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144233;rank=6;version=1
+19	ensembl_havana	CDS	28581	28709	.	+	0	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	28800	28912	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000144237;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSMUSE00000144237;rank=7;version=1
+19	ensembl_havana	CDS	28800	28912	.	+	0	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	30784	30883	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000144229;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSMUSE00000144229;rank=8;version=1
+19	ensembl_havana	CDS	30784	30883	.	+	1	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	32175	32241	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00001262043;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSMUSE00001262043;rank=9;version=1
+19	ensembl_havana	CDS	32175	32241	.	+	0	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	CDS	32888	32970	.	+	2	ID=CDS:ENSMUSP00000108786;Parent=transcript:ENSMUST00000113161;protein_id=ENSMUSP00000108786
+19	ensembl_havana	exon	32888	33887	.	+	.	Parent=transcript:ENSMUST00000113161;Name=ENSMUSE00000694553;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSMUSE00000694553;rank=10;version=2
+19	ensembl_havana	three_prime_UTR	32971	33887	.	+	.	Parent=transcript:ENSMUST00000113161
+19	ensembl_havana	transcript	16625	33886	.	+	.	ID=transcript:ENSMUST00000117641;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-003;biotype=protein_coding;havana_transcript=OTTMUST00000070011;havana_version=1;tag=basic;transcript_id=ENSMUST00000117641;transcript_support_level=1;version=7
+19	havana	five_prime_UTR	16625	16779	.	+	.	Parent=transcript:ENSMUST00000117641
+19	havana	exon	16625	16790	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00000712628;constitutive=0;ensembl_end_phase=2;ensembl_phase=-1;exon_id=ENSMUSE00000712628;rank=1;version=1
+19	havana	CDS	16780	16790	.	+	0	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	24961	25216	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00001306809;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSMUSE00001306809;rank=2;version=1
+19	havana	CDS	24961	25216	.	+	1	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	25815	25910	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00000144236;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144236;rank=3;version=1
+19	havana	CDS	25815	25910	.	+	0	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	25991	26068	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00000144231;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144231;rank=4;version=1
+19	havana	CDS	25991	26068	.	+	0	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	28581	28709	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00000144233;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144233;rank=5;version=1
+19	havana	CDS	28581	28709	.	+	0	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	28800	28912	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00000144237;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSMUSE00000144237;rank=6;version=1
+19	havana	CDS	28800	28912	.	+	0	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	30784	30883	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00000144229;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSMUSE00000144229;rank=7;version=1
+19	havana	CDS	30784	30883	.	+	1	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	32175	32241	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00001262043;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSMUSE00001262043;rank=8;version=1
+19	havana	CDS	32175	32241	.	+	0	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	CDS	32888	32970	.	+	2	ID=CDS:ENSMUSP00000113551;Parent=transcript:ENSMUST00000117641;protein_id=ENSMUSP00000113551
+19	havana	exon	32888	33886	.	+	.	Parent=transcript:ENSMUST00000117641;Name=ENSMUSE00000711500;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSMUSE00000711500;rank=9;version=1
+19	havana	three_prime_UTR	32971	33886	.	+	.	Parent=transcript:ENSMUST00000117641
+19	ensembl_havana	NMD_transcript_variant	16625	36811	.	+	.	ID=transcript:ENSMUST00000144788;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-002;biotype=nonsense_mediated_decay;ccdsid=CCDS29569.1;havana_transcript=OTTMUST00000070010;havana_version=1;transcript_id=ENSMUST00000144788;transcript_support_level=1;version=7
+19	havana	five_prime_UTR	16625	16779	.	+	.	Parent=transcript:ENSMUST00000144788
+19	havana	exon	16625	16790	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000712628;constitutive=0;ensembl_end_phase=2;ensembl_phase=-1;exon_id=ENSMUSE00000712628;rank=1;version=1
+19	havana	CDS	16780	16790	.	+	0	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	24961	25216	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00001306809;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSMUSE00001306809;rank=2;version=1
+19	havana	CDS	24961	25216	.	+	1	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	25815	25910	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000144236;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144236;rank=3;version=1
+19	havana	CDS	25815	25910	.	+	0	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	25991	26068	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000144231;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144231;rank=4;version=1
+19	havana	CDS	25991	26068	.	+	0	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	26716	26934	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000144232;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144232;rank=5;version=1
+19	havana	CDS	26716	26934	.	+	0	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	28581	28709	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000144233;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144233;rank=6;version=1
+19	havana	CDS	28581	28709	.	+	0	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	28800	28912	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000144237;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSMUSE00000144237;rank=7;version=1
+19	havana	CDS	28800	28912	.	+	0	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	30784	30883	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000144229;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSMUSE00000144229;rank=8;version=1
+19	havana	CDS	30784	30883	.	+	1	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	32175	32241	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00001262043;constitutive=0;ensembl_end_phase=1;ensembl_phase=0;exon_id=ENSMUSE00001262043;rank=9;version=1
+19	havana	CDS	32175	32241	.	+	0	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	CDS	32888	32970	.	+	2	ID=CDS:ENSMUSP00000121449;Parent=transcript:ENSMUST00000144788;protein_id=ENSMUSP00000121449
+19	havana	exon	32888	33513	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000730629;constitutive=0;ensembl_end_phase=-1;ensembl_phase=1;exon_id=ENSMUSE00000730629;rank=10;version=1
+19	havana	three_prime_UTR	32971	33513	.	+	.	Parent=transcript:ENSMUST00000144788
+19	havana	exon	36489	36811	.	+	.	Parent=transcript:ENSMUST00000144788;Name=ENSMUSE00000761960;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000761960;rank=11;version=1
+19	havana	three_prime_UTR	36489	36811	.	+	.	Parent=transcript:ENSMUST00000144788
+19	ensembl_havana	transcript	16696	26739	.	+	.	ID=transcript:ENSMUST00000131407;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-007;biotype=protein_coding;havana_transcript=OTTMUST00000070015;havana_version=2;transcript_id=ENSMUST00000131407;transcript_support_level=5;version=1
+19	havana	exon	16696	16790	.	+	.	Parent=transcript:ENSMUST00000131407;Name=ENSMUSE00000694573;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000694573;rank=1;version=2
+19	havana	five_prime_UTR	16696	16790	.	+	.	Parent=transcript:ENSMUST00000131407
+19	havana	exon	16913	17008	.	+	.	Parent=transcript:ENSMUST00000131407;Name=ENSMUSE00000807397;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000807397;rank=2;version=1
+19	havana	five_prime_UTR	16913	17008	.	+	.	Parent=transcript:ENSMUST00000131407
+19	havana	exon	24811	24871	.	+	.	Parent=transcript:ENSMUST00000131407;Name=ENSMUSE00000805474;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000805474;rank=3;version=1
+19	havana	five_prime_UTR	24811	24871	.	+	.	Parent=transcript:ENSMUST00000131407
+19	havana	five_prime_UTR	24961	25156	.	+	.	Parent=transcript:ENSMUST00000131407
+19	havana	exon	24961	25216	.	+	.	Parent=transcript:ENSMUST00000131407;Name=ENSMUSE00001258442;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSMUSE00001258442;rank=4;version=1
+19	havana	CDS	25157	25216	.	+	0	ID=CDS:ENSMUSP00000115976;Parent=transcript:ENSMUST00000131407;protein_id=ENSMUSP00000115976
+19	havana	exon	25815	25910	.	+	.	Parent=transcript:ENSMUST00000131407;Name=ENSMUSE00000144236;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144236;rank=5;version=1
+19	havana	CDS	25815	25910	.	+	0	ID=CDS:ENSMUSP00000115976;Parent=transcript:ENSMUST00000131407;protein_id=ENSMUSP00000115976
+19	havana	exon	25991	26068	.	+	.	Parent=transcript:ENSMUST00000131407;Name=ENSMUSE00000144231;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000144231;rank=6;version=1
+19	havana	CDS	25991	26068	.	+	0	ID=CDS:ENSMUSP00000115976;Parent=transcript:ENSMUST00000131407;protein_id=ENSMUSP00000115976
+19	havana	exon	26716	26739	.	+	.	Parent=transcript:ENSMUST00000131407;Name=ENSMUSE00000762446;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSMUSE00000762446;rank=7;version=1
+19	havana	CDS	26716	26739	.	+	0	ID=CDS:ENSMUSP00000115976;Parent=transcript:ENSMUST00000131407;protein_id=ENSMUSP00000115976
+19	ensembl_havana	aberrant_processed_transcript	30101	32241	.	+	.	ID=transcript:ENSMUST00000129882;Parent=gene:ENSMUSG00000024663;Name=Rab3il1-008;biotype=retained_intron;havana_transcript=OTTMUST00000070016;havana_version=1;transcript_id=ENSMUST00000129882;transcript_support_level=5;version=1
+19	havana	exon	30101	30883	.	+	.	Parent=transcript:ENSMUST00000129882;Name=ENSMUSE00000840450;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00000840450;rank=1;version=1
+19	havana	exon	32175	32241	.	+	.	Parent=transcript:ENSMUST00000129882;Name=ENSMUSE00001311728;constitutive=0;ensembl_end_phase=-1;ensembl_phase=-1;exon_id=ENSMUSE00001311728;rank=2;version=1
+19	NCBI	biological_region	957	1311	.	+	.	external_name=B6Ng01-19B17 (start);logic_name=mouse_b6ng01_clones
+19	NCBI	biological_region	960	1629	.	+	.	external_name=DN-478K15 (end);logic_name=mouse_dn_clones
+19	tRNAscan	biological_region	1653	1721	45.7	-	.	external_name=Ala;logic_name=trnascan
+19	NCBI	biological_region	4551	5246	.	+	.	external_name=DN-89E5 (start);logic_name=mouse_dn_clones
+19	NCBI	biological_region	4571	5479	.	+	.	external_name=DN-272A18 (start);logic_name=mouse_dn_clones
+19	NCBI	biological_region	7405	8067	.	-	.	external_name=C3H-150K16 (start);logic_name=mouse_c3h_clones
+19	NCBI	biological_region	8286	9024	.	+	.	external_name=B6Ng01-20H24 (end);logic_name=mouse_b6ng01_clones
+19	NCBI	biological_region	8354	8407	.	+	.	external_name=BMQ-318L18 (end);logic_name=mouse_bmq_clones
+19	NCBI	biological_region	10211	10453	.	-	.	external_name=BMQ-454B11 (end);logic_name=mouse_bmq_clones
+19	NCBI	biological_region	10555	11599	.	-	.	external_name=B6Ng01-220C17 (end);logic_name=mouse_b6ng01_clones
+19	tRNAscan	biological_region	10584	10656	20.8	+	.	external_name=Pseudo;logic_name=trnascan
+19	NCBI	biological_region	11388	12114	.	+	.	external_name=BMQ-97M19 (start);logic_name=mouse_bmq_clones
+19	NCBI	biological_region	11639	11976	.	+	.	external_name=RP24-273B16 (end);logic_name=mouse_rp24_clones
+19	NCBI	biological_region	11641	12404	.	+	.	external_name=DN-80O15 (start);logic_name=mouse_dn_clones
+19	NCBI	biological_region	11805	12199	.	+	.	external_name=RP24-308A8 (end);logic_name=mouse_rp24_clones
+19	NCBI	biological_region	13122	13748	.	-	.	external_name=WI1-343B18 (end);logic_name=mouse_wi1_clones
+19	.	biological_region	13429	13716	0.591	+	.	external_name=rank %3D 1;logic_name=firstef
+19	NCBI	biological_region	14175	14562	.	+	.	external_name=RP24-307D21 (start);logic_name=mouse_rp24_clones
+19	NCBI	biological_region	14399	14887	.	+	.	external_name=WI1-2823N24 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	14403	14840	.	+	.	external_name=WI1-2823L2 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	14455	15614	.	-	.	external_name=B6Ng01-296M4 (start);logic_name=mouse_b6ng01_clones
+19	NCBI	biological_region	15059	15531	.	-	.	external_name=RP23-26O6 (start);logic_name=mouse_rp23_clones
+19	.	biological_region	15601	16369	0.975	-	.	external_name=rank %3D 1;logic_name=firstef
+19	NCBI	biological_region	15615	16218	.	+	.	external_name=RP23-261J14 (end);logic_name=mouse_rp23_clones
+19	NCBI	biological_region	15624	15952	.	+	.	external_name=RP23-405E18 (start);logic_name=mouse_rp23_clones
+19	NCBI	biological_region	15633	16447	.	+	.	external_name=CH29-612C19 (end);logic_name=mouse_ch29_clones
+19	NCBI	biological_region	15642	16471	.	+	.	external_name=CH29-612G16 (start);logic_name=mouse_ch29_clones
+19	NCBI	biological_region	16065	16838	.	+	.	external_name=BMQ-49J16 (end);logic_name=mouse_bmq_clones
+19	.	biological_region	16723	16790	1	+	.	external_name=rank %3D 1;logic_name=firstef
+19	NCBI	biological_region	17806	18840	.	-	.	external_name=B6Ng01-140B2 (end);logic_name=mouse_b6ng01_clones
+19	NCBI	biological_region	18631	19171	.	+	.	external_name=C3H-98E14 (start);logic_name=mouse_c3h_clones
+19	tRNAscan	biological_region	18956	19029	21	-	.	external_name=Pseudo;logic_name=trnascan
+19	NCBI	biological_region	19039	19741	.	+	.	external_name=B6Ng01-245C24 (start);logic_name=mouse_b6ng01_clones
+19	NCBI	biological_region	19067	19945	.	+	.	external_name=DN-401M8 (end);logic_name=mouse_dn_clones
+19	NCBI	biological_region	19379	19898	.	-	.	external_name=WI1-2459M12 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	19481	20197	.	+	.	external_name=B6Ng01-207H22 (start);logic_name=mouse_b6ng01_clones
+19	NCBI	biological_region	19614	20033	.	+	.	external_name=WI1-681J5 (start);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	19749	20403	.	-	.	external_name=RP24-122K13 (end);logic_name=mouse_rp24_clones
+19	NCBI	biological_region	20487	21008	.	-	.	external_name=WI1-2445M19 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	21739	22457	.	+	.	external_name=DN-408F20 (end);logic_name=mouse_dn_clones
+19	NCBI	biological_region	21877	22515	.	+	.	external_name=DN-112H24 (end);logic_name=mouse_dn_clones
+19	NCBI	biological_region	21964	22362	.	+	.	external_name=WI1-2577M12 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	21985	22413	.	-	.	external_name=RP24-241J2 (start);logic_name=mouse_rp24_clones
+19	NCBI	biological_region	22330	22816	.	+	.	external_name=WI1-1162H10 (start);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	23363	23832	.	-	.	external_name=WI1-1861P3 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	24063	24249	.	+	.	external_name=WI1-367E5 (start);logic_name=mouse_wi1_clones
+19	tRNAscan	biological_region	27367	27438	24.6	-	.	external_name=Pseudo;logic_name=trnascan
+19	NCBI	biological_region	27374	28143	.	+	.	external_name=RP24-306J20 (start);logic_name=mouse_rp24_clones
+19	NCBI	biological_region	28389	28985	.	+	.	external_name=MSMg01-309J15 (end);logic_name=mouse_msmg01_clones
+19	NCBI	biological_region	28389	28988	.	+	.	external_name=MSMg01-388E6 (end);logic_name=mouse_msmg01_clones
+19	NCBI	biological_region	28389	28990	.	+	.	external_name=MSMg01-309I15 (end);logic_name=mouse_msmg01_clones
+19	NCBI	biological_region	29840	30078	.	+	.	external_name=RP24-343G14 (end);logic_name=mouse_rp24_clones
+19	NCBI	biological_region	29865	30216	.	-	.	external_name=WI1-1545O2 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	30440	31287	.	+	.	external_name=CH29-530C15 (start);logic_name=mouse_ch29_clones
+19	NCBI	biological_region	30450	31300	.	+	.	external_name=CH29-604H22 (start);logic_name=mouse_ch29_clones
+19	NCBI	biological_region	32425	33314	.	+	.	external_name=MHPP-12P5 (end);logic_name=mouse_mhpp_clones
+19	NCBI	biological_region	33358	33729	.	+	.	external_name=WI1-284I18 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	35118	35401	.	+	.	external_name=WI1-2318A14 (start);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	36009	36283	.	+	.	external_name=WI1-2527J17 (end);logic_name=mouse_wi1_clones
+19	NCBI	biological_region	36365	36884	.	-	.	external_name=C3H-207A12 (end);logic_name=mouse_c3h_clones

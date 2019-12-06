@@ -27,12 +27,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <strings.h>
 #include <errno.h>
 #include <unistd.h>     // for isatty
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/kstring.h>
 #include <htslib/kseq.h>
+#include <htslib/kfunc.h>
 #include <htslib/synced_bcf_reader.h>
 #include "bcftools.h"
 #include "filter.h"
@@ -42,21 +45,29 @@
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
 
+#define PRINT_PASSOC  (1<<0)
+#define PRINT_FASSOC  (1<<1)
+#define PRINT_NASSOC  (1<<2)
+#define PRINT_NOVELAL (1<<3)
+#define PRINT_NOVELGT (1<<4)
+
 typedef struct
 {
-    int argc, filter_logic, regions_is_file, targets_is_file, output_type;
-    char **argv, *output_fname, *fname, *regions, *targets, *filter_str;
-    char *bg_samples_str, *novel_samples_str;
-    int *bg_smpl, *novel_smpl, nbg_smpl, nnovel_smpl;
+    int argc, filter_logic, regions_is_file, targets_is_file, output_type, force_samples;
+    uint32_t annots;
+    char **argv, *output_fname, *fname, *regions, *targets, *filter_str, *annots_str;
+    char *control_samples_str, *case_samples_str, *max_AC_str;
+    int *control_smpl, *case_smpl, ncontrol_smpl, ncase_smpl;
     filter_t *filter;
     bcf_srs_t *sr;
     bcf_hdr_t *hdr, *hdr_out;
     htsFile *out_fh;
     int32_t *gts;
     int mgts;
-    uint32_t *bg_gts;
-    int nbg_gts, mbg_gts, ntotal, nskipped, ntested, nnovel_al, nnovel_gt;
-    kstring_t novel_als_smpl, novel_gts_smpl;
+    uint32_t *control_gts;
+    int ncontrol_gts, mcontrol_gts, ntotal, nskipped, ntested, ncase_al, ncase_gt;
+    kstring_t case_als_smpl, case_gts_smpl;
+    int max_AC, nals[4];    // nals: number of control-ref, control-alt, case-ref and case-alt alleles in the region
 }
 args_t;
 
@@ -71,30 +82,110 @@ static const char *usage_text(void)
 {
     return 
         "\n"
-        "About: Finds novel alleles and genotypes in two groups of samples. Adds\n"
-        "       an annotation which lists samples with a novel allele (INFO/NOVELAL)\n"
-        "       or a novel genotype (INFO/NOVELGT)\n"
+        "About: Runs a basic association test, per-site or in a region, and checks for novel alleles and\n"
+        "       genotypes in two groups of samples. Adds the following INFO annotations:\n"
+        "       - PASSOC  .. Fisher's exact test probability of genotypic association (REF vs non-REF allele)\n"
+        "       - FASSOC  .. proportion of non-REF allele in controls and cases\n"
+        "       - NASSOC  .. number of control-ref, control-alt, case-ref and case-alt alleles\n"
+        "       - NOVELAL .. lists samples with a novel allele not observed in the control group\n"
+        "       - NOVELGT .. lists samples with a novel genotype not observed in the control group\n"
         "Usage: bcftools +contrast [Plugin Options]\n"
         "Plugin options:\n"
-        "   -0, --bg-samples <list>     list of background samples\n"
-        "   -1, --novel-samples <list>  list of samples where novel allele or genotype are expected\n"
-        "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
-        "   -i, --include EXPR          include sites and samples for which the expression is true\n"
-        "   -o, --output FILE           output file name [stdout]\n"
-        "   -O, --output-type <b|u|z|v> b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "   -r, --regions REG           restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE     restrict to regions listed in a file\n"
-        "   -t, --targets REG           similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE     similar to -R but streams rather than index-jumps\n"
+        "   -a, --annots <list>                 list of annotations to output [PASSOC,FASSOC,NOVELAL]\n"
+        "   -0, --control-samples <list|file>   file or comma-separated list of control (background) samples\n"
+        "   -1, --case-samples <list|file>      file or comma-separated list of samples where novel allele or genotype is expected\n"
+        "   -e, --exclude EXPR                  exclude sites and samples for which the expression is true\n"
+        "   -f, --max-allele-freq NUM           calculate enrichment of rare alleles. Floating point numbers between 0 and 1 are\n"
+        "                                           interpreted as ALT allele frequencies, integers as ALT allele counts\n"
+        "       --force-samples                 continue even if some samples listed in the -0,-1 files are missing from the VCF\n"
+        "   -i, --include EXPR                  include sites and samples for which the expression is true\n"
+        "   -o, --output FILE                   output file name [stdout]\n"
+        "   -O, --output-type <b|u|z|v>         b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "   -r, --regions REG                   restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE             restrict to regions listed in a file\n"
+        "   -t, --targets REG                   similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE             similar to -R but streams rather than index-jumps\n"
         "\n"
         "Example:\n"
         "   # Test if any of the samples a,b is different from the samples c,d,e\n"
         "   bcftools +contrast -0 c,d,e -1 a,b file.bcf\n"
+        "\n"
+        "   # Same as above, but read samples from a file. In case of a name collision, the sample name\n"
+        "   # has precedence: the existence of a file with a list of samples is not checked unless no such\n"
+        "   # sample exists in the VCF. Use a full path (e.g. \"./string\" instead of \"string\") to avoid\n"
+        "   # name clashes\n"
+        "   bcftools +contrast -0 samples0.txt -1 samples1.txt file.bcf\n"
+        "\n"
+        "   # The same as above but checks for enrichment of rare alleles, AF<0.001 in this example, in a region\n"
+        "   bcftools +contrast -r 20:1000-2000 -f 0.001 -0 samples0.txt -1 samples1.txt file.bcf\n"
         "\n";
+}
+
+static int cmp_int(const void *a, const void *b)
+{
+    if ( *((int*)a) < *((int*)b) ) return -1;
+    if ( *((int*)a) > *((int*)b) ) return -1;
+    return 0;
+}
+static void read_sample_list_or_file(bcf_hdr_t *hdr, const char *str, int **smpl, int *nsmpl, int force_samples)
+{
+    char **str_list = NULL;
+    int i,j, *list, nlist = 0, is_file, nskipped = 0;
+
+    for (is_file=0; is_file<=1; is_file++)
+    {
+        if ( str_list )
+        {
+            for (i=0; i<nlist; i++) free(str_list[i]);
+            free(str_list);
+            free(list);
+        }
+
+        str_list = hts_readlist(str, is_file, &nlist);
+        if ( !str_list ) error("The sample \"%s\", is not present in the VCF\n", str);
+
+        list = (int*) malloc(sizeof(int)*nlist);
+        for (i=0,j=0; i<nlist; i++,j++)
+        {
+            list[j] = bcf_hdr_id2int(hdr, BCF_DT_SAMPLE, str_list[i]);
+            if ( list[j] >= 0 ) continue;
+            if ( is_file )
+            {
+                if ( !force_samples ) error("The sample \"%s\" is not present in the VCF. Use --force-samples to proceed anyway.\n", str_list[i]);
+                j--;
+                nskipped++;
+                continue;
+            }
+            break;
+        }
+        if ( i==nlist ) break;
+    }
+    for (i=0; i<nlist; i++) free(str_list[i]);
+    nlist -= nskipped;
+    if ( !nlist ) error("None of the samples are present in the VCF: %s\n", str);
+    if ( nskipped ) fprintf(stderr,"Warning: using %d sample%s, %d from %s %s not present in the VCF\n", nlist,nlist>1?"s":"",nskipped,str,nskipped>1?"are":"is");
+    free(str_list);
+    qsort(list,nlist,sizeof(*list),cmp_int);
+    *smpl = list;
+    *nsmpl = nlist;
 }
 
 static void init_data(args_t *args)
 {
+    int ntmp, i;
+    char **tmp = hts_readlist(args->annots_str, 0, &ntmp);
+    for (i=0; i<ntmp; i++)
+    {
+        if ( !strcasecmp("PASSOC",tmp[i]) ) args->annots |= PRINT_PASSOC;
+        else if ( !strcasecmp("FASSOC",tmp[i]) ) args->annots |= PRINT_FASSOC;
+        else if ( !strcasecmp("NASSOC",tmp[i]) ) args->annots |= PRINT_NASSOC;
+        else if ( !strcasecmp("NOVELAL",tmp[i]) ) args->annots |= PRINT_NOVELAL;
+        else if ( !strcasecmp("NOVELGT",tmp[i]) ) args->annots |= PRINT_NOVELGT;
+        else error("The annotation is not recognised: %s\n", tmp[i]);
+        free(tmp[i]);
+    }
+    free(tmp);
+
     args->sr = bcf_sr_init();
     if ( args->regions )
     {
@@ -105,47 +196,51 @@ static void init_data(args_t *args)
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
-    bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELAL,Number=.,Type=String,Description=\"List of samples with novel alleles\">");
-    bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELGT,Number=.,Type=String,Description=\"List of samples with novel genotypes. Note that only samples w/o a novel allele are listed.\">");
+    if ( args->annots & PRINT_PASSOC )
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=PASSOC,Number=1,Type=Float,Description=\"Fisher's exact test probability of genotypic assocation (REF vs non-REF allele)\">");
+    if ( args->annots & PRINT_FASSOC )
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=FASSOC,Number=2,Type=Float,Description=\"Proportion of non-REF allele in controls and cases\">");
+    if ( args->annots & PRINT_NASSOC )
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=NASSOC,Number=4,Type=Integer,Description=\"Number of control-ref, control-alt, case-ref and case-alt alleles\">");
+    if ( args->annots & PRINT_NOVELAL )
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELAL,Number=.,Type=String,Description=\"List of samples with novel alleles\">");
+    if ( args->annots & PRINT_NOVELGT )
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELGT,Number=.,Type=String,Description=\"List of samples with novel genotypes. Note that only samples w/o a novel allele are listed.\">");
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
 
-    int i;
-    char **smpl = hts_readlist(args->bg_samples_str, 0, &args->nbg_smpl);
-    args->bg_smpl = (int*) malloc(sizeof(int)*args->nbg_smpl);
-    for (i=0; i<args->nbg_smpl; i++)
-    {
-        args->bg_smpl[i] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, smpl[i]);
-        if ( args->bg_smpl[i]<0 ) error("The sample not present in the VCF: \"%s\"\n", smpl[i]);
-        free(smpl[i]);
-    }
-    free(smpl);
-
-    smpl = hts_readlist(args->novel_samples_str, 0, &args->nnovel_smpl);
-    args->novel_smpl = (int*) malloc(sizeof(int)*args->nnovel_smpl);
-    for (i=0; i<args->nnovel_smpl; i++)
-    {
-        args->novel_smpl[i] = bcf_hdr_id2int(args->hdr, BCF_DT_SAMPLE, smpl[i]);
-        if ( args->novel_smpl[i]<0 ) error("The sample not present in the VCF: \"%s\"\n", smpl[i]);
-        free(smpl[i]);
-    }
-    free(smpl);
+    read_sample_list_or_file(args->hdr, args->control_samples_str, &args->control_smpl, &args->ncontrol_smpl, args->force_samples);
+    read_sample_list_or_file(args->hdr, args->case_samples_str, &args->case_smpl, &args->ncase_smpl, args->force_samples);
 
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-    bcf_hdr_write(args->out_fh, args->hdr_out);
+    if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+
+    if ( args->max_AC_str )
+    {
+        char *tmp;
+        args->max_AC = strtol(args->max_AC_str, &tmp, 10);
+        if ( tmp==args->max_AC_str || *tmp )
+        {
+            double val = strtod(args->max_AC_str, &tmp);
+            if ( tmp==args->max_AC_str || *tmp ) error("Could not parse the argument: -f, --max-allele-freq %s\n", args->max_AC_str);
+            if ( val<0 || val>1 ) error("Expected integer or float from the range [0,1]: -f, --max-allele-freq %s\n", args->max_AC_str);
+            args->max_AC = val * bcf_hdr_nsamples(args->hdr);
+            if ( !args->max_AC ) args->max_AC = 1;
+        }
+    }
 }
 static void destroy_data(args_t *args)
 {
     bcf_hdr_destroy(args->hdr_out);
-    hts_close(args->out_fh);
-    free(args->novel_als_smpl.s);
-    free(args->novel_gts_smpl.s);
+    if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
+    free(args->case_als_smpl.s);
+    free(args->case_gts_smpl.s);
     free(args->gts);
-    free(args->bg_gts);
-    free(args->bg_smpl);
-    free(args->novel_smpl);
+    free(args->control_gts);
+    free(args->control_smpl);
+    free(args->case_smpl);
     if ( args->filter ) filter_destroy(args->filter);
     bcf_sr_destroy(args->sr);
     free(args);
@@ -191,13 +286,14 @@ static int process_record(args_t *args, bcf1_t *rec)
     ngts /= rec->n_sample;
     if ( ngts>2 ) error("todo: ploidy=%d\n", ngts);
 
-    args->nbg_gts = 0;
-    uint32_t bg_als = 0;
+    args->ncontrol_gts = 0;
+    uint32_t control_als = 0;
+    int32_t nals[4] = {0,0,0,0};    // ctrl-ref, ctrl-alt, case-ref, case-alt
     int i,j;
-    for (i=0; i<args->nbg_smpl; i++)
+    for (i=0; i<args->ncontrol_smpl; i++)
     {
         uint32_t gt  = 0;
-        int32_t *ptr = args->gts + args->bg_smpl[i]*ngts;
+        int32_t *ptr = args->gts + args->control_smpl[i]*ngts;
         for (j=0; j<ngts; j++)
         {
             if ( ptr[j]==bcf_int32_vector_end ) break;
@@ -207,33 +303,36 @@ static int process_record(args_t *args, bcf1_t *rec)
             {
                 if ( !warned )
                 {
-                    fprintf(stderr,"Too many alleles (>32) at %s:%d, skipping. (todo?)\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+                    fprintf(stderr,"Too many alleles (>32) at %s:%"PRId64", skipping the site.\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                     warned = 1;
                 }
                 args->nskipped++;
                 return -1;
             }
-            bg_als |= 1<<ial;
+            control_als |= 1<<ial;
             gt |= 1<<ial;
+            if ( ial ) nals[1]++;
+            else nals[0]++;
         }
-        binary_insert(gt, &args->bg_gts, &args->nbg_gts, &args->mbg_gts);
+        if ( args->annots & PRINT_NOVELGT )
+            binary_insert(gt, &args->control_gts, &args->ncontrol_gts, &args->mcontrol_gts);
     }
-    if ( !bg_als )
+    if ( !control_als )
     {
         // all are missing
         args->nskipped++;
         return -1;
     }
 
-    args->novel_als_smpl.l = 0;
-    args->novel_gts_smpl.l = 0;
+    args->case_als_smpl.l = 0;
+    args->case_gts_smpl.l = 0;
 
     int has_gt = 0;
-    for (i=0; i<args->nnovel_smpl; i++)
+    for (i=0; i<args->ncase_smpl; i++)
     {
-        int novel_al = 0;
+        int case_al = 0;
         uint32_t gt  = 0;
-        int32_t *ptr = args->gts + args->novel_smpl[i]*ngts;
+        int32_t *ptr = args->gts + args->case_smpl[i]*ngts;
         for (j=0; j<ngts; j++)
         {
             if ( ptr[j]==bcf_int32_vector_end ) break;
@@ -243,28 +342,33 @@ static int process_record(args_t *args, bcf1_t *rec)
             {
                 if ( !warned )
                 {
-                    fprintf(stderr,"Too many alleles (>32) at %s:%d, skipping. (todo?)\n", bcf_seqname(args->hdr,rec),rec->pos+1);
+                    fprintf(stderr,"Too many alleles (>32) at %s:%"PRId64", skipping. (todo?)\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                     warned = 1;
                 }
                 args->nskipped++;
                 return -1;
             }
-            if ( !(bg_als & (1<<ial)) ) novel_al = 1; 
+            if ( !(control_als & (1<<ial)) ) case_al = 1; 
             gt |= 1<<ial;
+            if ( ial ) nals[3]++;
+            else nals[2]++;
         }
         if ( !gt ) continue;
         has_gt = 1;
 
-        char *smpl = args->hdr->samples[ args->novel_smpl[i] ];
-        if ( novel_al )
+        char *smpl = args->hdr->samples[ args->case_smpl[i] ];
+        if ( case_al )
         {
-            if ( args->novel_als_smpl.l ) kputc(',', &args->novel_als_smpl);
-            kputs(smpl, &args->novel_als_smpl);
+            if ( args->annots & PRINT_NOVELAL )
+            {
+                if ( args->case_als_smpl.l ) kputc(',', &args->case_als_smpl);
+                kputs(smpl, &args->case_als_smpl);
+            }
         }
-        else if ( !binary_search(gt, args->bg_gts, args->nbg_gts) )
+        else if ( (args->annots & PRINT_NOVELGT) && !binary_search(gt, args->control_gts, args->ncontrol_gts) )
         {
-            if ( args->novel_gts_smpl.l ) kputc(',', &args->novel_gts_smpl);
-            kputs(smpl, &args->novel_gts_smpl);
+            if ( args->case_gts_smpl.l ) kputc(',', &args->case_gts_smpl);
+            kputs(smpl, &args->case_gts_smpl);
         }
     }
     if ( !has_gt )
@@ -273,15 +377,54 @@ static int process_record(args_t *args, bcf1_t *rec)
         args->nskipped++;
         return -1;
     }
-    if ( args->novel_als_smpl.l ) 
+
+    if ( args->max_AC )
     {
-        bcf_update_info_string(args->hdr_out, rec, "NOVELAL", args->novel_als_smpl.s);
-        args->nnovel_al++;
+        if ( nals[0]+nals[2] > nals[1]+nals[3] )
+        {
+            if ( nals[1]+nals[3] <= args->max_AC )
+                for (i=0; i<4; i++) args->nals[i] += nals[i];
+        }
+        else
+        {
+            if ( nals[0]+nals[2] <= args->max_AC )
+            {
+                args->nals[0] += nals[1];
+                args->nals[1] += nals[0];
+                args->nals[2] += nals[3];
+                args->nals[3] += nals[2];
+            }
+        }
     }
-    if ( args->novel_gts_smpl.l ) 
+
+    float vals[2];
+    if ( args->annots & PRINT_PASSOC )
     {
-        bcf_update_info_string(args->hdr_out, rec, "NOVELGT", args->novel_gts_smpl.s);
-        args->nnovel_gt++;
+        double left, right, fisher;
+        kt_fisher_exact(nals[0],nals[1],nals[2],nals[3], &left,&right,&fisher);
+        vals[0] = fisher;
+        bcf_update_info_float(args->hdr_out, rec, "PASSOC", vals, 1);
+    }
+    if ( args->annots & PRINT_FASSOC )
+    {
+        if ( nals[0]+nals[1] ) vals[0] = (float)nals[1]/(nals[0]+nals[1]);
+        else bcf_float_set_missing(vals[0]);
+        if ( nals[2]+nals[3] ) vals[1] = (float)nals[3]/(nals[2]+nals[3]);
+        else bcf_float_set_missing(vals[1]);
+        bcf_update_info_float(args->hdr_out, rec, "FASSOC", vals, 2);
+    }
+    if ( args->annots & PRINT_NASSOC )
+        bcf_update_info_int32(args->hdr_out, rec, "NASSOC", nals, 4);
+
+    if ( args->case_als_smpl.l ) 
+    {
+        bcf_update_info_string(args->hdr_out, rec, "NOVELAL", args->case_als_smpl.s);
+        args->ncase_al++;
+    }
+    if ( args->case_gts_smpl.l ) 
+    {
+        bcf_update_info_string(args->hdr_out, rec, "NOVELGT", args->case_gts_smpl.s);
+        args->ncase_gt++;
     }
     args->ntested++;
     return 0;
@@ -292,10 +435,16 @@ int run(int argc, char **argv)
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
+    args->annots_str = "PASSOC,FASSOC";
     static struct option loptions[] =
     {
-        {"bg-samples",required_argument,0,'0'},
-        {"novel-samples",required_argument,0,'1'},
+        {"max-allele-freq",required_argument,0,'f'},
+        {"annots",required_argument,0,'a'},
+        {"force-samples",no_argument,0,1},
+        {"bg-samples",required_argument,0,'0'},     // renamed to --control-samples, leaving it in for backward compatibility
+        {"control-samples",required_argument,0,'0'},
+        {"novel-samples",required_argument,0,'1'},  // renamed to --case-samples, leaving it in for backward compatibility
+        {"case-samples",required_argument,0,'1'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
         {"output",required_argument,NULL,'o'},
@@ -307,12 +456,15 @@ int run(int argc, char **argv)
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
-            case '0': args->bg_samples_str = optarg; break;
-            case '1': args->novel_samples_str = optarg; break;
+            case  1 : args->force_samples = 1; break;
+            case 'f': args->max_AC_str = optarg; break;
+            case 'a': args->annots_str = optarg; break;
+            case '0': args->control_samples_str = optarg; break;
+            case '1': args->case_samples_str = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
@@ -354,10 +506,18 @@ int run(int argc, char **argv)
             if ( !pass ) continue;
         }
         process_record(args, rec);
-        bcf_write(args->out_fh, args->hdr_out, rec);
+        if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     }
 
-    fprintf(stderr,"Total/processed/skipped/novel_allele/novel_gt:\t%d\t%d\t%d\t%d\t%d\n", args->ntotal, args->ntested, args->nskipped, args->nnovel_al, args->nnovel_gt);
+    fprintf(stderr,"Total/processed/skipped/case_allele/case_gt:\t%d\t%d\t%d\t%d\t%d\n", args->ntotal, args->ntested, args->nskipped, args->ncase_al, args->ncase_gt);
+    if ( args->max_AC )
+    {
+        double val1, val2, fisher;
+        kt_fisher_exact(args->nals[0],args->nals[1],args->nals[2],args->nals[3], &val1,&val2,&fisher);
+        val1 = args->nals[0]+args->nals[1] ? (float)args->nals[1]/(args->nals[0]+args->nals[1]) : 0;
+        val2 = args->nals[2]+args->nals[3] ? (float)args->nals[3]/(args->nals[2]+args->nals[3]) : 0;
+        fprintf(stderr,"max_AC/PASSOC/FASSOC/NASSOC:\t%d\t%e\t%f,%f\t%d,%d,%d,%d\n",args->max_AC,fisher,val1,val2,args->nals[0],args->nals[1],args->nals[2],args->nals[3]);
+    }
     destroy_data(args);
 
     return 0;

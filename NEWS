@@ -1,3 +1,124 @@
+## Release 1.10 (6th December 2019)
+
+
+* Numerous bug fixes, usability improvements and sanity checks were added
+  to prevent common user errors.
+
+* The -r, --regions (and -R, --regions-file) option should never create
+  unsorted VCFs or duplicates records again. This also fixes rare cases where
+  a spanning deletion makes a subsequent record invisible to `bcftools isec`
+  and other commands.
+
+* Additions to filtering and formatting expressions
+
+    - support for the spanning deletion alternate allele (ALT=*)
+
+    - new ILEN filtering expression to be able to filter by indel length
+
+    - new MEAN, MEDIAN, MODE, STDEV, phred filtering functions
+
+    - new formatting expression %PBINOM (phred-scaled binomial probability),
+      %INFO (the whole INFO column), %FORMAT (the whole FORMAT column),
+      %END (end position of the REF allele), %END0 (0-based end position
+      of the REF allele), %MASK (with multiple files indicates the presence
+      of the site in other files)
+
+* New plugins
+
+    - `+gvcfz`: compress gVCF file by resizing gVCF blocks according to
+      specified criteria
+
+    - `+indel-stats`: collect various indel-specific statistics
+
+    - `+parental-origin`: determine parental origin of a CNV region
+
+    - `+remove-overlaps`: remove overlapping variants.
+
+    - `+split-vep`: query structured annotations such INFO/CSQ created by
+      bcftools/csq or VEP
+
+    - `+trio-dnm`: screen variants for possible de-novo mutations in trios
+
+* `annotate`
+
+    - new -l, --merge-logic option for combining multiple overlapping regions
+
+* `call`
+
+    - new `bcftools call -G, --group-samples` option which allows grouping
+      samples into populations and applying the HWE assumption within but
+      not across the groups.
+
+* `csq`
+
+    - significant reduction of memory usage in the local -l mode for VCFs
+      with thousands of samples and 20% reduction in the non-local
+      haplotype-aware mode.
+
+    - fixes a small memory leak and formatting issue in FORMAT/BCSQ at
+      sites with many consequences
+
+    - do not print protein sequence of start_lost events
+
+    - support for "start_retained" consequence
+
+    - support for symbolic insertions (ALT="<INS...>"), "feature_elongation"
+      consequence
+
+    - new -b, --brief-predictions option to output abbreviated protein
+      predictions.
+
+* `concat`
+
+    - the `--naive` command now checks header compatibility when concatenating
+      multiple files.
+
+* `consensus`
+
+    - add a new `-H, --haplotype 1pIu/2pIu` feature to output first/second
+      allele for phased genotypes and the IUPAC code for unphased genotypes
+
+    - new -p, --prefix option to add a prefix to sequence names on output
+
+* `+contrast`
+
+    - added support for Fisher's test probability and other annotations
+
+* `+fill-from-fasta`
+
+    - new -N, --replace-non-ACGTN option
+
+* `+dosage`
+
+    - fix some serious bugs in dosage calculation
+
+* `+fill-tags`
+
+    - extended to perform simple on-the-fly calculations such as calculating
+      INFO/DP from FORMAT/DP.
+
+* `merge`
+
+    - add support for merging FORMAT strings
+
+    - bug fixed in gVCF merging
+
+* `mpileup`
+
+    - a new optional SCR annotation for the number of soft-clipped reads
+
+* `reheader`
+
+    - new -f, --fai option for updating contig lines in the VCF header
+
+* `+trio-stats`
+
+    - extend output to include DNM homs and recurrent DNMs
+
+* VariantKey support
+
+
+
 ## Release 1.9 (18th July 2018)
 
 * `annotate`
@@ -18,21 +139,22 @@
 
 * `convert`
 
-    - the --tsv2vcf option now makes the missing genotypes diploid, "./." instead of "."
+    - the --tsv2vcf option now makes the missing genotypes diploid, "./."
+      instead of "."
 
     - the behavior of -i/-e with --gvcf2vcf changed. Previously only sites with
       FILTER set to "PASS" or "." were expanded and the -i/-e options dropped
-      sites completely. The new behavior is to let the -i/-e options control which
-      records will be expanded. In order to drop records completely, one can stream
-      through "bcftools view" first.
+      sites completely. The new behavior is to let the -i/-e options control
+      which records will be expanded. In order to drop records completely,
+      one can stream through "bcftools view" first.
 
 * `csq`
 
-    - since the real consequence of start/splice events are not known, the aminoacid
-      positions at subsequent variants should stay unchanged
+    - since the real consequence of start/splice events are not known,
+      the amino acid positions at subsequent variants should stay unchanged
 
-    - add `--force` option to skip malformatted transcripts in GFFs with out-of-phase
-      CDS exons.
+    - add `--force` option to skip malformatted transcripts in GFFs with
+      out-of-phase CDS exons.
 
 * `+dosage`: output all alleles and all their dosages at multiallelic sites
 
@@ -52,25 +174,28 @@
 
     - fix a parsing problem, '@' was not removed from '@filename' expressions
 
-* `mpileup`: fixed bug where, if samples were renamed using the `-G` (`--read-groups`)
-  option, some samples could be omitted from the output file.
+* `mpileup`: fixed bug where, if samples were renamed using the `-G`
+  (`--read-groups`) option, some samples could be omitted from the output file.
 
 * `norm`: update INFO/END when normalizing indels
 
-* `+split`: new -S option to subset samples and to use custom file names instead of the defaults
+* `+split`: new -S option to subset samples and to use custom file names
+  instead of the defaults
 
 * `+smpl-stats`: new plugin
 
 * `+trio-stats`: new plugin
 
-* Fixed build problems with non-functional configure script produced on some platforms
+* Fixed build problems with non-functional configure script produced on
+  some platforms
 
 
 ## Release 1.8 (April 2018)
 
 * `-i, -e` filtering: Support for custom perl scripts
 
-* `+contrast`: New plugin to annotate genotype differences between groups of samples
+* `+contrast`: New plugin to annotate genotype differences between groups
+  of samples
 
 * `+fixploidy`: New options for simpler ploidy usage
 

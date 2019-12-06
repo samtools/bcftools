@@ -23,6 +23,7 @@ sub error
         "Options:\n",
         "   -b, --bam <file.bam>            \n",
         "   -f, --fa-ref <ref.fa>           \n",
+        "   -k, --keep-samples              \n",
         "   -o, --output-prefix <string>    \n",
         "   -r, --region <region>           \n",
         "   -h, -?, --help                  This help message.\n",
@@ -36,6 +37,7 @@ sub parse_params
     {
         if ( $arg eq '-b' || $arg eq '--bam' ) { $$opts{bam}=shift(@ARGV); next }
         if ( $arg eq '-f' || $arg eq '--fa-ref' ) { $$opts{ref}=shift(@ARGV); next }
+        if ( $arg eq '-k' || $arg eq '--keep-samples' ) { $$opts{keep_samples}=1; next }
         if ( $arg eq '-o' || $arg eq '--output-prefix' ) { $$opts{out}=shift(@ARGV); next }
         if ( $arg eq '-r' || $arg eq '--region' ) { $$opts{region}=shift(@ARGV); next }
         if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
@@ -51,6 +53,7 @@ sub create_test
 {
     my ($opts) = @_;
     if ( !($$opts{region}=~/^([^:]+):(\d+)-(\d+)$/) ) { error("Could not parse the region: $$opts{region}"); }
+    my %readnames = ();
     my $chr = $1;
     my $beg = $2;
     my $end = $3;
@@ -64,26 +67,35 @@ sub create_test
     {
         my @vals = split(/\t/,$line);
         if ( $vals[0] eq '@HD' ) { print $out $line; next; }
+        if ( $$opts{keep_samples} && $vals[0] eq '@RG' ) { print $out $line; next; }
         if ( $vals[0] =~ /^\@/ ) { next; }
         if ( $vals[3] < $beg ) { $beg = $vals[3]; }
-        if ( $vals[7] < $beg ) { $beg = $vals[7]; }
         if ( $vals[3] + length($vals[9]) > $end ) { $end = $vals[3] + length($vals[9]); }
-        my $i;
-        for ($i=0; $i<@vals; $i++) { if ($vals[$i]=~/^RG:Z:/) { last; } }
-        if ( $i!=@vals ) { splice(@vals,$i,1); }
+        my $mate_mapped = 1;
+        if ( $vals[6] ne $chr && $vals[6] ne '=' ) { $vals[6] = '='; $mate_mapped = 0; }
+        if ( $vals[7] < $beg or $vals[7] > $end ) { $mate_mapped = 0; }
+        if ( !$mate_mapped ) { $vals[1] &= ~0x8; $vals[6] = '*'; $vals[7] = 0;  }
+
         chomp($vals[-1]);
+        if ( !$$opts{keep_samples} )
+        {
+            my $i;
+            for ($i=0; $i<@vals; $i++) { if ($vals[$i]=~/^RG:Z:/) { last; } }
+            if ( $i!=@vals ) { splice(@vals,$i,1); }
+            push @vals,"RG:Z:rg";
+        }
         push @reads, \@vals;
     }
     close($fh) or error("close failed: $cmd");
 
     print $out "\@SQ\tSN:$chr\tLN:".($end-$beg+1)."\n";
-    print $out "\@RG\tID:rg\tSM:sample\n";
+    if ( !$$opts{keep_samples} ) { print $out "\@RG\tID:rg\tSM:sample\n"; }
 
     for my $read (@reads)
     {
         $$read[3] -= $beg - 1;
         $$read[7] -= $beg - 1;
-        print $out join("\t",@$read,"RG:Z:rg")."\n";
+        print $out join("\t",@$read)."\n";
     }
     close($out) or error("close failed: $$opts{out}.sam");
 
@@ -94,6 +106,6 @@ sub create_test
 
     $ori_beg -= $beg - 1;
     $ori_end -= $beg - 1;
-    print "$chr:$ori_beg-$ori_end\n";
+    print "offset\t-".($beg-1)."\n";
 }
 

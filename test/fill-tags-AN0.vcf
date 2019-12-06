@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=chr1,length=249250621,assembly=hg19>
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples with data">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMP_A	SAMP_B	SAMP_C	SAMP_E
+chr1	10146	.	AC	A	.	PASS	NS=3;AN=6;AF=0.5;AC=3	GT	./.	0/1	./.	0/1
+chr1	10153	.	A	C	.	PASS	NS=1;AN=2;AF=0.5;AC=2	GT	./.	./.	./.	./.
+chr1	10154	.	C	G	.	PASS	NS=2;AN=4;AF=0.25;AC=1	GT	./.	./.	./.	./.
+chr1	10172	.	C	A	.	PASS	NS=3;AN=6;AF=0;AC=0	GT	0/0	0/0	0/0	./.

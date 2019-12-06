@@ -101,7 +101,7 @@ bcf1_t *process(bcf1_t *rec)
     if ( !fmt_gt ) return NULL;    // no GT tag
 
     if ( args->ndat != rec->n_sample ) 
-        error("Incorrect number of samples at %s:%d .. found %d, expected %d\n",bcf_seqname(args->hdr,rec),rec->pos+1,rec->n_sample,args->ndat);
+        error("Incorrect number of samples at %s:%"PRId64" .. found %d, expected %d\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_sample,args->ndat);
 
     if ( args->rid!=rec->rid && args->rid!=-1 )
     {
@@ -143,7 +143,7 @@ bcf1_t *process(bcf1_t *rec)
         case BCF_BT_INT8:  BRANCH_INT(int8_t,  bcf_int8_vector_end); break;
         case BCF_BT_INT16: BRANCH_INT(int16_t, bcf_int16_vector_end); break;
         case BCF_BT_INT32: BRANCH_INT(int32_t, bcf_int32_vector_end); break;
-        default: error("The GT type is not recognised: %d at %s:%d\n",fmt_gt->type, bcf_seqname(args->hdr,rec),rec->pos+1); break;
+        default: error("The GT type is not recognised: %d at %s:%"PRId64"\n",fmt_gt->type, bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1); break;
     }
     #undef BRANCH_INT
 

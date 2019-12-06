@@ -1,0 +1,39 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=XRF,Number=R,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAF,Number=A,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGF,Number=G,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRI,Number=R,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAI,Number=A,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGI,Number=G,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRS,Number=R,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAS,Number=A,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGS,Number=G,Type=String,Description="Test Number=AGR in INFO">
+##FORMAT=<ID=FRF,Number=R,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAF,Number=A,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGF,Number=G,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRI,Number=R,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAI,Number=A,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGI,Number=G,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRS,Number=R,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAS,Number=A,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGS,Number=G,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FSTR,Number=1,Type=String,Description="Test String in FORMAT">
+##INFO=<ID=ISTR,Number=1,Type=String,Description="Test String in INFO">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled likelihood">
+##contig=<ID=1,length=2147483647,assembly=B36,md5=f126cdf8a6e0c7f379d618ff66beb2da,species="Homo sapiens",taxonomy=x>
+##contig=<ID=chr2,length=2147483647>
+##contig=<ID=chr3,length=2147483647>
+##contig=<assembly=B36,ID=2,species="Homo \"sapiens\" sapiens",length=2147483647>
+##contig=<assembly=B36,ID=3,md5=f126cdf8a6e0c7f379d618ff66beb2da,length=2147483647,taxonomy=x>
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">
+##contig=<species="Homo <<homo>> \"sapiens\" sapiens",ID=4>
+##contig=<ID=5,species="Homo <<homo>> \"\"sapiens\"\" sapiens",length=2147483647>
+##contig=<ID=20,length=2147483647>
+##FILTER=<ID=Test,Description="Test Filter">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	XY00001	XY00002

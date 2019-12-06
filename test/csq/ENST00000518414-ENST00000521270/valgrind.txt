@@ -1,0 +1,6 @@
+10599	T	C	.
+10599	T	C	synonymous|ZNF596|ENST00000518414|protein_coding|+|42H|10599T>C,synonymous|ZNF596|ENST00000521270|protein_coding|+|42H|10599T>C
+
+10605	C	G	.
+10605	C	G	synonymous|ZNF596|ENST00000518414|protein_coding|+|44V|10605C>G
+

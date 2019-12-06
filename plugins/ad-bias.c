@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <getopt.h>
 #include <math.h>
 #include <htslib/hts.h>
@@ -55,6 +56,7 @@ typedef struct
     convert_t *convert;
     kstring_t str;
     uint64_t nsite,ncmp;
+    int variant_type;
 }
 args_t;
 
@@ -75,11 +77,12 @@ const char *usage(void)
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "   -a, --min-alt-dp <int>      Minimum required alternate allele depth [1]\n"
-        "   -d, --min-dp <int>          Minimum required depth [0]\n"
-        "   -f, --format <string>       Optional tags to append to output (`bcftools query` style of format)\n"
-        "   -s, --samples <file>        List of sample pairs, one tab-delimited pair per line\n"
-        "   -t, --threshold <float>     Output only hits with p-value smaller than <float> [1e-3]\n"
+        "   -a, --min-alt-dp <int>          Minimum required alternate allele depth [1]\n"
+        "   -d, --min-dp <int>              Minimum required depth [0]\n"
+        "   -f, --format <string>           Optional tags to append to output (`bcftools query` style of format)\n"
+        "   -s, --samples <file>            List of sample pairs, one tab-delimited pair per line\n"
+        "   -t, --threshold <float>         Output only hits with p-value smaller than <float> [1e-3]\n"
+        "   -v, --variant-type <snp|indel>  Consider only variants of this type. (By default all variants are considered.)\n"
         "\n"
         "Example:\n"
         "   bcftools +ad-bias file.bcf -- -t 1e-3 -s samples.txt\n"
@@ -117,7 +120,7 @@ void parse_samples(args_t *args, char *fname)
 
     free(str.s);
     free(off);
-    hts_close(fp);
+    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
 }
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
@@ -134,11 +137,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         {"format",required_argument,NULL,'f'},
         {"samples",required_argument,NULL,'s'},
         {"threshold",required_argument,NULL,'t'},
+        {"variant-type",required_argument,NULL,'v'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?hs:t:f:d:a:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hs:t:f:d:a:v:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -155,6 +159,11 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
                 if ( *tmp ) error("Could not parse: -t %s\n", optarg);
                 break;
             case 's': fname = optarg; break;
+            case 'v': 
+                if ( !strcasecmp(optarg,"snp") || !strcasecmp(optarg,"snps") ) args.variant_type = VCF_SNP;
+                else if ( !strcasecmp(optarg,"indel") || !strcasecmp(optarg,"indels") ) args.variant_type = VCF_INDEL;
+                else error("Error: Variant type \"%s\" is not supported\n",optarg);
+                break;
             case 'f': format = optarg; break;
             case 'h':
             case '?':
@@ -168,14 +177,29 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     printf("# The command line was:\tbcftools +ad-bias %s", argv[0]);
     for (c=1; c<argc; c++) printf(" %s",argv[c]);
     printf("\n#\n");
-    printf("# FT, Fisher Test\t[2]Sample\t[3]Control\t[4]Chrom\t[5]Pos\t[6]smpl.nREF\t[7]smpl.nALT\t[8]ctrl.nREF\t[9]ctrl.nALT\t[10]P-value");
-    if ( format ) printf("\t[11-]User data: %s", format);
+
+    int i = 1;
+    printf("# FT, Fisher Test");
+    printf("\t[%d]Sample", ++i);
+    printf("\t[%d]Control", ++i);
+    printf("\t[%d]Chrom", ++i);
+    printf("\t[%d]Pos", ++i);
+    printf("\t[%d]REF", ++i);
+    printf("\t[%d]ALT", ++i);
+    printf("\t[%d]smpl.nREF", ++i);
+    printf("\t[%d]smpl.nALT", ++i);
+    printf("\t[%d]ctrl.nREF", ++i);
+    printf("\t[%d]ctrl.nALT", ++i);
+    printf("\t[%d]P-value", ++i);
+    if ( format ) printf("\t[%d-]User data: %s", ++i, format);
     printf("\n");
     return 1;
 }
 
 bcf1_t *process(bcf1_t *rec)
 {
+    if ( rec->n_allele < 2 ) return NULL;
+
     int nad = bcf_get_format_int32(args.hdr, rec, "AD", &args.ad_arr, &args.mad_arr);
     if ( nad<0 ) return NULL;
     nad /= bcf_hdr_nsamples(args.hdr);
@@ -183,30 +207,78 @@ bcf1_t *process(bcf1_t *rec)
     if ( args.convert ) convert_line(args.convert, rec, &args.str);
     args.nsite++;
 
-    int i;
+    int i,j;
     for (i=0; i<args.npair; i++)
     {
         pair_t *pair = &args.pair[i];
         int32_t *aptr = args.ad_arr + nad*pair->smpl;
         int32_t *bptr = args.ad_arr + nad*pair->ctrl;
 
-        if ( aptr[0]==bcf_int32_missing ) continue;
-        if ( bptr[0]==bcf_int32_missing ) continue;
-        if ( aptr[0]+aptr[1] < args.min_dp ) continue;
-        if ( bptr[0]+bptr[1] < args.min_dp ) continue;
-        if ( aptr[1] < args.min_alt_dp && bptr[1] < args.min_alt_dp ) continue;
+        // Find the two most frequent alleles
+        int nbig=-1,nsmall=-1,ibig=-1,ismall=-1;
+        for (j=0; j<nad; j++)
+        {
+            if ( aptr[j]==bcf_int32_missing ) continue;
+            if ( aptr[j]==bcf_int32_vector_end ) break;
+            if ( ibig==-1 ) { ibig = j, nbig = aptr[j]; continue; }
+            if ( nbig < aptr[j] )
+            {
+                if ( ismall==-1 || nsmall < nbig ) ismall = ibig, nsmall = nbig;
+                ibig = j, nbig = aptr[j];
+                continue;
+            }
+            if ( ismall==-1 || nsmall < aptr[j] ) ismall = j, nsmall = aptr[j];
+        }
+        for (j=0; j<nad; j++)
+        {
+            if ( bptr[j]==bcf_int32_missing ) continue;
+            if ( bptr[j]==bcf_int32_vector_end ) break;
+            if ( ibig==-1 ) { ibig = j, nbig = bptr[j]; continue; }
+            if ( ibig==j )
+            {
+                if ( nbig < bptr[j] ) nbig = bptr[j];
+                continue;
+            }
+            if ( nbig < bptr[j] )
+            {
+                if ( ismall==-1 || nsmall < nbig ) ismall = ibig, nsmall = nbig;
+                ibig = j, nbig = bptr[j];
+                continue;
+            }
+            if ( ismall==-1 || nsmall < bptr[j] ) ismall = j, nsmall = bptr[j];
+        }
+        if ( ibig==-1 || ismall==-1 ) continue;         // only one non-missing allele
+        if ( nbig + nsmall < args.min_dp ) continue;    // low depth
+
+        if ( aptr[ibig]==bcf_int32_missing || aptr[ibig]==bcf_int32_vector_end ) continue;
+        if ( bptr[ibig]==bcf_int32_missing || bptr[ibig]==bcf_int32_vector_end ) continue;
+        if ( aptr[ismall]==bcf_int32_missing || aptr[ismall]==bcf_int32_vector_end ) continue;
+        if ( bptr[ismall]==bcf_int32_missing || bptr[ismall]==bcf_int32_vector_end ) continue;
+
+        if ( args.variant_type )
+        {
+            if ( args.variant_type==VCF_SNP && strlen(rec->d.allele[ibig])!=strlen(rec->d.allele[ismall]) ) continue;
+            if ( args.variant_type==VCF_INDEL && strlen(rec->d.allele[ibig])==strlen(rec->d.allele[ismall]) ) continue;
+        }
+
+        int iref,ialt,nalt;
+        if ( ibig > ismall ) ialt = ibig, iref = ismall, nalt = nbig; 
+        else ialt = ismall, iref = ibig, nalt = nsmall;
+
+        if ( nalt < args.min_alt_dp ) continue;
 
         args.ncmp++;
 
-        int n11 = aptr[0], n12 = aptr[1];
-        int n21 = bptr[0], n22 = bptr[1];
+        int n11 = aptr[iref], n12 = aptr[ialt];
+        int n21 = bptr[iref], n22 = bptr[ialt];
         double left, right, fisher;
         kt_fisher_exact(n11,n12,n21,n22, &left,&right,&fisher);
         if ( fisher >= args.th ) continue;
 
-        printf("FT\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%e",
+        printf("FT\t%s\t%s\t%s\t%"PRId64"\t%s\t%s\t%d\t%d\t%d\t%d\t%e",
             pair->smpl_name,pair->ctrl_name,
-            bcf_hdr_id2name(args.hdr,rec->rid), rec->pos+1,
+            bcf_hdr_id2name(args.hdr,rec->rid), (int64_t) rec->pos+1,
+            rec->d.allele[iref],rec->d.allele[ialt],
             n11,n12,n21,n22, fisher
             );
         if ( args.convert ) printf("\t%s", args.str.s);

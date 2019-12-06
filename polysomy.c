@@ -70,7 +70,7 @@ static void init_dist(args_t *args, dist_t *dist, int verbose)
 
     // smooth the distribution, this is just to find the peaks
     double *tmp = (double*) malloc(sizeof(double)*n);
-    int win  = args->smooth ? fabs(args->smooth)*2 + 1 : 7;   // must be an odd number
+    int win  = args->smooth ? abs(args->smooth)*2 + 1 : 7;   // must be an odd number
     int hwin = win/2;
     double avg = tmp[0] = dist->yvals[0];
     for (i=1; i<hwin; i++)
@@ -177,7 +177,7 @@ static void init_data(args_t *args)
         if ( bcf_sr_set_targets(files, args->targets_list, args->targets_is_file, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets_list);
     }
-    if ( !bcf_sr_add_reader(files, args->fname) ) error("Failed to open %s: %s\n", args->fname,bcf_sr_strerror(files->errnum));
+    if ( !bcf_sr_add_reader(files, args->fname) ) error("Failed to read from %s: %s\n", !strcmp("-",args->fname)?"standard input":args->fname,bcf_sr_strerror(files->errnum));
     bcf_hdr_t *hdr = files->readers[0].header;
     if ( !args->sample )
     {
@@ -350,8 +350,8 @@ static void init_data(args_t *args)
         args->output_dir);
 //---------------------------------------
     chmod(fname, S_IWUSR|S_IRUSR|S_IRGRP|S_IROTH|S_IXUSR|S_IXGRP|S_IXOTH);
+    if ( fclose(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
     free(fname);
-    fclose(fp);
 }
 
 static void destroy_data(args_t *args)
@@ -364,8 +364,8 @@ static void destroy_data(args_t *args)
     }
     free(args->dist);
     free(args->xvals);
+    if ( fclose(args->dat_fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->dat_fname);
     free(args->dat_fname);
-    fclose(args->dat_fp);
 }
 
 static void save_dist(args_t *args, dist_t *dist)

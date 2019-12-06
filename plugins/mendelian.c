@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015 Genome Research Ltd.
+   Copyright (c) 2015-2018 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -27,16 +27,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <getopt.h>
 #include <math.h>
+#include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>     // for isatty
-#include "bcftools.h"
-#include "regidx.h"
+#include "../bcftools.h"
+#include "../regidx.h"
 
 #define MODE_COUNT     1
 #define MODE_LIST_GOOD 2
@@ -148,7 +150,7 @@ const char *usage(void)
         "   -r, --rules <assembly>[?]   predefined rules, 'list' to print available settings, append '?' for details\n"
         "   -R, --rules-file <file>     inheritance rules, see example below\n"
         "   -t, --trio <m,f,c>          names of mother, father and the child\n"
-        "   -T, --trio-file <file>      list of trios, one per line\n"
+        "   -T, --trio-file <file>      list of trios, one per line (mother,father,child)\n"
         "\n"
         "Example:\n"
         "   # Default inheritance patterns, override with -r\n"
@@ -363,13 +365,22 @@ int run(int argc, char **argv)
     if ( !args.mode ) error("Expected one of the -c, -d or -l options\n");
     if ( args.mode&MODE_DELETE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD;
 
-    args.sr = bcf_sr_init();
-    if ( !bcf_sr_add_reader(args.sr, fname) ) error("Failed to open %s: %s\n", fname,bcf_sr_strerror(args.sr->errnum));
-    args.hdr = bcf_sr_get_header(args.sr, 0);
-    args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
-    if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
-    bcf_hdr_write(args.out_fh, args.hdr);
+    FILE *log_fh = stderr;
+    if ( args.mode==MODE_COUNT )
+    {
+        log_fh = strcmp("-",args.output_fname) ? fopen(args.output_fname,"w") : stdout;
+        if ( !log_fh ) error("Error: cannot write to %s\n", args.output_fname);
+    }
 
+    args.sr = bcf_sr_init();
+    if ( !bcf_sr_add_reader(args.sr, fname) ) error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args.sr->errnum));
+    args.hdr = bcf_sr_get_header(args.sr, 0);
+    if ( args.mode!=MODE_COUNT )
+    {
+        args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
+        if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
+        if ( bcf_hdr_write(args.out_fh, args.hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
+    }
 
     int i, n = 0;
     char **list;
@@ -420,29 +431,30 @@ int run(int argc, char **argv)
         if ( line )
         {
             if ( line->errcode ) error("TODO: Unchecked error (%d), exiting\n",line->errcode);
-            bcf_write1(args.out_fh, args.hdr, line);
+            if ( args.out_fh && bcf_write1(args.out_fh, args.hdr, line)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
         }
     }
+    if ( args.out_fh && hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
 
-
-    fprintf(stderr,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio\n");
+    fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio (mother,father,child)\n");
     for (i=0; i<args.ntrios; i++)
     {
         trio_t *trio = &args.trios[i];
-        fprintf(stderr,"%d\t%d\t%d\t%s,%s,%s\n", 
+        fprintf(log_fh,"%d\t%d\t%d\t%s,%s,%s\n", 
             trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
             bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
             bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
             bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
             );
     }
+    if ( log_fh!=stderr && log_fh!=stdout && fclose(log_fh) ) error("Error: close failed for %s\n", args.output_fname);
+
     free(args.gt_arr);
     free(args.trios);
     regitr_destroy(args.itr);
     regitr_destroy(args.itr_ori);
     regidx_destroy(args.rules);
     bcf_sr_destroy(args.sr);
-    if ( hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
     return 0;
 }
 
@@ -450,7 +462,7 @@ static void warn_ploidy(bcf1_t *rec)
 {
     static int warned = 0;
     if ( warned ) return;
-    fprintf(stderr,"Incorrect ploidy at %s:%d, skipping the trio. (This warning is printed only once.)\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+    fprintf(stderr,"Incorrect ploidy at %s:%"PRId64", skipping the trio. (This warning is printed only once.)\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
     warned = 1;
 }
 
@@ -555,7 +567,7 @@ bcf1_t *process(bcf1_t *rec)
     }
 
     if ( needs_update && bcf_update_genotypes(args.hdr,rec,args.gt_arr,ngt*bcf_hdr_nsamples(args.hdr)) )
-        error("Could not update GT field at %s:%d\n", bcf_seqname(args.hdr,rec),rec->pos+1);
+        error("Could not update GT field at %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
 
     if ( args.mode&MODE_DELETE ) return rec;
     if ( args.mode&MODE_LIST_GOOD ) return has_bad ? NULL : rec;

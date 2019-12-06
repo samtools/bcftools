@@ -1,0 +1,7 @@
+##fileformat=VCFv4.1
+##reference=ref.fasta
+##contig=<ID=chr12,length=133851895,assembly=hg19>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr12	133235863	.	G	.	.	PASS	END=133235874
+chr12	133235875	.	C	T	.	PASS	.

@@ -1,0 +1,14 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://hs38DH.fa
+##contig=<ID=chr20,length=64444167>
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
+##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=MinDP,Number=1,Type=Integer,Description="Minimum per-sample depth in this gVCF block">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SampleA
+chr20	6281864	.	C	<*>	.	.	END=6281909;MinDP=1;QS=1,0	PL:DP	0,3,27:1
+chr20	6283999	.	C	<*>	.	.	END=6284344;MinDP=1;QS=1,0	PL:DP	0,3,4:1

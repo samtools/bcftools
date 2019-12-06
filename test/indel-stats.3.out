@@ -1,0 +1,44 @@
+# CMD line shows the command line used to generate this output
+# DEF lines define expressions for all tested thresholds
+# SN* summary number for every threshold:
+#   1) SN*, filter id
+#   2) number of samples (or trios with -p)
+#   3) number of indel sites total
+#   4) number of indel sites that pass the filter (and, with -p, have a de novo indel)
+#   5) number of indel genotypes that pass the filter (and, with -p, are de novo)
+#   6) number of insertions (site-wise, not genotype-wise)
+#   7) number of deletions (site-wise, not genotype-wise)
+#   8) number of frameshifts (site-wise, not genotype-wise)
+#   9) number of inframe indels (site-wise, not genotype-wise)
+#
+# DVAF* lines report indel variant allele frequency (VAF) distribution for every threshold,
+#   k-th bin corresponds to the frequency k/(nVAF-1):
+#   1) DVAF*, filter id
+#   2) nVAF, number of bins which split the [0,1] VAF interval.
+#   3-22) counts of indel genotypes in the VAF bin. For non-reference hets, the VAF of the less supported allele is recorded
+#
+# DLEN* lines report indel length distribution for every threshold. When genotype fields are available,
+#   the counts correspond to the number of genotypes, otherwise the number of sites are given.
+#   The k-th bin corresponds to the indel size k-MAX_LEN, negative for deletions, positive for insertions.
+#   The firt/last bin contains also all deletions/insertions larger than MAX_LEN:
+#   1) DLEN*, filter id
+#   2) maximum indel length
+#   3-43) counts of indel lengths (-max,..,0,..,max), all unique alleles in a genotype are recorded (alt hets increase the counters 2x, alt homs 1x)
+#
+# DFRAC* lines report the mean minor allele fraction at HET indel genotypes as a function of indel size.
+#   The format is the same as for DLEN:
+#   1) DFRAC*, filter id
+#   2) maximum indel length
+#   3-43) mean fraction at indel lengths (-max,..,0,..,max)
+#
+# NFRAC* lines report the number of indels informing the DFRAC distribution.
+#   1) NFRAC*, filter id
+#   2) maximum indel length
+#   3-43) counts at indel lengths (-max,..,0,..,max)
+#
+DEF	FLT0	all
+SN0	1	3	2	2	2	0	1	0
+DVAF0	20	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1
+DLEN0	20	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+DFRAC0	20	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	0.50	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.	.
+NFRAC0	20	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0

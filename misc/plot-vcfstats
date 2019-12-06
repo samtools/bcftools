@@ -61,6 +61,7 @@ if ( $$opts{make_plots} )
         plot_tstv_by_AF($opts,$id);
         plot_tstv_by_QUAL($opts,$id);
         plot_indel_distribution($opts,$id);
+        plot_indel_vaf_distribution($opts,$id);
         plot_substitutions($opts,$id);
         plot_per_sample_stats($opts,$id);
         plot_DP($opts,$id);
@@ -77,18 +78,29 @@ exit;
 sub usage
 {
     print STDERR
-        "About: Plots output of \"bcftools stats\"\n",
-        "Usage: plot-vcfstats [OPTIONS] file.chk ...\n",
-        "       plot-vcfstats -p outdir/ file.chk ...\n",
+        "About: Plots the output of \"bcftools stats\"\n",
+        "Usage: plot-vcfstats [OPTIONS] -p outdir file.chk ...\n",
         "Options:\n",
         "   -m, --merge                         Merge vcfstats files to STDOUT, skip plotting.\n",
         "   -p, --prefix <dir>                  Output directory.\n",
         "   -P, --no-PDF                        Skip the PDF creation step.\n",
-        "   -r, --rasterize                     Rasterize PDF images for fast rendering.\n",
+        "   -r, --rasterize                     Rasterize PDF images for fast rendering, the default and opposite of -v.\n",
         "   -s, --sample-names                  Use sample names for xticks rather than numeric IDs.\n",
         "   -t, --title <string>                Identify files by these titles in plots. Can be given multiple times.\n",
         "   -T, --main-title <string>           Main title for the PDF.\n",
+        "   -v, --vectors                       Generate vector graphics for PDF images, the opposite of -r\n",
         "   -h, -?, --help                      This help message.\n",
+        "\n",
+        "Example:\n",
+        "   # Generate the stats\n",
+        "   bcftools stats -s - > file.vchk\n",
+        "\n",
+        "   # Plot the stats\n",
+        "   plot-vcfstats -p outdir file.vchk\n",
+        "\n",
+        "   # The final looks can be customized by editing the generated\n",
+        "   # 'outdir/plot.py' script and re-running manually\n",
+        "   cd outdir && python3 plot.py && pdflatex summary.tex\n",
         "\n";
 }
 
@@ -107,13 +119,13 @@ sub parse_params
     $0 =~ s{^.+/}{};
     my $opts =
     {
-        pdf_plots  => 1,
         use_sample_names => 0,
         verbose    => 1,
         make_pdf   => 1,
         make_plots => 1,
         merge      => 0,
         args       => join(' ',$0,@ARGV),
+        img_fmt    => 'png',
         img_width  => 11/2.54,
         img_height => 10/2.54,
         id2col     => [ 'orange', 'red', 'darkgreen' ],
@@ -154,7 +166,7 @@ sub parse_params
             {
                 id=>'IDD',
                 header=>'IDD, InDel distribution',
-                exp=>"# IDD\t[2]id\t[3]length (deletions negative)\t[4]count"
+                exp=>"# IDD\t[2]id\t[3]length (deletions negative)\t[4]number of sites\t[5]number of genotypes\t[6]mean VAF"
             },
             {
                 id=>'ST',
@@ -194,12 +206,12 @@ sub parse_params
             {
                 id=>'PSC',
                 header=>'PSC, Per-sample counts',
-                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons"
+                exp=>"# PSC\t[2]id\t[3]sample\t[4]nRefHom\t[5]nNonRefHom\t[6]nHets\t[7]nTransitions\t[8]nTransversions\t[9]nIndels\t[10]average depth\t[11]nSingletons\t[12]nHapRef\t[13]nHapAlt\t[14]nMissing"
             },
             {
                 id=>'PSI',
                 header=>'PSI, Per-sample Indels',
-                exp=>"# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio\t[8]nHets\t[9]nAA"
+                exp=>"# PSI\t[2]id\t[3]sample\t[4]in-frame\t[5]out-frame\t[6]not applicable\t[7]out/(in+out) ratio\t[8]nInsHets\t[9]nDelHets\t[10]nInsAltHoms\t[11]nDelAltHoms"
             },
             {
                 id=>'DP',
@@ -249,7 +261,8 @@ sub parse_params
     {
         if (                 $arg eq '--no-plots' ) { $$opts{make_plots}=0; next; }
         if ( $arg eq '-P' || $arg eq '--no-PDF' ) { $$opts{make_pdf}=0; next; }
-        if ( $arg eq '-r' || $arg eq '--rasterize' ) { $$opts{rasterize}=1; $$opts{pdf_plots} = 0; next; }
+        if ( $arg eq '-r' || $arg eq '--rasterize' ) { $$opts{img_fmt} = 'png'; next; }
+        if ( $arg eq '-v' || $arg eq '--vectors' ) { $$opts{img_fmt} = 'pdf'; next; }
         if ( $arg eq '-m' || $arg eq '--merge' ) { $$opts{make_plots}=0; $$opts{make_pdf}=0; $$opts{merge}=1; next; }
         if ( $arg eq '-s' || $arg eq '--sample-names' ) { $$opts{use_sample_names}=1; next; }
         if ( $arg eq '-t' || $arg eq '--title' ) { push @{$$opts{titles}},shift(@ARGV); next; }
@@ -281,7 +294,7 @@ sub plot
     my ($opts) = @_;
     if ( !exists($$opts{plt_fh}) ) { return; }
     close($$opts{plt_fh}) or error("close $$opts{plt_fh}");
-    my $cmd = "python $$opts{plt_file}";
+    my $cmd = "python3 $$opts{plt_file}";
     print STDERR "Plotting graphs: $cmd\n" unless !$$opts{verbose};
     system($cmd);
     if ( $? ) { error("The command exited with non-zero status $?:\n\t$cmd\n\n"); }
@@ -380,7 +393,11 @@ sub add_to_values
         while ( $id<@$dst && &$cmp($$src[$is][0],$$dst[$id][0])>0 ) { $id++; }
         if ( $id<@$dst && !&$cmp($$src[$is][0],$$dst[$id][0]) )
         {
-            for (my $j=1; $j<@{$$src[$is]}; $j++) { $$dst[$id][$j] += $$src[$is][$j]; }
+            for (my $j=1; $j<@{$$src[$is]}; $j++)
+            {
+                if ( $$dst[$id][$j] eq '.' or $$src[$is][$j] eq '.' ) { next; }
+                $$dst[$id][$j] += $$src[$is][$j];
+            }
         }
         else { splice(@$dst,$id,0,$$src[$is]); }
         $is++;
@@ -644,15 +661,18 @@ sub file_ids
 
 sub tprint
 {
-    my ($fh,@txt) = @_;
-    for my $txt (@txt)
+    my ($fh,$text) = @_;
+    my @lines = split(/\n/,$text);
+    my $ntab;
+    for my $line (@lines)
     {
-        $txt =~ s/\n[ \t]+/\n/g;        # eat leading tabs
-        while ( ($txt =~ /\n\t*\\t/) )
+        if ( !defined $ntab )
         {
-            $txt =~ s/(\n\t*)\\t/$1\t/g;    # replace escaped tabs (\\t) with tabs
+            if ( $line=~/^\s*$/ ) { print $fh $line; next; }
+            $ntab = ( $line=~/^\s+/ ) ? length($&) : 0;
         }
-        print $fh $txt;
+        if ( $line=~/^\s{$ntab}/ ) { substr($line,0,$ntab,''); }
+        print $fh $line."\n";
     }
 }
 
@@ -675,12 +695,11 @@ sub init_plots
         #   $$opts{args}
         #
         # Edit as necessary and recreate the plots by running
-        #   python $$opts{plt_file}
+        #   python3 $$opts{plt_file}
         #
         $titles
 
-        # Set to 1 to plot in PDF instead of PNG
-        pdf_plots = $$opts{pdf_plots}
+        img_fmt = '$$opts{img_fmt}'
 
         # Use logarithimic X axis for allele frequency plots
         af_xlog = 0
@@ -705,6 +724,7 @@ sub init_plots
         plot_discordance_by_sample = 1
         plot_tstv_by_af = 1
         plot_indel_dist = 1
+        plot_indel_vaf = 1
         plot_tstv_by_qual = 1
         plot_substitutions = 1
 
@@ -730,17 +750,17 @@ sub init_plots
 
         import numpy
         def smooth(x,window_len=11,window='hanning'):
-        \\tif x.ndim != 1: raise ValueError("The function 'smooth' only accepts 1 dimension arrays.")
-        \\tif x.size < window_len: return x
-        \\tif window_len<3: return x
-        \\tif not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']: raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
-        \\ts = numpy.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
-        \\tif window == 'flat': # moving average
-        \\t\\tw = numpy.ones(window_len,'d')
-        \\telse:
-        \\t\\tw = eval('numpy.'+window+'(window_len)')
-        \\ty = numpy.convolve(w/w.sum(),s,mode='valid')
-        \\treturn y[(window_len/2-1):-(window_len/2)]
+            if x.ndim != 1: raise ValueError("The function 'smooth' only accepts 1 dimension arrays.")
+            if x.size < window_len: return x
+            if window_len<3: return x
+            if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']: raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+            s = numpy.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
+            if window == 'flat': # moving average
+                w = numpy.ones(window_len,'d')
+            else:
+                w = eval('numpy.'+window+'(window_len)')
+            y = numpy.convolve(w/w.sum(),s,mode='valid')
+            return y[(window_len//2-1):-(window_len//2)]
 
         ];
     $$opts{plt_fh} = $fh;
@@ -816,31 +836,30 @@ sub plot_venn_bars
     tprint $fh, qq[
 
             if plot_venn_snps:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.bar([1,2,3],[$snps[0],$snps[2],$snps[1]],align='center',color='$$opts{id2col}[0]',width=0.3)
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tax1.set_xlim(0.5,3.5)
-            \\tplt.xticks([1,2,3],('$snp_titles[0]','$snp_titles[2]','$snp_titles[1]'))
-            \\tplt.title('Number of SNPs')
-            \\tplt.subplots_adjust(right=0.95,bottom=0.15)
-            \\tplt.savefig('venn_bars.snps.png')
-            \\tif pdf_plots: plt.savefig('venn_bars.snps.pdf')
-            \\tplt.close()
-
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax1.bar([1,2,3],[$snps[0],$snps[2],$snps[1]],align='center',color='$$opts{id2col}[0]',width=0.3)
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                ax1.set_xlim(0.5,3.5)
+                plt.xticks([1,2,3],('$snp_titles[0]','$snp_titles[2]','$snp_titles[1]'))
+                plt.title('Number of SNPs')
+                plt.subplots_adjust(right=0.95,bottom=0.15)
+                plt.savefig('venn_bars.snps.png')
+                if img_fmt != 'png': plt.savefig('venn_bars.snps.' + img_fmt)
+                plt.close()
 
             if plot_venn_indels:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.bar([1,2,3],[$indels[0],$indels[2],$indels[1]],align='center',color='$$opts{id2col}[1]',width=0.3)
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tax1.set_xlim(0.5,3.5)
-            \\tplt.xticks([1,2,3],('$indel_titles[0]','$indel_titles[2]','$indel_titles[1]'))
-            \\tplt.title('Number of indels')
-            \\tplt.subplots_adjust(right=0.95,bottom=0.15)
-            \\tplt.savefig('venn_bars.indels.png')
-            \\tif pdf_plots: plt.savefig('venn_bars.indels.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax1.bar([1,2,3],[$indels[0],$indels[2],$indels[1]],align='center',color='$$opts{id2col}[1]',width=0.3)
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                ax1.set_xlim(0.5,3.5)
+                plt.xticks([1,2,3],('$indel_titles[0]','$indel_titles[2]','$indel_titles[1]'))
+                plt.title('Number of indels')
+                plt.subplots_adjust(right=0.95,bottom=0.15)
+                plt.savefig('venn_bars.indels.png')
+                if img_fmt != 'png': plt.savefig('venn_bars.indels.' + img_fmt)
+                plt.close()
 
         ];
 }
@@ -873,116 +892,116 @@ sub plot_per_sample_stats
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row[:7]] + [row[7]])
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append([float(x) for x in row[:7]] + [row[7]])
 
             if plot_tstv_by_sample:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[1] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
-            \\tax1.set_ylabel('Ts/Tv')
-            \\tax1.set_ylim(min(float(row[1]) for row in dat)-0.1,max(float(row[1]) for row in dat)+0.1)
-            \\tif sample_names:
-            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
-            \\t\\t     plt.subplots_adjust(**sample_margins)
-            \\telse:
-            \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
-            \\t\\t     ax1.set_xlabel('Sample ID')
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[1] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
+                ax1.set_ylabel('Ts/Tv')
+                ax1.set_ylim(min(float(row[1]) for row in dat)-0.1,max(float(row[1]) for row in dat)+0.1)
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
 
             if plot_hethom_by_sample:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[2] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
-            \\tax1.set_ylabel('nHet(RA) / nHom(AA)')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tif sample_names:
-            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
-            \\t\\t     plt.subplots_adjust(**sample_margins)
-            \\telse:
-            \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
-            \\t\\t     ax1.set_xlabel('Sample ID')
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img2.png')
-            \\tif pdf_plots: plt.savefig('$img2.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[2] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
+                ax1.set_ylabel('nHet(RA) / nHom(AA)')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img2.png')
+                if img_fmt != 'png': plt.savefig('$img2.' + img_fmt)
+                plt.close()
 
 
             if plot_snps_by_sample:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[3] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
-            \\tax1.set_ylabel('Number of SNPs')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tif sample_names:
-            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
-            \\t\\t     plt.subplots_adjust(**sample_margins)
-            \\telse:
-            \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
-            \\t\\t     ax1.set_xlabel('Sample ID')
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img3.png')
-            \\tif pdf_plots: plt.savefig('$img3.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[3] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
+                ax1.set_ylabel('Number of SNPs')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img3.png')
+                if img_fmt != 'png': plt.savefig('$img3.' + img_fmt)
+                plt.close()
 
 
             if plot_indels_by_sample:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[4] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
-            \\tax1.set_ylabel('Number of indels')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tif sample_names:
-            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
-            \\t\\t     plt.subplots_adjust(**sample_margins)
-            \\telse:
-            \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
-            \\t\\t     ax1.set_xlabel('Sample ID')
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img4.png')
-            \\tif pdf_plots: plt.savefig('$img4.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[4] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
+                ax1.set_ylabel('Number of indels')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img4.png')
+                if img_fmt != 'png': plt.savefig('$img4.' + img_fmt)
+                plt.close()
 
 
             if plot_singletons_by_sample:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[6] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
-            \\tax1.set_ylabel('Number of singletons')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tif sample_names:
-            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
-            \\t\\t     plt.subplots_adjust(**sample_margins)
-            \\telse:
-            \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
-            \\t\\t     ax1.set_xlabel('Sample ID')
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img5.png')
-            \\tif pdf_plots: plt.savefig('$img5.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[6] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
+                ax1.set_ylabel('Number of singletons')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img5.png')
+                if img_fmt != 'png': plt.savefig('$img5.' + img_fmt)
+                plt.close()
 
 
             if plot_depth_by_sample:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[5] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
-            \\tax1.set_ylabel('Average depth')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tif sample_names:
-            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
-            \\t\\t     plt.subplots_adjust(**sample_margins)
-            \\telse:
-            \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
-            \\t\\t     ax1.set_xlabel('Sample ID')
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img6.png')
-            \\tif pdf_plots: plt.savefig('$img6.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[5] for row in dat], 'o', color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]')
+                ax1.set_ylabel('Average depth')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[7] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img6.png')
+                if img_fmt != 'png': plt.savefig('$img6.' + img_fmt)
+                plt.close()
 
         ";
 }
@@ -1012,25 +1031,25 @@ sub plot_DP
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append([float(x) for x in row])
 
             if plot_dp_dist:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[2] for row in dat], '-^', color='k')
-            \\tax1.set_ylabel('Number of genotypes [%]',color='k')
-            \\tax1.set_xlabel('Depth')
-            \\tax2 = ax1.twinx()
-            \\tax2.plot([row[0] for row in dat], [row[1] for row in dat], '-o', color='$$opts{id2col}[$id]')
-            \\tax2.set_ylabel('Cumulative number of genotypes [%]',color='$$opts{id2col}[$id]')
-            \\tfor tl in ax2.get_yticklabels(): tl.set_color('$$opts{id2col}[$id]')
-            \\tplt.subplots_adjust(left=0.15,bottom=0.15,right=0.87)
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width}*1.2,$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[2] for row in dat], '-^', color='k')
+                ax1.set_ylabel('Number of genotypes [%]',color='k')
+                ax1.set_xlabel('Depth')
+                ax2 = ax1.twinx()
+                ax2.plot([row[0] for row in dat], [row[1] for row in dat], '-o', color='$$opts{id2col}[$id]')
+                ax2.set_ylabel('Cumulative number of genotypes [%]',color='$$opts{id2col}[$id]')
+                for tl in ax2.get_yticklabels(): tl.set_color('$$opts{id2col}[$id]')
+                plt.subplots_adjust(left=0.2,bottom=0.15,right=0.8)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
         ";
 }
@@ -1058,41 +1077,41 @@ sub plot_hwe
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append(row)
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append(row)
 
             if plot_hwe and len(dat)>1:
-            \\tx  = [float(row[0]) for row in dat]
-            \\ty1 = smooth(numpy.array([float(row[2]) for row in dat]),40,'hanning')
-            \\ty2 = smooth(numpy.array([float(row[3]) for row in dat]),40,'hanning')
-            \\ty3 = smooth(numpy.array([float(row[4]) for row in dat]),40,'hanning')
-            \\tdp = smooth(numpy.array([float(row[1]) for row in dat]),40,'hanning')
-            \\thwe = []
-            \\tfor af in x: hwe.append(2*af*(1-af))
+                x  = [float(row[0]) for row in dat]
+                y1 = smooth(numpy.array([float(row[2]) for row in dat]),40,'hanning')
+                y2 = smooth(numpy.array([float(row[3]) for row in dat]),40,'hanning')
+                y3 = smooth(numpy.array([float(row[4]) for row in dat]),40,'hanning')
+                dp = smooth(numpy.array([float(row[1]) for row in dat]),40,'hanning')
+                hwe = []
+                for af in x: hwe.append(2*af*(1-af))
 
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tplots  = ax1.plot(x,hwe,'--',color='#ff9900',label='HWE')
-            \\tplots += ax1.plot(x,y2,color='#ff9900',label='Median')
-            \\tplots += ax1.plot(x,y3,color='#ffe0b2',label='25-75th percentile')
-            \\tax1.fill_between(x,y1,y3, facecolor='#ffeacc',edgecolor='#ffe0b2')
-            \\tax1.set_ylabel('Fraction of hets',color='#ff9900')
-            \\tax1.set_xlabel('Allele frequency')
-            \\tfor tl in ax1.get_yticklabels(): tl.set_color('#ff9900')
-            \\tax2 = ax1.twinx()
-            \\tplots += ax2.plot(x,dp, 'k', label='Number of sites')
-            \\tax2.set_ylabel('Number of sites')
-            \\tax2.set_yscale('log')
-            \\tif af_xlog: ax1.set_xscale('log')
-            \\tif af_xlog: ax2.set_xscale('log')
-            \\tlabels = [l.get_label() for l in plots]
-            \\tplt.legend(plots,labels,numpoints=1,markerscale=2,loc='center',prop={'size':9},frameon=False)
-            \\tplt.subplots_adjust(left=0.15,bottom=0.15,right=0.86)
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                plots  = ax1.plot(x,hwe,'--',color='#ff9900',label='Expected (HWE)')
+                plots += ax1.plot(x,y2,color='#ff9900',label='Median')
+                plots += ax1.plot(x,y3,color='#ffe0b2',label='25-75th percentile')
+                ax1.fill_between(x,y1,y3, facecolor='#ffeacc',edgecolor='#ffe0b2')
+                ax1.set_ylabel('Fraction of hets',color='#ff9900')
+                ax1.set_xlabel('Allele frequency')
+                for tl in ax1.get_yticklabels(): tl.set_color('#ff9900')
+                ax2 = ax1.twinx()
+                plots += ax2.plot(x,dp, 'k', label='Number of sites')
+                ax2.set_ylabel('Number of sites')
+                ax2.set_yscale('log')
+                if af_xlog: ax1.set_xscale('log')
+                if af_xlog: ax2.set_xscale('log')
+                labels = [l.get_label() for l in plots]
+                plt.legend(plots,labels,numpoints=1,markerscale=2,loc='center',prop={'size':9},frameon=False)
+                plt.subplots_adjust(left=0.15,bottom=0.15,right=0.86)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
         ";
 }
@@ -1124,31 +1143,31 @@ sub plot_tstv_by_AF
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append([float(x) for x in row])
 
 
             if plot_tstv_by_af and len(dat)>2:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[1] for row in dat], '-o',color='k',mec='k',markersize=3)
-            \\tax1.set_ylabel('Number of sites',color='k')
-            \\tax1.set_yscale('log')
-            \\t#ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tfor tl in ax1.get_yticklabels(): tl.set_color('k')
-            \\tax1.set_xlabel('Non-ref allele frequency')
-            \\tax2 = ax1.twinx()
-            \\tax2.plot([row[0] for row in dat], [row[2] for row in dat], '-o',color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]',markersize=3)
-            \\tax2.set_ylabel('Ts/Tv',color='$$opts{id2col}[$id]')
-            \\tax2.set_ylim(0,0.5+max(3,max(row[2] for row in dat)))
-            \\tax1.set_xlim(0,1)
-            \\tfor tl in ax2.get_yticklabels(): tl.set_color('$$opts{id2col}[$id]')
-            \\tplt.subplots_adjust(right=0.88,left=0.15,bottom=0.11)
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[1] for row in dat], '-o',color='k',mec='k',markersize=3)
+                ax1.set_ylabel('Number of sites',color='k')
+                ax1.set_yscale('log')
+                #ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                for tl in ax1.get_yticklabels(): tl.set_color('k')
+                ax1.set_xlabel('Non-ref allele frequency')
+                ax2 = ax1.twinx()
+                ax2.plot([row[0] for row in dat], [row[2] for row in dat], '-o',color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]',markersize=3)
+                ax2.set_ylabel('Ts/Tv',color='$$opts{id2col}[$id]')
+                ax2.set_ylim(0,0.5+max(3,max(row[2] for row in dat)))
+                ax1.set_xlim(0,1)
+                for tl in ax2.get_yticklabels(): tl.set_color('$$opts{id2col}[$id]')
+                plt.subplots_adjust(right=0.88,left=0.15,bottom=0.11)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
         ";
 }
@@ -1199,24 +1218,24 @@ sub plot_tstv_by_QUAL
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append([float(x) for x in row])
 
             if plot_tstv_by_qual and len(dat)>2:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[1] for row in dat], [row[2] for row in dat], '^-', ms=3, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]')
-            \\tax1.set_ylabel('Ts/Tv',fontsize=10)
-            \\tax1.set_xlabel('Number of sites\\n(sorted by QUAL, descending)',fontsize=10)
-            \\tax1.ticklabel_format(style='sci', scilimits=(-3,2), axis='x')
-            \\tax1.set_ylim(min(2,min(row[2] for row in dat))-0.3,0.3+max(2.2,max(row[2] for row in dat)))
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[1] for row in dat], [row[2] for row in dat], '^-', ms=3, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]')
+                ax1.set_ylabel('Ts/Tv',fontsize=10)
+                ax1.set_xlabel('Number of sites\\n(sorted by QUAL, descending)',fontsize=10)
+                ax1.ticklabel_format(style='sci', scilimits=(-3,2), axis='x')
+                ax1.set_ylim(min(2,min(row[2] for row in dat))-0.3,0.3+max(2.2,max(row[2] for row in dat)))
 
-            \\tplt.subplots_adjust(right=0.88,left=0.15,bottom=0.15)
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                plt.subplots_adjust(right=0.88,left=0.15,bottom=0.15)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
         ";
 }
@@ -1287,53 +1306,53 @@ sub plot_concordance_by_AF
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append(row)
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append(row)
 
             if plot_concordance_by_af and len(dat)>1:
-            \\tfig = plt.figure(figsize=($$opts{img_width}*1.2,$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[1] for row in dat],'.',color='$$opts{id2col}[1]',label='Hom RR')
-            \\tax1.plot([row[0] for row in dat], [row[2] for row in dat],'.',color='$$opts{id2col}[0]',label='Het RA')
-            \\tax1.plot([row[0] for row in dat], [row[3] for row in dat],'.',color='k',label='Hom AA')
-            \\tax1.set_xlabel('Non-ref allele frequency')
-            \\tax1.set_ylabel('Concordance')
-            \\tleg = ax1.legend(title='Concordance:',numpoints=1,markerscale=2,loc='best',prop={'size':9})
-            \\tleg.draw_frame(False)
-            \\tplt.setp(leg.get_title(),fontsize=9)
-            \\tax2 = ax1.twinx()
-            \\tax2.plot([row[0] for row in dat], [row[4] for row in dat],color='$$opts{id2col}[1]')
-            \\tax2.plot([row[0] for row in dat], [row[5] for row in dat],color='$$opts{id2col}[0]')
-            \\tax2.plot([row[0] for row in dat], [row[6] for row in dat],color='k')
-            \\tax2.set_ylabel('Number of genotypes')
-            \\tax2.set_yscale('log')
-            \\tif af_xlog: ax1.set_xscale('log')
-            \\tif af_xlog: ax2.set_xscale('log')
-            \\tplt.subplots_adjust(left=0.15,right=0.83,bottom=0.11)
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width}*1.2,$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[1] for row in dat],'.',color='$$opts{id2col}[1]',label='Hom RR')
+                ax1.plot([row[0] for row in dat], [row[2] for row in dat],'.',color='$$opts{id2col}[0]',label='Het RA')
+                ax1.plot([row[0] for row in dat], [row[3] for row in dat],'.',color='k',label='Hom AA')
+                ax1.set_xlabel('Non-ref allele frequency')
+                ax1.set_ylabel('Concordance')
+                leg = ax1.legend(title='Concordance:',numpoints=1,markerscale=2,loc='best',prop={'size':9})
+                leg.draw_frame(False)
+                plt.setp(leg.get_title(),fontsize=9)
+                ax2 = ax1.twinx()
+                ax2.plot([row[0] for row in dat], [row[4] for row in dat],color='$$opts{id2col}[1]')
+                ax2.plot([row[0] for row in dat], [row[5] for row in dat],color='$$opts{id2col}[0]')
+                ax2.plot([row[0] for row in dat], [row[6] for row in dat],color='k')
+                ax2.set_ylabel('Number of genotypes')
+                ax2.set_yscale('log')
+                if af_xlog: ax1.set_xscale('log')
+                if af_xlog: ax2.set_xscale('log')
+                plt.subplots_adjust(left=0.15,right=0.83,bottom=0.11)
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
             if plot_r2_by_af and len(dat)>1:
-            \\tfig = plt.figure(figsize=($$opts{img_width}*1.3,$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax2 = ax1.twinx()
-            \\tax1.set_zorder(ax2.get_zorder()+1)
-            \\tax1.patch.set_visible(False)
-            \\tax2.plot([row[0] for row in dat], [row[8] for row in dat], '-o', color='r',mec='r',markersize=3)
-            \\tax1.plot([row[0] for row in dat], [row[7] for row in dat], '-^', color='k',markersize=3)
-            \\tfor tl in ax2.get_yticklabels(): tl.set_color('r')
-            \\tax2.set_ylabel('Number of genotypes', color='r')
-            \\tax2.set_yscale('log')
-            \\tif af_xlog: ax1.set_xscale('log')
-            \\tif af_xlog: ax2.set_xscale('log')
-            \\tax1.set_ylabel('Aggregate allelic R\$^2\$', color='k')
-            \\tax1.set_xlabel('Non-ref allele frequency')
-            \\tplt.subplots_adjust(left=0.19,right=0.83,bottom=0.11)
-            \\tplt.savefig('$img2.png')
-            \\tif pdf_plots: plt.savefig('$img2.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width}*1.3,$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax2 = ax1.twinx()
+                ax1.set_zorder(ax2.get_zorder()+1)
+                ax1.patch.set_visible(False)
+                ax2.plot([row[0] for row in dat], [row[8] for row in dat], '-o', color='r',mec='r',markersize=3)
+                ax1.plot([row[0] for row in dat], [row[7] for row in dat], '-^', color='k',markersize=3)
+                for tl in ax2.get_yticklabels(): tl.set_color('r')
+                ax2.set_ylabel('Number of genotypes', color='r')
+                ax2.set_yscale('log')
+                if af_xlog: ax1.set_xscale('log')
+                if af_xlog: ax2.set_xscale('log')
+                ax1.set_ylabel('Aggregate allelic R\$^2\$', color='k')
+                ax1.set_xlabel('Non-ref allele frequency')
+                plt.subplots_adjust(left=0.19,right=0.83,bottom=0.11)
+                plt.savefig('$img2.png')
+                if img_fmt != 'png': plt.savefig('$img2.' + img_fmt)
+                plt.close()
 
         ";
 }
@@ -1359,25 +1378,25 @@ sub plot_concordance_by_sample
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append(row)
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append(row)
 
             if plot_discordance_by_sample:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.plot([row[0] for row in dat], [row[1] for row in dat],'.',color='orange')
-            \\tax1.set_ylabel('Non-ref discordance')
-            \\tax1.set_ylim(0,)
-            \\tif sample_names:
-            \\t\\t     plt.xticks([int(row[0]) for row in dat],[row[2] for row in dat],**sample_font)
-            \\t\\t     plt.subplots_adjust(**sample_margins)
-            \\telse:
-            \\t\\t     plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
-            \\t\\t     ax1.set_xlabel('Sample ID')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([row[0] for row in dat], [row[1] for row in dat],'.',color='orange')
+                ax1.set_ylabel('Non-ref discordance')
+                ax1.set_ylim(0,)
+                if sample_names:
+                    plt.xticks([int(row[0]) for row in dat],[row[2] for row in dat],**sample_font)
+                    plt.subplots_adjust(**sample_margins)
+                else:
+                    plt.subplots_adjust(right=0.98,left=0.07,bottom=0.17)
+                    ax1.set_xlabel('Sample ID')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
 
         ";
@@ -1415,40 +1434,40 @@ sub plot_counts_by_AF_col
 
             dat = {}
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] == '#': continue
-            \\t\\tid = int(row[0])
-            \\t\\tif id not in dat: dat[id] = []
-            \\t\\tdat[id].append([float(row[1]),float(row[2])])
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] == '#': continue
+                    id = int(row[0])
+                    if id not in dat: dat[id] = []
+                    dat[id].append([float(row[1]),float(row[2])])
             
             if plot_${title}_count_by_af:
-            \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.set_ylabel('Number of sites')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tax1.set_yscale('log')
-            \\tif af_xlog: ax1.set_xscale('log')
-            \\tax1.set_xlabel('Non-reference allele frequency')
-            \\tax1.set_xlim(-0.05,1.05)
-            \\thas_data = 0
+                fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.set_ylabel('Number of sites')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                ax1.set_yscale('log')
+                if af_xlog: ax1.set_xscale('log')
+                ax1.set_xlabel('Non-reference allele frequency')
+                ax1.set_xlim(-0.05,1.05)
+                has_data = 0
         ";
     for my $id (file_ids($opts))
     {
         tprint $fh, "
-            \\tif $id in dat and len(dat[$id])>2:
-            \\t\\tax1.plot([row[0] for row in dat[$id]], [row[1] for row in dat[$id]], '-o',markersize=3, color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]',label='$$opts{title}{$id}')
-            \\t\\thas_data = 1
+            if $id in dat and len(dat[$id])>2:
+                ax1.plot([row[0] for row in dat[$id]], [row[1] for row in dat[$id]], '-o',markersize=3, color='$$opts{id2col}[$id]',mec='$$opts{id2col}[$id]',label='$$opts{title}{$id}')
+                has_data = 1
         ";
     }
     tprint $fh, "
-            \\tif has_data:
-            \\t\\tax1.legend(numpoints=1,markerscale=1,loc='best',prop={'size':10},frameon=False)
-            \\t\\tplt.title('$title count by AF')
-            \\t\\tplt.subplots_adjust(bottom=0.2,left=0.1,right=0.95)
-            \\t\\tplt.savefig('$img.png')
-            \\t\\tif pdf_plots: plt.savefig('$img.pdf')
-            \\t\\tplt.close()
+            if has_data:
+                ax1.legend(numpoints=1,markerscale=1,loc='best',prop={'size':10},frameon=False)
+                plt.title('$title count by AF')
+                plt.subplots_adjust(bottom=0.2,left=0.1,right=0.95)
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
 
         ";
@@ -1504,23 +1523,23 @@ sub plot_overlap_by_AF_col
         dat = []
 
         with open('$img.dat', 'r') as f:
-        \\treader = csv.reader(f, 'tab')
-        \\tfor row in reader:
-        \\t\\tif row[0][0] != '#': dat.append(row)
+            reader = csv.reader(f, 'tab')
+            for row in reader:
+                if row[0][0] != '#': dat.append(row)
 
         if plot_${title}_overlap_by_af and len(dat)>1:
-        \\tfig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
-        \\tax1 = fig.add_subplot(111)
-        \\tax1.plot([row[0] for row in dat], [row[1] for row in dat],'-o',markersize=3, color='$$opts{id2col}[1]',mec='$$opts{id2col}[1]')
-        \\tax1.set_ylabel('Fraction found in $$opts{title}{$ib} [%]')
-        \\tax1.set_xscale('log')
-        \\tax1.set_xlabel('Non-reference allele frequency in $$opts{title}{$ia}')
-        \\tax1.set_xlim(0,1.01)
-        \\tplt.title('$title overlap by AF')
-        \\tplt.subplots_adjust(bottom=0.2,left=0.1,right=0.95)
-        \\tplt.savefig('$img.png')
-        \\tif pdf_plots: plt.savefig('$img.pdf')
-        \\tplt.close()
+            fig = plt.figure(figsize=(2*$$opts{img_width},$$opts{img_height}*0.7))
+            ax1 = fig.add_subplot(111)
+            ax1.plot([row[0] for row in dat], [row[1] for row in dat],'-o',markersize=3, color='$$opts{id2col}[1]',mec='$$opts{id2col}[1]')
+            ax1.set_ylabel('Fraction found in $$opts{title}{$ib} [%]')
+            ax1.set_xscale('log')
+            ax1.set_xlabel('Non-reference allele frequency in $$opts{title}{$ia}')
+            ax1.set_xlim(0,1.01)
+            plt.title('$title overlap by AF')
+            plt.subplots_adjust(bottom=0.2,left=0.1,right=0.95)
+            plt.savefig('$img.png')
+            if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+            plt.close()
     ";
 }
 
@@ -1531,7 +1550,7 @@ sub plot_indel_distribution
     my @vals = get_values($opts,$id,'IDD');
     if ( !@vals ) { return; }
 
-    # Set xlim to show 99 of indels but ignore outliers
+    # Set xlim to show 99% of indels but ignore outliers
     my @tmp;
     for my $id (file_ids($opts))
     {
@@ -1561,23 +1580,82 @@ sub plot_indel_distribution
 
             dat = []
             with open('$img.dat', 'r') as f:
-            \\treader = csv.reader(f, 'tab')
-            \\tfor row in reader:
-            \\t\\tif row[0][0] != '#': dat.append([float(x) for x in row])
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append([float(x) for x in row])
 
             if plot_indel_dist and len(dat)>0:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.bar([row[0]-0.5 for row in dat], [row[1] for row in dat], color='$$opts{id2col}[0]')# , edgecolor='$$opts{id2col}[0]')
-            \\tax1.set_xlabel('InDel Length')
-            \\tax1.set_ylabel('Count')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tax1.set_xlim(-$xlim,$xlim)
-            \\tplt.subplots_adjust(bottom=0.17)
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax1.bar([row[0]-0.5 for row in dat], [row[1] for row in dat], color='$$opts{id2col}[0]')# , edgecolor='$$opts{id2col}[0]')
+                ax1.set_xlabel('InDel Length')
+                ax1.set_ylabel('Count')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                ax1.set_xlim(-$xlim,$xlim)
+                plt.subplots_adjust(bottom=0.17)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
+        ";
+}
+
+sub plot_indel_vaf_distribution
+{
+    my ($opts,$id) = @_;
+
+    my @vals = get_values($opts,$id,'IDD');
+    if ( !@vals ) { return; }
+
+    my ($xmin,$xmax);
+    my @dat = ();
+    for my $val (@vals)
+    {
+        if ( $$val[2] eq '0' or $$val[3] eq '.' ) { next; }
+        if ( !defined $xmin or $$val[0]<$xmin ) { $xmin = $$val[0]; }
+        if ( !defined $xmax or $$val[0]>$xmax ) { $xmax = $$val[0]; }
+        push @dat, "$$val[0]\t$$val[3]\n";
+    }
+    if ( !@dat ) { return; }
+
+    my $img = "indel_vaf.$id";
+    open(my $tfh,'>',"$img.dat") or error("$img.dat: $!");
+    print $tfh "# [1]Indel length\t[2]Mean VAF\n";
+    print $tfh @dat;
+    close($tfh);
+
+    my $fh  = $$opts{plt_fh};
+    tprint $fh, "
+
+            dat = []
+            with open('$img.dat', 'r') as f:
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append([float(x) for x in row])
+
+            if plot_indel_vaf and len(dat)>0:
+                fig = plt.figure(figsize=($$opts{img_width}*2,$$opts{img_height}*0.7))
+                ax1 = fig.add_subplot(111)
+                ax1.plot([$xmin,$xmax], [0.5,0.5],color='#c5c5c5')
+                ax1.plot([row[0] for row in dat], [row[1] for row in dat],'.-',color='$$opts{id2col}[0]')# , edgecolor='$$opts{id2col}[0]')
+                ax1.set_xlabel('Size of deletion (negative) or insertion (positive)')
+                ax1.set_ylabel('Fraction of alt allele')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                plt.subplots_adjust(bottom=0.2)
+                plt.title('$$opts{title}{$id}')
+
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                ax1.get_xaxis().tick_bottom()
+                ax1.get_yaxis().tick_left()
+                ax1.spines['bottom'].set_color('grey')
+                ax1.spines['left'].set_color('grey')
+                mpl.rcParams['text.color'] = '555555'
+                ax1.patch.set_visible(False)
+
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
         ";
 }
 
@@ -1595,24 +1673,25 @@ sub plot_substitutions
             dat = [
         ";
     for (my $i=0; $i<@vals; $i++) { my $val=$vals[$i]; tprint $fh, "\t[$i,'$$val[0]',$$val[1]],\n"; }
-    tprint $fh, "]
+    tprint $fh, "]\n";
+    tprint $fh, "
 
             if plot_substitutions:
-            \\tfig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
-            \\tcm  = mpl.cm.get_cmap('autumn')
-            \\tn = 12
-            \\tcol = []
-            \\tfor i in list(range(n)): col.append(cm(1.*i/n))
-            \\tax1 = fig.add_subplot(111)
-            \\tax1.bar([row[0] for row in dat], [row[2] for row in dat], color=col)
-            \\tax1.set_ylabel('Count')
-            \\tax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
-            \\tax1.set_xlim(-0.5,n+0.5)
-            \\tplt.xticks([row[0] for row in dat],[row[1] for row in dat],rotation=45)
-            \\tplt.title('$$opts{title}{$id}')
-            \\tplt.savefig('$img.png')
-            \\tif pdf_plots: plt.savefig('$img.pdf')
-            \\tplt.close()
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                cm  = mpl.cm.get_cmap('autumn')
+                n = 12
+                col = []
+                for i in list(range(n)): col.append(cm(1.*i/n))
+                ax1 = fig.add_subplot(111)
+                ax1.bar([row[0] for row in dat], [row[2] for row in dat], color=col)
+                ax1.set_ylabel('Count')
+                ax1.ticklabel_format(style='sci', scilimits=(0,0), axis='y')
+                ax1.set_xlim(-0.5,n+0.5)
+                plt.xticks([row[0] for row in dat],[row[1] for row in dat],rotation=45)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
 
         ";
 }
@@ -1659,15 +1738,15 @@ sub fmt_slide3v
     my $n = 0;
     for my $id (0..2)
     {
-        if ( -e "$image.$id.$$opts{fmt}" ) { $n++; }
+        if ( -e "$image.$id.$$opts{img_fmt}" ) { $n++; }
     }
     if ( !$n ) { return ''; }
     my $h = $$opts{tex}{slide3v}{"height$n"};
     my $slide = q[\vbox{];
     for my $id (0..2)
     {
-        if ( !-e "$image.$id.$$opts{fmt}" ) { next; }
-        $slide .= qq[\\centerline{\\includegraphics[$$opts{ext},height=$h]{$image.$id}}];
+        if ( !-e "$image.$id.$$opts{img_fmt}" ) { next; }
+        $slide .= qq[\\centerline{\\includegraphics[height=$h]{\{$image.$id\}.$$opts{img_fmt}}}];
     }
     $slide .= '}';
     return qq[
@@ -1683,15 +1762,15 @@ sub fmt_slide3h
     my $n = 0;
     for my $id (0..2)
     {
-        if ( -e "$image.$id.$$opts{fmt}" ) { $n++; }
+        if ( -e "$image.$id.$$opts{img_fmt}" ) { $n++; }
     }
     if ( !$n ) { return ''; }
     my $w = $$opts{tex}{slide3h}{"width$n"};
     my $slide = '';
     for my $id (0..2)
     {
-        if ( !-e "$image.$id.$$opts{fmt}" ) { next; }
-        $slide .= qq[\\includegraphics[$$opts{ext},width=$w]{$image.$id}];
+        if ( !-e "$image.$id.$$opts{img_fmt}" ) { next; }
+        $slide .= qq[\\includegraphics[width=$w]{\{$image.$id\}.$$opts{img_fmt}}];
     }
     return qq[
             % $title
@@ -1728,14 +1807,19 @@ sub create_pdf
     my $width1  = "23cm";
     my $width2  = @ids==3 ? "10.5cm" : "10.5cm";
     my $width3  = @ids==3 ? "8cm" : "15cm";
-    my $fmt     = $$opts{rasterize} ? 'png' : 'pdf';
-    my $ext     = "type=$fmt,ext=.$fmt,read=.$fmt";
-    my $args    = { ext=>$ext, width3=>$width3, n=>scalar @ids };
-    $$opts{fmt} = $fmt;
-    $$opts{ext} = $ext;
+    my $args    = { width3=>$width3, n=>scalar @ids };
 
+    my $engine = '';
+    system('command -v pdflatex >/dev/null');
+    if ($? == 0) { $engine = 'pdflatex'; }
+    else
+    {
+        system('command -v tectonic >/dev/null');
+        if ($? == 0) { $engine = 'tectonic'; }
+    }
+    if (! $engine) { error('Neither pdflatex or tectonic were found in your PATH, impossible to create a PDF') }
     # Check that xcolor is available
-    my @has_xcolor = `kpsewhich xcolor.sty`;
+    my @has_xcolor = $engine eq 'tectonic' || `kpsewhich xcolor.sty`;
     if ( !@has_xcolor )
     {
         warn("Note: The xcolor.sty package not available, black and white tables only...\n\n");
@@ -1749,7 +1833,7 @@ sub create_pdf
             %   $$opts{args}
             %
             % Edit as necessary and recreate the PDF by running
-            %   pdflatex $tex_file
+            %   $engine $tex_file
             %
 
             % Slides style and dimensions
@@ -1811,7 +1895,7 @@ sub create_pdf
             \\newcommand*{\\hslide}[2]{%
                     \\head{#1}%
                     \\begin{vplace}[0.5]\\centerline{#2}\\end{vplace}\\newpage}
-            \\newcommand{\\pdf}[2]{\\IfFileExists{#2.$fmt}{\\includegraphics[#1]{#2}}{}}
+            \\newcommand{\\pdf}[2]{\\IfFileExists{#2}{\\includegraphics[#1]{#2}}{}}
 
 
             % The actual slides
@@ -1913,8 +1997,8 @@ sub create_pdf
             % Venn numbers
             %
             \\hslide{Total counts}{%
-                \\includegraphics[$ext,width=$width2]{venn_bars.snps}%
-                \\includegraphics[$ext,width=$width2]{venn_bars.indels}
+                \\includegraphics[width=$width2]{{venn_bars.snps}.$$opts{img_fmt}}%
+                \\includegraphics[width=$width2]{{venn_bars.indels}.$$opts{img_fmt}}
             }
         ];
     }
@@ -1930,7 +2014,7 @@ sub create_pdf
         tprint $tex, qq[
             % Genotype discordance by sample
             %
-            \\hslide{Genotype discordance by sample}{\\pdf{$ext,width=$width1}{gts_by_sample}}
+            \\hslide{Genotype discordance by sample}{\\pdf{width=$width1}{gts_by_sample.$$opts{img_fmt}}}
 
             ];
     }
@@ -1956,35 +2040,36 @@ sub create_pdf
                 % Genotype discordance by AF
                 %
                 \\head{Genotype discordance by AF}\\begin{vplace}[0.7]\\centerline{$table}%
-                \\centerline{\\pdf{$ext,height=$height1}{gts_by_af}}\\end{vplace}
+                \\centerline{\\pdf{height=$height1}{gts_by_af.$$opts{img_fmt}}}\\end{vplace}
                 \\newpage
 
                 % dosage r2 by AF
                 %
-                \\hslide{Allelic R\$^2\$ by AF}{\\pdf{$ext,height=$height1}{r2_by_af}}
+                \\hslide{Allelic R\$^2\$ by AF}{\\pdf{height=$height1}{r2_by_af.$$opts{img_fmt}}}
             ];
     }
-    if ( -e "counts_by_af.snps.$fmt" && -e "counts_by_af.indels.$fmt" )
+    if ( -e "counts_by_af.snps.$$opts{img_fmt}" && -e "counts_by_af.indels.$$opts{img_fmt}" )
     {
         tprint $tex, qq[
             % SNP and indel counts by AF
             %
-            \\hslide{}{\\vbox{\\noindent\\includegraphics[$ext,width=$width1]{counts_by_af.snps}\\\\%
-                \\noindent\\includegraphics[$ext,width=$width1]{counts_by_af.indels}}}
+            \\hslide{}{\\vbox{\\noindent\\includegraphics[width=$width1]{{counts_by_af.snps}.$$opts{img_fmt}}\\\\%
+                \\noindent\\includegraphics[width=$width1]{{counts_by_af.indels}.$$opts{img_fmt}}}}
             ];
     }
-    if ( -e "overlap_by_af.snps.$fmt" && -e "overlap_by_af.indels.$fmt" )
+    if ( -e "overlap_by_af.snps.$$opts{img_fmt}" && -e "overlap_by_af.indels.$$opts{img_fmt}" )
     {
         tprint $tex, qq[
             % SNP and indel overlap by AF
             %
-            \\hslide{}{\\vbox{\\noindent\\includegraphics[$ext,width=$width1]{overlap_by_af.snps}\\\\%
-                \\noindent\\includegraphics[$ext,width=$width1]{overlap_by_af.indels}}}
+            \\hslide{}{\\vbox{\\noindent\\includegraphics[width=$width1]{{overlap_by_af.snps}.$$opts{img_fmt}}\\\\%
+                \\noindent\\includegraphics[width=$width1]{{overlap_by_af.indels}.$$opts{img_fmt}}}}
             ];
     }
     tprint $tex, fmt_slide3h($opts, "tstv_by_af", 'Ts/Tv by AF');
     tprint $tex, fmt_slide3h($opts, "tstv_by_qual", 'Ts/Tv stratified by QUAL');
     tprint $tex, fmt_slide3h($opts, "indels", 'Indel distribution');
+    tprint $tex, fmt_slide3v($opts, "indel_vaf", 'Fraction of alternate indel allele');
     tprint $tex, fmt_slide3h($opts, "depth", 'Depth distribution');
     tprint $tex, fmt_slide3h($opts, "hwe", 'Number of HETs by AF');
     tprint $tex, fmt_slide3h($opts, "substitutions", 'Substitution types');
@@ -1995,10 +2080,10 @@ sub create_pdf
     close($tex);
 
     $tex_file =~ s{^.+/}{};
-    my $cmd = "pdflatex $tex_file >$$opts{logfile} 2>&1";
+    my $cmd = "$engine $tex_file >$$opts{logfile} 2>&1";
     print STDERR "Creating PDF: $cmd\n" unless !$$opts{verbose};
     system($cmd);
-    if ( $? ) { error("The command exited with non-zero status, please consult the output of pdflatex: $$opts{dir}$$opts{logfile}\n\n"); }
+    if ( $? ) { error("The command exited with non-zero status, please consult the output of $engine: $$opts{dir}$$opts{logfile}\n\n"); }
     print STDERR "Finished: $$opts{dir}/$pdf_file\n" unless !$$opts{verbose};
 }
 

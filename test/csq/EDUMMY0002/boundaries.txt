@@ -1,0 +1,12 @@
+6	C	A	missense|wzx1_5|wzx1_5|protein_coding|+|2S>2R|6C>A
+6	C	A	missense|wzx1_5|wzx1_5|protein_coding|+|2S>2R|6C>A
+
+1474	G	C	missense|wzx1_5|wzx1_5|protein_coding|+|492G>492R|1474G>C
+1474	G	C	missense|wzx1_5|wzx1_5|protein_coding|+|492G>492R|1474G>C
+
+1479	A	C	stop_lost|wzx1_5|wzx1_5|protein_coding|+|493*>493C|1479A>C
+1479	A	C	stop_lost|wzx1_5|wzx1_5|protein_coding|+|493*>493C|1479A>C
+
+11	GTGAAAAAACCATGA	G	coding_sequence|dummy2|t2|protein_coding
+11	GTGAAAAAACCATGA	G	coding_sequence|dummy2|t2|protein_coding
+

@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##reference=consensus6.fa
+##contig=<ID=NW_019171628.1,length=354362>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
+NW_019171628.1	64334	.	A	AAG	159	.	.	GT	1/1
+NW_019171628.1	64435	.	CACACACACA	C	170	.	.	GT	1/1
+NW_019171628.1	64443	.	C	CACTCAG	72	.	.	GT	1/1

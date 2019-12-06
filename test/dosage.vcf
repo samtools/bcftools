@@ -1,0 +1,10 @@
+##fileformat=VCFv4.1
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GL,Number=G,Type=Float,Description="Log10-scaled Genotype Likelihood">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled Genotype Likelihood">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+1	3000150	.	C	T	59.2	PASS	.	GT:PL:GL	0/0:0,9,95:0,-0.9,-9.5	.
+1	3000151	.	C	G	59.2	PASS	.	GT:PL:GL	0/0:0,36,545:-0.00031839,-3.6121,-54.5012	.
+1	3000152	.	C	T,G	59.2	PASS	.	GT:PL:GL	0/0:0,36,545,36,545,545:-0.00031839,-3.6121,-54.5012,-3.6121,-54.5012,-54.5012	.
