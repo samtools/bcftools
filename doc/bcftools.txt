@@ -1924,6 +1924,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     and normalization, however, see also the *<<do_not_normalize,--do-not-normalize>>*
     option below.
 
+*--force*::
+    try to proceed with *-m-* even if malformed tags with incorrect number of fields
+    are encountered, discarding such tags. (Experimental, use at your own risk.)
+
 *-m, --multiallelics* *-*|*+*['snps'|'indels'|'both'|'any']::
     split multiallelic sites into biallelic records (*-*) or join
     biallelic sites into multiallelic records (*+*). An optional type string

@@ -1,0 +1,36 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled likelihood">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">
+##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
+##contig=<ID=20,length=2147483647>
+##contig=<ID=21,length=2147483647>
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=XRF,Number=R,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAF,Number=A,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGF,Number=G,Type=Float,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRI,Number=R,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAI,Number=A,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGI,Number=G,Type=Integer,Description="Test Number=AGR in INFO">
+##INFO=<ID=XRS,Number=R,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XAS,Number=A,Type=String,Description="Test Number=AGR in INFO">
+##INFO=<ID=XGS,Number=G,Type=String,Description="Test Number=AGR in INFO">
+##FORMAT=<ID=FRF,Number=R,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAF,Number=A,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGF,Number=G,Type=Float,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRI,Number=R,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAI,Number=A,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGI,Number=G,Type=Integer,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FRS,Number=R,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FAS,Number=A,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FGS,Number=G,Type=String,Description="Test Number=AGR in FORMAT">
+##FORMAT=<ID=FSTR,Number=1,Type=String,Description="Test String in FORMAT">
+##INFO=<ID=ISTR,Number=1,Type=String,Description="Test String in INFO">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	XY00001	XY00002
+1	105	.	TAAACCCTAAA	TAA	999	PASS	INDEL;AN=4;DP=19;ISTR=SomeString;XRS=AAA,BBB;XAS=AAA;XGS=A,B,C	GT:DP:FRS:FAS:FGF	1/0:1:AAAA,BBB:A:1e+06,2e+06,3e+06	1/0:1:AAAA,BBB:A:1e+06,2e+06,3e+06
+1	105	.	TAAACCCTAAA	TAACCCTAAA	999	PASS	INDEL;AN=4;DP=19;ISTR=SomeString;XRS=AAA,DDD;XAS=DDD;XGS=A,E,F	GT:DP:FRS:FAS:FGF	0/1:1:AAAA,CC:BB:1e+06,500000,9e+09	0/1:1:AAAA,CC:BB:1e+06,500000,9e+09

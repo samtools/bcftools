@@ -97,7 +97,7 @@ typedef struct
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels;
     int nchanged, nskipped, nsplit, ntotal, mrows_op, mrows_collapse, parsimonious;
-    int record_cmd_line;
+    int record_cmd_line, force, force_warned;
 }
 args_t;
 
@@ -466,23 +466,68 @@ static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int 
         if ( len==BCF_VL_A ) \
         { \
             if ( ret!=src->n_allele-1 ) \
+            { \
+                if ( args->force && !args->force_warned ) \
+                { \
+                    fprintf(stderr, \
+                        "Warning: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n" \
+                        "         (This warning is printed only once.)\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele-1,ret); \
+                    args->force_warned = 1; \
+                } \
+                if ( args->force ) \
+                { \
+                    bcf_update_info_##type(args->hdr,dst,tag,NULL,0); \
+                    return; \
+                } \
                 error("Error: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n", \
                         tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele-1,ret); \
+            } \
             bcf_update_info_##type(args->hdr,dst,tag,vals+ialt,1); \
         } \
         else if ( len==BCF_VL_R ) \
         { \
             if ( ret!=src->n_allele ) \
+            { \
+                if ( args->force && !args->force_warned ) \
+                { \
+                    fprintf(stderr, \
+                        "Warning: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n" \
+                        "         (This warning is printed only once.)\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele,ret); \
+                    args->force_warned = 1; \
+                } \
+                if ( args->force ) \
+                { \
+                    bcf_update_info_##type(args->hdr,dst,tag,NULL,0); \
+                    return; \
+                } \
                 error("Error: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n", \
                         tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele,ret); \
+            } \
             if ( ialt!=0 ) vals[1] = vals[ialt+1]; \
             bcf_update_info_##type(args->hdr,dst,tag,vals,2); \
         } \
         else if ( len==BCF_VL_G ) \
         { \
             if ( ret!=src->n_allele*(src->n_allele+1)/2 ) \
+            { \
+                if ( args->force && !args->force_warned ) \
+                { \
+                    fprintf(stderr, \
+                        "Warning: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n" \
+                        "         (This warning is printed only once.)\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele*(src->n_allele+1)/2,ret); \
+                    args->force_warned = 1; \
+                } \
+                if ( args->force ) \
+                { \
+                    bcf_update_info_##type(args->hdr,dst,tag,NULL,0); \
+                    return; \
+                } \
                 error("Error: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n", \
                         tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele*(src->n_allele+1)/2,ret); \
+            } \
             if ( ialt!=0 ) \
             { \
                 vals[1] = vals[bcf_alleles2gt(0,ialt+1)]; \
@@ -627,8 +672,23 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         if ( len==BCF_VL_A ) \
         { \
             if ( nvals!=(src->n_allele-1)*nsmpl ) \
+            { \
+                if ( args->force && !args->force_warned ) \
+                { \
+                    fprintf(stderr, \
+                        "Warning: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d, found %d. Removing the field.\n" \
+                        "         (This warning is printed only once.)\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,(src->n_allele-1)*nsmpl,nvals); \
+                    args->force_warned = 1; \
+                } \
+                if ( args->force ) \
+                { \
+                    bcf_update_format_##type(args->hdr,dst,tag,NULL,0); \
+                    return; \
+                } \
                 error("Error: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d, found %d\n", \
                     tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,(src->n_allele-1)*nsmpl,nvals); \
+            } \
             nvals /= nsmpl; \
             type_t *src_vals = vals, *dst_vals = vals; \
             for (i=0; i<nsmpl; i++) \
@@ -642,8 +702,23 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         else if ( len==BCF_VL_R ) \
         { \
             if ( nvals!=src->n_allele*nsmpl ) \
+            { \
+                if ( args->force && !args->force_warned ) \
+                { \
+                    fprintf(stderr, \
+                        "Warning: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d, found %d. Removing the field.\n" \
+                        "         (This warning is printed only once.)\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,(src->n_allele-1)*nsmpl,nvals); \
+                    args->force_warned = 1; \
+                } \
+                if ( args->force ) \
+                { \
+                    bcf_update_format_##type(args->hdr,dst,tag,NULL,0); \
+                    return; \
+                } \
                 error("Error: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d, found %d\n", \
                     tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele*nsmpl,nvals); \
+            } \
             nvals /= nsmpl; \
             type_t *src_vals = vals, *dst_vals = vals; \
             for (i=0; i<nsmpl; i++) \
@@ -658,7 +733,22 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         else if ( len==BCF_VL_G ) \
         { \
             if ( nvals!=src->n_allele*(src->n_allele+1)/2*nsmpl && nvals!=src->n_allele*nsmpl ) \
+            { \
+                if ( args->force && !args->force_warned ) \
+                { \
+                    fprintf(stderr, \
+                        "Warning: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d, found %d. Removing the field.\n" \
+                        "         (This warning is printed only once.)\n", \
+                        tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,(src->n_allele-1)*nsmpl,nvals); \
+                    args->force_warned = 1; \
+                } \
+                if ( args->force ) \
+                { \
+                    bcf_update_format_##type(args->hdr,dst,tag,NULL,0); \
+                    return; \
+                } \
                 error("Error at %s:%"PRId64", the tag %s has wrong number of fields\n", bcf_seqname(args->hdr,src),(int64_t) src->pos+1,bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id)); \
+            } \
             nvals /= nsmpl; \
             int all_haploid = nvals==src->n_allele ? 1 : 0; \
             type_t *src_vals = vals, *dst_vals = vals; \
@@ -770,8 +860,23 @@ static void split_format_string(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int i
             }
             if ( nfields==1 && se-ptr==1 && *ptr=='.' ) continue;   // missing value
             if ( nfields!=src->n_allele*(src->n_allele+1)/2 && nfields!=src->n_allele )
+            {
+                if ( args->force && !args->force_warned )
+                {
+                    fprintf(stderr,
+                            "Warning: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d or %d, found %d. Removing the field.\n"
+                            "         (This warning is printed only once.)\n",
+                            tag,bcf_seqname(args->hdr,src),(int64_t)src->pos+1,src->n_allele*(src->n_allele+1)/2,src->n_allele,nfields);
+                    args->force_warned = 1;
+                }
+                if ( args->force )
+                {
+                    bcf_update_format_char(args->hdr,dst,tag,NULL,0);
+                    return;
+                }
                 error("Error: wrong number of fields in FMT/%s at %s:%"PRId64", expected %d or %d, found %d\n",
                         tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele*(src->n_allele+1)/2,src->n_allele,nfields);
+            }
 
             int len = 0;
             if ( nfields==src->n_allele )   // haploid
@@ -1849,7 +1954,8 @@ static void usage(void)
     fprintf(stderr, "    -c, --check-ref <e|w|x|s>         check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [e]\n");
     fprintf(stderr, "    -D, --remove-duplicates           remove duplicate lines of the same type.\n");
     fprintf(stderr, "    -d, --rm-dup <type>               remove duplicate snps|indels|both|all|exact\n");
-    fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence (MANDATORY)\n");
+    fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
+    fprintf(stderr, "        --force                       try to proceed even if malformed tags are encountered. Experimental, use at your own risk\n");
     fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --no-version                  do not append version and command line to the header\n");
     fprintf(stderr, "    -N, --do-not-normalize            do not normalize indels (with -m or -c s)\n");
@@ -1862,6 +1968,13 @@ static void usage(void)
     fprintf(stderr, "    -T, --targets-file <file>         similar to -R but streams rather than index-jumps\n");
     fprintf(stderr, "        --threads <int>               use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win <int>              buffer for sorting lines which changed position during realignment [1000]\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Examples:\n");
+    fprintf(stderr, "   # normalize and left-align indels\n");
+    fprintf(stderr, "   bcftools norm -f ref.fa in.vcf\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # split multi-allelic sites\n");
+    fprintf(stderr, "   bcftools norm -m- in.vcf\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1886,6 +1999,7 @@ int main_vcfnorm(int argc, char *argv[])
     static struct option loptions[] =
     {
         {"help",no_argument,NULL,'h'},
+        {"force",no_argument,NULL,7},
         {"fasta-ref",required_argument,NULL,'f'},
         {"do-not-normalize",no_argument,NULL,'N'},
         {"multiallelics",required_argument,NULL,'m'},
@@ -1963,6 +2077,7 @@ int main_vcfnorm(int argc, char *argv[])
                 break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
+            case  7 : args->force = 1; break;
             case 'h':
             case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
