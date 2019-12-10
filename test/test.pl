@@ -665,7 +665,7 @@ sub _cmd
     else
     {
         # child
-        exec('/bin/bash', '-o','pipefail','-c', $cmd) or error("Cannot execute the command [/bin/sh -o pipefail -c $cmd]: $!");
+        exec('bash', '-o','pipefail','-c', $cmd) or error("Cannot execute the command [bash -o pipefail -c $cmd]: $!");
     }
     return ($? >> 8, join('',@out));
 }
@@ -677,7 +677,7 @@ sub _cmd3
     my $pid = fork();
     if ( !$pid )
     {
-        exec('/bin/bash', '-o','pipefail','-c', "($cmd) 2>$tmp.e >$tmp.o");
+        exec('bash', '-o','pipefail','-c', "($cmd) 2>$tmp.e >$tmp.o");
     }
     waitpid($pid,0);
 

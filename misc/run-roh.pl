@@ -127,7 +127,7 @@ sub cmd
     else 
     {      
         # child
-        exec('/bin/bash', '-o','pipefail','-c', $cmd) or error("Failed to run the command [/bin/sh -o pipefail -c $cmd]: $!");
+        exec('bash', '-o','pipefail','-c', $cmd) or error("Failed to run the command [bash -o pipefail -c $cmd]: $!");
     }
 
     if ( exists($args{exit_on_error}) && !$args{exit_on_error} ) { return @out; }
