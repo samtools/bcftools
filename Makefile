@@ -176,7 +176,12 @@ PLUGIN_LIBS = $(W32_PLUGIN_LIBS)
 DL_LIBS =
 else
 PLUGIN_FLAGS = -fPIC -shared
+ifeq "$(PLATFORM)" "default"
+# Configure was used and has already added -ldl to $(LIBS) if necessary
+DL_LIBS =
+else
 DL_LIBS = -ldl
+endif
 endif
 
 libbcftools.a: $(OBJS)
