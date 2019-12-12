@@ -72,7 +72,7 @@ typedef struct
     double min_score;
     double *aprob;  // proband's allele probabilities
     double *pl3;    // normalized PLs converted to probs for proband,father,mother
-    int maprob, mpl3, midx, *idx, force;
+    int maprob, mpl3, midx, *idx, force_ad;
 }
 args_t;
 
@@ -91,7 +91,7 @@ static const char *usage_text(void)
         "Usage: bcftools +trio-dnm [Plugin Options]\n"
         "Plugin options:\n"
         "   -e, --exclude EXPR              exclude sites and samples for which the expression is true\n"
-        "       --force                     calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
+        "       --force-AD                  calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "   -i, --include EXPR              include sites and samples for which the expression is true\n"
         "   -m, --min-score NUM             do not add FMT/DNM annotation if the score is smaller than NUM\n"
         "   -o, --output FILE               output file name [stdout]\n"
@@ -310,7 +310,7 @@ static void process_record(args_t *args, bcf1_t *rec)
                     hts_log_warning("Incorrect number of fields for FORMAT/AD at %s:%"PRId64". This warning is printed only once", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                     n_ad_warned = 1;
                 }
-                if ( !args->force ) n_ad = 0;
+                if ( !args->force_ad ) n_ad = 0;
             }
         }
     }
@@ -375,7 +375,7 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     static struct option loptions[] =
     {
-        {"force",no_argument,0,1},
+        {"force-AD",no_argument,0,1},
         {"min-score",required_argument,0,'m'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
@@ -395,7 +395,7 @@ int run(int argc, char **argv)
     {
         switch (c) 
         {
-            case  1 : args->force = 1; break;
+            case  1 : args->force_ad = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
