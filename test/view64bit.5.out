@@ -1,0 +1,6 @@
+chr1	1	.	G	C	.	.	END=42949672,1,.;MPOS=100000000	XX	1,-2147483640,.,.,.,2147483647,.
+chr1	1	.	G	C	.	.	END=-2147483640	XX	-2147483640
+chr1	1	.	G	C	.	.	END=.	XX	.
+chr1	1	.	G	C	.	.	END=.	XX	.
+chr1	1	.	G	C	.	.	END=.	XX	.
+chr1	1	.	G	C	.	.	END=.	XX	.

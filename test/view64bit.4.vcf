@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##INFO=<ID=MPOS,Number=A,Type=Integer,Description="dummy">
+##INFO=<ID=XPOS,Number=.,Type=Integer,Description="dummy">
+##FORMAT=<ID=MPOS,Number=.,Type=Integer,Description="dummy">
+##FORMAT=<ID=XPOS,Number=.,Type=Integer,Description="dummy">
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+chr1	1	.	G	C	.	.	MPOS=.;XPOS=.,.,.	MPOS:XPOS	.:.,.,.

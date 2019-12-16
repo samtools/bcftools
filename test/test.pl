@@ -226,6 +226,11 @@ test_vcf_view($opts,in=>'idx.2',out=>'idx.2.out',args=>q[-H -r 1:1172777-1172804
 test_vcf_view($opts,in=>'idx.2',out=>'idx.2.out',args=>q[-H -R {PATH}/idx.2.bed]);
 test_vcf_view($opts,in=>'idx.3',out=>'idx.3.out',args=>q[-H -R {PATH}/idx.3.bed]);
 test_vcf_view($opts,in=>'idx.4',out=>'idx.4.out',args=>q[-H -R {PATH}/idx.4.bed]);
+test_vcf_64bit($opts,in=>'view64bit.1',out=>'view64bit.1.out',do_bcf=>1);
+test_vcf_64bit($opts,in=>'view64bit.2',out=>'view64bit.2.out',do_bcf=>1);
+test_vcf_64bit($opts,in=>'view64bit.3',out=>'view64bit.3.out');     # large coordinates don't work with BCF
+test_vcf_64bit($opts,in=>'view64bit.4',out=>'view64bit.4.out',do_bcf=>1);
+test_vcf_64bit($opts,in=>'view64bit.5',out=>'view64bit.5.out',do_bcf=>1);
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.6.out',args=>q[-S. -e'TXT0="text"'],reg=>'');
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.7.out',args=>q[-S. -e'FMT/FRS[*:1]="BB"'],reg=>'');
 test_vcf_filter($opts,in=>'view.filter',out=>'view.filter.8.out',args=>q[-S. -e'FMT/FGS[*:0]="AAAAAA"'],reg=>'');
@@ -957,6 +962,16 @@ sub test_vcf_view
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view --no-version $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg}", exp_fix=>1);
     unless ($args{args} =~ /-H/) {
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $args{args} $$opts{tmp}/$args{in}.vcf.gz $args{reg} | $$opts{bin}/bcftools view | grep -v ^##bcftools_", exp_fix=>1);
+    }
+}
+sub test_vcf_64bit
+{
+    my ($opts,%args) = @_;
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $$opts{path}/$args{in}.vcf -H", exp_fix=>1);
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $$opts{path}/$args{in}.vcf     | $$opts{bin}/bcftools view -H", exp_fix=>1);
+    if ( $args{do_bcf} )
+    {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $$opts{path}/$args{in}.vcf -Ou | $$opts{bin}/bcftools view -H", exp_fix=>1);
     }
 }
 sub test_vcf_call
