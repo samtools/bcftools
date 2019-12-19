@@ -1,6 +1,6 @@
 /*  vcfisec.c -- Create intersections, unions and complements of VCF files.
 
-    Copyright (C) 2012-2014 Genome Research Ltd.
+    Copyright (C) 2012-2019 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -485,6 +485,9 @@ static void usage(void)
     fprintf(stderr, "\n");
     fprintf(stderr, "   # Extract and write records from A shared by both A and B using exact allele match\n");
     fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir -n =2 -w 1\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # Extract and write records from C found in A and C but not in B\n");
+    fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz C.vcf.gz -p dir -n~101 -w 3\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "   # Extract records private to A or B comparing by position only\n");
     fprintf(stderr, "   bcftools isec A.vcf.gz B.vcf.gz -p dir -n -1 -c all\n");

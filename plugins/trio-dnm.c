@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018 Genome Research Ltd.
+   Copyright (c) 2018-2019 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -72,7 +72,7 @@ typedef struct
     double min_score;
     double *aprob;  // proband's allele probabilities
     double *pl3;    // normalized PLs converted to probs for proband,father,mother
-    int maprob, mpl3, midx, *idx;
+    int maprob, mpl3, midx, *idx, force_ad;
 }
 args_t;
 
@@ -91,6 +91,7 @@ static const char *usage_text(void)
         "Usage: bcftools +trio-dnm [Plugin Options]\n"
         "Plugin options:\n"
         "   -e, --exclude EXPR              exclude sites and samples for which the expression is true\n"
+        "       --force-AD                  calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "   -i, --include EXPR              include sites and samples for which the expression is true\n"
         "   -m, --min-score NUM             do not add FMT/DNM annotation if the score is smaller than NUM\n"
         "   -o, --output FILE               output file name [stdout]\n"
@@ -293,13 +294,25 @@ static void process_record(args_t *args, bcf1_t *rec)
         if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
         return;
     }
-    int nret, nsmpl = bcf_hdr_nsamples(args->hdr), has_fmt_ad = args->has_fmt_ad;
-    if ( args->has_fmt_ad )
+    static int n_ad_warned = 0;
+    int nret, nsmpl = bcf_hdr_nsamples(args->hdr), n_ad = args->has_fmt_ad;
+    if ( n_ad )
     {
         nret = bcf_get_format_int32(args->hdr,rec,"AD",&args->ad,&args->mad);
-        if ( nret<=0 ) has_fmt_ad = 0;
-        else if ( nret != nsmpl * rec->n_allele )
-            error("Incorrect number of fields for FORMAT/AD at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        if ( nret<=0 ) n_ad = 0;
+        else
+        {
+            n_ad = nret / nsmpl;
+            if ( nret != nsmpl * rec->n_allele )
+            {
+                if ( !n_ad_warned )
+                {
+                    hts_log_warning("Incorrect number of fields for FORMAT/AD at %s:%"PRId64". This warning is printed only once", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+                    n_ad_warned = 1;
+                }
+                if ( !args->force_ad ) n_ad = 0;
+            }
+        }
     }
     nret = bcf_get_format_int32(args->hdr,rec,"PL",&args->pl,&args->mpl);
     if ( nret<=0 ) error("The FORMAT/PL tag not present at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
@@ -307,7 +320,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     if ( npl1!=rec->n_allele*(rec->n_allele+1)/2 )
         error("fixme: not a diploid site at %s:%"PRId64": %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_allele,npl1);
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
-    int i, j, k, al0, al1, write_dnm = 0;
+    int i, j, k, al0, al1, write_dnm = 0, ad_set = 0;
     for (i=0; i<nsmpl; i++) args->dnm_qual[i] = bcf_int32_missing;
     for (i=0; i<args->ntrio; i++)
     {
@@ -327,23 +340,32 @@ static void process_record(args_t *args, bcf1_t *rec)
             args->dnm_qual[ args->trio[i].idx[iCHILD] ] = score;
         }
 
-        if ( has_fmt_ad )
+        if ( n_ad )
         {
-            for (j=0; j<3; j++)
+            if ( al0 < n_ad && al1 < n_ad )
             {
-                int32_t *src = args->ad + rec->n_allele * args->trio[i].idx[j];
-                args->vaf[ args->trio[i].idx[j] ] = src[al0]+src[al1] ? round(src[al1]*100./(src[al0]+src[al1])) : 0;
+                ad_set = 1;
+                for (j=0; j<3; j++)
+                {
+                    int32_t *src = args->ad + n_ad * args->trio[i].idx[j];
+                    args->vaf[ args->trio[i].idx[j] ] = src[al0]+src[al1] ? round(src[al1]*100./(src[al0]+src[al1])) : 0;
+                }
             }
+            else
+                for (j=0; j<3; j++) args->vaf[ args->trio[i].idx[j] ] = bcf_int32_missing;
         }
     }
     if ( write_dnm )
     {
         if ( bcf_update_format_int32(args->hdr_out,rec,"DNM",args->dnm_qual,nsmpl)!=0 )
             error("Failed to write FORMAT/DNM at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-        if ( has_fmt_ad && bcf_update_format_int32(args->hdr_out,rec,"VAF",args->vaf,nsmpl)!=0 )
-            error("Failed to write FORMAT/VAF at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        if ( ad_set )
+        {
+            if ( bcf_update_format_int32(args->hdr_out,rec,"VAF",args->vaf,nsmpl)!=0 )
+                error("Failed to write FORMAT/VAF at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        }
     }
-    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
 }
 
 int run(int argc, char **argv)
@@ -353,6 +375,7 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     static struct option loptions[] =
     {
+        {"force-AD",no_argument,0,1},
         {"min-score",required_argument,0,'m'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
@@ -372,6 +395,7 @@ int run(int argc, char **argv)
     {
         switch (c) 
         {
+            case  1 : args->force_ad = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
