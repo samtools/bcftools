@@ -68,7 +68,7 @@ struct _args_t
     int nsamples, *samples, sample_is_file, targets_is_file, regions_is_file, output_type;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname, *sex_fname;
-    int argc, n_threads, record_cmd_line;
+    int argc, n_threads, record_cmd_line, keep_duplicates;
 };
 
 static void destroy_data(args_t *args)
@@ -802,7 +802,7 @@ static void vcf_to_gensample(args_t *args)
         }
 
         // skip duplicate lines, or otherwise shapeit complains
-        if ( prev_rid==line->rid && prev_pos==line->pos ) { ndup++; continue; }
+        if ( !args->keep_duplicates && prev_rid==line->rid && prev_pos==line->pos ) { ndup++; continue; }
         prev_rid = line->rid;
         prev_pos = line->pos;
 
@@ -1395,6 +1395,7 @@ static void usage(void)
     fprintf(stderr, "   -g, --gensample <...>       <prefix>|<gen-file>,<sample-file>\n");
     fprintf(stderr, "       --tag <string>          tag to take values for .gen file: GT,PL,GL,GP [GT]\n");
     fprintf(stderr, "       --chrom                 output chromosome in first column instead of CHROM:POS_REF_ALT\n");
+    fprintf(stderr, "       --keep-duplicates       keep duplicate positions\n");
     fprintf(stderr, "       --sex <file>            output sex column in the sample-file, input format is: Sample\\t[MF]\n");
     fprintf(stderr, "       --vcf-ids               output VCF IDs in second column instead of CHROM:POS_REF_ALT\n");
     fprintf(stderr, "\n");
@@ -1473,6 +1474,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"columns",required_argument,NULL,'c'},
         {"fasta-ref",required_argument,NULL,'f'},
         {"no-version",no_argument,NULL,10},
+        {"keep-duplicates",no_argument,NULL,12},
         {NULL,0,NULL,0}
     };
     while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:",loptions,NULL)) >= 0) {
@@ -1512,6 +1514,7 @@ int main_vcfconvert(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 10 : args->record_cmd_line = 0; break;
             case 11 : args->sex_fname = optarg; break;
+            case 12 : args->keep_duplicates = 1; break;
             case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
         }
