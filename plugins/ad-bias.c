@@ -317,6 +317,7 @@ bcf1_t *process(bcf1_t *rec)
     if ( keep_als )
     {
         kbs_delete(args.rm_als, 0);
+        bcf_unpack(rec,BCF_UN_ALL);
         if ( bcf_remove_allele_set(args.hdr, rec, args.rm_als)!=0 )
             error("Failed to subset alleles\n");
         return rec;
