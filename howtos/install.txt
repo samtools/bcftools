@@ -44,6 +44,9 @@ Packages for dpkg-based Linux distributions (Debian / Ubuntu) are:
 zlib1g-dev
 libbz2-dev
 liblzma-dev
+libcurl4-gnutls-dev or libcurl4-openssl-dev
+libssl-dev
+libncurses5-dev
 ----
 
 Packages for rpm or yum-based Linux distributions (RedHat / Fedora / CentOS)
@@ -51,8 +54,12 @@ are:
 
 ----
 zlib-devel
+bzip2
 bzip2-devel
 xz-devel
+curl-devel
+openssl-devel
+ncurses-devel
 ----
 
 Packages on MacOS, assuming Xcode is installed:
