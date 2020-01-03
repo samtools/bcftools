@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 1.5.2">
+<meta name="generator" content="Asciidoctor 2.0.11.dev">
 <title>Installation</title>
 <link rel="stylesheet" href="./index.css">
 </head>
@@ -129,7 +129,10 @@ is not needed - see HTSlib&#8217;s INSTALL file for details.</p>
 <div class="content">
 <pre>zlib1g-dev
 libbz2-dev
-liblzma-dev</pre>
+liblzma-dev
+libcurl4-gnutls-dev or libcurl4-openssl-dev
+libssl-dev
+libncurses5-dev</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -139,8 +142,12 @@ are:</p>
 <div class="listingblock">
 <div class="content">
 <pre>zlib-devel
+bzip2
 bzip2-devel
-xz-devel</pre>
+xz-devel
+curl-devel
+openssl-devel
+ncurses-devel</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -321,7 +328,7 @@ to which you have installed bcftools et al.</p>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>
 <div class="paragraph">
-<p>We welcome your feedback, please help us improve this page by
+<p>We welcome your feedback, please help us improve this page by 
 either opening an issue on github or editing it directly and sending
 a pull request.</p>
 </div>
