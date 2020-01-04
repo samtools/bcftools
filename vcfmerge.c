@@ -1,6 +1,6 @@
 /*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-    Copyright (C) 2012-2019 Genome Research Ltd.
+    Copyright (C) 2012-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -2059,6 +2059,7 @@ void gvcf_stage(args_t *args, int pos)
     maux->gvcf_min = INT_MAX;
     for (i=0; i<files->nreaders; i++)
     {
+        if ( gaux[i].active && gaux[i].end < pos ) gaux[i].active = 0;
         if ( gaux[i].active )
         {
             // gvcf block should not overlap with another record

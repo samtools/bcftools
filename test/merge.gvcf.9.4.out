@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=ref.fasta
+##contig=<ID=22,length=51304566>
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C	D	E
+22	21	.	C	.	.	.	.	GT	0/0	0/0	0/0	0/0	./.
+22	22	.	A	C	.	.	.	GT	0/1	./.	0/1	0/1	./.
+22	23	.	C	.	.	.	.	GT	0/0	0/0	0/0	0/0	0/0

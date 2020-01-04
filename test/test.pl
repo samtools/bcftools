@@ -74,6 +74,10 @@ test_vcf_merge($opts,in=>['merge.6.a','merge.6.b'],out=>'merge.6.out');
 test_vcf_merge($opts,in=>['merge.gvcf.7.a','merge.gvcf.7.b'],out=>'merge.gvcf.7.out',args=>'--gvcf -');
 test_vcf_merge($opts,in=>['merge.gvcf.8.a','merge.gvcf.8.b'],out=>'merge.gvcf.8.out',args=>'--gvcf -');
 test_vcf_merge($opts,in=>['merge.7.a','merge.7.b'],out=>'merge.9.out',args=>'--force-samples');
+test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge.gvcf.9d'],out=>'merge.gvcf.9.1.out',args=>'--gvcf {PATH}/gvcf.fa');
+test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge.gvcf.9d'],out=>'merge.gvcf.9.2.out',args=>'--gvcf {PATH}/gvcf.fa -r 22:21-23');
+test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge.gvcf.9d','merge.gvcf.9e'],out=>'merge.gvcf.9.3.out',args=>'--gvcf {PATH}/gvcf.fa');
+test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge.gvcf.9d','merge.gvcf.9e'],out=>'merge.gvcf.9.4.out',args=>'--gvcf {PATH}/gvcf.fa -r 22:21-23');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_query($opts,in=>'query.variantkey',out=>'query.variantkey.hex.out',args=>q[-f '%RSX\\t%VKX\\n']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i'XRI[*]>1111']);
@@ -870,6 +874,7 @@ sub test_vcf_merge
         push @files, "$$opts{tmp}/$file.vcf.gz";
     }
     my $args  = exists($args{args}) ? $args{args} : '';
+    $args     =~ s/{PATH}/$$opts{path}/g;
     my $files = join(' ',@files);
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge --no-version $args $files", exp_fix=>1);
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge -Ob $args $files | $$opts{bin}/bcftools view | grep -v ^##bcftools_", exp_fix => 1);
