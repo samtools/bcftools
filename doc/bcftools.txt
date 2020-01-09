@@ -2350,6 +2350,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
     %LINE           Prints the whole line
     %MASK           Indicates presence of the site in other files (with multiple files)
+    %N_PASS(expr)   Number of samples that pass the filtering expression (see *<<expressions,EXPRESSIONS>>*)
     %POS0           POS in 0-based coordinates
     %PBINOM(TAG)    Calculate phred-scaled binomial probability, the allele index is determined from GT
     %SAMPLE         Sample name

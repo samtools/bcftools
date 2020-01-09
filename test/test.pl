@@ -176,6 +176,7 @@ test_vcf_query($opts,in=>'query.filter.9',out=>'query.71.out',args=>q[-f'[%POS  
 test_vcf_query($opts,in=>'query.filter.9',out=>'query.72.out',args=>q[-f'[%POS  %SAMPLE  %AD\\n]' -i'FMT/AD[:0] > FMT/AD[:1]']);
 test_vcf_query($opts,in=>'query.filter.10',out=>'query.73.out',args=>q[-f'%POS  %NUM_TAG\\n' -i'COUNT(INFO/NUM_TAG)=2']);
 test_vcf_query($opts,in=>'query.filter.10',out=>'query.74.out',args=>q[-f'%POS  %STR_TAG\\n' -i'COUNT(INFO/STR_TAG)=2']);
+test_vcf_query($opts,in=>'query',out=>'query.75.out',args=>q[-f '%CHROM:%POS\\t%N_PASS(GT="alt" & GQ>110)\\t[\\t%GT]\\t[\\t%GQ]\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
