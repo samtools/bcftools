@@ -212,7 +212,7 @@ test check: test-no-plugins
 endif  # PLUGINS_ENABLED
 
 bcftools: $(OBJS) $(HTSLIB)
-	$(CC) $(DYNAMIC_FLAGS) -pthread $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS) $(PERL_LIBS)
+	$(CC) $(DYNAMIC_FLAGS) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS) $(PERL_LIBS) -lpthread
 
 plugins: $(PLUGINS)
 

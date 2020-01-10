@@ -612,7 +612,7 @@ static void init_data(args_t *args)
     // Open files for input and output, initialize structures
     if ( args->targets )
     {
-        args->tgt_idx = regidx_init(args->targets, tgt_parse, args->aux.flag&CALL_CONSTR_ALLELES ? tgt_free : NULL, sizeof(tgt_als_t), args->aux.flag&CALL_CONSTR_ALLELES ? args : NULL);
+        args->tgt_idx = regidx_init(args->targets, tgt_parse, args->aux.flag&CALL_CONSTR_ALLELES ? tgt_free : (regidx_free_f) NULL, sizeof(tgt_als_t), args->aux.flag&CALL_CONSTR_ALLELES ? args : NULL);
         args->tgt_itr = regitr_init(args->tgt_idx);
         args->tgt_itr_tmp = regitr_init(args->tgt_idx);
     }
