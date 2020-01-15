@@ -148,7 +148,7 @@ typedef struct _args_t
     char **plugin_paths;
 
     char **argv, *output_fname, *regions_list, *targets_list;
-    int argc, drop_header, verbose, record_cmd_line;
+    int argc, drop_header, verbose, record_cmd_line, plist_only;
 }
 args_t;
 
@@ -178,7 +178,7 @@ static void add_plugin_paths(args_t *args, const char *path)
                 args->plugin_paths = (char**) realloc(args->plugin_paths,sizeof(char*)*(args->nplugin_paths+1));
                 args->plugin_paths[args->nplugin_paths] = dir;
                 args->nplugin_paths++;
-                if ( args->verbose > 1 ) fprintf(stderr, "plugin directory %s .. ok\n", dir);
+                if ( args->verbose > 1 && strcmp(".",dir) ) fprintf(stderr, "plugin directory %s .. ok\n", dir);
             }
             else
             {
@@ -220,6 +220,8 @@ static void *dlopen_plugin(args_t *args, const char *fname)
 #else
     if ( fname[0]=='/' ) is_absolute_path = 1;
 #endif
+
+    kstring_t err = {0,0,0};
     if ( !is_absolute_path )
     {
         int i;
@@ -231,16 +233,14 @@ static void *dlopen_plugin(args_t *args, const char *fname)
 #else
             handle = dlopen(tmp, RTLD_NOW); // valgrind complains about unfreed memory, not our problem though
 #endif
-            if ( args->verbose > 1 )
-            {
-                if ( !handle )
+            if ( !handle )
 #ifdef _WIN32
-                    fprintf(stderr,"%s:\n\tLoadLibraryA   .. %lu\n", tmp, GetLastError());
+                ksprintf(&err,"LoadLibraryA   .. %lu\n", GetLastError());
 #else
-                    fprintf(stderr,"%s:\n\tdlopen   .. %s\n", tmp, dlerror());
+                ksprintf(&err,"%s:\n\tdlopen   .. %s\n", tmp,dlerror());
 #endif
-                else fprintf(stderr,"%s:\n\tplugin open   .. ok\n", tmp);
-            }
+            else if ( args->verbose > 1 )
+                fprintf(stderr,"%s:\n\tplugin open   .. ok\n", tmp);
             free(tmp);
             if ( handle ) return handle;
         }
@@ -251,33 +251,46 @@ static void *dlopen_plugin(args_t *args, const char *fname)
 #else
     handle = dlopen(fname, RTLD_NOW);
 #endif
-    if ( args->verbose > 1 )
-    {
-        if ( !handle )
+    if ( !handle )
 #ifdef _WIN32
-            fprintf(stderr,"%s:\n\tLoadLibraryA   .. %lu\n", fname, GetLastError());
+        ksprintf(&err,"LoadLibraryA   .. %lu\n", GetLastError());
 #else
-            fprintf(stderr,"%s:\n\tdlopen   .. %s\n", fname, dlerror());
+        ksprintf(&err,"%s:\n\tdlopen   .. %s\n", fname,dlerror());
 #endif
-        else fprintf(stderr,"%s:\n\tplugin open   .. ok\n", fname);
-    }
+    else if ( args->verbose > 1 )
+        fprintf(stderr,"%s:\n\tplugin open   .. ok\n", fname);
+
+    if ( !handle && (!args->plist_only || args->verbose>1) )
+        fprintf(stderr,err.s);
+    free(err.s);
 
     return handle;
 }
 
-static void print_plugin_usage_hint(void)
+static void print_plugin_usage_hint(const char *name)
 {
-    fprintf(stderr, "\nNo functional bcftools plugins were found");
-    if ( !getenv("BCFTOOLS_PLUGINS") )
-        fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set.\n\n");
+    if ( name )
+        fprintf(stderr, "\nThe bcftools plugin \"%s\" was not found or is not functional", name);
     else
+        fprintf(stderr, "\nNo functional bcftools plugins were found");
+    if ( !getenv("BCFTOOLS_PLUGINS") )
+    {
+        fprintf(stderr,". The environment variable BCFTOOLS_PLUGINS is not set");
+#ifdef PLUGINPATH
+        fprintf(stderr,"\nand no usable plugins were found in %s", PLUGINPATH);
+#endif
+        fprintf(stderr,".\n\n");
+    }
+    else
+    {
         fprintf(stderr,
                 " in\n\tBCFTOOLS_PLUGINS=\"%s\".\n\n"
                 "- Is the plugin path correct?\n\n"
-                "- Run \"bcftools plugin -lv\" for more detailed error output.\n"
+                "- Run \"bcftools plugin -l\" or \"bcftools plugin -lvv\" for a list of available plugins.\n"
                 "\n",
                 getenv("BCFTOOLS_PLUGINS")
                );
+    }
 }
 
 static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugin_t *plugin)
@@ -289,7 +302,7 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     {
         if ( exit_on_error )
         {
-            print_plugin_usage_hint();
+            print_plugin_usage_hint(fname);
             error("Could not load \"%s\".\n\n", fname);
         }
         return -1;
@@ -487,7 +500,7 @@ static int list_plugins(args_t *args)
         if ( args->verbose ) printf("\n");
     }
     else
-        print_plugin_usage_hint();
+        print_plugin_usage_hint(NULL);
     free(str.s);
     return nplugins ? 0 : 1;
 }
@@ -592,7 +605,7 @@ int main_plugin(int argc, char *argv[])
     args->n_threads = 0;
     args->record_cmd_line = 1;
     args->nplugin_paths = -1;
-    int regions_is_file = 0, targets_is_file = 0, plist_only = 0, usage_only = 0, version_only = 0;
+    int regions_is_file = 0, targets_is_file = 0, usage_only = 0, version_only = 0;
 
     if ( argc==1 ) usage(args);
 
@@ -652,7 +665,7 @@ int main_plugin(int argc, char *argv[])
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
-            case 'l': plist_only = 1; break;
+            case 'l': args->plist_only = 1; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case '?':
@@ -660,8 +673,8 @@ int main_plugin(int argc, char *argv[])
             default: error("Unknown argument: %s\n", optarg);
         }
     }
-    if ( plist_only )  return list_plugins(args);
-    if ( usage_only && ! plugin_name ) usage(args);
+    if ( args->plist_only )  return list_plugins(args);
+    if ( !plugin_name ) usage(args);
 
     if ( version_only )
     {
