@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25229120"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp144704"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -10,7 +10,7 @@ read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non-standard index names can be accessed as e.g.
 "<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2019-12-19</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-01-15 12:02 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2-9-g5a3a4c4+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -2362,6 +2362,7 @@ file for help.</p><div class="refsect3" title="General options:"><a id="_general
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e.g. M instead of C/A)
 %LINE           Prints the whole line
 %MASK           Indicates presence of the site in other files (with multiple files)
+%N_PASS(expr)   Number of samples that pass the filtering expression (see *&lt;&lt;expressions,EXPRESSIONS&gt;&gt;*)
 %POS0           POS in 0-based coordinates
 %PBINOM(TAG)    Calculate phred-scaled binomial probability, the allele index is determined from GT
 %SAMPLE         Sample name
@@ -2735,11 +2736,12 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 </dd></dl></div></div><div class="refsect3" title="Filter options:"><a id="_filter_options"></a><h4>Filter options:</h4><p>Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that a filter like <span class="emphasis"><em>--min-af 0.1</em></span> will be based ‘AC/AN’ where AC and AN come
-from either INFO/AC and INFO/AN if available or FORMAT/GT if not. It will not
-filter on another field like INFO/AF. The <span class="emphasis"><em>--include</em></span> and <span class="emphasis"><em>--exclude</em></span> filter
-expressions should instead be used to explicitly filter based on fields in
-the INFO column, e.g. <span class="emphasis"><em>--exclude AF&lt;0.1</em></span>.</p><div class="variablelist"><dl><dt><span class="term">
+that a filter like <span class="emphasis"><em>--min-af 0.1</em></span> will be calculated from INFO/AC and INFO/AN
+when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
+field, like INFO/AF for example. For that, use <span class="emphasis"><em>--exclude AF&lt;0.1</em></span> instead.</p><p>Also note that one must be careful when sample subsetting and filtering is performed in a single command as
+sample removal can change the allele frequency. It may be better to separate the two steps into two
+commands, piping one into the other. Some of these annotations are calculated on the fly but can be
+also taken from the INFO column when present.</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-c, --min-ac</strong></span> <span class="emphasis"><em>INT</em></span>[<span class="emphasis"><em>:nref</em></span>|<span class="emphasis"><em>:alt1</em></span>|<span class="emphasis"><em>:minor</em></span>|<span class="emphasis"><em>:major</em></span>|:'nonmajor']
 </span></dt><dd>
     minimum allele count (INFO/AC) of sites to be printed.

@@ -2728,11 +2728,14 @@ Convert between VCF and BCF. Former *bcftools subset*.
 Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that a filter like '--min-af 0.1' will be based `AC/AN' where AC and AN come
-from either INFO/AC and INFO/AN if available or FORMAT/GT if not. It will not
-filter on another field like INFO/AF. The '--include' and '--exclude' filter
-expressions should instead be used to explicitly filter based on fields in
-the INFO column, e.g. '--exclude AF<0.1'.
+that a filter like '--min-af 0.1' will be calculated from INFO/AC and INFO/AN 
+when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
+field, like INFO/AF for example. For that, use '--exclude AF<0.1' instead.
+
+Also note that one must be careful when sample subsetting and filtering is performed in a single command as
+sample removal can change the allele frequency. It may be better to separate the two steps into two
+commands, piping one into the other. Some of these annotations are calculated on the fly but can be
+also taken from the INFO column when present.
 
 *-c, --min-ac* 'INT'[':nref'|':alt1'|':minor'|':major'|:'nonmajor']::
     minimum allele count (INFO/AC) of sites to be printed.

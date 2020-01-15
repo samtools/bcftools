@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2019-12-19
+.\"      Date: 2020-01-15 12:02 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2019\-12\-19" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2020\-01\-15 12:02 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2019\-12\-19\fR and refers to bcftools git version \fB1\&.10\&.2\fR\&.
+This manual page was last updated \fB2020\-01\-15 12:02 GMT\fR and refers to bcftools git version \fB1\&.10\&.2\-9\-g5a3a4c4+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -3901,6 +3901,7 @@ process multiple VCFs listed in the file
 %IUPACGT        Genotype translated to IUPAC ambiguity codes (e\&.g\&. M instead of C/A)
 %LINE           Prints the whole line
 %MASK           Indicates presence of the site in other files (with multiple files)
+%N_PASS(expr)   Number of samples that pass the filtering expression (see *<<expressions,EXPRESSIONS>>*)
 %POS0           POS in 0\-based coordinates
 %PBINOM(TAG)    Calculate phred\-scaled binomial probability, the allele index is determined from GT
 %SAMPLE         Sample name
@@ -4553,7 +4554,9 @@ see
 \fBFilter options:\fR
 .RS 4
 .sp
-Note that filter options below dealing with counting the number of alleles will, for speed, first check for the values of AC and AN in the INFO column to avoid parsing all the genotype (FORMAT/GT) fields in the VCF\&. This means that a filter like \fI\-\-min\-af 0\&.1\fR will be based \(oqAC/AN\(cq where AC and AN come from either INFO/AC and INFO/AN if available or FORMAT/GT if not\&. It will not filter on another field like INFO/AF\&. The \fI\-\-include\fR and \fI\-\-exclude\fR filter expressions should instead be used to explicitly filter based on fields in the INFO column, e\&.g\&. \fI\-\-exclude AF<0\&.1\fR\&.
+Note that filter options below dealing with counting the number of alleles will, for speed, first check for the values of AC and AN in the INFO column to avoid parsing all the genotype (FORMAT/GT) fields in the VCF\&. This means that a filter like \fI\-\-min\-af 0\&.1\fR will be calculated from INFO/AC and INFO/AN when available or FORMAT/GT otherwise\&. However, it will not attempt to use any other existing field, like INFO/AF for example\&. For that, use \fI\-\-exclude AF<0\&.1\fR instead\&.
+.sp
+Also note that one must be careful when sample subsetting and filtering is performed in a single command as sample removal can change the allele frequency\&. It may be better to separate the two steps into two commands, piping one into the other\&. Some of these annotations are calculated on the fly but can be also taken from the INFO column when present\&.
 .PP
 \fB\-c, \-\-min\-ac\fR \fIINT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|\fI:major\fR|:\*(Aqnonmajor\*(Aq]
 .RS 4
