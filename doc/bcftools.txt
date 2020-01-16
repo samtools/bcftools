@@ -1271,8 +1271,8 @@ Apply fixed-threshold filters.
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
-*-g, --SnpGap* 'INT'::
-    filter SNPs within 'INT' base pairs of an indel. The following example
+*-g, --SnpGap* 'INT'[:'indel','mnp','bnd','other','overlap']::
+    filter SNPs within 'INT' base pairs of an indel or other other variant type. The following example
     demonstrates the logic of *--SnpGap* '3' applied on a deletion and
     an insertion:
 ----

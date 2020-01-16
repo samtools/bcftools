@@ -15,7 +15,7 @@
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##readme=AAAAAA
 ##readme=BBBBBB
-##FILTER=<ID=SnpGap,Description="SNP within 2 bp of an indel">
+##FILTER=<ID=SnpGap,Description="SNP within 2 bp of indel">
 ##FILTER=<ID=IndelGap,Description="Indel within 2 bp of an indel">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
 1	1000	.	G	A	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
