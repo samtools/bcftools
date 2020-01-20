@@ -261,7 +261,7 @@ static void *dlopen_plugin(args_t *args, const char *fname)
         fprintf(stderr,"%s:\n\tplugin open   .. ok\n", fname);
 
     if ( !handle && (!args->plist_only || args->verbose>1) )
-        fprintf(stderr,err.s);
+        fprintf(stderr,"%s",err.s);
     free(err.s);
 
     return handle;
