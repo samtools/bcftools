@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017 Genome Research Ltd.
+    Copyright (C) 2017-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -23,7 +23,6 @@
 */
 /*
     Split VCF by sample(s)
-
 */
 
 #include <stdio.h>
@@ -45,29 +44,40 @@
 
 typedef struct
 {
-    htsFile **fh;
+    char **rename;      // use a new sample name (rename samples)
+    int nsmpl, *smpl;   // number of samples to keep and their indices in the input header
+    htsFile *fh;        // output file handle
+    char *fname;        // output file name
     filter_t *filter;
+    bcf_hdr_t *hdr;
+}
+subset_t;
+
+typedef struct
+{
     char *filter_str;
     int filter_logic;   // one of FLT_INCLUDE/FLT_EXCLUDE (-i or -e)
     uint8_t *info_tags, *fmt_tags;
     int ninfo_tags, minfo_tags, nfmt_tags, mfmt_tags, keep_info, keep_fmt;
     int argc, region_is_file, target_is_file, output_type;
-    char **argv, *region, *target, *fname, *output_dir, *keep_tags, **bnames, *samples_fname;
-    bcf_hdr_t *hdr_in, *hdr_out;
+    char **argv, *region, *target, *fname, *output_dir, *keep_tags, *samples_fname;
+    bcf_hdr_t *hdr_in;
     bcf_srs_t *sr;
+    subset_t *sets;
+    int nsets;
 }
 args_t;
 
 const char *about(void)
 {
-    return "Split VCF by sample creating single-sample VCFs\n";
+    return "Split VCF by sample, creating single- or multi-sample VCFs\n";
 }
 
 static const char *usage_text(void)
 {
     return 
         "\n"
-        "About: Split VCF by sample, creating single-sample VCFs.\n"
+        "About: Split VCF by sample, creating single- or multi-sample VCFs.\n"
         "\n"
         "Usage: bcftools +split [Options]\n"
         "Plugin options:\n"
@@ -78,7 +88,9 @@ static const char *usage_text(void)
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
         "   -r, --regions REGION            restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
-        "   -S, --samples-file FILE         list of samples to keep with second (optional) column for basename of the new file\n"
+        "   -S, --samples-file FILE         list of samples to keep with an optional second column to rename. Multiple comma-separated\n"
+        "                                       sample names can be given to create multi-sample VCFs. The name of the first sample\n"
+        "                                       is used a base name of the new VCF.\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
         "Examples:\n"
@@ -98,62 +110,94 @@ static const char *usage_text(void)
 
 void mkdir_p(const char *fmt, ...);
 
-char **set_file_base_names(args_t *args)
+void init_subsets(args_t *args)
 {
-    int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
-    char **fnames = (char**) calloc(nsmpl,sizeof(char*));
-    if ( args->samples_fname )
+    int i,j, nsmpl = bcf_hdr_nsamples(args->hdr_in);
+    if ( !args->samples_fname )
     {
-        kstring_t str = {0,0,0};
-        int nsamples = 0;
-        char **samples = NULL;
-        samples = hts_readlines(args->samples_fname, &nsamples);
-        for (i=0; i<nsamples; i++)
+        args->nsets = nsmpl;
+        args->sets  = (subset_t*) calloc(nsmpl, sizeof(subset_t));
+        for (i=0; i<nsmpl; i++)
         {
-            str.l = 0;
-            int escaped = 0;
-            char *ptr = samples[i];
-            while ( *ptr )
-            {
-                if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
-                if ( isspace(*ptr) && !escaped ) break;
-                kputc(*ptr, &str);
-                escaped = 0;
-                ptr++;
-            }
-            int idx = bcf_hdr_id2int(args->hdr_in, BCF_DT_SAMPLE, str.s);
-            if ( idx<0 )
-            {
-                fprintf(stderr,"Warning: The sample \"%s\" is not present in %s\n", str.s,args->fname);
-                continue;
-            }
-            while ( *ptr && isspace(*ptr) ) ptr++;
-            if ( !*ptr )
-            {
-                fnames[idx] = strdup(str.s);
-                continue;
-            }
-            str.l = 0;
-            while ( *ptr )
-            {
-                if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
-                if ( isspace(*ptr) && !escaped ) break;
-                kputc(*ptr, &str);
-                escaped = 0;
-                ptr++;
-            }
-            fnames[idx] = strdup(str.s);
+            subset_t *set = &args->sets[i];
+            set->nsmpl = 1;
+            set->smpl  = (int*) calloc(1, sizeof(*set->smpl));
+            set->smpl[0] = i;
+            set->fname   = strdup(args->hdr_in->samples[i]);
         }
-        for (i=0; i<nsamples; i++) free(samples[i]);
-        free(samples);
-        free(str.s);
     }
     else
     {
-        for (i=0; i<nsmpl; i++)
-            fnames[i] = strdup(args->hdr_in->samples[i]);
+        kstring_t str = {0,0,0};
+        int nfiles = 0;
+        char **files = hts_readlines(args->samples_fname, &nfiles);
+        if ( !nfiles || !files ) error("Failed to parse %s\n", args->samples_fname);
+        args->nsets = 0;
+        args->sets = (subset_t*) calloc(nfiles, sizeof(subset_t));
+        for (i=0,j=0; i<nfiles; i++)
+        {
+            subset_t *set = &args->sets[args->nsets];
+            set->nsmpl = 1;
+            str.l = 0;
+            int escaped = 0;
+            char *ptr = files[i];
+            while ( *ptr )
+            {
+                if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+                if ( isspace(*ptr) && !escaped ) break;
+                if ( *ptr==',' ) set->nsmpl++;      // todo: allow commas in sample names
+                kputc(*ptr, &str);
+                escaped = 0;
+                ptr++;
+            }
+            set->smpl = (int*) calloc(set->nsmpl, sizeof(*set->smpl));
+            char *beg = str.s;
+            j = 0;
+            while ( *beg )
+            {
+                char *end = beg;
+                while ( *end && *end!=',' ) end++;
+                char tmp = *end;
+                *end = 0;
+                int idx = bcf_hdr_id2int(args->hdr_in, BCF_DT_SAMPLE, beg);
+                if ( idx>=0 )
+                    set->smpl[j++] = idx;
+                else
+                    fprintf(stderr,"Warning: The sample \"%s\" is not present in %s\n", beg,args->fname);
+                if ( !tmp ) break;
+                beg = end + 1;
+            }
+            if ( !j ) continue;
+
+            while ( *ptr && isspace(*ptr) ) ptr++;
+            j = 0;
+            if ( *ptr )
+            {
+                set->rename = (char**) calloc(set->nsmpl, sizeof(*set->rename));
+                beg = ptr;
+                while ( *beg )
+                {
+                    char *end = beg;
+                    while ( *end && *end!=',' ) end++;
+                    char tmp = *end;
+                    *end = 0;
+                    set->rename[j++] = strdup(beg);
+                    if ( !tmp ) break;
+                    beg = end + 1;
+                    if ( j >= set->nsmpl )
+                        error("Expected the same number of samples in the first and second column: %s\n",files[i]);
+                }
+                set->fname = strdup(set->rename[0]);
+            }
+            else
+                set->fname = strdup(args->hdr_in->samples[set->smpl[0]]);
+
+            args->nsets++;
+        }
+        for (i=0; i<nfiles; i++) free(files[i]);
+        free(files);
+        free(str.s);
     }
-    return fnames;
 }
 
 static void init_data(args_t *args)
@@ -167,17 +211,12 @@ static void init_data(args_t *args)
     if ( args->target && bcf_sr_set_targets(args->sr, args->target, args->target_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->target);
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr_in  = bcf_sr_get_header(args->sr,0);
-    args->hdr_out = bcf_hdr_dup(args->hdr_in);
-
-    if ( args->filter_str )
-        args->filter = filter_init(args->hdr_in, args->filter_str);
 
     mkdir_p("%s/",args->output_dir);
 
-    int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
+    int i,j, nsmpl = bcf_hdr_nsamples(args->hdr_in);
     if ( !nsmpl ) error("No samples to split: %s\n", args->fname);
-    args->fh = (htsFile**)calloc(nsmpl,sizeof(*args->fh));
-    args->bnames = set_file_base_names(args);
+    init_subsets(args);
 
     // parse tags
     int is_info = 0, is_fmt = 0;
@@ -216,85 +255,103 @@ static void init_data(args_t *args)
         args->keep_info = args->keep_fmt = 1;
     }
     if ( !args->keep_fmt && !args->nfmt_tags ) args->keep_fmt = 1;
+
+    bcf_hdr_t *tmp_hdr = bcf_hdr_dup(args->hdr_in);
     if ( !args->keep_info || args->ninfo_tags || args->nfmt_tags )
     {
         int j;
-        for (j=args->hdr_out->nhrec-1; j>=0; j--)
+        for (j=tmp_hdr->nhrec-1; j>=0; j--)
         {
-            bcf_hrec_t *hrec = args->hdr_out->hrec[j];
+            bcf_hrec_t *hrec = tmp_hdr->hrec[j];
             if ( hrec->type!=BCF_HL_INFO && hrec->type!=BCF_HL_FMT ) continue;
             int k = bcf_hrec_find_key(hrec,"ID");
             assert( k>=0 ); // this should always be true for valid VCFs
             int remove = 0;
             if ( hrec->type==BCF_HL_INFO && (!args->keep_info || args->ninfo_tags) )
             {
-                int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
+                int id = bcf_hdr_id2int(tmp_hdr, BCF_DT_ID, hrec->vals[k]);
                 if ( !args->keep_info || id >= args->ninfo_tags || !args->info_tags[id] ) remove = 1;
             }
             if ( hrec->type==BCF_HL_FMT && args->nfmt_tags )
             {
-                int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, hrec->vals[k]);
+                int id = bcf_hdr_id2int(tmp_hdr, BCF_DT_ID, hrec->vals[k]);
                 if ( id >= args->nfmt_tags || !args->fmt_tags[id] ) remove = 1;
             }
             if ( remove )
             {
                 char *str = strdup(hrec->vals[k]);
-                bcf_hdr_remove(args->hdr_out,hrec->type,str);
+                bcf_hdr_remove(tmp_hdr,hrec->type,str);
                 free(str);
             }
         }
-        if ( bcf_hdr_sync(args->hdr_out)!=0 ) error("Failed to update the VCF header\n");
+        if ( bcf_hdr_sync(tmp_hdr)!=0 ) error("Failed to update the VCF header\n");
     }
 
     kstring_t str = {0,0,0};
-    for (i=0; i<nsmpl; i++)
+    for (i=0; i<args->nsets; i++)
     {
-        if ( !args->bnames[i] ) continue;
+        subset_t *set = &args->sets[i];
         str.l = 0;
         kputs(args->output_dir, &str);
         if ( str.s[str.l-1] != '/' ) kputc('/', &str);
         int k, l = str.l;
-        kputs(args->bnames[i], &str);
+        kputs(set->fname, &str);
         for (k=l; k<str.l; k++) if ( isspace(str.s[k]) ) str.s[k] = '_';
         if ( args->output_type & FT_BCF ) kputs(".bcf", &str);
         else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &str);
         else kputs(".vcf", &str);
-        args->fh[i] = hts_open(str.s, hts_bcf_wmode(args->output_type));
-        if ( args->fh[i] == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, str.s, strerror(errno));
-        bcf_hdr_nsamples(args->hdr_out) = 1;
-        args->hdr_out->samples[0] = args->bnames[i];
-        if ( bcf_hdr_write(args->fh[i], args->hdr_out)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,str.s);
+        set->fh = hts_open(str.s, hts_bcf_wmode(args->output_type));
+        if ( set->fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, str.s, strerror(errno));
+        set->hdr = bcf_hdr_dup(tmp_hdr);
+        bcf_hdr_nsamples(set->hdr) = set->nsmpl;
+        for (j=0; j<set->nsmpl; j++)
+            set->hdr->samples[j] = set->rename ? set->rename[j] : args->hdr_in->samples[set->smpl[j]];
+        if ( bcf_hdr_write(set->fh, set->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,str.s);
+        if ( args->filter_str )
+            set->filter = filter_init(set->hdr, args->filter_str);
     }
     free(str.s);
+    bcf_hdr_destroy(tmp_hdr);
 }
 static void destroy_data(args_t *args)
 {
     free(args->info_tags);
     free(args->fmt_tags);
-    if ( args->filter )
-        filter_destroy(args->filter);
-    int i, nsmpl = bcf_hdr_nsamples(args->hdr_in);
-    for (i=0; i<nsmpl; i++)
+    int i,j;
+    for (i=0; i<args->nsets; i++)
     {
-        if ( args->fh[i] && hts_close(args->fh[i])!=0 ) error("Error: close failed .. %s\n",args->bnames[i]);
-        free(args->bnames[i]);
+        subset_t *set = &args->sets[i];
+        if ( hts_close(set->fh)!=0 ) error("Error: close failed .. %s\n",set->fname);
+        free(set->fname);
+        free(set->smpl);
+        if ( set->filter )
+            filter_destroy(set->filter);
+        bcf_hdr_destroy(set->hdr);
+        if ( set->rename )
+        {
+            for (j=0; j<set->nsmpl; j++) free(set->rename[j]);
+            free(set->rename);
+        }
     }
-    free(args->bnames);
-    free(args->fh);
+    free(args->sets);
     bcf_sr_destroy(args->sr);
-    bcf_hdr_destroy(args->hdr_out);
     free(args);
 }
 
-static bcf1_t *rec_set_info(args_t *args, bcf1_t *rec)
+static bcf1_t *rec_set_info(args_t *args, subset_t *set, bcf1_t *rec, bcf1_t *out)
 {
-    bcf1_t *out = bcf_init1();
+    if ( out )
+    {
+        out->n_sample = set->nsmpl;
+        return out;
+    }
+    out = bcf_init1();
     out->rid  = rec->rid;
     out->pos  = rec->pos;
     out->rlen = rec->rlen;
     out->qual = rec->qual;
     out->n_allele = rec->n_allele;
-    out->n_sample = 1;
+    out->n_sample = set->nsmpl;
     if ( args->keep_info )
     {
         out->n_info = rec->n_info;
@@ -329,11 +386,11 @@ static bcf1_t *rec_set_info(args_t *args, bcf1_t *rec)
     return out;
 }
 
-static bcf1_t *rec_set_format(args_t *args, bcf1_t *src, int ismpl, bcf1_t *dst)
+static bcf1_t *rec_set_format(args_t *args, subset_t *set, bcf1_t *src, bcf1_t *dst)
 {
     dst->n_fmt = 0;
     kstring_t tmp = dst->indiv; tmp.l = 0;
-    int i;
+    int i,j;
     for (i=0; i<src->n_fmt; i++)
     {
         bcf_fmt_t *fmt = &src->d.fmt[i];
@@ -342,7 +399,8 @@ static bcf1_t *rec_set_format(args_t *args, bcf1_t *src, int ismpl, bcf1_t *dst)
 
         bcf_enc_int1(&tmp, id);
         bcf_enc_size(&tmp, fmt->n, fmt->type);
-        kputsn_(fmt->p + ismpl*fmt->size, fmt->size, &tmp);
+        for (j=0; j<set->nsmpl; j++)
+            kputsn_(fmt->p + set->smpl[j]*fmt->size, fmt->size, &tmp);
 
         dst->n_fmt++;
     }
@@ -355,26 +413,23 @@ static void process(args_t *args)
     bcf1_t *rec = bcf_sr_get_line(args->sr,0);
     bcf_unpack(rec, BCF_UN_ALL);
 
-    int i, site_pass = 1;
-    const uint8_t *smpl_pass = NULL;
-    if ( args->filter )
-    {
-        site_pass = filter_test(args->filter, rec, &smpl_pass);
-        if ( args->filter_logic & FLT_EXCLUDE ) site_pass = site_pass ? 0 : 1;
-    }
+    int i;
     bcf1_t *out = NULL; 
-    for (i=0; i<rec->n_sample; i++)
+    for (i=0; i<args->nsets; i++)
     {
-        if ( !args->fh[i] ) continue;
-        if ( !smpl_pass && !site_pass ) continue;
-        if ( smpl_pass )
+        subset_t *set = &args->sets[i];
+
+        out = rec_set_info(args, set, rec, out);
+        rec_set_format(args, set, rec, out);
+
+        int pass = 1;
+        if ( set->filter )
         {
-            int pass = args->filter_logic & FLT_EXCLUDE ? ( smpl_pass[i] ? 0 : 1) : smpl_pass[i];
-            if ( !pass ) continue;
+            pass = filter_test(set->filter, out, NULL);
+            if ( args->filter_logic & FLT_EXCLUDE ) pass = pass ? 0 : 1;
         }
-        if ( !out ) out = rec_set_info(args, rec);
-        rec_set_format(args, rec, i, out);
-        if ( bcf_write(args->fh[i], args->hdr_out, out)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
+        if ( !pass ) continue;
+        if ( bcf_write(set->fh, set->hdr, out)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
     }
     if ( out ) bcf_destroy(out);
 }

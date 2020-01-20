@@ -446,6 +446,11 @@ test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.4.out',cmd=>'+parental-origin',args=>qq[-r 20:103 -p proband,father,mother -t dup | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.5.out',cmd=>'+parental-origin',args=>qq[-r 20:104 -p proband,father,mother -t dup | grep -v ^#]);
+test_plugin_split($opts,in=>'split.1',out=>'split.1.1.out',tmp=>'split.1.1');
+test_plugin_split($opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args=>'-S {PATH}/split.smpl.1.2.txt');
+test_plugin_split($opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');
+test_plugin_split($opts,in=>'split.1',out=>'split.1.4.out',tmp=>'split.1.4',args=>q[-S {PATH}/split.smpl.1.3.txt -i 'GT[0]="alt"']);
+test_plugin_split($opts,in=>'split.1',out=>'split.1.5.out',tmp=>'split.1.5',args=>q[-S {PATH}/split.smpl.1.3.txt -i 'GT="alt"']);
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.vcf.out',do_bcf=>0,args=>'');
 test_vcf_concat($opts,in=>['concat.1.a','concat.1.b'],out=>'concat.1.bcf.out',do_bcf=>1,args=>'');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do_bcf=>0,args=>'-a');
@@ -1445,4 +1450,24 @@ sub test_csq_real
         closedir($tmp);
     }
     closedir($dh);
+}
+sub test_plugin_split
+{
+    my ($opts,%args) = @_;
+    if ( !$$opts{test_plugins} ) { return; }
+    $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
+
+    my ($package, $filename, $line, $test)=caller(0);
+    $test =~ s/^.+:://;
+    if ( !exists($args{args}) ) { $args{args} = ''; }
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
+
+    cmd("$$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args}");
+
+    opendir(my $dh,"$$opts{tmp}/$args{tmp}") or failed($opts,$test,"Cannot read $$opts{tmp}/$args{tmp}: $!");
+    my @files = sort grep { !(/^\./) } readdir($dh);
+    closedir($dh) or failed($opts,$test,"Close failed: $$opts{tmp}/$args{tmp}");
+
+    my $files = join(' ',@files);
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools +split $$opts{path}/$args{in}.vcf -o $$opts{tmp}/$args{tmp} $args{args} && cd $$opts{tmp}/$args{tmp} && cat $files | grep -v ^##");
 }
