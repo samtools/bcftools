@@ -388,6 +388,7 @@ static bcf1_t *rec_set_info(args_t *args, subset_t *set, bcf1_t *rec, bcf1_t *ou
 
 static bcf1_t *rec_set_format(args_t *args, subset_t *set, bcf1_t *src, bcf1_t *dst)
 {
+    dst->unpacked &= ~BCF_UN_FMT;
     dst->n_fmt = 0;
     kstring_t tmp = dst->indiv; tmp.l = 0;
     int i,j;
