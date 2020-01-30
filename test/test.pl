@@ -181,6 +181,8 @@ test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.3',out=>'norm.split.3.out',args=>'-m- --force');
+test_vcf_norm($opts,in=>'norm.split.4',out=>'norm.split.4.1.out',args=>'-m-');
+test_vcf_norm($opts,in=>'norm.split.4',out=>'norm.split.4.2.out',args=>'-m- --keep-sum AD');
 test_vcf_norm($opts,in=>'norm.split',fai=>'norm',out=>'norm.split.and.norm.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.merge',out=>'norm.merge.out',args=>'-m+');
 test_vcf_norm($opts,in=>'norm.merge.2',out=>'norm.merge.2.out',args=>'-m+');

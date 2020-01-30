@@ -1928,6 +1928,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     try to proceed with *-m-* even if malformed tags with incorrect number of fields
     are encountered, discarding such tags. (Experimental, use at your own risk.)
 
+*--keep-sum* 'TAG'[,...]::
+    keep vector sum constant when splitting multiallelic sites. Only AD tag
+    is currently supported. See also https://github.com/samtools/bcftools/issues/360
+
 *-m, --multiallelics* *-*|*+*['snps'|'indels'|'both'|'any']::
     split multiallelic sites into biallelic records (*-*) or join
     biallelic sites into multiallelic records (*+*). An optional type string

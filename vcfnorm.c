@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2019 Genome Research Ltd.
+    Copyright (C) 2013-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -97,7 +97,7 @@ typedef struct
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
     int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels;
     int nchanged, nskipped, nsplit, ntotal, mrows_op, mrows_collapse, parsimonious;
-    int record_cmd_line, force, force_warned;
+    int record_cmd_line, force, force_warned, keep_sum_ad;
 }
 args_t;
 
@@ -454,7 +454,7 @@ static int realign(args_t *args, bcf1_t *line)
 
 static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int ialt, bcf1_t *dst)
 {
-    #define BRANCH_NUMERIC(type,type_t) \
+    #define BRANCH_NUMERIC(type,type_t,is_vector_end,is_missing) \
     { \
         const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,info->key); \
         int ntmp = args->ntmp_arr1 / sizeof(type_t); \
@@ -505,7 +505,17 @@ static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int 
                 error("Error: wrong number of fields in INFO/%s at %s:%"PRId64", expected %d, found %d\n", \
                         tag,bcf_seqname(args->hdr,src),(int64_t) src->pos+1,src->n_allele,ret); \
             } \
-            if ( ialt!=0 ) vals[1] = vals[ialt+1]; \
+            if ( args->keep_sum_ad >= 0 && args->keep_sum_ad==info->key ) \
+            { \
+                int j; \
+                for (j=1; j<info->len; j++) \
+                    if ( j!=ialt+1 && !(is_missing) && !(is_vector_end) ) vals[0] += vals[j]; \
+                vals[1] = vals[ialt+1]; \
+            } \
+            else \
+            { \
+                if ( ialt!=0 ) vals[1] = vals[ialt+1]; \
+            } \
             bcf_update_info_##type(args->hdr,dst,tag,vals,2); \
         } \
         else if ( len==BCF_VL_G ) \
@@ -540,8 +550,8 @@ static void split_info_numeric(args_t *args, bcf1_t *src, bcf_info_t *info, int 
     }
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_INFO,info->key))
     {
-        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float); break;
+        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, vals[j]==bcf_int32_vector_end, vals[j]==bcf_int32_missing); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(vals[j]), bcf_float_is_missing(vals[j])); break;
     }
     #undef BRANCH_NUMERIC
 }
@@ -654,7 +664,7 @@ static void split_format_genotype(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int
 }
 static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int ialt, bcf1_t *dst)
 {
-    #define BRANCH_NUMERIC(type,type_t,is_vector_end,set_vector_end) \
+    #define BRANCH_NUMERIC(type,type_t,is_vector_end,is_missing,set_vector_end) \
     { \
         const char *tag = bcf_hdr_int2id(args->hdr,BCF_DT_ID,fmt->id); \
         int ntmp = args->ntmp_arr1 / sizeof(type_t); \
@@ -663,7 +673,7 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
         assert( nvals>0 ); \
         type_t *vals = (type_t *) args->tmp_arr1; \
         int len = bcf_hdr_id2length(args->hdr,BCF_HL_FMT,fmt->id); \
-        int i, nsmpl = bcf_hdr_nsamples(args->hdr); \
+        int i,j, nsmpl = bcf_hdr_nsamples(args->hdr); \
         if ( nvals==nsmpl ) /* all values are missing */ \
         { \
             bcf_update_format_##type(args->hdr,dst,tag,vals,nsmpl); \
@@ -721,12 +731,27 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
             } \
             nvals /= nsmpl; \
             type_t *src_vals = vals, *dst_vals = vals; \
-            for (i=0; i<nsmpl; i++) \
+            if ( args->keep_sum_ad >= 0 && args->keep_sum_ad==fmt->id ) \
             { \
-                dst_vals[0] = src_vals[0]; \
-                dst_vals[1] = src_vals[ialt+1]; \
-                dst_vals += 2; \
-                src_vals += nvals; \
+                for (i=0; i<nsmpl; i++) \
+                { \
+                    dst_vals[0] = src_vals[0]; \
+                    for (j=1; j<nvals; j++) \
+                        if ( j!=ialt+1 && !(is_missing) && !(is_vector_end) ) dst_vals[0] += src_vals[j]; \
+                    dst_vals[1] = src_vals[ialt+1]; \
+                    dst_vals += 2; \
+                    src_vals += nvals; \
+                } \
+            } \
+            else \
+            { \
+                for (i=0; i<nsmpl; i++) \
+                { \
+                    dst_vals[0] = src_vals[0]; \
+                    dst_vals[1] = src_vals[ialt+1]; \
+                    dst_vals += 2; \
+                    src_vals += nvals; \
+                } \
             } \
             bcf_update_format_##type(args->hdr,dst,tag,vals,nsmpl*2); \
         } \
@@ -782,8 +807,8 @@ static void split_format_numeric(args_t *args, bcf1_t *src, bcf_fmt_t *fmt, int 
     }
     switch (bcf_hdr_id2type(args->hdr,BCF_HL_FMT,fmt->id))
     {
-        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[j]==bcf_int32_vector_end, dst_vals[2]=bcf_int32_vector_end); break;
-        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[j]), bcf_float_set_vector_end(dst_vals[2])); break;
+        case BCF_HT_INT:  BRANCH_NUMERIC(int32, int32_t, src_vals[j]==bcf_int32_vector_end, src_vals[j]==bcf_int32_missing, dst_vals[2]=bcf_int32_vector_end); break;
+        case BCF_HT_REAL: BRANCH_NUMERIC(float, float, bcf_float_is_vector_end(src_vals[j]), bcf_float_is_missing(src_vals[j]), bcf_float_set_vector_end(dst_vals[2])); break;
     }
     #undef BRANCH_NUMERIC
 }
@@ -1767,6 +1792,14 @@ static void flush_buffer(args_t *args, htsFile *file, int n)
 static void init_data(args_t *args)
 {
     args->hdr = args->files->readers[0].header;
+    if ( args->keep_sum_ad )
+    {
+        args->keep_sum_ad = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"AD");
+        if ( args->keep_sum_ad < 0 ) error("Error: --keep-sum-ad requested but the tag AD is not present\n");
+    }
+    else
+        args->keep_sum_ad = -1;
+
     rbuf_init(&args->rbuf, 100);
     args->lines = (bcf1_t**) calloc(args->rbuf.m, sizeof(bcf1_t*));
     if ( args->ref_fname )
@@ -1956,6 +1989,7 @@ static void usage(void)
     fprintf(stderr, "    -d, --rm-dup <type>               remove duplicate snps|indels|both|all|exact\n");
     fprintf(stderr, "    -f, --fasta-ref <file>            reference sequence\n");
     fprintf(stderr, "        --force                       try to proceed even if malformed tags are encountered. Experimental, use at your own risk\n");
+    fprintf(stderr, "        --keep-sum <tag,..>           keep vector sum constant when splitting multiallelics (see github issue #360)\n");
     fprintf(stderr, "    -m, --multiallelics <-|+>[type]   split multiallelics (-) or join biallelics (+), type: snps|indels|both|any [both]\n");
     fprintf(stderr, "        --no-version                  do not append version and command line to the header\n");
     fprintf(stderr, "    -N, --do-not-normalize            do not normalize indels (with -m or -c s)\n");
@@ -2000,6 +2034,7 @@ int main_vcfnorm(int argc, char *argv[])
     {
         {"help",no_argument,NULL,'h'},
         {"force",no_argument,NULL,7},
+        {"keep-sum",required_argument,NULL,10},
         {"fasta-ref",required_argument,NULL,'f'},
         {"do-not-normalize",no_argument,NULL,'N'},
         {"multiallelics",required_argument,NULL,'m'},
@@ -2021,6 +2056,12 @@ int main_vcfnorm(int argc, char *argv[])
     char *tmp;
     while ((c = getopt_long(argc, argv, "hr:R:f:w:Dd:o:O:c:m:t:T:sN",loptions,NULL)) >= 0) {
         switch (c) {
+            case  10:
+                // possibly generalize this also to INFO/AD and other tags
+                if ( strcasecmp("ad",optarg) )
+                    error("Error: only --keep-sum AD is currently supported. See https://github.com/samtools/bcftools/issues/360 for more.\n");
+                args->keep_sum_ad = 1;  // this will be set to the header id or -1 in init_data
+                break;
             case 'N': args->do_indels = 0; break;
             case 'd':
                 if ( !strcmp("snps",optarg) ) args->rmdup = BCF_SR_PAIR_SNPS;
