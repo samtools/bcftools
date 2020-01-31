@@ -217,7 +217,7 @@ previous deliverables.
 ## Release 1.7 (February 2018)
 
 * `-i, -e` filtering: Major revamp, improved filtering by FORMAT fields
-  and missing values. New GT=ref,alt,mis etc keywords, check the documenation
+  and missing values. New GT=ref,alt,mis etc keywords, check the documentation
   for details.
 
 * `query`: Only matching expression are printed when both the -f and -i/-e
@@ -308,10 +308,10 @@ previous deliverables.
 * New `+prune` plugin for pruning sites by LD (R2) or maximum number of
   records within a window.
 
-* New N_MISSING, F_MISSING (number and fraction misssing) filtering
+* New N_MISSING, F_MISSING (number and fraction missing) filtering
   expressions.
 
-* Fix HMM initilization in `roh` when snapshots are used in multiple
+* Fix HMM initialization in `roh` when snapshots are used in multiple
   chromosome VCF.
 
 * Fix buffer overflow (#607) in `filter`.
@@ -372,7 +372,7 @@ Two new commands - `mpileup` and `csq`:
     `-O, --output-type` option common to other bcftools commands.
 
   - The `-f, --fasta-ref` option is now required by default to help avoid user
-    errors. Can be diabled using `--no-reference`.
+    errors. Can be disabled using `--no-reference`.
 
   - The option `-d, --depth .. max per-file depth` now behaves as expected
     and according to the documentation, and prints a meaningful diagnostics.
