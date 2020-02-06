@@ -517,6 +517,10 @@ test_vcf_consensus($opts,in=>'consensus8',out=>'consensus.8c.out',fa=>'consensus
 test_vcf_consensus($opts,in=>'consensus8',out=>'consensus.8d.out',fa=>'consensus.fa',args=>q[-a . -i 'ALT!="<DEL>"']);
 test_vcf_consensus($opts,in=>'consensus8',out=>'consensus.8e.out',fa=>'consensus.fa',args=>q[-a . -e 'MinDP>15']);
 test_vcf_consensus($opts,in=>'consensus8',out=>'consensus.8f.out',fa=>'consensus.fa',args=>q[-a . -e 'MinDP<15']);
+test_vcf_consensus($opts,in=>'consensus.9',out=>'consensus.9.1.out',fa=>'consensus.9.1.fa',args=>q[-H A]);
+test_vcf_consensus($opts,in=>'consensus.9',out=>'consensus.9.2.out',fa=>'consensus.9.2.fa',args=>q[-H A]);
+test_vcf_consensus($opts,in=>'consensus.10',out=>'consensus.9.1.out',fa=>'consensus.9.1.fa',args=>q[-H A]);
+test_vcf_consensus($opts,in=>'consensus.10',out=>'consensus.9.2.out',fa=>'consensus.9.2.fa',args=>q[-H A]);
 test_mpileup($opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
 test_mpileup($opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
 test_mpileup($opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite

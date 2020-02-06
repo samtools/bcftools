@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014-2019 Genome Research Ltd.
+   Copyright (c) 2014-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -246,6 +246,7 @@ static void init_data(args_t *args)
     if ( args->isample<0 ) fprintf(stderr,"Note: the --sample option not given, applying all records regardless of the genotype\n");
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
+    args->rid = -1;
 }
 
 static void destroy_data(args_t *args)
@@ -615,7 +616,8 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         // TODO: symbolic deletions probably need more work above with PICK_SHORT|PICK_LONG
 
         if ( strcasecmp(rec->d.allele[ialt],"<DEL>") && strcasecmp(rec->d.allele[ialt],"<*>") && strcasecmp(rec->d.allele[ialt],"<NON_REF>") )
-            error("Symbolic alleles other than <DEL>, <*> or <NON_REF> are currently not supported: %s at %s:%"PRId64"\n",
+            error("Symbolic alleles other than <DEL>, <*> or <NON_REF> are currently not supported, e.g. %s at %s:%"PRId64".\n"
+                  "Please use filtering expressions to exclude such sites, for example by running with: -e 'ALT~\"<.*>\"'\n",
                 rec->d.allele[ialt],bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         assert( rec->d.allele[0][1]==0 );           // todo: for now expecting strlen(REF) = 1
         if ( !strcasecmp(rec->d.allele[ialt],"<DEL>") )
@@ -764,13 +766,13 @@ static void consensus(args_t *args)
                 print_chain(args);
                 destroy_chain(args);
             }
-            // apply all cached variants
-            while ( args->vcf_rbuf.n )
+            // apply all cached variants and variants that might have been missed because of short fasta (see test/consensus.9.*)
+            bcf1_t **rec_ptr = NULL;
+            while ( args->rid>=0 && (rec_ptr = next_vcf_line(args)) )
             {
-                bcf1_t *rec = args->vcf_buf[args->vcf_rbuf.f];
+                bcf1_t *rec = *rec_ptr;
                 if ( rec->rid!=args->rid || ( args->fa_end_pos && rec->pos > args->fa_end_pos ) ) break;
-                int i = rbuf_shift(&args->vcf_rbuf);
-                apply_variant(args, args->vcf_buf[i]);
+                apply_variant(args, rec);
             }
             if ( args->absent_allele )
             {

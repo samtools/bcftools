@@ -1,0 +1,8 @@
+##fileformat=VCFv4.1
+##reference=ftp://ftp.1000genomes.ebi.ac.uk//vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz
+##contig=<ID=14,assembly=b37,length=107349540>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate of this variant">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG00105
+14	43616644	.	A	<CN0>	.	.	END=43616654	GT	0|0
+14	43616653	.	T	TGAA	.	.	.	GT	0|1
