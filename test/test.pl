@@ -550,6 +550,8 @@ test_roh($opts,in=>'roh.1',out=>'roh.1.2.out',args=>q[    -G30 --AF-dflt 0.4 -r 
 test_roh($opts,in=>'roh.1',out=>'roh.1.3.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --ignore-homref]);
 test_roh($opts,in=>'roh.1',out=>'roh.1.3.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --ignore-homref --include-noalt]);
 test_roh($opts,in=>'roh.1',out=>'roh.1.4.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --include-noalt]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-G 1]);
+test_gtcheck($opts,in=>'gtcheck.2',gts=>'gtcheck.1.gts',out=>'gtcheck.2.out',args=>q[-G 1]);
 
 
 print "\nNumber of tests:\n";
@@ -1489,4 +1491,11 @@ sub test_roh
     my ($opts,%args) = @_;
     $args{args} =~ s/{PATH}/$$opts{path}/g;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools roh $$opts{path}/$args{in}.vcf.gz $args{args}| grep -v ^#");
+}
+sub test_gtcheck
+{
+    my ($opts,%args) = @_;
+    bgzip_tabix_vcf($opts,$args{in});
+    bgzip_tabix_vcf($opts,$args{gts});
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools gtcheck $args{args} $$opts{tmp}/$args{in}.vcf.gz -g $$opts{tmp}/$args{gts}.vcf.gz | grep -v ^#");
 }
