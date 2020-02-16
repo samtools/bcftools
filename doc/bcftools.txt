@@ -1451,7 +1451,7 @@ the CSI first and then the TBI.
 *-m, --min-shift 'INT'*::
     set minimal interval size for CSI indices to 2&#94;INT; default: 14
 
-*-o, --output-file 'FILE'*::
+*-o, --output 'FILE'*::
     output file name. If not set, then the index will be created
     using the input file name plus a '.csi' or '.tbi' extension
 
@@ -2689,7 +2689,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-O, --output-type* 'b'|'u'|'z'|'v'::
     see *<<common_options,Common Options>>*
 
-*-o, --output-file* 'FILE':
+*-o, --output* 'FILE':
     output file name. If not present, the default is to print to standard output (stdout).
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
