@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2019 Genome Research Ltd.
+   Copyright (c) 2015-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -418,6 +418,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     }
 
     if ( optind != argc ) error("%s",usage());
+    if ( !in || !out ) error("%s",usage());
 
     args->gt_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
     if ( args->gt_id<0 ) error("Error: GT field is not present\n");
