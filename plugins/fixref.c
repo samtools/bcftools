@@ -74,6 +74,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <assert.h>
 #include <getopt.h>
 #include <math.h>
 #include <inttypes.h>

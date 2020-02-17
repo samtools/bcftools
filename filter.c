@@ -25,6 +25,7 @@ THE SOFTWARE.  */
 #include <ctype.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <assert.h>
 #include <errno.h>
 #include <math.h>
 #include <sys/types.h>

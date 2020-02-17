@@ -25,6 +25,7 @@ THE SOFTWARE.  */
 #include <stdarg.h>
 #include <string.h>
 #include <strings.h>
+#include <assert.h>
 #include <errno.h>
 #include <unistd.h>
 #include <getopt.h>
