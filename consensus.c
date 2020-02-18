@@ -391,6 +391,7 @@ static void apply_absent(args_t *args, hts_pos_t pos)
 }
 static void freeze_ref(args_t *args, bcf1_t *rec)
 {
+    if ( args->fa_frz_pos >= rec->pos + rec->rlen - 1 ) return;
     args->fa_frz_pos = rec->pos + rec->rlen - 1;
     args->fa_frz_mod = rec->pos - args->fa_ori_pos + args->fa_mod_off + rec->rlen;
 }
