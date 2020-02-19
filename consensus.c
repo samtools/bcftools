@@ -52,6 +52,9 @@
 #define PICK_SHORT 8
 #define PICK_IUPAC 16
 
+#define TO_UPPER 0
+#define TO_LOWER 1
+
 typedef struct
 {
     int num;                // number of ungapped blocks in this chain
@@ -64,7 +67,6 @@ typedef struct
 }
 chain_t;
 
-
 typedef struct
 {
     kstring_t fa_buf;   // buffered reference sequence
@@ -74,7 +76,7 @@ typedef struct
     int fa_frz_mod;     // the fa_buf offset of the protected fa_frz_pos position, includes the modified sequence
     int fa_end_pos;     // region's end position in the original sequence
     int fa_length;      // region's length in the original sequence (in case end_pos not provided in the FASTA header)
-    int fa_case;        // output upper case or lower case?
+    int fa_case;        // output upper case or lower case: TO_UPPER|TO_LOWER
     int fa_src_pos;     // last genomic coordinate read from the input fasta (0-based)
     char prev_base;     // this is only to validate the REF allele in the VCF - the modified fa_buf cannot be used for inserts following deletions, see 600#issuecomment-383186778
     int prev_base_pos;  // the position of prev_base
@@ -674,7 +676,8 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         len_diff = alen - rec->rlen;
     }
 
-    if ( args->fa_case )
+    args->fa_case = toupper(args->fa_buf.s[idx])==args->fa_buf.s[idx] ? TO_UPPER : TO_LOWER;
+    if ( args->fa_case==TO_UPPER )
         for (i=0; i<alen; i++) rec->d.allele[ialt][i] = toupper(rec->d.allele[ialt][i]);
     else
         for (i=0; i<alen; i++) rec->d.allele[ialt][i] = tolower(rec->d.allele[ialt][i]);

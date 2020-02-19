@@ -1,0 +1,24 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##reference=file://some/path/human_g1k_v37.fasta
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=MinDP,Number=1,Type=Integer,Description="Dummy">
+##ALT=<ID=DEL,Description="Deletion">
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA001
+1	5	.	C	A	.	PASS	.	GT	0/1
+1	5	.	C	T	.	PASS	.	GT	0/1
+1	7	.	T	A	.	PASS	.	GT	.
+1	10	.	G	A	.	PASS	.	GT	0/1
+1	12	.	GACA	GA	.	PASS	.	GT	0/1
+1	16	.	T	TAAA	.	PASS	.	GT	1/1
+1	19	.	A	C	.	PASS	.	GT	0/1
+1	61	.	C	A	.	PASS	.	GT	0/1
+2	61	.	agag	aa	.	PASS	.	GT	0/1
+2	119	.	aaa	t	.	PASS	.	GT	0/1
+2	179	.	g	gacgtacgt	.	PASS	.	GT	0/1
+2	200	.	a	<DEL>	.	PASS	END=210	GT	1/0
+2	300	.	a	.	.	PASS	END=310;MinDP=10	GT	0/1
+2	320	.	a	<*>	.	PASS	END=330;MinDP=20	GT	0/1
+2	481	.	t	c,a	.	PASS	.	GT	0/2
