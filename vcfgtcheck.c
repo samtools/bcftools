@@ -1,6 +1,6 @@
 /*  vcfgtcheck.c -- Check sample identity.
 
-    Copyright (C) 2013-2018 Genome Research Ltd.
+    Copyright (C) 2013-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -512,6 +512,7 @@ static void check_gt(args_t *args)
         }
         fprintf(fp, "CN\t%e\t%e\t%.0f\t%s\t%d\n", fabs(args->lks[idx]), fabs(per_site), args->sites[idx], args->gt_hdr->samples[idx], i);
     }
+    free(p);
 
     if ( args->plot )
     {
