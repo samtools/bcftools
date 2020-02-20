@@ -25,6 +25,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <assert.h>
 #include <getopt.h>
 #include <inttypes.h>
 #include <htslib/vcf.h>

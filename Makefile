@@ -136,7 +136,7 @@ print-version:
 	$(CC) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) -c -o $@ $<
 
 # The polysomy command is not compiled by default because it brings dependency
-# on libgsl. The command can be compiled wth `make USE_GPL=1`. See the INSTALL
+# on libgsl. The command can be compiled with `make USE_GPL=1`. See the INSTALL
 # and LICENSE documents to understand license implications.
 ifdef USE_GPL
     main.o : EXTRA_CPPFLAGS += -DUSE_GPL

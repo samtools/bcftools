@@ -31,6 +31,7 @@ THE SOFTWARE.  */
 #include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <assert.h>
 #include <math.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>

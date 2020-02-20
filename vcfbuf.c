@@ -24,6 +24,7 @@
 
  */
 
+#include <assert.h>
 #include <htslib/vcf.h>
 #include <htslib/vcfutils.h>
 #include "bcftools.h"
