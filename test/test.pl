@@ -78,6 +78,12 @@ test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge
 test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge.gvcf.9d'],out=>'merge.gvcf.9.2.out',args=>'--gvcf {PATH}/gvcf.fa -r 22:21-23');
 test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge.gvcf.9d','merge.gvcf.9e'],out=>'merge.gvcf.9.3.out',args=>'--gvcf {PATH}/gvcf.fa');
 test_vcf_merge($opts,in=>['merge.gvcf.9a','merge.gvcf.9b','merge.gvcf.9c','merge.gvcf.9d','merge.gvcf.9e'],out=>'merge.gvcf.9.4.out',args=>'--gvcf {PATH}/gvcf.fa -r 22:21-23');
+test_vcf_merge($opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.1.out',args=>'');
+test_vcf_merge($opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.2.out',args=>'-m none');
+test_vcf_merge($opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.3.out',args=>'-g {PATH}/merge.gvcf.10.fa');
+test_vcf_merge($opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
+test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.5.out',args=>'-g {PATH}/merge.gvcf.10.fa');
+test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_query($opts,in=>'query.variantkey',out=>'query.variantkey.hex.out',args=>q[-f '%RSX\\t%VKX\\n']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i'XRI[*]>1111']);

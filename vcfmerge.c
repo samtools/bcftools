@@ -2042,6 +2042,23 @@ void gvcf_flush(args_t *args, int done)
     }
 }
 
+static inline int is_gvcf_block(bcf1_t *line)
+{
+    if ( line->rlen<=1 ) return 0;
+    if ( strlen(line->d.allele[0])==line->rlen ) return 0;
+    if ( line->n_allele==1 ) return 1;
+
+    int i;
+    for (i=1; i<line->n_allele; i++)
+    {
+        if ( !strcmp(line->d.allele[i],"<*>") ) return 1;
+        if ( !strcmp(line->d.allele[i],"<NON_REF>") ) return 1;
+        if ( !strcmp(line->d.allele[i],"<X>") ) return 1;
+    }
+    return 0;
+}
+static const int snp_mask = (VCF_SNP<<2)|(VCF_MNP<<2), indel_mask = VCF_INDEL<<2, ref_mask = 2;
+
 /*
     Check incoming lines for new gVCF blocks, set pointer to the current source
     buffer (gvcf or readers).  In contrast to gvcf_flush, this function can be
@@ -2079,7 +2096,7 @@ void gvcf_stage(args_t *args, int pos)
         int irec = maux->buf[i].beg;
         bcf_hdr_t *hdr = bcf_sr_get_header(files, i);
         bcf1_t *line = args->files->readers[i].buffer[irec];
-        int ret = bcf_get_info_int32(hdr,line,"END",&end,&nend);
+        int ret = is_gvcf_block(line) ? bcf_get_info_int32(hdr,line,"END",&end,&nend) : 0;
         if ( ret==1 )
         {
             if ( end[0] == line->pos + 1 )  // POS and INFO/END are identical, treat as if a normal w/o INFO/END
@@ -2220,7 +2237,6 @@ void debug_state(args_t *args)
     fprintf(stderr,"\n");
 }
 
-
 /*
    Determine which line should be merged from which reader: go through all
    readers and all buffered lines, expand REF,ALT and try to match lines with
@@ -2229,7 +2245,6 @@ void debug_state(args_t *args)
 int can_merge(args_t *args)
 {
     bcf_srs_t *files = args->files;
-    int snp_mask = (VCF_SNP<<1)|(VCF_MNP<<1), indel_mask = VCF_INDEL<<1, ref_mask = 1;
     maux_t *maux = args->maux;
     gvcf_aux_t *gaux = maux->gvcf;
     char *id = NULL, ref = 'N';
@@ -2241,6 +2256,9 @@ int can_merge(args_t *args)
         maux->als[i] = NULL;
     }
     maux->var_types = maux->nals = 0;
+
+    // this is only for the `-m none -g` mode, ensure that <*> lines come last
+    #define VCF_GVCF_REF 1
 
     for (i=0; i<files->nreaders; i++)
     {
@@ -2259,12 +2277,17 @@ int can_merge(args_t *args)
             buf->rec[j].skip = SKIP_DIFF;
             ntodo++;
 
+            bcf1_t *line = buf->lines[j];
             if ( args->merge_by_id )
-                id = buf->lines[j]->d.id;
+                id = line->d.id;
             else
             {
-                int var_type = bcf_get_variant_types(buf->lines[j]);
-                maux->var_types |= var_type ? var_type<<1 : 1;
+                int var_type = bcf_get_variant_types(line);
+                maux->var_types |= var_type ? var_type<<2 : 2;
+
+                // for the `-m none -g` mode
+                if ( args->collapse==COLLAPSE_NONE && args->do_gvcf && is_gvcf_block(line) )
+                    maux->var_types |= VCF_GVCF_REF;
             }
         }
 
@@ -2296,7 +2319,7 @@ int can_merge(args_t *args)
             bcf1_t *line = buf->lines[j]; // ptr to reader's buffer or gvcf buffer
 
             int line_type = bcf_get_variant_types(line);
-            line_type = line_type ? line_type<<1 : 1;
+            line_type = line_type ? line_type<<2 : 2;
 
             // select relevant lines
             if ( args->merge_by_id )
@@ -2305,6 +2328,12 @@ int can_merge(args_t *args)
             }
             else
             {
+                // when merging gVCF in -m none mode, make sure that gVCF blocks with the same POS as variant
+                // records come last, otherwise infinite loop is created (#1164)
+                if ( args->collapse==COLLAPSE_NONE && args->do_gvcf )
+                {
+                    if ( is_gvcf_block(line) && (maux->var_types & (~(VCF_GVCF_REF|2))) ) continue;
+                }
                 if ( args->collapse==COLLAPSE_NONE && maux->nals )
                 {
                     // All alleles of the tested record must be present in the
@@ -2368,7 +2397,6 @@ int can_merge(args_t *args)
 */
 void stage_line(args_t *args)
 {
-    int snp_mask = (VCF_SNP<<1)|(VCF_MNP<<1), indel_mask = VCF_INDEL<<1, ref_mask = 1;
     bcf_srs_t *files = args->files;
     maux_t *maux = args->maux;
 
