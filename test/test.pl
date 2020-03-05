@@ -324,6 +324,7 @@ test_vcf_filter($opts,in=>'filter.6',out=>'filter.28.out',args=>q[-i'F_MISSING>=
 test_vcf_filter($opts,in=>'filter.6',out=>'filter.28.out',args=>q[-i'F_MISSING>=0.2'],fmt=>'%POS\\n');
 test_vcf_filter($opts,in=>'filter.6',out=>'filter.28.out',args=>q[-i'F_PASS(GT=="mis")>=1/5'],fmt=>'%POS\\n');
 test_vcf_filter($opts,in=>'filter.6',out=>'filter.28.out',args=>q[-i'F_PASS(GT=="mis")>=0.2'],fmt=>'%POS\\n');
+test_vcf_filter($opts,in=>'filter.7',out=>'filter.29.out',args=>'-mx -s + -g2:mnp,indel,other');
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_regions($opts,in=>'regions');
