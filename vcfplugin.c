@@ -608,7 +608,6 @@ int main_plugin(int argc, char *argv[])
     int regions_is_file = 0, targets_is_file = 0, usage_only = 0, version_only = 0;
 
     if ( argc==1 ) usage(args);
-
     char *plugin_name = NULL;
     if ( argv[1][0]!='-' )
     {
@@ -695,7 +694,7 @@ int main_plugin(int argc, char *argv[])
     }
 
     char *fname = NULL;
-    if ( optind>=argc || argv[optind][0]=='-' )
+    if ( optind>=argc || (argv[optind][0]=='-' && argv[optind][1]) )
     {
         args->plugin.argc = argc - optind + 1;
         args->plugin.argv = argv + optind - 1;
