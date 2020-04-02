@@ -45,10 +45,11 @@ addons:
 # For MacOSX systems
 before_install:
   - |
-    if [ "$TRAVIS_OS_NAME" == "osx" ]; then
-      brew update && \
-      brew install xz gsl
-    fi
+    # Removing GSL dependant parts as they are not tested anyway
+    # if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+    #   brew update && \
+    #   brew install xz gsl
+    # fi
 
 before_script:
   # Clone samtools/htslib (or another repository, as specified by a Travis CI
@@ -60,7 +61,7 @@ script: |
   if test "$USE_CONFIG" = "yes"; then
     ( cd "$HTSDIR" && autoreconf ) && \
     autoreconf && \
-    ./configure --enable-libgsl && \
+    ./configure && \
     make && \
     make test
   else
