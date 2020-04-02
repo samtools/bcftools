@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2020-01-15 12:02 GMT
+.\"      Date: 2020-04-02 11:37 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2020\-01\-15 12:02 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2020\-04\-02 11:37 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2020\-01\-15 12:02 GMT\fR and refers to bcftools git version \fB1\&.10\&.2\-9\-g5a3a4c4+\fR\&.
+This manual page was last updated \fB2020\-04\-02 11:37 BST\fR and refers to bcftools git version \fB1\&.10\&.2\-32\-ge677391+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -2102,11 +2102,11 @@ is true\&. For valid expressions see
 \fBEXPRESSIONS\fR\&.
 .RE
 .PP
-\fB\-g, \-\-SnpGap\fR \fIINT\fR
+\fB\-g, \-\-SnpGap\fR \fIINT\fR[:\*(Aqindel\*(Aq,\fImnp\fR,\fIbnd\fR,\fIother\fR,\fIoverlap\fR]
 .RS 4
 filter SNPs within
 \fIINT\fR
-base pairs of an indel\&. The following example demonstrates the logic of
+base pairs of an indel or other other variant type\&. The following example demonstrates the logic of
 \fB\-\-SnpGap\fR
 \fI3\fR
 applied on a deletion and an insertion:
@@ -2399,7 +2399,7 @@ overwrite index if it already exists
 set minimal interval size for CSI indices to 2^INT; default: 14
 .RE
 .PP
-\fB\-o, \-\-output\-file \fR\fB\fIFILE\fR\fR
+\fB\-o, \-\-output \fR\fB\fIFILE\fR\fR
 .RS 4
 output file name\&. If not set, then the index will be created using the input file name plus a
 \fI\&.csi\fR
@@ -3135,6 +3135,12 @@ option below\&.
 try to proceed with
 \fB\-m\-\fR
 even if malformed tags with incorrect number of fields are encountered, discarding such tags\&. (Experimental, use at your own risk\&.)
+.RE
+.PP
+\fB\-\-keep\-sum\fR \fITAG\fR[,\&...]
+.RS 4
+keep vector sum constant when splitting multiallelic sites\&. Only AD tag is currently supported\&. See also
+https://github\&.com/samtools/bcftools/issues/360
 .RE
 .PP
 \fB\-m, \-\-multiallelics\fR \fB\-\fR|\fB+\fR[\fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIany\fR]
@@ -4473,7 +4479,7 @@ see
 \fBCommon Options\fR
 .RE
 .sp
-\fB\-o, \-\-output\-file\fR \fIFILE\fR: output file name\&. If not present, the default is to print to standard output (stdout)\&.
+\fB\-o, \-\-output\fR \fIFILE\fR: output file name\&. If not present, the default is to print to standard output (stdout)\&.
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
@@ -5053,13 +5059,26 @@ GT[@samples\&.txt]="het" & binom(AD)<0\&.01
 .sp -1
 .IP \(bu 2.3
 .\}
-function on FORMAT tags (over samples) and INFO tags (over vector fields): maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median; standard deviation; sum; string length; absolute value; number of elements (matching columns for FORMAT tags or number of fields for INFO tags)\&.
+function on FORMAT tags (over samples) and INFO tags (over vector fields): maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median; standard deviation from mean; sum; string length; absolute value; number of elements (matching columns for FORMAT tags or number of fields for INFO tags)\&.
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
 MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Note that functions above evaluate to a single value across all samples and are intended to select sites, not samples, even when applied on FORMAT tags\&. However, when prefixed with SMPL_ (or "s" for brevity, e\&.g\&. SMPL_MAX or sMAX), they will evaluate to a vector of per\-sample values when applied on FORMAT tags:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
+sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
 .fi
 .if n \{\
 .RE
@@ -5213,7 +5232,17 @@ When querying multiple values, all elements are tested and the OR logic is used 
 .RS 4
 .\}
 .nf
-MIN(DV)>5
+MIN(DV)>5       \&.\&. selects the whole site, evaluates min across all values and samples
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+SMPL_MIN(DV)>5  \&.\&. selects matching samples, evaluates within samples
 .fi
 .if n \{\
 .RE

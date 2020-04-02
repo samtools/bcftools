@@ -1,6 +1,6 @@
 /*  filter.c -- filter expressions.
 
-    Copyright (C) 2013-2018 Genome Research Ltd.
+    Copyright (C) 2013-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -159,11 +159,17 @@ struct _filter_t
 #define TOK_PHRED   29
 #define TOK_MEDIAN  30
 #define TOK_STDEV   31
+#define TOK_sMAX    32
+#define TOK_sMIN    33
+#define TOK_sAVG    34
+#define TOK_sMEDIAN 35
+#define TOK_sSTDEV  36
+#define TOK_sSUM    37
 
-//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
-//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s
-static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
-#define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcpis"
+//                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37
+//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s 
+static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+#define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcpis"       // this is only for debugging, not maintained diligently
 
 // Return negative values if it is a function with variable number of arguments
 static int filters_next_token(char **str, int *len)
@@ -185,6 +191,20 @@ static int filters_next_token(char **str, int *len)
         tmp = *str;
     }
 
+    if ( !strncasecmp(tmp,"SMPL_MAX(",9) ) { (*str) += 8; return TOK_sMAX; }
+    if ( !strncasecmp(tmp,"SMPL_MIN(",9) ) { (*str) += 8; return TOK_sMIN; }
+    if ( !strncasecmp(tmp,"SMPL_MEAN(",10) ) { (*str) += 9; return TOK_sAVG; }
+    if ( !strncasecmp(tmp,"SMPL_MEDIAN(",12) ) { (*str) += 11; return TOK_sMEDIAN; }
+    if ( !strncasecmp(tmp,"SMPL_AVG(",9) ) { (*str) += 8; return TOK_sAVG; }
+    if ( !strncasecmp(tmp,"SMPL_STDEV(",11) ) { (*str) += 10; return TOK_sSTDEV; }
+    if ( !strncasecmp(tmp,"SMPL_SUM(",9) ) { (*str) += 8; return TOK_sSUM; }
+    if ( !strncasecmp(tmp,"sMAX(",5) ) { (*str) += 4; return TOK_sMAX; }
+    if ( !strncasecmp(tmp,"sMIN(",5) ) { (*str) += 4; return TOK_sMIN; }
+    if ( !strncasecmp(tmp,"sMEAN(",6) ) { (*str) += 5; return TOK_sAVG; }
+    if ( !strncasecmp(tmp,"sMEDIAN(",8) ) { (*str) += 7; return TOK_sMEDIAN; }
+    if ( !strncasecmp(tmp,"sAVG(",5) ) { (*str) += 4; return TOK_sAVG; }
+    if ( !strncasecmp(tmp,"sSTDEV(",7) ) { (*str) += 6; return TOK_sSTDEV; }
+    if ( !strncasecmp(tmp,"sSUM(",5) ) { (*str) += 4; return TOK_sSUM; }
     if ( !strncasecmp(tmp,"MAX(",4) ) { (*str) += 3; return TOK_MAX; }
     if ( !strncasecmp(tmp,"MIN(",4) ) { (*str) += 3; return TOK_MIN; }
     if ( !strncasecmp(tmp,"MEAN(",5) ) { (*str) += 4; return TOK_AVG; }
@@ -1181,6 +1201,36 @@ static int func_max(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     }
     return 1;
 }
+static int func_smpl_max(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) return func_max(flt,line,rtok,stack,nstack);
+    rtok->nsamples = tok->nsamples;
+    rtok->nvalues  = tok->nsamples;
+    rtok->nval1 = 1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    assert(tok->usmpl);
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    int i, j, has_value;
+    double val, *ptr;
+    for (i=0; i<tok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        val = -HUGE_VAL;
+        has_value = 0;
+        ptr = tok->values + i*tok->nval1;
+        for (j=0; j<tok->nval1; j++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+            has_value = 1;
+            if ( val < ptr[j] ) val = ptr[j];
+        }
+        if ( has_value ) rtok->values[i] = val;
+        else bcf_double_set_missing(rtok->values[i]);
+    }
+    return 1;
+}
 static int func_min(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
@@ -1201,6 +1251,36 @@ static int func_min(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     }
     return 1;
 }
+static int func_smpl_min(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) return func_min(flt,line,rtok,stack,nstack);
+    rtok->nsamples = tok->nsamples;
+    rtok->nvalues  = tok->nsamples;
+    rtok->nval1 = 1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    assert(tok->usmpl);
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    int i, j, has_value;
+    double val, *ptr;
+    for (i=0; i<tok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        val = HUGE_VAL;
+        has_value = 0;
+        ptr = tok->values + i*tok->nval1;
+        for (j=0; j<tok->nval1; j++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+            has_value = 1;
+            if ( val > ptr[j] ) val = ptr[j];
+        }
+        if ( has_value ) rtok->values[i] = val;
+        else bcf_double_set_missing(rtok->values[i]);
+    }
+    return 1;
+}
 static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
@@ -1214,6 +1294,34 @@ static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     {
         rtok->values[0] = val / n;
         rtok->nvalues   = 1;
+    }
+    return 1;
+}
+static int func_smpl_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    rtok->nsamples = tok->nsamples;
+    rtok->nvalues  = tok->nsamples;
+    rtok->nval1 = 1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    assert(tok->usmpl);
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    int i, j, n;
+    double val, *ptr;
+    for (i=0; i<tok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        val = 0;
+        n = 0;
+        ptr = tok->values + i*tok->nval1;
+        for (j=0; j<tok->nval1; j++)
+        {
+            if ( !bcf_double_is_missing_or_vector_end(ptr[j]) ) { val += ptr[j]; n++; }
+        }
+        if ( n ) rtok->values[i] = val / n;
+        else bcf_double_set_missing(rtok->values[i]);
     }
     return 1;
 }
@@ -1247,6 +1355,42 @@ static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
     rtok->nvalues = 1;
     return 1;
 }
+static int func_smpl_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    rtok->nsamples = tok->nsamples;
+    rtok->nvalues  = tok->nsamples;
+    rtok->nval1 = 1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    assert(tok->usmpl);
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    int i, j, n;
+    double *ptr;
+    for (i=0; i<tok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        n = 0;
+        ptr = tok->values + i*tok->nval1;
+        for (j=0; j<tok->nval1; j++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+            if ( n < j ) ptr[n] = ptr[j];
+            n++;
+        }
+        if ( n==0 )
+            bcf_double_set_missing(rtok->values[i]);
+        else if ( n==1 )
+            rtok->values[i] = ptr[0];
+        else
+        {
+            qsort(ptr, n, sizeof(double), compare_doubles);
+            rtok->values[i] = n % 2 ? ptr[n/2] : (ptr[n/2-1] + ptr[n/2]) * 0.5;
+        }
+    }
+    return 1;
+}
 static int func_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
@@ -1272,6 +1416,45 @@ static int func_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
     rtok->nvalues = 1;
     return 1;
 }
+static int func_smpl_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    rtok->nsamples = tok->nsamples;
+    rtok->nvalues  = tok->nsamples;
+    rtok->nval1 = 1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    assert(tok->usmpl);
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    int i, j, n;
+    double *ptr;
+    for (i=0; i<tok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        n = 0;
+        ptr = tok->values + i*tok->nval1;
+        for (j=0; j<tok->nval1; j++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+            if ( n < j ) ptr[n] = ptr[j];
+            n++;
+        }
+        if ( n==0 )
+            bcf_double_set_missing(rtok->values[i]);
+        else if ( n==1 )
+            rtok->values[i] = 0;
+        else
+        {
+            double sdev = 0, avg = 0;
+            for (j=0; j<n; j++) avg += ptr[j];
+            avg /= n;
+            for (j=0; j<n; j++) sdev += (ptr[j] - avg) * (ptr[j] - avg);
+            rtok->values[i] = sqrt(sdev/n);
+        }
+    }
+    return 1;
+}
 static int func_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     rtok->nvalues = 0;
@@ -1288,12 +1471,49 @@ static int func_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     }
     return 1;
 }
+static int func_smpl_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
+{
+    token_t *tok = stack[nstack - 1];
+    if ( !tok->nsamples ) return func_avg(flt,line,rtok,stack,nstack);
+    rtok->nsamples = tok->nsamples;
+    rtok->nvalues  = tok->nsamples;
+    rtok->nval1 = 1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    assert(tok->usmpl);
+    if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+    memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    int i, j, has_value;
+    double val, *ptr;
+    for (i=0; i<tok->nsamples; i++)
+    {
+        if ( !rtok->usmpl[i] ) continue;
+        val = 0;
+        has_value = 0;
+        ptr = tok->values + i*tok->nval1;
+        for (j=0; j<tok->nval1; j++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+            has_value = 1;
+            val += ptr[j];
+        }
+        if ( has_value ) rtok->values[i] = val;
+        else bcf_double_set_missing(rtok->values[i]);
+    }
+    return 1;
+}
 static int func_abs(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
     if ( tok->is_str ) error("ABS() can be applied only on numeric values\n");
-
+    rtok->nsamples = tok->nsamples;
     rtok->nvalues = tok->nvalues;
+    rtok->nval1 = tok->nval1;
+    hts_expand(double,rtok->nvalues,rtok->mvalues,rtok->values);
+    if ( tok->usmpl )
+    {
+        if ( !rtok->usmpl ) rtok->usmpl = (uint8_t*) malloc(tok->nsamples);
+        memcpy(rtok->usmpl, tok->usmpl, tok->nsamples);
+    }
     if ( !tok->nvalues ) return 1;
     hts_expand(double, rtok->nvalues, rtok->mvalues, rtok->values);
     int i;
@@ -2977,6 +3197,12 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
         else if ( out[i].tok_type==TOK_PHRED ) { out[i].func = func_phred; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_BINOM ) { out[i].func = func_binom; out[i].tok_type = TOK_FUNC; }
         else if ( out[i].tok_type==TOK_PERLSUB ) { out[i].func = perl_exec; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_sMAX ) { out[i].func = func_smpl_max; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_sMIN ) { out[i].func = func_smpl_min; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_sAVG ) { out[i].func = func_smpl_avg; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_sMEDIAN ) { out[i].func = func_smpl_median; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_sSTDEV ) { out[i].func = func_smpl_stddev; out[i].tok_type = TOK_FUNC; }
+        else if ( out[i].tok_type==TOK_sSUM ) { out[i].func = func_smpl_sum; out[i].tok_type = TOK_FUNC; }
         hts_expand0(double,1,out[i].mvalues,out[i].values);
         if ( filter->nsamples )
         {

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp144704"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25224912"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -10,7 +10,7 @@ read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non-standard index names can be accessed as e.g.
 "<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-01-15 12:02 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2-9-g5a3a4c4+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-04-02 11:37 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2-32-ge677391+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -1240,9 +1240,9 @@ output VCF and are ignored for the prediction analysis.</p><div class="variablel
     exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
     <span class="strong"><strong><a class="link" href="#expressions" title="EXPRESSIONS">EXPRESSIONS</a></strong></span>.
 </dd><dt><span class="term">
-<span class="strong"><strong>-g, --SnpGap</strong></span> <span class="emphasis"><em>INT</em></span>
+<span class="strong"><strong>-g, --SnpGap</strong></span> <span class="emphasis"><em>INT</em></span>[:'indel',<span class="emphasis"><em>mnp</em></span>,<span class="emphasis"><em>bnd</em></span>,<span class="emphasis"><em>other</em></span>,<span class="emphasis"><em>overlap</em></span>]
 </span></dt><dd>
-    filter SNPs within <span class="emphasis"><em>INT</em></span> base pairs of an indel. The following example
+    filter SNPs within <span class="emphasis"><em>INT</em></span> base pairs of an indel or other other variant type. The following example
     demonstrates the logic of <span class="strong"><strong>--SnpGap</strong></span> <span class="emphasis"><em>3</em></span> applied on a deletion and
     an insertion:
 </dd></dl></div><pre class="screen">The SNPs at positions 1 and 7 are filtered, positions 0 and 8 are not:
@@ -1426,7 +1426,7 @@ the CSI first and then the TBI.</p><div class="refsect3" title="Indexing options
 </span></dt><dd>
     set minimal interval size for CSI indices to 2^INT; default: 14
 </dd><dt><span class="term">
-<span class="strong"><strong>-o, --output-file <span class="emphasis"><em>FILE</em></span></strong></span>
+<span class="strong"><strong>-o, --output <span class="emphasis"><em>FILE</em></span></strong></span>
 </span></dt><dd>
     output file name. If not set, then the index will be created
     using the input file name plus a <span class="emphasis"><em>.csi</em></span> or <span class="emphasis"><em>.tbi</em></span> extension
@@ -1899,6 +1899,11 @@ the <span class="strong"><strong><a class="link" href="#fasta_ref">--fasta-ref</
 </span></dt><dd>
     try to proceed with <span class="strong"><strong>-m-</strong></span> even if malformed tags with incorrect number of fields
     are encountered, discarding such tags. (Experimental, use at your own risk.)
+</dd><dt><span class="term">
+<span class="strong"><strong>--keep-sum</strong></span> <span class="emphasis"><em>TAG</em></span>[,…]
+</span></dt><dd>
+    keep vector sum constant when splitting multiallelic sites. Only AD tag
+    is currently supported. See also <a class="ulink" href="https://github.com/samtools/bcftools/issues/360" target="_top">https://github.com/samtools/bcftools/issues/360</a>
 </dd><dt><span class="term">
 <span class="strong"><strong>-m, --multiallelics</strong></span> <span class="strong"><strong>-</strong></span>|<span class="strong"><strong>+</strong></span>[<span class="emphasis"><em>snps</em></span>|<span class="emphasis"><em>indels</em></span>|<span class="emphasis"><em>both</em></span>|<span class="emphasis"><em>any</em></span>]
 </span></dt><dd>
@@ -2689,7 +2694,7 @@ Convert between VCF and BCF. Former <span class="strong"><strong>bcftools subset
 <span class="strong"><strong>-O, --output-type</strong></span> <span class="emphasis"><em>b</em></span>|<span class="emphasis"><em>u</em></span>|<span class="emphasis"><em>z</em></span>|<span class="emphasis"><em>v</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
-</dd></dl></div><p><span class="strong"><strong>-o, --output-file</strong></span> <span class="emphasis"><em>FILE</em></span>:
+</dd></dl></div><p><span class="strong"><strong>-o, --output</strong></span> <span class="emphasis"><em>FILE</em></span>:
     output file name. If not present, the default is to print to standard output (stdout).</p><div class="variablelist"><dl><dt><span class="term">
 <span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
 </span></dt><dd>
@@ -2932,9 +2937,13 @@ one sample name per line
 </p><pre class="literallayout">GT[@samples.txt]="het" &amp; binom(AD)&lt;0.01</pre></li><li class="listitem"><p class="simpara">
 function on FORMAT tags (over samples) and INFO tags (over vector fields):
   maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median;
-  standard deviation; sum; string length; absolute value; number of elements
-  (matching columns for FORMAT tags or number of fields for INFO tags).
-</p><pre class="literallayout">MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT</pre></li><li class="listitem"><p class="simpara">
+  standard deviation from mean; sum; string length; absolute value; number of
+  elements (matching columns for FORMAT tags or number of fields for INFO tags).
+</p><pre class="literallayout">MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT</pre><p class="simpara">Note that functions above evaluate to a single value across all samples and
+are intended to select sites, not samples, even when applied on FORMAT tags.
+However, when prefixed with SMPL_ (or "s" for brevity, e.g. SMPL_MAX or sMAX),
+they will evaluate to a vector of per-sample values when applied on FORMAT tags:</p><pre class="literallayout">SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
+sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM</pre></li><li class="listitem"><p class="simpara">
 two-tailed binomial test. Note that for N=0 the test evaluates to a missing value
   and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
   homozygous genotypes.
@@ -2971,7 +2980,7 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 -i 'TAG[0]=1'   .. true
 -i 'TAG[0]!=1'  .. false
 -e 'TAG[0]=1'   .. false
--e 'TAG[0]!=1'  .. true</pre></li></ul></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">MIN(DV)&gt;5</pre><pre class="literallayout">MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">MIN(DP)&gt;10 &amp; MIN(DV)&gt;3</pre><pre class="literallayout">FMT/DP&gt;10  &amp; FMT/GQ&gt;10 .. both conditions must be satisfied within one sample</pre><pre class="literallayout">FMT/DP&gt;10 &amp;&amp; FMT/GQ&gt;10 .. the conditions can be satisfied in different samples</pre><pre class="literallayout">QUAL&gt;10 |  FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, but selects only samples with GQ&gt;10</pre><pre class="literallayout">QUAL&gt;10 || FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, plus selects all samples at such sites</pre><pre class="literallayout">TYPE="snp" &amp;&amp; QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">COUNT(GT="hom")=0      .. no homozygous genotypes at the site</pre><pre class="literallayout">AVG(GQ)&gt;50             .. average (arithmetic mean) of genotype qualities bigger than 50</pre><pre class="literallayout">ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">ID!=@~/file    .. skip lines with ID present in the ~/file</pre><pre class="literallayout">MAF[0]&lt;0.05    .. select rare variants at 5% cutoff</pre><pre class="literallayout">POS&gt;=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
+-e 'TAG[0]!=1'  .. true</pre></li></ul></div><p><span class="strong"><strong>Examples:</strong></span></p><pre class="literallayout">MIN(DV)&gt;5       .. selects the whole site, evaluates min across all values and samples</pre><pre class="literallayout">SMPL_MIN(DV)&gt;5  .. selects matching samples, evaluates within samples</pre><pre class="literallayout">MIN(DV/DP)&gt;0.3</pre><pre class="literallayout">MIN(DP)&gt;10 &amp; MIN(DV)&gt;3</pre><pre class="literallayout">FMT/DP&gt;10  &amp; FMT/GQ&gt;10 .. both conditions must be satisfied within one sample</pre><pre class="literallayout">FMT/DP&gt;10 &amp;&amp; FMT/GQ&gt;10 .. the conditions can be satisfied in different samples</pre><pre class="literallayout">QUAL&gt;10 |  FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, but selects only samples with GQ&gt;10</pre><pre class="literallayout">QUAL&gt;10 || FMT/GQ&gt;10   .. true for sites with QUAL&gt;10 or a sample with GQ&gt;10, plus selects all samples at such sites</pre><pre class="literallayout">TYPE="snp" &amp;&amp; QUAL&gt;=10 &amp;&amp; (DP4[2]+DP4[3] &gt; 2)</pre><pre class="literallayout">COUNT(GT="hom")=0      .. no homozygous genotypes at the site</pre><pre class="literallayout">AVG(GQ)&gt;50             .. average (arithmetic mean) of genotype qualities bigger than 50</pre><pre class="literallayout">ID=@file       .. selects lines with ID present in the file</pre><pre class="literallayout">ID!=@~/file    .. skip lines with ID present in the ~/file</pre><pre class="literallayout">MAF[0]&lt;0.05    .. select rare variants at 5% cutoff</pre><pre class="literallayout">POS&gt;=100   .. restrict your range query, e.g. 20:100-200 to strictly sites with POS in that range.</pre><p><span class="strong"><strong>Shell expansion:</strong></span></p><p>Note that expressions must often be quoted because some characters
 have special meaning in the shell.
 An example of expression enclosed in single quotes which cause
 that the whole expression is passed to the program as intended:</p><pre class="literallayout">bcftools view -i '%ID!="." &amp; MAF[0]&lt;0.01'</pre><p>Please refer to the documentation of your shell for details.</p></div><div class="refsect1" title="SCRIPTS AND OPTIONS"><a id="_scripts_and_options"></a><h2>SCRIPTS AND OPTIONS</h2><div class="refsect2" title="plot-vcfstats [OPTIONS] file.vchk […]"><a id="plot-vcfstats"></a><h3>plot-vcfstats [<span class="emphasis"><em>OPTIONS</em></span>] <span class="emphasis"><em>file.vchk</em></span> […]</h3><p>Script for processing output of <span class="strong"><strong><a class="link" href="#stats" title="bcftools stats [OPTIONS] A.vcf.gz [B.vcf.gz]">bcftools stats</a></strong></span>. It can merge
