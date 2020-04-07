@@ -141,7 +141,7 @@ typedef struct
     maux_t *maux;
     regidx_t *regs;    // apply regions only after the blocks are expanded
     regitr_t *regs_itr;
-    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref;
+    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref, no_index;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     faidx_t *gvcf_fai;
     info_rule_t *rules;
@@ -2586,6 +2586,7 @@ static void usage(void)
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "        --no-index                     do not require index (no region restriction allowed)\n");
     fprintf(stderr, "        --threads <int>                use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
@@ -2615,6 +2616,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"use-header",required_argument,NULL,1},
         {"print-header",no_argument,NULL,2},
         {"force-samples",no_argument,NULL,3},
+        {"no-index",no_argument,NULL,4},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"threads",required_argument,NULL,9},
@@ -2670,6 +2672,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case  3 : args->force_samples = 1; break;
+            case  4 : args->no_index = 1; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 'h':
@@ -2680,7 +2683,12 @@ int main_vcfmerge(int argc, char *argv[])
     if ( argc==optind && !args->file_list ) usage();
     if ( argc-optind<2 && !args->file_list ) usage();
 
-    args->files->require_index = 1;
+    if ( args->no_index )
+    {
+        if ( args->regions_list ) usage();
+        args->files->require_index = BSF_SR_REQUIRE_INDEX_WARN;
+    }
+
     if ( args->regions_list )
     {
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
