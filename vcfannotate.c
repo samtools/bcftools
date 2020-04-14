@@ -150,7 +150,7 @@ typedef struct _args_t
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
-    char *merge_method_str;
+    kstring_t merge_method_str;
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
 }
 args_t;
@@ -2344,10 +2344,10 @@ static void init_merge_method(args_t *args)
         args->cols[i].mm_dbl_nalloc = args->cols[i].mm_dbl_nused = args->cols[i].mm_dbl_ndat = 0;
         memset(&args->cols[i].mm_kstr, 0, sizeof(args->cols[i].mm_kstr));
     }
-    if ( !args->merge_method_str ) return;
+    if ( !args->merge_method_str.l ) return;
     if ( args->tgts_is_vcf ) error("Error: the --merge-logic is intended for use with BED or TAB-delimited files only.\n");
     if ( !args->tgt_idx ) error("Error: BEG,END (or FROM,TO) columns are expected with the --merge-logic option.\n");
-    char *sb = args->merge_method_str;
+    char *sb = args->merge_method_str.s;
     while ( *sb )
     {
         char *se = sb;
@@ -2358,7 +2358,7 @@ static void init_merge_method(args_t *args)
         char *mm_type_str = args->tmpks.s + args->tmpks.l;
         while ( *mm_type_str!=':' && mm_type_str > args->tmpks.s ) mm_type_str--;
         if ( *mm_type_str!=':' )
-            error("Error: could not parse the argument to --merge-logic: %s\n", args->merge_method_str);
+            error("Error: could not parse the argument to --merge-logic: %s\n", args->merge_method_str.s);
         *mm_type_str = 0;
         mm_type_str++;
         int mm_type = MM_FIRST;
@@ -2368,7 +2368,7 @@ static void init_merge_method(args_t *args)
         else if ( !strcasecmp("avg",mm_type_str) ) mm_type = MM_AVG;
         else if ( !strcasecmp("min",mm_type_str) ) mm_type = MM_MIN;
         else if ( !strcasecmp("max",mm_type_str) ) mm_type = MM_MAX;
-        else error("Error: could not parse --merge-logic %s, the logic \"%s\" is not recognised\n", args->merge_method_str,mm_type_str);
+        else error("Error: could not parse --merge-logic %s, the logic \"%s\" is not recognised\n", args->merge_method_str.s,mm_type_str);
         for (i=0; i<args->ncols; i++)
         {
             if ( strcmp(args->cols[i].hdr_key_dst,args->tmpks.s) ) continue;
@@ -2431,8 +2431,8 @@ static void init_data(args_t *args)
         if ( !args->columns ) error("The -c option not given\n");
         if ( args->chr_idx==-1 ) error("The -c CHROM option not given\n");
         if ( args->beg_idx==-1 ) error("The -c POS option not given\n");
-        if ( args->single_overlaps && args->merge_method_str ) error("The options --merge-logic and --single-overlaps cannot be combined\n");
-        if ( args->end_idx==-1 || (args->single_overlaps && !args->merge_method_str) )
+        if ( args->single_overlaps && args->merge_method_str.l ) error("The options --merge-logic and --single-overlaps cannot be combined\n");
+        if ( args->end_idx==-1 || (args->single_overlaps && !args->merge_method_str.l) )
         {
             args->end_idx = -args->beg_idx - 1;
             args->tgts = bcf_sr_regions_init(args->targets_fname,1,args->chr_idx,args->beg_idx,args->end_idx);
@@ -2534,6 +2534,7 @@ static void destroy_data(args_t *args)
         filter_destroy(args->filter);
     if (args->out_fh) hts_close(args->out_fh);
     free(args->sample_map);
+    free(args->merge_method_str.s);
 }
 
 static void parse_annot_line(args_t *args, char *str, annot_line_t *tmp)
@@ -2802,7 +2803,10 @@ int main_vcfannotate(int argc, char *argv[])
                 else if ( optarg[0]=='-' ) { args->mark_sites = optarg+1; args->mark_sites_logic = MARK_UNLISTED; }
                 else args->mark_sites = optarg; 
                 break;
-            case 'l': args->merge_method_str = optarg; break;
+            case 'l': 
+                if ( args->merge_method_str.l ) kputc(',',&args->merge_method_str);
+                kputs(optarg,&args->merge_method_str);
+                break;
             case 'I': args->set_ids_fmt = optarg; break;
             case 's': args->sample_names = optarg; break;
             case 'S': args->sample_names = optarg; args->sample_is_file = 1; break;

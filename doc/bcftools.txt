@@ -380,6 +380,7 @@ Add or remove annotations.
     Note that this option is intended for use with BED or TAB-delimited annotation files only. Moreover,
     it is effective only if 'BEG' and 'END' *--columns* are present.
     +
+    Multiple rules can be given either as a comma-separated list or giving the option multiple times.
     This is an experimental feature.
 
 *-m, --mark-sites* [+-]'TAG'::
