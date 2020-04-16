@@ -119,21 +119,27 @@ static const char *default_severity(void)
         "# Default consequence substrings ordered in ascending order by severity.\n"
         "# Consequences with the same severity can be put on the same line in arbitrary order.\n"
         "intergenic\n"
+	     "feature_truncation feature_elongation\n"
+	     "regulatory\n"
+	     "TF_binding_site TFBS\n"
         "downstream upstream\n"
-        "intron\n"
-        "non_coding\n"
-        "regulatory\n"
+        "non_coding_transcript\n"
+        "intron NMD_transcript\n"
+        "non_coding_transcript_exon\n"
         "5_prime_utr 3_prime_utr\n"
+	     "coding_sequence mature_miRNA\n"
         "stop_retained start_retained synonymous\n"
+	     "incomplete_terminal_codon\n"
         "splice_region\n"
-        "coding_sequence\n"
-        "missense\n"
-        "inframe\n"
+        "missense protein_altering\n"
+        "inframe transcript_amplification\n"
         "exon_loss\n"
         "disruptive\n"
-        "splice_acceptor splice_donor\n"
-        "start_lost stop_lost stop_gained frameshift\n";
+        "start_lost stop_lost stop_gained frameshift\n"
+	     "splice_acceptor splice_donor\n"
+	     "transcript_ablation\n";
 }
+
 static const char *usage_text(void)
 {
     return 
