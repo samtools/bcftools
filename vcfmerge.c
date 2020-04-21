@@ -1334,7 +1334,7 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     int i, ismpl = 0, nsamples = bcf_hdr_nsamples(out_hdr);
     static int warned = 0;
 
-    int nsize = 0, msize = sizeof(int32_t);
+    int nsize = 0;
     for (i=0; i<files->nreaders; i++)
     {
         bcf_fmt_t *fmt = fmt_map[i];
@@ -1344,17 +1344,18 @@ void merge_GT(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     }
     if ( nsize==0 ) nsize = 1;
 
-    if ( ma->ntmp_arr < nsamples*nsize*msize )
+    size_t msize = sizeof(int32_t)*nsize*nsamples;
+    if ( msize > 2147483647 )
     {
-        ma->ntmp_arr = nsamples*nsize*msize;
-        ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
-        if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",ma->ntmp_arr);
-        if ( ma->ntmp_arr > 2147483647 )
-        {
-            if ( !warned ) fprintf(stderr,"Warning: Too many genotypes at %s:%"PRId64", requires %zu bytes, skipping.\n", bcf_seqname(out_hdr,out),(int64_t) out->pos+1,ma->ntmp_arr);
-            warned = 1;
-            return;
-        }
+        if ( !warned ) fprintf(stderr,"Warning: Too many genotypes at %s:%"PRId64", requires %zu bytes, skipping.\n", bcf_seqname(out_hdr,out),(int64_t) out->pos+1,msize);
+        warned = 1;
+        return;
+    }
+    if ( ma->ntmp_arr < msize )
+    {
+        ma->tmp_arr  = realloc(ma->tmp_arr, msize);
+        if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",msize);
+        ma->ntmp_arr = msize;
     }
     memset(ma->smpl_ploidy,0,nsamples*sizeof(int));
 
@@ -1521,17 +1522,18 @@ void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf
               "If you don't really need it, use `bcftools annotate -x` to remove the annotation before merging.\n", __func__,key);
     }
     // update the record
-    if ( ma->ntmp_arr < nsamples*nmax )
+    size_t msize = nsamples*nmax;
+    if ( msize > 2147483647 )
     {
-        ma->ntmp_arr = nsamples*nmax;
-        ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
-        if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",ma->ntmp_arr);
-        if ( ma->ntmp_arr > 2147483647 )
-        {
-            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%"PRId64", requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),(int64_t) out->pos+1,ma->ntmp_arr);
-            warned = 1;
-            return;
-        }
+        if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%"PRId64", requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),(int64_t) out->pos+1,msize);
+        warned = 1;
+        return;
+    }
+    if ( ma->ntmp_arr < msize )
+    {
+        ma->tmp_arr  = realloc(ma->tmp_arr, msize);
+        if ( !ma->tmp_arr ) error("Could not allocate %zu bytes\n",msize);
+        ma->ntmp_arr = msize;
     }
     char *tgt = (char*) ma->tmp_arr;
     for (i=0; i<nsamples; i++)
@@ -1587,17 +1589,18 @@ void merge_format_field(args_t *args, bcf_fmt_t **fmt_map, bcf1_t *out)
     }
 
     size_t msize = sizeof(float)>sizeof(int32_t) ? sizeof(float) : sizeof(int32_t);
-    if ( ma->ntmp_arr < nsamples*nsize*msize )
+    msize *= nsamples*nsize;
+    if ( msize > 2147483647 )
     {
-        ma->ntmp_arr = nsamples*nsize*msize;
-        ma->tmp_arr  = realloc(ma->tmp_arr, ma->ntmp_arr);
-        if ( !ma->tmp_arr ) error("Failed to allocate %zu bytes at %s:%"PRId64" for FORMAT/%s\n", ma->ntmp_arr,bcf_seqname(args->out_hdr,out),(int64_t) out->pos+1,key);
-        if ( ma->ntmp_arr > 2147483647 )
-        {
-            if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%"PRId64", requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),(int64_t) out->pos+1,ma->ntmp_arr);
-            warned = 1;
-            return;
-        }
+        if ( !warned ) fprintf(stderr,"Warning: The row size is too big for FORMAT/%s at %s:%"PRId64", requires %zu bytes, skipping.\n", key,bcf_seqname(out_hdr,out),(int64_t) out->pos+1,msize);
+        warned = 1;
+        return;
+    }
+    if ( ma->ntmp_arr < msize )
+    {
+        ma->tmp_arr  = realloc(ma->tmp_arr, msize);
+        if ( !ma->tmp_arr ) error("Failed to allocate %zu bytes at %s:%"PRId64" for FORMAT/%s\n", msize,bcf_seqname(args->out_hdr,out),(int64_t) out->pos+1,key);
+        ma->ntmp_arr = msize;
     }
 
     // Fill the temp array for all samples by collecting values from all files

@@ -84,6 +84,7 @@ test_vcf_merge($opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.
 test_vcf_merge($opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
 test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.5.out',args=>'-g {PATH}/merge.gvcf.10.fa');
 test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
+# test_vcf_merge_big($opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_query($opts,in=>'query.variantkey',out=>'query.variantkey.hex.out',args=>q[-f '%RSX\\t%VKX\\n']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i'XRI[*]>1111']);
@@ -1520,3 +1521,69 @@ sub test_gtcheck
     bgzip_tabix_vcf($opts,$args{gts});
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools gtcheck $args{args} $$opts{tmp}/$args{in}.vcf.gz -g $$opts{tmp}/$args{gts}.vcf.gz | grep -v ^#");
 }
+sub test_vcf_merge_big
+{
+    my ($opts,%args) = @_;
+    cmd("mkdir -p $$opts{tmp}/$args{in}");
+
+    my $ref = 'A';
+    my @alts = ();
+    for (my $i=0; $i<$args{nalts}; $i++)
+    {
+        push @alts,'A'.('T' x ($i+1));
+    }
+
+    my $nsmpl = int($args{nsmpl}/($args{nfiles}-1));
+    my $nalts = int($args{nalts}/($args{nfiles}-1));
+
+    my $seed = srand(0);
+
+    open(my $fh,'>',"$$opts{tmp}/$args{in}/list.txt") or error("$$opts{tmp}/$args{in}/list.txt: $!");
+    my @files;
+    for (my $i=0; $i<$args{nfiles}; $i++)
+    {
+        my @hdr = qw(CHROM POS ID REF ALT QUAL FILTER INFO FORMAT);
+        for (my $j=0; $j<$nsmpl; $j++) { push @hdr,'S'.($i*$nsmpl+$j); }
+        my @alt = ();
+        for (my $j=0; $j<$nalts; $j++)
+        {
+            my $k = int(rand(@alts));
+            push @alt,$alts[$k];
+        }
+        my @out = (qw(1 3000 .),$ref,join(',',@alt),qw(. . . GT:PL));
+        for (my $j=0; $j<$nsmpl; $j++)
+        {
+            my $igt = int(rand($nalts+1));
+            my $jgt = int(rand($nalts+1));
+            my @pl  = ();
+            for (my $a=0; $a<1+@alt; $a++)
+            {
+                for (my $b=0; $b<=$a; $b++) { push @pl,int(rand(2147483000)); }
+            }
+            my $fmt = "$igt/$jgt:".join(',',@pl);
+            push @out,$fmt;
+        }
+
+        my $file = "$$opts{tmp}/$args{in}/$i.vcf.gz";
+        my $cmd = qq[$$opts{bin}/bcftools view -Oz -o $file];
+        open(my $vcf,"| $cmd") or error("$cmd: $!");
+        print $vcf qq[##fileformat=VCFv4.3\n];
+        print $vcf qq[##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n];
+        print $vcf qq[##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Genotype Likelihood">\n];
+        print $vcf qq[##contig=<ID=1,assembly=b37,length=249250621>\n];
+        print $vcf qq[##reference=file:///ref.fa\n];
+        print $vcf '#'.join("\t",@hdr)."\n";
+        print $vcf join("\t",@out)."\n";
+        close($vcf) or error("close failed: $cmd");
+        cmd(qq[$$opts{bin}/bcftools index $file]);
+
+        print $fh $file."\n";
+    }
+    close($fh) or error("close failed: $$opts{tmp}/$args{in}/list.txt");
+
+    my $args  = exists($args{args}) ? $args{args} : '';
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge --no-version $args -l $$opts{tmp}/$args{in}/list.txt");
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools merge --no-version $args -l $$opts{tmp}/$args{in}/list.txt -Ou | $$opts{bin}/bcftools view --no-version");
+}
+
+
