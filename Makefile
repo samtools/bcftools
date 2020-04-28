@@ -176,7 +176,12 @@ PLUGIN_LIBS = $(W32_PLUGIN_LIBS)
 DL_LIBS =
 else
 PLUGIN_FLAGS = -fPIC -shared
+ifeq "$(PLATFORM)" "default"
+# Configure was used and has already added -ldl to $(LIBS) if necessary
+DL_LIBS =
+else
 DL_LIBS = -ldl
+endif
 endif
 
 libbcftools.a: $(OBJS)
@@ -207,7 +212,7 @@ test check: test-no-plugins
 endif  # PLUGINS_ENABLED
 
 bcftools: $(OBJS) $(HTSLIB)
-	$(CC) $(DYNAMIC_FLAGS) -pthread $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS) $(PERL_LIBS)
+	$(CC) $(DYNAMIC_FLAGS) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS) $(PERL_LIBS) -lpthread
 
 plugins: $(PLUGINS)
 
