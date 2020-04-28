@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019 Genome Research Ltd.
+   Copyright (c) 2019-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -118,21 +118,27 @@ static const char *default_severity(void)
     return
         "# Default consequence substrings ordered in ascending order by severity.\n"
         "# Consequences with the same severity can be put on the same line in arbitrary order.\n"
+        "# See also https://m.ensembl.org/info/genome/variation/prediction/predicted_data.htm\n"
         "intergenic\n"
-        "downstream upstream\n"
-        "intron\n"
-        "non_coding\n"
+        "feature_truncation feature_elongation\n"
         "regulatory\n"
+        "TF_binding_site TFBS\n"
+        "downstream upstream\n"
+        "non_coding_transcript\n"
+        "intron NMD_transcript\n"
+        "non_coding_transcript_exon\n"
         "5_prime_utr 3_prime_utr\n"
+        "coding_sequence mature_miRNA\n"
         "stop_retained start_retained synonymous\n"
+        "incomplete_terminal_codon\n"
         "splice_region\n"
-        "coding_sequence\n"
-        "missense\n"
-        "inframe\n"
+        "missense inframe protein_altering\n"
+        "transcript_amplification\n"
         "exon_loss\n"
         "disruptive\n"
+        "start_lost stop_lost stop_gained frameshift\n"
         "splice_acceptor splice_donor\n"
-        "start_lost stop_lost stop_gained frameshift\n";
+        "transcript_ablation\n";
 }
 static const char *usage_text(void)
 {
