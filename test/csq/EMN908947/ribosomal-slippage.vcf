@@ -1,0 +1,5 @@
+##fileformat=VCFv4.2
+##contig=<ID=MN908947.3,length=29903>
+##INFO=<ID=EXP,Number=1,Type=String,Description="Expected consequence">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+MN908947.3	13468	.	C	G	.	.	EXP=splice_region|ORF1ab|ORF1ab|protein_coding,missense|ORF1ab|ORF1ab|protein_coding|+|2N>2K|13468C>G,missense|ORF1ab|ORF1ab|protein_coding|+|3R>3G|13468C>G

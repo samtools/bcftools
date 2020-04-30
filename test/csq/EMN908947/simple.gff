@@ -1,0 +1,5 @@
+##gff-version 3
+##sequence-region NC_045512.2 1 29903
+MN908947.3	feature	mRNA	266	21555	.	+	.	ID=transcript:ORF1ab;Parent=gene:ORF1ab;biotype=protein_coding
+MN908947.3	feature	gene	266	21555	.	+	.	ID=gene:ORF1ab;Name=ORF1ab;biotype=protein_coding;gene=ORF1ab
+MN908947.3	feature	CDS	266	13471	.	+	0	ID=CDS:YP_009724389.1;Parent=transcript:ORF1ab;biotype=protein_coding;codon_start=1
