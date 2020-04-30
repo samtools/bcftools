@@ -85,6 +85,9 @@ test_vcf_merge($opts,in=>['merge.gvcf.10.a','merge.gvcf.10.b'],out=>'merge.gvcf.
 test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.5.out',args=>'-g {PATH}/merge.gvcf.10.fa');
 test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
 # test_vcf_merge_big($opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
+test_vcf_query($opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
+test_vcf_query($opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);
+test_vcf_query($opts,in=>'query.string',out=>'query.string.2.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" && CLNREVSTAT="_conflicting_interpretations"']);
 test_vcf_query($opts,in=>'query',out=>'query.out',args=>q[-f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%DP4\\t%AN[\\t%GT\\t%TGT]\\n']);
 test_vcf_query($opts,in=>'query.variantkey',out=>'query.variantkey.hex.out',args=>q[-f '%RSX\\t%VKX\\n']);
 test_vcf_query($opts,in=>'view.filter',out=>'query.2.out',args=>q[-f'%XRI\\n' -i'XRI[*]>1111']);

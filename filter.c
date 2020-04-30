@@ -3054,6 +3054,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
     // Additionally, treat "." as missing value rather than a string in numeric equalities; that
     // @file is only used with ID; etc.
     // This code is fragile: improve me.
+    static int comma_separator_warned = 0;
     int i;
     for (i=0; i<nout; i++)
     {
@@ -3103,6 +3104,19 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             }
             if ( regcomp(out[j].regex, out[j].key, cflags) )
                 error("Could not compile the regex expression \"%s\": %s\n", out[j].key,filter->str);
+        }
+        if ( out[i].is_str && out[i].tok_type==TOK_VAL && out[i].key && strchr(out[i].key,',') )
+        {
+            int print_note = 0;
+            if ( out[i+1].tok_type==TOK_EQ || (out[i+1].is_str && out[i+2].tok_type==TOK_EQ) ) print_note = 1;
+            else if ( out[i+1].tok_type==TOK_NE || (out[i+1].is_str && out[i+2].tok_type==TOK_NE) ) print_note = 1;
+            if ( print_note && !comma_separator_warned )
+            {
+                comma_separator_warned = 1;
+                fprintf(stderr,
+                    "Warning: comma is interpreted as a separator and OR logic is used in string comparisons.\n"
+                    "         (Search the manual for \"Comma in strings\" to learn more.)\n");
+            }
         }
         if ( out[i].tok_type!=TOK_VAL ) continue;
         if ( !out[i].tag ) continue;

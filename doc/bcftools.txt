@@ -3010,6 +3010,13 @@ and misc/demo-flt.pl for a working example. The demo defined the perl subroutine
 .Notes:
 
 * String comparisons and regular expressions are case-insensitive
+* Comma in strings is interpreted as a separator and when multiple values are compared, the OR logic is used.
+  Consequently, the following two expressions are equivalent but not the third:
+
+    -i 'TAG="hello,world"'
+    -i 'TAG="hello" || TAG="world"'
+    -i 'TAG="hello" && TAG="world"'
+
 * Variables and function names are case-insensitive, but not tag names. For example,
 "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
 not "dp" instead of "DP".
