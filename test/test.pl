@@ -57,6 +57,12 @@ test_vcf_isec($opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1.3'],out=>'
 test_vcf_isec($opts,in=>['isec-miss.1.1','isec-miss.1.2','isec-miss.1.3'],out=>'isec-miss.1.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
 test_vcf_isec($opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-n +1 -r 20:100,20:140,12:55,20:140,20:100');
 test_vcf_isec($opts,in=>['isec-miss.2.1','isec-miss.2.2','isec-miss.2.3'],out=>'isec-miss.2.1.out',args=>'-R {PATH}/isec-miss.1.regs.txt -n +1');
+test_vcf_merge($opts,in=>['merge.LPL.a','merge.LPL.b','merge.LPL.c'],out=>'merge.LPL.1.out',args=>'--force-samples');
+test_vcf_merge($opts,in=>['merge.LPL.a','merge.LPL.b','merge.LPL.c'],out=>'merge.LPL.2.out',args=>'--force-samples -L 1');
+test_vcf_merge($opts,in=>['merge.LPL.a','merge.LPL.b','merge.LPL.c'],out=>'merge.LPL.3.out',args=>'--force-samples -L 2');
+test_vcf_merge($opts,in=>['merge.LPL.a','merge.LPL.b','merge.LPL.c'],out=>'merge.LPL.4.out',args=>'--force-samples -L 3');
+test_vcf_merge($opts,in=>['merge.LPL.a','merge.LPL.b','merge.LPL.c'],out=>'merge.LPL.5.out',args=>'--force-samples -L 4');
+test_vcf_merge($opts,in=>['merge.LPL.a','merge.LPL.b','merge.LPL.c'],out=>'merge.LPL.6.out',args=>'--force-samples -L 5');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.out',args=>'--force-samples');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.2.out',args=>'--force-samples -Fx');
 test_vcf_merge($opts,in=>['merge.a','merge.b','merge.c'],out=>'merge.abc.3.out',args=>'--force-samples -0');
