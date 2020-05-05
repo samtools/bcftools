@@ -976,7 +976,7 @@ static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, in
             if ( str[0]!='.' || (str[1]!=',' && str[1]!=0) ) continue;  // value already set
         }
         int ret = copy_string_field(args->tmps,map[i],lsrc,&args->tmpks,i);
-        assert( ret==0 );
+        if ( ret!=0 ) error("[%s:%d %s] Failed to copy a string field\n",  __FILE__,__LINE__,__func__);
     }
     bcf_update_info_string(args->hdr_out,line,col->hdr_key_dst,args->tmpks.s);
     return 0;
@@ -2060,7 +2060,7 @@ static void init_columns(args_t *args)
                     bcf_hrec_t *hrec = tgts_hdr->hrec[j];
                     if ( hrec->type!=BCF_HL_FLT ) continue;
                     int k = bcf_hrec_find_key(hrec,"ID");
-                    assert( k>=0 ); // this should always be true for valid VCFs
+                    if ( k<0 ) error("[%s] Failed to parse the header, the ID attribute not found", __func__);
                     tmp.l = 0;
                     bcf_hrec_format(hrec, &tmp);
                     bcf_hdr_append(args->hdr_out, tmp.s);
