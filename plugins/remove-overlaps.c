@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017-2019 Genome Research Ltd.
+    Copyright (C) 2017-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -144,7 +144,7 @@ static void process(args_t *args)
         else if ( ret ) return;
     }
     bcf_sr_t *sr = bcf_sr_get_reader(args->sr, 0);
-    sr->buffer[0] = vcfbuf_push(args->vcfbuf, rec, 1);
+    sr->buffer[0] = vcfbuf_push(args->vcfbuf, rec);
     flush(args,0);
 }
 

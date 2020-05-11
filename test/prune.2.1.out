@@ -1,0 +1,15 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://some/path/human_g1k_v37.fasta
+##contig=<ID=1,length=2147483647>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=R2,Number=1,Type=Float,Description="Pairwise r2 with the POS_R2 site">
+##INFO=<ID=POS_R2,Number=1,Type=Integer,Description="The position of the site for which R2 was calculated">
+##INFO=<ID=LD,Number=1,Type=Float,Description="Pairwise Lewontin's D' (PMID:19433632) with the POS_LD site">
+##INFO=<ID=POS_LD,Number=1,Type=Integer,Description="The position of the site for which LD was calculated">
+##INFO=<ID=HD,Number=1,Type=Float,Description="Pairwise Ragsdale's \hat{D} (PMID:31697386) with the POS_HD site">
+##INFO=<ID=POS_HD,Number=1,Type=Integer,Description="The position of the site for which HD was calculated">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	s1	s2	s3	s4	s5	s6	s7	s8	s9	s10	s11	s12	s13	s14	s15	s16	s17	s18	s19	s20
+1	101	.	T	A	.	.	.	GT	0/1	./.	0/0	./.	0/1	./.	0/0	0/1	0/0	0/0	0/1	1/1	0/0	0/1	0/1	0/0	./.	0/1	0/1	./.
+1	102	.	T	A	.	.	POS_R2=101;POS_LD=101;POS_HD=101;R2=0.363372;LD=0.487431;HD=0.0520833	GT	0/1	0/1	0/0	0/1	0/0	0/1	0/1	0/1	0/1	0/0	0/1	1/1	0/1	1/1	0/1	0/0	0/1	0/1	0/1	1/1
+1	103	.	T	A	.	.	POS_R2=102;POS_LD=102;POS_HD=102;R2=0.0990065;LD=0.24274;HD=0.0202381	GT	0/1	0/1	0/0	0/1	0/0	0/1	0/1	0/1	0/1	0/0	0/1	0/0	0/1	0/1	0/1	0/0	0/1	0/1	0/1	0/0

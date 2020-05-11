@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017 Genome Research Ltd.
+    Copyright (C) 2017-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -39,6 +39,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <assert.h>
 #include "bcftools.h"
 #include "vcfbuf.h"
 #include "filter.h"
@@ -46,18 +47,25 @@
 #define FLT_INCLUDE 1
 #define FLT_EXCLUDE 2
 
+#define LD_ANNOTATE 1
+#define LD_SET_MAX  2
+
 typedef struct
 {
     filter_t *filter;
     char *filter_str, *af_tag;
     int filter_logic;   // one of FLT_INCLUDE/FLT_EXCLUDE (-i or -e)
     vcfbuf_t *vcfbuf;
-    int argc, region_is_file, target_is_file, output_type, filter_r2_id, rand_missing, nsites, ld_win;
-    char **argv, *region, *target, *fname, *output_fname, *info_pos, *info_r2, *filter_r2;
+    double ld_max[VCFBUF_LD_N];
+    int ld_max_set[VCFBUF_LD_N];
+    char *ld_annot[VCFBUF_LD_N], *ld_annot_pos[VCFBUF_LD_N];
+    int ld_mask;
+    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win;
+    int keep_sites;
+    char **argv, *region, *target, *fname, *output_fname, *ld_filter;
     htsFile *out_fh;
     bcf_hdr_t *hdr;
     bcf_srs_t *sr;
-    double max_ld;
 }
 args_t;
 
@@ -75,11 +83,12 @@ static const char *usage_text(void)
         "Usage: bcftools +prune [Options]\n"
         "Plugin options:\n"
         "       --AF-tag STR                use this tag with -n to determine allele frequency\n"
-        "   -a, --annotate-info STR         add INFO/STR_POS and STR_R2 annotation: an upstream site with the biggest r2 value\n"
+        "   -a, --annotate r2,LD            add position of an upstream record with the biggest r2/LD value\n"
         "   -e, --exclude EXPR              exclude sites for which the expression is true\n"
-        "   -f, --set-filter STR            annotate FILTER column with STR instead of discarding the site\n"
+        "   -f, --set-filter STR            apply soft filter STR instead of discarding the site (only with -m)\n"
         "   -i, --include EXPR              include only sites for which the expression is true\n"
-        "   -l, --max-LD R2                 remove sites with r2 bigger than R2 within within the -w window\n"
+        "   -k, --keep-sites                leave sites filtered by -i/-e unchanged instead of discarding them\n"
+        "   -m, --max [r2|LD=]FLOAT         remove sites with r2 or Lewontin's D bigger than FLOAT within the -w window\n"
         "   -n, --nsites-per-win N          keep at most N sites in the -w window, removing sites with small AF first\n"
         "   -o, --output FILE               write output to the FILE [standard output]\n"
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
@@ -88,19 +97,22 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
-        "   -w, --window INT[bp|kb]         the window size of INT sites/bp/kb for the -n/-l options [100kb]\n"
+        "   -w, --window INT[bp|kb|Mb]      the window size of INT sites or INT bp/kb/Mb for the -n/-l options [100kb]\n"
         "Examples:\n"
         "   # Discard records with r2 bigger than 0.6 in a window of 1000 sites\n"
-        "   bcftools +prune -l 0.6 -w 1000 input.bcf -Ob -o output.bcf\n"
+        "   bcftools +prune -m 0.6 -w 1000 input.bcf -Ob -o output.bcf\n"
         "\n"
         "   # Set FILTER (but do not discard) records with r2 bigger than 0.4 in the default window of 100kb\n"
-        "   bcftools +prune -l 0.4 -f MAX_R2 input.bcf -Ob -o output.bcf\n"
+        "   bcftools +prune -m 0.4 -f MAX_R2 input.bcf -Ob -o output.bcf\n"
+        "\n"
+        "   # Filter nothing, only annotate each site with r2 and LD to the previous site\n"
+        "   bcftools +prune -w 1 -a r2,LD -f . input.bcf -Ob -o output.bcf\n"
         "\n"
         "   # Annotate INFO field of all records with maximum r2 in a window of 1000 sites\n"
-        "   bcftools +prune -l 0.6 -w 1000 -f MAX_R2 input.bcf -Ob -o output.bcf\n"
+        "   bcftools +prune -m 0.6 -w 1000 -f MAX_R2 input.bcf -Ob -o output.bcf\n"
         "\n"
         "   # Discard records with r2 bigger than 0.6, first removing records with more than 2% of genotypes missing\n"
-        "   bcftools +prune -l 0.6 -e'F_MISSING>=0.02' input.bcf -Ob -o output.bcf\n"
+        "   bcftools +prune -m 0.6 -e'F_MISSING>=0.02' input.bcf -Ob -o output.bcf\n"
         "\n";
 }
 
@@ -118,27 +130,63 @@ static void init_data(args_t *args)
 
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
-    if ( args->filter_r2 )
+
+    if ( args->ld_filter && strcmp(".",args->ld_filter) )
     {
-        bcf_hdr_printf(args->hdr,"##FILTER=<ID=%s,Description=\"A site with r2>%e upstream within %d%s\">",args->filter_r2,args->max_ld,
+        kstring_t str = {0,0,0};
+        if ( args->ld_max_set[VCFBUF_LD_IDX_R2] )
+        {
+            kputs("R2 bigger than ",&str);
+            kputd(args->ld_max[VCFBUF_LD_IDX_R2],&str);
+        }
+        if ( args->ld_max_set[VCFBUF_LD_IDX_LD] )
+        {
+            if ( str.l ) kputs(" or ",&str);
+            kputs("LD bigger than ",&str);
+            kputd(args->ld_max[VCFBUF_LD_IDX_LD],&str);
+        }
+        if ( args->ld_max_set[VCFBUF_LD_IDX_HD] )
+        {
+            if ( str.l ) kputs(" or ",&str);
+            kputs("HD bigger than ",&str);
+            kputd(args->ld_max[VCFBUF_LD_IDX_HD],&str);
+        }
+        bcf_hdr_printf(args->hdr,"##FILTER=<ID=%s,Description=\"An upstream site within %d%s with %s\">",args->ld_filter,
                 args->ld_win < 0 ? -args->ld_win/1000 : args->ld_win,
-                args->ld_win < 0 ? "kb" : " sites");
+                args->ld_win < 0 ? "kb" : " sites",
+                str.s);
+        free(str.s);
     }
-    if ( args->info_r2 )
+    if ( args->ld_mask & LD_ANNOTATE )
     {
-        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"A site with r2>%e upstream\">",args->info_pos,args->max_ld);
-        bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"A site with r2>%e upstream\">",args->info_r2,args->max_ld);
+        if ( args->ld_annot[VCFBUF_LD_IDX_R2] )
+        {
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"Pairwise r2 with the %s site\">",args->ld_annot[VCFBUF_LD_IDX_R2],args->ld_annot_pos[VCFBUF_LD_IDX_R2]);
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The position of the site for which %s was calculated\">",args->ld_annot_pos[VCFBUF_LD_IDX_R2],args->ld_annot[VCFBUF_LD_IDX_R2]);
+        }
+        if ( args->ld_annot[VCFBUF_LD_IDX_LD] )
+        {
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"Pairwise Lewontin's D' (PMID:19433632) with the %s site\">",args->ld_annot[VCFBUF_LD_IDX_LD],args->ld_annot_pos[VCFBUF_LD_IDX_LD]);
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The position of the site for which %s was calculated\">",args->ld_annot_pos[VCFBUF_LD_IDX_LD],args->ld_annot[VCFBUF_LD_IDX_LD]);
+        }
+        if ( args->ld_annot[VCFBUF_LD_IDX_HD] )
+        {
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Float,Description=\"Pairwise Ragsdale's \\hat{D} (PMID:31697386) with the %s site\">",args->ld_annot[VCFBUF_LD_IDX_HD],args->ld_annot_pos[VCFBUF_LD_IDX_HD]);
+            bcf_hdr_printf(args->hdr,"##INFO=<ID=%s,Number=1,Type=Integer,Description=\"The position of the site for which %s was calculated\">",args->ld_annot_pos[VCFBUF_LD_IDX_HD],args->ld_annot[VCFBUF_LD_IDX_HD]);
+        }
     }
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    if ( args->filter_r2 )
-        args->filter_r2_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->filter_r2);
+    args->ld_filter_id = -1;
+    if ( args->ld_filter && strcmp(".",args->ld_filter) )
+        args->ld_filter_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->ld_filter);
 
     args->vcfbuf = vcfbuf_init(args->hdr, args->ld_win);
-    vcfbuf_set_opt(args->vcfbuf,double,VCFBUF_LD_MAX,args->max_ld);
+    if ( args->ld_max_set[VCFBUF_LD_IDX_R2] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_R2,args->ld_max[VCFBUF_LD_IDX_R2]);
+    if ( args->ld_max_set[VCFBUF_LD_IDX_LD] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_LD,args->ld_max[VCFBUF_LD_IDX_LD]);
+    if ( args->ld_max_set[VCFBUF_LD_IDX_HD] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_HD,args->ld_max[VCFBUF_LD_IDX_HD]);
+    if ( args->rand_missing ) vcfbuf_set_opt(args->vcfbuf,int,LD_RAND_MISSING,1);
     if ( args->nsites ) vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_NSITES,args->nsites);
     if ( args->af_tag ) vcfbuf_set_opt(args->vcfbuf,char*,VCFBUF_AF_TAG,args->af_tag);
-    if ( args->rand_missing ) vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_RAND_MISSING,1);
-    vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_SKIP_FILTER,args->filter_r2 ? 1 : 0);
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
@@ -150,8 +198,6 @@ static void destroy_data(args_t *args)
     if ( hts_close(args->out_fh)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,args->output_fname);
     vcfbuf_destroy(args->vcfbuf);
     bcf_sr_destroy(args->sr);
-    free(args->info_pos);
-    free(args->info_r2);
     free(args);
 }
 static void flush(args_t *args, int flush_all)
@@ -162,32 +208,54 @@ static void flush(args_t *args, int flush_all)
 }
 static void process(args_t *args)
 {
+    int i, filter = 0;
     bcf1_t *rec = bcf_sr_get_line(args->sr,0);
     if ( args->filter )
     {
         int ret  = filter_test(args->filter, rec, NULL);
-        if ( args->filter_logic==FLT_INCLUDE ) { if ( !ret ) return; }
-        else if ( ret ) return;
+        if ( args->filter_logic==FLT_INCLUDE ) { if ( !ret ) filter = 1; }
+        else if ( ret ) filter = 1;
+        if ( filter && !args->keep_sites ) return;
     }
     bcf_sr_t *sr = bcf_sr_get_reader(args->sr, 0);
-    if ( args->max_ld )
+    if ( args->ld_mask )
     {
-        double ld_val;
-        bcf1_t *ld_rec = vcfbuf_max_ld(args->vcfbuf, rec, &ld_val);
-        if ( ld_rec && ld_val > args->max_ld )
+        vcfbuf_ld_t ld;
+        if ( vcfbuf_ld(args->vcfbuf, rec, &ld) == 0 )
         {
-            if ( !args->filter_r2 ) return;
-            bcf_add_filter(args->hdr, rec, args->filter_r2_id);
-        }
-        if ( ld_rec && args->info_r2 )
-        {
-            float tmp = ld_val;
-            int32_t tmp_pos = ld_rec->pos + 1;
-            bcf_update_info_float(args->hdr, rec, args->info_r2, &tmp, 1);
-            bcf_update_info_int32(args->hdr, rec, args->info_pos, &tmp_pos, 1);
+            int pass = 1;
+            for (i=0; i<VCFBUF_LD_N; i++)
+            {
+                if ( !args->ld_max_set[i] || ld.val[i] <= args->ld_max[i] ) continue;
+                pass = 0;
+                break;
+            }
+            if ( !pass )
+            {
+                if ( !args->ld_filter ) return;     // hard filter
+                if ( args->ld_filter_id >= 0 )      // soft FILTER
+                    bcf_add_filter(args->hdr, rec, args->ld_filter_id);
+            }
+            for (i=0; i<VCFBUF_LD_N; i++)
+            {
+                if ( args->ld_annot[i] )
+                {
+                    int32_t pos = ld.rec[i]->pos+1;
+                    bcf_update_info_int32(args->hdr, rec, args->ld_annot_pos[i], &pos, 1);
+                }
+            }
+            for (i=0; i<VCFBUF_LD_N; i++)
+            {
+                if ( args->ld_annot[i] )
+                {
+                    float val   = ld.val[i];
+                    bcf_update_info_float(args->hdr, rec, args->ld_annot[i], &val, 1);
+                }
+            }
         }
     }
-    sr->buffer[0] = vcfbuf_push(args->vcfbuf, rec, 1);
+    if ( filter ) vcfbuf_set_opt(args->vcfbuf,int,LD_FILTER1,1);
+    sr->buffer[0] = vcfbuf_push(args->vcfbuf, rec);
     flush(args,0);
 }
 
@@ -200,13 +268,14 @@ int run(int argc, char **argv)
     args->ld_win = -100e3;
     static struct option loptions[] =
     {
+        {"keep-sites",no_argument,NULL,'k'},
         {"randomize-missing",no_argument,NULL,1},
         {"AF-tag",required_argument,NULL,2},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
-        {"annotate-info",required_argument,NULL,'a'},
+        {"annotate",required_argument,NULL,'a'},
         {"set-filter",required_argument,NULL,'f'},
-        {"max-LD",required_argument,NULL,'l'},
+        {"max",required_argument,NULL,'m'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
         {"output",required_argument,NULL,'o'},
@@ -217,31 +286,72 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:l:o:O:a:f:i:e:n:w:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:T:m:o:O:a:f:i:e:n:w:k",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case  1 : args->rand_missing = 1; break;
             case  2 : args->af_tag = optarg; break;
+            case 'k': args->keep_sites = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'a': 
                 {
-                    int l = strlen(optarg);
-                    args->info_pos = (char*)malloc(l+5);
-                    args->info_r2  = (char*)malloc(l+5);
-                    sprintf(args->info_pos,"%s_POS", optarg);
-                    sprintf(args->info_r2,"%s_R2", optarg);
+                    int n, i;
+                    char **tag = hts_readlist(optarg,0,&n);
+                    if ( !n || !tag ) error("Could not parse: --annotate %s\n",optarg);
+                    for (i=0; i<n; i++)
+                    {
+                        if ( !strcasecmp("R2",tag[i]) )
+                        {
+                            args->ld_annot_pos[VCFBUF_LD_IDX_R2] = "POS_R2";
+                            args->ld_annot[VCFBUF_LD_IDX_R2]     = "R2";
+                        }
+                        else if ( !strcasecmp("LD",tag[i]) )
+                        {
+                            args->ld_annot_pos[VCFBUF_LD_IDX_LD] = "POS_LD";
+                            args->ld_annot[VCFBUF_LD_IDX_LD]     = "LD";
+                        }
+                        else if ( !strcasecmp("HD",tag[i]) )
+                        {
+                            args->ld_annot_pos[VCFBUF_LD_IDX_HD] = "POS_HD";
+                            args->ld_annot[VCFBUF_LD_IDX_HD]     = "HD";
+                        }
+                        else error("The tag \"%s\" is not supported\n",tag[i]);
+                        free(tag[i]);
+                    }
+                    free(tag);
+                    args->ld_mask |= LD_ANNOTATE;
                 }
                 break; 
-            case 'f': args->filter_r2 = optarg; break;
+            case 'f': args->ld_filter = optarg; break;
             case 'n': 
                 args->nsites = strtod(optarg,&tmp);
                 if ( tmp==optarg || *tmp ) error("Could not parse: --nsites-per-win %s\n", optarg);
                 break;
-            case 'l': 
-                args->max_ld = strtod(optarg,&tmp);
-                if ( tmp==optarg || *tmp ) error("Could not parse: --max-LD %s\n", optarg);
+            case 'm': 
+                if ( !strncasecmp("R2=",optarg,3) )
+                {
+                    args->ld_max_set[VCFBUF_LD_IDX_R2] = 1;
+                    args->ld_max[VCFBUF_LD_IDX_R2] = strtod(optarg+3,&tmp);
+                }
+                else if ( !strncasecmp("LD=",optarg,3) )
+                {
+                    args->ld_max_set[VCFBUF_LD_IDX_LD] = 1;
+                    args->ld_max[VCFBUF_LD_IDX_LD] = strtod(optarg+3,&tmp);
+                }
+                else if ( !strncasecmp("HD=",optarg,3) )
+                {
+                    args->ld_max_set[VCFBUF_LD_IDX_HD] = 1;
+                    args->ld_max[VCFBUF_LD_IDX_HD] = strtod(optarg+3,&tmp);
+                }
+                else
+                {
+                    args->ld_max_set[VCFBUF_LD_IDX_R2] = 1;
+                    args->ld_max[VCFBUF_LD_IDX_R2] = strtod(optarg,&tmp);
+                }
+                if ( !tmp || *tmp ) error("Could not parse: --max %s\n", optarg);
+                args->ld_mask |= LD_SET_MAX;
                 break;
             case 'w': 
                 args->ld_win = strtod(optarg,&tmp);
@@ -249,6 +359,7 @@ int run(int argc, char **argv)
                 if ( tmp==optarg ) error("Could not parse: --window %s\n", optarg);
                 else if ( !strcasecmp("bp",tmp) ) args->ld_win *= -1;
                 else if ( !strcasecmp("kb",tmp) ) args->ld_win *= -1000;
+                else if ( !strcasecmp("Mb",tmp) ) args->ld_win *= -1000000;
                 else error("Could not parse: --window %s\n", optarg);
                 break;
             case 'T': args->target_is_file = 1; // fall-through
@@ -271,7 +382,9 @@ int run(int argc, char **argv)
         }
     }
     if ( args->filter_logic == (FLT_EXCLUDE|FLT_INCLUDE) ) error("Only one of -i or -e can be given.\n");
-    if ( !args->max_ld && !args->nsites ) error("%sError: Expected --max-LD, --nsites-per-win or both\n\n", usage_text());
+    if ( !args->ld_mask && !args->nsites ) error("%sError: Expected pruning (--max,--nsites-per-win) or annotation (--annotate) options\n\n", usage_text());
+    if ( args->ld_filter && strcmp(".",args->ld_filter) && !(args->ld_mask & LD_SET_MAX) ) error("The --set-filter option requires --max.\n");
+    if ( args->keep_sites && args->nsites ) error("The --keep-sites option cannot be combined with --nsites-per-win\n");
 
     if ( optind==argc )
     {

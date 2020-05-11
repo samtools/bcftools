@@ -470,6 +470,12 @@ test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.4.out',cmd=>'+parental-origin',args=>qq[-r 20:103 -p proband,father,mother -t dup | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.5.out',cmd=>'+parental-origin',args=>qq[-r 20:104 -p proband,father,mother -t dup | grep -v ^#]);
+test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.1.out',cmd=>'+prune -w 1 -a r2,LD,HD');                        # annotate with r2,LD,HD at the previous site
+test_vcf_plugin($opts,in=>'prune.2',out=>'prune.2.1.out',cmd=>'+prune -w 1 -a r2,LD,HD');
+test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.2.out',cmd=>'+prune -w 2 -a r2 -m 0.5 -f MaxR2');              # prune within 2bp, max r2=0.5, soft filter
+test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.3.out',cmd=>'+prune -w 2 -a r2 -m 0.5 ');                      # prune within 2bp, max r2=0.5
+test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.4.out',cmd=>'+prune -w 2bp -n 1 --AF-tag AF');                 # leave 1 site within 2bp windows, prioritize by AF
+test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.5.out',cmd=>q[+prune -w 2bp -n 1 --AF-tag AF -i 'GT="alt"']);  # same as above but first discard REF-only sites
 test_plugin_split($opts,in=>'split.1',out=>'split.1.1.out',tmp=>'split.1.1');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args=>'-S {PATH}/split.smpl.1.2.txt');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');

@@ -1,6 +1,6 @@
 /*  vcfcall.c -- SNP/indel variant calling from VCF/BCF.
 
-    Copyright (C) 2013-2016 Genome Research Ltd.
+    Copyright (C) 2013-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -537,7 +537,7 @@ bcf1_t *next_line(args_t *args)
             bcf_unpack(rec, BCF_UN_STR);
             if ( !rec0 ) rec0 = rec;
             recN = rec;
-            args->aux.srs->readers[0].buffer[0] = vcfbuf_push(args->vcfbuf, rec, 1);
+            args->aux.srs->readers[0].buffer[0] = vcfbuf_push(args->vcfbuf, rec);
             if ( rec0->rid!=recN->rid || rec0->pos!=recN->pos ) break;
         }
     }

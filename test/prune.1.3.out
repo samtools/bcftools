@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://some/path/human_g1k_v37.fasta
+##contig=<ID=1,length=2147483647>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+##INFO=<ID=R2,Number=1,Type=Float,Description="Pairwise r2 with the POS_R2 site">
+##INFO=<ID=POS_R2,Number=1,Type=Integer,Description="The position of the site for which R2 was calculated">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	s1	s2	s3
+1	101	.	T	A	.	.	AF=0.3	GT	0/1	0/1	0/1
+1	103	.	T	A	.	.	AF=0.1;POS_R2=101;R2=0.105235	GT	0/1	0/0	0/0
+1	107	.	T	A	.	.	AF=0.3;POS_R2=101;R2=0.32665	GT	0/1	0/0	0/1
