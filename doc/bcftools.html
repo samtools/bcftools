@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp167712"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25136640"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -10,7 +10,7 @@ read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non-standard index names can be accessed as e.g.
 "<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-04-30 16:29 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2-44-g10a3c2a+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-05-14 14:38 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2-48-g5f934ac+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -141,7 +141,7 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
     performance by removing unnecessary compression/decompression and
     VCF←→BCF conversion.
 </dd><dt><span class="term">
-<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:from-to</em></span>|<span class="emphasis"><em>chr:from-</em></span>[,…]
+<span class="strong"><strong>-r, --regions</strong></span> <span class="emphasis"><em>chr</em></span>|<span class="emphasis"><em>chr:pos</em></span>|<span class="emphasis"><em>chr:beg-end</em></span>|<span class="emphasis"><em>chr:beg-</em></span>[,…]
 </span></dt><dd>
     Comma-separated list of regions, see also <span class="strong"><strong>-R, --regions-file</strong></span>. Note
     that <span class="strong"><strong>-r</strong></span> cannot be used in combination with <span class="strong"><strong>-R</strong></span>.
@@ -149,10 +149,11 @@ specific commands to see if they apply.</p><div class="variablelist"><dl><dt><sp
 <span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>FILE</em></span>
 </span></dt><dd>
     Regions can be specified either on command line or in a VCF, BED, or
-    tab-delimited file (the default).  The columns of the tab-delimited file
-    are: CHROM, POS, and, optionally,  POS_TO,  where positions are 1-based
+    tab-delimited file (the default). The columns of the tab-delimited file
+    can contain either positions (two-column format) or intervals (three-column
+    format): CHROM, POS, and, optionally, END,  where positions are 1-based
     and inclusive. The columns of the tab-delimited BED file are also
-    CHROM, POS and POS_TO (trailing columns are ignored), but coordinates
+    CHROM, POS and END (trailing columns are ignored), but coordinates
     are 0-based, half-open.  To indicate that a file be treated as BED rather
     than the 1-based tab-delimited file, the file must have the ".bed" or
     ".bed.gz" suffix (case-insensitive). Uncompressed files are stored in
@@ -2089,9 +2090,35 @@ NOVELGT .. lists samples with a novel genotype not observed in the control group
     fill INFO or REF field based on values in a fasta file
 </dd><dt><span class="term">
 <span class="strong"><strong>fill-tags</strong></span>
-</span></dt><dd>
-    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
-</dd><dt><span class="term">
+</span></dt><dd><p class="simpara">
+    set varios INFO tags. The list of tags supported in this version:
+</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes
+</li><li class="listitem">
+INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
+</li><li class="listitem">
+INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
+</li><li class="listitem">
+INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
+</li><li class="listitem">
+INFO/AF       Number:A  Type:Float    ..  Allele frequency
+</li><li class="listitem">
+INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes
+</li><li class="listitem">
+INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
+</li><li class="listitem">
+INFO/END      Number:1  Type:Integer  ..  End position of the variant
+</li><li class="listitem">
+INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
+</li><li class="listitem">
+INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency
+</li><li class="listitem">
+INFO/NS       Number:1  Type:Integer  ..  Number of samples with data
+</li><li class="listitem">
+INFO/TYPE     Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+</li><li class="listitem">
+TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
+</li></ul></div></dd><dt><span class="term">
 <span class="strong"><strong>fix-ploidy</strong></span>
 </span></dt><dd>
     sets correct ploidy
@@ -2148,7 +2175,8 @@ NOVELGT .. lists samples with a novel genotype not observed in the control group
 </dd><dt><span class="term">
 <span class="strong"><strong>prune</strong></span>
 </span></dt><dd>
-    prune sites by missingness or linkage disequilibrium
+    prune sites by missingness, allele frequency or linkage disequilibrium.
+    Alternatively, annotate sites with r2, Lewontin’s D' (PMID:19433632), Ragsdale’s D (PMID:31697386).
 </dd><dt><span class="term">
 <span class="strong"><strong>remove-overlaps</strong></span>
 </span></dt><dd>

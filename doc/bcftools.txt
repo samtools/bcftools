@@ -2094,7 +2094,20 @@ By default, appropriate system directories are searched for installed plugins.
     fill INFO or REF field based on values in a fasta file
 
 *fill-tags*::
-    set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
+    set varios INFO tags. The list of tags supported in this version:
+    - INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes
+    - INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
+    - INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
+    - INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
+    - INFO/AF       Number:A  Type:Float    ..  Allele frequency
+    - INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes
+    - INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
+    - INFO/END      Number:1  Type:Integer  ..  End position of the variant
+    - INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
+    - INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency
+    - INFO/NS       Number:1  Type:Integer  ..  Number of samples with data
+    - INFO/TYPE     Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+    - TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
 
 *fix-ploidy*::
     sets correct ploidy

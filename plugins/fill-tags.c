@@ -48,6 +48,8 @@
 #define SET_HWE     (1<<8)
 #define SET_ExcHet  (1<<9)
 #define SET_FUNC    (1<<10)
+#define SET_END     (1<<11)
+#define SET_TYPE    (1<<12)
 
 typedef struct _args_t args_t;
 typedef struct _ftf_t ftf_t;
@@ -358,6 +360,8 @@ int parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"MAF") ) flag |= SET_MAF;
         else if ( !strcasecmp(tags[i],"HWE") ) flag |= SET_HWE;
         else if ( !strcasecmp(tags[i],"ExcHet") ) flag |= SET_ExcHet;
+        else if ( !strcasecmp(tags[i],"END") ) flag |= SET_END;
+        else if ( !strcasecmp(tags[i],"TYPE") ) flag |= SET_TYPE;
         else if ( (ptr=strchr(tags[i],'=')) ) flag |= parse_func(args,tags[i],ptr+1);
         else
         {
@@ -373,16 +377,18 @@ int parse_tags(args_t *args, const char *str)
 void list_tags(void)
 {
     error(
-        "INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
         "INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes\n"
-        "INFO/NS       Number:1  Type:Integer  ..  Number of samples with data\n"
         "INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes\n"
         "INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes\n"
         "INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
         "INFO/AF       Number:A  Type:Float    ..  Allele frequency\n"
-        "INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency\n"
-        "INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
+        "INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
         "INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
+        "INFO/END      Number:1  Type:Integer  ..  End position of the variant\n"
+        "INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
+        "INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency\n"
+        "INFO/NS       Number:1  Type:Integer  ..  Number of samples with data\n"
+        "INFO/TYPE     Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)\n"
         "TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined\n"
         "    expressions such as \"DP=sum(DP)\". This is currently very basic, to be extended.\n"
         );
@@ -437,6 +443,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_AF ) hdr_append(args, "##INFO=<ID=AF%s,Number=A,Type=Float,Description=\"Allele frequency%s%s\">");
     if ( args->tags & SET_MAF ) hdr_append(args, "##INFO=<ID=MAF%s,Number=A,Type=Float,Description=\"Minor Allele frequency%s%s\">");
     if ( args->tags & SET_HWE ) hdr_append(args, "##INFO=<ID=HWE%s,Number=A,Type=Float,Description=\"HWE test%s%s (PMID:15789306); 1=good, 0=bad\">");
+    if ( args->tags & SET_END ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant\">");
+    if ( args->tags & SET_TYPE ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=TYPE,Number=.,Type=String,Description=\"Variant type\">");
     if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Test excess heterozygosity%s%s; 1=good, 0=bad\">");
 
     return 0;
@@ -769,6 +777,30 @@ bcf1_t *process(bcf1_t *rec)
                 if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,fexc_het,rec->n_allele-1)!=0 )
                     error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
+        }
+    }
+    if ( args->tags & SET_END )
+    {
+        int32_t end = rec->pos + rec->rlen;
+        if ( bcf_update_info_int32(args->out_hdr,rec,"END",&end,1)!=0 )
+            error("Error occurred while updating INFO/END at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+    }
+    if ( args->tags & SET_TYPE )
+    {
+        int type = bcf_get_variant_types(rec);
+        args->str.l = 0;
+        if ( type == VCF_REF ) kputs("REF,", &args->str);
+        if ( type & VCF_SNP ) kputs("SNP,", &args->str);
+        if ( type & VCF_MNP ) kputs("MNP,", &args->str);
+        if ( type & VCF_INDEL ) kputs("INDEL,", &args->str);
+        if ( type & VCF_OTHER ) kputs("OTHER,", &args->str);
+        if ( type & VCF_BND ) kputs("BND,", &args->str);
+        if ( type & VCF_OVERLAP ) kputs("OVERLAP,", &args->str);
+        if ( args->str.l )
+        {
+            args->str.s[args->str.l-1] = 0;
+            if ( bcf_update_info_string(args->out_hdr,rec,"TYPE",args->str.s)!=0 )
+                error("Error occurred while updating INFO/TYPE at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
 
