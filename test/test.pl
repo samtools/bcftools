@@ -581,8 +581,20 @@ test_roh($opts,in=>'roh.1',out=>'roh.1.2.out',args=>q[    -G30 --AF-dflt 0.4 -r 
 test_roh($opts,in=>'roh.1',out=>'roh.1.3.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --ignore-homref]);
 test_roh($opts,in=>'roh.1',out=>'roh.1.3.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --ignore-homref --include-noalt]);
 test_roh($opts,in=>'roh.1',out=>'roh.1.4.out',args=>q[    -G30 --AF-dflt 0.4 -r 1:100174876-100318245 --include-noalt]);
-test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-G 1]);
-test_gtcheck($opts,in=>'gtcheck.2',gts=>'gtcheck.1.gts',out=>'gtcheck.2.out',args=>q[-G 1]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-u GT,GT]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-u GT,PL]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-u PL,GT]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-u PL,PL]);
+test_gtcheck($opts,in=>'gtcheck.2',gts=>'gtcheck.1.gts',out=>'gtcheck.2.out',args=>q[]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[-u PL]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[--n-matches 4]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.4.out',args=>q[-s qry:E,D,C]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.4.out',args=>q[-s qry:E,D,C -u PL]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.5.out',args=>q[-s qry:B -s gt:D]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.5.out',args=>q[-s qry:B -s gt:D -u PL]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.6.out',args=>q[-s qry:B -s gt:D,C]);
 
 
 print "\nNumber of tests:\n";
@@ -1527,8 +1539,9 @@ sub test_gtcheck
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
-    bgzip_tabix_vcf($opts,$args{gts});
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools gtcheck $args{args} $$opts{tmp}/$args{in}.vcf.gz -g $$opts{tmp}/$args{gts}.vcf.gz | grep -v ^#");
+    if ( exists($args{gts}) ) { bgzip_tabix_vcf($opts,$args{gts}); }
+    my $gts = exists($args{gts}) ? qq[-g $$opts{tmp}/$args{gts}.vcf.gz] : '';
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools gtcheck $args{args} $$opts{tmp}/$args{in}.vcf.gz $gts | grep -v ^# | grep -v ^INFO | sort -k1,1d -k2,2d -k3,3d");
 }
 sub test_vcf_merge_big
 {

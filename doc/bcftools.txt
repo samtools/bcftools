@@ -1351,40 +1351,12 @@ And similarly here, the second is filtered:
 [[gtcheck]]
 === bcftools gtcheck ['OPTIONS'] [*-g* 'genotypes.vcf.gz'] 'query.vcf.gz'
 Checks sample identity. The program can operate in two modes. If the *-g*
-option is given, the identity of the *-s* sample from 'query.vcf.gz'
+option is given, the identity of samples from 'query.vcf.gz'
 is checked against the samples in the *-g* file.
 Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' is performed.
 
-*-a, --all-sites*::
-    output for all sites
-
-*-c, --cluster* 'FLOAT','FLOAT'::
-    min inter- and max intra-sample error [0.23,-0.3]
-
-    The first "min" argument controls the typical error rate in multiplexed
-    runs ("lanelets") from the same sample. Lanelets with error rate less
-    than this will always be considered as coming from the same sample.
-    The second "max" argument is the reverse: lanelets with error rate
-    greater than the absolute value of this parameter will always be
-    considered as different samples. When the value is negative, the cutoff
-    may be heuristically lowered by the clustering engine. If positive, the
-    value is interpreted as a fixed cutoff.
-
 *-g, --genotypes* 'genotypes.vcf.gz'::
     reference genotypes to compare against
-
-*-G, --GTs-only* 'INT'::
-    use genotypes (GT) instead of genotype likelihoods (PL). When set to 1,
-    reported discordance is the number of non-matching GTs, otherwise the
-    number 'INT' is interpreted as phred-scaled likelihood of unobserved
-    genotypes.
-
-*-H, --homs-only*::
-    consider only genotypes which are homozygous in both 'genotypes' and
-    'query' VCF. This may be useful with low coverage data.
-
-*-p, --plot* 'PREFIX'::
-    produce plots
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
@@ -1392,11 +1364,12 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
-*-s, --query-sample* 'STRING'::
-    query sample in 'query.vcf.gz'. By default, the first sample is checked.
+*-s, --samples* ['qry'|'gt']:'LIST'::
+    list of samples from the query file (prefix with 'qry:') or the -g file
+    (prefix with 'gt:'). By default all samples are compared.
 
-*-S, --target-sample* 'STRING'::
-    target sample in the *-g* file, used only for plotting, not for analysis
+*-S, --samples-file* ['qry'|'gt']:'FILE'::
+    the same as *-s, --samples* but samples are listed in a file
 
 *-t, --targets* 'file'::
     see *<<common_options,Common Options>>*
@@ -1404,29 +1377,34 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
-==== Output files format:
-    CN, Discordance;;
-        Pairwise discordance for all sample pairs is calculated as
-----
-        \sum_s { min_G { PL_a(G) + PL_b(G) } },
-----
-    ;;
-        where the sum runs over all sites 's' and 'G' is the the most likely
-        genotype shared by both samples 'a' and 'b'.  When PL field is not
-        present, a constant value '99' is used for the unseen genotypes.  With
-        *-G*, the value '1' can be used instead; the discordance value then
-        gives exactly the number of differing genotypes.
+*-u, --use* 'TAG1'[,'TAG2']::
+    specifies which tag to use in the query file ('TAG1') and the *-g* ('TAG2') file.
+    By default, the PL tag is used in the query file and GT in the *-g* file when
+    available.
 
-    ERR, error rate;;
-        Pairwise error rate calculated as number of differences divided
-        by the total number of comparisons.
-
-    CLUSTER, TH, DOT;;
-        In presence of multiple samples, related samples and outliers can be
-        identified by clustering samples by error rate. A simple hierarchical
-        clustering based on minimization of standard deviation is used. This is
-        useful to detect sample swaps, for example in situations where one
-        sample has been sequenced in multiple runs.
+//  ==== Output files format:
+//      CN, Discordance;;
+//          Pairwise discordance for all sample pairs is calculated as
+//  ----
+//          \sum_s { min_G { PL_a(G) + PL_b(G) } },
+//  ----
+//      ;;
+//          where the sum runs over all sites 's' and 'G' is the the most likely
+//          genotype shared by both samples 'a' and 'b'.  When PL field is not
+//          present, a constant value '99' is used for the unseen genotypes.  With
+//          *-G*, the value '1' can be used instead; the discordance value then
+//          gives exactly the number of differing genotypes.
+//  
+//      ERR, error rate;;
+//          Pairwise error rate calculated as number of differences divided
+//          by the total number of comparisons.
+//  
+//      CLUSTER, TH, DOT;;
+//          In presence of multiple samples, related samples and outliers can be
+//          identified by clustering samples by error rate. A simple hierarchical
+//          clustering based on minimization of standard deviation is used. This is
+//          useful to detect sample swaps, for example in situations where one
+//          sample has been sequenced in multiple runs.
 
 //    MD, Maximum Deviation;;
 //        The maximum absolute deviation from average score of the sample
