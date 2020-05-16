@@ -423,12 +423,9 @@ static int load_plugin(args_t *args, const char *fname, int exit_on_error, plugi
     return 0;
 }
 
-static void init_plugin(args_t *args)
+static void check_version(args_t *args)
 {
     static int warned_bcftools = 0, warned_htslib = 0;
-
-    int ret = args->plugin.init(args->plugin.argc,args->plugin.argv,args->hdr,args->hdr_out);
-    if ( ret<0 ) error("The plugin exited with an error.\n");
     const char *bver, *hver;
     args->plugin.version(&bver, &hver);
     if ( strcmp(bver,bcftools_version()) && !warned_bcftools )
@@ -441,6 +438,13 @@ static void init_plugin(args_t *args)
         fprintf(stderr,"WARNING: htslib version mismatch .. bcftools at %s, the plugin \"%s\" at %s\n", hts_version(),args->plugin.name,hver);
         warned_htslib = 1;
     }
+}
+
+static void init_plugin(args_t *args)
+{
+    int ret = args->plugin.init(args->plugin.argc,args->plugin.argv,args->hdr,args->hdr_out);
+    if ( ret<0 ) error("The plugin exited with an error.\n");
+    check_version(args);
     args->drop_header += ret;
 }
 
@@ -618,6 +622,7 @@ int main_plugin(int argc, char *argv[])
         load_plugin(args, plugin_name, 1, &args->plugin);
         if ( args->plugin.run )
         {
+            check_version(args);
             int ret = args->plugin.run(argc, argv);
             destroy_data(args);
             free(args);
