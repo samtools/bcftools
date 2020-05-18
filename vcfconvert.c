@@ -1,6 +1,6 @@
 /*  vcfconvert.c -- convert between VCF/BCF and related formats.
 
-    Copyright (C) 2013-2017 Genome Research Ltd.
+    Copyright (C) 2013-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -152,6 +152,15 @@ static int tsv_setter_chrom_pos_ref_alt(tsv_t *tsv, bcf1_t *rec, void *usr)
     rec->pos = strtol(se+1,&ss,10);
     if ( ss==se+1 ) error("Could not parse POS in CHROM:POS_REF_ALT: %s\n", tsv->ss);
     rec->pos--;
+
+    // ID
+    if ( args->output_vcf_ids )
+    {
+        char tmp = *tsv->se;
+        *tsv->se = 0;
+        bcf_update_id(args->header, rec, tsv->ss);
+        *tsv->se = tmp;
+    }
 
     // REF,ALT
     args->str.l = 0;
