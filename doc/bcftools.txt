@@ -2165,7 +2165,7 @@ By default, appropriate system directories are searched for installed plugins.
     *indel-stats* and *trio-stats*.
 
 *split*::
-    split VCF by sample, creating single-sample VCFs
+    split VCF by sample, creating single- or multi-sample VCFs
 
 *split-vep*::
     extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
@@ -2738,10 +2738,12 @@ Convert between VCF and BCF. Former *bcftools subset*.
     do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
 
 *-s, --samples* 'LIST'::
-    see *<<common_options,Common Options>>*
+    see *<<common_options,Common Options>>*. Note that it is possible to create
+    multiple subsets simultaneously using the *split* plugin.
 
 *-S, --samples-file* 'FILE'::
-    see *<<common_options,Common Options>>*
+    see *<<common_options,Common Options>>*. Note that it is possible to create
+    multiple subsets simultaneously using the *split* plugin.
 
 
 ==== Filter options:
