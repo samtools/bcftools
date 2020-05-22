@@ -6,15 +6,19 @@ Plugin fill-tags
 
 This plugin can be used to compute and fill various INFO tags:
 
-* AN .. Total number of alleles in called genotypes
-* AC .. Allele count in genotypes
-* NS .. Number of samples with data
-* AC_Hom .. Allele counts in homozygous genotypes
-* AC_Het .. Allele counts in heterozygous genotypes
-* AC_Hemi .. Allele counts in hemizygous genotypes (haploid)
-* AF .. Allele frequency
-* MAF .. Minor Allele frequency
-* HWE .. HWE test (PMID:15789306)
+* INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes
+* INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
+* INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
+* INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
+* INFO/AF       Number:A  Type:Float    ..  Allele frequency
+* INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes
+* INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
+* INFO/END      Number:1  Type:Integer  ..  End position of the variant
+* INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
+* INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency
+* INFO/NS       Number:1  Type:Integer  ..  Number of samples with data
+* INFO/TYPE     Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+* TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
 
 By default the values are calculated across all samples, but also
 per-population values can be calculated. For this,
@@ -31,7 +35,8 @@ Sample3     Group2
 The list of plugin-specific options can be obtained by running 
 `bcftools +fill-tags -h`, which will print the following usage page:
 ----
-About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS.
+About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
+    or custom INFO/TAG=func(FMT/TAG), use -l for detailed description.
 Usage: bcftools +fill-tags [General Options] -- [Plugin Options]
 Options:
    run "bcftools plugin" for a list of common options
@@ -42,11 +47,21 @@ Plugin options:
    -t, --tags LIST             list of output tags. By default, all tags are filled.
    -S, --samples-file FILE     list of samples (first column) and comma-separated list of populations (second column)
 
-Example:
-   bcftools +fill-tags in.bcf -Ob -o out.bcf
+Examples:
+   # Print a detailed list of available tags
+   bcftools +fill-tags -- -l
+
+   # Fill INFO/AN and INFO/AC
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC
-   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -d
+
+   # Fill all available tags
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t all
+
+   # Calculate HWE for sample groups (possibly multiple) read from a file
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE
+
+   # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP=sum(DP)'
 ----
 
 

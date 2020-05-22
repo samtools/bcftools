@@ -73,7 +73,7 @@ missing2ref:: sets missing genotypes ("./.") to ref allele ("0/0" or "0|0"). DEP
 
 parental-origin:: determine parental origin of a CNV region
 
-prune:: Prunes sites by missingness or linkage disequilibrium.
+prune:: Prune sites by missingness, allele frequency or linkage disequilibrium. Alternatively, annotate sites with r2, Lewontin's D' (PMID:19433632), Ragsdale's D (PMID:31697386).
 
 setGT:: Sets genotypes according to the specified criteria and filtering expressions. For example, missing genotypes can be set to ref, but much more than that.
 

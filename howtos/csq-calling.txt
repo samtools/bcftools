@@ -43,9 +43,20 @@ a consequence downstream from a stop.  For more details and examples please see 
 and the link:plugin.split-vep.html[split-vep] plugin.
 
 
+=== Performance
+
+====
+++++
+<a href="csq-cmp.png"><img src="csq-cmp.png" width="600px"></a>
+++++
+Performance comparison of BCFtools/csq with three popular consequence callers using a single-sample VCF with 4.5M sites.
+Note that the y-axis is logarithmic, BCFtools/csq requires fraction of CPU and memory required by other programs.
+The following program versions were used in the comparisoon: BCFtools 1.4, VEP v82, snpEff v4.2, ANNOVAR 2016Feb01.
+====
+
 === References
 
-Please cite this paper if you find our software useful: http://biorxiv.org/content/early/2016/12/01/090811
+Please cite this paper if you find our software useful link:http://dx.doi.org/10.1093/bioinformatics/btx100[doi: 10.1093/bioinformatics/btx100]
 
 
 include::footer.inc[]
