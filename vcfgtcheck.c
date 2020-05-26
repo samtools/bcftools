@@ -137,8 +137,11 @@ static void init_data(args_t *args)
         else
             error("[E::%s] Neither PL nor GT tag is present in the header of %s\n", __func__, args->qry_fname);
     }
-    else if ( args->qry_use_GT==0 && bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"GT")<0 )
-        error("[E::%s] The GT tag is not present in the header of %s\n", __func__, args->qry_fname);
+    else if ( args->qry_use_GT==1 )
+    {
+        if ( bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"GT")<0 )
+            error("[E::%s] The GT tag is not present in the header of %s\n", __func__, args->qry_fname);
+    }
     else if ( bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"PL")<0 )
         error("[E::%s] The PL tag is not present in the header of %s\n", __func__, args->qry_fname);
 
@@ -153,8 +156,11 @@ static void init_data(args_t *args)
             else
                 error("[E::%s] Neither PL nor GT tag is present in the header of %s\n", __func__, args->gt_fname);
         }
-        else if ( args->gt_use_GT==0 && bcf_hdr_id2int(args->gt_hdr,BCF_DT_ID,"GT")<0 )
-            error("[E::%s] The GT tag is not present in the header of %s\n", __func__, args->gt_fname);
+        else if ( args->gt_use_GT==1 )
+        {
+            if ( bcf_hdr_id2int(args->gt_hdr,BCF_DT_ID,"GT")<0 )
+                error("[E::%s] The GT tag is not present in the header of %s\n", __func__, args->gt_fname);
+        }
         else if ( bcf_hdr_id2int(args->gt_hdr,BCF_DT_ID,"PL")<0 )
             error("[E::%s] The PL tag is not present in the header of %s\n", __func__, args->gt_fname);
     }
@@ -501,7 +507,7 @@ static void process_line(args_t *args)
             idx++;
         }
     }
-#else
+#elif _FASTER_BRANCH
     int i,j,idx=0;
     for (i=0; i<args->nqry_smpl; i++)
     {
@@ -561,6 +567,109 @@ static void process_line(args_t *args)
             else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
             args->ncnt[idx]++;
             idx++;
+        }
+    }
+#else
+    int i,j,k,idx=0;
+    if ( args->qry_use_GT && args->gt_use_GT )
+    {
+        for (i=0; i<args->nqry_smpl; i++)
+        {
+            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
+            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
+            int32_t *aptr = args->qry_arr + iqry*nqry1;
+            int32_t aval, qry_dsg;
+            if ( !HAS_GT(aptr) ) { idx += ngt; continue; }
+            aval = qry_dsg = DSG_GT(aptr);
+            for (j=0; j<ngt; j++)
+            {
+                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
+                int32_t *bptr = args->gt_arr + igt*ngt1;
+                int32_t bval;
+                if ( !HAS_GT(bptr) ) { idx++; bptr[0] = bcf_gt_missing; continue; }
+                bval = DSG_GT(bptr);
+                if ( aval!=bval ) args->ndiff[idx]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
+                args->ncnt[idx]++;
+                idx++;
+            }
+        }
+    }
+    else if ( !args->qry_use_GT && !args->gt_use_GT )
+    {
+        for (i=0; i<args->nqry_smpl; i++)
+        {
+            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
+            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
+            int32_t *aptr = args->qry_arr + iqry*nqry1;
+            int32_t aval, qry_dsg;
+            if ( !HAS_PL(aptr) ) { idx += ngt; continue; }
+            aval = MIN_PL(aptr);
+            qry_dsg = DSG_PL(aptr);
+            for (j=0; j<ngt; j++)
+            {
+                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
+                int32_t *bptr = args->gt_arr + igt*ngt1;
+                int32_t bval;
+                if ( !HAS_PL(bptr) ) { idx++; bptr[0] = bcf_int32_missing; continue; }
+                bval = MIN_PL(bptr);
+                int match = 0;
+                for (k=0; k<3; k++)
+                    if ( aptr[k]==aval && bptr[k]==bval ) { match = 1; break; }
+                if ( !match ) args->ndiff[idx]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
+                args->ncnt[idx]++;
+                idx++;
+            }
+        }
+    }
+    else if ( args->qry_use_GT )
+    {
+        for (i=0; i<args->nqry_smpl; i++)
+        {
+            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
+            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
+            int32_t *aptr = args->qry_arr + iqry*nqry1;
+            int32_t aval, qry_dsg;
+            if ( !HAS_GT(aptr) ) { idx += ngt; continue; }
+            aval = qry_dsg = DSG_GT(aptr);
+            for (j=0; j<ngt; j++)
+            {
+                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
+                int32_t *bptr = args->gt_arr + igt*ngt1;
+                int32_t bval;
+                if ( !HAS_PL(bptr) ) { idx++; bptr[0] = bcf_int32_missing; continue; }
+                bval = MIN_PL(bptr);
+                if ( bptr[aval]!=bval ) args->ndiff[idx]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
+                args->ncnt[idx]++;
+                idx++;
+            }
+        }
+    }
+    else    // !args->qry_use_GT
+    {
+        for (i=0; i<args->nqry_smpl; i++)
+        {
+            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
+            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
+            int32_t *aptr = args->qry_arr + iqry*nqry1;
+            int32_t aval, qry_dsg;
+            if ( !HAS_PL(aptr) ) { idx += ngt; continue; }
+            aval = MIN_PL(aptr);
+            qry_dsg = DSG_PL(aptr);
+            for (j=0; j<ngt; j++)
+            {
+                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
+                int32_t *bptr = args->gt_arr + igt*ngt1;
+                int32_t bval;
+                if ( !HAS_GT(bptr) ) { idx++; bptr[0] = bcf_gt_missing; continue; }
+                bval = DSG_GT(bptr);
+                if ( aptr[bval]!=aval ) args->ndiff[idx]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
+                args->ncnt[idx]++;
+                idx++;
+            }
         }
     }
 #endif
