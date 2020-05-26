@@ -43,16 +43,23 @@ THE SOFTWARE.  */
 
 typedef struct
 {
+    int iqry, igt;
+}
+pair_t;
+
+typedef struct
+{
     bcf_srs_t *files;           // first reader is the query VCF - single sample normally or multi-sample for cross-check
     bcf_hdr_t *gt_hdr, *qry_hdr; // VCF with genotypes to compare against and the query VCF
-    char *cwd, **argv, *gt_samples, *qry_samples, *regions, *targets, *qry_fname, *gt_fname;
-    int argc, gt_samples_is_file, qry_samples_is_file, regions_is_file, targets_is_file;
+    char *cwd, **argv, *gt_samples, *qry_samples, *regions, *targets, *qry_fname, *gt_fname, *pair_samples;
+    int argc, gt_samples_is_file, qry_samples_is_file, regions_is_file, targets_is_file, pair_samples_is_file;
     int qry_use_GT,gt_use_GT, nqry_smpl,ngt_smpl, *qry_smpl,*gt_smpl;
     uint32_t *ndiff,*ncnt,ncmp, npairs;
     int32_t *qry_arr,*gt_arr, nqry_arr,ngt_arr;
+    pair_t *pairs;
     double *hwe_prob;
     double min_inter_err, max_intra_err;
-    int all_sites, hom_only, ntop, cross_check, calc_hwe_prob, sort_by_hwe;
+    int all_sites, hom_only, ntop, cross_check, calc_hwe_prob, sort_by_hwe, dry_run;
     FILE *fp;
 }
 args_t;
@@ -88,6 +95,16 @@ static int cmp_int(const void *_a, const void *_b)
     int b = *((int*)_b);
     if ( a < b ) return -1;
     if ( a > b ) return 1;
+    return 0;
+}
+static int cmp_pair(const void *_a, const void *_b)
+{
+    pair_t *a = (pair_t*)_a;
+    pair_t *b = (pair_t*)_b;
+    if ( a->iqry < b->iqry ) return -1;
+    if ( a->iqry > b->iqry ) return 1;
+    if ( a->igt < b->igt ) return -1;
+    if ( a->igt > b->igt ) return 1;
     return 0;
 }
 
@@ -199,6 +216,46 @@ static void init_data(args_t *args)
         free(tmp);
         qsort(args->gt_smpl,args->ngt_smpl,sizeof(*args->gt_smpl),cmp_int);
     }
+    else if ( args->pair_samples )
+    {
+        int npairs;
+        char **tmp = hts_readlist(args->pair_samples, args->pair_samples_is_file, &npairs);
+        if ( !tmp || !npairs ) error("Failed to parse %s\n", args->pair_samples);
+        if ( !args->pair_samples_is_file && npairs%2 ) error("Expected even number of comma-delimited samples with -p\n");
+        args->npairs = args->pair_samples_is_file ? npairs : npairs/2;
+        args->pairs  = (pair_t*) calloc(args->npairs,sizeof(*args->pairs));
+        if ( !args->pair_samples_is_file )
+        {
+            for (i=0; i<args->npairs; i++)
+            {
+                args->pairs[i].iqry = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[2*i]);
+                args->pairs[i].igt  = bcf_hdr_id2int(args->gt_hdr?args->gt_hdr:args->qry_hdr, BCF_DT_SAMPLE, tmp[2*i+1]);
+                if ( args->pairs[i].iqry < 0 ) error("No such sample in %s: [%s]\n",args->qry_fname,tmp[2*i]);
+                if ( args->pairs[i].igt  < 0 ) error("No such sample in %s: [%s]\n",args->gt_fname?args->gt_fname:args->qry_fname,tmp[2*i+1]);
+                free(tmp[2*i]);
+                free(tmp[2*i+1]);
+            }
+        }
+        else
+        {
+            for (i=0; i<args->npairs; i++)
+            {
+                char *ptr = tmp[i];
+                while ( *ptr && !isspace(*ptr) ) ptr++;
+                if ( !*ptr ) error("Could not parse %s: %s\n",args->pair_samples,tmp[i]);
+                *ptr = 0;
+                args->pairs[i].iqry = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
+                if ( args->pairs[i].iqry < 0 ) error("No such sample in %s: [%s]\n",args->qry_fname,tmp[i]);
+                ptr++;
+                while ( *ptr && isspace(*ptr) ) ptr++;
+                args->pairs[i].igt = bcf_hdr_id2int(args->gt_hdr?args->gt_hdr:args->qry_hdr, BCF_DT_SAMPLE, ptr);
+                if ( args->pairs[i].igt < 0 ) error("No such sample in %s: [%s]\n",args->gt_fname?args->gt_fname:args->qry_fname,ptr);
+                free(tmp[i]);
+            }
+        }
+        free(tmp);
+        qsort(args->pairs,args->npairs,sizeof(*args->pairs),cmp_pair);
+    }
     else
     {
         args->ngt_smpl = args->nqry_smpl;
@@ -207,7 +264,7 @@ static void init_data(args_t *args)
     }
 
     // The data arrays
-    args->npairs = args->cross_check ? args->nqry_smpl*(args->nqry_smpl+1)/2 : args->ngt_smpl*args->nqry_smpl;
+    if ( !args->npairs ) args->npairs = args->cross_check ? args->nqry_smpl*(args->nqry_smpl+1)/2 : args->ngt_smpl*args->nqry_smpl;
     args->ndiff = (uint32_t*) calloc(args->npairs,sizeof(*args->ndiff));    // number of differing genotypes for each pair of samples
     args->ncnt  = (uint32_t*) calloc(args->npairs,sizeof(*args->ncnt));     // number of comparisons performed (non-missing data)
     if ( !args->ncnt ) error("Error: failed to allocate %.1f Mb\n", args->npairs*sizeof(*args->ncnt)/1e6);
@@ -232,6 +289,7 @@ static void destroy_data(args_t *args)
     free(args->ncnt);
     free(args->qry_smpl);
     if ( args->gt_smpl!=args->qry_smpl ) free(args->gt_smpl);
+    free(args->pairs);
     bcf_sr_destroy(args->files);
 }
 
@@ -288,7 +346,7 @@ static void process_line(args_t *args)
 {
     int nqry1, ngt1;
 
-    bcf1_t *gt_rec, *qry_rec = bcf_sr_get_line(args->files,0);   // the query file
+    bcf1_t *gt_rec = NULL, *qry_rec = bcf_sr_get_line(args->files,0);   // the query file
     if ( args->qry_use_GT )
     {
         if ( (nqry1=bcf_get_genotypes(args->qry_hdr,qry_rec,&args->qry_arr,&args->nqry_arr)) <= 0 ) return;
@@ -324,23 +382,94 @@ static void process_line(args_t *args)
         args->gt_arr = args->qry_arr;
     }
 
-    int ac[2];
-    if ( args->gt_hdr )
-    {
-        if ( bcf_calc_ac(args->gt_hdr, gt_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
-    }
-    else if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
-
     args->ncmp++;
 
     double af,hwe[3];
     if ( args->calc_hwe_prob )
     {
+        int ac[2];
+        if ( args->gt_hdr )
+        {
+            if ( bcf_calc_ac(args->gt_hdr, gt_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+        }
+        else if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
+
         const double min_af = 1e-3;
         af = (double)ac[1]/(ac[0]+ac[1]);
         hwe[0] = af>min_af ? -log(af*af) : -log(min_af*min_af);
         hwe[1] = af>min_af && af<1-min_af ? -log(2*af*(1-af)) : -log(2*min_af*(1-min_af));
         hwe[2] = af<1-min_af ? -log((1-af)*(1-af)) : -log(min_af*min_af);
+    }
+
+    // The sample pairs were given explicitly via -p/-P options
+    if ( args->pairs )
+    {
+        int32_t *aptr, aval, *bptr, bval;
+        int i,k;
+        if ( args->qry_use_GT && args->gt_use_GT )
+        {
+            for (i=0; i<args->npairs; i++)
+            {
+                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
+                if ( !HAS_GT(aptr) ) continue;
+                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
+                if ( !HAS_GT(bptr) ) continue;
+                aval = DSG_GT(aptr);
+                bval = DSG_GT(bptr);
+                if ( aval!=bval ) args->ndiff[i]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[aval];
+                args->ncnt[i]++;
+            }
+        }
+        else if ( !args->qry_use_GT && !args->gt_use_GT )
+        {
+            for (i=0; i<args->npairs; i++)
+            {
+                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
+                if ( !HAS_PL(aptr) ) continue;
+                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
+                if ( !HAS_PL(bptr) ) continue;
+                aval = MIN_PL(aptr);
+                bval = MIN_PL(bptr);
+                int match = 0;
+                for (k=0; k<3; k++)
+                    if ( aptr[k]==aval && bptr[k]==bval ) { match = 1; break; }
+                if ( !match ) args->ndiff[i]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[DSG_PL(aptr)];
+                args->ncnt[i]++;
+            }
+        }
+        else if ( args->qry_use_GT )
+        {
+            for (i=0; i<args->npairs; i++)
+            {
+                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
+                if ( !HAS_GT(aptr) ) continue;
+                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
+                if ( !HAS_PL(bptr) ) continue;
+                aval = DSG_GT(aptr);
+                bval = MIN_PL(bptr);
+                if ( bptr[aval]!=bval ) args->ndiff[i]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[aval];
+                args->ncnt[i]++;
+            }
+        }
+        else    // !args->qry_use_GT
+        {
+            for (i=0; i<args->npairs; i++)
+            {
+                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
+                if ( !HAS_PL(aptr) ) continue;
+                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
+                if ( !HAS_GT(bptr) ) continue;
+                aval = MIN_PL(aptr);
+                bval = DSG_GT(bptr);
+                if ( aval!=aptr[bval] ) args->ndiff[i]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[DSG_PL(aptr)];
+                args->ncnt[i]++;
+            }
+        }
+        return;
     }
 
 #if _SLOWER_BRANCH
@@ -373,7 +502,7 @@ static void process_line(args_t *args)
         }
     }
 #else
-    int i,j, idx = 0;
+    int i,j,idx=0;
     for (i=0; i<args->nqry_smpl; i++)
     {
         int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
@@ -463,10 +592,28 @@ static void report(args_t *args)
     fprintf(args->fp,"#DC\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]-log P(HWE)\t[6]Number of sites compared\n");
 
     int trim = args->ntop;
-    if ( !args->ngt_smpl && args->nqry_smpl <= args->ntop ) trim = 0;
-    if ( args->ngt_smpl && args->ngt_smpl <= args->ntop  ) trim = 0;
+    if ( !args->pairs )
+    {
+        if ( !args->ngt_smpl && args->nqry_smpl <= args->ntop ) trim = 0;
+        if ( args->ngt_smpl && args->ngt_smpl <= args->ntop  ) trim = 0;
+    }
 
-    if ( !trim )
+    if ( args->pairs )
+    {
+        int i;
+        for (i=0; i<args->npairs; i++)
+        {
+            int iqry = args->pairs[i].iqry;
+            int igt  = args->pairs[i].igt;
+            fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
+                    args->qry_hdr->samples[iqry],
+                    args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                    args->ndiff[i],
+                    args->calc_hwe_prob ? args->hwe_prob[i] : 0,
+                    args->ncnt[i]);
+        }
+    }
+    else if ( !trim )
     {
         int i,j,idx=0;
         for (i=0; i<args->nqry_smpl; i++)
@@ -579,11 +726,14 @@ static void usage(void)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -a, --all-sites                    output comparison for all sites\n");
     fprintf(stderr, "    -c, --cluster MIN,MAX              min inter- and max intra-sample error [0.23,-0.3]\n");
+    fprintf(stderr, "        --dry-run                      stop after first record to estimate required time\n");
     fprintf(stderr, "    -g, --genotypes FILE               genotypes to compare against\n");
     fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only (useful for low coverage data)\n");
     fprintf(stderr, "        --n-matches INT                print only top INT matches for each sample, 0 for unlimited. Use negative value\n");
     fprintf(stderr, "                                            to sort by HWE probability rather than the number of discordant sites [0]\n");
     fprintf(stderr, "        --no-HWE-prob                  disable calculation of HWE probability\n");
+    fprintf(stderr, "    -p, --pairs LIST                   list of sample pairs to compare (qry,gt[,qry,gt..] with -g or qry,qry[,qry,qry..] w/o)\n");
+    fprintf(stderr, "    -P, --pairs-file FILE              file with sample pairs to compare (qry\\tgt with -g or qry\\tqry w/o)\n");
     fprintf(stderr, "    -r, --regions REGION               restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE            restrict to regions listed in a file\n");
     fprintf(stderr, "    -s, --samples [qry|gt]:LIST        list of query or -g samples (by default all samples are compared)\n");
@@ -630,14 +780,17 @@ int main_vcfgtcheck(int argc, char *argv[])
         {"n-matches",1,0,2},
         {"no-HWE-prob",0,0,3},
         {"target-sample",1,0,4},
+        {"dry-run",0,0,5},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"pairs",1,0,'p'},
+        {"pairs-file",1,0,'P'},
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hg:p:s:S:Hr:R:at:T:G:c:u:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'u':
                 {
@@ -669,6 +822,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                 break;
             case 3 : args->calc_hwe_prob = 0; break;
             case 4 : error("The option -S, --target-sample has been deprecated\n"); break;
+            case 5 : args->dry_run = 1; break;
             case 'c':
                 args->min_inter_err = strtod(optarg,&tmp);
                 if ( *tmp )
@@ -693,6 +847,8 @@ int main_vcfgtcheck(int argc, char *argv[])
                 else if ( !strncasecmp("qry:",optarg,4) ) args->qry_samples = optarg+4, args->qry_samples_is_file = 1;
                 else error("Which one? Query samples (qry:%s) or genotype samples (gt:%s)?\n",optarg,optarg);
                 break;
+            case 'p': args->pair_samples = optarg; break;
+            case 'P': args->pair_samples = optarg; args->pair_samples_is_file = 1; break;
             case 'r': args->regions = optarg; break;
             case 'R': args->regions = optarg; args->regions_is_file = 1; break;
             case 't': args->targets = optarg; break;
@@ -708,7 +864,8 @@ int main_vcfgtcheck(int argc, char *argv[])
         else usage();   // no files given
     }
     else args->qry_fname = argv[optind];
-    if ( argc>optind+1 )  usage();  // too many files given
+    if ( argc>optind+1 ) error("Error: too many files given, run with -h for help\n");  // too many files given
+    if ( args->pair_samples && (args->gt_samples || args->qry_samples) ) error("The -p/-P option cannot be combined with -s/-S\n");
 
     init_data(args);
 
@@ -729,9 +886,10 @@ int main_vcfgtcheck(int argc, char *argv[])
             double delta = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_usec - t0.tv_usec);
             fprintf(stderr,"INFO:\tTime required to process one record .. %f seconds\n",delta/1e6);
             fprintf(args->fp,"INFO\tTime required to process one record .. %f seconds\n",delta/1e6);
+            if ( args->dry_run ) break;
         }
     }
-    report(args);
+    if ( !args->dry_run ) report(args);
 
     destroy_data(args);
     free(args);

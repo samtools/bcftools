@@ -586,8 +586,11 @@ test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',arg
 test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-u GT,PL]);
 test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-u PL,GT]);
 test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-u PL,PL]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.1.out',args=>q[-p s1,s1]);
 test_gtcheck($opts,in=>'gtcheck.2',gts=>'gtcheck.1.gts',out=>'gtcheck.2.out',args=>q[]);
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[-p B,A,C,A,C,B,D,A,D,B,D,C,E,A,E,B,E,C,E,D]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[-P {PATH}/gtcheck.3.pairs]);
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[-u PL]);
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.3.out',args=>q[--n-matches 4]);
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.4.out',args=>q[-s qry:E,D,C]);
@@ -595,7 +598,7 @@ test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.4.out',args=>q[-s qry:E,D,C -u 
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.5.out',args=>q[-s qry:B -s gt:D]);
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.5.out',args=>q[-s qry:B -s gt:D -u PL]);
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.6.out',args=>q[-s qry:B -s gt:D,C]);
-
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.6.out',args=>q[-p B,C,B,D]);
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -1539,6 +1542,7 @@ sub test_gtcheck
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
     if ( exists($args{gts}) ) { bgzip_tabix_vcf($opts,$args{gts}); }
     my $gts = exists($args{gts}) ? qq[-g $$opts{tmp}/$args{gts}.vcf.gz] : '';
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools gtcheck $args{args} $$opts{tmp}/$args{in}.vcf.gz $gts | grep -v ^# | grep -v ^INFO | sort -k1,1d -k2,2d -k3,3d");
