@@ -2205,6 +2205,9 @@ bcftools plugin counts in.vcf
 # Run a plugin using the abbreviated "+" notation
 bcftools +counts in.vcf
 
+# Run a plugin from an explicit location
+bcftools +/path/to/counts.so in.vcf
+
 # The input VCF can be streamed just like in other commands
 cat in.vcf | bcftools +counts
 
