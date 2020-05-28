@@ -7,7 +7,8 @@ Plugins
 IMPORTANT: In order to use the BCFtools plugins, this environment variable must
 be set and point to the correct location: +
 ``export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins`` +
-If a  plugin still does not work, ``bcftools +name -vv`` explains why it would not load.
+If a plugin still does not work, ``bcftools +name -vv`` explains why it would not load. +
+Note that plugins can be also run by giving the full path, for example ``bcftools +/path/to/plugin-name.so``.
 
 === For developers
 

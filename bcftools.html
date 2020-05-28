@@ -8,7 +8,7 @@
                 Please refer to <a href="http://www.htslib.org/doc/bcftools.html">htslib.org</a> for
                 documentation for the latest <b>versioned release</b>.
                 </div>
-            <div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25159680"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+            <div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp145952"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -18,7 +18,7 @@ read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non-standard index names can be accessed as e.g.
 "<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-05-22 09:17 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2-52-g6816370+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-05-28 12:41 BST</strong></span> and refers to bcftools git version <span class="strong"><strong>1.10.2-54-g5c73ef6+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -2099,33 +2099,35 @@ NOVELGT .. lists samples with a novel genotype not observed in the control group
 </dd><dt><span class="term">
 <span class="strong"><strong>fill-tags</strong></span>
 </span></dt><dd><p class="simpara">
-    set varios INFO tags. The list of tags supported in this version:
+    set various INFO tags. The list of tags supported in this version:
 </p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
-INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes
+INFO/AC         Number:A  Type:Integer  ..  Allele count in genotypes
 </li><li class="listitem">
-INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
+INFO/AC_Hom     Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
 </li><li class="listitem">
-INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
+INFO/AC_Het     Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
 </li><li class="listitem">
-INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
+INFO/AC_Hemi    Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
 </li><li class="listitem">
-INFO/AF       Number:A  Type:Float    ..  Allele frequency
+INFO/AF         Number:A  Type:Float    ..  Allele frequency
 </li><li class="listitem">
-INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes
+INFO/AN         Number:1  Type:Integer  ..  Total number of alleles in called genotypes
 </li><li class="listitem">
-INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
+INFO/ExcHet     Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
 </li><li class="listitem">
-INFO/END      Number:1  Type:Integer  ..  End position of the variant
+INFO/END        Number:1  Type:Integer  ..  End position of the variant
 </li><li class="listitem">
-INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
+INFO/F_MISSING  Number:1  Type:Float    ..  Fraction of missing genotypes
 </li><li class="listitem">
-INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency
+INFO/HWE        Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
 </li><li class="listitem">
-INFO/NS       Number:1  Type:Integer  ..  Number of samples with data
+INFO/MAF        Number:A  Type:Float    ..  Minor Allele frequency
 </li><li class="listitem">
-INFO/TYPE     Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+INFO/NS         Number:1  Type:Integer  ..  Number of samples with data
 </li><li class="listitem">
-TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
+INFO/TYPE       Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+</li><li class="listitem">
+TAG=func(TAG)   Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
 </li></ul></div></dd><dt><span class="term">
 <span class="strong"><strong>fix-ploidy</strong></span>
 </span></dt><dd>
@@ -2240,6 +2242,9 @@ bcftools plugin counts in.vcf
 
 # Run a plugin using the abbreviated "+" notation
 bcftools +counts in.vcf
+
+# Run a plugin from an explicit location
+bcftools +/path/to/counts.so in.vcf
 
 # The input VCF can be streamed just like in other commands
 cat in.vcf | bcftools +counts
