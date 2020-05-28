@@ -77,48 +77,23 @@
 <div class="paragraph">
 <p>This plugin can be used to compute and fill various INFO tags:</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p>INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes</p>
-</li>
-<li>
-<p>INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes</p>
-</li>
-<li>
-<p>INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes</p>
-</li>
-<li>
-<p>INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes</p>
-</li>
-<li>
-<p>INFO/AF       Number:A  Type:Float    ..  Allele frequency</p>
-</li>
-<li>
-<p>INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes</p>
-</li>
-<li>
-<p>INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad</p>
-</li>
-<li>
-<p>INFO/END      Number:1  Type:Integer  ..  End position of the variant</p>
-</li>
-<li>
-<p>INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad</p>
-</li>
-<li>
-<p>INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency</p>
-</li>
-<li>
-<p>INFO/NS       Number:1  Type:Integer  ..  Number of samples with data</p>
-</li>
-<li>
-<p>INFO/TYPE     Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)</p>
-</li>
-<li>
-<p>TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"</p>
-</li>
-</ul>
+<div class="listingblock">
+<div class="content">
+<pre>INFO/AC        Number:A  Type:Integer  ..  Allele count in genotypes
+INFO/AC_Hom    Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
+INFO/AC_Het    Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
+INFO/AC_Hemi   Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
+INFO/AF        Number:A  Type:Float    ..  Allele frequency
+INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes
+INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
+INFO/END       Number:1  Type:Integer  ..  End position of the variant
+INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes (all samples, experimental)
+INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
+INFO/MAF       Number:A  Type:Float    ..  Minor Allele frequency
+INFO/NS        Number:1  Type:Integer  ..  Number of samples with data
+INFO/TYPE      Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)". This is currently very basic, to be extended.</pre>
+</div>
 </div>
 <div class="paragraph">
 <p>By default the values are calculated across all samples, but also
