@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2020-05-14 14:38 BST
+.\"      Date: 2020-05-28 12:22 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2020\-05\-14 14:38 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2020\-05\-28 12:22 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2020\-05\-14 14:38 BST\fR and refers to bcftools git version \fB1\&.10\&.2\-48\-g5f934ac+\fR\&.
+This manual page was last updated \fB2020\-05\-28 12:22 BST\fR and refers to bcftools git version \fB1\&.10\&.2\-53\-g136df61+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -3457,7 +3457,7 @@ fill INFO or REF field based on values in a fasta file
 .PP
 \fBfill\-tags\fR
 .RS 4
-set varios INFO tags\&. The list of tags supported in this version:
+set various INFO tags\&. The list of tags supported in this version:
 .sp
 .RS 4
 .ie n \{\
@@ -3545,6 +3545,17 @@ INFO/ExcHet Number:A Type:Float \&.\&. Test excess heterozygosity; 1=good, 0=bad
 .IP \(bu 2.3
 .\}
 INFO/END Number:1 Type:Integer \&.\&. End position of the variant
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+INFO/F_MISSING Number:1 Type:Float \&.\&. Fraction of missing genotypes
 .RE
 .sp
 .RS 4
@@ -3696,7 +3707,7 @@ and
 .PP
 \fBsplit\fR
 .RS 4
-split VCF by sample, creating single\-sample VCFs
+split VCF by sample, creating single\- or multi\-sample VCFs
 .RE
 .PP
 \fBsplit\-vep\fR
@@ -4685,13 +4696,17 @@ do not (re)calculate INFO fields for the subset (currently INFO/AC and INFO/AN)
 \fB\-s, \-\-samples\fR \fILIST\fR
 .RS 4
 see
-\fBCommon Options\fR
+\fBCommon Options\fR\&. Note that it is possible to create multiple subsets simultaneously using the
+\fBsplit\fR
+plugin\&.
 .RE
 .PP
 \fB\-S, \-\-samples\-file\fR \fIFILE\fR
 .RS 4
 see
-\fBCommon Options\fR
+\fBCommon Options\fR\&. Note that it is possible to create multiple subsets simultaneously using the
+\fBsplit\fR
+plugin\&.
 .RE
 .RE
 .sp

@@ -36,6 +36,7 @@
 #include <htslib/khash_str2int.h>
 #include <htslib/kbitset.h>
 #include "bcftools.h"
+#include "filter.h"
 
 #define SET_AN      (1<<0)
 #define SET_AC      (1<<1)
@@ -59,6 +60,9 @@ struct _ftf_t
     char *src_tag, *dst_tag;
     fill_tag_f func;
     int *pop_vals;      // for now assuming only 1 integer value per annotation
+    filter_t *filter;
+    float *fval;
+    int nfval;
 };
 
 typedef struct
@@ -248,8 +252,21 @@ void ftf_destroy(args_t *args)
         free(ftf->src_tag);
         free(ftf->dst_tag);
         free(ftf->pop_vals);
+        free(ftf->fval);
+        if ( ftf->filter ) filter_destroy(ftf->filter);
     }
     free(args->ftf);
+}
+int ftf_expr_float(args_t *args, bcf1_t *rec, ftf_t *ftf)
+{
+    filter_test(ftf->filter, rec, NULL);
+    int i, nval, nval1;
+    const double *val = filter_get_doubles(ftf->filter,&nval,&nval1);
+    hts_expand(float,nval,ftf->nfval,ftf->fval);
+    for (i=0; i<nval; i++) ftf->fval[i] = val[i];
+    if ( bcf_update_info_float(args->out_hdr,rec,ftf->dst_tag,ftf->fval,nval)!=0 )
+        error("Error occurred while updating %s at %s:%"PRId64"\n", ftf->dst_tag,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+    return 0;
 }
 int ftf_sum(args_t *args, bcf1_t *rec, ftf_t *ftf)
 {
@@ -295,11 +312,29 @@ void hdr_append(args_t *args, char *fmt)
         bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
 }
 
+int parse_expr_float(args_t *args, char *tag, char *expr)
+{
+    args->nftf++;
+    args->ftf = (ftf_t *)realloc(args->ftf,sizeof(*args->ftf)*args->nftf);
+    ftf_t *ftf = &args->ftf[ args->nftf - 1 ];
+    memset(ftf,0,sizeof(ftf_t));
+
+    if ( !tag ) tag = expr;
+
+    bcf_hdr_printf(args->out_hdr, "##INFO=<ID=%s,Number=1,Type=Float,Description=\"Added by fill-tags, experimental\">",tag);
+    ftf->src_tag = strdup(tag);
+    ftf->dst_tag = strdup(expr);
+    ftf->func    = ftf_expr_float;
+    ftf->filter  = filter_init(args->in_hdr, expr);
+
+    return SET_FUNC;
+}
 int parse_func(args_t *args, char *tag, char *expr)
 {
     args->nftf++;
     args->ftf = (ftf_t *)realloc(args->ftf,sizeof(*args->ftf)*args->nftf);
     ftf_t *ftf = &args->ftf[ args->nftf - 1 ];
+    memset(ftf,0,sizeof(ftf_t));
 
     ftf->pop_vals = (int*)calloc(args->npop,sizeof(*ftf->pop_vals));
     ftf->dst_tag = (char*)calloc(expr-tag,1);
@@ -363,6 +398,7 @@ int parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"ExcHet") ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"END") ) flag |= SET_END;
         else if ( !strcasecmp(tags[i],"TYPE") ) flag |= SET_TYPE;
+        else if ( !strcasecmp(tags[i],"F_MISSING") ) { flag |= parse_expr_float(args,NULL,"F_MISSING"); args->unpack |= BCF_UN_FMT; }
         else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
         else
         {
@@ -378,19 +414,20 @@ int parse_tags(args_t *args, const char *str)
 void list_tags(void)
 {
     error(
-        "INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes\n"
-        "INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes\n"
-        "INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes\n"
-        "INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
-        "INFO/AF       Number:A  Type:Float    ..  Allele frequency\n"
-        "INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
-        "INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
-        "INFO/END      Number:1  Type:Integer  ..  End position of the variant\n"
-        "INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
-        "INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency\n"
-        "INFO/NS       Number:1  Type:Integer  ..  Number of samples with data\n"
-        "INFO/TYPE     Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)\n"
-        "TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined\n"
+        "INFO/AC        Number:A  Type:Integer  ..  Allele count in genotypes\n"
+        "INFO/AC_Hom    Number:A  Type:Integer  ..  Allele counts in homozygous genotypes\n"
+        "INFO/AC_Het    Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes\n"
+        "INFO/AC_Hemi   Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
+        "INFO/AF        Number:A  Type:Float    ..  Allele frequency\n"
+        "INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
+        "INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
+        "INFO/END       Number:1  Type:Integer  ..  End position of the variant\n"
+        "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes (all samples, experimental)\n"
+        "INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
+        "INFO/MAF       Number:A  Type:Float    ..  Minor Allele frequency\n"
+        "INFO/NS        Number:1  Type:Integer  ..  Number of samples with data\n"
+        "INFO/TYPE      Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)\n"
+        "TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined\n"
         "    expressions such as \"DP=sum(DP)\". This is currently very basic, to be extended.\n"
         );
 }

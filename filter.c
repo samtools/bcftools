@@ -3392,3 +3392,13 @@ int filter_max_unpack(filter_t *flt)
 {
     return flt->max_unpack;
 }
+
+const double *filter_get_doubles(filter_t *filter, int *nval, int *nval1)
+{
+    token_t *tok = filter->flt_stack[filter->nfilters-1];
+    *nval  = tok->nvalues;
+    *nval1 = tok->nval1;
+    return tok->values;
+}
+
+
