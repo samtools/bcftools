@@ -1801,22 +1801,37 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
                 rtok->values[i] = atok->values[i] AOP btok->values[i]; \
             } \
         } \
-        else \
+        else if ( atok->nsamples ) \
         { \
-            token_t *xtok = atok->nsamples ? atok : btok; \
-            token_t *ytok = atok->nsamples ? btok : atok; \
-            assert( ytok->nvalues==1 ); \
-            if ( !bcf_double_is_missing_or_vector_end(ytok->values[0]) ) \
+            assert( btok->nvalues==1 ); \
+            if ( !bcf_double_is_missing_or_vector_end(btok->values[0]) ) \
             { \
-                for (i=0; i<xtok->nvalues; i++) \
+                for (i=0; i<atok->nvalues; i++) \
                 { \
-                    if ( bcf_double_is_missing_or_vector_end(xtok->values[i]) ) \
+                    if ( bcf_double_is_missing_or_vector_end(atok->values[i]) ) \
                     { \
                         bcf_double_set_missing(rtok->values[i]); \
                         continue; \
                     } \
                     has_values = 1; \
-                    rtok->values[i] = xtok->values[i] AOP ytok->values[0]; \
+                    rtok->values[i] = atok->values[i] AOP btok->values[0]; \
+                } \
+            } \
+        } \
+        else \
+        { \
+            assert( atok->nvalues==1 ); \
+            if ( !bcf_double_is_missing_or_vector_end(atok->values[0]) ) \
+            { \
+                for (i=0; i<btok->nvalues; i++) \
+                { \
+                    if ( bcf_double_is_missing_or_vector_end(btok->values[i]) ) \
+                    { \
+                        bcf_double_set_missing(rtok->values[i]); \
+                        continue; \
+                    } \
+                    has_values = 1; \
+                    rtok->values[i] = atok->values[0] AOP btok->values[i]; \
                 } \
             } \
         } \

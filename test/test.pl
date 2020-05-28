@@ -338,6 +338,8 @@ test_vcf_filter($opts,in=>'filter.8',out=>'filter.33.out',args=>q[-S . -e 'ABS(s
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.34.out',args=>q[-S . -e 'sMEDIAN(FORMAT/AO)==4']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.33.out',args=>q[-S . -e 'ABS(sSTDEV(FORMAT/AO)-1.2472191)<1e-5']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.33.out',args=>q[-S . -e 'sSUM(FORMAT/AO)==11']);
+test_vcf_filter($opts,in=>'filter.9',out=>'filter.35.out',args=>q[-i 'QUAL/FMT/AD==55']);
+test_vcf_filter($opts,in=>'filter.9',out=>'filter.35.out',args=>q[-i 'QUAL/INFO/AD==10']);
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_regions($opts,in=>'regions');
