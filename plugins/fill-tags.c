@@ -83,7 +83,7 @@ struct _args_t
     int npop, tags, drop_missing, gt_id;
     pop_t *pop, **smpl2pop;
     float *farr;
-    int32_t *iarr, niarr, miarr, nfarr, mfarr;
+    int32_t *iarr, niarr, miarr, nfarr, mfarr, unpack;
     double *hwe_probs;
     int mhwe_probs;
     kstring_t str;
@@ -349,20 +349,21 @@ int parse_tags(args_t *args, const char *str)
         if ( !strcasecmp(tags[i],"all") )
         {
             for (j=0; j<=10; j++) flag |= 1<<j;
+            args->unpack |= BCF_UN_FMT;
         }
-        else if ( !strcasecmp(tags[i],"AN") ) flag |= SET_AN;
-        else if ( !strcasecmp(tags[i],"AC") ) flag |= SET_AC;
-        else if ( !strcasecmp(tags[i],"NS") ) flag |= SET_NS;
-        else if ( !strcasecmp(tags[i],"AC_Hom") ) flag |= SET_AC_Hom;
-        else if ( !strcasecmp(tags[i],"AC_Het") ) flag |= SET_AC_Het;
-        else if ( !strcasecmp(tags[i],"AC_Hemi") ) flag |= SET_AC_Hemi;
-        else if ( !strcasecmp(tags[i],"AF") ) flag |= SET_AF;
-        else if ( !strcasecmp(tags[i],"MAF") ) flag |= SET_MAF;
-        else if ( !strcasecmp(tags[i],"HWE") ) flag |= SET_HWE;
-        else if ( !strcasecmp(tags[i],"ExcHet") ) flag |= SET_ExcHet;
+        else if ( !strcasecmp(tags[i],"AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC") ) { flag |= SET_AC; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"NS") ) { flag |= SET_NS; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hom") ) { flag |= SET_AC_Hom; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Het") ) { flag |= SET_AC_Het; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hemi") ) { flag |= SET_AC_Hemi; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AF") ) { flag |= SET_AF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"MAF") ) { flag |= SET_MAF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"HWE") ) { flag |= SET_HWE; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"ExcHet") ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"END") ) flag |= SET_END;
         else if ( !strcasecmp(tags[i],"TYPE") ) flag |= SET_TYPE;
-        else if ( (ptr=strchr(tags[i],'=')) ) flag |= parse_func(args,tags[i],ptr+1);
+        else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
         else
         {
             fprintf(stderr,"Error parsing \"--tags %s\": the tag \"%s\" is not supported\n", str,tags[i]);
@@ -427,7 +428,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( !in || !out ) error("%s",usage());
 
     args->gt_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
-    if ( args->gt_id<0 ) error("Error: GT field is not present\n");
+    if ( args->unpack&BCF_UN_FMT && args->gt_id<0 ) error("Error: GT field is not present\n");
 
     if ( samples_fname ) parse_samples(args, samples_fname);
     init_pops(args);
@@ -544,7 +545,7 @@ static void clean_counts(pop_t *pop, int nals)
     memset(pop->counts,0,sizeof(counts_t)*nals);
 }
 
-bcf1_t *process(bcf1_t *rec)
+bcf1_t *process_fmt(bcf1_t *rec)
 {
     bcf_unpack(rec, BCF_UN_FMT);
 
@@ -779,6 +780,14 @@ bcf1_t *process(bcf1_t *rec)
             }
         }
     }
+
+    return rec;
+}
+
+bcf1_t *process(bcf1_t *rec)
+{
+    if ( args->unpack & BCF_UN_FMT ) process_fmt(rec);
+
     if ( args->tags & SET_END )
     {
         int32_t end = rec->pos + rec->rlen;
@@ -803,7 +812,6 @@ bcf1_t *process(bcf1_t *rec)
                 error("Error occurred while updating INFO/TYPE at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
-
     return rec;
 }
 
