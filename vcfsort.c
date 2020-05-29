@@ -260,11 +260,11 @@ static void usage(args_t *args)
     exit(1);
 }
 
-size_t parse_mem_string(char *str) 
+size_t parse_mem_string(const char *str) 
 {
     char *tmp;
     double mem = strtod(str, &tmp);
-    if ( tmp==str ) error("Could not parse: --max-mem %s\n", str);
+    if ( tmp==str ) error("Could not parse the memory string: \"%s\"\n", str);
     if ( !strcasecmp("k",tmp) ) mem *= 1000;
     else if ( !strcasecmp("m",tmp) ) mem *= 1000*1000;
     else if ( !strcasecmp("g",tmp) ) mem *= 1000*1000*1000;
