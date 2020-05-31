@@ -90,9 +90,9 @@ typedef struct _token_t
     int hdr_id, tag_type;   // BCF header lookup ID and one of BCF_HL_* types
     int idx;            // 0-based index to VCF vectors,
                         //  -2: list (e.g. [0,1,2] or [1..3] or [1..] or any field[*], which is equivalent to [0..])
-    int *idxs;          // set indexes to 0 to exclude, to 1 to include, and last element negative if unlimited
+    int *idxs;          // set indexes to 0 to exclude, to 1 to include, and last element negative if unlimited; used by VCF retrievers only
     int nidxs, nuidxs;  // size of idxs array and the number of elements set to 1
-    uint8_t *usmpl;     // bitmask of used samples as set by idx
+    uint8_t *usmpl;     // bitmask of used samples as set by idx, set for FORMAT fields, NULL otherwise
     int nsamples;       // number of samples for format fields, 0 for info and other fields
     void (*setter)(filter_t *, bcf1_t *, struct _token_t *);
     int (*func)(filter_t *, bcf1_t *, struct _token_t *rtok, struct _token_t **stack, int nstack);
@@ -1186,13 +1186,30 @@ static int func_max(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     token_t *tok = stack[nstack - 1];
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
-    double val = -HUGE_VAL;
-    int i, has_value = 0;
-    for (i=0; i<tok->nvalues; i++)
+    double *ptr, val = -HUGE_VAL;
+    int i,j, has_value = 0;
+    if ( tok->nsamples )
     {
-        if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
-        has_value = 1;
-        if ( val < tok->values[i] ) val = tok->values[i];
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) continue;
+            ptr = tok->values + i*tok->nval1;
+            for (j=0; j<tok->nval1; j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+                has_value = 1;
+                if ( val < ptr[j] ) val = ptr[j];
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
+            has_value = 1;
+            if ( val < tok->values[i] ) val = tok->values[i];
+        }
     }
     if ( has_value )
     {
@@ -1236,13 +1253,30 @@ static int func_min(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     token_t *tok = stack[nstack - 1];
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
-    double val = HUGE_VAL;
-    int i, has_value = 0;
-    for (i=0; i<tok->nvalues; i++)
+    double *ptr, val = HUGE_VAL;
+    int i,j, has_value = 0;
+    if ( tok->nsamples )
     {
-        if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
-        has_value = 1;
-        if ( val > tok->values[i] ) val = tok->values[i];
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) continue;
+            ptr = tok->values + i*tok->nval1;
+            for (j=0; j<tok->nval1; j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+                has_value = 1;
+                if ( val > ptr[j] ) val = ptr[j];
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
+            has_value = 1;
+            if ( val > tok->values[i] ) val = tok->values[i];
+        }
     }
     if ( has_value )
     {
@@ -1286,10 +1320,27 @@ static int func_avg(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     token_t *tok = stack[nstack - 1];
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
-    double val = 0;
-    int i, n = 0;
-    for (i=0; i<tok->nvalues; i++)
-        if ( !bcf_double_is_missing_or_vector_end(tok->values[i]) ) { val += tok->values[i]; n++; }
+    double *ptr, val = 0;
+    int i,j, n = 0;
+    if ( tok->nsamples )
+    {
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) continue;
+            ptr = tok->values + i*tok->nval1;
+            for (j=0; j<tok->nval1; j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+                val += ptr[j];
+                n++;
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+            if ( !bcf_double_is_missing_or_vector_end(tok->values[i]) ) { val += tok->values[i]; n++; }
+    }
     if ( n )
     {
         rtok->values[0] = val / n;
@@ -1338,12 +1389,29 @@ static int func_median(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
     token_t *tok = stack[nstack - 1];
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
-    int i, n = 0;
-    for (i=0; i<tok->nvalues; i++)
+    // sweep through all tok->values and while excluding all missing values reuse the very same array
+    int i,j,k = 0, n = 0;
+    if ( tok->nsamples )
     {
-        if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
-        if ( n < i ) tok->values[n] = tok->values[i];
-        n++;
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) { k += tok->nval1; continue; }
+            for (j=0; j<tok->nval1; k++,j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(tok->values[k]) ) continue;
+                if ( n < k ) tok->values[n] = tok->values[k];
+                n++;
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
+            if ( n < i ) tok->values[n] = tok->values[i];
+            n++;
+        }
     }
     if ( !n ) return 1;
     if ( n==1 ) rtok->values[0] = tok->values[0];
@@ -1396,21 +1464,38 @@ static int func_stddev(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **sta
     token_t *tok = stack[nstack - 1];
     rtok->nvalues = 0;
     if ( !tok->nvalues ) return 1;
-    int i, n = 0;
-    for (i=0; i<tok->nvalues; i++)
+    // sweep through all tok->values and while excluding all missing values reuse the very same array
+    int i,j,k = 0, n = 0;
+    if ( tok->nsamples )
     {
-        if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
-        if ( n < i ) tok->values[n] = tok->values[i];
-        n++;
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) { k += tok->nval1; continue; }
+            for (j=0; j<tok->nval1; k++,j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(tok->values[k]) ) continue;
+                if ( n < k ) tok->values[n] = tok->values[k];
+                n++;
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) continue;
+            if ( n < i ) tok->values[n] = tok->values[i];
+            n++;
+        }
     }
     if ( !n ) return 1;
     if ( n==1 ) rtok->values[0] = 0;
     else
     {
         double sdev = 0, avg = 0;
-        for (i=0; i<n; i++) avg += tok->values[n];
+        for (i=0; i<n; i++) avg += tok->values[i];
         avg /= n;
-        for (i=0; i<n; i++) sdev += (tok->values[n] - avg) * (tok->values[n] - avg);
+        for (i=0; i<n; i++) sdev += (tok->values[i] - avg) * (tok->values[i] - avg);
         rtok->values[0] = sqrt(sdev/n);
     }
     rtok->nvalues = 1;
@@ -1460,10 +1545,27 @@ static int func_sum(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     rtok->nvalues = 0;
     token_t *tok = stack[nstack - 1];
     if ( !tok->nvalues ) return 1;
-    double val = 0;
-    int i, n = 0;
-    for (i=0; i<tok->nvalues; i++)
-        if ( !bcf_double_is_missing_or_vector_end(tok->values[i]) ) { val += tok->values[i]; n++; }
+    double *ptr, val = 0;
+    int i,j, n = 0;
+    if ( tok->nsamples )
+    {
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) continue;
+            ptr = tok->values + i*tok->nval1;
+            for (j=0; j<tok->nval1; j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(ptr[j]) ) continue;
+                val += ptr[j];
+                n++;
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+            if ( !bcf_double_is_missing_or_vector_end(tok->values[i]) ) { val += tok->values[i]; n++; }
+    }
     if ( n )
     {
         rtok->values[0] = val;
@@ -1516,31 +1618,59 @@ static int func_abs(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack,
     }
     if ( !tok->nvalues ) return 1;
     hts_expand(double, rtok->nvalues, rtok->mvalues, rtok->values);
-    int i;
-    for (i=0; i<tok->nvalues; i++)
-        if ( bcf_double_is_missing(tok->values[i]) ) bcf_double_set_missing(rtok->values[i]);
-        else if ( !bcf_double_is_vector_end(tok->values[i]) ) rtok->values[i] = fabs(tok->values[i]);
+    int i,j,k = 0;
+    if ( tok->usmpl )
+    {
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) { k+= tok->nval1; continue; }
+            for (j=0; j<tok->nval1; k++,j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(tok->values[k]) ) bcf_double_set_missing(rtok->values[k]);
+                else rtok->values[k] = fabs(tok->values[k]);
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+        {
+            if ( tok->usmpl && !tok->usmpl[i] ) continue;
+            if ( bcf_double_is_missing(tok->values[i]) ) bcf_double_set_missing(rtok->values[i]);
+            else if ( !bcf_double_is_vector_end(tok->values[i]) ) rtok->values[i] = fabs(tok->values[i]);
+        }
+    }
     return 1;
 }
 static int func_count(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
     token_t *tok = stack[nstack - 1];
-    int i, cnt = 0;
-    if ( !tok->nsamples )
+    int i,j, cnt = 0;
+    if ( tok->tag && tok->nsamples )
     {
-        if ( tok->is_str )
+        // raw number of values in a FMT tag, e.g. COUNT(FMT/TAG)
+        if ( tok->is_str ) error("todo: Type=String for COUNT on FORMAT fields?\n");
+        for (i=0; i<tok->nsamples; i++)
         {
-            if ( tok->str_value.l ) cnt = 1;
-            for (i=0; i<tok->str_value.l; i++) if ( tok->str_value.s[i]==',' ) cnt++;
+            if ( !tok->usmpl[i] ) continue;
+            double *ptr = tok->values + i*tok->nval1;
+            for (j=0; j<tok->nval1; j++)
+                if ( !bcf_double_is_missing_or_vector_end(ptr[j]) ) cnt++;
         }
-        else
-            cnt = tok->nvalues;
     }
-    else
+    else if ( tok->nsamples )
     {
+        // number of samples that pass a processed FMT tag
         for (i=0; i<tok->nsamples; i++)
             if ( tok->pass_samples[i] ) cnt++;
     }
+    else if ( tok->is_str )
+    {
+        if ( tok->str_value.l ) cnt = 1;
+        for (i=0; i<tok->str_value.l; i++) if ( tok->str_value.s[i]==',' ) cnt++;
+    }
+    else
+        cnt = tok->nvalues;
 
     rtok->nvalues = 1;
     rtok->values[0] = cnt;
@@ -1752,11 +1882,27 @@ static int func_phred(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
     if ( !tok->nvalues ) return 1;
 
     hts_expand(double, rtok->nvalues, rtok->mvalues, rtok->values);
-    int i;
-    for (i=0; i<tok->nvalues; i++)
-        if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) bcf_double_set_missing(rtok->values[i]);
-        else rtok->values[i] = -4.34294481903*log(tok->values[i]);
-
+    int i,j,k = 0;
+    if ( tok->usmpl )
+    {
+        for (i=0; i<tok->nsamples; i++)
+        {
+            if ( !tok->usmpl[i] ) { k+= tok->nval1; continue; }
+            for (j=0; j<tok->nval1; k++,j++)
+            {
+                if ( bcf_double_is_missing_or_vector_end(tok->values[k]) ) bcf_double_set_missing(rtok->values[k]);
+                else rtok->values[k] = -4.34294481903*log(tok->values[k]);
+            }
+        }
+    }
+    else
+    {
+        for (i=0; i<tok->nvalues; i++)
+        {
+            if ( bcf_double_is_missing_or_vector_end(tok->values[i]) ) bcf_double_set_missing(rtok->values[i]);
+            else rtok->values[i] = -4.34294481903*log(tok->values[i]);
+        }
+    }
     return 1;
 }
 inline static void tok_init_values(token_t *atok, token_t *btok, token_t *rtok)

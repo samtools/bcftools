@@ -2986,7 +2986,7 @@ one sample name per line
 * function on FORMAT tags (over samples) and INFO tags (over vector fields):
   maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median;
   standard deviation from mean; sum; string length; absolute value; number of
-  elements (matching columns for FORMAT tags or number of fields for INFO tags).
+  elements:
 
         MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT
 +

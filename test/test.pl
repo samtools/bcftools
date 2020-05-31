@@ -331,7 +331,14 @@ test_vcf_filter($opts,in=>'filter.6',out=>'filter.28.out',args=>q[-i'F_PASS(GT==
 test_vcf_filter($opts,in=>'filter.7',out=>'filter.29.out',args=>'-mx -s + -g2:mnp,indel,other');
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'FORMAT/AO==4']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'MAX(FORMAT/AO[0:])==4']);    # although not desired, this is how MAX() works
-test_vcf_filter($opts,in=>'filter.8',out=>'filter.31.out',args=>q[-S . -e 'MAX(FORMAT/AO)==4']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.31.out',args=>q[-S . -e 'MAX(FORMAT/AO)==4']);        # ( matches the desired sample but selects all samples, as opposed to SMPL_MAX)
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'MIN(FORMAT/AO[0:])==3']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'MIN(FORMAT/AO)==2']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'MIN(FORMAT/AO[0:])==3']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'AVG(FORMAT/AO[2:])==4']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'MEDIAN(FORMAT/AO[2:])==4']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'STDEV(FORMAT/AO[0:])=0.5']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.30.out',args=>q[-S . -e 'SUM(FORMAT/AO[0:])=7']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.32.out',args=>q[-S . -e 'SMPL_MAX(FORMAT/AO)==4']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.33.out',args=>q[-S . -e 'sMIN(FORMAT/AO)==2']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.33.out',args=>q[-S . -e 'ABS(sAVG(FORMAT/AO)-3.66666)<1e-5']);
@@ -340,6 +347,9 @@ test_vcf_filter($opts,in=>'filter.8',out=>'filter.33.out',args=>q[-S . -e 'ABS(s
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.33.out',args=>q[-S . -e 'sSUM(FORMAT/AO)==11']);
 test_vcf_filter($opts,in=>'filter.9',out=>'filter.35.out',args=>q[-i 'QUAL/FMT/AD==55']);
 test_vcf_filter($opts,in=>'filter.9',out=>'filter.35.out',args=>q[-i 'QUAL/INFO/AD==10']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.36.out',args=>q[-S . -e 'ABS(SMPL_MAX(FORMAT/AO))=5']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.37.out',args=>q[-S . -e 'PHRED(AO[1:])>-4']);
+test_vcf_filter($opts,in=>'filter.8',out=>'filter.37.out',args=>q[-S . -e 'ABS(AO[1:])==2']);
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_regions($opts,in=>'regions');
@@ -791,7 +801,11 @@ sub test_cmd
                 print $fh $exp;
                 close($fh);
             }
-            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new$err");
+            my @diff = `diff $$opts{path}/$args{out} $$opts{path}/$args{out}.new | head -20`;
+            if ( @diff==20 ) { push @diff,"etc.\n"; }
+            for (my $i=0; $i<@diff; $i++) { $diff[$i] = "\t\t\t".$diff[$i]; }
+            chomp($diff[-1]);
+            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new$err\n".join('',@diff));
         }
         return;
     }
