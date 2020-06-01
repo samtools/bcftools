@@ -134,7 +134,7 @@ static int cmp_pair(const void *_a, const void *_b)
 
 typedef struct
 {
-    uint32_t ndiff,rid,pos;
+    uint32_t ndiff,rid,pos,rand; // rand is to shuffle sites with the same ndiff from across all chromosoms
     unsigned long kbs_dat[1];
 }
 diff_sites_t;
@@ -144,6 +144,8 @@ static int diff_sites_cmp(const void *aptr, const void *bptr)
     diff_sites_t *b = (diff_sites_t*)bptr;
     if ( a->ndiff < b->ndiff ) return 1;        // descending order
     if ( a->ndiff > b->ndiff ) return -1;
+    if ( a->rand < b->rand ) return -1;
+    if ( a->rand > b->rand ) return 1;
     return 0;
 }
 static void diff_sites_init(args_t *args)
@@ -179,10 +181,11 @@ static inline void diff_sites_reset(args_t *args)
 static inline void diff_sites_push(args_t *args, int ndiff, int rid, int pos)
 {
     diff_sites_t *dat = (diff_sites_t*) malloc(args->diff_sites_size);
-    memset(dat,0,sizeof(*dat)); // for debugging: prevent warnings about uninitialized memory coming from struct padding
+    memset(dat,0,sizeof(*dat)); // for debugging: prevent warnings about uninitialized memory coming from struct padding (not needed after rand added)
     dat->ndiff = ndiff;
-    dat->rid = rid;
-    dat->pos = pos;
+    dat->rid  = rid;
+    dat->pos  = pos;
+    dat->rand = (uint32_t)rand();
     memcpy(dat->kbs_dat,args->kbs_diff->b,args->kbs_diff->n*sizeof(unsigned long));
     extsort_push(args->es,dat);
 }
@@ -517,6 +520,7 @@ static void process_line(args_t *args)
                 if ( !HAS_GT(bptr) ) continue;
                 aval = DSG_GT(aptr);
                 bval = DSG_GT(bptr);
+                if ( args->hom_only && bval==1 ) continue;
                 if ( aval!=bval )
                 {
                     args->ndiff[i]++;
@@ -536,6 +540,7 @@ static void process_line(args_t *args)
                 if ( !HAS_PL(bptr) ) continue;
                 aval = MIN_PL(aptr);
                 bval = MIN_PL(bptr);
+                if ( args->hom_only && bptr[1]==bval ) continue;
                 int match = 0;
                 for (k=0; k<3; k++)
                     if ( aptr[k]==aval && bptr[k]==bval ) { match = 1; break; }
@@ -558,6 +563,7 @@ static void process_line(args_t *args)
                 if ( !HAS_PL(bptr) ) continue;
                 aval = DSG_GT(aptr);
                 bval = MIN_PL(bptr);
+                if ( args->hom_only && bptr[1]==bval ) continue;
                 if ( bptr[aval]!=bval )
                 {
                     args->ndiff[i]++;
@@ -577,6 +583,7 @@ static void process_line(args_t *args)
                 if ( !HAS_GT(bptr) ) continue;
                 aval = MIN_PL(aptr);
                 bval = DSG_GT(bptr);
+                if ( args->hom_only && bval==1 ) continue;
                 if ( aval!=aptr[bval] )
                 {
                     args->ndiff[i]++;
@@ -700,6 +707,7 @@ static void process_line(args_t *args)
                 int32_t bval;
                 if ( !HAS_GT(bptr) ) { idx++; bptr[0] = bcf_gt_missing; continue; }
                 bval = DSG_GT(bptr);
+                if ( args->hom_only && bval==1 ) { idx++; continue; }
                 if ( aval!=bval ) args->ndiff[idx]++;
                 else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
                 args->ncnt[idx]++;
@@ -725,6 +733,7 @@ static void process_line(args_t *args)
                 int32_t bval;
                 if ( !HAS_PL(bptr) ) { idx++; bptr[0] = bcf_int32_missing; continue; }
                 bval = MIN_PL(bptr);
+                if ( args->hom_only && bval==bptr[1] ) { idx++; continue; }
                 int match = 0;
                 for (k=0; k<3; k++)
                     if ( aptr[k]==aval && bptr[k]==bval ) { match = 1; break; }
@@ -752,6 +761,7 @@ static void process_line(args_t *args)
                 int32_t bval;
                 if ( !HAS_PL(bptr) ) { idx++; bptr[0] = bcf_int32_missing; continue; }
                 bval = MIN_PL(bptr);
+                if ( args->hom_only && bval==bptr[1] ) { idx++; continue; }
                 if ( bptr[aval]!=bval ) args->ndiff[idx]++;
                 else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
                 args->ncnt[idx]++;
@@ -777,6 +787,7 @@ static void process_line(args_t *args)
                 int32_t bval;
                 if ( !HAS_GT(bptr) ) { idx++; bptr[0] = bcf_gt_missing; continue; }
                 bval = DSG_GT(bptr);
+                if ( args->hom_only && bval==1 ) { idx++; continue; }
                 if ( aptr[bval]!=aval ) args->ndiff[idx]++;
                 else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
                 args->ncnt[idx]++;
@@ -915,7 +926,7 @@ static void report(args_t *args)
                 int igt = args->gt_smpl ? args->gt_smpl[arr[j].ism] : arr[j].ism;
                 fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
                         args->qry_hdr->samples[iqry],
-                        args->gt_hdr->samples[igt],
+                        args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
                         args->ndiff[idx],
                         args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
                         args->ncnt[idx]);
@@ -985,7 +996,7 @@ static void usage(void)
     fprintf(stderr, "                                           to 1, it is interpreted as the fraction of samples, otherwise as count\n");
     fprintf(stderr, "        --dry-run                      stop after first record to estimate required time\n");
     fprintf(stderr, "    -g, --genotypes FILE               genotypes to compare against\n");
-    fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only (useful for low coverage data)\n");
+    fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only, useful with low coverage data (requires -g)\n");
     fprintf(stderr, "        --n-matches INT                print only top INT matches for each sample, 0 for unlimited. Use negative value\n");
     fprintf(stderr, "                                            to sort by HWE probability rather than the number of discordant sites [0]\n");
     fprintf(stderr, "        --no-HWE-prob                  disable calculation of HWE probability\n");
@@ -1099,7 +1110,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                 break;
             case 'G': throw_and_clean(args,"The option -G, --GTs-only has been deprecated\n"); break;
             case 'a': args->all_sites = 1; break;
-            case 'H': args->hom_only = 1; throw_and_clean(args,"todo: -H\n"); break;
+            case 'H': args->hom_only = 1; break;
             case 'g': args->gt_fname = optarg; break;
 //            case 'p': args->plot = optarg; break;
             case 's':
@@ -1136,6 +1147,7 @@ int main_vcfgtcheck(int argc, char *argv[])
         if ( args->ntop ) throw_and_clean(args,"The --n-matches option cannot be combined with -p/-P\n");
     }
     if ( args->distinctive_sites && !args->pair_samples ) throw_and_clean(args,"The experimental option --distinctive-sites requires -p/-P");
+    if ( args->hom_only && !args->gt_fname ) throw_and_clean(args,"The option --homs-only requires --genotypes\n");
 
     init_data(args);
 
