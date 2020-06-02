@@ -1355,21 +1355,53 @@ option is given, the identity of samples from 'query.vcf.gz'
 is checked against the samples in the *-g* file.
 Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' is performed.
 
-*-g, --genotypes* 'genotypes.vcf.gz'::
-    reference genotypes to compare against
+*--distinctive-sites* 'NUM[,MEM[,DIR]]'::
+    Find sites that can distinguish between at least NUM sample pairs. If the number is smaller or equal to 1,
+    it is interpreted as the fraction of pairs.  The optional MEM string sets the maximum memory used for
+    in-memory sorting and DIR is the temporary directory for external sorting. This option requires also
+    *--pairs* to be given.
+
+*--dry-run*::
+    Stop after first record to estimate required time.
+
+*-g, --genotypes* 'FILE'::
+    VCF/BCF file with reference genotypes to compare against
+
+*-H, --homs-only*::
+    Homozygous genotypes only, useful with low coverage data (requires *-g, --genotypes*)
+
+
+*--n-matches* 'INT'::
+    Print only top INT matches for each sample, 0 for unlimited. Use negative value
+    to sort by HWE probability rather than the number of discordant sites.
+
+*--no-HWE-prob*::
+    Disable calculation of HWE probability to reduce memory requirements with 
+    comparisons between very large number of sample pairs.
+
+*-p, --pairs* 'LIST'::
+    A comma-separated list of sample pairs to compare. When the *-g* option is given, the first
+    sample must be from the query file, the second from the *-g* file, third from the query file
+    etc (qry,gt[,qry,gt..]). Without the *-g* option, the pairs are created the same way but both
+    samples are from the query file (qry,qry[,qry,qry..])
+
+*-P, --pairs-file* 'FILE'::
+    A file with tab-delimited sample pairs to compare. The first sample in the pair must come
+    from the query file, the second from the genotypes file when *-g* is given
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
-    see *<<common_options,Common Options>>*
+    Restrict to comma-separated list of regions, see *<<common_options,Common Options>>*
 
-*-R, --regions-file* 'file'::
-    see *<<common_options,Common Options>>*
+*-R, --regions-file' 'FILE'::
+    Restrict to regions listed in a file, see *<<common_options,Common Options>>*
 
-*-s, --samples* ['qry'|'gt']:'LIST'::
-    list of samples from the query file (prefix with 'qry:') or the -g file
-    (prefix with 'gt:'). By default all samples are compared.
+*-s, --samples* ['qry'|'gt']:'LIST':
+    List of query samples or *-g* samples. If neither *-s* nor *-S* are given, all possible sample
+    pair combinations are compared
 
-*-S, --samples-file* ['qry'|'gt']:'FILE'::
-    the same as *-s, --samples* but samples are listed in a file
+*-S, --samples-file* ['qry'|'gt']:'FILE'
+    File with the query or *-g* samples to compare.  If neither *-s* nor *-S* are given, all possible sample
+    pair combinations are compared
 
 *-t, --targets* 'file'::
     see *<<common_options,Common Options>>*
@@ -1381,6 +1413,19 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     specifies which tag to use in the query file ('TAG1') and the *-g* ('TAG2') file.
     By default, the PL tag is used in the query file and GT in the *-g* file when
     available.
+
+*Examples:*
+----
+   # Check discordance of all samples from B against all sample in A
+   bcftools gtcheck -g A.bcf B.bcf
+
+   # Limit comparisons to the fiven list of samples
+   bcftools gtcheck -s gt:a1,a2,a3 -s qry:b1,b2 -g A.bcf B.bcf
+
+   # Compare only two pairs a1,b1 and a1,b2
+   bcftools gtcheck -p a1,b1,a1,b2 -g A.bcf B.bcf
+----
+
 
 //  ==== Output files format:
 //      CN, Discordance;;

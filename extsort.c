@@ -37,13 +37,6 @@
 
 typedef struct
 {
-    uint32_t ndiff,rid,pos;
-    unsigned long kbs_dat[1];
-}
-diff_sites_t;
-
-typedef struct
-{
     extsort_t *es;  // this is to get access to extsort_cmp_f from kheap
     FILE *fp;
     char *fname;
@@ -70,7 +63,7 @@ static inline int blk_is_smaller(blk_t **aptr, blk_t **bptr)
 {
     blk_t *a = *aptr;
     blk_t *b = *bptr;
-    int ret = a->es->cmp(a->dat,b->dat);
+    int ret = a->es->cmp(&a->dat,&b->dat);
     if ( ret < 0 ) return 1;
     return 0;
 }
@@ -141,7 +134,12 @@ static void _init_tmpdir(extsort_t *es, const char *tmp_dir)
 void extsort_set(extsort_t *es, extsort_opt_t key, void *value)
 {
     if ( key==DAT_SIZE ) { es->dat_size = *((size_t*)value); return; }
-    if ( key==MAX_MEM ) { es->max_mem = parse_mem_string(*((const char**)value)); return; }
+    if ( key==MAX_MEM )
+    {
+        es->max_mem = parse_mem_string(*((const char**)value));
+        if ( es->max_mem <=0 ) clean_files_and_throw(es,"Could not parse the memory string, expected positive number: %s\n",*((const char**)value));
+        return;
+    }
     if ( key==TMP_DIR ) { _init_tmpdir(es, *((const char**)value)); return; }
     if ( key==FUNC_CMP ) { es->cmp = *((extsort_cmp_f*)value); return; }
 }
@@ -203,7 +201,7 @@ static void _buf_flush(extsort_t *es)
 void extsort_push(extsort_t *es, void *dat)
 {
     int delta = sizeof(void*) + es->dat_size;
-    if ( es->mem + delta > es->max_mem ) _buf_flush(es);
+    if ( es->nbuf && es->mem + delta > es->max_mem ) _buf_flush(es);
     es->nbuf++;
     es->mem += delta;
     hts_expand(void*, es->nbuf, es->mbuf, es->buf);
@@ -215,7 +213,6 @@ static int _blk_read(extsort_t *es, blk_t *blk)
 {
     int ret = 0;
     if ( !blk->fp ) return ret;
-    //blk->dat = malloc(es->dat_size);
     ret = fread(blk->dat, es->dat_size, 1, blk->fp);
     if ( ret < -1 ) clean_files_and_throw(es, "Error reading %s\n", blk->fname);
     if ( ret == -1 )

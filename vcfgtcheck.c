@@ -131,17 +131,26 @@ static int cmp_pair(const void *_a, const void *_b)
     return 0;
 }
 
-
 typedef struct
 {
     uint32_t ndiff,rid,pos,rand; // rand is to shuffle sites with the same ndiff from across all chromosoms
     unsigned long kbs_dat[1];
 }
 diff_sites_t;
+#if DBG
+static void diff_sites_debug_print(args_t *args, diff_sites_t *ds)
+{
+    int i;
+    memcpy(args->kbs_diff->b,ds->kbs_dat,args->kbs_diff->n*sizeof(unsigned long));
+    fprintf(stderr,"%s:%d\t%d\t",bcf_hdr_id2name(args->qry_hdr,ds->rid),ds->pos+1,ds->ndiff);
+    for (i=0; i<args->npairs; i++) fprintf(stderr,"%d",kbs_exists(args->kbs_diff,i)?1:0);
+    fprintf(stderr,"\n");
+}
+#endif
 static int diff_sites_cmp(const void *aptr, const void *bptr)
 {
-    diff_sites_t *a = (diff_sites_t*)aptr;
-    diff_sites_t *b = (diff_sites_t*)bptr;
+    diff_sites_t *a = *((diff_sites_t**)aptr);
+    diff_sites_t *b = *((diff_sites_t**)bptr);
     if ( a->ndiff < b->ndiff ) return 1;        // descending order
     if ( a->ndiff > b->ndiff ) return -1;
     if ( a->rand < b->rand ) return -1;
@@ -168,6 +177,7 @@ static void diff_sites_init(args_t *args)
     extsort_set_opt(args->es,const char*,MAX_MEM,args->es_max_mem);
     extsort_set_opt(args->es,extsort_cmp_f,FUNC_CMP,diff_sites_cmp);
     extsort_init(args->es);
+    srand(0);   // just to ensure reproducibility of --distinctive-sites in tests
 }
 static void diff_sites_destroy(args_t *args)
 {
@@ -381,6 +391,7 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    free(args->es_max_mem);
     fclose(args->fp);
     if ( args->distinctive_sites ) diff_sites_destroy(args);
     free(args->hwe_prob);
@@ -990,28 +1001,36 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools gtcheck [options] [-g <genotypes.vcf.gz>] <query.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -a, --all-sites                    output comparison for all sites\n");
-    fprintf(stderr, "    -c, --cluster MIN,MAX              min inter- and max intra-sample error [0.23,-0.3]\n");
-    fprintf(stderr, "        --distinctive-sites NUM        find sites that can distinguish between NUM sample pairs. If NUM is smaller or equal\n");
-    fprintf(stderr, "                                           to 1, it is interpreted as the fraction of samples, otherwise as count\n");
-    fprintf(stderr, "        --dry-run                      stop after first record to estimate required time\n");
-    fprintf(stderr, "    -g, --genotypes FILE               genotypes to compare against\n");
-    fprintf(stderr, "    -H, --homs-only                    homozygous genotypes only, useful with low coverage data (requires -g)\n");
-    fprintf(stderr, "        --n-matches INT                print only top INT matches for each sample, 0 for unlimited. Use negative value\n");
+    //fprintf(stderr, "    -a, --all-sites                  Output comparison for all sites\n");
+    //fprintf(stderr, "    -c, --cluster MIN,MAX            Min inter- and max intra-sample error [0.23,-0.3]\n");
+    fprintf(stderr, "        --distinctive-sites            Find sites that can distinguish between at least NUM sample pairs.\n");
+    fprintf(stderr, "                  NUM[,MEM[,DIR]]          If the number is smaller or equal to 1, it is interpreted as the fraction of pairs.\n");
+    fprintf(stderr, "                                           The optional MEM string sets the maximum memory used for in-memory sorting [500M]\n");
+    fprintf(stderr, "                                           and DIR is the temporary directory for external sorting [/tmp/bcftools-gtcheck.XXXXXX]\n");
+    fprintf(stderr, "        --dry-run                      Stop after first record to estimate required time\n");
+    fprintf(stderr, "    -g, --genotypes FILE               Genotypes to compare against\n");
+    fprintf(stderr, "    -H, --homs-only                    Homozygous genotypes only, useful with low coverage data (requires -g)\n");
+    fprintf(stderr, "        --n-matches INT                Print only top INT matches for each sample, 0 for unlimited. Use negative value\n");
     fprintf(stderr, "                                            to sort by HWE probability rather than the number of discordant sites [0]\n");
-    fprintf(stderr, "        --no-HWE-prob                  disable calculation of HWE probability\n");
-    fprintf(stderr, "    -p, --pairs LIST                   comma-separated sample pairs to compare (qry,gt[,qry,gt..] with -g or qry,qry[,qry,qry..] w/o)\n");
-    fprintf(stderr, "    -P, --pairs-file FILE              file with tab-delimited sample pairs to compare (qry,gt with -g or qry,qry w/o)\n");
-    fprintf(stderr, "    -r, --regions REGION               restrict to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file FILE            restrict to regions listed in a file\n");
-    fprintf(stderr, "    -s, --samples [qry|gt]:LIST        list of query or -g samples (by default all samples are compared)\n");
-    fprintf(stderr, "    -S, --samples-file [qry|gt]:FILE   file with the query or -g samples to compare\n");
-    fprintf(stderr, "    -t, --targets REGION               similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "    -T, --targets-file FILE            similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "    -u, --use TAG1[,TAG2]              which tag to use in the query file (TAG1) and the -g (TAG2) files [PL,GT]\n");
+    fprintf(stderr, "        --no-HWE-prob                  Disable calculation of HWE probability\n");
+    fprintf(stderr, "    -p, --pairs LIST                   Comma-separated sample pairs to compare (qry,gt[,qry,gt..] with -g or qry,qry[,qry,qry..] w/o)\n");
+    fprintf(stderr, "    -P, --pairs-file FILE              File with tab-delimited sample pairs to compare (qry,gt with -g or qry,qry w/o)\n");
+    fprintf(stderr, "    -r, --regions REGION               Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file FILE            Restrict to regions listed in a file\n");
+    fprintf(stderr, "    -s, --samples [qry|gt]:LIST        List of query or -g samples (by default all samples are compared)\n");
+    fprintf(stderr, "    -S, --samples-file [qry|gt]:FILE   File with the query or -g samples to compare\n");
+    fprintf(stderr, "    -t, --targets REGION               Similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file FILE            Similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -u, --use TAG1[,TAG2]              Which tag to use in the query file (TAG1) and the -g (TAG2) files [PL,GT]\n");
     fprintf(stderr, "Examples:\n");
-    fprintf(stderr, "   # Are there any matching samples in file A and B?\n");
-    fprintf(stderr, "   bcftools gtcheck -g A.bcf B.bcf > out.txt\n");
+    fprintf(stderr, "   # Check discordance of all samples from B against all sample in A\n");
+    fprintf(stderr, "   bcftools gtcheck -g A.bcf B.bcf\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # Limit comparisons to the fiven list of samples\n");
+    fprintf(stderr, "   bcftools gtcheck -s gt:a1,a2,a3 -s qry:b1,b2 -g A.bcf B.bcf\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "   # Compare only two pairs a1,b1 and a1,b2\n");
+    fprintf(stderr, "   bcftools gtcheck -p a1,b1,a1,b2 -g A.bcf B.bcf\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -1027,7 +1046,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 
     // external sort for --distinctive-sites
     args->es_tmp_dir = "/tmp/bcftools-gtcheck.XXXXXX";
-    args->es_max_mem = "500M";
+    args->es_max_mem = strdup("500M");
 
     // In simulated sample swaps the minimum error was 0.3 and maximum intra-sample error was 0.23
     //    - min_inter: pairs with smaller err value will be considered identical 
@@ -1097,9 +1116,18 @@ int main_vcfgtcheck(int argc, char *argv[])
             case 5 : args->dry_run = 1; break;
             case 6 : 
                 args->distinctive_sites = strtod(optarg,&tmp);
-                if ( *tmp )  throw_and_clean(args,"Could not parse: --distinctive-sites %s\n", optarg);
+                if ( *tmp )
+                {
+                    if ( *tmp!=',' ) throw_and_clean(args,"Could not parse: --distinctive-sites %s\n", optarg);
+                    tmp++;
+                    free(args->es_max_mem);
+                    args->es_max_mem = strdup(tmp);
+                    while ( *tmp && *tmp!=',' ) tmp++;
+                    if ( *tmp ) { *tmp = 0; args->es_tmp_dir = tmp+1; }
+                }
                 break;
             case 'c':
+                throw_and_clean(args,"The -c option is to be implemented, please open an issue on github\n");
                 args->min_inter_err = strtod(optarg,&tmp);
                 if ( *tmp )
                 {
@@ -1109,7 +1137,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                 }
                 break;
             case 'G': throw_and_clean(args,"The option -G, --GTs-only has been deprecated\n"); break;
-            case 'a': args->all_sites = 1; break;
+            case 'a': args->all_sites = 1; throw_and_clean(args,"The -a option is to be implemented, please open an issue on github\n"); break;
             case 'H': args->hom_only = 1; break;
             case 'g': args->gt_fname = optarg; break;
 //            case 'p': args->plot = optarg; break;
