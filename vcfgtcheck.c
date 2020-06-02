@@ -161,12 +161,14 @@ static void diff_sites_init(args_t *args)
 {
     int nsites = args->distinctive_sites<=1 ? args->npairs*args->distinctive_sites : args->distinctive_sites;
     if ( nsites<=0 ) throw_and_clean(args,"The value for --distinctive-sites was set too low: %d\n",nsites);
-    if ( nsites>args->npairs )
+    if ( nsites > args->npairs )
     {
-        fprintf(stderr,"The value for --distinctive-sites was set too high, setting to all pairs (%d) instead\n",args->npairs);
+        fprintf(stderr,"Warning: The value for --distinctive-sites is bigger than is the number of pairs, all discordant sites be printed.\n");
         nsites = args->npairs;
+        args->distinctive_sites = args->npairs + 1;
     }
-    args->distinctive_sites = nsites;
+    else
+        args->distinctive_sites = nsites;
     args->kbs_diff = kbs_init(args->npairs);
     size_t n = (args->npairs + KBS_ELTBITS-1) / KBS_ELTBITS;
     assert( n==args->kbs_diff->n );
@@ -177,7 +179,6 @@ static void diff_sites_init(args_t *args)
     extsort_set_opt(args->es,const char*,MAX_MEM,args->es_max_mem);
     extsort_set_opt(args->es,extsort_cmp_f,FUNC_CMP,diff_sites_cmp);
     extsort_init(args->es);
-    srand(0);   // just to ensure reproducibility of --distinctive-sites in tests
 }
 static void diff_sites_destroy(args_t *args)
 {
@@ -188,14 +189,28 @@ static inline void diff_sites_reset(args_t *args)
 {
     kbs_clear(args->kbs_diff);
 }
+/* 
+    Generage a 32-bit random number, taken from
+        https://www.pcg-random.org/download.html#minimal-c-implementation
+*/
+typedef struct { uint64_t state;  uint64_t inc; } pcg32_random_t;
+static uint32_t pcg32_random_r(pcg32_random_t* rng)
+{
+    uint64_t oldstate = rng->state;
+    rng->state = oldstate * 6364136223846793005ULL + (rng->inc|1);
+    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    uint32_t rot = oldstate >> 59u;
+    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+}
 static inline void diff_sites_push(args_t *args, int ndiff, int rid, int pos)
 {
+    static pcg32_random_t rng = { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL };
     diff_sites_t *dat = (diff_sites_t*) malloc(args->diff_sites_size);
     memset(dat,0,sizeof(*dat)); // for debugging: prevent warnings about uninitialized memory coming from struct padding (not needed after rand added)
     dat->ndiff = ndiff;
     dat->rid  = rid;
     dat->pos  = pos;
-    dat->rand = (uint32_t)rand();
+    dat->rand = pcg32_random_r(&rng);
     memcpy(dat->kbs_dat,args->kbs_diff->b,args->kbs_diff->n*sizeof(unsigned long));
     extsort_push(args->es,dat);
 }
@@ -837,7 +852,8 @@ static void report_distinctive_sites(args_t *args)
 
     kbitset_t *kbs_blk = kbs_init(args->npairs);
     kbitset_iter_t itr;
-    int i,ndiff,rid,pos,ndiff_tot = 0, ndiff_min = args->distinctive_sites, iblock = 0;
+    int i,ndiff,rid,pos,ndiff_tot = 0, iblock = 0;
+    int ndiff_min = args->distinctive_sites <= args->npairs ? args->distinctive_sites : args->npairs;
     while ( diff_sites_shift(args,&ndiff,&rid,&pos) )
     {
         int ndiff_new = 0, ndiff_dbg = 0;
