@@ -808,7 +808,11 @@ sub test_cmd
                 print $fh $exp;
                 close($fh);
             }
-            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new$err");
+            my @diff = `diff $$opts{path}/$args{out} $$opts{path}/$args{out}.new | head -20`;
+            if ( @diff==20 ) { push @diff,"etc.\n"; }
+            for (my $i=0; $i<@diff; $i++) { $diff[$i] = "\t\t\t".$diff[$i]; }
+            chomp($diff[-1]);
+            failed($opts,$test,"The outputs differ:\n\t\t$$opts{path}/$args{out}\n\t\t$$opts{path}/$args{out}.new$err\n".join('',@diff));
         }
         return;
     }
