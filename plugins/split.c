@@ -62,10 +62,11 @@ typedef struct
     int ninfo_tags, minfo_tags, nfmt_tags, mfmt_tags, keep_info, keep_fmt;
     int argc, region_is_file, target_is_file, output_type;
     char **argv, *region, *target, *fname, *output_dir, *keep_tags, *samples_fname;
-    bcf_hdr_t *hdr_in;
+    bcf_hdr_t *hdr_in, *hdr_out;
     bcf_srs_t *sr;
     subset_t *sets;
-    int nsets;
+    int nsets, nhts_opts;
+    char **hts_opts;
 }
 args_t;
 
@@ -94,6 +95,8 @@ static const char *usage_text(void)
         "                                       is used a base name of the new VCF.\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
+        "       --hts-opts LIST             low-level options to pass to HTSlib, e.g. block_size=32768\n"
+        "\n"
         "Examples:\n"
         "   # Split a VCF file\n"
         "   bcftools +split input.bcf -Ob -o dir\n"
@@ -303,7 +306,15 @@ static void init_data(args_t *args)
         else kputs(".vcf", &str);
         set->fh = hts_open(str.s, hts_bcf_wmode(args->output_type));
         if ( set->fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, str.s, strerror(errno));
-        set->hdr = bcf_hdr_dup(tmp_hdr);
+        if ( args->hts_opts )
+        {
+            hts_opt *opts = NULL;
+            for (j=0; j<args->nhts_opts; j++)
+                if ( hts_opt_add(&opts,args->hts_opts[j]) ) error("Could not set the HTS option \"%s\"\n",args->hts_opts[j]);
+            if ( hts_opt_apply(set->fh,opts) ) return error("Could not apply the HTS options\n");
+            hts_opt_free(opts);
+        }
+        set->hdr = tmp_hdr;     // dirty: reuse the same header to lower memory for large datasets
         bcf_hdr_nsamples(set->hdr) = set->nsmpl;
         for (j=0; j<set->nsmpl; j++)
             set->hdr->samples[j] = set->rename ? set->rename[j] : args->hdr_in->samples[set->smpl[j]];
@@ -311,11 +322,12 @@ static void init_data(args_t *args)
         if ( args->filter_str )
             set->filter = filter_init(set->hdr, args->filter_str);
     }
+    args->hdr_out = tmp_hdr;
     free(str.s);
-    bcf_hdr_destroy(tmp_hdr);
 }
 static void destroy_data(args_t *args)
 {
+    bcf_hdr_destroy(args->hdr_out);
     free(args->info_tags);
     free(args->fmt_tags);
     int i,j;
@@ -327,13 +339,15 @@ static void destroy_data(args_t *args)
         free(set->smpl);
         if ( set->filter )
             filter_destroy(set->filter);
-        bcf_hdr_destroy(set->hdr);
+        //bcf_hdr_destroy(set->hdr);
         if ( set->rename )
         {
             for (j=0; j<set->nsmpl; j++) free(set->rename[j]);
             free(set->rename);
         }
     }
+    for (i=0; i<args->nhts_opts; i++) free(args->hts_opts[i]);
+    free(args->hts_opts);
     free(args->sets);
     bcf_sr_destroy(args->sr);
     free(args);
@@ -420,6 +434,7 @@ static void process(args_t *args)
     for (i=0; i<args->nsets; i++)
     {
         subset_t *set = &args->sets[i];
+        bcf_hdr_nsamples(set->hdr) = set->nsmpl;    // dirty: prevent memory duplication for very large sets
 
         out = rec_set_info(args, set, rec, out);
         rec_set_format(args, set, rec, out);
@@ -443,6 +458,7 @@ int run(int argc, char **argv)
     args->output_type  = FT_VCF;
     static struct option loptions[] =
     {
+        {"hts-opts",required_argument,NULL,1},
         {"keep-tags",required_argument,NULL,'k'},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
@@ -458,6 +474,7 @@ int run(int argc, char **argv)
     {
         switch (c) 
         {
+            case  1 : args->hts_opts = hts_readlist(optarg,0,&args->nhts_opts); break;
             case 'k': args->keep_tags = optarg; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
