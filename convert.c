@@ -785,8 +785,8 @@ static void process_gp_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
         int j;
         for (j=0; j<n; j++)
         {
-            if ( ptr[j]==bcf_int32_vector_end ) break;
-            if ( ptr[j]==bcf_int32_missing ) { ptr[j]=0; continue; }
+            if ( bcf_float_is_vector_end(ptr[j]) ) break;
+            if ( bcf_float_is_missing(ptr[j]) ) { ptr[j]=0; continue; }
             if ( ptr[j]<0 || ptr[j]>1 ) error("[%s:%"PRId64":%f] GP value outside range [0,1]; bcftools convert expects the VCF4.3+ spec for the GP field encoding genotype posterior probabilities", bcf_seqname(convert->header,line),(int64_t) line->pos+1,ptr[j]);
             sum+=ptr[j];
         }
