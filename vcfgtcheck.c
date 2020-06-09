@@ -56,12 +56,14 @@ typedef struct
     char *cwd, **argv, *gt_samples, *qry_samples, *regions, *targets, *qry_fname, *gt_fname, *pair_samples;
     int argc, gt_samples_is_file, qry_samples_is_file, regions_is_file, targets_is_file, pair_samples_is_file;
     int qry_use_GT,gt_use_GT, nqry_smpl,ngt_smpl, *qry_smpl,*gt_smpl;
+    double *pdiff;
     uint32_t *ndiff,*ncnt,ncmp, npairs;
     int32_t *qry_arr,*gt_arr, nqry_arr,ngt_arr;
+    uint8_t *qry_dsg, *gt_dsg;
     pair_t *pairs;
     double *hwe_prob;
     double min_inter_err, max_intra_err;
-    int all_sites, hom_only, ntop, cross_check, calc_hwe_prob, sort_by_hwe, dry_run;
+    int all_sites, hom_only, ntop, cross_check, calc_hwe_prob, sort_by_hwe, dry_run, use_PLs;
     FILE *fp;
 
     // for --distinctive-sites
@@ -261,6 +263,8 @@ static void init_data(args_t *args)
     }
     else if ( bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"PL")<0 )
         throw_and_clean(args,"[E::%s] The PL tag is not present in the header of %s\n", __func__, args->qry_fname);
+    if ( args->use_PLs && args->qry_use_GT )
+        throw_and_clean(args,"Error: --use-likelihoods was requested but FORMAT/PL is not present/was not selected for %s\n",args->qry_fname);
 
     if ( args->gt_hdr )
     {
@@ -296,48 +300,36 @@ static void init_data(args_t *args)
         {
             int idx = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
             if ( idx<0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->qry_fname,tmp[i]);
-            // todo: add a check to prevent duplicates
             args->qry_smpl[i] = idx;
             free(tmp[i]);
         }
         free(tmp);
         qsort(args->qry_smpl,args->nqry_smpl,sizeof(*args->qry_smpl),cmp_int);
+        // check for duplicates
+        for (i=1; i<args->nqry_smpl; i++)
+            if ( args->qry_smpl[i-1]==args->qry_smpl[i] )
+                error("Error: the sample \"%s\" is listed twice in %s\n",args->qry_hdr->samples[args->qry_smpl[i]],args->qry_fname);
     }
-    if ( args->gt_hdr )
-    {
-        args->ngt_smpl = bcf_hdr_nsamples(args->gt_hdr);
-        if ( args->gt_samples )
-        {
-            char **tmp = hts_readlist(args->gt_samples, args->gt_samples_is_file, &args->ngt_smpl);
-            if ( !tmp || !args->ngt_smpl ) throw_and_clean(args,"Failed to parse %s\n", args->gt_samples);
-            args->gt_smpl = (int*) malloc(sizeof(*args->gt_smpl)*args->ngt_smpl);
-            for (i=0; i<args->ngt_smpl; i++)
-            {
-                int idx = bcf_hdr_id2int(args->gt_hdr, BCF_DT_SAMPLE, tmp[i]);
-                if ( idx<0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->gt_fname,tmp[i]);
-                // todo: add a check to prevent duplicates
-                args->gt_smpl[i] = idx;
-                free(tmp[i]);
-            }
-            free(tmp);
-            qsort(args->gt_smpl,args->ngt_smpl,sizeof(*args->gt_smpl),cmp_int);
-        }
-    }
-    else if ( args->gt_samples )
+    if ( args->gt_samples )
     {
         char **tmp = hts_readlist(args->gt_samples, args->gt_samples_is_file, &args->ngt_smpl);
         if ( !tmp || !args->ngt_smpl ) throw_and_clean(args,"Failed to parse %s\n", args->gt_samples);
         args->gt_smpl = (int*) malloc(sizeof(*args->gt_smpl)*args->ngt_smpl);
         for (i=0; i<args->ngt_smpl; i++)
         {
-            int idx = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
-            if ( idx<0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->gt_fname,tmp[i]);
-            // todo: add a check to prevent duplicates
+            int idx = bcf_hdr_id2int(args->gt_hdr ? args->gt_hdr : args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
+            if ( idx<0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->gt_fname ? args->gt_fname : args->qry_fname,tmp[i]);
             args->gt_smpl[i] = idx;
             free(tmp[i]);
         }
         free(tmp);
         qsort(args->gt_smpl,args->ngt_smpl,sizeof(*args->gt_smpl),cmp_int);
+        // check for duplicates
+        for (i=1; i<args->ngt_smpl; i++)
+            if ( args->gt_smpl[i-1]==args->gt_smpl[i] )
+                error("Error: the sample \"%s\" is listed twice in %s\n",
+                    args->qry_hdr ? args->qry_hdr->samples[args->gt_smpl[i]] : args->qry_hdr->samples[args->gt_smpl[i]],
+                    args->gt_fname ? args->gt_fname : args->qry_fname);
     }
     else if ( args->pair_samples )
     {
@@ -379,7 +371,9 @@ static void init_data(args_t *args)
         free(tmp);
         qsort(args->pairs,args->npairs,sizeof(*args->pairs),cmp_pair);
     }
-    else
+    else if ( args->gt_hdr )
+        args->ngt_smpl = bcf_hdr_nsamples(args->gt_hdr);
+    if ( !args->ngt_smpl )
     {
         args->ngt_smpl = args->nqry_smpl;
         args->gt_smpl  = args->qry_smpl;
@@ -388,8 +382,16 @@ static void init_data(args_t *args)
 
     // The data arrays
     if ( !args->npairs ) args->npairs = args->cross_check ? args->nqry_smpl*(args->nqry_smpl+1)/2 : args->ngt_smpl*args->nqry_smpl;
-    args->ndiff = (uint32_t*) calloc(args->npairs,sizeof(*args->ndiff));    // number of differing genotypes for each pair of samples
-    args->ncnt  = (uint32_t*) calloc(args->npairs,sizeof(*args->ncnt));     // number of comparisons performed (non-missing data)
+    if ( !args->pair_samples )
+    {
+        args->qry_dsg = (uint8_t*) malloc(args->nqry_smpl);
+        args->gt_dsg  = args->cross_check ? args->qry_dsg : (uint8_t*) malloc(args->ngt_smpl);
+    }
+    if ( args->use_PLs )
+        args->pdiff = (double*) calloc(args->npairs,sizeof(*args->pdiff));      // log probability of pair samples being the same
+    else
+        args->ndiff = (uint32_t*) calloc(args->npairs,sizeof(*args->ndiff));    // number of differing genotypes for each pair of samples
+    args->ncnt  = (uint32_t*) calloc(args->npairs,sizeof(*args->ncnt));         // number of comparisons performed (non-missing data)
     if ( !args->ncnt ) throw_and_clean(args,"Error: failed to allocate %.1f Mb\n", args->npairs*sizeof(*args->ncnt)/1e6);
     if ( args->calc_hwe_prob )
     {
@@ -406,6 +408,8 @@ static void init_data(args_t *args)
 
 static void destroy_data(args_t *args)
 {
+    if ( args->gt_dsg!=args->qry_dsg ) free(args->gt_dsg);
+    free(args->qry_dsg);
     free(args->es_max_mem);
     fclose(args->fp);
     if ( args->distinctive_sites ) diff_sites_destroy(args);
@@ -413,6 +417,7 @@ static void destroy_data(args_t *args)
     free(args->cwd);
     free(args->qry_arr);
     if ( args->gt_hdr ) free(args->gt_arr);
+    free(args->pdiff);
     free(args->ndiff);
     free(args->ncnt);
     free(args->qry_smpl);
@@ -421,58 +426,26 @@ static void destroy_data(args_t *args)
     bcf_sr_destroy(args->files);
 }
 
-/*
-   Return -1 on missing data, 0 on mismatch, 1 on match.
-   Note that:
-        - currently only diploid, non-missing values are considered
-        - with PLs we only compare whether the most likely PL=P(D|G) values match
-*/
-#define _SLOWER_BRANCH 0
-#if _SLOWER_BRANCH
-static inline int match_GT_GT(int32_t *aptr, int32_t *bptr, int *adsg, int *bdsg)
+static inline uint8_t gt_to_dsg(int32_t *ptr)
 {
-    if ( bcf_gt_is_missing(aptr[0]) || bcf_gt_is_missing(aptr[1]) || aptr[1]==bcf_int32_vector_end ) return -1;
-    if ( bcf_gt_is_missing(bptr[0]) || bcf_gt_is_missing(bptr[1]) || bptr[1]==bcf_int32_vector_end ) return -1;
-    *adsg = (bcf_gt_allele(aptr[0])?1:0) + (bcf_gt_allele(aptr[1])?1:0);
-    *bdsg = (bcf_gt_allele(bptr[0])?1:0) + (bcf_gt_allele(bptr[1])?1:0);
-    return *adsg==*bdsg ? 1 : 0;
+    if ( bcf_gt_is_missing(ptr[0]) || bcf_gt_is_missing(ptr[1]) || ptr[1]==bcf_int32_vector_end ) return 0;
+    uint8_t dsg = (bcf_gt_allele(ptr[0])?1:0) + (bcf_gt_allele(ptr[1])?1:0);
+    return 1<<dsg;
 }
-static inline int match_GT_PL(int32_t *aptr, int32_t *bptr, int *adsg, int *bdsg)
+static inline uint8_t pl_to_dsg(int32_t *ptr)
 {
-    if ( bcf_gt_is_missing(aptr[0]) || bcf_gt_is_missing(aptr[1]) || aptr[1]==bcf_int32_vector_end ) return -1;
-    if ( bptr[0]==bcf_int32_missing || bptr[1]==bcf_int32_missing || bptr[2]==bcf_int32_missing || bptr[1]==bcf_int32_vector_end || bptr[2]==bcf_int32_vector_end ) return -1;
-    *adsg = (bcf_gt_allele(aptr[0])?1:0) + (bcf_gt_allele(aptr[1])?1:0);
-    *bdsg = 0;
-    int i, min = bptr[0];
-    for (i=1; i<3; i++)
-        if ( min > bptr[i] ) { min = bptr[i]; *bdsg = i; }
-    return min==bptr[*adsg] ? 1 : 0;
+    if ( ptr[0]==bcf_int32_missing || ptr[1]==bcf_int32_missing || ptr[2]==bcf_int32_missing ) return 0;
+    if ( ptr[1]==bcf_int32_vector_end || ptr[2]==bcf_int32_vector_end ) return 0;
+    int min_pl = ptr[0]<ptr[1] ? (ptr[0]<ptr[2]?ptr[0]:ptr[2]) : (ptr[1]<ptr[2]?ptr[1]:ptr[2]);
+    uint8_t dsg = 0;
+    if ( ptr[0]==min_pl ) dsg |= 1;
+    if ( ptr[1]==min_pl ) dsg |= 2;
+    if ( ptr[2]==min_pl ) dsg |= 4;
+    return dsg;
 }
-static inline int match_PL_PL(int32_t *aptr, int32_t *bptr, int *adsg, int *bdsg)
-{
-    if ( aptr[0]==bcf_int32_missing || aptr[1]==bcf_int32_missing || aptr[2]==bcf_int32_missing || aptr[1]==bcf_int32_vector_end || aptr[2]==bcf_int32_vector_end ) return -1;
-    if ( bptr[0]==bcf_int32_missing || bptr[1]==bcf_int32_missing || bptr[2]==bcf_int32_missing || bptr[1]==bcf_int32_vector_end || bptr[2]==bcf_int32_vector_end ) return -1;
-    int i, amin = aptr[0], bmin = bptr[0];
-    *adsg = 0; *bdsg = 0;
-    for (i=1; i<3; i++)
-        if ( amin > aptr[i] ) { amin = aptr[i]; *adsg = i; }
-    for (i=1; i<3; i++)
-        if ( bmin > bptr[i] ) { bmin = bptr[i]; *bdsg = i; }
-    for (i=0; i<3; i++)
-        if ( aptr[i]==amin && bptr[i]==bmin ) { *adsg = *bdsg = i; return 1; }
-    return 0;
-}
-#else   /* faster branch for missing data */
-#define HAS_GT(ptr) (!bcf_gt_is_missing(ptr[0]) && !bcf_gt_is_missing(ptr[1]) && ptr[1]!=bcf_int32_vector_end)
-#define HAS_PL(ptr) (ptr[0]!=bcf_int32_missing && ptr[1]!=bcf_int32_missing && ptr[2]!=bcf_int32_missing && ptr[1]!=bcf_int32_vector_end && ptr[2]!=bcf_int32_vector_end)
-#define MIN_PL(ptr) ptr[0]<ptr[1]?(ptr[0]<ptr[2]?ptr[0]:ptr[2]):(ptr[1]<ptr[2]?ptr[1]:ptr[2])
-#define DSG_PL(ptr) ptr[0]<ptr[1]?(ptr[0]<ptr[2]?0:2):(ptr[1]<ptr[2]?1:2)
-#define DSG_GT(ptr) (bcf_gt_allele(ptr[0])?1:0) + (bcf_gt_allele(ptr[1])?1:0)
-#endif
-
 static void process_line(args_t *args)
 {
-    int nqry1, ngt1;
+    int i,j,k, nqry1, ngt1;
 
     bcf1_t *gt_rec = NULL, *qry_rec = bcf_sr_get_line(args->files,0);   // the query file
     if ( args->qry_use_GT )
@@ -512,7 +485,7 @@ static void process_line(args_t *args)
 
     args->ncmp++;
 
-    double af,hwe[3];
+    double af,hwe_dsg[8];
     if ( args->calc_hwe_prob )
     {
         int ac[2];
@@ -522,306 +495,90 @@ static void process_line(args_t *args)
         }
         else if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) throw_and_clean(args,"todo: bcf_calc_ac() failed\n");
 
-        const double min_af = 1e-3;
+        // hwe indexes correspond to the bitmask of eight dsg combinations to account for PL uncertainty
+        // for in the extreme case we can have uninformative PL=0,0,0. So the values are the minima of e.g.
+        //      hwe[1,2,4] ..  dsg=0,1,2
+        //      hwe[3]     ..  dsg=0 or 1
+        //      hwe[6]     ..  dsg=1 or 2
+
+        double hwe[3];
+        const double min_af = 1e-5;             // cap the AF in case we get unrealistic values
         af = (double)ac[1]/(ac[0]+ac[1]);
         hwe[0] = af>min_af ? -log(af*af) : -log(min_af*min_af);
         hwe[1] = af>min_af && af<1-min_af ? -log(2*af*(1-af)) : -log(2*min_af*(1-min_af));
-        hwe[2] = af<1-min_af ? -log((1-af)*(1-af)) : -log(min_af*min_af);
+        hwe[2] = af<(1-min_af) ? -log((1-af)*(1-af)) : -log(min_af*min_af);
+        hwe_dsg[0] = 0;
+        for (i=1; i<8; i++)
+        {
+            hwe_dsg[i] = HUGE_VAL;
+            for (k=0; k<3; k++)
+            {
+                if ( ((1<<k)&i) && hwe_dsg[i] > hwe[k] ) hwe_dsg[i] = hwe[k];
+            }
+        }
     }
 
     // The sample pairs were given explicitly via -p/-P options
     if ( args->pairs )
     {
+        int ndiff = 0;
         if ( args->kbs_diff ) diff_sites_reset(args);
 
-        int32_t *aptr, aval, *bptr, bval;
-        int i,k, ndiff=0;
-        if ( args->qry_use_GT && args->gt_use_GT )
+        for (i=0; i<args->npairs; i++)
         {
-            for (i=0; i<args->npairs; i++)
+            int32_t *ptr = args->qry_arr + args->pairs[i].iqry*nqry1;
+            uint8_t qry_dsg = args->qry_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+            ptr = args->gt_arr + args->pairs[i].igt*ngt1;
+            uint8_t gt_dsg = args->gt_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+
+            if ( !qry_dsg || !gt_dsg ) continue;            // missing value
+            if ( args->hom_only && !(gt_dsg&5) ) continue;  // not a hom
+
+            int match = qry_dsg & gt_dsg;
+            if ( !match )
             {
-                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
-                if ( !HAS_GT(aptr) ) continue;
-                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
-                if ( !HAS_GT(bptr) ) continue;
-                aval = DSG_GT(aptr);
-                bval = DSG_GT(bptr);
-                if ( args->hom_only && bval==1 ) continue;
-                if ( aval!=bval )
-                {
-                    args->ndiff[i]++;
-                    if ( args->kbs_diff ) { ndiff++; kbs_insert(args->kbs_diff, i); }
-                }
-                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[aval];
-                args->ncnt[i]++;
+                args->ndiff[i]++;
+                if ( args->kbs_diff ) { ndiff++; kbs_insert(args->kbs_diff, i); }
             }
+            else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe_dsg[match];
+            args->ncnt[i]++;
         }
-        else if ( !args->qry_use_GT && !args->gt_use_GT )
-        {
-            for (i=0; i<args->npairs; i++)
-            {
-                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
-                if ( !HAS_PL(aptr) ) continue;
-                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
-                if ( !HAS_PL(bptr) ) continue;
-                aval = MIN_PL(aptr);
-                bval = MIN_PL(bptr);
-                if ( args->hom_only && bptr[1]==bval ) continue;
-                int match = 0;
-                for (k=0; k<3; k++)
-                    if ( aptr[k]==aval && bptr[k]==bval ) { match = 1; break; }
-                if ( !match )
-                {
-                    args->ndiff[i]++;
-                    if ( args->kbs_diff ) { ndiff++; kbs_insert(args->kbs_diff, i); }
-                }
-                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[DSG_PL(aptr)];
-                args->ncnt[i]++;
-            }
-        }
-        else if ( args->qry_use_GT )
-        {
-            for (i=0; i<args->npairs; i++)
-            {
-                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
-                if ( !HAS_GT(aptr) ) continue;
-                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
-                if ( !HAS_PL(bptr) ) continue;
-                aval = DSG_GT(aptr);
-                bval = MIN_PL(bptr);
-                if ( args->hom_only && bptr[1]==bval ) continue;
-                if ( bptr[aval]!=bval )
-                {
-                    args->ndiff[i]++;
-                    if ( args->kbs_diff ) { ndiff++; kbs_insert(args->kbs_diff, i); }
-                }
-                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[aval];
-                args->ncnt[i]++;
-            }
-        }
-        else    // !args->qry_use_GT
-        {
-            for (i=0; i<args->npairs; i++)
-            {
-                aptr = args->qry_arr + args->pairs[i].iqry*nqry1;
-                if ( !HAS_PL(aptr) ) continue;
-                bptr = args->gt_arr  + args->pairs[i].igt*ngt1;
-                if ( !HAS_GT(bptr) ) continue;
-                aval = MIN_PL(aptr);
-                bval = DSG_GT(bptr);
-                if ( args->hom_only && bval==1 ) continue;
-                if ( aval!=aptr[bval] )
-                {
-                    args->ndiff[i]++;
-                    if ( args->kbs_diff ) { ndiff++; kbs_insert(args->kbs_diff, i); }
-                }
-                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe[DSG_PL(aptr)];
-                args->ncnt[i]++;
-            }
-        }
+
         if ( ndiff ) diff_sites_push(args, ndiff, qry_rec->rid, qry_rec->pos);
         return;
     }
 
-#if _SLOWER_BRANCH
-    int i,j,idx=0;
+    int idx=0;
     for (i=0; i<args->nqry_smpl; i++)
     {
         int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
-        int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
-        for (j=0; j<ngt; j++)
+        int32_t *ptr = args->qry_arr + nqry1*iqry;
+        args->qry_dsg[i] = args->qry_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+    }
+    if ( !args->cross_check )
+    {
+        for (i=0; i<args->ngt_smpl; i++)
         {
-            int igt = args->gt_smpl ? args->gt_smpl[j] : j;
-            int32_t *aptr = args->qry_arr + iqry*nqry1;
-            int32_t *bptr = args->gt_arr + igt*ngt1;
-            int match, qry_dsg, ign;
-            if ( args->qry_use_GT && args->gt_use_GT )
-                match = match_GT_GT(aptr,bptr,&qry_dsg,&ign);
-            else if ( !args->qry_use_GT && !args->gt_use_GT )
-                match = match_PL_PL(aptr,bptr,&qry_dsg,&ign);
-            else if ( args->qry_use_GT )
-                match = match_GT_PL(aptr,bptr,&qry_dsg,&ign);
-            else
-                match = match_GT_PL(bptr,aptr,&ign,&qry_dsg);
-            if ( match>=0 ) 
-            {
-                if ( !match ) args->ndiff[idx]++;
-                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
-                args->ncnt[idx]++;
-            }
-            idx++;
+            int igt = args->gt_smpl ? args->gt_smpl[i] : i;
+            int32_t *ptr = args->gt_arr + ngt1*igt;
+            args->gt_dsg[i] = args->gt_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+            if ( args->hom_only && !(args->gt_dsg[i]&5) ) args->gt_dsg[i] = 0;      // not a hom, set to a missing value
         }
     }
-#elif _FASTER_BRANCH
-    int i,j,idx=0;
     for (i=0; i<args->nqry_smpl; i++)
     {
-        int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
-        int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
-        int32_t *aptr = args->qry_arr + iqry*nqry1;
-        int32_t aval, qry_dsg;
-        if ( args->qry_use_GT )
-        {
-            if ( !HAS_GT(aptr) ) { idx += ngt; continue; }
-            aval = qry_dsg = DSG_GT(aptr);
-        }
-        else
-        {
-            if ( !HAS_PL(aptr) ) { idx += ngt; continue; }
-            aval = MIN_PL(aptr);
-            qry_dsg = DSG_PL(aptr);
-        }
-
+        int ngt = args->cross_check ? i : args->ngt_smpl;       // two files or a sub-diagonal cross-check mode?
+        if ( !args->qry_dsg[i] ) { idx += ngt; continue; }      // missing value
         for (j=0; j<ngt; j++)
         {
-            int igt = args->gt_smpl ? args->gt_smpl[j] : j;
-            int32_t *bptr = args->gt_arr + igt*ngt1;
-            int32_t bval;
-            if ( args->gt_use_GT )
-            {
-                if ( !HAS_GT(bptr) ) { idx++; bptr[0] = bcf_gt_missing; continue; }
-                bval = DSG_GT(bptr);
-            }
-            else
-            {
-                if ( !HAS_PL(bptr) ) { idx++; bptr[0] = bcf_int32_missing; continue; }
-                bval = MIN_PL(bptr);
-            }
-
-            int match;
-            if ( args->qry_use_GT )
-            {
-                if ( args->gt_use_GT )
-                    match = aval==bval ? 1 : 0;
-                else
-                    match = bptr[aval]==bval ? 1 : 0;
-            }
-            else
-            {
-                if ( args->gt_use_GT )
-                    match = aptr[bval]==aval ? 1 : 0;
-                else
-                {
-                    int k;
-                    match = 0;
-                    for (k=0; k<3; k++)
-                        if ( aptr[k]==aval && bptr[k]==bval ) { match = 1; break; }
-                }
-            }
+            if ( !args->gt_dsg[j] ) { idx++; continue; }        // missing value
+            int match = args->qry_dsg[i] & args->gt_dsg[j];
             if ( !match ) args->ndiff[idx]++;
-            else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
+            else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe_dsg[match];
             args->ncnt[idx]++;
             idx++;
         }
     }
-#else   // the default
-    int i,j,k,idx=0;
-    if ( args->qry_use_GT && args->gt_use_GT )
-    {
-        for (i=0; i<args->nqry_smpl; i++)
-        {
-            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
-            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
-            int32_t *aptr = args->qry_arr + iqry*nqry1;
-            int32_t aval, qry_dsg;
-            if ( !HAS_GT(aptr) ) { idx += ngt; continue; }
-            aval = qry_dsg = DSG_GT(aptr);
-            for (j=0; j<ngt; j++)
-            {
-                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
-                int32_t *bptr = args->gt_arr + igt*ngt1;
-                int32_t bval;
-                if ( !HAS_GT(bptr) ) { idx++; bptr[0] = bcf_gt_missing; continue; }
-                bval = DSG_GT(bptr);
-                if ( args->hom_only && bval==1 ) { idx++; continue; }
-                if ( aval!=bval ) args->ndiff[idx]++;
-                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
-                args->ncnt[idx]++;
-                idx++;
-            }
-        }
-    }
-    else if ( !args->qry_use_GT && !args->gt_use_GT )
-    {
-        for (i=0; i<args->nqry_smpl; i++)
-        {
-            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
-            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
-            int32_t *aptr = args->qry_arr + iqry*nqry1;
-            int32_t aval, qry_dsg;
-            if ( !HAS_PL(aptr) ) { idx += ngt; continue; }
-            aval = MIN_PL(aptr);
-            qry_dsg = DSG_PL(aptr);
-            for (j=0; j<ngt; j++)
-            {
-                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
-                int32_t *bptr = args->gt_arr + igt*ngt1;
-                int32_t bval;
-                if ( !HAS_PL(bptr) ) { idx++; bptr[0] = bcf_int32_missing; continue; }
-                bval = MIN_PL(bptr);
-                if ( args->hom_only && bval==bptr[1] ) { idx++; continue; }
-                int match = 0;
-                for (k=0; k<3; k++)
-                    if ( aptr[k]==aval && bptr[k]==bval ) { match = 1; break; }
-                if ( !match ) args->ndiff[idx]++;
-                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
-                args->ncnt[idx]++;
-                idx++;
-            }
-        }
-    }
-    else if ( args->qry_use_GT )
-    {
-        for (i=0; i<args->nqry_smpl; i++)
-        {
-            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
-            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
-            int32_t *aptr = args->qry_arr + iqry*nqry1;
-            int32_t aval, qry_dsg;
-            if ( !HAS_GT(aptr) ) { idx += ngt; continue; }
-            aval = qry_dsg = DSG_GT(aptr);
-            for (j=0; j<ngt; j++)
-            {
-                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
-                int32_t *bptr = args->gt_arr + igt*ngt1;
-                int32_t bval;
-                if ( !HAS_PL(bptr) ) { idx++; bptr[0] = bcf_int32_missing; continue; }
-                bval = MIN_PL(bptr);
-                if ( args->hom_only && bval==bptr[1] ) { idx++; continue; }
-                if ( bptr[aval]!=bval ) args->ndiff[idx]++;
-                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
-                args->ncnt[idx]++;
-                idx++;
-            }
-        }
-    }
-    else    // !args->qry_use_GT
-    {
-        for (i=0; i<args->nqry_smpl; i++)
-        {
-            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
-            int ngt  = args->cross_check ? i : args->ngt_smpl;     // two files or a sub-diagnoal cross-check mode?
-            int32_t *aptr = args->qry_arr + iqry*nqry1;
-            int32_t aval, qry_dsg;
-            if ( !HAS_PL(aptr) ) { idx += ngt; continue; }
-            aval = MIN_PL(aptr);
-            qry_dsg = DSG_PL(aptr);
-            for (j=0; j<ngt; j++)
-            {
-                int igt = args->gt_smpl ? args->gt_smpl[j] : j;
-                int32_t *bptr = args->gt_arr + igt*ngt1;
-                int32_t bval;
-                if ( !HAS_GT(bptr) ) { idx++; bptr[0] = bcf_gt_missing; continue; }
-                bval = DSG_GT(bptr);
-                if ( args->hom_only && bval==1 ) { idx++; continue; }
-                if ( aptr[bval]!=aval ) args->ndiff[idx]++;
-                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe[qry_dsg];
-                args->ncnt[idx]++;
-                idx++;
-            }
-        }
-    }
-#endif
 }
 
 
@@ -882,7 +639,7 @@ static void report(args_t *args)
     fprintf(args->fp,"#     - query sample\n");
     fprintf(args->fp,"#     - genotyped sample\n");
     fprintf(args->fp,"#     - discordance (number of mismatches; smaller is better)\n");
-    fprintf(args->fp,"#     - negative log of HWE probability at matching sites (bigger is better)\n");
+    fprintf(args->fp,"#     - negative log of HWE probability at matching sites (rare genotypes mataches are more informative, bigger is better)\n");
     fprintf(args->fp,"#     - number of sites compared (bigger is better)\n");
     fprintf(args->fp,"#DC\t[2]Query Sample\t[3]Genotyped Sample\t[4]Discordance\t[5]-log P(HWE)\t[6]Number of sites compared\n");
 
@@ -1026,6 +783,7 @@ static void usage(void)
     fprintf(stderr, "        --dry-run                      Stop after first record to estimate required time\n");
     fprintf(stderr, "    -g, --genotypes FILE               Genotypes to compare against\n");
     fprintf(stderr, "    -H, --homs-only                    Homozygous genotypes only, useful with low coverage data (requires -g)\n");
+    fprintf(stderr, "    -l, --use-likelihoods              Interpret PLs probabilistically (slower but more accurate)\n");
     fprintf(stderr, "        --n-matches INT                Print only top INT matches for each sample, 0 for unlimited. Use negative value\n");
     fprintf(stderr, "                                            to sort by HWE probability rather than the number of discordant sites [0]\n");
     fprintf(stderr, "        --no-HWE-prob                  Disable calculation of HWE probability\n");
@@ -1037,7 +795,7 @@ static void usage(void)
     fprintf(stderr, "    -S, --samples-file [qry|gt]:FILE   File with the query or -g samples to compare\n");
     fprintf(stderr, "    -t, --targets REGION               Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE            Similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "    -u, --use TAG1[,TAG2]              Which tag to use in the query file (TAG1) and the -g (TAG2) files [PL,GT]\n");
+    fprintf(stderr, "    -u, --use TAG1[,TAG2]              Which tag to use in the query file (TAG1) and the -g file (TAG2) [PL,GT]\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Check discordance of all samples from B against all sample in A\n");
     fprintf(stderr, "   bcftools gtcheck -g A.bcf B.bcf\n");
@@ -1073,6 +831,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 
     static struct option loptions[] =
     {
+        {"use-likelihoods",0,0,'l'},
         {"use",1,0,'u'},
         {"cluster",1,0,'c'},
         {"GTs-only",1,0,'G'},
@@ -1097,8 +856,9 @@ int main_vcfgtcheck(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:l",loptions,NULL)) >= 0) {
         switch (c) {
+            case 'l': args->use_PLs = 1; break;
             case 'u':
                 {
                     int i,nlist;
@@ -1190,8 +950,9 @@ int main_vcfgtcheck(int argc, char *argv[])
         if ( args->gt_samples || args->qry_samples ) throw_and_clean(args,"The -p/-P option cannot be combined with -s/-S\n");
         if ( args->ntop ) throw_and_clean(args,"The --n-matches option cannot be combined with -p/-P\n");
     }
-    if ( args->distinctive_sites && !args->pair_samples ) throw_and_clean(args,"The experimental option --distinctive-sites requires -p/-P");
+    if ( args->distinctive_sites && !args->pair_samples ) throw_and_clean(args,"The experimental option --distinctive-sites requires -p/-P\n");
     if ( args->hom_only && !args->gt_fname ) throw_and_clean(args,"The option --homs-only requires --genotypes\n");
+    if ( args->distinctive_sites && args->use_PLs ) throw_and_clean(args,"The option --distinctive-sites cannot be combined with --use-likelihoods\n");
 
     init_data(args);
 
