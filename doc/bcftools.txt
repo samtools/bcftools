@@ -1370,6 +1370,12 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 *-H, --homs-only*::
     Homozygous genotypes only, useful with low coverage data (requires *-g, --genotypes*)
 
+*-l, --use-likelihoods* 'INT'::
+    Interpret genotypes and genotype likelihoods probabilistically. The value of 'INT'
+    represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
+    Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
+    non-zero integer can be provided). See also the *-u, --use* option below.
+    Note that *-l* gives more accurate results but is somewhat slower.
 
 *--n-matches* 'INT'::
     Print only top INT matches for each sample, 0 for unlimited. Use negative value

@@ -56,12 +56,12 @@ typedef struct
     char *cwd, **argv, *gt_samples, *qry_samples, *regions, *targets, *qry_fname, *gt_fname, *pair_samples;
     int argc, gt_samples_is_file, qry_samples_is_file, regions_is_file, targets_is_file, pair_samples_is_file;
     int qry_use_GT,gt_use_GT, nqry_smpl,ngt_smpl, *qry_smpl,*gt_smpl;
-    double *pdiff;
+    double *pdiff, *qry_prob, *gt_prob;
     uint32_t *ndiff,*ncnt,ncmp, npairs;
     int32_t *qry_arr,*gt_arr, nqry_arr,ngt_arr;
     uint8_t *qry_dsg, *gt_dsg;
     pair_t *pairs;
-    double *hwe_prob;
+    double *hwe_prob, dsg2prob[8][3], pl2prob[256];
     double min_inter_err, max_intra_err;
     int all_sites, hom_only, ntop, cross_check, calc_hwe_prob, sort_by_hwe, dry_run, use_PLs;
     FILE *fp;
@@ -263,8 +263,6 @@ static void init_data(args_t *args)
     }
     else if ( bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"PL")<0 )
         throw_and_clean(args,"[E::%s] The PL tag is not present in the header of %s\n", __func__, args->qry_fname);
-    if ( args->use_PLs && args->qry_use_GT )
-        throw_and_clean(args,"Error: --use-likelihoods was requested but FORMAT/PL is not present/was not selected for %s\n",args->qry_fname);
 
     if ( args->gt_hdr )
     {
@@ -289,7 +287,7 @@ static void init_data(args_t *args)
         args->gt_use_GT = args->qry_use_GT;
 
     // Prepare samples
-    int i;
+    int i,j;
     args->nqry_smpl = bcf_hdr_nsamples(args->qry_hdr);
     if ( args->qry_samples )
     {
@@ -388,7 +386,30 @@ static void init_data(args_t *args)
         args->gt_dsg  = args->cross_check ? args->qry_dsg : (uint8_t*) malloc(args->ngt_smpl);
     }
     if ( args->use_PLs )
+    {
         args->pdiff = (double*) calloc(args->npairs,sizeof(*args->pdiff));      // log probability of pair samples being the same
+        args->qry_prob = (double*) malloc(3*args->nqry_smpl*sizeof(*args->qry_prob));
+        args->gt_prob  = args->cross_check ? args->qry_prob : (double*) malloc(3*args->ngt_smpl*sizeof(*args->gt_prob));
+
+        // dsg2prob: the first index is bitmask of 8 possible dsg combinations (only 1<<0,1<<2,1<<3 are set, accessing
+        // anything else indicated an error, this is just to reuse gt_to_dsg()); the second index are the corresponding 
+        // probabilities of 0/0, 0/1, and 1/1 genotypes
+        for (i=0; i<8; i++)
+            for (j=0; j<3; j++)
+                args->dsg2prob[i][j] = HUGE_VAL;
+        args->dsg2prob[1][0] = -log(1-pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[1][1] = -log(0.5*pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[1][2] = -log(0.5*pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[2][0] = -log(0.5*pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[2][1] = -log(1-pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[2][2] = -log(0.5*pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[4][0] = -log(0.5*pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[4][1] = -log(0.5*pow(10,-0.1*args->use_PLs));
+        args->dsg2prob[4][2] = -log(1-pow(10,-0.1*args->use_PLs));
+
+        // lookup table to avoid exponentiation
+        for (i=0; i<256; i++) args->pl2prob[i] = pow(10,-0.1*i);
+    }
     else
         args->ndiff = (uint32_t*) calloc(args->npairs,sizeof(*args->ndiff));    // number of differing genotypes for each pair of samples
     args->ncnt  = (uint32_t*) calloc(args->npairs,sizeof(*args->ncnt));         // number of comparisons performed (non-missing data)
@@ -410,6 +431,8 @@ static void destroy_data(args_t *args)
 {
     if ( args->gt_dsg!=args->qry_dsg ) free(args->gt_dsg);
     free(args->qry_dsg);
+    if ( args->gt_prob!=args->qry_prob ) free(args->gt_prob);
+    free(args->qry_prob);
     free(args->es_max_mem);
     fclose(args->fp);
     if ( args->distinctive_sites ) diff_sites_destroy(args);
@@ -441,6 +464,35 @@ static inline uint8_t pl_to_dsg(int32_t *ptr)
     if ( ptr[0]==min_pl ) dsg |= 1;
     if ( ptr[1]==min_pl ) dsg |= 2;
     if ( ptr[2]==min_pl ) dsg |= 4;
+    return dsg;
+}
+static inline uint8_t gt_to_prob(args_t *args, int32_t *ptr, double *prob)
+{
+    uint8_t dsg = gt_to_dsg(ptr);
+    if ( dsg )
+    {
+        prob[0] = args->dsg2prob[dsg][0];
+        prob[1] = args->dsg2prob[dsg][1];
+        prob[2] = args->dsg2prob[dsg][2];
+    }
+    return dsg;
+}
+static inline uint8_t pl_to_prob(args_t *args, int32_t *ptr, double *prob)
+{
+    uint8_t dsg = pl_to_dsg(ptr);
+    if ( dsg )
+    {
+        prob[0] = (ptr[0]>=0 && ptr[0]<255) ? args->pl2prob[ptr[0]] : args->pl2prob[255];
+        prob[1] = (ptr[1]>=0 && ptr[1]<255) ? args->pl2prob[ptr[1]] : args->pl2prob[255];
+        prob[2] = (ptr[2]>=0 && ptr[2]<255) ? args->pl2prob[ptr[2]] : args->pl2prob[255];
+        double sum = prob[0] + prob[1] + prob[2];
+        prob[0] /= sum;
+        prob[1] /= sum;
+        prob[2] /= sum;
+        prob[0] = -log(prob[0]);
+        prob[1] = -log(prob[1]);
+        prob[2] = -log(prob[2]);
+    }
     return dsg;
 }
 static void process_line(args_t *args)
@@ -521,62 +573,145 @@ static void process_line(args_t *args)
     // The sample pairs were given explicitly via -p/-P options
     if ( args->pairs )
     {
-        int ndiff = 0;
-        if ( args->kbs_diff ) diff_sites_reset(args);
-
-        for (i=0; i<args->npairs; i++)
+        if ( !args->use_PLs )
         {
-            int32_t *ptr = args->qry_arr + args->pairs[i].iqry*nqry1;
-            uint8_t qry_dsg = args->qry_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
-            ptr = args->gt_arr + args->pairs[i].igt*ngt1;
-            uint8_t gt_dsg = args->gt_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+            int ndiff = 0;
+            if ( args->kbs_diff ) diff_sites_reset(args);
 
-            if ( !qry_dsg || !gt_dsg ) continue;            // missing value
-            if ( args->hom_only && !(gt_dsg&5) ) continue;  // not a hom
-
-            int match = qry_dsg & gt_dsg;
-            if ( !match )
+            for (i=0; i<args->npairs; i++)
             {
-                args->ndiff[i]++;
-                if ( args->kbs_diff ) { ndiff++; kbs_insert(args->kbs_diff, i); }
-            }
-            else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe_dsg[match];
-            args->ncnt[i]++;
-        }
+                int32_t *ptr;
+                uint8_t qry_dsg, gt_dsg;
 
-        if ( ndiff ) diff_sites_push(args, ndiff, qry_rec->rid, qry_rec->pos);
+                ptr = args->gt_arr + args->pairs[i].igt*ngt1;
+                gt_dsg = args->gt_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+                if ( !gt_dsg ) continue;                        // missing value
+                if ( args->hom_only && !(gt_dsg&5) ) continue;  // not a hom
+
+                ptr = args->qry_arr + args->pairs[i].iqry*nqry1;
+                qry_dsg = args->qry_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+                if ( !qry_dsg ) continue;                       // missing value
+
+                int match = qry_dsg & gt_dsg;
+                if ( !match )
+                {
+                    args->ndiff[i]++;
+                    if ( args->kbs_diff ) { ndiff++; kbs_insert(args->kbs_diff, i); }
+                }
+                else if ( args->calc_hwe_prob ) args->hwe_prob[i] += hwe_dsg[match];
+                args->ncnt[i]++;
+            }
+
+            if ( ndiff ) diff_sites_push(args, ndiff, qry_rec->rid, qry_rec->pos);
+        }
+        else    // use_PLs set
+        {
+            for (i=0; i<args->npairs; i++)
+            {
+                int32_t *ptr;
+                double qry_prob[3], gt_prob[3];
+                uint8_t qry_dsg, gt_dsg;
+
+                ptr = args->gt_arr + args->pairs[i].igt*ngt1;
+                gt_dsg = args->gt_use_GT ? gt_to_prob(args,ptr,gt_prob) : pl_to_prob(args,ptr,gt_prob);
+                if ( !gt_dsg ) continue;                        // missing value
+                if ( args->hom_only && !(gt_dsg&5) ) continue;  // not a hom
+               
+                ptr = args->qry_arr + args->pairs[i].iqry*nqry1;
+                qry_dsg = args->qry_use_GT ? gt_to_prob(args,ptr,qry_prob) : pl_to_prob(args,ptr,qry_prob);
+                if ( !qry_dsg ) continue;                       // missing value
+
+                double min = qry_prob[0] + gt_prob[0];
+                qry_prob[1] += gt_prob[1];
+                if ( min > qry_prob[1] ) min = qry_prob[1];
+                qry_prob[2] += gt_prob[2];
+                if ( min > qry_prob[2] ) min = qry_prob[2];
+                args->pdiff[i] += min;
+
+                if ( args->calc_hwe_prob )
+                {
+                    int match = qry_dsg & gt_dsg;
+                    args->hwe_prob[i] += hwe_dsg[match];
+                }
+                args->ncnt[i]++;
+            }
+        }
         return;
     }
 
     int idx=0;
-    for (i=0; i<args->nqry_smpl; i++)
+    if ( !args->use_PLs )
     {
-        int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
-        int32_t *ptr = args->qry_arr + nqry1*iqry;
-        args->qry_dsg[i] = args->qry_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
-    }
-    if ( !args->cross_check )
-    {
-        for (i=0; i<args->ngt_smpl; i++)
+        for (i=0; i<args->nqry_smpl; i++)
         {
-            int igt = args->gt_smpl ? args->gt_smpl[i] : i;
-            int32_t *ptr = args->gt_arr + ngt1*igt;
-            args->gt_dsg[i] = args->gt_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
-            if ( args->hom_only && !(args->gt_dsg[i]&5) ) args->gt_dsg[i] = 0;      // not a hom, set to a missing value
+            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
+            int32_t *ptr = args->qry_arr + nqry1*iqry;
+            args->qry_dsg[i] = args->qry_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+        }
+        if ( !args->cross_check )   // in this case gt_dsg points to qry_dsg
+        {
+            for (i=0; i<args->ngt_smpl; i++)
+            {
+                int igt = args->gt_smpl ? args->gt_smpl[i] : i;
+                int32_t *ptr = args->gt_arr + ngt1*igt;
+                args->gt_dsg[i] = args->gt_use_GT ? gt_to_dsg(ptr) : pl_to_dsg(ptr);
+                if ( args->hom_only && !(args->gt_dsg[i]&5) ) args->gt_dsg[i] = 0;      // not a hom, set to a missing value
+            }
+        }
+        for (i=0; i<args->nqry_smpl; i++)
+        {
+            int ngt = args->cross_check ? i : args->ngt_smpl;       // two files or a sub-diagonal cross-check mode?
+            if ( !args->qry_dsg[i] ) { idx += ngt; continue; }      // missing value
+            for (j=0; j<ngt; j++)
+            {
+                if ( !args->gt_dsg[j] ) { idx++; continue; }        // missing value
+                int match = args->qry_dsg[i] & args->gt_dsg[j];
+                if ( !match ) args->ndiff[idx]++;
+                else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe_dsg[match];
+                args->ncnt[idx]++;
+                idx++;
+            }
         }
     }
-    for (i=0; i<args->nqry_smpl; i++)
+    else    // use_PLs set
     {
-        int ngt = args->cross_check ? i : args->ngt_smpl;       // two files or a sub-diagonal cross-check mode?
-        if ( !args->qry_dsg[i] ) { idx += ngt; continue; }      // missing value
-        for (j=0; j<ngt; j++)
+        for (i=0; i<args->nqry_smpl; i++)
         {
-            if ( !args->gt_dsg[j] ) { idx++; continue; }        // missing value
-            int match = args->qry_dsg[i] & args->gt_dsg[j];
-            if ( !match ) args->ndiff[idx]++;
-            else if ( args->calc_hwe_prob ) args->hwe_prob[idx] += hwe_dsg[match];
-            args->ncnt[idx]++;
-            idx++;
+            int iqry = args->qry_smpl ? args->qry_smpl[i] : i;
+            int32_t *ptr = args->qry_arr + nqry1*iqry;
+            args->qry_dsg[i] = args->qry_use_GT ? gt_to_prob(args,ptr,args->qry_prob+i*3) : pl_to_prob(args,ptr,args->qry_prob+i*3);
+        }
+        if ( !args->cross_check )   // in this case gt_dsg points to qry_dsg
+        {
+            for (i=0; i<args->ngt_smpl; i++)
+            {
+                int igt = args->gt_smpl ? args->gt_smpl[i] : i;
+                int32_t *ptr = args->gt_arr + ngt1*igt;
+                args->gt_dsg[i] = args->gt_use_GT ? gt_to_prob(args,ptr,args->gt_prob+i*3) : pl_to_prob(args,ptr,args->gt_prob+i*3);
+                if ( args->hom_only && !(args->gt_dsg[i]&5) ) args->gt_dsg[i] = 0;      // not a hom, set to a missing value
+            }
+        }
+        for (i=0; i<args->nqry_smpl; i++)
+        {
+            int ngt = args->cross_check ? i : args->ngt_smpl;       // two files or a sub-diagonal cross-check mode?
+            if ( !args->qry_dsg[i] ) { idx += ngt; continue; }      // missing value
+            for (j=0; j<ngt; j++)
+            {
+                if ( !args->gt_dsg[j] ) { idx++; continue; }        // missing value
+
+                double min = args->qry_prob[i*3] + args->gt_prob[j*3];
+                if ( min > args->qry_prob[i*3+1] + args->gt_prob[j*3+1] ) min = args->qry_prob[i*3+1] + args->gt_prob[j*3+1];
+                if ( min > args->qry_prob[i*3+2] + args->gt_prob[j*3+2] ) min = args->qry_prob[i*3+2] + args->gt_prob[j*3+2];
+                args->pdiff[idx] += min;
+
+                if ( args->calc_hwe_prob )
+                {
+                    int match = args->qry_dsg[i] & args->gt_dsg[j];
+                    args->hwe_prob[idx] += hwe_dsg[match];
+                }
+                args->ncnt[idx]++;
+                idx++;
+            }
         }
     }
 }
@@ -657,12 +792,24 @@ static void report(args_t *args)
         {
             int iqry = args->pairs[i].iqry;
             int igt  = args->pairs[i].igt;
-            fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
-                    args->qry_hdr->samples[iqry],
-                    args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                    args->ndiff[i],
-                    args->calc_hwe_prob ? args->hwe_prob[i] : 0,
-                    args->ncnt[i]);
+            if ( args->ndiff )
+            {
+                fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
+                        args->qry_hdr->samples[iqry],
+                        args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                        args->ndiff[i],
+                        args->calc_hwe_prob ? args->hwe_prob[i] : 0,
+                        args->ncnt[i]);
+            }
+            else
+            {
+                fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
+                        args->qry_hdr->samples[iqry],
+                        args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                        args->pdiff[i],
+                        args->calc_hwe_prob ? args->hwe_prob[i] : 0,
+                        args->ncnt[i]);
+            }
         }
     }
     else if ( !trim )
@@ -675,12 +822,24 @@ static void report(args_t *args)
             for (j=0; j<ngt; j++)
             {
                 int igt = args->gt_smpl ? args->gt_smpl[j] : j;
-                fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
-                        args->qry_hdr->samples[iqry],
-                        args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                        args->ndiff[idx],
-                        args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
-                        args->ncnt[idx]);
+                if ( args->ndiff )
+                {
+                    fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
+                            args->qry_hdr->samples[iqry],
+                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                            args->ndiff[idx],
+                            args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
+                            args->ncnt[idx]);
+                }
+                else
+                {
+                    fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
+                            args->qry_hdr->samples[iqry],
+                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                            args->pdiff[idx],
+                            args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
+                            args->ncnt[idx]);
+                }
                 idx++;
             }
         }
@@ -696,8 +855,10 @@ static void report(args_t *args)
             {
                 if ( args->sort_by_hwe )
                     arr[j].val = -args->hwe_prob[idx];
-                else
+                else if ( args->ndiff )
                     arr[j].val = args->ncnt[idx] ? (double)args->ndiff[idx]/args->ncnt[idx] : 0;
+                else
+                    arr[j].val = args->ncnt[idx] ? args->pdiff[idx]/args->ncnt[idx] : 0;
                 arr[j].ism = j;
                 arr[j].idx = idx;
                 idx++;
@@ -708,12 +869,24 @@ static void report(args_t *args)
             {
                 int idx = arr[j].idx;
                 int igt = args->gt_smpl ? args->gt_smpl[arr[j].ism] : arr[j].ism;
-                fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
-                        args->qry_hdr->samples[iqry],
-                        args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
-                        args->ndiff[idx],
-                        args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
-                        args->ncnt[idx]);
+                if ( args->ndiff )
+                {
+                    fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
+                            args->qry_hdr->samples[iqry],
+                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                            args->ndiff[idx],
+                            args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
+                            args->ncnt[idx]);
+                }
+                else
+                {
+                    fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
+                            args->qry_hdr->samples[iqry],
+                            args->gt_hdr?args->gt_hdr->samples[igt]:args->qry_hdr->samples[igt],
+                            args->pdiff[idx],
+                            args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
+                            args->ncnt[idx]);
+                }
             }
         }
         free(arr);
@@ -730,8 +903,10 @@ static void report(args_t *args)
             {
                 if ( args->sort_by_hwe )
                     arr[k].val = -args->hwe_prob[idx];
-                else
+                else if ( args->ndiff )
                     arr[k].val = args->ncnt[idx] ? (double)args->ndiff[idx]/args->ncnt[idx] : 0;
+                else
+                    arr[k].val = args->ncnt[idx] ? args->pdiff[idx]/args->ncnt[idx] : 0;
                 arr[k].ism = j;
                 arr[k].idx = idx;
                 idx++;
@@ -742,8 +917,10 @@ static void report(args_t *args)
                 idx = j*(j+1)/2 + i;
                 if ( args->sort_by_hwe )
                     arr[k].val = -args->hwe_prob[idx];
-                else
+                else if ( args->ndiff )
                     arr[k].val = args->ncnt[idx] ? (double)args->ndiff[idx]/args->ncnt[idx] : 0;
+                else
+                    arr[k].val = args->ncnt[idx] ? args->pdiff[idx]/args->ncnt[idx] : 0;
                 arr[k].ism = j + 1;
                 arr[k].idx = idx;
                 k++;
@@ -755,12 +932,24 @@ static void report(args_t *args)
                 if ( i <= arr[j].ism ) continue;
                 int idx = arr[j].idx;
                 int igt = args->qry_smpl ? args->qry_smpl[arr[j].ism] : arr[j].ism;
-                fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
-                        args->qry_hdr->samples[iqry],
-                        args->qry_hdr->samples[igt],
-                        args->ndiff[idx],
-                        args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
-                        args->ncnt[idx]);
+                if ( args->ndiff )
+                {
+                    fprintf(args->fp,"DC\t%s\t%s\t%u\t%e\t%u\n",
+                            args->qry_hdr->samples[iqry],
+                            args->qry_hdr->samples[igt],
+                            args->ndiff[idx],
+                            args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
+                            args->ncnt[idx]);
+                }
+                else
+                {
+                    fprintf(args->fp,"DC\t%s\t%s\t%e\t%e\t%u\n",
+                            args->qry_hdr->samples[iqry],
+                            args->qry_hdr->samples[igt],
+                            args->pdiff[idx],
+                            args->calc_hwe_prob ? args->hwe_prob[idx] : 0,
+                            args->ncnt[idx]);
+                }
             }
         }
         free(arr);
@@ -783,7 +972,7 @@ static void usage(void)
     fprintf(stderr, "        --dry-run                      Stop after first record to estimate required time\n");
     fprintf(stderr, "    -g, --genotypes FILE               Genotypes to compare against\n");
     fprintf(stderr, "    -H, --homs-only                    Homozygous genotypes only, useful with low coverage data (requires -g)\n");
-    fprintf(stderr, "    -l, --use-likelihoods              Interpret PLs probabilistically (slower but more accurate)\n");
+    fprintf(stderr, "    -l, --use-likelihoods INT          Interpret PLs probabilistically (slower but more accurate)\n");
     fprintf(stderr, "        --n-matches INT                Print only top INT matches for each sample, 0 for unlimited. Use negative value\n");
     fprintf(stderr, "                                            to sort by HWE probability rather than the number of discordant sites [0]\n");
     fprintf(stderr, "        --no-HWE-prob                  Disable calculation of HWE probability\n");
@@ -831,7 +1020,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 
     static struct option loptions[] =
     {
-        {"use-likelihoods",0,0,'l'},
+        {"use-likelihoods",1,0,'l'},
         {"use",1,0,'u'},
         {"cluster",1,0,'c'},
         {"GTs-only",1,0,'G'},
@@ -856,9 +1045,12 @@ int main_vcfgtcheck(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:l",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:l:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'l': args->use_PLs = 1; break;
+            case 'l':
+                args->use_PLs = strtol(optarg,&tmp,10);
+                if ( !tmp || *tmp ) throw_and_clean(args,"Could not parse: --use-likelihoods %s\n", optarg);
+                break;
             case 'u':
                 {
                     int i,nlist;
