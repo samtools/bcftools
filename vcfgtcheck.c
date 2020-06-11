@@ -71,23 +71,9 @@ typedef struct
     kbitset_t *kbs_diff;
     size_t diff_sites_size;
     extsort_t *es;
-    char *es_tmp_dir, *es_max_mem;
+    char *es_tmp_prefix, *es_max_mem;
 }
 args_t;
-
-static void throw_and_clean(args_t *args, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    if ( args->es )
-    {
-        fprintf(stderr,"Cleaning\n");
-        extsort_destroy(args->es);
-    }
-    exit(-1);
-}
 
 static void set_cwd(args_t *args)
 {
@@ -162,7 +148,7 @@ static int diff_sites_cmp(const void *aptr, const void *bptr)
 static void diff_sites_init(args_t *args)
 {
     int nsites = args->distinctive_sites<=1 ? args->npairs*args->distinctive_sites : args->distinctive_sites;
-    if ( nsites<=0 ) throw_and_clean(args,"The value for --distinctive-sites was set too low: %d\n",nsites);
+    if ( nsites<=0 ) error("The value for --distinctive-sites was set too low: %d\n",nsites);
     if ( nsites > args->npairs )
     {
         fprintf(stderr,"Warning: The value for --distinctive-sites is bigger than is the number of pairs, all discordant sites be printed.\n");
@@ -177,7 +163,7 @@ static void diff_sites_init(args_t *args)
     args->diff_sites_size = sizeof(diff_sites_t) + (n-1)*sizeof(unsigned long);
     args->es = extsort_alloc();
     extsort_set_opt(args->es,size_t,DAT_SIZE,args->diff_sites_size);
-    extsort_set_opt(args->es,const char*,TMP_DIR,args->es_tmp_dir);
+    extsort_set_opt(args->es,const char*,TMP_PREFIX,args->es_tmp_prefix);
     extsort_set_opt(args->es,const char*,MAX_MEM,args->es_max_mem);
     extsort_set_opt(args->es,extsort_cmp_f,FUNC_CMP,diff_sites_cmp);
     extsort_init(args->es);
@@ -230,20 +216,20 @@ static inline int diff_sites_shift(args_t *args, int *ndiff, int *rid, int *pos)
 static void init_data(args_t *args)
 {
     args->files = bcf_sr_init();
-    if ( args->regions && bcf_sr_set_regions(args->files, args->regions, args->regions_is_file)<0 ) throw_and_clean(args,"Failed to read the regions: %s\n", args->regions);
-    if ( args->targets && bcf_sr_set_targets(args->files, args->targets, args->targets_is_file, 0)<0 ) throw_and_clean(args,"Failed to read the targets: %s\n", args->targets);
+    if ( args->regions && bcf_sr_set_regions(args->files, args->regions, args->regions_is_file)<0 ) error("Failed to read the regions: %s\n", args->regions);
+    if ( args->targets && bcf_sr_set_targets(args->files, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n", args->targets);
 
     if ( args->gt_fname ) bcf_sr_set_opt(args->files, BCF_SR_REQUIRE_IDX);
-    if ( !bcf_sr_add_reader(args->files,args->qry_fname) ) throw_and_clean(args,"Failed to open %s: %s\n", args->qry_fname,bcf_sr_strerror(args->files->errnum));
+    if ( !bcf_sr_add_reader(args->files,args->qry_fname) ) error("Failed to open %s: %s\n", args->qry_fname,bcf_sr_strerror(args->files->errnum));
     if ( args->gt_fname && !bcf_sr_add_reader(args->files, args->gt_fname) )
-        throw_and_clean(args,"Failed to read from %s: %s\n", !strcmp("-",args->gt_fname)?"standard input":args->gt_fname,bcf_sr_strerror(args->files->errnum));
+        error("Failed to read from %s: %s\n", !strcmp("-",args->gt_fname)?"standard input":args->gt_fname,bcf_sr_strerror(args->files->errnum));
 
     args->qry_hdr = bcf_sr_get_header(args->files,0);
-    if ( !bcf_hdr_nsamples(args->qry_hdr) ) throw_and_clean(args,"No samples in %s?\n", args->qry_fname);
+    if ( !bcf_hdr_nsamples(args->qry_hdr) ) error("No samples in %s?\n", args->qry_fname);
     if ( args->gt_fname )
     {
         args->gt_hdr = bcf_sr_get_header(args->files,1);
-        if ( !bcf_hdr_nsamples(args->gt_hdr) ) throw_and_clean(args,"No samples in %s?\n", args->gt_fname);
+        if ( !bcf_hdr_nsamples(args->gt_hdr) ) error("No samples in %s?\n", args->gt_fname);
     }
 
     // Determine whether GT or PL will be used
@@ -254,15 +240,15 @@ static void init_data(args_t *args)
         else if ( bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"GT")>=0 )
             args->qry_use_GT = 1;
         else
-            throw_and_clean(args,"[E::%s] Neither PL nor GT tag is present in the header of %s\n", __func__, args->qry_fname);
+            error("[E::%s] Neither PL nor GT tag is present in the header of %s\n", __func__, args->qry_fname);
     }
     else if ( args->qry_use_GT==1 )
     {
         if ( bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"GT")<0 )
-            throw_and_clean(args,"[E::%s] The GT tag is not present in the header of %s\n", __func__, args->qry_fname);
+            error("[E::%s] The GT tag is not present in the header of %s\n", __func__, args->qry_fname);
     }
     else if ( bcf_hdr_id2int(args->qry_hdr,BCF_DT_ID,"PL")<0 )
-        throw_and_clean(args,"[E::%s] The PL tag is not present in the header of %s\n", __func__, args->qry_fname);
+        error("[E::%s] The PL tag is not present in the header of %s\n", __func__, args->qry_fname);
 
     if ( args->gt_hdr )
     {
@@ -273,15 +259,15 @@ static void init_data(args_t *args)
             else if ( bcf_hdr_id2int(args->gt_hdr,BCF_DT_ID,"PL")>=0 )
                 args->gt_use_GT = 0;
             else
-                throw_and_clean(args,"[E::%s] Neither PL nor GT tag is present in the header of %s\n", __func__, args->gt_fname);
+                error("[E::%s] Neither PL nor GT tag is present in the header of %s\n", __func__, args->gt_fname);
         }
         else if ( args->gt_use_GT==1 )
         {
             if ( bcf_hdr_id2int(args->gt_hdr,BCF_DT_ID,"GT")<0 )
-                throw_and_clean(args,"[E::%s] The GT tag is not present in the header of %s\n", __func__, args->gt_fname);
+                error("[E::%s] The GT tag is not present in the header of %s\n", __func__, args->gt_fname);
         }
         else if ( bcf_hdr_id2int(args->gt_hdr,BCF_DT_ID,"PL")<0 )
-            throw_and_clean(args,"[E::%s] The PL tag is not present in the header of %s\n", __func__, args->gt_fname);
+            error("[E::%s] The PL tag is not present in the header of %s\n", __func__, args->gt_fname);
     }
     else
         args->gt_use_GT = args->qry_use_GT;
@@ -292,12 +278,12 @@ static void init_data(args_t *args)
     if ( args->qry_samples )
     {
         char **tmp = hts_readlist(args->qry_samples, args->qry_samples_is_file, &args->nqry_smpl);
-        if ( !tmp || !args->nqry_smpl ) throw_and_clean(args,"Failed to parse %s\n", args->qry_samples);
+        if ( !tmp || !args->nqry_smpl ) error("Failed to parse %s\n", args->qry_samples);
         args->qry_smpl = (int*) malloc(sizeof(*args->qry_smpl)*args->nqry_smpl);
         for (i=0; i<args->nqry_smpl; i++)
         {
             int idx = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
-            if ( idx<0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->qry_fname,tmp[i]);
+            if ( idx<0 ) error("No such sample in %s: [%s]\n",args->qry_fname,tmp[i]);
             args->qry_smpl[i] = idx;
             free(tmp[i]);
         }
@@ -311,12 +297,12 @@ static void init_data(args_t *args)
     if ( args->gt_samples )
     {
         char **tmp = hts_readlist(args->gt_samples, args->gt_samples_is_file, &args->ngt_smpl);
-        if ( !tmp || !args->ngt_smpl ) throw_and_clean(args,"Failed to parse %s\n", args->gt_samples);
+        if ( !tmp || !args->ngt_smpl ) error("Failed to parse %s\n", args->gt_samples);
         args->gt_smpl = (int*) malloc(sizeof(*args->gt_smpl)*args->ngt_smpl);
         for (i=0; i<args->ngt_smpl; i++)
         {
             int idx = bcf_hdr_id2int(args->gt_hdr ? args->gt_hdr : args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
-            if ( idx<0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->gt_fname ? args->gt_fname : args->qry_fname,tmp[i]);
+            if ( idx<0 ) error("No such sample in %s: [%s]\n",args->gt_fname ? args->gt_fname : args->qry_fname,tmp[i]);
             args->gt_smpl[i] = idx;
             free(tmp[i]);
         }
@@ -333,8 +319,8 @@ static void init_data(args_t *args)
     {
         int npairs;
         char **tmp = hts_readlist(args->pair_samples, args->pair_samples_is_file, &npairs);
-        if ( !tmp || !npairs ) throw_and_clean(args,"Failed to parse %s\n", args->pair_samples);
-        if ( !args->pair_samples_is_file && npairs%2 ) throw_and_clean(args,"Expected even number of comma-delimited samples with -p\n");
+        if ( !tmp || !npairs ) error("Failed to parse %s\n", args->pair_samples);
+        if ( !args->pair_samples_is_file && npairs%2 ) error("Expected even number of comma-delimited samples with -p\n");
         args->npairs = args->pair_samples_is_file ? npairs : npairs/2;
         args->pairs  = (pair_t*) calloc(args->npairs,sizeof(*args->pairs));
         if ( !args->pair_samples_is_file )
@@ -343,8 +329,8 @@ static void init_data(args_t *args)
             {
                 args->pairs[i].iqry = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[2*i]);
                 args->pairs[i].igt  = bcf_hdr_id2int(args->gt_hdr?args->gt_hdr:args->qry_hdr, BCF_DT_SAMPLE, tmp[2*i+1]);
-                if ( args->pairs[i].iqry < 0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->qry_fname,tmp[2*i]);
-                if ( args->pairs[i].igt  < 0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->gt_fname?args->gt_fname:args->qry_fname,tmp[2*i+1]);
+                if ( args->pairs[i].iqry < 0 ) error("No such sample in %s: [%s]\n",args->qry_fname,tmp[2*i]);
+                if ( args->pairs[i].igt  < 0 ) error("No such sample in %s: [%s]\n",args->gt_fname?args->gt_fname:args->qry_fname,tmp[2*i+1]);
                 free(tmp[2*i]);
                 free(tmp[2*i+1]);
             }
@@ -355,14 +341,14 @@ static void init_data(args_t *args)
             {
                 char *ptr = tmp[i];
                 while ( *ptr && !isspace(*ptr) ) ptr++;
-                if ( !*ptr ) throw_and_clean(args,"Could not parse %s: %s\n",args->pair_samples,tmp[i]);
+                if ( !*ptr ) error("Could not parse %s: %s\n",args->pair_samples,tmp[i]);
                 *ptr = 0;
                 args->pairs[i].iqry = bcf_hdr_id2int(args->qry_hdr, BCF_DT_SAMPLE, tmp[i]);
-                if ( args->pairs[i].iqry < 0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->qry_fname,tmp[i]);
+                if ( args->pairs[i].iqry < 0 ) error("No such sample in %s: [%s]\n",args->qry_fname,tmp[i]);
                 ptr++;
                 while ( *ptr && isspace(*ptr) ) ptr++;
                 args->pairs[i].igt = bcf_hdr_id2int(args->gt_hdr?args->gt_hdr:args->qry_hdr, BCF_DT_SAMPLE, ptr);
-                if ( args->pairs[i].igt < 0 ) throw_and_clean(args,"No such sample in %s: [%s]\n",args->gt_fname?args->gt_fname:args->qry_fname,ptr);
+                if ( args->pairs[i].igt < 0 ) error("No such sample in %s: [%s]\n",args->gt_fname?args->gt_fname:args->qry_fname,ptr);
                 free(tmp[i]);
             }
         }
@@ -413,12 +399,12 @@ static void init_data(args_t *args)
     else
         args->ndiff = (uint32_t*) calloc(args->npairs,sizeof(*args->ndiff));    // number of differing genotypes for each pair of samples
     args->ncnt  = (uint32_t*) calloc(args->npairs,sizeof(*args->ncnt));         // number of comparisons performed (non-missing data)
-    if ( !args->ncnt ) throw_and_clean(args,"Error: failed to allocate %.1f Mb\n", args->npairs*sizeof(*args->ncnt)/1e6);
+    if ( !args->ncnt ) error("Error: failed to allocate %.1f Mb\n", args->npairs*sizeof(*args->ncnt)/1e6);
     if ( args->calc_hwe_prob )
     {
         // prob of the observed sequence of matches given site AFs and HWE
         args->hwe_prob = (double*) calloc(args->npairs,sizeof(*args->hwe_prob));
-        if ( !args->hwe_prob ) throw_and_clean(args,"Error: failed to allocate %.1f Mb. Run with --no-HWE-prob to save some memory.\n", args->npairs*sizeof(*args->hwe_prob)/1e6);
+        if ( !args->hwe_prob ) error("Error: failed to allocate %.1f Mb. Run with --no-HWE-prob to save some memory.\n", args->npairs*sizeof(*args->hwe_prob)/1e6);
     }
 
     if ( args->distinctive_sites ) diff_sites_init(args);
@@ -543,9 +529,9 @@ static void process_line(args_t *args)
         int ac[2];
         if ( args->gt_hdr )
         {
-            if ( bcf_calc_ac(args->gt_hdr, gt_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) throw_and_clean(args,"todo: bcf_calc_ac() failed\n");
+            if ( bcf_calc_ac(args->gt_hdr, gt_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
         }
-        else if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) throw_and_clean(args,"todo: bcf_calc_ac() failed\n");
+        else if ( bcf_calc_ac(args->qry_hdr, qry_rec, ac, BCF_UN_INFO|BCF_UN_FMT)!=1 ) error("todo: bcf_calc_ac() failed\n");
 
         // hwe indexes correspond to the bitmask of eight dsg combinations to account for PL uncertainty
         // for in the extreme case we can have uninformative PL=0,0,0. So the values are the minima of e.g.
@@ -757,7 +743,7 @@ static void report_distinctive_sites(args_t *args)
             kbs_insert(kbs_blk,i);
             ndiff_new++;
         }
-        if ( ndiff_dbg!=ndiff ) throw_and_clean(args,"Corrupted data, fixme: %d vs %d\n",ndiff_dbg,ndiff);
+        if ( ndiff_dbg!=ndiff ) error("Corrupted data, fixme: %d vs %d\n",ndiff_dbg,ndiff);
         if ( !ndiff_new ) continue;     // no new pair distinguished by this site
         ndiff_tot += ndiff_new;
         fprintf(args->fp,"DS\t%s\t%d\t%d\t%d\n",bcf_hdr_id2name(args->qry_hdr,rid),pos+1,ndiff_tot,iblock);
@@ -966,9 +952,9 @@ static void usage(void)
     //fprintf(stderr, "    -a, --all-sites                  Output comparison for all sites\n");
     //fprintf(stderr, "    -c, --cluster MIN,MAX            Min inter- and max intra-sample error [0.23,-0.3]\n");
     fprintf(stderr, "        --distinctive-sites            Find sites that can distinguish between at least NUM sample pairs.\n");
-    fprintf(stderr, "                  NUM[,MEM[,DIR]]          If the number is smaller or equal to 1, it is interpreted as the fraction of pairs.\n");
+    fprintf(stderr, "                  NUM[,MEM[,TMP]]          If the number is smaller or equal to 1, it is interpreted as the fraction of pairs.\n");
     fprintf(stderr, "                                           The optional MEM string sets the maximum memory used for in-memory sorting [500M]\n");
-    fprintf(stderr, "                                           and DIR is the temporary directory for external sorting [/tmp/bcftools-gtcheck.XXXXXX]\n");
+    fprintf(stderr, "                                           and TMP is a prefix of temporary files used by external sorting [/tmp/bcftools-gtcheck]\n");
     fprintf(stderr, "        --dry-run                      Stop after first record to estimate required time\n");
     fprintf(stderr, "    -g, --genotypes FILE               Genotypes to compare against\n");
     fprintf(stderr, "    -H, --homs-only                    Homozygous genotypes only, useful with low coverage data (requires -g)\n");
@@ -1008,7 +994,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     args->calc_hwe_prob = 1;
 
     // external sort for --distinctive-sites
-    args->es_tmp_dir = "/tmp/bcftools-gtcheck.XXXXXX";
+    args->es_tmp_prefix = "/tmp/bcftools-gtcheck";
     args->es_max_mem = strdup("500M");
 
     // In simulated sample swaps the minimum error was 0.3 and maximum intra-sample error was 0.23
@@ -1049,21 +1035,21 @@ int main_vcfgtcheck(int argc, char *argv[])
         switch (c) {
             case 'l':
                 args->use_PLs = strtol(optarg,&tmp,10);
-                if ( !tmp || *tmp ) throw_and_clean(args,"Could not parse: --use-likelihoods %s\n", optarg);
+                if ( !tmp || *tmp ) error("Could not parse: --use-likelihoods %s\n", optarg);
                 break;
             case 'u':
                 {
                     int i,nlist;
                     char **list = hts_readlist(optarg, 0, &nlist);
-                    if ( !list || nlist<=0 || nlist>2 ) throw_and_clean(args,"Failed to parse --use %s\n", optarg);
+                    if ( !list || nlist<=0 || nlist>2 ) error("Failed to parse --use %s\n", optarg);
                     if ( !strcasecmp("GT",list[0]) ) args->qry_use_GT = 1;
                     else if ( !strcasecmp("PL",list[0]) ) args->qry_use_GT = 0;
-                    else throw_and_clean(args,"Failed to parse --use %s; only GT and PL are supported\n", optarg);
+                    else error("Failed to parse --use %s; only GT and PL are supported\n", optarg);
                     if ( nlist==2 )
                     {
                         if ( !strcasecmp("GT",list[1]) ) args->gt_use_GT = 1;
                         else if ( !strcasecmp("PL",list[1]) ) args->gt_use_GT = 0;
-                        else throw_and_clean(args,"Failed to parse --use %s; only GT and PL are supported\n", optarg);
+                        else error("Failed to parse --use %s; only GT and PL are supported\n", optarg);
                     }
                     else args->gt_use_GT = args->qry_use_GT;
                     for (i=0; i<nlist; i++) free(list[i]);
@@ -1072,7 +1058,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                 break;
             case 2 :
                 args->ntop = strtol(optarg,&tmp,10);
-                if ( !tmp || *tmp ) throw_and_clean(args,"Could not parse: --n-matches %s\n", optarg);
+                if ( !tmp || *tmp ) error("Could not parse: --n-matches %s\n", optarg);
                 if ( args->ntop < 0 )
                 {
                     args->sort_by_hwe = 1;
@@ -1080,44 +1066,44 @@ int main_vcfgtcheck(int argc, char *argv[])
                 }
                 break;
             case 3 : args->calc_hwe_prob = 0; break;
-            case 4 : throw_and_clean(args,"The option -S, --target-sample has been deprecated\n"); break;
+            case 4 : error("The option -S, --target-sample has been deprecated\n"); break;
             case 5 : args->dry_run = 1; break;
             case 6 : 
                 args->distinctive_sites = strtod(optarg,&tmp);
                 if ( *tmp )
                 {
-                    if ( *tmp!=',' ) throw_and_clean(args,"Could not parse: --distinctive-sites %s\n", optarg);
+                    if ( *tmp!=',' ) error("Could not parse: --distinctive-sites %s\n", optarg);
                     tmp++;
                     free(args->es_max_mem);
                     args->es_max_mem = strdup(tmp);
                     while ( *tmp && *tmp!=',' ) tmp++;
-                    if ( *tmp ) { *tmp = 0; args->es_tmp_dir = tmp+1; }
+                    if ( *tmp ) { *tmp = 0; args->es_tmp_prefix = tmp+1; }
                 }
                 break;
             case 'c':
-                throw_and_clean(args,"The -c option is to be implemented, please open an issue on github\n");
+                error("The -c option is to be implemented, please open an issue on github\n");
                 args->min_inter_err = strtod(optarg,&tmp);
                 if ( *tmp )
                 {
-                    if ( *tmp!=',') throw_and_clean(args,"Could not parse: -c %s\n", optarg);
+                    if ( *tmp!=',') error("Could not parse: -c %s\n", optarg);
                     args->max_intra_err = strtod(tmp+1,&tmp);
-                    if ( *tmp ) throw_and_clean(args,"Could not parse: -c %s\n", optarg);
+                    if ( *tmp ) error("Could not parse: -c %s\n", optarg);
                 }
                 break;
-            case 'G': throw_and_clean(args,"The option -G, --GTs-only has been deprecated\n"); break;
-            case 'a': args->all_sites = 1; throw_and_clean(args,"The -a option is to be implemented, please open an issue on github\n"); break;
+            case 'G': error("The option -G, --GTs-only has been deprecated\n"); break;
+            case 'a': args->all_sites = 1; error("The -a option is to be implemented, please open an issue on github\n"); break;
             case 'H': args->hom_only = 1; break;
             case 'g': args->gt_fname = optarg; break;
 //            case 'p': args->plot = optarg; break;
             case 's':
                 if ( !strncasecmp("gt:",optarg,3) ) args->gt_samples = optarg+3;
                 else if ( !strncasecmp("qry:",optarg,4) ) args->qry_samples = optarg+4;
-                else throw_and_clean(args,"Which one? Query samples (qry:%s) or genotype samples (gt:%s)?\n",optarg,optarg);
+                else error("Which one? Query samples (qry:%s) or genotype samples (gt:%s)?\n",optarg,optarg);
                 break;
             case 'S': 
                 if ( !strncasecmp("gt:",optarg,3) ) args->gt_samples = optarg+3, args->gt_samples_is_file = 1;
                 else if ( !strncasecmp("qry:",optarg,4) ) args->qry_samples = optarg+4, args->qry_samples_is_file = 1;
-                else throw_and_clean(args,"Which one? Query samples (qry:%s) or genotype samples (gt:%s)?\n",optarg,optarg);
+                else error("Which one? Query samples (qry:%s) or genotype samples (gt:%s)?\n",optarg,optarg);
                 break;
             case 'p': args->pair_samples = optarg; break;
             case 'P': args->pair_samples = optarg; args->pair_samples_is_file = 1; break;
@@ -1127,7 +1113,7 @@ int main_vcfgtcheck(int argc, char *argv[])
             case 'T': args->targets = optarg; args->targets_is_file = 1; break;
             case 'h':
             case '?': usage(); break;
-            default: throw_and_clean(args,"Unknown argument: %s\n", optarg);
+            default: error("Unknown argument: %s\n", optarg);
         }
     }
     if ( optind==argc )
@@ -1136,15 +1122,15 @@ int main_vcfgtcheck(int argc, char *argv[])
         else usage();   // no files given
     }
     else args->qry_fname = argv[optind];
-    if ( argc>optind+1 ) throw_and_clean(args,"Error: too many files given, run with -h for help\n");  // too many files given
+    if ( argc>optind+1 ) error("Error: too many files given, run with -h for help\n");  // too many files given
     if ( args->pair_samples )
     {
-        if ( args->gt_samples || args->qry_samples ) throw_and_clean(args,"The -p/-P option cannot be combined with -s/-S\n");
-        if ( args->ntop ) throw_and_clean(args,"The --n-matches option cannot be combined with -p/-P\n");
+        if ( args->gt_samples || args->qry_samples ) error("The -p/-P option cannot be combined with -s/-S\n");
+        if ( args->ntop ) error("The --n-matches option cannot be combined with -p/-P\n");
     }
-    if ( args->distinctive_sites && !args->pair_samples ) throw_and_clean(args,"The experimental option --distinctive-sites requires -p/-P\n");
-    if ( args->hom_only && !args->gt_fname ) throw_and_clean(args,"The option --homs-only requires --genotypes\n");
-    if ( args->distinctive_sites && args->use_PLs ) throw_and_clean(args,"The option --distinctive-sites cannot be combined with --use-likelihoods\n");
+    if ( args->distinctive_sites && !args->pair_samples ) error("The experimental option --distinctive-sites requires -p/-P\n");
+    if ( args->hom_only && !args->gt_fname ) error("The option --homs-only requires --genotypes\n");
+    if ( args->distinctive_sites && args->use_PLs ) error("The option --distinctive-sites cannot be combined with --use-likelihoods\n");
 
     init_data(args);
 

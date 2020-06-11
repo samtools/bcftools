@@ -37,7 +37,7 @@ typedef int (*extsort_cmp_f) (const void *aptr, const void *bptr);
 typedef enum
 {
     DAT_SIZE,       // size_t        .. assuming constant size records for now
-    TMP_DIR,        // const char*   .. temp directory
+    TMP_PREFIX,     // const char*   .. prefix of temporary files, XXXXXX will be appended
     MAX_MEM,        // const char*   .. maximum memory to use, e.g. 100MB
     FUNC_CMP,       // extsort_cmp_f .. sort function
 }

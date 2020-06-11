@@ -38,7 +38,7 @@
 typedef struct
 {
     extsort_t *es;  // this is to get access to extsort_cmp_f from kheap
-    FILE *fp;
+    int fd;
     char *fname;
     void *dat;
 }
@@ -50,7 +50,7 @@ KHEAP_INIT(blk, blk_t*, blk_is_smaller)     /* defines khp_blk_t */
 struct _extsort_t
 {
     size_t dat_size, mem, max_mem;
-    char *tmp_dir;
+    char *tmp_prefix;
     extsort_cmp_f cmp;
 
     size_t nbuf, mbuf, nblk;
@@ -68,67 +68,32 @@ static inline int blk_is_smaller(blk_t **aptr, blk_t **bptr)
     return 0;
 }
 
-static void _clean_files(extsort_t *es)
-{
-    int i;
-    for (i=0; i<es->nblk; i++)
-    {
-        blk_t *blk = es->blk[i];
-        if ( blk->fname )
-        {
-            unlink(blk->fname);
-            free(blk->fname);
-        }
-        free(blk->dat);
-        free(blk);
-    }
-    rmdir(es->tmp_dir);
-}
-
-static void clean_files_and_throw(extsort_t *es, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    _clean_files(es);
-    exit(-1);
-}
-
 size_t parse_mem_string(const char *str);
-void mkdir_p(const char *fmt, ...);
 
-static void _init_tmpdir(extsort_t *es, const char *tmp_dir)
+static void _init_tmp_prefix(extsort_t *es, const char *tmp_prefix)
 {
-#ifdef _WIN32
-    char tmp_path[MAX_PATH];
-    int ret = GetTempPath(MAX_PATH, tmp_path);
-    if (!ret || ret > MAX_PATH)
-        error("Could not get the path to the temporary folder\n");
-    if (strlen(tmp_path) + strlen("/bcftools-sort.XXXXXX") >= MAX_PATH)
-        error("Full path to the temporary folder is too long\n");
-    strcat(tmp_path, "/bcftools-sort.XXXXXX");
-    es->tmp_dir = strdup(tmp_path);
-#else
-    es->tmp_dir = tmp_dir ? strdup(tmp_dir) : strdup("/tmp/bcftools-sort.XXXXXX");
-#endif
-    size_t len = strlen(es->tmp_dir);
-    if ( !strcmp("XXXXXX",es->tmp_dir+len-6) )
+    if ( tmp_prefix )
     {
-#ifdef _WIN32
-        int ret = mkdir(mktemp(es->tmp_dir), 0700);
-        if ( ret ) error("mkdir(%s) failed: %s\n", es->tmp_dir,strerror(errno));
-#else
-        char *tmp = mkdtemp(es->tmp_dir);
-        if ( !tmp ) error("mkdtemp(%s) failed: %s\n",  es->tmp_dir,strerror(errno));
-        int ret = chmod(tmp, S_IRUSR|S_IWUSR|S_IXUSR);
-        if ( ret ) error("chmod(%s,S_IRUSR|S_IWUSR|S_IXUSR) failed: %s\n", es->tmp_dir,strerror(errno));
-#endif
+        int len = strlen(tmp_prefix);
+        es->tmp_prefix = (char*) calloc(len+7,1);
+        memcpy(es->tmp_prefix,tmp_prefix,len);
+        memcpy(es->tmp_prefix+len,"XXXXXX",6);
     }
     else
-        mkdir_p("%s/",es->tmp_dir);
-
-    fprintf(stderr,"Writing to %s\n",es->tmp_dir);
+    {
+        #ifdef _WIN32
+            char tmp_path[MAX_PATH];
+            int ret = GetTempPath(MAX_PATH, tmp_path);
+            if (!ret || ret > MAX_PATH)
+                error("Could not get the path to the temporary folder\n");
+            if (strlen(tmp_path) + strlen("/bcftools-sort.XXXXXX") >= MAX_PATH)
+                error("Full path to the temporary folder is too long\n");
+            strcat(tmp_path, "/bcftools-sort.XXXXXX");
+            es->tmp_prefix = strdup(tmp_path);
+        #else
+            es->tmp_prefix = strdup("/tmp/bcftools-sort.XXXXXX");
+        #endif
+    }
 }
 
 void extsort_set(extsort_t *es, extsort_opt_t key, void *value)
@@ -137,10 +102,10 @@ void extsort_set(extsort_t *es, extsort_opt_t key, void *value)
     if ( key==MAX_MEM )
     {
         es->max_mem = parse_mem_string(*((const char**)value));
-        if ( es->max_mem <=0 ) clean_files_and_throw(es,"Could not parse the memory string, expected positive number: %s\n",*((const char**)value));
+        if ( es->max_mem <=0 ) error("Could not parse the memory string, expected positive number: %s\n",*((const char**)value));
         return;
     }
-    if ( key==TMP_DIR ) { _init_tmpdir(es, *((const char**)value)); return; }
+    if ( key==TMP_PREFIX ) { _init_tmp_prefix(es, *((const char**)value)); return; }
     if ( key==FUNC_CMP ) { es->cmp = *((extsort_cmp_f*)value); return; }
 }
 
@@ -154,15 +119,23 @@ void extsort_init(extsort_t *es)
 {
     assert( es->cmp );
     assert( es->dat_size );
-    if ( !es->tmp_dir ) _init_tmpdir(es, NULL);
+    if ( !es->tmp_prefix ) _init_tmp_prefix(es, NULL);
     es->tmp_dat = malloc(es->dat_size);
 }
 
 void extsort_destroy(extsort_t *es)
 {
-    _clean_files(es);
+    int i;
+    for (i=0; i<es->nblk; i++)
+    {
+        blk_t *blk = es->blk[i];
+        if ( blk->fd!=-1 ) close(blk->fd);
+        free(blk->fname);
+        free(blk->dat);
+        free(blk);
+    }
     free(es->tmp_dat);
-    free(es->tmp_dir);
+    free(es->tmp_prefix);
     free(es->blk);
     khp_destroy(blk, es->bhp);
     free(es);
@@ -178,21 +151,38 @@ static void _buf_flush(extsort_t *es)
     es->blk = (blk_t**) realloc(es->blk, sizeof(blk_t*)*es->nblk);
     es->blk[es->nblk-1] = (blk_t*) calloc(1,sizeof(blk_t));
     blk_t *blk = es->blk[es->nblk-1];
-    blk->dat = malloc(es->dat_size);
-    kstring_t str = {0,0,0};
-    ksprintf(&str, "%s/%05d.tmp", es->tmp_dir, (int)es->nblk);
-    blk->fname = str.s;
     blk->es    = es;
+    blk->dat   = malloc(es->dat_size);
+    blk->fname = strdup(es->tmp_prefix);
+    #ifdef _WIN32
+        int i;
+        for (i=0; i<100000; i++)
+        {
+            memset(blk->fname,es->tmp_prefix,strlen(es->tmp_prefix));
+            mktemp(blk->fname);
+            blk->fd = _open(blk->fname, O_RDWR|O_CREAT|O_EXCL|O_BINARY|O_TEMPORARY, 0600);
+            if ( blk->fd==-1 )
+            {
+                if ( errno==EEXIST ) continue; 
+                error("Error: failed to open a temporary file %s\n",blk->fname);
+            }
+        }
+        if ( !blk->fd ) error("Error: failed to create a unique temporary file name from %s\n",es->tmp_prefix);
+        if ( fchmod(blk->fd,S_IRUSR|S_IWUSR)!=0 ) error("Error: failed to set permissions of the temporary file %s\n",blk->fname);
+    #else
+        if ( (blk->fd = mkstemp(blk->fname))==-1 )
+            error("Error: failed to open a temporary file %s\n",blk->fname);
+        if ( fchmod(blk->fd,S_IRUSR|S_IWUSR)!=0 ) error("Error: failed to set permissions of the temporary file %s\n",blk->fname);
+        unlink(blk->fname); // should auto delete when closed on linux, the descriptor remains open
+    #endif
 
-    FILE *fp = fopen(blk->fname, "w");
-    if ( fp == NULL ) clean_files_and_throw(es, "Cannot write %s: %s\n", blk->fname, strerror(errno));
     int i;
     for (i=0; i<es->nbuf; i++)
     {
-        if ( fwrite(es->buf[i], es->dat_size, 1, fp)!=1 ) clean_files_and_throw(es, "[%s] Error: cannot write to %s\n", __func__,blk->fname);
+        if ( write(blk->fd, es->buf[i], es->dat_size)!=es->dat_size ) error("Error: failed to write %zu bytes to the temporary file %s\n",es->dat_size,blk->fname);
         free(es->buf[i]);
     }
-    if ( fclose(fp)!=0 ) clean_files_and_throw(es, "[%s] Error: close failed .. %s\n", __func__,blk->fname);
+    if ( lseek(blk->fd,0,SEEK_SET)!=0 ) error("Error: failed to lseek() to the start of the temporary file %s\n", blk->fname);
 
     es->nbuf = 0;
     es->mem  = 0;
@@ -209,19 +199,19 @@ void extsort_push(extsort_t *es, void *dat)
 }
 
 // return number of elements read
-static int _blk_read(extsort_t *es, blk_t *blk)
+static ssize_t _blk_read(extsort_t *es, blk_t *blk)
 {
-    int ret = 0;
-    if ( !blk->fp ) return ret;
-    ret = fread(blk->dat, es->dat_size, 1, blk->fp);
-    if ( ret < -1 ) clean_files_and_throw(es, "Error reading %s\n", blk->fname);
-    if ( ret == -1 )
+    ssize_t ret = 0;
+    if ( blk->fd==-1 ) return ret;
+    ret = read(blk->fd, blk->dat, es->dat_size);
+    if ( ret < 0 ) error("Error: failed to read from the temporary file %s\n", blk->fname);
+    if ( ret == 0 )
     {
-        if ( fclose(blk->fp)!=0 ) clean_files_and_throw(es, "Close failed: %s\n", blk->fname);
-        blk->fp = 0;
+        if ( close(blk->fd)!=0 ) error("Error: failed to close the temporary file %s\n", blk->fname);
+        blk->fd = -1;
         return ret;
     }
-    if ( !ret && fclose(blk->fp)!=0 ) clean_files_and_throw(es, "[%s] Error: close failed .. %s\n", __func__,blk->fname);
+    if ( ret < es->dat_size ) error("Error: failed to read %zu bytes from the temporary file %s\n",es->dat_size,blk->fname);
     return ret;
 }
 
@@ -230,9 +220,6 @@ void extsort_sort(extsort_t *es)
     _buf_flush(es);
     free(es->buf);
     es->buf = NULL;
-
-    // fprintf(stderr,"[%s] Merging %d temporary files\n", __func__,(int)es->nblk);
-
     es->bhp = khp_init(blk);
 
     // open all blocks, read one record from each, create a heap
@@ -240,10 +227,9 @@ void extsort_sort(extsort_t *es)
     for (i=0; i<es->nblk; i++)
     {
         blk_t *blk = es->blk[i];
-        blk->fp = fopen(blk->fname, "r");
-        if ( !blk->fp ) clean_files_and_throw(es, "Could not read %s: %s\n", blk->fname, strerror(errno));
+        if ( lseek(blk->fd,0,SEEK_SET)!=0 ) error("Error: failed to lseek() to the start of the temporary file %s\n", blk->fname);
         int ret = _blk_read(es, blk);
-        if ( ret==1 ) khp_insert(blk, es->bhp, &blk);
+        if ( ret ) khp_insert(blk, es->bhp, &blk);
     }
 }
 
@@ -257,7 +243,7 @@ void *extsort_shift(extsort_t *es)
     khp_delete(blk, es->bhp);
 
     int ret = _blk_read(es, blk);
-    if ( ret==1 ) khp_insert(blk, es->bhp, &blk);
+    if ( ret ) khp_insert(blk, es->bhp, &blk);
 
     return es->tmp_dat;
 }

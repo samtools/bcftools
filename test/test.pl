@@ -605,6 +605,10 @@ test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.7.out',arg
 test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.7.out',args=>q[-u PL,PL -H]);
 test_gtcheck($opts,in=>'gtcheck.4',out=>'gtcheck.8.out',args=>q[-P {PATH}/gtcheck.4.pairs --distinctive-sites 3]);
 test_gtcheck($opts,in=>'gtcheck.4',out=>'gtcheck.8.out',args=>q[-P {PATH}/gtcheck.4.pairs --distinctive-sites 3,1]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.10.out',args=>q[-u GT -l 30]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.10.out',args=>q[-u GT -l 30 -p s1,s1]);
+test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.11.out',args=>q[-u GT -l 300]);
+test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.12.out',args=>q[-u PL -l 30]);
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
