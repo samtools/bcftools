@@ -178,8 +178,10 @@ specific commands to see if they apply.
     VCF<-->BCF conversion.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:beg-end'|'chr:beg-'[,...]::
-    Comma-separated list of regions, see also *-R, --regions-file*. Note
-    that *-r* cannot be used in combination with *-R*.
+    Comma-separated list of regions, see also *-R, --regions-file*. Overlapping
+    records are matched even when the starting coordinate is outside of the
+    region, unlike the *-t/-T* options where only the POS coordinate is checked.
+    Note that *-r* cannot be used in combination with *-R*.
 
 *-R, --regions-file* 'FILE'::
     Regions can be specified either on command line or in a VCF, BED, or
@@ -254,9 +256,9 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
     and *-t* discards positions which are not in the targets. Unlike *-r*, targets
     can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
-    Yet another difference between the two is that *-r* checks both start and
-    end positions of indels, whereas *-t* checks start positions only. Note
-    that *-t* cannot be used in combination with *-T*.
+    Yet another difference between the *-t/-T* and *-r/-R* is that *-r/-R* checks for 
+    proper overlaps and considers both POS and the end position of an indel, while *-t/-T*
+    consideres the POS coordinate only. Note that *-t* cannot be used in combination with *-T*.
 
 *-T, --targets-file* \[&#94;]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
