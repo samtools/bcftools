@@ -1423,7 +1423,7 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
         for (i=0; i<nlines; i++)
         {
             int nret = bcf_get_format_char(args->hdr,lines[i],tag,&args->tmp_arr1,&args->ntmp_arr1);
-            if (nret<0) continue; /* format tag does not exist in this record, skip */ \
+            if (nret<0) continue; /* format tag does not exist in this record, skip */
             nret /= nsmpl;
             for (k=0; k<nsmpl; k++)
             {
@@ -1470,7 +1470,7 @@ static void merge_format_string(args_t *args, bcf1_t **lines, int nlines, bcf_fm
             if ( i ) // we already have a copy
             {
                 nret = bcf_get_format_char(args->hdr,lines[i],tag,&args->tmp_arr1,&args->ntmp_arr1);
-                if (nret<0) continue; /* format tag does not exist in this record, skip */ \
+                if (nret<0) continue; /* format tag does not exist in this record, skip */
                 nret /= nsmpl;
             }
             for (k=0; k<nsmpl; k++)
