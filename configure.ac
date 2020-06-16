@@ -239,13 +239,22 @@ AS_IF([test "$enable_perl_filters" != "no" ], [dnl
     AC_DEFINE([ENABLE_PERL_FILTERS], 1, [Define if BCFtools should enable for support PERL scripts in -i/-e filtering expressions.])
     PERL_CCOPTS="`perl -MExtUtils::Embed -e ccopts`"
     PERL_LIBS="`perl -MExtUtils::Embed -e ldopts`"
+    dnl A hack to remove faulty "-arch i386" on mac as it breaks linking
+    if test "x$PLATFORM" = "xDarwin"; then
+        PERL_CCOPTS="`perl -MExtUtils::Embed -e ccopts | sed 's,-arch i386,,'`"
+        PERL_LIBS="`perl -MExtUtils::Embed -e ldopts | sed 's,-arch i386,,'`"
+    fi
     AC_SUBST([PERL_CCOPTS])
     AC_SUBST([PERL_LIBS])
 
     dnl Look for libperl
-    AC_SEARCH_LIBS(Perl_call_pv, perl, [libperl=needed], [
+    AC_SEARCH_LIBS(Perl_call_pv, perl, [], [
         AC_MSG_ERROR([Unable to find the Perl_call_pv() function for perl filters])
     ],[$PERL_CCOPTS $PERL_LIBS])
+
+    dnl This is hacky and temporary but seems to do the trick: AC_SEARCH_LIBS sets LIBS=-lperl 
+    dnl which breaks compilation on mac
+    LIBS=""
 ])
 
 dnl Apply value from HTS_PROG_CC_WERROR (if set)
