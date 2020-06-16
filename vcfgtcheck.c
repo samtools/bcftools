@@ -956,9 +956,9 @@ static void usage(void)
     fprintf(stderr, "                                           The optional MEM string sets the maximum memory used for in-memory sorting [500M]\n");
     fprintf(stderr, "                                           and TMP is a prefix of temporary files used by external sorting [/tmp/bcftools-gtcheck]\n");
     fprintf(stderr, "        --dry-run                      Stop after first record to estimate required time\n");
+    fprintf(stderr, "    -e, --error-probability INT        Phred-scaled probability of genotyping error, 0 for faster but less accurate results [40]\n");
     fprintf(stderr, "    -g, --genotypes FILE               Genotypes to compare against\n");
     fprintf(stderr, "    -H, --homs-only                    Homozygous genotypes only, useful with low coverage data (requires -g)\n");
-    fprintf(stderr, "    -l, --use-likelihoods INT          Interpret PLs probabilistically (slower but more accurate)\n");
     fprintf(stderr, "        --n-matches INT                Print only top INT matches for each sample, 0 for unlimited. Use negative value\n");
     fprintf(stderr, "                                            to sort by HWE probability rather than the number of discordant sites [0]\n");
     fprintf(stderr, "        --no-HWE-prob                  Disable calculation of HWE probability\n");
@@ -992,6 +992,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     args->qry_use_GT = -1;
     args->gt_use_GT  = -1;
     args->calc_hwe_prob = 1;
+    args->use_PLs = 40;
 
     // external sort for --distinctive-sites
     args->es_tmp_prefix = "/tmp/bcftools-gtcheck";
@@ -1006,7 +1007,7 @@ int main_vcfgtcheck(int argc, char *argv[])
 
     static struct option loptions[] =
     {
-        {"use-likelihoods",1,0,'l'},
+        {"error-probability",1,0,'e'},
         {"use",1,0,'u'},
         {"cluster",1,0,'c'},
         {"GTs-only",1,0,'G'},
@@ -1031,11 +1032,11 @@ int main_vcfgtcheck(int argc, char *argv[])
         {0,0,0,0}
     };
     char *tmp;
-    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:l:",loptions,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "hg:p:s:S:p:P:Hr:R:at:T:G:c:u:e:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'l':
+            case 'e':
                 args->use_PLs = strtol(optarg,&tmp,10);
-                if ( !tmp || *tmp ) error("Could not parse: --use-likelihoods %s\n", optarg);
+                if ( !tmp || *tmp ) error("Could not parse: --error-probability %s\n", optarg);
                 break;
             case 'u':
                 {
@@ -1130,7 +1131,7 @@ int main_vcfgtcheck(int argc, char *argv[])
     }
     if ( args->distinctive_sites && !args->pair_samples ) error("The experimental option --distinctive-sites requires -p/-P\n");
     if ( args->hom_only && !args->gt_fname ) error("The option --homs-only requires --genotypes\n");
-    if ( args->distinctive_sites && args->use_PLs ) error("The option --distinctive-sites cannot be combined with --use-likelihoods\n");
+    if ( args->distinctive_sites && args->use_PLs ) error("The option --distinctive-sites cannot be combined with --error-probability\n");
 
     init_data(args);
 

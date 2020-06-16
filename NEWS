@@ -1,5 +1,11 @@
 ## Release a.b
 
+
+* Complete revamp of `bcftools gtcheck`. The new version is faster and
+  allows N:M sample comparisons, not just 1:N or NxN comparisons. Some
+  functionality was lost (plotting and clustering) but may be added
+  back on popular demand.
+
 ## Release 1.10.2 (19th December 2019)
 
 This is a release fix that corrects minor inconsistencies discovered in
