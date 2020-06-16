@@ -158,7 +158,7 @@ static void _buf_flush(extsort_t *es)
         int i;
         for (i=0; i<100000; i++)
         {
-            memset(blk->fname,es->tmp_prefix,strlen(es->tmp_prefix));
+            memcpy(blk->fname,es->tmp_prefix,strlen(es->tmp_prefix));
             mktemp(blk->fname);
             blk->fd = _open(blk->fname, O_RDWR|O_CREAT|O_EXCL|O_BINARY|O_TEMPORARY, 0600);
             if ( blk->fd==-1 )
