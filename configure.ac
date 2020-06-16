@@ -241,6 +241,11 @@ AS_IF([test "$enable_perl_filters" != "no" ], [dnl
     PERL_LIBS="`perl -MExtUtils::Embed -e ldopts`"
     AC_SUBST([PERL_CCOPTS])
     AC_SUBST([PERL_LIBS])
+
+    dnl Look for libperl
+    AC_SEARCH_LIBS(Perl_call_pv, perl, [libperl=needed], [
+        AC_MSG_ERROR([Unable to find the Perl_call_pv() function for perl filters])
+    ],[$PERL_CCOPTS $PERL_LIBS])
 ])
 
 dnl Apply value from HTS_PROG_CC_WERROR (if set)
