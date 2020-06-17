@@ -178,8 +178,10 @@ specific commands to see if they apply.
     VCF<-->BCF conversion.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:beg-end'|'chr:beg-'[,...]::
-    Comma-separated list of regions, see also *-R, --regions-file*. Note
-    that *-r* cannot be used in combination with *-R*.
+    Comma-separated list of regions, see also *-R, --regions-file*. Overlapping
+    records are matched even when the starting coordinate is outside of the
+    region, unlike the *-t/-T* options where only the POS coordinate is checked.
+    Note that *-r* cannot be used in combination with *-R*.
 
 *-R, --regions-file* 'FILE'::
     Regions can be specified either on command line or in a VCF, BED, or
@@ -254,9 +256,9 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
     and *-t* discards positions which are not in the targets. Unlike *-r*, targets
     can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
-    Yet another difference between the two is that *-r* checks both start and
-    end positions of indels, whereas *-t* checks start positions only. Note
-    that *-t* cannot be used in combination with *-T*.
+    Yet another difference between the *-t/-T* and *-r/-R* is that *-r/-R* checks for 
+    proper overlaps and considers both POS and the end position of an indel, while *-t/-T*
+    consideres the POS coordinate only. Note that *-t* cannot be used in combination with *-T*.
 
 *-T, --targets-file* \[&#94;]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
@@ -1351,52 +1353,64 @@ And similarly here, the second is filtered:
 [[gtcheck]]
 === bcftools gtcheck ['OPTIONS'] [*-g* 'genotypes.vcf.gz'] 'query.vcf.gz'
 Checks sample identity. The program can operate in two modes. If the *-g*
-option is given, the identity of the *-s* sample from 'query.vcf.gz'
+option is given, the identity of samples from 'query.vcf.gz'
 is checked against the samples in the *-g* file.
 Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' is performed.
 
-*-a, --all-sites*::
-    output for all sites
+*--distinctive-sites* 'NUM[,MEM[,DIR]]'::
+    Find sites that can distinguish between at least NUM sample pairs. If the number is smaller or equal to 1,
+    it is interpreted as the fraction of pairs.  The optional MEM string sets the maximum memory used for
+    in-memory sorting and DIR is the temporary directory for external sorting. This option requires also
+    *--pairs* to be given.
 
-*-c, --cluster* 'FLOAT','FLOAT'::
-    min inter- and max intra-sample error [0.23,-0.3]
+*--dry-run*::
+    Stop after first record to estimate required time.
 
-    The first "min" argument controls the typical error rate in multiplexed
-    runs ("lanelets") from the same sample. Lanelets with error rate less
-    than this will always be considered as coming from the same sample.
-    The second "max" argument is the reverse: lanelets with error rate
-    greater than the absolute value of this parameter will always be
-    considered as different samples. When the value is negative, the cutoff
-    may be heuristically lowered by the clustering engine. If positive, the
-    value is interpreted as a fixed cutoff.
+*-e, --error-probability* 'INT'::
+    Interpret genotypes and genotype likelihoods probabilistically. The value of 'INT'
+    represents genotype quality when GT tag is used (e.g. Q=30 represents one error in 1,000 genotypes and
+    Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
+    non-zero integer can be provided). See also the *-u, --use* option below. If set to 0,
+    the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
+    If performance is an issue, set to 0 for faster run but less accurate results.
 
-*-g, --genotypes* 'genotypes.vcf.gz'::
-    reference genotypes to compare against
-
-*-G, --GTs-only* 'INT'::
-    use genotypes (GT) instead of genotype likelihoods (PL). When set to 1,
-    reported discordance is the number of non-matching GTs, otherwise the
-    number 'INT' is interpreted as phred-scaled likelihood of unobserved
-    genotypes.
+*-g, --genotypes* 'FILE'::
+    VCF/BCF file with reference genotypes to compare against
 
 *-H, --homs-only*::
-    consider only genotypes which are homozygous in both 'genotypes' and
-    'query' VCF. This may be useful with low coverage data.
+    Homozygous genotypes only, useful with low coverage data (requires *-g, --genotypes*)
 
-*-p, --plot* 'PREFIX'::
-    produce plots
+*--n-matches* 'INT'::
+    Print only top INT matches for each sample, 0 for unlimited. Use negative value
+    to sort by HWE probability rather than the number of discordant sites.
+
+*--no-HWE-prob*::
+    Disable calculation of HWE probability to reduce memory requirements with 
+    comparisons between very large number of sample pairs.
+
+*-p, --pairs* 'LIST'::
+    A comma-separated list of sample pairs to compare. When the *-g* option is given, the first
+    sample must be from the query file, the second from the *-g* file, third from the query file
+    etc (qry,gt[,qry,gt..]). Without the *-g* option, the pairs are created the same way but both
+    samples are from the query file (qry,qry[,qry,qry..])
+
+*-P, --pairs-file* 'FILE'::
+    A file with tab-delimited sample pairs to compare. The first sample in the pair must come
+    from the query file, the second from the genotypes file when *-g* is given
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
-    see *<<common_options,Common Options>>*
+    Restrict to comma-separated list of regions, see *<<common_options,Common Options>>*
 
-*-R, --regions-file* 'file'::
-    see *<<common_options,Common Options>>*
+*-R, --regions-file' 'FILE'::
+    Restrict to regions listed in a file, see *<<common_options,Common Options>>*
 
-*-s, --query-sample* 'STRING'::
-    query sample in 'query.vcf.gz'. By default, the first sample is checked.
+*-s, --samples* ['qry'|'gt']:'LIST':
+    List of query samples or *-g* samples. If neither *-s* nor *-S* are given, all possible sample
+    pair combinations are compared
 
-*-S, --target-sample* 'STRING'::
-    target sample in the *-g* file, used only for plotting, not for analysis
+*-S, --samples-file* ['qry'|'gt']:'FILE'
+    File with the query or *-g* samples to compare.  If neither *-s* nor *-S* are given, all possible sample
+    pair combinations are compared
 
 *-t, --targets* 'file'::
     see *<<common_options,Common Options>>*
@@ -1404,29 +1418,47 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 *-T, --targets-file* 'file'::
     see *<<common_options,Common Options>>*
 
-==== Output files format:
-    CN, Discordance;;
-        Pairwise discordance for all sample pairs is calculated as
-----
-        \sum_s { min_G { PL_a(G) + PL_b(G) } },
-----
-    ;;
-        where the sum runs over all sites 's' and 'G' is the the most likely
-        genotype shared by both samples 'a' and 'b'.  When PL field is not
-        present, a constant value '99' is used for the unseen genotypes.  With
-        *-G*, the value '1' can be used instead; the discordance value then
-        gives exactly the number of differing genotypes.
+*-u, --use* 'TAG1'[,'TAG2']::
+    specifies which tag to use in the query file ('TAG1') and the *-g* ('TAG2') file.
+    By default, the PL tag is used in the query file and GT in the *-g* file when
+    available.
 
-    ERR, error rate;;
-        Pairwise error rate calculated as number of differences divided
-        by the total number of comparisons.
+*Examples:*
+----
+   # Check discordance of all samples from B against all sample in A
+   bcftools gtcheck -g A.bcf B.bcf
 
-    CLUSTER, TH, DOT;;
-        In presence of multiple samples, related samples and outliers can be
-        identified by clustering samples by error rate. A simple hierarchical
-        clustering based on minimization of standard deviation is used. This is
-        useful to detect sample swaps, for example in situations where one
-        sample has been sequenced in multiple runs.
+   # Limit comparisons to the fiven list of samples
+   bcftools gtcheck -s gt:a1,a2,a3 -s qry:b1,b2 -g A.bcf B.bcf
+
+   # Compare only two pairs a1,b1 and a1,b2
+   bcftools gtcheck -p a1,b1,a1,b2 -g A.bcf B.bcf
+----
+
+
+//  ==== Output files format:
+//      CN, Discordance;;
+//          Pairwise discordance for all sample pairs is calculated as
+//  ----
+//          \sum_s { min_G { PL_a(G) + PL_b(G) } },
+//  ----
+//      ;;
+//          where the sum runs over all sites 's' and 'G' is the the most likely
+//          genotype shared by both samples 'a' and 'b'.  When PL field is not
+//          present, a constant value '99' is used for the unseen genotypes.  With
+//          *-G*, the value '1' can be used instead; the discordance value then
+//          gives exactly the number of differing genotypes.
+//  
+//      ERR, error rate;;
+//          Pairwise error rate calculated as number of differences divided
+//          by the total number of comparisons.
+//  
+//      CLUSTER, TH, DOT;;
+//          In presence of multiple samples, related samples and outliers can be
+//          identified by clustering samples by error rate. A simple hierarchical
+//          clustering based on minimization of standard deviation is used. This is
+//          useful to detect sample swaps, for example in situations where one
+//          sample has been sequenced in multiple runs.
 
 //    MD, Maximum Deviation;;
 //        The maximum absolute deviation from average score of the sample
