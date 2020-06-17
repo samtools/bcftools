@@ -186,7 +186,7 @@ static void push_chain_gap(chain_t *chain, int ref_start, int ref_len, int alt_s
 //     fprintf(stderr, "push_chain_gap(*chain, ref_start=%d, ref_len=%d, alt_start=%d, alt_len=%d)\n", ref_start, ref_len, alt_start, alt_len);
     int num = chain->num;
 
-    if (ref_start <= chain->ref_last_block_ori) {
+    if (num && ref_start <= chain->ref_last_block_ori) {
         // In case this variant is back-to-back with the previous one
         chain->ref_last_block_ori = ref_start + ref_len;
         chain->alt_last_block_ori = alt_start + alt_len;
