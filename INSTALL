@@ -126,7 +126,7 @@ need to be built with
 
 Note that when compiling on MacOS, the default options for linking with Perl
 provided by the system sometimes do not work. It was reported that removing
-the occurance of -arch i386 from config.mk solved the problem.
+the occurrence of -arch i386 from config.mk solved the problem.
 
 
 Optional Compilation with GSL

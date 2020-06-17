@@ -256,9 +256,9 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
     and *-t* discards positions which are not in the targets. Unlike *-r*, targets
     can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
-    Yet another difference between the *-t/-T* and *-r/-R* is that *-r/-R* checks for 
+    Yet another difference between the *-t/-T* and *-r/-R* is that *-r/-R* checks for
     proper overlaps and considers both POS and the end position of an indel, while *-t/-T*
-    consideres the POS coordinate only. Note that *-t* cannot be used in combination with *-T*.
+    considers the POS coordinate only. Note that *-t* cannot be used in combination with *-T*.
 
 *-T, --targets-file* \[&#94;]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
