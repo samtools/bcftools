@@ -995,7 +995,11 @@ int main_vcfgtcheck(int argc, char *argv[])
     args->use_PLs = 40;
 
     // external sort for --distinctive-sites
+#ifdef _WIN32
+    args->es_tmp_prefix = NULL;
+#else
     args->es_tmp_prefix = "/tmp/bcftools-gtcheck";
+#endif
     args->es_max_mem = strdup("500M");
 
     // In simulated sample swaps the minimum error was 0.3 and maximum intra-sample error was 0.23

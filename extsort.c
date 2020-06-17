@@ -28,6 +28,7 @@
 #include <unistd.h>     // for unlink()
 #include <sys/stat.h>   // for chmod()
 #include <assert.h>
+#include <fcntl.h>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -129,7 +130,12 @@ void extsort_destroy(extsort_t *es)
     for (i=0; i<es->nblk; i++)
     {
         blk_t *blk = es->blk[i];
-        if ( blk->fd!=-1 ) close(blk->fd);
+        if ( blk->fd!=-1 )
+#ifdef _WIN32
+            _close(blk->fd);
+#else
+            close(blk->fd);
+#endif
         free(blk->fname);
         free(blk->dat);
         free(blk);
@@ -143,6 +149,7 @@ void extsort_destroy(extsort_t *es)
 
 static void _buf_flush(extsort_t *es)
 {
+    int i;
     if ( !es->nbuf ) return;
 
     qsort(es->buf, es->nbuf, sizeof(void*), es->cmp);
@@ -155,7 +162,6 @@ static void _buf_flush(extsort_t *es)
     blk->dat   = malloc(es->dat_size);
     blk->fname = strdup(es->tmp_prefix);
     #ifdef _WIN32
-        int i;
         for (i=0; i<100000; i++)
         {
             memcpy(blk->fname,es->tmp_prefix,strlen(es->tmp_prefix));
@@ -166,9 +172,10 @@ static void _buf_flush(extsort_t *es)
                 if ( errno==EEXIST ) continue; 
                 error("Error: failed to open a temporary file %s\n",blk->fname);
             }
+            break;
         }
         if ( !blk->fd ) error("Error: failed to create a unique temporary file name from %s\n",es->tmp_prefix);
-        if ( fchmod(blk->fd,S_IRUSR|S_IWUSR)!=0 ) error("Error: failed to set permissions of the temporary file %s\n",blk->fname);
+        if ( _chmod(blk->fname, S_IRUSR|S_IWUSR)!=0 ) error("Error: failed to set permissions of the temporary file %s\n",blk->fname);
     #else
         if ( (blk->fd = mkstemp(blk->fname))==-1 )
             error("Error: failed to open a temporary file %s\n",blk->fname);
@@ -176,13 +183,20 @@ static void _buf_flush(extsort_t *es)
         unlink(blk->fname); // should auto delete when closed on linux, the descriptor remains open
     #endif
 
-    int i;
     for (i=0; i<es->nbuf; i++)
     {
-        if ( write(blk->fd, es->buf[i], es->dat_size)!=es->dat_size ) error("Error: failed to write %zu bytes to the temporary file %s\n",es->dat_size,blk->fname);
+        #ifdef _WIN32
+            if ( _write(blk->fd, es->buf[i], es->dat_size)!=es->dat_size ) error("Error: failed to write %zu bytes to the temporary file %s\n",es->dat_size,blk->fname);
+        #else
+            if ( write(blk->fd, es->buf[i], es->dat_size)!=es->dat_size ) error("Error: failed to write %zu bytes to the temporary file %s\n",es->dat_size,blk->fname);
+        #endif
         free(es->buf[i]);
     }
+#ifdef _WIN32
+    if ( _lseek(blk->fd,0,SEEK_SET)!=0 ) error("Error: failed to lseek() to the start of the temporary file %s\n", blk->fname);
+#else
     if ( lseek(blk->fd,0,SEEK_SET)!=0 ) error("Error: failed to lseek() to the start of the temporary file %s\n", blk->fname);
+#endif
 
     es->nbuf = 0;
     es->mem  = 0;
@@ -203,11 +217,19 @@ static ssize_t _blk_read(extsort_t *es, blk_t *blk)
 {
     ssize_t ret = 0;
     if ( blk->fd==-1 ) return ret;
+#ifdef _WIN32
+    ret = _read(blk->fd, blk->dat, es->dat_size);
+#else
     ret = read(blk->fd, blk->dat, es->dat_size);
+#endif
     if ( ret < 0 ) error("Error: failed to read from the temporary file %s\n", blk->fname);
     if ( ret == 0 )
     {
+#ifdef _WIN32
+        if ( _close(blk->fd)!=0 ) error("Error: failed to close the temporary file %s\n", blk->fname);
+#else
         if ( close(blk->fd)!=0 ) error("Error: failed to close the temporary file %s\n", blk->fname);
+#endif
         blk->fd = -1;
         return ret;
     }
@@ -227,7 +249,11 @@ void extsort_sort(extsort_t *es)
     for (i=0; i<es->nblk; i++)
     {
         blk_t *blk = es->blk[i];
+#ifdef _WIN32
+        if ( _lseek(blk->fd,0,SEEK_SET)!=0 ) error("Error: failed to lseek() to the start of the temporary file %s\n", blk->fname);
+#else
         if ( lseek(blk->fd,0,SEEK_SET)!=0 ) error("Error: failed to lseek() to the start of the temporary file %s\n", blk->fname);
+#endif
         int ret = _blk_read(es, blk);
         if ( ret ) khp_insert(blk, es->bhp, &blk);
     }
