@@ -233,7 +233,8 @@ Either configure with --disable-libgsl or resolve this error to build bcftools.
 ])
 
 AS_IF([test "$enable_perl_filters" != "no" ], [dnl
-    if ! perl -MExtUtils::Embed -e ccopts -e ldopts &>/dev/null ; then
+    save_LIBS="$LIBS"
+    if ! perl -MExtUtils::Embed -e ccopts -e ldopts >/dev/null 2>&1; then
        AC_MSG_ERROR([Cannot `perl -MExtUtils::Embed -e ccopts -e ldopts`])
     fi
     AC_DEFINE([ENABLE_PERL_FILTERS], 1, [Define if BCFtools should enable for support PERL scripts in -i/-e filtering expressions.])
@@ -251,10 +252,7 @@ AS_IF([test "$enable_perl_filters" != "no" ], [dnl
     AC_SEARCH_LIBS(Perl_call_pv, perl, [], [
         AC_MSG_ERROR([Unable to find the Perl_call_pv() function for perl filters])
     ],[$PERL_CCOPTS $PERL_LIBS])
-
-    dnl This is hacky and temporary but seems to do the trick: AC_SEARCH_LIBS sets LIBS=-lperl 
-    dnl which breaks compilation on mac
-    LIBS=""
+    LIBS="$save_LIBS"
 ])
 
 dnl Apply value from HTS_PROG_CC_WERROR (if set)
