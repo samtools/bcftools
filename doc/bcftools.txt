@@ -1661,6 +1661,11 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 -m id     ..  merge by ID
 ----
 
+*--no-index*::
+    the option allows to merge files without indexing them first. In order for this
+    option to work, the user must ensure that the input files have chromosomes in
+    the same order and consistent with the order of sequences in the VCF header.
+
 *--no-version*::
     see *<<common_options,Common Options>>*
 
