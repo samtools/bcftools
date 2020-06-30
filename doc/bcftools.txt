@@ -2190,6 +2190,9 @@ By default, appropriate system directories are searched for installed plugins.
 *remove-overlaps*::
     remove overlapping variants and duplicate sites
 
+*scatter*::
+    intended as an inverse to `bcftools concat`, scatter VCF by chunks or regions, creating multiple VCFs.
+
 *setGT*::
     general tool to set genotypes according to rules requested by the user
 
