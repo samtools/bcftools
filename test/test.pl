@@ -493,6 +493,8 @@ test_plugin_split($opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args
 test_plugin_split($opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.4.out',tmp=>'split.1.4',args=>q[-S {PATH}/split.smpl.1.3.txt -i 'GT[0]="alt"']);
 test_plugin_split($opts,in=>'split.1',out=>'split.1.5.out',tmp=>'split.1.5',args=>q[-S {PATH}/split.smpl.1.3.txt -i 'GT="alt"']);
+test_plugin_split($opts,in=>'split.1',out=>'split.1.5.out',tmp=>'split.1.6',args=>q[-S {PATH}/split.smpl.1.4.txt -i 'GT="alt"']);
+test_plugin_split($opts,in=>'split.1',out=>'split.1.7.out',tmp=>'split.1.7',args=>q[-G {PATH}/split.grp.1.1.txt]);
 test_plugin_scatter($opts,in=>'scatter.1',out=>'scatter.1.1.out',tmp=>'scatter.1.1',args=>q[-n 3]);
 test_plugin_scatter($opts,in=>'scatter.1',out=>'scatter.1.2.out',tmp=>'scatter.1.2',args=>q[-s 21,22]);
 test_plugin_scatter($opts,in=>'scatter.1',out=>'scatter.1.3.out',tmp=>'scatter.1.3',args=>q[-s 21,22 -x X]);

@@ -37,6 +37,7 @@
 #include <ctype.h>
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
+#include <htslib/khash_str2int.h>
 #include "bcftools.h"
 #include "filter.h"
 
@@ -61,7 +62,7 @@ typedef struct
     uint8_t *info_tags, *fmt_tags;
     int ninfo_tags, minfo_tags, nfmt_tags, mfmt_tags, keep_info, keep_fmt;
     int argc, region_is_file, target_is_file, output_type;
-    char **argv, *region, *target, *fname, *output_dir, *keep_tags, *samples_fname;
+    char **argv, *region, *target, *fname, *output_dir, *keep_tags, *samples_fname, *groups_fname;
     bcf_hdr_t *hdr_in, *hdr_out;
     bcf_srs_t *sr;
     subset_t *sets;
@@ -84,15 +85,37 @@ static const char *usage_text(void)
         "Usage: bcftools +split [Options]\n"
         "Plugin options:\n"
         "   -e, --exclude EXPR              exclude sites for which the expression is true (applied on the outputs)\n"
+        "   -G, --groups-file FILE          similar to -S, but the samples are split by group:\n"
+        "                                       \n"
+        "                                       # Create two output files (third column) with the second sample appearing\n"
+        "                                       # in both. The second column is for optional renaming of the samples, use\n"
+        "                                       # dash \"-\" to keep sample names unchanged\n"
+        "                                       sample1   -          file1\n"
+        "                                       sample2   -          file1,file2\n"
+        "                                       sample3   new-name3  file2\n"
+        "                                       \n"
         "   -i, --include EXPR              include only sites for which the expression is true (applied on the outputs)\n"
         "   -k, --keep-tags LIST            list of tags to keep. By default all tags are preserved\n"
         "   -o, --output DIR                write output to the directory DIR\n"
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
         "   -r, --regions REGION            restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
-        "   -S, --samples-file FILE         list of samples to keep with an optional second column to rename. Multiple comma-separated\n"
-        "                                       sample names can be given to create multi-sample VCFs. The name of the first sample\n"
-        "                                       is used a base name of the new VCF.\n"
+        "   -S, --samples-file FILE         list of samples to keep with up to three columns, one line per output file:\n"
+        "                                       \n"
+        "                                       # Create two output files, the first sample is the basename\n"
+        "                                       # of the new file\n"
+        "                                       sample1\n"
+        "                                       sample2,sample3\n"
+        "                                       \n"
+        "                                       # Optional second column to rename the samples\n"
+        "                                       sample1           new-name2\n"
+        "                                       sample2,sample3   new-name2,new-name3\n"
+        "                                       \n"
+        "                                       # Optional third column to provide output file base name, use dash \"-\"\n"
+        "                                       # to keep sample names unchanged\n"
+        "                                       sample1           new-name1   output1\n"
+        "                                       sample2,sample3   -           output2\n"
+        "                                       \n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
         "       --hts-opts LIST             low-level options to pass to HTSlib, e.g. block_size=32768\n"
@@ -117,7 +140,7 @@ void mkdir_p(const char *fmt, ...);
 void init_subsets(args_t *args)
 {
     int i,j, nsmpl = bcf_hdr_nsamples(args->hdr_in);
-    if ( !args->samples_fname )
+    if ( !args->samples_fname && !args->groups_fname )
     {
         args->nsets = nsmpl;
         args->sets  = (subset_t*) calloc(nsmpl, sizeof(subset_t));
@@ -130,7 +153,7 @@ void init_subsets(args_t *args)
             set->fname   = strdup(args->hdr_in->samples[i]);
         }
     }
-    else
+    else if ( args->samples_fname )
     {
         kstring_t str = {0,0,0};
         int nfiles = 0;
@@ -175,25 +198,46 @@ void init_subsets(args_t *args)
 
             while ( *ptr && isspace(*ptr) ) ptr++;
             j = 0;
-            if ( *ptr )
+            if ( *ptr )     // optional second column with new sample names
             {
                 set->rename = (char**) calloc(set->nsmpl, sizeof(*set->rename));
                 beg = ptr;
-                while ( *beg )
+                while ( *beg && !isspace(*beg) )
                 {
-                    char *end = beg;
-                    while ( *end && *end!=',' ) end++;
-                    char tmp = *end;
-                    *end = 0;
+                    ptr = beg;
+                    while ( *ptr && *ptr!=',' && !isspace(*ptr) ) ptr++;
+                    char tmp = *ptr;
+                    *ptr = 0;
+                    if ( !strcmp("-",beg) )
+                    {
+                        if ( j ) error("Error: cannot combine sample names with \"-\"\n");
+                        *ptr = tmp;
+                        break;
+                    }
                     set->rename[j++] = strdup(beg);
-                    if ( !tmp ) break;
-                    beg = end + 1;
+                    *ptr = tmp;
+                    if ( !tmp || isspace(tmp) ) break;
+                    beg = ptr + 1;
                     if ( j >= set->nsmpl )
                         error("Expected the same number of samples in the first and second column: %s\n",files[i]);
                 }
-                set->fname = strdup(set->rename[0]);
+                if ( j )
+                    set->fname = strdup(set->rename[0]);
+                else
+                {
+                    free(set->rename);
+                    set->rename = NULL;
+                }
             }
-            else
+
+            while ( *ptr && isspace(*ptr) ) ptr++;
+            if ( *ptr )     // optional third column with file name
+            {
+                free(set->fname);
+                set->fname = strdup(ptr);
+            }
+
+            if ( !set->fname )
                 set->fname = strdup(args->hdr_in->samples[set->smpl[0]]);
 
             args->nsets++;
@@ -201,6 +245,87 @@ void init_subsets(args_t *args)
         for (i=0; i<nfiles; i++) free(files[i]);
         free(files);
         free(str.s);
+    }
+    else // -G, args->groups_fname is set
+    {
+        void *fname2set = khash_str2int_init();
+        kstring_t str = {0,0,0};
+        int nsamples = 0;
+        char **samples = hts_readlines(args->groups_fname, &nsamples);
+        if ( !nsamples || !samples ) error("Failed to parse %s\n", args->groups_fname);
+        args->nsets = 0;
+        for (i=0; i<nsamples; i++)
+        {
+            char *ptr = samples[i];
+            int escaped = 0, iset;
+            while ( *ptr )
+            {
+                if ( *ptr=='\\' && !escaped ) { escaped = 1; ptr++; continue; }
+                if ( isspace(*ptr) && !escaped ) break;
+                escaped = 0;
+                ptr++;
+            }
+            char tmp = *ptr;
+            *ptr = 0;
+
+            int idx = bcf_hdr_id2int(args->hdr_in, BCF_DT_SAMPLE, samples[i]);
+            if ( idx < 0  )
+            {
+                fprintf(stderr,"Warning: The sample \"%s\" is not present in %s\n", samples[i],args->fname);
+                continue;
+            }
+
+            char *rename = NULL;
+            if ( tmp )      // two columns: new sample name
+            {
+                rename = ptr + 1;
+                while ( *rename && isspace(*rename) ) rename++;
+                if ( !*rename ) rename = NULL;  // trailing space
+                else
+                {
+                    ptr = rename;
+                    while ( *ptr && !isspace(*ptr) ) ptr++;
+                    tmp = *ptr;
+                    *ptr = 0;
+                    if ( !strcmp("-",rename) ) rename = NULL;
+                    if ( tmp ) ptr++;
+                }
+                while ( *ptr && isspace(*ptr) ) ptr++;
+            }
+
+            if ( !*ptr )    // no third column, use sample name as file name
+                ptr = samples[i];
+
+            char *beg = ptr;
+            while ( *beg )
+            {
+                ptr = beg;
+                while ( *ptr && *ptr!=',' ) ptr++;
+                tmp = *ptr;
+                *ptr = 0;
+                if ( khash_str2int_get(fname2set,beg,&iset) == -1 )
+                {
+                    args->nsets++;
+                    args->sets = (subset_t*) realloc(args->sets,args->nsets*sizeof(subset_t));
+                    iset = args->nsets - 1;
+                    if ( khash_str2int_set(fname2set,strdup(beg),iset) < 0 ) error("Failed to insert the key [%s]\n",beg);
+                    memset(args->sets+iset,0,sizeof(*args->sets));
+                }
+                subset_t *set = &args->sets[iset];
+                set->nsmpl++;
+                set->smpl   = (int*) realloc(set->smpl,set->nsmpl*sizeof(*set->smpl));
+                set->rename = (char**) realloc(set->rename,set->nsmpl*sizeof(*set->rename));
+                set->smpl[set->nsmpl-1]   = idx;
+                set->rename[set->nsmpl-1] = strdup(rename?rename:samples[i]);
+                if ( !set->fname) set->fname = strdup(beg);
+                if ( !tmp ) break;
+                beg = ptr + 1;
+            }
+            free(samples[i]);
+        }
+        khash_str2int_destroy_free(fname2set);
+        free(str.s);
+        free(samples);
     }
 }
 
@@ -465,12 +590,13 @@ int run(int argc, char **argv)
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
         {"samples-file",required_argument,NULL,'S'},
+        {"groups-file",required_argument,NULL,'G'},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:S:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:i:e:k:S:G:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -482,6 +608,7 @@ int run(int argc, char **argv)
             case 't': args->target = optarg; break; 
             case 'R': args->region = optarg; args->region_is_file = 1;  break;
             case 'S': args->samples_fname = optarg; break;
+            case 'G': args->groups_fname = optarg; break;
             case 'r': args->region = optarg; break; 
             case 'o': args->output_dir = optarg; break;
             case 'O':
@@ -498,6 +625,7 @@ int run(int argc, char **argv)
             default: error("%s", usage_text()); break;
         }
     }
+    if ( args->samples_fname && args->groups_fname ) error("Error: only one of the options --groups-file or --samples-file can be given\n");
     if ( optind==argc )
     {
         if ( !isatty(fileno((FILE *)stdin)) ) args->fname = "-";  // reading from stdin
