@@ -690,7 +690,7 @@ maux_t *maux_init(args_t *args)
     assert( n_smpl==bcf_hdr_nsamples(args->out_hdr) );
     if ( args->do_gvcf )
     {
-        ma->gvcf = (gvcf_aux_t*) calloc(ma->n,sizeof(gvcf_aux_t));
+        ma->gvcf = (gvcf_aux_t*) calloc(ma->n,sizeof(gvcf_aux_t));  // -Walloc-size-larger-than gives a harmless warning caused by signed integer ma->n
         for (i=0; i<ma->n; i++)
             ma->gvcf[i].line = bcf_init1();
     }
