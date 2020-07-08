@@ -2719,7 +2719,7 @@ int main_vcfmerge(int argc, char *argv[])
     if ( args->no_index )
     {
         if ( args->regions_list ) error("Error: cannot combine --no-index with -r/-R\n");
-        bcf_sr_set_opt(args->files,BCF_SR_REQUIRE_IDX_WARN);
+        bcf_sr_set_opt(args->files,BCF_SR_ALLOW_NO_IDX);
     }
     else
         bcf_sr_set_opt(args->files,BCF_SR_REQUIRE_IDX);
