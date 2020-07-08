@@ -142,7 +142,7 @@ typedef struct
     maux_t *maux;
     regidx_t *regs;    // apply regions only after the blocks are expanded
     regitr_t *regs_itr;
-    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref;
+    int header_only, collapse, output_type, force_samples, merge_by_id, do_gvcf, filter_logic, missing_to_ref, no_index;
     char *header_fname, *output_fname, *regions_list, *info_rules, *file_list;
     faidx_t *gvcf_fai;
     info_rule_t *rules;
@@ -2614,6 +2614,7 @@ static void usage(void)
     fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
     fprintf(stderr, "    -m, --merge <string>               allow multiallelic records for <snps|indels|both|all|none|id>, see man page for details [both]\n");
+    fprintf(stderr, "        --no-index                     merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
     fprintf(stderr, "        --no-version                   do not append version and command line to the header\n");
     fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
@@ -2655,6 +2656,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"regions-file",required_argument,NULL,'R'},
         {"info-rules",required_argument,NULL,'i'},
         {"no-version",no_argument,NULL,8},
+        {"no-index",no_argument,NULL,10},
         {"filter-logic",required_argument,NULL,'F'},
         {NULL,0,NULL,0}
     };
@@ -2705,6 +2707,7 @@ int main_vcfmerge(int argc, char *argv[])
             case  3 : args->force_samples = 1; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
+            case 10 : args->no_index = 1; break;
             case 'h':
             case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
@@ -2713,7 +2716,13 @@ int main_vcfmerge(int argc, char *argv[])
     if ( argc==optind && !args->file_list ) usage();
     if ( argc-optind<2 && !args->file_list ) usage();
 
-    args->files->require_index = 1;
+    if ( args->no_index )
+    {
+        if ( args->regions_list ) error("Error: cannot combine --no-index with -r/-R\n");
+        bcf_sr_set_opt(args->files,BCF_SR_ALLOW_NO_IDX);
+    }
+    else
+        bcf_sr_set_opt(args->files,BCF_SR_REQUIRE_IDX);
     if ( args->regions_list )
     {
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
