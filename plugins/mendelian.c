@@ -46,6 +46,7 @@
 #define MODE_LIST_BAD  4
 #define MODE_DELETE    8
 #define MODE_ANNOTATE  16
+#define MODE_LIST_SKIP 32
 
 typedef struct
 {
@@ -144,14 +145,16 @@ const char *usage(void)
         "About: Count Mendelian consistent / inconsistent genotypes.\n"
         "Usage: bcftools +mendelian [Options]\n"
         "Options:\n"
-        "   -c, --count                 count the number of consistent sites [DEPRECATED, use `-m s` instead]\n"
-        "   -d, --delete                delete inconsistent genotypes (set to \"./.\")\n"
-        "   -l, --list [+x]             list consistent (+) or inconsistent (x) sites [DEPRECATED, use -m instead]\n"
-        "   -m, --mode [+xas]           output mode (the default is `-m s`):\n"
-        "                               + .. list consistent sites\n"
-        "                               x .. list inconsistent sites\n"
-        "                               a .. add INFO/MERR annotation with the number of inconsistent samples\n"
-        "                               s .. print a text summary with the number of errors per trio\n"
+        "   -c, --count                 count the number of consistent sites [DEPRECATED, use `-m c` instead]\n"
+        "   -d, --delete                delete inconsistent genotypes (set to \"./.\") [DEPRECATED, use `-m d` instead]\n"
+        "   -l, --list [+x]             list consistent (+) or inconsistent (x) sites [DEPRECATED, use `-m +` or `-m x` instead]\n"
+        "   -m, --mode [+acdux]         output mode (the default is `-m c`):\n"
+        "                                   + .. list consistent sites\n"
+        "                                   a .. add INFO/MERR annotation with the number of inconsistent samples\n"
+        "                                   c .. print counts, a text summary with the number of errors per trio\n"
+        "                                   d .. delete inconsistent genotypes (set to \"./.\")\n"
+        "                                   u .. list uninformative sites\n"
+        "                                   x .. list inconsistent sites\n"
         "   -o, --output <file>         write output to a file [standard output]\n"
         "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n"
         "   -r, --rules <assembly>[?]   predefined rules, 'list' to print available settings, append '?' for details\n"
@@ -373,10 +376,13 @@ int run(int argc, char **argv)
                       break;
             case 'R': rules_fname = optarg; break;
             case 'r': rules_string = optarg; break;
-            case 'd': args.mode |= MODE_DELETE; break;
+            case 'd':
+                args.mode |= MODE_DELETE;
+                fprintf(stderr,"Warning: -d will be deprecated, please use `-m d` instead.\n");
+                break;
             case 'c':
                 args.mode |= MODE_COUNT;
-                fprintf(stderr,"Warning: -c will be deprecated, please use `-m s` instead.\n");
+                fprintf(stderr,"Warning: -c will be deprecated, please use `-m c` instead.\n");
                 break;
             case 'l':
                 if ( !strcmp("+",optarg) ) args.mode |= MODE_LIST_GOOD;
@@ -388,7 +394,9 @@ int run(int argc, char **argv)
                 if ( !strcmp("+",optarg) ) args.mode |= MODE_LIST_GOOD;
                 else if ( !strcmp("x",optarg) ) args.mode |= MODE_LIST_BAD;
                 else if ( !strcmp("a",optarg) ) args.mode |= MODE_ANNOTATE;
-                else if ( !strcmp("s",optarg) ) args.mode |= MODE_COUNT;
+                else if ( !strcmp("d",optarg) ) args.mode |= MODE_DELETE;
+                else if ( !strcmp("c",optarg) ) args.mode |= MODE_COUNT;
+                else if ( !strcmp("u",optarg) ) args.mode |= MODE_LIST_SKIP;
                 else error("The argument not recognised: --mode %s\n", optarg);
                 break;
             case 't': trio_samples = optarg; break;
@@ -418,7 +426,8 @@ int run(int argc, char **argv)
 
     if ( !trio_samples && !trio_file && !ped_fname ) error("Expected the -t/T or -p option\n");
     if ( !args.mode ) args.mode = MODE_COUNT;
-    if ( args.mode&MODE_DELETE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD;
+    if ( args.mode&MODE_DELETE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP;
+    if ( args.mode&MODE_ANNOTATE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP;
 
     FILE *log_fh = stderr;
     if ( args.mode==MODE_COUNT )
@@ -494,16 +503,19 @@ int run(int argc, char **argv)
     }
     if ( args.out_fh && hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
 
-    fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio (mother,father,child)\n");
-    for (i=0; i<args.ntrios; i++)
+    if ( args.mode & MODE_COUNT )
     {
-        trio_t *trio = &args.trios[i];
-        fprintf(log_fh,"%d\t%d\t%d\t%s,%s,%s\n",
-            trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
-            );
+        fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio (mother,father,child)\n");
+        for (i=0; i<args.ntrios; i++)
+        {
+            trio_t *trio = &args.trios[i];
+            fprintf(log_fh,"%d\t%d\t%d\t%s,%s,%s\n",
+                    trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
+                    bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
+                    bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
+                    bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
+                   );
+        }
     }
     if ( log_fh!=stderr && log_fh!=stdout && fclose(log_fh) ) error("Error: close failed for %s\n", args.output_fname);
 
@@ -526,7 +538,7 @@ static void warn_ploidy(bcf1_t *rec)
 
 bcf1_t *process(bcf1_t *rec)
 {
-    bcf1_t *dflt = args.mode&MODE_LIST_GOOD ? rec : NULL;
+    bcf1_t *dflt = args.mode&MODE_LIST_SKIP ? rec : NULL;
     args.nrec++;
 
     if ( rec->n_allele > 63 ) return dflt;      // we use 64bit bitmask below
@@ -538,7 +550,7 @@ bcf1_t *process(bcf1_t *rec)
 
     int itr_set = regidx_overlap(args.rules, bcf_seqname(args.hdr,rec),rec->pos,rec->pos, args.itr_ori);
 
-    int i, nbad = 0, needs_update = 0;
+    int i, nbad = 0, ngood = 0, needs_update = 0;
     for (i=0; i<args.ntrios; i++)
     {
         int32_t a,b,c,d,e,f;
@@ -622,6 +634,7 @@ bcf1_t *process(bcf1_t *rec)
         if ( is_ok )
         {
             trio->nok++;
+            ngood++;
         }
         else
         {
@@ -644,10 +657,9 @@ bcf1_t *process(bcf1_t *rec)
         error("Could not update GT field at %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
 
     if ( args.mode&MODE_ANNOTATE ) bcf_update_info_int32(args.hdr, rec, "MERR", &nbad, 1);
-    if ( args.mode&MODE_DELETE ) return rec;
-    if ( args.mode&MODE_LIST_GOOD ) return nbad ? NULL : rec;
-    if ( args.mode&MODE_LIST_BAD ) return nbad ? rec : NULL;
-    if ( args.mode&MODE_ANNOTATE ) return rec;
+    if ( args.mode&MODE_LIST_GOOD && ngood ) return rec;
+    if ( args.mode&MODE_LIST_BAD && nbad ) return rec;
+    if ( args.mode&MODE_LIST_SKIP && !ngood && !nbad ) return rec;
 
     return NULL;
 }
