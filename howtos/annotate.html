@@ -5,7 +5,7 @@
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 1.5.2">
-<title>Plugins for developers</title>
+<title>Annotating VCF/BCF files</title>
 <link rel="stylesheet" href="./index.css">
 </head>
 <body class="article">
@@ -75,58 +75,36 @@
 </div>
 <div id="main">
 <div class="sect1">
-<h2 id="_plugins_for_developers">Plugins for developers</h2>
+<h2 id="_annotating_vcf_bcf_files">Annotating VCF/BCF files</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The API is described in <a href="https://github.com/samtools/bcftools/blob/develop/vcfplugin.c#L50-L74">vcfplugin.c</a></p>
+<div class="title"><strong>Transfer annotation from INFO column to FORMAT</strong></div>
+<p>Imagine you need to transfer INFO/DP annotation to FORMAT/DP. This is currently not possible
+using a single <code>bcftools annotate</code> command, but can be done easily in multiple steps.
+This is a complete example that can be copy and pasted as is:</p>
 </div>
-<div class="literalblock">
+<div class="listingblock">
 <div class="content">
-<pre>/**
- *   Plugin API:
- *   ----------
- *   const char *about(void)
- *      - short description used by 'bcftools plugin -lv'
- *
- *   const char *usage(void)
- *      - longer description used by 'bcftools +name -h'
- *
- *   int run(int argc, char **argv)
- *      - if implemented, the control is immediately handed over to the plugin,
- *      none of the init/process/destroy functions is called.  Return 0 on
- *      success or non-zero value on error.
- *
- *   int init(int argc, char **argv, bcf_hdr_t *in_hdr, bcf_hdr_t *out_hdr)
- *      - called once at startup, allows to initialize local variables.
- *      Return 1 to suppress normal VCF/BCF header output, -1 on critical
- *      errors, 0 otherwise.
- *
- *   bcf1_t *process(bcf1_t *rec)
- *      - called for each VCF record, return NULL for no output
- *
- *   void destroy(void)
- *      - called after all lines have been processed to clean up
- */</pre>
+<pre># Create a test VCF
+echo -e '##fileformat=VCFv4.3' &gt; test.vcf
+echo -e '##INFO=&lt;ID=DP,Number=1,Type=Integer,Description="Read depth"&gt;' &gt;&gt; test.vcf
+echo -e '##FORMAT=&lt;ID=GT,Number=1,Type=String,Description="Genotype"&gt;' &gt;&gt; test.vcf
+echo -e '##contig=&lt;ID=1,length=248956422,assembly=hg38&gt;' &gt;&gt; test.vcf
+echo -e '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsmpl1\tsmpl2' &gt;&gt; test.vcf
+echo -e '1\t16648016\t.\tG\t.\t.\t.\tDP=10\tGT\t0/0\t0/0' &gt;&gt; test.vcf
+
+# Extract INFO/DP into a tab-delimited annotation file
+bcftools query -f '%CHROM\t%POS\t%DP\n' test.vcf | bgzip -c &gt; annot.txt.gz
+
+# Index the file with tabix
+tabix -s1 -b2 -e2 annot.txt.gz
+
+# Create a header line for the new annotation
+echo -e '##FORMAT=&lt;ID=DP,Number=1,Type=Integer,Description="Read depth"&gt;' &gt;&gt; hdr.txt
+
+# Transfer the annotation to sample 'smpl1'
+bcftools annotate -s smpl1 -a annot.txt.gz -h hdr.txt -c CHROM,POS,FORMAT/DP test.vcf</pre>
 </div>
-</div>
-<div class="paragraph">
-<p>A few tips:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>The simplest plugin to build upon is <a href="https://github.com/samtools/bcftools/blob/develop/plugins/counts.c">counts.c</a>.</p>
-</li>
-<li>
-<p>Check the source code other <a href="https://github.com/samtools/bcftools/tree/develop/plugins">plugins</a> for inspiration.</p>
-</li>
-<li>
-<p><code>bcftools +name -vv</code> explains why a given plugin would not load</p>
-</li>
-<li>
-<p><code>bcftools +path/to/file.so</code> is a way to load a plugin without having to specify the BCFTOOLS_PLUGINS environmental variable</p>
-</li>
-</ul>
 </div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>

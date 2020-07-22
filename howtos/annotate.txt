@@ -1,0 +1,36 @@
+include::header.inc[]
+
+
+== Annotating VCF/BCF files
+
+.**Transfer annotation from INFO column to FORMAT**
+
+Imagine you need to transfer INFO/DP annotation to FORMAT/DP. This is currently not possible
+using a single `bcftools annotate` command, but can be done easily in multiple steps.
+This is a complete example that can be copy and pasted as is:
+
+----
+# Create a test VCF
+echo -e '##fileformat=VCFv4.3' > test.vcf
+echo -e '##INFO=<ID=DP,Number=1,Type=Integer,Description="Read depth">' >> test.vcf
+echo -e '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">' >> test.vcf
+echo -e '##contig=<ID=1,length=248956422,assembly=hg38>' >> test.vcf
+echo -e '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsmpl1\tsmpl2' >> test.vcf
+echo -e '1\t16648016\t.\tG\t.\t.\t.\tDP=10\tGT\t0/0\t0/0' >> test.vcf
+
+# Extract INFO/DP into a tab-delimited annotation file
+bcftools query -f '%CHROM\t%POS\t%DP\n' test.vcf | bgzip -c > annot.txt.gz
+
+# Index the file with tabix
+tabix -s1 -b2 -e2 annot.txt.gz
+
+# Create a header line for the new annotation
+echo -e '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">' >> hdr.txt
+
+# Transfer the annotation to sample 'smpl1'
+bcftools annotate -s smpl1 -a annot.txt.gz -h hdr.txt -c CHROM,POS,FORMAT/DP test.vcf
+----
+
+include::footer.inc[]
+
+

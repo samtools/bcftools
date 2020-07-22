@@ -16,6 +16,7 @@
 
 .Tips and Tricks
 * link:convert.html[Converting formats]
+* link:annotate.html[Adding annotation]
 * link:query.html[Extracting information]
 * link:filtering.html[Filtering expressions]
 * link:plugins.html[Plugins]

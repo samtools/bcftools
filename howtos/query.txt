@@ -11,7 +11,7 @@ quick querying of VCFs.
 Below is a list of some of the most common tasks with explanation how it works.
 For a full list of options, see the link:../bcftools.html#query[manual page].
 
-.**List of samples**
+.**List samples**
 ----
 bcftools query -l file.bcf
 ----
