@@ -2093,14 +2093,6 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
     return 2;
 }
 
-#define CMP_MISSING(atok,btok,CMP_OP,ret) \
-{ \
-    if ( (atok)->nsamples || (btok)->nsamples ) error("todo: Querying of missing values in FORMAT\n"); \
-    token_t *tok = (atok)->is_missing ? (btok) : (atok); \
-    (ret) = ( tok->nvalues CMP_OP 1 ) ? 0 : 1; \
-    tok->nvalues = 1; \
-}
-
 #define CMP_VECTORS(atok,btok,_rtok,CMP_OP,missing_logic) \
 { \
     token_t *rtok = _rtok; \
@@ -2203,31 +2195,56 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
                 } \
             } \
         } \
-        else \
+        else if ( atok->nsamples )\
         { \
-            token_t *xtok = atok->nsamples ? atok : btok; \
-            token_t *ytok = atok->nsamples ? btok : atok; \
-            for (i=0; i<xtok->nsamples; i++) \
+            for (i=0; i<atok->nsamples; i++) \
             { \
                 if ( !rtok->usmpl[i] ) continue; \
-                double *xptr = xtok->values + i*xtok->nval1; \
-                double *yptr = ytok->values + i*ytok->nval1; \
-                for (j=0; j<xtok->nval1; j++) \
+                double *aptr = atok->values + i*atok->nval1; \
+                double *bptr = btok->values + i*btok->nval1; \
+                for (j=0; j<atok->nval1; j++) \
                 { \
-                    int miss = bcf_double_is_missing_or_vector_end(xptr[j]) ? 1 : 0; \
+                    int miss = bcf_double_is_missing_or_vector_end(aptr[j]) ? 1 : 0; \
                     if ( miss && !missing_logic[0] ) continue; /* any is missing => result is false */ \
-                    for (k=0; k<ytok->nvalues; k++) \
+                    for (k=0; k<btok->nvalues; k++) \
                     { \
-                        int nmiss = miss + (bcf_double_is_missing_or_vector_end(yptr[k]) ? 1 : 0); \
+                        int nmiss = miss + (bcf_double_is_missing_or_vector_end(bptr[k]) ? 1 : 0); \
                         if ( nmiss ) \
                         { \
-                            if ( missing_logic[nmiss] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
+                            if ( missing_logic[nmiss] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = atok->nval1; break; } \
                         } \
-                        else if ( xptr[j] > 16777216 || yptr[k] > 16777216 ) /* Ugly, see #871 */ \
+                        else if ( aptr[j] > 16777216 || bptr[k] > 16777216 ) /* Ugly, see #871 */ \
                         { \
-                            if ( xptr[j] CMP_OP yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
+                            if ( aptr[j] CMP_OP bptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = atok->nval1; break; } \
                         } \
-                        else if ( (float)xptr[j] CMP_OP (float)yptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = xtok->nval1; break; } \
+                        else if ( (float)aptr[j] CMP_OP (float)bptr[k] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = atok->nval1; break; } \
+                    } \
+                } \
+            } \
+        } \
+        else /* btok->nsamples */ \
+        { \
+            for (i=0; i<btok->nsamples; i++) \
+            { \
+                if ( !rtok->usmpl[i] ) continue; \
+                double *aptr = atok->values + i*atok->nval1; \
+                double *bptr = btok->values + i*btok->nval1; \
+                for (j=0; j<btok->nval1; j++) \
+                { \
+                    int miss = bcf_double_is_missing_or_vector_end(bptr[j]) ? 1 : 0; \
+                    if ( miss && !missing_logic[0] ) continue; /* any is missing => result is false */ \
+                    for (k=0; k<atok->nvalues; k++) \
+                    { \
+                        int nmiss = miss + (bcf_double_is_missing_or_vector_end(aptr[k]) ? 1 : 0); \
+                        if ( nmiss ) \
+                        { \
+                            if ( missing_logic[nmiss] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = btok->nval1; break; } \
+                        } \
+                        else if ( bptr[j] > 16777216 || aptr[k] > 16777216 ) /* Ugly, see #871 */ \
+                        { \
+                            if ( aptr[k] CMP_OP bptr[j] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = btok->nval1; break; } \
+                        } \
+                        else if ( (float)aptr[k] CMP_OP (float)bptr[j] ) { rtok->pass_samples[i] = 1; rtok->pass_site = 1; j = btok->nval1; break; } \
                     } \
                 } \
             } \

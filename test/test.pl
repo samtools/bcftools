@@ -352,6 +352,10 @@ test_vcf_filter($opts,in=>'filter.9',out=>'filter.35.out',args=>q[-i 'QUAL/INFO/
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.36.out',args=>q[-S . -e 'ABS(SMPL_MAX(FORMAT/AO))=5']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.37.out',args=>q[-S . -e 'PHRED(AO[1:])>-4']);
 test_vcf_filter($opts,in=>'filter.8',out=>'filter.37.out',args=>q[-S . -e 'ABS(AO[1:])==2']);
+test_vcf_filter($opts,in=>'filter.10',out=>'filter.38.out',args=>q[-i 'sum(AD[*]) > FORMAT/DP']);
+test_vcf_filter($opts,in=>'filter.10',out=>'filter.38.out',args=>q[-i 'FORMAT/DP < sum(AD[*])']);
+test_vcf_filter($opts,in=>'filter.10',out=>'filter.39.out',args=>q[-i 'sum(AD[*]) < FORMAT/DP']);
+test_vcf_filter($opts,in=>'filter.10',out=>'filter.39.out',args=>q[-i 'FORMAT/DP > sum(AD[*])']);
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_regions($opts,in=>'regions');
