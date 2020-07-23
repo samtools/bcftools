@@ -1830,17 +1830,12 @@ static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
         // tab annotation file, expecting that all samples are present: sample map not needed
         if ( !src ) return 0;
 
-        int nmatch = 0, order_ok = 1;
+        int nmatch = 0;
         for (i=0; i<bcf_hdr_nsamples(src); i++)
         {
             int id = bcf_hdr_id2int(dst, BCF_DT_SAMPLE, src->samples[i]);
-            if ( id!=-1 ) 
-            {
-                nmatch++;
-                if ( i!=id ) order_ok = 0;
-            }
+            if ( id!=-1 ) nmatch++;
         }
-        if ( bcf_hdr_nsamples(src)==bcf_hdr_nsamples(dst) && nmatch==bcf_hdr_nsamples(src) && order_ok ) return 0;  // not needed
         if ( !nmatch ) return -1;   // No matching samples found in the source and the destination file
 
         args->nsample_map = bcf_hdr_nsamples(dst);
