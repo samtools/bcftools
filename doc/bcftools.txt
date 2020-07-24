@@ -2800,10 +2800,13 @@ that a filter like '--min-af 0.1' will be calculated from INFO/AC and INFO/AN
 when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
 field, like INFO/AF for example. For that, use '--exclude AF<0.1' instead.
 
-Also note that one must be careful when sample subsetting and filtering is performed in a single command as
-sample removal can change the allele frequency. It may be better to separate the two steps into two
-commands, piping one into the other. Some of these annotations are calculated on the fly but can be
-also taken from the INFO column when present.
+Also note that one must be careful when sample subsetting and filtering is performed in a single command
+because the order of internal operations can influence the result. For example, the *-i/-e* filtering
+is performed before sample removal, but the *-P* filtering is performed after,
+and some are inherently ambiguous, for example allele counts can be taken from the INFO
+column when present but calculated on the fly when absent. Therefore it is strongly recommended to spell out the
+required order explicitly by separating such commands into two steps. (Make sure to use the *-O u* option
+when piping!)
 
 *-c, --min-ac* 'INT'[':nref'|':alt1'|':minor'|':major'|:'nonmajor']::
     minimum allele count (INFO/AC) of sites to be printed.
