@@ -918,7 +918,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     free(tmp_filter);
 }
 
-int bam_mpileup(int argc, char *argv[])
+int main_mpileup(int argc, char *argv[])
 {
     int c;
     const char *file_list = NULL;

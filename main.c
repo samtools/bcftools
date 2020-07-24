@@ -58,7 +58,7 @@ int main_plugin(int argc, char *argv[]);
 #endif
 int main_consensus(int argc, char *argv[]);
 int main_csq(int argc, char *argv[]);
-int bam_mpileup(int argc, char *argv[]);
+int main_mpileup(int argc, char *argv[]);
 int main_sort(int argc, char *argv[]);
 
 typedef struct
@@ -164,7 +164,7 @@ static cmd_t cmds[] =
       .alias = "gtcheck",
       .help  = "check sample concordance, detect sample swaps and contamination"
     },
-    { .func  = bam_mpileup,
+    { .func  = main_mpileup,
         .alias = "mpileup",
         .help  = "multi-way pileup producing genotype likelihoods"
     },
