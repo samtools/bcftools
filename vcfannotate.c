@@ -379,6 +379,10 @@ static void init_remove_annots(args_t *args)
         }
         else if ( str.l )
         {
+            int id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, str.s);
+            if ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,id) ) error("Error: did you mean INFO/%s?\n",str.s);
+            if ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) ) error("Error: did you mean FORMAT/%s?\n",str.s);
+
             if ( !args->keep_sites )
             {
                 if ( str.s[0]=='#' && str.s[1]=='#' )
