@@ -1,8 +1,0 @@
-##fileformat=VCFv4.2
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Genotype Likelihood">
-##contig=<ID=1,length=248956422>
-##reference=file:///home/dnanexus/genome.fa
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	s1
-1	10000001	.	A	AT	.	.	.	GT:PL	0/1:10,0,10
-1	10000002	.	A	AT,ATT	.	.	.	GT:PL	1/2:20,20,20,10,0,10
