@@ -1652,6 +1652,17 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 *-l, --file-list* 'FILE'::
     Read file names from 'FILE', one file name per line.
 
+*-L, --local-alleles* 'INT'::
+    Sites with many alternate alleles can require extremely large storage space which
+    can exceed the 2GB size limit representable by BCF. This is caused
+    by Number=G tags (such as FORMAT/PL) which store a value for each combination of reference
+    and alternate alleles. The *-L, --local-alleles* option allows to replace such tags
+    with a localized tag (FORMAT/LPL) which only includes a subset of alternate alleles relevant
+    for that sample. A new FORMAT/LAA tag is added which lists 1-based indices of the
+    alternate alleles relevant (local) for the current sample. The number 'INT' gives the
+    maximum number of alternate alleles that can be included in the PL tag. The default value
+    is 0 which disables the feature and outputs values for all alternate alleles.
+   
 *-m, --merge* 'snps'|'indels'|'both'|'all'|'none'|'id'::
     The option controls what types of multiallelic records can be created:
 ----
