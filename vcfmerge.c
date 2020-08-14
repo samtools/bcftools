@@ -1897,7 +1897,7 @@ void merge_localized_numberAR_format_field(args_t *args, bcf_fmt_t **fmt_map, bc
                 for (ii=ibeg; ii<=ma->nlaa; ii++) \
                 { \
                     if ( laa[ii]==bcf_int32_missing || laa[ii]==bcf_int32_vector_end ) break; \
-                    int src_idx = laa[ii]; \
+                    int src_idx = laa[ii] - ibeg; \
                     if ( src_is_missing ) tgt_set_missing; \
                     else if ( src_is_vector_end ) break; \
                     else tgt[tgt_idx] = src[src_idx]; \
