@@ -353,7 +353,7 @@ static void info_rules_init(args_t *args)
         if ( rule->type==BCF_HT_INT ) rule->type_size = sizeof(int32_t);
         else if ( rule->type==BCF_HT_REAL ) rule->type_size = sizeof(float);
         else if ( rule->type==BCF_HT_STR ) rule->type_size = sizeof(char); 
-        else error("The type is not supported: \"%s\"\n", rule->hdr_tag);
+        else error("The INFO rule \"%s\" is not supported; the tag \"%s\" type is %d\n", ss,rule->hdr_tag,rule->type);
 
         ss = strchr(ss, '\0'); ss++;
         if ( !*ss ) error("Could not parse INFO rules, missing logic of \"%s\"\n", rule->hdr_tag);
@@ -755,6 +755,7 @@ void maux_destroy(maux_t *ma)
     free(ma->chr);
     free(ma->laa);
     free(ma->tmpi);
+    free(ma->k2k);
     free(ma->tmpd);
     free(ma->pl2prob);
     free(ma);
