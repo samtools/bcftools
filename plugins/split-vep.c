@@ -330,6 +330,8 @@ static void init_column2type(args_t *args)
         free(tmp);
     }
     if ( !args->ncolumn2type ) error("Failed to parse the column types\n");
+    for (i=0; i<ntype; i++) free(type[i]);
+    free(type);
 }
 static void destroy_column2type(args_t *args)
 {
@@ -337,6 +339,7 @@ static void destroy_column2type(args_t *args)
     for (i=0; i<args->ncolumn2type; i++)
     {
         regfree(args->column2type[i].regex);
+        free(args->column2type[i].regex);
         free(args->column2type[i].type);
     }
     free(args->column2type);
