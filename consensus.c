@@ -552,7 +552,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         }
         if ( rec->n_allele <= ialt ) error("Broken VCF, too few alts at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
-    else if ( args->output_iupac && !rec->d.allele[0][1] && !rec->d.allele[1][1] )
+    else if ( args->output_iupac && rec->n_allele>1 && !rec->d.allele[0][1] && !rec->d.allele[1][1] )
     {
         char ial = rec->d.allele[0][0];
         char jal = rec->d.allele[1][0];
