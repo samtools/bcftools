@@ -891,7 +891,7 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Example:\n");
     fprintf(stderr, "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n");
-    fprintf(stderr, "   bcftools mpileup -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n");
+    fprintf(stderr, "   bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n");
 
     // todo (and more)
     // fprintf(stderr, "\nContrast calling and association test options:\n");

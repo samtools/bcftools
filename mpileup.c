@@ -911,7 +911,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "\n"
 "Example:\n"
 "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
-"   bcftools mpileup -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n"
+"   bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n"
 "\n");
 
     free(tmp_require);
