@@ -271,7 +271,28 @@ static void info_rules_merge_join(bcf_hdr_t *hdr, bcf1_t *line, info_rule_t *rul
         bcf_update_info_string(hdr,line,rule->hdr_tag,rule->vals);
     }
     else
+    {
+        int isrc, idst = 0;
+        #define BRANCH(type_t,is_missing,is_vector_end) { \
+            type_t *ptr = (type_t*) rule->vals; \
+            for (isrc=0; isrc<rule->nvals; isrc++) \
+            { \
+                if ( is_vector_end ) break; \
+                if ( is_missing ) continue; \
+                if ( idst!=isrc ) ptr[idst] = ptr[isrc]; \
+                idst++; \
+            } \
+        }
+        switch (rule->type) {
+            case BCF_HT_INT:  BRANCH(int32_t, ptr[isrc]==bcf_int32_missing, ptr[isrc]==bcf_int32_vector_end); break;
+            case BCF_HT_REAL: BRANCH(float, bcf_float_is_missing(ptr[isrc]), bcf_float_is_vector_end(ptr[isrc])); break;
+            default: error("TODO: %s:%d .. type=%d\n", __FILE__,__LINE__, rule->type);
+        }
+        #undef BRANCH
+
+        rule->nvals = idst;
         bcf_update_info(hdr,line,rule->hdr_tag,rule->vals,rule->nvals,rule->type);
+    }
 }
 
 static int info_rules_comp_key2(const void *a, const void *b)
@@ -375,8 +396,17 @@ static void info_rules_init(args_t *args)
                     bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_G ||
                     bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)==BCF_VL_R
                     ) ? 1 : 0;
-            if ( is_join && is_agr )
-                error("Cannot -i %s:join on Number=[AGR] tags is not supported.\n", rule->hdr_tag);
+            if ( is_join && bcf_hdr_id2length(args->out_hdr,BCF_HL_INFO,id)!=BCF_VL_VAR )
+            {
+                bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->out_hdr, BCF_HL_INFO, "ID", rule->hdr_tag, NULL);
+                hrec = bcf_hrec_dup(hrec);
+                int i = bcf_hrec_find_key(hrec, "Number");
+                if ( i<0 ) error("Uh, could not find the entry Number in the header record of %s\n",rule->hdr_tag);
+                free(hrec->vals[i]);
+                hrec->vals[i] = strdup(".");
+                bcf_hdr_remove(args->out_hdr,BCF_HL_INFO, rule->hdr_tag);
+                bcf_hdr_add_hrec(args->out_hdr, hrec);
+            }
             if ( !is_join && !is_agr )
                 error("Only fixed-length vectors are supported with -i %s:%s\n", ss, rule->hdr_tag);
         }
