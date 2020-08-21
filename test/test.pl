@@ -134,6 +134,10 @@ test_vcf_query($opts,in=>'missing',out=>'query.23.out',args=>q[-i'ISTR!="."' -f'
 test_vcf_query($opts,in=>'missing',out=>'query.23.out',args=>q[-e'ISTR="."'  -f'%POS %ISTR\\n']);
 test_vcf_query($opts,in=>'missing',out=>'query.22.out',args=>q[-e'ISTR!="."' -f'%POS %ISTR\\n']);
 test_vcf_query($opts,in=>'missing',out=>'query.24.out',args=>q[-i'FILTER="q11"' -f'%POS %ISTR\\n']);
+test_vcf_query($opts,in=>'filter.11',out=>'query.76.out',args=>q[-i'FILTER="A"' -f'%POS %FILTER\\n']);
+test_vcf_query($opts,in=>'filter.11',out=>'query.77.out',args=>q[-i'FILTER!="A"' -f'%POS %FILTER\\n']);
+test_vcf_query($opts,in=>'filter.11',out=>'query.78.out',args=>q[-i'FILTER~"A"' -f'%POS %FILTER\\n']);
+test_vcf_query($opts,in=>'filter.11',out=>'query.79.out',args=>q[-i'FILTER!~"A"' -f'%POS %FILTER\\n']);
 test_vcf_query($opts,in=>'query',out=>'query.25.out',args=>q[-f'%LINE']);
 test_vcf_query($opts,in=>'query.filter-type',out=>'query.26.out',args=>q[-f'%POS\\t%REF\\t%ALT\\n' -i'type="snp"']);
 test_vcf_query($opts,in=>'query.filter-type',out=>'query.27.out',args=>q[-f'%POS\\t%REF\\t%ALT\\n' -i'type~"snp"']);

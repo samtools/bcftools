@@ -6,6 +6,15 @@
   functionality was lost (plotting and clustering) but may be added
   back on popular demand.
 
+* Breaking change in -i/-e expressions on the FILTER column.  Originally
+  it was possible to query only a subset of filters, but not an exact match.
+  The new behavior is:
+
+        FILTER="A"          .. exact match, for example "A;B" does not pass
+        FILTER!="A"         .. exact match, for example "A;B" does pass
+        FILTER~"A"          .. both "A" and "A;B" pass
+        FILTER!~"A"         .. neither "A" nor "A;B" pass
+
 ## Release 1.10.2 (19th December 2019)
 
 This is a release fix that corrects minor inconsistencies discovered in
