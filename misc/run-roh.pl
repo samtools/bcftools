@@ -180,9 +180,16 @@ sub parse_genmap_path
     }
     my @test = glob("$prefix*$suffix");
     if ( @test != @files ) 
-    { 
-        print STDERR "Warning: Could not determine the genetic map files [$prefix][$suffix]\n";
-        return '';
+    {
+        error(
+            "Error: Could not determine the genetic map files in \"$$opts{genmap}\". The directory must contain only\n" .
+            "       the genetic map files (and nothing else) and the expected file names are\n" .
+            "           <prefix><chromosome-name><suffix>\n" .
+            "       for example:\n" .
+            "           genetic_map_chr10_combined_b37.txt\n" .
+            "           genetic_map_chr11_combined_b37.txt\n" .
+            "           ...\n" .
+            "       The heuristically determined wildcard \"$prefix*$suffix\" matches ",scalar @test," files, in total there are ",scalar @files," files.\n");
     }
     return "-m $prefix\{CHROM}$suffix";
 }
