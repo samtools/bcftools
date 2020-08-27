@@ -165,6 +165,8 @@ struct _filter_t
 #define TOK_sMEDIAN 35
 #define TOK_sSTDEV  36
 #define TOK_sSUM    37
+#define TOK_IN      38      // contains, e.g. FILTER~"A" 
+#define TOK_NOT_IN  39      // does not contain, e.g. FILTER!~"A" 
 
 //                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37
 //                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s 
@@ -438,7 +440,7 @@ static void filters_cmp_bit_and(token_t *atok, token_t *btok, token_t *rtok, bcf
 static void filters_cmp_filter(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *line)
 {
     int i;
-    if ( rtok->tok_type==TOK_NE )  // AND logic: none of the filters can match
+    if ( rtok->tok_type==TOK_NOT_IN )
     {
         if ( !line->d.n_flt )
         {
@@ -451,7 +453,7 @@ static void filters_cmp_filter(token_t *atok, token_t *btok, token_t *rtok, bcf1
         rtok->pass_site = 1;
         return;
     }
-    else if ( rtok->tok_type==TOK_EQ ) // OR logic: at least one of the filters must match
+    else if ( rtok->tok_type==TOK_IN )
     {
         if ( !line->d.n_flt )
         {
@@ -462,8 +464,30 @@ static void filters_cmp_filter(token_t *atok, token_t *btok, token_t *rtok, bcf1
             if ( atok->hdr_id==line->d.flt[i] ) { rtok->pass_site = 1; return; }
         return;
     }
+    else if ( rtok->tok_type==TOK_NE )  // exact match
+    {
+        if ( !line->d.n_flt )
+        {
+            if ( atok->hdr_id==-1 ) return;   // missing value
+            rtok->pass_site = 1;
+            return; // no filter present, eval to true
+        }
+        if ( line->d.n_flt==1 && atok->hdr_id==line->d.flt[0] ) return;    // exact match, fail iff a single matching value is present
+        rtok->pass_site = 1;
+        return;
+    }
+    else if ( rtok->tok_type==TOK_EQ )  // exact match, pass iff a single matching value is present
+    {
+        if ( !line->d.n_flt )
+        {
+            if ( atok->hdr_id==-1 ) { rtok->pass_site = 1; return; }
+            return; // no filter present, eval to false
+        }
+        if ( line->d.n_flt==1 && atok->hdr_id==line->d.flt[0] ) rtok->pass_site = 1;
+        return;
+    }
     else 
-        error("Only == and != operators are supported for FILTER\n");
+        error("Only ==, !=, ~, and !~ operators are supported for FILTER\n");
     return;
 }
 static void filters_cmp_id(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *line)
@@ -3352,11 +3376,11 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             if ( i+1==nout ) error("Could not parse the expression: %s\n", filter->str);
             int itok = i, ival;
             if ( out[i+1].tok_type==TOK_EQ || out[i+1].tok_type==TOK_NE ) ival = i - 1;
-            else if ( out[i+1].tok_type==TOK_LIKE ) out[i+1].tok_type = TOK_EQ, ival = i - 1;
-            else if ( out[i+1].tok_type==TOK_NLIKE ) out[i+1].tok_type = TOK_NE, ival = i - 1;
+            else if ( out[i+1].tok_type==TOK_LIKE ) out[i+1].tok_type = TOK_IN, ival = i - 1;
+            else if ( out[i+1].tok_type==TOK_NLIKE ) out[i+1].tok_type = TOK_NOT_IN, ival = i - 1;
             else if ( out[i+2].tok_type==TOK_EQ || out[i+2].tok_type==TOK_NE ) ival = ++i;
-            else if ( out[i+2].tok_type==TOK_LIKE ) out[i+2].tok_type = TOK_EQ, ival = ++i;
-            else if ( out[i+2].tok_type==TOK_NLIKE ) out[i+2].tok_type = TOK_NE, ival = ++i;
+            else if ( out[i+2].tok_type==TOK_LIKE ) out[i+2].tok_type = TOK_IN, ival = ++i;
+            else if ( out[i+2].tok_type==TOK_NLIKE ) out[i+2].tok_type = TOK_NOT_IN, ival = ++i;
             else error("[%s:%d %s] Could not parse the expression: %s\n",  __FILE__,__LINE__,__FUNCTION__, filter->str);
             if ( out[ival].tok_type!=TOK_VAL || !out[ival].key )
                 error("[%s:%d %s] Could not parse the expression, an unquoted string value perhaps? %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);

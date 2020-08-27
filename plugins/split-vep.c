@@ -135,7 +135,7 @@ static const char *default_severity(void)
         "regulatory\n"
         "TF_binding_site TFBS\n"
         "downstream upstream\n"
-        "non_coding_transcript\n"
+        "non_coding_transcript non_coding\n"
         "intron NMD_transcript\n"
         "non_coding_transcript_exon\n"
         "5_prime_utr 3_prime_utr\n"
