@@ -163,8 +163,11 @@ static void fix_ref(args_t *args, bcf1_t *line)
         return;
     }
 
-    // does REF contain non-standard bases?
-    if ( replace_iupac_codes(line->d.allele[0],strlen(line->d.allele[0])) )
+    // does REF or ALT contain non-standard bases?
+    int has_non_acgtn = 0;
+    for (i=0; i<line->n_allele; i++)
+        has_non_acgtn += replace_iupac_codes(line->d.allele[i],strlen(line->d.allele[i]));
+    if ( has_non_acgtn )
     {
         args->nref.set++;
         bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
