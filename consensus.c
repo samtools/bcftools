@@ -692,8 +692,14 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         if ( len_diff )
             memmove(args->fa_buf.s+idx+alen,args->fa_buf.s+idx+rec->rlen,args->fa_buf.l-idx-rec->rlen);
 
-        args->prev_base = rec->d.allele[0][rec->rlen - 1];
-        args->prev_base_pos = rec->pos + rec->rlen - 1;
+        size_t allele_len = strlen(rec->d.allele[0]);
+        if (allele_len > rec->rlen)
+            allele_len = rec->rlen;
+        if (allele_len >= rec->d.m_als)
+            error("rlen %"PRIhts_pos" is larger than allele buffer\n",
+                  rec->rlen);
+        args->prev_base = rec->d.allele[0][allele_len - 1];
+        args->prev_base_pos = rec->pos + allele_len - 1;
         args->prev_is_insert = 0;
         args->fa_frz_mod = idx + alen;
     }
