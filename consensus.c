@@ -686,16 +686,18 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     if ( len_diff <= 0 )
     {
         // deletion or same size event
+
+        assert( args->fa_buf.l >= idx+rec->rlen );
+        args->prev_base = args->fa_buf.s[idx+rec->rlen-1];
+        args->prev_base_pos = rec->pos + rec->rlen - 1;
+        args->prev_is_insert = 0;
+        args->fa_frz_mod = idx + alen;
+
         for (i=0; i<alen; i++)
             args->fa_buf.s[idx+i] = rec->d.allele[ialt][i];
 
         if ( len_diff )
             memmove(args->fa_buf.s+idx+alen,args->fa_buf.s+idx+rec->rlen,args->fa_buf.l-idx-rec->rlen);
-
-        args->prev_base = rec->d.allele[0][rec->rlen - 1];
-        args->prev_base_pos = rec->pos + rec->rlen - 1;
-        args->prev_is_insert = 0;
-        args->fa_frz_mod = idx + alen;
     }
     else
     {
