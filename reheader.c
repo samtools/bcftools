@@ -1,6 +1,6 @@
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014-2018 Genome Research Ltd.
+    Copyright (C) 2014-2020 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -388,7 +388,10 @@ static void reheader_vcf_gz(args_t *args)
     int nsamples = 0;
     char **samples = NULL;
     if ( args->samples_fname )
+    {
         samples = hts_readlines(args->samples_fname, &nsamples);
+        if ( !samples || !nsamples ) error("Error reading the --samples file \"%s\"\n", args->samples_fname);
+    }
     if ( args->header_fname )
     {
         free(hdr.s); hdr.s = NULL; hdr.l = hdr.m = 0;
@@ -444,7 +447,10 @@ static void reheader_vcf(args_t *args)
     int nsamples = 0;
     char **samples = NULL;
     if ( args->samples_fname )
+    {
         samples = hts_readlines(args->samples_fname, &nsamples);
+        if ( !samples || !nsamples ) error("Error reading the --samples file \"%s\"\n", args->samples_fname);
+    }
     if ( args->header_fname )
     {
         free(hdr.s); hdr.s = NULL; hdr.l = hdr.m = 0;
@@ -548,7 +554,10 @@ static void reheader_bcf(args_t *args, int is_compressed)
     int i, nsamples = 0;
     char **samples = NULL;
     if ( args->samples_fname )
+    {
         samples = hts_readlines(args->samples_fname, &nsamples);
+        if ( !samples || !nsamples ) error("Error reading the --samples file \"%s\"\n", args->samples_fname);
+    }
     if ( args->header_fname )
     {
         free(htxt.s); htxt.s = NULL; htxt.l = htxt.m = 0;
@@ -704,10 +713,14 @@ int main_reheader(int argc, char *argv[])
 
     if ( args->type.format==vcf )
     {
-        if ( args->type.compression==bgzf || args->type.compression==gzip )
+        if ( args->type.compression==bgzf )
             reheader_vcf_gz(args);
-        else
+        else if ( args->type.compression==no_compression )
             reheader_vcf(args);
+        else if ( args->type.compression==gzip )
+            error("Error: cannot reheader gzip-compressed files, first convert with `bcftools view --output-type` to a supported format\n");
+        else
+            error("Error: the compression type of \"%s\" is not recognised/supported\n", args->fname);
     }
     else
         reheader_bcf(args, args->type.compression==bgzf || args->type.compression==gzip);
