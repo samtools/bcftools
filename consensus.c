@@ -576,15 +576,27 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         ialt = 1;
     }
 
+    // For some variant types POS+REF refer to the base *before* the event; in such case set trim_beg
+    int trim_beg = 0;
+    int var_type = bcf_get_variant_type(rec,ialt);
+    int var_len  = rec->d.var[ialt].n;
+    if ( var_type & VCF_INDEL ) trim_beg = 1;
+    else if ( (var_type & VCF_OTHER) && !strcasecmp(rec->d.allele[ialt],"<DEL>") )
+    {
+        trim_beg = 1;
+        var_len  = 1 - rec->rlen;
+    }
+    else if ( (var_type & VCF_OTHER) && !strncasecmp(rec->d.allele[ialt],"<INS",4) ) trim_beg = 1;
+
     // Overlapping variant?
     if ( rec->pos <= args->fa_frz_pos )
     {
         // Can be still OK iff this is an insertion (and which does not follow another insertion, see #888).
         // This still may not be enough for more complicated cases with multiple duplicate positions
         // and other types in between. In such case let the user normalize the VCF and remove duplicates.
+
         int overlap = 0;
-        if ( rec->pos < args->fa_frz_pos || !(bcf_get_variant_type(rec,ialt) & VCF_INDEL) ) overlap = 1;
-        else if ( rec->d.var[ialt].n <= 0 || args->prev_is_insert ) overlap = 1;
+        if ( rec->pos < args->fa_frz_pos || !trim_beg || var_len==0 || args->prev_is_insert ) overlap = 1;
 
         if ( overlap )
         {
@@ -693,7 +705,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         args->prev_is_insert = 0;
         args->fa_frz_mod = idx + alen;
 
-        for (i=0; i<alen; i++)
+        for (i=trim_beg; i<alen; i++)
             args->fa_buf.s[idx+i] = rec->d.allele[ialt][i];
 
         if ( len_diff )
