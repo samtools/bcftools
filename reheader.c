@@ -317,7 +317,13 @@ static void set_samples(char **samples, int nsamples, kstring_t *hdr)
         if ( hdr->s[i]=='\t' ) ncols++;
         i--;
     }
-    if ( i<0 || strncmp(hdr->s+i+1,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT",45) ) error("Could not parse the header: %s\n", hdr->s);
+    if ( i<0 || strncmp(hdr->s+i+1,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT",45) )
+    {
+        if ( i>0 && !strncmp(hdr->s+i+1,"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO",38) )
+            error("Error: missing FORMAT fields, cowardly refusing to add samples\n");
+
+        error("Could not parse the header: %s\n", hdr->s);
+    }
 
     // Are the samples "old-sample new-sample" pairs?
     if ( set_sample_pairs(samples,nsamples,hdr, i+1) ) return;
