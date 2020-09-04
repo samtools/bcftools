@@ -113,7 +113,7 @@ typedef struct _args_t
     int output_type, n_threads;
     bcf_sr_regions_t *tgts;
 
-    regidx_t *tgt_idx;
+    regidx_t *tgt_idx;  // keep everything in memory only with .tab annotation file and -c BEG,END columns
     regitr_t *tgt_itr;
     int tgt_is_bed;
 
@@ -691,6 +691,10 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 {
     annot_line_t *tab = (annot_line_t*) data;
 
+    // This is a bit hacky, only to reuse existing code with minimal changes:
+    //      -c =TAG will now behave as -l TAG:APPEND for integers
+    if ( col->replace==SET_OR_APPEND ) col->merge_method=MM_APPEND;
+
     if ( !tab )
     {
         if ( col->merge_method!=MM_SUM && col->merge_method!=MM_AVG && col->merge_method!=MM_MIN && col->merge_method!=MM_MAX && col->merge_method!=MM_APPEND )
@@ -826,6 +830,10 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
 static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     annot_line_t *tab = (annot_line_t*) data;
+
+    // This is a bit hacky, only to reuse existing code with minimal changes:
+    //      -c =TAG will now behave as -l TAG:APPEND for floats
+    if ( col->replace==SET_OR_APPEND ) col->merge_method=MM_APPEND;
 
     if ( !tab )
     {
@@ -1002,8 +1010,12 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
         if ( ret>0 && (args->tmps2[0]!='.' || args->tmps2[1]!=0) ) return 0;
     }
 
+    // This is a bit hacky, only to reuse existing code with minimal changes:
+    //      -c =TAG will now behave as -l TAG:unique for strings
+    if ( col->replace==SET_OR_APPEND ) col->merge_method=MM_UNIQUE;
+
     annot_line_t *tab = (annot_line_t*) data;
-    
+
     int len = 0;
     if ( tab )
     {
@@ -2084,7 +2096,7 @@ static void init_columns(args_t *args)
         else if ( args->tgts_is_vcf && !strcasecmp("INFO",str.s) ) // All INFO fields
         {
             if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
-            if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO/TAG feature has not been implemented yet.\n");
+            if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO feature has not been implemented yet.\n");
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
             int j;
             for (j=0; j<tgts_hdr->nhrec; j++)
@@ -2215,7 +2227,13 @@ static void init_columns(args_t *args)
         else
         {
             if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
-            if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO/TAG feature has not been implemented yet.\n");
+            if ( replace==SET_OR_APPEND )
+            {
+                if ( args->tgts_is_vcf )
+                    error("Error: the =INFO/TAG feature is currently supported only with TAB annotation files and has limitations\n"
+                          "       (the annotation type is modified to \"Number=.\" and allele ordering is disregarded)\n");
+                fprintf(stderr,"Warning: the =INFO/TAG feature modifies the annotation to \"Number=.\" and disregards allele ordering\n");
+            }
             int explicit_src_info = 0;
             int explicit_dst_info = 0;
             char *key_dst;
@@ -2308,6 +2326,18 @@ static void init_columns(args_t *args)
                 case BCF_HT_STR:    col->setter = args->tgts_is_vcf ? vcf_setter_info_str  : setter_info_str; break;
                 default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id));
             }
+            if ( replace==SET_OR_APPEND )   // change to Number=.
+            {
+                bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, BCF_HL_INFO, "ID", key_dst, NULL);
+                if ( !hrec ) error("Uh, could not find the new tag \"%s\" in the header\n", key_dst);
+                hrec = bcf_hrec_dup(hrec);
+                int j = bcf_hrec_find_key(hrec, "Number");
+                if ( j<0 ) error("Uh, could not find the entry Number in the header record of %s\n",key_dst);
+                free(hrec->vals[j]);
+                hrec->vals[j] = strdup(".");
+                bcf_hdr_remove(args->hdr_out,BCF_HL_INFO, key_dst);
+                bcf_hdr_add_hrec(args->hdr_out, hrec);
+            }
         }
         if ( !*se ) break;
         ss = ++se;
@@ -2345,7 +2375,7 @@ static void init_merge_method(args_t *args)
     }
     if ( !args->merge_method_str.l ) return;
     if ( args->tgts_is_vcf ) error("Error: the --merge-logic is intended for use with BED or TAB-delimited files only.\n");
-    if ( !args->tgt_idx ) error("Error: BEG,END (or FROM,TO) columns are expected with the --merge-logic option.\n");
+    if ( !args->tgt_idx && !args->tgts ) error("Error: BEG,END (or FROM,TO) columns or REF,ALT columns are expected with the --merge-logic option.\n");
     char *sb = args->merge_method_str.s;
     while ( *sb )
     {
@@ -2625,7 +2655,6 @@ static void annotate(args_t *args, bcf1_t *line)
         args->rm[i].handler(args, line, &args->rm[i]);
 
     int has_overlap = 0;
-
     if ( args->tgt_idx )
     {
         if ( regidx_overlap(args->tgt_idx, bcf_seqname(args->hdr,line),line->pos,line->pos+line->rlen-1, args->tgt_itr) )
@@ -2670,17 +2699,15 @@ static void annotate(args_t *args, bcf1_t *line)
                 }
                 if ( j==args->alines[i].nals ) continue;    // none of the annot alleles present in VCF's ALT
             }
-            break;
-        }
-
-        if ( i<args->nalines )
-        {
             // there is a matching line
+            has_overlap = 1;
             for (j=0; j<args->ncols; j++)
                 if ( args->cols[j].setter(args,line,&args->cols[j],&args->alines[i]) )
                     error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
         }
-        has_overlap = i<args->nalines ? 1 : 0;
+        for (j=0; j<args->ncols; j++)
+            if ( args->cols[j].merge_method != MM_FIRST )
+                args->cols[j].setter(args,line,&args->cols[j],NULL);
     }
     else if ( args->files->nreaders == 2 )
     {

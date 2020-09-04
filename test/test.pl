@@ -410,6 +410,7 @@ test_vcf_annotate($opts,in=>'annotate19.dst',vcf=>'annotate19.src',out=>'annotat
 test_vcf_annotate($opts,in=>'annotate20.dst',vcf=>'annotate20.src',out=>'annotate20.1.out',args=>'-c  FMT/GT');
 test_vcf_annotate($opts,in=>'annotate20.dst',vcf=>'annotate20.src',out=>'annotate20.2.out',args=>'-c +FMT/GT');
 test_vcf_annotate($opts,in=>'annotate20.dst',vcf=>'annotate20.src',out=>'annotate20.3.out',args=>'-c -FMT/GT');
+test_vcf_annotate($opts,in=>'annotate.multi',tab=>'annotate.multi',out=>'annotate.multi.1.out',args=>'-c CHROM,POS,REF,ALT,ANN -l ANN:append');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');

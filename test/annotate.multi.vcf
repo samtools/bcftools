@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##INFO=<ID=ANN,Number=.,Type=String,Description="Some annotation">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	752566	.	G	A,C,T	.	.	.
+1	752566	.	G	A,C	.	.	.
