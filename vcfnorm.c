@@ -137,7 +137,7 @@ static void seq_to_upper(char *seq, int len)
 static void fix_ref(args_t *args, bcf1_t *line)
 {
     int reflen = strlen(line->d.allele[0]);
-    int i, maxlen = reflen, len;
+    int i,j, maxlen = reflen, len;
     for (i=1; i<line->n_allele; i++)
     {
         int len = strlen(line->d.allele[i]);
@@ -150,11 +150,11 @@ static void fix_ref(args_t *args, bcf1_t *line)
 
     args->nref.tot++;
 
-    // is the REF different?
+    // is the REF different? If not, we are done
     if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
 
-    // is the REF allele missing or N?
-    if ( reflen==1 && (line->d.allele[0][0]=='.' || line->d.allele[0][0]=='N' || line->d.allele[0][0]=='n') ) 
+    // is the REF allele missing?
+    if ( reflen==1 && line->d.allele[0][0]=='.' ) 
     { 
         line->d.allele[0][0] = ref[0]; 
         args->nref.set++; 
@@ -166,13 +166,40 @@ static void fix_ref(args_t *args, bcf1_t *line)
     // does REF or ALT contain non-standard bases?
     int has_non_acgtn = 0;
     for (i=0; i<line->n_allele; i++)
+    {
+        if ( line->d.allele[i][0]=='<' ) continue;
         has_non_acgtn += replace_iupac_codes(line->d.allele[i],strlen(line->d.allele[i]));
+    }
     if ( has_non_acgtn )
     {
         args->nref.set++;
         bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
         if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
     }
+
+    // does the REF allele contain N's ?
+    int fix = 0;
+    for (i=0; i<reflen; i++)
+    {
+        if ( line->d.allele[0][i]!='N' ) continue;
+        if ( ref[i]=='N' ) continue;
+        line->d.allele[0][i] = ref[i];
+        fix++;
+        for (j=1; j<line->n_allele; j++)
+        {
+            int len = strlen(line->d.allele[j]);
+            if ( len <= i || line->d.allele[j][i]!='N' ) continue;
+            line->d.allele[j][i] = ref[i];
+            fix++;
+        }
+    }
+    if ( fix )
+    {
+        args->nref.set++;
+        bcf_update_alleles(args->hdr,line,(const char**)line->d.allele,line->n_allele);
+        if ( !strncasecmp(line->d.allele[0],ref,reflen) ) { free(ref); return; }
+    }
+
 
     // is it swapped?
     for (i=1; i<line->n_allele; i++)
@@ -182,45 +209,35 @@ static void fix_ref(args_t *args, bcf1_t *line)
     }
 
     kstring_t str = {0,0,0};
-    if ( i==line->n_allele )
+    if ( i==line->n_allele )    // none of the alternate alleles matches the reference
     {
-        // none of the alternate alleles matches the reference
-        if ( line->n_allele>1 )
-            args->nref.set++;
-        else
-            args->nref.swap++;
-
-        kputs(line->d.allele[0],&str);
-        kputc(',',&str);
+        args->nref.set++;
+        kputsn(ref,reflen,&str);
         for (i=1; i<line->n_allele; i++)
         {
-            kputs(line->d.allele[i],&str);
             kputc(',',&str);
+            kputs(line->d.allele[i],&str);
         }
-        kputc(ref[0],&str);
         bcf_update_alleles_str(args->hdr,line,str.s);
-        str.l = 0;
+        free(ref);
+        free(str.s);
+        return;
     }
-    else
-        args->nref.swap++;
-    free(ref);
 
-    // swap the alleles
-    int j;
+    // one of the alternate alleles matches the reference, assume it's a simple swap
     kputs(line->d.allele[i],&str);
-    for (j=1; j<i; j++)
+    for (j=1; j<line->n_allele; j++)
     {
         kputc(',',&str);
-        kputs(line->d.allele[j],&str);
-    }
-    kputc(',',&str);
-    kputs(line->d.allele[0],&str);
-    for (j=i+1; j<line->n_allele; j++)
-    {
-        kputc(',',&str);
-        kputs(line->d.allele[j],&str);
+        if ( j==i ) 
+            kputs(line->d.allele[0],&str);
+        else
+            kputs(line->d.allele[j],&str);
     }
     bcf_update_alleles_str(args->hdr,line,str.s);
+    args->nref.swap++;
+    free(ref);
+    free(str.s);
 
     // swap genotypes
     int ntmp = args->ntmp_arr1 / sizeof(int32_t); // reuse tmp_arr declared as uint8_t
@@ -246,8 +263,6 @@ static void fix_ref(args_t *args, bcf1_t *line)
         ac[i-1] = ni;
         bcf_update_info_int32(args->hdr, line, "AC", ac, nac);
     }
-    
-    free(str.s);
 }
 
 static void fix_dup_alt(args_t *args, bcf1_t *line)

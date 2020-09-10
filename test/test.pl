@@ -227,6 +227,7 @@ test_vcf_norm($opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args=>'-d both'
 test_vcf_norm($opts,in=>'norm.rmdup.2',out=>'norm.rmdup.2.2.out',args=>'-d snps');
 test_vcf_norm($opts,in=>'norm.2',fai=>'norm.2',out=>'norm.2.out',args=>'');
 test_vcf_norm($opts,in=>'norm.iupac',fai=>'norm.iupac',out=>'norm.iupac.out',args=>'-c s');
+test_vcf_norm($opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
