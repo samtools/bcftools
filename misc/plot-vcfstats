@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
-# Plot the output of "bcftools +guess-ploidy -v"
+# Plot the output of "bcftools stats -s -"
 #
 # The MIT License
 #
-# Copyright (C) 2012-2018 Genome Research Ltd.
+# Copyright (C) 2012-2020 Genome Research Ltd.
 #
 # Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -592,6 +592,42 @@ sub merge_GCsAF
     for (my $i=0; $i<@$a; $i++) { $$a[$i][7] /= $$a[$i][8]; }
 }
 
+sub merge_HWE
+{
+    my ($dst,$src) = @_;
+
+    # The fields are:
+    #   [0] - AF of the 1st ALT
+    #   [1] - number of observations
+    #   [2] - 25th percentile
+    #   [3] - median
+    #   [4] - 75th percentile
+    #
+    # It is impossible to do the proper merge without source data, hence
+    # an approximation: take average of the percentiles weighted by the
+    # number of observations
+
+    my $id = 0;
+    my $is = 0;
+    while ($is<@$src)
+    {
+        while ( $id<@$dst && $$src[$is][0] > $$dst[$id][0] ) { $id++; }
+        if ( $id<@$dst && $$src[$is][0] == $$dst[$id][0] )
+        {
+            my $sw = $$src[$is][1]+$$dst[$id][1] ? $$src[$is][1]/($$src[$is][1]+$$dst[$id][1]) : 0;
+            my $dw = $$src[$is][1]+$$dst[$id][1] ? $$dst[$id][1]/($$src[$is][1]+$$dst[$id][1]) : 0;
+            for (my $j=2; $j<@{$$src[$is]}; $j++)
+            {
+                if ( $$dst[$id][$j] eq '.' or $$src[$is][$j] eq '.' ) { next; }
+                $$dst[$id][$j] = $dw*$$dst[$id][$j] + $sw*$$src[$is][$j];
+            }
+            $$dst[$id][1] += $sw*$$src[$is][1];
+        }
+        else { splice(@$dst,$id,0,$$src[$is]); }
+        $is++;
+    }
+}
+
 sub parse_vcfstats1
 {
     my ($opts,$i) = @_;
@@ -636,6 +672,7 @@ sub parse_vcfstats1
             elsif ( $a eq 'GCiS' ) { merge_GCsS($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'GCsAF' ) { merge_GCsAF($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'GCiAF' ) { merge_GCsAF($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
+            elsif ( $a eq 'HWE' ) { merge_HWE($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'ST' ) { add_to_values($$opts{dat}{$a}{$b},$dat{$a}{$b},\&cmp_str); }
             elsif ( $a eq 'PSC') { merge_PSC($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
             elsif ( $a eq 'PSI') { merge_PSI($$opts{dat}{$a}{$b},$dat{$a}{$b},$i); }
