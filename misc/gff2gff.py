@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # This is script was contributed by Philip Ashton (https://github.com/flashton2003)
 # with the intention to convert from the many GFF flavours to the Ensembl GFF3 format
