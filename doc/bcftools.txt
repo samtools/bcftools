@@ -2970,7 +2970,7 @@ about the distinction between "&&" vs "&" and "||" vs "|".
         FORMAT/DV, FMT/DV, or DV
         FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 
-* starting with 1.10.3, the FILTER column can be queried as follows:
+* starting with 1.11, the FILTER column can be queried as follows:
 
         FILTER="PASS"
         FILTER="A"          .. exact match, for example "A;B" does not pass

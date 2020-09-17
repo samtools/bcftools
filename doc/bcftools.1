@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2020-05-28 12:41 BST
+.\"      Date: 2020-09-17 09:52 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2020\-05\-28 12:41 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2020\-09\-17 09:52 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2020\-05\-28 12:41 BST\fR and refers to bcftools git version \fB1\&.10\&.2\-54\-g5c73ef6+\fR\&.
+This manual page was last updated \fB2020\-09\-17 09:52 BST\fR and refers to bcftools git version \fB1\&.10\&.2\-135\-ge3fe5b8+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -452,7 +452,9 @@ Output compressed BCF (\fIb\fR), uncompressed BCF (\fIu\fR), compressed VCF (\fI
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:beg\-end\fR|\fIchr:beg\-\fR[,\&...]
 .RS 4
 Comma\-separated list of regions, see also
-\fB\-R, \-\-regions\-file\fR\&. Note that
+\fB\-R, \-\-regions\-file\fR\&. Overlapping records are matched even when the starting coordinate is outside of the region, unlike the
+\fB\-t/\-T\fR
+options where only the POS coordinate is checked\&. Note that
 \fB\-r\fR
 cannot be used in combination with
 \fB\-R\fR\&.
@@ -556,11 +558,15 @@ options can be applied simultaneously:
 uses the index to jump to a region and
 \fB\-t\fR
 discards positions which are not in the targets\&. Unlike
-\fB\-r\fR, targets can be prefixed with "^" to request logical complement\&. For example, "^X,Y,MT" indicates that sequences X, Y and MT should be skipped\&. Yet another difference between the two is that
-\fB\-r\fR
-checks both start and end positions of indels, whereas
-\fB\-t\fR
-checks start positions only\&. Note that
+\fB\-r\fR, targets can be prefixed with "^" to request logical complement\&. For example, "^X,Y,MT" indicates that sequences X, Y and MT should be skipped\&. Yet another difference between the
+\fB\-t/\-T\fR
+and
+\fB\-r/\-R\fR
+is that
+\fB\-r/\-R\fR
+checks for proper overlaps and considers both POS and the end position of an indel, while
+\fB\-t/\-T\fR
+considers the POS coordinate only\&. Note that
 \fB\-t\fR
 cannot be used in combination with
 \fB\-T\fR\&.
@@ -730,12 +736,16 @@ if multiple regions overlap a single record, the option defines how to treat mul
 \fItag\fR
 in the destination file: use the first encountered value ignoring the rest (\fIfirst\fR); append allowing duplicates (\fIappend\fR); append discarding duplicate values (\fIunique\fR); sum the values (\fIsum\fR, numeric fields only); average the values (\fIavg\fR); use the minimum value (\fImin\fR) or the maximum (\fImax\fR)\&.
 
-Note that this option is intended for use with BED or TAB\-delimited annotation files only\&. Moreover, it is effective only if
+Note that this option is intended for use with BED or TAB\-delimited annotation files only\&. Moreover, it is effective only when either
+\fIREF\fR
+and
+\fIALT\fR
+or
 \fIBEG\fR
 and
 \fIEND\fR
 \fB\-\-columns\fR
-are present\&.
+are present \&.
 
 Multiple rules can be given either as a comma\-separated list or giving the option multiple times\&. This is an experimental feature\&.
 .RE
@@ -841,6 +851,8 @@ List of annotations to remove\&. Use "FILTER" to remove all filters or "FILTER/S
 
     # Annotate from a bed file (0\-based coordinates, half\-closed, half\-open intervals)
     bcftools annotate \-a annots\&.bed\&.gz \-h annots\&.hdr \-c CHROM,FROM,TO,TAG input\&.vcf
+
+    # For more examples see http://samtools\&.github\&.io/bcftools/howtos/annotate\&.html
 .fi
 .if n \{\
 .RE
@@ -2231,85 +2243,83 @@ see
 .RE
 .SS "bcftools gtcheck [\fIOPTIONS\fR] [\-g \fIgenotypes\&.vcf\&.gz\fR] \fIquery\&.vcf\&.gz\fR"
 .sp
-Checks sample identity\&. The program can operate in two modes\&. If the \fB\-g\fR option is given, the identity of the \fB\-s\fR sample from \fIquery\&.vcf\&.gz\fR is checked against the samples in the \fB\-g\fR file\&. Without the \fB\-g\fR option, multi\-sample cross\-check of samples in \fIquery\&.vcf\&.gz\fR is performed\&.
+Checks sample identity\&. The program can operate in two modes\&. If the \fB\-g\fR option is given, the identity of samples from \fIquery\&.vcf\&.gz\fR is checked against the samples in the \fB\-g\fR file\&. Without the \fB\-g\fR option, multi\-sample cross\-check of samples in \fIquery\&.vcf\&.gz\fR is performed\&.
 .PP
-\fB\-a, \-\-all\-sites\fR
+\fB\-\-distinctive\-sites\fR \fINUM[,MEM[,DIR]]\fR
 .RS 4
-output for all sites
+Find sites that can distinguish between at least NUM sample pairs\&. If the number is smaller or equal to 1, it is interpreted as the fraction of pairs\&. The optional MEM string sets the maximum memory used for in\-memory sorting and DIR is the temporary directory for external sorting\&. This option requires also
+\fB\-\-pairs\fR
+to be given\&.
 .RE
 .PP
-\fB\-c, \-\-cluster\fR \fIFLOAT\fR,\fIFLOAT\fR
+\fB\-\-dry\-run\fR
 .RS 4
-min inter\- and max intra\-sample error [0\&.23,\-0\&.3]
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-The first "min" argument controls the typical error rate in multiplexed
-runs ("lanelets") from the same sample\&. Lanelets with error rate less
-than this will always be considered as coming from the same sample\&.
-The second "max" argument is the reverse: lanelets with error rate
-greater than the absolute value of this parameter will always be
-considered as different samples\&. When the value is negative, the cutoff
-may be heuristically lowered by the clustering engine\&. If positive, the
-value is interpreted as a fixed cutoff\&.
-.fi
-.if n \{\
-.RE
-.\}
+Stop after first record to estimate required time\&.
 .RE
 .PP
-\fB\-g, \-\-genotypes\fR \fIgenotypes\&.vcf\&.gz\fR
+\fB\-e, \-\-error\-probability\fR \fIINT\fR
 .RS 4
-reference genotypes to compare against
-.RE
-.PP
-\fB\-G, \-\-GTs\-only\fR \fIINT\fR
-.RS 4
-use genotypes (GT) instead of genotype likelihoods (PL)\&. When set to 1, reported discordance is the number of non\-matching GTs, otherwise the number
+Interpret genotypes and genotype likelihoods probabilistically\&. The value of
 \fIINT\fR
-is interpreted as phred\-scaled likelihood of unobserved genotypes\&.
+represents genotype quality when GT tag is used (e\&.g\&. Q=30 represents one error in 1,000 genotypes and Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary non\-zero integer can be provided)\&. See also the
+\fB\-u, \-\-use\fR
+option below\&. If set to 0, the discordance equals to the number of mismatching genotypes when GT vs GT is compared\&. If performance is an issue, set to 0 for faster run but less accurate results\&.
+.RE
+.PP
+\fB\-g, \-\-genotypes\fR \fIFILE\fR
+.RS 4
+VCF/BCF file with reference genotypes to compare against
 .RE
 .PP
 \fB\-H, \-\-homs\-only\fR
 .RS 4
-consider only genotypes which are homozygous in both
-\fIgenotypes\fR
-and
-\fIquery\fR
-VCF\&. This may be useful with low coverage data\&.
+Homozygous genotypes only, useful with low coverage data (requires
+\fB\-g, \-\-genotypes\fR)
 .RE
 .PP
-\fB\-p, \-\-plot\fR \fIPREFIX\fR
+\fB\-\-n\-matches\fR \fIINT\fR
 .RS 4
-produce plots
+Print only top INT matches for each sample, 0 for unlimited\&. Use negative value to sort by HWE probability rather than the number of discordant sites\&.
+.RE
+.PP
+\fB\-\-no\-HWE\-prob\fR
+.RS 4
+Disable calculation of HWE probability to reduce memory requirements with comparisons between very large number of sample pairs\&.
+.RE
+.PP
+\fB\-p, \-\-pairs\fR \fILIST\fR
+.RS 4
+A comma\-separated list of sample pairs to compare\&. When the
+\fB\-g\fR
+option is given, the first sample must be from the query file, the second from the
+\fB\-g\fR
+file, third from the query file etc (qry,gt[,qry,gt\&.\&.])\&. Without the
+\fB\-g\fR
+option, the pairs are created the same way but both samples are from the query file (qry,qry[,qry,qry\&.\&.])
+.RE
+.PP
+\fB\-P, \-\-pairs\-file\fR \fIFILE\fR
+.RS 4
+A file with tab\-delimited sample pairs to compare\&. The first sample in the pair must come from the query file, the second from the genotypes file when
+\fB\-g\fR
+is given
 .RE
 .PP
 \fB\-r, \-\-regions\fR \fIchr\fR|\fIchr:pos\fR|\fIchr:from\-to\fR|\fIchr:from\-\fR[,\&...]
 .RS 4
-see
+Restrict to comma\-separated list of regions, see
 \fBCommon Options\fR
 .RE
 .PP
-\fB\-R, \-\-regions\-file\fR \fIfile\fR
+*\-R, \-\-regions\-file\*(Aq \fIFILE\fR
 .RS 4
-see
+Restrict to regions listed in a file, see
 \fBCommon Options\fR
 .RE
-.PP
-\fB\-s, \-\-query\-sample\fR \fISTRING\fR
-.RS 4
-query sample in
-\fIquery\&.vcf\&.gz\fR\&. By default, the first sample is checked\&.
-.RE
-.PP
-\fB\-S, \-\-target\-sample\fR \fISTRING\fR
-.RS 4
-target sample in the
-\fB\-g\fR
-file, used only for plotting, not for analysis
-.RE
+.sp
+\fB\-s, \-\-samples\fR [\fIqry\fR|\fIgt\fR]:\*(AqLIST\*(Aq: List of query samples or \fB\-g\fR samples\&. If neither \fB\-s\fR nor \fB\-S\fR are given, all possible sample pair combinations are compared
+.sp
+\fB\-S, \-\-samples\-file\fR [\fIqry\fR|\fIgt\fR]:\*(AqFILE\*(Aq File with the query or \fB\-g\fR samples to compare\&. If neither \fB\-s\fR nor \fB\-S\fR are given, all possible sample pair combinations are compared
 .PP
 \fB\-t, \-\-targets\fR \fIfile\fR
 .RS 4
@@ -2322,56 +2332,34 @@ see
 see
 \fBCommon Options\fR
 .RE
-.sp
-.it 1 an-trap
-.nr an-no-space-flag 1
-.nr an-break-flag 1
-.br
-.ps +1
-\fBOutput files format:\fR
-.RS 4
 .PP
-CN, Discordance
+\fB\-u, \-\-use\fR \fITAG1\fR[,\fITAG2\fR]
 .RS 4
-Pairwise discordance for all sample pairs is calculated as
+specifies which tag to use in the query file (\fITAG1\fR) and the
+\fB\-g\fR
+(\fITAG2\fR) file\&. By default, the PL tag is used in the query file and GT in the
+\fB\-g\fR
+file when available\&.
 .RE
+.sp
+\fBExamples:\fR
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-        \esum_s { min_G { PL_a(G) + PL_b(G) } },
+   # Check discordance of all samples from B against all sample in A
+   bcftools gtcheck \-g A\&.bcf B\&.bcf
+
+   # Limit comparisons to the fiven list of samples
+   bcftools gtcheck \-s gt:a1,a2,a3 \-s qry:b1,b2 \-g A\&.bcf B\&.bcf
+
+   # Compare only two pairs a1,b1 and a1,b2
+   bcftools gtcheck \-p a1,b1,a1,b2 \-g A\&.bcf B\&.bcf
 .fi
 .if n \{\
 .RE
 .\}
-.PP
-.RS 4
-where the sum runs over all sites
-\fIs\fR
-and
-\fIG\fR
-is the the most likely genotype shared by both samples
-\fIa\fR
-and
-\fIb\fR\&. When PL field is not present, a constant value
-\fI99\fR
-is used for the unseen genotypes\&. With
-\fB\-G\fR, the value
-\fI1\fR
-can be used instead; the discordance value then gives exactly the number of differing genotypes\&.
-.RE
-.PP
-ERR, error rate
-.RS 4
-Pairwise error rate calculated as number of differences divided by the total number of comparisons\&.
-.RE
-.PP
-CLUSTER, TH, DOT
-.RS 4
-In presence of multiple samples, related samples and outliers can be identified by clustering samples by error rate\&. A simple hierarchical clustering based on minimization of standard deviation is used\&. This is useful to detect sample swaps, for example in situations where one sample has been sequenced in multiple runs\&.
-.RE
-.RE
 .SS "bcftools index [\fIOPTIONS\fR] \fIin\&.bcf\fR|\fIin\&.vcf\&.gz\fR"
 .sp
 Creates index for bgzip compressed VCF/BCF files for random access\&. CSI (coordinate\-sorted index) is created by default\&. The CSI format supports indexing of chromosomes up to length 2^31\&. TBI (tabix index) index files, which support chromosome lengths up to 2^29, can be created by using the \fI\-t/\-\-tbi\fR option or using the \fItabix\fR program packaged with htslib\&. When loading an index file, bcftools will try the CSI first and then the TBI\&.
@@ -2684,6 +2672,15 @@ Read file names from
 \fIFILE\fR, one file name per line\&.
 .RE
 .PP
+\fB\-L, \-\-local\-alleles\fR \fIINT\fR
+.RS 4
+Sites with many alternate alleles can require extremely large storage space which can exceed the 2GB size limit representable by BCF\&. This is caused by Number=G tags (such as FORMAT/PL) which store a value for each combination of reference and alternate alleles\&. The
+\fB\-L, \-\-local\-alleles\fR
+option allows to replace such tags with a localized tag (FORMAT/LPL) which only includes a subset of alternate alleles relevant for that sample\&. A new FORMAT/LAA tag is added which lists 1\-based indices of the alternate alleles relevant (local) for the current sample\&. The number
+\fIINT\fR
+gives the maximum number of alternate alleles that can be included in the PL tag\&. The default value is 0 which disables the feature and outputs values for all alternate alleles\&.
+.RE
+.PP
 \fB\-m, \-\-merge\fR \fIsnps\fR|\fIindels\fR|\fIboth\fR|\fIall\fR|\fInone\fR|\fIid\fR
 .RS 4
 The option controls what types of multiallelic records can be created:
@@ -2703,6 +2700,11 @@ The option controls what types of multiallelic records can be created:
 .if n \{\
 .RE
 .\}
+.PP
+\fB\-\-no\-index\fR
+.RS 4
+the option allows to merge files without indexing them first\&. In order for this option to work, the user must ensure that the input files have chromosomes in the same order and consistent with the order of sequences in the VCF header\&.
+.RE
 .PP
 \fB\-\-no\-version\fR
 .RS 4
@@ -3690,6 +3692,12 @@ prune sites by missingness, allele frequency or linkage disequilibrium\&. Altern
 \fBremove\-overlaps\fR
 .RS 4
 remove overlapping variants and duplicate sites
+.RE
+.PP
+\fBscatter\fR
+.RS 4
+intended as an inverse to
+bcftools concat, scatter VCF by chunks or regions, creating multiple VCFs\&.
 .RE
 .PP
 \fBsetGT\fR
@@ -4723,7 +4731,7 @@ plugin\&.
 .sp
 Note that filter options below dealing with counting the number of alleles will, for speed, first check for the values of AC and AN in the INFO column to avoid parsing all the genotype (FORMAT/GT) fields in the VCF\&. This means that a filter like \fI\-\-min\-af 0\&.1\fR will be calculated from INFO/AC and INFO/AN when available or FORMAT/GT otherwise\&. However, it will not attempt to use any other existing field, like INFO/AF for example\&. For that, use \fI\-\-exclude AF<0\&.1\fR instead\&.
 .sp
-Also note that one must be careful when sample subsetting and filtering is performed in a single command as sample removal can change the allele frequency\&. It may be better to separate the two steps into two commands, piping one into the other\&. Some of these annotations are calculated on the fly but can be also taken from the INFO column when present\&.
+Also note that one must be careful when sample subsetting and filtering is performed in a single command because the order of internal operations can influence the result\&. For example, the \fB\-i/\-e\fR filtering is performed before sample removal, but the \fB\-P\fR filtering is performed after, and some are inherently ambiguous, for example allele counts can be taken from the INFO column when present but calculated on the fly when absent\&. Therefore it is strongly recommended to spell out the required order explicitly by separating such commands into two steps\&. (Make sure to use the \fB\-O u\fR option when piping!)
 .PP
 \fB\-c, \-\-min\-ac\fR \fIINT\fR[\fI:nref\fR|\fI:alt1\fR|\fI:minor\fR|\fI:major\fR|:\*(Aqnonmajor\*(Aq]
 .RS 4
@@ -5025,6 +5033,31 @@ FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 .sp -1
 .IP \(bu 2.3
 .\}
+starting with 1\&.11, the FILTER column can be queried as follows:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+FILTER="PASS"
+FILTER="A"          \&.\&. exact match, for example "A;B" does not pass
+FILTER!="A"         \&.\&. exact match, for example "A;B" does pass
+FILTER~"A"          \&.\&. both "A" and "A;B" pass
+FILTER!~"A"         \&.\&. neither "A" nor "A;B" pass
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
 1 (or 0) to test the presence (or absence) of a flag
 .sp
 .if n \{\
@@ -5220,7 +5253,7 @@ GT[@samples\&.txt]="het" & binom(AD)<0\&.01
 .sp -1
 .IP \(bu 2.3
 .\}
-function on FORMAT tags (over samples) and INFO tags (over vector fields): maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median; standard deviation from mean; sum; string length; absolute value; number of elements (matching columns for FORMAT tags or number of fields for INFO tags)\&.
+function on FORMAT tags (over samples) and INFO tags (over vector fields): maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median; standard deviation from mean; sum; string length; absolute value; number of elements:
 .sp
 .if n \{\
 .RS 4
