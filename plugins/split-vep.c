@@ -890,7 +890,15 @@ static void filter_and_output(args_t *args, bcf1_t *rec, int severity_pass, int 
 static void process_record(args_t *args, bcf1_t *rec)
 {
     int len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
-    if ( len<=0 ) return;
+    if ( len<=0 )
+    {
+        if ( !args->drop_sites ) 
+        {
+            annot_reset(args->annot, args->nannot);
+            filter_and_output(args,rec,1,1);
+        }
+        return;
+    }
 
     args->cols_tr = cols_split(args->csq_str, args->cols_tr, ',');
 
