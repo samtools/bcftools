@@ -196,7 +196,7 @@ static const char *usage_text(void)
         "   -f, --format <string>           Formatting expression for non-VCF/BCF output, same as `bcftools query -f`\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix              Prefix of INFO annotations to be created after splitting the CSQ string\n"
-        "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence. (See also the -x switch.)\n"
+        "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
         "                                     TR, transcript:   worst,primary(*),all        [all]\n"
         "                                     CSQ, consequence: any,missense,missense+,etc  [any]\n"
         "                                     (*) Primary transcripts have the field \"CANONICAL\" set to \"YES\"\n"
