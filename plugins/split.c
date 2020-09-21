@@ -436,7 +436,7 @@ static void init_data(args_t *args)
             hts_opt *opts = NULL;
             for (j=0; j<args->nhts_opts; j++)
                 if ( hts_opt_add(&opts,args->hts_opts[j]) ) error("Could not set the HTS option \"%s\"\n",args->hts_opts[j]);
-            if ( hts_opt_apply(set->fh,opts) ) return error("Could not apply the HTS options\n");
+            if ( hts_opt_apply(set->fh,opts) ) error("Could not apply the HTS options\n");
             hts_opt_free(opts);
         }
         set->hdr = tmp_hdr;     // dirty: reuse the same header to lower memory for large datasets

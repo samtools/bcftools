@@ -184,7 +184,7 @@ static void open_set(subset_t *set, args_t *args)
         hts_opt *opts = NULL;
         for (j=0; j<args->nhts_opts; j++)
             if ( hts_opt_add(&opts, args->hts_opts[j]) ) error("Could not set the HTS option \"%s\"\n", args->hts_opts[j]);
-        if ( hts_opt_apply(set->fh, opts) ) return error("Could not apply the HTS options\n");
+        if ( hts_opt_apply(set->fh, opts) ) error("Could not apply the HTS options\n");
         hts_opt_free(opts);
     }
     bcf_hdr_t *hdr = bcf_sr_get_header(args->sr, 0);
