@@ -1,0 +1,8 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,length=248956422,assembly=hg38>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SMPL
+1	1101	.	T	G	.	PASS	.	GT:AD:DP	1/1:5,6:10

@@ -1,0 +1,24 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://ref.fa
+##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate">
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+##contig=<ID=3,assembly=b37,length=249250621>
+##FILTER=<ID=SnpGap,Description="SNP within 2 bp of mnp,indel,other">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1000	.	G	A	.	PASS	.
+1	1001	.	G	A	.	SnpGap	.
+1	1003	.	GG	G	.	PASS	.
+1	1006	.	G	A	.	SnpGap	.
+1	1007	.	G	A	.	PASS	.
+2	1000	.	G	A	.	PASS	.
+2	1001	.	G	A	.	SnpGap	.
+2	1003	.	G	<DEL>	.	PASS	END=1004
+2	1006	.	G	A	.	SnpGap	.
+2	1007	.	G	A	.	PASS	.
+3	1000	.	G	A	.	PASS	.
+3	1001	.	G	A	.	SnpGap	.
+3	1003	.	GG	AA	.	PASS	.
+3	1006	.	G	A	.	SnpGap	.
+3	1007	.	G	A	.	PASS	.

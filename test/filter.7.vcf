@@ -1,0 +1,22 @@
+##fileformat=VCFv4.3
+##reference=file://ref.fa
+##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate">
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+##contig=<ID=3,assembly=b37,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1000	.	G	A	.	.	.
+1	1001	.	G	A	.	.	.
+1	1003	.	GG	G	.	.	.
+1	1006	.	G	A	.	.	.
+1	1007	.	G	A	.	.	.
+2	1000	.	G	A	.	.	.
+2	1001	.	G	A	.	.	.
+2	1003	.	G	<DEL>	.	.	END=1004
+2	1006	.	G	A	.	.	.
+2	1007	.	G	A	.	.	.
+3	1000	.	G	A	.	.	.
+3	1001	.	G	A	.	.	.
+3	1003	.	GG	AA	.	.	.
+3	1006	.	G	A	.	.	.
+3	1007	.	G	A	.	.	.

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #  
 #  The MIT License
 #  
@@ -292,7 +292,7 @@ dat_gt = {}
 dat_rg = {}
 chrs   = []
 for fname in fnames:
-    f = gzip.open(fname, 'r')
+    f = gzip.open(fname, 'rt')
     reader = csv.reader(f, 'tab')
     for row in reader:
         if row[0]=='GT':

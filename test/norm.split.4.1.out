@@ -1,0 +1,13 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=AD,Number=R,Type=Integer,Description=Allelic depths for the ref and alt alleles in the order listed>
+##INFO=<ID=XX,Number=R,Type=Integer,Description=Allelic depths for the ref and alt alleles in the order listed>
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description=Allelic depths for the ref and alt alleles in the order listed>
+##FORMAT=<ID=XX,Number=R,Type=Integer,Description=Allelic depths for the ref and alt alleles in the order listed>
+##FORMAT=<ID=GT,Number=1,Type=String,Description=Genotype>
+##contig=<ID=20,length=63025520>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+20	10101010	.	C	G	.	PASS	AD=2,48;XX=2,48	GT:AD:XX	1/0:2,48:2,48
+20	10101010	.	C	T	.	PASS	AD=2,.;XX=2,.	GT:AD:XX	0/1:2,.:2,.
+20	20202020	.	C	G	.	PASS	AD=2,48;XX=2,48	GT:AD:XX	1/0:2,48:2,48
+20	20202020	.	C	T	.	PASS	AD=2,61;XX=2,61	GT:AD:XX	0/1:2,61:2,61

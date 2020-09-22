@@ -23,6 +23,7 @@
 ##contig=<ID=1,assembly=b37,length=249250621>
 ##contig=<ID=3,assembly=b37,length=198022430>
 ##contig=<ID=4,assembly=b37,length=191154276>
+##contig=<ID=2,assembly=b37,length=191154276>
 ##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
 ##readme=AAAAAA
 ##readme=BBBBBB

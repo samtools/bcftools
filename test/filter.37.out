@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://some/path/dummy.fas
+##contig=<ID=chr1,length=235147>
+##FORMAT=<ID=AO,Number=.,Type=Integer,Description="Alternate allele observation count">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3
+chr1	251	.	C	T	68	.	.	GT:AO	0/1:3,4	./.:2,4,5	0/1:3,4,5

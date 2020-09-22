@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2019 Genome Research Ltd.
+   Copyright (c) 2015-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -36,6 +36,7 @@
 #include <htslib/khash_str2int.h>
 #include <htslib/kbitset.h>
 #include "bcftools.h"
+#include "filter.h"
 
 #define SET_AN      (1<<0)
 #define SET_AC      (1<<1)
@@ -48,6 +49,8 @@
 #define SET_HWE     (1<<8)
 #define SET_ExcHet  (1<<9)
 #define SET_FUNC    (1<<10)
+#define SET_END     (1<<11)
+#define SET_TYPE    (1<<12)
 
 typedef struct _args_t args_t;
 typedef struct _ftf_t ftf_t;
@@ -57,6 +60,9 @@ struct _ftf_t
     char *src_tag, *dst_tag;
     fill_tag_f func;
     int *pop_vals;      // for now assuming only 1 integer value per annotation
+    filter_t *filter;
+    float *fval;
+    int nfval;
 };
 
 typedef struct
@@ -81,7 +87,7 @@ struct _args_t
     int npop, tags, drop_missing, gt_id;
     pop_t *pop, **smpl2pop;
     float *farr;
-    int32_t *iarr, niarr, miarr, nfarr, mfarr;
+    int32_t *iarr, niarr, miarr, nfarr, mfarr, unpack;
     double *hwe_probs;
     int mhwe_probs;
     kstring_t str;
@@ -246,8 +252,21 @@ void ftf_destroy(args_t *args)
         free(ftf->src_tag);
         free(ftf->dst_tag);
         free(ftf->pop_vals);
+        free(ftf->fval);
+        if ( ftf->filter ) filter_destroy(ftf->filter);
     }
     free(args->ftf);
+}
+int ftf_expr_float(args_t *args, bcf1_t *rec, ftf_t *ftf)
+{
+    filter_test(ftf->filter, rec, NULL);
+    int i, nval, nval1;
+    const double *val = filter_get_doubles(ftf->filter,&nval,&nval1);
+    hts_expand(float,nval,ftf->nfval,ftf->fval);
+    for (i=0; i<nval; i++) ftf->fval[i] = val[i];
+    if ( bcf_update_info_float(args->out_hdr,rec,ftf->dst_tag,ftf->fval,nval)!=0 )
+        error("Error occurred while updating %s at %s:%"PRId64"\n", ftf->dst_tag,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+    return 0;
 }
 int ftf_sum(args_t *args, bcf1_t *rec, ftf_t *ftf)
 {
@@ -293,11 +312,29 @@ void hdr_append(args_t *args, char *fmt)
         bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
 }
 
+int parse_expr_float(args_t *args, char *tag, char *expr)
+{
+    args->nftf++;
+    args->ftf = (ftf_t *)realloc(args->ftf,sizeof(*args->ftf)*args->nftf);
+    ftf_t *ftf = &args->ftf[ args->nftf - 1 ];
+    memset(ftf,0,sizeof(ftf_t));
+
+    if ( !tag ) tag = expr;
+
+    bcf_hdr_printf(args->out_hdr, "##INFO=<ID=%s,Number=1,Type=Float,Description=\"Added by fill-tags, experimental\">",tag);
+    ftf->src_tag = strdup(tag);
+    ftf->dst_tag = strdup(expr);
+    ftf->func    = ftf_expr_float;
+    ftf->filter  = filter_init(args->in_hdr, expr);
+
+    return SET_FUNC;
+}
 int parse_func(args_t *args, char *tag, char *expr)
 {
     args->nftf++;
     args->ftf = (ftf_t *)realloc(args->ftf,sizeof(*args->ftf)*args->nftf);
     ftf_t *ftf = &args->ftf[ args->nftf - 1 ];
+    memset(ftf,0,sizeof(ftf_t));
 
     ftf->pop_vals = (int*)calloc(args->npop,sizeof(*ftf->pop_vals));
     ftf->dst_tag = (char*)calloc(expr-tag,1);
@@ -347,18 +384,22 @@ int parse_tags(args_t *args, const char *str)
         if ( !strcasecmp(tags[i],"all") )
         {
             for (j=0; j<=10; j++) flag |= 1<<j;
+            args->unpack |= BCF_UN_FMT;
         }
-        else if ( !strcasecmp(tags[i],"AN") ) flag |= SET_AN;
-        else if ( !strcasecmp(tags[i],"AC") ) flag |= SET_AC;
-        else if ( !strcasecmp(tags[i],"NS") ) flag |= SET_NS;
-        else if ( !strcasecmp(tags[i],"AC_Hom") ) flag |= SET_AC_Hom;
-        else if ( !strcasecmp(tags[i],"AC_Het") ) flag |= SET_AC_Het;
-        else if ( !strcasecmp(tags[i],"AC_Hemi") ) flag |= SET_AC_Hemi;
-        else if ( !strcasecmp(tags[i],"AF") ) flag |= SET_AF;
-        else if ( !strcasecmp(tags[i],"MAF") ) flag |= SET_MAF;
-        else if ( !strcasecmp(tags[i],"HWE") ) flag |= SET_HWE;
-        else if ( !strcasecmp(tags[i],"ExcHet") ) flag |= SET_ExcHet;
-        else if ( (ptr=strchr(tags[i],'=')) ) flag |= parse_func(args,tags[i],ptr+1);
+        else if ( !strcasecmp(tags[i],"AN") ) { flag |= SET_AN; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC") ) { flag |= SET_AC; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"NS") ) { flag |= SET_NS; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hom") ) { flag |= SET_AC_Hom; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Het") ) { flag |= SET_AC_Het; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AC_Hemi") ) { flag |= SET_AC_Hemi; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"AF") ) { flag |= SET_AF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"MAF") ) { flag |= SET_MAF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"HWE") ) { flag |= SET_HWE; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"ExcHet") ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"END") ) flag |= SET_END;
+        else if ( !strcasecmp(tags[i],"TYPE") ) flag |= SET_TYPE;
+        else if ( !strcasecmp(tags[i],"F_MISSING") ) { flag |= parse_expr_float(args,NULL,"F_MISSING"); args->unpack |= BCF_UN_FMT; }
+        else if ( (ptr=strchr(tags[i],'=')) ) { flag |= parse_func(args,tags[i],ptr+1);  args->unpack |= BCF_UN_FMT; }
         else
         {
             fprintf(stderr,"Error parsing \"--tags %s\": the tag \"%s\" is not supported\n", str,tags[i]);
@@ -373,17 +414,20 @@ int parse_tags(args_t *args, const char *str)
 void list_tags(void)
 {
     error(
-        "INFO/AN       Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
-        "INFO/AC       Number:A  Type:Integer  ..  Allele count in genotypes\n"
-        "INFO/NS       Number:1  Type:Integer  ..  Number of samples with data\n"
-        "INFO/AC_Hom   Number:A  Type:Integer  ..  Allele counts in homozygous genotypes\n"
-        "INFO/AC_Het   Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes\n"
-        "INFO/AC_Hemi  Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
-        "INFO/AF       Number:A  Type:Float    ..  Allele frequency\n"
-        "INFO/MAF      Number:A  Type:Float    ..  Minor Allele frequency\n"
-        "INFO/HWE      Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
-        "INFO/ExcHet   Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
-        "TAG=func(TAG) Number:1  Type:Integer  ..  Experimental support for user-defined\n"
+        "INFO/AC        Number:A  Type:Integer  ..  Allele count in genotypes\n"
+        "INFO/AC_Hom    Number:A  Type:Integer  ..  Allele counts in homozygous genotypes\n"
+        "INFO/AC_Het    Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes\n"
+        "INFO/AC_Hemi   Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
+        "INFO/AF        Number:A  Type:Float    ..  Allele frequency\n"
+        "INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
+        "INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
+        "INFO/END       Number:1  Type:Integer  ..  End position of the variant\n"
+        "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes (all samples, experimental)\n"
+        "INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
+        "INFO/MAF       Number:A  Type:Float    ..  Minor Allele frequency\n"
+        "INFO/NS        Number:1  Type:Integer  ..  Number of samples with data\n"
+        "INFO/TYPE      Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)\n"
+        "TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined\n"
         "    expressions such as \"DP=sum(DP)\". This is currently very basic, to be extended.\n"
         );
 }
@@ -418,9 +462,10 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     }
 
     if ( optind != argc ) error("%s",usage());
+    if ( !in || !out ) error("%s",usage());
 
     args->gt_id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
-    if ( args->gt_id<0 ) error("Error: GT field is not present\n");
+    if ( args->unpack&BCF_UN_FMT && args->gt_id<0 ) error("Error: GT field is not present\n");
 
     if ( samples_fname ) parse_samples(args, samples_fname);
     init_pops(args);
@@ -436,6 +481,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_AF ) hdr_append(args, "##INFO=<ID=AF%s,Number=A,Type=Float,Description=\"Allele frequency%s%s\">");
     if ( args->tags & SET_MAF ) hdr_append(args, "##INFO=<ID=MAF%s,Number=A,Type=Float,Description=\"Minor Allele frequency%s%s\">");
     if ( args->tags & SET_HWE ) hdr_append(args, "##INFO=<ID=HWE%s,Number=A,Type=Float,Description=\"HWE test%s%s (PMID:15789306); 1=good, 0=bad\">");
+    if ( args->tags & SET_END ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant\">");
+    if ( args->tags & SET_TYPE ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=TYPE,Number=.,Type=String,Description=\"Variant type\">");
     if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Test excess heterozygosity%s%s; 1=good, 0=bad\">");
 
     return 0;
@@ -535,7 +582,7 @@ static void clean_counts(pop_t *pop, int nals)
     memset(pop->counts,0,sizeof(counts_t)*nals);
 }
 
-bcf1_t *process(bcf1_t *rec)
+bcf1_t *process_fmt(bcf1_t *rec)
 {
     bcf_unpack(rec, BCF_UN_FMT);
 
@@ -771,6 +818,37 @@ bcf1_t *process(bcf1_t *rec)
         }
     }
 
+    return rec;
+}
+
+bcf1_t *process(bcf1_t *rec)
+{
+    if ( args->unpack & BCF_UN_FMT ) process_fmt(rec);
+
+    if ( args->tags & SET_END )
+    {
+        int32_t end = rec->pos + rec->rlen;
+        if ( bcf_update_info_int32(args->out_hdr,rec,"END",&end,1)!=0 )
+            error("Error occurred while updating INFO/END at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+    }
+    if ( args->tags & SET_TYPE )
+    {
+        int type = bcf_get_variant_types(rec);
+        args->str.l = 0;
+        if ( type == VCF_REF ) kputs("REF,", &args->str);
+        if ( type & VCF_SNP ) kputs("SNP,", &args->str);
+        if ( type & VCF_MNP ) kputs("MNP,", &args->str);
+        if ( type & VCF_INDEL ) kputs("INDEL,", &args->str);
+        if ( type & VCF_OTHER ) kputs("OTHER,", &args->str);
+        if ( type & VCF_BND ) kputs("BND,", &args->str);
+        if ( type & VCF_OVERLAP ) kputs("OVERLAP,", &args->str);
+        if ( args->str.l )
+        {
+            args->str.s[args->str.l-1] = 0;
+            if ( bcf_update_info_string(args->out_hdr,rec,"TYPE",args->str.s)!=0 )
+                error("Error occurred while updating INFO/TYPE at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+        }
+    }
     return rec;
 }
 

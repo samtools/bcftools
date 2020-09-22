@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016 Genome Research Ltd.
+   Copyright (c) 2016-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -34,6 +34,8 @@
 #include <htslib/kstring.h>
 #include <htslib/kseq.h>
 #include <htslib/kfunc.h>
+#include <htslib/kbitset.h>
+#include <htslib/vcfutils.h>
 #include <inttypes.h>
 #include "bcftools.h"
 #include "convert.h"
@@ -57,6 +59,8 @@ typedef struct
     kstring_t str;
     uint64_t nsite,ncmp;
     int variant_type;
+    int clean_vcf;
+    kbitset_t *rm_als;
 }
 args_t;
 
@@ -78,6 +82,7 @@ const char *usage(void)
         "\n"
         "Plugin options:\n"
         "   -a, --min-alt-dp <int>          Minimum required alternate allele depth [1]\n"
+        "   -c, --clean-vcf                 Outputs VCF removing sites and ALT alleles not passing the -t threshold\n"
         "   -d, --min-dp <int>              Minimum required depth [0]\n"
         "   -f, --format <string>           Optional tags to append to output (`bcftools query` style of format)\n"
         "   -s, --samples <file>            List of sample pairs, one tab-delimited pair per line\n"
@@ -132,6 +137,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     char *fname = NULL, *format = NULL;
     static struct option loptions[] =
     {
+        {"clean-vcf",required_argument,NULL,'c'},
         {"min-dp",required_argument,NULL,'d'},
         {"min-alt-dp",required_argument,NULL,'a'},
         {"format",required_argument,NULL,'f'},
@@ -142,10 +148,11 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "?hs:t:f:d:a:v:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hs:t:f:d:a:v:c",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
+            case 'c': args.clean_vcf = 1; break;
             case 'a':
                 args.min_alt_dp = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse: -a %s\n", optarg);
@@ -172,7 +179,13 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     }
     if ( !fname ) error("Expected the -s option\n");
     parse_samples(&args, fname);
-    if ( format ) args.convert = convert_init(args.hdr, NULL, 0, format);
+    if ( format )
+    {
+        if ( args.clean_vcf ) error("The option -f cannot be used together with -c\n");
+        args.convert = convert_init(args.hdr, NULL, 0, format);
+    }
+    if ( args.clean_vcf ) return 0;
+
     printf("# This file was produced by: bcftools +ad-bias(%s+htslib-%s)\n", bcftools_version(),hts_version());
     printf("# The command line was:\tbcftools +ad-bias %s", argv[0]);
     for (c=1; c<argc; c++) printf(" %s",argv[c]);
@@ -206,6 +219,16 @@ bcf1_t *process(bcf1_t *rec)
     
     if ( args.convert ) convert_line(args.convert, rec, &args.str);
     args.nsite++;
+
+    int keep_als = 0;
+    if ( args.clean_vcf )
+    {
+        if ( !args.rm_als )
+            args.rm_als = kbs_init(rec->n_allele);
+        else if ( args.rm_als->n_max < rec->n_allele )
+            kbs_resize(&args.rm_als, rec->n_allele);
+        kbs_insert_all(args.rm_als);
+    }
 
     int i,j;
     for (i=0; i<args.npair; i++)
@@ -275,6 +298,13 @@ bcf1_t *process(bcf1_t *rec)
         kt_fisher_exact(n11,n12,n21,n22, &left,&right,&fisher);
         if ( fisher >= args.th ) continue;
 
+        if ( args.clean_vcf )
+        {
+            keep_als = 1;
+            kbs_delete(args.rm_als, ialt);
+            continue;
+        }
+
         printf("FT\t%s\t%s\t%s\t%"PRId64"\t%s\t%s\t%d\t%d\t%d\t%d\t%e",
             pair->smpl_name,pair->ctrl_name,
             bcf_hdr_id2name(args.hdr,rec->rid), (int64_t) rec->pos+1,
@@ -284,13 +314,25 @@ bcf1_t *process(bcf1_t *rec)
         if ( args.convert ) printf("\t%s", args.str.s);
         printf("\n");
     }
+    if ( keep_als )
+    {
+        kbs_delete(args.rm_als, 0);
+        bcf_unpack(rec,BCF_UN_ALL);
+        if ( bcf_remove_allele_set(args.hdr, rec, args.rm_als)!=0 )
+            error("Failed to subset alleles\n");
+        return rec;
+    }
     return NULL;
 }
 
 void destroy(void)
 {
-    printf("# SN, Summary Numbers\t[2]Number of Pairs\t[3]Number of Sites\t[4]Number of comparisons\t[5]P-value output threshold\n");
-    printf("SN\t%d\t%"PRId64"\t%"PRId64"\t%e\n",args.npair,args.nsite,args.ncmp,args.th);
+    if ( !args.clean_vcf )
+    {
+        printf("# SN, Summary Numbers\t[2]Number of Pairs\t[3]Number of Sites\t[4]Number of comparisons\t[5]P-value output threshold\n");
+        printf("SN\t%d\t%"PRId64"\t%"PRId64"\t%e\n",args.npair,args.nsite,args.ncmp,args.th);
+    }
+    if ( args.rm_als ) kbs_destroy(args.rm_als);
     if (args.convert) convert_destroy(args.convert);
     free(args.str.s);
     free(args.pair);

@@ -1,3 +1,31 @@
+For the impatient
+=================
+
+The latest source code can be downloaded from github and compiled using:
+
+    git clone git://github.com/samtools/htslib.git
+    git clone git://github.com/samtools/bcftools.git
+    cd bcftools
+     # The following is optional:
+     #   autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters
+    make
+
+
+    IMPORTANT:
+    ---
+    In order to use the BCFtools plugins, this environment variable must be set and point
+    to the correct location
+    
+        export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins
+
+    ---
+
+Note that if also the polysomy command or support for Perl filtering should be included,
+the compilation instructions differ, see Optional Compilation with GSL and Optional
+Compilation with Perl below.
+
+
+
 System Requirements
 ===================
 
@@ -20,9 +48,9 @@ BCFtools and HTSlib depend on the following libraries:
                (optional, for Amazon S3 support; not needed on MacOS)
 
 Building them requires development files to be installed on the build machine;
-note that some Linux distributions package these separately from the library
-itself.  See the "System Specific Details" below for guidance on how to install
-these on a variety of systems.
+note that MacOS and some Linux distributions package these separately from the
+library itself. See the "System Specific Details" below for guidance on how to
+install these on a variety of systems.
 
 The bzip2 and liblzma dependencies can be removed if full CRAM support
 is not needed - see HTSlib's INSTALL file for details.
@@ -61,7 +89,7 @@ If you have a full GNU autotools install, you can alternatively run:
     autoreconf
 
 Warnings like "AC_CONFIG_SUBDIRS: you should use literals" can be ignored
-or supressed using 'autoconf -Wno-syntax'.
+or suppressed using 'autoconf -Wno-syntax'.
 
 
 Compilation
@@ -72,12 +100,14 @@ Compilation
     ./configure
     make
 
-This BCFtools release contains a copy of HTSlib which will be used to build
-BCFtools.  If you already have a system-installed HTSlib or another HTSlib
-that you would prefer to build against, you can arrange this by using the
-configure script's --with-htslib option.  Use --with-htslib=DIR to point
-to an HTSlib source tree or installation in DIR; or --with-htslib=system
-to use a system-installed HTSlib.
+If installing from a tarballs (as opposed form github), BCFtools release
+contains a copy of HTSlib which will be used to build BCFtools. If you
+already have a system-installed HTSlib or another HTSlib that you would
+prefer to build against, you can arrange this by using the configure script's
+--with-htslib option. Use --with-htslib=DIR to point to an HTSlib source tree
+or installation in DIR; or --with-htslib=system to use a system-installed HTSlib.
+When downloaded from github and --with-htslib option is not given, the directory
+../htslib is used.
 
 
 Optional Compilation with Perl
@@ -88,6 +118,16 @@ sophisticated filtering. This option can be enabled by supplying the
 --enable-perl-filters option to configure before running make:
 
     ./configure --enable-perl-filters
+
+Note that enabling this option changes the license from MIT to GPL because bcftools
+need to be built with
+
+    perl -MExtUtils::Embed -e ccopts -e ldopts
+
+Note that when compiling on MacOS, the default options for linking with Perl
+provided by the system sometimes do not work. It was reported that removing
+the occurrence of -arch i386 from config.mk solved the problem.
+
 
 Optional Compilation with GSL
 =============================
@@ -136,6 +176,7 @@ by copying bcftools-1.x/htslib-1.x/{bgzip,tabix} to the same bin directory
 to which you have installed bcftools et al.
 
 
+
 System Specific Details
 =======================
 
@@ -166,6 +207,9 @@ sudo yum install autoconf automake make gcc perl-Data-Dumper zlib-devel bzip2 bz
 Alpine Linux
 ------------
 
+Note: To install gsl-dev, it may be necessary to enable the "community"
+repository in /etc/apk/repositories.
+
 sudo apk update  # Ensure the package list is up to date
 sudo apk add autoconf automake make gcc musl-dev perl bash zlib-dev bzip2-dev xz-dev curl-dev libressl-dev gsl-dev perl-dev
 
@@ -173,3 +217,11 @@ OpenSUSE
 --------
 
 sudo zypper install autoconf automake make gcc perl zlib-devel libbz2-devel xz-devel libcurl-devel libopenssl-devel gsl-devel
+
+
+MacOS, assuming Xcode is installed:
+-----
+xz
+gsl (optional)
+
+

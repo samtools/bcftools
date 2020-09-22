@@ -74,6 +74,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <assert.h>
 #include <getopt.h>
 #include <math.h>
 #include <inttypes.h>
@@ -419,7 +420,7 @@ bcf1_t *process(bcf1_t *rec)
         {
             fprintf(stderr,
                 "Warning: corrected position(s) results in unsorted VCF, for example %s:%"PRId64" comes after %s:%d\n"
-                "         The standard unix `sort` or `vcf-sort` from vcftools can be used to fix the order.\n",
+                "         The command `bcftools sort` can be used to fix the order.\n",
                 bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1,bcf_seqname(args.hdr,rec),args.pos);
             args.unsorted = 1;
         }

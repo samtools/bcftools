@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=ANN,Number=.,Type=String,Description="Some annotation">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	752566	.	G	A,C,T	.	.	ANN=GT,GC,GA
+1	752566	.	G	A,C	.	.	ANN=GC,GA

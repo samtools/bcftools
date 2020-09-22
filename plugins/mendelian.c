@@ -3,17 +3,17 @@
    Copyright (c) 2015-2018 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -33,6 +33,7 @@
 #include <inttypes.h>
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
+#include <htslib/kseq.h>
 #include <htslib/synced_bcf_reader.h>
 #include <errno.h>
 #include <ctype.h>
@@ -44,6 +45,8 @@
 #define MODE_LIST_GOOD 2
 #define MODE_LIST_BAD  4
 #define MODE_DELETE    8
+#define MODE_ANNOTATE  16
+#define MODE_LIST_SKIP 32
 
 typedef struct
 {
@@ -69,7 +72,7 @@ typedef struct _args_t
     int mode;
     int ngt_arr, nrec;
     trio_t *trios;
-    int ntrios;
+    int ntrios, mtrios;
     int output_type;
     char *output_fname;
     bcf_srs_t *sr;
@@ -137,20 +140,28 @@ static rules_predef_t rules_predefs[] =
 
 const char *usage(void)
 {
-    return 
+    return
         "\n"
         "About: Count Mendelian consistent / inconsistent genotypes.\n"
         "Usage: bcftools +mendelian [Options]\n"
         "Options:\n"
-        "   -c, --count                 count the number of consistent sites\n"
-        "   -d, --delete                delete inconsistent genotypes (set to \"./.\")\n"
-        "   -l, --list [+x]             list consistent (+) or inconsistent (x) sites\n"
+        "   -c, --count                 count the number of consistent sites [DEPRECATED, use `-m c` instead]\n"
+        "   -d, --delete                delete inconsistent genotypes (set to \"./.\") [DEPRECATED, use `-m d` instead]\n"
+        "   -l, --list [+x]             list consistent (+) or inconsistent (x) sites [DEPRECATED, use `-m +` or `-m x` instead]\n"
+        "   -m, --mode [+acdux]         output mode (the default is `-m c`):\n"
+        "                                   + .. list consistent sites\n"
+        "                                   a .. add INFO/MERR annotation with the number of inconsistent samples\n"
+        "                                   c .. print counts, a text summary with the number of errors per trio\n"
+        "                                   d .. delete inconsistent genotypes (set to \"./.\")\n"
+        "                                   u .. list uninformative sites\n"
+        "                                   x .. list inconsistent sites\n"
         "   -o, --output <file>         write output to a file [standard output]\n"
         "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n"
         "   -r, --rules <assembly>[?]   predefined rules, 'list' to print available settings, append '?' for details\n"
         "   -R, --rules-file <file>     inheritance rules, see example below\n"
         "   -t, --trio <m,f,c>          names of mother, father and the child\n"
         "   -T, --trio-file <file>      list of trios, one per line (mother,father,child)\n"
+        "   -p, --ped <file>            PED file\n"
         "\n"
         "Example:\n"
         "   # Default inheritance patterns, override with -r\n"
@@ -293,9 +304,42 @@ static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_
     return 0;
 }
 
+void parse_ped(args_t *args, char *fname)
+{
+    htsFile *fp = hts_open(fname, "r");
+    if ( !fp ) error("Could not read: %s\n", fname);
+
+    kstring_t str = {0,0,0};
+    if ( hts_getline(fp, KS_SEP_LINE, &str) <= 0 ) error("Empty file: %s\n", fname);
+
+    int moff = 0, *off = NULL;
+    do
+    {
+        int ncols = ksplit_core(str.s,0,&moff,&off);
+        if ( ncols<4 ) error("Could not parse the ped file: %s\n", str.s);
+
+        int ifather = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[2]]);
+        int imother = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[3]]);
+        int ichild = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[1]]);
+        if ( ( ifather<0 && imother<0 ) || ichild<0 ) continue;
+
+        args->ntrios++;
+        hts_expand0(trio_t,args->ntrios,args->mtrios,args->trios);
+        trio_t *trios = &args->trios[args->ntrios-1];
+        trios->ifather = ifather;
+        trios->imother = imother;
+        trios->ichild  = ichild;
+
+    } while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 );
+
+    free(str.s);
+    free(off);
+    hts_close(fp);
+}
+
 int run(int argc, char **argv)
 {
-    char *trio_samples = NULL, *trio_file = NULL, *rules_fname = NULL, *rules_string = NULL;
+    char *trio_samples = NULL, *trio_file = NULL, *ped_fname = NULL, *rules_fname = NULL, *rules_string = NULL;
     memset(&args,0,sizeof(args_t));
     args.mode = 0;
     args.output_fname = "-";
@@ -304,8 +348,10 @@ int run(int argc, char **argv)
     {
         {"trio",1,0,'t'},
         {"trio-file",1,0,'T'},
+        {"ped",1,0,'p'},
         {"delete",0,0,'d'},
         {"list",1,0,'l'},
+        {"mode",1,0,'m'},
         {"count",0,0,'c'},
         {"rules",1,0,'r'},
         {"rules-file",1,0,'R'},
@@ -314,9 +360,9 @@ int run(int argc, char **argv)
         {0,0,0,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "?ht:T:l:cdr:R:o:O:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?ht:T:p:l:m:cdr:R:o:O:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'o': args.output_fname = optarg; break;
             case 'O':
@@ -330,15 +376,32 @@ int run(int argc, char **argv)
                       break;
             case 'R': rules_fname = optarg; break;
             case 'r': rules_string = optarg; break;
-            case 'd': args.mode |= MODE_DELETE; break;
-            case 'c': args.mode |= MODE_COUNT; break;
-            case 'l': 
-                if ( !strcmp("+",optarg) ) args.mode |= MODE_LIST_GOOD; 
-                else if ( !strcmp("x",optarg) ) args.mode |= MODE_LIST_BAD; 
+            case 'd':
+                args.mode |= MODE_DELETE;
+                fprintf(stderr,"Warning: -d will be deprecated, please use `-m d` instead.\n");
+                break;
+            case 'c':
+                args.mode |= MODE_COUNT;
+                fprintf(stderr,"Warning: -c will be deprecated, please use `-m c` instead.\n");
+                break;
+            case 'l':
+                if ( !strcmp("+",optarg) ) args.mode |= MODE_LIST_GOOD;
+                else if ( !strcmp("x",optarg) ) args.mode |= MODE_LIST_BAD;
                 else error("The argument not recognised: --list %s\n", optarg);
+                fprintf(stderr,"Warning: -l will be deprecated, please use -m instead.\n");
+                break;
+            case 'm':
+                if ( !strcmp("+",optarg) ) args.mode |= MODE_LIST_GOOD;
+                else if ( !strcmp("x",optarg) ) args.mode |= MODE_LIST_BAD;
+                else if ( !strcmp("a",optarg) ) args.mode |= MODE_ANNOTATE;
+                else if ( !strcmp("d",optarg) ) args.mode |= MODE_DELETE;
+                else if ( !strcmp("c",optarg) ) args.mode |= MODE_COUNT;
+                else if ( !strcmp("u",optarg) ) args.mode |= MODE_LIST_SKIP;
+                else error("The argument not recognised: --mode %s\n", optarg);
                 break;
             case 't': trio_samples = optarg; break;
             case 'T': trio_file = optarg; break;
+            case 'p': ped_fname = optarg; break;
             case 'h':
             case '?':
             default: error("%s",usage()); break;
@@ -361,9 +424,10 @@ int run(int argc, char **argv)
     else
         fname = argv[optind];
 
-    if ( !trio_samples && !trio_file ) error("Expected the -t/T option\n");
-    if ( !args.mode ) error("Expected one of the -c, -d or -l options\n");
-    if ( args.mode&MODE_DELETE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD;
+    if ( !trio_samples && !trio_file && !ped_fname ) error("Expected the -t/T or -p option\n");
+    if ( !args.mode ) args.mode = MODE_COUNT;
+    if ( args.mode&MODE_DELETE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP;
+    if ( args.mode&MODE_ANNOTATE && !(args.mode&(MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP)) ) args.mode |= MODE_LIST_GOOD|MODE_LIST_BAD|MODE_LIST_SKIP;
 
     FILE *log_fh = stderr;
     if ( args.mode==MODE_COUNT )
@@ -379,6 +443,8 @@ int run(int argc, char **argv)
     {
         args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
         if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
+        if ( args.mode&MODE_ANNOTATE )
+            bcf_hdr_append(args.hdr, "##INFO=<ID=MERR,Number=1,Type=Integer,Description=\"Mendelian genotype errors\">");
         if ( bcf_hdr_write(args.out_fh, args.hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args.output_fname);
     }
 
@@ -409,13 +475,13 @@ int run(int argc, char **argv)
             *se = 0;
             args.trios[i].imother = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, ss);
             if ( args.trios[i].imother<0 ) error("No such sample: \"%s\"\n", ss);
-            ss = ++se; 
+            ss = ++se;
             se = strchr(ss, ',');
             if ( !se ) error("Could not parse %s\n",trio_file);
             *se = 0;
             args.trios[i].ifather = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, ss);
             if ( args.trios[i].ifather<0 ) error("No such sample: \"%s\"\n", ss);
-            ss = ++se; 
+            ss = ++se;
             if ( *ss=='\0' ) error("Could not parse %s\n",trio_file);
             args.trios[i].ichild = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, ss);
             if ( args.trios[i].ichild<0 ) error("No such sample: \"%s\"\n", ss);
@@ -423,6 +489,7 @@ int run(int argc, char **argv)
         }
         free(list);
     }
+    if ( ped_fname ) parse_ped(&args, ped_fname);
 
     while ( bcf_sr_next_line(args.sr) )
     {
@@ -436,16 +503,19 @@ int run(int argc, char **argv)
     }
     if ( args.out_fh && hts_close(args.out_fh)!=0 ) error("Error: close failed\n");
 
-    fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio (mother,father,child)\n");
-    for (i=0; i<args.ntrios; i++)
+    if ( args.mode & MODE_COUNT )
     {
-        trio_t *trio = &args.trios[i];
-        fprintf(log_fh,"%d\t%d\t%d\t%s,%s,%s\n", 
-            trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
-            bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
-            );
+        fprintf(log_fh,"# [1]nOK\t[2]nBad\t[3]nSkipped\t[4]Trio (mother,father,child)\n");
+        for (i=0; i<args.ntrios; i++)
+        {
+            trio_t *trio = &args.trios[i];
+            fprintf(log_fh,"%d\t%d\t%d\t%s,%s,%s\n",
+                    trio->nok,trio->nbad,args.nrec-(trio->nok+trio->nbad),
+                    bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->imother),
+                    bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ifather),
+                    bcf_hdr_int2id(args.hdr, BCF_DT_SAMPLE, trio->ichild)
+                   );
+        }
     }
     if ( log_fh!=stderr && log_fh!=stdout && fclose(log_fh) ) error("Error: close failed for %s\n", args.output_fname);
 
@@ -468,7 +538,7 @@ static void warn_ploidy(bcf1_t *rec)
 
 bcf1_t *process(bcf1_t *rec)
 {
-    bcf1_t *dflt = args.mode&MODE_LIST_GOOD ? rec : NULL;
+    bcf1_t *dflt = args.mode&MODE_LIST_SKIP ? rec : NULL;
     args.nrec++;
 
     if ( rec->n_allele > 63 ) return dflt;      // we use 64bit bitmask below
@@ -480,16 +550,32 @@ bcf1_t *process(bcf1_t *rec)
 
     int itr_set = regidx_overlap(args.rules, bcf_seqname(args.hdr,rec),rec->pos,rec->pos, args.itr_ori);
 
-    int i, has_bad = 0, needs_update = 0;
+    int i, nbad = 0, ngood = 0, needs_update = 0;
     for (i=0; i<args.ntrios; i++)
     {
         int32_t a,b,c,d,e,f;
         trio_t *trio = &args.trios[i];
 
-        a = args.gt_arr[ngt*trio->imother];
-        b = ngt==2 ? args.gt_arr[ngt*trio->imother+1] : bcf_int32_vector_end;
-        c = args.gt_arr[ngt*trio->ifather];
-        d = ngt==2 ? args.gt_arr[ngt*trio->ifather+1] : bcf_int32_vector_end;
+        if ( trio->imother<0 )
+        {
+            a = bcf_gt_missing;
+            b = bcf_int32_vector_end;
+        }
+        else
+        {
+            a = args.gt_arr[ngt*trio->imother];
+            b = ngt==2 ? args.gt_arr[ngt*trio->imother+1] : bcf_int32_vector_end;
+        }
+        if ( trio->ifather<0 )
+        {
+            c = bcf_gt_missing;
+            d = bcf_int32_vector_end;
+        }
+        else
+        {
+          c = args.gt_arr[ngt*trio->ifather];
+          d = ngt==2 ? args.gt_arr[ngt*trio->ifather+1] : bcf_int32_vector_end;
+        }
         e = args.gt_arr[ngt*trio->ichild];
         f = ngt==2 ? args.gt_arr[ngt*trio->ichild+1] : bcf_int32_vector_end;
 
@@ -531,7 +617,7 @@ bcf1_t *process(bcf1_t *rec)
                     if ( !rule->mal || !rule->fal ) continue;   // wrong rule (haploid), but this is a diploid GT
                     if ( !mother ) mother = child1|child2;
                     if ( !father ) father = child1|child2;
-                    if ( (mother&child1 && father&child2) || (mother&child2 && father&child1) ) is_ok = 1; 
+                    if ( (mother&child1 && father&child2) || (mother&child2 && father&child1) ) is_ok = 1;
                     continue;
                 }
                 if ( rule->mal )
@@ -548,15 +634,16 @@ bcf1_t *process(bcf1_t *rec)
         if ( is_ok )
         {
             trio->nok++;
+            ngood++;
         }
         else
         {
             trio->nbad++;
-            has_bad = 1;
+            nbad++;
             if ( args.mode&MODE_DELETE )
             {
                 args.gt_arr[ngt*trio->imother] = bcf_gt_missing;
-                if ( b!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->imother+1] = bcf_gt_missing; // should be always true 
+                if ( b!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->imother+1] = bcf_gt_missing; // should be always true
                 args.gt_arr[ngt*trio->ifather] = bcf_gt_missing;
                 if ( d!=bcf_int32_vector_end ) args.gt_arr[ngt*trio->ifather+1] = bcf_gt_missing;
                 args.gt_arr[ngt*trio->ichild] = bcf_gt_missing;
@@ -569,10 +656,10 @@ bcf1_t *process(bcf1_t *rec)
     if ( needs_update && bcf_update_genotypes(args.hdr,rec,args.gt_arr,ngt*bcf_hdr_nsamples(args.hdr)) )
         error("Could not update GT field at %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
 
-    if ( args.mode&MODE_DELETE ) return rec;
-    if ( args.mode&MODE_LIST_GOOD ) return has_bad ? NULL : rec;
-    if ( args.mode&MODE_LIST_BAD ) return has_bad ? rec : NULL;
+    if ( args.mode&MODE_ANNOTATE ) bcf_update_info_int32(args.hdr, rec, "MERR", &nbad, 1);
+    if ( args.mode&MODE_LIST_GOOD && ngood ) return rec;
+    if ( args.mode&MODE_LIST_BAD && nbad ) return rec;
+    if ( args.mode&MODE_LIST_SKIP && !ngood && !nbad ) return rec;
 
     return NULL;
 }
-

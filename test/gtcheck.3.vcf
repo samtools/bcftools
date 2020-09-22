@@ -1,0 +1,9 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=ftp://ftp.1000genomes.ebi.ac.uk//vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz
+##contig=<ID=11,assembly=b37,length=107349540>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Genotype Likelihoods">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C	D	E
+11	33	.	C	T	.	PASS	.	GT:PL	0/0:0,10,20	0/0:0,10,10	1/1:20,10,0	0/1:20,0,10	1/1:20,10,0
+11	34	.	C	T	.	PASS	.	GT:PL	0/1:10,0,20	0/1:10,0,10	0/1:20,0,20	1/1:20,10,0	1/1:20,10,0

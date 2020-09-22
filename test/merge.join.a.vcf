@@ -1,0 +1,6 @@
+##fileformat=VCFv4.2
+##contig=<ID=1>
+##INFO=<ID=AF,Number=A,Type=Float,Description="">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	100	.	G	T	.	.	AF=0.5
+1	200	.	G	T,C	.	.	AF=0.5,0.5

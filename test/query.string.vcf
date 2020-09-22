@@ -1,0 +1,8 @@
+##fileformat=VCFv4.3
+##reference=GRCh37
+##contig=<ID=1,length=249250621,assembly=hg19>
+##INFO=<ID=CLNREVSTAT,Number=.,Type=String,Description="ClinVar review status for the Variation ID">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	865568	.	G	A	.	.	CLNREVSTAT=criteria_provided,_conflicting_interpretations
+1	865628	.	G	A	.	.	CLNREVSTAT=criteria_provided,_multiple_submitters,_no_conflicts
+1	865716	.	G	A	.	.	CLNREVSTAT=criteria_provided,_single_submitter

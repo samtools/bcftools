@@ -1,3 +1,164 @@
+## Release 1.11 (22nd September 2020)
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Filtering -i/-e expressions
+
+    - Breaking change in -i/-e expressions on the FILTER column.  Originally
+      it was possible to query only a subset of filters, but not an exact match.
+      The new behavior is:
+
+        FILTER="A"          .. exact match, for example "A;B" does not pass
+        FILTER!="A"         .. exact match, for example "A;B" does pass
+        FILTER~"A"          .. both "A" and "A;B" pass
+        FILTER!~"A"         .. neither "A" nor "A;B" pass
+
+    - Fix in commutative comparison operators, in some cases reversing sides
+      would produce incorrect results (#1224; #1266)
+
+    - Better support for filtering on sample subsests
+
+    - Add SMPL_*/S* family of functions that evaluate within rather than across
+      all samples. (#1180)
+
+* Improvements in the build system
+
+
+Changes affecting specific commands:
+
+* bcftools annotate:
+
+    - Previously it was not possible to use `--columns =TAG` with INFO tags
+      and the `--merge-logic` feature was restricted to tab files with BEG,END
+      columns, now extended to work also with REF,ALT.
+
+    - Make `annotate -TAG/+TAG` work also with FORMAT fields. (#1259)
+
+    - ID and FILTER can be transferred to INFO and ID can be populated from
+      INFO.  However, the FILTER column still cannot be populated from an INFO
+      tag because all possible FILTER values must be known at the time of
+      writing the header (#947; #1187)
+
+* bcftools consensus:
+
+    - Fix in handling symbolic deletions and overlapping variants.
+      (#1149; #1155; #1295)
+
+    - Fix `--iupac-codes` crash on REF-only positions with `ALT="."`. (#1273)
+
+    - Fix `--chain` crash. (#1245)
+
+    - Preserve the case of the genome reference. (#1150)
+
+    - Add new `-a, --absent` option which allows to set positions with no
+      supporting evidence to "N" (or any other character). (#848; #940)
+
+* bcftools convert:
+
+    - The option `--vcf-ids` now works also with `-haplegendsample2vcf`. (#1217)
+
+    - New option `--keep-duplicates`
+
+* bcftools csq:
+
+    - Add `misc/gff2gff.py` script for conversion between various flavors of
+      GFF files. The initial commit supports only one type and was contributed
+      by @flashton2003. (#530)
+
+    - Add missing consequence types. (PR #1203; #1292)
+
+    - Allow overlapping CDS to support ribosomal slippage. (#1208)
+
+* bcftools +fill-tags:
+
+    - Added new annotations: INFO/END, TYPE, F_MISSING.
+
+* bcftools filter:
+
+    - Make `--SnpGap` optionally filter also SNPs close to other variant types.
+      (#1126)
+
+* bcftools gtcheck:
+
+    - Complete revamp of the command. The new version is faster and allows
+      N:M sample comparisons, not just 1:N or NxN comparisons.
+      Some functionality was lost (plotting and clustering) but may be added
+      back on popular demand.
+
+* bcftools +mendelian:
+
+    - Revamp of user options, output VCFs with mendelian errors annotation,
+      read PED files (thanks to Giulio Genovese).
+
+* bcftools merge:
+
+    - Update headers when appropriate with the '--info-rules *:join' INFO rule.
+      (#1282)
+
+    - Local alleles merging that produce LAA and LPL when requested, a draft
+      implementation of https://github.com/samtools/hts-specs/pull/434 (#1138)
+
+    - New `--no-index` which allows to merge unindexed files. Requires the input
+      files to have chromosomes in th same order and consistent with the order
+      of sequences in the header. (PR #1253; samtools/htslib#1089)
+
+    - Fixes in gVCF merging. (#1127; #1164)
+
+* bcftools norm:
+
+    - Fixes in `--check-ref s` reference setting features with non-ACGT bases.
+      (#473; #1300)
+
+    - New `--keep-sum` switch to keep vector sum constant when splitting
+      multiallelics. (#360)
+
+* bcftools +prune:
+
+    - Extend to allow annotating with various LD metrics: r^2,
+      Lewontin's D' (PMID:19433632), or Ragsdale's D (PMID:31697386).
+
+* bcftools query:
+
+    - New `%N_PASS()` formatting expression to output the number of samples
+      that pass the filtering expression.
+
+* bcftools reheader:
+
+    - Improved error reporting to prevent user mistakes. (#1288)
+
+* bcftools roh:
+
+    - Several fixes and improvements
+        - the `--AF-file` description incorrectly suggested "REF\tALT" instead
+          of the correct "REF,ALT". (#1142)
+        - RG lines could have negative length. (#1144)
+        - new `--include-noalt` option to allow also ALT=. records. (#1137)
+
+* bcftools scatter:
+
+    - New plugin intended as a convenient inverse to `concat`
+      (thanks to Giulio Genovese, PR #1249)
+
+* bcftools +split:
+
+    - New `--groups-file` option for more flexibility of defining desired
+      output. (#1240)
+
+    - New `--hts-opts` option to reduce required memory by reusing one
+      output header and allow overriding the default hFile's block size
+      with `--hts-opts block_size=XXX`. On some file systems (lustre) the
+      default size can be 4M which becomes a problem when splitting files
+      with 10+ samples.
+
+    - Add support for multisample output and sample renaming
+
+* bcftools +split-vep:
+
+    - Add default types (Integer, Float, String) for VEP subfields and make
+      `--columns -` extract all subfields into INFO tags in one go.
+
+
 ## Release 1.10.2 (19th December 2019)
 
 This is a release fix that corrects minor inconsistencies discovered in
@@ -215,7 +376,7 @@ previous deliverables.
 ## Release 1.7 (February 2018)
 
 * `-i, -e` filtering: Major revamp, improved filtering by FORMAT fields
-  and missing values. New GT=ref,alt,mis etc keywords, check the documenation
+  and missing values. New GT=ref,alt,mis etc keywords, check the documentation
   for details.
 
 * `query`: Only matching expression are printed when both the -f and -i/-e
@@ -254,7 +415,7 @@ previous deliverables.
 * New `sort` command.
 
 * New options added to the `consensus` command. Note that the `-i, --iupac`
-  option has been renamed to `-I, --iupac`, in favor of the standard 
+  option has been renamed to `-I, --iupac`, in favor of the standard
   `-i, --include`.
 
 * Filtering expressions (`-i/-e`): support for `GT=<type>` expressions and
@@ -306,10 +467,10 @@ previous deliverables.
 * New `+prune` plugin for pruning sites by LD (R2) or maximum number of
   records within a window.
 
-* New N_MISSING, F_MISSING (number and fraction misssing) filtering
+* New N_MISSING, F_MISSING (number and fraction missing) filtering
   expressions.
 
-* Fix HMM initilization in `roh` when snapshots are used in multiple
+* Fix HMM initialization in `roh` when snapshots are used in multiple
   chromosome VCF.
 
 * Fix buffer overflow (#607) in `filter`.
@@ -370,7 +531,7 @@ Two new commands - `mpileup` and `csq`:
     `-O, --output-type` option common to other bcftools commands.
 
   - The `-f, --fasta-ref` option is now required by default to help avoid user
-    errors. Can be diabled using `--no-reference`.
+    errors. Can be disabled using `--no-reference`.
 
   - The option `-d, --depth .. max per-file depth` now behaves as expected
     and according to the documentation, and prints a meaningful diagnostics.

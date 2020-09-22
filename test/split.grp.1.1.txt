@@ -1,0 +1,6 @@
+A1
+A2  a2
+A3  a3  A
+B1  b1  B
+B2  b2  B
+C   -   A,B

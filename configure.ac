@@ -233,14 +233,26 @@ Either configure with --disable-libgsl or resolve this error to build bcftools.
 ])
 
 AS_IF([test "$enable_perl_filters" != "no" ], [dnl
-    if ! perl -MExtUtils::Embed -e ccopts -e ldopts &>/dev/null ; then
+    save_LIBS="$LIBS"
+    if ! perl -MExtUtils::Embed -e ccopts -e ldopts >/dev/null 2>&1; then
        AC_MSG_ERROR([Cannot `perl -MExtUtils::Embed -e ccopts -e ldopts`])
     fi
     AC_DEFINE([ENABLE_PERL_FILTERS], 1, [Define if BCFtools should enable for support PERL scripts in -i/-e filtering expressions.])
     PERL_CCOPTS="`perl -MExtUtils::Embed -e ccopts`"
     PERL_LIBS="`perl -MExtUtils::Embed -e ldopts`"
+    dnl A hack to remove faulty "-arch i386" on mac as it breaks linking
+    if test "x$PLATFORM" = "xDarwin"; then
+        PERL_CCOPTS="`perl -MExtUtils::Embed -e ccopts | sed 's,-arch i386,,'`"
+        PERL_LIBS="`perl -MExtUtils::Embed -e ldopts | sed 's,-arch i386,,'`"
+    fi
     AC_SUBST([PERL_CCOPTS])
     AC_SUBST([PERL_LIBS])
+
+    dnl Look for libperl
+    AC_SEARCH_LIBS(Perl_call_pv, perl, [], [
+        AC_MSG_ERROR([Unable to find the Perl_call_pv() function for perl filters])
+    ],[$PERL_CCOPTS $PERL_LIBS])
+    LIBS="$save_LIBS"
 ])
 
 dnl Apply value from HTS_PROG_CC_WERROR (if set)

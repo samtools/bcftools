@@ -41,7 +41,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcnv.o HMM.o consensus.o ploidy.o bin.o hclust.o version.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
-           vcfsort.o cols.o \
+           vcfsort.o cols.o extsort.o \
            ccall.o em.o prob1.o kmin.o # the original samtools calling
 PLUGIN_OBJS = vcfplugin.o
 
@@ -69,6 +69,7 @@ INSTALL_SCRIPT  = $(INSTALL_PROGRAM)
 PROGRAMS = bcftools
 MISC_SCRIPTS = \
     misc/color-chrs.pl \
+    misc/gff2gff.py \
     misc/guess-ploidy.py \
     misc/plot-vcfstats \
     misc/plot-roh.py \
@@ -103,7 +104,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.10.2
+PACKAGE_VERSION = 1.11
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
@@ -136,7 +137,7 @@ print-version:
 	$(CC) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) -c -o $@ $<
 
 # The polysomy command is not compiled by default because it brings dependency
-# on libgsl. The command can be compiled wth `make USE_GPL=1`. See the INSTALL
+# on libgsl. The command can be compiled with `make USE_GPL=1`. See the INSTALL
 # and LICENSE documents to understand license implications.
 ifdef USE_GPL
     main.o : EXTRA_CPPFLAGS += -DUSE_GPL
@@ -176,7 +177,12 @@ PLUGIN_LIBS = $(W32_PLUGIN_LIBS)
 DL_LIBS =
 else
 PLUGIN_FLAGS = -fPIC -shared
+ifeq "$(PLATFORM)" "default"
+# Configure was used and has already added -ldl to $(LIBS) if necessary
+DL_LIBS =
+else
 DL_LIBS = -ldl
+endif
 endif
 
 libbcftools.a: $(OBJS)
@@ -207,7 +213,7 @@ test check: test-no-plugins
 endif  # PLUGINS_ENABLED
 
 bcftools: $(OBJS) $(HTSLIB)
-	$(CC) $(DYNAMIC_FLAGS) -pthread $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS) $(PERL_LIBS)
+	$(CC) $(DYNAMIC_FLAGS) $(ALL_LDFLAGS) -o $@ $(OBJS) $(HTSLIB_LIB) -lm $(ALL_LIBS) $(GSL_LIBS) $(PERL_LIBS) -lpthread
 
 plugins: $(PLUGINS)
 
@@ -233,7 +239,7 @@ vcfcall.o: vcfcall.c $(htslib_vcf_h) $(htslib_kfunc_h) $(htslib_synced_bcf_reade
 vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_thread_pool_h) $(bcftools_h)
 vcfconvert.o: vcfconvert.c $(htslib_faidx_h) $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kseq_h) $(bcftools_h) $(filter_h) $(convert_h) $(tsv2vcf_h)
 vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h
-vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) hclust.h
+vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kbitset_h) $(bcftools_h) extsort.h
 vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h) $(htslib_kstring_h) $(htslib_bgzf_h) $(bcftools_h)
 vcfisec.o: vcfisec.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_hts_os_h) $(bcftools_h) $(filter_h)
 vcfmerge.o: vcfmerge.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) regidx.h $(bcftools_h) vcmp.h $(htslib_khash_h)
@@ -248,7 +254,7 @@ vcfview.o: vcfview.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfu
 reheader.o: reheader.c $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_kseq_h) $(htslib_thread_pool_h) $(htslib_faidx_h) $(htslib_khash_str2int_h) $(bcftools_h) $(khash_str2str_h)
 tabix.o: tabix.c $(htslib_bgzf_h) $(htslib_tbx_h)
 ccall.o: ccall.c $(htslib_kfunc_h) $(call_h) kmin.h $(prob1_h)
-convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) $(bcftools_h) $(variantkey_h) $(convert_h)
+convert.o: convert.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) $(bcftools_h) $(variantkey_h) $(convert_h) $(filter_h)
 tsv2vcf.o: tsv2vcf.c $(tsv2vcf_h)
 em.o: em.c $(htslib_vcf_h) kmin.h $(call_h)
 filter.o: filter.c $(htslib_khash_str2int_h) $(htslib_hts_defs_h) $(htslib_vcfutils_h) $(htslib_kfunc_h) config.h $(filter_h) $(bcftools_h)
@@ -273,6 +279,7 @@ version.o: version.h version.c
 hclust.o: hclust.c $(htslib_hts_h) $(htslib_kstring_h) $(bcftools_h) hclust.h
 HMM.o: HMM.c $(htslib_hts_h) HMM.h
 vcfbuf.o: vcfbuf.c $(htslib_vcf_h) $(htslib_vcfutils_h) $(bcftools_h) $(vcfbuf_h) rbuf.h
+extsort.o: extsort.c $(bcftools_h) extsort.h kheap.h
 smpl_ilist.o: smpl_ilist.c $(bcftools_h) $(smpl_ilist_h)
 csq.o: csq.c $(htslib_hts_h) $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_h) $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_faidx_h) $(bcftools_h) $(filter_h) regidx.h kheap.h $(smpl_ilist_h) rbuf.h
 

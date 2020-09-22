@@ -172,9 +172,9 @@ void test_custom_payload(void)
 
 void get_random_region(uint32_t min, uint32_t max, uint32_t *beg, uint32_t *end)
 {
-    long int b = random(), e = random();
-    *beg = min + (float)b * (max-min) / RAND_MAX;
-    *end = *beg + (float)e * (max-*beg) / RAND_MAX;
+    uint64_t b = random(), e = random();
+    *beg = min + (b * (max-min)) / INT32_MAX;
+    *end = *beg + (e * (max-*beg)) / INT32_MAX;
 }
 
 void test_random(int nregs, uint32_t min, uint32_t max)

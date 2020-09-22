@@ -37,6 +37,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/kbitset.h>
+#include <htslib/khash_str2int.h>
 #include "bcftools.h"
 #include "filter.h"
 
@@ -171,6 +172,11 @@ static void parse_ped(args_t *args, char *fname)
     kstring_t str = {0,0,0};
     if ( hts_getline(fp, KS_SEP_LINE, &str) <= 0 ) error("Empty file: %s\n", fname);
 
+    kstring_t tmp = {0,0,0};
+    void *has_smpl = khash_str2int_init();
+    void *has_trio = khash_str2int_init();
+
+    int dup_trio_warned = 0;
     int moff = 0, *off = NULL;
     do
     {
@@ -185,6 +191,19 @@ static void parse_ped(args_t *args, char *fname)
         if ( mother<0 ) continue;
         int child = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[1]]);
         if ( child<0 ) continue;
+
+        tmp.l = 0;
+        ksprintf(&tmp,"%s %s %s",&str.s[off[1]],&str.s[off[2]],&str.s[off[3]]);
+        if ( khash_str2int_has_key(has_trio,tmp.s) )
+        {
+            if ( !dup_trio_warned ) fprintf(stderr,"Warning: The trio \"%s\" is listed multiple times in %s, skipping. (This message is printed only once.)\n",tmp.s,fname);
+            dup_trio_warned = 1;
+            continue;
+        }
+        if ( khash_str2int_has_key(has_smpl,&str.s[off[1]]) )
+            error("Error: The child \"%s\" is listed in two trios\n",&str.s[off[1]]);
+        khash_str2int_inc(has_smpl,strdup(&str.s[off[1]]));
+        khash_str2int_inc(has_trio,strdup(tmp.s));
 
         args->ntrio++;
         hts_expand0(trio_t,args->ntrio,args->mtrio,args->trio);
@@ -201,6 +220,9 @@ static void parse_ped(args_t *args, char *fname)
     // sort the sample by index so that they are accessed more or less sequentially
     qsort(args->trio,args->ntrio,sizeof(trio_t),cmp_trios);
     
+    khash_str2int_destroy_free(has_smpl);
+    khash_str2int_destroy_free(has_trio);
+    free(tmp.s);
     free(str.s);
     free(off);
     if ( hts_close(fp)!=0 ) error("[%s] Error: close failed .. %s\n", __func__,fname);
