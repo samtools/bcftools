@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.11 (22nd September 2020)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * Filtering -i/-e expressions
