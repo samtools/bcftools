@@ -474,8 +474,10 @@ test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.2.out',cmd=>'+mendelian',a
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.3.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -mx');
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.4.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -ma');
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.5.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -mu');
-test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-0 a,b -1 c');
-test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-0 {PATH}/contrast0.txt -1 {PATH}/contrast1.txt');
+test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-a PASSOC,FASSOC,NOVELAL,NOVELGT -0 a,b -1 c');
+test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-a PASSOC,FASSOC,NOVELAL,NOVELGT -0 {PATH}/contrast0.txt -1 {PATH}/contrast1.txt');
+test_vcf_plugin($opts,in=>'contrast.1',out=>'contrast.1.1.out',cmd=>'+contrast',args=>'-a NOVELAL,NOVELGT -0 A -1 B');
+test_vcf_plugin($opts,in=>'contrast.1',out=>'contrast.1.2.out',cmd=>'+contrast',args=>'-a NOVELGT -0 A -1 B');
 test_vcf_plugin($opts,in=>'trio-dnm.1',out=>'trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");
 test_vcf_plugin($opts,in=>'trio-dnm.2',out=>'trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother --force-AD | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");
 test_vcf_plugin($opts,in=>'trio-dnm.2',out=>'trio-dnm.2.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");

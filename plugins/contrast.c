@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018 Genome Research Ltd.
+   Copyright (c) 2018-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -203,9 +203,9 @@ static void init_data(args_t *args)
     if ( args->annots & PRINT_NASSOC )
         bcf_hdr_append(args->hdr_out, "##INFO=<ID=NASSOC,Number=4,Type=Integer,Description=\"Number of control-ref, control-alt, case-ref and case-alt alleles\">");
     if ( args->annots & PRINT_NOVELAL )
-        bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELAL,Number=.,Type=String,Description=\"List of samples with novel alleles\">");
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELAL,Number=.,Type=String,Description=\"List of samples with novel alleles. Note that samples listed here are not listed in NOVELGT again.\">");
     if ( args->annots & PRINT_NOVELGT )
-        bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELGT,Number=.,Type=String,Description=\"List of samples with novel genotypes. Note that only samples w/o a novel allele are listed.\">");
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=NOVELGT,Number=.,Type=String,Description=\"List of samples with novel genotypes\">");
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
@@ -357,13 +357,10 @@ static int process_record(args_t *args, bcf1_t *rec)
         has_gt = 1;
 
         char *smpl = args->hdr->samples[ args->case_smpl[i] ];
-        if ( case_al )
+        if ( case_al && (args->annots & PRINT_NOVELAL) )
         {
-            if ( args->annots & PRINT_NOVELAL )
-            {
-                if ( args->case_als_smpl.l ) kputc(',', &args->case_als_smpl);
-                kputs(smpl, &args->case_als_smpl);
-            }
+            if ( args->case_als_smpl.l ) kputc(',', &args->case_als_smpl);
+            kputs(smpl, &args->case_als_smpl);
         }
         else if ( (args->annots & PRINT_NOVELGT) && !binary_search(gt, args->control_gts, args->ncontrol_gts) )
         {

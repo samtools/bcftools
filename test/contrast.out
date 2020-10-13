@@ -4,8 +4,10 @@
 ##contig=<ID=1>
 ##INFO=<ID=PASSOC,Number=1,Type=Float,Description="Fisher's exact test probability of genotypic assocation (REF vs non-REF allele)">
 ##INFO=<ID=FASSOC,Number=2,Type=Float,Description="Proportion of non-REF allele in controls and cases">
+##INFO=<ID=NOVELAL,Number=.,Type=String,Description="List of samples with novel alleles. Note that samples listed here are not listed in NOVELGT again.">
+##INFO=<ID=NOVELGT,Number=.,Type=String,Description="List of samples with novel genotypes">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	a	b	c
 1	100	.	A	G	.	.	PASSOC=1;FASSOC=0,0	GT	0/0	0/0	0/0
-1	101	.	A	G	.	.	PASSOC=0.333333;FASSOC=0,0.5	GT	0/0	0/0	0/1
-1	102	.	A	G	.	.	PASSOC=0.4;FASSOC=0.25,1	GT	0/0	0/1	1/1
-1	103	.	A	G	.	.	PASSOC=0.333333;FASSOC=1,0.5	GT	1/1	1/1	0/1
+1	101	.	A	G	.	.	PASSOC=0.333333;FASSOC=0,0.5;NOVELAL=c	GT	0/0	0/0	0/1
+1	102	.	A	G	.	.	PASSOC=0.4;FASSOC=0.25,1;NOVELGT=c	GT	0/0	0/1	1/1
+1	103	.	A	G	.	.	PASSOC=0.333333;FASSOC=1,0.5;NOVELAL=c	GT	1/1	1/1	0/1
