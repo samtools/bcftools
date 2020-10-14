@@ -424,7 +424,7 @@ void list_tags(void)
         "INFO/END       Number:1  Type:Integer  ..  End position of the variant\n"
         "INFO/F_MISSING Number:1  Type:Float    ..  Fraction of missing genotypes (all samples, experimental)\n"
         "INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad\n"
-        "INFO/MAF       Number:A  Type:Float    ..  Minor Allele frequency\n"
+        "INFO/MAF       Number:1  Type:Float    ..  Frequency of the second most common allele\n"
         "INFO/NS        Number:1  Type:Integer  ..  Number of samples with data\n"
         "INFO/TYPE      Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)\n"
         "TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined\n"
@@ -479,7 +479,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_AC_Het ) hdr_append(args, "##INFO=<ID=AC_Het%s,Number=A,Type=Integer,Description=\"Allele counts in heterozygous genotypes%s%s\">");
     if ( args->tags & SET_AC_Hemi ) hdr_append(args, "##INFO=<ID=AC_Hemi%s,Number=A,Type=Integer,Description=\"Allele counts in hemizygous genotypes%s%s\">");
     if ( args->tags & SET_AF ) hdr_append(args, "##INFO=<ID=AF%s,Number=A,Type=Float,Description=\"Allele frequency%s%s\">");
-    if ( args->tags & SET_MAF ) hdr_append(args, "##INFO=<ID=MAF%s,Number=A,Type=Float,Description=\"Minor Allele frequency%s%s\">");
+    if ( args->tags & SET_MAF ) hdr_append(args, "##INFO=<ID=MAF%s,Number=1,Type=Float,Description=\"Frequency of the second most common allele%s%s\">");
     if ( args->tags & SET_HWE ) hdr_append(args, "##INFO=<ID=HWE%s,Number=A,Type=Float,Description=\"HWE test%s%s (PMID:15789306); 1=good, 0=bad\">");
     if ( args->tags & SET_END ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant\">");
     if ( args->tags & SET_TYPE ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=TYPE,Number=.,Type=String,Description=\"Variant type\">");
@@ -581,7 +581,14 @@ static void clean_counts(pop_t *pop, int nals)
     pop->ns = 0;
     memset(pop->counts,0,sizeof(counts_t)*nals);
 }
-
+static int cmpfloat_desc(const void *a, const void *b)
+{
+    float fa = *((float*)a);
+    float fb = *((float*)b);
+    if ( fa<fb ) return 1;
+    if ( fa>fb ) return -1;
+    return 0;
+}
 bcf1_t *process_fmt(bcf1_t *rec)
 {
     bcf_unpack(rec, BCF_UN_FMT);
@@ -679,33 +686,29 @@ bcf1_t *process_fmt(bcf1_t *rec)
             if ( rec->n_allele > 1 )
             {
                 pop_t *pop = &args->pop[i];
-                memset(args->farr, 0, sizeof(*args->farr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
-                    args->farr[j-1] += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
-                an = pop->counts[0].nhet + pop->counts[0].nhom + pop->counts[0].nhemi + pop->counts[0].nac;
-                for (j=1; j<rec->n_allele; j++) an += args->farr[j-1];
+                for (j=0; j<rec->n_allele; j++) 
+                {
+                    args->farr[j] = pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
+                    an += args->farr[j];
+                }
                 if ( an )
-                    for (j=1; j<rec->n_allele; j++) args->farr[j-1] /= an;
+                    for (j=0; j<rec->n_allele; j++) args->farr[j] /= an;
                 else
-                    for (j=1; j<rec->n_allele; j++) bcf_float_set_missing(args->farr[j-1]);
+                    for (j=0; j<rec->n_allele; j++) bcf_float_set_missing(args->farr[j]);
             }
             if ( args->tags & SET_AF )
             {
                 args->str.l = 0;
                 ksprintf(&args->str, "AF%s", args->pop[i].suffix);
-                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
+                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr+1,rec->n_allele-1)!=0 )
                     error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
-            if ( args->tags & SET_MAF )
+            if ( rec->n_allele > 1 && args->tags & SET_MAF )
             {
-                if ( an )
-                {
-                    for (j=1; j<rec->n_allele; j++)
-                        if ( args->farr[j-1] > 0.5 ) args->farr[j-1] = 1 - args->farr[j-1];     // todo: this is incorrect for multiallelic sites
-                }
+                if ( an ) qsort(args->farr,rec->n_allele,sizeof(float),cmpfloat_desc);
                 args->str.l = 0;
                 ksprintf(&args->str, "MAF%s", args->pop[i].suffix);
-                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr,rec->n_allele-1)!=0 )
+                if ( bcf_update_info_float(args->out_hdr,rec,args->str.s,args->farr+1,1)!=0 )
                     error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
             }
         }
@@ -717,13 +720,12 @@ bcf1_t *process_fmt(bcf1_t *rec)
             if ( rec->n_allele > 1 )
             {
                 pop_t *pop = &args->pop[i];
-                memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
-                    args->iarr[j-1] += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
+                for (j=0; j<rec->n_allele; j++) 
+                    args->iarr[j] = pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
             }
             args->str.l = 0;
             ksprintf(&args->str, "AC%s", args->pop[i].suffix);
-            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr,rec->n_allele-1)!=0 )
+            if ( bcf_update_info_int32(args->out_hdr,rec,args->str.s,args->iarr+1,rec->n_allele-1)!=0 )
                 error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
         }
     }
