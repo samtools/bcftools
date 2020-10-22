@@ -74,7 +74,7 @@ typedef struct
 {
     convert_t *convert;
     filter_t *filter;
-    int argc, filter_logic, regions_is_file, targets_is_file, list_hdr;
+    int argc, filter_logic, regions_is_file, targets_is_file, list_hdr, record_cmd_line;
     kstring_t kstr;
     char *filter_str,
         *vep_tag;       // the --annotation INFO tag to process
@@ -207,6 +207,7 @@ static const char *usage_text(void)
         "Common options:\n"
         "   -e, --exclude EXPR              Exclude sites and samples for which the expression is true\n"
         "   -i, --include EXPR              Include sites and samples for which the expression is true\n"
+        "       --no-version                Do not append version and command line to the header\n"
         "   -o, --output FILE               Output file name [stdout]\n"
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF or text, v: uncompressed VCF or text [v]\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
@@ -968,6 +969,7 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     args->output_type  = FT_VCF;
     args->vep_tag = "CSQ";
+    args->record_cmd_line = 1;
     static struct option loptions[] =
     {
         {"drop-sites",no_argument,0,'x'},
@@ -989,6 +991,7 @@ int run(int argc, char **argv)
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"no-version",no_argument,NULL,2},
         {NULL,0,NULL,0}
     };
     int c;
@@ -996,6 +999,7 @@ int run(int argc, char **argv)
     {
         switch (c) 
         {
+            case  2 : args->record_cmd_line = 0; break;
             case  1 : args->column_types = optarg; break;
             case 'A':
                 if ( !strcasecmp(optarg,"tab") ) args->all_fields_delim = "\t";
@@ -1063,6 +1067,7 @@ int run(int argc, char **argv)
         else
         {
             args->fh_vcf = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+            if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_split-vep");
             if ( bcf_hdr_write(args->fh_vcf, args->hdr_out)!=0 ) error("Failed to write the header to %s\n", args->output_fname);
         }
         while ( bcf_sr_next_line(args->sr) )
