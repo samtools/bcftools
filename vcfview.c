@@ -493,12 +493,14 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools view [options] <in.vcf.gz> [region1 [...]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Output options:\n");
-    fprintf(stderr, "    -G,   --drop-genotypes            Drop individual genotype information (after subsetting if -s option set)\n");
-    fprintf(stderr, "    -h/H, --header-only/--no-header   Print the header only/suppress the header in VCF output\n");
-    fprintf(stderr, "    -l,   --compression-level [0-9]   Compression level: 0 uncompressed, 1 best speed, 9 best compression [%d]\n", args->clevel);
-    fprintf(stderr, "          --no-version                Do not append version and command line to the header\n");
-    fprintf(stderr, "    -o,   --output FILE               Output file name [stdout]\n");
-    fprintf(stderr, "    -O,   --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
+    fprintf(stderr, "    -G, --drop-genotypes              Drop individual genotype information (after subsetting if -s option set)\n");
+    fprintf(stderr, "    -h, --header-only                 Print only the header in VCF output (equivalent to bcftools head)\n");
+    fprintf(stderr, "    -H, --no-header                   Suppress the header in VCF output\n");
+    fprintf(stderr, "        --with-header                 Print both header and records in VCF output [default]\n");
+    fprintf(stderr, "    -l, --compression-level [0-9]     Compression level: 0 uncompressed, 1 best speed, 9 best compression [%d]\n", args->clevel);
+    fprintf(stderr, "        --no-version                  Do not append version and command line to the header\n");
+    fprintf(stderr, "    -o, --output FILE                 Output file name [stdout]\n");
+    fprintf(stderr, "    -O, --output-type u|b|v|z[0-9]    u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "    -r, --regions REGION              Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in FILE\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
@@ -556,6 +558,7 @@ int main_vcfview(int argc, char *argv[])
         {"threads",required_argument,NULL,9},
         {"header-only",no_argument,NULL,'h'},
         {"no-header",no_argument,NULL,'H'},
+        {"with-header",no_argument,NULL,4},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"trim-alt-alleles",no_argument,NULL,'a'},
@@ -625,6 +628,7 @@ int main_vcfview(int argc, char *argv[])
             case 'o': args->fn_out = optarg; break;
             case 'H': args->print_header = 0; break;
             case 'h': args->header_only = 1; break;
+            case  4 : args->print_header = 1; args->header_only = 0; break;
 
             case 't': args->targets_list = optarg; break;
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;

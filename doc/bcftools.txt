@@ -2961,6 +2961,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-H, --no-header*::
     suppress the header in VCF output
 
+*--with-header*::
+    output both VCF header and records (this is the default, but the option
+    is useful for explicitness or to reset the effects of *-h* or *-H*)
+
 *-l, --compression-level* ['0-9']::
     compression level. 0 stands for uncompressed, 1 for best speed and 9 for
     best compression.
