@@ -580,7 +580,14 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     int trim_beg = 0;
     int var_type = bcf_get_variant_type(rec,ialt);
     int var_len  = rec->d.var[ialt].n;
-    if ( var_type & VCF_INDEL ) trim_beg = 1;
+    if ( var_type & VCF_INDEL )
+    {
+        // normally indel starts one base after, but not if the first base of the fa reference is deleted
+        if ( rec->d.allele[0][0] == rec->d.allele[ialt][0] )
+            trim_beg = 1;
+        else
+            trim_beg = 0;
+    }
     else if ( (var_type & VCF_OTHER) && !strcasecmp(rec->d.allele[ialt],"<DEL>") )
     {
         trim_beg = 1;
@@ -698,7 +705,6 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     if ( len_diff <= 0 )
     {
         // deletion or same size event
-
         assert( args->fa_buf.l >= idx+rec->rlen );
         args->prev_base = args->fa_buf.s[idx+rec->rlen-1];
         args->prev_base_pos = rec->pos + rec->rlen - 1;
