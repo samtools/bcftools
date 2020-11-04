@@ -101,4 +101,24 @@ static inline double phred_score(double prob)
     return prob>99 ? 99 : prob;
 }
 
+static const uint64_t bcf_double_missing    = 0x7ff0000000000001;
+static const uint64_t bcf_double_vector_end = 0x7ff0000000000002;
+static inline void bcf_double_set(double *ptr, uint64_t value)
+{
+    union { uint64_t i; double d; } u;
+    u.i = value;
+    *ptr = u.d;
+}
+static inline int bcf_double_test(double d, uint64_t value)
+{
+    union { uint64_t i; double d; } u;
+    u.d = d;
+    return u.i==value ? 1 : 0;
+}
+#define bcf_double_set_vector_end(x) bcf_double_set(&(x),bcf_double_vector_end)
+#define bcf_double_set_missing(x)    bcf_double_set(&(x),bcf_double_missing)
+#define bcf_double_is_vector_end(x)  bcf_double_test((x),bcf_double_vector_end)
+#define bcf_double_is_missing(x)     bcf_double_test((x),bcf_double_missing)
+#define bcf_double_is_missing_or_vector_end(x)     (bcf_double_test((x),bcf_double_missing) || bcf_double_test((x),bcf_double_vector_end))
+
 #endif

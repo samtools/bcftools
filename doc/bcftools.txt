@@ -341,6 +341,13 @@ Add or remove annotations.
     +
     See also the *-l, --merge-logic* option.
 
+*-C, --columns-file* 'file'::
+    Read the list of columns from a file (normally given via the *-c, --columns* option).
+    "-" to skip a column of the annotation file.
+    One column name per row, an additional space- or tab-separated field can
+    be present to indicate the merge logic (normally given via the *-l, --merge-logic* option).
+    This is useful when many annotations are added at once.
+
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -373,10 +380,11 @@ Add or remove annotations.
 *-k, --keep-sites*::
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them
 
-*-l, --merge-logic* 'tag':'first'|'append'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
+*-l, --merge-logic* 'tag':'first'|'append'|'append-missing'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
     if multiple regions overlap a single record, the option defines how to treat multiple
     annotation values when setting 'tag' in the destination file: use the first encountered value ignoring
-    the rest ('first'); append allowing duplicates ('append'); append discarding duplicate values ('unique');
+    the rest ('first'); append allowing duplicates ('append'); append even if the appended value is missing,
+    i.e. is a dot ('append-missing'); append discarding duplicate values ('unique');
     sum the values ('sum', numeric fields only); average the values ('avg'); use the minimum value ('min') or
     the maximum ('max').
     +

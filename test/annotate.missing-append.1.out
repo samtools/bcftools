@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=STR,Number=.,Type=String,Description="Some annotation">
+##INFO=<ID=INT,Number=.,Type=String,Description="Some annotation">
+##INFO=<ID=FLT,Number=.,Type=String,Description="Some annotation">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	752566	.	G	A,*,C,T	.	.	STR=GA,.,GC,G,.,T;INT=1,.,2,3,.,3;FLT=1.0,.,2.0,3.0,.,3.0
+1	752566	.	G	A,C	.	.	STR=GA,GC;INT=1,2;FLT=1.0,2.0
+1	800000	.	ACGTACGT	TCGTACGT,ACGT	.	.	STR=AT0,.;INT=0,.;FLT=0.0,.
+1	800008	.	C	T	.	.	.
+1	800009	.	C	T	.	.	.
+1	800100	.	ACGT	ACC,TCGT,AC	.	.	STR=.,AT,.;INT=.,1,.;FLT=.,1.0,.
