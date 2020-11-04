@@ -5,11 +5,6 @@ version: 'vers.{build}'
 
 # branches to build
 branches:
-    # Whitelist
-    only:
-      - develop
-
-    # Blacklist
     except:
       - gh-pages
 
@@ -21,6 +16,9 @@ skip_tags: true
 #  files:
 #    - docs/*
 #    - '**/*.html'
+
+# Appveyor Windows images are based on Visual studio version
+image: Visual Studio 2019
 
 # We use Mingw/Msys, so use pacman for installs
 install:
