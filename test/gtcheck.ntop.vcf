@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##reference=ref.fa
+##contig=<ID=1,assembly=b37,length=107349540>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl
+1	10	.	C	A	.	.	.	GT	1/1
+1	11	.	C	A	.	.	.	GT	1/1
+1	12	.	C	A	.	.	.	GT	1/1
+1	13	.	C	A	.	.	.	GT	1/1
+1	14	.	C	A	.	.	.	GT	1/1
+1	15	.	C	A	.	.	.	GT	1/1
