@@ -1063,15 +1063,24 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
     if ( fmt->type!=BCF_BT_INT8 ) error("TODO: the GT fmt_type is not int8\n");
 
     int j,nmissing = 0;
-    for (i=0; i<line->n_sample; i++)
-    {
-        int8_t *ptr = (int8_t*) (fmt->p + i*fmt->size);
-        for (j=0; j<fmt->n; j++)
-        {
-            if ( ptr[j]==bcf_int8_vector_end ) break;
-            if ( ptr[j]==bcf_gt_missing ) { nmissing++; break; }
-        }
+    #define BRANCH(type_t, is_vector_end) { \
+        for (i=0; i<line->n_sample; i++) \
+        { \
+            type_t *ptr = (type_t *) (fmt->p + i*fmt->size); \
+            for (j=0; j<fmt->n; j++) \
+            { \
+                if ( ptr[j]==is_vector_end ) break; \
+                if ( ptr[j]==bcf_gt_missing ) { nmissing++; break; } \
+            } \
+        } \
     }
+    switch (fmt->type) {
+        case BCF_BT_INT8:  BRANCH(int8_t,  bcf_int8_vector_end); break;
+        case BCF_BT_INT16: BRANCH(int16_t, bcf_int16_vector_end); break;
+        case BCF_BT_INT32: BRANCH(int32_t, bcf_int32_vector_end); break;
+        default: fprintf(stderr,"todo: type %d\n", fmt->type); exit(1); break;
+    }
+    #undef BRANCH
     tok->nvalues = 1;
     tok->values[0] = tok->tag[0]=='N' ? nmissing : (double)nmissing / line->n_sample;
 }
