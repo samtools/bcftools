@@ -234,6 +234,7 @@ static void phase_update(args_t *args, bcf_hdr_t *hdr, bcf1_t *rec)
         if ( !args->swap_phase[i] ) continue;
         int *gt = &args->GTa[i*2];
         if ( bcf_gt_is_missing(gt[0]) || gt[1]==bcf_int32_vector_end ) continue;
+        if ( !bcf_gt_is_phased(gt[1]) ) continue;
         SWAP(int, gt[0], gt[1]);
         gt[1] |= 1;
     }
