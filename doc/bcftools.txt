@@ -413,6 +413,12 @@ Add or remove annotations.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--rename-annots* 'file'::
+    rename annotations according to the map in 'file', with
+    "old_name new_name\n" pairs separated by whitespaces, each on a separate
+    line. The old name must be prefixed with the annotation type:
+    INFO, FORMAT, or FILTER.
+
 *--rename-chrs* 'file'::
     rename chromosomes according to the map in 'file', with
     "old_name new_name\n" pairs separated by whitespaces, each on a separate

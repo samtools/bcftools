@@ -154,7 +154,7 @@ typedef struct _args_t
     kstring_t tmpks;
 
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
-    char *remove_annots, *columns, *rename_chrs, *sample_names, *mark_sites;
+    char *remove_annots, *columns, *rename_chrs, *rename_annots, *sample_names, *mark_sites;
     kstring_t merge_method_str;
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
     int columns_is_file, has_append_mode;
@@ -2532,6 +2532,42 @@ static void rename_chrs(args_t *args, char *fname)
     free(map);
 }
 
+static void rename_annots(args_t *args, char *fname)
+{
+    int n, i;
+    char **map = hts_readlist(fname, 1, &n);
+    if ( !map ) error("Could not read: %s\n", fname);
+    for (i=0; i<n; i++)
+    {
+        char *sb = NULL, *ss = map[i];
+        while ( *ss && !isspace(*ss) ) ss++;
+        if ( !*ss ) error("Could not parse: %s\n", fname);
+        *ss = 0;
+        int type;
+        if ( !strncasecmp("info/",map[i],5) ) type = BCF_HL_INFO, sb = map[i] + 5;
+        else if ( !strncasecmp("format/",map[i],7) ) type = BCF_HL_FMT, sb = map[i] + 7;
+        else if ( !strncasecmp("fmt/",map[i],4) ) type = BCF_HL_FMT, sb = map[i] + 4;
+        else if ( !strncasecmp("filter/",map[i],7) ) type = BCF_HL_FLT, sb = map[i] + 7;
+        else error("Could not parse \"%s\", expected INFO, FORMAT, or FILTER prefix for each line: %s\n",map[i],fname);
+        int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, sb);
+        if ( id<0 ) continue;
+        bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, type, "ID", sb, NULL);
+        if ( !hrec ) continue;  // the sequence not present
+        int j = bcf_hrec_find_key(hrec, "ID");
+        assert( j>=0 );
+        free(hrec->vals[j]);
+        ss++;
+        while ( *ss && isspace(*ss) ) ss++;
+        char *se = ss;
+        while ( *se && !isspace(*se) ) se++;
+        *se = 0;
+        hrec->vals[j] = strdup(ss);
+        args->hdr_out->id[BCF_DT_ID][id].key = hrec->vals[j];
+    }
+    for (i=0; i<n; i++) free(map[i]);
+    free(map);
+}
+
 static void init_data(args_t *args)
 {
     args->hdr = args->files->readers[0].header;
@@ -2597,6 +2633,7 @@ static void init_data(args_t *args)
     if ( !args->drop_header )
     {
         if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);
+        if ( args->rename_annots ) rename_annots(args, args->rename_annots);
 
         args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
         if ( args->out_fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__,args->output_fname, strerror(errno));
@@ -2969,6 +3006,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -O, --output-type [b|u|z|v]  b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
     fprintf(stderr, "   -r, --regions REGION         restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file FILE      restrict to regions listed in FILE\n");
+    fprintf(stderr, "       --rename-annots FILE     rename annotations: TYPE/old\\tnew, where TYPE is one of FILTER,INFO,FORMAT\n");
     fprintf(stderr, "       --rename-chrs FILE       rename sequences according to the mapping: old\\tnew\n");
     fprintf(stderr, "   -s, --samples [^]LIST        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
     fprintf(stderr, "   -S, --samples-file [^]FILE   file of samples to annotate (or exclude with \"^\" prefix)\n");
@@ -3011,6 +3049,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"remove",required_argument,NULL,'x'},
         {"columns-file",required_argument,NULL,'C'},
         {"columns",required_argument,NULL,'c'},
+        {"rename-annots",required_argument,NULL,11},
         {"rename-chrs",required_argument,NULL,1},
         {"header-lines",required_argument,NULL,'h'},
         {"samples",required_argument,NULL,'s'},
@@ -3071,6 +3110,7 @@ int main_vcfannotate(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 10 : args->single_overlaps = 1; break;
+            case 11 : args->rename_annots = optarg; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
