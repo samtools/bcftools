@@ -8,3 +8,4 @@
 2	10	.	C	A	.	.	.	GT	0/1
 2	10	.	C	<DEL>	.	.	END=12	GT	0/1
 2	12	.	T	<DEL>	.	.	END=14	GT	0/1
+2	16	.	TAC	<DEL>	.	.	.	GT	0/1

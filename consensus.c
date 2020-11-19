@@ -642,12 +642,20 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             error("Symbolic alleles other than <DEL>, <*> or <NON_REF> are currently not supported, e.g. %s at %s:%"PRId64".\n"
                   "Please use filtering expressions to exclude such sites, for example by running with: -e 'ALT~\"<.*>\"'\n",
                 rec->d.allele[ialt],bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-        assert( rec->d.allele[0][1]==0 );           // todo: for now expecting strlen(REF) = 1
         if ( !strcasecmp(rec->d.allele[ialt],"<DEL>") )
         {
+            static int multibase_ref_del_warned = 0;
+            if ( rec->d.allele[0][1]!=0 && !multibase_ref_del_warned )
+            {
+                fprintf(stderr,
+                    "Warning: one REF base is expected with <DEL>, assuming the actual deletion starts at POS+1 at %s:%"PRId64".\n"
+                    "         (This warning is printed only once.)\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+                multibase_ref_del_warned = 1;
+            }
+
             len_diff = 1-rec->rlen;
-            rec->d.allele[ialt] = rec->d.allele[0];     // according to VCF spec, REF must precede the event
-            alen = strlen(rec->d.allele[ialt]);
+            rec->d.allele[ialt] = rec->d.allele[0];     // according to VCF spec, the first REF base must precede the event
+            alen = 1;
         }
         else
         {
