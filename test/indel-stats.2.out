@@ -20,7 +20,7 @@
 # DLEN* lines report indel length distribution for every threshold. When genotype fields are available,
 #   the counts correspond to the number of genotypes, otherwise the number of sites are given.
 #   The k-th bin corresponds to the indel size k-MAX_LEN, negative for deletions, positive for insertions.
-#   The firt/last bin contains also all deletions/insertions larger than MAX_LEN:
+#   The first/last bin contains also all deletions/insertions larger than MAX_LEN:
 #   1) DLEN*, filter id
 #   2) maximum indel length
 #   3-43) counts of indel lengths (-max,..,0,..,max), all unique alleles in a genotype are recorded (alt hets increase the counters 2x, alt homs 1x)

@@ -1086,7 +1086,7 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
 }
 static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stack, int nstack)
 {
-    if ( nstack==0 ) error("Error parsing the expresion\n");
+    if ( nstack==0 ) error("Error parsing the expression\n");
     token_t *tok = stack[nstack - 1];
     if ( !tok->nsamples ) error("The function %s works with FORMAT fields\n", rtok->tag);
 

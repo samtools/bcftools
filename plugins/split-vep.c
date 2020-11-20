@@ -435,7 +435,7 @@ static void init_data(args_t *args)
             ptr[str.l] = 0;
             int tag_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, ptr+1);
             if ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,tag_id) )
-                fprintf(stderr,"Note: ambigous key %s, using the %s subfield of %s, not the INFO/%s tag\n", ptr,ptr+1,args->vep_tag,ptr+1);
+                fprintf(stderr,"Note: ambiguous key %s, using the %s subfield of %s, not the INFO/%s tag\n", ptr,ptr+1,args->vep_tag,ptr+1);
 
             int olen = args->column_str ? strlen(args->column_str) : 0;
             int nlen = strlen(ptr) - 1;

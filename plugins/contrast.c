@@ -197,7 +197,7 @@ static void init_data(args_t *args)
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
     if ( args->annots & PRINT_PASSOC )
-        bcf_hdr_append(args->hdr_out, "##INFO=<ID=PASSOC,Number=1,Type=Float,Description=\"Fisher's exact test probability of genotypic assocation (REF vs non-REF allele)\">");
+        bcf_hdr_append(args->hdr_out, "##INFO=<ID=PASSOC,Number=1,Type=Float,Description=\"Fisher's exact test probability of genotypic association (REF vs non-REF allele)\">");
     if ( args->annots & PRINT_FASSOC )
         bcf_hdr_append(args->hdr_out, "##INFO=<ID=FASSOC,Number=2,Type=Float,Description=\"Proportion of non-REF allele in controls and cases\">");
     if ( args->annots & PRINT_NASSOC )

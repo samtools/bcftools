@@ -2,7 +2,7 @@
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##contig=<ID=1>
-##INFO=<ID=PASSOC,Number=1,Type=Float,Description="Fisher's exact test probability of genotypic assocation (REF vs non-REF allele)">
+##INFO=<ID=PASSOC,Number=1,Type=Float,Description="Fisher's exact test probability of genotypic association (REF vs non-REF allele)">
 ##INFO=<ID=FASSOC,Number=2,Type=Float,Description="Proportion of non-REF allele in controls and cases">
 ##INFO=<ID=NOVELAL,Number=.,Type=String,Description="List of samples with novel alleles. Note that samples listed here are not listed in NOVELGT again.">
 ##INFO=<ID=NOVELGT,Number=.,Type=String,Description="List of samples with novel genotypes">
