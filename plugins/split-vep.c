@@ -573,8 +573,9 @@ static void init_data(args_t *args)
         int max_unpack = args->convert ? convert_max_unpack(args->convert) : 0;
         args->filter = filter_init(args->hdr_out, args->filter_str);
         max_unpack |= filter_max_unpack(args->filter);
+        if ( !args->format_str ) max_unpack |= BCF_UN_FMT;      // don't drop FMT fields on VCF input when VCF/BCF is output
         args->sr->max_unpack = max_unpack;
-        if ( max_unpack & BCF_UN_FMT )
+        if ( args->convert && (max_unpack & BCF_UN_FMT) )
             convert_set_option(args->convert, subset_samples, &args->smpl_pass);
     }
 
