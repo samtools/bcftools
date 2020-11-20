@@ -2755,7 +2755,8 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         {
             int is_info = bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_INFO,tok->hdr_id) ? 1 : 0;
             is_fmt = bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FMT,tok->hdr_id) ? 1 : 0;
-            if ( is_info && is_fmt ) error("Both INFO/%s and FORMAT/%s exist, which one do you want?\n", tmp.s,tmp.s);
+            if ( is_info && is_fmt )
+                error("Error: ambiguous filtering expression, both INFO/%s and FORMAT/%s are defined in the VCF header.\n" , tmp.s,tmp.s);
         }
         if ( is_fmt==-1 ) is_fmt = 0;
     }
