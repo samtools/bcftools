@@ -342,8 +342,8 @@ clean-plugins:
 	-rm -rf plugins/*.dSYM
 
 testclean:
-	-rm -f test/*.o test/*~ $(TEST_PROGRAMS)
-	-rm -f test/*.hex
+	-rm -f test/*.o test/*.fa.fai test/*~ $(TEST_PROGRAMS)
+	-rm -f test/*.unsorted.hex test/*.unsorted.tsv
 
 distclean: clean
 	-rm -f config.cache config.h config.log config.mk config.status
