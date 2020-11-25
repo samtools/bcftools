@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2019 Genome Research Ltd.
+   Copyright (c) 2018-2020 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -133,8 +133,8 @@ static const char *usage_text(void)
         "   -a, --alt-trios INT         for transmission rate consider only sites with at most this\n"
         "                                   many alternate trios, 0 for unlimited [0]\n"
         "   -d, --debug TYPE            comma-separted list of features: {mendel-errors,transmitted}\n"
-        "   -e, --exclude EXPR          exclude sites and samples for which the expression is true\n"
-        "   -i, --include EXPR          include sites and samples for which the expression is true\n"
+        "   -e, --exclude EXPR          exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
+        "   -i, --include EXPR          include trios for which the expression is true (one failing sample invalidates a trio)\n"
         "   -o, --output FILE           output file name [stdout]\n"
         "   -p, --ped FILE              PED file\n"
         "   -P, --pfm P,F,M             sample names of proband, father, and mother\n"

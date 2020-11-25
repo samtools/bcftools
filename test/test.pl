@@ -480,9 +480,18 @@ test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>
 test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-a PASSOC,FASSOC,NOVELAL,NOVELGT -0 {PATH}/contrast0.txt -1 {PATH}/contrast1.txt');
 test_vcf_plugin($opts,in=>'contrast.1',out=>'contrast.1.1.out',cmd=>'+contrast',args=>'-a NOVELAL,NOVELGT -0 A -1 B');
 test_vcf_plugin($opts,in=>'contrast.1',out=>'contrast.1.2.out',cmd=>'+contrast',args=>'-a NOVELGT -0 A -1 B');
-test_vcf_plugin($opts,in=>'trio-dnm.1',out=>'trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");
-test_vcf_plugin($opts,in=>'trio-dnm.2',out=>'trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother --force-AD | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");
-test_vcf_plugin($opts,in=>'trio-dnm.2',out=>'trio-dnm.2.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'%CHROM[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.1',out=>'trio-dnm/trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother -u ppl -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.2',out=>'trio-dnm/trio-dnm.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother -u ppl -u tag=DNM:log --force-AD | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.4',out=>'trio-dnm/trio-dnm.4.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother -u DNG | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.4',out=>'trio-dnm/trio-dnm.4.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother        | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.4',out=>'trio-dnm/trio-dnm.4.2.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother -u DNG -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.4',out=>'trio-dnm/trio-dnm.4.2.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother        -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.5',out=>'trio-dnm/trio-dnm.5.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother -u DNG -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.5',out=>'trio-dnm/trio-dnm.5.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother        -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.6',out=>'trio-dnm/trio-dnm.6.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother -u DNG -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'"); # incorrect miss by DNG
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.6',out=>'trio-dnm/trio-dnm.6.2.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother        -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.7',out=>'trio-dnm/trio-dnm.7.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother -u DNG -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'"); # incorrect miss, low PL
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.7',out=>'trio-dnm/trio-dnm.7.1.out',cmd=>'+trio-dnm',args=>"-p proband,father,mother        -u tag=DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.2.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GQ>10; FLT:-' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 test_vcf_plugin($opts,in=>'gvcfz.2',out=>'gvcfz.2.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP]\\n']);
@@ -905,6 +914,7 @@ sub bgzip_tabix
 {
     my ($opts,%args) = @_;
     my $file = "$args{file}.$args{suffix}";
+    if ( $file=~m{/[^/]+} ) { cmd("mkdir -p $$opts{tmp}/$`"); }     # create a subdirectory if necessary
     if ( $$opts{redo_outputs} or !-e "$$opts{tmp}/$file.gz" or is_file_newer("$$opts{path}/$file","$$opts{tmp}/$file.gz") )
     {
         cmd("cat $$opts{path}/$file | $$opts{bgzip} -c > $$opts{tmp}/$file.gz");
