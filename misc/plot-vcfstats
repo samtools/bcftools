@@ -60,6 +60,7 @@ if ( $$opts{make_plots} )
     {
         plot_tstv_by_AF($opts,$id);
         plot_tstv_by_QUAL($opts,$id);
+        plot_tstv_by_usr($opts,$id);
         plot_indel_distribution($opts,$id);
         plot_indel_vaf_distribution($opts,$id);
         plot_substitutions($opts,$id);
@@ -119,6 +120,7 @@ sub parse_params
     $0 =~ s{^.+/}{};
     my $opts =
     {
+        usr_plots  => [],
         use_sample_names => 0,
         verbose    => 1,
         make_pdf   => 1,
@@ -763,6 +765,7 @@ sub init_plots
         plot_indel_dist = 1
         plot_indel_vaf = 1
         plot_tstv_by_qual = 1
+        plot_tstv_by_usr = 1
         plot_substitutions = 1
 
 
@@ -828,8 +831,8 @@ sub get_values
     if ( !exists($$opts{dat}{$key}) ) { return (); }
     if ( !exists($$opts{dat}{$key}{$id}) ) { return (); }
     my $fields_ok = 1;
-    if ( !exists($$opts{exp}{$key}) ) { error("todo: sanity check for $key\n"); }
-    if ( exists($$opts{def_line}{$key}) && $$opts{def_line}{$key} ne $$opts{exp}{$key} && !$$opts{def_line_warned}{$key} )
+    if ( !exists($$opts{exp}{$key}) && !($key=~/^USR:/) ) { error("todo: sanity check for $key\n"); }
+    if ( exists($$opts{def_line}{$key}) && !($key=~/^USR:/) && $$opts{def_line}{$key} ne $$opts{exp}{$key} && !$$opts{def_line_warned}{$key} )
     {
         warn("Warning: Possible version mismatch, the definition line differs\n\texpected: $$opts{exp}{$key}\n\tfound:    $$opts{def_line}{$key}\n");
         $$opts{def_line_warned}{$key} = 1;
@@ -1209,6 +1212,9 @@ sub plot_tstv_by_AF
         ";
 }
 
+# Sort calls by quality and plot ts/tv in bins of reasonable size (1%);
+# Plot both cumulative ts/tv (as if quality threshold was applied at that point)
+# and per bin.
 sub plot_tstv_by_QUAL
 {
     my ($opts,$id) = @_;
@@ -1225,21 +1231,24 @@ sub plot_tstv_by_QUAL
     my $ntot = 0;
     for my $val (@vals)
     {
+        if ( $$val[0] eq '.' ) { next; }
         push @dat, [ $$val[0], $$val[2], $$val[3] ];    # qual, nts, ntv
         $ntot += $$val[2] + $$val[3];
     }
     my @sdat = sort { $$b[0] <=> $$a[0] } @dat;
     push @sdat, [-1];
-    my $dn    = $ntot*0.05;
+    my $dn    = $ntot*0.01;
     my $qprev = $sdat[0][0];
+    my $nout  = 0;
     my $nts   = 0;
     my $ntv   = 0;
-    my $nout  = 0;
-    for my $rec (@sdat)
+    my $nts_tot = 0;
+    my $ntv_tot = 0;
+    for my $rec (@sdat)     # sorted in descendent order, biggest qualities come first
     {
         if ( $$rec[0]==-1 or $nts+$ntv > $dn )
         {
-            if ( $ntv ) {  printf $tfh "$qprev\t%d\t%f\n", $nts+$ntv+$nout,$nts/$ntv; }
+            if ( $ntv ) {  printf $tfh "$qprev\t%d\t%f\t%f\n", $nts+$ntv+$nout,$nts/$ntv,$nts_tot/$ntv_tot; }
             if ( $$rec[0]==-1 ) { last; }
             $nout += $nts+$ntv;
             $nts   = 0;
@@ -1248,6 +1257,8 @@ sub plot_tstv_by_QUAL
         }
         $nts += $$rec[1];
         $ntv += $$rec[2];
+        $nts_tot += $$rec[1];
+        $ntv_tot += $$rec[2];
     }
     close($tfh) or error("close $img.dat");
 
@@ -1262,12 +1273,14 @@ sub plot_tstv_by_QUAL
             if plot_tstv_by_qual and len(dat)>2:
                 fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
                 ax1 = fig.add_subplot(111)
-                ax1.plot([row[1] for row in dat], [row[2] for row in dat], '^-', ms=3, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]')
+                ax1.plot([row[1] for row in dat], [row[3] for row in dat], '-', ms=1, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]', label='Cumulative ts/tv')
+                ax1.plot([row[1] for row in dat], [row[2] for row in dat], '--', ms=1, mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]', label='Per 1% bins')
                 ax1.set_ylabel('Ts/Tv',fontsize=10)
                 ax1.set_xlabel('Number of sites\\n(sorted by QUAL, descending)',fontsize=10)
                 ax1.ticklabel_format(style='sci', scilimits=(-3,2), axis='x')
                 ax1.set_ylim(min(2,min(row[2] for row in dat))-0.3,0.3+max(2.2,max(row[2] for row in dat)))
 
+                plt.legend(numpoints=1,markerscale=2,loc='best',prop={'size':9},frameon=False)
                 plt.subplots_adjust(right=0.88,left=0.15,bottom=0.15)
                 plt.title('$$opts{title}{$id}')
                 plt.savefig('$img.png')
@@ -1276,6 +1289,70 @@ sub plot_tstv_by_QUAL
 
         ";
 }
+
+sub plot_tstv_by_usr
+{
+    my ($opts,$id) = @_;
+    for my $key (keys %{$$opts{dat}})
+    {
+        if ( !($key=~/^USR:/) ) { next; }
+        plot_tstv_by_usr1($opts,$id,$key);
+    }
+}
+sub plot_tstv_by_usr1
+{
+    my ($opts,$id,$name) = @_;
+    my @vals = get_values($opts,$id,$name);
+    if ( !@vals ) { return; }
+
+    my $fname = $name;
+    $fname =~ s{/}{_}g;
+    push @{$$opts{usr_plots}},{fname=>"tstv_by_$fname",uname=>$name};
+
+    my $fh  = $$opts{plt_fh};
+    my $img = "tstv_by_$fname.$id";
+
+    open(my $tfh,'>',"$img.dat") or error("$img.dat: $!");
+    print $tfh "# [1]$name\t[2]Number of sites\t[3]Marginal Ts/Tv\n";
+    for my $rec (@vals)
+    {
+        my ($val,$nts,$ntv,undef) = @$rec;
+        if ( $nts+$ntv==0 ) { next; }
+        printf $tfh "$val\t%d\t%f\n", $nts+$ntv,$ntv?$nts/$ntv:0;
+    }
+    close($tfh) or error("close $img.dat");
+
+    tprint $fh, "
+
+            dat = []
+            with open('$img.dat', 'r') as f:
+                reader = csv.reader(f, 'tab')
+                for row in reader:
+                    if row[0][0] != '#': dat.append([float(x) for x in row])
+
+            if plot_tstv_by_usr and len(dat)>2:
+                fig = plt.figure(figsize=($$opts{img_width},$$opts{img_height}))
+                ax1 = fig.add_subplot(111)
+                ax2 = ax1.twinx()
+                plots  = ax1.plot([row[0] for row in dat], [row[2] for row in dat], 'o', mec='$$opts{id2col}[$id]', color='$$opts{id2col}[$id]')
+                plots += ax2.plot([row[0] for row in dat], [row[1] for row in dat], 'o', mec='grey', color='grey')
+                ax1.set_ylabel('Ts/Tv',fontsize=10)
+                ax2.set_ylabel('Number of sites',fontsize=10)
+                ax1.set_xlabel('$name',fontsize=10)
+                ax1.ticklabel_format(style='sci', scilimits=(-3,2), axis='x')
+                ax2.ticklabel_format(style='sci', scilimits=(-2,2), axis='y')
+                ax1.set_ylim(min(2,min(row[2] for row in dat))-0.3,0.3+max(2.2,max(row[2] for row in dat)))
+                labels = ['ts/tv','Number of sites']
+                plt.legend(plots,labels,numpoints=1,loc='best',prop={'size':9},frameon=False)
+                plt.subplots_adjust(right=0.88,left=0.15,bottom=0.15)
+                plt.title('$$opts{title}{$id}')
+                plt.savefig('$img.png')
+                if img_fmt != 'png': plt.savefig('$img.' + img_fmt)
+                plt.close()
+
+        ";
+}
+
 
 sub rebin_values
 {
@@ -2105,6 +2182,12 @@ sub create_pdf
     }
     tprint $tex, fmt_slide3h($opts, "tstv_by_af", 'Ts/Tv by AF');
     tprint $tex, fmt_slide3h($opts, "tstv_by_qual", 'Ts/Tv stratified by QUAL');
+    for my $plot (@{$$opts{usr_plots}})
+    {
+        my $uname = $$plot{uname};
+        my $fname = $$plot{fname};
+        tprint $tex, fmt_slide3h($opts, $fname, 'Ts/Tv stratified by '.$uname);
+    }
     tprint $tex, fmt_slide3h($opts, "indels", 'Indel distribution');
     tprint $tex, fmt_slide3v($opts, "indel_vaf", 'Fraction of alternate indel allele');
     tprint $tex, fmt_slide3h($opts, "depth", 'Depth distribution');
