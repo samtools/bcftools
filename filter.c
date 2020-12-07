@@ -1060,8 +1060,7 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
         tok->nvalues = 0;
         return;
     }
-    if ( fmt->type!=BCF_BT_INT8 ) error("TODO: the GT fmt_type is not int8\n");
-
+    
     int j,nmissing = 0;
     #define BRANCH(type_t, is_vector_end) { \
         for (i=0; i<line->n_sample; i++) \
