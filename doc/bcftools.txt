@@ -552,7 +552,8 @@ demand. The original calling model can be invoked with the *-c* option.
 *-f, --format-fields* 'list'::
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
-    as lower case letters.
+    as lower case letters. Prefixed with "&#94;" indicates a request for tag
+    removal of auxiliary tags useful only for calling.
 
 *-F, --prior-freqs* 'AN','AC'::
     take advantage of prior knowledge of population allele frequencies. The
@@ -574,13 +575,13 @@ demand. The original calling model can be invoked with the *-c* option.
     bcftools mpileup [...] -Ou | bcftools annotate -a AFs.tab.gz -h AFs.hdr -c CHROM,POS,REF,ALT,REF_AN,REF_AC -Ou | bcftools call -mv -F REF_AN,REF_AC [...]
 ----
 
-*-G, --group-samples* 'FILE'|'-'::
+*-G, --group-samples* [TAG:]'FILE'|'-'::
     by default, all samples are assumed to come from a single population. This option allows to group samples
     into populations and apply the HWE assumption within but not across the populations. 'FILE' is a tab-delimited
     text file with sample names in the first column and group names in the second column. If '-' is
     given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
     in low coverage data this inflates the rate of false positives.) The *-G* option requires the presence of
-    FORMAT/AD generated at the *bcftools mpileup* step by providing the *-a FMT/AD* option.
+    per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*). 
 
 *-g, --gvcf* 'INT'::
     output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
@@ -1398,7 +1399,8 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 
 *--n-matches* 'INT'::
     Print only top INT matches for each sample, 0 for unlimited. Use negative value
-    to sort by HWE probability rather than the number of discordant sites.
+    to sort by HWE probability rather than the number of discordant sites. Note
+    that average score is used to determine the top matches, not absolute values.
 
 *--no-HWE-prob*::
     Disable calculation of HWE probability to reduce memory requirements with 

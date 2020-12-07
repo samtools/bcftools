@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp144160"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>bcftools</title><link rel="stylesheet" type="text/css" href="docbook-xsl.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.76.1" /></head><body><div xml:lang="en" class="refentry" title="bcftools" lang="en"><a id="idp25199360"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bcftools — utilities for variant calling and manipulating VCFs and BCFs.</p></div><div class="refsynopsisdiv" title="Synopsis"><a id="_synopsis"></a><h2>Synopsis</h2><p><span class="strong"><strong>bcftools</strong></span> [--version|--version-only] [--help] [<span class="emphasis"><em>COMMAND</em></span>] [<span class="emphasis"><em>OPTIONS</em></span>]</p></div><div class="refsect1" title="DESCRIPTION"><a id="_description"></a><h2>DESCRIPTION</h2><p>BCFtools  is  a set of utilities that manipulate variant calls in the Variant
 Call Format (VCF) and its binary counterpart BCF. All commands work
 transparently with both VCFs and BCFs, both uncompressed and BGZF-compressed.</p><p>Most commands accept VCF, bgzipped VCF and BCF with filetype detected
 automatically even when streaming from a pipe. Indexed VCF and BCF
@@ -10,7 +10,7 @@ read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non-standard index names can be accessed as e.g.
 "<code class="literal">bcftools view -r X:2928329 file.vcf.gz##idx##non-standard-index-name</code>".)</p><p>BCFtools is designed to work on a stream. It regards an input file "-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
-commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-09-22</strong></span> and refers to bcftools git version <span class="strong"><strong>1.11</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
+commands can thus be  combined  with  Unix pipes.</p><div class="refsect2" title="VERSION"><a id="_version"></a><h3>VERSION</h3><p>This manual page was last updated <span class="strong"><strong>2020-11-25 16:08 GMT</strong></span> and refers to bcftools git version <span class="strong"><strong>1.11-24-g9718479+</strong></span>.</p></div><div class="refsect2" title="BCF1"><a id="_bcf1"></a><h3>BCF1</h3><p>The BCF1 format output by versions of samtools &lt;= 0.1.19 is <span class="strong"><strong>not</strong></span>
 compatible with this version of bcftools. To read BCF1 files one can use
 the view command from old versions of bcftools packaged with samtools
 versions &lt;= 0.1.19 to convert to VCF, which can then be read by
@@ -286,6 +286,14 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
    
     See also the <span class="strong"><strong>-l, --merge-logic</strong></span> option.
 </dd><dt><span class="term">
+<span class="strong"><strong>-C, --columns-file</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    Read the list of columns from a file (normally given via the <span class="strong"><strong>-c, --columns</strong></span> option).
+    "-" to skip a column of the annotation file.
+    One column name per row, an additional space- or tab-separated field can
+    be present to indicate the merge logic (normally given via the <span class="strong"><strong>-l, --merge-logic</strong></span> option).
+    This is useful when many annotations are added at once.
+</dd><dt><span class="term">
 <span class="strong"><strong>-e, --exclude</strong></span> <span class="emphasis"><em>EXPRESSION</em></span>
 </span></dt><dd>
     exclude sites for which <span class="emphasis"><em>EXPRESSION</em></span> is true. For valid expressions see
@@ -318,11 +326,12 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 </span></dt><dd>
     keep sites which do not pass <span class="strong"><strong>-i</strong></span> and <span class="strong"><strong>-e</strong></span> expressions instead of discarding them
 </dd><dt><span class="term">
-<span class="strong"><strong>-l, --merge-logic</strong></span> <span class="emphasis"><em>tag</em></span>:'first'|<span class="emphasis"><em>append</em></span>|<span class="emphasis"><em>unique</em></span>|<span class="emphasis"><em>sum</em></span>|<span class="emphasis"><em>avg</em></span>|<span class="emphasis"><em>min</em></span>|<span class="emphasis"><em>max</em></span>[,…]
+<span class="strong"><strong>-l, --merge-logic</strong></span> <span class="emphasis"><em>tag</em></span>:'first'|<span class="emphasis"><em>append</em></span>|<span class="emphasis"><em>append-missing</em></span>|<span class="emphasis"><em>unique</em></span>|<span class="emphasis"><em>sum</em></span>|<span class="emphasis"><em>avg</em></span>|<span class="emphasis"><em>min</em></span>|<span class="emphasis"><em>max</em></span>[,…]
 </span></dt><dd>
     if multiple regions overlap a single record, the option defines how to treat multiple
     annotation values when setting <span class="emphasis"><em>tag</em></span> in the destination file: use the first encountered value ignoring
-    the rest (<span class="emphasis"><em>first</em></span>); append allowing duplicates (<span class="emphasis"><em>append</em></span>); append discarding duplicate values (<span class="emphasis"><em>unique</em></span>);
+    the rest (<span class="emphasis"><em>first</em></span>); append allowing duplicates (<span class="emphasis"><em>append</em></span>); append even if the appended value is missing,
+    i.e. is a dot (<span class="emphasis"><em>append-missing</em></span>); append discarding duplicate values (<span class="emphasis"><em>unique</em></span>);
     sum the values (<span class="emphasis"><em>sum</em></span>, numeric fields only); average the values (<span class="emphasis"><em>avg</em></span>); use the minimum value (<span class="emphasis"><em>min</em></span>) or
     the maximum (<span class="emphasis"><em>max</em></span>).
    
@@ -355,6 +364,13 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 <span class="strong"><strong>-R, --regions-file</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
     see <span class="strong"><strong><a class="link" href="#common_options" title="Common Options">Common Options</a></strong></span>
+</dd><dt><span class="term">
+<span class="strong"><strong>--rename-annots</strong></span> <span class="emphasis"><em>file</em></span>
+</span></dt><dd>
+    rename annotations according to the map in <span class="emphasis"><em>file</em></span>, with
+    "old_name new_name\n" pairs separated by whitespaces, each on a separate
+    line. The old name must be prefixed with the annotation type:
+    INFO, FORMAT, or FILTER.
 </dd><dt><span class="term">
 <span class="strong"><strong>--rename-chrs</strong></span> <span class="emphasis"><em>file</em></span>
 </span></dt><dd>
@@ -490,7 +506,8 @@ demand. The original calling model can be invoked with the <span class="strong">
 </span></dt><dd>
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
-    as lower case letters.
+    as lower case letters. Prefixed with "^" indicates a request for tag
+    removal of auxiliary tags useful only for calling.
 </dd><dt><span class="term">
 <span class="strong"><strong>-F, --prior-freqs</strong></span> <span class="emphasis"><em>AN</em></span>,<span class="emphasis"><em>AC</em></span>
 </span></dt><dd>
@@ -510,14 +527,14 @@ demand. The original calling model can be invoked with the <span class="strong">
 
     # Now before calling, stream the raw mpileup output through `bcftools annotate` to add the frequencies
     bcftools mpileup [...] -Ou | bcftools annotate -a AFs.tab.gz -h AFs.hdr -c CHROM,POS,REF,ALT,REF_AN,REF_AC -Ou | bcftools call -mv -F REF_AN,REF_AC [...]</pre><div class="variablelist"><dl><dt><span class="term">
-<span class="strong"><strong>-G, --group-samples</strong></span> <span class="emphasis"><em>FILE</em></span>|<span class="emphasis"><em>-</em></span>
+<span class="strong"><strong>-G, --group-samples</strong></span> <span class="emphasis"><em><span class="TAG:">FILE</span></em></span>|<span class="emphasis"><em>-</em></span>
 </span></dt><dd>
     by default, all samples are assumed to come from a single population. This option allows to group samples
     into populations and apply the HWE assumption within but not across the populations. <span class="emphasis"><em>FILE</em></span> is a tab-delimited
     text file with sample names in the first column and group names in the second column. If <span class="emphasis"><em>-</em></span> is
     given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
     in low coverage data this inflates the rate of false positives.) The <span class="strong"><strong>-G</strong></span> option requires the presence of
-    FORMAT/AD generated at the <span class="strong"><strong>bcftools mpileup</strong></span> step by providing the <span class="strong"><strong>-a FMT/AD</strong></span> option.
+    per-sample FORMAT/QS or FORMAT/AD tag generated with <span class="strong"><strong>bcftools mpileup -a QS</strong></span> (or <span class="strong"><strong>-a AD</strong></span>).
 </dd><dt><span class="term">
 <span class="strong"><strong>-g, --gvcf</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
@@ -1361,7 +1378,8 @@ Without the <span class="strong"><strong>-g</strong></span> option, multi-sample
 <span class="strong"><strong>--n-matches</strong></span> <span class="emphasis"><em>INT</em></span>
 </span></dt><dd>
     Print only top INT matches for each sample, 0 for unlimited. Use negative value
-    to sort by HWE probability rather than the number of discordant sites.
+    to sort by HWE probability rather than the number of discordant sites. Note
+    that average score is used to determine the top matches, not absolute values.
 </dd><dt><span class="term">
 <span class="strong"><strong>--no-HWE-prob</strong></span>
 </span></dt><dd>

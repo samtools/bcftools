@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2020-09-22
+.\"      Date: 2020-11-25 16:08 GMT
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2020\-09\-22" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2020\-11\-25 16:08 GMT" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2020\-09\-22\fR and refers to bcftools git version \fB1\&.11\fR\&.
+This manual page was last updated \fB2020\-11\-25 16:08 GMT\fR and refers to bcftools git version \fB1\&.11\-24\-g9718479+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -664,6 +664,15 @@ See also the
 option\&.
 .RE
 .PP
+\fB\-C, \-\-columns\-file\fR \fIfile\fR
+.RS 4
+Read the list of columns from a file (normally given via the
+\fB\-c, \-\-columns\fR
+option)\&. "\-" to skip a column of the annotation file\&. One column name per row, an additional space\- or tab\-separated field can be present to indicate the merge logic (normally given via the
+\fB\-l, \-\-merge\-logic\fR
+option)\&. This is useful when many annotations are added at once\&.
+.RE
+.PP
 \fB\-e, \-\-exclude\fR \fIEXPRESSION\fR
 .RS 4
 exclude sites for which
@@ -730,11 +739,11 @@ and
 expressions instead of discarding them
 .RE
 .PP
-\fB\-l, \-\-merge\-logic\fR \fItag\fR:\*(Aqfirst\*(Aq|\fIappend\fR|\fIunique\fR|\fIsum\fR|\fIavg\fR|\fImin\fR|\fImax\fR[,\&...]
+\fB\-l, \-\-merge\-logic\fR \fItag\fR:\*(Aqfirst\*(Aq|\fIappend\fR|\fIappend\-missing\fR|\fIunique\fR|\fIsum\fR|\fIavg\fR|\fImin\fR|\fImax\fR[,\&...]
 .RS 4
 if multiple regions overlap a single record, the option defines how to treat multiple annotation values when setting
 \fItag\fR
-in the destination file: use the first encountered value ignoring the rest (\fIfirst\fR); append allowing duplicates (\fIappend\fR); append discarding duplicate values (\fIunique\fR); sum the values (\fIsum\fR, numeric fields only); average the values (\fIavg\fR); use the minimum value (\fImin\fR) or the maximum (\fImax\fR)\&.
+in the destination file: use the first encountered value ignoring the rest (\fIfirst\fR); append allowing duplicates (\fIappend\fR); append even if the appended value is missing, i\&.e\&. is a dot (\fIappend\-missing\fR); append discarding duplicate values (\fIunique\fR); sum the values (\fIsum\fR, numeric fields only); average the values (\fIavg\fR); use the minimum value (\fImin\fR) or the maximum (\fImax\fR)\&.
 
 Note that this option is intended for use with BED or TAB\-delimited annotation files only\&. Moreover, it is effective only when either
 \fIREF\fR
@@ -785,6 +794,12 @@ see
 .RS 4
 see
 \fBCommon Options\fR
+.RE
+.PP
+\fB\-\-rename\-annots\fR \fIfile\fR
+.RS 4
+rename annotations according to the map in
+\fIfile\fR, with "old_name new_name\en" pairs separated by whitespaces, each on a separate line\&. The old name must be prefixed with the annotation type: INFO, FORMAT, or FILTER\&.
 .RE
 .PP
 \fB\-\-rename\-chrs\fR \fIfile\fR
@@ -976,7 +991,7 @@ output all alternate alleles present in the alignments even if they do not appea
 .PP
 \fB\-f, \-\-format\-fields\fR \fIlist\fR
 .RS 4
-comma\-separated list of FORMAT fields to output for each sample\&. Currently GQ and GP fields are supported\&. For convenience, the fields can be given as lower case letters\&.
+comma\-separated list of FORMAT fields to output for each sample\&. Currently GQ and GP fields are supported\&. For convenience, the fields can be given as lower case letters\&. Prefixed with "^" indicates a request for tag removal of auxiliary tags useful only for calling\&.
 .RE
 .PP
 \fB\-F, \-\-prior\-freqs\fR \fIAN\fR,\fIAC\fR
@@ -1015,11 +1030,10 @@ is a tab\-delimited text file with sample names in the first column and group na
 \fI\-\fR
 is given instead, no HWE assumption is made at all and single\-sample calling is performed\&. (Note that in low coverage data this inflates the rate of false positives\&.) The
 \fB\-G\fR
-option requires the presence of FORMAT/AD generated at the
-\fBbcftools mpileup\fR
-step by providing the
-\fB\-a FMT/AD\fR
-option\&.
+option requires the presence of per\-sample FORMAT/QS or FORMAT/AD tag generated with
+\fBbcftools mpileup \-a QS\fR
+(or
+\fB\-a AD\fR)\&.
 .RE
 .PP
 \fB\-g, \-\-gvcf\fR \fIINT\fR
@@ -2279,7 +2293,7 @@ Homozygous genotypes only, useful with low coverage data (requires
 .PP
 \fB\-\-n\-matches\fR \fIINT\fR
 .RS 4
-Print only top INT matches for each sample, 0 for unlimited\&. Use negative value to sort by HWE probability rather than the number of discordant sites\&.
+Print only top INT matches for each sample, 0 for unlimited\&. Use negative value to sort by HWE probability rather than the number of discordant sites\&. Note that average score is used to determine the top matches, not absolute values\&.
 .RE
 .PP
 \fB\-\-no\-HWE\-prob\fR

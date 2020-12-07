@@ -38,17 +38,19 @@ AF	0	0.000000	3	1	2	2	0	0	2
 AF	0	0.490000	0	0	0	12	0	0	12
 AF	0	0.740000	1	1	0	0	0	0	0
 AF	0	0.990000	1	1	0	0	0	0	0
-# QUAL, Stats by quality:
+# QUAL, Stats by quality
 # QUAL	[2]id	[3]Quality	[4]number of SNPs	[5]number of transitions (1st ALT)	[6]number of transversions (1st ALT)	[7]number of indels
-QUAL	0	12	1	0	1	1
-QUAL	0	45	0	0	0	1
-QUAL	0	59	2	1	0	3
-QUAL	0	60	1	1	0	0
-QUAL	0	61	0	0	0	1
-QUAL	0	79	0	0	0	1
-QUAL	0	82	0	0	0	1
-QUAL	0	90	1	1	0	0
-QUAL	0	342	0	0	0	1
+QUAL	0	12.6	1	0	1	0
+QUAL	0	12.9	0	0	0	1
+QUAL	0	45.0	0	0	0	1
+QUAL	0	59.2	1	1	0	0
+QUAL	0	59.9	0	0	0	3
+QUAL	0	60.2	1	1	0	0
+QUAL	0	61.5	0	0	0	1
+QUAL	0	79.0	0	0	0	1
+QUAL	0	82.7	0	0	0	1
+QUAL	0	90.6	1	1	0	0
+QUAL	0	342.0	0	0	0	1
 # IDD, InDel distribution:
 # IDD	[2]id	[3]length (deletions negative)	[4]number of sites	[5]number of genotypes	[6]mean VAF
 IDD	0	-10	1	0	.

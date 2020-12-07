@@ -11,18 +11,16 @@
 ##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##INFO=<ID=ICB,Number=1,Type=Float,Description="Inbreeding Coefficient Binomial test (bigger is better)">
-##INFO=<ID=HOB,Number=1,Type=Float,Description="Bias in the number of HOMs number (smaller is better)">
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
 ##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
-1	1368828	.	GT	G	62	.	DP=1;MQ0F=0;AC=0;AN=2;DP4=1,0,0,0;MQ=60	GT:PL	0/0:0,3,35
+1	1368828	.	GT	G	61.5766	.	DP=1;MQ0F=0;AC=0;AN=2;DP4=1,0,0,0;MQ=60	GT:PL	0/0:0,3,35
 1	1368833	.	T	C	39.5768	.	DP=1;MQ0F=0;AC=0;AN=2;DP4=0,1,0,0;MQ=60	GT:PL	0/0:0,3,13
 1	1368833	.	TAAAAAAAAAAAAAAAA	TAAAAAAAAAAAAAA	24.1741	.	DP=2;AC=0;AN=2;DP4=0,1,1,0;MQ=60	GT:PL	0/0:6,0,6
 1	1368833	.	T	G	.	.	.	GT	.
-1	1368834	.	A	T	60	.	DP=1;MQ0F=0;AC=0;AN=2;DP4=1,0,0,0;MQ=60	GT:PL	0/0:0,3,33
+1	1368834	.	A	T	59.5765	.	DP=1;MQ0F=0;AC=0;AN=2;DP4=1,0,0,0;MQ=60	GT:PL	0/0:0,3,33
 16	60288	.	C	A	.	.	.	GT	.
 17	355	.	G	A	.	.	.	GT	.
 20	58799	.	T	C	.	.	.	GT	.
