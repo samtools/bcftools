@@ -1726,6 +1726,7 @@ void merge_format_string(args_t *args, const char *key, bcf_fmt_t **fmt_map, bcf
                     int ret = copy_string_field(src, iori - ifrom, fmt_ori->size, str, inew);
                     if ( ret<-1 ) error("[E::%s] fixme: internal error at %s:%"PRId64" .. %d\n",__func__,bcf_seqname(hdr,line),(int64_t) line->pos+1,ret);
                 }
+                if ( nmax < str->l ) nmax = str->l;
                 src += fmt_ori->size;
             }
             continue;
