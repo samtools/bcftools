@@ -355,7 +355,7 @@ static void report_stats(args_t *args)
     fprintf(fh,"# DLEN* lines report indel length distribution for every threshold. When genotype fields are available,\n");
     fprintf(fh,"#   the counts correspond to the number of genotypes, otherwise the number of sites are given.\n");
     fprintf(fh,"#   The k-th bin corresponds to the indel size k-MAX_LEN, negative for deletions, positive for insertions.\n");
-    fprintf(fh,"#   The firt/last bin contains also all deletions/insertions larger than MAX_LEN:\n");
+    fprintf(fh,"#   The first/last bin contains also all deletions/insertions larger than MAX_LEN:\n");
     fprintf(fh,"#   %d) DLEN*, filter id\n", ++i);
     fprintf(fh,"#   %d) maximum indel length\n", ++i);
     fprintf(fh,"#   %d-%d) counts of indel lengths (-max,..,0,..,max), all unique alleles in a genotype are recorded (alt hets increase the counters 2x, alt homs 1x)\n", i+1, i+MAX_LEN*2+1);

@@ -95,7 +95,7 @@ static const char *usage_text(void)
         "   -b, --min-binom-prob FLOAT      exclude parental HETs with skewed ALT allele fraction [1e-2]\n"
         "   -d, --debug                     list informative sites\n"
         "   -e, --exclude EXPR              exclude sites and samples for which the expression is true\n"
-        "   -g, --greedy                    use also ambigous sites, e.g. het+hom parents for deletions\n"
+        "   -g, --greedy                    use also ambiguous sites, e.g. het+hom parents for deletions\n"
         "   -i, --include EXPR              include sites and samples for which the expression is true\n"
         "   -p, --pfm P,F,M                 sample names of proband, father, and mother\n"
         "   -r, --region REGION             chr:beg-end\n"
