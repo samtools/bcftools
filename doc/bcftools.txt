@@ -2245,7 +2245,7 @@ By default, appropriate system directories are searched for installed plugins.
 *tag2tag*::
     convert between similar tags, such as GL and GP
 
-*trio-dnm*::
+*trio-dnm2*::
     screen variants for possible de-novo mutations in trios
 
 *trio-stats*::

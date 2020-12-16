@@ -115,7 +115,7 @@ static const char *usage_text(void)
     return 
         "\n"
         "About: Screen variants for possible de-novo mutations in trios\n"
-        "Usage: bcftools +trio-dnm [Plugin Options]\n"
+        "Usage: bcftools +trio-dnm2 [Plugin Options]\n"
         "Plugin options:\n"
         "   -e, --exclude EXPR              exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
         "       --force-AD                  calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
@@ -142,20 +142,20 @@ static const char *usage_text(void)
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
-        "   bcftools +trio-dnm -p proband,father,mother file.bcf\n"
+        "   bcftools +trio-dnm2 -p proband,father,mother file.bcf\n"
         "\n"
         "   # Same as above, but read the trio(s) from a PED file\n"
-        "   bcftools +trio-dnm -P file.ped file.bcf\n"
+        "   bcftools +trio-dnm2 -P file.ped file.bcf\n"
         "\n"
         "   # Same as above plus extract a list of significant DNMs using the bcftools/query command\n"
-        "   bcftools +trio-dnm -P file.ped file.bcf -Ou | bcftools query -i'DNM>10' -f'[%CHROM:%POS %SAMPLE %DNM\\n]'\n"
+        "   bcftools +trio-dnm2 -P file.ped file.bcf -Ou | bcftools query -i'DNM>10' -f'[%CHROM:%POS %SAMPLE %DNM\\n]'\n"
         "\n"
         "   # A complete example with a variant calling step. Note that this is one long\n"
         "   # command and should be on a single line. Also note that a filtering step is\n"
         "   # recommended, e.g. by depth and VAF (not shown here):\n"
         "   bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |\n"
         "     bcftools call -mv -Ou |\n"
-        "       bcftools +trio-dnm -p proband,father,mother -Oz -o output.vcf.gz\n"
+        "       bcftools +trio-dnm2 -p proband,father,mother -Oz -o output.vcf.gz\n"
         "\n";
 }
 
