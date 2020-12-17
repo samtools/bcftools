@@ -167,6 +167,7 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         bca->bases = (uint16_t*)realloc(bca->bases, 2 * bca->max_bases);
     }
     // fill the bases array
+    double nqual_over_60 = bca->nqual / 60.0;
     for (i = n = 0; i < _n; ++i) {
         const bam_pileup1_t *p = pl + i;
         int q, b, mapQ, baseQ, is_diff, min_dist, seqQ;
@@ -234,8 +235,9 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             int pos = get_position(p, &len);
             epos = (double)pos/(len+1) * bca->npos;
         }
-        int ibq  = baseQ/60. * bca->nqual;
-        int imq  = mapQ/60. * bca->nqual;
+        int imq  = mapQ * nqual_over_60;
+        int ibq  = baseQ * nqual_over_60;
+
         if ( bam_is_rev(p->b) ) bca->rev_mqs[imq]++;
         else bca->fwd_mqs[imq]++;
         if ( bam_seqi(bam_get_seq(p->b),p->qpos) == ref_base )

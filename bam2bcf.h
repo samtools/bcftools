@@ -64,7 +64,12 @@ DEALINGS IN THE SOFTWARE.  */
 #define B2B_MAX_ALLELES 5
 
 #define PLP_HAS_SOFT_CLIP(i) ((i)&1)
-#define PLP_SAMPLE_ID(i)     ((i)>>1)
+#define PLP_HAS_INDEL(i)     ((i)&2)
+#define PLP_SAMPLE_ID(i)     ((i)>>2)
+
+#define PLP_SET_SOFT_CLIP(i)     ((i)|=1)
+#define PLP_SET_INDEL(i)         ((i)|=2)
+#define PLP_SET_SAMPLE_ID(i,n)   ((i)|=(n)<<2)
 
 typedef struct __bcf_callaux_t {
     int fmt_flag;

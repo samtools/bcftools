@@ -1786,6 +1786,15 @@ multiple regions and many alignment files are processed.
     being generated from the mapped position, the new mapping quality is
     about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.
 
+*-D, --partial-BAQ*::
+    Use heuristics to decide when to apply the BAQ algorithm.  Most
+    sequences will not be BAQ adjusted, giving a CPU time closer to
+    --no-BAQ, but it will still be applied in regions with suspected
+    problematic alignments.  This has been tested to work well on single
+    sample data with even allele frequency, but the reliability is unknown
+    for multi-sample calling and for low allele frequency variants so full
+    BAQ is still recommended in those scenarios.
+
 *-d, --max-depth* 'INT'::
     At a position, read maximally 'INT' reads per input file. Note that
     the original *samtools mpileup* command had a minimum value of '8000/n'
