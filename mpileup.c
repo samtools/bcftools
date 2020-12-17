@@ -231,7 +231,18 @@ static int mplp_func(void *data, bam1_t *b)
             has_ref = 0;
         }
 
-        if (has_ref && (ma->conf->flag&MPLP_REALN)) sam_prob_realn(b, ref, ref_len, (ma->conf->flag & MPLP_REDO_BAQ)? 7 : 3);
+//        if (has_ref && (ma->conf->flag&MPLP_REALN)) {
+//            uint32_t *cig = bam_get_cigar(b);
+//            int i;
+//            for (i = 0; i < b->core.n_cigar; i++) 
+//                if ((cig[i] & BAM_CIGAR_MASK) == BAM_CINS ||
+//                    (cig[i] & BAM_CIGAR_MASK) == BAM_CDEL ||
+//                    (cig[i] & BAM_CIGAR_MASK) == BAM_CREF_SKIP)
+//                    break;
+//            if (i != b->core.n_cigar)
+//                 // has an indel
+//                sam_prob_realn(b, ref, ref_len, (ma->conf->flag & MPLP_REDO_BAQ)? 7 : 3);
+//        }
         if (has_ref && ma->conf->capQ_thres > 10) {
             int q = sam_cap_mapq(b, ref, ref_len, ma->conf->capQ_thres);
             if (q < 0) continue;    // skip
@@ -257,18 +268,40 @@ static int mplp_func(void *data, bam1_t *b)
 static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
 {
     mplp_aux_t *ma = (mplp_aux_t *)data;
-    cd->i = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b) << 1;
-    if ( ma->conf->fmt_flag & (B2B_INFO_SCR|B2B_FMT_SCR) )
+    int n = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b);
+    cd->i = 0;
+    PLP_SET_SAMPLE_ID(cd->i, n);
+    // We're using PLP_SET_SOFT_CLIP elsewhere now.
+    // Although we may want to split this up into has-clip vs has-clip>1 ?
+    if ( 1 || ma->conf->fmt_flag & (B2B_INFO_SCR|B2B_FMT_SCR) )
     {
         int i;
-        for (i=0; i<b->core.n_cigar; i++)
-        {
+        for (i=0; i<b->core.n_cigar; i++) {
             int cig = bam_get_cigar(b)[i] & BAM_CIGAR_MASK;
-            if ( cig!=BAM_CSOFT_CLIP ) continue;
-            cd->i |= 1;
-            break;
+            if (cig == BAM_CSOFT_CLIP) {
+                // maybe && (bam_get_cigar(b)[i] >> BAM_CIGAR_SHIFT) > 20?
+                PLP_SET_SOFT_CLIP(cd->i);
+                break;
+            }
         }
     }
+
+    if (ma->conf->flag & MPLP_REALN) {
+        int i, tot_ins = 0;
+        uint32_t *cigar = bam_get_cigar(b);
+        for (i=0; i<b->core.n_cigar; i++) {
+            int cig = cigar[i] & BAM_CIGAR_MASK;
+            if (cig == BAM_CINS || cig == BAM_CDEL || cig == BAM_CREF_SKIP) {
+                tot_ins += cigar[i] >> BAM_CIGAR_SHIFT;
+                // Possible further optimsation, check tot_ins==1 later
+                // (and remove break) so we can detect single bp indels.
+                // We may want to focus BAQ on more complex regions only.
+                PLP_SET_INDEL(cd->i);
+                break;
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -317,6 +350,106 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
     if ( rec && bcf_write1(fp,hdr,rec)!=0 ) error("[%s] Error: failed to write the record to %s\n", __func__,conf->output_fname?conf->output_fname:"standard output");
 }
 
+/*
+ * Loops for an indel at this position.
+ *
+ * Only reads that overlap an indel loci get realigned.  This considerably
+ * reduces the cost of running BAQ while keeping the main benefits.
+ *
+ * TODO: also consider only realigning reads that don't span the indel
+ * by more than a certain amount either-side.  Ie focus BAQ only on reads
+ * ending adjacent to the indel, where the alignment is most likely to
+ * be wrong.  (2nd TODO: do this based on sequence context; STRs bad, unique
+ * data good.)
+ *
+ * NB: this may sadly realign after we've already used the data.  Hmm...
+ */
+static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
+                       char *ref, int ref_len, int pos) {
+    int i, j, has_indel = 0, has_clip = 0, nt = 0;
+    int dlen = 0;
+    int ilen = 0;
+
+    // Is an indel present
+    for (i = 0; i < n /*&& !has_indel*/; i++) { // iterate over bams
+        nt += n_plp[i];
+        for (j = 0; j < n_plp[i] /*&& !has_indel*/; j++) { // iterate over reads
+            bam_pileup1_t *p = (bam_pileup1_t *)plp[i] + j;
+            // BAQ=; too late for some realignments to happen
+            //has_indel |= p->indel;
+
+            // BAQ=2 onwards
+            has_indel += (PLP_HAS_INDEL(p->cd.i) || p->indel) ? 1 : 0;
+            has_clip  += (PLP_HAS_SOFT_CLIP(p->cd.i))         ? 1 : 0;
+
+            if (dlen < -p->indel)
+                dlen = -p->indel; // biggest deletion seen
+            if (ilen < p->indel)
+                ilen = p->indel;
+        }
+    }
+
+//    // Don't bother realigning the most minor of cases
+//    if (has_indel == 0)
+//        return;
+
+    // Don't bother realigning the most minor of cases.
+    // No indels, or low indel rate combined with low soft-clipping rate
+    if (has_indel == 0 || ((has_indel < 0.1*nt || has_indel == 1) && has_clip < 0.2*nt))
+        return;
+
+    // Realign
+    for (i = 0; i < n; i++) { // iterate over bams
+        for (j = 0; j < n_plp[i]; j++) { // iterate over reads
+            const bam_pileup1_t *p = plp[i] + j;
+            bam1_t *b = p->b;
+
+            // Avoid doing multiple times.
+            if (PLP_REALIGNED(p->cd.i))
+                continue;
+            PLP_SET_REALIGNED(((bam_pileup1_t *)p)->cd.i);
+
+            // Here because modifying p->cd.i doesn't work.
+            // Do we end up with new p for the same b?  Why so?
+            if (b->core.flag & 32768)
+                continue;
+            b->core.flag |= 32768;
+
+            static int n_pos = 0, n_realn = 0;
+            n_pos++;
+
+            if (b->core.qual == 0)
+                continue; // no need to do BAQ as already considered poor
+#if 0
+            // Check p->cigar_ind and see what cigar elements are before
+            // and after.  How close is this location to the end of the
+            // read?  Only realign if we don't span by more than X bases.
+            int pstart = b->core.pos;
+            int pend = b->core.pos + bam_cigar2rlen(b->core.n_cigar,
+                                                    bam_get_cigar(b))-1;
+#define REALN_DIST 50
+//            if (pos - pstart >= REALN_DIST && pend - (pos+dlen) >= REALN_DIST)
+//                continue;
+            if (pos - pstart >= REALN_DIST && pend - (pos+dlen) >= REALN_DIST
+                && has_clip)
+                continue;
+#endif
+
+            // fixme, honour conf->flag & MPLP_REDO_BAQ
+            sam_prob_realn(b, ref, ref_len, 3);
+
+            n_realn++;
+            if (n_realn % 1000 == 0) {
+                // approx 75% of indels, about 30% of total reads
+                fprintf(stderr, "Realigned %d of %d (%f %%)\n",
+                        n_realn, n_pos, 100.0*n_realn / n_pos);
+            }
+        }
+    }
+
+    return;
+}
+
 static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
 {
     bam_hdr_t *hdr = conf->mplp_data[0]->h; // header of first file in input list
@@ -333,7 +466,10 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
             if ( !conf->bed_logic ) overlap = overlap ? 0 : 1;
             if ( !overlap ) continue;
         }
-        mplp_get_ref(conf->mplp_data[0], tid, &ref, &ref_len);
+        int has_ref = mplp_get_ref(conf->mplp_data[0], tid, &ref, &ref_len);
+        if (has_ref && (conf->flag & MPLP_REALN))
+            mplp_realn(conf->nfiles, conf->n_plp, conf->plp, ref, ref_len,
+                       pos);
 
         int total_depth, _ref0, ref16;
         for (i = total_depth = 0; i < conf->nfiles; ++i) total_depth += conf->n_plp[i];
