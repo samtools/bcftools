@@ -31,49 +31,25 @@
 
       </header>
       <section>
-        <p>This is the official development repository for BCFtools. It
-        contains all the "vcf..." commands which previously lived in the htslib
-        repository (such as vcfcheck, vcfmerge, vcfisec, etc.) and the samtools
-        BCF calling from bcftools subdirectory of samtools. BCFtools are meant
-        as a faster replacement for most of the <a href="http://vcftools.sourceforge.net/perl_module.html">perl VCFtools</a> commands.</p>
+        <p>This is the official development repository for BCFtools.
       </section>
       <section>
         <h3>Download and compiling</h3>
         <P>
-        The latest release can be downloaded from <a href="http://www.htslib.org/download">www.htslib.org</a>.
-        </P>
+        The latest versioned release can be downloaded from <a href="http://www.htslib.org/download">www.htslib.org</a>.
 
+        <P>
         The most up to date (development) version of BCFtools can be obtained from github
-        using these commands:
-        <ul style='list-style-type:none;margin-left:-1em;color:black;'>
-            <li>git clone git://github.com/samtools/htslib.git
-            <li>git clone git://github.com/samtools/bcftools.git
-            <li>cd bcftools
-            <li style="color:gray"># The following is optional:
-                 <br>autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters
-            <li>make
-        </ul>
-        The <em>clone</em> command above is used to create a local copy of the remote repository and needs to be run only once.
-        Whenever the latest snapshot from github is needed, use instead the <em>pull</em> command:
-        <ul style='list-style-type:none;margin-left:-1em;color:black;'>
-            <li>cd htslib; git pull
-            <li>cd ../bcftools; git pull
-            <li>make clean
-            <li>make
-        </ul>
-        <span style="font-weight:bold;margin-right:0.5em;">IMPORTANT</span><br> In order to use the <b>BCFtools plugins</b>, this environment variable must be set
-        and point to the correct location:
-        <ul style='list-style-type:none;margin-left:-1em;color:black;'>
-            <li>export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins
-        </ul>
+            <a href="http://samtools.github.io/bcftools/howtos/install.html">as described here</a>.
 
       </section>
       <section>
         <h3>Methods</h3>
+        Various math notes:
         <ul>
             <li><a href="http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3198575/">Samtools Calling ("bcftools call -c")</a>
             <li><a href="http://samtools.github.io/bcftools/call-m.pdf">Multiallelic calling ("bcftools call -m")</a>
-            <li><a href="http://samtools.github.io/bcftools/trio-dnm.pdf">BCFtools/trio-dnm calling ("bcftools +trio-dnm")</a>
+            <li><a href="http://samtools.github.io/bcftools/trio-dnm.pdf">BCFtools/trio-dnm calling ("bcftools +trio-dnm2")</a>
             <li><a href="http://www.ncbi.nlm.nih.gov/pubmed/21320865">BAQ calculation</a>
             <li><a href="samtools.pdf">Samtools math notes</a>
             <li><a href="http://samtools.github.io/bcftools/rd-SegBias.pdf">SegBias calculation</a>
