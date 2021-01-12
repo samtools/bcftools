@@ -32,8 +32,8 @@ compile_template: &COMPILE
 
   compile_script: |
     if test "$USE_CONFIG" = "yes"; then
-      (cd $HTSDIR && autoreconf)
-      autoreconf
+      (cd $HTSDIR && autoreconf -i)
+      autoreconf -i
       ./configure || (cat config.log; /bin/false)
       make -j3
     else
@@ -89,7 +89,9 @@ ubuntu_task:
   matrix:
     - environment:
        USE_CONFIG: no
-    - environment:
+    - container:
+       memory: 2G
+      environment:
        USE_CONFIG: yes
        CFLAGS: -g -Wall -O3 -fsanitize=address
        LDFLAGS: -fsanitize=address -Wl,-rpath,`pwd`/inst/lib
