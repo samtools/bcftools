@@ -66,12 +66,16 @@ DEALINGS IN THE SOFTWARE.  */
 #define PLP_HAS_SOFT_CLIP(i) ((i)&1)
 #define PLP_HAS_INDEL(i)     ((i)&2)
 #define PLP_REALIGNED(i)     ((i)&4)
-#define PLP_SAMPLE_ID(i)     ((i)>>3)
+#define PLP_INDEL_POS(i)     (((i)>>3)&255)
+#define PLP_SAMPLE_ID(i)     ((i)>>11)
+//#define PLP_SAMPLE_ID(i)     ((i)>>3)
 
 #define PLP_SET_SOFT_CLIP(i)     ((i)|=1)
 #define PLP_SET_INDEL(i)         ((i)|=2)
 #define PLP_SET_REALIGNED(i)     ((i)|=4)
-#define PLP_SET_SAMPLE_ID(i,n)   ((i)|=(n)<<3)
+#define PLP_SET_INDEL_POS(i,p)   ((i)|=(((p)<255?(p):255)<<3))
+#define PLP_SET_SAMPLE_ID(i,n)   ((i)|=(n)<<11)
+//#define PLP_SET_SAMPLE_ID(i,n)   ((i)|=(n)<<3)
 
 typedef struct __bcf_callaux_t {
     int fmt_flag;
