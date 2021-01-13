@@ -459,6 +459,7 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
     //
     // CAVEAT: also only apply this rule if we don't have many soft-clips
 #if 1
+if (nt >= 20) { // Can be more liberal with BAQ on deeper data
     // FIXME: optimise this.  Maybe a list of sizes rather
     // than an array.
 
@@ -488,8 +489,7 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
         }
     }
     // Simplest case; overlaps 1 indel and only 1 or 2 variants in sizes
-    if (indel_sz[255] == 0/*<= .05*nt*/ && has_clip < 0.2*nt) { // 45x
-//    if (indel_sz[255] == 0/*<= .05*nt*/ && has_clip < 0.15*nt) { // 15x?
+    if (/*indel_sz[255] <= .05*nt && */has_clip < ((0.15+.05*(nt>15))*nt)){
         //fprintf(stderr, "Pos %d\n", pos);
         int nsz = 0, n1 = 0, n2 = 0, nt = 0;;
         for (i = 0; i < 256; i++) {
@@ -517,6 +517,7 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
             return;
         }
     }
+}
 #endif
 
     // Realign
@@ -544,10 +545,16 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
 
 // #if 0 => BAQ=S
 // #if 1 => BAQ=T
-#if 0
+#if 1
             // Check p->cigar_ind and see what cigar elements are before
             // and after.  How close is this location to the end of the
             // read?  Only realign if we don't span by more than X bases.
+            //
+            // Again, best only done on deeper data as BAQ helps
+            // disproportionately more on shallow data sets.
+            //
+            // This rescues some of the false negatives that are caused by
+            // systematic reduction in quality due to sample vs ref alignment.
             int pstart = b->core.pos;
             int pend = b->core.pos + bam_cigar2rlen(b->core.n_cigar,
                                                     bam_get_cigar(b))-1;
@@ -567,15 +574,12 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
 //                    cig[ncig-1] >> BAM_CIGAR_SHIFT);
 
             // Don't realign reads where indel is in middle?
-            if (ncig > 1 &&
+            if (nt > 15 && ncig > 1 &&
                 (cig[0] & BAM_CIGAR_MASK) == BAM_CMATCH &&
                 (cig[0] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
                 (cig[ncig-1] & BAM_CIGAR_MASK) == BAM_CMATCH &&
-                (cig[ncig-1] >> BAM_CIGAR_SHIFT) >= REALN_DIST) {
-
-//            if (pos - pstart >= REALN_DIST && pend - (pos+dlen) >= REALN_DIST
-//                && !has_clip) {
-//                fprintf(stderr, "Skip %s\n", bam_get_qname(b));
+                (cig[ncig-1] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
+                has_clip < 0.2*nt) {
 
                 // BAQ can increase qual, so for those we no longer run
                 // on we now also do that incr.
