@@ -59,8 +59,8 @@ before_script:
 
 script: |
   if test "$USE_CONFIG" = "yes"; then
-    ( cd "$HTSDIR" && autoreconf ) && \
-    autoreconf && \
+    ( cd "$HTSDIR" && autoreconf -i) && \
+    autoreconf -i && \
     ./configure && \
     make && \
     make test
