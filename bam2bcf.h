@@ -41,6 +41,10 @@ DEALINGS IN THE SOFTWARE.  */
 #define CDF_MWU_TESTS 0
 #endif
 
+// Use calc_mwu_biasZ as a sd-normalised score centred on 0 instead of the
+// old method with values in the range 0 to 1.
+#define MWU_ZSCORE
+
 #define B2B_INDEL_NULL 10000
 
 #define B2B_FMT_DP      (1<<0)
@@ -60,6 +64,7 @@ DEALINGS IN THE SOFTWARE.  */
 #define B2B_INFO_VDB    (1<<14)
 #define B2B_INFO_RPB    (1<<15)
 #define B2B_FMT_QS      (1<<16)
+#define B2B_INFO_SCB    (1<<17)
 
 #define B2B_MAX_ALLELES 5
 
@@ -80,6 +85,7 @@ typedef struct __bcf_callaux_t {
     float max_frac; // for collecting indel candidates
     int per_sample_flt; // indel filtering strategy
     int *ref_pos, *alt_pos, npos, *ref_mq, *alt_mq, *ref_bq, *alt_bq, *fwd_mqs, *rev_mqs, nqual; // for bias tests
+    int ref_scl[100], alt_scl[100]; // soft-clip length bias
     // for internal uses
     int max_bases;
     int indel_types[4];     // indel lengths
@@ -125,11 +131,12 @@ typedef struct {
     int32_t *PL, *DP4, *ADR, *ADF, *SCR, *QS;
     uint8_t *fmt_arr;
     float vdb; // variant distance bias
-    float mwu_pos, mwu_mq, mwu_bq, mwu_mqs;
+    float mwu_pos, mwu_mq, mwu_bq, mwu_mqs, mwu_sc;
 #if CDF_MWU_TESTS
     float mwu_pos_cdf, mwu_mq_cdf, mwu_bq_cdf, mwu_mqs_cdf;
 #endif
     float seg_bias;
+    float strand_bias; // phred-scaled fisher-exact test
     kstring_t tmp;
 } bcf_call_t;
 
