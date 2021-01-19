@@ -740,7 +740,6 @@ static void destroy_data(args_t *args)
     free(args->samples_map);
     free(args->sample2sex);
     free(args->aux.ploidy);
-    free(args->aux.sample_groups);
     free(args->str.s);
     if ( args->gvcf ) gvcf_destroy(args->gvcf);
     bcf_hdr_destroy(args->aux.hdr);
@@ -892,8 +891,9 @@ static void usage(args_t *args)
 //    fprintf(stderr, "   -a, --annots LIST             Add annotations: GQ,GP,PV4 (lowercase allowed). Prefixed with ^ indicates a request for\n");
 //    fprintf(stderr, "                                 tag removal [^I16,^QS,^FMT/QS]\n");
     fprintf(stderr, "   -F, --prior-freqs AN,AC       Use prior allele frequencies, determined from these pre-filled tags\n");
-    fprintf(stderr, "   -G, --group-samples [TAG:]FILE|-    Group samples by population (file with \"sample\\tgroup\") or \"-\" for single-sample calling.\n");
+    fprintf(stderr, "   -G, --group-samples FILE|-    Group samples by population (file with \"sample\\tgroup\") or \"-\" for single-sample calling.\n");
     fprintf(stderr, "                                 This requires FORMAT/QS or other Number=R,Type=Integer tag such as FORMAT/AD\n"); 
+    fprintf(stderr, "       --group-samples-tag TAG   The tag to use with -G, by default FORMAT/QS and FORMAT/AD are checked automatically\n");
     fprintf(stderr, "   -g, --gvcf INT,[...]          Group non-variant sites into gVCF blocks by minimum per-sample DP\n");
     fprintf(stderr, "   -i, --insert-missed           Output also sites missed by mpileup but present in -T\n");
     fprintf(stderr, "   -M, --keep-masked-ref         Keep sites with masked reference allele (REF=N)\n");
@@ -951,6 +951,7 @@ int main_vcfcall(int argc, char *argv[])
         {"prior-freqs",required_argument,NULL,'F'},
         {"gvcf",required_argument,NULL,'g'},
         {"group-samples",required_argument,NULL,'G'},
+        {"group-samples-tag",required_argument,NULL,3},
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"regions",required_argument,NULL,'r'},
@@ -989,7 +990,8 @@ int main_vcfcall(int argc, char *argv[])
             case  1 : ploidy = optarg; break;
             case 'X': ploidy = "X"; fprintf(stderr,"Warning: -X will be deprecated, please use --ploidy instead.\n"); break;
             case 'Y': ploidy = "Y"; fprintf(stderr,"Warning: -Y will be deprecated, please use --ploidy instead.\n"); break;
-            case 'G': args.aux.sample_groups = strdup(optarg); break;
+            case 'G': args.aux.sample_groups = optarg; break;
+            case  3 : args.aux.sample_groups_tag = optarg; break;
             case 'f': fprintf(stderr,"Warning: -f, --format-fields will be deprecated, please use -a, --annotate instead.\n");
             case 'a':
                       if (optarg[0]=='?') { list_annotations(stderr); return 1; }

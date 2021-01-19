@@ -278,10 +278,10 @@ test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-fil
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.ped');
 test_vcf_call($opts,in=>'mpileup.X',out=>'mpileup.X.2.out',args=>'-mv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.2.samples');
 test_vcf_call($opts,in=>'mpileup.NA19213.NA19129',out=>'mpileup.hwe.1.out',args=>'-mv');
-test_vcf_call($opts,in=>'mpileup.NA19213.NA19129',out=>'mpileup.hwe.1b.out',args=>'-mv -G AD:-');
+test_vcf_call($opts,in=>'mpileup.NA19213.NA19129',out=>'mpileup.hwe.1b.out',args=>'-mv -G - --group-samples-tag AD');
 test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.2.out',args=>'-mv');
-test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.3.out',args=>'-mv -G AD:-');                               # 21,3,0 becomes 0/0 because of the prior -P
-test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.4.out',args=>'-mv -G AD:{PATH}/mpileup.hwe.samples');
+test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.3.out',args=>'-mv -G - --group-samples-tag AD');                               # 21,3,0 becomes 0/0 because of the prior -P
+test_vcf_call($opts,in=>'mpileup.hwe',out=>'mpileup.hwe.4.out',args=>'-mv -G {PATH}/mpileup.hwe.samples --group-samples-tag AD');
 test_vcf_call_cAls($opts,in=>'mpileup',out=>'mpileup.cAls.out',tab=>'mpileup');
 test_vcf_call_cAls($opts,in=>'mpileup.2',out=>'mpileup.cAls.2.out',tab=>'mpileup.2');
 test_vcf_call_cAls($opts,in=>'mpileup.3',out=>'mpileup.cAls.3.out',tab=>'mpileup.3',args=>'-i');
@@ -297,7 +297,7 @@ test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.out',args=>'-cv --ploidy
 test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.ped');
 test_vcf_call($opts,in=>'mpileup.c.X',out=>'mpileup.c.X.2.out',args=>'-cv --ploidy-file {PATH}/mpileup.ploidy -S {PATH}/mpileup.2.samples');
 test_vcf_call($opts,in=>'call-G',out=>'call-G.1.out',args=>'-mv');
-test_vcf_call($opts,in=>'call-G',out=>'call-G.2.out',args=>'-mv -G AD:-');
+test_vcf_call($opts,in=>'call-G',out=>'call-G.2.out',args=>'-mv -G - --group-samples-tag AD');
 test_vcf_call($opts,in=>'call-G.2',out=>'call-G.2.1.out',args=>'-mv -F AN_POP,AC_POP');
 test_vcf_call($opts,in=>'call.af-fixation',out=>'call.af-fixation.1.out',args=>'-m');
 test_vcf_call($opts,in=>'call.af-fixation',out=>'call.af-fixation.2.out',args=>'-m -G {PATH}/call.af-fixation.txt');

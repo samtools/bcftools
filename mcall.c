@@ -262,15 +262,8 @@ static void init_sample_groups(call_t *call)
         return;
     }
 
-    // Parse tag (optional) and file name
-    char *fname = call->sample_groups;
-    while ( *fname && *fname!=':' ) fname++;
-    if ( *fname )
+    if ( call->sample_groups_tag )
     {
-        call->sample_groups_tag = call->sample_groups;
-        *fname = 0;
-        fname++;
-
         // Is the tag defined in the header?
         int tag_id = bcf_hdr_id2int(call->hdr,BCF_DT_ID,call->sample_groups_tag);
         if ( tag_id==-1 ) error("No such tag \"%s\"\n",call->sample_groups_tag);
@@ -286,11 +279,10 @@ static void init_sample_groups(call_t *call)
             if ( tag_id >= 0 && bcf_hdr_idinfo_exists(call->hdr,BCF_HL_FMT,tag_id) ) call->sample_groups_tag = "AD";
             else error("Error: neither \"AD\" nor \"QS\" FORMAT tag exists and no alternative given with -G\n");
         }
-        fname = call->sample_groups;
     }
 
     // Read samples/groups
-    if ( !strcmp("-",fname) )
+    if ( !strcmp("-",call->sample_groups) )
     {
         // single-sample calling, each sample creates its own group
         call->nsmpl_grp = nsmpl;
@@ -305,8 +297,8 @@ static void init_sample_groups(call_t *call)
     else
     {
         int nlines;
-        char **lines = hts_readlist(fname, 1, &nlines);
-        if ( !lines ) error("Could not read the file: %s\n", fname);
+        char **lines = hts_readlist(call->sample_groups, 1, &nlines);
+        if ( !lines ) error("Could not read the file: %s\n", call->sample_groups);
 
         uint32_t *smpl2grp = (uint32_t*)calloc(nsmpl,sizeof(uint32_t));
         uint32_t *grp2n = (uint32_t*)calloc(nsmpl,sizeof(uint32_t));
@@ -317,14 +309,14 @@ static void init_sample_groups(call_t *call)
         {
             char *ptr = lines[i];
             while ( *ptr && !isspace(*ptr) ) ptr++;
-            if ( !*ptr ) error("Could not parse the line in %s, expected a sample name followed by tab and a population name: %s\n",fname,lines[i]);
+            if ( !*ptr ) error("Could not parse the line in %s, expected a sample name followed by tab and a population name: %s\n",call->sample_groups,lines[i]);
             char *tmp = ptr;
             while ( *ptr && isspace(*ptr) ) ptr++;
-            if ( !*ptr ) error("Could not parse the line in %s, expected a sample name followed by tab and a population name: %s\n",fname,lines[i]);
+            if ( !*ptr ) error("Could not parse the line in %s, expected a sample name followed by tab and a population name: %s\n",call->sample_groups,lines[i]);
             *tmp = 0;
             int ismpl = bcf_hdr_id2int(call->hdr, BCF_DT_SAMPLE, lines[i]); 
             if ( ismpl<0 ) continue;
-            if ( smpl2grp[ismpl] ) error("Error: the sample \"%s\" is listed twice in %s\n", lines[i],fname);
+            if ( smpl2grp[ismpl] ) error("Error: the sample \"%s\" is listed twice in %s\n", lines[i],call->sample_groups);
             if ( !khash_str2int_has_key(grp2idx,ptr+1) )
             {
                 khash_str2int_set(grp2idx, ptr+1, call->nsmpl_grp);
@@ -337,12 +329,12 @@ static void init_sample_groups(call_t *call)
             smpl2grp[ismpl] = igrp+1;   // +1 to distinguish unlisted samples
         }
         khash_str2int_destroy(grp2idx);
-        if ( !call->nsmpl_grp ) error("Could not parse the file, no matching samples found: %s\n", fname);
+        if ( !call->nsmpl_grp ) error("Could not parse the file, no matching samples found: %s\n", call->sample_groups);
 
         call->smpl_grp = (smpl_grp_t*)calloc(call->nsmpl_grp,sizeof(*call->smpl_grp));
         for (i=0; i<nsmpl; i++)
         {
-            if ( !smpl2grp[i] ) error("Error: The sample \"%s\" is not listed in %s\n",call->hdr->samples[i],fname);
+            if ( !smpl2grp[i] ) error("Error: The sample \"%s\" is not listed in %s\n",call->hdr->samples[i],call->sample_groups);
             int igrp = smpl2grp[i] - 1;
             if ( !call->smpl_grp[igrp].nsmpl ) 
                 call->smpl_grp[igrp].smpl = (uint32_t*)calloc(grp2n[igrp],sizeof(uint32_t));
