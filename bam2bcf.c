@@ -35,6 +35,10 @@ DEALINGS IN THE SOFTWARE.  */
 
 extern  void ks_introsort_uint32_t(size_t n, uint32_t a[]);
 
+// Use calc_mwu_biasZ as a sd-normalised score centred on 0 instead of the
+// old method with values in the range 0 to 1.
+#define MWU_ZSCORE
+
 #define CALL_DEFTHETA 0.83
 #define DEF_MAPQ 20
 
@@ -485,6 +489,61 @@ double calc_mwu_bias(int *a, int *b, int n)
     return mann_whitney_1947(na,nb,U) * sqrt(2*M_PI*var2);
 }
 
+// A Z-score version of the above function.
+//
+// See "Normal approximation and tie correction" at
+// https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test
+//
+// The Z score is the number of standard deviations above or below the mean
+// with 0 being equality of the two distributions and +ve/-ve from there.
+//
+// This is a more robust score to filter on.
+double calc_mwu_biasZ(int *a, int *b, int n) {
+    int i;
+    int64_t t;
+
+    int A[100], B[100];
+    assert(n <= 100); // Valid as npos = 100, nqual = 60 are hardcoded above
+
+    // We need to work on all permutations of a[i] and b[j].
+    // We know i and j are absolute values with a[i],b[j] being their count,
+    // hence the arrays are effectively already sorted. The cumulative
+    // arrays therefore permit us to do permutation counting in a single
+    // lookup.
+    for (t = 0, i = n-1; i >= 0; i--)
+        A[i] = t, t += a[i]; // A[x] = SUM(a[0..x-1]).
+    for (t = 0, i = n-1; i >= 0; i--)
+        B[i] = t, t += b[i]; // B[x] = SUM(b[x+1..n-1]).
+
+    // Count equal (e), less-than (l) and greater-than (g) permutations.
+    int e = 0, l = 0, g = 0, n1 = 0, n2 = 0;
+    for (t = i = 0; i < n; i++) {
+        e += a[i]*b[i];
+        l += a[i]*B[i];  // a<b
+        g += A[i]*b[i];  // a>b
+
+        n1 += a[i];
+        n2 += b[i];
+        int p = a[i]+b[i];
+        t += (p*p-1)*p;  // adjustment score for ties
+    }
+    if (n1+n2 <= 1)
+        return HUGE_VAL;
+
+    double U, m, sd, Z;
+    U = l + e*0.5; // Mann-Whitney U score
+    m = n1*n2 / 2;
+
+    //sd = sqrt(n1*n2*(n1+n2+1)/12.0); // simpler; minus tie adjustment
+    sd = sqrt((n1*n2)/12 * ((n1+n2+1) - t/(double)((n1+n2) * (n1+n2-1))));
+
+    // S.D. normalised Z-score
+    //Z = (U - m) / sd;
+    Z = (U - m - (U-m >= 0 ? 0.5 : -0.5)) / sd;
+
+    return sd ? Z : 0;
+}
+
 static inline double logsumexp2(double a, double b)
 {
     if ( a>b )
@@ -734,11 +793,20 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
     // calc_chisq_bias("XMQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_mq, bca->alt_mq, bca->nqual);
     // calc_chisq_bias("XBQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_bq, bca->alt_bq, bca->nqual);
 
+#ifdef MWU_ZSCORE
+    if ( bca->fmt_flag & B2B_INFO_RPB )
+        call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos);
+    call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,  bca->nqual);
+    call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,  bca->nqual);
+    call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual);
+#else
+    // Old method
     if ( bca->fmt_flag & B2B_INFO_RPB )
         call->mwu_pos = calc_mwu_bias(bca->ref_pos, bca->alt_pos, bca->npos);
     call->mwu_mq  = calc_mwu_bias(bca->ref_mq,  bca->alt_mq,  bca->nqual);
     call->mwu_bq  = calc_mwu_bias(bca->ref_bq,  bca->alt_bq,  bca->nqual);
     call->mwu_mqs = calc_mwu_bias(bca->fwd_mqs, bca->rev_mqs, bca->nqual);
+#endif
 
 #if CDF_MWU_TESTS
     // CDF version of MWU tests is not calculated by default
@@ -836,10 +904,19 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
 
     if ( bc->vdb != HUGE_VAL )      bcf_update_info_float(hdr, rec, "VDB", &bc->vdb, 1);
     if ( bc->seg_bias != HUGE_VAL ) bcf_update_info_float(hdr, rec, "SGB", &bc->seg_bias, 1);
+
+#ifdef MWU_ZSCORE
+    if ( bc->mwu_pos != HUGE_VAL )  bcf_update_info_float(hdr, rec, "RPBZ", &bc->mwu_pos, 1);
+    if ( bc->mwu_mq != HUGE_VAL )   bcf_update_info_float(hdr, rec, "MQBZ", &bc->mwu_mq, 1);
+    if ( bc->mwu_mqs != HUGE_VAL )  bcf_update_info_float(hdr, rec, "MQSBZ", &bc->mwu_mqs, 1);
+    if ( bc->mwu_bq != HUGE_VAL )   bcf_update_info_float(hdr, rec, "BQBZ", &bc->mwu_bq, 1);
+#else
     if ( bc->mwu_pos != HUGE_VAL )  bcf_update_info_float(hdr, rec, "RPB", &bc->mwu_pos, 1);
     if ( bc->mwu_mq != HUGE_VAL )   bcf_update_info_float(hdr, rec, "MQB", &bc->mwu_mq, 1);
     if ( bc->mwu_mqs != HUGE_VAL )  bcf_update_info_float(hdr, rec, "MQSB", &bc->mwu_mqs, 1);
     if ( bc->mwu_bq != HUGE_VAL )   bcf_update_info_float(hdr, rec, "BQB", &bc->mwu_bq, 1);
+#endif
+
 #if CDF_MWU_TESTS
     if ( bc->mwu_pos_cdf != HUGE_VAL )  bcf_update_info_float(hdr, rec, "RPB2", &bc->mwu_pos_cdf, 1);
     if ( bc->mwu_mq_cdf != HUGE_VAL )   bcf_update_info_float(hdr, rec, "MQB2", &bc->mwu_mq_cdf, 1);
