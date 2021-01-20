@@ -3102,8 +3102,8 @@ static void usage(void)
     fprintf(stderr, "        --no-version                   do not append version and command line to the header\n");
     fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
+    fprintf(stderr, "    -r, --regions <region>             restrict by POS to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>          restrict by POS to regions listed in a file\n");
     fprintf(stderr, "        --threads <int>                use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);

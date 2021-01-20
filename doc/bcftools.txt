@@ -1705,10 +1705,12 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     see *<<common_options,Common Options>>*
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
-    see *<<common_options,Common Options>>*
+    see *<<common_options,Common Options>>*. Note that unlike in other commands,
+    records are restricted only by position and REF overlaps are neglected.
 
 *-R, --regions-file* 'file'::
-    see *<<common_options,Common Options>>*
+    see *<<common_options,Common Options>>*. Note that unlike in other commands,
+    records are restricted only by position and REF overlaps are neglected.
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
