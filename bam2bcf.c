@@ -35,10 +35,6 @@ DEALINGS IN THE SOFTWARE.  */
 
 extern  void ks_introsort_uint32_t(size_t n, uint32_t a[]);
 
-// Use calc_mwu_biasZ as a sd-normalised score centred on 0 instead of the
-// old method with values in the range 0 to 1.
-#define MWU_ZSCORE
-
 #define CALL_DEFTHETA 0.83
 #define DEF_MAPQ 20
 
@@ -443,7 +439,7 @@ double calc_mwu_bias_cdf(int *a, int *b, int n)
     return pval>1 ? 1 : pval;
 }
 
-double calc_mwu_bias(int *a, int *b, int n)
+double calc_mwu_bias(int *a, int *b, int n, int left)
 {
     int na = 0, nb = 0, i;
     double U = 0, ties = 0;
@@ -467,6 +463,7 @@ double calc_mwu_bias(int *a, int *b, int n)
     if ( na==1 || nb==1 ) return 1.0;       // Flat probability, all U values are equally likely
 
     double mean = ((double)na*nb)*0.5;
+    if (left && U > mean) return 1; // for MQB which is asymmetrical
     if ( na==2 || nb==2 )
     {
         // Linear approximation
@@ -498,50 +495,79 @@ double calc_mwu_bias(int *a, int *b, int n)
 // with 0 being equality of the two distributions and +ve/-ve from there.
 //
 // This is a more robust score to filter on.
-double calc_mwu_biasZ(int *a, int *b, int n) {
+double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
     int i;
     int64_t t;
 
-    int A[100], B[100];
-    assert(n <= 100); // Valid as npos = 100, nqual = 60 are hardcoded above
-
-    // We need to work on all permutations of a[i] and b[j].
-    // We know i and j are absolute values with a[i],b[j] being their count,
-    // hence the arrays are effectively already sorted. The cumulative
-    // arrays therefore permit us to do permutation counting in a single
-    // lookup.
-    for (t = 0, i = n-1; i >= 0; i--)
-        A[i] = t, t += a[i]; // A[x] = SUM(a[0..x-1]).
-    for (t = 0, i = n-1; i >= 0; i--)
-        B[i] = t, t += b[i]; // B[x] = SUM(b[x+1..n-1]).
+    // Optimisation
+    for (i = 0; i < n; i++)
+        if (b[i])
+            break;
+    int b_empty = (i == n);
 
     // Count equal (e), less-than (l) and greater-than (g) permutations.
-    int e = 0, l = 0, g = 0, n1 = 0, n2 = 0;
-    for (t = i = 0; i < n; i++) {
-        e += a[i]*b[i];
-        l += a[i]*B[i];  // a<b
-        g += A[i]*b[i];  // a>b
+    int e = 0, l = 0, na = 0, nb = 0;
+    if (b_empty) {
+        for (t = 0, i = n-1; i >= 0; i--) {
+            na += a[i];
+            t += (a[i]*a[i]-1)*a[i];  // adjustment score for ties
+        }
+    } else {
+        for (t = 0, i = n-1; i >= 0; i--) {
+            // Combinations of a[i] and b[j] for i==j
+            e += a[i]*b[i];
 
-        n1 += a[i];
-        n2 += b[i];
-        int p = a[i]+b[i];
-        t += (p*p-1)*p;  // adjustment score for ties
+            // nb is running total of b[i+1]..b[n-1].
+            // Therefore a[i]*nb is the number of combinations of a[i] and b[j]
+            // for all i < j.
+            l += a[i]*nb;    // a<b
+
+            na += a[i];
+            nb += b[i];
+            int p = a[i]+b[i];
+            t += (p*p-1)*p;  // adjustment score for ties
+        }
     }
-    if (n1+n2 <= 1)
+
+    if (na+nb <= 1)
         return HUGE_VAL;
 
-    double U, m, sd, Z;
+    double U, m, sd;
     U = l + e*0.5; // Mann-Whitney U score
-    m = n1*n2 / 2;
+    m = na*nb / 2;
 
-    //sd = sqrt(n1*n2*(n1+n2+1)/12.0); // simpler; minus tie adjustment
-    sd = sqrt((n1*n2)/12 * ((n1+n2+1) - t/(double)((n1+n2) * (n1+n2-1))));
+    // With ties adjustment
+    double var2 = (na*nb)/12.0 * ((na+nb+1) - t/(double)((na+nb)*(na+nb-1)));
+    // var = na*nb*(na+nb+1)/12.0; // simpler; minus tie adjustment
+    if (var2 < 0)
+        return HUGE_VAL;
 
-    // S.D. normalised Z-score
-    //Z = (U - m) / sd;
-    Z = (U - m - (U-m >= 0 ? 0.5 : -0.5)) / sd;
+    if (do_Z) {
+        // S.D. normalised Z-score
+        //Z = (U - m - (U-m >= 0 ? 0.5 : -0.5)) / sd; // gatk method?
+        return var2 ? (U - m) / sqrt(var2) : 0;
+    }
 
-    return sd ? Z : 0;
+    // Else U score, which can be asymmetric for some data types.
+    if (left_only && U > m)
+        return HUGE_VAL; // one-sided, +ve bias is OK, -ve is not.
+
+    if (var2 <= 0)
+        return HUGE_VAL;
+
+    if ( na==2 || nb==2 ) {
+        // Linear approximation
+        return U > m ? (2.0*m-U)/m : U/m;
+    }
+
+    if (na >= 8 || nb >= 8) {
+        // Normal approximation, very good for na>=8 && nb>=8 and
+        // reasonable if na<8 or nb<8
+        return exp(-0.5*(U-m)*(U-m)/var2);
+    }
+
+    // Exact calculation
+    return mann_whitney_1947_(na, nb, U) * sqrt(2*M_PI*var2);
 }
 
 static inline double logsumexp2(double a, double b)
@@ -794,18 +820,21 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
     // calc_chisq_bias("XBQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_bq, bca->alt_bq, bca->nqual);
 
 #ifdef MWU_ZSCORE
+    // U z-normalised as +/- number of standard deviations from mean.
     if ( bca->fmt_flag & B2B_INFO_RPB )
-        call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos);
-    call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,  bca->nqual);
-    call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,  bca->nqual);
-    call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual);
+        call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos,
+                                       0, 1);
+    call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,  bca->nqual,1,1);
+    call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,  bca->nqual,0,1);
+    call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual,0,1);
 #else
-    // Old method
+    // Old method; U as probability between 0 and 1
     if ( bca->fmt_flag & B2B_INFO_RPB )
-        call->mwu_pos = calc_mwu_bias(bca->ref_pos, bca->alt_pos, bca->npos);
-    call->mwu_mq  = calc_mwu_bias(bca->ref_mq,  bca->alt_mq,  bca->nqual);
-    call->mwu_bq  = calc_mwu_bias(bca->ref_bq,  bca->alt_bq,  bca->nqual);
-    call->mwu_mqs = calc_mwu_bias(bca->fwd_mqs, bca->rev_mqs, bca->nqual);
+        call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos,
+                                       0, 0);
+    call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,  bca->nqual,1,0);
+    call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,  bca->nqual,0,0);
+    call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual,0,0);
 #endif
 
 #if CDF_MWU_TESTS
