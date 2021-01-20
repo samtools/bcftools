@@ -2901,13 +2901,9 @@ void stage_line(args_t *args)
 
 void merge_line(args_t *args)
 {
-    if ( args->regs )
-    {
-        if ( !regidx_overlap(args->regs,args->maux->chr,args->maux->pos,args->maux->pos,NULL) ) return;
-    }
-
     bcf1_t *out = args->out_line;
     merge_chrom2qual(args, out);
+    if ( args->regs && !regidx_overlap(args->regs,args->maux->chr,out->pos,out->pos+out->rlen-1,NULL) ) return;
     merge_filter(args, out);
     merge_info(args, out);
     if ( args->do_gvcf )
@@ -3102,8 +3098,8 @@ static void usage(void)
     fprintf(stderr, "        --no-version                   do not append version and command line to the header\n");
     fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
     fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <region>             restrict by POS to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file <file>          restrict by POS to regions listed in a file\n");
+    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
     fprintf(stderr, "        --threads <int>                use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
