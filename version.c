@@ -1,6 +1,6 @@
 /*  version.c -- report version numbers for plugins.
 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -70,6 +70,7 @@ const char *hts_bcf_wmode(int file_type)
 
 const char *hts_bcf_wmode2(int file_type, char *fname)
 {
+    if ( !fname ) return hts_bcf_wmode(file_type);
     int len = strlen(fname);
     if ( len >= 4 && !strcasecmp(".bcf",fname+len-4) ) return hts_bcf_wmode(FT_BCF|FT_GZ);
     if ( len >= 4 && !strcasecmp(".vcf",fname+len-4) ) return hts_bcf_wmode(FT_VCF);

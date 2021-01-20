@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017-2020 Genome Research Ltd.
+    Copyright (C) 2017-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -429,7 +429,7 @@ static void init_data(args_t *args)
         if ( args->output_type & FT_BCF ) kputs(".bcf", &str);
         else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &str);
         else kputs(".vcf", &str);
-        set->fh = hts_open(str.s, hts_bcf_wmode(args->output_type));
+        set->fh = hts_open(str.s, hts_bcf_wmode2(args->output_type,str.s));
         if ( set->fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, str.s, strerror(errno));
         if ( args->hts_opts )
         {

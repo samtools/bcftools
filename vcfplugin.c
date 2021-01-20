@@ -1,6 +1,6 @@
 /*  vcfplugin.c -- plugin modules for operating on VCF/BCF files.
 
-    Copyright (C) 2013-2020 Genome Research Ltd.
+    Copyright (C) 2013-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -522,7 +522,7 @@ static void init_data(args_t *args)
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_plugin");
     if ( !args->drop_header )
     {
-        args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+        args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
         if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);

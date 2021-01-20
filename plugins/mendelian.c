@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2018 Genome Research Ltd.
+   Copyright (c) 2015-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -441,7 +441,7 @@ int run(int argc, char **argv)
     args.hdr = bcf_sr_get_header(args.sr, 0);
     if ( args.mode!=MODE_COUNT )
     {
-        args.out_fh = hts_open(args.output_fname,hts_bcf_wmode(args.output_type));
+        args.out_fh = hts_open(args.output_fname,hts_bcf_wmode2(args.output_type,args.output_fname));
         if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
         if ( args.mode&MODE_ANNOTATE )
             bcf_hdr_append(args.hdr, "##INFO=<ID=MERR,Number=1,Type=Integer,Description=\"Mendelian genotype errors\">");

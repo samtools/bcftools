@@ -1,6 +1,6 @@
 /*  vcfmerge.c -- Merge multiple VCF/BCF files to create one multi-sample file.
 
-    Copyright (C) 2012-2020 Genome Research Ltd.
+    Copyright (C) 2012-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -3007,7 +3007,7 @@ void hdr_add_localized_tags(args_t *args, bcf_hdr_t *hdr)
 }
 void merge_vcf(args_t *args)
 {
-    args->out_fh  = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+    args->out_fh  = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p); //hts_set_threads(args->out_fh, args->n_threads);
     args->out_hdr = bcf_hdr_init("w");

@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2016-2020 Genome Research Ltd.
+   Copyright (c) 2016-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -1404,7 +1404,7 @@ void init_data(args_t *args)
     }
     else
     {
-        args->out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode(args->output_type));
+        args->out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode2(args->output_type,args->output_fname));
         if ( args->out_fh == NULL ) error("[%s] Error: cannot write to %s: %s\n", __func__,args->output_fname? args->output_fname : "standard output", strerror(errno));
         if ( args->n_threads > 0)
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->sr->p);

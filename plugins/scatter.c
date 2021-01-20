@@ -1,6 +1,6 @@
 /* The MIT License
 
-    Copyright (C) 2020 Giulio Genovese
+    Copyright (C) 2020-2021 Giulio Genovese
 
     Author: Giulio Genovese <giulio.genovese@gmail.com>
 
@@ -175,7 +175,7 @@ static void open_set(subset_t *set, args_t *args)
     if ( args->output_type & FT_BCF ) kputs(".bcf", &args->str);
     else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &args->str);
     else kputs(".vcf", &args->str);
-    set->fh = hts_open(args->str.s, hts_bcf_wmode(args->output_type));
+    set->fh = hts_open(args->str.s, hts_bcf_wmode2(args->output_type,args->str.s));
     if ( set->fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, args->str.s, strerror(errno));
     if ( args->n_threads > 0)
         hts_set_opt(set->fh, HTS_OPT_THREAD_POOL, args->sr->p);

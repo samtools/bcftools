@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019-2020 Genome Research Ltd.
+   Copyright (c) 2019-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -1067,7 +1067,7 @@ int run(int argc, char **argv)
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
         else
         {
-            args->fh_vcf = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+            args->fh_vcf = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
             if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_split-vep");
             if ( bcf_hdr_write(args->fh_vcf, args->hdr_out)!=0 ) error("Failed to write the header to %s\n", args->output_fname);
         }

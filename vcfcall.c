@@ -1,6 +1,6 @@
 /*  vcfcall.c -- SNP/indel variant calling from VCF/BCF.
 
-    Copyright (C) 2013-2020 Genome Research Ltd.
+    Copyright (C) 2013-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -687,7 +687,7 @@ static void init_data(args_t *args)
     if ( args->aux.flag & CALL_CONSTR_ALLELES )
         args->vcfbuf = vcfbuf_init(args->aux.hdr, 0);
 
-    args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( args->out_fh == NULL ) error("Error: cannot write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 

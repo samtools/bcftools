@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017 Genome Research Ltd.
+    Copyright (C) 2017-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -366,7 +366,7 @@ int run(int argc, char **argv)
     if ( args->filter_str )
         args->filter = filter_init(args->hdr_in, args->filter_str);
     init_groups(args);
-    args->fh_out = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+    args->fh_out = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( bcf_hdr_write(args->fh_out, args->hdr_out)!=0 ) error("Failed to write the header\n");
     while ( bcf_sr_next_line(args->sr) ) process_gvcf(args);
     flush_block(args, NULL);

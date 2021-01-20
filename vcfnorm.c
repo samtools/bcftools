@@ -1,6 +1,6 @@
 /*  vcfnorm.c -- Left-align and normalize indels.
 
-    Copyright (C) 2013-2020 Genome Research Ltd.
+    Copyright (C) 2013-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1917,7 +1917,7 @@ static void normalize_line(args_t *args, bcf1_t **line_ptr)
 
 static void normalize_vcf(args_t *args)
 {
-    htsFile *out = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+    htsFile *out = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( out == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads )
         hts_set_opt(out, HTS_OPT_THREAD_POOL, args->files->p);
