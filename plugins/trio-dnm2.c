@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018-2020 Genome Research Ltd.
+   Copyright (c) 2018-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -96,7 +96,8 @@ typedef struct
     char *dnm_score_tag;            // the argument of --use tag, by default DNM:int
     int dnm_score_is_float;         // given by e.g. --use tag DNM:float
     double mrate;                   // --use mrate, mutation rate
-    double pnoise_abs,pnoise_frac;  // --use pn|pnoise
+    double pnoise_abs,pnoise_frac;  // --use pn|pnoise or --use pns
+    int pnoise_strict;              // set to 1 if pns was used or 0 if pn
     int use_ppl, use_ppl_qs;        // --use ppl and --use ppl-qs
     int use_dng_priors;             // --use dng-priors
     priors_t priors, priors_X, priors_XX;
@@ -117,26 +118,27 @@ static const char *usage_text(void)
         "About: Screen variants for possible de-novo mutations in trios\n"
         "Usage: bcftools +trio-dnm2 [Plugin Options]\n"
         "Plugin options:\n"
-        "   -e, --exclude EXPR              exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
-        "       --force-AD                  calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
-        "   -i, --include EXPR              include trios for which the expression is true (one failing samples invalidates a trio)\n"
-        "   -m, --min-score NUM             do not add FMT/DNM annotation if the score is smaller than NUM\n"
-        "   -o, --output FILE               output file name [stdout]\n"
+        "   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
+        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
+        "   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)\n"
+        "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
+        "   -o, --output FILE               Output file name [stdout]\n"
         "   -O, --output-type <b|u|z|v>     b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "   -p, --pfm [1X:|2X:]P,F,M        sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
+        "   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
         "   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)\n"
-        "   -r, --regions REG               restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE         restrict to regions listed in a file\n"
-        "   -t, --targets REG               similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
-        "   -u, --use OPTION[=VALUE]        various options to tweak:\n"
-        "          DNG                         use the original DeNovoGear model\n"
-        "          dng-priors                  use the original DeNovoGear priors\n"
-        "          mrate=NUM                   mutation rate for DNG and AC-DNG models [-u mrate=1e-8]\n"
-        "          pn|pnoise=FRAC[,NUM]        noise tolerance (or mosaicity) in parents, given as fraction of QS or number of reads [-u pn=0.045,0]\n"
-        "          ppl                         use parental genotype likelihoods (FMT/PL rather than FMT/QS)\n"
-        "          tag=TAG[:phred|log]         annotation to add, either as phred quality (int) or log-scaled (float) [-u tag=DNM:phred]\n"
-        "   -X, --chrX LIST                 regions with the chr X inheritance pattern or one of the predefined lists, exclude PARs [GRCh37]\n"
+        "   -r, --regions REG               Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
+        "   -u, --use OPTION[=VALUE]        Various options to tweak:\n"
+        "          DNG                         Use the original DeNovoGear model, implies -u dng-priors\n"
+        "          dng-priors                  Use the original DeNovoGear priors (including bugs in prior assignment)\n"
+        "          mrate=NUM                   Mutation rate for DNG and AC-DNG models [-u mrate=1e-8]\n"
+        "          pn=FRAC[,NUM]               Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [-u pn=0,0]\n"
+        "          pns=FRAC[,NUM]              Same as `pn` but is not applied to alleles observed in both parents [-u pns=0.045,0]\n"
+        "          ppl                         Use parental genotype likelihoods (FMT/PL rather than FMT/QS)\n"
+        "          tag=TAG[:phred|log]         Annotation to add, either as phred quality (int) or log-scaled (float) [-u tag=DNM:log]\n"
+        "   -X, --chrX LIST                 Regions with the chr X inheritance pattern or one of the predefined lists, exclude PARs [GRCh37]\n"
         "                                      GRCh37 .. X:1-60000,chrX:1-60000,X:2699521-154931043,chrX:2699521-154931043\n"
         "                                      GRCh38 .. X:1-9999,chrX:1-9999,X:2781480-155701381,chrX:2781480-155701381\n"
         "\n"
@@ -216,10 +218,20 @@ static void parse_ped(args_t *args, char *fname)
     }
     while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 );
 
-    fprintf(stderr,"Identified %d complete trio%s in the VCF file\n", args->ntrio,args->ntrio==1?"":"s");
-
     // sort the sample by index so that they are accessed more or less sequentially
     qsort(args->trio,args->ntrio,sizeof(trio_t),cmp_trios);
+
+    // check for duplicates
+    int i;
+    for (i=1; i<args->ntrio; i++)
+    {
+        trio_t *ta = &args->trio[i-1];
+        trio_t *tb = &args->trio[i];
+        if ( ta->idx[0]==tb->idx[0] && ta->idx[1]==tb->idx[1] && ta->idx[2]==tb->idx[2] )
+            error("Error: duplicate trio entries detected in the PED file: %s\n",fname);
+    }
+
+    fprintf(stderr,"Identified %d complete trio%s in the VCF file\n", args->ntrio,args->ntrio==1?"":"s");
 
     free(str.s);
     free(off);
@@ -646,7 +658,7 @@ static void init_data(args_t *args)
     args->chrX_idx = regidx_init_string(rmme, regidx_parse_reg, NULL, 0, NULL);
     free(rmme);
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
@@ -741,7 +753,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                             else if ( fa==fb )
                                 fpl += qs[iFATHER][i];
                         }
-                    }
+                    } 
                     int mi = 0;
                     for (ma=0; ma<nals; ma++)
                     {
@@ -765,6 +777,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                             }
                             double val = cpl + fpl + mpl + priors->pprob[fi][mi][ci];
                             sum = sum_log(sum,val);
+#define DEBUG 0
 #if DEBUG
                             if(val!=-HUGE_VAL)                            
                                 fprintf(stderr,"m,f,c: %d%d+%d%d=%d%d  dn=%d (%d,%d,%d)   mpl,fpl,cpl: %+e %+e %+e \t prior:%+e \t pval=%+e  sum=%+e  %c\n",
@@ -961,7 +974,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     {
         if ( args->filter && !args->trio[i].pass ) continue;
 
-        // Samples can be in any other in the VCF, set PL and QS to reflect the iFATHER,iMOTHER,iCHILD indices
+        // Samples can be in any order in the VCF, set PL and QS to reflect the iFATHER,iMOTHER,iCHILD indices
         double *ppl[3];
         double *pqs[3];
         for (j=0; j<3; j++) // set trio PLs
@@ -974,30 +987,41 @@ static void process_record(args_t *args, bcf1_t *rec)
         }
         if ( args->use_model&USE_ACM )   // set trio QS
         {
+            int32_t *ad_f = NULL, *ad_m = NULL;
+            if ( args->pnoise_strict && args->ad )
+            {
+                // apply noise tolerance for alleles observed in a single parent only
+                ad_f = args->ad + n_ad * args->trio[i].idx[iFATHER];
+                ad_m = args->ad + n_ad * args->trio[i].idx[iMOTHER];
+            }
             for (j=0; j<3; j++)
             {
                 int32_t *ad = (args->pnoise_abs && args->ad ) ? args->ad + n_ad * args->trio[i].idx[j] : NULL;
                 int32_t *qs = args->qs + nqs1 * args->trio[i].idx[j];
-                double *dst = pqs[j] = args->qs3 + j*nqs1;
+                pqs[j] = args->qs3 + j*nqs1;
                 double noise_tolerance = 0;
+                double sum_qs = 0, sum_ad = 0;
                 if ( j!=iCHILD )
                 {
-                    double sum_qs = 0, sum_ad = 0;
                     for (k=0; k<nqs1; k++) sum_qs += qs[k];
                     noise_tolerance = sum_qs * args->pnoise_frac;
                     if ( ad )
                     {
                         for (k=0; k<n_ad; k++) sum_ad += ad[k];
-                        if ( noise_tolerance < args->pnoise_abs * sum_qs / sum_ad )
-                            noise_tolerance = args->pnoise_abs * sum_qs / sum_ad;
+                        if ( args->pnoise_abs )
+                        {
+                            if ( noise_tolerance < args->pnoise_abs * sum_qs / sum_ad )
+                                noise_tolerance = args->pnoise_abs * sum_qs / sum_ad;
+                        }
                     }
                 }
                 for (k=0; k<nqs1; k++)
                 {
-                    double val = qs[k] - noise_tolerance;
+                    double val = qs[k];
+                    if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
                     if ( val < 0 ) val = 0;
                     if ( val > 255 ) val = 255;
-                    dst[k] = phred2log(val);
+                    pqs[j][k] = phred2log(val);
                 }
             }
             if ( args->use_ppl_qs )
@@ -1073,9 +1097,9 @@ static void set_option(args_t *args, char *optarg)
         args->mrate = strtod(val,&tmp);
         if ( *tmp ) error("Could not parse: -u %s\n", optarg);
     }
-    else if ( !strcasecmp(opt,"pn") || !strcasecmp(opt,"pnoise") )
+    else if ( !strcasecmp(opt,"pn") || !strcasecmp(opt,"pnoise") || !strcasecmp(opt,"pns") )
     {
-        if ( !val ) error("Error: expected value with -u pnoise, e.g. -u pnoise=0.05\n");
+        if ( !val ) error("Error: expected value with -u %s, e.g. -u %s=0.05\n",opt,opt);
         args->pnoise_frac = strtod(val,&tmp);
         if ( *tmp && *tmp==',' )
         {
@@ -1084,6 +1108,7 @@ static void set_option(args_t *args, char *optarg)
         }
         if ( args->pnoise_frac<0 || args->pnoise_frac>1 ) error("Error: expected value from the interval [0,1] for -u %s\n", optarg);
         if ( args->pnoise_abs<0 ) error("Error: expected positive value for -u %s\n", optarg);
+        args->pnoise_strict = !strcasecmp(opt,"pn") ? 0 : 1;
     }
     else if ( !strcasecmp(opt,"DNG") ) { args->use_model = USE_DNG; args->use_dng_priors = 1; }
     else if ( !strcasecmp(opt,"dng-priors") ) args->use_dng_priors = 1;
@@ -1104,9 +1129,11 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     args->dnm_score_tag = strdup("DNM:phred");
     args->mrate = 1e-8;
-    args->pnoise_frac = 0.045;
-    args->pnoise_abs  = 0;
+    args->pnoise_frac   = 0.045;
+    args->pnoise_abs    = 0;
+    args->pnoise_strict = 1;
     args->use_model = USE_ACM;
+    args->dnm_score_is_float = 1;
     static struct option loptions[] =
     {
         {"chrX",required_argument,0,'X'},

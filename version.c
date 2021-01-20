@@ -60,7 +60,6 @@ void error_errno(const char *format, ...)
     exit(-1);
 }
 
-
 const char *hts_bcf_wmode(int file_type)
 {
     if ( file_type == FT_BCF ) return "wbu";    // uncompressed BCF
@@ -69,4 +68,13 @@ const char *hts_bcf_wmode(int file_type)
     return "w";                                 // uncompressed VCF
 }
 
+const char *hts_bcf_wmode2(int file_type, char *fname)
+{
+    int len = strlen(fname);
+    if ( len >= 4 && !strcasecmp(".bcf",fname+len-4) ) return hts_bcf_wmode(FT_BCF|FT_GZ);
+    if ( len >= 4 && !strcasecmp(".vcf",fname+len-4) ) return hts_bcf_wmode(FT_VCF);
+    if ( len >= 7 && !strcasecmp(".vcf.gz",fname+len-7) ) return hts_bcf_wmode(FT_VCF|FT_GZ);
+    if ( len >= 8 && !strcasecmp(".vcf.bgz",fname+len-8) ) return hts_bcf_wmode(FT_VCF|FT_GZ);
+    return hts_bcf_wmode(file_type);
+}
 
