@@ -394,16 +394,6 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
  *
  * NB: this may sadly realign after we've already used the data.  Hmm...
  */
-static void bump_mq(int n, int *n_plp, const bam_pileup1_t **plp, int mx) {
-    int i, j;
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < n_plp[i]; j++) {
-            bam_pileup1_t *p = (bam_pileup1_t *)plp[i] + j;
-            bam1_t *b = p->b;
-            b->core.qual += b->core.qual/2 < mx ? b->core.qual/2 : mx;
-        }
-    }
-}
 static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
                        char *ref, int ref_len, int pos) {
     int i, j, has_indel = 0, has_clip = 0, nt = 0;
@@ -444,7 +434,6 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
     // Don't bother realigning the most minor of cases.
     // No indels, or low indel rate combined with low soft-clipping rate
     if (has_indel == 0 || ((has_indel < 0.1*nt || has_indel == 1) && has_clip < 0.2*nt)) {
-        //bump_mq(n, n_plp, plp, 2);
         return;
     }
 
@@ -502,18 +491,15 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             }
         }
         if (nsz == 1) {
-            //bump_mq(n, n_plp, plp, 5);
             return;
         }
         if (nsz == 2) {
             double d = (n1+.01)/(n1+n2+.01);
             if (d > 0.4 && d < 0.6) {
-                //bump_mq(n, n_plp, plp, 5);
                 return;
             }
         }
         if (nsz > 2 && (double)indel_sz[0]/nt > 0.95) {
-            //bump_mq(n, n_plp, plp, 5);
             return;
         }
     }
@@ -537,9 +523,6 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
                 continue;
             b->core.flag |= 32768;
 
-            static int n_pos = 0, n_realn = 0;
-            n_pos++;
-
 //            if (b->core.qual == 0)
 //                continue; // no need to do BAQ as already considered poor
 
@@ -555,14 +538,7 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             //
             // This rescues some of the false negatives that are caused by
             // systematic reduction in quality due to sample vs ref alignment.
-            int pstart = b->core.pos;
-            int pend = b->core.pos + bam_cigar2rlen(b->core.n_cigar,
-                                                    bam_get_cigar(b))-1;
 #define REALN_DIST 50
-//            if (pos - pstart >= REALN_DIST && pend - (pos+dlen) >= REALN_DIST)
-//                continue;
-//            fprintf(stderr, "pos=%d+%d pstart=%d pend=%d => L %d / R %d, clip=%d\n",
-//                    pos, dlen, pstart, pend, pos-pstart, pend - (pos+dlen), has_clip);
             uint32_t *cig = bam_get_cigar(b);
             int ncig = b->core.n_cigar;
 
@@ -594,13 +570,6 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             // fixme, honour conf->flag & MPLP_REDO_BAQ
             //fprintf(stderr, "Realn %s\n", bam_get_qname(b));
             sam_prob_realn(b, ref, ref_len, 3);
-
-            n_realn++;
-            if (n_realn % 1000 == 0) {
-                // approx 75% of indels, about 30% of total reads
-                fprintf(stderr, "Realigned %d of %d (%f %%)\n",
-                        n_realn, n_pos, 100.0*n_realn / n_pos);
-            }
         }
     }
 
@@ -845,6 +814,8 @@ static int mpileup(mplp_conf_t *conf)
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)\">");
+    if ( conf->fmt_flag&B2B_INFO_SCB )
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SCBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)\">");
 #else
     if ( conf->fmt_flag&B2B_INFO_RPB )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
@@ -852,6 +823,7 @@ static int mpileup(mplp_conf_t *conf)
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
 #endif
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=FS,Number=1,Type=Float,Description=\"Phred-scaled p-value using Fisher's exact test to detect strand bias\">");
 #if CDF_MWU_TESTS
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias [CDF] (bigger is better)\">");
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias [CDF] (bigger is better)\">");
@@ -1112,6 +1084,7 @@ int parse_format_flag(const char *str)
         else if ( !strcasecmp(tags[i],"INFO/AD") ) flag |= B2B_INFO_AD;
         else if ( !strcasecmp(tags[i],"INFO/ADF") ) flag |= B2B_INFO_ADF;
         else if ( !strcasecmp(tags[i],"INFO/ADR") ) flag |= B2B_INFO_ADR;
+        else if ( !strcasecmp(tags[i],"SCB") || !strcasecmp(tags[i],"INFO/SCB")) flag |= B2B_INFO_SCB;
         else
         {
             fprintf(stderr,"Could not parse tag \"%s\" in \"%s\"\n", tags[i], str);
@@ -1251,7 +1224,8 @@ int main_mpileup(int argc, char *argv[])
     mplp.record_cmd_line = 1;
     mplp.n_threads = 0;
     mplp.bsmpl = bam_smpl_init();
-    mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB;    // the default to be changed in future, see also parse_format_flag()
+    // the default to be changed in future, see also parse_format_flag()
+    mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB|B2B_INFO_SCB;
 
     static const struct option lopts[] =
     {
