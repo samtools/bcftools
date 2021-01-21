@@ -532,31 +532,23 @@ double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
 
     double U, m;
     U = l + e*0.5; // Mann-Whitney U score
-    m = na*nb / 2;
+    m = na*nb / 2.0;
 
     // With ties adjustment
     double var2 = (na*nb)/12.0 * ((na+nb+1) - t/(double)((na+nb)*(na+nb-1)));
     // var = na*nb*(na+nb+1)/12.0; // simpler; minus tie adjustment
-    if (var2 < 0)
+    if (var2 <= 0)
         return HUGE_VAL;
 
     if (do_Z) {
         // S.D. normalised Z-score
         //Z = (U - m - (U-m >= 0 ? 0.5 : -0.5)) / sd; // gatk method?
-        return var2 ? (U - m) / sqrt(var2) : 0;
+        return (U - m) / sqrt(var2);
     }
 
     // Else U score, which can be asymmetric for some data types.
     if (left_only && U > m)
         return HUGE_VAL; // one-sided, +ve bias is OK, -ve is not.
-
-    if (var2 <= 0)
-        return HUGE_VAL;
-
-    if ( na==2 || nb==2 ) {
-        // Linear approximation
-        return U > m ? (2.0*m-U)/m : U/m;
-    }
 
     if (na >= 8 || nb >= 8) {
         // Normal approximation, very good for na>=8 && nb>=8 and
@@ -565,7 +557,10 @@ double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
     }
 
     // Exact calculation
-    return mann_whitney_1947_(na, nb, U) * sqrt(2*M_PI*var2);
+    if (na==1 || nb == 1)
+        return mann_whitney_1947_(na, nb, U) * sqrt(2*M_PI*var2);
+    else
+        return mann_whitney_1947(na, nb, U) * sqrt(2*M_PI*var2);
 }
 
 static inline double logsumexp2(double a, double b)
