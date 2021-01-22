@@ -850,6 +850,15 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-I, --iupac-codes*::
     output variants in the form of IUPAC ambiguity codes
 
+*--mark-del* 'CHAR'::
+    instead of removing sequence, insert CHAR for deletions
+
+*--mark-ins* 'uc'|'lc'::
+    highlight inserted sequence in upper (uc) or lower (lc) case, leaving the rest of the sequence as is
+
+*--mark-snv* 'uc'|'lc'::
+    highlight substitutions in upper (uc) or lower (lc) case, leaving the rest of the sequence as is
+
 *-m, --mask* 'FILE'::
     BED file or TAB file with regions to be replaced with N. See discussion
     of *--regions-file* in *<<common_options,Common Options>>* for file
