@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2020 Genome Research Ltd.
+#   Copyright (C) 2012-2021 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -536,6 +536,8 @@ test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.2.out',cmd=>'+prune -w 2 -a r2
 test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.3.out',cmd=>'+prune -w 2 -a r2 -m 0.5 ');                      # prune within 2bp, max r2=0.5
 test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.4.out',cmd=>'+prune -w 2bp -n 1 --AF-tag AF');                 # leave 1 site within 2bp windows, prioritize by AF
 test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.5.out',cmd=>q[+prune -w 2bp -n 1 --AF-tag AF -i 'GT="alt"']);  # same as above but first discard REF-only sites
+test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.6.out',cmd=>'+prune -w 2bp -n 1 -N 1st');
+test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.7.out',cmd=>'+prune -w 2bp -n 1 -N rand');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.1.out',tmp=>'split.1.1');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args=>'-S {PATH}/split.smpl.1.2.txt');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');
