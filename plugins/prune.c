@@ -40,6 +40,7 @@
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <assert.h>
+#include <time.h>
 #include "bcftools.h"
 #include "vcfbuf.h"
 #include "filter.h"
@@ -60,7 +61,7 @@ typedef struct
     int ld_max_set[VCFBUF_LD_N];
     char *ld_annot[VCFBUF_LD_N], *ld_annot_pos[VCFBUF_LD_N];
     int ld_mask;
-    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win;
+    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win, rseed;
     char *nsites_mode;
     int keep_sites;
     char **argv, *region, *target, *fname, *output_fname, *ld_filter;
@@ -94,6 +95,7 @@ static const char *usage_text(void)
         "   -N, --nsites-per-win-mode STR   keep sites with biggest AF (\"maxAF\"); sites that come first (\"1st\"); pick randomly (\"rand\") [maxAF]\n"
         "   -o, --output FILE               write output to the FILE [standard output]\n"
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "       --random-seed INT           use the provided random seed for reproducibility\n"
         "       --randomize-missing         replace missing data with randomly assigned genotype based on site's allele frequency\n"
         "   -r, --regions REGION            restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
@@ -273,11 +275,13 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     args->ld_win = -100e3;
     args->nsites_mode = "maxAF";
+    args->rseed = time(NULL);
     static struct option loptions[] =
     {
         {"keep-sites",no_argument,NULL,'k'},
         {"randomize-missing",no_argument,NULL,1},
         {"AF-tag",required_argument,NULL,2},
+        {"random-seed",required_argument,NULL,3},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"annotate",required_argument,NULL,'a'},
@@ -300,6 +304,10 @@ int run(int argc, char **argv)
         {
             case  1 : args->rand_missing = 1; break;
             case  2 : args->af_tag = optarg; break;
+            case  3 : 
+                args->rseed = strtol(optarg,&tmp,10);
+                if ( tmp==optarg || *tmp ) error("Could not parse: --random-seed %s\n", optarg);
+                break;
             case 'k': args->keep_sites = 1; break;
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
@@ -399,6 +407,11 @@ int run(int argc, char **argv)
     if ( !args->ld_mask && !args->nsites ) error("%sError: Expected pruning (--max,--nsites-per-win) or annotation (--annotate) options\n\n", usage_text());
     if ( args->ld_filter && strcmp(".",args->ld_filter) && !(args->ld_mask & LD_SET_MAX) ) error("The --set-filter option requires --max.\n");
     if ( args->keep_sites && args->nsites ) error("The --keep-sites option cannot be combined with --nsites-per-win\n");
+    if ( args->rand_missing || (args->nsites_mode && !strcasecmp(args->nsites_mode,"rand")) )
+    {
+        fprintf(stderr,"Using random seed: %d\n",args->rseed);
+        srand(args->rseed);
+    }
 
     if ( optind==argc )
     {
