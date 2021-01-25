@@ -414,6 +414,7 @@ static char *mark_del(char *ref, int rlen, char *alt, int mark)
         for (i=0; i<nref; i++) out[i] = ref[i];
     }
     for (; i<rlen; i++) out[i] = mark;
+    out[rlen] = 0;
     return out;
 }
 static void mark_ins(char *ref, char *alt, char mark)
