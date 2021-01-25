@@ -44,6 +44,8 @@ typedef enum
     VCFBUF_NSITES_MODE,     // one of: maxAF (keep sites with max AF), 1st (sites that come first), rand (pick randomly)
     VCFBUF_AF_TAG,          // use this INFO tag with VCFBUF_NSITES
 
+    RANDOM_SEED,            // initialize random seed generator used in LD_RAND_MISSING and VCFBUF_NSITES_MODE=rand
+
     // LD related options
     LD_RAND_MISSING,        // randomize rather than ignore missing genotypes
     LD_FILTER1,             // exclude the next record inserted by vcfbuf_push() from LD analysis

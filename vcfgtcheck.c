@@ -42,6 +42,7 @@ THE SOFTWARE.  */
 #include <sys/time.h>
 #include "bcftools.h"
 #include "extsort.h"
+#include "pcg.h"
 //#include "hclust.h"
 
 typedef struct
@@ -178,22 +179,9 @@ static inline void diff_sites_reset(args_t *args)
 {
     kbs_clear(args->kbs_diff);
 }
-/* 
-    Generage a 32-bit random number, taken from
-        https://www.pcg-random.org/download.html#minimal-c-implementation
-*/
-typedef struct { uint64_t state;  uint64_t inc; } pcg32_random_t;
-static uint32_t pcg32_random_r(pcg32_random_t* rng)
-{
-    uint64_t oldstate = rng->state;
-    rng->state = oldstate * 6364136223846793005ULL + (rng->inc|1);
-    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
-    uint32_t rot = oldstate >> 59u;
-    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
-}
 static inline void diff_sites_push(args_t *args, int ndiff, int rid, int pos)
 {
-    static pcg32_random_t rng = { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL };
+    static pcg32_random_t rng = PCG32_INITIALIZER;
     diff_sites_t *dat = (diff_sites_t*) malloc(args->diff_sites_size);
     memset(dat,0,sizeof(*dat)); // for debugging: prevent warnings about uninitialized memory coming from struct padding (not needed after rand added)
     dat->ndiff = ndiff;

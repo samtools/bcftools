@@ -188,6 +188,11 @@ static void init_data(args_t *args)
     if ( args->ld_max_set[VCFBUF_LD_IDX_R2] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_R2,args->ld_max[VCFBUF_LD_IDX_R2]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_LD] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_LD,args->ld_max[VCFBUF_LD_IDX_LD]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_HD] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_HD,args->ld_max[VCFBUF_LD_IDX_HD]);
+    if ( args->rand_missing || (args->nsites_mode && !strcasecmp(args->nsites_mode,"rand")) )
+    {
+        fprintf(stderr,"Using random seed: %d\n",args->rseed);
+        vcfbuf_set_opt(args->vcfbuf,double,RANDOM_SEED,args->rseed);
+    }
     if ( args->rand_missing ) vcfbuf_set_opt(args->vcfbuf,int,LD_RAND_MISSING,1);
     if ( args->nsites )
     {
@@ -407,11 +412,6 @@ int run(int argc, char **argv)
     if ( !args->ld_mask && !args->nsites ) error("%sError: Expected pruning (--max,--nsites-per-win) or annotation (--annotate) options\n\n", usage_text());
     if ( args->ld_filter && strcmp(".",args->ld_filter) && !(args->ld_mask & LD_SET_MAX) ) error("The --set-filter option requires --max.\n");
     if ( args->keep_sites && args->nsites ) error("The --keep-sites option cannot be combined with --nsites-per-win\n");
-    if ( args->rand_missing || (args->nsites_mode && !strcasecmp(args->nsites_mode,"rand")) )
-    {
-        fprintf(stderr,"Using random seed: %d\n",args->rseed);
-        srand(args->rseed);
-    }
 
     if ( optind==argc )
     {
