@@ -501,7 +501,7 @@ static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
     if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
     hts_expand(int,1,args->mtmpi,args->tmpi);
     args->tmpi[0] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, tab->cols[col->icol]);
-    if ( args->tmpi[0]<0 ) error("The FILTER is not defined in the header: %s\n", tab->cols[col->icol]);
+    if ( args->tmpi[0]<0 ) error("The FILTER \"%s\" is not defined in the header, was the -h option provided?\n", tab->cols[col->icol]);
     if ( col->replace==SET_OR_APPEND ) return bcf_add_filter(args->hdr_out,line,args->tmpi[0]);
     if ( col->replace!=REPLACE_MISSING )
     {
@@ -2267,7 +2267,7 @@ static void init_columns(args_t *args)
             }
             int hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key_dst);
             if ( !bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_FMT,hdr_id) )
-                error("The tag \"%s\" is not defined in %s\n", str.s, args->targets_fname);
+                error("The tag \"%s\" is not defined in %s, was the -h option provided?\n", str.s, args->targets_fname);
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2376,7 +2376,7 @@ static void init_columns(args_t *args)
                                 *ptr = 0; tmp.l = 0; ksprintf(&tmp,"%s:=%s",key_src,ptr+1); *ptr = '=';
                                 error("The tag \"%s\" is not defined, is this what you want \"%s\" ?\n",key_src,tmp.s);
                             }
-                            error("The tag \"%s\" is not defined in %s\n", key_src,args->files->readers[1].fname);
+                            error("The tag \"%s\" is not defined in %s, was the -h option provided?\n", key_src,args->files->readers[1].fname);
                         }
                         tmp.l = 0;
                         bcf_hrec_format_rename(hrec, key_dst, &tmp);
@@ -2387,7 +2387,7 @@ static void init_columns(args_t *args)
                     hdr_id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, key_dst);
                 }
                 else
-                    error("The tag \"%s\" is not defined in %s\n", key_src, args->targets_fname);
+                    error("The tag \"%s\" is not defined in %s, was the -h option provided?\n", key_src, args->targets_fname);
                 assert( bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) );
             }
             col->number = bcf_hdr_id2length(args->hdr_out,BCF_HL_INFO,hdr_id);
