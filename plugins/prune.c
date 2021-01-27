@@ -39,6 +39,7 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <htslib/hts_os.h>
 #include <assert.h>
 #include <time.h>
 #include "bcftools.h"
@@ -191,7 +192,7 @@ static void init_data(args_t *args)
     if ( args->rand_missing || (args->nsites_mode && !strcasecmp(args->nsites_mode,"rand")) )
     {
         fprintf(stderr,"Using random seed: %d\n",args->rseed);
-        vcfbuf_set_opt(args->vcfbuf,double,RANDOM_SEED,args->rseed);
+        hts_srand48(args->rseed);
     }
     if ( args->rand_missing ) vcfbuf_set_opt(args->vcfbuf,int,LD_RAND_MISSING,1);
     if ( args->nsites )

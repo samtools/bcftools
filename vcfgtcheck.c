@@ -38,11 +38,11 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/kbitset.h>
+#include <htslib/hts_os.h>
 #include <inttypes.h>
 #include <sys/time.h>
 #include "bcftools.h"
 #include "extsort.h"
-#include "pcg.h"
 //#include "hclust.h"
 
 typedef struct
@@ -181,13 +181,12 @@ static inline void diff_sites_reset(args_t *args)
 }
 static inline void diff_sites_push(args_t *args, int ndiff, int rid, int pos)
 {
-    static pcg32_random_t rng = PCG32_INITIALIZER;
     diff_sites_t *dat = (diff_sites_t*) malloc(args->diff_sites_size);
     memset(dat,0,sizeof(*dat)); // for debugging: prevent warnings about uninitialized memory coming from struct padding (not needed after rand added)
     dat->ndiff = ndiff;
     dat->rid  = rid;
     dat->pos  = pos;
-    dat->rand = pcg32_random_r(&rng);
+    dat->rand = hts_lrand48();
     memcpy(dat->kbs_dat,args->kbs_diff->b,args->kbs_diff->n*sizeof(unsigned long));
     extsort_push(args->es,dat);
 }
@@ -233,6 +232,8 @@ static void init_samples(char *list, int list_is_file, int **smpl, int *nsmpl, b
 
 static void init_data(args_t *args)
 {
+    hts_srand48(0);
+
     args->files = bcf_sr_init();
     if ( args->regions && bcf_sr_set_regions(args->files, args->regions, args->regions_is_file)<0 ) error("Failed to read the regions: %s\n", args->regions);
     if ( args->targets && bcf_sr_set_targets(args->files, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n", args->targets);

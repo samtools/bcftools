@@ -27,9 +27,9 @@
 #include <assert.h>
 #include <htslib/vcf.h>
 #include <htslib/vcfutils.h>
+#include <htslib/hts_os.h>
 #include "bcftools.h"
 #include "vcfbuf.h"
-#include "pcg.h"
 #include "rbuf.h"
 
 typedef struct
@@ -82,7 +82,6 @@ struct _vcfbuf_t
     prune_t prune;
     overlap_t overlap;
     rmdup_t rmdup;
-    pcg32_random_t rng;
 };
 
 vcfbuf_t *vcfbuf_init(bcf_hdr_t *hdr, int win)
@@ -117,12 +116,6 @@ void vcfbuf_set(vcfbuf_t *buf, vcfbuf_opt_t key, void *value)
     if ( key==LD_MAX_R2 ) { buf->ld.max[VCFBUF_LD_IDX_R2] = *((double*)value); return; }
     if ( key==LD_MAX_LD ) { buf->ld.max[VCFBUF_LD_IDX_LD] = *((double*)value); return; }
     if ( key==LD_MAX_HD ) { buf->ld.max[VCFBUF_LD_IDX_HD] = *((double*)value); return; }
-
-    if ( key==RANDOM_SEED )
-    {
-        uint64_t seed = *((uint64_t*)value);
-        pcg32_srandom_r(&buf->rng, seed, seed);
-    }
 
     if ( key==VCFBUF_NSITES )
     {
@@ -215,7 +208,7 @@ static void _prune_sites(vcfbuf_t *buf, int flush_all)
         int eoff = flush_all ? 0 : 1;
         for (i=0; i<nprune; i++)
         {
-            int j = (buf->rbuf.n - eoff) * (double)pcg32_random_r(&buf->rng) / PCG32_RAND_MAX;
+            int j = (buf->rbuf.n - eoff) * hts_drand48();
             rbuf_remove_kth(&buf->rbuf, vcfrec_t, j, buf->vcf);
         }
         return;
@@ -442,7 +435,7 @@ static int _calc_r2_ld(vcfbuf_t *buf, bcf1_t *arec, bcf1_t *brec, vcfbuf_ld_t *l
             if ( aptr[j]==bcf_gt_missing )
             {
                 if ( !buf->ld.rand_missing ) break;
-                if ( (double)pcg32_random_r(&buf->rng)/PCG32_RAND_MAX >= aaf ) adsg += 1;
+                if ( hts_drand48() >= aaf ) adsg += 1;
             }
             else if ( bcf_gt_allele(aptr[j]) ) adsg += 1;
             an++;
@@ -453,7 +446,7 @@ static int _calc_r2_ld(vcfbuf_t *buf, bcf1_t *arec, bcf1_t *brec, vcfbuf_ld_t *l
             if ( bptr[j]==bcf_gt_missing )
             {
                 if ( !buf->ld.rand_missing ) break;
-                if ( (double)pcg32_random_r(&buf->rng)/PCG32_RAND_MAX >= baf ) bdsg += 1;
+                if ( hts_drand48() >= baf ) bdsg += 1;
             }
             else if ( bcf_gt_allele(bptr[j]) ) bdsg += 1;
             bn++;
