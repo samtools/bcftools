@@ -986,7 +986,7 @@ static void vcf_to_hapsample(args_t *args)
     if ( args->output_vcf_ids )
         kputs("%CHROM %ID %POS %REF %FIRST_ALT ", &str);
     else
-        kputs("%CHROM %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
+        kputs("%CHROM:%POS\\_%REF\\_%FIRST_ALT %CHROM:%POS\\_%REF\\_%FIRST_ALT %POS %REF %FIRST_ALT ", &str);
     
     if ( args->hap2dip )
         kputs("%_GT_TO_HAP2\n", &str);
@@ -1003,7 +1003,7 @@ static void vcf_to_hapsample(args_t *args)
     if ( n_files==1 )
     {
         int l = str.l;
-        kputs(".sample",&str);
+        kputs(".samples",&str);
         sample_fname = strdup(str.s);
         str.l = l;
         kputs(".hap.gz",&str);
