@@ -854,15 +854,19 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     instead of removing sequence, insert CHAR for deletions
 
 *--mark-ins* 'uc'|'lc'::
-    highlight inserted sequence in upper (uc) or lower (lc) case, leaving the rest of the sequence as is
+    highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
 
 *--mark-snv* 'uc'|'lc'::
-    highlight substitutions in upper (uc) or lower (lc) case, leaving the rest of the sequence as is
+    highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
 
 *-m, --mask* 'FILE'::
-    BED file or TAB file with regions to be replaced with N. See discussion
+    BED file or TAB file with regions to be replaced with N (the default) or as specified by
+    the next *--mask-with* option. See discussion
     of *--regions-file* in *<<common_options,Common Options>>* for file
     format details.
+
+*--mask-with* 'CHAR'|'lc'|'uc'::
+    replace sequence from *--mask* with CHAR or change to lowercase (lc) or uppercase (uc)
 
 *-M, --missing* 'CHAR'::
     instead of skipping the missing genotypes, output the character CHAR (e.g. "?")

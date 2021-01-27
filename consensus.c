@@ -68,6 +68,17 @@ typedef struct
 }
 chain_t;
 
+#define MASK_LC 1
+#define MASK_UC 2
+#define MASK_SKIP(x) (((x)->with!=MASK_LC && (x)->with!=MASK_UC) ? 1 : 0)
+typedef struct
+{
+    char *fname, with;
+    regidx_t *idx;
+    regitr_t *itr;
+}
+mask_t;
+
 typedef struct
 {
     kstring_t fa_buf;   // buffered reference sequence
@@ -88,8 +99,8 @@ typedef struct
     int nvcf_buf, rid;
     char *chr, *chr_prefix;
 
-    regidx_t *mask;
-    regitr_t *itr;
+    mask_t *mask;
+    int nmask;
 
     int chain_id;       // chain_id, to provide a unique ID to each chain in the chain output
     chain_t *chain;     // chain structure to store the sequence of ungapped blocks between the ref and alt sequences
@@ -227,11 +238,13 @@ static void init_data(args_t *args)
         if ( bcf_hdr_nsamples(args->hdr) > 1 ) error("The --sample option is expected with --haplotype\n");
         args->isample = 0;
     }
-    if ( args->mask_fname )
+    int i;
+    for (i=0; i<args->nmask; i++)
     {
-        args->mask = regidx_init(args->mask_fname,NULL,NULL,0,NULL);
-        if ( !args->mask ) error("Failed to initialize mask regions\n");
-        args->itr = regitr_init(args->mask);
+        mask_t *mask = &args->mask[i];
+        mask->idx = regidx_init(mask->fname,NULL,NULL,0,NULL);
+        if ( !mask->idx ) error("Failed to initialize mask regions\n");
+        mask->itr = regitr_init(mask->idx);
     }
     // In case we want to store the chains
     if ( args->chain_fname )
@@ -252,7 +265,23 @@ static void init_data(args_t *args)
         args->filter = filter_init(args->hdr, args->filter_str);
     args->rid = -1;
 }
-
+static void add_mask(args_t *args, char *fname)
+{
+    args->nmask++;
+    args->mask = (mask_t*)realloc(args->mask,args->nmask*sizeof(*args->mask));
+    mask_t *mask = &args->mask[args->nmask-1];
+    mask->fname = fname;
+    mask->with  = 'N';
+}
+static void add_mask_with(args_t *args, char *with)
+{
+    if ( !args->nmask ) error("The --mask-with option must follow --mask\n");
+    mask_t *mask = &args->mask[args->nmask-1];
+    if ( !strcasecmp(with,"uc") ) mask->with = MASK_UC;
+    else if ( !strcasecmp(with,"lc") ) mask->with = MASK_LC;
+    else if ( strlen(with)!=1 ) error("Expected \"lc\", \"uc\", or a single character with the --mask-with option\n");
+    else mask->with = *with;
+}
 static void destroy_data(args_t *args)
 {
     if (args->filter) filter_destroy(args->filter);
@@ -263,8 +292,13 @@ static void destroy_data(args_t *args)
     free(args->vcf_buf);
     free(args->fa_buf.s);
     free(args->chr);
-    if ( args->mask ) regidx_destroy(args->mask);
-    if ( args->itr ) regitr_destroy(args->itr);
+    for (i=0; i<args->nmask; i++)
+    {
+        mask_t *mask = &args->mask[i];
+        regidx_destroy(mask->idx);
+        regitr_destroy(mask->itr);
+    }
+    free(args->mask);
     if ( args->chain_fname )
         if ( fclose(args->fp_chain) ) error("Close failed: %s\n", args->chain_fname);
     if ( fclose(args->fp_out) ) error("Close failed: %s\n", args->output_fname);
@@ -447,15 +481,20 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     if ( args->absent_allele ) apply_absent(args, rec->pos);
     if ( rec->n_allele==1 && !args->missing_allele && !args->absent_allele ) { return; }
 
+    int i;
     if ( args->mask )
     {
         char *chr = (char*)bcf_hdr_id2name(args->hdr,args->rid);
         int start = rec->pos;
         int end   = rec->pos + rec->rlen - 1;
-        if ( regidx_overlap(args->mask, chr,start,end,NULL) ) return;
+        for (i=0; i<args->nmask; i++)
+        {
+            mask_t *mask = &args->mask[i];
+            if ( MASK_SKIP(mask) && regidx_overlap(mask->idx, chr,start,end,NULL) ) return;
+        }
     }
 
-    int i, ialt = 1;    // the alternate allele
+    int ialt = 1;    // the alternate allele
     if ( args->isample >= 0 )
     {
         bcf_unpack(rec, BCF_UN_FMT);
@@ -847,17 +886,27 @@ static void mask_region(args_t *args, char *seq, int len)
 {
     int start = args->fa_src_pos - len;
     int end   = args->fa_src_pos;
+    int i;
 
-    if ( !regidx_overlap(args->mask, args->chr,start,end, args->itr) ) return;
-
-    int idx_start, idx_end, i;
-    while ( regitr_overlap(args->itr) )
+    for (i=0; i<args->nmask; i++)
     {
-        idx_start = args->itr->beg - start;
-        idx_end   = args->itr->end - start;
-        if ( idx_start < 0 ) idx_start = 0;
-        if ( idx_end >= len ) idx_end = len - 1;
-        for (i=idx_start; i<=idx_end; i++) seq[i] = 'N';
+        mask_t *mask = &args->mask[i];
+        if ( !regidx_overlap(mask->idx, args->chr,start,end, mask->itr) ) continue;
+
+        int idx_start, idx_end, j;
+        while ( regitr_overlap(mask->itr) )
+        {
+            idx_start = mask->itr->beg - start;
+            idx_end   = mask->itr->end - start;
+            if ( idx_start < 0 ) idx_start = 0;
+            if ( idx_end >= len ) idx_end = len - 1;
+            if ( mask->with==MASK_UC )
+                for (j=idx_start; j<=idx_end; j++) seq[j] = toupper(seq[j]);
+            else if ( mask->with==MASK_LC )
+                for (j=idx_start; j<=idx_end; j++) seq[j] = tolower(seq[j]);
+            else
+                for (j=idx_start; j<=idx_end; j++) seq[j] = mask->with;
+        }
     }
 }
 
@@ -968,31 +1017,32 @@ static void usage(args_t *args)
     fprintf(stderr, "       --sample (and, optionally, --haplotype) option will apply genotype\n");
     fprintf(stderr, "       (or haplotype) calls from FORMAT/GT. The program ignores allelic depth\n");
     fprintf(stderr, "       information, such as INFO/AD or FORMAT/AD.\n");
-    fprintf(stderr, "Usage:   bcftools consensus [OPTIONS] <file.vcf.gz>\n");
+    fprintf(stderr, "Usage: bcftools consensus [OPTIONS] <file.vcf.gz>\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -c, --chain FILE         write a chain file for liftover\n");
-    fprintf(stderr, "    -a, --absent CHAR        replace positions absent from VCF with CHAR\n");
-    fprintf(stderr, "    -e, --exclude EXPR       exclude sites for which the expression is true (see man page for details)\n");
-    fprintf(stderr, "    -f, --fasta-ref FILE     reference sequence in fasta format\n");
-    fprintf(stderr, "    -H, --haplotype WHICH    choose which allele to use from the FORMAT/GT field, note\n");
-    fprintf(stderr, "                             the codes are case-insensitive:\n");
-    fprintf(stderr, "                                 1: first allele from GT, regardless of phasing\n");
-    fprintf(stderr, "                                 2: second allele from GT, regardless of phasing\n");
-    fprintf(stderr, "                                 R: REF allele in het genotypes\n");
-    fprintf(stderr, "                                 A: ALT allele\n");
-    fprintf(stderr, "                                 LR,LA: longer allele and REF/ALT if equal length\n");
-    fprintf(stderr, "                                 SR,SA: shorter allele and REF/ALT if equal length\n");
-    fprintf(stderr, "                                 1pIu,2pIu: first/second allele for phased and IUPAC code for unphased GTs\n");
-    fprintf(stderr, "    -i, --include EXPR       select sites for which the expression is true (see man page for details)\n");
-    fprintf(stderr, "    -I, --iupac-codes        output variants in the form of IUPAC ambiguity codes\n");
-    fprintf(stderr, "        --mark-del CHAR      instead of removing sequence, insert CHAR for deletions\n");
-    fprintf(stderr, "        --mark-ins uc|lc     highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
-    fprintf(stderr, "        --mark-snv uc|lc     highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
-    fprintf(stderr, "    -m, --mask FILE          replace regions with N\n");
-    fprintf(stderr, "    -M, --missing CHAR       output CHAR instead of skipping a missing genotype \"./.\"\n");
-    fprintf(stderr, "    -o, --output FILE        write output to a file [standard output]\n");
-    fprintf(stderr, "    -p, --prefix STRING      prefix to add to output sequence names\n");
-    fprintf(stderr, "    -s, --sample NAME        apply variants of the given sample\n");
+    fprintf(stderr, "    -c, --chain FILE               write a chain file for liftover\n");
+    fprintf(stderr, "    -a, --absent CHAR              replace positions absent from VCF with CHAR\n");
+    fprintf(stderr, "    -e, --exclude EXPR             exclude sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "    -f, --fasta-ref FILE           reference sequence in fasta format\n");
+    fprintf(stderr, "    -H, --haplotype WHICH          choose which allele to use from the FORMAT/GT field, note\n");
+    fprintf(stderr, "                                   the codes are case-insensitive:\n");
+    fprintf(stderr, "                                       1: first allele from GT, regardless of phasing\n");
+    fprintf(stderr, "                                       2: second allele from GT, regardless of phasing\n");
+    fprintf(stderr, "                                       R: REF allele in het genotypes\n");
+    fprintf(stderr, "                                       A: ALT allele\n");
+    fprintf(stderr, "                                       LR,LA: longer allele and REF/ALT if equal length\n");
+    fprintf(stderr, "                                       SR,SA: shorter allele and REF/ALT if equal length\n");
+    fprintf(stderr, "                                       1pIu,2pIu: first/second allele for phased and IUPAC code for unphased GTs\n");
+    fprintf(stderr, "    -i, --include EXPR             select sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "    -I, --iupac-codes              output variants in the form of IUPAC ambiguity codes\n");
+    fprintf(stderr, "        --mark-del CHAR            instead of removing sequence, insert CHAR for deletions\n");
+    fprintf(stderr, "        --mark-ins uc|lc           highlight insertions in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
+    fprintf(stderr, "        --mark-snv uc|lc           highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
+    fprintf(stderr, "    -m, --mask FILE                replace regions with N\n");
+    fprintf(stderr, "        --mask-with CHAR|lc|uc     replace regions with N\n");
+    fprintf(stderr, "    -M, --missing CHAR             output CHAR instead of skipping a missing genotype \"./.\"\n");
+    fprintf(stderr, "    -o, --output FILE              write output to a file [standard output]\n");
+    fprintf(stderr, "    -p, --prefix STRING            prefix to add to output sequence names\n");
+    fprintf(stderr, "    -s, --sample NAME              apply variants of the given sample\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   # Get the consensus for one region. The fasta header lines are then expected\n");
     fprintf(stderr, "   # in the form \">chr:from-to\".\n");
@@ -1011,6 +1061,7 @@ int main_consensus(int argc, char *argv[])
         {"mark-del",required_argument,NULL,1},
         {"mark-ins",required_argument,NULL,2},
         {"mark-snv",required_argument,NULL,3},
+        {"mask-with",1,0,4},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"sample",1,0,'s'},
@@ -1048,7 +1099,8 @@ int main_consensus(int argc, char *argv[])
             case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'f': args->ref_fname = optarg; break;
-            case 'm': args->mask_fname = optarg; break;
+            case 'm': add_mask(args,optarg); break;
+            case  4 : add_mask_with(args,optarg); break;
             case 'a':
                 args->absent_allele = optarg[0];
                 if ( optarg[1]!=0 ) error("Expected single character with -a, got \"%s\"\n", optarg);
