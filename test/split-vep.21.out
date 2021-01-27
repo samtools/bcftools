@@ -1,0 +1,4 @@
+1	145075172	.	G	A	.	.	BCSQ=intron|PDE4DIP||protein_coding;Consequence=intron;amino_acid_change=.
+2	175216515	.	A	G	.	.	BCSQ=intron|CIR1||protein_coding;Consequence=intron;amino_acid_change=.
+20	37400393	.	C	T	.	.	BCSQ=synonymous|ACTR5|ENST00000243903|protein_coding|+|586S|37400393C>T;Consequence=synonymous;amino_acid_change=586S
+X	48822646	.	T	G	.	.	BCSQ=missense|KCND1|ENST00000376477|protein_coding|-|135T>135P|48822646T>G;Consequence=missense;amino_acid_change=135T>135P
