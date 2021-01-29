@@ -59,6 +59,7 @@ DEALINGS IN THE SOFTWARE.  */
 #define MPLP_PRINT_MAPQ (1<<10)
 #define MPLP_PER_SAMPLE (1<<11)
 #define MPLP_SMART_OVERLAPS (1<<12)
+#define MPLP_REALN_PARTIAL  (1<<13)
 
 typedef struct _mplp_aux_t mplp_aux_t;
 typedef struct _mplp_pileup_t mplp_pileup_t;
@@ -395,7 +396,7 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
  * NB: this may sadly realign after we've already used the data.  Hmm...
  */
 static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
-                       char *ref, int ref_len, int pos) {
+                       int flag, char *ref, int ref_len, int pos) {
     int i, j, has_indel = 0, has_clip = 0, nt = 0;
     int dlen = 0;
     int ilen = 0;
@@ -433,8 +434,10 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
 
     // Don't bother realigning the most minor of cases.
     // No indels, or low indel rate combined with low soft-clipping rate
-    if (has_indel == 0 || ((has_indel < 0.1*nt || has_indel == 1) && has_clip < 0.2*nt)) {
-        return;
+    if (flag & MPLP_REALN_PARTIAL) {
+        if (has_indel == 0 ||
+            ((has_indel < 0.1*nt || has_indel == 1) && has_clip < 0.2*nt))
+            return;
     }
 
     // FIXME: do this per sample instead?
@@ -490,18 +493,17 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
                 nt += indel_sz[i];
             }
         }
-        if (nsz == 1) {
+        if (nsz == 1 && (flag & MPLP_REALN_PARTIAL))
             return;
-        }
+
         if (nsz == 2) {
             double d = (n1+.01)/(n1+n2+.01);
-            if (d > 0.4 && d < 0.6) {
+            if (d > 0.4 && d < 0.6 && (flag & MPLP_REALN_PARTIAL))
                 return;
-            }
         }
-        if (nsz > 2 && (double)indel_sz[0]/nt > 0.95) {
+        if (nsz > 2 && (double)indel_sz[0]/nt > 0.95
+            && (flag & MPLP_REALN_PARTIAL))
             return;
-        }
     }
 }
 #endif
@@ -542,33 +544,18 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             uint32_t *cig = bam_get_cigar(b);
             int ncig = b->core.n_cigar;
 
-//            fprintf(stderr, "0=%d,%d %d=%d,%d\n",
-//                    cig[0] & BAM_CIGAR_MASK,
-//                    cig[0] >> BAM_CIGAR_SHIFT,
-//                    ncig-1,
-//                    cig[ncig-1] & BAM_CIGAR_MASK,
-//                    cig[ncig-1] >> BAM_CIGAR_SHIFT);
-
             // Don't realign reads where indel is in middle?
-            if (nt > 15 && ncig > 1 &&
+            if ((flag & MPLP_REALN_PARTIAL) &&
+                nt > 15 && ncig > 1 &&
                 (cig[0] & BAM_CIGAR_MASK) == BAM_CMATCH &&
                 (cig[0] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
                 (cig[ncig-1] & BAM_CIGAR_MASK) == BAM_CMATCH &&
                 (cig[ncig-1] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
                 has_clip < 0.2*nt) {
-
-                // BAQ can increase qual, so for those we no longer run
-                // on we now also do that incr.
-//                b->core.qual += b->core.qual/2 < 5 ? b->core.qual/2 : 5;
-//                uint8_t *qual = bam_get_qual(b);
-//                for (i = 0; i < b->core.l_qseq; i++)
-//                    qual[i] *= 1.2; // FIXME: check bounds
-
                 continue;
             }
 #endif
-            // fixme, honour conf->flag & MPLP_REDO_BAQ
-            //fprintf(stderr, "Realn %s\n", bam_get_qname(b));
+            // FIXME: honour conf->flag & MPLP_REDO_BAQ
             sam_prob_realn(b, ref, ref_len, 3);
         }
     }
@@ -594,8 +581,8 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         }
         int has_ref = mplp_get_ref(conf->mplp_data[0], tid, &ref, &ref_len);
         if (has_ref && (conf->flag & MPLP_REALN))
-            mplp_realn(conf->nfiles, conf->n_plp, conf->plp, ref, ref_len,
-                       pos);
+            mplp_realn(conf->nfiles, conf->n_plp, conf->plp, conf->flag,
+                       ref, ref_len, pos);
 
         int total_depth, _ref0, ref16;
         for (i = total_depth = 0; i < conf->nfiles; ++i) total_depth += conf->n_plp[i];
@@ -1140,6 +1127,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -A, --count-orphans     do not discard anomalous read pairs\n"
 "  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
 "  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
+"  -D, --partial-BAQ       only run BAQ in problem regions\n"
 "  -C, --adjust-MQ INT     adjust mapping quality [0]\n"
 "  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
     fprintf(fp,
@@ -1246,6 +1234,8 @@ int main_mpileup(int argc, char *argv[])
         {"bam-list", required_argument, NULL, 'b'},
         {"no-BAQ", no_argument, NULL, 'B'},
         {"no-baq", no_argument, NULL, 'B'},
+        {"partial-BAQ", no_argument, NULL, 'D'},
+        {"partial-baq", no_argument, NULL, 'D'},
         {"adjust-MQ", required_argument, NULL, 'C'},
         {"adjust-mq", required_argument, NULL, 'C'},
         {"max-depth", required_argument, NULL, 'd'},
@@ -1278,7 +1268,7 @@ int main_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:Bd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -1330,6 +1320,7 @@ int main_mpileup(int argc, char *argv[])
         case 'P': mplp.pl_list = strdup(optarg); break;
         case 'p': mplp.flag |= MPLP_PER_SAMPLE; break;
         case 'B': mplp.flag &= ~MPLP_REALN; break;
+        case 'D': mplp.flag |= MPLP_REALN_PARTIAL; break;
         case 'I': mplp.flag |= MPLP_NO_INDEL; break;
         case 'E': mplp.flag |= MPLP_REDO_BAQ; break;
         case '6': mplp.flag |= MPLP_ILLUMINA13; break;
