@@ -832,6 +832,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
         'A';;
             the ALT allele (in heterozygous genotypes)
 
+        'I';;
+            IUPAC code for all genotypes
+
         'LR, LA';;
             the longer allele. If both have the same length, use the REF allele (LR), or the ALT allele  (LA)
 

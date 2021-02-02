@@ -629,6 +629,7 @@ test_vcf_consensus($opts,in=>'consensus.12',out=>'consensus.12.out',fa=>'consens
 test_vcf_consensus($opts,in=>'consensus.13',out=>'consensus.13.out',fa=>'consensus.13.fa',args=>'');
 test_vcf_consensus($opts,in=>'consensus.14',out=>'consensus.14.out',fa=>'consensus.14.fa',args=>'');
 test_vcf_consensus($opts,in=>'consensus.12',out=>'consensus.15.out',fa=>'consensus.12.fa',args=>'--mark-del - --mark-ins uc --mark-snv uc');
+test_vcf_consensus($opts,in=>'consensus.15',out=>'consensus.17.out',fa=>'consensus.15.fa',args=>'-H I --mark-ins lc --mark-snv lc');
 test_mpileup($opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
 test_mpileup($opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
 test_mpileup($opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite

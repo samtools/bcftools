@@ -570,15 +570,18 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             }
             else jalt = ialt;
 
-            if ( ialt>=0 )
+            if ( ialt==0 && jalt>0 ) ialt = jalt, jalt = 0;
+            if ( ialt>0 && ialt!=jalt )
             {
                 if ( rec->n_allele <= ialt || rec->n_allele <= jalt ) error("Invalid VCF, too few ALT alleles at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-                if ( ialt!=jalt && !rec->d.allele[ialt][1] && !rec->d.allele[jalt][1] ) // is this a het snp?
+                i = 0;
+                while ( rec->d.allele[ialt][i] && rec->d.allele[jalt][i] )
                 {
-                    char ial = rec->d.allele[ialt][0];
-                    char jal = rec->d.allele[jalt][0];
-                    if ( !ialt ) ialt = jalt;   // only ialt is used, make sure 0/1 is not ignored
-                    rec->d.allele[ialt][0] = gt2iupac(ial,jal);
+                    char ial = rec->d.allele[ialt][i];
+                    char jal = rec->d.allele[jalt][i];
+                    if ( !is_acgtn(ial) || !is_acgtn(jal) ) break;
+                    rec->d.allele[ialt][i] = gt2iupac(ial,jal);
+                    i++;
                 }
             }
         }
@@ -633,11 +636,17 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         }
         if ( rec->n_allele <= ialt ) error("Broken VCF, too few alts at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
-    else if ( args->output_iupac && rec->n_allele>1 && !rec->d.allele[0][1] && !rec->d.allele[1][1] )
+    else if ( args->output_iupac && ialt>0 )
     {
-        char ial = rec->d.allele[0][0];
-        char jal = rec->d.allele[1][0];
-        rec->d.allele[1][0] = gt2iupac(ial,jal);
+        i = 0;
+        while ( rec->d.allele[ialt][i] && rec->d.allele[0][i] )
+        {
+            char ial = rec->d.allele[ialt][i];
+            char jal = rec->d.allele[0][i];
+            if ( !is_acgtn(ial) || !is_acgtn(jal) ) break;
+            rec->d.allele[ialt][i] = gt2iupac(ial,jal);
+            i++;
+        }
     }
 
     if ( rec->n_allele==1 && ialt!=-1 )
@@ -1029,6 +1038,7 @@ static void usage(args_t *args)
     fprintf(stderr, "                                       2: second allele from GT, regardless of phasing\n");
     fprintf(stderr, "                                       R: REF allele in het genotypes\n");
     fprintf(stderr, "                                       A: ALT allele\n");
+    fprintf(stderr, "                                       I: IUPAC code for all genotypes\n");
     fprintf(stderr, "                                       LR,LA: longer allele and REF/ALT if equal length\n");
     fprintf(stderr, "                                       SR,SA: shorter allele and REF/ALT if equal length\n");
     fprintf(stderr, "                                       1pIu,2pIu: first/second allele for phased and IUPAC code for unphased GTs\n");
@@ -1123,6 +1133,7 @@ int main_consensus(int argc, char *argv[])
                 else if ( !strcasecmp(optarg,"LA") ) args->allele |= PICK_LONG|PICK_ALT;
                 else if ( !strcasecmp(optarg,"SR") ) args->allele |= PICK_SHORT|PICK_REF;
                 else if ( !strcasecmp(optarg,"SA") ) args->allele |= PICK_SHORT|PICK_ALT;
+                else if ( !strcasecmp(optarg,"I") ) args->allele |= PICK_IUPAC;
                 else if ( !strcasecmp(optarg,"1pIu") ) args->allele |= PICK_IUPAC, args->haplotype = 1;
                 else if ( !strcasecmp(optarg,"2pIu") ) args->allele |= PICK_IUPAC, args->haplotype = 2;
                 else

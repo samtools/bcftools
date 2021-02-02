@@ -54,6 +54,14 @@ const char *hts_bcf_wmode2(int file_type, char *fname);
 
 void *smalloc(size_t size);     // safe malloc
 
+static inline int is_acgtn(char nt)
+{
+    if ( nt < 65 ) return 0;
+    if ( nt > 84 ) nt -= 32;    // to uppercase
+    if ( nt=='A' || nt=='C' || nt=='G' || nt=='T' || nt=='N' ) return 1;
+    return 0;
+}
+
 static inline char gt2iupac(char a, char b)
 {
     static const char iupac[4][4] = { {'A','M','R','W'},{'M','C','S','Y'},{'R','S','G','K'},{'W','Y','K','T'} };
