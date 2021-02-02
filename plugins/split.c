@@ -602,8 +602,12 @@ int run(int argc, char **argv)
         {
             case  1 : args->hts_opts = hts_readlist(optarg,0,&args->nhts_opts); break;
             case 'k': args->keep_tags = optarg; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'T': args->target = optarg; args->target_is_file = 1; break;
             case 't': args->target = optarg; break; 
             case 'R': args->region = optarg; args->region_is_file = 1;  break;

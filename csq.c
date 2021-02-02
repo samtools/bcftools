@@ -4178,8 +4178,12 @@ int main_csq(int argc, char *argv[])
                           default: error("The output type \"%s\" not recognised\n", optarg);
                       }
                       break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'r': regions_list = optarg; break;
             case 'R': regions_list = optarg; regions_is_file = 1; break;
             case 's': args->sample_list = optarg; break;

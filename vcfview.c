@@ -1,6 +1,6 @@
 /*  vcfview.c -- VCF/BCF conversion, view, subset and filter VCF/BCF files.
 
-    Copyright (C) 2013-2020 Genome Research Ltd.
+    Copyright (C) 2013-2021 Genome Research Ltd.
 
     Author: Shane McCarthy <sm15@sanger.ac.uk>
 
@@ -640,9 +640,12 @@ int main_vcfview(int argc, char *argv[])
                 break;
             case 'v': args->include_types = optarg; break;
             case 'V': args->exclude_types = optarg; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
-
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'c':
             {
                 args->min_ac_type = ALLELE_NONREF;

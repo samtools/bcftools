@@ -1,6 +1,6 @@
 /*  plugin/fill-from-fasta.c -- fill-from-fasta plugin.
 
-    Copyright (C) 2016 Genome Research Ltd.
+    Copyright (C) 2016-2021 Genome Research Ltd.
 
     Author: Shane McCarthy <sm15@sanger.ac.uk>
 
@@ -108,8 +108,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     {
         switch (c) 
         {
-            case 'e': filter_str = optarg; filter_logic |= FLT_EXCLUDE; break;
-            case 'i': filter_str = optarg; filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                filter_str = optarg; filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                filter_str = optarg; filter_logic |= FLT_INCLUDE; break;
             case 'N': replace_nonACGTN = 1; break;
             case 'c': column = optarg; break;
             case 'f': ref_fname = optarg; break;

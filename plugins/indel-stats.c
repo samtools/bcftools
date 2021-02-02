@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018 Genome Research Ltd.
+   Copyright (c) 2018-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -716,8 +716,12 @@ int run(int argc, char **argv)
             case  3 : args->allow_alt2ref_DNMs = 1; break;
             case 'p': args->ped_fname = optarg; break;
             case 'c': args->csq_tag = optarg; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
             case 'T': args->targets = optarg; args->targets_is_file = 1; break;
             case 'r': args->regions = optarg; break;

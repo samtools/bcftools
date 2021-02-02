@@ -1161,8 +1161,12 @@ int run(int argc, char **argv)
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg);
             case  1 : args->force_ad = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
             case 'T': args->targets = optarg; args->targets_is_file = 1; break;
             case 'r': args->regions = optarg; break;

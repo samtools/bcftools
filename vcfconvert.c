@@ -1488,8 +1488,12 @@ int main_vcfconvert(int argc, char *argv[])
     };
     while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:",loptions,NULL)) >= 0) {
         switch (c) {
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; args->regions_is_file = 1; break;
             case 't': args->targets_list = optarg; break;

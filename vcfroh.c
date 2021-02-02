@@ -1,6 +1,6 @@
 /*  vcfroh.c -- HMM model for detecting runs of autozygosity.
 
-    Copyright (C) 2013-2020 Genome Research Ltd.
+    Copyright (C) 2013-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1157,8 +1157,12 @@ int main_vcfroh(int argc, char *argv[])
                 args->dflt_AF = strtod(optarg,&tmp);
                 if ( *tmp ) error("Could not parse: --AF-dflt %s\n", optarg);
                 break;
-            case 3: args->filter_str = optarg; args->filter_logic = FLT_INCLUDE; break;
-            case 4: args->filter_str = optarg; args->filter_logic = FLT_EXCLUDE; break;
+            case  3 :
+                if ( args->filter_str ) error("Error: only one --include or --exclude expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case  4 :
+                if ( args->filter_str ) error("Error: only one --include or --exclude expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
             case 5: args->include_noalt_sites = 1; break;
             case 'o': args->output_fname = optarg; break;
             case 'O': 

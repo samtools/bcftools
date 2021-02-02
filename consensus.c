@@ -1096,8 +1096,12 @@ int main_consensus(int argc, char *argv[])
             case 's': args->sample = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'I': args->output_iupac = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e': 
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i': 
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'f': args->ref_fname = optarg; break;
             case 'm': add_mask(args,optarg); break;
             case  4 : add_mask_with(args,optarg); break;

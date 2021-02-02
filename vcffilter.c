@@ -510,8 +510,12 @@ int main_vcffilter(int argc, char *argv[])
             case 'T': args->targets_list = optarg; targets_is_file = 1; break;
             case 'r': args->regions_list = optarg; break;
             case 'R': args->regions_list = optarg; regions_is_file = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'S':
                 if ( !strcmp(".",optarg) ) args->set_gts = SET_GTS_MISSING;
                 else if ( !strcmp("0",optarg) ) args->set_gts = SET_GTS_REF;

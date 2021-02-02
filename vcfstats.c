@@ -1,6 +1,6 @@
 /*  vcfstats.c -- Produces stats which can be plotted using plot-vcfstats.
 
-    Copyright (C) 2012-2020 Genome Research Ltd.
+    Copyright (C) 2012-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -1838,8 +1838,12 @@ int main_vcfstats(int argc, char *argv[])
             case 's': args->samples_list = optarg; break;
             case 'S': args->samples_list = optarg; args->samples_is_file = 1; break;
             case 'I': args->split_by_id = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'h':
             case '?': usage(); break;

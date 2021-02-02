@@ -175,8 +175,12 @@ int run(int argc, char **argv)
             case 'd': args->rmdup = 1; break;
             case 'p': args->print_overlaps = 1; break;
             case 'v': args->verbose = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'T': args->target_is_file = 1; // fall-through
             case 't': args->target = optarg; break; 
             case 'R': args->region_is_file = 1; // fall-through
