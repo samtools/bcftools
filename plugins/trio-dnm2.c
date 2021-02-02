@@ -66,8 +66,9 @@ trio_t;
 typedef struct
 {
     // combines priors, mutation rates, genotype transmission probability; see init_priors()
-    double pprob[10][10][10];       // prior probability; the order is father,mother,child
-    uint8_t denovo[10][10][10];     // is the GT combination not compatible with normal inheritence (0) or is de novo (1)
+    double pprob[10][10][10];           // prior probability; the order is father,mother,child
+    uint8_t denovo[10][10][10];         // is the GT combination not compatible with normal inheritence (0) or is de novo (1)
+    uint8_t denovo_allele[10][10][10];  // which of the alleles is de novo for this configuration
 }
 priors_t;
 
@@ -85,7 +86,7 @@ typedef struct
     trio_t *trio;
     int has_fmt_ad;
     int ntrio, mtrio;
-    int32_t *pl, *ad, *qs, *dnm_qual_int, *vaf;    // input FMT/PL, AD, QS values, output DNM and VAF
+    int32_t *pl, *ad, *qs, *dnm_qual_int, *dnm_allele, *vaf;    // input FMT/PL, AD, QS values, output DNM and VAF
     float *dnm_qual_float;
     int mpl, mad, mqs;
     double min_score;
@@ -93,7 +94,9 @@ typedef struct
     double *pl3;    // normalized PLs converted to probs for iFATHER,iMOTHER,iCHILD
     double *qs3;    // QS converted to probs for iFATHER,iMOTHER,iCHILD
     int maprob, mpl3, mqs3, midx, *idx, force_ad, use_model;
-    char *dnm_score_tag;            // the argument of --use tag, by default DNM:int
+    char *dnm_score_tag,            // the argument of --use tag, by default DNM:log
+         *dnm_vaf_tag,
+         *dnm_allele_tag;
     int dnm_score_is_float;         // given by e.g. --use tag DNM:float
     double mrate;                   // --use mrate, mutation rate
     double pnoise_abs,pnoise_frac;  // --use pn|pnoise or --use pns
@@ -133,11 +136,13 @@ static const char *usage_text(void)
         "   -u, --use OPTION[=VALUE]        Various options to tweak:\n"
         "          DNG                         Use the original DeNovoGear model, implies -u dng-priors\n"
         "          dng-priors                  Use the original DeNovoGear priors (including bugs in prior assignment)\n"
-        "          mrate=NUM                   Mutation rate for DNG and AC-DNG models [-u mrate=1e-8]\n"
+        "          mrate=NUM                   Mutation rate [-u mrate=1e-8]\n"
         "          pn=FRAC[,NUM]               Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [-u pn=0,0]\n"
         "          pns=FRAC[,NUM]              Same as `pn` but is not applied to alleles observed in both parents [-u pns=0.045,0]\n"
         "          ppl                         Use parental genotype likelihoods (FMT/PL rather than FMT/QS)\n"
         "          tag=TAG[:phred|log]         Annotation to add, either as phred quality (int) or log-scaled (float) [-u tag=DNM:log]\n"
+        "          vaf=TAG                     The tag name for variant allele fraction annotation to add [VAF]\n"
+        "          va=TAG                      The tag name for variant allele annotation [VA]\n"
         "   -X, --chrX LIST                 Regions with the chr X inheritance pattern or one of the predefined lists, exclude PARs [GRCh37]\n"
         "                                      GRCh37 .. X:1-60000,chrX:1-60000,X:2699521-154931043,chrX:2699521-154931043\n"
         "                                      GRCh38 .. X:1-9999,chrX:1-9999,X:2781480-155701381,chrX:2781480-155701381\n"
@@ -406,7 +411,7 @@ static double init_mf_priors_chrXX(args_t *args, int fi, int mi)
         error("Fixme: %s:%d\n",__FILE__,__LINE__);
     return gt_prior;
 }
-static void init_DNG_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob, double *mprob)
+static void init_DNG_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob, double *mprob, int *denovo_allele)
 {
     int fa = seq1[fi];
     int fb = seq2[fi];
@@ -419,6 +424,7 @@ static void init_DNG_tprob_mprob(args_t *args, int fi, int mi, int ci, double *t
     int nals_mfc = count_unique_alleles(3,gts,include_ref);
     *tprob = 1;                   // genotype transmission likelihood L(GC|GM,GF), 0 if not compatible with Mendelian inheritance
     *mprob = 1 - args->mrate;     // probability of mutation
+    *denovo_allele = ca!=fa && ca!=fb && ca!=ma && ca!=mb ? ca : cb;
 
     if ( nals_mfc==4 )
         *tprob = 0;                     // 4 unique alleles
@@ -455,7 +461,7 @@ static void init_DNG_tprob_mprob(args_t *args, int fi, int mi, int ci, double *t
             *tprob = 0.5;
     }
 }
-static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob, double *mprob)
+static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob, double *mprob, int *denovo_allele)
 {
     int fa = seq1[fi];
     int fb = seq2[fi];
@@ -463,6 +469,8 @@ static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob
     int mb = seq2[mi];
     int ca = seq1[ci];
     int cb = seq2[ci];
+
+    *denovo_allele = ca!=fa && ca!=fb && ca!=ma && ca!=mb ? ca : cb;
 
     // tprob .. genotype transmission probability L(GC|GM,GF), 0 if not compatible with Mendelian inheritance
     // mprob .. probability of mutation
@@ -481,12 +489,14 @@ static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob
         else *mprob = args->mrate * args->mrate;
     }
 }
-static void init_tprob_mprob_chrX(args_t *args, int mi, int ci, double *tprob, double *mprob)
+static void init_tprob_mprob_chrX(args_t *args, int mi, int ci, double *tprob, double *mprob, int *denovo_allele)
 {
     int ma = seq1[mi];
     int mb = seq2[mi];
     int ca = seq1[ci];
     int cb = seq2[ci];
+
+    *denovo_allele = ca!=ma && ca!=mb ? ca : cb;
 
     if ( ca!=cb )                   // male cannot be heterozygous in X
         *mprob = 0, *tprob = 0;
@@ -499,7 +509,7 @@ static void init_tprob_mprob_chrX(args_t *args, int mi, int ci, double *tprob, d
     else                            // de novo
         *mprob = args->mrate, *tprob = 0;
 }
-static void init_tprob_mprob_chrXX(args_t *args, int fi, int mi, int ci, double *tprob, double *mprob)
+static void init_tprob_mprob_chrXX(args_t *args, int fi, int mi, int ci, double *tprob, double *mprob, int *denovo_allele)
 {
     int fa = seq1[fi];
     int fb = seq2[fi];
@@ -507,6 +517,8 @@ static void init_tprob_mprob_chrXX(args_t *args, int fi, int mi, int ci, double 
     int mb = seq2[mi];
     int ca = seq1[ci];
     int cb = seq2[ci];
+
+    *denovo_allele = ca!=fa && ca!=fb && ca!=ma && ca!=mb ? ca : cb;
 
     if ( fa!=fb )                   // father cannot be heterozygous in X
         *mprob = 0, *tprob = 0;
@@ -537,6 +549,7 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
                 double gt_prior;                // parent genotype probability L(GM,GF)
                 double tprob;                   // genotype transmission likelihood L(GC|GM,GF), 0 if not compatible with Mendelian inheritance
                 double mprob;                   // probability of mutation
+                int allele;                     // which of the alleles is de novo
                 if ( args->use_dng_priors )
                     gt_prior = init_DNG_mf_priors(args,fi,mi,ci);
                 else if ( type==autosomal )
@@ -549,16 +562,17 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
                     error("Can't happen\n");
 
                 if ( args->use_dng_priors )
-                    init_DNG_tprob_mprob(args,fi,mi,ci,&tprob,&mprob);
+                    init_DNG_tprob_mprob(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else if ( type==autosomal )
-                    init_tprob_mprob(args,fi,mi,ci,&tprob,&mprob);
+                    init_tprob_mprob(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else if ( type==chrX )
-                    init_tprob_mprob_chrX(args,mi,ci,&tprob,&mprob);
+                    init_tprob_mprob_chrX(args,mi,ci,&tprob,&mprob,&allele);
                 else if ( type==chrXX )
-                    init_tprob_mprob_chrXX(args,fi,mi,ci,&tprob,&mprob);
+                    init_tprob_mprob_chrXX(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else
                     error("Can't happen\n");
 
+                priors->denovo_allele[fi][mi][ci] = tprob==0 ? allele : INT32_MAX;  // the latter should never happen, making it fail deliberately
                 priors->denovo[fi][mi][ci] = tprob==0 ? 1 : 0;
                 priors->pprob[fi][mi][ci]  = log(gt_prior * mprob * (tprob==0 ? 1 : tprob));
             }
@@ -609,8 +623,9 @@ static void init_data(args_t *args)
 
     args->hdr_out = bcf_hdr_dup(args->hdr);
     bcf_hdr_printf(args->hdr_out, "##FORMAT=<ID=%s,Number=1,Type=%s,Description=\"De-novo mutation score, bigger values = bigger confidence\">",args->dnm_score_tag,args->dnm_score_is_float?"Float":"Integer");
+    bcf_hdr_printf(args->hdr_out, "##FORMAT=<ID=%s,Number=1,Type=Integer,Description=\"The de-novo allele\">",args->dnm_allele_tag);
     if ( args->has_fmt_ad )
-        bcf_hdr_append(args->hdr_out, "##FORMAT=<ID=VAF,Number=1,Type=Integer,Description=\"The percentage of ALT reads\">");
+        bcf_hdr_printf(args->hdr_out, "##FORMAT=<ID=%s,Number=1,Type=Integer,Description=\"The percentage of ALT reads\">",args->dnm_vaf_tag);
 
     int i, n = 0;
     char **list;
@@ -667,17 +682,21 @@ static void init_data(args_t *args)
     else
         args->dnm_qual_int = (int32_t*) malloc(sizeof(*args->dnm_qual_int)*bcf_hdr_nsamples(args->hdr));
     args->vaf = (int32_t*) malloc(sizeof(*args->vaf)*bcf_hdr_nsamples(args->hdr));
+    args->dnm_allele = (int32_t*) malloc(sizeof(*args->dnm_allele)*bcf_hdr_nsamples(args->hdr));
 }
 static void destroy_data(args_t *args)
 {
     if ( args->filter ) filter_destroy(args->filter);
     regidx_destroy(args->chrX_idx);
     free(args->dnm_score_tag);
+    free(args->dnm_vaf_tag);
+    free(args->dnm_allele_tag);
     free(args->pl3);
     free(args->aprob);
     free(args->idx);
     free(args->dnm_qual_int);
     free(args->dnm_qual_float);
+    free(args->dnm_allele);
     free(args->vaf);
     free(args->trio);
     free(args->pl);
@@ -786,8 +805,10 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                             if ( priors->denovo[fi][mi][ci] && max < val )
                             {
                                 max = val;
-                                *al0 = cb;
-                                *al1 = ca;
+                                if ( priors->denovo_allele[fi][mi][ci] == ca )
+                                    *al0 = cb, *al1 = ca;
+                                else
+                                    *al0 = ca, *al1 = cb;
                             }
                             mi++;
                         }
@@ -836,8 +857,10 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
                             if ( priors->denovo[fi][mi][ci] && max < val )
                             {
                                 max = val;
-                                *al0 = cb;
-                                *al1 = ca;
+                                if ( priors->denovo_allele[fi][mi][ci] == ca )
+                                    *al0 = cb, *al1 = ca;
+                                else
+                                    *al0 = ca, *al1 = cb;
                             }
                             mi++;
                         }
@@ -970,6 +993,7 @@ static void process_record(args_t *args, bcf1_t *rec)
         for (i=0; i<nsmpl; i++) bcf_float_set_missing(args->dnm_qual_float[i]);
     else
         for (i=0; i<nsmpl; i++) args->dnm_qual_int[i] = bcf_int32_missing;
+    for (i=0; i<nsmpl; i++) args->dnm_allele[i] = bcf_int32_missing;
     for (i=0; i<args->ntrio; i++)
     {
         if ( args->filter && !args->trio[i].pass ) continue;
@@ -1050,6 +1074,7 @@ static void process_record(args_t *args, bcf1_t *rec)
                 if ( score>255 ) score = 255;
                 args->dnm_qual_int[ args->trio[i].idx[iCHILD] ] = round(score);
             }
+            args->dnm_allele[ args->trio[i].idx[iCHILD] ] = al1;
         }
 
         if ( n_ad )
@@ -1075,11 +1100,14 @@ static void process_record(args_t *args, bcf1_t *rec)
         else
             ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_score_tag,args->dnm_qual_int,nsmpl);
         if ( ret )
-            error("Failed to write FORMAT/DNM at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+            error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_score_tag, bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_allele_tag,args->dnm_allele,nsmpl);
+        if ( ret )
+            error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_allele_tag,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         if ( ad_set )
         {
-            if ( bcf_update_format_int32(args->hdr_out,rec,"VAF",args->vaf,nsmpl)!=0 )
-                error("Failed to write FORMAT/VAF at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+            if ( bcf_update_format_int32(args->hdr_out,rec,args->dnm_vaf_tag,args->vaf,nsmpl)!=0 )
+                error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_vaf_tag,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
         }
     }
     if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
@@ -1119,6 +1147,18 @@ static void set_option(args_t *args, char *optarg)
         free(args->dnm_score_tag);
         args->dnm_score_tag = strdup(val);
     }
+    else if ( !strcasecmp(opt,"vaf") )
+    {
+        if ( !val ) error("Error: expected value with -u vaf, e.g. -u vaf=VAF\n");
+        free(args->dnm_vaf_tag);
+        args->dnm_vaf_tag = strdup(val);
+    }
+    else if ( !strcasecmp(opt,"va") )
+    {
+        if ( !val ) error("Error: expected value with -u va, e.g. -u va=VA\n");
+        free(args->dnm_allele_tag);
+        args->dnm_allele_tag = strdup(val);
+    }
     else error("Error: the option \"-u %s\" is not recognised\n",optarg);
     free(opt);
 }
@@ -1127,7 +1167,9 @@ int run(int argc, char **argv)
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
-    args->dnm_score_tag = strdup("DNM:phred");
+    args->dnm_score_tag  = strdup("DNM:phred");
+    args->dnm_vaf_tag    = strdup("VAF");
+    args->dnm_allele_tag = strdup("VA");
     args->mrate = 1e-8;
     args->pnoise_frac   = 0.045;
     args->pnoise_abs    = 0;
