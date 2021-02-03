@@ -450,7 +450,7 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
     // If it's >2 then accept if size 0 (no indel) is close to 100%
     //
     // CAVEAT: also only apply this rule if we don't have many soft-clips
-#if 1
+#if 0 // aka nt999 in tests
 if (nt >= 20) { // Can be more liberal with BAQ on deeper data
     // FIXME: optimise this.  Maybe a list of sizes rather
     // than an array.
@@ -494,6 +494,7 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             }
         }
         if (nsz == 1 && (flag & MPLP_REALN_PARTIAL))
+            // consider also setting b->core.flag|=32768 here on reads?
             return;
 
         if (nsz == 2) {
@@ -523,7 +524,7 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             // Do we end up with new p for the same b?  Why so?
             if (b->core.flag & 32768)
                 continue;
-            b->core.flag |= 32768;
+            b->core.flag |= 32768; // tmp3 => move adjacent to sam_prob_realn
 
 //            if (b->core.qual == 0)
 //                continue; // no need to do BAQ as already considered poor
@@ -540,19 +541,30 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             //
             // This rescues some of the false negatives that are caused by
             // systematic reduction in quality due to sample vs ref alignment.
-#define REALN_DIST 50
+#define REALN_DIST 40
             uint32_t *cig = bam_get_cigar(b);
             int ncig = b->core.n_cigar;
 
-            // Don't realign reads where indel is in middle?
+            // Don't realign reads with long MATCH ops flanking both ends.
+            // NB: only appropriate for short read data, but BAQ is not
+            // appropriate on long-read data anyway.
             if ((flag & MPLP_REALN_PARTIAL) &&
-                nt > 15 && ncig > 1 &&
-                (cig[0] & BAM_CIGAR_MASK) == BAM_CMATCH &&
-                (cig[0] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
-                (cig[ncig-1] & BAM_CIGAR_MASK) == BAM_CMATCH &&
-                (cig[ncig-1] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
-                has_clip < 0.2*nt) {
-                continue;
+                nt > 15 && has_clip < (0.15+0.05*(nt>20))*nt) {
+                int c, l = 0, r = 0;
+                for (c = 0; c < ncig; c++) {
+                    if ((cig[c] & BAM_CIGAR_MASK) == BAM_CMATCH)
+                        break;
+                }
+                if (c < ncig)
+                    l = cig[c] >> BAM_CIGAR_SHIFT;
+                for (c = ncig-1; c >= 0; c--) {
+                    if ((cig[c] & BAM_CIGAR_MASK) == BAM_CMATCH)
+                        break;
+                }
+                if (c >= 0)
+                    r = cig[0] >> BAM_CIGAR_SHIFT;
+                if (l >= REALN_DIST && r >= REALN_DIST)
+                    continue;
             }
 #endif
             // FIXME: honour conf->flag & MPLP_REDO_BAQ
