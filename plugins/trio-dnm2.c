@@ -572,7 +572,7 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
                 else
                     error("Can't happen\n");
 
-                priors->denovo_allele[fi][mi][ci] = tprob==0 ? allele : INT32_MAX;  // the latter should never happen, making it fail deliberately
+                priors->denovo_allele[fi][mi][ci] = tprob==0 ? allele : UINT8_MAX;  // the latter should never happen, making it fail deliberately
                 priors->denovo[fi][mi][ci] = tprob==0 ? 1 : 0;
                 priors->pprob[fi][mi][ci]  = log(gt_prior * mprob * (tprob==0 ? 1 : tprob));
             }
