@@ -398,39 +398,16 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
 static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
                        int flag, char *ref, int ref_len, int pos) {
     int i, j, has_indel = 0, has_clip = 0, nt = 0;
-    int dlen = 0;
-    int ilen = 0;
 
     // Is an indel present
-    for (i = 0; i < n /*&& !has_indel*/; i++) { // iterate over bams
+    for (i = 0; i < n; i++) { // iterate over bams
         nt += n_plp[i];
-        for (j = 0; j < n_plp[i] /*&& !has_indel*/; j++) { // iterate over reads
+        for (j = 0; j < n_plp[i]; j++) { // iterate over reads
             bam_pileup1_t *p = (bam_pileup1_t *)plp[i] + j;
-            // BAQ=; too late for some realignments to happen
-            //has_indel |= p->indel;
-
-            // BAQ=2 onwards
             has_indel += (PLP_HAS_INDEL(p->cd.i) || p->indel) ? 1 : 0;
-
-// Seems to track above for high QUAL, but has more FN for low QUAL.
-//            has_indel += (PLP_HAS_INDEL(p->cd.i) || p->indel)
-//                // has indel and it's close enough to us.
-//                // INDEL_POS is position relative to start of this read,
-//                // in ref coords.
-//                ? (PLP_INDEL_POS(p->cd.i) + p->b->core.pos - pos < 50)
-//                : 0;
             has_clip  += (PLP_HAS_SOFT_CLIP(p->cd.i))         ? 1 : 0;
-
-            if (dlen < -p->indel)
-                dlen = -p->indel; // biggest deletion seen
-            if (ilen < p->indel)
-                ilen = p->indel;
         }
     }
-
-//    // Don't bother realigning the most minor of cases
-//    if (has_indel == 0)
-//        return;
 
     // Don't bother realigning the most minor of cases.
     // No indels, or low indel rate combined with low soft-clipping rate
@@ -440,6 +417,7 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
             return;
     }
 
+#if 0 // aka nt999 in tests
     // FIXME: do this per sample instead?
 
     // Look at the range of indel sizes.
@@ -450,7 +428,6 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
     // If it's >2 then accept if size 0 (no indel) is close to 100%
     //
     // CAVEAT: also only apply this rule if we don't have many soft-clips
-#if 0 // aka nt999 in tests
 if (nt >= 20) { // Can be more liberal with BAQ on deeper data
     // FIXME: optimise this.  Maybe a list of sizes rather
     // than an array.
@@ -545,26 +522,22 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             uint32_t *cig = bam_get_cigar(b);
             int ncig = b->core.n_cigar;
 
-            // Don't realign reads with long MATCH ops flanking both ends.
-            // NB: only appropriate for short read data, but BAQ is not
-            // appropriate on long-read data anyway.
+            // Don't realign reads where indel is in middle?
+            // FIXME: use a better scan here, maybe from get_position above.
             if ((flag & MPLP_REALN_PARTIAL) &&
-                nt > 15 && has_clip < (0.15+0.05*(nt>20))*nt) {
-                int c, l = 0, r = 0;
-                for (c = 0; c < ncig; c++) {
-                    if ((cig[c] & BAM_CIGAR_MASK) == BAM_CMATCH)
-                        break;
-                }
-                if (c < ncig)
-                    l = cig[c] >> BAM_CIGAR_SHIFT;
-                for (c = ncig-1; c >= 0; c--) {
-                    if ((cig[c] & BAM_CIGAR_MASK) == BAM_CMATCH)
-                        break;
-                }
-                if (c >= 0)
-                    r = cig[0] >> BAM_CIGAR_SHIFT;
-                if (l >= REALN_DIST && r >= REALN_DIST)
-                    continue;
+                // c2b = REALN_DIST=40; has_clip<0.2; ncig>0
+                // c2c = REALN_DIST=40; has_clip<0.2; ncig>1
+
+                // 2c is waaay better.
+                // So... rejecting the pure match ones is poor.
+                // But rejecting some of the indel ones is good?
+                nt > 15 && ncig > 1 &&
+                (cig[0] & BAM_CIGAR_MASK) == BAM_CMATCH &&
+                (cig[0] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
+                (cig[ncig-1] & BAM_CIGAR_MASK) == BAM_CMATCH &&
+                (cig[ncig-1] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
+                has_clip < (0.15+0.05*(nt>20))*nt) {
+                continue;
             }
 #endif
             // FIXME: honour conf->flag & MPLP_REDO_BAQ
