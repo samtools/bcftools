@@ -25,6 +25,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <strings.h>
 #include <errno.h>
 #include <htslib/hts.h>
 #include "bcftools.h"
