@@ -77,12 +77,8 @@
 <div class="sect1">
 <h2 id="_frequently_asked_questions">Frequently Asked Questions</h2>
 <div class="sectionbody">
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Incorrect number of fields at chr1:1234567</dt>
-</dl>
-</div>
 <div id="incorrect-nfields" class="paragraph">
+<div class="title"><strong>Incorrect number of fields at chr1:1234567</strong></div>
 <p>This error is triggered when the number of values in the data line does not match
 its definition in the header.
 A common error is to define a tag with variable number of fields
@@ -99,11 +95,39 @@ the program will fail.
 If the tag is not important for your analysis, a quick and dirty workaround is to remove the
 tag from the VCF completely (<code>bcftools annotate -x TAG</code>).</p>
 </div>
+<div id="region-subset" class="paragraph">
+<div class="title"><strong>The -R option pulls in sites from outside of the regions file</strong></div>
+<p>As described in the <a href="../bcftools.html#common_options">manual page</a>, the <code>-R</code> option takes into account overlapping records.
+If a strict subset by position is required, add (or replace with) the <code>-T</code> option.</p>
+</div>
+<div id="query-vs-view-filtering" class="paragraph">
+<div class="title"><strong>Filtering expressions seem to work differently for <code>view</code> and <code>query</code>. What is going on?</strong></div>
+<p>Say you want to print a list of samples with non-reference genotypes. This can be done using the following command</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]' -i 'GT="alt"' file.vcf
+1:67893 sample3 0/1</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>However, you may also want to print genotypes of ALL samples at variant sites with at least one
+non-reference genotype. In order for this to work, first select the desired rows
+with the <code>view</code> command, then let <code>query</code> format the output</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ bcftools view -i 'GT="alt"' file.vcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
+1:67893 sample1 0/0
+1:67893 sample2 0/0
+1:67893 sample3 0/1</pre>
+</div>
+</div>
 <div class="sect2">
 <h3 id="_feedback">Feedback</h3>
 <div class="paragraph">
 <p>We welcome your feedback, please help us improve this page by
-either opening an issue on github or editing it directly and sending
+either opening an <a href="https://github.com/samtools/bcftools/issues">issue on github</a> or <a href="https://github.com/samtools/bcftools/tree/gh-pages/howtos">editing it directly</a> and sending
 a pull request.</p>
 </div>
 </div>
