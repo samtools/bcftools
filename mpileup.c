@@ -398,6 +398,7 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
 static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
                        int flag, char *ref, int ref_len, int pos) {
     int i, j, has_indel = 0, has_clip = 0, nt = 0;
+    int min_indel = INT_MAX, max_indel = INT_MIN;
 
     // Is an indel present
     for (i = 0; i < n; i++) { // iterate over bams
@@ -406,85 +407,19 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
             bam_pileup1_t *p = (bam_pileup1_t *)plp[i] + j;
             has_indel += (PLP_HAS_INDEL(p->cd.i) || p->indel) ? 1 : 0;
             has_clip  += (PLP_HAS_SOFT_CLIP(p->cd.i))         ? 1 : 0;
+            if (max_indel < p->indel)
+                max_indel = p->indel;
+            if (min_indel > p->indel)
+                min_indel = p->indel;
         }
     }
 
-    // Don't bother realigning the most minor of cases.
-    // No indels, or low indel rate combined with low soft-clipping rate
     if (flag & MPLP_REALN_PARTIAL) {
         if (has_indel == 0 ||
-            ((has_indel < 0.1*nt || has_indel == 1) && has_clip < 0.2*nt))
+            (has_clip < 0.2*nt && max_indel == min_indel &&
+             (has_indel < 0.1*nt /*|| has_indel > 0.9*nt*/ || has_indel == 1)))
             return;
     }
-
-#if 0 // aka nt999 in tests
-    // FIXME: do this per sample instead?
-
-    // Look at the range of indel sizes.
-    // If it's 1 size (no indel, or all have the same sized indel) then
-    // BAQ likely won't help.
-    // If it's 2 sizes (heterozygous) then we accept it if the ratio of the
-    // two sizes is close to 50%
-    // If it's >2 then accept if size 0 (no indel) is close to 100%
-    //
-    // CAVEAT: also only apply this rule if we don't have many soft-clips
-if (nt >= 20) { // Can be more liberal with BAQ on deeper data
-    // FIXME: optimise this.  Maybe a list of sizes rather
-    // than an array.
-
-    // Count numbers of indel sizes
-    int indel_sz[256] = {0};
-    for (i = 0; i < n; i++) { // iterate over bams
-        for (j = 0; j < n_plp[i]; j++) { // iterate over reads
-            const bam_pileup1_t *p = plp[i] + j;
-            bam1_t *b = p->b;
-
-            // fixme: move this to constructor
-            int z;
-            int nsz = 0;
-            for (z = 0; z < b->core.n_cigar; z++) {
-                if ((bam_get_cigar(b)[z] & BAM_CIGAR_MASK) == BAM_CINS) {
-                    int l = bam_get_cigar(b)[z] >> BAM_CIGAR_SHIFT;
-                    indel_sz[l<254?l:254]++;
-                    nsz++;
-                    if (nsz >= 2)
-                        break;
-                }
-            }
-            if (nsz == 0)
-                indel_sz[0]++;
-            else if (nsz > 1)
-                indel_sz[255]++;
-        }
-    }
-    // Simplest case; overlaps 1 indel and only 1 or 2 variants in sizes
-    if (/*indel_sz[255] <= .05*nt && */has_clip < ((0.15+.05*(nt>15))*nt)){
-        //fprintf(stderr, "Pos %d\n", pos);
-        int nsz = 0, n1 = 0, n2 = 0, nt = 0;;
-        for (i = 0; i < 256; i++) {
-            if (indel_sz[i]) {
-                if (nsz == 0) n1 = indel_sz[i];
-                else if (nsz == 1) n2 = indel_sz[i];
-                nsz++;
-                //fprintf(stderr, "Size %d freq %d\n", i, indel_sz[i]);
-                nt += indel_sz[i];
-            }
-        }
-        if (nsz == 1 && (flag & MPLP_REALN_PARTIAL))
-            // consider also setting b->core.flag|=32768 here on reads?
-            return;
-
-        if (nsz == 2) {
-            double d = (n1+.01)/(n1+n2+.01);
-            if (d > 0.4 && d < 0.6 && (flag & MPLP_REALN_PARTIAL))
-                return;
-        }
-        if (nsz > 2 && (double)indel_sz[0]/nt > 0.95
-            && (flag & MPLP_REALN_PARTIAL))
-            return;
-    }
-}
-#endif
 
     // Realign
     for (i = 0; i < n; i++) { // iterate over bams
@@ -503,12 +438,6 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
                 continue;
             b->core.flag |= 32768; // tmp3 => move adjacent to sam_prob_realn
 
-//            if (b->core.qual == 0)
-//                continue; // no need to do BAQ as already considered poor
-
-// #if 0 => BAQ=S
-// #if 1 => BAQ=T
-#if 1
             // Check p->cigar_ind and see what cigar elements are before
             // and after.  How close is this location to the end of the
             // read?  Only realign if we don't span by more than X bases.
@@ -518,7 +447,11 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
             //
             // This rescues some of the false negatives that are caused by
             // systematic reduction in quality due to sample vs ref alignment.
-#define REALN_DIST 40
+
+// At deep coverage we skip realigning more reads as we have sufficient depth.
+// This rescues for false negatives.  At shallow depth we pay for this with
+// more FP so are more stringent on spanning size.
+#define REALN_DIST (40+10*(nt<40)+10*(nt<20))
             uint32_t *cig = bam_get_cigar(b);
             int ncig = b->core.n_cigar;
 
@@ -532,14 +465,14 @@ if (nt >= 20) { // Can be more liberal with BAQ on deeper data
                 // So... rejecting the pure match ones is poor.
                 // But rejecting some of the indel ones is good?
                 nt > 15 && ncig > 1 &&
-                (cig[0] & BAM_CIGAR_MASK) == BAM_CMATCH &&
-                (cig[0] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
-                (cig[ncig-1] & BAM_CIGAR_MASK) == BAM_CMATCH &&
+                (cig[0]      &  BAM_CIGAR_MASK)  == BAM_CMATCH &&
+                (cig[0]      >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
+                (cig[ncig-1] &  BAM_CIGAR_MASK)  == BAM_CMATCH &&
                 (cig[ncig-1] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
                 has_clip < (0.15+0.05*(nt>20))*nt) {
                 continue;
             }
-#endif
+
             // FIXME: honour conf->flag & MPLP_REDO_BAQ
             sam_prob_realn(b, ref, ref_len, 3);
         }
@@ -1112,8 +1045,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -A, --count-orphans     do not discard anomalous read pairs\n"
 "  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
 "  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
-"  -D, --partial-BAQ       only run BAQ in problem regions\n"
 "  -C, --adjust-MQ INT     adjust mapping quality [0]\n"
+"  -D, --partial-BAQ       only run BAQ in problem regions\n"
 "  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
     fprintf(fp,
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
