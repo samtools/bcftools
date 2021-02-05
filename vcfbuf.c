@@ -25,6 +25,7 @@
  */
 
 #include <assert.h>
+#include <strings.h>
 #include <htslib/vcf.h>
 #include <htslib/vcfutils.h>
 #include <htslib/hts_os.h>
