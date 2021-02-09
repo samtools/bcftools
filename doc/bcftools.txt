@@ -1779,8 +1779,7 @@ multiple regions and many alignment files are processed.
     Coefficient  for  downgrading mapping quality for reads containing
     excessive mismatches. Given a read with a phred-scaled probability q of
     being generated from the mapped position, the new mapping quality is
-    about sqrt((INT-q)/INT)*INT. A zero value disables this functionality; if
-    enabled, the recommended value for BWA is 50. [0]
+    about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.
 
 *-d, --max-depth* 'INT'::
     At a position, read maximally 'INT' reads per input file. Note that

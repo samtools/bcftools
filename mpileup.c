@@ -863,7 +863,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -A, --count-orphans     do not discard anomalous read pairs\n"
 "  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
 "  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
-"  -C, --adjust-MQ INT     adjust mapping quality; recommended:50, disable:0 [0]\n"
+"  -C, --adjust-MQ INT     adjust mapping quality [0]\n"
 "  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
     fprintf(fp,
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
