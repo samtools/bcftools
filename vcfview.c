@@ -221,12 +221,10 @@ static void init_data(args_t *args)
     }
 
     // setup output
+    const char *tmp = hts_bcf_wmode2(args->output_type,args->fn_out);
     char modew[8];
-    strcpy(modew, "w");
+    strcpy(modew,tmp);
     if (args->clevel >= 0 && args->clevel <= 9) sprintf(modew + 1, "%d", args->clevel);
-    if (args->output_type==FT_BCF) strcat(modew, "bu");         // uncompressed BCF
-    else if (args->output_type & FT_BCF) strcat(modew, "b");    // compressed BCF
-    else if (args->output_type & FT_GZ) strcat(modew,"z");      // compressed VCF
     args->out = hts_open(args->fn_out ? args->fn_out : "-", modew);
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
     if ( args->n_threads > 0)
