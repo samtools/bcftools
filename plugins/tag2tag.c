@@ -1,6 +1,6 @@
 /*  plugins/tag2tag.c -- convert between similar tags
 
-    Copyright (C) 2014-2016 Genome Research Ltd.
+    Copyright (C) 2014-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -93,14 +93,15 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     };
     int c;
     char *src_tag = "GP";
+    int src_type  = BCF_HT_REAL;
     while ((c = getopt_long(argc, argv, "?hrt:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
-            case  1 : src_tag = "GP"; mode = GP_TO_GL; break;
-            case  2 : src_tag = "GL"; mode = GL_TO_PL; break;
-            case  3 : src_tag = "GP"; mode = GP_TO_GT; break;
-            case  4 : src_tag = "PL"; mode = PL_TO_GL; break;
+            case  1 : src_tag = "GP"; mode = GP_TO_GL; src_type = BCF_HT_REAL; break;
+            case  2 : src_tag = "GL"; mode = GL_TO_PL; src_type = BCF_HT_REAL; break;
+            case  3 : src_tag = "GP"; mode = GP_TO_GT; src_type = BCF_HT_REAL; break;
+            case  4 : src_tag = "PL"; mode = PL_TO_GL; src_type = BCF_HT_INT; break;
             case 'r': drop_source_tag = 1; break;
             case 't': thresh = atof(optarg); break;
             case 'h':
@@ -127,6 +128,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     int tag_id;
     if ( (tag_id=bcf_hdr_id2int(in_hdr,BCF_DT_ID,src_tag))<0 || !bcf_hdr_idinfo_exists(in_hdr,BCF_HL_FMT,tag_id) )
         error("The source tag does not exist: %s\n", src_tag);
+    if ( bcf_hdr_id2type(in_hdr,BCF_HL_FMT,tag_id) != src_type )
+        error("The source tag type does not match the VCF specification, expected Type=%s. Use `bcftools reheader` to fix.\n",src_type==BCF_HT_REAL?"Float":"Integer");
 
     return 0;
 }
