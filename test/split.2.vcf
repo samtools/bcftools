@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##reference=ref.fasta
+##contig=<ID=22,length=51304566>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A1/A1-1	A1\A1	A1:A1	B1	B2	C
+22	10	.	C	A	.	.	.	GT	./.	0/1	0/0	./.	0/0	./.
+22	22	.	A	C	.	.	.	GT	0/0	0/0	0/0	0/0	0/0	0/0
+22	23	.	C	A	.	.	.	GT	0/1	0/0	0/0	0/1	0/0	1/0
