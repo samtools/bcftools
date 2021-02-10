@@ -182,6 +182,10 @@ test_vcf_query($opts,in=>'query.negative',out=>'query.61.out',args=>q[-f'%POS\\t
 test_vcf_query($opts,in=>'query.negative',out=>'query.62.out',args=>q[-f'%POS\\t%TAG2\\n' -i'(TAG2>=-129 && TAG2<=-120) || (TAG2>=-32769 && TAG2<=-32760)']);
 test_vcf_query($opts,in=>'query.negative',out=>'query.62.out',args=>q[-f'%POS\\t%TAGV2\\n' -i'(TAGV2>=-129 && TAGV2<=-120) || (TAGV2>=-32769 && TAGV2<=-32760)']);
 test_vcf_query($opts,in=>'query',out=>'query.63.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GQ\\n]' -i'N_PASS(GQ<20)==1']);
+test_vcf_query($opts,in=>'query.filter.11',out=>'query.80.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GT\\n]' -i'N_PASS(GT="alt")==1']);
+test_vcf_query($opts,in=>'query.filter.11',out=>'query.81.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GT\\n]' -i'N_PASS(GT="alt")!=1']);
+test_vcf_query($opts,in=>'query.filter.11',out=>'query.81.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GT\\n]' -e'N_PASS(GT="alt")==1']);
+test_vcf_query($opts,in=>'query.filter.11',out=>'query.80.out',args=>q[-f'[%POS\\t%SAMPLE\\t%GT\\n]' -e'N_PASS(GT="alt")!=1']);
 test_vcf_query($opts,in=>'query',out=>'query.64.out',args=>q[-f'%CHROM\\t%POS\\t%INFO\\t%FORMAT\\n' -s D,C]);
 test_vcf_query($opts,in=>'query.pbinom.1',out=>'query.65.out',args=>q[-f'[%POS %SAMPLE %GT %AD %PBINOM(AD)\\n]' -i'phred(binom(FMT/AD))>=0']);
 test_vcf_query($opts,in=>'query.filter.6',out=>'query.66.out',args=>q[-f'%POS\\n' -i'POS==16777217 || POS==33554432 || POS=118673904']);

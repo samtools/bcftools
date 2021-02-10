@@ -8,6 +8,20 @@ Changes affecting the whole of bcftools, or multiple commands:
 * Make F_MISSING in filtering expressions work for sites with multiple
   ALT alleles (#1343)
 
+* Fix N_PASS and F_PASS to behave according to expectation when reverse
+  logic is used (#1397). This fix has the side effect of `query` (or
+  programs like `+trio-stats`) behaving differently with these expressions,
+  operating now in site-oritented rather than sample-oriented mode. For
+  example, the new behavior could be:
+    bcftools query -f'[%POS %SAMPLE %GT\n]' -i'N_PASS(GT="alt")==1'
+        11	A	0/0
+        11	B	0/0
+        11	C	1/1
+  while previously the same expression would return:
+        11	C	1/1
+  The original mode can be mimicked by splitting the filtering into two steps:
+    bcftools view -i'N_PASS(GT="alt")==1' | \
+    bcftools query -f'[%POS %SAMPLE %GT\n]' -i'GT="alt"'
 
 Changes affecting specific commands:
 

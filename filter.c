@@ -1088,34 +1088,18 @@ static int func_npass(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
     if ( nstack==0 ) error("Error parsing the expression\n");
     token_t *tok = stack[nstack - 1];
     if ( !tok->nsamples ) error("The function %s works with FORMAT fields\n", rtok->tag);
-
-    rtok->nsamples = tok->nsamples;
-    memcpy(rtok->pass_samples, tok->pass_samples, rtok->nsamples*sizeof(*rtok->pass_samples));
-
     assert(tok->usmpl);
-    if ( !rtok->usmpl )
-    {
-        rtok->usmpl = (uint8_t*) malloc(tok->nsamples*sizeof(*rtok->usmpl));
-        memcpy(rtok->usmpl, tok->usmpl, tok->nsamples*sizeof(*rtok->usmpl));
-    }
 
     int i, npass = 0;
-    for (i=0; i<rtok->nsamples; i++)
+    for (i=0; i<tok->nsamples; i++)
     {
-        if ( !rtok->usmpl[i] ) continue;
-        if ( rtok->pass_samples[i] ) npass++;
+        if ( !tok->usmpl[i] ) continue;
+        if ( tok->pass_samples[i] ) npass++;
     }
-
-    hts_expand(double,rtok->nsamples,rtok->mvalues,rtok->values);
-    double value = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
-    rtok->nval1 = 1;
-    rtok->nvalues = rtok->nsamples;
-
-    // Set per-sample status so that `query -i 'F_PASS(GT!="mis" & GQ >= 20) > 0.5'` or +trio-stats
-    // consider only the passing site AND samples. The values for failed samples is set to -1 so
-    // that it can never conflict with valid expressions.
-    for (i=0; i<rtok->nsamples; i++)
-        rtok->values[i] = rtok->pass_samples[i] ? value : -1;
+    hts_expand(double,1,rtok->mvalues,rtok->values);
+    rtok->nsamples = 0;
+    rtok->nvalues = 1;
+    rtok->values[0] = rtok->tag[0]=='N' ? npass : (line->n_sample ? 1.0*npass/line->n_sample : 0);
 
     return 1;
 }
