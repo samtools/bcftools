@@ -583,7 +583,7 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
 static void init_data(args_t *args)
 {
     char *ptr = strchr(args->dnm_score_tag,':');
-    if ( *ptr )
+    if ( ptr )
     {
         if ( ptr==args->dnm_score_tag ) error("Error: could not parse --use tag=%s\n",ptr);
         *ptr = 0;
