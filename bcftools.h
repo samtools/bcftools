@@ -1,6 +1,6 @@
 /*  bcftools.h -- utility function declarations.
 
-    Copyright (C) 2013 Genome Research Ltd.
+    Copyright (C) 2013-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -54,30 +54,35 @@ const char *hts_bcf_wmode2(int file_type, char *fname);
 
 void *smalloc(size_t size);     // safe malloc
 
-static inline int is_acgtn(char nt)
+static inline int iupac2bitmask(char iupac)
 {
-    if ( nt < 65 ) return 0;
-    if ( nt > 84 ) nt -= 32;    // to uppercase
-    if ( nt=='A' || nt=='C' || nt=='G' || nt=='T' || nt=='N' ) return 1;
-    return 0;
+    const int A = 1;
+    const int C = 2;
+    const int G = 4;
+    const int T = 8;
+    if ( iupac >= 97 ) iupac -= 32;
+    if ( iupac == 'A' ) return A;
+    if ( iupac == 'C' ) return C;
+    if ( iupac == 'G' ) return G;
+    if ( iupac == 'T' ) return T;
+    if ( iupac == 'M' ) return A|C;
+    if ( iupac == 'R' ) return A|G;
+    if ( iupac == 'W' ) return A|T;
+    if ( iupac == 'S' ) return C|G;
+    if ( iupac == 'Y' ) return C|T;
+    if ( iupac == 'K' ) return G|T;
+    if ( iupac == 'V' ) return A|C|G;
+    if ( iupac == 'H' ) return A|C|T;
+    if ( iupac == 'D' ) return A|G|T;
+    if ( iupac == 'B' ) return C|G|T;
+    if ( iupac == 'N' ) return A|C|G|T;
+    return -1;
 }
-
-static inline char gt2iupac(char a, char b)
+static inline char bitmask2iupac(int bitmask)
 {
-    static const char iupac[4][4] = { {'A','M','R','W'},{'M','C','S','Y'},{'R','S','G','K'},{'W','Y','K','T'} };
-    if ( a>='a' ) a -= 'a' - 'A';
-    if ( b>='a' ) b -= 'a' - 'A';
-    if ( a=='A' ) a = 0;
-    else if ( a=='C' ) a = 1;
-    else if ( a=='G' ) a = 2;
-    else if ( a=='T' ) a = 3;
-    else return 'N';
-    if ( b=='A' ) b = 0;
-    else if ( b=='C' ) b = 1;
-    else if ( b=='G' ) b = 2;
-    else if ( b=='T' ) b = 3;
-    else return 'N';
-    return iupac[(int)a][(int)b];
+    const char iupac[16] = {'.','A','C','M','G','R','S','V','T','W','Y','H','K','D','B','N'};
+    if ( bitmask <= 0 || bitmask > 15 ) return 0;
+    return iupac[bitmask];
 }
 
 static inline int iupac_consistent(char iupac, char nt)

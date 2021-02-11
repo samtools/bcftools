@@ -817,7 +817,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format
 
-*-H, --haplotype* '1'|'2'|'R'|'A'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
+*-H, --haplotype* '1'|'2'|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
     
         '1';;
@@ -869,7 +869,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     format details.
 
 *--mask-with* 'CHAR'|'lc'|'uc'::
-    replace sequence from *--mask* with CHAR or change to lowercase (lc) or uppercase (uc)
+    replace sequence from *--mask* with CHAR, skipping overlapping variants, or change to lowercase (lc) or uppercase (uc)
 
 *-M, --missing* 'CHAR'::
     instead of skipping the missing genotypes, output the character CHAR (e.g. "?")

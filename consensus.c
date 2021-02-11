@@ -116,6 +116,8 @@ typedef struct
     FILE *fp_chain;
     char **argv;
     int argc, output_iupac, haplotype, allele, isample, napplied;
+    uint8_t *iupac_bitmask;
+    int miupac_bitmask;
     char *fname, *ref_fname, *sample, *output_fname, *mask_fname, *chain_fname, missing_allele, absent_allele;
     char mark_del, mark_ins, mark_snv;
 }
@@ -284,6 +286,7 @@ static void add_mask_with(args_t *args, char *with)
 }
 static void destroy_data(args_t *args)
 {
+    free(args->iupac_bitmask);
     if (args->filter) filter_destroy(args->filter);
     bcf_sr_destroy(args->files);
     int i;
@@ -481,7 +484,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
     if ( args->absent_allele ) apply_absent(args, rec->pos);
     if ( rec->n_allele==1 && !args->missing_allele && !args->absent_allele ) { return; }
 
-    int i;
+    int i,j;
     if ( args->mask )
     {
         char *chr = (char*)bcf_hdr_id2name(args->hdr,args->rid);
@@ -508,6 +511,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         enum { use_hap, use_iupac, pick_one } action = use_hap;
         if ( args->allele==PICK_IUPAC )
         {
+            if ( !args->haplotype ) action = use_iupac;
             if ( !bcf_gt_is_phased(ptr[0]) && !bcf_gt_is_phased(ptr[fmt->n-1]) ) action = use_iupac;
         }
         else if ( args->output_iupac ) action = use_iupac;
@@ -546,44 +550,40 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         }
         else if ( action==use_iupac ) 
         {
-            ialt = ptr[0];
-            if ( bcf_gt_is_missing(ialt) || ialt==bcf_int32_vector_end )
+            ialt = -1;
+            int is_missing = 0, alen = 0, mlen = 0, fallback_alt = -1;
+            for (i=0; i<fmt->n; i++)
             {
-                if ( !args->missing_allele ) return;
-                ialt = -1;
-            }
-            else
-                ialt = bcf_gt_allele(ialt);
+                if ( bcf_gt_is_missing(ptr[i]) ) { is_missing = 1; continue; }
+                if ( ptr[i]==bcf_int8_vector_end ) break;
+                int jalt = bcf_gt_allele(ptr[i]);
+                if ( jalt >= rec->n_allele ) error("Invalid VCF, too few ALT alleles at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+                if ( fallback_alt <= 0 ) fallback_alt = jalt;
 
-            int jalt;
-            if ( fmt->n>1 )
-            {
-                jalt = ptr[1];
-                if ( bcf_gt_is_missing(jalt) )
-                {
-                    if ( !args->missing_allele ) return;
-                    ialt = -1;
-                }
-                else if ( jalt==bcf_int32_vector_end ) jalt = ialt;
-                else
-                    jalt = bcf_gt_allele(jalt);
-            }
-            else jalt = ialt;
+                int l = strlen(rec->d.allele[jalt]);
+                for (j=0; j<l; j++)
+                    if ( iupac2bitmask(rec->d.allele[jalt][j]) < 0 ) break;
+                if ( j<l ) continue; // symbolic allele, breakpoint or invalid character in the allele
 
-            if ( ialt==0 && jalt>0 ) ialt = jalt, jalt = 0;
-            if ( ialt>0 && ialt!=jalt )
-            {
-                if ( rec->n_allele <= ialt || rec->n_allele <= jalt ) error("Invalid VCF, too few ALT alleles at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-                i = 0;
-                while ( rec->d.allele[ialt][i] && rec->d.allele[jalt][i] )
+                if ( l > mlen )
                 {
-                    char ial = rec->d.allele[ialt][i];
-                    char jal = rec->d.allele[jalt][i];
-                    if ( !is_acgtn(ial) || !is_acgtn(jal) ) break;
-                    rec->d.allele[ialt][i] = gt2iupac(ial,jal);
-                    i++;
+                    hts_expand(uint8_t,l,args->miupac_bitmask,args->iupac_bitmask);
+                    for (j=mlen; j<l; j++) args->iupac_bitmask[j] = 0;
+                    mlen = l;
                 }
+                if ( jalt>0 && l>alen )
+                {
+                    alen = l;
+                    ialt = jalt;
+                }
+                for (j=0; j<l; j++)
+                    args->iupac_bitmask[j] |= iupac2bitmask(rec->d.allele[jalt][j]);
             }
+            if ( alen > 0 )
+                for (j=0; j<alen; j++) rec->d.allele[ialt][j] = bitmask2iupac(args->iupac_bitmask[j]);
+            else if ( fallback_alt >= 0 )
+                ialt = fallback_alt;
+            else if ( is_missing && !args->missing_allele ) return;
         }
         else
         {
@@ -636,17 +636,34 @@ static void apply_variant(args_t *args, bcf1_t *rec)
         }
         if ( rec->n_allele <= ialt ) error("Broken VCF, too few alts at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
-    else if ( args->output_iupac && ialt>0 )
+    else if ( args->output_iupac && rec->n_allele>1 )
     {
-        i = 0;
-        while ( rec->d.allele[ialt][i] && rec->d.allele[0][i] )
+        int ialt, alen = 0, mlen = 0;
+        for (i=0; i<rec->n_allele; i++)
         {
-            char ial = rec->d.allele[ialt][i];
-            char jal = rec->d.allele[0][i];
-            if ( !is_acgtn(ial) || !is_acgtn(jal) ) break;
-            rec->d.allele[ialt][i] = gt2iupac(ial,jal);
-            i++;
+            int l = strlen(rec->d.allele[i]);
+            for (j=0; j<l; j++)
+                if ( iupac2bitmask(rec->d.allele[i][j]) < 0 ) break;
+            if ( j<l ) continue;    // symbolic allele, breakpoint or invalid character in the allele
+
+            if ( l > mlen )
+            {
+                hts_expand(uint8_t,l,args->miupac_bitmask,args->iupac_bitmask);
+                for (j=mlen; j<l; j++) args->iupac_bitmask[j] = 0;
+                mlen = l;
+            }
+            if ( i>0 && l>alen )
+            {
+                alen = l;
+                ialt = i;
+            }
+            for (j=0; j<l; j++)
+                args->iupac_bitmask[j] |= iupac2bitmask(rec->d.allele[i][j]);
         }
+        if ( alen > 0 )
+            for (j=0; j<alen; j++) rec->d.allele[ialt][j] = bitmask2iupac(args->iupac_bitmask[j]);
+        else
+            ialt = 1;
     }
 
     if ( rec->n_allele==1 && ialt!=-1 )
@@ -790,9 +807,9 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             }
             error(
                     "The fasta sequence does not match the REF allele at %s:%"PRId64":\n"
-                    "   .vcf: [%s] <- (REF)\n" 
-                    "   .vcf: [%s] <- (ALT)\n" 
-                    "   .fa:  [%s]%c%s\n",
+                    "   REF .vcf: [%s]\n"
+                    "   ALT .vcf: [%s]\n"
+                    "   REF .fa : [%s]%c%s\n",
                     bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1, rec->d.allele[0], alt_allele, args->fa_buf.s+idx,
                     tmp?tmp:' ',tmp?args->fa_buf.s+idx+rec->rlen+1:""
                  );
@@ -1047,8 +1064,8 @@ static void usage(args_t *args)
     fprintf(stderr, "        --mark-del CHAR            instead of removing sequence, insert CHAR for deletions\n");
     fprintf(stderr, "        --mark-ins uc|lc           highlight insertions in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
     fprintf(stderr, "        --mark-snv uc|lc           highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest as is\n");
-    fprintf(stderr, "    -m, --mask FILE                replace regions with N\n");
-    fprintf(stderr, "        --mask-with CHAR|lc|uc     replace regions with N\n");
+    fprintf(stderr, "    -m, --mask FILE                replace regions according to the next --mask-with option. The default is --mask-with N\n");
+    fprintf(stderr, "        --mask-with CHAR|uc|lc     replace with CHAR (skips overlapping variants); change to uppercase (uc) or lowercase (lc)\n");
     fprintf(stderr, "    -M, --missing CHAR             output CHAR instead of skipping a missing genotype \"./.\"\n");
     fprintf(stderr, "    -o, --output FILE              write output to a file [standard output]\n");
     fprintf(stderr, "    -p, --prefix STRING            prefix to add to output sequence names\n");
