@@ -129,11 +129,11 @@ AS_IF([test "$enable_bcftools_plugins" != "no"], [dnl
       PLATFORM=MSYS
       PLUGIN_EXT=.dll
       HTSLIB_DLL=hts.dll.a
-	  # This also sets __USE_MINGW_ANSI_STDIO which in turn makes PRId64,
+      # This also sets __USE_MINGW_ANSI_STDIO which in turn makes PRId64,
       # %lld and %z printf formats work.  It also enforces the snprintf to
       # be C99 compliant so it returns the correct values (in kstring.c).
-      CPPFLAGS="$CPPCFLAGS -D_XOPEN_SOURCE=600"],
-  
+      CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE=600"],
+
     [*-darwin* | *-Darwin*],[dnl
       host_result="Darwin dylib"
       PLATFORM=Darwin
@@ -271,7 +271,7 @@ case $host_alias in
     # This also sets __USE_MINGW_ANSI_STDIO which in turn makes PRId64,
     # %lld and %z printf formats work.  It also enforces the snprintf to
     # be C99 compliant so it returns the correct values (in kstring.c).
-    CPPFLAGS="$CPPCFLAGS -D_XOPEN_SOURCE=600"
+    CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE=600"
     ;;
 esac
 
