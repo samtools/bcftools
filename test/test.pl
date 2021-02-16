@@ -425,6 +425,7 @@ test_vcf_annotate($opts,in=>'annotate.multi',tab=>'annotate.multi',out=>'annotat
 test_vcf_annotate($opts,in=>'annotate.missing-append',tab=>'annotate.missing-append',out=>'annotate.missing-append.1.out',args=>'-c CHROM,POS,REF,ALT,STR,INT,FLT -l STR:append-missing,INT:append-missing,FLT:append-missing');
 test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args=>'-c CHROM,POS,REF,ALT,+ID');
 test_vcf_annotate($opts,in=>'annotate21',out=>'annotate29.out',args=>'--rename-annots {PATH}/annotate21.txt');
+test_vcf_annotate($opts,in=>'annotate22',vcf=>'annotate22',out=>'annotate30.out',args=>'-c FMT/XX,INFO/XX -x FMT/XX,INFO/XX');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
