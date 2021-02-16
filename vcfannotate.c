@@ -2354,14 +2354,12 @@ static void init_columns(args_t *args)
                         // transferring ID column into a new INFO tag
                         tmp.l = 0;
                         ksprintf(&tmp,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Transferred ID column\">",key_dst);
-                        col->getter = vcf_getter_id2str;
                     }
                     else if ( !strcasecmp("FILTER",key_src) && !explicit_src_info )
                     {
                         // transferring FILTER column into a new INFO tag
                         tmp.l = 0;
                         ksprintf(&tmp,"##INFO=<ID=%s,Number=1,Type=String,Description=\"Transferred FILTER column\">",key_dst);
-                        col->getter = vcf_getter_filter2str;
                     }
                     else
                     {
@@ -2389,6 +2387,11 @@ static void init_columns(args_t *args)
                 else
                     error("The tag \"%s\" is not defined in %s, was the -h option provided?\n", key_src, args->targets_fname);
                 assert( bcf_hdr_idinfo_exists(args->hdr_out,BCF_HL_INFO,hdr_id) );
+            }
+            if  ( args->tgts_is_vcf )
+            {
+                if ( !strcasecmp("ID",key_src) && !explicit_src_info ) col->getter = vcf_getter_id2str;
+                else if ( !strcasecmp("FILTER",key_src) && !explicit_src_info ) col->getter = vcf_getter_filter2str;
             }
             col->number = bcf_hdr_id2length(args->hdr_out,BCF_HL_INFO,hdr_id);
             switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id) )
