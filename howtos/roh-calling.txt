@@ -88,7 +88,7 @@ rm -f 1000GP_Phase3.tgz
 
 # Get alleles frequencies from the 1000 Genomes Project
 curl -Lo AFs.vcf.gz http://goo.gl/z1NHN7
-bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\t%AF\n' AFs.vcf.gz | bgzip -c > AFs.tab.gz
+bcftools query -f'%CHROM\t%POS\t%REF,%ALT\t%AF\n' AFs.vcf.gz | bgzip -c > AFs.tab.gz
 tabix -s1 -b2 -e2 AFs.tab.gz
 echo '##INFO=<ID=AF1KG,Number=1,Type=Float,Description="Allele Frequency">' > AFs.tab.gz.hdr
 rm -f AFs.vcf.gz
