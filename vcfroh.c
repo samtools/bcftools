@@ -658,8 +658,10 @@ static void flush_viterbi(args_t *args, int ismpl)
     }
 }
 
-int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq)
+int read_AF(args_t *args, bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq)
 {
+    if ( tgt->nals < 2 )
+        error("Expected two comma-separated alleles (REF,ALT) in the third column of %s, found:\n\t%s\n", args->af_fname,tgt->line.s);
     if ( tgt->nals != line->n_allele ) return -1;    // number of alleles does not match
 
     int i;
@@ -839,7 +841,7 @@ int process_line(args_t *args, bcf1_t *line, int ial)
     else if ( args->af_fname ) 
     {
         // Read AF from a file
-        ret = read_AF(args->files->targets, line, &alt_freq);
+        ret = read_AF(args, args->files->targets, line, &alt_freq);
     }
     else if ( args->dflt_AF > 0 )
     {
