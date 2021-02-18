@@ -26,6 +26,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <assert.h>
 #include <ctype.h>
 #include <string.h>
+#include <math.h>
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 #include <htslib/khash_str2int.h>
@@ -96,6 +97,14 @@ static inline int est_indelreg(int pos, const char *ref, int l, char *ins4)
             - 8: estimated sequence quality                     .. (aux>>8)&0xff
             - 8: indel quality                                  .. aux&0xff
  */
+// 1. Find out how many types of indels are present.
+// 2. Construct per-sample consensus
+// 3. Check length of homopolymer run around the current positions (l_run)
+//    FIXME: length of STR rather than pure homopolymer?
+// 4. Construct consensus sequence (how diff to 2?)
+// 5. Compute likelihood given each type of indel for each read
+//    This does the probaln_glocal step, setting score1[] and score2[]
+// 6. Compute indelQ
 int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref)
 {
     int i, s, j, k, t, n_types, *types, max_rd_len, left, right, max_ins, *score1, *score2, max_ref2;
@@ -346,12 +355,15 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                     sc = probaln_glocal((uint8_t*)ref2 + tbeg - left, tend - tbeg + abs(types[t]),
                                         (uint8_t*)query, qend - qbeg, qq, &apf1, 0, 0);
                     l = (int)(100. * sc / (qend - qbeg) + .499); // used for adjusting indelQ below
+                    l *= bca->indel_bias;
+
                     if (l > 255) l = 255;
                     score1[K*n_types + t] = score2[K*n_types + t] = sc<<8 | l;
                     if (sc > 5) {
                         sc = probaln_glocal((uint8_t*)ref2 + tbeg - left, tend - tbeg + abs(types[t]),
                                             (uint8_t*)query, qend - qbeg, qq, &apf2, 0, 0);
                         l = (int)(100. * sc / (qend - qbeg) + .499);
+                        l *= bca->indel_bias;
                         if (l > 255) l = 255;
                         score2[K*n_types + t] = sc<<8 | l;
                     }
@@ -418,6 +430,11 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                 indelQ2 = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ2 + .499);
                 // pick the smaller between indelQ1 and indelQ2
                 indelQ = indelQ1 < indelQ2? indelQ1 : indelQ2;
+
+                // Doesn't really help accuracy, but permits -h to take
+                // affect still.
+                if (indelQ > seqQ) indelQ = seqQ;
+
                 if (indelQ > 255) indelQ = 255;
                 if (seqQ > 255) seqQ = 255;
                 p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ; // use 22 bits in total

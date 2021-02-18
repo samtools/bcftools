@@ -95,6 +95,7 @@ typedef struct __bcf_callaux_t {
     uint16_t *bases;        // 5bit: unused, 6:quality, 1:is_rev, 4:2-bit base or indel allele (index to bcf_callaux_t.indel_types)
     errmod_t *e;
     void *rghash;
+    float indel_bias;  // adjusts indel score threshold; lower => call more.
 } bcf_callaux_t;
 
 // per-sample values
