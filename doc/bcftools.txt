@@ -1943,7 +1943,24 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *-h, --tandem-qual* 'INT'::
     Coefficient for modeling homopolymer errors. Given an 'l'-long homopolymer
-    run, the sequencing error of an indel of size s is modeled as 'INT'*s/l [100]
+    run, the sequencing error of an indel of size s is modeled as 'INT'*s/l [500]
+    Increasing this informs the caller that indels in long
+    homopolymers are more likely genuine and less likely to be
+    sequencing artifacts.  Hence increasing tandem-qual will have
+    higher recall and lower precision.  Bcftools 1.12 and earlier had
+    a default of 100, which was tuned around more error prone instruments.
+    Note changing this may have a minor impact on SNP calling too.
+    For maximum SNP calling accuracy, it may be preferable to adjust
+    this lower again, although this will adversely affect indels.
+
+*--indel-bias* 'FLOAT'::
+    Skews the indel scores up or down, trading recall (low
+    false-negative) vs precision (low false-positive) [2.0].  In Bcftools
+    1.12 and earlier this parameter didn't exist, but had an implied
+    value of 1.0.  If you are planning to do heavy filtering of
+    variants, selecting the best quality ones only (favouring
+    precision over recall), it is advisable to set this back to 1.0,
+    while higher depth samples can work well with larger values.
 
 *-I, --skip-indels*::
     Do not perform INDEL calling

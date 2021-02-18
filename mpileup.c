@@ -70,6 +70,7 @@ typedef struct {
     int rflag_require, rflag_filter, output_type;
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
+    double indel_bias;
     char *reg_fname, *pl_list, *fai_fname, *output_fname;
     int reg_is_file, record_cmd_line, n_threads;
     faidx_t *fai;
@@ -782,6 +783,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bca = bcf_call_init(-1., conf->min_baseQ);
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
     conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
+    conf->bca->indel_bias = conf->indel_bias;
     conf->bca->min_frac = conf->min_frac;
     conf->bca->min_support = conf->min_support;
     conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
@@ -1097,6 +1099,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "  -p, --per-sample-mF     apply -m and -F per-sample for increased sensitivity\n"
 "  -P, --platforms STR     comma separated list of platforms for indels [all]\n"
+"      --indel-bias FLOAT  Raise to favour recall over precision [2.0]\n"
 "\n"
 "Notes: Assuming diploid individuals.\n"
 "\n"
@@ -1120,8 +1123,8 @@ int main_mpileup(int argc, char *argv[])
     mplp.min_baseQ = 13;
     mplp.capQ_thres = 0;
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
-    mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 100;
-    mplp.min_frac = 0.002; mplp.min_support = 1;
+    mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
+    mplp.min_frac = 0.002; mplp.indel_bias = 1/2.0; mplp.min_support = 1;
     mplp.flag = MPLP_NO_ORPHAN | MPLP_REALN | MPLP_SMART_OVERLAPS;
     mplp.argc = argc; mplp.argv = argv;
     mplp.rflag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP;
@@ -1177,6 +1180,7 @@ int main_mpileup(int argc, char *argv[])
         {"annotate", required_argument, NULL, 'a'},
         {"ext-prob", required_argument, NULL, 'e'},
         {"gap-frac", required_argument, NULL, 'F'},
+        {"indel-bias", required_argument, NULL, 10},
         {"tandem-qual", required_argument, NULL, 'h'},
         {"skip-indels", no_argument, NULL, 'I'},
         {"max-idepth", required_argument, NULL, 'L'},
@@ -1267,6 +1271,12 @@ int main_mpileup(int argc, char *argv[])
             break;
         case 'e': mplp.extQ = atoi(optarg); break;
         case 'h': mplp.tandemQ = atoi(optarg); break;
+        case 10: // --indel-bias (inverted so higher => more indels called)
+            if (atof(optarg) < 1e-2)
+                mplp.indel_bias = 1/1e2;
+            else
+                mplp.indel_bias = 1/atof(optarg);
+            break;
         case 'A': use_orphan = 1; break;
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;
