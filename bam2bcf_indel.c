@@ -88,6 +88,57 @@ static inline int est_indelreg(int pos, const char *ref, int l, char *ins4)
     return max_i - pos;
 }
 
+// Identify spft-clip length, position in seq, and clipped seq len
+static inline void get_pos(const bcf_callaux_t *bca, bam_pileup1_t *p,
+                           int *sc_len_r, int *slen_r, int *epos_r) {
+    bam1_t *b = p->b;
+    int sc_len = 0, sc_dist = -1, at_left = 1;
+    int epos = p->qpos, slen = b->core.l_qseq;
+    int k;
+    uint32_t *cigar = bam_get_cigar(b);
+    for (k = 0; k < b->core.n_cigar; k++) {
+        int op = bam_cigar_op(cigar[k]);
+        if (op == BAM_CSOFT_CLIP) {
+            slen -= bam_cigar_oplen(cigar[k]);
+            if (at_left) {
+                // left end
+                sc_len += bam_cigar_oplen(cigar[k]);
+                epos -= sc_len; // don't count SC in seq pos
+                sc_dist = epos;
+            } else {
+                // right end
+                int srlen = bam_cigar_oplen(cigar[k]);
+                int rd = b->core.l_qseq - srlen - p->qpos;
+                if (sc_dist < 0 || sc_dist > rd) {
+                    // closer to right end than left
+                    // FIXME: compensate for indel length too?
+                    sc_dist = rd;
+                    sc_len = srlen;
+                }
+            }
+        } else if (op != BAM_CHARD_CLIP) {
+            at_left = 0;
+        }
+    }
+
+    if (p->indel > 0 && slen - (epos+p->indel) < epos)
+        epos += p->indel-1; // end of insertion, if near end of seq
+
+    // slen is now length of sequence minus soft-clips and
+    // epos is position of indel in seq minus left-clip.
+    *epos_r = (double)epos / (slen+1) * bca->npos;
+
+    if (sc_len) {
+        // scale importance of clip by distance to closest end
+        *sc_len_r = 15.0*sc_len / (sc_dist+1);
+        if (*sc_len_r > 99) *sc_len_r = 99;
+    } else {
+        *sc_len_r = 0;
+    }
+
+    *slen_r = slen;
+}
+
 /*
     notes:
         - n .. number of samples
@@ -227,6 +278,11 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                     else if (op == BAM_CINS || op == BAM_CSOFT_CLIP) y += l;
                 }
             }
+            // What is >>16 here? It's the 0x10000 above.
+            // Something to do with counts for matching / mismatching ref?
+            // What's the significance of 0.7 constant?  Ref bias?
+            // Or just > 70% ALT means don't align?  I don't understand it yet
+
             // determine the consensus
             for (i = 0; i < right - left; ++i) r[i] = ref0[i];
             max = max2 = 0; max_i = max2_i = -1;
@@ -297,6 +353,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
     score1 = (int*) calloc(N * n_types, sizeof(int));
     score2 = (int*) calloc(N * n_types, sizeof(int));
     bca->indelreg = 0;
+    double nqual_over_60 = bca->nqual / 60.0;
     for (t = 0; t < n_types; ++t) {
         int l, ir;
         probaln_par_t apf1 = { 1e-4, 1e-2, 10 }, apf2 = { 1e-6, 1e-3, 10 };
@@ -322,10 +379,71 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
             // align each read to ref2
             for (i = 0; i < n_plp[s]; ++i, ++K) {
                 bam_pileup1_t *p = plp[s] + i;
+
+                // Some basic ref vs alt stats.  This is naive, but we just assume
+                // has-indel is ALT and doesn't-have-indel is REF.
+                int imq = p->b->core.qual > 59 ? 59 : p->b->core.qual;
+                imq *= nqual_over_60;
+
+                int sc_len, slen, epos;
+                get_pos(bca, p, &sc_len, &slen, &epos);
+
+                // Gather stats for INFO field to aid filtering.
+                // mq and sc_len not very helpful for filtering, but could
+                // help in assigning a better QUAL value.
+                //
+                // Pos is slightly useful.
+                uint8_t *qual = bam_get_qual(p->b);
+                assert(imq >= 0 && imq < bca->nqual);
+                assert(epos >= 0 && epos < bca->npos);
+                assert(sc_len >= 0 && sc_len < 100);
+                if (p->indel) {
+                    bca->alt_mq[imq]++;
+                    bca->alt_scl[sc_len]++;
+                    bca->alt_pos[epos]++;
+                    if (p->indel > 0) {
+                        // Insertion base quality, +/- 1 either side
+                        // Should maybe extend region by total size of STR.
+                        int k, lq = p->b->core.l_qseq;
+                        for (k = -1; k <= p->indel; k++) {
+                            if (k+p->qpos >= 0 && k+p->qpos < lq) {
+                                int bq = qual[p->qpos + k];
+                                if (bq > 59) bq = 59;
+                                bca->alt_bq[(int)(bq * nqual_over_60)]++;
+                            }
+                        }
+                    } else {
+                        // del, base +/- 1 either side of del
+                        // Should maybe extend region by total size of STR.
+                        int k, lq = p->b->core.l_qseq;
+                        for (k = -1; k <= 1; k++) {
+                            if (k+p->qpos >= 0 && k+p->qpos < lq) {
+                                int bq = qual[p->qpos + k];
+                                if (bq > 59) bq = 59;
+                                bca->alt_bq[(int)(bq * nqual_over_60)]++;
+                            }
+                        }
+                    }
+                } else {
+                    bca->ref_mq[imq]++;
+                    bca->ref_scl[sc_len]++;
+                    bca->ref_pos[epos]++;
+                    // Local region, +/- 1bp either side.
+                    // Should maybe extend region by total size of STR.
+                    int k, lq = p->b->core.l_qseq;
+                    for (k = -1; k <= 1; k++) {
+                        if (k+p->qpos >= 0 && k+p->qpos < lq) {
+                            int bq = qual[p->qpos + k];
+                            if (bq > 59) bq = 59;
+                            bca->ref_bq[(int)(bq * nqual_over_60)]++;
+                        }
+                    }
+                }
+
                 int qbeg, qend, tbeg, tend, sc, kk;
                 uint8_t *seq = bam_get_seq(p->b);
                 uint32_t *cigar = bam_get_cigar(p->b);
-                if (p->b->core.flag&4) continue; // unmapped reads
+                if (p->b->core.flag & BAM_FUNMAP) continue;
                 // FIXME: the following loop should be better moved outside; nonetheless, realignment should be much slower anyway.
                 for (kk = 0; kk < p->b->core.n_cigar; ++kk)
                     if ((cigar[kk]&BAM_CIGAR_MASK) == BAM_CREF_SKIP) break;
@@ -352,6 +470,15 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                         if (qq[l - qbeg] > 30) qq[l - qbeg] = 30;
                         if (qq[l - qbeg] < 7) qq[l - qbeg] = 7;
                     }
+
+                    // TODO: consider aligning to both ref and ref2 here.
+                    // Whichever is best determines REF / ALT assignment, which in turn permits us
+                    // to fill out ref_pos, ref_bq, ref_mq and ref_scl (plus alt_*) matrices and
+                    // hence to compute RPBZ, BQBZ, MQBZ and SCBZ stats for filtering on.
+                    //
+                    // Or simpler, for heterozygous indels, just has indel vs doesn't have indel
+                    // may be sufficient to split?
+
                     sc = probaln_glocal((uint8_t*)ref2 + tbeg - left, tend - tbeg + abs(types[t]),
                                         (uint8_t*)query, qend - qbeg, qq, &apf1, 0, 0);
                     l = (int)(100. * sc / (qend - qbeg) + .499); // used for adjusting indelQ below
