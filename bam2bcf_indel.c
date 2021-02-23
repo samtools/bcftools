@@ -364,6 +364,16 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
         else ir = est_indelreg(pos, ref, -types[t], 0);
         if (ir > bca->indelreg) bca->indelreg = ir;
 //      fprintf(stderr, "%d, %d, %d\n", pos, types[t], ir);
+
+        int max_deletion = 0;
+        for (s = 0; s < n; ++s) {
+            for (i = 0; i < n_plp[s]; ++i, ++K) {
+                bam_pileup1_t *p = plp[s] + i;
+                if (max_deletion < -p->indel)
+                    max_deletion = -p->indel;
+            }
+        }
+
         // realignment
         for (s = K = 0; s < n; ++s) {
             // write ref2
@@ -393,7 +403,9 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                 // help in assigning a better QUAL value.
                 //
                 // Pos is slightly useful.
-                uint8_t *qual = bam_get_qual(p->b);
+                // Base qual can be useful, but need qual prior to BAQ?
+                // May need to cache orig quals in aux tag so we can fetch
+                // them even after mpileup step.
                 assert(imq >= 0 && imq < bca->nqual);
                 assert(epos >= 0 && epos < bca->npos);
                 assert(sc_len >= 0 && sc_len < 100);
@@ -401,43 +413,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                     bca->alt_mq[imq]++;
                     bca->alt_scl[sc_len]++;
                     bca->alt_pos[epos]++;
-                    if (p->indel > 0) {
-                        // Insertion base quality, +/- 1 either side
-                        // Should maybe extend region by total size of STR.
-                        int k, lq = p->b->core.l_qseq;
-                        for (k = -1; k <= p->indel; k++) {
-                            if (k+p->qpos >= 0 && k+p->qpos < lq) {
-                                int bq = qual[p->qpos + k];
-                                if (bq > 59) bq = 59;
-                                bca->alt_bq[(int)(bq * nqual_over_60)]++;
-                            }
-                        }
-                    } else {
-                        // del, base +/- 1 either side of del
-                        // Should maybe extend region by total size of STR.
-                        int k, lq = p->b->core.l_qseq;
-                        for (k = -1; k <= 1; k++) {
-                            if (k+p->qpos >= 0 && k+p->qpos < lq) {
-                                int bq = qual[p->qpos + k];
-                                if (bq > 59) bq = 59;
-                                bca->alt_bq[(int)(bq * nqual_over_60)]++;
-                            }
-                        }
-                    }
                 } else {
                     bca->ref_mq[imq]++;
                     bca->ref_scl[sc_len]++;
                     bca->ref_pos[epos]++;
-                    // Local region, +/- 1bp either side.
-                    // Should maybe extend region by total size of STR.
-                    int k, lq = p->b->core.l_qseq;
-                    for (k = -1; k <= 1; k++) {
-                        if (k+p->qpos >= 0 && k+p->qpos < lq) {
-                            int bq = qual[p->qpos + k];
-                            if (bq > 59) bq = 59;
-                            bca->ref_bq[(int)(bq * nqual_over_60)]++;
-                        }
-                    }
                 }
 
                 int qbeg, qend, tbeg, tend, sc, kk;
@@ -471,14 +450,6 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                         if (qq[l - qbeg] < 7) qq[l - qbeg] = 7;
                     }
 
-                    // TODO: consider aligning to both ref and ref2 here.
-                    // Whichever is best determines REF / ALT assignment, which in turn permits us
-                    // to fill out ref_pos, ref_bq, ref_mq and ref_scl (plus alt_*) matrices and
-                    // hence to compute RPBZ, BQBZ, MQBZ and SCBZ stats for filtering on.
-                    //
-                    // Or simpler, for heterozygous indels, just has indel vs doesn't have indel
-                    // may be sufficient to split?
-
                     sc = probaln_glocal((uint8_t*)ref2 + tbeg - left, tend - tbeg + abs(types[t]),
                                         (uint8_t*)query, qend - qbeg, qq, &apf1, 0, 0);
                     l = (int)(100. * sc / (qend - qbeg) + .499); // used for adjusting indelQ below
@@ -494,6 +465,29 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                         if (l > 255) l = 255;
                         score2[K*n_types + t] = sc<<8 | l;
                     }
+
+                    // Find minimum adjusted quality within +/- HALO bases
+                    // of this indel.  Use this for BQBZ metric.
+#define HALO 10
+                    int min_bq = INT_MAX;
+                    int qbeg2 = p->qpos - HALO;
+                    int qend2 = p->qpos+1 + HALO + max_deletion;
+                    if (p->indel>0) qend2 += p->indel;
+                    if (qbeg2 < qbeg)
+                        qbeg2 = qbeg;
+                    if (qend2 > qend)
+                        qend2 = qend;
+
+                    for (k = qbeg2; k < qend2; k++)
+                        if (min_bq > qq[k-qbeg])
+                            min_bq = qq[k-qbeg];
+                    if (min_bq > 59) min_bq = 59;
+                    min_bq *= nqual_over_60;
+                    if (p->indel)
+                        bca->alt_bq[min_bq]++;
+                    else
+                        bca->ref_bq[min_bq]++;
+
                     free(qq);
                 }
 #if 0
