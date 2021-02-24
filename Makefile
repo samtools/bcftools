@@ -41,7 +41,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            vcfcnv.o HMM.o consensus.o ploidy.o bin.o hclust.o version.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
-           vcfsort.o cols.o extsort.o dist.o \
+           vcfsort.o cols.o extsort.o dist.o abuf.o \
            ccall.o em.o prob1.o kmin.o
 PLUGIN_OBJS = vcfplugin.o
 
@@ -229,6 +229,7 @@ ploidy_h = ploidy.h regidx.h
 prob1_h = prob1.h $(htslib_vcf_h) $(call_h)
 smpl_ilist_h = smpl_ilist.h $(htslib_vcf_h)
 vcfbuf_h = vcfbuf.h $(htslib_vcf_h)
+abuf_h = abuf.h $(htslib_vcf_h)
 bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
 bam_sample_h = bam_sample.h $(htslib_sam_h)
 
@@ -243,7 +244,7 @@ vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htsli
 vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h) $(htslib_kstring_h) $(htslib_bgzf_h) $(bcftools_h)
 vcfisec.o: vcfisec.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_hts_os_h) $(bcftools_h) $(filter_h)
 vcfmerge.o: vcfmerge.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) regidx.h $(bcftools_h) vcmp.h $(htslib_khash_h)
-vcfnorm.o: vcfnorm.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_faidx_h) $(htslib_khash_str2int_h) $(bcftools_h) rbuf.h
+vcfnorm.o: vcfnorm.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_faidx_h) $(htslib_khash_str2int_h) $(bcftools_h) rbuf.h abuf.h
 vcfquery.o: vcfquery.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_str2int_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) $(convert_h)
 vcfroh.o: vcfroh.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(bcftools_h) HMM.h $(smpl_ilist_h) $(filter_h)
 vcfcnv.o: vcfcnv.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kstring_h) $(htslib_kfunc_h) $(htslib_khash_str2int_h) $(bcftools_h) HMM.h rbuf.h
@@ -280,6 +281,7 @@ version.o: version.h version.c
 hclust.o: hclust.c $(htslib_hts_h) $(htslib_kstring_h) $(bcftools_h) hclust.h
 HMM.o: HMM.c $(htslib_hts_h) HMM.h
 vcfbuf.o: vcfbuf.c $(htslib_vcf_h) $(htslib_vcfutils_h) $(htslib_hts_os_h) $(bcftools_h) $(vcfbuf_h) rbuf.h
+abuf.o: abuf.c $(htslib_vcf_h) $(bcftools_h) rbuf.h abuf.h
 extsort.o: extsort.c $(bcftools_h) extsort.h kheap.h
 smpl_ilist.o: smpl_ilist.c $(bcftools_h) $(smpl_ilist_h)
 csq.o: csq.c $(htslib_hts_h) $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_h) $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_faidx_h) $(bcftools_h) $(filter_h) regidx.h kheap.h $(smpl_ilist_h) rbuf.h

@@ -119,6 +119,13 @@ Changes affecting specific commands:
 
     - Add new optional tag `mpileup -a FORMAT/QS`
 
+* bcftools norm:
+
+    - New `-a, --atomize` functionality to decompose complex variants,
+      for example MNVs into consecutive SNVs
+
+    - New option `--old-rec-tag` to indicate the original variant
+
 * bcftools +prune:
 
     - New options --random-seed and --nsites-per-win-mode (#1050)

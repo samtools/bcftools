@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
-.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2020-11-25 16:08 GMT
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 2021-02-23 10:44 CET
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2020\-11\-25 16:08 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021\-02\-23 10:44 CET" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2020\-11\-25 16:08 GMT\fR and refers to bcftools git version \fB1\&.11\-24\-g9718479+\fR\&.
+This manual page was last updated \fB2021\-02\-23 10:44 CET\fR and refers to bcftools git version \fB1\&.2\-1248\-g3910e40+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -70,7 +70,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBannotate\fR
 \&.\&. edit VCF files, add or remove annotations
 .RE
@@ -83,7 +82,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBcall\fR
 \&.\&. SNP/indel calling (former "view")
 .RE
@@ -96,7 +94,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBcnv\fR
 \&.\&. Copy Number Variation caller
 .RE
@@ -109,7 +106,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBconcat\fR
 \&.\&. concatenate VCF/BCF files from the same set of samples
 .RE
@@ -122,7 +118,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBconsensus\fR
 \&.\&. create consensus sequence by applying VCF variants
 .RE
@@ -135,7 +130,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBconvert\fR
 \&.\&. convert VCF/BCF to other formats and back
 .RE
@@ -148,7 +142,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBcsq\fR
 \&.\&. haplotype aware consequence caller
 .RE
@@ -161,7 +154,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBfilter\fR
 \&.\&. filter VCF/BCF files using fixed thresholds
 .RE
@@ -174,7 +166,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBgtcheck\fR
 \&.\&. check sample concordance, detect sample swaps and contamination
 .RE
@@ -187,7 +178,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBindex\fR
 \&.\&. index VCF/BCF
 .RE
@@ -200,7 +190,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBisec\fR
 \&.\&. intersections of VCF/BCF files
 .RE
@@ -213,7 +202,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBmerge\fR
 \&.\&. merge VCF/BCF files files from non\-overlapping sample sets
 .RE
@@ -226,7 +214,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBmpileup\fR
 \&.\&. multi\-way pileup producing genotype likelihoods
 .RE
@@ -239,7 +226,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBnorm\fR
 \&.\&. normalize indels
 .RE
@@ -252,7 +238,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBplugin\fR
 \&.\&. run user\-defined plugin
 .RE
@@ -265,7 +250,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBpolysomy\fR
 \&.\&. detect contaminations and whole\-chromosome aberrations
 .RE
@@ -278,7 +262,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBquery\fR
 \&.\&. transform VCF/BCF into user\-defined formats
 .RE
@@ -291,7 +274,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBreheader\fR
 \&.\&. modify VCF/BCF header, change sample names
 .RE
@@ -304,7 +286,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBroh\fR
 \&.\&. identify runs of homo/auto\-zygosity
 .RE
@@ -317,7 +298,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBsort\fR
 \&.\&. sort VCF/BCF files
 .RE
@@ -330,7 +310,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBstats\fR
 \&.\&. produce VCF/BCF stats (former vcfcheck)
 .RE
@@ -343,7 +322,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBview\fR
 \&.\&. subset, filter and convert VCF and BCF files
 .RE
@@ -359,7 +337,6 @@ Some helper scripts are bundled with the bcftools code\&.
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBplot\-vcfstats\fR
 \&.\&. plots the output of
 \fBstats\fR
@@ -1383,7 +1360,7 @@ is true\&. For valid expressions see
 reference sequence in fasta format
 .RE
 .PP
-\fB\-H, \-\-haplotype\fR \fI1\fR|\fI2\fR|\fIR\fR|\fIA\fR|\fILR\fR|\fILA\fR|\fISR\fR|\fISA\fR|\fI1pIu\fR|\fI2pIu\fR
+\fB\-H, \-\-haplotype\fR \fI1\fR|\fI2\fR|\fIR\fR|\fIA\fR|\fII\fR|\fILR\fR|\fILA\fR|\fISR\fR|\fISA\fR|\fI1pIu\fR|\fI2pIu\fR
 .RS 4
 choose which allele from the FORMAT/GT field to use (the codes are case\-insensitive):
 .PP
@@ -1405,6 +1382,11 @@ the REF allele (in heterozygous genotypes)
 \fIA\fR
 .RS 4
 the ALT allele (in heterozygous genotypes)
+.RE
+.PP
+\fII\fR
+.RS 4
+IUPAC code for all genotypes
 .RE
 .PP
 \fILR, LA\fR
@@ -1446,13 +1428,37 @@ is true\&. For valid expressions see
 output variants in the form of IUPAC ambiguity codes
 .RE
 .PP
+\fB\-\-mark\-del\fR \fICHAR\fR
+.RS 4
+instead of removing sequence, insert CHAR for deletions
+.RE
+.PP
+\fB\-\-mark\-ins\fR \fIuc\fR|\fIlc\fR
+.RS 4
+highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+.RE
+.PP
+\fB\-\-mark\-snv\fR \fIuc\fR|\fIlc\fR
+.RS 4
+highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+.RE
+.PP
 \fB\-m, \-\-mask\fR \fIFILE\fR
 .RS 4
-BED file or TAB file with regions to be replaced with N\&. See discussion of
+BED file or TAB file with regions to be replaced with N (the default) or as specified by the next
+\fB\-\-mask\-with\fR
+option\&. See discussion of
 \fB\-\-regions\-file\fR
 in
 \fBCommon Options\fR
 for file format details\&.
+.RE
+.PP
+\fB\-\-mask\-with\fR \fICHAR\fR|\fIlc\fR|\fIuc\fR
+.RS 4
+replace sequence from
+\fB\-\-mask\fR
+with CHAR, skipping overlapping variants, or change to lowercase (lc) or uppercase (uc)
 .RE
 .PP
 \fB\-M, \-\-missing\fR \fICHAR\fR
@@ -2793,7 +2799,7 @@ Disable probabilistic realignment for the computation of base alignment quality 
 .PP
 \fB\-C, \-\-adjust\-MQ\fR \fIINT\fR
 .RS 4
-Coefficient for downgrading mapping quality for reads containing excessive mismatches\&. Given a read with a phred\-scaled probability q of being generated from the mapped position, the new mapping quality is about sqrt((INT\-q)/INT)*INT\&. A zero value disables this functionality; if enabled, the recommended value for BWA is 50\&. [0]
+Coefficient for downgrading mapping quality for reads containing excessive mismatches\&. Given a read with a phred\-scaled probability q of being generated from the mapped position, the new mapping quality is about sqrt((INT\-q)/INT)*INT\&. A zero value (the default) disables this functionality\&.
 .RE
 .PP
 \fB\-d, \-\-max\-depth\fR \fIINT\fR
@@ -3107,6 +3113,35 @@ Call SNPs and short INDELs, then mark low quality sites and sites with the read 
 .SS "bcftools norm [\fIOPTIONS\fR] \fIfile\&.vcf\&.gz\fR"
 .sp
 Left\-align and normalize indels, check if REF alleles match the reference, split multiallelic sites into multiple rows; recover multiallelics from multiple rows\&. Left\-alignment and normalization will only be applied if the \fB\-\-fasta\-ref\fR option is supplied\&.
+.PP
+\fB\-a, \-\-atomize\fR \fI\&.\fR|\fI*\fR
+.RS 4
+Decompose complex variants (e\&.g\&. split MNVs into consecutive SNVs)\&. Alleles missing because of an overlapping variant can be set either to missing (\&.) or to the star alele (*), as recommended by the VCF specification\&. IMPORTANT: Note that asterisk is expaneded by shell and must be put in quotes or escaped by a backslash:
+.RE
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+    # Before atomization:
+    100  CC  C,GG   1/2
+
+    # After:
+    #   bcftools norm \-a \&.
+    100  C       G      \&./1
+    100  CC      C      1/\&.
+    101  C       G      \&./1
+
+    # After:
+    #   bcftools norm \-a \*(Aq*\*(Aq
+    #   bcftools norm \-a \e*
+    100  C       G,*    2/1
+    100  CC      C,*    1/2
+    101  C       G,*    2/1
+.fi
+.if n \{\
+.RE
+.\}
 .PP
 \fB\-c, \-\-check\-ref\fR \fIe\fR|\fIw\fR|\fIx\fR|\fIs\fR
 .RS 4
@@ -3744,7 +3779,7 @@ for more\&.
 convert between similar tags, such as GL and GP
 .RE
 .PP
-\fBtrio\-dnm\fR
+\fBtrio\-dnm2\fR
 .RS 4
 screen variants for possible de\-novo mutations in trios
 .RE

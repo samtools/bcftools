@@ -1983,6 +1983,34 @@ split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows. Left-alignment and normalization will only be applied if
 the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
+*-a, --atomize*::
+    Decompose complex variants, e.g. split MNVs into consecutive SNVs.
+    See also *--atom-overlaps* and *--old-rec-tag*.
+
+*--atom-overlaps* '.'|'*'::
+    Alleles missing because of an overlapping variant can be set either 
+    to missing (.) or to the star alele (*), as recommended by
+    the VCF specification. IMPORTANT: Note that asterisk is expaneded
+    by shell and must be put in quotes or escaped by a backslash:
+----
+    # Before atomization:
+    100  CC  C,GG   1/2
+
+    # After:
+    #   bcftools norm -a .
+    100	 C	 G      ./1
+    100	 CC	 C      1/.
+    101	 C	 G      ./1
+
+    # After:
+    #   bcftools norm -a '*'
+    #   bcftools norm -a \*
+    100	 C	 G,*    2/1
+    100	 CC	 C,*    1/2
+    101	 C	 G,*    2/1
+
+----
+
 *-c, --check-ref* 'e'|'w'|'x'|'s'::
     what to do when incorrect or missing REF allele is encountered:
     exit ('e'), warn ('w'), exclude ('x'), or set/fix ('s') bad sites.
@@ -2031,6 +2059,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     the '-c s' option can be used to fix or set the REF allele from the
     reference '-f'. The '-N' option will not turn on indel normalisation
     as the '-f' option normally implies
+
+*--old-rec-tag* 'STR'::
+    Add INFO/STR annotation with the original record. The format of the
+    annotation is CHROM|POS|REF|ALT|USED_ALT_IDX. 
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
