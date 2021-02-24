@@ -1632,7 +1632,7 @@ Print a list of records which are present in A and B but not in C and D
 Merge multiple VCF/BCF files from non-overlapping sample sets to create one
 multi-sample file.  For example, when merging file 'A.vcf.gz' containing
 samples 'S1', 'S2' and 'S3' and file 'B.vcf.gz' containing samples 'S3' and
-'S4', the output file will contain four samples named 'S1', 'S2', 'S3', '2:S3'
+'S4', the output file will contain five samples named 'S1', 'S2', 'S3', '2:S3'
 and 'S4'.
 
 Note that it is responsibility of the user to ensure that the sample names are
