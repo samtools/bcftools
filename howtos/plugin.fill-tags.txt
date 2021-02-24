@@ -20,6 +20,8 @@ INFO/HWE       Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=b
 INFO/MAF       Number:A  Type:Float    ..  Minor Allele frequency
 INFO/NS        Number:1  Type:Integer  ..  Number of samples with data
 INFO/TYPE      Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+FORMAT/VAF     Number:A  Type:Float    ..  The fraction of reads with the alternate allele, requires FORMAT/AD
+FORMAT/VAF1    Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively
 TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)". This is currently very basic, to be extended.
 ----
 
@@ -39,7 +41,9 @@ The list of plugin-specific options can be obtained by running
 `bcftools +fill-tags -h`, which will print the following usage page:
 ----
 About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
-    or custom INFO/TAG=func(FMT/TAG), use -l for detailed description.
+       FORMAT tag VAF, custom INFO/TAG=func(FMT/TAG).
+       See examples below, run with -l for detailed description.
+
 Usage: bcftools +fill-tags [General Options] -- [Plugin Options]
 Options:
    run "bcftools plugin" for a list of common options
@@ -65,6 +69,9 @@ Examples:
 
    # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP=sum(DP)'
+
+    # Annotate with allelic fraction
+    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"
 ----
 
 
