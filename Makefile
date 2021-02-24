@@ -302,6 +302,9 @@ check-plugins test-plugins: $(PROGRAMS) $(TEST_PROGRAMS) $(BGZIP) $(TABIX) plugi
 	./test/test-regidx
 	REF_PATH=: ./test/test.pl --plugins --exec bgzip=$(BGZIP) --exec tabix=$(TABIX) --htsdir=$(HTSDIR) $${TEST_OPTS:-}
 
+# test HTSlib as well, where it is built alongside BCFtools
+check-all test-all: test-htslib test
+
 test/test-rbuf.o: test/test-rbuf.c rbuf.h
 
 test/test-rbuf: test/test-rbuf.o
@@ -353,10 +356,15 @@ distclean: clean
 
 clean-all: clean clean-htslib
 
+distclean-all: distclean distclean-htslib
+
+testclean-all: testclean testclean-htslib
+
 tags:
 	ctags -f TAGS *.[ch] plugins/*.[ch]
 
 force:
 
-.PHONY: all check clean clean-all clean-plugins distclean force install
-.PHONY: print-version tags test testclean plugins docs
+.PHONY: all check check-all clean clean-all clean-plugins
+.PHONY: distclean distclean-all force install
+.PHONY: print-version tags test test-all testclean testclean-all plugins docs
