@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2020 Genome Research Ltd.
+   Copyright (c) 2015-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -51,6 +51,8 @@
 #define SET_FUNC    (1<<10)
 #define SET_END     (1<<11)
 #define SET_TYPE    (1<<12)
+#define SET_VAF     (1<<13)
+#define SET_VAF1    (1<<14)
 
 typedef struct _args_t args_t;
 typedef struct _ftf_t ftf_t;
@@ -100,7 +102,7 @@ static args_t *args;
 
 const char *about(void)
 {
-    return "Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS and more.\n";
+    return "Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS; FORMAT/VAF and more.\n";
 }
 
 const char *usage(void)
@@ -108,7 +110,8 @@ const char *usage(void)
     return 
         "\n"
         "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS\n"
-        "   or custom INFO/TAG=func(FMT/TAG), use -l for detailed description\n"
+        "       FORMAT tag VAF, custom INFO/TAG=func(FMT/TAG).\n"
+        "       See examples below, run with -l for detailed description.\n"
         "Usage: bcftools +fill-tags [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
@@ -126,7 +129,7 @@ const char *usage(void)
         "   # Fill INFO/AN and INFO/AC\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t AN,AC\n"
         "\n"
-        "   # Fill all available tags\n"
+        "   # Fill (almost) all available tags\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t all\n"
         "\n"
         "   # Calculate HWE for sample groups (possibly multiple) read from a file\n"
@@ -134,6 +137,9 @@ const char *usage(void)
         "\n"
         "   # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP=sum(DP)'\n"
+        "\n"
+        "   # Annotate with allelic fraction\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"
         "\n";
 }
 
@@ -396,6 +402,8 @@ int parse_tags(args_t *args, const char *str)
         else if ( !strcasecmp(tags[i],"MAF") ) { flag |= SET_MAF; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"HWE") ) { flag |= SET_HWE; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"ExcHet") ) { flag |= SET_ExcHet; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"VAF") || !strcasecmp(tags[i],"FORMAT/VAF") ) { flag |= SET_VAF; args->unpack |= BCF_UN_FMT; }
+        else if ( !strcasecmp(tags[i],"VAF1") || !strcasecmp(tags[i],"FORMAT/VAF1") ) { flag |= SET_VAF1; args->unpack |= BCF_UN_FMT; }
         else if ( !strcasecmp(tags[i],"END") ) flag |= SET_END;
         else if ( !strcasecmp(tags[i],"TYPE") ) flag |= SET_TYPE;
         else if ( !strcasecmp(tags[i],"F_MISSING") ) { flag |= parse_expr_float(args,NULL,"F_MISSING"); args->unpack |= BCF_UN_FMT; }
@@ -427,6 +435,8 @@ void list_tags(void)
         "INFO/MAF       Number:1  Type:Float    ..  Frequency of the second most common allele\n"
         "INFO/NS        Number:1  Type:Integer  ..  Number of samples with data\n"
         "INFO/TYPE      Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)\n"
+        "FORMAT/VAF     Number:A  Type:Float    ..  The fraction of reads with the alternate allele, requires FORMAT/AD or ADF+ADR\n"
+        "FORMAT/VAF1    Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively\n"
         "TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined\n"
         "    expressions such as \"DP=sum(DP)\". This is currently very basic, to be extended.\n"
         );
@@ -484,6 +494,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_END ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant\">");
     if ( args->tags & SET_TYPE ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=TYPE,Number=.,Type=String,Description=\"Variant type\">");
     if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Test excess heterozygosity%s%s; 1=good, 0=bad\">");
+    if ( args->tags & SET_VAF ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF,Number=A,Type=Float,Description=\"The fraction of reads with alternate allele (nALT/nSumAll)\"");
+    if ( args->tags & SET_VAF1 ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF1,Number=1,Type=Float,Description=\"The fraction of reads with alternate alleles (nSumALT/nSumAll)\"");
 
     return 0;
 }
@@ -589,7 +601,7 @@ static int cmpfloat_desc(const void *a, const void *b)
     if ( fa>fb ) return -1;
     return 0;
 }
-bcf1_t *process_fmt(bcf1_t *rec)
+static void process_fmt(bcf1_t *rec)
 {
     bcf_unpack(rec, BCF_UN_FMT);
 
@@ -601,7 +613,7 @@ bcf1_t *process_fmt(bcf1_t *rec)
     bcf_fmt_t *fmt_gt = NULL;
     for (i=0; i<rec->n_fmt; i++)
         if ( rec->d.fmt[i].id==args->gt_id ) { fmt_gt = &rec->d.fmt[i]; break; }
-    if ( !fmt_gt ) return rec;    // no GT tag
+    if ( !fmt_gt ) return;    // no GT tag
 
     hts_expand(int32_t,rec->n_allele, args->miarr, args->iarr);
     hts_expand(float,rec->n_allele*2, args->mfarr, args->farr);
@@ -819,13 +831,65 @@ bcf1_t *process_fmt(bcf1_t *rec)
             }
         }
     }
+}
+static void process_vaf(bcf1_t *rec, int mode)
+{
+    int nsmpl = bcf_hdr_nsamples(args->in_hdr);
+    int nval  = args->niarr / nsmpl;
+    int nval1 = (mode & SET_VAF) ? rec->n_allele - 1 : 1;
+    int nfarr = nval1 * nsmpl;
+    hts_expand(float,nfarr,args->mfarr,args->farr);
+    int i,j;
+    for (i=0; i<nsmpl; i++)
+    {
+        int32_t *src = args->iarr + i*nval;
+        float *dst = args->farr + i*nval1;
+        float sum = 0;
+        for (j=0; j<nval; j++)
+        {
+            if ( src[j]==bcf_int32_missing || src[j]==bcf_int32_vector_end ) break;
+            sum += src[j];
+        }
+        if ( j!=nval )
+        {
+            bcf_float_set_missing(dst[0]);
+            for (j=1; j<nval1; j++) bcf_float_set_vector_end(dst[j]);
+            continue;
+        }
+        if ( mode & SET_VAF1 )
+        {
+            *dst = sum ? (sum - src[0])/sum : 0;
+            continue;
+        }
+        for (j=0; j<nval1; j++)
+            dst[j] = sum ? src[j+1]/sum : 0;
+    }
+    if ( bcf_update_format_float(args->out_hdr,rec,(mode & SET_VAF) ? "VAF" : "VAF1", args->farr, nfarr)!=0 )
+        error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+}
+static void process_vaf_vaf1(bcf1_t *rec)
+{
+    if ( !(args->tags & (SET_VAF|SET_VAF1)) ) return;
+    if ( rec->n_allele <= 1 ) return;
 
-    return rec;
+    args->niarr = bcf_get_format_int32(args->in_hdr, rec, "AD", &args->iarr, &args->miarr);
+    if ( args->niarr <= 0 )
+        error("Could not read FORMAT/AD annotation at %s:%"PRIhts_pos"\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
+
+    int nsmpl = bcf_hdr_nsamples(args->in_hdr);
+    if ( args->niarr != nsmpl*rec->n_allele ) return;   // incorrect number of values (possibly all missing)
+
+    if ( args->tags & SET_VAF ) process_vaf(rec, SET_VAF);
+    if ( args->tags & SET_VAF1 ) process_vaf(rec, SET_VAF1);
 }
 
 bcf1_t *process(bcf1_t *rec)
 {
-    if ( args->unpack & BCF_UN_FMT ) process_fmt(rec);
+    if ( args->unpack & BCF_UN_FMT )
+    {
+        process_fmt(rec);
+        process_vaf_vaf1(rec);
+    }
 
     if ( args->tags & SET_END )
     {

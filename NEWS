@@ -101,6 +101,9 @@ Changes affecting specific commands:
     - MAF definition revised for multiallelic sites, the second most common
       allele is considered to be the minor allele (#1313)
 
+    - New FORMAT/VAF, VAF1 annotations to set the fraction of alternate reads
+      provided FORMAT/AD is present
+
 * bcftools gtcheck:
 
     - support matching of a single sample against all other samples in the file

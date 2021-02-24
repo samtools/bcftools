@@ -2189,6 +2189,8 @@ By default, appropriate system directories are searched for installed plugins.
     - INFO/MAF        Number:A  Type:Float    ..  Minor Allele frequency
     - INFO/NS         Number:1  Type:Integer  ..  Number of samples with data
     - INFO/TYPE       Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+    - FORMAT/VAF      Number:A  Type:Float    ..  The fraction of reads with the alternate allele, requires FORMAT/AD or ADF+ADR
+    - FORMAT/VAF1     Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively
     - TAG=func(TAG)   Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
 
 *fix-ploidy*::
