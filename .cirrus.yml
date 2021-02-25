@@ -34,7 +34,7 @@ compile_template: &COMPILE
     if test "$USE_CONFIG" = "yes"; then
       (cd $HTSDIR && autoreconf -i)
       autoreconf -i
-      ./configure || (cat config.log; /bin/false)
+      ./configure --enable-werror || (cat config.log; /bin/false)
       make -j3
     else
       make -j3 plugindir=$CIRRUS_WORKING_DIR/plugins -e
