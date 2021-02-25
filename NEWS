@@ -96,6 +96,11 @@ Changes affecting specific commands:
 
     - `call -C trio` is temporarily disabled
 
+* bcftools csq:
+
+    - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too 
+      many per-sample consequences
+
 * bcftools +fill-tags:
 
     - MAF definition revised for multiallelic sites, the second most common

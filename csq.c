@@ -3749,6 +3749,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
                         fprintf(stderr,"         The limit can be increased by setting the --ncsq parameter. This warning is printed only once.\n");
                     args->ncsq_small_warned = 1;
                 }
+                break;
             }
             if ( vrec->nfmt < 1 + icsq/32 ) vrec->nfmt = 1 + icsq/32;
             vrec->smpl[i*args->nfmt_bcsq + icsq/32] |= 1 << (icsq % 32);
@@ -4060,7 +4061,7 @@ static const char *usage(void)
         "   -b, --brief-predictions         annotate with abbreviated protein-changing predictions\n"
         "   -c, --custom-tag <string>       use this tag instead of the default BCSQ\n"
         "   -l, --local-csq                 localized predictions, consider only one VCF record at a time\n"
-        "   -n, --ncsq <int>                maximum number of consequences to consider per site [16]\n"
+        "   -n, --ncsq <int>                maximum number of per-haplotype consequences to consider for each site [16]\n"
         "   -p, --phase <a|m|r|R|s>         how to handle unphased heterozygous genotypes: [r]\n"
         "                                     a: take GTs as is, create haplotypes regardless of phase (0/1 -> 0|1)\n"
         "                                     m: merge *all* GTs into a single haplotype (0/1 -> 1, 1/2 -> 1)\n"
