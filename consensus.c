@@ -555,7 +555,7 @@ static void apply_variant(args_t *args, bcf1_t *rec)
             for (i=0; i<fmt->n; i++)
             {
                 if ( bcf_gt_is_missing(ptr[i]) ) { is_missing = 1; continue; }
-                if ( ptr[i]==bcf_int8_vector_end ) break;
+                if ( ptr[i]==(uint8_t)bcf_int8_vector_end ) break;
                 int jalt = bcf_gt_allele(ptr[i]);
                 if ( jalt >= rec->n_allele ) error("Invalid VCF, too few ALT alleles at %s:%"PRId64"\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
                 if ( fallback_alt <= 0 ) fallback_alt = jalt;
