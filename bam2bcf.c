@@ -55,11 +55,17 @@ bcf_callaux_t *bcf_call_init(double theta, int min_baseQ)
     bca->npos = 100;
     bca->ref_pos = (int*) malloc(bca->npos*sizeof(int));
     bca->alt_pos = (int*) malloc(bca->npos*sizeof(int));
+    bca->iref_pos= (int*) malloc(bca->npos*sizeof(int));
+    bca->ialt_pos= (int*) malloc(bca->npos*sizeof(int));
     bca->nqual = 60;
     bca->ref_mq  = (int*) malloc(bca->nqual*sizeof(int));
     bca->alt_mq  = (int*) malloc(bca->nqual*sizeof(int));
+    bca->iref_mq = (int*) malloc(bca->nqual*sizeof(int));
+    bca->ialt_mq = (int*) malloc(bca->nqual*sizeof(int));
     bca->ref_bq  = (int*) malloc(bca->nqual*sizeof(int));
     bca->alt_bq  = (int*) malloc(bca->nqual*sizeof(int));
+    bca->iref_bq = (int*) malloc(bca->nqual*sizeof(int));
+    bca->ialt_bq = (int*) malloc(bca->nqual*sizeof(int));
     bca->fwd_mqs = (int*) malloc(bca->nqual*sizeof(int));
     bca->rev_mqs = (int*) malloc(bca->nqual*sizeof(int));
     return bca;
@@ -69,8 +75,15 @@ void bcf_call_destroy(bcf_callaux_t *bca)
 {
     if (bca == 0) return;
     errmod_destroy(bca->e);
-    if (bca->npos) { free(bca->ref_pos); free(bca->alt_pos); bca->npos = 0; }
-    free(bca->ref_mq); free(bca->alt_mq); free(bca->ref_bq); free(bca->alt_bq);
+    if (bca->npos) {
+        free(bca->ref_pos);  free(bca->alt_pos);
+        free(bca->iref_pos); free(bca->ialt_pos);
+        bca->npos = 0;
+    }
+    free(bca->ref_mq); free(bca->alt_mq);
+    free(bca->iref_mq); free(bca->ialt_mq);
+    free(bca->ref_bq); free(bca->alt_bq);
+    free(bca->iref_bq); free(bca->ialt_bq);
     free(bca->fwd_mqs); free(bca->rev_mqs);
     bca->nqual = 0;
     free(bca->bases); free(bca->inscns); free(bca);
@@ -141,10 +154,16 @@ void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call)
 {
     memset(bca->ref_pos,0,sizeof(int)*bca->npos);
     memset(bca->alt_pos,0,sizeof(int)*bca->npos);
+    memset(bca->iref_pos,0,sizeof(int)*bca->npos);
+    memset(bca->ialt_pos,0,sizeof(int)*bca->npos);
     memset(bca->ref_mq,0,sizeof(int)*bca->nqual);
     memset(bca->alt_mq,0,sizeof(int)*bca->nqual);
+    memset(bca->iref_mq,0,sizeof(int)*bca->nqual);
+    memset(bca->ialt_mq,0,sizeof(int)*bca->nqual);
     memset(bca->ref_bq,0,sizeof(int)*bca->nqual);
     memset(bca->alt_bq,0,sizeof(int)*bca->nqual);
+    memset(bca->iref_bq,0,sizeof(int)*bca->nqual);
+    memset(bca->ialt_bq,0,sizeof(int)*bca->nqual);
     memset(bca->fwd_mqs,0,sizeof(int)*bca->nqual);
     memset(bca->rev_mqs,0,sizeof(int)*bca->nqual);
     if ( call->ADF ) memset(call->ADF,0,sizeof(int32_t)*(call->n+1)*B2B_MAX_ALLELES);
@@ -153,6 +172,8 @@ void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call)
     memset(call->QS,0,sizeof(*call->QS)*call->n*B2B_MAX_ALLELES);
     memset(bca->ref_scl, 0, 100*sizeof(int));
     memset(bca->alt_scl, 0, 100*sizeof(int));
+    memset(bca->iref_scl, 0, 100*sizeof(int));
+    memset(bca->ialt_scl, 0, 100*sizeof(int));
 }
 
 /*
@@ -203,12 +224,15 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         if (is_indel)
         {
             b     = p->aux>>16&0x3f;
-            baseQ = q = p->aux&0xff;
+            // NB: seqQ and baseQ have been flipped since 1.12 release.
+            // It was found that indelQ (p->aux&0xff) was a better estimate
+            // of genotype accuracy than the old seqQ.
+            seqQ = q = p->aux&0xff;
             // This read is not counted as indel. Instead of skipping it, treat it as ref. It is
             // still only an approximation, but gives more accurate AD counts and calls correctly
             // hets instead of alt-homs in some cases (see test/mpileup/indel-AD.1.sam)
             if ( q < bca->min_baseQ ) b = 0, q = (int)bam_get_qual(p->b)[p->qpos];
-            seqQ  = p->aux>>8&0xff;
+            baseQ  = p->aux>>8&0xff;
             is_diff = (b != 0);
         }
         else
@@ -853,14 +877,33 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
 
 #ifdef MWU_ZSCORE
     // U z-normalised as +/- number of standard deviations from mean.
-    if ( bca->fmt_flag & B2B_INFO_RPB )
-        call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos, bca->npos,
-                                       0, 1);
-    call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,  bca->nqual,1,1);
-    call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,  bca->nqual,0,1);
-    call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs, bca->nqual,0,1);
-    if ( bca->fmt_flag & B2B_INFO_SCB )
-        call->mwu_sc  = calc_mwu_biasZ(bca->ref_scl, bca->alt_scl, 100, 0,1);
+    if (call->ori_ref < 0) {
+        if (bca->fmt_flag & B2B_INFO_RPB)
+            call->mwu_pos = calc_mwu_biasZ(bca->iref_pos, bca->ialt_pos,
+                                           bca->npos, 0, 1);
+        call->mwu_mq  = calc_mwu_biasZ(bca->iref_mq,  bca->ialt_mq,
+                                       bca->nqual,1,1);
+        call->mwu_bq  = calc_mwu_biasZ(bca->iref_bq,  bca->ialt_bq,
+                                       bca->nqual,0,1);
+        if ( bca->fmt_flag & B2B_INFO_SCB )
+            call->mwu_sc  = calc_mwu_biasZ(bca->iref_scl, bca->ialt_scl,
+                                           100, 0,1);
+    } else {
+        if (bca->fmt_flag & B2B_INFO_RPB)
+            call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos,
+                                           bca->npos, 0, 1);
+        call->mwu_mq  = calc_mwu_biasZ(bca->ref_mq,  bca->alt_mq,
+                                       bca->nqual,1,1);
+        call->mwu_bq  = calc_mwu_biasZ(bca->ref_bq,  bca->alt_bq,
+                                       bca->nqual,0,1);
+        call->mwu_mqs = calc_mwu_biasZ(bca->fwd_mqs, bca->rev_mqs,
+                                       bca->nqual,0,1);
+        if ( bca->fmt_flag & B2B_INFO_SCB )
+            call->mwu_sc  = calc_mwu_biasZ(bca->ref_scl, bca->alt_scl,
+                                           100, 0,1);
+    }
+
+
 #else
     // Old method; U as probability between 0 and 1
     if ( bca->fmt_flag & B2B_INFO_RPB )

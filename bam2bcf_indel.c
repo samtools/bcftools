@@ -90,12 +90,13 @@ static inline int est_indelreg(int pos, const char *ref, int l, char *ins4)
 
 // Identify spft-clip length, position in seq, and clipped seq len
 static inline void get_pos(const bcf_callaux_t *bca, bam_pileup1_t *p,
-                           int *sc_len_r, int *slen_r, int *epos_r) {
+                           int *sc_len_r, int *slen_r, int *epos_r, int *end) {
     bam1_t *b = p->b;
     int sc_len = 0, sc_dist = -1, at_left = 1;
     int epos = p->qpos, slen = b->core.l_qseq;
     int k;
     uint32_t *cigar = bam_get_cigar(b);
+    *end = -1;
     for (k = 0; k < b->core.n_cigar; k++) {
         int op = bam_cigar_op(cigar[k]);
         if (op == BAM_CSOFT_CLIP) {
@@ -105,6 +106,7 @@ static inline void get_pos(const bcf_callaux_t *bca, bam_pileup1_t *p,
                 sc_len += bam_cigar_oplen(cigar[k]);
                 epos -= sc_len; // don't count SC in seq pos
                 sc_dist = epos;
+                *end = 0;
             } else {
                 // right end
                 int srlen = bam_cigar_oplen(cigar[k]);
@@ -114,6 +116,7 @@ static inline void get_pos(const bcf_callaux_t *bca, bam_pileup1_t *p,
                     // FIXME: compensate for indel length too?
                     sc_dist = rd;
                     sc_len = srlen;
+                    *end = 1;
                 }
             }
         } else if (op != BAM_CHARD_CLIP) {
@@ -239,6 +242,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
             if (ref[i] == 0) break;
         right = i;
     }
+
+
     /* The following block fixes a long-existing flaw in the INDEL
      * calling model: the interference of nearby SNPs. However, it also
      * reduces the power because sometimes, substitutions caused by
@@ -387,6 +392,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
             for (; k < max_ref2; ++k) ref2[k] = 4;
             if (j < right) right = j;
             // align each read to ref2
+            //fprintf(stderr, "s=%d of %d, t=%d of %d\n", s, n, t, n_types);
             for (i = 0; i < n_plp[s]; ++i, ++K) {
                 bam_pileup1_t *p = plp[s] + i;
 
@@ -395,8 +401,9 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                 int imq = p->b->core.qual > 59 ? 59 : p->b->core.qual;
                 imq *= nqual_over_60;
 
-                int sc_len, slen, epos;
-                get_pos(bca, p, &sc_len, &slen, &epos);
+                int sc_len, slen, epos, sc_end;
+                // FIXME: don't need to do on all types, just 1?
+                get_pos(bca, p, &sc_len, &slen, &epos, &sc_end);
 
                 // Gather stats for INFO field to aid filtering.
                 // mq and sc_len not very helpful for filtering, but could
@@ -406,17 +413,19 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                 // Base qual can be useful, but need qual prior to BAQ?
                 // May need to cache orig quals in aux tag so we can fetch
                 // them even after mpileup step.
+
+                // FIXME: don't need to do on all types, just 1?
                 assert(imq >= 0 && imq < bca->nqual);
                 assert(epos >= 0 && epos < bca->npos);
                 assert(sc_len >= 0 && sc_len < 100);
                 if (p->indel) {
-                    bca->alt_mq[imq]++;
-                    bca->alt_scl[sc_len]++;
-                    bca->alt_pos[epos]++;
+                    bca->ialt_mq[imq]++;
+                    bca->ialt_scl[sc_len]++;
+                    bca->ialt_pos[epos]++;
                 } else {
-                    bca->ref_mq[imq]++;
-                    bca->ref_scl[sc_len]++;
-                    bca->ref_pos[epos]++;
+                    bca->iref_mq[imq]++;
+                    bca->iref_scl[sc_len]++;
+                    bca->iref_pos[epos]++;
                 }
 
                 int qbeg, qend, tbeg, tend, sc, kk;
@@ -484,9 +493,9 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                     if (min_bq > 59) min_bq = 59;
                     min_bq *= nqual_over_60;
                     if (p->indel)
-                        bca->alt_bq[min_bq]++;
+                        bca->ialt_bq[min_bq]++;
                     else
-                        bca->ref_bq[min_bq]++;
+                        bca->iref_bq[min_bq]++;
 
                     free(qq);
                 }
@@ -599,6 +608,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
         if (sc   != sc_a)   free(sc);
         if (sumq != sumq_a) free(sumq);
     }
+
     free(score1); free(score2);
     // free
     for (i = 0; i < n; ++i) free(ref_sample[i]);

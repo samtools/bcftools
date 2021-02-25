@@ -85,7 +85,9 @@ typedef struct __bcf_callaux_t {
     float max_frac; // for collecting indel candidates
     int per_sample_flt; // indel filtering strategy
     int *ref_pos, *alt_pos, npos, *ref_mq, *alt_mq, *ref_bq, *alt_bq, *fwd_mqs, *rev_mqs, nqual; // for bias tests
-    int ref_scl[100], alt_scl[100]; // soft-clip length bias
+    int *iref_pos, *ialt_pos, *iref_mq, *ialt_mq, *iref_bq, *ialt_bq; // for indels
+    int ref_scl[100], alt_scl[100];   // soft-clip length bias; SNP
+    int iref_scl[100], ialt_scl[100]; // soft-clip length bias; INDEL
     // for internal uses
     int max_bases;
     int indel_types[4];     // indel lengths
