@@ -3,7 +3,7 @@ For the impatient
 
 The latest source code can be downloaded from github and compiled using:
 
-    git clone git://github.com/samtools/htslib.git
+    git clone --recurse-submodules git://github.com/samtools/htslib.git
     git clone git://github.com/samtools/bcftools.git
     cd bcftools
      # The following is optional:
