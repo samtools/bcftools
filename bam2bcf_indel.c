@@ -655,19 +655,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                     if (x == bca->indel_types[j]) break;
                 p->aux = j<<16 | (j == 4? 0 : (p->aux&0xffff));
                 if ((p->aux>>16&0x3f) > 0) ++n_alt;
-
-                // Limit SeqQ to be no higher than IndelQ.
-                // The reason is that we tend to make heterozygous indels
-                // when indelQ is very low but seqQ is high, rather
-                // than realising it's just a homozygous indel.
-                int sq = (p->aux>>8)&0xff;
-                int iq =  p->aux    &0xff;
-                if (sq > iq)
-                    sq = iq;
-                p->aux &= ~(255<<8);
-                p->aux |= sq<<8;
-
-                //fprintf(stderr, "X pos=%d read=%d:%d name=%s call=%d type=%d seqQ=%d indelQ=%d\n", pos, s, i, ""/*bam_get_qname(p->b)*/, (p->aux>>16)&0x3f, bca->indel_types[(p->aux>>16)&0x3f], (p->aux>>8)&0xff, p->aux&0xff);
+                //fprintf(stderr, "X pos=%d read=%d:%d name=%s call=%d type=%d seqQ=%d indelQ=%d\n", pos, s, i, bam_get_qname(p->b), (p->aux>>16)&0x3f, bca->indel_types[(p->aux>>16)&0x3f], (p->aux>>8)&0xff, p->aux&0xff);
             }
         }
 
