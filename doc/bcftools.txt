@@ -1955,12 +1955,13 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *--indel-bias* 'FLOAT'::
     Skews the indel scores up or down, trading recall (low
-    false-negative) vs precision (low false-positive) [2.0].  In Bcftools
+    false-negative) vs precision (low false-positive) [1.0].  In Bcftools
     1.12 and earlier this parameter didn't exist, but had an implied
     value of 1.0.  If you are planning to do heavy filtering of
     variants, selecting the best quality ones only (favouring
-    precision over recall), it is advisable to set this back to 1.0,
-    while higher depth samples can work well with larger values.
+    precision over recall), it is advisable to set this lower (such as
+    0.75) while higher depth samples or where you favour recall rates
+    over precision may work better with a higher value such as 2.0.
 
 *-I, --skip-indels*::
     Do not perform INDEL calling

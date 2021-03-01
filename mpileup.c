@@ -1099,9 +1099,11 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -o, --open-prob INT     Phred-scaled gap open seq error probability [%d]\n", mplp->openQ);
     fprintf(fp,
 "  -p, --per-sample-mF     apply -m and -F per-sample for increased sensitivity\n"
-"  -P, --platforms STR     comma separated list of platforms for indels [all]\n"
-"      --indel-bias FLOAT  Raise to favour recall over precision [2.0]\n"
-"\n"
+"  -P, --platforms STR     comma separated list of platforms for indels [all]\n");
+    fprintf(fp,
+"      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n"
+"\n", mplp->indel_bias);
+    fprintf(fp,
 "Notes: Assuming diploid individuals.\n"
 "\n"
 "Example:\n"
@@ -1125,7 +1127,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.capQ_thres = 0;
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
     mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
-    mplp.min_frac = 0.002; mplp.indel_bias = 1.0; mplp.min_support = 1;
+    mplp.min_frac = 0.05; mplp.indel_bias = 1.0; mplp.min_support = 2;
     mplp.flag = MPLP_NO_ORPHAN | MPLP_REALN | MPLP_SMART_OVERLAPS;
     mplp.argc = argc; mplp.argv = argv;
     mplp.rflag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP;
