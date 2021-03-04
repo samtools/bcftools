@@ -42,7 +42,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
            vcfsort.o cols.o extsort.o dist.o abuf.o \
-           ccall.o em.o prob1.o kmin.o
+           ccall.o em.o prob1.o kmin.o str_finder.o
 PLUGIN_OBJS = vcfplugin.o
 
 prefix      = /usr/local
@@ -233,6 +233,7 @@ abuf_h = abuf.h $(htslib_vcf_h)
 bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
 bam_sample_h = bam_sample.h $(htslib_sam_h)
 
+str)finder.o: str_finder.h utlist.h
 main.o: main.c $(htslib_hts_h) config.h version.h $(bcftools_h)
 vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h) $(convert_h) $(smpl_ilist_h) regidx.h $(htslib_khash_h)
 vcfplugin.o: vcfplugin.c config.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h)

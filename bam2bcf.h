@@ -94,6 +94,7 @@ typedef struct __bcf_callaux_t {
     int *iref_pos, *ialt_pos, *iref_mq, *ialt_mq, *iref_bq, *ialt_bq; // for indels
     int ref_scl[100], alt_scl[100];   // soft-clip length bias; SNP
     int iref_scl[100], ialt_scl[100]; // soft-clip length bias; INDEL
+    int iref_str[100], ialt_str[100]; // STR score bias; INDEL
     // for internal uses
     int max_bases;
     int indel_types[4];     // indel lengths
@@ -140,7 +141,7 @@ typedef struct {
     int32_t *PL, *DP4, *ADR, *ADF, *SCR, *QS;
     uint8_t *fmt_arr;
     float vdb; // variant distance bias
-    float mwu_pos, mwu_mq, mwu_bq, mwu_mqs, mwu_sc;
+    float mwu_pos, mwu_mq, mwu_bq, mwu_mqs, mwu_sc, mwu_str;
 #if CDF_MWU_TESTS
     float mwu_pos_cdf, mwu_mq_cdf, mwu_bq_cdf, mwu_mqs_cdf;
 #endif
