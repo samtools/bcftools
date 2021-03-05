@@ -538,8 +538,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                             if (elt->start - END_SLOP <= tbeg_ ||
                                 elt->end   + END_SLOP >= tend) {
                                 // STR copy number
-                              //iscore += (elt->end-elt->start) / elt->rep_len;
-                                iscore += (elt->end-elt->start);
+                                iscore += (elt->end-elt->start) / elt->rep_len;
                             }
                         }
 
