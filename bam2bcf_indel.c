@@ -524,7 +524,11 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     uint8_t *seg = ref2 + tbeg - left;
     int seg_len = tend - tbeg + type;
 
-    // FIXME: need to make this work on IUPAC
+    // Note: although seg moves (tbeg varies), ref2 is reused many times
+    // so we could factor out some find_STR calls.  However it's not the
+    // bottleneck for now.
+
+    // FIXME: need to make this work on IUPAC.
     reps = find_STR((char *)seg, seg_len, 0);
     int iscore = 0;
 
@@ -539,19 +543,14 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // This is emphasised further if the sequence ends with
     // soft clipping.
     DL_FOREACH_SAFE(reps, elt, tmp) {
-        if (elt->start <= qpos && elt->end >= qpos) {
-#define END_SLOP 5
-            // FIXME: wrong coord used here!
-            if (elt->start - END_SLOP <= tbeg_ ||
-                elt->end   + END_SLOP >= tend) {
-                // STR copy number
-                iscore += (elt->end-elt->start) / elt->rep_len;
-            }
-        }
+        if (elt->start <= qpos && elt->end >= qpos)
+            // Copy number of all STRs overlapping indel site
+            iscore += (elt->end-elt->start) / elt->rep_len;
 
         DL_DELETE(reps, elt);
         free(elt);
     }
+
     if (iscore > 99) iscore = 99;
     if (p->indel)
         bca->ialt_str[iscore]++;
