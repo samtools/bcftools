@@ -11,7 +11,7 @@ Changes affecting the whole of bcftools, or multiple commands:
 * Fix N_PASS and F_PASS to behave according to expectation when reverse
   logic is used (#1397). This fix has the side effect of `query` (or
   programs like `+trio-stats`) behaving differently with these expressions,
-  operating now in site-oritented rather than sample-oriented mode. For
+  operating now in site-oriented rather than sample-oriented mode. For
   example, the new behavior could be:
     bcftools query -f'[%POS %SAMPLE %GT\n]' -i'N_PASS(GT="alt")==1'
         11	A	0/0
@@ -86,7 +86,7 @@ Changes affecting specific commands:
     - Any sensible Number=R,Type=Integer annotation can be used with -G,
       such as AD or QS
 
-    - Don't trim QUAL; although usefuleness of this change is questionable for
+    - Don't trim QUAL; although usefulness of this change is questionable for
       true probabilistic interpretation (such high precision is unrealistic),
       using QUAL as a score rather than probability is helpful and permits more
       fine-grained filtering
