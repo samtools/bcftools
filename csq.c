@@ -1419,6 +1419,11 @@ void init_data(args_t *args)
 
 void destroy_data(args_t *args)
 {
+    if ( args->ncsq_small_warned )
+        fprintf(stderr,
+            "Note: Some samples had too many consequences to be represented in %d bytes. If you need to record them all,\n"
+            "      the limit can be increased by running with `--ncsq %d`.\n",args->ncsq_max/8,1+args->ncsq_small_warned/2);
+
     regidx_destroy(args->idx_cds);
     regidx_destroy(args->idx_utr);
     regidx_destroy(args->idx_exon);
@@ -3102,8 +3107,8 @@ static inline void hap_stage_vcf(args_t *args, tscript_t *tr, int ismpl, int iha
                     args->hdr->samples[ismpl],bcf_hdr_id2name(args->hdr,args->rid),(int64_t) vrec->line->pos+1,csq->idx);
                 if ( !args->ncsq_small_warned )
                     fprintf(stderr,"         The limit can be increased by setting the --ncsq parameter. This warning is printed only once.\n");
-                args->ncsq_small_warned = 1;
             }
+            if ( args->ncsq_small_warned < icsq ) args->ncsq_small_warned = icsq;
             break;
         }
         if ( vrec->nfmt < 1 + icsq/32 ) vrec->nfmt = 1 + icsq/32;
@@ -3749,6 +3754,7 @@ void csq_stage(args_t *args, csq_t *csq, bcf1_t *rec)
                         fprintf(stderr,"         The limit can be increased by setting the --ncsq parameter. This warning is printed only once.\n");
                     args->ncsq_small_warned = 1;
                 }
+                if ( args->ncsq_small_warned < icsq ) args->ncsq_small_warned = icsq;
                 break;
             }
             if ( vrec->nfmt < 1 + icsq/32 ) vrec->nfmt = 1 + icsq/32;
