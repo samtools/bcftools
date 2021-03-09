@@ -233,18 +233,45 @@ static int mplp_func(void *data, bam1_t *b)
             has_ref = 0;
         }
 
-//        if (has_ref && (ma->conf->flag&MPLP_REALN)) {
-//            uint32_t *cig = bam_get_cigar(b);
-//            int i;
-//            for (i = 0; i < b->core.n_cigar; i++) 
-//                if ((cig[i] & BAM_CIGAR_MASK) == BAM_CINS ||
-//                    (cig[i] & BAM_CIGAR_MASK) == BAM_CDEL ||
-//                    (cig[i] & BAM_CIGAR_MASK) == BAM_CREF_SKIP)
-//                    break;
-//            if (i != b->core.n_cigar)
-//                 // has an indel
-//                sam_prob_realn(b, ref, ref_len, (ma->conf->flag & MPLP_REDO_BAQ)? 7 : 3);
-//        }
+        // Allow sufficient room for bam_aux_append of ZQ tag without
+        // a realloc and consequent breakage of pileup's cached pointers.
+        if (has_ref && !bam_aux_get(b, "ZQ")) {
+            // Doing sam_prob_realn later is problematic as it adds to
+            // the tag list (ZQ or BQ), which causes a realloc of b->data.
+            // This happens after pileup has built a hash table on the
+            // read name.  It's a deficiency in pileup IMO.
+
+            // We could implement a new sam_prob_realn that returns ZQ
+            // somewhere else and cache it ourselves (pileup clientdata),
+            // but for now we simply use a workaround.
+            //
+            // We create a fake tag of the correct length, which we remove
+            // just prior calling sam_prob_realn so we can guarantee there is
+            // room. (We can't just make room now as bam_copy1 removes it
+            // again).
+            if (b->core.l_qseq > 500) {
+                uint8_t *ZQ = malloc((uint32_t)b->core.l_qseq+1);
+                memset(ZQ, '@', b->core.l_qseq);
+                ZQ[b->core.l_qseq] = 0;
+                bam_aux_append(b, "_Q", 'Z', b->core.l_qseq+1, ZQ);
+                free(ZQ);
+            } else {
+                static uint8_t ZQ[501] =
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@";
+                ZQ[b->core.l_qseq] = 0;
+                bam_aux_append(b, "_Q", 'Z', b->core.l_qseq+1, ZQ);
+            }
+        }
+
         if (has_ref && ma->conf->capQ_thres > 10) {
             int q = sam_cap_mapq(b, ref, ref_len, ma->conf->capQ_thres);
             if (q < 0) continue;    // skip
@@ -474,6 +501,9 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
                 continue;
             }
 
+            // Fudge: make room for ZQ tag.
+            uint8_t *_Q = bam_aux_get(b, "_Q");
+            if (_Q) bam_aux_del(b, _Q);
             // FIXME: honour conf->flag & MPLP_REDO_BAQ
             sam_prob_realn(b, ref, ref_len, 3);
         }
