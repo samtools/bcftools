@@ -3051,10 +3051,10 @@ about the distinction between "&&" vs "&" and "||" vs "|".
 
         DP=".", DP!=".", ALT="."
 
-* missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".")
+* missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".", "0|.")
 using these expressions
 
-        GT~"\.", GT!~"\."
+        GT="mis", GT~"\.", GT!~"\."
 
 * missing genotypes can be matched including the phase and ploidy (".|.", "./.", ".")
 using these expressions
