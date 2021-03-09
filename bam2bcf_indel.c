@@ -39,6 +39,8 @@ KSORT_INIT_GENERIC(uint32_t)
 #define MINUS_CONST 0x10000000
 #define INDEL_WINDOW_SIZE 100
 
+#define MAX_TYPES 64
+
 // Take a reference position tpos and convert to a query position (returned).
 // This uses the CIGAR string plus alignment c->pos to do the mapping.
 //
@@ -232,7 +234,7 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
     }
 
     // Bail out if we have far too many types of indel
-    if (n_types >= 64) {
+    if (n_types >= MAX_TYPES) {
         free(aux);
         // TODO revisit how/whether to control printing this warning
         if (hts_verbose >= 2)
@@ -458,6 +460,10 @@ static char *bcf_cgp_calc_cons(int n, int *n_plp, bam_pileup1_t **plp,
     return inscns;
 }
 
+#ifndef MIN
+#  define MIN(a,b) ((a)<(b)?(a):(b))
+#endif
+
 // Part of bcf_call_gap_prep.
 //
 // Realign using BAQ to get an alignment score of a single read vs
@@ -468,20 +474,21 @@ static char *bcf_cgp_calc_cons(int n, int *n_plp, bam_pileup1_t **plp,
 //        <0 on error
 static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                                int type, uint8_t *ref2, uint8_t *query,
-                               int tbeg_, int tbeg, int tend,
+                               int r_start, int r_end,
+                               int tbeg, int tend,
                                int left, int right,
                                int qbeg, int qend,
                                int qpos, int max_deletion,
                                int *score1, int *score2) {
     probaln_par_t apf1 = { 1e-4, 1e-2, 10 }, apf2 = { 1e-6, 1e-3, 10 };
-    double nqual_over_60 = bca->nqual / 60.0;
     type = abs(type);
     apf1.bw = apf2.bw = type + 3;
-    int k, l, sc;
+    int l, sc;
     const uint8_t *qual = bam_get_qual(p->b), *bq;
     uint8_t *qq;
-    qq = (uint8_t*) calloc(qend - qbeg, 1);
-    if (!qq)
+
+    // Get segment of quality, either ZQ tag or if absent QUAL.
+    if (!(qq = (uint8_t*) calloc(qend - qbeg, 1)))
         return -1;
     bq = (uint8_t*)bam_aux_get(p->b, "ZQ");
     if (bq) ++bq; // skip type
@@ -491,20 +498,20 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
         if (qq[l - qbeg] < 7) qq[l - qbeg] = 7;
     }
 
+    // Up to two BAQ runs, to produce score1/score2.
+    // The bottom 8 bits are length-normalised score while
+    // the top bits are unnormalised.
     sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                         query, qend - qbeg, qq, &apf1, 0, 0);
-    l = (int)(100. * sc / (qend - qbeg) + .499); // used for adjusting indelQ below
-    l *= bca->indel_bias;
+    // used for adjusting indelQ below
+    l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
 
-    if (l > 255) l = 255;
-    *score1 = *score2 = sc<<8 | l;
+    *score1 = *score2 = sc<<8 | MIN(255, l);
     if (sc > 5) {
         sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                             query, qend - qbeg, qq, &apf2, 0, 0);
-        l = (int)(100. * sc / (qend - qbeg) + .499);
-        l *= bca->indel_bias;
-        if (l > 255) l = 255;
-        *score2 = sc<<8 | l;
+        l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
+        *score2 = sc<<8 | MIN(255, l);
     }
 
     rep_ele *reps, *elt, *tmp;
@@ -530,57 +537,23 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // This is emphasised further if the sequence ends with
     // soft clipping.
     DL_FOREACH_SAFE(reps, elt, tmp) {
-        if (elt->start <= qpos && elt->end >= qpos)
-            // Copy number of all STRs overlapping indel site
-            iscore += (elt->end-elt->start) / elt->rep_len;
+        if (elt->start <= qpos && elt->end >= qpos) {
+            iscore += (elt->end-elt->start) / elt->rep_len;  // c
+            if (elt->start+tbeg <= r_start ||
+                elt->end+tbeg   >= r_end)
+                iscore += 2*(elt->end-elt->start);
+       }
 
         DL_DELETE(reps, elt);
         free(elt);
     }
 
-    if (iscore > 99) iscore = 99;
-    if (p->indel)
-        bca->ialt_str[iscore]++;
-    else
-        bca->iref_str[iscore]++;
+    // Apply STR score to existing indelQ
+    l  =  (*score1&0xff)*.8 + iscore*2;
+    *score1 = (*score1 & ~0xff) | MIN(255, l);
 
-    sc = *score1>>8;
-    l  =  *score1&0xff;
-    l = l*.8 + iscore*2;
-    if (l>255) l=255;
-    *score1 = sc<<8 | l;
-
-    sc = *score2>>8;
-    l  = *score2&0xff;
-    l  = l*.8 + iscore*2;
-    if (l>255) l=255;
-    *score2 = sc<<8 | l;
-
-
-    // FIXME: don't need to do on all types, just 1?
-
-    // Find minimum adjusted quality within +/- HALO bases
-    // of this indel.  Use this for BQBZ metric.
-#define HALO 10
-    int min_bq = INT_MAX;
-    int qbeg2 = p->qpos - HALO;
-    int qend2 = p->qpos+1 + HALO + max_deletion;
-
-    if (p->indel>0) qend2 += p->indel;
-    if (qbeg2 < qbeg)
-        qbeg2 = qbeg;
-    if (qend2 > qend)
-        qend2 = qend;
-
-    for (k = qbeg2; k < qend2; k++)
-        if (min_bq > qq[k-qbeg])
-            min_bq = qq[k-qbeg];
-    if (min_bq > 59) min_bq = 59;
-    min_bq *= nqual_over_60;
-    if (p->indel)
-        bca->ialt_bq[min_bq]++;
-    else
-        bca->iref_bq[min_bq]++;
+    l  = (*score2&0xff)*.8 + iscore*2;
+    *score2 = (*score2 & ~0xff) | MIN(255, l);
 
     free(qq);
 
@@ -597,12 +570,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                                   int ref_type, int *types, int n_types,
                                   int *score1, int *score2) {
     // FIXME: n_types has a maximum; no need to alloc - use a #define?
-    int sc_a[16], sumq_a[16], s, i, j, t, K, n_alt;
-    int tmp, *sc = sc_a, *sumq = sumq_a;
-    if (n_types > 16) {
-        sc   = (int *)malloc(n_types * sizeof(int));
-        sumq = (int *)malloc(n_types * sizeof(int));
-    }
+    int sc[MAX_TYPES], sumq[MAX_TYPES], s, i, j, t, K, n_alt, tmp;
     memset(sumq, 0, n_types * sizeof(int));
     for (s = K = 0; s < n; ++s) {
         for (i = 0; i < n_plp[s]; ++i, ++K) {
@@ -612,6 +580,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             for (t = 1; t < n_types; ++t) // insertion sort
                 for (j = t; j > 0 && sc[j] < sc[j-1]; --j)
                     tmp = sc[j], sc[j] = sc[j-1], sc[j-1] = tmp;
+
             /* errmod_cal() assumes that if the call is wrong, the
              * likelihoods of other events are equal. This is about
              * right for substitutions, but is not desired for
@@ -677,7 +646,9 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
     for (t = 0; t < 4; ++t) bca->indel_types[t] = B2B_INDEL_NULL;
     for (t = 0; t < 4 && t < n_types; ++t) {
         bca->indel_types[t] = types[sumq[t]&0x3f];
-        memcpy(&bca->inscns[t * bca->maxins], &inscns[(sumq[t]&0x3f) * max_ins], bca->maxins);
+        if (bca->maxins)
+            memcpy(&bca->inscns[t * bca->maxins],
+                   &inscns[(sumq[t]&0x3f) * max_ins], bca->maxins);
     }
     // update p->aux
     for (s = n_alt = 0; s < n; ++s) {
@@ -692,9 +663,6 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
-    if (sc   != sc_a)   free(sc);
-    if (sumq != sumq_a) free(sumq);
-
     return n_alt;
 }
 
@@ -706,22 +674,15 @@ specific sample? Needs to check bca->per_sample_flt (--per-sample-mF) opt.
 
 /*
     notes:
-        - n .. number of samples
-        - the routine sets bam_pileup1_t.aux of each read as follows:
-            - 6: unused
-            - 6: the call; index to bcf_callaux_t.indel_types   .. (aux>>16)&0x3f
-            - 8: estimated sequence quality                     .. (aux>>8)&0xff
-            - 8: indel quality                                  .. aux&0xff
+    - n .. number of samples
+    - the routine sets bam_pileup1_t.aux of each read as follows:
+        - 6: unused
+        - 6: the call; index to bcf_callaux_t.indel_types   .. (aux>>16)&0x3f
+        - 8: estimated sequence quality                     .. (aux>>8)&0xff
+        - 8: indel quality                                  .. aux&0xff
  */
-// 1. Find out how many types of indels are present.
-// 2. Construct per-sample consensus
-// 3. Check length of homopolymer run around the current positions (l_run)
-//    FIXME: length of STR rather than pure homopolymer?
-// 4. Construct consensus sequence (how diff to 2?)
-// 5. Compute likelihood given each type of indel for each read
-//    This does the probaln_glocal step, setting score1[] and score2[]
-// 6. Compute indelQ
-int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref)
+int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
+                      bcf_callaux_t *bca, const char *ref)
 {
     if (ref == 0 || bca == 0) return -1;
 
@@ -788,6 +749,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
     score2 = (int*) calloc(N * n_types, sizeof(int));
     bca->indelreg = 0;
     double nqual_over_60 = bca->nqual / 60.0;
+
     for (t = 0; t < n_types; ++t) {
         int l, ir;
 
@@ -845,37 +807,39 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
 
                 int sc_len, slen, epos, sc_end;
 
-                // FIXME: don't need to do on all types, just 1?
-                // Need somewhere to cache the data (eg pileup struct)
-                get_pos(bca, p, &sc_len, &slen, &epos, &sc_end);
+                // Only need to gather stats on one type, as it's
+                // identical calculation for all the subsequent ones
+                // and we're sharing the same stats array
+                if (t == 0) {
+                    // Gather stats for INFO field to aid filtering.
+                    // mq and sc_len not very helpful for filtering, but could
+                    // help in assigning a better QUAL value.
+                    //
+                    // Pos is slightly useful.
+                    // Base qual can be useful, but need qual prior to BAQ?
+                    // May need to cache orig quals in aux tag so we can fetch
+                    // them even after mpileup step.
+                    get_pos(bca, p, &sc_len, &slen, &epos, &sc_end);
 
-                // Gather stats for INFO field to aid filtering.
-                // mq and sc_len not very helpful for filtering, but could
-                // help in assigning a better QUAL value.
-                //
-                // Pos is slightly useful.
-                // Base qual can be useful, but need qual prior to BAQ?
-                // May need to cache orig quals in aux tag so we can fetch
-                // them even after mpileup step.
-
-                // FIXME: don't need to do on all types, just 1?
-                assert(imq >= 0 && imq < bca->nqual);
-                assert(epos >= 0 && epos < bca->npos);
-                assert(sc_len >= 0 && sc_len < 100);
-                if (p->indel) {
-                    bca->ialt_mq[imq]++;
-                    bca->ialt_scl[sc_len]++;
-                    bca->ialt_pos[epos]++;
-                } else {
-                    bca->iref_mq[imq]++;
-                    bca->iref_scl[sc_len]++;
-                    bca->iref_pos[epos]++;
+                    assert(imq >= 0 && imq < bca->nqual);
+                    assert(epos >= 0 && epos < bca->npos);
+                    assert(sc_len >= 0 && sc_len < 100);
+                    if (p->indel) {
+                        bca->ialt_mq[imq]++;
+                        bca->ialt_scl[sc_len]++;
+                        bca->ialt_pos[epos]++;
+                    } else {
+                        bca->iref_mq[imq]++;
+                        bca->iref_scl[sc_len]++;
+                        bca->iref_pos[epos]++;
+                    }
                 }
 
                 int qbeg, qend, tbeg, tend, kk;
                 uint8_t *seq = bam_get_seq(p->b);
                 uint32_t *cigar = bam_get_cigar(p->b);
                 if (p->b->core.flag & BAM_FUNMAP) continue;
+
                 // FIXME: the following loop should be better moved outside;
                 // nonetheless, realignment should be much slower anyway.
                 for (kk = 0; kk < p->b->core.n_cigar; ++kk)
@@ -884,18 +848,18 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                 if (kk < p->b->core.n_cigar)
                     continue;
 
-                // FIXME: the following skips soft clips, but using them
-                // may be more sensitive.
-
                 // determine the start and end of sequences for alignment
                 // FIXME: loops over CIGAR multiple times
                 qbeg = tpos2qpos(&p->b->core, bam_get_cigar(p->b), left,
                                  0, &tbeg);
+                int r_start = p->b->core.pos;
+                int r_end = bam_cigar2rlen(p->b->core.n_cigar,
+                                           bam_get_cigar(p->b))
+                            -1 + r_start;
                 int qpos = tpos2qpos(&p->b->core, bam_get_cigar(p->b), pos,
                                      0, &tend) - qbeg;
                 qend = tpos2qpos(&p->b->core, bam_get_cigar(p->b), right,
                                  1, &tend);
-                int tbeg_ = tbeg;
                 if (types[t] < 0) {
                     int l = -types[t];
                     tbeg = tbeg - l > left?  tbeg - l : left;
@@ -908,7 +872,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                 // do realignment; this is the bottleneck
                 if (bcf_cgp_align_score(p, bca, types[t],
                                         (uint8_t *)ref2, (uint8_t *)query,
-                                        tbeg_, tbeg, tend, left, right,
+                                        r_start, r_end,
+                                        tbeg, tend, left, right,
                                         qbeg, qend, qpos, max_deletion,
                                         &score1[K*n_types + t],
                                         &score2[K*n_types + t]) < 0)

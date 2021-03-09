@@ -233,6 +233,46 @@ static int mplp_func(void *data, bam1_t *b)
             has_ref = 0;
         }
 
+        // Allow sufficient room for bam_aux_append of ZQ tag without
+        // a realloc and consequent breakage of pileup's cached pointers.
+        if (has_ref && !bam_aux_get(b, "ZQ")) {
+            // Doing sam_prob_realn later is problematic as it adds to
+            // the tag list (ZQ or BQ), which causes a realloc of b->data.
+            // This happens after pileup has built a hash table on the
+            // read name.  It's a deficiency in pileup IMO.
+
+            // We could implement a new sam_prob_realn that returns ZQ
+            // somewhere else and cache it ourselves (pileup clientdata),
+            // but for now we simply use a workaround.
+            //
+            // We create a fake tag of the correct length, which we remove
+            // just prior calling sam_prob_realn so we can guarantee there is
+            // room. (We can't just make room now as bam_copy1 removes it
+            // again).
+            if (b->core.l_qseq > 500) {
+                uint8_t *ZQ = malloc((uint32_t)b->core.l_qseq+1);
+                memset(ZQ, '@', b->core.l_qseq);
+                ZQ[b->core.l_qseq] = 0;
+                bam_aux_append(b, "_Q", 'Z', b->core.l_qseq+1, ZQ);
+                free(ZQ);
+            } else {
+                static uint8_t ZQ[501] =
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@";
+                ZQ[b->core.l_qseq] = 0;
+                bam_aux_append(b, "_Q", 'Z', b->core.l_qseq+1, ZQ);
+                ZQ[b->core.l_qseq] = '@';
+            }
+        }
+
         if (has_ref && ma->conf->capQ_thres > 10) {
             int q = sam_cap_mapq(b, ref, ref_len, ma->conf->capQ_thres);
             if (q < 0) continue;    // skip
@@ -441,6 +481,9 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
                 continue;
             }
 
+            // Fudge: make room for ZQ tag.
+            uint8_t *_Q = bam_aux_get(b, "_Q");
+            if (_Q) bam_aux_del(b, _Q);
             sam_prob_realn(b, ref, ref_len, (flag & MPLP_REDO_BAQ) ? 7 : 3);
         }
     }
@@ -688,7 +731,6 @@ static int mpileup(mplp_conf_t *conf)
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)\">");
     if ( conf->fmt_flag&B2B_INFO_SCB )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SCBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=STRBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Short Tandem Repeat Bias (closer to 0 is better)\">");
 #else
     if ( conf->fmt_flag&B2B_INFO_RPB )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");

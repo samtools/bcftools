@@ -38,7 +38,7 @@ DEALINGS IN THE SOFTWARE.  */
 typedef unsigned char uc;
 
 static void add_rep(rep_ele **list, char *cons, int clen, int pos, int rlen,
-		    int lower_only, int w) {
+		    int lower_only, unsigned int w) {
     rep_ele *el, *tmp, *prev;
     char *cp1, *cp2, *cp_end;
     int i;

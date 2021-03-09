@@ -1917,7 +1917,8 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
         for (i=0; i<atok->nsamples; i++) rtok->usmpl[i] |= atok->usmpl[i];
         for (i=0; i<btok->nsamples; i++) rtok->usmpl[i] |= btok->usmpl[i];
     }
-    memset(rtok->pass_samples, 0, rtok->nsamples);
+    if (rtok->nsamples)
+        memset(rtok->pass_samples, 0, rtok->nsamples);
 }
 
 #define VECTOR_ARITHMETICS(atok,btok,_rtok,AOP) \
