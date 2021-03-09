@@ -134,6 +134,12 @@ Changes affecting specific commands:
 
     - New option `--old-rec-tag` to indicate the original variant
 
+* bcftools query:
+
+    - Incorrect fields were printed in the per-sample output when subset
+      of samples was requested via -s/-S and the order of samples in the
+      header was different from the requested -s/-S order (#1435)
+
 * bcftools +prune:
 
     - New options --random-seed and --nsites-per-win-mode (#1050)
