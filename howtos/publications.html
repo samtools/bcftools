@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 1.5.2">
+<title>Publications</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+<li>
+<p><a href="publications.html">Publications</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling and filtering</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="annotate.html">Adding annotation</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering expressions</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+<li>
+<p><a href="FAQ.html">FAQ</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_publications">Publications</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Samtools calling (<code>bcftools call -c</code>)</dt>
+<dd>
+<p>Li H. A statistical framework for SNP calling, mutation discovery, association mapping and
+population genetical parameter estimation from sequencing data. <em>Bioinformatics</em> (2011) 27(21)
+2987-93.
+<a href="http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3198575">link</a></p>
+</dd>
+<dt class="hdlist1">BAQ calculation</dt>
+<dd>
+<p>Li H. Improving SNP discovery by base alignment quality. <em>Bioinformatics</em> (2011) 27(8):1157-8.
+<a href="http://www.ncbi.nlm.nih.gov/pubmed/21320865">link</a></p>
+</dd>
+<dt class="hdlist1">Detecting runs of homozygozity (<code>bcftools roh</code>)</dt>
+<dd>
+<p>Narasimhan V, Danecek P, Scally A, Xue Y, Tyler-Smith C, and Durbin R. BCFtools/RoH: a
+hidden Markov model approach for detecting autozygosity from next-generation sequencing data.
+<em>Bioinformatics</em> (2016) 32(11) 1749-51
+<a href="https://pubmed.ncbi.nlm.nih.gov/26826718">link</a></p>
+</dd>
+<dt class="hdlist1">CNV calling (<code>bcftools cnv</code> and <code>bcftools polysomy</code>)</dt>
+<dd>
+<p>Danecek P, McCarthy SA, HipSci Consortium, and Durbin R.
+A Method for Checking Genomic Integrity in Cultured Cell Lines from SNP Genotyping Data, <em>PLoS One</em> (2016) 11(5) e0155014
+<a href="https://pubmed.ncbi.nlm.nih.gov/27176002">link</a></p>
+</dd>
+<dt class="hdlist1">Consequence calling (<code>bcftools csq</code>)</dt>
+<dd>
+<p>Danecek P, McCarthy SA.
+BCFtools/csq: Haplotype-aware variant consequences. <em>Bioinformatics</em> (2017) 33(13) 2037-39
+<a href="https://pubmed.ncbi.nlm.nih.gov/28205675">link</a></p>
+</dd>
+<dt class="hdlist1">VCF/BCF manipuplation and all of BCFtools</dt>
+<dd>
+<p>Danecek P, Bonfield JK, <em>et al</em>. Twelve years of SAMtools and BCFtools. <em>Gigascience</em> (2021) 10(2):giab008
+<a href="https://pubmed.ncbi.nlm.nih.gov/33590861">link</a></p>
+</dd>
+</dl>
+</div>
+<div class="sect2">
+<h3 id="_various_math_notes">Various math notes</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>Multiallelic calling (<code>bcftools call -m</code>) <a href="http://samtools.github.io/bcftools/call-m.pdf">pdf</a></p>
+</li>
+<li>
+<p>BCFtools/trio-dnm calling (<code>bcftools +trio-dnm2</code>) <a href="http://samtools.github.io/bcftools/trio-dnm.pdf">pdf</a></p>
+</li>
+<li>
+<p>SAMtools math notes <a href="samtools.pdf">pdf</a></p>
+</li>
+<li>
+<p>SegBias calculation <a href="http://samtools.github.io/bcftools/rd-SegBias.pdf">pdf</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by
+either opening an <a href="https://github.com/samtools/bcftools/issues">issue on github</a> or <a href="https://github.com/samtools/bcftools/tree/gh-pages/howtos">editing it directly</a> and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

@@ -50,6 +50,10 @@ $ bcftools view -i 'GT="alt"' file.vcf -Ou | bcftools query -f'[%CHROM:%POS %SAM
 ----
 
 
+.*How to cite BCFtools?*
+Please see link:publications.html[here].
+
+
 include::footer.inc[]
 
 

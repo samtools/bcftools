@@ -6,6 +6,7 @@
 * link:index.html[Main page]
 * link:../bcftools.html[Manual page]
 * link:install.html[Installation]
+* link:publications.html[Publications]
 
 .Calling
 * link:cnv-calling.html[CNV calling]

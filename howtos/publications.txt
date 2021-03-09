@@ -1,0 +1,48 @@
+
+include::header.inc[]
+
+Publications
+------------
+
+Samtools calling (`bcftools call -c`)::
+    Li H. A statistical framework for SNP calling, mutation discovery, association mapping and
+    population genetical parameter estimation from sequencing data. _Bioinformatics_ (2011) 27(21)
+    2987-93.
+    link:http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3198575[link]
+
+BAQ calculation::
+    Li H. Improving SNP discovery by base alignment quality. _Bioinformatics_ (2011) 27(8):1157-8.
+    link:http://www.ncbi.nlm.nih.gov/pubmed/21320865[link]
+
+
+Detecting runs of homozygozity (`bcftools roh`)::
+    Narasimhan V, Danecek P, Scally A, Xue Y, Tyler-Smith C, and Durbin R. BCFtools/RoH: a
+    hidden Markov model approach for detecting autozygosity from next-generation sequencing data.
+    _Bioinformatics_ (2016) 32(11) 1749-51
+    link:https://pubmed.ncbi.nlm.nih.gov/26826718[link]
+
+CNV calling (`bcftools cnv` and `bcftools polysomy`)::
+    Danecek P, McCarthy SA, HipSci Consortium, and Durbin R.
+    A Method for Checking Genomic Integrity in Cultured Cell Lines from SNP Genotyping Data, _PLoS One_ (2016) 11(5) e0155014
+    link:https://pubmed.ncbi.nlm.nih.gov/27176002[link]
+
+Consequence calling (`bcftools csq`)::
+    Danecek P, McCarthy SA.
+    BCFtools/csq: Haplotype-aware variant consequences. _Bioinformatics_ (2017) 33(13) 2037-39
+    link:https://pubmed.ncbi.nlm.nih.gov/28205675[link]
+
+VCF/BCF manipuplation and all of BCFtools::
+    Danecek P, Bonfield JK, _et al_. Twelve years of SAMtools and BCFtools. _Gigascience_ (2021) 10(2):giab008
+    link:https://pubmed.ncbi.nlm.nih.gov/33590861[link]
+
+
+=== Various math notes
+
+- Multiallelic calling (`bcftools call -m`) link:http://samtools.github.io/bcftools/call-m.pdf[pdf]
+- BCFtools/trio-dnm calling (`bcftools +trio-dnm2`) link:http://samtools.github.io/bcftools/trio-dnm.pdf[pdf]
+- SAMtools math notes link:samtools.pdf[pdf]
+- SegBias calculation link:http://samtools.github.io/bcftools/rd-SegBias.pdf[pdf]
+
+
+include::footer.inc[]
+
