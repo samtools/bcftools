@@ -722,10 +722,12 @@ static inline double phred2log(double phred)
 {
     return -phred/4.3429;
 }
+#if 0
 static inline double subtract_num_log(double a_num, double b_log)
 {
     return log(a_num - exp(b_log));
 }
+#endif
 static inline double subtract_log(double a_log, double b_log)
 {
     if ( b_log==-HUGE_VAL ) return a_log;
