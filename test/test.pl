@@ -1602,7 +1602,7 @@ sub test_csq
     $args{cmd}  =~ s/{PATH}/$$opts{path}/g;
     if ( $args{tbcsq} )
     {
-        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools query -f'[%TBCSQ\\n]' | sed 's/\\s\\s*/\\n/g; s/,/\\n/g' | sort");
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools csq $args{cmd} $$opts{path}/$args{in}.vcf | $$opts{bin}/bcftools query -f'[%TBCSQ\\n]' | perl -pe 's/[\\t,]/\\n/g' | sort");
     }
     else
     {
