@@ -1119,7 +1119,7 @@ with the *-c* option). The latter is a bitmask of indexes to INFO/BCSQ, with
 interleaved haplotypes. See the usage examples below for using the %TBCSQ
 converter in *query* for extracting a more human readable form from this
 bitmask. The construction of the bitmask limits the number of consequences
-that can be referenced per sample in the FORMAT/BCSQ tags. By default this is 16, but
+that can be referenced per sample in the FORMAT/BCSQ tags. By default this is 15, but
 if more are required, see the *--ncsq* option.
 
 The program requires on input a VCF/BCF file, the reference genome in fasta
@@ -1204,8 +1204,9 @@ output VCF and are ignored for the prediction analysis.
 *-n, --ncsq* 'INT'::
     maximum number of per-haplotype consequences to consider for each site. The INFO/BCSQ column includes
     all consequences, but only the first 'INT' will be referenced by the FORMAT/BCSQ fields.
-    The default value is 16 which corresponds to one integer per diploid
-    sample. Note that increasing the value leads to increased memory and is rarely necessary.
+    The default value is 15 which corresponds to one 32-bit integer per diploid
+    sample, after accounting for values reserved by the BCF specification.
+    Note that increasing the value leads to increased size of the output BCF.
 
 *--no-version*::
     see *<<common_options,Common Options>>*

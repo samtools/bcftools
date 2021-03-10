@@ -506,7 +506,7 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
                 type_t val = x[j]; \
                 if ( !val ) continue; \
                 for (i=0; i<nbits; i+=2) \
-                    if ( val & (mask<<i) ) { kputs(csq->str[(j*32+i)/2], &csq->hap1); kputc_(',', &csq->hap1); } \
+                    if ( val & (mask<<i) ) { kputs(csq->str[(j*30+i)/2], &csq->hap1); kputc_(',', &csq->hap1); } \
             } \
         } \
         if ( fmt->subscript<0 || fmt->subscript==2 ) \
@@ -516,7 +516,7 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
                 type_t val = x[j]; \
                 if ( !val ) continue; \
                 for (i=1; i<nbits; i+=2) \
-                    if ( val & (1<<i) ) { kputs(csq->str[(j*32+i)/2], &csq->hap2); kputc_(',', &csq->hap2); } \
+                    if ( val & (1<<i) ) { kputs(csq->str[(j*30+i)/2], &csq->hap2); kputc_(',', &csq->hap2); } \
             } \
         } \
     }
@@ -524,7 +524,7 @@ static void process_tbcsq(convert_t *convert, bcf1_t *line, fmt_t *fmt, int isam
     {
         case BCF_BT_INT8:  BRANCH(uint8_t, 8); break;
         case BCF_BT_INT16: BRANCH(uint16_t,16); break;
-        case BCF_BT_INT32: BRANCH(uint32_t,32); break;
+        case BCF_BT_INT32: BRANCH(uint32_t,30); break;  // 2 bytes unused to account for the reserved BCF values
         default: error("Unexpected type: %d\n", fmt->fmt->type); exit(1); break;
     }
     #undef BRANCH

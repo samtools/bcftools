@@ -101,6 +101,11 @@ Changes affecting specific commands:
     - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too 
       many per-sample consequences
 
+    - Fix a bug which incorrectly handled the --ncsq parameter and could clash
+      with reserved BCF values, consequently producing truncated or even incorrect
+      output of the %TBCSQ formatting expression in `bcftools query`. To account
+      for the reserved values, the new default value is --ncsq 15 (#1428)
+
 * bcftools +fill-tags:
 
     - MAF definition revised for multiallelic sites, the second most common

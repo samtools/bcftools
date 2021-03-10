@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##reference=file://some/path/human_g1k_v37.fasta
+##contig=<ID=1,length=2147483647>
+##contig=<ID=2,length=2147483647>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	smpl
+2	103	.	G	A	1	.	.	GT	1|1
+1	103	.	G	A	1	.	.	GT	1|1
