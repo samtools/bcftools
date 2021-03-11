@@ -487,13 +487,23 @@ static char *bcf_cgp_calc_cons(int n, int *n_plp, bam_pileup1_t **plp,
 //        <0 on error
 static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                                int type, uint8_t *ref2, uint8_t *query,
-                               int r_start, int r_end,
+                               int r_start, int r_end, int long_read,
                                int tbeg, int tend,
                                int left, int right,
                                int qbeg, int qend,
                                int qpos, int max_deletion,
                                int *score1, int *score2) {
+    // Illumina
     probaln_par_t apf1 = { 1e-4, 1e-2, 10 }, apf2 = { 1e-6, 1e-3, 10 };
+
+    // Parameters that work better on PacBio CCS 15k.
+    // We should consider querying the header and RG PU field.
+    // See also htslib/realn.c:sam_prob_realn()
+    if (long_read) {
+        apf1.d = 1e-3; apf1.e = 1e-1;
+        apf2.d = 1e-5; apf1.e = 1e-2;
+    }
+
     type = abs(type);
     apf1.bw = apf2.bw = type + 3;
     int l, sc;
@@ -516,13 +526,24 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // the top bits are unnormalised.
     sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                         query, qend - qbeg, qq, &apf1, 0, 0);
+    if (sc < 0) {
+        *score1 = *score2 = 0xffffff;
+        free(qq);
+        return 0;
+    }
+
     // used for adjusting indelQ below
     l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
-
     *score1 = *score2 = sc<<8 | MIN(255, l);
     if (sc > 5) {
         sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                             query, qend - qbeg, qq, &apf2, 0, 0);
+        if (sc < 0) {
+            *score2 = 0xffffff;
+            free(qq);
+            return 0;
+        }
+
         l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
         *score2 = sc<<8 | MIN(255, l);
     }
@@ -882,15 +903,29 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 for (l = qbeg; l < qend; ++l)
                     query[l - qbeg] = seq_nt16_int[bam_seqi(seq, l)];
 
+                // A fudge for now.  Consider checking SAM header for
+                // RG platform field.
+                int long_read = p->b->core.l_qseq > 1000;
+
                 // do realignment; this is the bottleneck
-                if (bcf_cgp_align_score(p, bca, types[t],
-                                        (uint8_t *)ref2, (uint8_t *)query,
-                                        r_start, r_end,
-                                        tbeg, tend, left, right,
-                                        qbeg, qend, qpos, max_deletion,
-                                        &score1[K*n_types + t],
-                                        &score2[K*n_types + t]) < 0)
-                    return -1;
+                if (tend > tbeg) {
+                    if (bcf_cgp_align_score(p, bca, types[t],
+                                            (uint8_t *)ref2, (uint8_t *)query,
+                                            r_start, r_end, long_read,
+                                            tbeg, tend, left, right,
+                                            qbeg, qend, qpos, max_deletion,
+                                            &score1[K*n_types + t],
+                                            &score2[K*n_types + t]) < 0) {
+                        score1[K*n_types + t] = 0xffffff;
+                        score2[K*n_types + t] = 0xffffff;
+                        return -1;
+                    }
+                } else {
+                    // place holder large cost for reads that cover the
+                    // region entirely within a deletion (thus tend < tbeg).
+                    score1[K*n_types + t] = 0xffffff;
+                    score2[K*n_types + t] = 0xffffff;
+                }
 #if 0
                 for (l = 0; l < tend - tbeg + abs(types[t]); ++l)
                     fputc("ACGTN"[(int)ref2[tbeg-left+l]], stderr);

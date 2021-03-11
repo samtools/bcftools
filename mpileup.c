@@ -66,7 +66,8 @@ typedef struct _mplp_pileup_t mplp_pileup_t;
 
 // Data shared by all bam files
 typedef struct {
-    int min_mq, flag, min_baseQ, capQ_thres, max_depth, max_indel_depth, fmt_flag;
+    int min_mq, flag, min_baseQ, capQ_thres, max_depth, max_indel_depth,
+        max_read_len, fmt_flag;
     int rflag_require, rflag_filter, output_type;
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
@@ -235,7 +236,7 @@ static int mplp_func(void *data, bam1_t *b)
 
         // Allow sufficient room for bam_aux_append of ZQ tag without
         // a realloc and consequent breakage of pileup's cached pointers.
-        if (has_ref && !bam_aux_get(b, "ZQ")) {
+        if (has_ref && (ma->conf->flag &MPLP_REALN) && !bam_aux_get(b, "ZQ")) {
             // Doing sam_prob_realn later is problematic as it adds to
             // the tag list (ZQ or BQ), which causes a realloc of b->data.
             // This happens after pileup has built a hash table on the
@@ -424,16 +425,22 @@ static void flush_bcf_records(mplp_conf_t *conf, htsFile *fp, bcf_hdr_t *hdr, bc
  * NB: this may sadly realign after we've already used the data.  Hmm...
  */
 static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
-                       int flag, char *ref, int ref_len, int pos) {
+                       int flag, int max_read_len,
+                       char *ref, int ref_len, int pos) {
     int i, j, has_indel = 0, has_clip = 0, nt = 0;
     int min_indel = INT_MAX, max_indel = INT_MIN;
 
-    // Is an indel present
+    // Is an indel present.
+    // NB: don't bother even checking if very long as almost guaranteed
+    // to have indel (and likely soft-clips too).
     for (i = 0; i < n; i++) { // iterate over bams
         nt += n_plp[i];
         for (j = 0; j < n_plp[i]; j++) { // iterate over reads
             bam_pileup1_t *p = (bam_pileup1_t *)plp[i] + j;
             has_indel += (PLP_HAS_INDEL(p->cd.i) || p->indel) ? 1 : 0;
+            // Has_clip is almost always true for very long reads
+            // (eg PacBio CCS), but these rarely matter as the clip
+            // is likely a long way from this indel.
             has_clip  += (PLP_HAS_SOFT_CLIP(p->cd.i))         ? 1 : 0;
             if (max_indel < p->indel)
                 max_indel = p->indel;
@@ -460,8 +467,12 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
                 continue;
             PLP_SET_REALIGNED(((bam_pileup1_t *)p)->cd.i);
 
+            if (b->core.l_qseq > max_read_len)
+                continue;
+
             // Here because modifying p->cd.i doesn't work.
             // Do we end up with new p for the same b?  Why so?
+            // FIXME: add a new PLP_SET_ macro
             if (b->core.flag & 32768)
                 continue;
             b->core.flag |= 32768; // tmp3 => move adjacent to sam_prob_realn
@@ -485,20 +496,44 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
 
             // Don't realign reads where indel is in middle?
             // FIXME: use a better scan here, maybe from get_position above.
-            if ((flag & MPLP_REALN_PARTIAL) &&
-                // c2b = REALN_DIST=40; has_clip<0.2; ncig>0
-                // c2c = REALN_DIST=40; has_clip<0.2; ncig>1
+            if ((flag & MPLP_REALN_PARTIAL) && nt > 15) {
+                // Left & right cigar op match.
+                int lm = 0, rm = 0, k;
+                for (k = 0; k < ncig; k++) {
+                    int cop = bam_cigar_op(cig[k]);
+                    if (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP)
+                        continue;
 
-                // 2c is waaay better.
-                // So... rejecting the pure match ones is poor.
-                // But rejecting some of the indel ones is good?
-                nt > 15 && ncig > 1 &&
-                (cig[0]      &  BAM_CIGAR_MASK)  == BAM_CMATCH &&
-                (cig[0]      >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
-                (cig[ncig-1] &  BAM_CIGAR_MASK)  == BAM_CMATCH &&
-                (cig[ncig-1] >> BAM_CIGAR_SHIFT) >= REALN_DIST &&
-                has_clip < (0.15+0.05*(nt>20))*nt) {
-                continue;
+                    if (cop == BAM_CMATCH || cop == BAM_CDIFF ||
+                        cop == BAM_CEQUAL)
+                        lm = bam_cigar_oplen(cig[k]);
+                    break;
+                }
+                for (k = ncig-1; k >= 0; k--) {
+                    int cop = bam_cigar_op(cig[k]);
+                    if (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP)
+                        continue;
+
+                    if (cop == BAM_CMATCH || cop == BAM_CDIFF ||
+                        cop == BAM_CEQUAL)
+                        rm = bam_cigar_oplen(cig[k]);
+                    break;
+                }
+
+                if (lm >= REALN_DIST*4 && rm >= REALN_DIST*4)
+                    continue;
+
+                if (lm >= REALN_DIST && rm >= REALN_DIST &&
+                    has_clip < (0.15+0.05*(nt>20))*nt)
+                    continue;
+            }
+
+            if (b->core.l_qseq > 500) {
+                // don't do BAQ on long-read data if it's going to
+                // cause us to have a large band-with and costly in CPU
+                int rl = bam_cigar2rlen(b->core.n_cigar, bam_get_cigar(b));
+                if (abs(rl - b->core.l_qseq) * b->core.l_qseq >= 500000)
+                    continue;
             }
 
             // Fudge: make room for ZQ tag.
@@ -531,7 +566,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         int has_ref = mplp_get_ref(conf->mplp_data[0], tid, &ref, &ref_len);
         if (has_ref && (conf->flag & MPLP_REALN))
             mplp_realn(conf->nfiles, conf->n_plp, conf->plp, conf->flag,
-                       ref, ref_len, pos);
+                       conf->max_read_len, ref, ref_len, pos);
 
         int total_depth, _ref0, ref16;
         for (i = total_depth = 0; i < conf->nfiles; ++i) total_depth += conf->n_plp[i];
@@ -1127,6 +1162,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "  -m, --min-ireads INT    minimum number gapped reads for indel candidates [%d]\n", mplp->min_support);
     fprintf(fp,
+"  -M, --max-read-len INT  maximum length of read to pass to BAQ algorithm [%d]\n", mplp->max_read_len);
+    fprintf(fp,
 "  -o, --open-prob INT     Phred-scaled gap open seq error probability [%d]\n", mplp->openQ);
     fprintf(fp,
 "  -p, --per-sample-mF     apply -m and -F per-sample for increased sensitivity\n"
@@ -1169,6 +1206,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.bsmpl = bam_smpl_init();
     // the default to be changed in future, see also parse_format_flag()
     mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB|B2B_INFO_SCB;
+    mplp.max_read_len = 500;
 
     static const struct option lopts[] =
     {
@@ -1218,13 +1256,14 @@ int main_mpileup(int argc, char *argv[])
         {"tandem-qual", required_argument, NULL, 'h'},
         {"skip-indels", no_argument, NULL, 'I'},
         {"max-idepth", required_argument, NULL, 'L'},
-        {"min-ireads ", required_argument, NULL, 'm'},
+        {"min-ireads", required_argument, NULL, 'm'},
         {"per-sample-mF", no_argument, NULL, 'p'},
         {"per-sample-mf", no_argument, NULL, 'p'},
         {"platforms", required_argument, NULL, 'P'},
+        {"max-read-len", required_argument, NULL, 'M'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -1323,6 +1362,7 @@ int main_mpileup(int argc, char *argv[])
             }
             mplp.fmt_flag |= parse_format_flag(optarg);
         break;
+        case 'M': mplp.max_read_len = atoi(optarg); break;
         default:
             fprintf(stderr,"Invalid option: '%c'\n", c);
             return 1;
@@ -1385,5 +1425,6 @@ int main_mpileup(int argc, char *argv[])
     if (mplp.bed_itr) regitr_destroy(mplp.bed_itr);
     if (mplp.reg) regidx_destroy(mplp.reg);
     bam_smpl_destroy(mplp.bsmpl);
+
     return ret;
 }
