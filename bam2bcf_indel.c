@@ -37,7 +37,7 @@ DEALINGS IN THE SOFTWARE.  */
 KSORT_INIT_GENERIC(uint32_t)
 
 #define MINUS_CONST 0x10000000
-#define INDEL_WINDOW_SIZE 100
+#define INDEL_WINDOW_SIZE 110
 
 #define MAX_TYPES 64
 
@@ -74,6 +74,7 @@ static int tpos2qpos(const bam1_core_t *c, const uint32_t *cigar, int32_t tpos, 
     *_tpos = x;
     return last_y;
 }
+
 // FIXME: check if the inserted sequence is consistent with the homopolymer run
 // l is the relative gap length and l_run is the length of the homopolymer on the reference
 static inline int est_seqQ(const bcf_callaux_t *bca, int l, int l_run)
@@ -206,18 +207,6 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
         n_tot += nt;
     }
 
-    // To prevent long stretches of N's to be mistaken for indels
-    // (sometimes thousands of bases), check the number of N's in the
-    // sequence and skip places where half or more reference bases are Ns.
-    int nN=0;
-    for (i=pos; i-pos<max_rd_len && ref[i]; i++)
-        if ( ref[i]=='N' )
-            nN++;
-    if ( nN*2>(i-pos) ) {
-        free(aux);
-        return NULL;
-    }
-
     // Sort aux[] and dedup
     ks_introsort(uint32_t, m, aux);
     for (i = 1, n_types = 1; i < m; ++i)
@@ -240,6 +229,18 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
         if (hts_verbose >= 2)
             fprintf(stderr, "[%s] excessive INDEL alleles at position %d. "
                     "Skip the position.\n", __func__, pos + 1);
+        return NULL;
+    }
+
+    // To prevent long stretches of N's to be mistaken for indels
+    // (sometimes thousands of bases), check the number of N's in the
+    // sequence and skip places where half or more reference bases are Ns.
+    int nN=0, i_end = pos + (2*INDEL_WINDOW_SIZE < max_rd_len
+                            ?2*INDEL_WINDOW_SIZE : max_rd_len);
+    for (i=pos; i<i_end && ref[i]; i++)
+        nN += ref[i] == 'N';
+    if ( nN*2>(i-pos) ) {
+        free(aux);
         return NULL;
     }
 
@@ -313,30 +314,48 @@ static char **bcf_cgp_ref_sample(int n, int *n_plp, bam_pileup1_t **plp,
             uint32_t *cigar = bam_get_cigar(b);
             uint8_t *seq = bam_get_seq(b);
             int x = b->core.pos, y = 0;
+
+            // TODO: pileup exposes pileup_ind, but we also need e.g.
+            // pileup_len to know how much of the current CIGAR op-len
+            // we've used (or have remaining).  If we had that, we
+            // could start at p->qpos without having to scan through
+            // the entire CIGAR string until we find it.
+            //
+            // Without it about all we could do is have a side channel
+            // to cache the last known coords.  Messy, so punt for now.
+            // This is no longer the bottle neck until we get to 1000s of
+            // CIGAR ops.
+
             for (k = 0; k < b->core.n_cigar; ++k) {
                 int op = cigar[k]&0xf;
                 int j, l = cigar[k]>>4;
                 if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
-                    for (j = 0; j < l; ++j)
-                        if (x + j >= left && x + j < right)
+                    if (x + l >= left) {
+                        j = left - x > 0 ? left - x : 0;
+                        int j_end = right - x < l ? right - x : l;
+                        for (; j < j_end; j++)
                             // Append to cns.  Note this is ref coords,
                             // so insertions aren't in cns and deletions
                             // will have lower coverage.
 
                             // FIXME: want true consensus (with ins) per
                             // type, so we can independently compare each
-                            // seq to each consensus and see which it matches
-                            // best, so we get proper GT analysis.
+                            // seq to each consensus and see which it
+                            // matches best, so we get proper GT analysis.
                             cns[x+j-left] +=
                                 (bam_seqi(seq, y+j) == ref0[x+j-left])
                                 ? 1        // REF
                                 : (1<<16); // ALT
+                    }
                     x += l; y += l;
                 } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
                     x += l;
                 } else if (op == BAM_CINS || op == BAM_CSOFT_CLIP) {
                     y += l;
                 }
+
+                if (x > right)
+                    break;
             }
         }
 
@@ -474,13 +493,23 @@ static char *bcf_cgp_calc_cons(int n, int *n_plp, bam_pileup1_t **plp,
 //        <0 on error
 static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                                int type, uint8_t *ref2, uint8_t *query,
-                               int r_start, int r_end,
+                               int r_start, int r_end, int long_read,
                                int tbeg, int tend,
                                int left, int right,
                                int qbeg, int qend,
                                int qpos, int max_deletion,
                                int *score1, int *score2) {
+    // Illumina
     probaln_par_t apf1 = { 1e-4, 1e-2, 10 }, apf2 = { 1e-6, 1e-3, 10 };
+
+    // Parameters that work better on PacBio CCS 15k.
+    // We should consider querying the header and RG PU field.
+    // See also htslib/realn.c:sam_prob_realn()
+    if (long_read) {
+        apf1.d = 1e-3; apf1.e = 1e-1;
+        apf2.d = 1e-5; apf1.e = 1e-2;
+    }
+
     type = abs(type);
     apf1.bw = apf2.bw = type + 3;
     int l, sc;
@@ -493,9 +522,12 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     bq = (uint8_t*)bam_aux_get(p->b, "ZQ");
     if (bq) ++bq; // skip type
     for (l = qbeg; l < qend; ++l) {
-        qq[l - qbeg] = bq? qual[l] + (bq[l] - 64) : qual[l];
-        if (qq[l - qbeg] > 30) qq[l - qbeg] = 30;
-        if (qq[l - qbeg] < 7) qq[l - qbeg] = 7;
+        int qval = bq? qual[l] + (bq[l] - 64) : qual[l];
+        if (qval > 30)
+            qval = 30;
+        if (qval < 7)
+            qval = 7;
+        qq[l - qbeg] = qval;
     }
 
     // Up to two BAQ runs, to produce score1/score2.
@@ -503,13 +535,25 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // the top bits are unnormalised.
     sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                         query, qend - qbeg, qq, &apf1, 0, 0);
+    if (sc < 0) {
+        *score1 = *score2 = 0xffffff;
+        free(qq);
+        return 0;
+    }
+
     // used for adjusting indelQ below
     l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
-
     *score1 = *score2 = sc<<8 | MIN(255, l);
-    if (sc > 5) {
+    if (sc > 5 && !long_read) {
+        // TODO: I'm not convinced this helps with Illumina data either.
         sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                             query, qend - qbeg, qq, &apf2, 0, 0);
+        if (sc < 0) {
+            *score2 = 0xffffff;
+            free(qq);
+            return 0;
+        }
+
         l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
         *score2 = sc<<8 | MIN(255, l);
     }
@@ -835,7 +879,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                     }
                 }
 
-                int qbeg, qend, tbeg, tend, kk;
+                int qbeg, qpos, qend, tbeg, tend, kk;
                 uint8_t *seq = bam_get_seq(p->b);
                 uint32_t *cigar = bam_get_cigar(p->b);
                 if (p->b->core.flag & BAM_FUNMAP) continue;
@@ -850,16 +894,29 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
                 // determine the start and end of sequences for alignment
                 // FIXME: loops over CIGAR multiple times
-                qbeg = tpos2qpos(&p->b->core, bam_get_cigar(p->b), left,
-                                 0, &tbeg);
+                int left2 = left, right2 = right;
+                if (p->b->core.l_qseq > 1000) {
+                    // long read data needs less context.  It also tends to
+                    // have many more candidate indels to investigate so
+                    // speed here matters more.
+                    if (pos - left >= INDEL_WINDOW_SIZE)
+                        left2 += INDEL_WINDOW_SIZE/2;
+                    if (right-pos >= INDEL_WINDOW_SIZE)
+                        right2 -= INDEL_WINDOW_SIZE/2;
+                }
+
                 int r_start = p->b->core.pos;
                 int r_end = bam_cigar2rlen(p->b->core.n_cigar,
                                            bam_get_cigar(p->b))
                             -1 + r_start;
-                int qpos = tpos2qpos(&p->b->core, bam_get_cigar(p->b), pos,
+
+                qbeg = tpos2qpos(&p->b->core, bam_get_cigar(p->b), left2,
+                                 0, &tbeg);
+                qpos = tpos2qpos(&p->b->core, bam_get_cigar(p->b), pos,
                                      0, &tend) - qbeg;
-                qend = tpos2qpos(&p->b->core, bam_get_cigar(p->b), right,
+                qend = tpos2qpos(&p->b->core, bam_get_cigar(p->b), right2,
                                  1, &tend);
+
                 if (types[t] < 0) {
                     int l = -types[t];
                     tbeg = tbeg - l > left?  tbeg - l : left;
@@ -869,15 +926,30 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 for (l = qbeg; l < qend; ++l)
                     query[l - qbeg] = seq_nt16_int[bam_seqi(seq, l)];
 
+                // A fudge for now.  Consider checking SAM header for
+                // RG platform field.
+                int long_read = p->b->core.l_qseq > 1000;
+
                 // do realignment; this is the bottleneck
-                if (bcf_cgp_align_score(p, bca, types[t],
-                                        (uint8_t *)ref2, (uint8_t *)query,
-                                        r_start, r_end,
-                                        tbeg, tend, left, right,
-                                        qbeg, qend, qpos, max_deletion,
-                                        &score1[K*n_types + t],
-                                        &score2[K*n_types + t]) < 0)
-                    return -1;
+                if (tend > tbeg) {
+                    if (bcf_cgp_align_score(p, bca, types[t],
+                                            (uint8_t *)ref2 + left2-left,
+                                            (uint8_t *)query,
+                                            r_start, r_end, long_read,
+                                            tbeg, tend, left2, right2,
+                                            qbeg, qend, qpos, max_deletion,
+                                            &score1[K*n_types + t],
+                                            &score2[K*n_types + t]) < 0) {
+                        score1[K*n_types + t] = 0xffffff;
+                        score2[K*n_types + t] = 0xffffff;
+                        return -1;
+                    }
+                } else {
+                    // place holder large cost for reads that cover the
+                    // region entirely within a deletion (thus tend < tbeg).
+                    score1[K*n_types + t] = 0xffffff;
+                    score2[K*n_types + t] = 0xffffff;
+                }
 #if 0
                 for (l = 0; l < tend - tbeg + abs(types[t]); ++l)
                     fputc("ACGTN"[(int)ref2[tbeg-left+l]], stderr);
