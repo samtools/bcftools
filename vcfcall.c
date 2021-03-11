@@ -190,6 +190,11 @@ static ploidy_predef_t ploidy_predefs[] =
       .ploidy =
           "*  * *     * 1\n"
     },
+    { .alias  = "2",
+      .about  = "Treat all samples as diploid",
+      .ploidy =
+          "*  * *     * 2\n"
+    },
     {
         .alias  = NULL,
         .about  = NULL,
@@ -874,7 +879,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --no-version              Do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output FILE             Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type b|u|z|v     Output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "       --ploidy ASSEMBLY[?]      Predefined ploidy, 'list' to print available settings, append '?' for details\n");
+    fprintf(stderr, "       --ploidy ASSEMBLY[?]      Predefined ploidy, 'list' to print available settings, append '?' for details [2]\n");
     fprintf(stderr, "       --ploidy-file FILE        Space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n");
     fprintf(stderr, "   -r, --regions REGION          Restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file FILE       Restrict to regions listed in a file\n");
