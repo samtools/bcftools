@@ -88,48 +88,37 @@ void bcf_call_destroy(bcf_callaux_t *bca)
 
 // position in the sequence with respect to the aligned part of the read
 static int get_position(const bam_pileup1_t *p, int *len,
-                        int *sc_len, int *sc_dist)
-{
-    int icig, n_tot_bases = 0, iread = 0, edist = p->qpos + 1;
+                        int *sc_len, int *sc_dist) {
+    int i, j, edist = p->qpos + 1;
     int sc_left = 0, sc_right = 0;
     int sc_left_dist = -1, sc_right_dist = -1;
-    for (icig=0; icig<p->b->core.n_cigar; icig++)
-    {
-        int cig  = bam_get_cigar(p->b)[icig] & BAM_CIGAR_MASK;
-        int ncig = bam_get_cigar(p->b)[icig] >> BAM_CIGAR_SHIFT;
-        if ( cig==BAM_CMATCH || cig==BAM_CEQUAL || cig==BAM_CDIFF )
-        {
-            n_tot_bases += ncig;
-            iread += ncig;
+
+    // left end
+    for (i = 0; i < p->b->core.n_cigar; i++) {
+        int cig  = bam_get_cigar(p->b)[i] & BAM_CIGAR_MASK;
+        if (cig == BAM_CHARD_CLIP)
             continue;
-        }
-        if ( cig==BAM_CINS )
-        {
-            n_tot_bases += ncig;
-            iread += ncig;
-            continue;
-        }
-        if ( cig==BAM_CSOFT_CLIP )
-        {
-            if (n_tot_bases) {
-                sc_right += ncig;
-                sc_right_dist = p->b->core.l_qseq - sc_right - p->qpos;
-            } else {
-                sc_left += ncig;
-                sc_left_dist = p->qpos+1 - sc_left;
-            }
-            iread += ncig;
-            if ( iread<=p->qpos ) edist -= ncig;
-            continue;
-        }
-        if ( cig==BAM_CDEL ) continue;
-        if ( cig==BAM_CHARD_CLIP ) continue;
-        if ( cig==BAM_CPAD ) continue;
-        if ( cig==BAM_CREF_SKIP ) continue;
-        fprintf(stderr,"todo: cigar %d\n", cig);
-        assert(0);
+        else if (cig == BAM_CSOFT_CLIP)
+            sc_left += bam_get_cigar(p->b)[i] >> BAM_CIGAR_SHIFT;
+        else
+            break;
     }
-    *len = n_tot_bases;
+    if (sc_left)
+        sc_left_dist = p->qpos+1 - sc_left;
+    edist -= sc_left;
+
+    // right end
+    for (j = p->b->core.n_cigar-1; j >= i; j--) {
+        int cig  = bam_get_cigar(p->b)[j] & BAM_CIGAR_MASK;
+        if (cig == BAM_CHARD_CLIP)
+            continue;
+        else if (cig == BAM_CSOFT_CLIP)
+            sc_right += bam_get_cigar(p->b)[j] >> BAM_CIGAR_SHIFT;
+        else
+            break;
+    }
+    if (sc_right)
+        sc_right_dist = p->b->core.l_qseq - sc_right - p->qpos;
 
     // Distance to nearest soft-clips and length of that clip.
     if (sc_left_dist >= 0) {
@@ -144,6 +133,8 @@ static int get_position(const bam_pileup1_t *p, int *len,
         *sc_len  = 0;
         *sc_dist = 0;
     }
+
+    *len = p->b->core.l_qseq - sc_left - sc_right;
     return edist;
 }
 
