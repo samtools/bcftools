@@ -47,7 +47,7 @@ DEALINGS IN THE SOFTWARE.  */
 KSORT_INIT_GENERIC(uint32_t)
 
 #define MINUS_CONST 0x10000000
-#define INDEL_WINDOW_SIZE 100
+#define INDEL_WINDOW_SIZE 110
 
 #define MAX_TYPES 64
 
@@ -884,7 +884,17 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
                 // determine the start and end of sequences for alignment
                 // FIXME: loops over CIGAR multiple times
-                qbeg = tpos2qpos(&p->b->core, bam_get_cigar(p->b), left,
+                int left2 = left, right2 = right;
+                if (p->b->core.l_qseq > 1000) {
+                    // long read data needs less context.  It also tends to
+                    // have many more candidate indels to investigate so
+                    // speed here matters more.
+                    if (pos - left >= INDEL_WINDOW_SIZE)
+                        left2 += INDEL_WINDOW_SIZE/2;
+                    if (right-pos >= INDEL_WINDOW_SIZE)
+                        right2 -= INDEL_WINDOW_SIZE/2;
+                }
+                qbeg = tpos2qpos(&p->b->core, bam_get_cigar(p->b), left2,
                                  0, &tbeg);
                 int r_start = p->b->core.pos;
                 int r_end = bam_cigar2rlen(p->b->core.n_cigar,
@@ -892,7 +902,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                             -1 + r_start;
                 int qpos = tpos2qpos(&p->b->core, bam_get_cigar(p->b), pos,
                                      0, &tend) - qbeg;
-                qend = tpos2qpos(&p->b->core, bam_get_cigar(p->b), right,
+                qend = tpos2qpos(&p->b->core, bam_get_cigar(p->b), right2,
                                  1, &tend);
                 if (types[t] < 0) {
                     int l = -types[t];
@@ -910,9 +920,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // do realignment; this is the bottleneck
                 if (tend > tbeg) {
                     if (bcf_cgp_align_score(p, bca, types[t],
-                                            (uint8_t *)ref2, (uint8_t *)query,
+                                            (uint8_t *)ref2 + left2-left,
+                                            (uint8_t *)query,
                                             r_start, r_end, long_read,
-                                            tbeg, tend, left, right,
+                                            tbeg, tend, left2, right2,
                                             qbeg, qend, qpos, max_deletion,
                                             &score1[K*n_types + t],
                                             &score2[K*n_types + t]) < 0) {
