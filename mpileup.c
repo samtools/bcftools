@@ -495,29 +495,35 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
             int ncig = b->core.n_cigar;
 
             // Don't realign reads where indel is in middle?
-            // FIXME: use a better scan here, maybe from get_position above.
-            if ((flag & MPLP_REALN_PARTIAL) && nt > 15) {
+            // On long read data we don't care about soft-clips at the ends.
+            // For short read data, we always calc BAQ on these as they're
+            // a common source of false positives.
+            if ((flag & MPLP_REALN_PARTIAL) && nt > 15 && ncig > 1) {
                 // Left & right cigar op match.
+                int lr = b->core.l_qseq > 500;
                 int lm = 0, rm = 0, k;
                 for (k = 0; k < ncig; k++) {
                     int cop = bam_cigar_op(cig[k]);
-                    if (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP)
+                    if (lr && (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP))
                         continue;
 
                     if (cop == BAM_CMATCH || cop == BAM_CDIFF ||
                         cop == BAM_CEQUAL)
-                        lm = bam_cigar_oplen(cig[k]);
-                    break;
+                        lm += bam_cigar_oplen(cig[k]);
+                    else
+                        break;
                 }
+
                 for (k = ncig-1; k >= 0; k--) {
                     int cop = bam_cigar_op(cig[k]);
-                    if (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP)
+                    if (lr && (cop == BAM_CHARD_CLIP || cop == BAM_CSOFT_CLIP))
                         continue;
 
                     if (cop == BAM_CMATCH || cop == BAM_CDIFF ||
                         cop == BAM_CEQUAL)
-                        rm = bam_cigar_oplen(cig[k]);
-                    break;
+                        rm += bam_cigar_oplen(cig[k]);
+                    else
+                        break;
                 }
 
                 if (lm >= REALN_DIST*4 && rm >= REALN_DIST*4)
