@@ -863,7 +863,7 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
 
 #ifdef MWU_ZSCORE
     // U z-normalised as +/- number of standard deviations from mean.
-    if (call->ori_ref) {
+    if (call->ori_ref < 0) {
         if (bca->fmt_flag & B2B_INFO_RPB)
             call->mwu_pos = calc_mwu_biasZ(bca->iref_pos, bca->ialt_pos,
                                            bca->npos, 0, 1);
