@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
-.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2021-02-25 13:46 GMT
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 2021-03-17
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021\-02\-25 13:46 GMT" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021\-03\-17" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-02\-25 13:46 GMT\fR and refers to bcftools git version \fB1\&.11\-85\-gd1f7494+\fR\&.
+This manual page was last updated \fB2021\-03\-17\fR and refers to bcftools git version \fB1\&.12\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -70,7 +70,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBannotate\fR
 \&.\&. edit VCF files, add or remove annotations
 .RE
@@ -83,7 +82,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBcall\fR
 \&.\&. SNP/indel calling (former "view")
 .RE
@@ -96,7 +94,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBcnv\fR
 \&.\&. Copy Number Variation caller
 .RE
@@ -109,7 +106,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBconcat\fR
 \&.\&. concatenate VCF/BCF files from the same set of samples
 .RE
@@ -122,7 +118,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBconsensus\fR
 \&.\&. create consensus sequence by applying VCF variants
 .RE
@@ -135,7 +130,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBconvert\fR
 \&.\&. convert VCF/BCF to other formats and back
 .RE
@@ -148,7 +142,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBcsq\fR
 \&.\&. haplotype aware consequence caller
 .RE
@@ -161,7 +154,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBfilter\fR
 \&.\&. filter VCF/BCF files using fixed thresholds
 .RE
@@ -174,7 +166,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBgtcheck\fR
 \&.\&. check sample concordance, detect sample swaps and contamination
 .RE
@@ -187,7 +178,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBindex\fR
 \&.\&. index VCF/BCF
 .RE
@@ -200,7 +190,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBisec\fR
 \&.\&. intersections of VCF/BCF files
 .RE
@@ -213,7 +202,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBmerge\fR
 \&.\&. merge VCF/BCF files files from non\-overlapping sample sets
 .RE
@@ -226,7 +214,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBmpileup\fR
 \&.\&. multi\-way pileup producing genotype likelihoods
 .RE
@@ -239,7 +226,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBnorm\fR
 \&.\&. normalize indels
 .RE
@@ -252,7 +238,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBplugin\fR
 \&.\&. run user\-defined plugin
 .RE
@@ -265,7 +250,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBpolysomy\fR
 \&.\&. detect contaminations and whole\-chromosome aberrations
 .RE
@@ -278,7 +262,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBquery\fR
 \&.\&. transform VCF/BCF into user\-defined formats
 .RE
@@ -291,7 +274,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBreheader\fR
 \&.\&. modify VCF/BCF header, change sample names
 .RE
@@ -304,7 +286,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBroh\fR
 \&.\&. identify runs of homo/auto\-zygosity
 .RE
@@ -317,7 +298,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBsort\fR
 \&.\&. sort VCF/BCF files
 .RE
@@ -330,7 +310,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBstats\fR
 \&.\&. produce VCF/BCF stats (former vcfcheck)
 .RE
@@ -343,7 +322,6 @@ For a full list of available commands, run \fBbcftools\fR without arguments\&. F
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBview\fR
 \&.\&. subset, filter and convert VCF and BCF files
 .RE
@@ -359,7 +337,6 @@ Some helper scripts are bundled with the bcftools code\&.
 .sp -1
 .IP \(bu 2.3
 .\}
-
 \fBplot\-vcfstats\fR
 \&.\&. plots the output of
 \fBstats\fR
@@ -1900,7 +1877,7 @@ bcftools convert \-c ID,CHROM,POS,AA \-s SampleName \-f 23andme\-ref\&.fa \-\-ts
 .sp
 Haplotype aware consequence predictor which correctly handles combined variants such as MNPs split over multiple VCF records, SNPs separated by an intron (but adjacent in the spliced transcript) or nearby frame\-shifting indels which in combination in fact are not frame\-shifting\&.
 .sp
-The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag (configurable with the \fB\-c\fR option)\&. The latter is a bitmask of indexes to INFO/BCSQ, with interleaved haplotypes\&. See the usage examples below for using the %TBCSQ converter in \fBquery\fR for extracting a more human readable form from this bitmask\&. The construction of the bitmask limits the number of consequences that can be referenced per sample in the FORMAT/BCSQ tags\&. By default this is 16, but if more are required, see the \fB\-\-ncsq\fR option\&.
+The output VCF is annotated with INFO/BCSQ and FORMAT/BCSQ tag (configurable with the \fB\-c\fR option)\&. The latter is a bitmask of indexes to INFO/BCSQ, with interleaved haplotypes\&. See the usage examples below for using the %TBCSQ converter in \fBquery\fR for extracting a more human readable form from this bitmask\&. The construction of the bitmask limits the number of consequences that can be referenced per sample in the FORMAT/BCSQ tags\&. By default this is 15, but if more are required, see the \fB\-\-ncsq\fR option\&.
 .sp
 The program requires on input a VCF/BCF file, the reference genome in fasta format (\fB\-\-fasta\-ref\fR) and genomic features in the GFF3 format downloadable from the Ensembl website (\fB\-\-gff\-annot\fR), and outputs an annotated VCF/BCF file\&. Currently, only Ensembl GFF3 files are supported\&.
 .sp
@@ -2000,7 +1977,7 @@ switch off haplotype\-aware calling, run localized predictions considering only 
 .RS 4
 maximum number of per\-haplotype consequences to consider for each site\&. The INFO/BCSQ column includes all consequences, but only the first
 \fIINT\fR
-will be referenced by the FORMAT/BCSQ fields\&. The default value is 16 which corresponds to one integer per diploid sample\&. Note that increasing the value leads to increased memory and is rarely necessary\&.
+will be referenced by the FORMAT/BCSQ fields\&. The default value is 15 which corresponds to one 32\-bit integer per diploid sample, after accounting for values reserved by the BCF specification\&. Note that increasing the value leads to increased size of the output BCF\&.
 .RE
 .PP
 \fB\-\-no\-version\fR
@@ -5207,13 +5184,13 @@ DP="\&.", DP!="\&.", ALT="\&."
 .sp -1
 .IP \(bu 2.3
 .\}
-missing genotypes can be matched regardless of phase and ploidy ("\&.|\&.", "\&./\&.", "\&.") using these expressions
+missing genotypes can be matched regardless of phase and ploidy ("\&.|\&.", "\&./\&.", "\&.", "0|\&.") using these expressions
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-GT~"\e\&.", GT!~"\e\&."
+GT="mis", GT~"\e\&.", GT!~"\e\&."
 .fi
 .if n \{\
 .RE

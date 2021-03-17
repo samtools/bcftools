@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.12 (17th March 2021)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * The output file type is determined from the output file name suffix, where
