@@ -1,0 +1,9 @@
+##fileformat=VCFv4.0
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=2,length=62435964>
+##INFO=<ID=NOVELGT,Number=.,Type=String,Description="List of samples with novel genotypes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+2	280	.	T	A	246	.	.	GT	0/0	0/0
+2	280	.	T	A	246	.	NOVELGT=B	GT	0/0	0/1
+2	280	.	T	A	246	.	NOVELGT=B	GT	0/0	1/1

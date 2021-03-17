@@ -341,6 +341,13 @@ Add or remove annotations.
     +
     See also the *-l, --merge-logic* option.
 
+*-C, --columns-file* 'file'::
+    Read the list of columns from a file (normally given via the *-c, --columns* option).
+    "-" to skip a column of the annotation file.
+    One column name per row, an additional space- or tab-separated field can
+    be present to indicate the merge logic (normally given via the *-l, --merge-logic* option).
+    This is useful when many annotations are added at once.
+
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
@@ -373,10 +380,11 @@ Add or remove annotations.
 *-k, --keep-sites*::
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them
 
-*-l, --merge-logic* 'tag':'first'|'append'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
+*-l, --merge-logic* 'tag':'first'|'append'|'append-missing'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
     if multiple regions overlap a single record, the option defines how to treat multiple
     annotation values when setting 'tag' in the destination file: use the first encountered value ignoring
-    the rest ('first'); append allowing duplicates ('append'); append discarding duplicate values ('unique');
+    the rest ('first'); append allowing duplicates ('append'); append even if the appended value is missing,
+    i.e. is a dot ('append-missing'); append discarding duplicate values ('unique');
     sum the values ('sum', numeric fields only); average the values ('avg'); use the minimum value ('min') or
     the maximum ('max').
     +
@@ -404,6 +412,12 @@ Add or remove annotations.
 
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
+
+*--rename-annots* 'file'::
+    rename annotations according to the map in 'file', with
+    "old_name new_name\n" pairs separated by whitespaces, each on a separate
+    line. The old name must be prefixed with the annotation type:
+    INFO, FORMAT, or FILTER.
 
 *--rename-chrs* 'file'::
     rename chromosomes according to the map in 'file', with
@@ -538,7 +552,8 @@ demand. The original calling model can be invoked with the *-c* option.
 *-f, --format-fields* 'list'::
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
-    as lower case letters.
+    as lower case letters. Prefixed with "&#94;" indicates a request for tag
+    removal of auxiliary tags useful only for calling.
 
 *-F, --prior-freqs* 'AN','AC'::
     take advantage of prior knowledge of population allele frequencies. The
@@ -560,13 +575,13 @@ demand. The original calling model can be invoked with the *-c* option.
     bcftools mpileup [...] -Ou | bcftools annotate -a AFs.tab.gz -h AFs.hdr -c CHROM,POS,REF,ALT,REF_AN,REF_AC -Ou | bcftools call -mv -F REF_AN,REF_AC [...]
 ----
 
-*-G, --group-samples* 'FILE'|'-'::
+*-G, --group-samples* [TAG:]'FILE'|'-'::
     by default, all samples are assumed to come from a single population. This option allows to group samples
     into populations and apply the HWE assumption within but not across the populations. 'FILE' is a tab-delimited
     text file with sample names in the first column and group names in the second column. If '-' is
     given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
     in low coverage data this inflates the rate of false positives.) The *-G* option requires the presence of
-    FORMAT/AD generated at the *bcftools mpileup* step by providing the *-a FMT/AD* option.
+    per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*). 
 
 *-g, --gvcf* 'INT'::
     output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
@@ -802,7 +817,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-f, --fasta-ref* 'FILE'::
     reference sequence in fasta format
 
-*-H, --haplotype* '1'|'2'|'R'|'A'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
+*-H, --haplotype* '1'|'2'|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
     
         '1';;
@@ -816,6 +831,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
         'A';;
             the ALT allele (in heterozygous genotypes)
+
+        'I';;
+            IUPAC code for all genotypes
 
         'LR, LA';;
             the longer allele. If both have the same length, use the REF allele (LR), or the ALT allele  (LA)
@@ -835,10 +853,23 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-I, --iupac-codes*::
     output variants in the form of IUPAC ambiguity codes
 
+*--mark-del* 'CHAR'::
+    instead of removing sequence, insert CHAR for deletions
+
+*--mark-ins* 'uc'|'lc'::
+    highlight inserted sequence in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+
+*--mark-snv* 'uc'|'lc'::
+    highlight substitutions in uppercase (uc) or lowercase (lc), leaving the rest of the sequence as is
+
 *-m, --mask* 'FILE'::
-    BED file or TAB file with regions to be replaced with N. See discussion
+    BED file or TAB file with regions to be replaced with N (the default) or as specified by
+    the next *--mask-with* option. See discussion
     of *--regions-file* in *<<common_options,Common Options>>* for file
     format details.
+
+*--mask-with* 'CHAR'|'lc'|'uc'::
+    replace sequence from *--mask* with CHAR, skipping overlapping variants, or change to lowercase (lc) or uppercase (uc)
 
 *-M, --missing* 'CHAR'::
     instead of skipping the missing genotypes, output the character CHAR (e.g. "?")
@@ -1088,7 +1119,7 @@ with the *-c* option). The latter is a bitmask of indexes to INFO/BCSQ, with
 interleaved haplotypes. See the usage examples below for using the %TBCSQ
 converter in *query* for extracting a more human readable form from this
 bitmask. The construction of the bitmask limits the number of consequences
-that can be referenced in the FORMAT/BCSQ tags. By default this is 16, but
+that can be referenced per sample in the FORMAT/BCSQ tags. By default this is 15, but
 if more are required, see the *--ncsq* option.
 
 The program requires on input a VCF/BCF file, the reference genome in fasta
@@ -1171,10 +1202,11 @@ output VCF and are ignored for the prediction analysis.
     only one VCF record at a time
 
 *-n, --ncsq* 'INT'::
-    maximum number of consequences to consider per site. The INFO/BCSQ column includes
+    maximum number of per-haplotype consequences to consider for each site. The INFO/BCSQ column includes
     all consequences, but only the first 'INT' will be referenced by the FORMAT/BCSQ fields.
-    The default value is 16 which corresponds to one integer per diploid
-    sample. Note that increasing the value leads to increased memory and is rarely necessary.
+    The default value is 15 which corresponds to one 32-bit integer per diploid
+    sample, after accounting for values reserved by the BCF specification.
+    Note that increasing the value leads to increased size of the output BCF.
 
 *--no-version*::
     see *<<common_options,Common Options>>*
@@ -1384,7 +1416,8 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 
 *--n-matches* 'INT'::
     Print only top INT matches for each sample, 0 for unlimited. Use negative value
-    to sort by HWE probability rather than the number of discordant sites.
+    to sort by HWE probability rather than the number of discordant sites. Note
+    that average score is used to determine the top matches, not absolute values.
 
 *--no-HWE-prob*::
     Disable calculation of HWE probability to reduce memory requirements with 
@@ -1600,7 +1633,7 @@ Print a list of records which are present in A and B but not in C and D
 Merge multiple VCF/BCF files from non-overlapping sample sets to create one
 multi-sample file.  For example, when merging file 'A.vcf.gz' containing
 samples 'S1', 'S2' and 'S3' and file 'B.vcf.gz' containing samples 'S3' and
-'S4', the output file will contain four samples named 'S1', 'S2', 'S3', '2:S3'
+'S4', the output file will contain five samples named 'S1', 'S2', 'S3', '2:S3'
 and 'S4'.
 
 Note that it is responsibility of the user to ensure that the sample names are
@@ -1747,8 +1780,7 @@ multiple regions and many alignment files are processed.
     Coefficient  for  downgrading mapping quality for reads containing
     excessive mismatches. Given a read with a phred-scaled probability q of
     being generated from the mapped position, the new mapping quality is
-    about sqrt((INT-q)/INT)*INT. A zero value disables this functionality; if
-    enabled, the recommended value for BWA is 50. [0]
+    about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.
 
 *-d, --max-depth* 'INT'::
     At a position, read maximally 'INT' reads per input file. Note that
@@ -1952,6 +1984,34 @@ split multiallelic sites into multiple rows; recover multiallelics from
 multiple rows. Left-alignment and normalization will only be applied if
 the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
+*-a, --atomize*::
+    Decompose complex variants, e.g. split MNVs into consecutive SNVs.
+    See also *--atom-overlaps* and *--old-rec-tag*.
+
+*--atom-overlaps* '.'|'*'::
+    Alleles missing because of an overlapping variant can be set either 
+    to missing (.) or to the star alele (*), as recommended by
+    the VCF specification. IMPORTANT: Note that asterisk is expaneded
+    by shell and must be put in quotes or escaped by a backslash:
+----
+    # Before atomization:
+    100  CC  C,GG   1/2
+
+    # After:
+    #   bcftools norm -a .
+    100	 C	 G      ./1
+    100	 CC	 C      1/.
+    101	 C	 G      ./1
+
+    # After:
+    #   bcftools norm -a '*'
+    #   bcftools norm -a \*
+    100	 C	 G,*    2/1
+    100	 CC	 C,*    1/2
+    101	 C	 G,*    2/1
+
+----
+
 *-c, --check-ref* 'e'|'w'|'x'|'s'::
     what to do when incorrect or missing REF allele is encountered:
     exit ('e'), warn ('w'), exclude ('x'), or set/fix ('s') bad sites.
@@ -2000,6 +2060,10 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     the '-c s' option can be used to fix or set the REF allele from the
     reference '-f'. The '-N' option will not turn on indel normalisation
     as the '-f' option normally implies
+
+*--old-rec-tag* 'STR'::
+    Add INFO/STR annotation with the original record. The format of the
+    annotation is CHROM|POS|REF|ALT|USED_ALT_IDX. 
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -2158,6 +2222,8 @@ By default, appropriate system directories are searched for installed plugins.
     - INFO/MAF        Number:A  Type:Float    ..  Minor Allele frequency
     - INFO/NS         Number:1  Type:Integer  ..  Number of samples with data
     - INFO/TYPE       Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
+    - FORMAT/VAF      Number:A  Type:Float    ..  The fraction of reads with the alternate allele, requires FORMAT/AD or ADF+ADR
+    - FORMAT/VAF1     Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively
     - TAG=func(TAG)   Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
 
 *fix-ploidy*::
@@ -2229,7 +2295,7 @@ By default, appropriate system directories are searched for installed plugins.
 *tag2tag*::
     convert between similar tags, such as GL and GP
 
-*trio-dnm*::
+*trio-dnm2*::
     screen variants for possible de-novo mutations in trios
 
 *trio-stats*::
@@ -2986,10 +3052,10 @@ about the distinction between "&&" vs "&" and "||" vs "|".
 
         DP=".", DP!=".", ALT="."
 
-* missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".")
+* missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".", "0|.")
 using these expressions
 
-        GT~"\.", GT!~"\."
+        GT="mis", GT~"\.", GT!~"\."
 
 * missing genotypes can be matched including the phase and ploidy (".|.", "./.", ".")
 using these expressions

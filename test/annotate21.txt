@@ -1,0 +1,11 @@
+FORMAT/X-X      XX   
+FORMAT/Y-Y      YY  
+FORMAT/A-A      AA  
+INFO/A-A        AA  
+INFO/B-B        BB  
+INFO/X-X        XX  
+INFO/Y-Y        YY  
+FILTER/flt-A    fltA
+FILTER/flt-B    fltB
+FILTER/flt-X    fltX
+FILTER/flt-Y    fltY

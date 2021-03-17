@@ -1,6 +1,6 @@
 /* The MIT License
 
-    Copyright (C) 2020 Giulio Genovese
+    Copyright (C) 2020-2021 Giulio Genovese
 
     Author: Giulio Genovese <giulio.genovese@gmail.com>
 
@@ -175,7 +175,7 @@ static void open_set(subset_t *set, args_t *args)
     if ( args->output_type & FT_BCF ) kputs(".bcf", &args->str);
     else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &args->str);
     else kputs(".vcf", &args->str);
-    set->fh = hts_open(args->str.s, hts_bcf_wmode(args->output_type));
+    set->fh = hts_open(args->str.s, hts_bcf_wmode2(args->output_type,args->str.s));
     if ( set->fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, args->str.s, strerror(errno));
     if ( args->n_threads > 0)
         hts_set_opt(set->fh, HTS_OPT_THREAD_POOL, args->sr->p);
@@ -327,8 +327,12 @@ int run(int argc, char **argv)
     {
         switch (c)
         {
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case  1 : args->record_cmd_line = 0; break;
             case 'o': args->output_dir = optarg; break;
             case 'O':

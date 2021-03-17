@@ -5,6 +5,8 @@
 *.bam           -text diff=bam
 
 # Omit these files from release tarballs.
+/.appveyor.yml  export-ignore
+/.cirrus.yml    export-ignore
 .git*           export-ignore
-.travis*        export-ignore
+.ci_helpers     export-ignore
 README.md       export-ignore

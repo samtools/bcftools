@@ -1,3 +1,193 @@
+## Release 1.12 (17th March 2021)
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* The output file type is determined from the output file name suffix, where
+  available, so the -O/--output-type option is often no longer necessary.
+
+* Make F_MISSING in filtering expressions work for sites with multiple
+  ALT alleles (#1343)
+
+* Fix N_PASS and F_PASS to behave according to expectation when reverse
+  logic is used (#1397). This fix has the side effect of `query` (or
+  programs like `+trio-stats`) behaving differently with these expressions,
+  operating now in site-oriented rather than sample-oriented mode. For
+  example, the new behavior could be:
+    bcftools query -f'[%POS %SAMPLE %GT\n]' -i'N_PASS(GT="alt")==1'
+        11	A	0/0
+        11	B	0/0
+        11	C	1/1
+  while previously the same expression would return:
+        11	C	1/1
+  The original mode can be mimicked by splitting the filtering into two steps:
+    bcftools view -i'N_PASS(GT="alt")==1' | \
+    bcftools query -f'[%POS %SAMPLE %GT\n]' -i'GT="alt"'
+
+Changes affecting specific commands:
+
+* bcftools annotate:
+
+    - New `--rename-annots` option to help fix broken VCFs (#1335)
+
+    - New -C option allows to read a long list of options from a file to
+      prevent very long command lines.
+
+    - New `append-missing` logic allows annotations to be added for each ALT
+      allele in the same order as they appear in the VCF. Note that this is
+      not bullet proof. In order for this to work:
+
+        - the annotation file must have one line per ALT allele
+
+        - fields must contain a single value as multiple values are appended
+          as they are and would break the correspondence between the alleles
+          and values
+
+* bcftools concat:
+
+    - Do not phase genotypes by mistake if they are not already phased
+      with `-l` (#1346)
+
+* bcftools consensus:
+
+    - New `--mask-with`, `--mark-del`, `--mark-ins`, `--mark-snv` options
+      (#1382, #1381, #1170)
+
+    - Symbolic <DEL> should have only one REF base. If there are multiple,
+      take POS+1 as the first deleted base.
+
+    - Make consensus work when the first base of the reference genome is
+      deleted. In this situation the VCF record has POS=1 and the first
+      REF base cannot precede the event. (#1330)
+
+* bcftools +contrast:
+
+    - The NOVELGT annotation was previously not added when requested.
+
+* bcftools convert:
+
+    - Make the --hapsample and --hapsample2vcf options consistent with each
+      other and with the documentation.
+
+* bcftools call:
+
+    - Revamp of `call -G`, previously sample grouping by population was not
+      truly independent and could still be influenced by the presence of other
+      sample groups.
+
+    - Optional addition of INFO/PV4 annotation with `call -a INFO/PV4`
+
+    - Remove generation of useless HOB and ICB annotation;
+      use `+fill-tags -- -t HWE,ExcHet` instead
+
+    - The `call -f` option was renamed to `-a` to (1) make it consistent with
+      `mpileup` and (2) to indicate that it includes both INFO and FORMAT
+      annotations, not just FORMAT as previously
+
+    - Any sensible Number=R,Type=Integer annotation can be used with -G,
+      such as AD or QS
+
+    - Don't trim QUAL; although usefulness of this change is questionable for
+      true probabilistic interpretation (such high precision is unrealistic),
+      using QUAL as a score rather than probability is helpful and permits more
+      fine-grained filtering
+
+    - Fix a suspected bug in `call -F` in the worst case, for certain improve
+      readability
+
+    - `call -C trio` is temporarily disabled
+
+* bcftools csq:
+
+    - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too 
+      many per-sample consequences
+
+    - Fix a bug which incorrectly handled the --ncsq parameter and could clash
+      with reserved BCF values, consequently producing truncated or even incorrect
+      output of the %TBCSQ formatting expression in `bcftools query`. To account
+      for the reserved values, the new default value is --ncsq 15 (#1428)
+
+* bcftools +fill-tags:
+
+    - MAF definition revised for multiallelic sites, the second most common
+      allele is considered to be the minor allele (#1313)
+
+    - New FORMAT/VAF, VAF1 annotations to set the fraction of alternate reads
+      provided FORMAT/AD is present
+
+* bcftools gtcheck:
+
+    - support matching of a single sample against all other samples in the file
+      with `-s qry:sample -s gt:-`. This was previously not possible, either
+      full cross-check mode had to be run or a list of pairs/samples had to
+      be created explicitly
+
+* bcftools merge:
+
+    - Make `merge -R` behavior consistent with other commands and pull in
+      overlapping records with POS outside of the regions (#1374)
+
+    - Bug fix (#1353)
+
+* bcftools mpileup:
+
+    - Add new optional tag `mpileup -a FORMAT/QS`
+
+* bcftools norm:
+
+    - New `-a, --atomize` functionality to decompose complex variants,
+      for example MNVs into consecutive SNVs
+
+    - New option `--old-rec-tag` to indicate the original variant
+
+* bcftools query:
+
+    - Incorrect fields were printed in the per-sample output when subset
+      of samples was requested via -s/-S and the order of samples in the
+      header was different from the requested -s/-S order (#1435)
+
+* bcftools +prune:
+
+    - New options --random-seed and --nsites-per-win-mode (#1050)
+
+* bcftools +split-vep:
+
+    - Transcript selection now works also on the raw CSQ/BCSQ annotation.
+
+    - Bug fix, samples were dropped on VCF input and VCF/BCF output (#1349)
+
+* bcftools stats:
+
+    - Changes to QUAL and ts/tv plotting stats: avoid capping QUAL to
+      predefined bins, use an open-range logarithmic binning instead
+
+    - plot dual ts/tv stats: per quality bin and cumulative as if threshold
+      applied on the whole dataset
+
+* bcftools +trio-dnm2:
+
+    - Major revamp of +trio-dnm plugin, which is now deprecated and replaced by
+      +trio-dnm2.
+
+      The original trio-dnm calling model used genotype likelihoods (PLs) as the
+      input for calling. However, that is flawed because PLs make assumptions
+      which are unsuitable for de novo calling: PL(RR) can become bigger than
+      PL(RA) even when the ALT allele is present in the parents. Note that
+      this is true also for other programs such as DeNovoGear which rely on
+      the same samtools calculation.
+
+      The new recommended workflow is
+
+        bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |
+           bcftools call -mv -Ou |
+           bcftools +trio-dnm -p proband,father,mother -Oz -o output.vcf.gz
+
+      This new version also implements the DeNovoGear model. The original
+      behavior of trio-dnm is no longer supported.
+
+      For more details see http://samtools.github.io/bcftools/trio-dnm.pdf
+
+
 ## Release 1.11 (22nd September 2020)
 
 

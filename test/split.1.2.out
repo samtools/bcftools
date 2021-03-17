@@ -1,12 +1,15 @@
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
+A.vcf
+A
 22	10	.	C	A	.	.	.	GT	./.
 22	22	.	A	C	.	.	.	GT	0/0
 22	23	.	C	A	.	.	.	GT	0/1
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	B
+B.vcf
+B
 22	10	.	C	A	.	.	.	GT	./.
 22	22	.	A	C	.	.	.	GT	0/0
 22	23	.	C	A	.	.	.	GT	0/1
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	C
+C.vcf
+C
 22	10	.	C	A	.	.	.	GT	./.
 22	22	.	A	C	.	.	.	GT	0/0
 22	23	.	C	A	.	.	.	GT	1/0

@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://some/path/human_g1k_v37.fasta
+##contig=<ID=1,length=2147483647>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	s1	s2	s3
+1	102	.	T	A	.	.	AF=0.2	GT	0/1	0/1	0/1
+1	104	.	T	A	.	.	AF=0.3	GT	0/0	0/0	0/0
+1	105	.	T	A	.	.	AF=0.2	GT	0/0	0/0	0/0
+1	108	.	T	A	.	.	AF=0.2	GT	0/1	1/1	0/1

@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017-2020 Genome Research Ltd.
+    Copyright (C) 2017-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -95,7 +95,7 @@ static void init_data(args_t *args)
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
@@ -175,8 +175,12 @@ int run(int argc, char **argv)
             case 'd': args->rmdup = 1; break;
             case 'p': args->print_overlaps = 1; break;
             case 'v': args->verbose = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'T': args->target_is_file = 1; // fall-through
             case 't': args->target = optarg; break; 
             case 'R': args->region_is_file = 1; // fall-through

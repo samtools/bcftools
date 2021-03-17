@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///lustre/scratch116/vr/ref/human/GRCh37/hs37d5.fa
+##contig=<ID=2,length=243199373>
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA07051_CEU	NA12843_CEU	NA18488_YRI	NA18489_YRI	NA18498_YRI	NA18504_YRI	NA18510_YRI	NA18519_YRI	NA18858_YRI	NA18861_YRI	NA18868_YRI	NA18871_YRI	NA18874_YRI	NA18881_YRI	NA18907_YRI	NA18909_YRI	NA18917_YRI	NA18933_YRI	NA18934_YRI	NA19108_YRI	NA19119_YRI	NA19129_YRI	NA19131_YRI	NA19138_YRI	NA19147_YRI	NA19189_YRI	NA19197_YRI	NA19198_YRI	NA19206_YRI	NA19214_YRI	NA19223_YRI	NA19238_YRI	NA19239_YRI	NA19248_YRI	NA19256_YRI
+2	136608646	.	G	.	24.5121	.	AN=70;DP4=95,24,45,11;MQ=59	GT:AD	0/0:0	0/0:1	0/0:2	0/0:1	0/0:2	0/0:2	0/0:2	0/0:1	0/0:7	0/0:8	0/0:2	0/0:1	0/0:2	0/0:6	0/0:7	0/0:4	0/0:7	0/0:3	0/0:2	0/0:5	0/0:1	0/0:4	0/0:1	0/0:4	0/0:2	0/0:6	0/0:1	0/0:2	0/0:1	0/0:1	0/0:1	0/0:4	0/0:2	0/0:1	0/0:2

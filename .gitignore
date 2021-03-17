@@ -24,6 +24,7 @@ configure
 
 /TAGS
 
+test/*.fa.fai
 test/vkrs.unsorted.hex
 test/rsvk.unsorted.hex
 test/nrvk.unsorted.tsv

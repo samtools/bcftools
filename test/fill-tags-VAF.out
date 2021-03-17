@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depth">
+##contig=<ID=chr1,length=249250621,assembly=hg19>
+##FORMAT=<ID=VAF,Number=A,Type=Float,Description="The fraction of reads with alternate allele (nALT/nSumAll)">
+##FORMAT=<ID=VAF1,Number=1,Type=Float,Description="The fraction of reads with alternate alleles (nSumALT/nSumAll)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+chr1	10153	.	AC	A,C,G	.	.	.	AD:VAF:VAF1	1,1,1,1:0.25,0.25,0.25:0.75
+chr1	10153	.	AC	A,C,G	.	.	.	AD	.

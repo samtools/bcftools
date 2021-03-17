@@ -54,12 +54,14 @@ DP	0	60	0	0.000000	1	33.333333
 DP	0	62	0	0.000000	2	66.666667
 # QUAL, Stats by quality
 # QUAL	[2]id	[3]Quality	[4]number of SNPs	[5]number of transitions (1st ALT)	[6]number of transversions (1st ALT)	[7]number of indels
-QUAL	0	12	1	0	1	1
-QUAL	0	45	0	0	0	1
-QUAL	0	59	2	1	0	3
-QUAL	0	60	1	1	0	0
-QUAL	0	61	0	0	0	1
-QUAL	0	79	0	0	0	1
-QUAL	0	82	0	0	0	1
-QUAL	0	90	1	1	0	0
-QUAL	0	342	0	0	0	1
+QUAL	0	12.6	1	0	1	0
+QUAL	0	12.9	0	0	0	1
+QUAL	0	45.0	0	0	0	1
+QUAL	0	59.2	1	1	0	0
+QUAL	0	59.9	0	0	0	3
+QUAL	0	60.2	1	1	0	0
+QUAL	0	61.5	0	0	0	1
+QUAL	0	79.0	0	0	0	1
+QUAL	0	82.7	0	0	0	1
+QUAL	0	90.6	1	1	0	0
+QUAL	0	342.0	0	0	0	1

@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2016 Genome Research Ltd.
+    Copyright (C) 2016-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -429,8 +429,12 @@ int run(int argc, char **argv)
                     args->af_dflt = strtod(optarg,&tmp);
                     if ( *tmp ) error("Could not parse: --AF-dflt %s\n", optarg);
                     break;
-            case 2: args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 3: args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 2:
+                if ( args->filter_str ) error("Error: only one --include or --exclude expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 3:
+                if ( args->filter_str ) error("Error: only one --include or --exclude expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'i': args->include_indels = 1; break;
             case 'e':
                 args->gt_err_prob = strtod(optarg,&tmp);

@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2019-2020 Genome Research Ltd.
+   Copyright (c) 2019-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -74,7 +74,7 @@ typedef struct
 {
     convert_t *convert;
     filter_t *filter;
-    int argc, filter_logic, regions_is_file, targets_is_file, list_hdr;
+    int argc, filter_logic, regions_is_file, targets_is_file, list_hdr, record_cmd_line;
     kstring_t kstr;
     char *filter_str,
         *vep_tag;       // the --annotation INFO tag to process
@@ -114,6 +114,7 @@ typedef struct
     int niarr,miarr, nfarr,mfarr;
     col2type_t *column2type;
     int ncolumn2type;
+    int raw_vep_request;        // raw VEP tag requested and will need subsetting
 }
 args_t;
 
@@ -207,6 +208,7 @@ static const char *usage_text(void)
         "Common options:\n"
         "   -e, --exclude EXPR              Exclude sites and samples for which the expression is true\n"
         "   -i, --include EXPR              Include sites and samples for which the expression is true\n"
+        "       --no-version                Do not append version and command line to the header\n"
         "   -o, --output FILE               Output file name [stdout]\n"
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF or text, v: uncompressed VCF or text [v]\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
@@ -355,6 +357,26 @@ static const char *get_column_type(args_t *args, char *field)
     }
     return "String";
 }
+static int query_has_field(char *fmt, char *field, kstring_t *str)
+{
+    str->l = 0;
+    kputc('%',str);
+    kputs(field,str);
+    char end, *ptr = fmt;
+    while ( ptr )
+    {
+        ptr = strstr(ptr,str->s);
+        if ( !ptr ) return 0;
+        end = ptr[str->l];
+        if ( isalnum(end) || end=='_' || end=='.' )
+        {
+            ptr++;
+            continue;
+        }
+        break;
+    }
+    return 1;
+}
 static void init_data(args_t *args)
 {
     args->sr = bcf_sr_init();
@@ -404,183 +426,10 @@ static void init_data(args_t *args)
         khash_str2int_set(args->field2idx, args->field[i], i);
     }
 
-    // Create a text output as with `bcftools query -f`. For this we need to determine the fields to be extracted
-    // from the formatting expression
-    kstring_t str = {0,0,0};
-    if ( args->format_str && !args->column_str )
-    {
-        // Special case: -A was given, extract all fields, for this the -a tag (%CSQ) must be present
-        if ( args->all_fields_delim ) expand_csq_expression(args, &str);
-
-        for (i=0; i<args->nfield; i++)
-        {
-            str.l = 0;
-            kputc('%',&str);
-            kputs(args->field[i],&str);
-            char end, *ptr = args->format_str;
-            while ( ptr )
-            {
-                ptr = strstr(ptr,str.s);
-                if ( !ptr ) break;
-                end = ptr[str.l];
-                if ( isalnum(end) || end=='_' || end=='.' )
-                {
-                    ptr++;
-                    continue;
-                }
-                break;
-            }
-            if ( !ptr ) continue;
-            ptr[str.l] = 0;
-            int tag_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, ptr+1);
-            if ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,tag_id) )
-                fprintf(stderr,"Note: ambigous key %s, using the %s subfield of %s, not the INFO/%s tag\n", ptr,ptr+1,args->vep_tag,ptr+1);
-
-            int olen = args->column_str ? strlen(args->column_str) : 0;
-            int nlen = strlen(ptr) - 1;
-            args->column_str = (char*)realloc(args->column_str, olen + nlen + 2);
-            if ( olen )
-            {
-                memcpy(args->column_str+olen,",",1);
-                olen++;
-            }
-            memcpy(args->column_str+olen,ptr+1,nlen);
-            args->column_str[olen+nlen] = 0;
-
-            ptr[str.l] = end;
-        }
-    }
-
-    // The "Consequence" column to look up severity, its name is hardwired for now
-    if ( khash_str2int_get(args->field2idx,"Consequence",&args->csq_idx)!=0 )
-        error("The field \"Consequence\" is not present in INFO/%s: %s\n", args->vep_tag,hrec->vals[ret]);
-
-    // Columns to extract: given as names, 0-based indexes or ranges of indexes
-    if ( args->column_str )
-    {
-        int *column = NULL;
-        int *types  = NULL;
-        if ( !strcmp("-",args->column_str) )    // all subfields
-        {
-            free(args->column_str);
-            kstring_t str = {0,0,0};
-            ksprintf(&str,"0-%d",args->nfield-1);
-            args->column_str = str.s;
-        }
-        ep = args->column_str;
-        while ( *ep )
-        {
-            char *tp, *bp = ep;
-            while ( *ep && *ep!=',' ) ep++;
-            char tmp = *ep;
-            *ep = 0;
-            int type = -1;
-            int idx_beg, idx_end;
-            if ( khash_str2int_get(args->field2idx, bp, &idx_beg)==0 )
-                idx_end = idx_beg;
-            else if ( (tp=strrchr(bp,':')) )
-            {
-                *tp = 0;
-                if ( khash_str2int_get(args->field2idx, bp, &idx_beg)!=0 )
-                {
-                    *tp = ':';
-                    error("No such column: \"%s\"\n", bp);
-                }
-                idx_end = idx_beg;
-                *tp = ':';
-                if ( !strcasecmp(tp+1,"string") ) type = BCF_HT_STR;
-                else if ( !strcasecmp(tp+1,"float") || !strcasecmp(tp+1,"real") ) type = BCF_HT_REAL;
-                else if ( !strcasecmp(tp+1,"integer") || !strcasecmp(tp+1,"int") ) type = BCF_HT_INT;
-                else if ( !strcasecmp(tp+1,"flag") ) type = BCF_HT_FLAG;
-                else error("The type \"%s\" (or column \"%s\"?) not recognised\n", tp+1,bp);
-            }
-            else
-            {
-                char *mp;
-                idx_beg = strtol(bp,&mp,10);
-                if ( !*mp ) idx_end = idx_beg;
-                else if ( *mp=='-' )
-                    idx_end = strtol(mp+1,&mp,10);
-                if ( *mp )
-                {
-                    if ( *mp==':' )
-                    {
-                        idx_end = idx_beg;
-                        if ( !strcasecmp(mp+1,"string") ) type = BCF_HT_STR;
-                        else if ( !strcasecmp(mp+1,"float") || !strcasecmp(mp+1,"real") ) type = BCF_HT_REAL;
-                        else if ( !strcasecmp(mp+1,"integer") || !strcasecmp(mp+1,"int") ) type = BCF_HT_INT;
-                        else if ( !strcasecmp(mp+1,"flag") ) type = BCF_HT_FLAG;
-                        else error("The type \"%s\" (or column \"%s\"?) not recognised\n", mp+1,bp);
-                    }
-                    else 
-                        error("No such column: \"%s\"\n", bp);
-                }
-            }
-
-            i = args->nannot;
-            args->nannot += idx_end - idx_beg + 1;
-            column = (int*)realloc(column,args->nannot*sizeof(*column));
-            types  = (int*)realloc(types,args->nannot*sizeof(*types));
-            for (j=idx_beg; j<=idx_end; j++)
-            {
-                if ( j >= args->nfield ) error("The index is too big: %d\n", j);
-                column[i] = j;
-                types[i]  = type;
-                i++;
-            }
-            if ( !tmp ) break;
-            ep++;
-        }
-        args->annot = (annot_t*)calloc(args->nannot,sizeof(*args->annot));
-        int len = args->annot_prefix ? strlen(args->annot_prefix) : 0;
-        for (i=0; i<args->nannot; i++)
-        {
-            annot_t *ann = &args->annot[i];
-            ann->type = types[i];
-            ann->idx = j = column[i];
-            ann->field = strdup(args->field[j]);
-            int clen = strlen(args->field[j]);
-            ann->tag = (char*)malloc(clen+len+1);
-            if ( len ) memcpy(ann->tag,args->annot_prefix,len);
-            memcpy(ann->tag+len,ann->field,clen);
-            ann->tag[len+clen] = 0;
-            args->kstr.l = 0;
-            const char *type = "String";
-            if ( ann->type==BCF_HT_REAL ) type = "Float";
-            else if ( ann->type==BCF_HT_INT ) type = "Integer";
-            else if ( ann->type==BCF_HT_FLAG ) type = "Flag";
-            else if ( ann->type==BCF_HT_STR ) type = "String";
-            else if ( ann->type==-1 ) type = get_column_type(args, args->field[j]);
-            ksprintf(&args->kstr,"##INFO=<ID=%%s,Number=.,Type=%s,Description=\"The %%s field from INFO/%%s\">",type);
-            bcf_hdr_printf(args->hdr_out, args->kstr.s, ann->tag,ann->field,args->vep_tag);
-        }
-        free(column);
-        free(types);
-        destroy_column2type(args);
-
-        if ( bcf_hdr_sync(args->hdr_out)<0 )
-            error_errno("[%s] Failed to update header", __func__);
-    }
-    if ( args->format_str )
-    {
-        if ( !args->column_str && !args->select ) error("Error: No %s field selected in the formatting expression and -s not given: a typo?\n",args->vep_tag);
-        args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
-        if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
-    }
-    if ( args->filter_str )
-    {
-        int max_unpack = args->convert ? convert_max_unpack(args->convert) : 0;
-        args->filter = filter_init(args->hdr_out, args->filter_str);
-        max_unpack |= filter_max_unpack(args->filter);
-        args->sr->max_unpack = max_unpack;
-        if ( max_unpack & BCF_UN_FMT )
-            convert_set_option(args->convert, subset_samples, &args->smpl_pass);
-    }
-
     // Severity scale
+    kstring_t str = {0,0,0};
     args->csq2severity = khash_str2int_init();
-    int severity  = 0;
-    str.l = 0;
+    int severity = 0;
     if ( args->severity )
     {
         kstring_t tmp = {0,0,0};
@@ -619,7 +468,6 @@ static void init_data(args_t *args)
         ep++;
         while ( *ep && isspace(*ep) ) ep++;
     }
-    free(str.s);
 
     // Transcript and/or consequence selection
     if ( !args->select ) args->select = "all:any";
@@ -648,6 +496,193 @@ static void init_data(args_t *args)
     // The 'CANONICAL' column to look up severity, its name is hardwired for now
     if ( args->select_tr==SELECT_TR_PRIMARY && khash_str2int_get(args->field2idx,"CANONICAL",&args->primary_id)!=0 )
         error("The primary transcript was requested but the field \"CANONICAL\" is not present in INFO/%s: %s\n",args->vep_tag,hrec->vals[ret]);
+
+    // Create a text output as with `bcftools query -f`. For this we need to determine the fields to be extracted
+    // from the formatting expression
+    if ( args->format_str && !args->column_str )
+    {
+        // Special case: -A was given, extract all fields, for this the -a tag (%CSQ) must be present
+        if ( args->all_fields_delim ) expand_csq_expression(args, &str);
+
+        for (i=0; i<args->nfield; i++)
+        {
+            if ( !query_has_field(args->format_str,args->field[i],&str) ) continue;
+
+            int tag_id = bcf_hdr_id2int(args->hdr, BCF_DT_ID, args->field[i]);
+            if ( bcf_hdr_idinfo_exists(args->hdr,BCF_HL_INFO,tag_id) )
+                fprintf(stderr,"Note: ambiguous key %%%s; using the %s subfield of %s, not the INFO/%s tag\n", args->field[i],args->field[i],args->vep_tag,args->field[i]);
+
+            int olen = args->column_str ? strlen(args->column_str) : 0;
+            int nlen = strlen(args->field[i]);
+            args->column_str = (char*)realloc(args->column_str, olen + nlen + 2);
+            if ( olen )
+            {
+                memcpy(args->column_str+olen,",",1);
+                olen++;
+            }
+            memcpy(args->column_str+olen,args->field[i],nlen);
+            args->column_str[olen+nlen] = 0;
+        }
+        if ( query_has_field(args->format_str,args->vep_tag,&str) ) args->raw_vep_request = 1;
+    }
+
+    // The "Consequence" column to look up severity, its name is hardwired for now
+    if ( khash_str2int_get(args->field2idx,"Consequence",&args->csq_idx)!=0 )
+        error("The field \"Consequence\" is not present in INFO/%s: %s\n", args->vep_tag,hrec->vals[ret]);
+
+    // Columns to extract: given as names, 0-based indexes or ranges of indexes
+    if ( args->column_str )
+    {
+        int *column = NULL;
+        int *types  = NULL;
+        if ( !strcmp("-",args->column_str) )    // all subfields
+        {
+            free(args->column_str);
+            kstring_t str = {0,0,0};
+            ksprintf(&str,"0-%d",args->nfield-1);
+            args->column_str = str.s;
+        }
+        ep = args->column_str;
+        while ( *ep )
+        {
+            char *tp, *bp = ep;
+            while ( *ep && *ep!=',' ) ep++;
+            char keep = *ep;
+            *ep = 0;
+            int type = -1;
+            int idx_beg, idx_end;
+            if ( !strcmp("-",bp) )
+            {
+                kstring_t str = {0,0,0};
+                ksprintf(&str,"0-%d",args->nfield-1);
+                if ( keep ) ksprintf(&str,",%s",ep+1);
+                free(args->column_str);
+                args->column_str = str.s;
+                ep = str.s; 
+                continue;
+            }
+            if ( khash_str2int_get(args->field2idx, bp, &idx_beg)==0 )
+                idx_end = idx_beg;
+            else if ( (tp=strrchr(bp,':')) )
+            {
+                *tp = 0;
+                if ( khash_str2int_get(args->field2idx, bp, &idx_beg)!=0 )
+                {
+                    *tp = ':';
+                    error("No such column: \"%s\"\n", bp);
+                }
+                idx_end = idx_beg;
+                *tp = ':';
+                if ( !strcasecmp(tp+1,"string") ) type = BCF_HT_STR;
+                else if ( !strcasecmp(tp+1,"float") || !strcasecmp(tp+1,"real") ) type = BCF_HT_REAL;
+                else if ( !strcasecmp(tp+1,"integer") || !strcasecmp(tp+1,"int") ) type = BCF_HT_INT;
+                else if ( !strcasecmp(tp+1,"flag") ) type = BCF_HT_FLAG;
+                else error("The type \"%s\" (or column \"%s\"?) not recognised\n", tp+1,bp);
+            }
+            else
+            {
+                char *mp;
+                idx_beg = strtol(bp,&mp,10);
+                if ( !*mp ) idx_end = idx_beg;
+                else if ( *mp=='-' )
+                    idx_end = strtol(mp+1,&mp,10);
+                if ( *mp )
+                {
+                    if ( *mp==':' )
+                    {
+                        idx_end = idx_beg;
+                        if ( !strcasecmp(mp+1,"string") ) type = BCF_HT_STR;
+                        else if ( !strcasecmp(mp+1,"float") || !strcasecmp(mp+1,"real") ) type = BCF_HT_REAL;
+                        else if ( !strcasecmp(mp+1,"integer") || !strcasecmp(mp+1,"int") ) type = BCF_HT_INT;
+                        else if ( !strcasecmp(mp+1,"flag") ) type = BCF_HT_FLAG;
+                        else error("The type \"%s\" (or column \"%s\"?) not recognised\n", mp+1,bp);
+                    }
+                    else if ( !strcmp(bp,args->vep_tag) )
+                    {
+                        args->raw_vep_request = 1;
+                        if ( !keep ) break;
+                        ep++;
+                        continue;
+                    }
+                    else 
+                        error("No such column: \"%s\"\n", bp);
+                }
+            }
+
+            i = args->nannot;
+            args->nannot += idx_end - idx_beg + 1;
+            column = (int*)realloc(column,args->nannot*sizeof(*column));
+            types  = (int*)realloc(types,args->nannot*sizeof(*types));
+            for (j=idx_beg; j<=idx_end; j++)
+            {
+                if ( j >= args->nfield ) error("The index is too big: %d\n", j);
+                column[i] = j;
+                types[i]  = type;
+                i++;
+            }
+            if ( !keep ) break;
+            ep++;
+        }
+        args->annot = (annot_t*)calloc(args->nannot,sizeof(*args->annot));
+        int len = args->annot_prefix ? strlen(args->annot_prefix) : 0;
+        for (i=0; i<args->nannot; i++)
+        {
+            annot_t *ann = &args->annot[i];
+            ann->type = types[i];
+            ann->idx = j = column[i];
+            ann->field = strdup(args->field[j]);
+            int clen = strlen(args->field[j]);
+            ann->tag = (char*)malloc(clen+len+1);
+            if ( len ) memcpy(ann->tag,args->annot_prefix,len);
+            memcpy(ann->tag+len,ann->field,clen);
+            ann->tag[len+clen] = 0;
+            args->kstr.l = 0;
+            const char *type = "String";
+            if ( ann->type==BCF_HT_REAL ) type = "Float";
+            else if ( ann->type==BCF_HT_INT ) type = "Integer";
+            else if ( ann->type==BCF_HT_FLAG ) type = "Flag";
+            else if ( ann->type==BCF_HT_STR ) type = "String";
+            else if ( ann->type==-1 ) type = get_column_type(args, args->field[j]);
+            ksprintf(&args->kstr,"##INFO=<ID=%%s,Number=.,Type=%s,Description=\"The %%s field from INFO/%%s\">",type);
+            bcf_hdr_printf(args->hdr_out, args->kstr.s, ann->tag,ann->field,args->vep_tag);
+        }
+        if ( args->raw_vep_request && args->select_tr==SELECT_TR_ALL ) args->raw_vep_request = 0;
+        if ( args->raw_vep_request )
+        {
+            args->nannot++;
+            args->annot = (annot_t*)realloc(args->annot,args->nannot*sizeof(*args->annot));
+            annot_t *ann = &args->annot[args->nannot-1];
+            ann->type  = BCF_HT_STR;
+            ann->idx   = -1;
+            ann->field = strdup(args->vep_tag);
+            ann->tag   = strdup(args->vep_tag);
+            memset(&ann->str,0,sizeof(ann->str));
+        }
+        free(column);
+        free(types);
+        destroy_column2type(args);
+
+        if ( bcf_hdr_sync(args->hdr_out)<0 )
+            error_errno("[%s] Failed to update header", __func__);
+    }
+    if ( args->format_str )
+    {
+        if ( !args->column_str && !args->select ) error("Error: No %s field selected in the formatting expression and -s not given: a typo?\n",args->vep_tag);
+        args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
+        if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
+    }
+    if ( args->filter_str )
+    {
+        int max_unpack = args->convert ? convert_max_unpack(args->convert) : 0;
+        args->filter = filter_init(args->hdr_out, args->filter_str);
+        max_unpack |= filter_max_unpack(args->filter);
+        if ( !args->format_str ) max_unpack |= BCF_UN_FMT;      // don't drop FMT fields on VCF input when VCF/BCF is output
+        args->sr->max_unpack = max_unpack;
+        if ( args->convert && (max_unpack & BCF_UN_FMT) )
+            convert_set_option(args->convert, subset_samples, &args->smpl_pass);
+    }
+
+    free(str.s);
 }
 static void destroy_data(args_t *args)
 {
@@ -939,13 +974,16 @@ static void process_record(args_t *args, bcf1_t *rec)
                 continue;
             }
 
-            if ( !*args->cols_csq->off[ann->idx] )
-                annot_append(ann, "."); // missing value
-            else
+            char *ann_str = NULL;
+            if ( ann->idx==-1 ) ann_str = args->cols_tr->off[i];
+            else if ( *args->cols_csq->off[ann->idx] ) ann_str = args->cols_csq->off[ann->idx];
+            if ( ann_str )
             {
-                annot_append(ann, args->cols_csq->off[ann->idx]);
+                annot_append(ann, ann_str);
                 all_missing = 0;
             }
+            else
+                annot_append(ann, "."); // missing value
         }
         
         if ( args->duplicate )
@@ -968,6 +1006,7 @@ int run(int argc, char **argv)
     args->output_fname = "-";
     args->output_type  = FT_VCF;
     args->vep_tag = "CSQ";
+    args->record_cmd_line = 1;
     static struct option loptions[] =
     {
         {"drop-sites",no_argument,0,'x'},
@@ -989,6 +1028,7 @@ int run(int argc, char **argv)
         {"regions-file",1,0,'R'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"no-version",no_argument,NULL,2},
         {NULL,0,NULL,0}
     };
     int c;
@@ -996,6 +1036,7 @@ int run(int argc, char **argv)
     {
         switch (c) 
         {
+            case  2 : args->record_cmd_line = 0; break;
             case  1 : args->column_types = optarg; break;
             case 'A':
                 if ( !strcasecmp(optarg,"tab") ) args->all_fields_delim = "\t";
@@ -1011,8 +1052,12 @@ int run(int argc, char **argv)
             case 'S': args->severity = optarg; break;
             case 's': args->select = optarg; break;
             case 'l': args->list_hdr = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
             case 'T': args->targets = optarg; args->targets_is_file = 1; break;
             case 'r': args->regions = optarg; break;
@@ -1062,7 +1107,8 @@ int run(int argc, char **argv)
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
         else
         {
-            args->fh_vcf = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+            args->fh_vcf = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
+            if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_split-vep");
             if ( bcf_hdr_write(args->fh_vcf, args->hdr_out)!=0 ) error("Failed to write the header to %s\n", args->output_fname);
         }
         while ( bcf_sr_next_line(args->sr) )

@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##reference=file:///lustre/scratch116/vr/ref/human/GRCh37/hs37d5.fa
+##contig=<ID=8,length=146364022>
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of high-quality bases">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=ADF,Number=R,Type=Integer,Description="Allelic depths on the forward strand (high-quality bases)">
+##FORMAT=<ID=ADR,Number=R,Type=Integer,Description="Allelic depths on the reverse strand (high-quality bases)">
+##FORMAT=<ID=AQ,Number=R,Type=Integer,Description="Phred-score allele quality sum for +trio-dnm calling">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	proband	mother	father
+8	609051	.	G	C,A,<*>	0	.	.	PL:DP:ADF:ADR:AD:AQ	82,0,66,112,81,159,112,81,159,159:15:6,2,0,0:4,3,0,0:10,5,0,0:136,136,0,0	17,47,91,0,78,63,47,91,78,91:15:7,0,5,0:3,0,0,0:10,0,5,0:133,0,62,0	0,20,125,27,128,125,27,128,125,125:10:5,0,0,0:4,1,0,0:9,1,0,0:167,4,0,0

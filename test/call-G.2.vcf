@@ -1,0 +1,24 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://hwe.fa
+##contig=<ID=15,length=301>
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of raw reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of raw reads supporting an indel">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
+##INFO=<ID=RPB,Number=1,Type=Float,Description="Mann-Whitney U test of Read Position Bias (bigger is better)">
+##INFO=<ID=MQB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality Bias (bigger is better)">
+##INFO=<ID=BQB,Number=1,Type=Float,Description="Mann-Whitney U test of Base Quality Bias (bigger is better)">
+##INFO=<ID=MQSB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
+##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
+##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
+##INFO=<ID=AC_POP,Number=A,Type=Integer,Description="Number of alternate alleles observed in the population">
+##INFO=<ID=AN_POP,Number=1,Type=Integer,Description="Number of alleles total in AC_POP">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA07000	NA07056	NA12046	NA12144	NA12156	NA12234	NA12249	NA12282	NA12283	NA12286	NA12340	NA12341	NA12342	NA12399	NA12414	NA12546	NA12717	NA12718	NA12748	NA12749	NA12750	NA12776	NA12828	NA12843	NA18502	NA18867	NA18908	NA18933	NA18934	NA19108	NA19117	NA19119	NA19129	NA19131	NA19138	NA19147	NA19149	NA19159	NA19185	NA19189	NA19197	NA19198	NA19206	NA19213	NA19214	NA19223	NA19235	NA19236	NA19238	NA19239	NA19248	NA19256
+15	201	.	A	G,<*>	0	.	DP=80;AN_POP=1000;AC_POP=1000,0;I16=19,17,21,15,1380,57328,1308,52148,2160,129600,2137,127369,613,12599,514,10028;QS=25,27,0;VDB=0.895839;SGB=-4.94122;RPB=0.999937;MQB=0.979662;MQSB=0.974642;BQB=0.739382;MQ0F=0	PL:AD	0,3,36,3,36,36:1,0,0	0,6,93,6,93,93:2,0,0	0,3,33,3,33,33:1,0,0	0,3,32,3,32,32:1,0,0	0,3,36,3,36,36:1,0,0	0,3,32,3,32,32:1,0,0	0,3,40,3,40,40:1,0,0	0,6,79,6,79,79:2,0,0	0,3,42,3,42,42:1,0,0	0,6,64,6,64,64:2,0,0	0,6,67,6,67,67:2,0,0	0,6,66,6,66,66:2,0,0	0,9,96,9,96,96:3,0,0	0,3,32,3,32,32:1,0,0	0,3,36,3,36,36:1,0,0	0,3,31,3,31,31:1,0,0	0,3,44,3,44,44:1,0,0	0,3,44,3,44,44:1,0,0	0,6,61,6,61,61:2,0,0	0,3,60,3,60,60:1,0,0	0,6,60,6,60,60:2,0,0	0,6,57,6,57,57:2,0,0	0,3,31,3,31,31:1,0,0	0,6,68,6,68,68:2,0,0	0,3,60,3,60,60:1,0,0	39,3,0,39,3,39:0,1,0	31,3,0,31,3,31:0,1,0	37,3,0,37,3,37:0,1,0	60,3,0,60,3,60:0,1,0	38,3,0,38,3,38:0,1,0	36,3,0,36,3,36:0,1,0	37,3,0,37,3,37:0,1,0	85,9,0,85,9,85:0,3,0	39,3,0,39,3,39:0,1,0	31,3,0,31,3,31:0,1,0	63,6,0,63,6,63:0,2,0	29,3,0,29,3,29:0,1,0	32,3,0,32,3,32:0,1,0	43,3,0,43,3,43:0,1,0	27,3,0,27,3,27:0,1,0	43,3,0,43,3,43:0,1,0	34,3,0,34,3,34:0,1,0	46,3,0,46,3,46:0,1,0	144,12,0,144,12,144:0,4,0	59,3,0,59,3,59:0,1,0	16,3,0,16,3,16:0,1,0	37,3,0,37,3,37:0,1,0	57,6,0,57,6,57:0,2,0	91,6,0,91,6,91:0,2,0	21,3,0,21,3,21:0,1,0	52,6,0,52,6,52:0,2,0	26,3,0,26,3,26:0,1,0

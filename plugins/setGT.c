@@ -1,6 +1,6 @@
 /*  plugins/setGT.c -- set gentoypes to given values
 
-    Copyright (C) 2015-2017 Genome Research Ltd.
+    Copyright (C) 2015-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -193,8 +193,12 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     {
         switch (c) 
         {
-            case 'i': args->filter_str = optarg; args->filter_logic = FLT_INCLUDE; break;
-            case 'e': args->filter_str = optarg; args->filter_logic = FLT_EXCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'n': args->new_mask = 0;
                 if ( strchr(optarg,'.') ) args->new_mask |= GT_MISSING;
                 if ( strchr(optarg,'0') ) args->new_mask |= GT_REF;

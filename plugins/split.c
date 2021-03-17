@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017-2020 Genome Research Ltd.
+    Copyright (C) 2017-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -63,6 +63,7 @@ typedef struct
     int ninfo_tags, minfo_tags, nfmt_tags, mfmt_tags, keep_info, keep_fmt;
     int argc, region_is_file, target_is_file, output_type;
     char **argv, *region, *target, *fname, *output_dir, *keep_tags, *samples_fname, *groups_fname;
+    void *unique_fnames;
     bcf_hdr_t *hdr_in, *hdr_out;
     bcf_srs_t *sr;
     subset_t *sets;
@@ -80,8 +81,9 @@ static const char *usage_text(void)
 {
     return 
         "\n"
-        "About: Split VCF by sample, creating single- or multi-sample VCFs.\n"
-        "\n"
+        "About: Split VCF by sample, creating single- or multi-sample VCFs. The output files are named\n"
+        "       by sample names whenever possible, with the characters from the set [ \\t:/\\] replaced\n"
+        "       with \"_\", and a unique numeric suffix added in case of name clashes.\n"
         "Usage: bcftools +split [Options]\n"
         "Plugin options:\n"
         "   -e, --exclude EXPR              exclude sites for which the expression is true (applied on the outputs)\n"
@@ -113,8 +115,8 @@ static const char *usage_text(void)
         "                                       \n"
         "                                       # Optional third column to provide output file base name, use dash \"-\"\n"
         "                                       # to keep sample names unchanged\n"
-        "                                       sample1           new-name1   output1\n"
-        "                                       sample2,sample3   -           output2\n"
+        "                                       sample1           new-name1   file1\n"
+        "                                       sample2,sample3   -           file2\n"
         "                                       \n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
@@ -137,6 +139,29 @@ static const char *usage_text(void)
 
 void mkdir_p(const char *fmt, ...);
 
+static char *create_unique_file_name(args_t *args, const char *template)
+{
+    kstring_t str = {0,0,0};
+    kputs(template, &str);
+    char *ptr = str.s;
+    while ( *ptr )
+    {
+        if ( *ptr==':' || *ptr=='\\' || *ptr=='/' || *ptr==' ' || *ptr=='\t' ) *ptr = '_';
+        ptr++;
+    }
+    size_t ori_len = str.l;
+    int id = 0;
+    if ( !args->unique_fnames ) args->unique_fnames = khash_str2int_init();
+    while ( khash_str2int_has_key(args->unique_fnames,str.s) )
+    {
+        str.l = ori_len;
+        kputc('-', &str);
+        kputw(++id, &str);
+    }
+    khash_str2int_inc(args->unique_fnames, strdup(str.s));
+    return str.s;
+}
+
 void init_subsets(args_t *args)
 {
     int i,j, nsmpl = bcf_hdr_nsamples(args->hdr_in);
@@ -150,7 +175,7 @@ void init_subsets(args_t *args)
             set->nsmpl = 1;
             set->smpl  = (int*) calloc(1, sizeof(*set->smpl));
             set->smpl[0] = i;
-            set->fname   = strdup(args->hdr_in->samples[i]);
+            set->fname   = create_unique_file_name(args, args->hdr_in->samples[i]);
         }
     }
     else if ( args->samples_fname )
@@ -222,7 +247,7 @@ void init_subsets(args_t *args)
                         error("Expected the same number of samples in the first and second column: %s\n",files[i]);
                 }
                 if ( j )
-                    set->fname = strdup(set->rename[0]);
+                    set->fname = create_unique_file_name(args, set->rename[0]);
                 else
                 {
                     free(set->rename);
@@ -234,11 +259,11 @@ void init_subsets(args_t *args)
             if ( *ptr )     // optional third column with file name
             {
                 free(set->fname);
-                set->fname = strdup(ptr);
+                set->fname = create_unique_file_name(args, ptr);
             }
 
             if ( !set->fname )
-                set->fname = strdup(args->hdr_in->samples[set->smpl[0]]);
+                set->fname = create_unique_file_name(args, args->hdr_in->samples[set->smpl[0]]);
 
             args->nsets++;
         }
@@ -317,7 +342,7 @@ void init_subsets(args_t *args)
                 set->rename = (char**) realloc(set->rename,set->nsmpl*sizeof(*set->rename));
                 set->smpl[set->nsmpl-1]   = idx;
                 set->rename[set->nsmpl-1] = strdup(rename?rename:samples[i]);
-                if ( !set->fname) set->fname = strdup(beg);
+                if ( !set->fname) set->fname = create_unique_file_name(args, beg);
                 if ( !tmp ) break;
                 beg = ptr + 1;
             }
@@ -327,6 +352,7 @@ void init_subsets(args_t *args)
         free(str.s);
         free(samples);
     }
+    if ( args->unique_fnames ) khash_str2int_destroy_free(args->unique_fnames);
 }
 
 static void init_data(args_t *args)
@@ -423,13 +449,18 @@ static void init_data(args_t *args)
         str.l = 0;
         kputs(args->output_dir, &str);
         if ( str.s[str.l-1] != '/' ) kputc('/', &str);
-        int k, l = str.l;
         kputs(set->fname, &str);
-        for (k=l; k<str.l; k++) if ( isspace(str.s[k]) ) str.s[k] = '_';
-        if ( args->output_type & FT_BCF ) kputs(".bcf", &str);
-        else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &str);
-        else kputs(".vcf", &str);
-        set->fh = hts_open(str.s, hts_bcf_wmode(args->output_type));
+        char *suffix = NULL;
+        if ( args->output_type & FT_BCF ) suffix = "bcf";
+        else if ( args->output_type & FT_GZ ) suffix = ".vcf.gz";
+        else suffix = ".vcf";
+        int len = strlen(set->fname);
+        if ( len >= 4 && !strcasecmp(".bcf",set->fname+len-4) ) suffix = NULL;
+        if ( len >= 4 && !strcasecmp(".vcf",set->fname+len-4) ) suffix = NULL;
+        if ( len >= 7 && !strcasecmp(".vcf.gz",set->fname+len-7) ) suffix = NULL;
+        if ( len >= 8 && !strcasecmp(".vcf.bgz",set->fname+len-8) ) suffix = NULL;
+        if ( suffix ) kputs(suffix, &str);
+        set->fh = hts_open(str.s, hts_bcf_wmode2(args->output_type,str.s));
         if ( set->fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, str.s, strerror(errno));
         if ( args->hts_opts )
         {
@@ -602,8 +633,12 @@ int run(int argc, char **argv)
         {
             case  1 : args->hts_opts = hts_readlist(optarg,0,&args->nhts_opts); break;
             case 'k': args->keep_tags = optarg; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'T': args->target = optarg; args->target_is_file = 1; break;
             case 't': args->target = optarg; break; 
             case 'R': args->region = optarg; args->region_is_file = 1;  break;

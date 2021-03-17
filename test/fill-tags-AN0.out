@@ -10,7 +10,7 @@
 ##INFO=<ID=AC_Hom,Number=A,Type=Integer,Description="Allele counts in homozygous genotypes">
 ##INFO=<ID=AC_Het,Number=A,Type=Integer,Description="Allele counts in heterozygous genotypes">
 ##INFO=<ID=AC_Hemi,Number=A,Type=Integer,Description="Allele counts in hemizygous genotypes">
-##INFO=<ID=MAF,Number=A,Type=Float,Description="Minor Allele frequency">
+##INFO=<ID=MAF,Number=1,Type=Float,Description="Frequency of the second most common allele">
 ##INFO=<ID=HWE,Number=A,Type=Float,Description="HWE test (PMID:15789306); 1=good, 0=bad">
 ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant">
 ##INFO=<ID=TYPE,Number=.,Type=String,Description="Variant type">

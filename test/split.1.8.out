@@ -1,0 +1,13 @@
+file1.vcf
+a3
+a2
+a1
+22	10	.	C	A	.	.	.	GT	0/0	0/1	./.
+22	23	.	C	A	.	.	.	GT	0/0	0/0	0/1
+file2.vcf.gz
+b2
+b1
+22	23	.	C	A	.	.	.	GT	0/0	0/1
+file3.bcf
+c
+22	23	.	C	A	.	.	.	GT	1/0

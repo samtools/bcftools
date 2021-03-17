@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018 Genome Research Ltd.
+   Copyright (c) 2018-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -355,7 +355,7 @@ static void report_stats(args_t *args)
     fprintf(fh,"# DLEN* lines report indel length distribution for every threshold. When genotype fields are available,\n");
     fprintf(fh,"#   the counts correspond to the number of genotypes, otherwise the number of sites are given.\n");
     fprintf(fh,"#   The k-th bin corresponds to the indel size k-MAX_LEN, negative for deletions, positive for insertions.\n");
-    fprintf(fh,"#   The firt/last bin contains also all deletions/insertions larger than MAX_LEN:\n");
+    fprintf(fh,"#   The first/last bin contains also all deletions/insertions larger than MAX_LEN:\n");
     fprintf(fh,"#   %d) DLEN*, filter id\n", ++i);
     fprintf(fh,"#   %d) maximum indel length\n", ++i);
     fprintf(fh,"#   %d-%d) counts of indel lengths (-max,..,0,..,max), all unique alleles in a genotype are recorded (alt hets increase the counters 2x, alt homs 1x)\n", i+1, i+MAX_LEN*2+1);
@@ -716,8 +716,12 @@ int run(int argc, char **argv)
             case  3 : args->allow_alt2ref_DNMs = 1; break;
             case 'p': args->ped_fname = optarg; break;
             case 'c': args->csq_tag = optarg; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 't': args->targets = optarg; break;
             case 'T': args->targets = optarg; args->targets_is_file = 1; break;
             case 'r': args->regions = optarg; break;

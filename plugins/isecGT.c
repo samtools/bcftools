@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2016 Genome Research Ltd.
+    Copyright (C) 2016-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -130,7 +130,7 @@ int run(int argc, char **argv)
     args->hdr_a = bcf_sr_get_header(args->sr,0);
     args->hdr_b = bcf_sr_get_header(args->sr,1);
     smpl_ilist_t *smpl = smpl_ilist_map(args->hdr_a, args->hdr_b, SMPL_STRICT);
-    args->out_fh = hts_open(args->output_fname, hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_a)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     

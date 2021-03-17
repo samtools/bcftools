@@ -19,9 +19,7 @@
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##INFO=<ID=ICB,Number=1,Type=Float,Description="Inbreeding Coefficient Binomial test (bigger is better)">
-##INFO=<ID=HOB,Number=1,Type=Float,Description="Bias in the number of HOMs number (smaller is better)">
 ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
 ##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA19213	NA19129
-15	201	.	A	G	202	.	DP=80;VDB=0.895839;SGB=-4.94122;RPB=0.999937;MQB=0.979662;MQSB=0.974642;BQB=0.739382;MQ0F=0;AC=4;AN=4;DP4=19,17,21,15;MQ=59	GT:PL:AD	1/1:144,12,0:0,4	1/1:85,9,0:0,3
+15	201	.	A	G	202.049	.	DP=80;VDB=0.895839;SGB=-4.94122;RPB=0.999937;MQB=0.979662;MQSB=0.974642;BQB=0.739382;MQ0F=0;AC=4;AN=4;DP4=19,17,21,15;MQ=59	GT:PL:AD	1/1:144,12,0:0,4	1/1:85,9,0:0,3

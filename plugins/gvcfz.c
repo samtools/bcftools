@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017 Genome Research Ltd.
+    Copyright (C) 2017-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -330,8 +330,12 @@ int run(int argc, char **argv)
         switch (c) 
         {
             case 'a': args->trim_alts = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'g': args->group_by = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -366,7 +370,7 @@ int run(int argc, char **argv)
     if ( args->filter_str )
         args->filter = filter_init(args->hdr_in, args->filter_str);
     init_groups(args);
-    args->fh_out = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+    args->fh_out = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( bcf_hdr_write(args->fh_out, args->hdr_out)!=0 ) error("Failed to write the header\n");
     while ( bcf_sr_next_line(args->sr) ) process_gvcf(args);
     flush_block(args, NULL);

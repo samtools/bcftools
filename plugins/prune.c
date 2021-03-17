@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017-2020 Genome Research Ltd.
+    Copyright (C) 2017-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -39,7 +39,9 @@
 #include <htslib/vcf.h>
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
+#include <htslib/hts_os.h>
 #include <assert.h>
+#include <time.h>
 #include "bcftools.h"
 #include "vcfbuf.h"
 #include "filter.h"
@@ -60,7 +62,8 @@ typedef struct
     int ld_max_set[VCFBUF_LD_N];
     char *ld_annot[VCFBUF_LD_N], *ld_annot_pos[VCFBUF_LD_N];
     int ld_mask;
-    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win;
+    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win, rseed;
+    char *nsites_mode;
     int keep_sites;
     char **argv, *region, *target, *fname, *output_fname, *ld_filter;
     htsFile *out_fh;
@@ -89,9 +92,11 @@ static const char *usage_text(void)
         "   -i, --include EXPR              include only sites for which the expression is true\n"
         "   -k, --keep-sites                leave sites filtered by -i/-e unchanged instead of discarding them\n"
         "   -m, --max [r2|LD=]FLOAT         remove sites with r2 or Lewontin's D bigger than FLOAT within the -w window\n"
-        "   -n, --nsites-per-win N          keep at most N sites in the -w window, removing sites with small AF first\n"
+        "   -n, --nsites-per-win N          keep at most N sites in the -w window. See also -N, --nsites-per-win-mode\n"
+        "   -N, --nsites-per-win-mode STR   keep sites with biggest AF (\"maxAF\"); sites that come first (\"1st\"); pick randomly (\"rand\") [maxAF]\n"
         "   -o, --output FILE               write output to the FILE [standard output]\n"
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "       --random-seed INT           use the provided random seed for reproducibility\n"
         "       --randomize-missing         replace missing data with randomly assigned genotype based on site's allele frequency\n"
         "   -r, --regions REGION            restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
@@ -128,7 +133,7 @@ static void init_data(args_t *args)
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode(args->output_type));
+    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
 
     if ( args->ld_filter && strcmp(".",args->ld_filter) )
@@ -184,8 +189,17 @@ static void init_data(args_t *args)
     if ( args->ld_max_set[VCFBUF_LD_IDX_R2] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_R2,args->ld_max[VCFBUF_LD_IDX_R2]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_LD] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_LD,args->ld_max[VCFBUF_LD_IDX_LD]);
     if ( args->ld_max_set[VCFBUF_LD_IDX_HD] ) vcfbuf_set_opt(args->vcfbuf,double,LD_MAX_HD,args->ld_max[VCFBUF_LD_IDX_HD]);
+    if ( args->rand_missing || (args->nsites_mode && !strcasecmp(args->nsites_mode,"rand")) )
+    {
+        fprintf(stderr,"Using random seed: %d\n",args->rseed);
+        hts_srand48(args->rseed);
+    }
     if ( args->rand_missing ) vcfbuf_set_opt(args->vcfbuf,int,LD_RAND_MISSING,1);
-    if ( args->nsites ) vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_NSITES,args->nsites);
+    if ( args->nsites )
+    {
+        vcfbuf_set_opt(args->vcfbuf,int,VCFBUF_NSITES,args->nsites);
+        vcfbuf_set_opt(args->vcfbuf,char*,VCFBUF_NSITES_MODE,args->nsites_mode);
+    }
     if ( args->af_tag ) vcfbuf_set_opt(args->vcfbuf,char*,VCFBUF_AF_TAG,args->af_tag);
 
     if ( args->filter_str )
@@ -266,11 +280,14 @@ int run(int argc, char **argv)
     args->output_type  = FT_VCF;
     args->output_fname = "-";
     args->ld_win = -100e3;
+    args->nsites_mode = "maxAF";
+    args->rseed = time(NULL);
     static struct option loptions[] =
     {
         {"keep-sites",no_argument,NULL,'k'},
         {"randomize-missing",no_argument,NULL,1},
         {"AF-tag",required_argument,NULL,2},
+        {"random-seed",required_argument,NULL,3},
         {"exclude",required_argument,NULL,'e'},
         {"include",required_argument,NULL,'i'},
         {"annotate",required_argument,NULL,'a'},
@@ -281,20 +298,29 @@ int run(int argc, char **argv)
         {"output",required_argument,NULL,'o'},
         {"output-type",required_argument,NULL,'O'},
         {"nsites-per-win",required_argument,NULL,'n'},
+        {"nsites-per-win-mode",required_argument,NULL,'N'},
         {"window",required_argument,NULL,'w'},
         {NULL,0,NULL,0}
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "vr:R:t:T:m:o:O:a:f:i:e:n:w:k",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "vr:R:t:T:m:o:O:a:f:i:e:n:N:w:k",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
             case  1 : args->rand_missing = 1; break;
             case  2 : args->af_tag = optarg; break;
+            case  3 : 
+                args->rseed = strtol(optarg,&tmp,10);
+                if ( tmp==optarg || *tmp ) error("Could not parse: --random-seed %s\n", optarg);
+                break;
             case 'k': args->keep_sites = 1; break;
-            case 'e': args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
-            case 'i': args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
+            case 'e':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
+            case 'i':
+                if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
+                args->filter_str = optarg; args->filter_logic |= FLT_INCLUDE; break;
             case 'a': 
                 {
                     int n, i;
@@ -328,6 +354,12 @@ int run(int argc, char **argv)
             case 'n': 
                 args->nsites = strtod(optarg,&tmp);
                 if ( tmp==optarg || *tmp ) error("Could not parse: --nsites-per-win %s\n", optarg);
+                break;
+            case 'N':
+                if ( !strcasecmp(optarg,"maxAF") ) args->nsites_mode = optarg;
+                else if ( !strcasecmp(optarg,"1st") ) args->nsites_mode = optarg;
+                else if ( !strcasecmp(optarg,"rand") ) args->nsites_mode = optarg;
+                else error("The mode \"%s\" is not recognised\n",optarg);
                 break;
             case 'm': 
                 if ( !strncasecmp("R2=",optarg,3) )

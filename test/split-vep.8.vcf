@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1>
+##contig=<ID=2>
+##contig=<ID=20>
+##contig=<ID=X>
+##INFO=<ID=BCSQ,Number=.,Type=String,Description="Local consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	145075172	.	G	A	.	.	BCSQ=intron|PDE4DIP||protein_coding,non_coding|PDE4DIP||retained_intron,non_coding|PDE4DIP||processed_transcript,intron|PDE4DIP||NMD
+2	175216515	.	A	G	.	.	BCSQ=intron|CIR1||protein_coding,non_coding|CIR1||retained_intron
+20	37400393	.	C	T	.	.	BCSQ=synonymous|ACTR5|ENST00000243903|protein_coding|+|586S|37400393C>T
+X	48822646	.	T	G	.	.	BCSQ=missense|KCND1|ENST00000376477|protein_coding|-|135T>135P|48822646T>G,missense|KCND1|ENST00000218176|protein_coding|-|512T>512P|48822646T>G,missense|KCND1|ENST00000419374|protein_coding|-|83T>83P|48822646T>G

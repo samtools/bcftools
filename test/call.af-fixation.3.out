@@ -1,0 +1,15 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file:///lustre/scratch116/vr/ref/human/GRCh37/hs37d5.fa
+##contig=<ID=2,length=243199373>
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Phred-scaled Genotype Quality">
+##FORMAT=<ID=GP,Number=G,Type=Float,Description="Genotype posterior probabilities in the range 0 to 1">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA07051_CEU	NA12843_CEU	NA18488_YRI	NA18489_YRI	NA18498_YRI	NA18504_YRI	NA18510_YRI	NA18519_YRI	NA18858_YRI	NA18861_YRI	NA18868_YRI	NA18871_YRI	NA18874_YRI	NA18881_YRI	NA18907_YRI	NA18909_YRI	NA18917_YRI	NA18933_YRI	NA18934_YRI	NA19108_YRI	NA19119_YRI	NA19129_YRI	NA19131_YRI	NA19138_YRI	NA19147_YRI	NA19189_YRI	NA19197_YRI	NA19198_YRI	NA19206_YRI	NA19214_YRI	NA19223_YRI	NA19238_YRI	NA19239_YRI	NA19248_YRI	NA19256_YRI
+2	136608646	.	G	A	4.92443	.	AC=2;AN=70;DP4=95,24,45,11;MQ=59	GT:PL:AD:GP:GQ	0/1:32,3,0:0,1:0.000315005,0.500435,0.49925:3	0/1:0,3,37:1,0:0.499357,0.500543,9.96349e-05:3	0/0:0,6,77:2,0:1,0,0:127	0/0:0,3,33:1,0:1,0,0:127	0/0:0,6,67:2,0:1,0,0:127	0/0:0,6,67:2,0:1,0,0:127	0/0:0,6,67:2,0:1,0,0:127	0/0:0,3,60:1,0:1,0,0:127	0/0:0,21,147:7,0:1,0,0:127	0/0:0,24,161:8,0:1,0,0:127	0/0:0,6,52:2,0:1,0,0:127	0/0:0,3,38:1,0:1,0,0:127	0/0:0,6,72:2,0:1,0,0:127	0/0:0,18,197:6,0:1,0,0:127	0/0:0,21,175:7,0:1,0,0:127	0/0:0,12,129:4,0:1,0,0:127	0/0:0,21,220:7,0:1,0,0:127	0/0:0,9,111:3,0:1,0,0:127	0/0:0,6,76:2,0:1,0,0:127	0/0:0,15,125:5,0:1,0,0:127	0/0:0,3,32:1,0:1,0,0:127	0/0:0,12,110:4,0:1,0,0:127	0/0:0,3,41:1,0:1,0,0:127	0/0:0,12,124:4,0:1,0,0:127	0/0:0,6,70:2,0:1,0,0:127	0/0:0,18,140:6,0:1,0,0:127	0/0:0,3,22:1,0:1,0,0:127	0/0:0,6,63:2,0:1,0,0:127	0/0:0,3,46:1,0:1,0,0:127	0/0:0,3,39:1,0:1,0,0:127	0/0:0,3,42:1,0:1,0,0:127	0/0:0,12,142:4,0:1,0,0:127	0/0:0,6,67:2,0:1,0,0:127	0/0:0,3,39:1,0:1,0,0:127	0/0:0,6,54:2,0:1,0,0:127

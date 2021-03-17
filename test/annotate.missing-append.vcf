@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##INFO=<ID=STR,Number=.,Type=String,Description="Some annotation">
+##INFO=<ID=INT,Number=.,Type=String,Description="Some annotation">
+##INFO=<ID=FLT,Number=.,Type=String,Description="Some annotation">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	752566	.	G	A,*,C,T	.	.	.
+1	752566	.	G	A,C	.	.	.
+1	800000	.	ACGTACGT	TCGTACGT,ACGT	.	.	.
+1	800008	.	C	T	.	.	.
+1	800009	.	C	T	.	.	.
+1	800100	.	ACGT	ACC,TCGT,AC	.	.	.

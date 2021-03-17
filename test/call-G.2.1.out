@@ -1,0 +1,27 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=file://hwe.fa
+##contig=<ID=15,length=301>
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of raw reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of raw reads supporting an indel">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
+##INFO=<ID=RPB,Number=1,Type=Float,Description="Mann-Whitney U test of Read Position Bias (bigger is better)">
+##INFO=<ID=MQB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality Bias (bigger is better)">
+##INFO=<ID=BQB,Number=1,Type=Float,Description="Mann-Whitney U test of Base Quality Bias (bigger is better)">
+##INFO=<ID=MQSB,Number=1,Type=Float,Description="Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
+##INFO=<ID=AC_POP,Number=A,Type=Integer,Description="Number of alternate alleles observed in the population">
+##INFO=<ID=AN_POP,Number=1,Type=Integer,Description="Number of alleles total in AC_POP">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes for each ALT allele, in the same order as listed">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="Number of high-quality ref-forward , ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=MQ,Number=1,Type=Integer,Description="Average mapping quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA07000	NA07056	NA12046	NA12144	NA12156	NA12234	NA12249	NA12282	NA12283	NA12286	NA12340	NA12341	NA12342	NA12399	NA12414	NA12546	NA12717	NA12718	NA12748	NA12749	NA12750	NA12776	NA12828	NA12843	NA18502	NA18867	NA18908	NA18933	NA18934	NA19108	NA19117	NA19119	NA19129	NA19131	NA19138	NA19147	NA19149	NA19159	NA19185	NA19189	NA19197	NA19198	NA19206	NA19213	NA19214	NA19223	NA19235	NA19236	NA19238	NA19239	NA19248	NA19256
+15	201	.	A	G	858.4	.	DP=80;AN_POP=1000;AC_POP=1000,0;VDB=0.895839;SGB=-4.94122;RPB=0.999937;MQB=0.979662;MQSB=0.974642;BQB=0.739382;MQ0F=0;AC=79;AN=104;DP4=19,17,21,15;MQ=59	GT:PL:AD	0/1:0,3,36:1,0	0/1:0,6,93:2,0	0/1:0,3,33:1,0	0/1:0,3,32:1,0	0/1:0,3,36:1,0	0/1:0,3,32:1,0	0/1:0,3,40:1,0	0/1:0,6,79:2,0	0/1:0,3,42:1,0	0/1:0,6,64:2,0	0/1:0,6,67:2,0	0/1:0,6,66:2,0	0/1:0,9,96:3,0	0/1:0,3,32:1,0	0/1:0,3,36:1,0	0/1:0,3,31:1,0	0/1:0,3,44:1,0	0/1:0,3,44:1,0	0/1:0,6,61:2,0	0/1:0,3,60:1,0	0/1:0,6,60:2,0	0/1:0,6,57:2,0	0/1:0,3,31:1,0	0/1:0,6,68:2,0	0/1:0,3,60:1,0	1/1:39,3,0:0,1	1/1:31,3,0:0,1	1/1:37,3,0:0,1	1/1:60,3,0:0,1	1/1:38,3,0:0,1	1/1:36,3,0:0,1	1/1:37,3,0:0,1	1/1:85,9,0:0,3	1/1:39,3,0:0,1	1/1:31,3,0:0,1	1/1:63,6,0:0,2	1/1:29,3,0:0,1	1/1:32,3,0:0,1	1/1:43,3,0:0,1	1/1:27,3,0:0,1	1/1:43,3,0:0,1	1/1:34,3,0:0,1	1/1:46,3,0:0,1	1/1:144,12,0:0,4	1/1:59,3,0:0,1	1/1:16,3,0:0,1	1/1:37,3,0:0,1	1/1:57,6,0:0,2	1/1:91,6,0:0,2	1/1:21,3,0:0,1	1/1:52,6,0:0,2	1/1:26,3,0:0,1
