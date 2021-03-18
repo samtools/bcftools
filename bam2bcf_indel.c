@@ -488,7 +488,7 @@ static char *bcf_cgp_calc_cons(int n, int *n_plp, bam_pileup1_t **plp,
 // Realign using BAQ to get an alignment score of a single read vs
 // a haplotype consensus.
 //
-// Fills out score1 and score2.
+// Fills out score
 // Returns 0 on success,
 //        <0 on error
 static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
@@ -498,20 +498,20 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                                int left, int right,
                                int qbeg, int qend,
                                int qpos, int max_deletion,
-                               int *score1, int *score2) {
+                               int *score) {
     // Illumina
-    probaln_par_t apf1 = { 1e-4, 1e-2, 10 }, apf2 = { 1e-6, 1e-3, 10 };
+    probaln_par_t apf = { 1e-4, 1e-2, 10 };
 
     // Parameters that work better on PacBio CCS 15k.
     // We should consider querying the header and RG PU field.
     // See also htslib/realn.c:sam_prob_realn()
     if (long_read) {
-        apf1.d = 1e-3; apf1.e = 1e-1;
-        apf2.d = 1e-5; apf1.e = 1e-2;
+        apf.d = 1e-3;
+        apf.e = 1e-1;
     }
 
     type = abs(type);
-    apf1.bw = apf2.bw = type + 3;
+    apf.bw = type + 3;
     int l, sc;
     const uint8_t *qual = bam_get_qual(p->b), *bq;
     uint8_t *qq;
@@ -530,33 +530,19 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
         qq[l - qbeg] = qval;
     }
 
-    // Up to two BAQ runs, to produce score1/score2.
     // The bottom 8 bits are length-normalised score while
     // the top bits are unnormalised.
     sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
-                        query, qend - qbeg, qq, &apf1, 0, 0);
+                        query, qend - qbeg, qq, &apf, 0, 0);
     if (sc < 0) {
-        *score1 = *score2 = 0xffffff;
+        *score = 0xffffff;
         free(qq);
         return 0;
     }
 
     // used for adjusting indelQ below
     l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
-    *score1 = *score2 = sc<<8 | MIN(255, l);
-    if (sc > 5 && !long_read) {
-        // TODO: I'm not convinced this helps with Illumina data either.
-        sc = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
-                            query, qend - qbeg, qq, &apf2, 0, 0);
-        if (sc < 0) {
-            *score2 = 0xffffff;
-            free(qq);
-            return 0;
-        }
-
-        l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
-        *score2 = sc<<8 | MIN(255, l);
-    }
+    *score = sc<<8 | MIN(255, l);
 
     rep_ele *reps, *elt, *tmp;
     uint8_t *seg = ref2 + tbeg - left;
@@ -593,11 +579,8 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     }
 
     // Apply STR score to existing indelQ
-    l  =  (*score1&0xff)*.8 + iscore*2;
-    *score1 = (*score1 & ~0xff) | MIN(255, l);
-
-    l  = (*score2&0xff)*.8 + iscore*2;
-    *score2 = (*score2 & ~0xff) | MIN(255, l);
+    l  =  (*score&0xff)*.8 + iscore*2;
+    *score = (*score & ~0xff) | MIN(255, l);
 
     free(qq);
 
@@ -612,14 +595,14 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                                   bcf_callaux_t *bca, char *inscns,
                                   int l_run, int max_ins,
                                   int ref_type, int *types, int n_types,
-                                  int *score1, int *score2) {
+                                  int *score) {
     // FIXME: n_types has a maximum; no need to alloc - use a #define?
     int sc[MAX_TYPES], sumq[MAX_TYPES], s, i, j, t, K, n_alt, tmp;
     memset(sumq, 0, n_types * sizeof(int));
     for (s = K = 0; s < n; ++s) {
         for (i = 0; i < n_plp[s]; ++i, ++K) {
             bam_pileup1_t *p = plp[s] + i;
-            int *sct = &score1[K*n_types], indelQ1, indelQ2, seqQ, indelQ;
+            int *sct = &score[K*n_types], seqQ, indelQ;
             for (t = 0; t < n_types; ++t) sc[t] = sct[t]<<6 | t;
             for (t = 1; t < n_types; ++t) // insertion sort
                 for (j = t; j > 0 && sc[j] < sc[j-1]; --j)
@@ -632,37 +615,21 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
              * compromise for multi-allelic indels.
              */
             if ((sc[0]&0x3f) == ref_type) {
-                indelQ1 = (sc[1]>>14) - (sc[0]>>14);
+                indelQ = (sc[1]>>14) - (sc[0]>>14);
                 seqQ = est_seqQ(bca, types[sc[1]&0x3f], l_run);
             } else {
                 for (t = 0; t < n_types; ++t) // look for the reference type
                     if ((sc[t]&0x3f) == ref_type) break;
-                indelQ1 = (sc[t]>>14) - (sc[0]>>14);
+                indelQ = (sc[t]>>14) - (sc[0]>>14);
                 seqQ = est_seqQ(bca, types[sc[0]&0x3f], l_run);
             }
             tmp = sc[0]>>6 & 0xff;
-            indelQ1 = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ1 + .499); // reduce indelQ
-            sct = &score2[K*n_types];
-            for (t = 0; t < n_types; ++t) sc[t] = sct[t]<<6 | t;
-            for (t = 1; t < n_types; ++t) // insertion sort
-                for (j = t; j > 0 && sc[j] < sc[j-1]; --j)
-                    tmp = sc[j], sc[j] = sc[j-1], sc[j-1] = tmp;
-            if ((sc[0]&0x3f) == ref_type) {
-                indelQ2 = (sc[1]>>14) - (sc[0]>>14);
-            } else {
-                for (t = 0; t < n_types; ++t) // look for the reference type
-                    if ((sc[t]&0x3f) == ref_type) break;
-                indelQ2 = (sc[t]>>14) - (sc[0]>>14);
-            }
-            tmp = sc[0]>>6 & 0xff;
-            indelQ2 = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ2 + .499);
-            // pick the smaller between indelQ1 and indelQ2
-            indelQ = indelQ1 < indelQ2? indelQ1 : indelQ2;
+            // reduce indelQ
+            indelQ = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ + .499);
 
             // Doesn't really help accuracy, but permits -h to take
             // affect still.
             if (indelQ > seqQ) indelQ = seqQ;
-
             if (indelQ > 255) indelQ = 255;
             if (seqQ > 255) seqQ = 255;
             p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ; // use 22 bits in total
@@ -731,7 +698,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     if (ref == 0 || bca == 0) return -1;
 
     int i, s, j, k, t, n_types, *types, max_rd_len, left, right, max_ins;
-    int *score1, *score2, max_ref2;
+    int *score, max_ref2;
     int N, K, l_run, ref_type, n_alt;
     char *inscns = 0, *ref2, *query, **ref_sample;
 
@@ -789,8 +756,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     max_ref2 = right - left + 2 + 2 * (max_ins > -types[0]? max_ins : -types[0]);
     ref2  = (char*) calloc(max_ref2, 1);
     query = (char*) calloc(right - left + max_rd_len + max_ins + 2, 1);
-    score1 = (int*) calloc(N * n_types, sizeof(int));
-    score2 = (int*) calloc(N * n_types, sizeof(int));
+    score = (int*) calloc(N * n_types, sizeof(int));
     bca->indelreg = 0;
     double nqual_over_60 = bca->nqual / 60.0;
 
@@ -938,17 +904,14 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                                             r_start, r_end, long_read,
                                             tbeg, tend, left2, right2,
                                             qbeg, qend, qpos, max_deletion,
-                                            &score1[K*n_types + t],
-                                            &score2[K*n_types + t]) < 0) {
-                        score1[K*n_types + t] = 0xffffff;
-                        score2[K*n_types + t] = 0xffffff;
+                                            &score[K*n_types + t]) < 0) {
+                        score[K*n_types + t] = 0xffffff;
                         return -1;
                     }
                 } else {
                     // place holder large cost for reads that cover the
                     // region entirely within a deletion (thus tend < tbeg).
-                    score1[K*n_types + t] = 0xffffff;
-                    score2[K*n_types + t] = 0xffffff;
+                    score[K*n_types + t] = 0xffffff;
                 }
 #if 0
                 for (l = 0; l < tend - tbeg + abs(types[t]); ++l)
@@ -968,13 +931,12 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
     // compute indelQ
     n_alt = bcf_cgp_compute_indelQ(n, n_plp, plp, bca, inscns, l_run, max_ins,
-                                   ref_type, types, n_types, score1, score2);
+                                   ref_type, types, n_types, score);
 
     // free
     free(ref2);
     free(query);
-    free(score1);
-    free(score2);
+    free(score);
 
     for (i = 0; i < n; ++i)
         free(ref_sample[i]);
