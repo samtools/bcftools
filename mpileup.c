@@ -1197,7 +1197,7 @@ int main_mpileup(int argc, char *argv[])
     int nfiles = 0, use_orphan = 0, noref = 0;
     mplp_conf_t mplp;
     memset(&mplp, 0, sizeof(mplp_conf_t));
-    mplp.min_baseQ = 13;
+    mplp.min_baseQ = 1;
     mplp.capQ_thres = 0;
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
     mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
