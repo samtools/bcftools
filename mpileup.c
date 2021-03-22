@@ -66,8 +66,8 @@ typedef struct _mplp_pileup_t mplp_pileup_t;
 
 // Data shared by all bam files
 typedef struct {
-    int min_mq, flag, min_baseQ, capQ_thres, max_depth, max_indel_depth,
-        max_read_len, fmt_flag;
+    int min_mq, flag, min_baseQ, max_baseQ, capQ_thres, max_depth,
+        max_indel_depth, max_read_len, fmt_flag;
     int rflag_require, rflag_filter, output_type;
     int openQ, extQ, tandemQ, min_support; // for indels
     double min_frac; // for indels
@@ -853,7 +853,7 @@ static int mpileup(mplp_conf_t *conf)
         bcf_hdr_add_sample(conf->bcf_hdr, smpl[i]);
     if ( bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr)!=0 ) error("[%s] Error: failed to write the header to %s\n",__func__,conf->output_fname?conf->output_fname:"standard output");
 
-    conf->bca = bcf_call_init(-1., conf->min_baseQ);
+    conf->bca = bcf_call_init(-1., conf->min_baseQ, conf->max_baseQ);
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
     conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
     conf->bca->indel_bias = conf->indel_bias;
@@ -1132,6 +1132,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "  -Q, --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [%d]\n", mplp->min_baseQ);
     fprintf(fp,
+"      --max-BQ INT        limit baseQ/BAQ to no more than INT [%d]\n", mplp->max_baseQ);
+    fprintf(fp,
 "  -r, --regions REG[,...] comma separated list of regions in which pileup is generated\n"
 "  -R, --regions-file FILE restrict to regions listed in a file\n"
 "      --ignore-RG         ignore RG tags (one BAM = one sample)\n"
@@ -1157,6 +1159,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "      --threads INT       use multithreading with INT worker threads [0]\n"
 "\n"
 "SNP/INDEL genotype likelihoods options:\n"
+"  -X, --config STR        Specify platform specific configuration profiles\n"
 "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
     fprintf(fp,
 "  -F, --gap-frac FLOAT    minimum fraction of gapped reads [%g]\n", mplp->min_frac);
@@ -1179,6 +1182,10 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "\n", mplp->indel_bias);
     fprintf(fp,
 "Notes: Assuming diploid individuals.\n"
+"--config STR values are equivalent to the following option combinations:\n"
+"    1.12:        -Q13 -h100 -m1\n"
+"    illumina:    -D\n"
+"    pacbio-ccs:  -F0.1 -o25 -e1 -Q5 --max-BQ 50 -D -M99999\n"
 "\n"
 "Example:\n"
 "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
@@ -1198,6 +1205,7 @@ int main_mpileup(int argc, char *argv[])
     mplp_conf_t mplp;
     memset(&mplp, 0, sizeof(mplp_conf_t));
     mplp.min_baseQ = 1;
+    mplp.max_baseQ = 60;
     mplp.capQ_thres = 0;
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
     mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
@@ -1251,6 +1259,8 @@ int main_mpileup(int argc, char *argv[])
         {"min-mq", required_argument, NULL, 'q'},
         {"min-BQ", required_argument, NULL, 'Q'},
         {"min-bq", required_argument, NULL, 'Q'},
+        {"max-bq", required_argument, NULL, 11},
+        {"max-BQ", required_argument, NULL, 11},
         {"ignore-overlaps", no_argument, NULL, 'x'},
         {"output-type", required_argument, NULL, 'O'},
         {"samples", required_argument, NULL, 's'},
@@ -1267,9 +1277,10 @@ int main_mpileup(int argc, char *argv[])
         {"per-sample-mf", no_argument, NULL, 'p'},
         {"platforms", required_argument, NULL, 'P'},
         {"max-read-len", required_argument, NULL, 'M'},
+        {"config", required_argument, NULL, 'X'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -1339,6 +1350,7 @@ int main_mpileup(int argc, char *argv[])
         case 'C': mplp.capQ_thres = atoi(optarg); break;
         case 'q': mplp.min_mq = atoi(optarg); break;
         case 'Q': mplp.min_baseQ = atoi(optarg); break;
+        case  11: mplp.max_baseQ = atoi(optarg); break;
         case 'b': file_list = optarg; break;
         case 'o': {
                 char *end;
@@ -1369,6 +1381,30 @@ int main_mpileup(int argc, char *argv[])
             mplp.fmt_flag |= parse_format_flag(optarg);
         break;
         case 'M': mplp.max_read_len = atoi(optarg); break;
+        case 'X':
+            if (strcasecmp(optarg, "pacbio-ccs") == 0) {
+                mplp.min_frac = 0.1;
+                mplp.min_baseQ = 5;
+                mplp.max_baseQ = 50;
+                mplp.openQ = 25;
+                mplp.extQ = 1;
+                mplp.flag |= MPLP_REALN_PARTIAL;
+                mplp.max_read_len = 99999;
+            } else if (strcasecmp(optarg, "1.12") == 0) {
+                // 1.12 and earlier
+                mplp.min_frac = 0.05;
+                mplp.min_support = 1;
+                mplp.min_baseQ = 13;
+                mplp.tandemQ = 100;
+            } else if (strcasecmp(optarg, "illumina") == 0) {
+                mplp.flag |= MPLP_REALN_PARTIAL;
+            } else {
+                fprintf(stderr, "Unknown configuration name '%s'\n"
+                        "Please choose from 1.12, illumina or pacbio-ccs\n",
+                        optarg);
+                return 1;
+            }
+            break;
         default:
             fprintf(stderr,"Invalid option: '%c'\n", c);
             return 1;
