@@ -78,7 +78,7 @@ DEALINGS IN THE SOFTWARE.  */
 
 typedef struct __bcf_callaux_t {
     int fmt_flag;
-    int capQ, min_baseQ;
+    int capQ, min_baseQ, max_baseQ, delta_baseQ;
     int openQ, extQ, tandemQ; // for indels
     uint32_t min_support, max_support; // for collecting indel candidates
     double min_frac; // for collecting indel candidates
@@ -147,7 +147,8 @@ typedef struct {
 extern "C" {
 #endif
 
-    bcf_callaux_t *bcf_call_init(double theta, int min_baseQ);
+    bcf_callaux_t *bcf_call_init(double theta, int min_baseQ, int max_baseQ,
+                                 int delta_baseQ);
     void bcf_call_destroy(bcf_callaux_t *bca);
     int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t *bca, bcf_callret1_t *r);
     int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int ref_base /*4-bit*/, bcf_call_t *call);
