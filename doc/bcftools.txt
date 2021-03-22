@@ -1841,6 +1841,12 @@ multiple regions and many alignment files are processed.
 *-Q, --min-BQ* 'INT'::
     Minimum base quality for a base to be considered [13]
 
+*    --max-BQ* 'INT'::
+    Caps the base quality to a maximum value [60].  This can be
+    particularly useful on technologies that produce overly optimistic
+    high qualities, leading to too many false positives or incorrect
+    genotype assignments.
+
 *-r, --regions* 'CHR'|'CHR:POS'|'CHR:FROM-TO'|'CHR:FROM-'[,...]::
     Only generate mpileup output in given regions. Requires the alignment files
     to be indexed.  If used in conjunction with -l then considers the intersection;
@@ -1934,6 +1940,15 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 ==== Options for SNP/INDEL genotype likelihood computation
 
+*-X, --config* 'STR'::
+    Specify a platform specific configuration profile.  The profile
+    should be one of '1.12', 'illumina' or 'pacbio-ccs'.  Settings
+    applied are as follows:
+
+        1.12           -Q13 -h100 -m1
+        illumina       -D
+        pacbio-ccs     -F0.1 -o25 -e1 -Q5 --max-BQ 50 -D -M99999
+
 *-e, --ext-prob* 'INT'::
     Phred-scaled gap extension sequencing error probability. Reducing 'INT'
     leads to longer indels [20]
@@ -1971,6 +1986,14 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *-m, --min-ireads* 'INT'::
     Minimum number gapped reads for indel candidates 'INT' [1]
+
+*-M, --max-read-len* 'INT'::
+    The maximum read length permitted by the BAQ algorithm [500].
+    Variants are still called on longer reads, but they will not be
+    passed through the BAQ method.  This limit exists to prevent
+    excessively long BAQ times and high memory usage.  Note if partial
+    BAQ is enabled with '-D' then raising this parameter will likely
+    not have a significant a CPU cost.
 
 *-o, --open-prob* 'INT'::
     Phred-scaled gap open sequencing error probability. Reducing 'INT' leads
