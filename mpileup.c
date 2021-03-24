@@ -270,6 +270,7 @@ static int mplp_func(void *data, bam1_t *b)
                     "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@";
                 ZQ[b->core.l_qseq] = 0;
                 bam_aux_append(b, "_Q", 'Z', b->core.l_qseq+1, ZQ);
+                ZQ[b->core.l_qseq] = '@';
             }
         }
 
