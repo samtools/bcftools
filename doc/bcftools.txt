@@ -1942,12 +1942,13 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *-X, --config* 'STR'::
     Specify a platform specific configuration profile.  The profile
-    should be one of '1.12', 'illumina' or 'pacbio-ccs'.  Settings
-    applied are as follows:
+    should be one of '1.12', 'illumina', 'ont' or 'pacbio-ccs'.
+    Settings applied are as follows:
 
         1.12           -Q13 -h100 -m1
         illumina       -D
-        pacbio-ccs     -F0.1 -o25 -e1 -Q5 --max-BQ 50 -D -M99999
+	ont	       -B -Q5 --max-BQ 30 -I
+        pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
 
 *-e, --ext-prob* 'INT'::
     Phred-scaled gap extension sequencing error probability. Reducing 'INT'

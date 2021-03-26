@@ -1186,7 +1186,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "--config STR values are equivalent to the following option combinations:\n"
 "    1.12:        -Q13 -h100 -m1\n"
 "    illumina:    -D\n"
-"    pacbio-ccs:  -F0.1 -o25 -e1 -Q5 --max-BQ 50 -D -M99999\n"
+"    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.3]\n"
+"    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999\n"
 "\n"
 "Example:\n"
 "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
@@ -1391,6 +1392,13 @@ int main_mpileup(int argc, char *argv[])
                 mplp.extQ = 1;
                 mplp.flag |= MPLP_REALN_PARTIAL;
                 mplp.max_read_len = 99999;
+            } else if (strcasecmp(optarg, "ont") == 0) {
+                fprintf(stderr, "For ONT be sure to also run bcftools call with "
+                        "a much higher -P, eg -P0.3\n");
+                mplp.min_baseQ = 5;
+                mplp.max_baseQ = 30;
+                mplp.flag &= ~MPLP_REALN;
+                mplp.flag |= MPLP_NO_INDEL;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
                 mplp.min_frac = 0.05;
@@ -1401,7 +1409,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.flag |= MPLP_REALN_PARTIAL;
             } else {
                 fprintf(stderr, "Unknown configuration name '%s'\n"
-                        "Please choose from 1.12, illumina or pacbio-ccs\n",
+                        "Please choose from 1.12, illumina, pacbio-ccs or ont\n",
                         optarg);
                 return 1;
             }
