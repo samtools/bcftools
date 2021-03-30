@@ -91,10 +91,12 @@ typedef struct
     float *dnm_qual_float;
     int mpl, mad, mqs;
     double min_score;
-    double *aprob;  // proband's allele probabilities
     double *pl3;    // normalized PLs converted to probs for iFATHER,iMOTHER,iCHILD
     double *qs3;    // QS converted to probs for iFATHER,iMOTHER,iCHILD
     int maprob, mpl3, mqs3, midx, *idx, force_ad, use_model;
+    double *alt_tmp;
+    int *alt_idx;
+    int malt_tmp, malt_idx;
     char *dnm_score_tag,            // the argument of --use tag, by default DNM:log
          *dnm_vaf_tag,
          *dnm_allele_tag;
@@ -102,7 +104,7 @@ typedef struct
     double mrate;                   // --use mrate, mutation rate
     double pnoise_abs,pnoise_frac;  // --use pn|pnoise or --use pns
     int pnoise_strict;              // set to 1 if pns was used or 0 if pn
-    int use_ppl, use_ppl_qs;        // --use ppl and --use ppl-qs
+    int use_ppl;                    // --use ppl
     int use_dng_priors;             // --use dng-priors
     priors_t priors, priors_X, priors_XX;
 }
@@ -120,33 +122,36 @@ static const char *usage_text(void)
     return 
         "\n"
         "About: Screen variants for possible de-novo mutations in trios\n"
-        "Usage: bcftools +trio-dnm2 [Plugin Options]\n"
-        "Plugin options:\n"
+        "Usage: bcftools +trio-dnm2 [OPTIONS]\n"
+        "Common options:\n"
         "   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
-        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)\n"
-        "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
         "   -o, --output FILE               Output file name [stdout]\n"
         "   -O, --output-type <b|u|z|v>     b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
-        "   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
-        "   -u, --use OPTION[=VALUE]        Various options to tweak:\n"
-        "          DNG                         Use the original DeNovoGear model, implies -u dng-priors\n"
-        "          dng-priors                  Use the original DeNovoGear priors (including bugs in prior assignment)\n"
-        "          mrate=NUM                   Mutation rate [-u mrate=1e-8]\n"
-        "          pn=FRAC[,NUM]               Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [-u pn=0,0]\n"
-        "          pns=FRAC[,NUM]              Same as `pn` but is not applied to alleles observed in both parents [-u pns=0.045,0]\n"
-        "          ppl                         Use parental genotype likelihoods (FMT/PL rather than FMT/QS)\n"
-        "          tag=TAG[:phred|log]         Annotation to add, either as phred quality (int) or log-scaled (float) [-u tag=DNM:log]\n"
-        "          vaf=TAG                     The tag name for variant allele fraction annotation to add [VAF]\n"
-        "          va=TAG                      The tag name for variant allele annotation [VA]\n"
+        "\n"
+        "General options:\n"
+        "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
+        "   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
+        "   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)\n"
         "   -X, --chrX LIST                 Regions with the chr X inheritance pattern or one of the predefined lists, exclude PARs [GRCh37]\n"
         "                                      GRCh37 .. X:1-60000,chrX:1-60000,X:2699521-154931043,chrX:2699521-154931043\n"
         "                                      GRCh38 .. X:1-9999,chrX:1-9999,X:2781480-155701381,chrX:2781480-155701381\n"
+        "       --dnm-tag TAG[:phred|log]   Annotation to add, either as phred quality (int) or log-scaled (float) [DNM:log]\n"
+        "       --va TAG                    Output tag name for the variant allele [VA]\n"
+        "       --vaf TAG                   Output tag name for variant allele fraction [VAF]\n"
+        "\n"
+        "Model options:\n"
+        "       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)\n"
+        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
+        "       --mrate NUM                 Mutation rate [1e-8]\n"
+        "       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0,0]\n"
+        "       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents [0.045,0]\n"
+        "       --use-DNG                   Use the original DeNovoGear model, implies --dng-priors\n"
+        "       --use-ppl                   Use parental genotype likelihoods (FMT/PL rather than FMT/QS)\n"
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
@@ -162,7 +167,7 @@ static const char *usage_text(void)
         "   # command and should be on a single line. Also note that a filtering step is\n"
         "   # recommended, e.g. by depth and VAF (not shown here):\n"
         "   bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |\n"
-        "     bcftools call -mv -Ou |\n"
+        "       bcftools call -mv -Ou |\n"
         "       bcftools +trio-dnm2 -p proband,father,mother -Oz -o output.vcf.gz\n"
         "\n";
 }
@@ -693,7 +698,8 @@ static void destroy_data(args_t *args)
     free(args->dnm_vaf_tag);
     free(args->dnm_allele_tag);
     free(args->pl3);
-    free(args->aprob);
+    free(args->alt_tmp);
+    free(args->alt_idx);
     free(args->idx);
     free(args->dnm_qual_int);
     free(args->dnm_qual_float);
@@ -762,7 +768,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                 {
                     int fals = (1<<fa)|(1<<fb);
                     double fpl;
-                    if ( args->use_ppl || args->use_ppl_qs ) fpl = pl[iFATHER][fi];
+                    if ( args->use_ppl ) fpl = pl[iFATHER][fi];
                     else
                     {
                         fpl = 0;
@@ -783,7 +789,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                         {
                             int mals = (1<<ma)|(1<<mb);
                             double mpl = 0;
-                            if ( args->use_ppl || args->use_ppl_qs ) mpl = pl[iMOTHER][mi];
+                            if ( args->use_ppl ) mpl = pl[iMOTHER][mi];
                             else
                             {
                                 mpl = 0;
@@ -879,20 +885,6 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
 #endif
     return log2phred(subtract_log(0,max-sum));
 }
-static inline void qs_to_pl(args_t *args, double *qs, int nqs, double *pl, int npl)
-{
-    int i,j,k  = 0;
-    double sum = 0;
-    for (i=0; i<nqs; i++) sum += qs[i];
-    for (i=0; i<nqs; i++)
-    {
-        for (j=0; j<=i; j++)
-        {
-            if ( i==j ) pl[k] += sum - qs[i];
-            k++;
-        }
-    }
-}
 static int test_filters(args_t *args, bcf1_t *rec)
 {
     uint8_t *smpl_pass;
@@ -939,6 +931,118 @@ static int test_filters(args_t *args, bcf1_t *rec)
     for (i=0; i<args->ntrio; i++) args->trio[i].pass = 1;
     return 1;
 }
+static void many_alts_trim(args_t *args, int *_nals, double *pl[3], int *_npl, double *qs[3])
+{
+    assert(*_nals > 4);
+
+    // Find the most likely set of alleles from FORMAT/QS
+    int nals = *_nals;
+    hts_expand(int,nals,args->malt_idx,args->alt_idx);
+    hts_expand(double,nals,args->malt_tmp,args->alt_tmp);
+    hts_expand(double,10,args->malt_tmp,args->alt_tmp);
+    memset(args->alt_tmp,0,sizeof(*args->alt_tmp)*nals);
+    int i,j,k;
+    for (i=0; i<3; i++)
+        for (j=0; j<nals; j++) args->alt_tmp[j] += qs[i][j];
+
+    // sort in ascending order, make REF allele always come first; insertion sort
+    double *arr = args->alt_tmp;
+    int tmp, *idx = args->alt_idx;
+    for (i=0; i<nals; i++) idx[i] = i;
+    for (i=2; i<nals; i++)
+        for (j=i; j>1 && arr[idx[j]] < arr[idx[j-1]]; j--)
+            tmp = idx[j], idx[j] = idx[j-1], idx[j-1] = tmp;
+    
+    for (i=0; i<3; i++)
+    {
+        for (j=0; j<4; j++) args->alt_tmp[j] = qs[i][args->alt_idx[j]];
+        memcpy(qs[i],args->alt_tmp,4*sizeof(*args->alt_tmp));
+    }
+    for (i=0; i<3; i++)
+    {
+        for (j=0; j<4; j++)
+            for (k=0; k<=j; k++)
+            {
+                int idst = bcf_alleles2gt(j,k);
+                int isrc = bcf_alleles2gt(args->alt_idx[j],args->alt_idx[k]);
+                args->alt_tmp[idst] = pl[i][isrc];
+            }
+        memcpy(pl[i],args->alt_tmp,10*sizeof(*args->alt_tmp));
+    }
+    *_nals = 4;
+    *_npl  = 10;
+}
+static void many_alts_translate(args_t *args, int *al0, int *al1)
+{
+    *al0 = args->alt_idx[*al0];
+    *al1 = args->alt_idx[*al1];
+}
+static void set_trio_PL(args_t *args, trio_t *trio, double *ppl[3], int npl1)
+{
+    int j,k;
+    for (j=0; j<3; j++) // j loops over iFATHER,iMOTHER,iCHILD
+    {
+        int32_t *src = args->pl + npl1 * trio->idx[j];
+        double *dst = ppl[j] = args->pl3 + j*npl1;
+        double sum = 0;
+        for (k=0; k<npl1; k++) { dst[k] = phred2num(src[k]); sum += dst[k]; }
+        for (k=0; k<npl1; k++) dst[k] = log(dst[k]/sum);
+    }
+}
+static void set_trio_QS(args_t *args, trio_t *trio, double *pqs[3], int nqs1)
+{
+    int j,k;
+    for (j=0; j<3; j++) // j loops over iFATHER,iMOTHER,iCHILD
+    {
+        int32_t *qs = args->qs + nqs1 * trio->idx[j];
+        double *dst = pqs[j] = args->qs3 + j*nqs1;
+        for (k=0; k<nqs1; k++) dst[k] = phred2log(qs[k]);
+    }
+}
+static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nqs1, int n_ad)
+{
+    int32_t *ad_f = NULL, *ad_m = NULL;     // AD in father and mother
+
+    if ( n_ad && args->pnoise_strict  )
+    {
+        // Noise tolerance will be applied only for alleles observed in a single parent (a possible mosaic
+        // variant in the parent) but not for alleles observed in both parents (likely an artefact)
+        ad_f = args->ad + n_ad * trio->idx[iFATHER];
+        ad_m = args->ad + n_ad * trio->idx[iMOTHER];
+    }
+
+    int j,k;
+    for (j=0; j<3; j++)
+    {
+        int32_t *ad = (n_ad && args->pnoise_abs) ? args->ad + n_ad * trio->idx[j] : NULL;
+        int32_t *qs = args->qs + nqs1 * trio->idx[j];
+        pqs[j] = args->qs3 + j*nqs1;
+        double noise_tolerance = 0;
+        double sum_qs = 0, sum_ad = 0;
+        if ( args->pnoise_frac && j!=iCHILD )
+        {
+            for (k=0; k<nqs1; k++) sum_qs += qs[k];
+            noise_tolerance = sum_qs * args->pnoise_frac;
+            if ( ad )
+            {
+                // "absolute" threshold: find the average QS per read from AD and use that
+                // if bigger than the relative threshold
+                for (k=0; k<n_ad; k++) sum_ad += ad[k];
+                if ( noise_tolerance < args->pnoise_abs * sum_qs / sum_ad )
+                    noise_tolerance = args->pnoise_abs * sum_qs / sum_ad;
+            }
+        }
+        // Reduce QS for all alleles to account for noise
+        for (k=0; k<nqs1; k++)
+        {
+            double val = qs[k];
+            if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
+            if ( val < 0 ) val = 0;
+            if ( val > 255 ) val = 255;
+            pqs[j][k] = phred2log(val);
+        }
+    }
+}
 static void process_record(args_t *args, bcf1_t *rec)
 {
     int skip_site = 0;
@@ -979,7 +1083,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
 
     int nqs1 = 0;
-    if ( args->use_model&USE_ACM && !args->use_ppl )
+    if ( (args->use_model&USE_ACM && !args->use_ppl) || rec->n_allele > 4 )
     {
         nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
         if ( nret<0 ) error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
@@ -991,7 +1095,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     int is_chrX = 0;
     if ( regidx_overlap(args->chrX_idx,bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen,NULL) ) is_chrX = 1;
 
-    int i, j, k, al0, al1, write_dnm = 0, ad_set = 0;
+    int i, j, al0, al1, write_dnm = 0, ad_set = 0;
     if ( args->dnm_score_is_float )
         for (i=0; i<nsmpl; i++) bcf_float_set_missing(args->dnm_qual_float[i]);
     else
@@ -1003,69 +1107,28 @@ static void process_record(args_t *args, bcf1_t *rec)
 
         // Samples can be in any order in the VCF, set PL and QS to reflect the iFATHER,iMOTHER,iCHILD indices
         double *ppl[3];
+        set_trio_PL(args,&args->trio[i],ppl,npl1);
+
         double *pqs[3];
-        for (j=0; j<3; j++) // set trio PLs
-        {
-            int32_t *src = args->pl + npl1 * args->trio[i].idx[j];      // j loops over iFATHER,iMOTHER,iCHILD
-            double *dst = ppl[j] = args->pl3 + j*npl1;
-            double sum = 0;
-            for (k=0; k<npl1; k++) { dst[k] = phred2num(src[k]); sum += dst[k]; }
-            for (k=0; k<npl1; k++) dst[k] = log(dst[k]/sum);
-        }
-        if ( args->use_model&USE_ACM )   // set trio QS
-        {
-            int32_t *ad_f = NULL, *ad_m = NULL;
-            if ( args->pnoise_strict && args->ad )
-            {
-                // apply noise tolerance for alleles observed in a single parent only
-                ad_f = args->ad + n_ad * args->trio[i].idx[iFATHER];
-                ad_m = args->ad + n_ad * args->trio[i].idx[iMOTHER];
-            }
-            for (j=0; j<3; j++)
-            {
-                int32_t *ad = (args->pnoise_abs && args->ad ) ? args->ad + n_ad * args->trio[i].idx[j] : NULL;
-                int32_t *qs = args->qs + nqs1 * args->trio[i].idx[j];
-                pqs[j] = args->qs3 + j*nqs1;
-                double noise_tolerance = 0;
-                double sum_qs = 0, sum_ad = 0;
-                if ( j!=iCHILD )
-                {
-                    for (k=0; k<nqs1; k++) sum_qs += qs[k];
-                    noise_tolerance = sum_qs * args->pnoise_frac;
-                    if ( ad )
-                    {
-                        for (k=0; k<n_ad; k++) sum_ad += ad[k];
-                        if ( args->pnoise_abs )
-                        {
-                            if ( noise_tolerance < args->pnoise_abs * sum_qs / sum_ad )
-                                noise_tolerance = args->pnoise_abs * sum_qs / sum_ad;
-                        }
-                    }
-                }
-                for (k=0; k<nqs1; k++)
-                {
-                    double val = qs[k];
-                    if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
-                    if ( val < 0 ) val = 0;
-                    if ( val > 255 ) val = 255;
-                    pqs[j][k] = phred2log(val);
-                }
-            }
-            if ( args->use_ppl_qs )
-            {
-                qs_to_pl(args, pqs[iMOTHER], nqs1, ppl[iMOTHER], npl1);
-                qs_to_pl(args, pqs[iFATHER], nqs1, ppl[iFATHER], npl1);
-            }
-        }
+        if ( args->use_model&USE_ACM )
+            set_trio_QS_noisy(args,&args->trio[i],pqs,nqs1,n_ad);
+        else if ( rec->n_allele > 4 )
+            set_trio_QS(args,&args->trio[i],pqs,nqs1);
+
         priors_t *priors;
         if ( !is_chrX ) priors = &args->priors;
         else if ( args->trio[i].is_male ) priors = &args->priors_X;
         else priors = &args->priors_XX;
 
+        int nals = rec->n_allele;
+        if ( rec->n_allele > 4 ) many_alts_trim(args, &nals,ppl,&npl1,pqs);
+
         double score;
-        if ( args->use_model==USE_ACM ) score = process_trio_ACM(args, priors, rec->n_allele, ppl, npl1, pqs, &al0, &al1);
-        else if ( args->use_model==USE_DNG ) score = process_trio_DNG(args, priors, rec->n_allele, ppl, npl1, &al0, &al1);
+        if ( args->use_model==USE_ACM ) score = process_trio_ACM(args, priors, nals, ppl, npl1, pqs, &al0, &al1);
+        else if ( args->use_model==USE_DNG ) score = process_trio_DNG(args, priors, nals, ppl, npl1, &al0, &al1);
         else error("Uh, this should not happen\n");
+
+        if ( rec->n_allele > 4 ) many_alts_translate(args, &al0, &al1);
 
         if ( score >= args->min_score )
         {
@@ -1181,9 +1244,18 @@ int run(int argc, char **argv)
     args->dnm_score_is_float = 1;
     static struct option loptions[] =
     {
-        {"chrX",required_argument,0,'X'},
         {"use",required_argument,0,'u'},
         {"force-AD",no_argument,0,1},
+        {"dnm-tag",required_argument,0,2},
+        {"va",required_argument,0,3},
+        {"vaf",required_argument,0,4},
+        {"dng-priors",no_argument,0,5},
+        {"mrate",required_argument,0,6},
+        {"pn",required_argument,0,7},
+        {"pns",required_argument,0,8},
+        {"use-DNG",no_argument,0,9},
+        {"use-ppl",no_argument,0,10},
+        {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
@@ -1203,9 +1275,38 @@ int run(int argc, char **argv)
     {
         switch (c) 
         {
-            case 'X': args->chrX_list_str = optarg; break;
-            case 'u': set_option(args,optarg);
             case  1 : args->force_ad = 1; break;
+            case  2 : free(args->dnm_score_tag); args->dnm_score_tag = strdup(optarg); break;
+            case  3 : free(args->dnm_allele_tag); args->dnm_allele_tag = strdup(optarg); break;
+            case  4 : free(args->dnm_vaf_tag); args->dnm_vaf_tag = strdup(optarg); break;
+            case  5 : args->use_dng_priors = 1; break;
+            case  6 : args->mrate = strtod(optarg,&tmp); if ( *tmp ) error("Could not parse: --mrate %s\n", optarg); break;
+            case  7 :
+                args->pnoise_frac = strtod(optarg,&tmp);
+                if ( *tmp && *tmp==',' )
+                {
+                    args->pnoise_abs = strtod(tmp+1,&tmp);
+                    if ( *tmp ) error("Could not parse: --pn %s\n", optarg);
+                }
+                if ( args->pnoise_frac<0 || args->pnoise_frac>1 ) error("Error: expected value from the interval [0,1] for --pn %s\n", optarg);
+                if ( args->pnoise_abs<0 ) error("Error: expected positive value for --pn %s\n", optarg);
+                args->pnoise_strict = 0;
+                break;
+            case 8 :
+                args->pnoise_frac = strtod(optarg,&tmp);
+                if ( *tmp && *tmp==',' )
+                {
+                    args->pnoise_abs = strtod(tmp+1,&tmp);
+                    if ( *tmp ) error("Could not parse: --pns %s\n", optarg);
+                }
+                if ( args->pnoise_frac<0 || args->pnoise_frac>1 ) error("Error: expected value from the interval [0,1] for --pns %s\n", optarg);
+                if ( args->pnoise_abs<0 ) error("Error: expected positive value for --pns %s\n", optarg);
+                args->pnoise_strict = 1;
+                break;
+            case 9  : args->use_model = USE_DNG; args->use_dng_priors = 1; break;
+            case 10 : args->use_ppl = 1;
+            case 'X': args->chrX_list_str = optarg; break;
+            case 'u': set_option(args,optarg); break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

@@ -2293,7 +2293,7 @@ By default, appropriate system directories are searched for installed plugins.
     <http://samtools.github.io/bcftools/howtos/plugin.split-vep.html> for more.
 
 *tag2tag*::
-    convert between similar tags, such as GL and GP
+    Convert between similar tags, such as GL,PL,GP or QR,QA,QS.
 
 *trio-dnm2*::
     screen variants for possible de-novo mutations in trios
