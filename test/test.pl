@@ -709,6 +709,7 @@ test_gtcheck($opts,in=>'gtcheck.1',gts=>'gtcheck.1.gts',out=>'gtcheck.11.out',ar
 test_gtcheck($opts,in=>'gtcheck.3',out=>'gtcheck.12.out',args=>q[-u PL -e 30]);
 test_gtcheck($opts,in=>'gtcheck.ntop',gts=>'gtcheck.ntop.gts',out=>'gtcheck.ntop.1.out',args=>q[]);
 test_gtcheck($opts,in=>'gtcheck.ntop',gts=>'gtcheck.ntop.gts',out=>'gtcheck.ntop.2.out',args=>q[--n-matches 2]);
+test_gtcheck($opts,in=>'gtcheck.5',gts=>'gtcheck.5.gts',out=>'gtcheck.5.1.out',args=>q[],grep=>'grep -v Time');
 
 print "\nNumber of tests:\n";
 printf "    total   .. %d\n", $$opts{nok}+$$opts{nfailed};
@@ -1724,7 +1725,8 @@ sub test_gtcheck
     if ( exists($args{gts}) ) { bgzip_tabix_vcf($opts,$args{gts}); }
     my $sort = exists($args{sort}) ? ' | sort' : '';
     my $gts  = exists($args{gts}) ? qq[-g $$opts{tmp}/$args{gts}.vcf.gz] : '';
-    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools gtcheck $args{args} $$opts{tmp}/$args{in}.vcf.gz $gts | grep -v ^# | grep -v ^INFO $sort");
+    my $grep = exists($args{grep}) ? $args{grep} : "grep -v ^INFO $sort";
+    test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools gtcheck $args{args} $$opts{tmp}/$args{in}.vcf.gz $gts | grep -v ^# | $grep");
 }
 sub test_vcf_merge_big
 {

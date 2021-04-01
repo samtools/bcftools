@@ -1,0 +1,8 @@
+INFO	sites-compared	2
+INFO	sites-skipped-no-match	3
+INFO	sites-skipped-multiallelic	1
+INFO	sites-skipped-monoallelic	1
+INFO	sites-skipped-no-data	1
+INFO	sites-skipped-GT-not-diploid	1
+INFO	sites-skipped-PL-not-diploid	1
+DC	A	A	3.000150e-04	4.605170e+01	2
