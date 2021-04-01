@@ -1,6 +1,6 @@
 /*  reheader.c -- reheader subcommand.
 
-    Copyright (C) 2014-2020 Genome Research Ltd.
+    Copyright (C) 2014-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -273,8 +273,8 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
     hdr->s[hdr->l] = 0;
 
     kstring_t tmp = {0,0,0};
-    i = j = n = 0;
-    while ( hdr->s[idx+i] && hdr->s[idx+i])
+    i = j = n = 0;  // i:traverse the #CHROM line 1 by 1; j:points to the last column
+    while ( hdr->s[idx+i] )
     {
         if ( hdr->s[idx+i]=='\t' )
         {
@@ -282,8 +282,8 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
 
             if ( ++n>9 )
             {
-                char *ori = khash_str2str_get(hash,hdr->s+idx+j);
-                kputs(ori ? ori : hdr->s+idx+j, &tmp);
+                char *new_name = khash_str2str_get(hash,hdr->s+idx+j);
+                kputs(new_name ? new_name : hdr->s+idx+j, &tmp);
             }
             else
                 kputs(hdr->s+idx+j, &tmp);
@@ -295,8 +295,8 @@ static int set_sample_pairs(char **samples, int nsamples, kstring_t *hdr, int id
         }
         i++;
     }
-    char *ori = khash_str2str_get(hash,hdr->s+idx+j);
-    kputs(ori ? ori : hdr->s+idx+j, &tmp);
+    char *new_name = khash_str2str_get(hash,hdr->s+idx+j);
+    kputs(new_name ? new_name : hdr->s+idx+j, &tmp);
 
     khash_str2str_destroy_free_all(hash);
 
