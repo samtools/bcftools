@@ -210,16 +210,27 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         ++ori_depth;
         if (is_indel)
         {
-            b     = p->aux>>16&0x3f;
+            b = p->aux>>16&0x3f;
+
             // NB: seqQ and baseQ have been flipped since 1.12 release.
             // It was found that indelQ (p->aux&0xff) was a better estimate
             // of genotype accuracy than the old seqQ.
-            seqQ = q = p->aux&0xff;
-            // This read is not counted as indel. Instead of skipping it, treat it as ref. It is
-            // still only an approximation, but gives more accurate AD counts and calls correctly
-            // hets instead of alt-homs in some cases (see test/mpileup/indel-AD.1.sam)
-            if ( q < bca->min_baseQ ) b = 0, q = (int)bam_get_qual(p->b)[p->qpos];
-            baseQ  = p->aux>>8&0xff;
+            seqQ = q = p->aux & 0xff;
+            baseQ = p->aux>>8&0xff; // for MQBZ stat, but doesn't help?
+
+            if (q < bca->min_baseQ) continue;
+
+            // Reads that aren't indel still need to be counted, but quality
+            // profile is different and the error model biases togwards
+            // missing indels often being alignment artifacts too.
+            // Sorry this is more heuristics.
+            if (p->indel == 0) {
+                b = 0;
+                q = (int)bam_get_qual(p->b)[p->qpos];
+                seqQ = (3*seqQ + q)/5;
+                //baseQ = q; // TEST for MQBZ robustness...
+            }
+
             is_diff = (b != 0);
         }
         else
