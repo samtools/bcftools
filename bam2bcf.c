@@ -202,6 +202,7 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         kroundup32(bca->max_bases);
         bca->bases = (uint16_t*)realloc(bca->bases, 2 * bca->max_bases);
     }
+
     // fill the bases array
     double nqual_over_60 = bca->nqual / 60.0;
     for (i = n = 0; i < _n; ++i) {
@@ -212,16 +213,21 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         ++ori_depth;
         if (is_indel)
         {
-            b     = p->aux>>16&0x3f;
-            // NB: seqQ and baseQ have been flipped since 1.12 release.
-            // It was found that indelQ (p->aux&0xff) was a better estimate
-            // of genotype accuracy than the old seqQ.
-            seqQ = q = p->aux&0xff;
-            // This read is not counted as indel. Instead of skipping it, treat it as ref. It is
-            // still only an approximation, but gives more accurate AD counts and calls correctly
-            // hets instead of alt-homs in some cases (see test/mpileup/indel-AD.1.sam)
-            if ( q < bca->min_baseQ ) b = 0, q = (int)bam_get_qual(p->b)[p->qpos];
+            b = p->aux>>16&0x3f;
+            seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
+            if (q < bca->min_baseQ) continue;
+            if (p->indel == 0 && (q < _n/2 || _n > 20)) {
+                // high quality indel calls without p->indel set aren't
+                // particularly indicative of being a good REF match either,
+                // at least not in low coverage.  So require solid coverage
+                // before we start utilising such quals.
+                b = 0;
+                q = (int)bam_get_qual(p->b)[p->qpos];
+                seqQ = (3*seqQ + 2*q)/8;
+            }
+            if (_n > 20 && seqQ > 40) seqQ = 40;
             baseQ  = p->aux>>8&0xff;
+
             is_diff = (b != 0);
         }
         else
