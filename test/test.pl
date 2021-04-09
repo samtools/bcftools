@@ -237,7 +237,7 @@ test_vcf_norm($opts,in=>'norm.3',fai=>'norm.3',out=>'norm.3.out',args=>'-c s');
 test_vcf_norm($opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'--atomize --old-rec-tag OLD_REC');
 test_vcf_norm($opts,in=>'atomize.split.1',out=>'atomize.split.1.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 test_vcf_norm($opts,in=>'atomize.split.2',out=>'atomize.split.2.1.out',args=>'--atomize --old-rec-tag OLD_REC');
-test_vcf_norm($opts,in=>'atomize.split.2',out=>'atomize.split.2.1.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
+test_vcf_norm($opts,in=>'atomize.split.2',out=>'atomize.split.2.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
