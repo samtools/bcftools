@@ -165,7 +165,7 @@ const char *usage(void)
         "\n"
         "Example:\n"
         "   # Default inheritance patterns, override with -r\n"
-        "   #   region  mothernal_ploidy + paternal > offspring\n"
+        "   #   region  maternal_ploidy + paternal > offspring\n"
         "   X:1-60000            M/M + F > M\n"
         "   X:1-60000            M/M + F > M/F\n"
         "   X:2699521-154931043  M/M + F > M\n"
@@ -243,7 +243,7 @@ static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_
     rule_t *rule = (rule_t*) payload;
     memset(rule, 0, sizeof(rule_t));
 
-    // mothernal ploidy
+    // maternal ploidy
     se = ss;
     while ( *se && !isspace(*se) ) se++;
     int err = 0;
@@ -259,7 +259,7 @@ static int parse_rules(const char *line, char **chr_beg, char **chr_end, uint32_
         else err = 1;
     }
     else err = 1;
-    if ( err ) error("Could not parse the mothernal ploidy, only \"M\", \"M/M\" and \".\" currently supported: %s\n",line);
+    if ( err ) error("Could not parse the maternal ploidy, only \"M\", \"M/M\" and \".\" currently supported: %s\n",line);
 
     // skip "+"
     while ( *se && isspace(*se) ) se++;
