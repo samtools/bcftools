@@ -40,7 +40,7 @@ VCF/BCF manipuplation and all of BCFtools::
 
 - Multiallelic calling (`bcftools call -m`) link:http://samtools.github.io/bcftools/call-m.pdf[pdf]
 - BCFtools/trio-dnm calling (`bcftools +trio-dnm2`) link:http://samtools.github.io/bcftools/trio-dnm.pdf[pdf]
-- SAMtools math notes link:samtools.pdf[pdf]
+- SAMtools math notes link:http://samtools.github.io/bcftools/samtools.pdf[pdf]
 - SegBias calculation link:http://samtools.github.io/bcftools/rd-SegBias.pdf[pdf]
 
 
