@@ -309,9 +309,9 @@ static void _split_table_set_info(abuf_t *buf, bcf_info_t *info, merge_rule_t mo
     int nval = bcf_get_info_values(buf->hdr,rec,tag,&buf->tmp,&mtmp,type);
     if ( type==BCF_HT_INT || type==BCF_HT_REAL ) buf->mtmp = mtmp*4;
 
-    if ( (len==BCF_VL_A && nval != rec->n_allele - 1) || (len==BCF_VL_R && nval != rec->n_allele) )
-        error("Incorrect number of values at %s:%"PRIhts_pos" .. tag=INFO/%s Number=%c nAlleles=%d nValues=%d\n",
-                bcf_seqname(buf->hdr,rec),rec->pos+1,tag,len==BCF_VL_A?'A':'R',rec->n_allele,nval);
+    // Check for incorrect number of values. Note this check does not consider all values missing
+    // and will remove annotations that don't pass.
+    if ( (len==BCF_VL_A && nval != rec->n_allele - 1) || (len==BCF_VL_R && nval != rec->n_allele) ) return;
 
     if ( buf->mtmp2 < buf->mtmp )
     {
@@ -465,9 +465,9 @@ static void _split_table_set_format(abuf_t *buf, bcf_fmt_t *fmt, merge_rule_t mo
 
     if ( len==BCF_VL_G && nval!=nsmpl*rec->n_allele && nval!=nsmpl*rec->n_allele*(rec->n_allele+1)/2 ) return;      // not haploid nor diploid
 
-    if ( (len==BCF_VL_A && nval != nsmpl*(rec->n_allele - 1)) || (len==BCF_VL_R && nval != nsmpl*rec->n_allele) )
-        error("Incorrect number of values at %s:%"PRIhts_pos" .. tag=FORMAT/%s Number=%c nAlleles=%d nValues=%d\n",
-                bcf_seqname(buf->hdr,rec),rec->pos+1,tag,len==BCF_VL_A?'A':'R',rec->n_allele,nval);
+    // Check for incorrect number of values. Note this check does not consider all values missing
+    // and will remove annotations that don't pass.
+    if ( (len==BCF_VL_A && nval != nsmpl*(rec->n_allele - 1)) || (len==BCF_VL_R && nval != nsmpl*rec->n_allele) ) return;
 
     // Increase buffer size to accommodate star allele
     int nval1 = nval / nsmpl;
