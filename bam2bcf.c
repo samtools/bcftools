@@ -200,6 +200,18 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         kroundup32(bca->max_bases);
         bca->bases = (uint16_t*)realloc(bca->bases, 2 * bca->max_bases);
     }
+
+    // Quick sanity check on REF, ALT, mixed
+    int indel_cnt[3] = {0, 0, 0};
+    if (is_indel) {
+        for (i = 0; i < _n; ++i) {
+            const bam_pileup1_t *p = pl + i;
+            if (p->is_refskip || (p->b->core.flag&BAM_FUNMAP)) continue;
+            indel_cnt[p->indel != 0]++;
+        }
+        indel_cnt[2] = indel_cnt[0] + indel_cnt[1];
+    }
+
     // fill the bases array
     double nqual_over_60 = bca->nqual / 60.0;
     for (i = n = 0; i < _n; ++i) {
@@ -210,26 +222,87 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         ++ori_depth;
         if (is_indel)
         {
+#if 0
+// mp6f; almost identical results to 6e, but sometimes marginally behind.
             b = p->aux>>16&0x3f;
-
-            // NB: seqQ and baseQ have been flipped since 1.12 release.
-            // It was found that indelQ (p->aux&0xff) was a better estimate
-            // of genotype accuracy than the old seqQ.
-            seqQ = q = p->aux & 0xff;
-            baseQ = p->aux>>8&0xff; // for MQBZ stat, but doesn't help?
-
+            seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
             if (q < bca->min_baseQ) continue;
-
-            // Reads that aren't indel still need to be counted, but quality
-            // profile is different and the error model biases togwards
-            // missing indels often being alignment artifacts too.
-            // Sorry this is more heuristics.
-            if (p->indel == 0) {
+            if (p->indel == 0 && (indel_cnt[0] > 10 || indel_cnt[1] > 10)) {
+            //if (p->indel == 0 && (q < _n/2 || _n > 20 || indel_cnt[0] > 10)) {
+                // high quality indel calls without p->indel set aren't
+                // particularly indicative of being a good REF match either,
+                // at least not in low coverage.  So require solid coverage
+                // before we start utilising such quals.
                 b = 0;
                 q = (int)bam_get_qual(p->b)[p->qpos];
-                seqQ = (3*seqQ + q)/5;
-                //baseQ = q; // TEST for MQBZ robustness...
+                seqQ = (3*seqQ + 2*q)/8; // mp6b
             }
+            if (_n > 20 && seqQ > 40) seqQ = 40;
+            baseQ  = p->aux>>8&0xff;  // mp, mp2;  for MQBZ stat; doesn't help!
+            //baseQ = q; // TEST for MQBZ robustness...
+
+#elif 1
+// mp6e - THIS ONE IN USE
+            b = p->aux>>16&0x3f;
+            seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
+            if (q < bca->min_baseQ) continue;
+            if (p->indel == 0 && (q < _n/2 || _n > 20)) {
+                // high quality indel calls without p->indel set aren't
+                // particularly indicative of being a good REF match either,
+                // at least not in low coverage.  So require solid coverage
+                // before we start utilising such quals.
+                b = 0;
+                q = (int)bam_get_qual(p->b)[p->qpos];
+                //seqQ = (3*seqQ + 2*q)/10;
+                seqQ = (3*seqQ + 2*q)/8; // mp6e, 6b
+            }
+            if (_n > 20 && seqQ > 40) seqQ = 40;
+            baseQ  = p->aux>>8&0xff;  // mp, mp2;  for MQBZ stat; doesn't help!
+            //baseQ = q; // TEST for MQBZ robustness...
+
+#elif 1
+// mp6d
+            b = p->aux>>16&0x3f;
+            seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
+            if (q < bca->min_baseQ) continue;
+            if (p->indel == 0) b = 0, q = (int)bam_get_qual(p->b)[p->qpos];
+            //if (p->indel == 0) seqQ = (3*seqQ + q)/5; // mp5
+            //if (p->indel == 0) seqQ = (4*seqQ + q)/6; // good alternative?
+            if (p->indel == 0) seqQ = (3*seqQ + 2*q)/10; // mp6b
+            //else seqQ = (q *= 1.2);
+            //if (p->indel == 0)
+            if (seqQ > 40) seqQ = 40;
+            baseQ  = p->aux>>8&0xff;  // mp, mp2;  for MQBZ stat; doesn't help!
+#elif 1
+// mp6c
+            b = p->aux>>16&0x3f;
+            seqQ = q = p->aux & 0xff; // mp2
+            if (q < bca->min_baseQ) continue;
+            if (p->indel == 0) b = 0, q = (int)bam_get_qual(p->b)[p->qpos];
+            //if (p->indel == 0) seqQ = (3*seqQ + q)/5; // mp5
+            //if (p->indel == 0) seqQ = (4*seqQ + q)/6; // good alternative?
+            if (p->indel == 0) seqQ = (3*seqQ + 2*q)/8; // mp6b/c
+            if (seqQ > 40) seqQ = 40;
+            baseQ  = p->aux>>8&0xff;  // mp, mp2;  for MQBZ stat; doesn't help!
+#elif 1
+// mp6b
+            b     = p->aux>>16&0x3f;
+            seqQ = q = p->aux & 0xff; // mp2
+            if (q < bca->min_baseQ) continue;
+            if (p->indel == 0) b = 0, q = (int)bam_get_qual(p->b)[p->qpos];
+            //if (p->indel == 0) seqQ = (3*seqQ + q)/5; // mp5
+            //if (p->indel == 0) seqQ = (4*seqQ + q)/6; // good alternative?
+            if (p->indel == 0) seqQ = (3*seqQ + 2*q)/8; // mp6b
+            baseQ  = p->aux>>8&0xff;  // mp, mp2;  for MQBZ stat; doesn't help!
+#else
+// mp5; iff htslib = develop (mpileup_speed needs fixes still)
+            b     = p->aux>>16&0x3f;
+            seqQ = q = p->aux & 0xff; // mp2
+            if (q < bca->min_baseQ) continue;
+            if (p->indel == 0) b = 0, q = (int)bam_get_qual(p->b)[p->qpos];
+            if (p->indel == 0) seqQ = (3*seqQ + q)/5; // mp5
+            baseQ  = p->aux>>8&0xff;  // mp, mp2;  for MQBZ stat; doesn't help!
+#endif
 
             is_diff = (b != 0);
         }
