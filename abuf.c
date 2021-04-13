@@ -514,13 +514,12 @@ static void _split_table_set_format(abuf_t *buf, bcf_fmt_t *fmt, merge_rule_t mo
                 void *dst = buf->tmp2 + num_size*i*(star_allele+2);
                 memcpy(dst,src,num_size);
                 memcpy(dst+num_size,src+iori*num_size,num_size);
+
                 if ( type==BCF_HT_INT && mode==M_SUM )
                 {
                     uint8_t *tbl = buf->split.tbl + iout*buf->split.nori;
-                    for (i=iori; i<buf->split.nori; i++)
-                    {
-                        if ( tbl[i]==1 ) ((int32_t*)dst)[1] += ((int32_t*)src)[i+1];
-                    }
+                    for (j=iori; j<buf->split.nori; j++)
+                        if ( tbl[j]==1 ) ((int32_t*)dst)[1] += ((int32_t*)src)[j+1];
                 }
                 if ( star_allele )
                     memcpy(dst+num_size*2,missing_ptr,num_size);
