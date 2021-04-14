@@ -620,6 +620,14 @@ static inline int _is_acgtn(char *seq)
 void _abuf_split(abuf_t *buf, bcf1_t *rec)
 {
     int i,j;
+    if ( rec->n_allele < 2 )
+    {
+        rbuf_expand0(&buf->rbuf, bcf1_t*, buf->rbuf.n+1, buf->vcf);
+        int j = rbuf_append(&buf->rbuf);
+        if ( buf->vcf[j] ) bcf_destroy(buf->vcf[j]);
+        buf->vcf[j] = bcf_dup(rec);
+        return;
+    }
     for (i=1; i<rec->n_allele; i++)
     {
         if ( _is_acgtn(rec->d.allele[i]) ) continue;
