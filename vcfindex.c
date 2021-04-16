@@ -63,27 +63,37 @@ int vcf_index_stats(char *fname, int stats)
     const char **seq;
     int i, nseq;
     tbx_t *tbx = NULL;
+    bcf_hdr_t *hdr = NULL;
     hts_idx_t *idx = NULL;
 
     htsFile *fp = hts_open(fname,"r");
-    if ( !fp ) { fprintf(stderr,"Could not read %s\n", fname); return 1; }
-    bcf_hdr_t *hdr = bcf_hdr_read(fp);
-    if ( !hdr ) { fprintf(stderr,"Could not read the header: %s\n", fname); return 1; }
-
-    if ( hts_get_format(fp)->format==vcf )
-    {
-        tbx = tbx_index_load(fname);
-        if ( !tbx ) { fprintf(stderr,"Could not load index for VCF: %s\n", fname); return 1; }
+    if ( !fp ) {
+        tbx = tbx_index_load3(fname, NULL, HTS_IDX_SILENT_FAIL);
+	if ( !tbx )
+            idx = hts_idx_load3(fname, NULL, HTS_FMT_CSI, HTS_IDX_SILENT_FAIL);
+        if ( !tbx && !idx) {
+            fprintf(stderr,"Could not load file '%s', nor locate any index file associated with it.\n", fname);
+            return 1;
+        }
     }
-    else if ( hts_get_format(fp)->format==bcf )
-    {
-        idx = bcf_index_load(fname);
-        if ( !idx ) { fprintf(stderr,"Could not load index for BCF file: %s\n", fname); return 1; }
-    }
-    else
-    {
-        fprintf(stderr,"Could not detect the file type as VCF or BCF: %s\n", fname);
-        return 1;
+    else {
+        hdr = bcf_hdr_read(fp);
+        if ( !hdr ) { fprintf(stderr,"Could not read the header: %s\n", fname); return 1; }
+        if ( hts_get_format(fp)->format==vcf )
+        {
+            tbx = tbx_index_load(fname);
+            if ( !tbx ) { fprintf(stderr,"Could not load index for VCF: %s\n", fname); return 1; }
+        }
+        else if ( hts_get_format(fp)->format==bcf )
+        {
+            idx = bcf_index_load(fname);
+            if ( !idx ) { fprintf(stderr,"Could not load index for BCF file: %s\n", fname); return 1; }
+        }
+        else
+        {
+            fprintf(stderr,"Could not detect the file type as VCF or BCF: %s\n", fname);
+            return 1;
+        }
     }
 
     seq = tbx ? tbx_seqnames(tbx, &nseq) : bcf_index_seqnames(idx, hdr, &nseq);
@@ -94,11 +104,11 @@ int vcf_index_stats(char *fname, int stats)
         hts_idx_get_stat(tbx ? tbx->idx : idx, i, &records, &v);
         sum+=records;
         if (stats&2 || !records) continue;
-        bcf_hrec_t *hrec = bcf_hdr_get_hrec(hdr, BCF_HL_CTG, "ID", seq[i], NULL);
+        bcf_hrec_t *hrec = hdr ? bcf_hdr_get_hrec(hdr, BCF_HL_CTG, "ID", seq[i], NULL) : NULL;
         int hkey = hrec ? bcf_hrec_find_key(hrec, "length") : -1;
         printf("%s\t%s\t%" PRIu64 "\n", seq[i], hkey<0?".":hrec->vals[hkey], records);
     }
-    if (!sum)
+    if (!sum && fp)
     {
         // No counts found.
         // Is this because index version has no stored count data, or no records?
@@ -112,7 +122,7 @@ int vcf_index_stats(char *fname, int stats)
     }
     if (stats&2) printf("%" PRIu64 "\n", sum);
     free(seq);
-    if ( hts_close(fp)!=0 ) error("[%s] Error: close failed\n", __func__);
+    if ( fp && hts_close(fp)!=0 ) error("[%s] Error: close failed\n", __func__);
     bcf_hdr_destroy(hdr);
     if (tbx)
         tbx_destroy(tbx);
