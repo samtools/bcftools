@@ -306,7 +306,6 @@ Add or remove annotations.
     # Sample annotation file with columns CHROM, POS, STRING_TAG, NUMERIC_TAG
     1  752566  SomeString      5
     1  798959  SomeOtherString 6
-    # etc.
 ----
 
 *--collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
@@ -335,6 +334,7 @@ Add or remove annotations.
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
+    To match the record also by ID, in addition to REF and ALT, use "~ID".
     +
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
@@ -380,8 +380,8 @@ Add or remove annotations.
 *-k, --keep-sites*::
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them
 
-*-l, --merge-logic* 'tag':'first'|'append'|'append-missing'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
-    if multiple regions overlap a single record, the option defines how to treat multiple
+*-l, --merge-logic* 'tag:first'|'append'|'append-missing'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
+    When multiple regions overlap a single record, this option defines how to treat multiple
     annotation values when setting 'tag' in the destination file: use the first encountered value ignoring
     the rest ('first'); append allowing duplicates ('append'); append even if the appended value is missing,
     i.e. is a dot ('append-missing'); append discarding duplicate values ('unique');
@@ -475,6 +475,10 @@ Add or remove annotations.
 
     # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
     bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
+
+    # Transfer the INFO/END tag, matching by POS,REF,ALT and ID. This example assumes
+    # that INFO/END is already present in the VCF header.
+    bcftools annotate -a annots.tab.gz  -c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
     # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html
 ----

@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 2021-04-16 13:05 BST
+.\"      Date: 2021-04-16 16:23 BST
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021\-04\-16 13:05 BST" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021\-04\-16 16:23 BST" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ Most commands accept VCF, bgzipped VCF and BCF with filetype detected automatica
 BCFtools is designed to work on a stream\&. It regards an input file "\-" as the standard input (stdin) and outputs to the standard output (stdout)\&. Several commands can thus be combined with Unix pipes\&.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-04\-16 13:05 BST\fR and refers to bcftools git version \fB1\&.12\-14\-g9ca9893+\fR\&.
+This manual page was last updated \fB2021\-04\-16 16:23 BST\fR and refers to bcftools git version \fB1\&.12\-15\-g3000ecf+\fR\&.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0\&.1\&.19 is \fBnot\fR compatible with this version of bcftools\&. To read BCF1 files one can use the view command from old versions of bcftools packaged with samtools versions <= 0\&.1\&.19 to convert to VCF, which can then be read by this version of bcftools\&.
@@ -628,7 +628,6 @@ and
     # Sample annotation file with columns CHROM, POS, STRING_TAG, NUMERIC_TAG
     1  752566  SomeString      5
     1  798959  SomeOtherString 6
-    # etc\&.
 .fi
 .if n \{\
 .RE
@@ -654,7 +653,7 @@ If the annotation file is a VCF/BCF, only the edited columns/tags must be presen
 
 To carry over all INFO annotations, use "INFO"\&. To add all INFO annotations except "TAG", use "^INFO/TAG"\&. By default, existing values are replaced\&.
 
-To add annotations without overwriting existing values (that is, to add missing tags or add values to existing tags with missing values), use "+TAG" instead of "TAG"\&. To append to existing values (rather than replacing or leaving untouched), use "=TAG" (instead of "TAG" or "+TAG")\&. To replace only existing values without modifying missing annotations, use "\-TAG"\&.
+To add annotations without overwriting existing values (that is, to add missing tags or add values to existing tags with missing values), use "+TAG" instead of "TAG"\&. To append to existing values (rather than replacing or leaving untouched), use "=TAG" (instead of "TAG" or "+TAG")\&. To replace only existing values without modifying missing annotations, use "\-TAG"\&. To match the record also by ID, in addition to REF and ALT, use "~ID"\&.
 
 If the annotation file is not a VCF/BCF, all new annotations must be defined via
 \fB\-h, \-\-header\-lines\fR\&.
@@ -739,9 +738,9 @@ and
 expressions instead of discarding them
 .RE
 .PP
-\fB\-l, \-\-merge\-logic\fR \fItag\fR:\*(Aqfirst\*(Aq|\fIappend\fR|\fIappend\-missing\fR|\fIunique\fR|\fIsum\fR|\fIavg\fR|\fImin\fR|\fImax\fR[,\&...]
+\fB\-l, \-\-merge\-logic\fR \fItag:first\fR|\fIappend\fR|\fIappend\-missing\fR|\fIunique\fR|\fIsum\fR|\fIavg\fR|\fImin\fR|\fImax\fR[,\&...]
 .RS 4
-if multiple regions overlap a single record, the option defines how to treat multiple annotation values when setting
+When multiple regions overlap a single record, this option defines how to treat multiple annotation values when setting
 \fItag\fR
 in the destination file: use the first encountered value ignoring the rest (\fIfirst\fR); append allowing duplicates (\fIappend\fR); append even if the appended value is missing, i\&.e\&. is a dot (\fIappend\-missing\fR); append discarding duplicate values (\fIunique\fR); sum the values (\fIsum\fR, numeric fields only); average the values (\fIavg\fR); use the minimum value (\fImin\fR) or the maximum (\fImax\fR)\&.
 
@@ -866,6 +865,10 @@ List of annotations to remove\&. Use "FILTER" to remove all filters or "FILTER/S
 
     # Annotate from a bed file (0\-based coordinates, half\-closed, half\-open intervals)
     bcftools annotate \-a annots\&.bed\&.gz \-h annots\&.hdr \-c CHROM,FROM,TO,TAG input\&.vcf
+
+    # Transfer the INFO/END tag, matching by POS,REF,ALT and ID\&. This example assumes
+    # that INFO/END is already present in the VCF header\&.
+    bcftools annotate \-a annots\&.tab\&.gz  \-c CHROM,POS,~ID,REF,ALT,INFO/END input\&.vcf
 
     # For more examples see http://samtools\&.github\&.io/bcftools/howtos/annotate\&.html
 .fi
