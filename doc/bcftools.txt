@@ -2528,7 +2528,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
 
     # Print phred-scaled binomial probability from FORMAT/AD tag for all heterozygous genotypes
-    bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %pbinom(AD)\n]' file.vcf
+    bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %PBINOM(AD)\n]' file.vcf
 
     # Print the second value of AC field if bigger than 10. Note the (unfortunate) difference in
     # index subscript notation: formatting expressions (-f) uses "{}" while filtering expressions
