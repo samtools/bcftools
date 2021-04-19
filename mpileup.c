@@ -66,7 +66,7 @@ typedef struct _mplp_pileup_t mplp_pileup_t;
 
 // Data shared by all bam files
 typedef struct {
-    int min_mq, flag, min_baseQ, max_baseQ, capQ_thres, max_depth,
+    int min_mq, flag, min_baseQ, max_baseQ, delta_baseQ, capQ_thres, max_depth,
         max_indel_depth, max_read_len, fmt_flag;
     int rflag_require, rflag_filter, output_type;
     int openQ, extQ, tandemQ, min_support; // for indels
@@ -854,7 +854,8 @@ static int mpileup(mplp_conf_t *conf)
         bcf_hdr_add_sample(conf->bcf_hdr, smpl[i]);
     if ( bcf_hdr_write(conf->bcf_fp, conf->bcf_hdr)!=0 ) error("[%s] Error: failed to write the header to %s\n",__func__,conf->output_fname?conf->output_fname:"standard output");
 
-    conf->bca = bcf_call_init(-1., conf->min_baseQ, conf->max_baseQ);
+    conf->bca = bcf_call_init(-1., conf->min_baseQ, conf->max_baseQ,
+                              conf->delta_baseQ);
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
     conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
     conf->bca->indel_bias = conf->indel_bias;
@@ -1135,6 +1136,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     fprintf(fp,
 "      --max-BQ INT        limit baseQ/BAQ to no more than INT [%d]\n", mplp->max_baseQ);
     fprintf(fp,
+"      --delta-BQ INT      Use neighbour_qual + INT if less than qual [%d]\n", mplp->delta_baseQ);
+    fprintf(fp,
 "  -r, --regions REG[,...] comma separated list of regions in which pileup is generated\n"
 "  -R, --regions-file FILE restrict to regions listed in a file\n"
 "      --ignore-RG         ignore RG tags (one BAM = one sample)\n"
@@ -1187,7 +1190,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "    1.12:        -Q13 -h100 -m1\n"
 "    illumina:    -D\n"
 "    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.3]\n"
-"    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999\n"
+"    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
 "\n"
 "Example:\n"
 "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
@@ -1208,6 +1211,7 @@ int main_mpileup(int argc, char *argv[])
     memset(&mplp, 0, sizeof(mplp_conf_t));
     mplp.min_baseQ = 1;
     mplp.max_baseQ = 60;
+    mplp.delta_baseQ = 30;
     mplp.capQ_thres = 0;
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
     mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
@@ -1263,6 +1267,7 @@ int main_mpileup(int argc, char *argv[])
         {"min-bq", required_argument, NULL, 'Q'},
         {"max-bq", required_argument, NULL, 11},
         {"max-BQ", required_argument, NULL, 11},
+        {"delta-BQ", required_argument, NULL, 12},
         {"ignore-overlaps", no_argument, NULL, 'x'},
         {"output-type", required_argument, NULL, 'O'},
         {"samples", required_argument, NULL, 's'},
@@ -1353,6 +1358,7 @@ int main_mpileup(int argc, char *argv[])
         case 'q': mplp.min_mq = atoi(optarg); break;
         case 'Q': mplp.min_baseQ = atoi(optarg); break;
         case  11: mplp.max_baseQ = atoi(optarg); break;
+        case  12: mplp.delta_baseQ = atoi(optarg); break;
         case 'b': file_list = optarg; break;
         case 'o': {
                 char *end;
@@ -1388,6 +1394,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.min_frac = 0.1;
                 mplp.min_baseQ = 5;
                 mplp.max_baseQ = 50;
+                mplp.delta_baseQ = 10;
                 mplp.openQ = 25;
                 mplp.extQ = 1;
                 mplp.flag |= MPLP_REALN_PARTIAL;

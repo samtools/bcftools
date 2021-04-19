@@ -40,7 +40,8 @@ extern  void ks_introsort_uint32_t(size_t n, uint32_t a[]);
 
 #define CAP_DIST 25
 
-bcf_callaux_t *bcf_call_init(double theta, int min_baseQ, int max_baseQ)
+bcf_callaux_t *bcf_call_init(double theta, int min_baseQ, int max_baseQ,
+                             int delta_baseQ)
 {
     bcf_callaux_t *bca;
     if (theta <= 0.) theta = CALL_DEFTHETA;
@@ -49,6 +50,7 @@ bcf_callaux_t *bcf_call_init(double theta, int min_baseQ, int max_baseQ)
     bca->openQ = 40; bca->extQ = 20; bca->tandemQ = 100;
     bca->min_baseQ = min_baseQ;
     bca->max_baseQ = max_baseQ;
+    bca->delta_baseQ = delta_baseQ;
     bca->e = errmod_init(1. - theta);
     bca->min_frac = 0.002;
     bca->min_support = 1;
@@ -314,10 +316,12 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             // Lowest of this and neighbour quality values
             uint8_t *qual = bam_get_qual(p->b);
             q = qual[p->qpos];
-            if (p->qpos > 0 && q > qual[p->qpos-1])
-                q = qual[p->qpos-1];
-            if (p->qpos+1 < p->b->core.l_qseq && q > qual[p->qpos+1])
-                q = qual[p->qpos+1];
+            if (p->qpos > 0 &&
+                q > qual[p->qpos-1]+bca->delta_baseQ)
+                q = qual[p->qpos-1]+bca->delta_baseQ;
+            if (p->qpos+1 < p->b->core.l_qseq &&
+                q > qual[p->qpos+1]+bca->delta_baseQ)
+                q = qual[p->qpos+1]+bca->delta_baseQ;
 
             if (q < bca->min_baseQ) continue;
             if (q > bca->max_baseQ) q = bca->max_baseQ;
