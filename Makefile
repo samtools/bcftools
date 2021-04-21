@@ -320,10 +320,10 @@ test/test-regidx: test/test-regidx.o regidx.o | $(HTSLIB)
 
 # make docs target depends the a2x asciidoc program
 doc/bcftools.1: doc/bcftools.txt
-	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
+	cd doc && asciidoctor -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) -b manpage -a linkcss -a stylesheet=docbook-xsl.css bcftools.txt
 
 doc/bcftools.html: doc/bcftools.txt
-	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format xhtml bcftools.txt
+	cd doc && asciidoctor -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) -b html5 -a linkcss -a stylesheet=docbook-xsl.css bcftools.txt
 
 docs: doc/bcftools.1 doc/bcftools.html
 
