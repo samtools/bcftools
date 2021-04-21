@@ -618,6 +618,8 @@ static void init_data(args_t *args)
         else if ( !strcasecmp(ptr+1,"flag") ) args->dnm_score_type = DNM_FLAG;
         else error("Error: the type \"%s\" is not supported\n",ptr+1);
     }
+    else
+        args->dnm_score_type = DNM_LOG;
     if ( args->dnm_score_type==DNM_FLAG )
     {
         if ( !args->use_model ) args->use_model = USE_NAIVE;
