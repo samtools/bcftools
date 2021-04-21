@@ -1893,6 +1893,8 @@ those scenarios.
 *-x, --ignore-overlaps*::
     Disable read-pair overlap detection.
 
+*--seed* 'INT'::
+    Set the random number seed used when sub-sampling deep regions [0].
 
 ==== Output options
 
