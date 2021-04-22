@@ -31,15 +31,22 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/sam.h>
 #include <htslib/khash_str2int.h>
 #include "bam2bcf.h"
+#include "str_finder.h"
 
 #include <htslib/ksort.h>
 KSORT_INIT_GENERIC(uint32_t)
 
 #define MINUS_CONST 0x10000000
-#define INDEL_WINDOW_SIZE 50
+#define INDEL_WINDOW_SIZE 100
 
+// Take a reference position tpos and convert to a query position (returned).
+// This uses the CIGAR string plus alignment c->pos to do the mapping.
+//
+// *_tpos is returned as tpos if query overlaps tpos, but for deletions
+// it'll be either the start (is_left) or end (!is_left) ref position.
 static int tpos2qpos(const bam1_core_t *c, const uint32_t *cigar, int32_t tpos, int is_left, int32_t *_tpos)
 {
+    // x = pos in ref, y = pos in query seq
     int k, x = c->pos, y = 0, last_y = 0;
     *_tpos = c->pos;
     for (k = 0; k < c->n_cigar; ++k) {
@@ -437,9 +444,13 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                     if ((cigar[kk]&BAM_CIGAR_MASK) == BAM_CREF_SKIP) break;
                 if (kk < p->b->core.n_cigar) continue;
                 // FIXME: the following skips soft clips, but using them may be more sensitive.
+
                 // determine the start and end of sequences for alignment
+                // FIXME: loops over CIGAR multiple times
                 qbeg = tpos2qpos(&p->b->core, bam_get_cigar(p->b), left,  0, &tbeg);
+                int qpos = tpos2qpos(&p->b->core, bam_get_cigar(p->b), pos,  0, &tend) - qbeg;
                 qend = tpos2qpos(&p->b->core, bam_get_cigar(p->b), right, 1, &tend);
+                int tbeg_ = tbeg;
                 if (types[t] < 0) {
                     int l = -types[t];
                     tbeg = tbeg - l > left?  tbeg - l : left;
@@ -474,6 +485,63 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_calla
                         if (l > 255) l = 255;
                         score2[K*n_types + t] = sc<<8 | l;
                     }
+
+                    rep_ele *reps, *elt, *tmp;
+                    char *seg = ref2 + tbeg - left;
+                    int seg_len = tend - tbeg + abs(types[t]);
+                    reps = find_STR(seg, seg_len, 0);
+                    int iscore = 0;
+
+                    // Identify STRs in ref covering the indel up to
+                    // (or close to) the end of the sequence.
+                    // Those having an indel and right at the sequence
+                    // end do not confirm the total length of indel
+                    // size.  Specifically a *lack* of indel at the
+                    // end, where we know indels occur in other
+                    // sequences, is a possible reference bias.
+                    //
+                    // This is emphasised further if the sequence ends with
+                    // soft clipping.
+
+                    // Things we need:
+                    // pos of indel in read: qpos
+                    // pos of indel + len (if del) on ref: pos, max_deletion
+                    // whether soft-clip at start/end: ?
+                    // length of read (ie how many bases left): l_qseq
+                    // plus STR locations.
+                    DL_FOREACH_SAFE(reps, elt, tmp) {
+                        if (elt->start <= qpos && elt->end >= qpos) {
+#define END_SLOP 5
+                            if (elt->start - END_SLOP <= tbeg_ ||
+                                elt->end   + END_SLOP >= tend) {
+                                // STR copy number
+                                iscore += (elt->end-elt->start) / elt->rep_len;
+                            }
+                        }
+
+                        DL_DELETE(reps, elt);
+                        free(elt);
+                    }
+                    if (iscore >= 100) iscore = 99;
+                    if (p->indel)
+                        bca->ialt_str[iscore]++;
+                    else
+                        bca->iref_str[iscore]++;
+
+                    sc = (score1[K*n_types + t]>>8);
+                    l  =  score1[K*n_types + t]&0xff;
+                    l = l*.8 + iscore*2;
+                    if (l>255) l=255;
+                    score1[K*n_types + t] = sc<<8 | l;
+
+                    sc = (score2[K*n_types + t]>>8);
+                    l  =  score2[K*n_types + t]&0xff;
+                    l  = l*.8 + iscore*2;
+                    if (l>255) l=255;
+                    score2[K*n_types + t] = sc<<8 | l;
+
+
+                    // FIXME: don't need to do on all types, just 1?
 
                     // Find minimum adjusted quality within +/- HALO bases
                     // of this indel.  Use this for BQBZ metric.

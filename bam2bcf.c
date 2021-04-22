@@ -170,10 +170,12 @@ void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call)
     if ( call->ADR ) memset(call->ADR,0,sizeof(int32_t)*(call->n+1)*B2B_MAX_ALLELES);
     if ( call->SCR ) memset(call->SCR,0,sizeof(*call->SCR)*(call->n+1));
     memset(call->QS,0,sizeof(*call->QS)*call->n*B2B_MAX_ALLELES);
-    memset(bca->ref_scl, 0, 100*sizeof(int));
-    memset(bca->alt_scl, 0, 100*sizeof(int));
+    memset(bca->ref_scl,  0, 100*sizeof(int));
+    memset(bca->alt_scl,  0, 100*sizeof(int));
     memset(bca->iref_scl, 0, 100*sizeof(int));
     memset(bca->ialt_scl, 0, 100*sizeof(int));
+    memset(bca->iref_str, 0, 100*sizeof(int));
+    memset(bca->ialt_str, 0, 100*sizeof(int));
 }
 
 /*
@@ -888,6 +890,8 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
         if ( bca->fmt_flag & B2B_INFO_SCB )
             call->mwu_sc  = calc_mwu_biasZ(bca->iref_scl, bca->ialt_scl,
                                            100, 0,1);
+        call->mwu_str  = calc_mwu_biasZ(bca->iref_str,  bca->ialt_str,
+                                        100,0,1);
     } else {
         if (bca->fmt_flag & B2B_INFO_RPB)
             call->mwu_pos = calc_mwu_biasZ(bca->ref_pos, bca->alt_pos,
@@ -901,6 +905,7 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
         if ( bca->fmt_flag & B2B_INFO_SCB )
             call->mwu_sc  = calc_mwu_biasZ(bca->ref_scl, bca->alt_scl,
                                            100, 0,1);
+        call->mwu_str = HUGE_VAL;
     }
 
 
@@ -1017,6 +1022,7 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     if ( bc->mwu_mqs != HUGE_VAL )  bcf_update_info_float(hdr, rec, "MQSBZ", &bc->mwu_mqs, 1);
     if ( bc->mwu_bq != HUGE_VAL )   bcf_update_info_float(hdr, rec, "BQBZ", &bc->mwu_bq, 1);
     if ( bc->mwu_sc != HUGE_VAL )   bcf_update_info_float(hdr, rec, "SCBZ", &bc->mwu_sc, 1);
+    if ( bc->mwu_str != HUGE_VAL )   bcf_update_info_float(hdr, rec, "STRBZ", &bc->mwu_str, 1);
 #else
     if ( bc->mwu_pos != HUGE_VAL )  bcf_update_info_float(hdr, rec, "RPB", &bc->mwu_pos, 1);
     if ( bc->mwu_mq != HUGE_VAL )   bcf_update_info_float(hdr, rec, "MQB", &bc->mwu_mq, 1);

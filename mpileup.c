@@ -688,6 +688,7 @@ static int mpileup(mplp_conf_t *conf)
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)\">");
     if ( conf->fmt_flag&B2B_INFO_SCB )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SCBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)\">");
+    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=STRBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Short Tandem Repeat Bias (closer to 0 is better)\">");
 #else
     if ( conf->fmt_flag&B2B_INFO_RPB )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
