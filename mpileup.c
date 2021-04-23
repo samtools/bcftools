@@ -1098,7 +1098,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
 "  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
 "  -C, --adjust-MQ INT     adjust mapping quality [0]\n"
-"  -D, --partial-BAQ       only run BAQ in problem regions\n"
+"  -D, --full-BAQ          Apply BAQ everywhere, not just in problematic regions\n"
 "  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
     fprintf(fp,
 "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
@@ -1164,8 +1164,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "Notes: Assuming diploid individuals.\n"
 "--config STR values are equivalent to the following option combinations:\n"
 "    1.12:        -Q13 -h100 -m1\n"
-"    illumina:    -D\n"
-"    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.3]\n"
+"    illumina:    [ default values ]\n"
+"    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
 "    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
 "\n"
 "Example:\n"
@@ -1192,7 +1192,8 @@ int main_mpileup(int argc, char *argv[])
     mplp.max_depth = 250; mplp.max_indel_depth = 250;
     mplp.openQ = 40; mplp.extQ = 20; mplp.tandemQ = 500;
     mplp.min_frac = 0.05; mplp.indel_bias = 1.0; mplp.min_support = 2;
-    mplp.flag = MPLP_NO_ORPHAN | MPLP_REALN | MPLP_SMART_OVERLAPS;
+    mplp.flag = MPLP_NO_ORPHAN | MPLP_REALN | MPLP_REALN_PARTIAL
+              | MPLP_SMART_OVERLAPS;
     mplp.argc = argc; mplp.argv = argv;
     mplp.rflag_filter = BAM_FUNMAP | BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP;
     mplp.output_fname = NULL;
@@ -1223,8 +1224,8 @@ int main_mpileup(int argc, char *argv[])
         {"bam-list", required_argument, NULL, 'b'},
         {"no-BAQ", no_argument, NULL, 'B'},
         {"no-baq", no_argument, NULL, 'B'},
-        {"partial-BAQ", no_argument, NULL, 'D'},
-        {"partial-baq", no_argument, NULL, 'D'},
+        {"full-BAQ", no_argument, NULL, 'D'},
+        {"full-baq", no_argument, NULL, 'D'},
         {"adjust-MQ", required_argument, NULL, 'C'},
         {"adjust-mq", required_argument, NULL, 'C'},
         {"max-depth", required_argument, NULL, 'd'},
@@ -1316,7 +1317,7 @@ int main_mpileup(int argc, char *argv[])
         case 'P': mplp.pl_list = strdup(optarg); break;
         case 'p': mplp.flag |= MPLP_PER_SAMPLE; break;
         case 'B': mplp.flag &= ~MPLP_REALN; break;
-        case 'D': mplp.flag |= MPLP_REALN_PARTIAL; break;
+        case 'D': mplp.flag &= ~MPLP_REALN_PARTIAL; break;
         case 'I': mplp.flag |= MPLP_NO_INDEL; break;
         case 'E': mplp.flag |= MPLP_REDO_BAQ; break;
         case '6': mplp.flag |= MPLP_ILLUMINA13; break;
@@ -1378,8 +1379,8 @@ int main_mpileup(int argc, char *argv[])
                 mplp.flag |= MPLP_REALN_PARTIAL;
                 mplp.max_read_len = 99999;
             } else if (strcasecmp(optarg, "ont") == 0) {
-                fprintf(stderr, "For ONT be sure to also run bcftools call with "
-                        "a much higher -P, eg -P0.3\n");
+                fprintf(stderr, "For ONT it may be beneficial to also run bcftools call with "
+                        "a higher -P, eg -P0.01 or -P 0.1\n");
                 mplp.min_baseQ = 5;
                 mplp.max_baseQ = 30;
                 mplp.flag &= ~MPLP_REALN;
