@@ -41,10 +41,6 @@ DEALINGS IN THE SOFTWARE.  */
 #define CDF_MWU_TESTS 0
 #endif
 
-// Use calc_mwu_biasZ as a sd-normalised score centred on 0 instead of the
-// old method with values in the range 0 to 1.
-#define MWU_ZSCORE
-
 #define B2B_INDEL_NULL 10000
 
 #define B2B_FMT_DP      (1<<0)
@@ -65,6 +61,7 @@ DEALINGS IN THE SOFTWARE.  */
 #define B2B_INFO_RPB    (1<<15)
 #define B2B_FMT_QS      (1<<16)
 #define B2B_INFO_SCB    (1<<17)
+#define B2B_INFO_ZSCORE (1<<30) // MWU as-is or Z-normalised
 
 #define B2B_MAX_ALLELES 5
 

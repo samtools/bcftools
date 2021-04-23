@@ -563,7 +563,8 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         conf->bc.tid = tid; conf->bc.pos = pos;
         bcf_call_combine(conf->gplp->n, conf->bcr, conf->bca, ref16, &conf->bc);
         bcf_clear1(conf->bcf_rec);
-        bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, 0, 0);
+        bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag,
+                     conf->bca, 0);
         flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
 
         // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
@@ -763,21 +764,23 @@ static int mpileup(mplp_conf_t *conf)
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Raw read depth\">");
     if ( conf->fmt_flag&B2B_INFO_VDB )
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=VDB,Number=1,Type=Float,Description=\"Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)\",Version=\"3\">");
-#ifdef MWU_ZSCORE
-    if ( conf->fmt_flag&B2B_INFO_RPB )
-        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Read Position Bias (closer to 0 is better)\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)\">");
-    if ( conf->fmt_flag&B2B_INFO_SCB )
-        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SCBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)\">");
-#else
-    if ( conf->fmt_flag&B2B_INFO_RPB )
-        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias (bigger is better)\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
-    bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
-#endif
+
+    if (conf->fmt_flag & B2B_INFO_ZSCORE) {
+        if ( conf->fmt_flag&B2B_INFO_RPB )
+            bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Read Position Bias (closer to 0 is better)\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)\">");
+        if ( conf->fmt_flag&B2B_INFO_SCB )
+            bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=SCBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)\">");
+    } else {
+        if ( conf->fmt_flag&B2B_INFO_RPB )
+            bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias (bigger is better)\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality Bias (bigger is better)\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Base Quality Bias (bigger is better)\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSB,Number=1,Type=Float,Description=\"Mann-Whitney U test of Mapping Quality vs Strand Bias (bigger is better)\">");
+    }
+
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=FS,Number=1,Type=Float,Description=\"Phred-scaled p-value using Fisher's exact test to detect strand bias\">");
 #if CDF_MWU_TESTS
     bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=RPB2,Number=1,Type=Float,Description=\"Mann-Whitney U test of Read Position Bias [CDF] (bigger is better)\">");
@@ -1132,6 +1135,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
 "  -o, --output FILE       write output to FILE [standard output]\n"
 "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
 "                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
+"  -U, --mwu-u             use older probability scale for Mann-Whitney U test\n"
 "      --threads INT       use multithreading with INT worker threads [0]\n"
 "\n"
 "SNP/INDEL genotype likelihoods options:\n"
@@ -1197,7 +1201,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.n_threads = 0;
     mplp.bsmpl = bam_smpl_init();
     // the default to be changed in future, see also parse_format_flag()
-    mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB|B2B_INFO_SCB;
+    mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB|B2B_INFO_SCB|B2B_INFO_ZSCORE;
     mplp.max_read_len = 500;
 
     static const struct option lopts[] =
@@ -1257,9 +1261,10 @@ int main_mpileup(int argc, char *argv[])
         {"platforms", required_argument, NULL, 'P'},
         {"max-read-len", required_argument, NULL, 'M'},
         {"config", required_argument, NULL, 'X'},
+        {"mwu-u", no_argument, NULL, 'U'},
         {NULL, 0, NULL, 0}
     };
-    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:",lopts,NULL)) >= 0) {
+    while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
         switch (c) {
         case 'x': mplp.flag &= ~MPLP_SMART_OVERLAPS; break;
         case  1 :
@@ -1361,6 +1366,7 @@ int main_mpileup(int argc, char *argv[])
             mplp.fmt_flag |= parse_format_flag(optarg);
         break;
         case 'M': mplp.max_read_len = atoi(optarg); break;
+        case 'U': mplp.fmt_flag &= ~B2B_INFO_ZSCORE; break;
         case 'X':
             if (strcasecmp(optarg, "pacbio-ccs") == 0) {
                 mplp.min_frac = 0.1;

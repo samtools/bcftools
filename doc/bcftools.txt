@@ -1942,6 +1942,19 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-U, --mwu-u*::
+    The the previous Mann-Whitney U test score from version 1.12 and
+    earlier.  This is a probability score, but importantly it folds
+    probabilities above or below the desired score into the same P.
+    The new Mann-Whitney U test score is a "Z score", expressing the
+    score as the number of standard deviations away from the mean (with
+    zero being matching the mean).  It keeps both positive and
+    negative values.  This can be important for some tests where
+    errors are asymmetric.
+
+    This option changes the INFO field names produced back to the ones
+    used by the earlier Bcftools releases.  For excample BQBZ becomes
+    BQB.
 ==== Options for SNP/INDEL genotype likelihood computation
 
 *-X, --config* 'STR'::
