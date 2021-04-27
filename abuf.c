@@ -319,7 +319,7 @@ static void _split_table_set_info(abuf_t *buf, bcf_info_t *info, merge_rule_t mo
         if ( !buf->tmp2 ) error("Failed to alloc %d bytes\n", buf->mtmp);
         buf->mtmp2 = buf->mtmp;
     }
-    
+
     int32_t missing = bcf_int32_missing;
     void *missing_ptr = (void*)&missing;
     if ( type==BCF_HT_REAL ) bcf_float_set_missing(*((float*)missing_ptr));
@@ -331,7 +331,7 @@ static void _split_table_set_info(abuf_t *buf, bcf_info_t *info, merge_rule_t mo
         int star_allele = _has_star_allele(buf,iout);
         int ret = 0;
         if ( len==BCF_VL_FIXED || len==BCF_VL_VAR )
-            ret = bcf_update_info(buf->out_hdr, out, tag, buf->tmp, nval, type);
+            ret = bcf_update_info(buf->out_hdr, out, tag, type==BCF_HT_FLAG ? NULL : buf->tmp, nval, type);
         else if ( len==BCF_VL_A )
         {
             int iori = buf->split.atoms[iout]->ial - 1;
