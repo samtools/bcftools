@@ -426,7 +426,7 @@ void list_tags(void)
         "INFO/AC_Hom    Number:A  Type:Integer  ..  Allele counts in homozygous genotypes\n"
         "INFO/AC_Het    Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes\n"
         "INFO/AC_Hemi   Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes\n"
-        "INFO/AF        Number:A  Type:Float    ..  Allele frequency\n"
+        "INFO/AF        Number:A  Type:Float    ..  Allele frequency from FMT/GT or AC,AN if FMT/GT is not present\n"
         "INFO/AN        Number:1  Type:Integer  ..  Total number of alleles in called genotypes\n"
         "INFO/ExcHet    Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad\n"
         "INFO/END       Number:1  Type:Integer  ..  End position of the variant\n"
@@ -832,6 +832,26 @@ static void process_fmt(bcf1_t *rec)
         }
     }
 }
+static void process_info_af(bcf1_t *rec)
+{
+    if ( !(args->tags & SET_AF) ) return;
+    if ( bcf_hdr_nsamples(args->in_hdr) ) return;
+
+    int n = bcf_get_info_int32(args->in_hdr,rec,"AN",&args->iarr,&args->miarr);
+    if ( n!=1 ) return;
+    int an = args->iarr[0];
+    if ( !an ) return;
+
+    n = bcf_get_info_int32(args->in_hdr,rec,"AC",&args->iarr,&args->miarr);
+    if ( n!=rec->n_allele-1 ) return;
+
+    hts_expand(float,n,args->mfarr,args->farr);
+    int i;
+    for (i=0; i<n; i++) args->farr[i] = (double)args->iarr[i]/an;
+
+    if ( bcf_update_info_float(args->out_hdr,rec,"AF", args->farr, n)!=0 )
+        error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+}
 static void process_vaf(bcf1_t *rec, int mode)
 {
     int nsmpl = bcf_hdr_nsamples(args->in_hdr);
@@ -888,6 +908,7 @@ bcf1_t *process(bcf1_t *rec)
     if ( args->unpack & BCF_UN_FMT )
     {
         process_fmt(rec);
+        process_info_af(rec);
         process_vaf_vaf1(rec);
     }
 
