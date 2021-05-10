@@ -1786,6 +1786,19 @@ multiple regions and many alignment files are processed.
     being generated from the mapped position, the new mapping quality is
     about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.
 
+*-D, --full-BAQ*::
+    Run the BAQ algorithm on all reads, not just those in problematic
+    regions.  This matches the behaviour for Bcftools 1.12 and earlier.
+
+    By default mpileup uses heuristics to decide when to apply the BAQ
+    algorithm.  Most sequences will not be BAQ adjusted, giving a CPU
+    time closer to --no-BAQ, but it will still be applied in regions
+    with suspected problematic alignments.  This has been tested to
+    work well on single sample data with even allele frequency, but
+    the reliability is unknown for multi-sample calling and for low
+    allele frequency variants so full BAQ is still recommended in
+    those scenarios.
+
 *-d, --max-depth* 'INT'::
     At a position, read maximally 'INT' reads per input file. Note that
     the original *samtools mpileup* command had a minimum value of '8000/n'
@@ -1835,6 +1848,12 @@ multiple regions and many alignment files are processed.
 
 *-Q, --min-BQ* 'INT'::
     Minimum base quality for a base to be considered [13]
+
+*    --max-BQ* 'INT'::
+    Caps the base quality to a maximum value [60].  This can be
+    particularly useful on technologies that produce overly optimistic
+    high qualities, leading to too many false positives or incorrect
+    genotype assignments.
 
 *-r, --regions* 'CHR'|'CHR:POS'|'CHR:FROM-TO'|'CHR:FROM-'[,...]::
     Only generate mpileup output in given regions. Requires the alignment files
@@ -1927,7 +1946,30 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-U, --mwu-u*::
+    The the previous Mann-Whitney U test score from version 1.12 and
+    earlier.  This is a probability score, but importantly it folds
+    probabilities above or below the desired score into the same P.
+    The new Mann-Whitney U test score is a "Z score", expressing the
+    score as the number of standard deviations away from the mean (with
+    zero being matching the mean).  It keeps both positive and
+    negative values.  This can be important for some tests where
+    errors are asymmetric.
+
+    This option changes the INFO field names produced back to the ones
+    used by the earlier Bcftools releases.  For excample BQBZ becomes
+    BQB.
 ==== Options for SNP/INDEL genotype likelihood computation
+
+*-X, --config* 'STR'::
+    Specify a platform specific configuration profile.  The profile
+    should be one of '1.12', 'illumina', 'ont' or 'pacbio-ccs'.
+    Settings applied are as follows:
+
+        1.12           -Q13 -h100 -m1
+        illumina       [ default values ]
+	ont	       -B -Q5 --max-BQ 30 -I
+        pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
 
 *-e, --ext-prob* 'INT'::
     Phred-scaled gap extension sequencing error probability. Reducing 'INT'
@@ -1938,7 +1980,25 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *-h, --tandem-qual* 'INT'::
     Coefficient for modeling homopolymer errors. Given an 'l'-long homopolymer
-    run, the sequencing error of an indel of size s is modeled as 'INT'*s/l [100]
+    run, the sequencing error of an indel of size s is modeled as 'INT'*s/l [500]
+    Increasing this informs the caller that indels in long
+    homopolymers are more likely genuine and less likely to be
+    sequencing artifacts.  Hence increasing tandem-qual will have
+    higher recall and lower precision.  Bcftools 1.12 and earlier had
+    a default of 100, which was tuned around more error prone instruments.
+    Note changing this may have a minor impact on SNP calling too.
+    For maximum SNP calling accuracy, it may be preferable to adjust
+    this lower again, although this will adversely affect indels.
+
+*--indel-bias* 'FLOAT'::
+    Skews the indel scores up or down, trading recall (low
+    false-negative) vs precision (low false-positive) [1.0].  In Bcftools
+    1.12 and earlier this parameter didn't exist, but had an implied
+    value of 1.0.  If you are planning to do heavy filtering of
+    variants, selecting the best quality ones only (favouring
+    precision over recall), it is advisable to set this lower (such as
+    0.75) while higher depth samples or where you favour recall rates
+    over precision may work better with a higher value such as 2.0.
 
 *-I, --skip-indels*::
     Do not perform INDEL calling
@@ -1948,6 +2008,14 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *-m, --min-ireads* 'INT'::
     Minimum number gapped reads for indel candidates 'INT' [1]
+
+*-M, --max-read-len* 'INT'::
+    The maximum read length permitted by the BAQ algorithm [500].
+    Variants are still called on longer reads, but they will not be
+    passed through the BAQ method.  This limit exists to prevent
+    excessively long BAQ times and high memory usage.  Note if partial
+    BAQ is enabled with '-D' then raising this parameter will likely
+    not have a significant a CPU cost.
 
 *-o, --open-prob* 'INT'::
     Phred-scaled gap open sequencing error probability. Reducing 'INT' leads
