@@ -18,7 +18,7 @@ File format specifications live on [HTS-spec GitHub page](http://samtools.github
 
 ### Citing
 
-Please cite this paper when using BCFtools for your publications.
+Please cite this paper when using BCFtools for your publications. http://samtools.github.io/bcftools/howtos/publications.html
 
 > Twelve years of SAMtools and BCFtools </br>
 > Petr Danecek, James K Bonfield, Jennifer Liddle, John Marshall, Valeriu Ohan, Martin O Pollard, Andrew Whitwham, Thomas Keane, Shane A McCarthy, Robert M Davies, Heng Li </br>
