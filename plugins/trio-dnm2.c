@@ -786,8 +786,7 @@ static inline double subtract_num_log(double a_num, double b_log)
 #endif
 static inline double subtract_log(double a_log, double b_log)
 {
-    if ( b_log==-HUGE_VAL ) return a_log;
-    return log(exp(a_log - b_log) - 1) + b_log;
+    return a_log + log(1 - exp(b_log - a_log));
 }
 static inline double sum_log(double a, double b)    // log(exp(a)+exp(b))
 {
@@ -822,7 +821,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                     else
                     {
                         fpl = 0;
-                        for (i=0; i<4; i++)
+                        for (i=0; i<nals; i++)
                         {
                             if ( fals&(1<<i) )
                                 fpl += subtract_log(0,qs[iFATHER][i]);
@@ -843,7 +842,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                             else
                             {
                                 mpl = 0;
-                                for (i=0; i<4; i++)
+                                for (i=0; i<nals; i++)
                                 {
                                     if ( mals&(1<<i) )
                                         mpl += subtract_log(0,qs[iMOTHER][i]);
@@ -1096,9 +1095,45 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
             double val = qs[k];
             if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
             if ( val < 0 ) val = 0;
+            pqs[j][k] = phred2log(val);
+        }
+#if 0
+        // The original code, don't like the capping at 255
+        // Reduce QS for all alleles to account for noise
+        for (k=0; k<nqs1; k++)
+        {
+            double val = qs[k];
+            if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
+            if ( val < 0 ) val = 0;
             if ( val > 255 ) val = 255;
             pqs[j][k] = phred2log(val);
         }
+#endif
+#if 0
+        // None of this worked better
+        double max_qs = 0;
+        for (k=0; k<nqs1; k++)
+        {
+            double tmp = qs[k];
+            if ( max_qs < tmp ) max_qs = tmp;
+        }
+        for (k=0; k<nqs1; k++) 
+        {
+            // This uses absolute value of parental QS, does not regard the depth. The penalty is way too
+            // strict for high-coverage sites, random parental sequencing errors there are very likely.
+            // Puts trio-dnm.40.vcf at -24,-17, which is too strict.
+            //      pqs[j][k] = phred2log(qs[k]);   
+
+
+            // Proportions in log space are not well motivated and does not work well.
+            // Puts trio-dnm.40.vcf at -9,-13 which is too strict
+            //      pqs[j][k] = phred2log(255*(qs[k]/max_qs));
+
+            // This seems too lenient for 1/10 alts (-4.26326e-14) and feeds -inf,0,0 to everything.
+            //      double tmp = max_qs - qs[k];
+            //      pqs[j][k] = log(1 - exp(phred2log(tmp)));
+        }
+#endif
     }
 }
 static int set_trio_GT(args_t *args, trio_t *trio, int32_t gts[3], int ngts)
