@@ -1089,89 +1089,90 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
     // source code in 80 columns, to the extent that's possible.)
 
     fprintf(fp,
-"\n"
-"Usage: bcftools mpileup [options] in1.bam [in2.bam [...]]\n"
-"\n"
-"Input options:\n"
-"  -6, --illumina1.3+      quality is in the Illumina-1.3+ encoding\n"
-"  -A, --count-orphans     do not discard anomalous read pairs\n"
-"  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
-"  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
-"  -C, --adjust-MQ INT     adjust mapping quality [0]\n"
-"  -D, --full-BAQ          Apply BAQ everywhere, not just in problematic regions\n"
-"  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
+        "\n"
+        "Usage: bcftools mpileup [options] in1.bam [in2.bam [...]]\n"
+        "\n"
+        "Input options:\n"
+        "  -6, --illumina1.3+      quality is in the Illumina-1.3+ encoding\n"
+        "  -A, --count-orphans     do not discard anomalous read pairs\n"
+        "  -b, --bam-list FILE     list of input BAM filenames, one per line\n"
+        "  -B, --no-BAQ            disable BAQ (per-Base Alignment Quality)\n"
+        "  -C, --adjust-MQ INT     adjust mapping quality [0]\n"
+        "  -D, --full-BAQ          Apply BAQ everywhere, not just in problematic regions\n"
+        "  -d, --max-depth INT     max raw per-file depth; avoids excessive memory usage [%d]\n", mplp->max_depth);
+            fprintf(fp,
+        "  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
+        "  -f, --fasta-ref FILE    faidx indexed reference sequence file\n"
+        "      --no-reference      do not require fasta reference file\n"
+        "  -G, --read-groups FILE  select or exclude read groups listed in the file\n"
+        "  -q, --min-MQ INT        skip alignments with mapQ smaller than INT [%d]\n", mplp->min_mq);
     fprintf(fp,
-"  -E, --redo-BAQ          recalculate BAQ on the fly, ignore existing BQs\n"
-"  -f, --fasta-ref FILE    faidx indexed reference sequence file\n"
-"      --no-reference      do not require fasta reference file\n"
-"  -G, --read-groups FILE  select or exclude read groups listed in the file\n"
-"  -q, --min-MQ INT        skip alignments with mapQ smaller than INT [%d]\n", mplp->min_mq);
+        "  -Q, --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [%d]\n", mplp->min_baseQ);
     fprintf(fp,
-"  -Q, --min-BQ INT        skip bases with baseQ/BAQ smaller than INT [%d]\n", mplp->min_baseQ);
+        "      --max-BQ INT        limit baseQ/BAQ to no more than INT [%d]\n", mplp->max_baseQ);
     fprintf(fp,
-"      --max-BQ INT        limit baseQ/BAQ to no more than INT [%d]\n", mplp->max_baseQ);
+        "      --delta-BQ INT      Use neighbour_qual + INT if less than qual [%d]\n", mplp->delta_baseQ);
     fprintf(fp,
-"      --delta-BQ INT      Use neighbour_qual + INT if less than qual [%d]\n", mplp->delta_baseQ);
+        "  -r, --regions REG[,...] comma separated list of regions in which pileup is generated\n"
+        "  -R, --regions-file FILE restrict to regions listed in a file\n"
+        "      --ignore-RG         ignore RG tags (one BAM = one sample)\n"
+        "  --rf, --incl-flags STR|INT  required flags: skip reads with mask bits unset [%s]\n", tmp_require);
     fprintf(fp,
-"  -r, --regions REG[,...] comma separated list of regions in which pileup is generated\n"
-"  -R, --regions-file FILE restrict to regions listed in a file\n"
-"      --ignore-RG         ignore RG tags (one BAM = one sample)\n"
-"  --rf, --incl-flags STR|INT  required flags: skip reads with mask bits unset [%s]\n", tmp_require);
+        "  --ff, --excl-flags STR|INT  filter flags: skip reads with mask bits set\n"
+        "                                            [%s]\n", tmp_filter);
     fprintf(fp,
-"  --ff, --excl-flags STR|INT  filter flags: skip reads with mask bits set\n"
-"                                            [%s]\n", tmp_filter);
+        "  -s, --samples LIST      comma separated list of samples to include\n"
+        "  -S, --samples-file FILE file of samples to include\n"
+        "  -t, --targets REG[,...] similar to -r but streams rather than index-jumps\n"
+        "  -T, --targets-file FILE similar to -R but streams rather than index-jumps\n"
+        "  -x, --ignore-overlaps   disable read-pair overlap detection\n"
+        "\n"
+        "Output options:\n"
+        "  -a, --annotate LIST     optional tags to output; '?' to list available tags []\n"
+        "  -g, --gvcf INT[,...]    group non-variant sites into gVCF blocks according\n"
+        "                          to minimum per-sample DP\n"
+        "      --no-version        do not append version and command line to the header\n"
+        "  -o, --output FILE       write output to FILE [standard output]\n"
+        "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
+        "                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
+        "  -U, --mwu-u             use older probability scale for Mann-Whitney U test\n"
+        "      --threads INT       use multithreading with INT worker threads [0]\n"
+        "\n"
+        "SNP/INDEL genotype likelihoods options:\n"
+        "  -X, --config STR        Specify platform specific profiles (see below)\n"
+        "  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
     fprintf(fp,
-"  -s, --samples LIST      comma separated list of samples to include\n"
-"  -S, --samples-file FILE file of samples to include\n"
-"  -t, --targets REG[,...] similar to -r but streams rather than index-jumps\n"
-"  -T, --targets-file FILE similar to -R but streams rather than index-jumps\n"
-"  -x, --ignore-overlaps   disable read-pair overlap detection\n"
-"\n"
-"Output options:\n"
-"  -a, --annotate LIST     optional tags to output; '?' to list available tags []\n"
-"  -g, --gvcf INT[,...]    group non-variant sites into gVCF blocks according\n"
-"                          to minimum per-sample DP\n"
-"      --no-version        do not append version and command line to the header\n"
-"  -o, --output FILE       write output to FILE [standard output]\n"
-"  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
-"                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
-"  -U, --mwu-u             use older probability scale for Mann-Whitney U test\n"
-"      --threads INT       use multithreading with INT worker threads [0]\n"
-"\n"
-"SNP/INDEL genotype likelihoods options:\n"
-"  -X, --config STR        Specify platform specific configuration profiles\n"
-"  -e, --ext-prob INT      Phred-scaled gap extension seq error probability [%d]\n", mplp->extQ);
+        "  -F, --gap-frac FLOAT    minimum fraction of gapped reads [%g]\n", mplp->min_frac);
     fprintf(fp,
-"  -F, --gap-frac FLOAT    minimum fraction of gapped reads [%g]\n", mplp->min_frac);
+        "  -h, --tandem-qual INT   coefficient for homopolymer errors [%d]\n", mplp->tandemQ);
     fprintf(fp,
-"  -h, --tandem-qual INT   coefficient for homopolymer errors [%d]\n", mplp->tandemQ);
+        "  -I, --skip-indels       do not perform indel calling\n"
+        "  -L, --max-idepth INT    maximum per-file depth for INDEL calling [%d]\n", mplp->max_indel_depth);
     fprintf(fp,
-"  -I, --skip-indels       do not perform indel calling\n"
-"  -L, --max-idepth INT    maximum per-file depth for INDEL calling [%d]\n", mplp->max_indel_depth);
+        "  -m, --min-ireads INT    minimum number gapped reads for indel candidates [%d]\n", mplp->min_support);
     fprintf(fp,
-"  -m, --min-ireads INT    minimum number gapped reads for indel candidates [%d]\n", mplp->min_support);
+        "  -M, --max-read-len INT  maximum length of read to pass to BAQ algorithm [%d]\n", mplp->max_read_len);
     fprintf(fp,
-"  -M, --max-read-len INT  maximum length of read to pass to BAQ algorithm [%d]\n", mplp->max_read_len);
+        "  -o, --open-prob INT     Phred-scaled gap open seq error probability [%d]\n", mplp->openQ);
     fprintf(fp,
-"  -o, --open-prob INT     Phred-scaled gap open seq error probability [%d]\n", mplp->openQ);
+        "  -p, --per-sample-mF     apply -m and -F per-sample for increased sensitivity\n"
+        "  -P, --platforms STR     comma separated list of platforms for indels [all]\n");
     fprintf(fp,
-"  -p, --per-sample-mF     apply -m and -F per-sample for increased sensitivity\n"
-"  -P, --platforms STR     comma separated list of platforms for indels [all]\n");
+        "      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n"
+        "\n", mplp->indel_bias);
     fprintf(fp,
-"      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n"
-"\n", mplp->indel_bias);
-    fprintf(fp,
-"Notes: Assuming diploid individuals.\n"
-"--config STR values are equivalent to the following option combinations:\n"
-"    1.12:        -Q13 -h100 -m1\n"
-"    illumina:    [ default values ]\n"
-"    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
-"    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
-"\n"
-"Example:\n"
-"   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
-"   bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n"
-"\n");
+        "Configuration profiles activated with -X, --config:\n"
+        "    1.12:        -Q13 -h100 -m1\n"
+        "    illumina:    [ default values ]\n"
+        "    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
+        "    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
+        "\n"
+        "Notes: Assuming diploid individuals.\n"
+        "\n"
+        "Example:\n"
+        "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n"
+        "   bcftools mpileup -Ou -f reference.fa alignments.bam | bcftools call -mv -Ob -o calls.bcf\n"
+        "\n");
 
     free(tmp_require);
     free(tmp_filter);
@@ -1391,6 +1392,8 @@ int main_mpileup(int argc, char *argv[])
                 mplp.min_support = 1;
                 mplp.min_baseQ = 13;
                 mplp.tandemQ = 100;
+                mplp.flag &= ~MPLP_REALN_PARTIAL;
+                mplp.flag |= MPLP_REALN;
             } else if (strcasecmp(optarg, "illumina") == 0) {
                 mplp.flag |= MPLP_REALN_PARTIAL;
             } else {
