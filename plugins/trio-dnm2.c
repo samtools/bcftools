@@ -1331,13 +1331,15 @@ static void process_record(args_t *args, bcf1_t *rec)
 
         if ( n_ad )
         {
-            if ( al0 < n_ad && al1 < n_ad )
+            if ( al1 < n_ad )
             {
                 ad_set = 1;
                 for (j=0; j<3; j++)
                 {
                     int32_t *src = args->ad + n_ad * args->trio[i].idx[j];
-                    args->vaf[ args->trio[i].idx[j] ] = src[al0]+src[al1] ? round(src[al1]*100./(src[al0]+src[al1])) : 0;
+                    int k, ad_sum = 0;
+                    for (k=0; k<rec->n_allele; k++) ad_sum += src[k];
+                    args->vaf[ args->trio[i].idx[j] ] = ad_sum ? round(src[al1]*100./ad_sum) : 0;
                 }
             }
             else
