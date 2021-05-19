@@ -266,7 +266,7 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 +
 With the *call -C* 'alleles' command, third column of the targets file must
 be comma-separated list of alleles, starting with the reference allele.
-Note that the file must be compressed and index.
+Note that the file must be compressed and indexed.
 Such a file can be easily created from a VCF using:
 
 ----
