@@ -754,12 +754,12 @@ are concatenated without being recompressed, which is very fast..
 *-c, --compact-PS*::
     Do not output PS tag at each site, only at the start of a new phase set block.
 
-*-d, --rm-dups* 'snps'|'indels'|'both'|'all'|'none'::
+*-d, --rm-dups* 'snps'|'indels'|'both'|'all'|'exact'::
     Output duplicate records of specified type present in multiple files only once.
     Requires *-a, --allow-overlaps*.
 
 *-D, --remove-duplicates*::
-    Alias for *-d none*
+    Alias for *-d exact*
 
 *-f, --file-list* 'FILE'::
     Read file names from 'FILE', one file name per line.
