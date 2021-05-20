@@ -208,6 +208,8 @@ void remove_info(args_t *args, bcf1_t *line, rm_tag_t *tag)
     for (i=0; i<line->n_info; i++)
     {
         bcf_info_t *inf = &line->d.info[i];
+        if (  !strcmp("END",bcf_hdr_int2id(args->hdr,BCF_DT_ID,inf->key)) )
+            line->rlen = line->n_allele ? strlen(line->d.allele[0]) : 0;
         if ( inf->vptr_free )
         {
             free(inf->vptr - inf->vptr_off);
