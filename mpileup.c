@@ -1162,7 +1162,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "\n", mplp->indel_bias);
     fprintf(fp,
         "Configuration profiles activated with -X, --config:\n"
-        "    1.12:        -Q13 -h100 -m1\n"
+        "    1.12:        -Q13 -h100 -m1 -F0.002\n"
         "    illumina:    [ default values ]\n"
         "    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
         "    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
@@ -1388,7 +1388,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.flag |= MPLP_NO_INDEL;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
-                mplp.min_frac = 0.05;
+                mplp.min_frac = 0.002;
                 mplp.min_support = 1;
                 mplp.min_baseQ = 13;
                 mplp.tandemQ = 100;
