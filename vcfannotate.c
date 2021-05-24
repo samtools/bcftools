@@ -2238,7 +2238,11 @@ static void init_columns(args_t *args)
                 col->replace = replace;
                 col->hdr_key_src = strdup(hrec->vals[k]);
                 col->hdr_key_dst = strdup(hrec->vals[k]);
-                if ( !strcasecmp("GT",col->hdr_key_src) ) col->setter = vcf_setter_format_gt;
+                if ( !strcasecmp("GT",col->hdr_key_src) )
+                {
+                    if ( !args->tgts_is_vcf ) error("The FORMAT/GT field can be currently populated only from a VCF\n");
+                    col->setter = vcf_setter_format_gt;
+                }
                 else
                     switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_FMT,hdr_id) )
                     {
@@ -2291,7 +2295,11 @@ static void init_columns(args_t *args)
             col->replace = replace;
             col->hdr_key_src = strdup(key_src);
             col->hdr_key_dst = strdup(key_dst);
-            if ( !strcasecmp("GT",key_src) ) col->setter = vcf_setter_format_gt;
+            if ( !strcasecmp("GT",key_src) )
+            {
+                if ( !args->tgts_is_vcf ) error("The FORMAT/GT field can be currently populated only from a VCF\n");
+                col->setter = vcf_setter_format_gt;
+            }
             else
                 switch ( bcf_hdr_id2type(args->hdr_out,BCF_HL_FMT,hdr_id) )
                 {
