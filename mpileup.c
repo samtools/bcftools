@@ -39,6 +39,7 @@ DEALINGS IN THE SOFTWARE.  */
 #include <htslib/faidx.h>
 #include <htslib/kstring.h>
 #include <htslib/khash_str2int.h>
+#include <htslib/hts_os.h>
 #include <assert.h>
 #include "regidx.h"
 #include "bcftools.h"
@@ -1126,6 +1127,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -t, --targets REG[,...] similar to -r but streams rather than index-jumps\n"
         "  -T, --targets-file FILE similar to -R but streams rather than index-jumps\n"
         "  -x, --ignore-overlaps   disable read-pair overlap detection\n"
+        "      --seed INT          random number seed used for sampling deep regions [0]\n"
         "\n"
         "Output options:\n"
         "  -a, --annotate LIST     optional tags to output; '?' to list available tags []\n"
@@ -1206,6 +1208,8 @@ int main_mpileup(int argc, char *argv[])
     mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB|B2B_INFO_SCB|B2B_INFO_ZSCORE;
     mplp.max_read_len = 500;
 
+    hts_srand48(0);
+
     static const struct option lopts[] =
     {
         {"rf", required_argument, NULL, 1},   // require flag
@@ -1264,6 +1268,7 @@ int main_mpileup(int argc, char *argv[])
         {"max-read-len", required_argument, NULL, 'M'},
         {"config", required_argument, NULL, 'X'},
         {"mwu-u", no_argument, NULL, 'U'},
+        {"seed", required_argument, NULL, 13},
         {NULL, 0, NULL, 0}
     };
     while ((c = getopt_long(argc, argv, "Ag:f:r:R:q:Q:C:BDd:L:b:P:po:e:h:Im:F:EG:6O:xa:s:S:t:T:M:X:U",lopts,NULL)) >= 0) {
@@ -1403,6 +1408,7 @@ int main_mpileup(int argc, char *argv[])
                 return 1;
             }
             break;
+        case 13: hts_srand48(atoi(optarg)); break;
         default:
             fprintf(stderr,"Invalid option: '%c'\n", c);
             return 1;
