@@ -2633,6 +2633,9 @@ Modify header of VCF/BCF files, change sample names.
     spaces can be escaped using the backslash character, for example
     "Not\ a\ good\ sample\ name".
 
+*-T, --temp-prefix* 'PATH'::
+    template for temporary file names, used with *-f*
+
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
