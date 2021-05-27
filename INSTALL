@@ -15,7 +15,7 @@ The latest source code can be downloaded from github and compiled using:
     ---
     In order to use the BCFtools plugins, this environment variable must be set and point
     to the correct location
-    
+
         export BCFTOOLS_PLUGINS=/path/to/bcftools/plugins
 
     ---
@@ -100,14 +100,20 @@ Compilation
     ./configure
     make
 
-If installing from a tarballs (as opposed form github), BCFtools release
-contains a copy of HTSlib which will be used to build BCFtools. If you
+If installing from a release (as opposed to from GitHub), the BCFtools release
+tarball contains a copy of HTSlib which will be used to build BCFtools. If you
 already have a system-installed HTSlib or another HTSlib that you would
 prefer to build against, you can arrange this by using the configure script's
 --with-htslib option. Use --with-htslib=DIR to point to an HTSlib source tree
-or installation in DIR; or --with-htslib=system to use a system-installed HTSlib.
-When downloaded from github and --with-htslib option is not given, the directory
-../htslib is used.
+or installation in DIR (if the desired source tree has been configured to
+build in a separate build directory, DIR should refer to the build directory);
+or use --with-htslib=system to ignore any nearby HTSlib source tree and use
+only a system-installed HTSlib.
+
+When --with-htslib is not used, configure looks for an HTSlib source tree
+within or alongside the BCFtools source directory; if there are several
+likely candidates, you will have to use --with-htslib to choose one. When
+using make without running configure first, the directory ../htslib is used.
 
 
 Optional Compilation with Perl
