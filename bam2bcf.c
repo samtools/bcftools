@@ -216,7 +216,7 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         {
             b = p->aux>>16&0x3f;
             seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
-            if (q < bca->min_baseQ) continue;
+            if (p->indel && q < bca->min_baseQ) continue;
             if (p->indel == 0 && (q < _n/2 || _n > 20)) {
                 // high quality indel calls without p->indel set aren't
                 // particularly indicative of being a good REF match either,

@@ -74,7 +74,7 @@ sub create_test
         my $mate_mapped = 1;
         if ( $vals[6] ne $chr && $vals[6] ne '=' ) { $vals[6] = '='; $mate_mapped = 0; }
         if ( $vals[7] < $beg or $vals[7] > $end ) { $mate_mapped = 0; }
-        if ( !$mate_mapped ) { $vals[1] &= ~0x8; $vals[6] = '*'; $vals[7] = 0;  }
+        if ( !$mate_mapped ) { $vals[1] &= ~0x8; $vals[6] = '*'; $vals[7] = $vals[3];  }
 
         chomp($vals[-1]);
         if ( !$$opts{keep_samples} )
@@ -104,8 +104,6 @@ sub create_test
     `samtools faidx $$opts{ref} $chr:$beg-$end | sed 's,:, ,' > $$opts{out}.fa`;
     `samtools faidx $$opts{out}.fa`;
 
-    $ori_beg -= $beg - 1;
-    $ori_end -= $beg - 1;
     print "offset\t-".($beg-1)."\n";
 }
 
