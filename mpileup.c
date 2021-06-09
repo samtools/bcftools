@@ -1161,6 +1161,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -P, --platforms STR     comma separated list of platforms for indels [all]\n");
     fprintf(fp,
         "      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n"
+        "      --ambiguous-reads FLAGS  Count ambiguous indel reads as: alt,ref,drop [drop]\n"
         "\n", mplp->indel_bias);
     fprintf(fp,
         "Configuration profiles activated with -X, --config:\n"

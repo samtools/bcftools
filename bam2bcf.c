@@ -1,7 +1,7 @@
 /*  bam2bcf.c -- variant calling.
 
     Copyright (C) 2010-2012 Broad Institute.
-    Copyright (C) 2012-2020 Genome Research Ltd.
+    Copyright (C) 2012-2021 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -216,7 +216,17 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         {
             b = p->aux>>16&0x3f;
             seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
-            if (p->indel && q < bca->min_baseQ) continue;
+            if (q < bca->min_baseQ)
+            {
+                if (!p->indel && r->ADF)
+                {
+                    if ( bam_is_rev(p->b) )
+                        r->ADR[b]++;
+                    else
+                        r->ADF[b]++;
+                }
+                continue;
+            }
             if (p->indel == 0 && (q < _n/2 || _n > 20)) {
                 // high quality indel calls without p->indel set aren't
                 // particularly indicative of being a good REF match either,
