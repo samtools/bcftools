@@ -1,0 +1,40 @@
+##gff-version   3
+#! This file shows which fields are used and required by `bcftools +csq`. It is a trimmed version 
+#! of the GFF3 format, see an example of the full format here
+#!      ftp://ftp.ensembl.org/pub/grch37/release-84/gff3/homo_sapiens/
+#!
+###
+chr1	.	gene	90	200	.	+	.	ID=gene:ENSG00000000001;Name=XYZ;biotype=protein_coding
+chr1	.	transcript	90	200	.	+	.	ID=transcript:ENST00000000001;Parent=gene:ENSG00000000001;biotype=protein_coding
+chr1	.	exon	90	110	.	+	.	Parent=transcript:ENST00000000001
+chr1	.	five_prime_UTR	90	98	.	+	.	Parent=transcript:ENST00000000001
+chr1	.	CDS	99	110	.	+	1	Parent=transcript:ENST00000000001
+chr1	.	exon	120	130	.	+	.	Parent=transcript:ENST00000000001
+chr1	.	CDS	120	130	.	+	1	Parent=transcript:ENST00000000001
+chr1	.	exon	140	150	.	+	.	Parent=transcript:ENST00000000001
+chr1	.	CDS	140	150	.	+	2	Parent=transcript:ENST00000000001
+chr1	.	exon	160	200	.	+	.	Parent=transcript:ENST00000000001
+chr1	.	CDS	160	171	.	+	0	Parent=transcript:ENST00000000001
+chr1	.	three_prime_UTR	172	200	.	+	.	Parent=transcript:ENST00000000001
+chr2	.	gene	80	200	.	-	.	ID=gene:ENSG00000000002;Name=ABC;biotype=protein_coding
+chr2	.	transcript	80	200	.	-	.	ID=transcript:ENST00000000002;Parent=gene:ENSG00000000002;biotype=protein_coding
+chr2	.	exon	80	110	.	-	.	Parent=transcript:ENST00000000002
+chr2	.	three_prime_UTR	80	98	.	-	.	Parent=transcript:ENST00000000002
+chr2	.	CDS	99	110	.	-	0	Parent=transcript:ENST00000000002
+chr2	.	exon	120	130	.	-	.	Parent=transcript:ENST00000000002
+chr2	.	CDS	120	130	.	-	2	Parent=transcript:ENST00000000002
+chr2	.	exon	140	150	.	-	.	Parent=transcript:ENST00000000002
+chr2	.	CDS	140	150	.	-	1	Parent=transcript:ENST00000000002
+chr2	.	exon	160	200	.	-	.	Parent=transcript:ENST00000000002
+chr2	.	CDS	160	171	.	-	1	Parent=transcript:ENST00000000002
+chr2	.	five_prime_UTR	172	200	.	-	.	Parent=transcript:ENST00000000002
+chr3	.	lincRNA_gene	20	50	.	-	.	ID=gene:ENSG00000000004;Name=mir-007;biotype=lincRNA
+chr3	.	lincRNA	20	50	.	-	.	ID=transcript:ENSG00000000004;Parent=gene:ENSG00000000004;biotype=lincRNA
+chr3	.	gene	100	200	.	-	.	ID=gene:ENSG00000000003;Name=QWRTY;biotype=protein_coding
+chr3	.	transcript	100	200	.	-	.	ID=transcript:ENST00000000003;Parent=gene:ENSG00000000003;biotype=protein_coding
+chr3	.	exon	100	110	.	-	.	Parent=transcript:ENST00000000003
+chr3	.	three_prime_UTR	100	105	.	-	.	Parent=transcript:ENST00000000003
+chr3	.	CDS	106	110	.	-	0	Parent=transcript:ENST00000000003
+chr3	.	exon	160	200	.	-	.	Parent=transcript:ENST00000000003
+chr3	.	CDS	160	171	.	-	0	Parent=transcript:ENST00000000003
+chr3	.	five_prime_UTR	172	200	.	-	.	Parent=transcript:ENST00000000003

@@ -678,11 +678,42 @@ static inline int feature_set_seq(args_t *args, char *chr_beg, char *chr_end)
     int iseq;
     if ( khash_str2int_get(aux->seq2int, chr_beg, &iseq)!=0 )
     {
-        hts_expand(char*, aux->nseq+1, aux->mseq, aux->seq);
-        aux->seq[aux->nseq] = strdup(chr_beg);
-        iseq = khash_str2int_inc(aux->seq2int, aux->seq[aux->nseq]);
-        aux->nseq++;
-        assert( aux->nseq < 1<<29 );  // see gf_gene_t.iseq and ftr_t.iseq
+        // check for possible mismatch in chromosome naming convention such as chrX vs X
+        char *new_chr = NULL;
+        if ( faidx_has_seq(args->fai,chr_beg) )
+            new_chr = strdup(chr_beg);                  // valid chr name, the same in gff and faidx
+        else
+        {
+            int len = strlen(chr_beg);
+            if ( !strncmp("chr",chr_beg,3) && len>3 )
+                new_chr = strdup(chr_beg+3);            // gff has the prefix, faidx does not
+            else
+            {
+                new_chr = malloc(len+3);                // gff does not have the prefix, faidx has
+                memcpy(new_chr,"chr",3);
+                memcpy(new_chr+3,chr_beg,len);
+                new_chr[len+3] = 0;
+            }
+            if ( !faidx_has_seq(args->fai,new_chr) )    // modification did not help, this sequence is not in fai
+            {
+                static int unkwn_chr_warned = 0;
+                if ( !unkwn_chr_warned && args->verbosity>0 )
+                    fprintf(stderr,"Warning: GFF chromosome \"%s\" not part of the reference genome\n",chr_beg);
+                unkwn_chr_warned = 1;
+                free(new_chr);
+                new_chr = strdup(chr_beg);              // use the original sequence name
+            }
+        }
+        if ( khash_str2int_get(aux->seq2int, new_chr, &iseq)!=0 )
+        {
+            hts_expand(char*, aux->nseq+1, aux->mseq, aux->seq);
+            aux->seq[aux->nseq] = new_chr;
+            iseq = khash_str2int_inc(aux->seq2int, aux->seq[aux->nseq]);
+            aux->nseq++;
+            assert( aux->nseq < 1<<29 );  // see gf_gene_t.iseq and ftr_t.iseq
+        }
+        else
+            free(new_chr);
     }
     chr_end[1] = c;
     return iseq;
@@ -1360,6 +1391,9 @@ void init_data(args_t *args)
 {
     args->nfmt_bcsq = ncsq2_to_nfmt(args->ncsq2_max);
 
+    args->fai = fai_load(args->fa_fname);
+    if ( !args->fai ) error("Failed to load the fai index: %s\n", args->fa_fname);
+
     if ( args->verbosity > 0 ) fprintf(stderr,"Parsing %s ...\n", args->gff_fname);
     init_gff(args);
 
@@ -1367,9 +1401,6 @@ void init_data(args_t *args)
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
-
-    args->fai = fai_load(args->fa_fname);
-    if ( !args->fai ) error("Failed to load the fai index: %s\n", args->fa_fname);
 
     args->pos2vbuf  = kh_init(pos2vbuf);
     args->active_tr = khp_init(trhp);
