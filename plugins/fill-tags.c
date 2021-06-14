@@ -341,13 +341,21 @@ int parse_func(args_t *args, char *tag, char *expr)
     args->ftf = (ftf_t *)realloc(args->ftf,sizeof(*args->ftf)*args->nftf);
     ftf_t *ftf = &args->ftf[ args->nftf - 1 ];
     memset(ftf,0,sizeof(ftf_t));
-
-    ftf->pop_vals = (int*)calloc(args->npop,sizeof(*ftf->pop_vals));
     ftf->dst_tag = (char*)calloc(expr-tag,1);
     memcpy(ftf->dst_tag, tag, expr-tag-1);
 
     if ( !strncasecmp(expr,"sum(",4) ) { ftf->func  = ftf_sum; expr += 4; }
-    else error("Error: the expression not recognised: %s\n",tag);
+    else
+    {
+        // generic expression
+        bcf_hdr_printf(args->out_hdr, "##INFO=<ID=%s,Number=1,Type=Float,Description=\"Added by fill-tags, experimental\">",ftf->dst_tag);
+        ftf->src_tag = strdup(ftf->dst_tag);
+        ftf->func    = ftf_expr_float;
+        ftf->filter  = filter_init(args->in_hdr, expr);
+        return SET_FUNC;
+    }
+
+    ftf->pop_vals = (int*)calloc(args->npop,sizeof(*ftf->pop_vals));
 
     char *tmp = expr; 
     while ( *tmp && *tmp!=')' ) tmp++;

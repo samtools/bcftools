@@ -1,6 +1,6 @@
 /*  filter.c -- filter expressions.
 
-    Copyright (C) 2013-2020 Genome Research Ltd.
+    Copyright (C) 2013-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -3570,9 +3570,19 @@ int filter_max_unpack(filter_t *flt)
 
 const double *filter_get_doubles(filter_t *filter, int *nval, int *nval1)
 {
-    token_t *tok = filter->flt_stack[filter->nfilters-1];
-    *nval  = tok->nvalues;
-    *nval1 = tok->nval1;
+    token_t *tok = filter->flt_stack[0];
+    if ( tok->nvalues )
+    {
+        *nval  = tok->nvalues;
+        *nval1 = tok->nval1;
+    }
+    else
+    {
+        if ( !tok->values ) error("fixme in filter_get_doubles(): %s\n", filter->str);
+        *nval  = 1;
+        *nval1 = 1;
+        tok->values[0] = filter->flt_stack[0]->pass_site;
+    }
     return tok->values;
 }
 
