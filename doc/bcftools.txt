@@ -1147,10 +1147,11 @@ output VCF and are ignored for the prediction analysis.
 *-c, --custom-tag* 'STRING'::
     use this custom tag to store consequences rather than the default BCSQ tag
 
-*-b, --brief-predictions*::
-    annotate with abbreviated protein-changing predictions. That is, instead of writing
-    the whole modified protein sequence with potentially hundreds of aminoacids, only an
-    abbreviated version such as '25E..329>25G..94' will be written
+*-B, --trim-protein-seq* 'INT'::
+    abbreviate protein-changing predictions to maximum of INT aminoacids.
+    For example, instead of writing the whole modified protein sequence with potentially hundreds of
+    aminoacids, with *-B 1* only an abbreviated version such as '25E..329>25G..94' will be
+    written.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
