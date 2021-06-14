@@ -2711,14 +2711,9 @@ void kprint_aa_prediction(args_t *args, int beg, kstring_t *aa, kstring_t *str)
         kputs(aa->s, str);
     else
     {
-        int len = aa->l;
+        int i, len = aa->l;
         if ( aa->s[len-1]=='*' ) len--;
-        if ( !args->brief_predictions )
-            kputc(aa->s[0], str);
-        else
-            for (int i=0; i < len && i < args->brief_predictions; i++) {
-                kputc(aa->s[i], str);
-            }
+        for (i=0; i<len && i<args->brief_predictions; i++) kputc(aa->s[i], str);
         kputs("..", str);
         kputw(beg+len, str);
     }
@@ -4083,8 +4078,7 @@ static const char *usage(void)
         "   -g, --gff-annot FILE            gff3 annotation file\n"
         "\n"
         "CSQ options:\n"
-        "   -b, --brief-predictions [INT]   annotate with abbreviated protein-changing predictions; if value is\n" 
-        "                                   specified, abbreviate if prediction is longer than the specified value\n"
+        "   -B, --trim-protein-seq INT      abbreviate protein-changing predictions to max INT aminoacids\n" 
         "   -c, --custom-tag STRING         use this tag instead of the default BCSQ\n"
         "   -l, --local-csq                 localized predictions, consider only one VCF record at a time\n"
         "   -n, --ncsq INT                  maximum number of per-haplotype consequences to consider for each site [15]\n"
@@ -4136,7 +4130,8 @@ int main_csq(int argc, char *argv[])
         {"threads",required_argument,NULL,2},
         {"help",0,0,'h'},
         {"ncsq",1,0,'n'},
-        {"brief-predictions",optional_argument,0,'b'},
+        {"brief-predictions",no_argument,0,'b'},
+        {"trim-protein-seq",required_argument,0,'B'},
         {"custom-tag",1,0,'c'},
         {"local-csq",0,0,'l'},
         {"gff-annot",1,0,'g'},
@@ -4159,7 +4154,7 @@ int main_csq(int argc, char *argv[])
     };
     int c, targets_is_file = 0, regions_is_file = 0; 
     char *targets_list = NULL, *regions_list = NULL, *tmp;
-    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:b::v:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:bB:v:",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -4169,13 +4164,10 @@ int main_csq(int argc, char *argv[])
                 if ( *tmp ) error("Could not parse argument: --threads  %s\n", optarg);
                 break;
             case  3 : args->record_cmd_line = 0; break;
-            case 'b': if (optarg)
-                        args->brief_predictions = strlen(optarg) ? strtol(optarg,&tmp,10) : 1;
-                    else if (argv[optind] && argv[optind][0] != '-') {
-                        args->brief_predictions = strlen(argv[optind]) ? strtol(argv[optind],&tmp,10) : 1;
-                        optind++;
-                    } else
-                        args->brief_predictions = 1;
+            case 'b': args->brief_predictions = 1; break;
+            case 'B': 
+                    args->brief_predictions = strtol(optarg,&tmp,10);
+                    if ( *tmp || args->brief_predictions<1 ) error("Could not parse argument: --trim-protein-seq %s\n", optarg);
                     break;
             case 'l': args->local_csq = 1; break;
             case 'c': args->bcsq_tag = optarg; break;
