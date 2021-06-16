@@ -66,7 +66,7 @@ static void usage(void)
 int vcf_index_stats(char *fname, int stats)
 {
     const char **seq = NULL;
-    int i, nseq = 0, ret = 0;
+    int tid, nseq = 0, ret = 0;
     tbx_t *tbx = NULL;
     bcf_hdr_t *hdr = NULL;
     hts_idx_t *idx = NULL;
@@ -144,22 +144,21 @@ int vcf_index_stats(char *fname, int stats)
     if ( tbx ) {
         seq = tbx_seqnames(tbx, &nseq);
     } else {
-        if ( hdr ) {
-            seq = bcf_index_seqnames(idx, hdr, &nseq);
-        } else {
-            nseq = hts_idx_nseq(idx);
-        }
+        nseq = hts_idx_nseq(idx);
     }
 
-    for (i=0; i<nseq; i++)
+    for (tid=0; tid<nseq; tid++)
     {
         uint64_t records, v;
-        hts_idx_get_stat(tbx ? tbx->idx : idx, i, &records, &v);
+        hts_idx_get_stat(tbx ? tbx->idx : idx, tid, &records, &v);
         sum += records;
-        if ((stats&total) || !records) continue;
-        bcf_hrec_t *hrec = hdr ? bcf_hdr_get_hrec(hdr, BCF_HL_CTG, "ID", seq[i], NULL) : NULL;
-        int hkey = hrec ? bcf_hrec_find_key(hrec, "length") : -1;
-        printf("%s\t%s\t%" PRIu64 "\n", seq[i], hkey<0?".":hrec->vals[hkey], records);
+        if ( (stats&total) || !records ) continue;
+        const char *ctg_name = tbx ? seq[tid] : hdr ? bcf_hdr_id2name(hdr, tid) : NULL;
+        if ( ctg_name ) {
+            bcf_hrec_t *hrec = hdr ? bcf_hdr_get_hrec(hdr, BCF_HL_CTG, "ID", ctg_name, NULL) : NULL;
+            int hkey = hrec ? bcf_hrec_find_key(hrec, "length") : -1;
+            printf("%s\t%s\t%" PRIu64 "\n", ctg_name, hkey<0?".":hrec->vals[hkey], records);
+        }
     }
     if ( !sum )
     {
