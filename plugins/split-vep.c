@@ -115,6 +115,7 @@ typedef struct
     col2type_t *column2type;
     int ncolumn2type;
     int raw_vep_request;        // raw VEP tag requested and will need subsetting
+    int allow_undef_tags;
 }
 args_t;
 
@@ -203,6 +204,7 @@ static const char *usage_text(void)
         "                                     (*) Primary transcripts have the field \"CANONICAL\" set to \"YES\"\n"
         "   -S, --severity -|FILE           Pass \"-\" to print the default severity scale or FILE to override\n"
         "                                     the default scale\n"
+        "   -u, --allow-undef-tags          Print \".\" for undefined tags\n"
         "   -x, --drop-sites                Drop sites with none of the consequences matching the severity specified by -s.\n"
         "                                      This switch is intended for use with VCF/BCF output (i.e. -f not given).\n"
         "Common options:\n"
@@ -686,6 +688,7 @@ static void init_data(args_t *args)
         if ( !args->column_str && !args->select ) error("Error: No %s field selected in the formatting expression and -s not given: a typo?\n",args->vep_tag);
         args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
         if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
+        if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
     }
     if ( args->filter_str )
     {
@@ -1045,10 +1048,11 @@ int run(int argc, char **argv)
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"no-version",no_argument,NULL,2},
+        {"allow-undef-tags",no_argument,0,'u'},
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:x",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xu",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -1068,6 +1072,7 @@ int run(int argc, char **argv)
             case 'S': args->severity = optarg; break;
             case 's': args->select = optarg; break;
             case 'l': args->list_hdr = 1; break;
+            case 'u': args->allow_undef_tags = 1; break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;
