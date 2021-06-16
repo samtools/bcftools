@@ -3586,4 +3586,13 @@ const double *filter_get_doubles(filter_t *filter, int *nval, int *nval1)
     return tok->values;
 }
 
+void filter_set_samples(filter_t *filter, const uint8_t *samples)
+{
+    int i,j;
+    for (i=0; i<filter->nfilters; i++)
+    {
+        if ( !filter->filters[i].nsamples ) continue;
+        for (j=0; j<filter->filters[i].nsamples; j++) filter->filters[i].usmpl[j] = samples[j];
+    }
+}
 
