@@ -621,6 +621,7 @@ static void init_data(args_t *args)
                     }
                     else if ( !strcmp(bp,args->vep_tag) )
                     {
+                        free(tmp);
                         args->raw_vep_request = 1;
                         if ( !keep ) break;
                         ep++;
