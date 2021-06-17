@@ -4195,7 +4195,10 @@ int main_csq(int argc, char *argv[])
                 if ( *tmp ) error("Could not parse argument: --threads  %s\n", optarg);
                 break;
             case  3 : args->record_cmd_line = 0; break;
-            case 'b': args->brief_predictions = 1; break;
+            case 'b':
+                    args->brief_predictions = 1;
+                    fprintf(stderr,"Warning: the -b option will be removed in future versions. Please use -B 1 instead.\n");
+                    break;
             case 'B': 
                     args->brief_predictions = strtol(optarg,&tmp,10);
                     if ( *tmp || args->brief_predictions<1 ) error("Could not parse argument: --trim-protein-seq %s\n", optarg);
