@@ -1165,6 +1165,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                     while ( *tmp && *tmp!=',' ) tmp++;
                     if ( *tmp ) { *tmp = 0; args->es_tmp_prefix = tmp+1; }
                 }
+                args->use_PLs = 0;
                 break;
             case 'c':
                 error("The -c option is to be implemented, please open an issue on github\n");

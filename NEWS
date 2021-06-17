@@ -60,6 +60,9 @@ Changes affecting specific commands:
     - Improve diagnostics, printing warnings when a line cannot be matched and
       the number of lines skipped for various reasons (#1444)
 
+    - Minor bug fix, with PLs being the default, the `--distinctive-sites` option
+      started to require explicit `--error-probability 0`
+
 * bcftools isec:
 
     - Always generate sites.txt with isec -p (#1462)
