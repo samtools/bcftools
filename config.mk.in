@@ -1,6 +1,6 @@
 #  Optional configure Makefile overrides for bcftools.
 #
-#    Copyright (C) 2015,2017 Genome Research Ltd.
+#    Copyright (C) 2015,2017, 2019 Genome Research Ltd.
 #
 #    Author: John Marshall <jm18@sanger.ac.uk>
 #
