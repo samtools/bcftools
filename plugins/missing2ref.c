@@ -1,6 +1,6 @@
 /*  plugins/missing2ref.c -- sets missing genotypes to reference allele.
 
-    Copyright (C) 2014 Genome Research Ltd.
+    Copyright (C) 2014-2015 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 

@@ -1,6 +1,6 @@
 # Configure script for bcftools, utilities for VCF/BCF files.
 #
-#    Copyright (C) 2015,2017 Genome Research Ltd.
+#    Copyright (C) 2015,2017-2020 Genome Research Ltd.
 #
 #    Author: John Marshall <jm18@sanger.ac.uk>
 #
@@ -33,7 +33,7 @@ m4_include([m4/ax_with_htslib.m4])
 m4_include([m4/hts_prog_cc_warnings.m4])
 
 dnl Copyright notice to be copied into the generated configure script
-AC_COPYRIGHT([Portions copyright (C) 2015,2017 Genome Research Ltd.
+AC_COPYRIGHT([Portions copyright (C) 2015,2017-2020 Genome Research Ltd.
 
 This configure script is free software: you are free to change and
 redistribute it.  There is NO WARRANTY, to the extent permitted by law.])
