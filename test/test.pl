@@ -1022,11 +1022,19 @@ sub test_vcf_idxstats
     unlink("$$opts{tmp}/$args{in}.vcf.gz.tbi");
     cmd("$$opts{bin}/bcftools index --csi -f $$opts{tmp}/$args{in}.vcf.gz");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.vcf.gz");
+    if ( $args{args} eq '-n' )
+    {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.vcf.gz.csi");
+    }
     unlink("$$opts{tmp}/$args{in}.vcf.gz.csi");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.bcf");
+    if ( $args{args} eq '-n' )
+    {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.bcf.csi");
+    }
 }
 
 sub test_vcf_check
