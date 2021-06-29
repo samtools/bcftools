@@ -1,6 +1,6 @@
 /*  vcfindex.c -- Index bgzip compressed VCF/BCF files for random access.
 
-    Copyright (C) 2014-2020 Genome Research Ltd.
+    Copyright (C) 2014-2021 Genome Research Ltd.
 
     Author: Shane McCarthy <sm15@sanger.ac.uk>
 
@@ -81,6 +81,7 @@ int vcf_index_stats(char *fname, int stats)
      * header. Otherwise, use just the corresponding index file to count
      * the total number of records.
      */
+    int len = strlen(fname);
     if ( (fnidx = strstr(fname, HTS_IDX_DELIM)) != NULL ) {
         fntemp = strdup(fname);
         if ( !fntemp ) return 1;
@@ -88,8 +89,16 @@ int vcf_index_stats(char *fname, int stats)
         fname = fntemp;
         fnidx += strlen(HTS_IDX_DELIM);
     }
+    else if ( len>4 && (!strcasecmp(".csi",fname+len-4) || !strcasecmp(".tbi",fname+len-4)) )
+    {
+        fnidx  = fname;
+        fntemp = strdup(fname);
+        fname  = fntemp;
+        fname[len-4] = 0;
+    }
 
-    if ( stats&per_contig ) {
+    if ( stats&per_contig )
+    {
         fp = hts_open(fname,"r");
         if ( !fp ) {
             fprintf(stderr,"Could not read %s\n", fname);
@@ -116,7 +125,9 @@ int vcf_index_stats(char *fname, int stats)
             fprintf(stderr,"Could not detect the file type as VCF or BCF: %s\n", fname);
             return 1;
         }
-    } else if ( fnidx ) {
+    }
+    else if ( fnidx )
+    {
         char *ext = strrchr(fnidx, '.');
         if ( ext && strcmp(ext, ".tbi") == 0 ) {
             tbx = tbx_index_load2(fname, fnidx);
