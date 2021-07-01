@@ -21,11 +21,12 @@ sub error
     print 
         "Usage: create-bam-test [OPTIONS]\n",
         "Options:\n",
-        "   -b, --bam <file.bam>            \n",
-        "   -f, --fa-ref <ref.fa>           \n",
+        "   -b, --bam FILE                  \n",
+        "   -f, --fa-ref FILE               \n",
         "   -k, --keep-samples              \n",
-        "   -o, --output-prefix <string>    \n",
-        "   -r, --region <region>           \n",
+        "   -o, --output-prefix PATH        \n",
+        "   -O, --offset INT                \n",
+        "   -r, --region REGION             \n",
         "   -h, -?, --help                  This help message.\n",
         "\n";
     exit -1;
@@ -33,12 +34,14 @@ sub error
 sub parse_params
 {
     my $opts = {};
+    if ( -t STDIN && !@ARGV ) { error(); }
     while (defined(my $arg=shift(@ARGV)))
     {
         if ( $arg eq '-b' || $arg eq '--bam' ) { $$opts{bam}=shift(@ARGV); next }
         if ( $arg eq '-f' || $arg eq '--fa-ref' ) { $$opts{ref}=shift(@ARGV); next }
         if ( $arg eq '-k' || $arg eq '--keep-samples' ) { $$opts{keep_samples}=1; next }
         if ( $arg eq '-o' || $arg eq '--output-prefix' ) { $$opts{out}=shift(@ARGV); next }
+        if ( $arg eq '-O' || $arg eq '--offset' ) { $$opts{offset}=shift(@ARGV); next }
         if ( $arg eq '-r' || $arg eq '--region' ) { $$opts{region}=shift(@ARGV); next }
         if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
         error("Unknown parameter \"$arg\". Run -h for help.\n");
@@ -74,7 +77,7 @@ sub create_test
         my $mate_mapped = 1;
         if ( $vals[6] ne $chr && $vals[6] ne '=' ) { $vals[6] = '='; $mate_mapped = 0; }
         if ( $vals[7] < $beg or $vals[7] > $end ) { $mate_mapped = 0; }
-        if ( !$mate_mapped ) { $vals[1] &= ~0x8; $vals[6] = '*'; $vals[7] = 0;  }
+        if ( !$mate_mapped ) { $vals[1] &= ~0x8; $vals[6] = '*'; $vals[7] = $vals[3];  }
 
         chomp($vals[-1]);
         if ( !$$opts{keep_samples} )
@@ -91,6 +94,8 @@ sub create_test
     print $out "\@SQ\tSN:$chr\tLN:".($end-$beg+1)."\n";
     if ( !$$opts{keep_samples} ) { print $out "\@RG\tID:rg\tSM:sample\n"; }
 
+    if ( exists($$opts{offset}) ) { $beg = abs($$opts{offset}) + 1; }
+
     for my $read (@reads)
     {
         $$read[3] -= $beg - 1;
@@ -104,8 +109,6 @@ sub create_test
     `samtools faidx $$opts{ref} $chr:$beg-$end | sed 's,:, ,' > $$opts{out}.fa`;
     `samtools faidx $$opts{out}.fa`;
 
-    $ori_beg -= $beg - 1;
-    $ori_end -= $beg - 1;
     print "offset\t-".($beg-1)."\n";
 }
 
