@@ -63,9 +63,18 @@ Changes affecting specific commands:
     - Minor bug fix, with PLs being the default, the `--distinctive-sites` option
       started to require explicit `--error-probability 0`
 
+* bcftools index:
+
+    - The program now accepts both data file name and the index file name. This
+      adds to user convenience when running index statistics (-n, -s)
+
 * bcftools isec:
 
     - Always generate sites.txt with isec -p (#1462)
+
+* bcftools +mendelian:
+
+    - Consider only complete trios, do not crash on sample name typos (#1520)
 
 * bcftools mpileup:
 
