@@ -24,6 +24,7 @@ DEALINGS IN THE SOFTWARE.  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <htslib/vcf.h>
