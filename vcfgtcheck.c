@@ -1031,7 +1031,11 @@ static void usage(void)
     fprintf(stderr, "        --distinctive-sites            Find sites that can distinguish between at least NUM sample pairs.\n");
     fprintf(stderr, "                  NUM[,MEM[,TMP]]          If the number is smaller or equal to 1, it is interpreted as the fraction of pairs.\n");
     fprintf(stderr, "                                           The optional MEM string sets the maximum memory used for in-memory sorting [500M]\n");
-    fprintf(stderr, "                                           and TMP is a prefix of temporary files used by external sorting [/tmp/bcftools-gtcheck]\n");
+#ifdef _WIN32
+    fprintf(stderr, "                                           and TMP is a prefix of temporary files used by external sorting [/bcftools.XXXXXX]\n");
+#else
+    fprintf(stderr, "                                           and TMP is a prefix of temporary files used by external sorting [/tmp/bcftools.XXXXXX]\n");
+#endif
     fprintf(stderr, "        --dry-run                      Stop after first record to estimate required time\n");
     fprintf(stderr, "    -e, --error-probability INT        Phred-scaled probability of genotyping error, 0 for faster but less accurate results [40]\n");
     fprintf(stderr, "    -g, --genotypes FILE               Genotypes to compare against\n");
@@ -1161,6 +1165,7 @@ int main_vcfgtcheck(int argc, char *argv[])
                     while ( *tmp && *tmp!=',' ) tmp++;
                     if ( *tmp ) { *tmp = 0; args->es_tmp_prefix = tmp+1; }
                 }
+                args->use_PLs = 0;
                 break;
             case 'c':
                 error("The -c option is to be implemented, please open an issue on github\n");

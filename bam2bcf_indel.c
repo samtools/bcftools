@@ -1,7 +1,7 @@
 /*  bam2bcf_indel.c -- indel caller.
 
     Copyright (C) 2010, 2011 Broad Institute.
-    Copyright (C) 2012-2014,2016 Genome Research Ltd.
+    Copyright (C) 2012-2014,2016-2017, 2021 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 

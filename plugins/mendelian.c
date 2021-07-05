@@ -321,7 +321,12 @@ void parse_ped(args_t *args, char *fname)
         int ifather = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[2]]);
         int imother = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[3]]);
         int ichild = bcf_hdr_id2int(args->hdr,BCF_DT_SAMPLE,&str.s[off[1]]);
-        if ( ( ifather<0 && imother<0 ) || ichild<0 ) continue;
+
+        // The code in process() makes an attempt to work with partial families,
+        // the support is not complete though and can lead to core dumps. Therefore
+        // enforcing full trios for now.
+        // if ( ( ifather<0 && imother<0 ) || ichild<0 ) continue;
+        if ( ifather<0 || imother<0 || ichild<0 ) continue;
 
         args->ntrios++;
         hts_expand0(trio_t,args->ntrios,args->mtrios,args->trios);
@@ -331,6 +336,7 @@ void parse_ped(args_t *args, char *fname)
         trios->ichild  = ichild;
 
     } while ( hts_getline(fp, KS_SEP_LINE, &str)>=0 );
+    if ( !args->ntrios ) error("No complete trios found in the PED and VCF\n");
 
     free(str.s);
     free(off);
@@ -459,6 +465,9 @@ int run(int argc, char **argv)
         args.trios[0].imother = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, list[0]);
         args.trios[0].ifather = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, list[1]);
         args.trios[0].ichild  = bcf_hdr_id2int(args.hdr, BCF_DT_SAMPLE, list[2]);
+        if ( args.trios[0].imother<0 ) error("The sample is not present in the VCF: %s\n",list[0]);
+        if ( args.trios[0].ifather<0 ) error("The sample is not present in the VCF: %s\n",list[1]);
+        if ( args.trios[0].ichild<0 )  error("The sample is not present in the VCF: %s\n",list[2]);
         for (i=0; i<n; i++) free(list[i]);
         free(list);
     }

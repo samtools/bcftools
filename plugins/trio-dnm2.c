@@ -111,8 +111,8 @@ typedef struct
          *dnm_allele_tag;
     int dnm_score_type;             // given by e.g. --dnm-tag DNM:log
     double mrate;                   // --mrate, mutation rate
-    double pnoise_abs,pnoise_frac;  // --pn or --pns
-    int pnoise_strict;              // set to 1 if pns was used or 0 if pn
+    double pn_abs,pn_frac;          // --pn
+    double pns_abs,pns_frac;        // --pns
     int use_ppl;                    // --ppl
     int use_dng_priors;             // --dng-priors
     priors_t priors, priors_X, priors_XX;
@@ -161,7 +161,7 @@ static const char *usage_text(void)
         "       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)\n"
         "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "       --mrate NUM                 Mutation rate [1e-8]\n"
-        "       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0,0]\n"
+        "       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]\n"
         "       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]\n"
         "       --ppl                       Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
         "       --use-DNG                   The original DeNovoGear model, implies --dng-priors\n"
@@ -1060,7 +1060,8 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
 {
     int32_t *ad_f = NULL, *ad_m = NULL;     // AD in father and mother
 
-    if ( n_ad && args->pnoise_strict  )
+    if ( n_ad && !args->pn_abs && !args->pns_abs && !args->pns_frac ) n_ad = 0;    // AD is not required
+    if ( n_ad )
     {
         // Noise tolerance will be applied only for alleles observed in a single parent (a possible mosaic
         // variant in the parent) but not for alleles observed in both parents (likely an artefact)
@@ -1071,29 +1072,31 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
     int j,k;
     for (j=0; j<3; j++)
     {
-        int32_t *ad = (n_ad && args->pnoise_abs) ? args->ad + n_ad * trio->idx[j] : NULL;
+        int32_t *ad = n_ad ? args->ad + n_ad * trio->idx[j] : NULL;
         int32_t *qs = args->qs + nqs1 * trio->idx[j];
         pqs[j] = args->qs3 + j*nqs1;
-        double noise_tolerance = 0;
+        double pn = 0, pns = 0;
         double sum_qs = 0, sum_ad = 0;
-        if ( args->pnoise_frac && j!=iCHILD )
+        if ( (args->pn_frac || args->pns_frac) && j!=iCHILD )
         {
             for (k=0; k<nqs1; k++) sum_qs += qs[k];
-            noise_tolerance = sum_qs * args->pnoise_frac;
-            if ( ad )
+            pn  = sum_qs * args->pn_frac;
+            pns = sum_qs * args->pns_frac;
+            if ( n_ad )
             {
                 // "absolute" threshold: find the average QS per read from AD and use that
                 // if bigger than the relative threshold
                 for (k=0; k<n_ad; k++) sum_ad += ad[k];
-                if ( noise_tolerance < args->pnoise_abs * sum_qs / sum_ad )
-                    noise_tolerance = args->pnoise_abs * sum_qs / sum_ad;
+                if ( pn  < args->pn_abs * sum_qs / sum_ad ) pn = args->pn_abs * sum_qs / sum_ad;
+                if ( pns < args->pns_abs * sum_qs / sum_ad ) pns = args->pns_abs * sum_qs / sum_ad;
             }
         }
         // Reduce QS for all alleles to account for noise
         for (k=0; k<nqs1; k++)
         {
             double val = qs[k];
-            if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
+            if ( n_ad && (!ad_f[k] || !ad_m[k]) ) val -= pns;
+            else val -= pn;
             if ( val < 0 ) val = 0;
             pqs[j][k] = phred2log(val);
         }
@@ -1385,18 +1388,29 @@ static void set_option(args_t *args, char *optarg)
         args->mrate = strtod(val,&tmp);
         if ( *tmp ) error("Could not parse: -u %s\n", optarg);
     }
-    else if ( !strcasecmp(opt,"pn") || !strcasecmp(opt,"pnoise") || !strcasecmp(opt,"pns") )
+    else if ( !strcasecmp(opt,"pn") || !strcasecmp(opt,"pnoise") )
     {
         if ( !val ) error("Error: expected value with -u %s, e.g. -u %s=0.05\n",opt,opt);
-        args->pnoise_frac = strtod(val,&tmp);
+        args->pn_frac = strtod(val,&tmp);
         if ( *tmp && *tmp==',' )
         {
-            args->pnoise_abs = strtod(tmp+1,&tmp);
+            args->pn_abs = strtod(tmp+1,&tmp);
             if ( *tmp ) error("Could not parse: -u %s\n", optarg);
         }
-        if ( args->pnoise_frac<0 || args->pnoise_frac>1 ) error("Error: expected value from the interval [0,1] for -u %s\n", optarg);
-        if ( args->pnoise_abs<0 ) error("Error: expected positive value for -u %s\n", optarg);
-        args->pnoise_strict = !strcasecmp(opt,"pn") ? 0 : 1;
+        if ( args->pn_frac<0 || args->pn_frac>1 ) error("Error: expected value from the interval [0,1] for -u %s\n", optarg);
+        if ( args->pn_abs<0 ) error("Error: expected positive value for -u %s\n", optarg);
+    }
+    else if ( !strcasecmp(opt,"pns") )
+    {
+        if ( !val ) error("Error: expected value with -u %s, e.g. -u %s=0.05\n",opt,opt);
+        args->pns_frac = strtod(val,&tmp);
+        if ( *tmp && *tmp==',' )
+        {
+            args->pns_abs = strtod(tmp+1,&tmp);
+            if ( *tmp ) error("Could not parse: -u %s\n", optarg);
+        }
+        if ( args->pns_frac<0 || args->pn_frac>1 ) error("Error: expected value from the interval [0,1] for -u %s\n", optarg);
+        if ( args->pns_abs<0 ) error("Error: expected positive value for -u %s\n", optarg);
     }
     else if ( !strcasecmp(opt,"DNG") ) { args->use_model = USE_DNG; args->use_dng_priors = 1; }
     else if ( !strcasecmp(opt,"dng-priors") ) args->use_dng_priors = 1;
@@ -1430,9 +1444,10 @@ int run(int argc, char **argv)
     args->dnm_vaf_tag    = strdup("VAF");
     args->dnm_allele_tag = strdup("VA");
     args->mrate = 1e-8;
-    args->pnoise_frac   = 0.045;
-    args->pnoise_abs    = 0;
-    args->pnoise_strict = 1;
+    args->pn_frac   = 0.005;
+    args->pn_abs    = 0;
+    args->pns_frac  = 0.045;
+    args->pns_abs   = 0;
     static struct option loptions[] =
     {
         {"use",required_argument,0,'u'},
@@ -1474,26 +1489,24 @@ int run(int argc, char **argv)
             case  5 : args->use_dng_priors = 1; break;
             case  6 : args->mrate = strtod(optarg,&tmp); if ( *tmp ) error("Could not parse: --mrate %s\n", optarg); break;
             case  7 :
-                args->pnoise_frac = strtod(optarg,&tmp);
+                args->pn_frac = strtod(optarg,&tmp);
                 if ( *tmp && *tmp==',' )
                 {
-                    args->pnoise_abs = strtod(tmp+1,&tmp);
+                    args->pn_abs = strtod(tmp+1,&tmp);
                     if ( *tmp ) error("Could not parse: --pn %s\n", optarg);
                 }
-                if ( args->pnoise_frac<0 || args->pnoise_frac>1 ) error("Error: expected value from the interval [0,1] for --pn %s\n", optarg);
-                if ( args->pnoise_abs<0 ) error("Error: expected positive value for --pn %s\n", optarg);
-                args->pnoise_strict = 0;
+                if ( args->pn_frac<0 || args->pn_frac>1 ) error("Error: expected value from the interval [0,1] for --pn %s\n", optarg);
+                if ( args->pn_abs<0 ) error("Error: expected positive value for --pn %s\n", optarg);
                 break;
             case 8 :
-                args->pnoise_frac = strtod(optarg,&tmp);
+                args->pns_frac = strtod(optarg,&tmp);
                 if ( *tmp && *tmp==',' )
                 {
-                    args->pnoise_abs = strtod(tmp+1,&tmp);
+                    args->pns_abs = strtod(tmp+1,&tmp);
                     if ( *tmp ) error("Could not parse: --pns %s\n", optarg);
                 }
-                if ( args->pnoise_frac<0 || args->pnoise_frac>1 ) error("Error: expected value from the interval [0,1] for --pns %s\n", optarg);
-                if ( args->pnoise_abs<0 ) error("Error: expected positive value for --pns %s\n", optarg);
-                args->pnoise_strict = 1;
+                if ( args->pns_frac<0 || args->pns_frac>1 ) error("Error: expected value from the interval [0,1] for --pns %s\n", optarg);
+                if ( args->pns_abs<0 ) error("Error: expected positive value for --pns %s\n", optarg);
                 break;
             case 9  : args->use_model = USE_DNG; args->use_dng_priors = 1; break;
             case 10 : args->use_ppl = 1; break;

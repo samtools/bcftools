@@ -440,6 +440,11 @@ test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-ver
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
 test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.2.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{QPATH}/setGT.samples.txt]="het"\'');
 test_vcf_plugin($opts,in=>'setGT.2',out=>'setGT.3.out',cmd=>'+setGT --no-version',args=>'-- -t q -n . -i \'GT[@{QPATH}/setGT.samples.txt]="het" & binom(AD[@{QPATH}/setGT.samples.txt])<0.1\'');
+test_vcf_plugin($opts,in=>'setGT.3',out=>'setGT.3.1.out',cmd=>'+setGT --no-version',args=>'-- -t a -n pM');
+test_vcf_plugin($opts,in=>'setGT.3',out=>'setGT.3.2.out',cmd=>'+setGT --no-version',args=>'-- -t a -n pm');
+test_vcf_plugin($opts,in=>'setGT.3',out=>'setGT.3.3.out',cmd=>'+setGT --no-version',args=>'-- -t a -n c:1');
+test_vcf_plugin($opts,in=>'setGT.3',out=>'setGT.3.4.out',cmd=>'+setGT --no-version',args=>'-- -t a -n c:"1|1"');
+test_vcf_plugin($opts,in=>'setGT.3',out=>'setGT.3.5.out',cmd=>'+setGT --no-version',args=>'-- -t a -n c:"m|M"');
 test_vcf_plugin($opts,in=>'plugin1',out=>'fill-AN-AC.out',cmd=>'+fill-AN-AC --no-version');
 test_vcf_plugin($opts,in=>'dosage',out=>'dosage.1.out',cmd=>'+dosage',args=>'-- -t PL');
 test_vcf_plugin($opts,in=>'dosage',out=>'dosage.2.out',cmd=>'+dosage',args=>'-- -t GL');
@@ -455,13 +460,15 @@ test_vcf_plugin($opts,in=>'query.nucleotide',out=>'query.allele-length.tsv',cmd=
 test_vcf_plugin($opts,in=>'merge.a',out=>'fill-tags.out',cmd=>'+fill-tags --no-version',args=>'-- -t AN,AC,AC_Hom,AC_Het,AC_Hemi');
 test_vcf_plugin($opts,in=>'view',out=>'fill-tags.2.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC,AN,AF,MAF,NS');
 test_vcf_plugin($opts,in=>'view',out=>'fill-tags.3.out',cmd=>'+fill-tags --no-version',args=>'-- -t AC -S {PATH}/fill-tags.3.smpl');
-test_vcf_plugin($opts,in=>'view',out=>'fill-tags.5.out',cmd=>'+fill-tags --no-version',args=>'-- -t "DP=sum(DP)" -S {PATH}/fill-tags.3.smpl');
+test_vcf_plugin($opts,in=>'view',out=>'fill-tags.5.out',cmd=>'+fill-tags --no-version',args=>'-- -t "DP:1=int(sum(FORMAT/DP))" -S {PATH}/fill-tags.3.smpl');
 test_vcf_plugin($opts,in=>'many-alts',out=>'fill-tags.4.out',cmd=>'+fill-tags --no-version',args=>'-- -t AN,AC');
 test_vcf_plugin($opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.1.out',cmd=>'+fill-tags --no-version');
 test_vcf_plugin($opts,in=>'fill-tags-hemi',out=>'fill-tags-hemi.2.out',cmd=>'+fill-tags --no-version',args=>'-- -d');
 test_vcf_plugin($opts,in=>'fill-tags-hwe',out=>'fill-tags-hwe.out',cmd=>'+fill-tags --no-version');
+test_vcf_plugin($opts,in=>'fill-tags-hwe',out=>'fill-tags-func.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'XX:1=F_PASS(GT="alt")']);
 test_vcf_plugin($opts,in=>'fill-tags-AN0',out=>'fill-tags-AN0.out',cmd=>'+fill-tags --no-version',args=>'-- -t all,END,TYPE,F_MISSING');
 test_vcf_plugin($opts,in=>'fill-tags-VAF',out=>'fill-tags-VAF.out',cmd=>'+fill-tags --no-version',args=>'-- -t VAF,VAF1');
+test_vcf_plugin($opts,in=>'fill-tags-AD',out=>'fill-tags-AD.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'DP:1=int(sum(AD))']);
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.out',cmd=>'+GTisec',args=>' | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.H.out',cmd=>'+GTisec',args=>'-- -H | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.Hm.out',cmd=>'+GTisec',args=>'-- -Hm | grep -v bcftools');
@@ -545,6 +552,8 @@ test_vcf_plugin($opts,in=>'split-vep.6',out=>'split-vep.19.out',cmd=>'+split-vep
 test_vcf_plugin($opts,in=>'split-vep.7',out=>'split-vep.20.out',cmd=>'+split-vep',args=>qq[--annotation 'ANN' -c IMPACT -i 'INFO/IMPACT[*] ~ "MODIFIER"' | grep -v ^#]);
 test_vcf_plugin($opts,in=>'split-vep.8',out=>'split-vep.21.out',cmd=>'+split-vep',args=>qq[-a BCSQ -s worst -c Consequence,amino_acid_change,BCSQ | grep -v ^#]);
 test_vcf_plugin($opts,in=>'split-vep.8',out=>'split-vep.22.out',cmd=>'+split-vep',args=>qq[-a BCSQ -s worst -f '%POS\\t%Consequence\\t%amino_acid_change\\t%BCSQ\\n' | grep -v ^#]);
+test_vcf_plugin($opts,in=>'split-vep.9',out=>'split-vep.23.out',cmd=>'+split-vep',args=>qq[-a BCSQ -f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%BCSQ\\n' -d -A tab | grep -v ^#]);
+test_vcf_plugin($opts,in=>'split-vep.9',out=>'split-vep.24.out',cmd=>'+split-vep',args=>qq[-a BCSQ -f '%xPOS %xConsequence\\n' -p x | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.1.out',cmd=>'+parental-origin',args=>qq[-r 20:100 -p proband,father,mother -t del | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+parental-origin',args=>qq[-r 20:101 -p proband,father,mother -t del | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
@@ -673,6 +682,7 @@ test_mpileup($opts,in=>[qw(indel-AD.1)],out=>'mpileup/indel-AD.1.out',ref=>'inde
 test_mpileup($opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.2.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75]);
 test_mpileup($opts,in=>[qw(mpileup-SCR)],out=>'mpileup/mpileup-SCR.out',ref=>'mpileup-SCR.fa',args=>q[-a INFO/SCR,FMT/SCR]);
 test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
+test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.chr.gff3');
 test_csq($opts,in=>'csq.2',out=>'csq.2.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.2.gff',tbcsq=>1);
 test_csq($opts,in=>'csq.2',out=>'csq.3.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.2.gff --ncsq 64',tbcsq=>1);
 test_csq_real($opts,in=>'csq');
@@ -1013,11 +1023,19 @@ sub test_vcf_idxstats
     unlink("$$opts{tmp}/$args{in}.vcf.gz.tbi");
     cmd("$$opts{bin}/bcftools index --csi -f $$opts{tmp}/$args{in}.vcf.gz");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.vcf.gz");
+    if ( $args{args} eq '-n' )
+    {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.vcf.gz.csi");
+    }
     unlink("$$opts{tmp}/$args{in}.vcf.gz.csi");
 
     cmd("$$opts{bin}/bcftools view -Ob $$opts{path}/$args{in}.vcf > $$opts{tmp}/$args{in}.bcf");
     cmd("$$opts{bin}/bcftools index -f $$opts{tmp}/$args{in}.bcf");
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.bcf");
+    if ( $args{args} eq '-n' )
+    {
+        test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools index $args{args} $$opts{tmp}/$args{in}.bcf.csi");
+    }
 }
 
 sub test_vcf_check
