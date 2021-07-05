@@ -154,6 +154,7 @@ Changes affecting specific commands:
     - Fix arithmetic underflow which could lead to imprecise scores and improve
       sensitivity in high coverage regions
 
+    - Allow combining --pn and --pns to set the noise trehsholds independently
 
 
 ## Release 1.12 (17th March 2021)
