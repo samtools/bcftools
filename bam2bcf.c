@@ -205,6 +205,8 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
 
     // fill the bases array
     double nqual_over_60 = bca->nqual / 60.0;
+    int ADR_ref_missed[4] = {0};
+    int ADF_ref_missed[4] = {0};
     for (i = n = 0; i < _n; ++i) {
         const bam_pileup1_t *p = pl + i;
         int q, b, mapQ, baseQ, is_diff, min_dist, seqQ;
@@ -218,12 +220,12 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             seqQ = q = (p->aux & 0xff); // mp2 + builtin indel-bias
             if (q < bca->min_baseQ)
             {
-                if (!p->indel && r->ADF)
+                if (!p->indel && b < 4)
                 {
-                    if ( bam_is_rev(p->b) )
-                        r->ADR[b]++;
+                    if (bam_is_rev(p->b))
+                        ADR_ref_missed[b]++;
                     else
-                        r->ADF[b]++;
+                        ADF_ref_missed[b]++;
                 }
                 continue;
             }
@@ -331,6 +333,30 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
             bca->alt_scl[sc_len]++;
         }
     }
+
+    // Compensate for AD not being counted on low quality REF indel matches.
+    if ( r->ADF && bca->ambig_reads==B2B_INC_AD0 )
+    {
+        for (i=0; i<4; i++) // verify: are the counters ever non-zero for i!=0?
+        {
+            r->ADR[i] += ADR_ref_missed[i];
+            r->ADF[i] += ADF_ref_missed[i];
+        }
+    }
+    else if ( r->ADF && bca->ambig_reads==B2B_INC_AD )
+    {
+        int dp = 0, dp_ambig = 0;
+        for (i=0; i<4; i++) dp += r->ADR[i];
+        for (i=0; i<4; i++) dp_ambig += ADR_ref_missed[i];
+        if ( dp )
+            for (i=0; i<4; i++) r->ADR[i] += lroundf((float)dp_ambig * r->ADR[i]/dp);
+        dp = 0, dp_ambig = 0;
+        for (i=0; i<4; i++) dp += r->ADF[i];
+        for (i=0; i<4; i++) dp_ambig += ADF_ref_missed[i];
+        if ( dp )
+            for (i=0; i<4; i++) r->ADF[i] += lroundf((float)dp_ambig * r->ADF[i]/dp);
+    }
+
     r->ori_depth = ori_depth;
     // glfgen
     errmod_cal(bca->e, n, 5, bca->bases, r->p); // calculate PL of each genotype
