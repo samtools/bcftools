@@ -65,6 +65,10 @@ DEALINGS IN THE SOFTWARE.  */
 
 #define B2B_MAX_ALLELES 5
 
+#define B2B_DROP      0
+#define B2B_INC_AD    1
+#define B2B_INC_AD0   2
+
 #define PLP_HAS_SOFT_CLIP(i) ((i)&1)
 #define PLP_HAS_INDEL(i)     ((i)&2)
 #define PLP_SAMPLE_ID(i)     ((i)>>2)
@@ -74,7 +78,7 @@ DEALINGS IN THE SOFTWARE.  */
 #define PLP_SET_SAMPLE_ID(i,n)   ((i)|=(n)<<2)
 
 typedef struct __bcf_callaux_t {
-    int fmt_flag;
+    int fmt_flag, ambig_reads;
     int capQ, min_baseQ, max_baseQ, delta_baseQ;
     int openQ, extQ, tandemQ; // for indels
     uint32_t min_support, max_support; // for collecting indel candidates
