@@ -378,7 +378,22 @@ bcf1_t *process(bcf1_t *rec)
 
     if ( args->new_mask & GT_CUSTOM )
     {
-        if ( args->custom.ploidy > ngts ) error("todo: increasing ploidy\n");
+        if ( args->custom.ploidy > ngts ) // increased ploidy, expand the array
+        {
+            if ( args->mgts < args->custom.ploidy * rec->n_sample )
+            {
+                args->mgts = args->custom.ploidy * rec->n_sample;
+                args->gts  = (int32_t*)realloc(args->gts,args->mgts*sizeof(*args->gts));
+            }
+            for (i=0; i<rec->n_sample; i++)
+            {
+                int32_t *src = args->gts + (rec->n_sample-i-1)*ngts;
+                int32_t *dst = args->gts + (rec->n_sample-i-1)*args->custom.ploidy;
+                for (j=0; j<ngts; j++) dst[j] = src[j];
+                for (; j<args->custom.ploidy; j++) dst[j] = bcf_int32_vector_end;
+            }
+            ngts = args->custom.ploidy;
+        }
     }
 
     int nbinom = 0;
