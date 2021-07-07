@@ -1975,7 +1975,7 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
         ont	           -B -Q5 --max-BQ 30 -I
         pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
 
-*--ambiguous-reads* 'drop'|'incAD'|'incAD0'::
+*--ar, --ambig-reads* 'drop'|'incAD'|'incAD0'::
     What to do with ambiguous indel reads that do not span an entire
     short tandem repeat region: discard ambiguous reads from calling
     and do not increment high-quality AD depth counters ('drop'),
