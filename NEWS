@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.13 (7th July 2021)
+
+
 This release brings new options and significant changes in BAQ parametrization
 in `bcftools mpileup`. The previous behavior can be triggered by providing
 the `--config 1.12` option. Please see https://github.com/samtools/bcftools/pull/1474
