@@ -47,6 +47,7 @@
 
 #define USE_DNG    1     // DeNovoGear model
 #define USE_ACM    2     // the new "allele-centric model" which combines fixed DNG priors with allele centric approach
+#define USE_NAIVE  3     // a naive calling model based on observed GT
 
 // Logic of the filters: include or exclude sites which match the filters?
 #define FLT_INCLUDE 1
@@ -55,6 +56,14 @@
 #define iFATHER 0   // don't modify, QS calculations depend on this order!
 #define iMOTHER 1
 #define iCHILD  2
+
+// output tag type
+#define DNM_INT   (1<<0)
+#define DNM_FLOAT (1<<1)
+#define DNM_LOG   ((1<<2)|DNM_FLOAT)
+#define DNM_PHRED ((1<<3)|DNM_INT)
+#define DNM_PROB  ((1<<4)|DNM_FLOAT)
+#define DNM_FLAG  ((1<<5)|DNM_INT)
 
 typedef struct
 {
@@ -87,23 +96,25 @@ typedef struct
     trio_t *trio;
     int has_fmt_ad;
     int ntrio, mtrio;
-    int32_t *pl, *ad, *qs, *dnm_qual_int, *dnm_allele, *vaf;    // input FMT/PL, AD, QS values, output DNM and VAF
+    int32_t *pl,*ad,*qs,*gt, *dnm_qual_int, *dnm_allele, *vaf;    // input FMT/PL,AD,QS,GT values, output DNM and VAF
     float *dnm_qual_float;
-    int mpl, mad, mqs;
+    int mpl, mad, mqs, mgt;
     double min_score;
-    double *aprob;  // proband's allele probabilities
     double *pl3;    // normalized PLs converted to probs for iFATHER,iMOTHER,iCHILD
     double *qs3;    // QS converted to probs for iFATHER,iMOTHER,iCHILD
     int maprob, mpl3, mqs3, midx, *idx, force_ad, use_model;
-    char *dnm_score_tag,            // the argument of --use tag, by default DNM:log
+    double *alt_tmp;
+    int *alt_idx;
+    int malt_tmp, malt_idx;
+    char *dnm_score_tag,            // the argument of --dnm-tag, by default DNM:log
          *dnm_vaf_tag,
          *dnm_allele_tag;
-    int dnm_score_is_float;         // given by e.g. --use tag DNM:float
-    double mrate;                   // --use mrate, mutation rate
-    double pnoise_abs,pnoise_frac;  // --use pn|pnoise or --use pns
-    int pnoise_strict;              // set to 1 if pns was used or 0 if pn
-    int use_ppl, use_ppl_qs;        // --use ppl and --use ppl-qs
-    int use_dng_priors;             // --use dng-priors
+    int dnm_score_type;             // given by e.g. --dnm-tag DNM:log
+    double mrate;                   // --mrate, mutation rate
+    double pn_abs,pn_frac;          // --pn
+    double pns_abs,pns_frac;        // --pns
+    int use_ppl;                    // --ppl
+    int use_dng_priors;             // --dng-priors
     priors_t priors, priors_X, priors_XX;
 }
 args_t;
@@ -120,33 +131,41 @@ static const char *usage_text(void)
     return 
         "\n"
         "About: Screen variants for possible de-novo mutations in trios\n"
-        "Usage: bcftools +trio-dnm2 [Plugin Options]\n"
-        "Plugin options:\n"
+        "Usage: bcftools +trio-dnm2 [OPTIONS]\n"
+        "Common options:\n"
         "   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
-        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)\n"
-        "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
         "   -o, --output FILE               Output file name [stdout]\n"
         "   -O, --output-type <b|u|z|v>     b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
-        "   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
-        "   -u, --use OPTION[=VALUE]        Various options to tweak:\n"
-        "          DNG                         Use the original DeNovoGear model, implies -u dng-priors\n"
-        "          dng-priors                  Use the original DeNovoGear priors (including bugs in prior assignment)\n"
-        "          mrate=NUM                   Mutation rate [-u mrate=1e-8]\n"
-        "          pn=FRAC[,NUM]               Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [-u pn=0,0]\n"
-        "          pns=FRAC[,NUM]              Same as `pn` but is not applied to alleles observed in both parents [-u pns=0.045,0]\n"
-        "          ppl                         Use parental genotype likelihoods (FMT/PL rather than FMT/QS)\n"
-        "          tag=TAG[:phred|log]         Annotation to add, either as phred quality (int) or log-scaled (float) [-u tag=DNM:log]\n"
-        "          vaf=TAG                     The tag name for variant allele fraction annotation to add [VAF]\n"
-        "          va=TAG                      The tag name for variant allele annotation [VA]\n"
-        "   -X, --chrX LIST                 Regions with the chr X inheritance pattern or one of the predefined lists, exclude PARs [GRCh37]\n"
+        "\n"
+        "General options:\n"
+        "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
+        "   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; \"1X:\" for male pattern of chrX inheritance [2X:]\n"
+        "   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)\n"
+        "   -X, --chrX LIST                 List of regions with chrX inheritance pattern or one of the presets: [GRCh37]\n"
         "                                      GRCh37 .. X:1-60000,chrX:1-60000,X:2699521-154931043,chrX:2699521-154931043\n"
         "                                      GRCh38 .. X:1-9999,chrX:1-9999,X:2781480-155701381,chrX:2781480-155701381\n"
+        "       --dnm-tag TAG[:type]        Output tag with DNM quality score and its type [DNM:log]\n"
+        "                                       log   .. log-scaled quality (-inf,0; float)\n"
+        "                                       flag  .. is a DNM, implies --use-NAIVE (1; int)\n"
+        "                                       phred .. phred quality (0-255; int)\n"
+        "                                       prob  .. probability (0-1; float)\n"
+        "       --va TAG                    Output tag name for the variant allele [VA]\n"
+        "       --vaf TAG                   Output tag name for variant allele fraction [VAF]\n"
+        "\n"
+        "Model options:\n"
+        "       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)\n"
+        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
+        "       --mrate NUM                 Mutation rate [1e-8]\n"
+        "       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]\n"
+        "       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]\n"
+        "       --ppl                       Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
+        "       --use-DNG                   The original DeNovoGear model, implies --dng-priors\n"
+        "       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs\n"
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
@@ -162,7 +181,7 @@ static const char *usage_text(void)
         "   # command and should be on a single line. Also note that a filtering step is\n"
         "   # recommended, e.g. by depth and VAF (not shown here):\n"
         "   bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |\n"
-        "     bcftools call -mv -Ou |\n"
+        "       bcftools call -mv -Ou |\n"
         "       bcftools +trio-dnm2 -p proband,father,mother -Oz -o output.vcf.gz\n"
         "\n";
 }
@@ -247,6 +266,7 @@ static void parse_ped(args_t *args, char *fname)
 
 static const uint8_t seq1[10] = {0,1,1,2,2,2,3,3,3,3};
 static const uint8_t seq2[10] = {0,0,1,0,1,2,0,1,2,3};
+static const int8_t seq3[13]  = {-1,0,2,1,5,3,4,-1,9,6,7,-1,8};     // Lookup from (1<<ial)|(1<<jal) to iseq
 typedef enum { include_ref, only_alts } count_unique_t;
 static int count_unique_alleles(int ngt, int gt[3], count_unique_t count)
 {
@@ -582,14 +602,35 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
 }
 static void init_data(args_t *args)
 {
+    if ( !args->dnm_score_tag )
+    {
+        if ( args->use_model==USE_NAIVE ) args->dnm_score_tag = strdup("DNM:flag");
+        else args->dnm_score_tag = strdup("DNM:log");
+    }
     char *ptr = strchr(args->dnm_score_tag,':');
     if ( ptr )
     {
-        if ( ptr==args->dnm_score_tag ) error("Error: could not parse --use tag=%s\n",ptr);
+        if ( ptr==args->dnm_score_tag ) error("Error: could not parse --dnm-tag %s\n",ptr);
         *ptr = 0;
-        if ( !strcasecmp(ptr+1,"log") ) args->dnm_score_is_float = 1;
-        else if ( strcasecmp(ptr+1,"phred") ) error("Error: the type \"%s\" is not supported --use tag\n",ptr+1);
+        if ( !strcasecmp(ptr+1,"log") ) args->dnm_score_type = DNM_LOG;
+        else if ( !strcasecmp(ptr+1,"phred") ) args->dnm_score_type = DNM_PHRED;
+        else if ( !strcasecmp(ptr+1,"prob") ) args->dnm_score_type = DNM_PROB;
+        else if ( !strcasecmp(ptr+1,"flag") ) args->dnm_score_type = DNM_FLAG;
+        else error("Error: the type \"%s\" is not supported\n",ptr+1);
     }
+    else
+        args->dnm_score_type = DNM_LOG;
+    if ( args->dnm_score_type==DNM_FLAG )
+    {
+        if ( !args->use_model ) args->use_model = USE_NAIVE;
+        else if ( args->use_model!=USE_NAIVE ) error("The output type FLAG can be used only with --use-NAIVE\n");
+    }
+    if ( args->use_model==USE_NAIVE )
+    {
+        if ( !args->dnm_score_type ) args->dnm_score_type = DNM_FLAG;
+        else if ( args->dnm_score_type!=DNM_FLAG ) error("The output type FLAG is required with --use-NAIVE\n");
+    }
+    if ( !args->use_model ) args->use_model = USE_ACM;
 
     args->sr = bcf_sr_init();
     if ( args->regions )
@@ -604,26 +645,39 @@ static void init_data(args_t *args)
     if ( args->filter_str ) args->filter = filter_init(args->hdr, args->filter_str);
 
     int id;
-    if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
+    if ( args->use_model==USE_NAIVE  )
+    {
+        if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "GT"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
+            error("Error: the tag FORMAT/GT is not present in %s\n", args->fname);
+    }
+    else if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
         error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
-    if ( (args->use_model&USE_ACM) && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) && !args->use_ppl )
+    if ( (args->use_model==USE_ACM) && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) && !args->use_ppl )
         error(
             "Error:\n"
-            "   The FORMAT/QS tag is not present. If you want to proceed anyway, run with the `--use ppl`\n"
+            "   The FORMAT/QS tag is not present. If you want to proceed anyway, run with the `--ppl`\n"
             "   option at the cost of inflated false discovery rate. The QS annotation can be generated\n"
             "   at the mpileup step together with the AD annotation using the command\n"
             "       bcftools mpileup -a AD,QS -f ref.fa file.bam\n");   // Possible future todo: use AD as a proxy for QS?
-    if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "AD"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
-        fprintf(stderr, "Warning: the tag FORMAT/AD is not present in %s, the output tag FORMAT/VAF will not be added\n", args->fname);
-    else
-        args->has_fmt_ad = 1;
+    if ( args->use_model!=USE_NAIVE )
+    {
+        if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "AD"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
+            fprintf(stderr, "Warning: the tag FORMAT/AD is not present in %s, the output tag FORMAT/VAF will not be added\n", args->fname);
+        else
+            args->has_fmt_ad = 1;
+    }
 
     init_priors(args,&args->priors,autosomal);
     init_priors(args,&args->priors_X,chrX);
     init_priors(args,&args->priors_XX,chrXX);
 
     args->hdr_out = bcf_hdr_dup(args->hdr);
-    bcf_hdr_printf(args->hdr_out, "##FORMAT=<ID=%s,Number=1,Type=%s,Description=\"De-novo mutation score, bigger values = bigger confidence\">",args->dnm_score_tag,args->dnm_score_is_float?"Float":"Integer");
+    char *type = NULL;
+    if ( args->dnm_score_type==DNM_LOG ) type = "log scaled value (bigger value = bigger confidence)";
+    if ( args->dnm_score_type==DNM_PHRED ) type = "phred value (bigger value = bigger confidence)";
+    if ( args->dnm_score_type==DNM_PROB ) type = "probability";
+    if ( args->dnm_score_type==DNM_FLAG ) type = "1 for Mendelian-incompatible genotypes";
+    bcf_hdr_printf(args->hdr_out, "##FORMAT=<ID=%s,Number=1,Type=%s,Description=\"De-novo mutation score given as %s\">",args->dnm_score_tag,(args->dnm_score_type&DNM_INT)?"Integer":"Float",type);
     bcf_hdr_printf(args->hdr_out, "##FORMAT=<ID=%s,Number=1,Type=Integer,Description=\"The de-novo allele\">",args->dnm_allele_tag);
     if ( args->has_fmt_ad )
         bcf_hdr_printf(args->hdr_out, "##FORMAT=<ID=%s,Number=1,Type=Integer,Description=\"The percentage of ALT reads\">",args->dnm_vaf_tag);
@@ -678,7 +732,7 @@ static void init_data(args_t *args)
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
-    if ( args->dnm_score_is_float )
+    if ( args->dnm_score_type & DNM_FLOAT )
         args->dnm_qual_float = (float*) malloc(sizeof(*args->dnm_qual_float)*bcf_hdr_nsamples(args->hdr));
     else
         args->dnm_qual_int = (int32_t*) malloc(sizeof(*args->dnm_qual_int)*bcf_hdr_nsamples(args->hdr));
@@ -693,13 +747,15 @@ static void destroy_data(args_t *args)
     free(args->dnm_vaf_tag);
     free(args->dnm_allele_tag);
     free(args->pl3);
-    free(args->aprob);
+    free(args->alt_tmp);
+    free(args->alt_idx);
     free(args->idx);
     free(args->dnm_qual_int);
     free(args->dnm_qual_float);
     free(args->dnm_allele);
     free(args->vaf);
     free(args->trio);
+    free(args->gt);
     free(args->pl);
     free(args->ad);
     free(args->qs);
@@ -730,8 +786,7 @@ static inline double subtract_num_log(double a_num, double b_log)
 #endif
 static inline double subtract_log(double a_log, double b_log)
 {
-    if ( b_log==-HUGE_VAL ) return a_log;
-    return log(exp(a_log - b_log) - 1) + b_log;
+    return a_log + log(1 - exp(b_log - a_log));
 }
 static inline double sum_log(double a, double b)    // log(exp(a)+exp(b))
 {
@@ -762,11 +817,11 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                 {
                     int fals = (1<<fa)|(1<<fb);
                     double fpl;
-                    if ( args->use_ppl || args->use_ppl_qs ) fpl = pl[iFATHER][fi];
+                    if ( args->use_ppl ) fpl = pl[iFATHER][fi];
                     else
                     {
                         fpl = 0;
-                        for (i=0; i<4; i++)
+                        for (i=0; i<nals; i++)
                         {
                             if ( fals&(1<<i) )
                                 fpl += subtract_log(0,qs[iFATHER][i]);
@@ -783,11 +838,11 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                         {
                             int mals = (1<<ma)|(1<<mb);
                             double mpl = 0;
-                            if ( args->use_ppl || args->use_ppl_qs ) mpl = pl[iMOTHER][mi];
+                            if ( args->use_ppl ) mpl = pl[iMOTHER][mi];
                             else
                             {
                                 mpl = 0;
-                                for (i=0; i<4; i++)
+                                for (i=0; i<nals; i++)
                                 {
                                     if ( mals&(1<<i) )
                                         mpl += subtract_log(0,qs[iMOTHER][i]);
@@ -879,19 +934,13 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
 #endif
     return log2phred(subtract_log(0,max-sum));
 }
-static inline void qs_to_pl(args_t *args, double *qs, int nqs, double *pl, int npl)
+static int process_trio_naive(args_t *args, priors_t *priors, int nals, int32_t gts[3])
 {
-    int i,j,k  = 0;
-    double sum = 0;
-    for (i=0; i<nqs; i++) sum += qs[i];
-    for (i=0; i<nqs; i++)
-    {
-        for (j=0; j<=i; j++)
-        {
-            if ( i==j ) pl[k] += sum - qs[i];
-            k++;
-        }
-    }
+    int fi = seq3[gts[iFATHER]];
+    int mi = seq3[gts[iMOTHER]];
+    int ci = seq3[gts[iCHILD]];
+    assert( fi!=-1 && mi!=-1 && ci!=-1 );
+    return priors->denovo[fi][mi][ci];
 }
 static int test_filters(args_t *args, bcf1_t *rec)
 {
@@ -939,6 +988,243 @@ static int test_filters(args_t *args, bcf1_t *rec)
     for (i=0; i<args->ntrio; i++) args->trio[i].pass = 1;
     return 1;
 }
+static void many_alts_trim(args_t *args, int *_nals, double *pl[3], int *_npl, double *qs[3])
+{
+    assert(*_nals > 4);
+
+    // Find the most likely set of alleles from FORMAT/QS
+    int nals = *_nals;
+    hts_expand(int,nals,args->malt_idx,args->alt_idx);
+    hts_expand(double,nals,args->malt_tmp,args->alt_tmp);
+    hts_expand(double,10,args->malt_tmp,args->alt_tmp);
+    memset(args->alt_tmp,0,sizeof(*args->alt_tmp)*nals);
+    int i,j,k;
+    for (i=0; i<3; i++)
+        for (j=0; j<nals; j++) args->alt_tmp[j] += qs[i][j];
+
+    // sort in ascending order, make REF allele always come first; insertion sort
+    double *arr = args->alt_tmp;
+    int tmp, *idx = args->alt_idx;
+    for (i=0; i<nals; i++) idx[i] = i;
+    for (i=2; i<nals; i++)
+        for (j=i; j>1 && arr[idx[j]] < arr[idx[j-1]]; j--)
+            tmp = idx[j], idx[j] = idx[j-1], idx[j-1] = tmp;
+    
+    for (i=0; i<3; i++)
+    {
+        for (j=0; j<4; j++) args->alt_tmp[j] = qs[i][args->alt_idx[j]];
+        memcpy(qs[i],args->alt_tmp,4*sizeof(*args->alt_tmp));
+    }
+    for (i=0; i<3; i++)
+    {
+        for (j=0; j<4; j++)
+            for (k=0; k<=j; k++)
+            {
+                int idst = bcf_alleles2gt(j,k);
+                int isrc = bcf_alleles2gt(args->alt_idx[j],args->alt_idx[k]);
+                args->alt_tmp[idst] = pl[i][isrc];
+            }
+        memcpy(pl[i],args->alt_tmp,10*sizeof(*args->alt_tmp));
+    }
+    *_nals = 4;
+    *_npl  = 10;
+}
+static void many_alts_translate(args_t *args, int *al0, int *al1)
+{
+    *al0 = args->alt_idx[*al0];
+    *al1 = args->alt_idx[*al1];
+}
+static void set_trio_PL(args_t *args, trio_t *trio, double *ppl[3], int npl1)
+{
+    int j,k;
+    for (j=0; j<3; j++) // j loops over iFATHER,iMOTHER,iCHILD
+    {
+        int32_t *src = args->pl + npl1 * trio->idx[j];
+        double *dst = ppl[j] = args->pl3 + j*npl1;
+        double sum = 0;
+        for (k=0; k<npl1; k++) { dst[k] = phred2num(src[k]); sum += dst[k]; }
+        for (k=0; k<npl1; k++) dst[k] = log(dst[k]/sum);
+    }
+}
+static void set_trio_QS(args_t *args, trio_t *trio, double *pqs[3], int nqs1)
+{
+    int j,k;
+    for (j=0; j<3; j++) // j loops over iFATHER,iMOTHER,iCHILD
+    {
+        int32_t *qs = args->qs + nqs1 * trio->idx[j];
+        double *dst = pqs[j] = args->qs3 + j*nqs1;
+        for (k=0; k<nqs1; k++) dst[k] = phred2log(qs[k]);
+    }
+}
+static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nqs1, int n_ad)
+{
+    int32_t *ad_f = NULL, *ad_m = NULL;     // AD in father and mother
+
+    if ( n_ad && !args->pn_abs && !args->pns_abs && !args->pns_frac ) n_ad = 0;    // AD is not required
+    if ( n_ad )
+    {
+        // Noise tolerance will be applied only for alleles observed in a single parent (a possible mosaic
+        // variant in the parent) but not for alleles observed in both parents (likely an artefact)
+        ad_f = args->ad + n_ad * trio->idx[iFATHER];
+        ad_m = args->ad + n_ad * trio->idx[iMOTHER];
+    }
+
+    int j,k;
+    for (j=0; j<3; j++)
+    {
+        int32_t *ad = n_ad ? args->ad + n_ad * trio->idx[j] : NULL;
+        int32_t *qs = args->qs + nqs1 * trio->idx[j];
+        pqs[j] = args->qs3 + j*nqs1;
+        double pn = 0, pns = 0;
+        double sum_qs = 0, sum_ad = 0;
+        if ( (args->pn_frac || args->pns_frac) && j!=iCHILD )
+        {
+            for (k=0; k<nqs1; k++) sum_qs += qs[k];
+            pn  = sum_qs * args->pn_frac;
+            pns = sum_qs * args->pns_frac;
+            if ( n_ad )
+            {
+                // "absolute" threshold: find the average QS per read from AD and use that
+                // if bigger than the relative threshold
+                for (k=0; k<n_ad; k++) sum_ad += ad[k];
+                if ( pn  < args->pn_abs * sum_qs / sum_ad ) pn = args->pn_abs * sum_qs / sum_ad;
+                if ( pns < args->pns_abs * sum_qs / sum_ad ) pns = args->pns_abs * sum_qs / sum_ad;
+            }
+        }
+        // Reduce QS for all alleles to account for noise
+        for (k=0; k<nqs1; k++)
+        {
+            double val = qs[k];
+            if ( n_ad && (!ad_f[k] || !ad_m[k]) ) val -= pns;
+            else val -= pn;
+            if ( val < 0 ) val = 0;
+            pqs[j][k] = phred2log(val);
+        }
+#if 0
+        // The original code, don't like the capping at 255
+        // Reduce QS for all alleles to account for noise
+        for (k=0; k<nqs1; k++)
+        {
+            double val = qs[k];
+            if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
+            if ( val < 0 ) val = 0;
+            if ( val > 255 ) val = 255;
+            pqs[j][k] = phred2log(val);
+        }
+#endif
+#if 0
+        // None of this worked better
+        double max_qs = 0;
+        for (k=0; k<nqs1; k++)
+        {
+            double tmp = qs[k];
+            if ( max_qs < tmp ) max_qs = tmp;
+        }
+        for (k=0; k<nqs1; k++) 
+        {
+            // This uses absolute value of parental QS, does not regard the depth. The penalty is way too
+            // strict for high-coverage sites, random parental sequencing errors there are very likely.
+            // Puts trio-dnm.40.vcf at -24,-17, which is too strict.
+            //      pqs[j][k] = phred2log(qs[k]);   
+
+
+            // Proportions in log space are not well motivated and does not work well.
+            // Puts trio-dnm.40.vcf at -9,-13 which is too strict
+            //      pqs[j][k] = phred2log(255*(qs[k]/max_qs));
+
+            // This seems too lenient for 1/10 alts (-4.26326e-14) and feeds -inf,0,0 to everything.
+            //      double tmp = max_qs - qs[k];
+            //      pqs[j][k] = log(1 - exp(phred2log(tmp)));
+        }
+#endif
+    }
+}
+static int set_trio_GT(args_t *args, trio_t *trio, int32_t gts[3], int ngts)
+{
+    int j,k;
+    for (j=0; j<3; j++)     // iFATHER,iMOTHER,iCHILD
+    {
+        int32_t *src = args->gt + ngts * trio->idx[j];
+        for (k=0; k<ngts; k++)
+        {
+            if ( src[k]==bcf_int32_vector_end ) break;
+            if ( bcf_gt_is_missing(src[k]) ) return -1;
+            gts[j] |= 1<<bcf_gt_allele(src[k]);
+            assert(gts[j]>0 && gts[j]<13);
+        }
+        if ( !gts[j] ) return -1;
+    }
+    return 0;
+}
+static int set_trio_GT_many_alts(args_t *args, trio_t *trio, int32_t gts[3], int ngts, int nals)
+{
+    int i,j,k, nused = 0;
+    hts_expand(int,nals,args->malt_idx,args->alt_idx);
+    for (i=0; i<nals; i++) args->alt_idx[i] = -1;
+    for (j=0; j<3; j++)     // iFATHER,iMOTHER,iCHILD
+    {
+        int32_t *src = args->gt + ngts * trio->idx[j];
+        for (k=0; k<ngts; k++)
+        {
+            if ( src[k]==bcf_int32_vector_end ) break;
+            if ( bcf_gt_is_missing(src[k]) ) return -1;
+            int ial = bcf_gt_allele(src[k]);
+            if ( ial >= nals ) error("Error: FMT/GT contains incorrect allele \"%d\" at a site with %d alleles\n",ial,nals);
+            if ( args->alt_idx[ial]==-1 )
+            {
+                args->alt_idx[ial] = nused++;
+                if ( nused > 4 ) return -1;
+            }
+            gts[j] |= 1<<args->alt_idx[ial];
+            assert(gts[j]>0 && gts[j]<13);
+        }
+        if ( !gts[j] ) return -1;
+    }
+    return 0;
+}
+static void process_record_naive(args_t *args, bcf1_t *rec)
+{
+    int nsmpl = bcf_hdr_nsamples(args->hdr);
+    int ngts = bcf_get_genotypes(args->hdr,rec,&args->gt,&args->mgt);
+    if ( ngts<=0 || ngts==nsmpl )
+    {
+        if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        return;
+    }
+    ngts /= nsmpl;
+
+    if ( ngts!=2 ) error("todo: ploidy>2\n");
+
+    int is_chrX = 0;
+    if ( regidx_overlap(args->chrX_idx,bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen,NULL) ) is_chrX = 1;
+
+    int i, write_dnm = 0;
+    for (i=0; i<nsmpl; i++) args->dnm_qual_int[i] = bcf_int32_missing;
+    for (i=0; i<args->ntrio; i++)
+    {
+        if ( args->filter && !args->trio[i].pass ) continue;
+        
+        int32_t gts[3] = {0,0,0};
+        int ret = rec->n_allele<=4 ? set_trio_GT(args,&args->trio[i],gts,ngts) : set_trio_GT_many_alts(args,&args->trio[i],gts,ngts,rec->n_allele);
+        if ( ret<0 ) continue;
+
+        priors_t *priors;
+        if ( !is_chrX ) priors = &args->priors;
+        else if ( args->trio[i].is_male ) priors = &args->priors_X;
+        else priors = &args->priors_XX;
+
+        double is_dnm = process_trio_naive(args, priors, rec->n_allele, gts);
+        args->dnm_qual_int[ args->trio[i].idx[iCHILD] ] = is_dnm;
+        if ( is_dnm ) write_dnm = 1;
+    }
+    if ( write_dnm )
+    {
+        int ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_score_tag,args->dnm_qual_int,nsmpl);
+        if ( ret )
+            error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_score_tag, bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+    }
+    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+}
 static void process_record(args_t *args, bcf1_t *rec)
 {
     int skip_site = 0;
@@ -947,6 +1233,11 @@ static void process_record(args_t *args, bcf1_t *rec)
     if ( skip_site )
     {
         if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
+        return;
+    }
+    if ( args->use_model==USE_NAIVE )
+    {
+        process_record_naive(args, rec);
         return;
     }
 
@@ -979,7 +1270,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
 
     int nqs1 = 0;
-    if ( args->use_model&USE_ACM && !args->use_ppl )
+    if ( (args->use_model==USE_ACM && !args->use_ppl) || rec->n_allele > 4 )    // DNG does not use QS, but QS is needed when trimming ALTs
     {
         nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
         if ( nret<0 ) error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
@@ -991,8 +1282,8 @@ static void process_record(args_t *args, bcf1_t *rec)
     int is_chrX = 0;
     if ( regidx_overlap(args->chrX_idx,bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen,NULL) ) is_chrX = 1;
 
-    int i, j, k, al0, al1, write_dnm = 0, ad_set = 0;
-    if ( args->dnm_score_is_float )
+    int i, j, al0, al1, write_dnm = 0, ad_set = 0;
+    if ( args->dnm_score_type & DNM_FLOAT )
         for (i=0; i<nsmpl; i++) bcf_float_set_missing(args->dnm_qual_float[i]);
     else
         for (i=0; i<nsmpl; i++) args->dnm_qual_int[i] = bcf_int32_missing;
@@ -1003,75 +1294,36 @@ static void process_record(args_t *args, bcf1_t *rec)
 
         // Samples can be in any order in the VCF, set PL and QS to reflect the iFATHER,iMOTHER,iCHILD indices
         double *ppl[3];
+        set_trio_PL(args,&args->trio[i],ppl,npl1);
+
         double *pqs[3];
-        for (j=0; j<3; j++) // set trio PLs
-        {
-            int32_t *src = args->pl + npl1 * args->trio[i].idx[j];      // j loops over iFATHER,iMOTHER,iCHILD
-            double *dst = ppl[j] = args->pl3 + j*npl1;
-            double sum = 0;
-            for (k=0; k<npl1; k++) { dst[k] = phred2num(src[k]); sum += dst[k]; }
-            for (k=0; k<npl1; k++) dst[k] = log(dst[k]/sum);
-        }
-        if ( args->use_model&USE_ACM )   // set trio QS
-        {
-            int32_t *ad_f = NULL, *ad_m = NULL;
-            if ( args->pnoise_strict && args->ad )
-            {
-                // apply noise tolerance for alleles observed in a single parent only
-                ad_f = args->ad + n_ad * args->trio[i].idx[iFATHER];
-                ad_m = args->ad + n_ad * args->trio[i].idx[iMOTHER];
-            }
-            for (j=0; j<3; j++)
-            {
-                int32_t *ad = (args->pnoise_abs && args->ad ) ? args->ad + n_ad * args->trio[i].idx[j] : NULL;
-                int32_t *qs = args->qs + nqs1 * args->trio[i].idx[j];
-                pqs[j] = args->qs3 + j*nqs1;
-                double noise_tolerance = 0;
-                double sum_qs = 0, sum_ad = 0;
-                if ( j!=iCHILD )
-                {
-                    for (k=0; k<nqs1; k++) sum_qs += qs[k];
-                    noise_tolerance = sum_qs * args->pnoise_frac;
-                    if ( ad )
-                    {
-                        for (k=0; k<n_ad; k++) sum_ad += ad[k];
-                        if ( args->pnoise_abs )
-                        {
-                            if ( noise_tolerance < args->pnoise_abs * sum_qs / sum_ad )
-                                noise_tolerance = args->pnoise_abs * sum_qs / sum_ad;
-                        }
-                    }
-                }
-                for (k=0; k<nqs1; k++)
-                {
-                    double val = qs[k];
-                    if ( !args->pnoise_strict || !ad_f[k] || !ad_m[k] ) val -= noise_tolerance;
-                    if ( val < 0 ) val = 0;
-                    if ( val > 255 ) val = 255;
-                    pqs[j][k] = phred2log(val);
-                }
-            }
-            if ( args->use_ppl_qs )
-            {
-                qs_to_pl(args, pqs[iMOTHER], nqs1, ppl[iMOTHER], npl1);
-                qs_to_pl(args, pqs[iFATHER], nqs1, ppl[iFATHER], npl1);
-            }
-        }
+        if ( args->use_model==USE_ACM )
+            set_trio_QS_noisy(args,&args->trio[i],pqs,nqs1,n_ad);
+        else if ( rec->n_allele > 4 )       // DNG does not use QS, but QS is needed when trimming ALTs
+            set_trio_QS(args,&args->trio[i],pqs,nqs1);
+
         priors_t *priors;
         if ( !is_chrX ) priors = &args->priors;
         else if ( args->trio[i].is_male ) priors = &args->priors_X;
         else priors = &args->priors_XX;
 
+        int nals = rec->n_allele;
+        if ( rec->n_allele > 4 ) many_alts_trim(args, &nals,ppl,&npl1,pqs);
+
         double score;
-        if ( args->use_model==USE_ACM ) score = process_trio_ACM(args, priors, rec->n_allele, ppl, npl1, pqs, &al0, &al1);
-        else if ( args->use_model==USE_DNG ) score = process_trio_DNG(args, priors, rec->n_allele, ppl, npl1, &al0, &al1);
+        if ( args->use_model==USE_ACM ) score = process_trio_ACM(args, priors, nals, ppl, npl1, pqs, &al0, &al1);
+        else if ( args->use_model==USE_DNG ) score = process_trio_DNG(args, priors, nals, ppl, npl1, &al0, &al1);
         else error("Uh, this should not happen\n");
+
+        if ( rec->n_allele > 4 ) many_alts_translate(args, &al0, &al1);
 
         if ( score >= args->min_score )
         {
             write_dnm = 1;
-            if ( args->dnm_score_is_float )
+            if ( args->dnm_score_type==DNM_LOG )
                 args->dnm_qual_float[ args->trio[i].idx[iCHILD] ] = score==HUGE_VAL ? 0 : subtract_log(0,phred2log(score));
+            else if ( args->dnm_score_type==DNM_PROB )
+                args->dnm_qual_float[ args->trio[i].idx[iCHILD] ] = score==HUGE_VAL ? 1 : 1 - phred2num(score);
             else
             {
                 if ( score>255 ) score = 255;
@@ -1082,13 +1334,15 @@ static void process_record(args_t *args, bcf1_t *rec)
 
         if ( n_ad )
         {
-            if ( al0 < n_ad && al1 < n_ad )
+            if ( al1 < n_ad )
             {
                 ad_set = 1;
                 for (j=0; j<3; j++)
                 {
                     int32_t *src = args->ad + n_ad * args->trio[i].idx[j];
-                    args->vaf[ args->trio[i].idx[j] ] = src[al0]+src[al1] ? round(src[al1]*100./(src[al0]+src[al1])) : 0;
+                    int k, ad_sum = 0;
+                    for (k=0; k<rec->n_allele; k++) ad_sum += src[k];
+                    args->vaf[ args->trio[i].idx[j] ] = ad_sum ? round(src[al1]*100./ad_sum) : 0;
                 }
             }
             else
@@ -1098,7 +1352,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     if ( write_dnm )
     {
         int ret;
-        if ( args->dnm_score_is_float )
+        if ( args->dnm_score_type & DNM_FLOAT )
             ret = bcf_update_format_float(args->hdr_out,rec,args->dnm_score_tag,args->dnm_qual_float,nsmpl);
         else
             ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_score_tag,args->dnm_qual_int,nsmpl);
@@ -1118,6 +1372,12 @@ static void process_record(args_t *args, bcf1_t *rec)
 
 static void set_option(args_t *args, char *optarg)
 {
+    static int warn_deprecated = 1;
+    if  ( warn_deprecated )
+    {
+        fprintf(stderr,"Note: the `-u, --use` option will be deprecated in future releases.\n");
+        warn_deprecated = 0;
+    }
     char *tmp;
     char *opt = strdup(optarg);
     char *val = strchr(opt,'=');
@@ -1128,18 +1388,29 @@ static void set_option(args_t *args, char *optarg)
         args->mrate = strtod(val,&tmp);
         if ( *tmp ) error("Could not parse: -u %s\n", optarg);
     }
-    else if ( !strcasecmp(opt,"pn") || !strcasecmp(opt,"pnoise") || !strcasecmp(opt,"pns") )
+    else if ( !strcasecmp(opt,"pn") || !strcasecmp(opt,"pnoise") )
     {
         if ( !val ) error("Error: expected value with -u %s, e.g. -u %s=0.05\n",opt,opt);
-        args->pnoise_frac = strtod(val,&tmp);
+        args->pn_frac = strtod(val,&tmp);
         if ( *tmp && *tmp==',' )
         {
-            args->pnoise_abs = strtod(tmp+1,&tmp);
+            args->pn_abs = strtod(tmp+1,&tmp);
             if ( *tmp ) error("Could not parse: -u %s\n", optarg);
         }
-        if ( args->pnoise_frac<0 || args->pnoise_frac>1 ) error("Error: expected value from the interval [0,1] for -u %s\n", optarg);
-        if ( args->pnoise_abs<0 ) error("Error: expected positive value for -u %s\n", optarg);
-        args->pnoise_strict = !strcasecmp(opt,"pn") ? 0 : 1;
+        if ( args->pn_frac<0 || args->pn_frac>1 ) error("Error: expected value from the interval [0,1] for -u %s\n", optarg);
+        if ( args->pn_abs<0 ) error("Error: expected positive value for -u %s\n", optarg);
+    }
+    else if ( !strcasecmp(opt,"pns") )
+    {
+        if ( !val ) error("Error: expected value with -u %s, e.g. -u %s=0.05\n",opt,opt);
+        args->pns_frac = strtod(val,&tmp);
+        if ( *tmp && *tmp==',' )
+        {
+            args->pns_abs = strtod(tmp+1,&tmp);
+            if ( *tmp ) error("Could not parse: -u %s\n", optarg);
+        }
+        if ( args->pns_frac<0 || args->pn_frac>1 ) error("Error: expected value from the interval [0,1] for -u %s\n", optarg);
+        if ( args->pns_abs<0 ) error("Error: expected positive value for -u %s\n", optarg);
     }
     else if ( !strcasecmp(opt,"DNG") ) { args->use_model = USE_DNG; args->use_dng_priors = 1; }
     else if ( !strcasecmp(opt,"dng-priors") ) args->use_dng_priors = 1;
@@ -1170,20 +1441,28 @@ int run(int argc, char **argv)
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
-    args->dnm_score_tag  = strdup("DNM:phred");
     args->dnm_vaf_tag    = strdup("VAF");
     args->dnm_allele_tag = strdup("VA");
     args->mrate = 1e-8;
-    args->pnoise_frac   = 0.045;
-    args->pnoise_abs    = 0;
-    args->pnoise_strict = 1;
-    args->use_model = USE_ACM;
-    args->dnm_score_is_float = 1;
+    args->pn_frac   = 0.005;
+    args->pn_abs    = 0;
+    args->pns_frac  = 0.045;
+    args->pns_abs   = 0;
     static struct option loptions[] =
     {
-        {"chrX",required_argument,0,'X'},
         {"use",required_argument,0,'u'},
         {"force-AD",no_argument,0,1},
+        {"dnm-tag",required_argument,0,2},
+        {"va",required_argument,0,3},
+        {"vaf",required_argument,0,4},
+        {"dng-priors",no_argument,0,5},
+        {"mrate",required_argument,0,6},
+        {"pn",required_argument,0,7},
+        {"pns",required_argument,0,8},
+        {"use-DNG",no_argument,0,9},
+        {"ppl",no_argument,0,10},
+        {"use-NAIVE",no_argument,0,11},
+        {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
@@ -1203,9 +1482,37 @@ int run(int argc, char **argv)
     {
         switch (c) 
         {
-            case 'X': args->chrX_list_str = optarg; break;
-            case 'u': set_option(args,optarg);
             case  1 : args->force_ad = 1; break;
+            case  2 : free(args->dnm_score_tag); args->dnm_score_tag = strdup(optarg); break;
+            case  3 : free(args->dnm_allele_tag); args->dnm_allele_tag = strdup(optarg); break;
+            case  4 : free(args->dnm_vaf_tag); args->dnm_vaf_tag = strdup(optarg); break;
+            case  5 : args->use_dng_priors = 1; break;
+            case  6 : args->mrate = strtod(optarg,&tmp); if ( *tmp ) error("Could not parse: --mrate %s\n", optarg); break;
+            case  7 :
+                args->pn_frac = strtod(optarg,&tmp);
+                if ( *tmp && *tmp==',' )
+                {
+                    args->pn_abs = strtod(tmp+1,&tmp);
+                    if ( *tmp ) error("Could not parse: --pn %s\n", optarg);
+                }
+                if ( args->pn_frac<0 || args->pn_frac>1 ) error("Error: expected value from the interval [0,1] for --pn %s\n", optarg);
+                if ( args->pn_abs<0 ) error("Error: expected positive value for --pn %s\n", optarg);
+                break;
+            case 8 :
+                args->pns_frac = strtod(optarg,&tmp);
+                if ( *tmp && *tmp==',' )
+                {
+                    args->pns_abs = strtod(tmp+1,&tmp);
+                    if ( *tmp ) error("Could not parse: --pns %s\n", optarg);
+                }
+                if ( args->pns_frac<0 || args->pns_frac>1 ) error("Error: expected value from the interval [0,1] for --pns %s\n", optarg);
+                if ( args->pns_abs<0 ) error("Error: expected positive value for --pns %s\n", optarg);
+                break;
+            case 9  : args->use_model = USE_DNG; args->use_dng_priors = 1; break;
+            case 10 : args->use_ppl = 1; break;
+            case 11 : args->use_model = USE_NAIVE; break;
+            case 'X': args->chrX_list_str = optarg; break;
+            case 'u': set_option(args,optarg); break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

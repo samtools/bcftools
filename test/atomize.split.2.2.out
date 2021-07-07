@@ -2,7 +2,16 @@
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##contig=<ID=1,length=135006516>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Allelic Depth">
+##INFO=<ID=QS,Number=R,Type=Integer,Description="Allelic Quality Sum">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic Depth">
+##FORMAT=<ID=QS,Number=R,Type=Integer,Description="Allelic Quality Sum">
+##INFO=<ID=OLD_REC,Number=1,Type=String,Description="Original variant. Format: CHR|POS|REF|ALT|USED_ALT_IDX">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
-1	100	.	C	G	.	.	.	GT	./1
-1	100	.	CC	C	.	.	.	GT	1/.
-1	101	.	C	G	.	.	.	GT	./1
+1	50	.	A	.	.	.	.	.	.
+1	100	.	C	G	.	.	OLD_REC=1|100|CC|GG|1	GT	0/1
+1	101	.	C	G	.	.	OLD_REC=1|100|CC|GG|1	GT	0/1
+1	110	.	C	T,<*>	.	.	.	GT	0/1
+1	200	.	A	C	.	.	AD=1,3;QS=10,30;OLD_REC=1|200|AAA|AAC,CAC|2	GT:AD:QS	0/1:1,3:10,30
+1	202	.	A	C	.	.	AD=1,5;QS=10,50;OLD_REC=1|200|AAA|AAC,CAC|1,2	GT:AD:QS	1/1:1,5:10,50
+1	300	.	A	.	.	.	.	.	.

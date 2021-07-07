@@ -36,32 +36,36 @@ DEALINGS IN THE SOFTWARE.  */
 #define GL_TO_PL 2
 #define GP_TO_GT 3
 #define PL_TO_GL 4
+#define QRQA_TO_QS 5
 
 static int mode = 0, drop_source_tag = 0;
 static bcf_hdr_t *in_hdr, *out_hdr;
 static float *farr = NULL, thresh = 0.1;
 static int32_t *iarr = NULL;
-static int mfarr = 0, miarr = 0;
+static int32_t *iarr2 = NULL;
+static int32_t *iarr3 = NULL;
+static int mfarr = 0, miarr = 0, miarr2 = 0, miarr3 = 0;
 
 const char *about(void)
 {
-    return "Convert between similar tags, such as GL, PL and GP.\n";
+    return "Convert between similar tags, such as GL,PL,GP or QR,QA,QS.\n";
 }
 
 const char *usage(void)
 {
     return 
         "\n"
-        "About: Convert between similar tags, such as GL, PL and GP.\n"
+        "About: Convert between similar tags such as GL,PL,GP or QR,QA,QS.\n"
         "Usage: bcftools +tag2tag [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
         "Plugin options:\n"
-        "       --gp-to-gl           convert FORMAT/GP to FORMAT/GL\n"
-        "       --gp-to-gt           convert FORMAT/GP to FORMAT/GT by taking argmax of GP\n"
-        "       --gl-to-pl           convert FORMAT/GL to FORMAT/PL\n"
-        "       --pl-to-gl           convert FORMAT/PL to FORMAT/GL\n"
+        "       --GP-to-GL           convert FORMAT/GP to FORMAT/GL\n"
+        "       --GP-to-GT           convert FORMAT/GP to FORMAT/GT by taking argmax of GP\n"
+        "       --GL-to-PL           convert FORMAT/GL to FORMAT/PL\n"
+        "       --PL-to-GL           convert FORMAT/PL to FORMAT/GL\n"
+        "       --QR-QA-to-QS        convert FORMAT/QR,QA to FORMAT/QS\n"
         "   -r, --replace            drop the source tag\n"
         "   -t, --threshold <float>  threshold for GP to GT hard-call [0.1]\n"
         "\n"
@@ -85,9 +89,15 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     {
         {"replace",no_argument,NULL,'r'},
         {"gp-to-gl",no_argument,NULL,1},
+        {"GP-to-GL",no_argument,NULL,1},
         {"gl-to-pl",no_argument,NULL,2},
+        {"GL-to-PL",no_argument,NULL,2},
         {"gp-to-gt",no_argument,NULL,3},
+        {"GP-to-GT",no_argument,NULL,3},
         {"pl-to-gl",no_argument,NULL,4},
+        {"PL-to-GL",no_argument,NULL,4},
+        {"qr-qa-to-qs",no_argument,NULL,5},
+        {"QR-QA-to-QS",no_argument,NULL,5},
         {"threshold",required_argument,NULL,'t'},
         {NULL,0,NULL,0}
     };
@@ -102,6 +112,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             case  2 : src_tag = "GL"; mode = GL_TO_PL; src_type = BCF_HT_REAL; break;
             case  3 : src_tag = "GP"; mode = GP_TO_GT; src_type = BCF_HT_REAL; break;
             case  4 : src_tag = "PL"; mode = PL_TO_GL; src_type = BCF_HT_INT; break;
+            case  5 : src_tag = "QR"; mode = QRQA_TO_QS; src_type = BCF_HT_INT; break;
             case 'r': drop_source_tag = 1; break;
             case 't': thresh = atof(optarg); break;
             case 'h':
@@ -120,9 +131,19 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         init_header(out_hdr,drop_source_tag?"GL":NULL,BCF_HL_FMT,"##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred-scaled genotype likelihoods\">");
     else if ( mode==PL_TO_GL )
         init_header(out_hdr,drop_source_tag?"PL":NULL,BCF_HL_FMT,"##FORMAT=<ID=GL,Number=G,Type=Float,Description=\"Genotype likelihoods\">");
-    else if ( mode==GP_TO_GT ) {
+    else if ( mode==GP_TO_GT )
+    {
         if (thresh<0||thresh>1) error("--threshold must be in the range [0,1]: %f\n", thresh);
         init_header(out_hdr,drop_source_tag?"GP":NULL,BCF_HL_FMT,"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+    }
+    else if ( mode==QRQA_TO_QS )
+    {
+        if ( drop_source_tag )
+        {
+            bcf_hdr_remove(out_hdr,BCF_HL_FMT,"QR");
+            bcf_hdr_remove(out_hdr,BCF_HL_FMT,"QA");
+        }
+        bcf_hdr_append(out_hdr, "##FORMAT=<ID=QS,Number=R,Type=Integer,Description=\"Phred-score allele quality sum\">");
     }
 
     int tag_id;
@@ -130,6 +151,14 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
         error("The source tag does not exist: %s\n", src_tag);
     if ( bcf_hdr_id2type(in_hdr,BCF_HL_FMT,tag_id) != src_type )
         error("The source tag type does not match the VCF specification, expected Type=%s. Use `bcftools reheader` to fix.\n",src_type==BCF_HT_REAL?"Float":"Integer");
+    if ( mode==QRQA_TO_QS )
+    {
+        src_tag = "QA";
+        if ( (tag_id=bcf_hdr_id2int(in_hdr,BCF_DT_ID,src_tag))<0 || !bcf_hdr_idinfo_exists(in_hdr,BCF_HL_FMT,tag_id) )
+            error("The source tag does not exist: %s\n", src_tag);
+        if ( bcf_hdr_id2type(in_hdr,BCF_HL_FMT,tag_id) != src_type )
+            error("The source tag type does not match the VCF specification, expected Type=%s. Use `bcftools reheader` to fix.\n",src_type==BCF_HT_REAL?"Float":"Integer");
+    }
 
     return 0;
 }
@@ -246,6 +275,36 @@ bcf1_t *process(bcf1_t *rec)
         if ( drop_source_tag )
             bcf_update_format_float(out_hdr,rec,"GP",NULL,0);
     }
+    else if ( mode==QRQA_TO_QS )
+    {
+        int nals  = rec->n_allele;
+        int nsmpl = bcf_hdr_nsamples(in_hdr);
+
+        n = bcf_get_format_int32(in_hdr,rec,"QR",&iarr,&miarr);
+        if ( n<=0 ) return rec;
+        if ( n!=nsmpl ) error("Unexpected number of QR values at %s:%"PRIhts_pos"\n",bcf_seqname(in_hdr,rec),rec->pos+1);
+        if ( nals==1 )
+            bcf_update_format_int32(out_hdr,rec,"QS",iarr,nsmpl);
+        else
+        {
+            int n2 = bcf_get_format_int32(in_hdr,rec,"QA",&iarr2,&miarr2);
+            if ( n2<=0 ) return rec;
+            if ( n*(nals-1) != n2 ) error("Unexpected number of QR vs QA values at %s:%"PRIhts_pos"\n",bcf_seqname(in_hdr,rec),rec->pos+1);
+            hts_expand(int32_t,nsmpl*nals,miarr3,iarr3);
+            for (i=0; i<n; i++)
+            {
+                int j;
+                iarr3[i*nals] = iarr[i];
+                for (j=1; j<nals; j++) iarr3[i*nals+j] = iarr2[i*(nals-1)+j-1];
+            }
+            bcf_update_format_int32(out_hdr,rec,"QS",iarr3,nals*nsmpl);
+        }
+        if ( drop_source_tag )
+        {
+            bcf_update_format_int32(out_hdr,rec,"QR",NULL,0);
+            bcf_update_format_int32(out_hdr,rec,"QA",NULL,0);
+        }
+    }
     return rec;
 }
 
@@ -253,6 +312,8 @@ void destroy(void)
 {
     free(farr);
     free(iarr);
+    free(iarr2);
+    free(iarr3);
 }
 
 

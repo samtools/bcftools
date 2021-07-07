@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##INFO=<ID=XX,Number=1,Type=Float,Description="Added by +fill-tags expression XX:1=F_PASS(GT=\"alt\")">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3	S4	S5	S6	S7	S8	S9	S10
+1	3177144	.	G	T	45	PASS	XX=0	GT	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0
+1	3177144	.	G	T	45	PASS	XX=0.2	GT	1/0	1/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0
+1	3177144	.	G	T	45	PASS	XX=0.1	GT	1/1	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0	0/0
+1	3177144	.	G	T,C	45	PASS	XX=1	GT	1/0	1/0	1/0	1/0	1/0	1/0	1/0	1/0	1/0	1/0

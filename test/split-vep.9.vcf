@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1>
+##contig=<ID=2>
+##contig=<ID=20>
+##contig=<ID=X>
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+##INFO=<ID=BCSQ,Number=.,Type=String,Description="Local consequence annotation from BCFtools/csq, see http://samtools.github.io/bcftools/howtos/csq-calling.html for details. Format: Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change|POS(1-based)|AF">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	145075172	.	G	A	.	.	AF=1;BCSQ=intron|PDE4DIP||protein_coding||||111|2

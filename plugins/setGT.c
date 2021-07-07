@@ -54,6 +54,10 @@ typedef struct
     int tgt_mask, new_mask, new_gt;
     filter_t *filter;
     char *filter_str;
+    struct {
+        int m_allele, M_allele, *gt, *phased, ploidy;
+        char *gt_str;
+    } custom;
     int filter_logic;
     uint8_t *smpl_pass;
     double binom_val;
@@ -73,6 +77,11 @@ args_t *args = NULL;
 #define GT_ALL      (1<<6)
 #define GT_QUERY    (1<<7)
 #define GT_BINOM    (1<<8)
+#define GT_MINOR    (1<<9)
+#define GT_CUSTOM   (1<<10)
+
+#define MINOR_ALLELE -1
+#define MAJOR_ALLELE -2
 
 const char *about(void)
 {
@@ -91,9 +100,11 @@ const char *usage(void)
         "           q    .. select genotypes using -i/-e options\n"
         "       and the new genotype can be one of:\n"
         "           .    .. missing (\".\" or \"./.\", keeps ploidy)\n"
-        "           0    .. reference allele\n"
-        "           M    .. major allele\n"
-        "           p    .. phased genotype\n"
+        "           0    .. reference allele (e.g. 0/0 or 0, keeps ploidy)\n"
+        "           c:GT .. custom genotype (e.g. 0/0, 0, 0/1, m/M, overrides ploidy)\n"
+        "           m    .. minor (the second most common) allele (e.g. 1/1 or 1, keeps ploidy)\n"
+        "           M    .. major allele (e.g. 1/1 or 1, keeps ploidy)\n"
+        "           p    .. phase genotype (0/1 becomes 0|1)\n"
         "           u    .. unphase genotype and sort by allele (1|0 becomes 0/1)\n"
         "Usage: bcftools +setGT [General Options] -- [Plugin Options]\n"
         "Options:\n"
@@ -116,7 +127,10 @@ const char *usage(void)
         "   bcftools +setGT in.vcf -- -t ./x -n .\n"
         "\n"
         "   # set heterozygous genotypes to 0/0 if binom.test(nAlt,nRef+nAlt,0.5)<1e-3\n"
-        "   bcftools +setGT in.vcf -- -t \"b:AD<1e-3\" -n 0\n"  // todo: make -i/-e recognise something like is_het or gt="het" so that this can be generalized?
+        "   bcftools +setGT in.vcf -- -t \"b:AD<1e-3\" -n 0\n"
+        "\n"
+        "   # force unphased heterozygous genotype if binom.test(nAlt,nRef+nAlt,0.5)>0.1\n"
+        "   bcftools +setGT in.vcf -- -t ./x -n c:'m/M'\n"
         "\n";
 }
 
@@ -202,9 +216,11 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
             case 'n': args->new_mask = 0;
                 if ( strchr(optarg,'.') ) args->new_mask |= GT_MISSING;
                 if ( strchr(optarg,'0') ) args->new_mask |= GT_REF;
+                if ( strchr(optarg,'m') ) args->new_mask |= GT_MINOR;
                 if ( strchr(optarg,'M') ) args->new_mask |= GT_MAJOR;
                 if ( strchr(optarg,'p') ) args->new_mask |= GT_PHASED;
                 if ( strchr(optarg,'u') ) args->new_mask |= GT_UNPHASED;
+                if ( !strncmp(optarg,"c:",2) ) { args->new_mask |= GT_CUSTOM; args->custom.gt_str = optarg; }
                 if ( args->new_mask==0 ) error("Unknown parameter to --new-gt: %s\n", optarg);
                 break;
             case 't':
@@ -228,6 +244,40 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 
     if ( args->new_mask & GT_MISSING ) args->new_gt = bcf_gt_missing;
     if ( args->new_mask & GT_REF ) args->new_gt = args->new_mask&GT_PHASED ? bcf_gt_phased(0) : bcf_gt_unphased(0);
+    if ( args->new_mask & GT_CUSTOM )
+    {
+        char *ptr = args->custom.gt_str + 2;
+        while ( *ptr )
+        {
+            int allele;
+            if ( *ptr=='m' ) { allele = MINOR_ALLELE; args->new_mask |= GT_MINOR; }
+            else if ( *ptr=='M' ) { allele = MAJOR_ALLELE; args->new_mask |= GT_MAJOR; }
+            else if ( *ptr=='/' || *ptr=='|' )
+            {
+                if ( !args->custom.ploidy ) error("Could not parse the genotype: %s\n",args->custom.gt_str);
+                args->custom.phased[args->custom.ploidy-1] = *ptr=='|' ? 1 : 0;
+                ptr++;
+                continue;
+            }
+            else
+            {
+                char *end;
+                allele = strtol(ptr,&end,10);
+                if ( end==ptr || (*end && *end!='/' && *end!='|') ) error("Could not parse the genotype: %s\n",args->custom.gt_str);
+                ptr = end - 1;
+            }
+            args->custom.ploidy++;
+            args->custom.gt = realloc(args->custom.gt,sizeof(*args->custom.gt)*args->custom.ploidy);
+            args->custom.phased = realloc(args->custom.phased,sizeof(*args->custom.phased)*args->custom.ploidy);
+            args->custom.gt[args->custom.ploidy-1] = allele;
+            args->custom.phased[args->custom.ploidy-1] = 0;
+            ptr++;
+        }
+        // the phasing sign comes before the allele, move to the correct one
+        int i;
+        for (i=args->custom.ploidy-1; i>0; i--)
+            args->custom.phased[i] = args->custom.phased[i-1];
+    }
 
     if ( args->filter_str  && !(args->tgt_mask&GT_QUERY) ) error("Expected -tq with -i/-e\n");
     if ( !args->filter_str && args->tgt_mask&GT_QUERY ) error("Expected -i/-e with -tq\n");
@@ -286,6 +336,24 @@ static inline int set_gt(int32_t *ptr, int ngts, int gt)
     }
     return changed;
 }
+static inline int set_gt_custom(args_t *args, int32_t *ptr, int ngts, int nals)
+{
+    int i, changed = 0, new_allele = 0;
+    for (i=0; i<args->custom.ploidy; i++)
+    {
+        if ( args->custom.gt[i]==MINOR_ALLELE ) new_allele = args->custom.m_allele;
+        else if ( args->custom.gt[i]==MAJOR_ALLELE ) new_allele = args->custom.M_allele;
+        else new_allele = args->custom.gt[i];
+        if ( new_allele >= nals ) continue;
+        new_allele = args->custom.phased[i] ? bcf_gt_phased(new_allele) : bcf_gt_unphased(new_allele);
+        if ( ptr[i]==new_allele ) continue;
+        ptr[i] = new_allele;
+        changed = 1;
+    }
+    while ( i<ngts )
+        ptr[i++] = bcf_int32_vector_end;
+    return changed;
+}
 
 static inline double calc_binom(int na, int nb)
 {
@@ -308,6 +376,26 @@ bcf1_t *process(bcf1_t *rec)
     ngts /= rec->n_sample;
     int i, j, changed = 0;
 
+    if ( args->new_mask & GT_CUSTOM )
+    {
+        if ( args->custom.ploidy > ngts ) // increased ploidy, expand the array
+        {
+            if ( args->mgts < args->custom.ploidy * rec->n_sample )
+            {
+                args->mgts = args->custom.ploidy * rec->n_sample;
+                args->gts  = (int32_t*)realloc(args->gts,args->mgts*sizeof(*args->gts));
+            }
+            for (i=0; i<rec->n_sample; i++)
+            {
+                int32_t *src = args->gts + (rec->n_sample-i-1)*ngts;
+                int32_t *dst = args->gts + (rec->n_sample-i-1)*args->custom.ploidy;
+                for (j=0; j<ngts; j++) dst[j] = src[j];
+                for (; j<args->custom.ploidy; j++) dst[j] = bcf_int32_vector_end;
+            }
+            ngts = args->custom.ploidy;
+        }
+    }
+
     int nbinom = 0;
     if ( args->tgt_mask & GT_BINOM )
     {
@@ -318,15 +406,15 @@ bcf1_t *process(bcf1_t *rec)
     
     // Calculating allele frequency for each allele and determining major allele
     // only do this if use_major is true
-    int an = 0, maxAC = -1, majorAllele = -1;
     if ( args->new_mask & GT_MAJOR )
     {
+        int an = 0, maxAC = -1, majorAllele = -1;
         hts_expand(int,rec->n_allele,args->marr,args->arr);
         int ret = bcf_calc_ac(args->in_hdr,rec,args->arr,BCF_UN_FMT);
         if ( ret<= 0 )
             error("Could not calculate allele count at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
 
-        for(i=0; i < rec->n_allele; ++i)
+        for (i=0; i < rec->n_allele; ++i)
         {
             an += args->arr[i];
             if (args->arr[i] > maxAC)
@@ -338,6 +426,25 @@ bcf1_t *process(bcf1_t *rec)
 
         // replacing new_gt by major allele
         args->new_gt = args->new_mask & GT_PHASED ?  bcf_gt_phased(majorAllele) : bcf_gt_unphased(majorAllele);
+        if ( args->new_mask & GT_CUSTOM ) args->custom.M_allele = majorAllele;
+    }
+    if ( args->new_mask & GT_MINOR )
+    {
+        hts_expand(int,rec->n_allele,args->marr,args->arr);
+        int ret = bcf_calc_ac(args->in_hdr,rec,args->arr,BCF_UN_FMT);
+        if ( ret<= 0 )
+            error("Could not calculate allele count at %s:%"PRId64"\n", bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
+
+        int imax = 0;
+        for (i=1; i<rec->n_allele; i++)
+            if ( args->arr[imax] < args->arr[i] ) imax = i;
+        int imax2 = imax>0 ? 0 : (rec->n_allele>1 ? 1 : 0);
+        for (i=0; i<rec->n_allele; i++)
+            if ( i!=imax && args->arr[imax2] < args->arr[i] ) imax2 = i;
+
+        // replacing new_gt by major allele
+        args->new_gt = args->new_mask & GT_PHASED ?  bcf_gt_phased(imax2) : bcf_gt_unphased(imax2);
+        if ( args->new_mask & GT_CUSTOM ) args->custom.m_allele = imax2;
     }
 
     // replace gts
@@ -367,6 +474,8 @@ bcf1_t *process(bcf1_t *rec)
                 changed += unphase_gt(ptr, ngts);
             else if ( args->new_mask==GT_PHASED )
                 changed += phase_gt(ptr, ngts);
+            else if ( args->new_mask & GT_CUSTOM )
+                changed += set_gt_custom(args, ptr, ngts, rec->n_allele);
             else
                 changed += set_gt(ptr, ngts, args->new_gt);
         }
@@ -400,6 +509,8 @@ bcf1_t *process(bcf1_t *rec)
                 changed += unphase_gt(args->gts + i*ngts, ngts);
             else if ( args->new_mask==GT_PHASED )
                 changed += phase_gt(args->gts + i*ngts, ngts);
+            else if ( args->new_mask & GT_CUSTOM )
+                changed += set_gt_custom(args, args->gts + i*ngts, ngts, rec->n_allele);
             else
                 changed += set_gt(args->gts + i*ngts, ngts, args->new_gt);
         }
@@ -428,6 +539,8 @@ bcf1_t *process(bcf1_t *rec)
                 changed += unphase_gt(ptr, ngts);
             else if ( args->new_mask==GT_PHASED )
                 changed += phase_gt(ptr, ngts);
+            else if ( args->new_mask & GT_CUSTOM )
+                changed += set_gt_custom(args, args->gts + i*ngts, ngts, rec->n_allele);
             else
                 changed += set_gt(ptr, ngts, args->new_gt);
         }
@@ -440,6 +553,8 @@ bcf1_t *process(bcf1_t *rec)
 void destroy(void)
 {
     fprintf(stderr,"Filled %"PRId64" alleles\n", args->nchanged);
+    free(args->custom.gt);
+    free(args->custom.phased);
     free(args->binom_tag);
     if ( args->filter ) filter_destroy(args->filter);
     free(args->arr);

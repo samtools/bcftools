@@ -262,13 +262,13 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 
 *-T, --targets-file* \[&#94;]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
-    cannot be used in combination with *-t*.
+    cannot be used in combination with *-t*. 
++
+With the *call -C* 'alleles' command, third column of the targets file must
+be comma-separated list of alleles, starting with the reference allele.
+Note that the file must be compressed and indexed.
+Such a file can be easily created from a VCF using:
 
-    ::
-    With the *call -C* 'alleles' command, third column of the targets file must
-    be comma-separated list of alleles, starting with the reference allele.
-    Note that the file must be compressed and index.
-    Such a file can be easily created from a VCF using:
 ----
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
@@ -306,7 +306,6 @@ Add or remove annotations.
     # Sample annotation file with columns CHROM, POS, STRING_TAG, NUMERIC_TAG
     1  752566  SomeString      5
     1  798959  SomeOtherString 6
-    # etc.
 ----
 
 *--collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
@@ -335,6 +334,7 @@ Add or remove annotations.
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
+    To match the record also by ID, in addition to REF and ALT, use "~ID".
     +
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
@@ -380,8 +380,8 @@ Add or remove annotations.
 *-k, --keep-sites*::
     keep sites which do not pass *-i* and *-e* expressions instead of discarding them
 
-*-l, --merge-logic* 'tag':'first'|'append'|'append-missing'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
-    if multiple regions overlap a single record, the option defines how to treat multiple
+*-l, --merge-logic* 'tag:first'|'append'|'append-missing'|'unique'|'sum'|'avg'|'min'|'max'[,...]::
+    When multiple regions overlap a single record, this option defines how to treat multiple
     annotation values when setting 'tag' in the destination file: use the first encountered value ignoring
     the rest ('first'); append allowing duplicates ('append'); append even if the appended value is missing,
     i.e. is a dot ('append-missing'); append discarding duplicate values ('unique');
@@ -475,6 +475,10 @@ Add or remove annotations.
 
     # Annotate from a bed file (0-based coordinates, half-closed, half-open intervals)
     bcftools annotate -a annots.bed.gz -h annots.hdr -c CHROM,FROM,TO,TAG input.vcf
+
+    # Transfer the INFO/END tag, matching by POS,REF,ALT and ID. This example assumes
+    # that INFO/END is already present in the VCF header.
+    bcftools annotate -a annots.tab.gz  -c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
     # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html
 ----
@@ -750,12 +754,12 @@ are concatenated without being recompressed, which is very fast..
 *-c, --compact-PS*::
     Do not output PS tag at each site, only at the start of a new phase set block.
 
-*-d, --rm-dups* 'snps'|'indels'|'both'|'all'|'none'::
+*-d, --rm-dups* 'snps'|'indels'|'both'|'all'|'exact'::
     Output duplicate records of specified type present in multiple files only once.
     Requires *-a, --allow-overlaps*.
 
 *-D, --remove-duplicates*::
-    Alias for *-d none*
+    Alias for *-d exact*
 
 *-f, --file-list* 'FILE'::
     Read file names from 'FILE', one file name per line.
@@ -1143,10 +1147,11 @@ output VCF and are ignored for the prediction analysis.
 *-c, --custom-tag* 'STRING'::
     use this custom tag to store consequences rather than the default BCSQ tag
 
-*-b, --brief-predictions*::
-    annotate with abbreviated protein-changing predictions. That is, instead of writing
-    the whole modified protein sequence with potentially hundreds of aminoacids, only an
-    abbreviated version such as '25E..329>25G..94' will be written
+*-B, --trim-protein-seq* 'INT'::
+    abbreviate protein-changing predictions to maximum of INT aminoacids.
+    For example, instead of writing the whole modified protein sequence with potentially hundreds of
+    aminoacids, with *-B 1* only an abbreviated version such as '25E..329>25G..94' will be
+    written.
 
 *-e, --exclude* 'EXPRESSION'::
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
@@ -1782,6 +1787,19 @@ multiple regions and many alignment files are processed.
     being generated from the mapped position, the new mapping quality is
     about sqrt((INT-q)/INT)*INT. A zero value (the default) disables this functionality.
 
+*-D, --full-BAQ*::
+    Run the BAQ algorithm on all reads, not just those in problematic
+    regions.  This matches the behaviour for Bcftools 1.12 and earlier.
++
+By default mpileup uses heuristics to decide when to apply the BAQ
+algorithm.  Most sequences will not be BAQ adjusted, giving a CPU
+time closer to --no-BAQ, but it will still be applied in regions
+with suspected problematic alignments.  This has been tested to
+work well on single sample data with even allele frequency, but
+the reliability is unknown for multi-sample calling and for low
+allele frequency variants so full BAQ is still recommended in
+those scenarios.
+
 *-d, --max-depth* 'INT'::
     At a position, read maximally 'INT' reads per input file. Note that
     the original *samtools mpileup* command had a minimum value of '8000/n'
@@ -1832,6 +1850,12 @@ multiple regions and many alignment files are processed.
 *-Q, --min-BQ* 'INT'::
     Minimum base quality for a base to be considered [13]
 
+*    --max-BQ* 'INT'::
+    Caps the base quality to a maximum value [60].  This can be
+    particularly useful on technologies that produce overly optimistic
+    high qualities, leading to too many false positives or incorrect
+    genotype assignments.
+
 *-r, --regions* 'CHR'|'CHR:POS'|'CHR:FROM-TO'|'CHR:FROM-'[,...]::
     Only generate mpileup output in given regions. Requires the alignment files
     to be indexed.  If used in conjunction with -l then considers the intersection;
@@ -1870,6 +1894,8 @@ multiple regions and many alignment files are processed.
 *-x, --ignore-overlaps*::
     Disable read-pair overlap detection.
 
+*--seed* 'INT'::
+    Set the random number seed used when sub-sampling deep regions [0].
 
 ==== Output options
 
@@ -1923,7 +1949,39 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
+*-U, --mwu-u*::
+    The the previous Mann-Whitney U test score from version 1.12 and
+    earlier.  This is a probability score, but importantly it folds
+    probabilities above or below the desired score into the same P.
+    The new Mann-Whitney U test score is a "Z score", expressing the
+    score as the number of standard deviations away from the mean (with
+    zero being matching the mean).  It keeps both positive and
+    negative values.  This can be important for some tests where
+    errors are asymmetric.
+
+    This option changes the INFO field names produced back to the ones
+    used by the earlier Bcftools releases.  For excample BQBZ becomes
+    BQB.
+
 ==== Options for SNP/INDEL genotype likelihood computation
+
+*-X, --config* 'STR'::
+    Specify a platform specific configuration profile.  The profile
+    should be one of '1.12', 'illumina', 'ont' or 'pacbio-ccs'.
+    Settings applied are as follows:
+
+        1.12           -Q13 -h100 -m1
+        illumina       [ default values ]
+        ont	           -B -Q5 --max-BQ 30 -I
+        pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
+
+*--ar, --ambig-reads* 'drop'|'incAD'|'incAD0'::
+    What to do with ambiguous indel reads that do not span an entire
+    short tandem repeat region: discard ambiguous reads from calling
+    and do not increment high-quality AD depth counters ('drop'),
+    exclude from calling but increment AD counters proportionally ('incAD'),
+    exclude from calling and increment the first value of the AD counter
+    ('incAD0') ['drop']
 
 *-e, --ext-prob* 'INT'::
     Phred-scaled gap extension sequencing error probability. Reducing 'INT'
@@ -1934,7 +1992,25 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *-h, --tandem-qual* 'INT'::
     Coefficient for modeling homopolymer errors. Given an 'l'-long homopolymer
-    run, the sequencing error of an indel of size s is modeled as 'INT'*s/l [100]
+    run, the sequencing error of an indel of size s is modeled as 'INT'*s/l [500]
+    Increasing this informs the caller that indels in long
+    homopolymers are more likely genuine and less likely to be
+    sequencing artifacts.  Hence increasing tandem-qual will have
+    higher recall and lower precision.  Bcftools 1.12 and earlier had
+    a default of 100, which was tuned around more error prone instruments.
+    Note changing this may have a minor impact on SNP calling too.
+    For maximum SNP calling accuracy, it may be preferable to adjust
+    this lower again, although this will adversely affect indels.
+
+*--indel-bias* 'FLOAT'::
+    Skews the indel scores up or down, trading recall (low
+    false-negative) vs precision (low false-positive) [1.0].  In Bcftools
+    1.12 and earlier this parameter didn't exist, but had an implied
+    value of 1.0.  If you are planning to do heavy filtering of
+    variants, selecting the best quality ones only (favouring
+    precision over recall), it is advisable to set this lower (such as
+    0.75) while higher depth samples or where you favour recall rates
+    over precision may work better with a higher value such as 2.0.
 
 *-I, --skip-indels*::
     Do not perform INDEL calling
@@ -1944,6 +2020,14 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
 *-m, --min-ireads* 'INT'::
     Minimum number gapped reads for indel candidates 'INT' [1]
+
+*-M, --max-read-len* 'INT'::
+    The maximum read length permitted by the BAQ algorithm [500].
+    Variants are still called on longer reads, but they will not be
+    passed through the BAQ method.  This limit exists to prevent
+    excessively long BAQ times and high memory usage.  Note if partial
+    BAQ is enabled with '-D' then raising this parameter will likely
+    not have a significant a CPU cost.
 
 *-o, --open-prob* 'INT'::
     Phred-scaled gap open sequencing error probability. Reducing 'INT' leads
@@ -2293,7 +2377,7 @@ By default, appropriate system directories are searched for installed plugins.
     <http://samtools.github.io/bcftools/howtos/plugin.split-vep.html> for more.
 
 *tag2tag*::
-    convert between similar tags, such as GL and GP
+    Convert between similar tags, such as GL,PL,GP or QR,QA,QS.
 
 *trio-dnm2*::
     screen variants for possible de-novo mutations in trios
@@ -2528,7 +2612,7 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     bcftools view -i'GT="alt"' file.bcf -Ou | bcftools query -f'[%CHROM:%POS %SAMPLE %GT\n]'
 
     # Print phred-scaled binomial probability from FORMAT/AD tag for all heterozygous genotypes
-    bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %pbinom(AD)\n]' file.vcf
+    bcftools query -i'GT="het"' -f'[%CHROM:%POS %SAMPLE %GT %PBINOM(AD)\n]' file.vcf
 
     # Print the second value of AC field if bigger than 10. Note the (unfortunate) difference in
     # index subscript notation: formatting expressions (-f) uses "{}" while filtering expressions
@@ -2557,6 +2641,9 @@ Modify header of VCF/BCF files, change sample names.
     each on a separate line. If a sample name contains spaces, the
     spaces can be escaped using the backslash character, for example
     "Not\ a\ good\ sample\ name".
+
+*-T, --temp-prefix* 'PATH'::
+    template for temporary file names, used with *-f*
 
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*

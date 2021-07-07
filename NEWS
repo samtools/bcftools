@@ -1,5 +1,164 @@
-## Release 1.12 (17th March 2021)
+## Release 1.13 (7th July 2021)
 
+
+This release brings new options and significant changes in BAQ parametrization
+in `bcftools mpileup`. The previous behavior can be triggered by providing
+the `--config 1.12` option. Please see https://github.com/samtools/bcftools/pull/1474
+for details.
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* Improved build system
+
+
+Changes affecting specific commands:
+
+* bcftools annotate:
+
+    - Fix rare a bug when INFO/END is present, all INFO fields are removed
+      with `bcftools annotate -x INFO` and BCF output is produced. Then the
+      removed INFO/END continues to inform the end coordinate and causes
+      incorrect retrieval of records with the -r option (#1483)
+
+    - Support for matching annotation line by ID, in addition to CHROM,POS,REF,
+      and ALT (#1461)
+
+        bcftools annotate -a annots.tab.gz  -c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
+
+* bcftools csq:
+
+    - When GFF and VCF/fasta use a different chromosome naming convention
+     (e.g. chrX vs X), no consequences would be added. Newly the program
+     attempts to detect these differences and remove/add the "chr" prefix
+     to chromosome name to match the GFF and VCF/fasta (#1507)
+
+    - Parametrize brief-predictions parameter to allow explicit number of
+      aminoacids to be printed. Note that the `-b, --brief-predictions` option
+      is being replaced with `-B, --trim-protein-seq INT`
+
+* bcftools +fill-tags:
+
+    - Generalization and better support for custom functions that allow
+      adding new INFO tags based on arbitrary `-i, --include` type of 
+      expressions. For example, to calculate a missing INFO/DP annotation
+      from FORMAT/AD, it is possible to use:
+
+        -t 'DP:1=int(sum(FORMAT/AD))'
+
+      Here the optional ":1" part specifies that a single value will be
+      added (by default Number=. is used) and the optional int(...) adds
+      an integer value (by default Type=Float is used).
+
+    - When FORMAT/GT is not present, the INFO/AF tag will be newly calculated
+      from INFO/AC and INFO/AN.
+
+* bcftools gtcheck:
+
+    - Switch between FORMAT/GT or FORMAT/PL when one is (implicitly) requested
+      but only the other is available
+
+    - Improve diagnostics, printing warnings when a line cannot be matched and
+      the number of lines skipped for various reasons (#1444)
+
+    - Minor bug fix, with PLs being the default, the `--distinctive-sites` option
+      started to require explicit `--error-probability 0`
+
+* bcftools index:
+
+    - The program now accepts both data file name and the index file name. This
+      adds to user convenience when running index statistics (-n, -s)
+
+* bcftools isec:
+
+    - Always generate sites.txt with isec -p (#1462)
+
+* bcftools +mendelian:
+
+    - Consider only complete trios, do not crash on sample name typos (#1520)
+
+* bcftools mpileup:
+
+    - New `--seed` option for reproducibility of subsampling code in HTSlib
+
+    - The SCR annotation which shows the number of soft-clipped reads now
+      correctly pools reads together regardless of the variant type. Previously
+      only reads with indels were included at indel sites.
+
+    - Major revamp of BAQ. Please see https://github.com/samtools/bcftools/pull/1474
+      for details. The previous behavior can be triggered by providing the `--config 1.12`
+      option.
+
+    - Thanks to improvements in HTSlib, the removal of overlapping reads (which can
+      be disabled with the `-x, --ignore-overlaps` options) is not systematically biased
+      anymore (https://github.com/samtools/htslib/pull/1273)
+
+    - Modified scale of Mann-Whitney U tests. Newly INFO/*Z annotations will be printed,
+      for example MQBZ replaces MQB.
+
+* bcftools norm:
+
+    - Fix Type=Flag output in `norm --atomize` (#1472)
+
+    - Atomization must not discard ALT=. records
+
+    - Atomization of AD and QS tags now correctly updates occurrences of duplicate
+      alleles within different haplotypes
+    
+    - Fix a bug in atomization of Number=A,R tags
+
+* bcftools reheader:
+
+    - Add `-T, --temp-prefix` option
+
+* bcftools +setGT:
+
+    - A wider range of genotypes can be set by the plugin by allowing
+      specifying custom genotypes. For example, to force a heterozygous
+      genotype it is now possible to use expressions like:
+    
+        c:'m|M'
+        c:0/1
+        c:0
+
+* bcftools +split-vep:
+
+    - New `-u, --allow-undef-tags` option
+
+    - Better handling of ambiguous keys such as INFO/AF and CSQ/AD. The
+      `-p, --annot-prefix` option is now applied before doing anything else
+      which allows its use with `-f, --format` and `-c, --columns` options.
+    
+    - Some consequence field names may not constitute a valid tag name, such
+      as "pos(1-based)". Newly field names are trimmed to exclude brackets.
+
+* bcftools +tag2tag:
+
+    - New --QR-QA-to-QS option to convert annotations generated by Freebays
+      to QS used by BCFtools
+
+* bcftools +trio-dnm:
+
+    - Add support for sites with more than four alleles. Note that only the
+      four most frequent alleles are considered, the model remains unchanged.
+      Previously such sites were skipped.
+
+    - New --use-NAIVE option for a naive DNM calling based solely on FORMAT/GT
+      and expected Mendelian inheritance. This option is suitable for prefiltering.
+
+    - Fix behavior to match the documentation, the `--dnm-tag DNG` option now
+      correctly outputs log scaled values by default, not phred scaled.
+
+    - Fix bug in VAF calculation, homozygous de novo variants were incorrectly
+      reported as having VAF=50%
+
+    - Fix arithmetic underflow which could lead to imprecise scores and improve
+      sensitivity in high coverage regions
+
+    - Allow combining --pn and --pns to set the noise trehsholds independently
+
+
+## Release 1.12 (17th March 2021)
 
 Changes affecting the whole of bcftools, or multiple commands:
 

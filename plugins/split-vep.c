@@ -115,6 +115,7 @@ typedef struct
     col2type_t *column2type;
     int ncolumn2type;
     int raw_vep_request;        // raw VEP tag requested and will need subsetting
+    int allow_undef_tags;
 }
 args_t;
 
@@ -194,15 +195,16 @@ static const char *usage_text(void)
         "       --columns-types -|FILE      Pass \"-\" to print the default -c types or FILE to override the presets\n"
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
-        "   -f, --format <string>           Formatting expression for non-VCF/BCF output, same as `bcftools query -f`\n"
+        "   -f, --format STR                Formatting expression for non-VCF/BCF output, same as `bcftools query -f`\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
-        "   -p, --annot-prefix              Prefix of INFO annotations to be created after splitting the CSQ string\n"
+        "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
         "                                     TR, transcript:   worst,primary(*),all        [all]\n"
         "                                     CSQ, consequence: any,missense,missense+,etc  [any]\n"
         "                                     (*) Primary transcripts have the field \"CANONICAL\" set to \"YES\"\n"
         "   -S, --severity -|FILE           Pass \"-\" to print the default severity scale or FILE to override\n"
         "                                     the default scale\n"
+        "   -u, --allow-undef-tags          Print \".\" for undefined tags\n"
         "   -x, --drop-sites                Drop sites with none of the consequences matching the severity specified by -s.\n"
         "                                      This switch is intended for use with VCF/BCF output (i.e. -f not given).\n"
         "Common options:\n"
@@ -377,6 +379,16 @@ static int query_has_field(char *fmt, char *field, kstring_t *str)
     }
     return 1;
 }
+char *strdup_annot_prefix(args_t *args, const char *str)
+{
+    if ( !args->annot_prefix ) return strdup(str);
+    int str_len = strlen(str);
+    int prefix_len = strlen(args->annot_prefix);
+    char *out = calloc(str_len+prefix_len+1,1);
+    memcpy(out,args->annot_prefix,prefix_len);
+    memcpy(out+prefix_len,str,str_len);
+    return out;
+}
 static void init_data(args_t *args)
 {
     args->sr = bcf_sr_init();
@@ -402,18 +414,18 @@ static void init_data(args_t *args)
     while ( *ep )
     {
         char *bp = ep;
-        while ( *ep && *ep!='|' ) ep++;
+        while ( *ep && *ep!='|' && *ep!='"' && *ep!='(' ) ep++; // don't include bracket in "pos(1-based)"
         char tmp = *ep;
         *ep = 0;
         args->nfield++;
         args->field = (char**)realloc(args->field,args->nfield*sizeof(*args->field));
-        args->field[args->nfield-1] = strdup(bp);
+        args->field[args->nfield-1] = strdup_annot_prefix(args,bp);
         if ( !tmp ) break;
-        ep++;
+        *ep = tmp;
+        while ( *ep && *ep!='|' ) ep++;     // skip bracket in "pos(1-based)"
+        if ( *ep ) ep++;
     }
     if ( !args->nfield ) error("Could not parse Description of INFO/%s: %s\n", args->vep_tag,hrec->vals[ret]);
-    int len = strlen(args->field[args->nfield-1]);
-    if ( args->field[args->nfield-1][len-1]=='"' ) args->field[args->nfield-1][len-1] = 0;    // remove the trailing doublequote character
     args->field2idx = khash_str2int_init();
     int i,j;
     for (i=0; i<args->nfield; i++)
@@ -494,8 +506,13 @@ static void init_data(args_t *args)
     cols_destroy(cols);
 
     // The 'CANONICAL' column to look up severity, its name is hardwired for now
-    if ( args->select_tr==SELECT_TR_PRIMARY && khash_str2int_get(args->field2idx,"CANONICAL",&args->primary_id)!=0 )
-        error("The primary transcript was requested but the field \"CANONICAL\" is not present in INFO/%s: %s\n",args->vep_tag,hrec->vals[ret]);
+    if ( args->select_tr==SELECT_TR_PRIMARY )
+    {
+        char *tmp = strdup_annot_prefix(args,"CANONICAL");
+        if ( khash_str2int_get(args->field2idx,tmp,&args->primary_id)!=0 )
+            error("The primary transcript was requested but the field \"CANONICAL\" is not present in INFO/%s: %s\n",args->vep_tag,hrec->vals[ret]);
+        free(tmp);
+    }
 
     // Create a text output as with `bcftools query -f`. For this we need to determine the fields to be extracted
     // from the formatting expression
@@ -527,8 +544,10 @@ static void init_data(args_t *args)
     }
 
     // The "Consequence" column to look up severity, its name is hardwired for now
-    if ( khash_str2int_get(args->field2idx,"Consequence",&args->csq_idx)!=0 )
+    char *tmp = strdup_annot_prefix(args,"Consequence");
+    if ( khash_str2int_get(args->field2idx,tmp,&args->csq_idx)!=0 )
         error("The field \"Consequence\" is not present in INFO/%s: %s\n", args->vep_tag,hrec->vals[ret]);
+    free(tmp);
 
     // Columns to extract: given as names, 0-based indexes or ranges of indexes
     if ( args->column_str )
@@ -561,7 +580,8 @@ static void init_data(args_t *args)
                 ep = str.s; 
                 continue;
             }
-            if ( khash_str2int_get(args->field2idx, bp, &idx_beg)==0 )
+            char *tmp = strdup_annot_prefix(args, bp);
+            if ( khash_str2int_get(args->field2idx, bp, &idx_beg)==0 || khash_str2int_get(args->field2idx, tmp, &idx_beg)==0 )
                 idx_end = idx_beg;
             else if ( (tp=strrchr(bp,':')) )
             {
@@ -569,7 +589,9 @@ static void init_data(args_t *args)
                 if ( khash_str2int_get(args->field2idx, bp, &idx_beg)!=0 )
                 {
                     *tp = ':';
-                    error("No such column: \"%s\"\n", bp);
+                    tp = strrchr(tmp,':');
+                    *tp = 0;
+                    if ( khash_str2int_get(args->field2idx, tmp, &idx_beg)!=0 ) error("No such column: \"%s\"\n", bp);
                 }
                 idx_end = idx_beg;
                 *tp = ':';
@@ -599,6 +621,7 @@ static void init_data(args_t *args)
                     }
                     else if ( !strcmp(bp,args->vep_tag) )
                     {
+                        free(tmp);
                         args->raw_vep_request = 1;
                         if ( !keep ) break;
                         ep++;
@@ -608,6 +631,7 @@ static void init_data(args_t *args)
                         error("No such column: \"%s\"\n", bp);
                 }
             }
+            free(tmp);
 
             i = args->nannot;
             args->nannot += idx_end - idx_beg + 1;
@@ -624,18 +648,13 @@ static void init_data(args_t *args)
             ep++;
         }
         args->annot = (annot_t*)calloc(args->nannot,sizeof(*args->annot));
-        int len = args->annot_prefix ? strlen(args->annot_prefix) : 0;
         for (i=0; i<args->nannot; i++)
         {
             annot_t *ann = &args->annot[i];
             ann->type = types[i];
             ann->idx = j = column[i];
             ann->field = strdup(args->field[j]);
-            int clen = strlen(args->field[j]);
-            ann->tag = (char*)malloc(clen+len+1);
-            if ( len ) memcpy(ann->tag,args->annot_prefix,len);
-            memcpy(ann->tag+len,ann->field,clen);
-            ann->tag[len+clen] = 0;
+            ann->tag = strdup(args->field[j]);
             args->kstr.l = 0;
             const char *type = "String";
             if ( ann->type==BCF_HT_REAL ) type = "Float";
@@ -670,6 +689,7 @@ static void init_data(args_t *args)
         if ( !args->column_str && !args->select ) error("Error: No %s field selected in the formatting expression and -s not given: a typo?\n",args->vep_tag);
         args->convert = convert_init(args->hdr_out, NULL, 0, args->format_str);
         if ( !args->convert ) error("Could not parse the expression: %s\n", args->format_str);
+        if ( args->allow_undef_tags ) convert_set_option(args->convert, allow_undef_tags, 1);
     }
     if ( args->filter_str )
     {
@@ -1029,10 +1049,11 @@ int run(int argc, char **argv)
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
         {"no-version",no_argument,NULL,2},
+        {"allow-undef-tags",no_argument,0,'u'},
         {NULL,0,NULL,0}
     };
     int c;
-    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:x",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xu",loptions,NULL)) >= 0)
     {
         switch (c) 
         {
@@ -1052,6 +1073,7 @@ int run(int argc, char **argv)
             case 'S': args->severity = optarg; break;
             case 's': args->select = optarg; break;
             case 'l': args->list_hdr = 1; break;
+            case 'u': args->allow_undef_tags = 1; break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");
                 args->filter_str = optarg; args->filter_logic |= FLT_EXCLUDE; break;

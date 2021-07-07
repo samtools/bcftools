@@ -6,7 +6,7 @@
 ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
 ##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples with data">
 ##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
-##INFO=<ID=F_MISSING,Number=1,Type=Float,Description="Added by fill-tags, experimental">
+##INFO=<ID=F_MISSING,Number=.,Type=Float,Description="Added by +fill-tags expression F_MISSING=F_MISSING">
 ##INFO=<ID=AC_Hom,Number=A,Type=Integer,Description="Allele counts in homozygous genotypes">
 ##INFO=<ID=AC_Het,Number=A,Type=Integer,Description="Allele counts in heterozygous genotypes">
 ##INFO=<ID=AC_Hemi,Number=A,Type=Integer,Description="Allele counts in hemizygous genotypes">

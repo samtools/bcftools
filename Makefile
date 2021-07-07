@@ -1,6 +1,6 @@
 # Makefile for bcftools, utilities for Variant Call Format VCF/BCF files.
 #
-#   Copyright (C) 2012-2017 Genome Research Ltd.
+#   Copyright (C) 2012-2021 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -42,7 +42,7 @@ OBJS     = main.o vcfindex.o tabix.o \
            regidx.o smpl_ilist.o csq.o vcfbuf.o \
            mpileup.o bam2bcf.o bam2bcf_indel.o bam_sample.o \
            vcfsort.o cols.o extsort.o dist.o abuf.o \
-           ccall.o em.o prob1.o kmin.o
+           ccall.o em.o prob1.o kmin.o str_finder.o
 PLUGIN_OBJS = vcfplugin.o
 
 prefix      = /usr/local
@@ -104,7 +104,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.12
+PACKAGE_VERSION = 1.13
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
@@ -233,6 +233,7 @@ abuf_h = abuf.h $(htslib_vcf_h)
 bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
 bam_sample_h = bam_sample.h $(htslib_sam_h)
 
+str_finder.o: str_finder.h utlist.h
 main.o: main.c $(htslib_hts_h) config.h version.h $(bcftools_h)
 vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h) $(convert_h) $(smpl_ilist_h) regidx.h $(htslib_khash_h)
 vcfplugin.o: vcfplugin.c config.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h)
@@ -273,9 +274,9 @@ dist.o: dist.c dist.h
 cols.o: cols.c cols.h
 regidx.o: regidx.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) regidx.h
 consensus.o: consensus.c $(htslib_vcf_h) $(htslib_kstring_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) regidx.h $(bcftools_h) rbuf.h $(filter_h)
-mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) regidx.h $(bcftools_h) $(bam2bcf_h) $(bam_sample_h) $(gvcf_h)
+mpileup.o: mpileup.c $(htslib_sam_h) $(htslib_faidx_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(htslib_hts_os_h) regidx.h $(bcftools_h) $(bam2bcf_h) $(bam_sample_h) $(gvcf_h)
 bam2bcf.o: bam2bcf.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_kstring_h) $(htslib_kfunc_h) $(bam2bcf_h) mw.h
-bam2bcf_indel.o: bam2bcf_indel.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bam2bcf_h) $(htslib_ksort_h)
+bam2bcf_indel.o: bam2bcf_indel.c $(htslib_hts_h) $(htslib_sam_h) $(htslib_khash_str2int_h) $(bam2bcf_h) $(htslib_ksort_h) str_finder.h
 bam_sample.o: bam_sample.c $(htslib_hts_h) $(htslib_kstring_h) $(htslib_khash_str2int_h) $(khash_str2str_h) $(bam_sample_h) $(bcftools_h)
 version.o: version.h version.c
 hclust.o: hclust.c $(htslib_hts_h) $(htslib_kstring_h) $(bcftools_h) hclust.h
@@ -320,10 +321,10 @@ test/test-regidx: test/test-regidx.o regidx.o | $(HTSLIB)
 
 # make docs target depends the a2x asciidoc program
 doc/bcftools.1: doc/bcftools.txt
-	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format manpage bcftools.txt
+	cd doc && asciidoctor -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) -b manpage -a linkcss -a stylesheet=docbook-xsl.css bcftools.txt
 
 doc/bcftools.html: doc/bcftools.txt
-	cd doc && a2x -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) --doctype manpage --format xhtml bcftools.txt
+	cd doc && asciidoctor -adate="$(DOC_DATE)" -aversion=$(DOC_VERSION) -b html5 -a linkcss -a stylesheet=docbook-xsl.css bcftools.txt
 
 docs: doc/bcftools.1 doc/bcftools.html
 

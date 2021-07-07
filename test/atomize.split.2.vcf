@@ -1,6 +1,13 @@
 ##fileformat=VCFv4.3
 ##contig=<ID=1,length=135006516>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Allelic Depth">
+##INFO=<ID=QS,Number=R,Type=Integer,Description="Allelic Quality Sum">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic Depth">
+##FORMAT=<ID=QS,Number=R,Type=Integer,Description="Allelic Quality Sum">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
+1	50	.	A	.	.	.	.	.	.
 1	100	.	CC	GG	.	.	.	GT	0/1
 1	110	.	C	T,<*>	.	.	.	GT	0/1
+1	200	.	AAA	AAC,CAC	.	.	AD=1,2,3;QS=10,20,30	GT:AD:QS	1/2:1,2,3:10,20,30
+1	300	.	A	.	.	.	.	.	.

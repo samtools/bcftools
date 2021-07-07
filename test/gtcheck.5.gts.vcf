@@ -1,0 +1,15 @@
+##fileformat=VCFv4.2
+##reference=ref.fa
+##contig=<ID=1,assembly=b37,length=107349540>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Genotype Likelihoods">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
+1	3775163	.	T	A	.	.	.	GT	1/1
+1	3775163	.	T	C	.	.	.	GT	1/1
+1	3781099	.	T	.	.	.	.	GT	1/1
+1	3781105	.	G	C	.	.	.	GT	0/0
+1	3781111	.	G	C	.	.	.	GT	0/0
+1	3781602	.	A	T,C	.	.	.	GT	1/1
+1	3782656	.	A	T	.	.	.	GT	1/1
+1	3782657	.	A	T	.	.	.	GT	1/1
+1	3782658	.	A	T	.	.	.	.	.
