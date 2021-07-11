@@ -37,10 +37,10 @@
 11	201	.	C	G,*	.	.	OLD_REC=11|201|CC|GG,GT|1,2	GT	0	1	1	0
 11	202	.	C	G,*	.	.	OLD_REC=11|201|CC|GG,GT|1	GT	0	1	2	0
 11	202	.	C	T,*	.	.	OLD_REC=11|201|CC|GG,GT|2	GT	0	2	1	0
-12	101	rs101	G	C,*	199	flt	INDEL;AN=4;AC=4,.;DP=19;ISTR=SomeString;XRF=0,4,.;XRI=0,4,.;XAF=4,.;XAI=444,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|4	GT	0/2	2/0	0/0	0/1
-12	101	rs101	GCGT	G,*	199	flt	INDEL;AN=4;AC=1,.;DP=19;ISTR=SomeString;XRF=0,10,.;XRI=0,1111,.;XAF=10,.;XAI=1111,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|1	GT	0/1	1/2	2/2	2/2
-12	102	rs101	C	T,*	199	flt	INDEL;AN=4;AC=3,.;DP=19;ISTR=SomeString;XRF=0,300000,.;XRI=0,3333,.;XAF=3,.;XAI=33,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|3	GT	0/2	2/0	0/1	0/0
-12	104	rs101	T	A,*	199	flt	INDEL;AN=4;AC=2,.;DP=19;ISTR=SomeString;XRF=0,200,.;XRI=0,2222,.;XAF=200000,.;XAI=22,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|2,3	GT	0/2	2/1	1/1	1/0
-12	201	.	C	G,*	.	.	OLD_REC=12|201|CC|GG,GT|1,2	GT:FSTR:FFI:FFF:FAF:FAI:FRF:FRI:PL	0/0:xx:0:0:1.1,.:1,.:0,1.1,.:0,1,.:0,1,2,.,.,.	1:yy:11:1.1:1.1,.:1,.:0,1.1,.:0,1,.:0,2,.	1/1:zz:22:2.2:1.1,.:1,.:0,1.1,.:0,1,.:0,1,2,.,.,.	0:.:.:.:.,.:.,.:.:.:.
-12	202	.	C	G,*	.	.	OLD_REC=12|201|CC|GG,GT|1	GT:FSTR:FFI:FFF:FAF:FAI:FRF:FRI:PL	0/0:xx:0:0:1.1,.:1,.:0,1.1,.:0,1,.:0,1,2,.,.,.	1:yy:11:1.1:1.1,.:1,.:0,1.1,.:0,1,.:0,2,.	2/2:zz:22:2.2:1.1,.:1,.:0,1.1,.:0,1,.:0,1,2,.,.,.	0:.:.:.:.,.:.,.:.:.:.
-12	202	.	C	T,*	.	.	OLD_REC=12|201|CC|GG,GT|2	GT:FSTR:FFI:FFF:FAF:FAI:FRF:FRI:PL	0/0:xx:0:0:2.2,.:2,.:0,2.2,.:0,2,.:0,3,5,.,.,.	2:yy:11:1.1:2.2,.:2,.:0,2.2,.:0,2,.:0,5,.	1/1:zz:22:2.2:2.2,.:2,.:0,2.2,.:0,2,.:0,3,5,.,.,.	0:.:.:.:::.:.:.
+12	101	rs101	G	C,*	199	flt	INDEL;AN=4;AC=4,.;DP=19;ISTR=SomeString;XRF=0,4,.;XRI=0,4,.;XRS=000,xx,.;XAF=4,.;XAI=444,.;XAS=zzz,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|4	GT	0/2	2/0	0/0	0/1
+12	101	rs101	GCGT	G,*	199	flt	INDEL;AN=4;AC=1,.;DP=19;ISTR=SomeString;XRF=0,10,.;XRI=0,1111,.;XRS=000,AAA,.;XAF=10,.;XAI=1111,.;XAS=AAA,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|1	GT	0/1	1/2	2/2	2/2
+12	102	rs101	C	T,*	199	flt	INDEL;AN=4;AC=3,.;DP=19;ISTR=SomeString;XRF=0,300000,.;XRI=0,3333,.;XRS=000,DDD,.;XAF=3,.;XAI=33,.;XAS=xx,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|3	GT	0/2	2/0	0/1	0/0
+12	104	rs101	T	A,*	199	flt	INDEL;AN=4;AC=2,.;DP=19;ISTR=SomeString;XRF=0,200,.;XRI=0,2222,.;XRS=000,BBB,.;XAF=200000,.;XAI=22,.;XAS=DDD,.;OLD_REC=12|101|GCGT|G,GCGA,GTGA,CCGT|2,3	GT	0/2	2/1	1/1	1/0
+12	201	.	C	G,*	.	.	OLD_REC=12|201|CC|GG,GT|1,2	GT:FSTR:FFI:FFF:FAF:FAI:FAS:FRF:FRI:FRS:PL	0/0:xx:0:0:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	1:yy:11:1.1:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,2,.	1/1:zz:22:2.2:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	0:.:.:.:.,.:.,.:.,.:.:.:.,.,.:.
+12	202	.	C	G,*	.	.	OLD_REC=12|201|CC|GG,GT|1	GT:FSTR:FFI:FFF:FAF:FAI:FAS:FRF:FRI:FRS:PL	0/0:xx:0:0:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	1:yy:11:1.1:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,2,.	2/2:zz:22:2.2:1.1,.:1,.:a,.:0,1.1,.:0,1,.:a,b,.:0,1,2,.,.,.	0:.:.:.:.,.:.,.:.,.:.:.:.,.,.:.
+12	202	.	C	T,*	.	.	OLD_REC=12|201|CC|GG,GT|2	GT:FSTR:FFI:FFF:FAF:FAI:FAS:FRF:FRI:FRS:PL	0/0:xx:0:0:2.2,.:2,.:b,.:0,2.2,.:0,2,.:a,c,.:0,3,5,.,.,.	2:yy:11:1.1:2.2,.:2,.:b,.:0,2.2,.:0,2,.:a,c,.:0,5,.	1/1:zz:22:2.2:2.2,.:2,.:b,.:0,2.2,.:0,2,.:a,c,.:0,3,5,.,.,.	0:.:.:.:.,.:.,.:.,.:.:.:.,.,.:.
