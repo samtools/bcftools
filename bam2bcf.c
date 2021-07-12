@@ -337,10 +337,10 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
     // Compensate for AD not being counted on low quality REF indel matches.
     if ( r->ADF && bca->ambig_reads==B2B_INC_AD0 )
     {
-        for (i=0; i<4; i++) // verify: are the counters ever non-zero for i!=0?
+        for (i=0; i<4; i++)
         {
-            r->ADR[i] += ADR_ref_missed[i];
-            r->ADF[i] += ADF_ref_missed[i];
+            r->ADR[0] += ADR_ref_missed[i];
+            r->ADF[0] += ADF_ref_missed[i];
         }
     }
     else if ( r->ADF && bca->ambig_reads==B2B_INC_AD )
