@@ -283,6 +283,11 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( !args->filter_str && args->tgt_mask&GT_QUERY ) error("Expected -i/-e with -tq\n");
     if ( args->filter_str ) args->filter = filter_init(in,args->filter_str);
 
+    // Check the existence of FORMAT/GT tag, add it if not present
+    int id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
+    if ( !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
+        bcf_hdr_printf(args->out_hdr, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+
     return 0;
 }
 
@@ -546,7 +551,11 @@ bcf1_t *process(bcf1_t *rec)
         }
     }
     args->nchanged += changed;
-    if ( changed ) bcf_update_genotypes(args->out_hdr, rec, args->gts, ngts*rec->n_sample);
+    if ( changed )
+    {
+        int ret = bcf_update_genotypes(args->out_hdr, rec, args->gts, ngts*rec->n_sample);
+        if ( ret!=0 ) error("Error: failed to update genotypes at %s:%"PRIhts_pos"\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
+    }
     return rec;
 }
 
