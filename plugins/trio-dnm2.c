@@ -84,7 +84,7 @@ priors_t;
 
 typedef struct
 {
-    int argc, filter_logic, regions_is_file, targets_is_file, output_type;
+    int argc, filter_logic, regions_is_file, targets_is_file, output_type, record_cmd_line;
     char *filter_str;
     filter_t *filter;
     char **argv, *ped_fname, *pfm, *output_fname, *fname, *regions, *targets;
@@ -141,6 +141,7 @@ static const char *usage_text(void)
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
+        "       --no-version                Do not append version and command line to the header\n"
         "\n"
         "General options:\n"
         "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
@@ -727,6 +728,9 @@ static void init_data(args_t *args)
     }
     args->chrX_idx = regidx_init_string(rmme, regidx_parse_reg, NULL, 0, NULL);
     free(rmme);
+
+    if ( args->record_cmd_line )
+        bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_trio-dnm2");
 
     args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
@@ -1448,6 +1452,7 @@ int run(int argc, char **argv)
     args->pn_abs    = 0;
     args->pns_frac  = 0.045;
     args->pns_abs   = 0;
+    args->record_cmd_line = 1;
     static struct option loptions[] =
     {
         {"use",required_argument,0,'u'},
@@ -1462,6 +1467,7 @@ int run(int argc, char **argv)
         {"use-DNG",no_argument,0,9},
         {"ppl",no_argument,0,10},
         {"use-NAIVE",no_argument,0,11},
+        {"no-version",no_argument,NULL,12},
         {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
         {"include",required_argument,0,'i'},
@@ -1511,6 +1517,7 @@ int run(int argc, char **argv)
             case 9  : args->use_model = USE_DNG; args->use_dng_priors = 1; break;
             case 10 : args->use_ppl = 1; break;
             case 11 : args->use_model = USE_NAIVE; break;
+            case 12 : args->record_cmd_line = 0; break;
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg); break;
             case 'e':
