@@ -108,7 +108,7 @@ bcf1_t *process(bcf1_t *rec)
         for (i=0; i<args->ndat; i++)
         {
             dat_t *dat = &args->dat[i];
-            if ( dat->ploidy!=0 ) printf("%s\t%s\t%d\t%d\t%d\n", dat->sample,bcf_seqname(args->hdr,rec),dat->beg+1,dat->end+1,dat->ploidy); 
+            if ( dat->ploidy!=0 ) printf("%s\t%s\t%d\t%d\t%d\n", dat->sample,bcf_hdr_id2name(args->hdr, args->rid),dat->beg+1,dat->end+1,dat->ploidy);
             dat->ploidy = 0;
         }
     }
