@@ -119,13 +119,12 @@ bcf1_t *process(bcf1_t *rec)
         for (i=0; i<rec->n_sample; i++) \
         { \
             type_t *p = (type_t*) (fmt_gt->p + i*fmt_gt->size); \
-            int nal, missing = 0; \
+            int nal = 0; \
             for (nal=0; nal<fmt_gt->n; nal++) \
             { \
                 if ( p[nal]==vector_end ) break; /* smaller ploidy */ \
-                if ( bcf_gt_is_missing(p[nal]) ) { missing=1; break; } /* missing allele */ \
             } \
-            if ( !nal || missing ) continue; /* missing genotype */ \
+            if ( !nal ) continue; /* missing genotype */ \
             dat_t *dat = &args->dat[i]; \
             if ( dat->ploidy==nal ) \
             { \
