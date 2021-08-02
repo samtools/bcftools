@@ -113,7 +113,7 @@ typedef struct
     double mrate;                   // --mrate, mutation rate
     double pn_abs,pn_frac;          // --pn
     double pns_abs,pns_frac;        // --pns
-    int use_ppl;                    // --ppl
+    int use_ppl, use_pad;           // --with-pPL or --with-pAD
     int use_dng_priors;             // --dng-priors
     priors_t priors, priors_X, priors_XX;
 }
@@ -155,18 +155,19 @@ static const char *usage_text(void)
         "                                       flag  .. is a DNM, implies --use-NAIVE (1; int)\n"
         "                                       phred .. phred quality (0-255; int)\n"
         "                                       prob  .. probability (0-1; float)\n"
+        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "       --va TAG                    Output tag name for the variant allele [VA]\n"
         "       --vaf TAG                   Output tag name for variant allele fraction [VAF]\n"
         "\n"
         "Model options:\n"
         "       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)\n"
-        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "       --mrate NUM                 Mutation rate [1e-8]\n"
         "       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]\n"
         "       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]\n"
-        "       --ppl                       Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
         "       --use-DNG                   The original DeNovoGear model, implies --dng-priors\n"
         "       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs\n"
+        "       --with-pAD                  Do not use FMT/QS but parental FMT/AD\n"
+        "       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
@@ -653,19 +654,21 @@ static void init_data(args_t *args)
     }
     else if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
         error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
-    if ( (args->use_model==USE_ACM) && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) && !args->use_ppl )
+    if ( (args->use_model==USE_ACM) && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) && !args->use_ppl && !args->use_pad )
         error(
             "Error:\n"
-            "   The FORMAT/QS tag is not present. If you want to proceed anyway, run with the `--ppl`\n"
-            "   option at the cost of inflated false discovery rate. The QS annotation can be generated\n"
-            "   at the mpileup step together with the AD annotation using the command\n"
+            "   The FORMAT/QS tag is not present. If you want to proceed anyway, add either `--with-pAD` or\n"
+            "   `--with-pPL` option, the latter at the cost of inflated false discovery rate. The QS annotation\n"
+            "    can be generated at the mpileup step together with the AD annotation using the command\n"
             "       bcftools mpileup -a AD,QS -f ref.fa file.bam\n");   // Possible future todo: use AD as a proxy for QS?
-    if ( args->use_model!=USE_NAIVE )
+    if ( args->use_model!=USE_NAIVE || args->use_pad )
     {
         if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "AD"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
             fprintf(stderr, "Warning: the tag FORMAT/AD is not present in %s, the output tag FORMAT/VAF will not be added\n", args->fname);
         else
             args->has_fmt_ad = 1;
+        if ( args->use_pad && !args->has_fmt_ad )
+            error("Error: no FORMAT/AD is present in %s, cannot run with --with-pAD\n", args->fname);
     }
 
     init_priors(args,&args->priors,autosomal);
@@ -1273,12 +1276,28 @@ static void process_record(args_t *args, bcf1_t *rec)
         error("todo: not a diploid site at %s:%"PRId64": %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_allele,npl1);
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
 
-    int nqs1 = 0;
-    if ( (args->use_model==USE_ACM && !args->use_ppl) || rec->n_allele > 4 )    // DNG does not use QS, but QS is needed when trimming ALTs
+    int i,j, nqs1 = 0;
+    if ( (args->use_model==USE_ACM && !args->use_ppl) || rec->n_allele > 4 || args->use_pad )    // DNG does not use QS, but QS is needed when trimming ALTs
     {
-        nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
-        if ( nret<0 ) error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-        if ( nret != nsmpl * rec->n_allele ) error("Error: incorrect number of FMT/QS values at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        if ( args->use_pad )
+        {
+            if ( n_ad==0 ) return;
+
+            // fake QS from AD assuming average BQ=30
+            nret = n_ad * nsmpl;
+            hts_expand(int32_t,nret,args->mqs,args->qs);
+            for (i=0; i<nret; i++)
+            {
+                if ( args->ad[i]==bcf_int32_missing || args->ad[i]==bcf_int32_vector_end ) args->qs[i] = args->ad[i];
+                else args->qs[i] = 30 * args->ad[i];
+            }
+        }
+        else
+        {
+            nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
+            if ( nret<0 ) error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+            if ( nret != nsmpl * rec->n_allele ) error("Error: incorrect number of FMT/QS values at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        }
         nqs1 = nret<=0 ? 0 : nret/nsmpl;
         hts_expand(double,3*nqs1,args->mqs3,args->qs3);
     }
@@ -1286,7 +1305,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     int is_chrX = 0;
     if ( regidx_overlap(args->chrX_idx,bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen,NULL) ) is_chrX = 1;
 
-    int i, j, al0, al1, write_dnm = 0, ad_set = 0;
+    int al0, al1, write_dnm = 0, ad_set = 0;
     if ( args->dnm_score_type & DNM_FLOAT )
         for (i=0; i<nsmpl; i++) bcf_float_set_missing(args->dnm_qual_float[i]);
     else
@@ -1466,8 +1485,12 @@ int run(int argc, char **argv)
         {"pns",required_argument,0,8},
         {"use-DNG",no_argument,0,9},
         {"ppl",no_argument,0,10},
+        {"with-pPL",no_argument,0,10},
+        {"with-ppl",no_argument,0,10},
         {"use-NAIVE",no_argument,0,11},
         {"no-version",no_argument,NULL,12},
+        {"with-pAD",no_argument,0,13},
+        {"with-pad",no_argument,0,13},
         {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
         {"include",required_argument,0,'i'},
@@ -1518,6 +1541,7 @@ int run(int argc, char **argv)
             case 10 : args->use_ppl = 1; break;
             case 11 : args->use_model = USE_NAIVE; break;
             case 12 : args->record_cmd_line = 0; break;
+            case 13 : args->use_pad = 1; break;
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg); break;
             case 'e':
