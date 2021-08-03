@@ -224,7 +224,12 @@ static void init_data(args_t *args)
     const char *tmp = hts_bcf_wmode2(args->output_type,args->fn_out);
     char modew[8];
     strcpy(modew,tmp);
-    if (args->clevel >= 0 && args->clevel <= 9) sprintf(modew + 1, "%d", args->clevel);
+    if (args->clevel >= 0 && args->clevel <= 9)
+    {
+        if ( !strchr(modew,'z') && !strchr(modew,'b') ) strcat(modew,"z");
+        int len = strlen(modew);
+        sprintf(modew + len, "%s%d", tmp, args->clevel);
+    }
     args->out = hts_open(args->fn_out ? args->fn_out : "-", modew);
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
     if ( args->n_threads > 0)
