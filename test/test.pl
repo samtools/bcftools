@@ -1653,15 +1653,13 @@ sub test_csq_real
         opendir(my $tmp,"$dirname/$dir") or error("opendir: $dirname/$dir: $!");
         while (my $file=readdir($tmp))
         {
-            my $cmd = undef;
-            
             if ( $file=~/\.vcf$/ )
             {
                 my $bname = $`;
                 my $vcf   = "$dirname/$dir/$file";
                 my $out   = "$args{in}/$dir/$bname.txt";
                 my $outl  = "$args{in}/$dir/$bname.txt-l";
-
+                my $cmd   = undef;
                 my @nsmpl = `$$opts{bin}/bcftools query -l $vcf`;
                 if ( !@nsmpl )
                 {
@@ -1683,7 +1681,8 @@ sub test_csq_real
             }
             if ( $file=~/\.cmd$/ )
             {
-                chomp(my $cmd = (`cat $dirname/$dir/$file`)[0]);
+                my @cmd = grep { chomp } `cat $dirname/$dir/$file | grep -v ^#`;
+                my $cmd = join(' ; ', @cmd);
                 $cmd =~ s/{bin}/$$opts{bin}/g;
                 test_cmd($opts,%args,out=>"$args{in}/$dir/$file.out",cmd=>"cd $dirname/$dir && $cmd");
             }

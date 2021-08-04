@@ -2991,8 +2991,13 @@ void hap_finalize(args_t *args, hap_t *hap)
                         if ( ibeg==-1 ) ibeg = i;
                         continue;
                     }
+                    // the last base of the current variant vs the first base of the next
+                    // variant: are they in the same codon? (forward strand)
                     int icur  = node2sbeg(i);
                     int inext = node2sbeg(i+1);
+                    if ( hap->stack[i].node->dlen > 0 ) icur += hap->stack[i].node->dlen - 1;
+                    else if ( hap->stack[i].node->dlen < 0 ) icur -= hap->stack[i].node->dlen;
+                    if ( hap->stack[i-1].node->dlen > 0 ) inext -= hap->stack[i-1].node->dlen;
                     if ( icur/3 == inext/3 )    // in the same codon, can't be flushed yet
                     {
                         if ( ibeg==-1 ) ibeg = i;
@@ -3045,8 +3050,13 @@ void hap_finalize(args_t *args, hap_t *hap)
                         if ( ibeg==-1 ) ibeg = i;
                         continue;
                     }
+                    // the last base of the current variant vs the first base of the next
+                    // variant: are they in the same codon? (reverse strand)
                     int icur  = sseq.m - 1 - node2sbeg(i);
                     int inext = sseq.m - 1 - node2sbeg(i-1);
+                    if ( hap->stack[i].node->dlen > 0 ) icur += hap->stack[i].node->dlen - 1;
+                    else if ( hap->stack[i].node->dlen < 0 ) icur -= hap->stack[i].node->dlen;
+                    if ( hap->stack[i-1].node->dlen > 0 ) inext -= hap->stack[i-1].node->dlen;
                     if ( icur/3 == inext/3 )
                     {
                         if ( ibeg==-1 ) ibeg = i;
