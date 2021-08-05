@@ -113,8 +113,9 @@ typedef struct
     double mrate;                   // --mrate, mutation rate
     double pn_abs,pn_frac;          // --pn
     double pns_abs,pns_frac;        // --pns
-    int use_ppl, use_pad;           // --with-pPL or --with-pAD
+    int with_ppl, with_pad;         // --with-pPL or --with-pAD
     int use_dng_priors;             // --dng-priors
+    int need_QS;
     priors_t priors, priors_X, priors_XX;
 }
 args_t;
@@ -654,20 +655,21 @@ static void init_data(args_t *args)
     }
     else if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
         error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
-    if ( (args->use_model==USE_ACM) && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) && !args->use_ppl && !args->use_pad )
+    args->need_QS = ( args->use_model==USE_ACM && !args->with_ppl && !args->with_pad ) ? 1 : 0;
+    if ( args->need_QS && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) )
         error(
             "Error:\n"
             "   The FORMAT/QS tag is not present. If you want to proceed anyway, add either `--with-pAD` or\n"
             "   `--with-pPL` option, the latter at the cost of inflated false discovery rate. The QS annotation\n"
             "    can be generated at the mpileup step together with the AD annotation using the command\n"
             "       bcftools mpileup -a AD,QS -f ref.fa file.bam\n");   // Possible future todo: use AD as a proxy for QS?
-    if ( args->use_model!=USE_NAIVE || args->use_pad )
+    if ( args->use_model!=USE_NAIVE )
     {
         if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "AD"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
             fprintf(stderr, "Warning: the tag FORMAT/AD is not present in %s, the output tag FORMAT/VAF will not be added\n", args->fname);
         else
             args->has_fmt_ad = 1;
-        if ( args->use_pad && !args->has_fmt_ad )
+        if ( args->with_pad && !args->has_fmt_ad )
             error("Error: no FORMAT/AD is present in %s, cannot run with --with-pAD\n", args->fname);
     }
 
@@ -824,7 +826,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                 {
                     int fals = (1<<fa)|(1<<fb);
                     double fpl;
-                    if ( args->use_ppl ) fpl = pl[iFATHER][fi];
+                    if ( args->with_ppl ) fpl = pl[iFATHER][fi];
                     else
                     {
                         fpl = 0;
@@ -845,7 +847,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                         {
                             int mals = (1<<ma)|(1<<mb);
                             double mpl = 0;
-                            if ( args->use_ppl ) mpl = pl[iMOTHER][mi];
+                            if ( args->with_ppl ) mpl = pl[iMOTHER][mi];
                             else
                             {
                                 mpl = 0;
@@ -1277,11 +1279,25 @@ static void process_record(args_t *args, bcf1_t *rec)
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
 
     int i,j, nqs1 = 0;
-    if ( (args->use_model==USE_ACM && !args->use_ppl) || rec->n_allele > 4 || args->use_pad )    // DNG does not use QS, but QS is needed when trimming ALTs
+    if ( args->use_model==USE_ACM || rec->n_allele > 4 )    // DNG does not use QS, but QS is needed when trimming ALTs
     {
-        if ( args->use_pad )
+        nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
+        if ( nret<0 )
         {
-            if ( n_ad==0 ) return;
+            if ( args->need_QS )
+                error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+            if ( n_ad==0 )
+            {
+                static int missing_AD_warned = 0;
+                if ( !missing_AD_warned )
+                {
+                    hts_log_warning(
+                        "Neither FMT/QS nor FMT/AD present at %s:%"PRId64", cannot trim the number of alleles to four, skipping.\n"
+                        "This warning is printed only once", bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+                    missing_AD_warned = 1;
+                }
+                return;
+            }
 
             // fake QS from AD assuming average BQ=30
             nret = n_ad * nsmpl;
@@ -1292,12 +1308,9 @@ static void process_record(args_t *args, bcf1_t *rec)
                 else args->qs[i] = 30 * args->ad[i];
             }
         }
-        else
-        {
-            nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
-            if ( nret<0 ) error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-            if ( nret != nsmpl * rec->n_allele ) error("Error: incorrect number of FMT/QS values at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-        }
+        else if ( nret != nsmpl * rec->n_allele )
+            error("Error: incorrect number of FMT/QS values at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+
         nqs1 = nret<=0 ? 0 : nret/nsmpl;
         hts_expand(double,3*nqs1,args->mqs3,args->qs3);
     }
@@ -1437,7 +1450,7 @@ static void set_option(args_t *args, char *optarg)
     }
     else if ( !strcasecmp(opt,"DNG") ) { args->use_model = USE_DNG; args->use_dng_priors = 1; }
     else if ( !strcasecmp(opt,"dng-priors") ) args->use_dng_priors = 1;
-    else if ( !strcasecmp(opt,"ppl") ) args->use_ppl = 1;
+    else if ( !strcasecmp(opt,"ppl") ) args->with_ppl = 1;
     else if ( !strcasecmp(opt,"tag") )
     {
         if ( !val ) error("Error: expected value with -u tag, e.g. -u tag=ANN\n");
@@ -1538,10 +1551,10 @@ int run(int argc, char **argv)
                 if ( args->pns_abs<0 ) error("Error: expected positive value for --pns %s\n", optarg);
                 break;
             case 9  : args->use_model = USE_DNG; args->use_dng_priors = 1; break;
-            case 10 : args->use_ppl = 1; break;
+            case 10 : args->with_ppl = 1; break;
             case 11 : args->use_model = USE_NAIVE; break;
             case 12 : args->record_cmd_line = 0; break;
-            case 13 : args->use_pad = 1; break;
+            case 13 : args->with_pad = 1; break;
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg); break;
             case 'e':
