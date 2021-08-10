@@ -77,8 +77,9 @@ const char *usage(void)
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     args = (args_t*) calloc(1,sizeof(args_t));
-    args->argc   = argc; args->argv = argv;
-    args->hdr = in;
+    args->argc = argc; args->argv = argv;
+    if ( !in ) error("%s",usage());
+    args->hdr  = in;
     args->ndat = bcf_hdr_nsamples(args->hdr);
     args->dat  = (dat_t*) calloc(args->ndat,sizeof(dat_t));
     int i;
