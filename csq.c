@@ -3004,9 +3004,8 @@ void hap_finalize(args_t *args, hap_t *hap)
                     // variant: are they in the same codon? (forward strand)
                     int icur  = node2sbeg(i);
                     int inext = node2sbeg(i+1);
-                    if ( hap->stack[i].node->dlen > 0 ) icur += hap->stack[i].node->dlen - 1;
-                    else if ( hap->stack[i].node->dlen < 0 ) icur -= hap->stack[i].node->dlen;
-                    if ( hap->stack[i-1].node->dlen > 0 ) inext -= hap->stack[i-1].node->dlen;
+                    if ( hap->stack[i].node->dlen > 0 ) icur += hap->stack[i].node->dlen;
+                    else if ( hap->stack[i].node->dlen < 0 ) icur++;
                     if ( icur/3 == inext/3 )    // in the same codon, can't be flushed yet
                     {
                         if ( ibeg==-1 ) ibeg = i;

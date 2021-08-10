@@ -1,0 +1,41 @@
+
+CDS 35514   35918   .   +   2   ID=CDS:ENSP00000351875      // skip 2 to start a new codon
+
+
+compound.ins-snv.vcf
+    35740     35750  1
+    01234567890------
+     F  S  W  P        A  K 
+     ccc   ccc ------  ccc   ccc
+    ATTTTCATGGC------CAGCAAAAGA     ref
+              CAAAAGA
+                     A
+    
+     F  S  W  Q  K  K  A  K
+     ccc   ccc   ccc   ccc   ccc
+    ATTTTCATGGCAAAAGAAAGCAAAAGA     alt
+
+            P > QKK
+    
+
+compound.del-snv.vcf
+    35740     35750
+    012345678901234567890
+     F  S  W  P  A  K 
+     ccc   ccc   ccc   ccc
+    ATTTTCATGGCCAGCAAAAGA     ref
+              C---
+                   T
+    ATTTTCATGGC---CTAAAGA
+
+
+compound.del-ins.vcf
+    35740     35750
+    012345678901234567890
+     F  S  W  P  A  K 
+     ccc   ccc   ccc   ccc
+    ATTTTCATGGCCAGCAAAAGA     ref
+              C---
+                   ACCT
+    ATTTTCATGGC---CACCTAAAGA     
+
