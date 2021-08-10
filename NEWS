@@ -1,5 +1,35 @@
 ## Release a.b
 
+
+* bcftools csq:
+
+    - bug fix, compound indels were not recognised in some cases (#1536)
+
+    - bug fix, FORMAT/BCSQ bitmasks could have been assigned incorrectly
+      to some samples at multiallelic sites, a superset of the correct
+      consequences would have been set (#1539)
+
+    - further improve the detection of mismatching chromosome naming
+      (e.g. "chrX" vs "X") in the GFF, VCF and fasta files
+
+
+* bcftools norm:
+
+    - atomization now supports Number=A,R string annotations (#1503)
+
+
+* bcftools +trio-dnm:
+
+    - new `--with-pAD` option to allow processing of VCFs without FORMAT/QS.
+      The existing `--ppl` option was changed to the analogous `--with-pPL`
+
+
+* bcftools view:
+
+    - the functionality of the option --compression-level lost in 1.12
+      has been restored
+
+
 ## Release 1.13 (7th July 2021)
 
 

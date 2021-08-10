@@ -1,0 +1,11 @@
+3	Ensembl	chromosome	-10285565	188009993	.	.	.	ID=chromosome:3;Alias=CM000665.2,chr3,NC_000003.12
+3	ensembl_havana	gene	100	7381	.	-	.	ID=gene:ENSG00000157017;Name=GHRL;biotype=protein_coding;description=ghrelin and obestatin prepropeptide [Source:HGNC Symbol%3BAcc:HGNC:18129];gene_id=ENSG00000157017;logic_name=ensembl_havana_gene_homo_sapiens;version=16
+3	havana	mRNA	185	4646	.	-	.	ID=transcript:ENST00000422159;Parent=gene:ENSG00000157017;Name=GHRL-203;biotype=protein_coding;tag=basic;transcript_id=ENST00000422159;transcript_support_level=1;version=5
+3	havana	three_prime_UTR	185	277	.	-	.	Parent=transcript:ENST00000422159
+3	havana	exon	185	328	.	-	.	Parent=transcript:ENST00000422159;Name=ENSE00003558112;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00003558112;rank=3;version=1
+3	havana	CDS	278	328	.	-	0	ID=CDS:ENSP00000405464;Parent=transcript:ENST00000422159;protein_id=ENSP00000405464
+3	havana	exon	4196	4312	.	-	.	Parent=transcript:ENST00000422159;Name=ENSE00003542562;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003542562;rank=2;version=1
+3	havana	CDS	4196	4312	.	-	0	ID=CDS:ENSP00000405464;Parent=transcript:ENST00000422159;protein_id=ENSP00000405464
+3	havana	CDS	4507	4614	.	-	0	ID=CDS:ENSP00000405464;Parent=transcript:ENST00000422159;protein_id=ENSP00000405464
+3	havana	exon	4507	4646	.	-	.	Parent=transcript:ENST00000422159;Name=ENSE00001747893;constitutive=0;ensembl_end_phase=0;ensembl_phase=-1;exon_id=ENSE00001747893;rank=1;version=1
+3	havana	five_prime_UTR	4615	4646	.	-	.	Parent=transcript:ENST00000422159

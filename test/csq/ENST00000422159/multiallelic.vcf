@@ -1,0 +1,5 @@
+##fileformat=VCFv4.2
+##contig=<ID=3,length=249250621>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
+3	279	.	TAGAGAG	TAG,T	.	PASS	.	GT	0|1	0|2

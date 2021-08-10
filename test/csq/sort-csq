@@ -21,7 +21,8 @@ sub error
     print 
         "Usage: sort-csq [OPTIONS]\n",
         "Options:\n",
-        "   -h, -?, --help                  This help message.\n",
+        "   -q, --query-output    Sort not a VCF but `bcftools query` output\n",
+        "   -h, -?, --help        This help message.\n",
         "\n";
     exit -1;
 }
@@ -30,6 +31,7 @@ sub parse_params
     my $opts = {};
     while (defined(my $arg=shift(@ARGV)))
     {
+        if ( $arg eq '-q' || $arg eq '--query' ) { $$opts{query} = 1; next; }
         if ( $arg eq '-?' || $arg eq '-h' || $arg eq '--help' ) { error(); }
         error("Unknown parameter \"$arg\". Run -h for help.\n");
     }
@@ -43,8 +45,15 @@ sub sort_csq
     {
         if ( $line=~/^#/ ) { print $line; next; }
         chomp($line);
-        $line = sort_csq_tag($line,'EXP');
-        $line = sort_csq_tag($line,'BCSQ');
+        if ( $$opts{query} )
+        {
+            $line = sort_comma_separated_fields($line);
+        }
+        else
+        {
+            $line = sort_csq_tag($line,'EXP');
+            $line = sort_csq_tag($line,'BCSQ');
+        }
         print $line."\n";
     }
 }
@@ -59,4 +68,17 @@ sub sort_csq_tag
     my @vals = sort split(/,/,$hit);
     return $beg."$tag=".join(',',@vals).$end;
 }
+
+sub sort_comma_separated_fields
+{
+    my ($line) = @_;
+    my @out = ();
+    for my $col (split(/\s+/,$line))
+    {
+        my @tmp = sort split(/,/,$col);
+        push @out,join(',',@tmp);
+    }
+    return join("\t",@out);
+}
+
 
