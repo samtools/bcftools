@@ -436,6 +436,8 @@ test_vcf_annotate($opts,in=>'annotate21',out=>'annotate29.out',args=>'--rename-a
 test_vcf_annotate($opts,in=>'annotate22',vcf=>'annotate22',out=>'annotate30.out',args=>'-c FMT/XX,INFO/XX -x FMT/XX,INFO/XX');
 test_vcf_annotate($opts,in=>'annotate23',tab=>'annotate23',out=>'annotate31.out',args=>'-c CHROM,POS,~ID,REF,ALT,INFO/END');
 test_vcf_plugin($opts,in=>'checkploidy',out=>'checkploidy.out',cmd=>'+check-ploidy --no-version');
+test_vcf_plugin($opts,in=>'checkploidy.2',out=>'checkploidy.2.out',cmd=>'+check-ploidy --no-version');
+test_vcf_plugin($opts,in=>'checkploidy.2',out=>'checkploidy.3.out',cmd=>'+check-ploidy --no-version',args=>'-- -m');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
