@@ -1411,6 +1411,8 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
     non-zero integer can be provided). See also the *-u, --use* option below. If set to 0,
     the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
+    Note that the values with and without *-e* are not comparable, only values generated
+    with *-e 0* correspond to mismatching genotypes.
     If performance is an issue, set to 0 for faster run but less accurate results.
 
 *-g, --genotypes* 'FILE'::
