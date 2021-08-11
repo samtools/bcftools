@@ -1,0 +1,34 @@
+3	ensembl_havana	gene	21	33495	.	-	.	ID=gene:ENSG00000154767;Name=XPC;biotype=protein_coding;description=XPC complex subunit%2C DNA damage recognition and repair factor [Source:HGNC Symbol%3BAcc:HGNC:12816];gene_id=ENSG00000154767;logic_name=ensembl_havana_gene_homo_sapiens;version=15
+3	ensembl_havana	mRNA	21	33475	.	-	.	ID=transcript:ENST00000285021;Parent=gene:ENSG00000154767;Name=XPC-201;biotype=protein_coding;ccdsid=CCDS46763.1;tag=basic;transcript_id=ENST00000285021;transcript_support_level=1 (assigned to previous version 11);version=12
+3	ensembl_havana	exon	21	1033	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00001914924;constitutive=0;ensembl_end_phase=-1;ensembl_phase=0;exon_id=ENSE00001914924;rank=16;version=2
+3	ensembl_havana	CDS	815	1033	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	2164	2253	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003687231;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003687231;rank=15;version=1
+3	ensembl_havana	CDS	2164	2253	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	2782	2875	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003545725;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSE00003545725;rank=14;version=1
+3	ensembl_havana	CDS	2782	2875	.	-	1	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	3436	3605	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003595332;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003595332;rank=13;version=1
+3	ensembl_havana	CDS	3436	3605	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	3688	3822	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003617482;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003617482;rank=12;version=1
+3	ensembl_havana	CDS	3688	3822	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	7209	7290	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003582711;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSE00003582711;rank=11;version=1
+3	ensembl_havana	CDS	7209	7290	.	-	1	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	11209	11369	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003552241;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003552241;rank=10;version=1
+3	ensembl_havana	CDS	11209	11369	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	12885	13766	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003584932;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003584932;rank=9;version=1
+3	ensembl_havana	CDS	12885	13766	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	14615	14704	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003633829;constitutive=0;ensembl_end_phase=0;ensembl_phase=0;exon_id=ENSE00003633829;rank=8;version=1
+3	ensembl_havana	CDS	14615	14704	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	19687	19807	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003609011;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSE00003609011;rank=7;version=1
+3	ensembl_havana	CDS	19687	19807	.	-	1	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	20302	20459	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003659363;constitutive=0;ensembl_end_phase=2;ensembl_phase=0;exon_id=ENSE00003659363;rank=6;version=1
+3	ensembl_havana	CDS	20302	20459	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	22043	22127	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003554298;constitutive=0;ensembl_end_phase=0;ensembl_phase=2;exon_id=ENSE00003554298;rank=5;version=1
+3	ensembl_havana	CDS	22043	22127	.	-	1	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	23131	23254	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00003656671;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00003656671;rank=4;version=1
+3	ensembl_havana	CDS	23131	23254	.	-	2	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	25312	25424	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00001160407;constitutive=0;ensembl_end_phase=1;ensembl_phase=2;exon_id=ENSE00001160407;rank=3;version=1
+3	ensembl_havana	CDS	25312	25424	.	-	1	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	27741	27936	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00001160413;constitutive=0;ensembl_end_phase=2;ensembl_phase=1;exon_id=ENSE00001160413;rank=2;version=1
+3	ensembl_havana	CDS	27741	27936	.	-	2	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	CDS	33340	33442	.	-	0	ID=CDS:ENSP00000285021;Parent=transcript:ENST00000285021;protein_id=ENSP00000285021
+3	ensembl_havana	exon	33340	33475	.	-	.	Parent=transcript:ENST00000285021;Name=ENSE00002078782;constitutive=0;ensembl_end_phase=1;ensembl_phase=-1;exon_id=ENSE00002078782;rank=1;version=2

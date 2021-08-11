@@ -2830,6 +2830,8 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
                 csq->type.type |= CSQ_INFRAME_DELETION;
             else
                 csq->type.type |= CSQ_INFRAME_INSERTION;
+            if ( hap->tref.s[hap->tref.l-1]!='*' && hap->tseq.s[hap->tseq.l-1]=='*' )
+                csq->type.type |= CSQ_STOP_GAINED;
         }
         else
         {
@@ -3497,6 +3499,8 @@ int test_cds_local(args_t *args, bcf1_t *rec)
                         csq_type |= CSQ_INFRAME_DELETION;
                     else
                         csq_type |= CSQ_INFRAME_INSERTION;
+                    if ( tref->s[tref->l-1]!='*' && tseq->s[tseq->l-1]=='*' )
+                        csq_type |= CSQ_STOP_GAINED;
                 }
                 else
                 {

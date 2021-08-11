@@ -1,0 +1,3 @@
+13461	CTCTTTA	C	stop_gained&inframe_deletion|XPC|ENST00000285021|protein_coding|-|430YKE>430*|13461CTCTTTA>C
+13461	CTCTTTA	C	stop_gained&inframe_deletion|XPC|ENST00000285021|protein_coding|-|430YKE>430*|13461CTCTTTA>C
+
