@@ -1,0 +1,8 @@
+##fileformat=VCFv4.1
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	14367	.	C	<DEL>	.	.	END=129359
+1	14367	.	C	<DEL>	.	.	END=121066
+1	14367	.	C	<DEL>	.	.	END=137826
+1	14367	.	C	<DEL>	.	.	END=112930
