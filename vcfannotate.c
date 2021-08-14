@@ -292,6 +292,15 @@ static void init_remove_annots(args_t *args)
     void *keep = khash_str2int_init();
     kstring_t str = {0,0,0};
     char *ss = args->remove_annots;
+
+    int i, ntags, needs_info = 0;
+    if ( args->set_ids )
+    {
+        const char **tags = convert_list_used_tags(args->set_ids,&ntags);
+        for (i=0; i<ntags; i++)
+            if ( !strncmp("INFO/",tags[i],4) ) needs_info = 1;
+    }
+
     while ( *ss )
     {
         args->nrm++;
@@ -352,7 +361,11 @@ static void init_remove_annots(args_t *args)
                     fprintf(stderr,"Warning: The tag \"%s\" not defined in the header\n", str.s);
 
                 tag->key = strdup(str.s);
-                if ( type==BCF_HL_INFO ) tag->handler = remove_info_tag;
+                if ( type==BCF_HL_INFO )
+                {
+                    tag->handler = remove_info_tag;
+                    if ( needs_info ) error("Error: `--remove INFO/%s` is executed first, cannot combine with `--set-id %s`\n",tag->key,args->set_ids_fmt);
+                }
                 else if ( type==BCF_HL_FMT ) tag->handler = remove_format_tag;
             }
             else if ( (type==BCF_HL_FMT && keep_fmt) || (type==BCF_HL_INFO && keep_info) )
@@ -365,7 +378,11 @@ static void init_remove_annots(args_t *args)
             else
             {
                 tag->key = strdup(str.s);
-                if ( type==BCF_HL_INFO ) tag->handler = remove_info_tag;
+                if ( type==BCF_HL_INFO )
+                {
+                    tag->handler = remove_info_tag;
+                    if ( needs_info ) error("Error: `--remove INFO/%s` is executed first, cannot combine with `--set-id %s`\n",tag->key,args->set_ids_fmt);
+                }
                 else if ( type==BCF_HL_FMT ) tag->handler = remove_format_tag;
                 if ( !args->keep_sites ) bcf_hdr_remove(args->hdr_out,type,tag->key);
             }
@@ -379,6 +396,7 @@ static void init_remove_annots(args_t *args)
         else if ( !strcasecmp("QUAL",str.s) ) tag->handler = remove_qual;
         else if ( !strcasecmp("INFO",str.s) ) 
         {
+            if ( needs_info ) error("Error: `--remove INFO` is executed first, cannot combine with `--set-id %s`\n",args->set_ids_fmt);
             tag->handler = remove_info;
             if ( !args->keep_sites ) remove_hdr_lines(args->hdr_out,BCF_HL_INFO);
         }
@@ -2595,6 +2613,11 @@ static void init_data(args_t *args)
     args->hdr = args->files->readers[0].header;
     args->hdr_out = bcf_hdr_dup(args->hdr);
 
+    if ( args->set_ids_fmt )
+    {
+        if ( args->set_ids_fmt[0]=='+' ) { args->set_ids_replace = 0; args->set_ids_fmt++; }
+        args->set_ids = convert_init(args->hdr_out, NULL, 0, args->set_ids_fmt);
+    }
     if ( args->remove_annots ) init_remove_annots(args);
     if ( args->header_fname ) init_header_lines(args);
     if ( args->targets_fname && args->tgts_is_vcf )
@@ -2637,12 +2660,6 @@ static void init_data(args_t *args)
 
     if ( args->filter_str )
         args->filter = filter_init(args->hdr, args->filter_str);
-
-    if ( args->set_ids_fmt )
-    {
-        if ( args->set_ids_fmt[0]=='+' ) { args->set_ids_replace = 0; args->set_ids_fmt++; }
-        args->set_ids = convert_init(args->hdr_out, NULL, 0, args->set_ids_fmt);
-    }
 
     if ( args->mark_sites )
     {

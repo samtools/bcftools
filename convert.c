@@ -38,6 +38,7 @@ THE SOFTWARE.  */
 #include <htslib/synced_bcf_reader.h>
 #include <htslib/vcfutils.h>
 #include <htslib/kfunc.h>
+#include <htslib/khash_str2int.h>
 #include "bcftools.h"
 #include "variantkey.h"
 #include "convert.h"
@@ -101,6 +102,9 @@ struct _convert_t
     void *dat;
     int ndat;
     char *undef_info_tag;
+    void *used_tags_hash;
+    char **used_tags_list;
+    int nused_tags;
     int allow_undef_tags;
     uint8_t **subset_samples;
 };
@@ -1205,6 +1209,16 @@ invalid:
     kputc('.', str);
 }
 
+static void _used_tags_add(convert_t *convert, int type, char *key)
+{
+    kstring_t str = {0,0,0};
+    ksprintf(&str,"%s/%s",type==T_INFO?"INFO":"FORMAT",key);
+    khash_str2int_inc(convert->used_tags_hash,str.s);
+    convert->nused_tags++;
+    convert->used_tags_list = (char**)realloc(convert->used_tags_list,sizeof(*convert->used_tags_list)*convert->nused_tags);
+    convert->used_tags_list[convert->nused_tags-1] = str.s;
+}
+
 static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
 {
     convert->nfmt++;
@@ -1241,12 +1255,17 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
             else if ( !strcmp("_CHROM_POS_ID",key) ) { fmt->type = T_CHROM_POS_ID; }
             else if ( !strcmp("RSX",key) ) { fmt->type = T_RSX; }
             else if ( !strcmp("VKX",key) ) { fmt->type = T_VKX; }
-            else if ( id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) ) { fmt->type = T_INFO; }
+            else if ( id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) )
+            {
+                fmt->type = T_INFO;
+                _used_tags_add(convert,T_INFO,key);
+            }
         }
         else if ( fmt->type==T_PBINOM )
         {
             fmt->id = bcf_hdr_id2int(convert->header, BCF_DT_ID, fmt->key);
             if ( !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT, fmt->id)  ) error("No such FORMAT tag defined in the header: %s\n", fmt->key);
+            _used_tags_add(convert,T_FORMAT,key);
         }
         else if ( fmt->type==T_NPASS )
         {
@@ -1357,6 +1376,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
             kputsn(p, q-p, &str);
             fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
             fmt->subscript = parse_subscript(&q);
+            _used_tags_add(convert,T_INFO,str.s);
         }
         else if ( !strcmp(str.s,"PBINOM") )
         {
@@ -1419,6 +1439,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
                 kputsn(p, q-p, &str);
                 fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
                 fmt->subscript = parse_subscript(&q);
+                _used_tags_add(convert,T_INFO,str.s);
             }
             else
                 register_tag(convert, T_INFO, NULL, is_gtf);    // the whole INFO
@@ -1445,6 +1466,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
         {
             fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
             fmt->subscript = parse_subscript(&q);
+            _used_tags_add(convert,T_INFO,str.s);
         }
     }
     free(str.s);
@@ -1479,6 +1501,7 @@ convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *
     convert->header = hdr;
     convert->format_str = strdup(format_str);
     convert->max_unpack = BCF_UN_STR;
+    convert->used_tags_hash = khash_str2int_init();
 
     int i, is_gtf = 0;
     char *p = convert->format_str;
@@ -1519,6 +1542,12 @@ void convert_destroy(convert_t *convert)
         if ( convert->fmt[i].destroy ) convert->fmt[i].destroy(convert->fmt[i].usr);
         free(convert->fmt[i].key);
     }
+    if ( convert->nused_tags )
+    {
+        for (i=0; i<convert->nused_tags; i++) free(convert->used_tags_list[i]);
+        free(convert->used_tags_list);
+    }
+    khash_str2int_destroy(convert->used_tags_hash);
     free(convert->fmt);
     free(convert->undef_info_tag);
     free(convert->dat);
@@ -1673,5 +1702,15 @@ int convert_set_option(convert_t *convert, enum convert_option opt, ...)
 int convert_max_unpack(convert_t *convert)
 {
     return convert->max_unpack;
+}
+
+int convert_is_tag_used(convert_t *convert, char *tag)
+{
+    return khash_str2int_has_key(convert->used_tags_hash, tag);
+}
+const char **convert_list_used_tags(convert_t *convert, int *ntags)
+{
+    *ntags = convert->nused_tags;
+    return (const char **)convert->used_tags_list;
 }
 
