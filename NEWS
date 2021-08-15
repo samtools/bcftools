@@ -1,6 +1,25 @@
 ## Release a.b
 
 
+* bcftools annotate
+
+    - when `--set-id` and `--remove` are combined, `--set-id` cannot use
+      tags deleted by `--remove`. This is now detected and the program
+      exists with an informative error message instead of segfaulting
+      (#1540)
+
+    - while non-symbolic variation are uniquely identified by POS,REF,ALT,
+      symbolic alleles starting at the same position were undistinguishable.
+      This prevented correct matching of records with the same positions and
+      variant type but different length given by INFO/END (samtools/htslib@60977f2)
+
+* bcftools +check-ploidy
+
+    - by default missing genotypes are not used when determining ploidy.
+      With the new option `-m, --use-missing` it is possible to use the
+      information carried in the missing and half-missing genotypes
+      (e.g. ".", "./." or "./1")
+
 * bcftools csq:
 
     - bug fix, compound indels were not recognised in some cases (#1536)
@@ -16,6 +35,12 @@
 * bcftools norm:
 
     - atomization now supports Number=A,R string annotations (#1503)
+
+    - assign as many alternate alleles to genotypes at multiallelic sites
+      in the`-m +` mode, disregarding the phase.  Previously the program
+      assumed to be executed as an inverse operation of `-m -`, but when
+      that was not the case, reference alleles would have been filled
+      instead of multiple alternate alleles (#1542)
 
 
 * bcftools +trio-dnm:
