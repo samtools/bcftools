@@ -1219,7 +1219,25 @@ static void _used_tags_add(convert_t *convert, int type, char *key)
     convert->used_tags_list[convert->nused_tags-1] = str.s;
 }
 
-static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
+
+#define _SET_NON_FORMAT_TAGS(function,key,...) \
+    if ( !strcmp("CHROM",key) ) { function(__VA_ARGS__, T_CHROM); } \
+    else if ( !strcmp("POS",key) ) { function(__VA_ARGS__, T_POS); } \
+    else if ( !strcmp("POS0",key) ) { function(__VA_ARGS__, T_POS0); } \
+    else if ( !strcmp("END",key) ) { function(__VA_ARGS__, T_END); } \
+    else if ( !strcmp("END0",key) ) { function(__VA_ARGS__, T_END0); } \
+    else if ( !strcmp("ID",key) ) { function(__VA_ARGS__, T_ID); } \
+    else if ( !strcmp("REF",key) ) { function(__VA_ARGS__, T_REF); } \
+    else if ( !strcmp("FIRST_ALT",key) ) { function(__VA_ARGS__, T_FIRST_ALT); } \
+    else if ( !strcmp("QUAL",key) ) { function(__VA_ARGS__, T_QUAL); } \
+    else if ( !strcmp("TYPE",key) ) { function(__VA_ARGS__, T_TYPE); } \
+    else if ( !strcmp("FILTER",key) ) { function(__VA_ARGS__, T_FILTER); } \
+    else if ( !strcmp("IS_TS",key) ) { function(__VA_ARGS__, T_IS_TS); } \
+    else if ( !strcmp("MASK",key) ) { function(__VA_ARGS__, T_MASK); } \
+    else if ( !strcmp("LINE",key) ) { function(__VA_ARGS__, T_LINE); }
+
+static void set_type(fmt_t *fmt, int type) { fmt->type = type; }
+static fmt_t *register_tag(convert_t *convert, char *key, int is_gtf, int type)
 {
     convert->nfmt++;
     if ( convert->nfmt > convert->mfmt )
@@ -1241,18 +1259,9 @@ static fmt_t *register_tag(convert_t *convert, int type, char *key, int is_gtf)
         int id = bcf_hdr_id2int(convert->header, BCF_DT_ID, key);
         if ( fmt->type==T_FORMAT && !bcf_hdr_idinfo_exists(convert->header,BCF_HL_FMT,id) )
         {
-            if ( !strcmp("CHROM",key) ) { fmt->type = T_CHROM; }
-            else if ( !strcmp("POS",key) ) { fmt->type = T_POS; }
-            else if ( !strcmp("POS0",key) ) { fmt->type = T_POS0; }
-            else if ( !strcmp("END",key) ) { fmt->type = T_END; }
-            else if ( !strcmp("END0",key) ) { fmt->type = T_END0; }
-            else if ( !strcmp("ID",key) ) { fmt->type = T_ID; }
-            else if ( !strcmp("REF",key) ) { fmt->type = T_REF; }
-            else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
-            else if ( !strcmp("FIRST_ALT",key) ) { fmt->type = T_FIRST_ALT; }
-            else if ( !strcmp("QUAL",key) ) { fmt->type = T_QUAL; }
-            else if ( !strcmp("FILTER",key) ) { fmt->type = T_FILTER; }
-            else if ( !strcmp("_CHROM_POS_ID",key) ) { fmt->type = T_CHROM_POS_ID; }
+            _SET_NON_FORMAT_TAGS(set_type,key,fmt)
+           else if ( !strcmp("ALT",key) ) { fmt->type = T_ALT; }
+           else if ( !strcmp("_CHROM_POS_ID",key) ) { fmt->type = T_CHROM_POS_ID; }
             else if ( !strcmp("RSX",key) ) { fmt->type = T_RSX; }
             else if ( !strcmp("VKX",key) ) { fmt->type = T_VKX; }
             else if ( id>=0 && bcf_hdr_idinfo_exists(convert->header,BCF_HL_INFO,id) )
@@ -1345,12 +1354,12 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
     kputsn(p, q-p, &str);
     if ( is_gtf )
     {
-        if ( !strcmp(str.s, "SAMPLE") ) register_tag(convert, T_SAMPLE, "SAMPLE", is_gtf);
-        else if ( !strcmp(str.s, "GT") ) register_tag(convert, T_GT, "GT", is_gtf);
-        else if ( !strcmp(str.s, "TGT") ) register_tag(convert, T_TGT, "GT", is_gtf);
+        if ( !strcmp(str.s, "SAMPLE") ) register_tag(convert, "SAMPLE", is_gtf, T_SAMPLE);
+        else if ( !strcmp(str.s, "GT") ) register_tag(convert, "GT", is_gtf, T_GT);
+        else if ( !strcmp(str.s, "TGT") ) register_tag(convert, "GT", is_gtf, T_TGT);
         else if ( !strcmp(str.s, "TBCSQ") ) 
         {
-            fmt_t *fmt = register_tag(convert, T_TBCSQ, "BCSQ", is_gtf);
+            fmt_t *fmt = register_tag(convert, "BCSQ", is_gtf, T_TBCSQ);
             fmt->subscript = parse_subscript(&q);
             if ( fmt->subscript==-1 )
             { 
@@ -1358,7 +1367,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
             }
             else fmt->subscript++;
         }
-        else if ( !strcmp(str.s, "IUPACGT") ) register_tag(convert, T_IUPAC_GT, "GT", is_gtf);
+        else if ( !strcmp(str.s, "IUPACGT") ) register_tag(convert, "GT", is_gtf, T_IUPAC_GT);
         else if ( !strcmp(str.s, "INFO") )
         {
             if ( *q!='/' )
@@ -1374,7 +1383,7 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
             while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
             if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
             kputsn(p, q-p, &str);
-            fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
+            fmt_t *fmt = register_tag(convert, str.s, is_gtf, T_INFO);
             fmt->subscript = parse_subscript(&q);
             _used_tags_add(convert,T_INFO,str.s);
         }
@@ -1386,47 +1395,33 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
             while ( *q && *q!=')' ) q++;
             if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
             kputsn(p, q-p, &str);
-            register_tag(convert, T_PBINOM, str.s, is_gtf);
+            register_tag(convert, str.s, is_gtf, T_PBINOM);
             q++;
         }
         else if ( !strcmp(str.s,"N_PASS") )
             error("N_PASS() must be placed outside the square brackets\n");
         else
         {
-            fmt_t *fmt = register_tag(convert, T_FORMAT, str.s, is_gtf);
+            fmt_t *fmt = register_tag(convert, str.s, is_gtf, T_FORMAT);
             fmt->subscript = parse_subscript(&q);
         }
     }
     else
     {
-        if ( !strcmp(str.s, "CHROM") ) register_tag(convert, T_CHROM, str.s, is_gtf);
-        else if ( !strcmp(str.s, "POS") ) register_tag(convert, T_POS, str.s, is_gtf);
-        else if ( !strcmp(str.s, "POS0") ) register_tag(convert, T_POS0, str.s, is_gtf);
-        else if ( !strcmp(str.s, "END") ) register_tag(convert, T_END, str.s, is_gtf);
-        else if ( !strcmp(str.s, "END0") ) register_tag(convert, T_END0, str.s, is_gtf);
-        else if ( !strcmp(str.s, "ID") ) register_tag(convert, T_ID, str.s, is_gtf);
-        else if ( !strcmp(str.s, "REF") ) register_tag(convert, T_REF, str.s, is_gtf);
+        _SET_NON_FORMAT_TAGS(register_tag, str.s, convert, str.s, is_gtf)
         else if ( !strcmp(str.s, "ALT") ) 
         {
-            fmt_t *fmt = register_tag(convert, T_ALT, str.s, is_gtf);
+            fmt_t *fmt = register_tag(convert, str.s, is_gtf, T_ALT);
             fmt->subscript = parse_subscript(&q);
         }
-        else if ( !strcmp(str.s, "FIRST_ALT") ) register_tag(convert, T_FIRST_ALT, str.s, is_gtf);
-        else if ( !strcmp(str.s, "QUAL") ) register_tag(convert, T_QUAL, str.s, is_gtf);
-        else if ( !strcmp(str.s, "FILTER") ) register_tag(convert, T_FILTER, str.s, is_gtf);
-        else if ( !strcmp(str.s, "QUAL") ) register_tag(convert, T_QUAL, str.s, is_gtf);
-        else if ( !strcmp(str.s, "IS_TS") ) register_tag(convert, T_IS_TS, str.s, is_gtf);
-        else if ( !strcmp(str.s, "TYPE") ) register_tag(convert, T_TYPE, str.s, is_gtf);
-        else if ( !strcmp(str.s, "MASK") ) register_tag(convert, T_MASK, str.s, is_gtf);
-        else if ( !strcmp(str.s, "LINE") ) register_tag(convert, T_LINE, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_CHROM_POS_ID") ) register_tag(convert, T_CHROM_POS_ID, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_GT_TO_PROB3") ) register_tag(convert, T_GT_TO_PROB3, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_PL_TO_PROB3") ) register_tag(convert, T_PL_TO_PROB3, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_GP_TO_PROB3") ) register_tag(convert, T_GP_TO_PROB3, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_GT_TO_HAP") ) register_tag(convert, T_GT_TO_HAP, str.s, is_gtf);
-        else if ( !strcmp(str.s, "_GT_TO_HAP2") ) register_tag(convert, T_GT_TO_HAP2, str.s, is_gtf);
-        else if ( !strcmp(str.s, "RSX") ) register_tag(convert, T_RSX, str.s, is_gtf);
-        else if ( !strcmp(str.s, "VKX") ) register_tag(convert, T_VKX, str.s, is_gtf);
+        else if ( !strcmp(str.s, "_CHROM_POS_ID") ) register_tag(convert, str.s, is_gtf, T_CHROM_POS_ID);
+        else if ( !strcmp(str.s, "_GT_TO_PROB3") ) register_tag(convert, str.s, is_gtf, T_GT_TO_PROB3);
+        else if ( !strcmp(str.s, "_PL_TO_PROB3") ) register_tag(convert, str.s, is_gtf, T_PL_TO_PROB3);
+        else if ( !strcmp(str.s, "_GP_TO_PROB3") ) register_tag(convert, str.s, is_gtf, T_GP_TO_PROB3);
+        else if ( !strcmp(str.s, "_GT_TO_HAP") ) register_tag(convert, str.s, is_gtf, T_GT_TO_HAP);
+        else if ( !strcmp(str.s, "_GT_TO_HAP2") ) register_tag(convert, str.s, is_gtf, T_GT_TO_HAP2);
+        else if ( !strcmp(str.s, "RSX") ) register_tag(convert, str.s, is_gtf, T_RSX);
+        else if ( !strcmp(str.s, "VKX") ) register_tag(convert, str.s, is_gtf, T_VKX);
         else if ( !strcmp(str.s,"PBINOM") ) error("Error: PBINOM() is currently supported only with FORMAT tags. (todo)\n");
         else if ( !strcmp(str.s, "INFO") )
         {
@@ -1437,15 +1432,15 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
                 while ( *q && (isalnum(*q) || *q=='_' || *q=='.') ) q++;
                 if ( q-p==0 ) error("Could not parse format string: %s\n", convert->format_str);
                 kputsn(p, q-p, &str);
-                fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
+                fmt_t *fmt = register_tag(convert, str.s, is_gtf, T_INFO);
                 fmt->subscript = parse_subscript(&q);
                 _used_tags_add(convert,T_INFO,str.s);
             }
             else
-                register_tag(convert, T_INFO, NULL, is_gtf);    // the whole INFO
+                register_tag(convert, NULL, is_gtf, T_INFO);    // the whole INFO
         }
         else if ( !strcmp(str.s, "FORMAT") )
-             register_tag(convert, T_FORMAT, NULL, 0);
+             register_tag(convert, NULL, 0, T_FORMAT);
         else if ( !strcmp(str.s,"N_PASS") )
         {
             if ( *q!='(' ) error("Could not parse the expression: %s\n", convert->format_str);
@@ -1460,11 +1455,11 @@ static char *parse_tag(convert_t *convert, char *p, int is_gtf)
             }
             if ( q-p==0 || nopen ) error("Could not parse format string: %s\n", convert->format_str);
             kputsn(p, q-p-1, &str);
-            register_tag(convert, T_NPASS, str.s, is_gtf);
+            register_tag(convert, str.s, is_gtf, T_NPASS);
         }
         else
         {
-            fmt_t *fmt = register_tag(convert, T_INFO, str.s, is_gtf);
+            fmt_t *fmt = register_tag(convert, str.s, is_gtf, T_INFO);
             fmt->subscript = parse_subscript(&q);
             _used_tags_add(convert,T_INFO,str.s);
         }
@@ -1490,7 +1485,7 @@ static char *parse_sep(convert_t *convert, char *p, int is_gtf)
         q++;
     }
     if ( !str.l ) error("Could not parse format string: %s\n", convert->format_str);
-    register_tag(convert, T_SEP, str.s, is_gtf);
+    register_tag(convert, str.s, is_gtf, T_SEP);
     free(str.s);
     return q;
 }
@@ -1511,7 +1506,7 @@ convert_t *convert_init(bcf_hdr_t *hdr, int *samples, int nsamples, const char *
         switch (*p)
         {
             case '[': is_gtf = 1; p++; break;
-            case ']': is_gtf = 0; register_tag(convert, T_SEP, NULL, 0); p++; break;
+            case ']': is_gtf = 0; register_tag(convert, NULL, 0, T_SEP); p++; break;
             case '%': p = parse_tag(convert, p, is_gtf); break;
             default:  p = parse_sep(convert, p, is_gtf); break;
         }
