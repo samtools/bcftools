@@ -2847,6 +2847,12 @@ void hap_add_csq(args_t *args, hap_t *hap, hap_node_t *node, int tlen, int ibeg,
                 csq->type.type |= CSQ_MISSENSE_VARIANT;
         }
     }
+    // Check if compound inframe variants are real inframes, or if the stop codon occurs before the frameshift can be restored
+    if ( ibeg!=iend && (csq->type.type & (CSQ_INFRAME_DELETION|CSQ_INFRAME_INSERTION|CSQ_INFRAME_ALTERING)) && hap->tseq.s[hap->tseq.l-1]=='*' )
+    {
+        rm_csq |= CSQ_INFRAME_DELETION | CSQ_INFRAME_INSERTION | CSQ_INFRAME_ALTERING;
+        csq->type.type |= CSQ_FRAMESHIFT_VARIANT | CSQ_STOP_GAINED;
+    }
     if ( has_upstream_stop ) csq->type.type |= CSQ_UPSTREAM_STOP;
     csq->type.type &= ~rm_csq;
 
