@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=TFLT,Number=1,Type=Float,Description="Dummy float">
+##INFO=<ID=TINT,Number=1,Type=Integer,Description="Dummy int">
+##INFO=<ID=TSTR,Number=1,Type=String,Description="Dummy str">
+##contig=<ID=chr1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	10	.	A	T	.	.	TFLT=.;TINT=.;TSTR=.
+chr1	20	.	A	T	.	.	TFLT=0.9;TINT=9;TSTR=new
+chr1	30	.	A	T	.	.	TFLT=0.9;TINT=9;TSTR=new
+chr1	40	.	A	T	.	.	TSTR=new;TFLT=0.9;TINT=9
+chr1	50	.	A	T	.	.	TSTR=.;TFLT=.;TINT=.

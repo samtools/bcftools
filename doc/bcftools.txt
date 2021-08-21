@@ -319,26 +319,35 @@ Add or remove annotations.
     'list' describes the columns of the annotation file and must include CHROM,
     POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
     columns which should be ignored can be indicated by "-".
-    +
+    {nbsp} +
+    {nbsp} +
     If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
     order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
     and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
     The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
-    +
+    {nbsp} +
+    {nbsp} +
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
     "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
-    +
-    To add annotations without overwriting existing values (that is, to add missing tags or
-    add values to existing tags with missing values), use "+TAG" instead of "TAG".
+    {nbsp} +
+    {nbsp} +
+    By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
+    If also missing values should be carried over (and overwrite existing tags), use ".TAG" instead of "TAG".
+    To add annotations without overwriting existing values (that is, to add tags that are absent or
+    to add values to existing tags with missing values), use "+TAG" instead of "TAG". These can be combined,
+    for example ".+TAG" can be used to add TAG even if the source value is missing but only if TAG does not
+    exist in the target file; existing tags will not be overwritten.
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
     To match the record also by ID, in addition to REF and ALT, use "~ID".
-    +
+    {nbsp} +
+    {nbsp} +
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
-    +
+    {nbsp} +
+    {nbsp} +
     See also the *-l, --merge-logic* option.
 
 *-C, --columns-file* 'file'::

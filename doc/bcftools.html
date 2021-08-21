@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-05-10 14:26 BST</strong> and refers to bcftools git version <strong>1.12-40-g203abd9+</strong>.</p>
+<p>This manual page was last updated <strong>2021-08-20 13:50 BST</strong> and refers to bcftools git version <strong>1.13-25-g41093eb+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -374,7 +374,7 @@ cannot be used in combination with <strong>-t</strong>.</p>
 <div class="paragraph">
 <p>With the <strong>call -C</strong> <em>alleles</em> command, third column of the targets file must
 be comma-separated list of alleles, starting with the reference allele.
-Note that the file must be compressed and index.
+Note that the file must be compressed and indexed.
 Such a file can be easily created from a VCF using:</p>
 </div>
 </dd>
@@ -447,26 +447,35 @@ See <strong><a href="#common_options">Common Options</a></strong> for more.</p>
 <em>list</em> describes the columns of the annotation file and must include CHROM,
 POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
 columns which should be ignored can be indicated by "-".
-+
+&#160;<br>
+&#160;<br>
 If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
 order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
 can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
 and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
 The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
-+
+&#160;<br>
+&#160;<br>
 To carry over all INFO annotations, use "INFO". To add all INFO annotations except
 "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
-+
-To add annotations without overwriting existing values (that is, to add missing tags or
-add values to existing tags with missing values), use "+TAG" instead of "TAG".
+&#160;<br>
+&#160;<br>
+By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
+If also missing values should be carried over (and overwrite existing tags), use ".TAG" instead of "TAG".
+To add annotations without overwriting existing values (that is, to add tags that are absent or
+to add values to existing tags with missing values), use "+TAG" instead of "TAG". These can be combined,
+for example ".+TAG" can be used to add TAG even if the source value is missing but only if TAG does not
+exist in the target file; existing tags will not be overwritten.
 To append to existing values (rather than replacing or leaving untouched), use "=TAG"
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "-TAG".
 To match the record also by ID, in addition to REF and ALT, use "~ID".
-+
+&#160;<br>
+&#160;<br>
 If the annotation file is not a VCF/BCF, all new annotations must be
 defined via <strong>-h, --header-lines</strong>.
-+
+&#160;<br>
+&#160;<br>
 See also the <strong>-l, --merge-logic</strong> option.</p>
 </dd>
 <dt class="hdlist1"><strong>-C, --columns-file</strong> <em>file</em></dt>
@@ -1010,14 +1019,14 @@ are concatenated without being recompressed, which is very fast..</p>
 <dd>
 <p>Do not output PS tag at each site, only at the start of a new phase set block.</p>
 </dd>
-<dt class="hdlist1"><strong>-d, --rm-dups</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>none</em></dt>
+<dt class="hdlist1"><strong>-d, --rm-dups</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
 <p>Output duplicate records of specified type present in multiple files only once.
 Requires <strong>-a, --allow-overlaps</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-D, --remove-duplicates</strong></dt>
 <dd>
-<p>Alias for <strong>-d none</strong></p>
+<p>Alias for <strong>-d exact</strong></p>
 </dd>
 <dt class="hdlist1"><strong>-f, --file-list</strong> <em>FILE</em></dt>
 <dd>
@@ -1573,11 +1582,12 @@ output VCF and are ignored for the prediction analysis.</p>
 <dd>
 <p>use this custom tag to store consequences rather than the default BCSQ tag</p>
 </dd>
-<dt class="hdlist1"><strong>-b, --brief-predictions</strong></dt>
+<dt class="hdlist1"><strong>-B, --trim-protein-seq</strong> <em>INT</em></dt>
 <dd>
-<p>annotate with abbreviated protein-changing predictions. That is, instead of writing
-the whole modified protein sequence with potentially hundreds of aminoacids, only an
-abbreviated version such as <em>25E..329&gt;25G..94</em> will be written</p>
+<p>abbreviate protein-changing predictions to maximum of INT aminoacids.
+For example, instead of writing the whole modified protein sequence with potentially hundreds of
+aminoacids, with <strong>-B 1</strong> only an abbreviated version such as <em>25E..329&gt;25G..94</em> will be
+written.</p>
 </dd>
 <dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
 <dd>
@@ -1913,6 +1923,8 @@ represents genotype quality when GT tag is used (e.g. Q=30 represents one error 
 Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
 non-zero integer can be provided). See also the <strong>-u, --use</strong> option below. If set to 0,
 the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
+Note that the values with and without <strong>-e</strong> are not comparable, only values generated
+with <strong>-e 0</strong> correspond to mismatching genotypes.
 If performance is an issue, set to 0 for faster run but less accurate results.</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --genotypes</strong> <em>FILE</em></dt>
@@ -2511,6 +2523,10 @@ name".</p>
 <dd>
 <p>Disable read-pair overlap detection.</p>
 </dd>
+<dt class="hdlist1"><strong>--seed</strong> <em>INT</em></dt>
+<dd>
+<p>Set the random number seed used when sub-sampling deep regions [0].</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -2618,6 +2634,15 @@ ont	           -B -Q5 --max-BQ 30 -I
 pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999</pre>
 </div>
 </div>
+</dd>
+<dt class="hdlist1"><strong>--ar, --ambig-reads</strong> <em>drop</em>|<em>incAD</em>|<em>incAD0</em></dt>
+<dd>
+<p>What to do with ambiguous indel reads that do not span an entire
+short tandem repeat region: discard ambiguous reads from calling
+and do not increment high-quality AD depth counters (<em>drop</em>),
+exclude from calling but increment AD counters proportionally (<em>incAD</em>),
+exclude from calling and increment the first value of the AD counter
+(<em>incAD0</em>) [<em>drop</em>]</p>
 </dd>
 <dt class="hdlist1"><strong>-e, --ext-prob</strong> <em>INT</em></dt>
 <dd>
@@ -3538,6 +3563,10 @@ can be listed as "old_name new_name\n" pairs separated by whitespaces,
 each on a separate line. If a sample name contains spaces, the
 spaces can be escaped using the backslash character, for example
 "Not\ a\ good\ sample\ name".</p>
+</dd>
+<dt class="hdlist1"><strong>-T, --temp-prefix</strong> <em>PATH</em></dt>
+<dd>
+<p>template for temporary file names, used with <strong>-f</strong></p>
 </dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
@@ -4667,7 +4696,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-05-10 14:26:54 +0100
+Last updated 2021-08-20 13:44:49 +0100
 </div>
 </div>
 </body>

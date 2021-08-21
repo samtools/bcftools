@@ -13,6 +13,16 @@
       This prevented correct matching of records with the same positions and
       variant type but different length given by INFO/END (samtools/htslib@60977f2)
 
+    - add a new '.' modifier to control wheter missing values should be carried
+      over from a tab-delimited file or not. For example: 
+
+         -c TAG .. adds TAG if the source value is not missing. If TAG
+                   exists in the target file, it will be overwritten
+    
+        -c .TAG .. adds TAG even if the source value is missing. This
+                   can overwrite non-missing values with a missing value
+                   and can create empty VCF fields (`TAG=.`)
+
 * bcftools +check-ploidy
 
     - by default missing genotypes are not used when determining ploidy.

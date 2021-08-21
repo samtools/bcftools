@@ -67,11 +67,12 @@ typedef struct
 }
 annot_line_t;
 
-#define REPLACE_MISSING  0      // replace only missing values
-#define REPLACE_ALL      1      // replace both missing and existing values
-#define REPLACE_NON_MISSING 2   // replace only if tgt is not missing
-#define SET_OR_APPEND    3      // set new value if missing or non-existent, append otherwise
-#define MATCH_VALUE      4      // do not set, just match the value -c ~ID
+#define REPLACE_MISSING     (1<<0)   // -c +TAG  .. replace only missing values
+#define REPLACE_ALL         (1<<1)   // -c TAG   .. replace both missing and existing values
+#define REPLACE_NON_MISSING (1<<2)   // -c -TAG  .. replace only if tgt is not missing
+#define SET_OR_APPEND       (1<<3)   // -c =TAG  .. set new value if missing or non-existent, append otherwise
+#define MATCH_VALUE         (1<<4)   // -c ~ID   .. do not set, just match the value
+#define CARRY_OVER_MISSING  (1<<5)   // -c .TAG  .. carry over source missing values as well
 #define MM_FIRST   0    // if multiple annotation lines overlap a VCF record, use the first, discarding the rest
 #define MM_APPEND  1    // append, possibly multiple times
 #define MM_UNIQUE  2    // append, only unique values
@@ -520,12 +521,16 @@ static int setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
 
     // note: so far this works only with one filter, not a list of filters
     annot_line_t *tab = (annot_line_t*) data;
-    if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
+    if ( tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) // don't overwrite with a missing value unless asked
+    {
+        if ( (col->replace & CARRY_OVER_MISSING) && (col->replace & (REPLACE_ALL|REPLACE_NON_MISSING)) ) bcf_update_filter(args->hdr_out,line,NULL,0);
+        return 0;
+    }
     hts_expand(int,1,args->mtmpi,args->tmpi);
     args->tmpi[0] = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, tab->cols[col->icol]);
     if ( args->tmpi[0]<0 ) error("The FILTER \"%s\" is not defined in the header, was the -h option provided?\n", tab->cols[col->icol]);
-    if ( col->replace==SET_OR_APPEND ) return bcf_add_filter(args->hdr_out,line,args->tmpi[0]);
-    if ( col->replace!=REPLACE_MISSING )
+    if ( col->replace & SET_OR_APPEND ) return bcf_add_filter(args->hdr_out,line,args->tmpi[0]);
+    if ( !(col->replace & REPLACE_MISSING) )
     {
         bcf_update_filter(args->hdr_out,line,NULL,0);
         return bcf_update_filter(args->hdr_out,line,args->tmpi,1); 
@@ -544,10 +549,14 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
     bcf1_t *rec = (bcf1_t*) data;
     if ( !(rec->unpacked & BCF_UN_FLT) ) bcf_unpack(rec, BCF_UN_FLT);
     if ( !(line->unpacked & BCF_UN_FLT) ) bcf_unpack(line, BCF_UN_FLT);
-    if ( !rec->d.n_flt ) return 0;  // don't overwrite with a missing value
-    if ( col->replace==SET_OR_APPEND || col->replace==REPLACE_MISSING )
+    if ( !rec->d.n_flt ) // don't overwrite with a missing value unless asked
     {
-        if ( col->replace==REPLACE_MISSING && line->d.n_flt ) return 0; // only update missing FILTER
+        if ( (col->replace & CARRY_OVER_MISSING) && (col->replace & (REPLACE_ALL|REPLACE_NON_MISSING)) ) bcf_update_filter(args->hdr_out,line,NULL,0);
+        return 0;
+    }
+    if ( col->replace & (SET_OR_APPEND|REPLACE_MISSING) )
+    {
+        if ( (col->replace & REPLACE_MISSING) && line->d.n_flt ) return 0; // only update missing FILTER
         for (i=0; i<rec->d.n_flt; i++)
         {
             const char *flt = bcf_hdr_int2id(args->files->readers[1].header, BCF_DT_ID, rec->d.flt[i]);
@@ -567,7 +576,7 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
 static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     if ( !data ) error("Error: the --merge-logic option cannot be used with ID (yet?)\n");
-    if ( col->replace==MATCH_VALUE ) return 0;
+    if ( col->replace & MATCH_VALUE ) return 0;
 
     // possible cases:
     //      IN  ANNOT   OUT     ACHIEVED_BY
@@ -580,8 +589,8 @@ static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
     //
     annot_line_t *tab = (annot_line_t*) data;
     if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
-    if ( col->replace==SET_OR_APPEND ) return bcf_add_id(args->hdr_out,line,tab->cols[col->icol]);
-    if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
+    if ( col->replace & SET_OR_APPEND ) return bcf_add_id(args->hdr_out,line,tab->cols[col->icol]);
+    if ( !(col->replace & REPLACE_MISSING) ) return bcf_update_id(args->hdr_out,line,tab->cols[col->icol]);
 
     // running with +ID, only update missing ids
     if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[1]) )
@@ -590,7 +599,7 @@ static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 }
 static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( col->replace==MATCH_VALUE ) return 0;
+    if ( col->replace & MATCH_VALUE ) return 0;
 
     bcf1_t *rec = (bcf1_t*) data;
 
@@ -606,8 +615,8 @@ static int vcf_setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *dat
         if ( rec->d.id && rec->d.id[0]=='.' && !rec->d.id[1] ) return 0;    // don't replace with "."
         id = rec->d.id;
     }
-    if ( col->replace==SET_OR_APPEND ) return bcf_add_id(args->hdr_out,line,id);
-    if ( col->replace!=REPLACE_MISSING ) return bcf_update_id(args->hdr_out,line,id);
+    if ( col->replace & SET_OR_APPEND ) return bcf_add_id(args->hdr_out,line,id);
+    if ( !(col->replace & REPLACE_MISSING) ) return bcf_update_id(args->hdr_out,line,id);
 
     // running with +ID, only update missing ids
     if ( !line->d.id || (line->d.id[0]=='.' && !line->d.id[1]) )
@@ -648,9 +657,12 @@ static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol];
-    if ( str[0]=='.' && str[1]==0 ) return 0;   // empty
-
-    if ( col->replace==REPLACE_MISSING && !bcf_float_is_missing(line->qual) ) return 0;
+    if ( str[0]=='.' && str[1]==0 ) // don't overwrite with a missing value unless asked
+    {
+        if ( (col->replace & CARRY_OVER_MISSING) && (col->replace & (REPLACE_ALL|REPLACE_NON_MISSING)) ) bcf_float_set_missing(line->qual);
+        return 0;
+    }
+    if ( (col->replace & REPLACE_MISSING) && !bcf_float_is_missing(line->qual) ) return 0;
 
     line->qual = strtod(str, &str);
     if ( str == tab->cols[col->icol] )
@@ -660,8 +672,12 @@ static int setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 static int vcf_setter_qual(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     bcf1_t *rec = (bcf1_t*) data;
-    if ( bcf_float_is_missing(rec->qual) ) return 0;
-    if ( col->replace==REPLACE_MISSING && !bcf_float_is_missing(line->qual) ) return 0;
+    if ( bcf_float_is_missing(rec->qual) )  // don't overwrite with a missing value unless asked
+    {
+        if ( (col->replace & CARRY_OVER_MISSING) && (col->replace & (REPLACE_ALL|REPLACE_NON_MISSING)) ) bcf_float_set_missing(line->qual);
+        return 0;
+    }
+    if ( (col->replace & REPLACE_MISSING) && !bcf_float_is_missing(line->qual) ) return 0;
     line->qual = rec->qual;
     return 0;
 }
@@ -671,7 +687,11 @@ static int setter_info_flag(args_t *args, bcf1_t *line, annot_col_t *col, void *
 
     annot_line_t *tab = (annot_line_t*) data;
     char *str = tab->cols[col->icol];
-    if ( str[0]=='.' && str[1]==0 ) return 0;
+    if ( str[0]=='.' && str[1]==0 ) // don't overwrite with a missing value unless asked
+    {
+        if ( (col->replace & CARRY_OVER_MISSING) && (col->replace & (REPLACE_ALL|REPLACE_NON_MISSING)) ) bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,0);
+        return 0;
+    }
 
     if ( str[0]=='1' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,1);
     if ( str[0]=='0' && str[1]==0 ) return bcf_update_info_flag(args->hdr_out,line,col->hdr_key_dst,NULL,0);
@@ -708,7 +728,7 @@ static int setter_ARinfo_int32(args_t *args, bcf1_t *line, annot_col_t *col, int
             if ( ntmpi2 < ndst ) args->tmpi2[i] = bcf_int32_missing;
             continue;
         }
-        if ( ntmpi2==ndst && col->replace==REPLACE_MISSING
+        if ( ntmpi2==ndst && (col->replace & REPLACE_MISSING)
                 && args->tmpi2[i]!=bcf_int32_missing
                 && args->tmpi2[i]!=bcf_int32_vector_end ) continue;
 
@@ -722,7 +742,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 
     // This is a bit hacky, only to reuse existing code with minimal changes:
     //      -c =TAG will now behave as -l TAG:APPEND for integers
-    if ( col->replace==SET_OR_APPEND ) col->merge_method=MM_APPEND;
+    if ( col->replace & SET_OR_APPEND ) col->merge_method=MM_APPEND;
 
     if ( !tab )
     {
@@ -734,10 +754,23 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     }
 
     int i,ntmpi = 0;
+    if ( (col->replace & SET_OR_APPEND) && !col->mm_dbl_nused )
+    {
+        ntmpi = bcf_get_info_int32(args->hdr, line, col->hdr_key_dst, &args->tmpi, &args->mtmpi);
+        if ( ntmpi>0 && (args->tmpi[0]!=bcf_int32_missing || (col->replace & CARRY_OVER_MISSING)) )
+        {
+            col->mm_dbl_nused = col->mm_dbl_ndat = ntmpi;
+            hts_expand(double,col->mm_dbl_nused,col->mm_dbl_nalloc,col->mm_dbl);
+            for (i=0; i<ntmpi; i++)
+                col->mm_dbl[i] = args->tmpi[i];
+            col->mm_dbl_ndat = 1;
+        }
+        ntmpi = 0;
+    }
     if ( tab )  // has data, not flushing yet
     {
         char *str = tab->cols[col->icol], *end = str;
-        if ( str[0]=='.' && str[1]==0 && col->merge_method!=MM_APPEND_MISSING ) return 1;
+        if ( str[0]=='.' && str[1]==0 && col->merge_method!=MM_APPEND_MISSING && !(col->replace & CARRY_OVER_MISSING) ) return 1;
 
         while ( *end )
         {
@@ -745,7 +778,7 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
             hts_expand(int32_t,ntmpi,args->mtmpi,args->tmpi);
             if ( str[0]=='.' && (str[1]==0 || str[1]==',') )
             {
-                if ( col->merge_method==MM_APPEND_MISSING )
+                if ( col->merge_method==MM_APPEND_MISSING || (col->replace & CARRY_OVER_MISSING) )
                     args->tmpi[ntmpi-1] = bcf_int32_missing;
                 else
                     ntmpi--;
@@ -812,12 +845,11 @@ static int setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
         return setter_ARinfo_int32(args,line,col,tab->nals,tab->als,ntmpi);
 
-    if ( col->replace==REPLACE_MISSING )
+    if ( col->replace & REPLACE_MISSING )
     {
         int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
         if ( ret>0 && args->tmpi2[0]!=bcf_int32_missing ) return 0;
     }
-
     return bcf_update_info_int32(args->hdr_out,line,col->hdr_key_dst,args->tmpi,ntmpi);
 }
 static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
@@ -829,7 +861,7 @@ static int vcf_setter_info_int(args_t *args, bcf1_t *line, annot_col_t *col, voi
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
         return setter_ARinfo_int32(args,line,col,rec->n_allele,rec->d.allele,ntmpi);
 
-    if ( col->replace==REPLACE_MISSING )
+    if ( col->replace & REPLACE_MISSING )
     {
         int ret = bcf_get_info_int32(args->hdr, line, col->hdr_key_dst, &args->tmpi2, &args->mtmpi2);
         if ( ret>0 && args->tmpi2[0]!=bcf_int32_missing ) return 0;
@@ -860,7 +892,7 @@ static int setter_ARinfo_real(args_t *args, bcf1_t *line, annot_col_t *col, int 
             if ( ntmpf2 < ndst ) bcf_float_set_missing(args->tmpf2[i]);
             continue;
         }
-        if ( ntmpf2==ndst && col->replace==REPLACE_MISSING
+        if ( ntmpf2==ndst && (col->replace & REPLACE_MISSING)
                 && !bcf_float_is_missing(args->tmpf2[i])
                 && !bcf_float_is_vector_end(args->tmpf2[i]) ) continue;
 
@@ -874,7 +906,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
 
     // This is a bit hacky, only to reuse existing code with minimal changes:
     //      -c =TAG will now behave as -l TAG:APPEND for floats
-    if ( col->replace==SET_OR_APPEND ) col->merge_method=MM_APPEND;
+    if ( col->replace & SET_OR_APPEND ) col->merge_method=MM_APPEND;
 
     if ( !tab )
     {
@@ -886,10 +918,26 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     }
 
     int i,ntmpf = 0;
-    if ( tab )
+    if ( (col->replace & SET_OR_APPEND) && !col->mm_dbl_nused )
+    {
+        ntmpf = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpf, &args->mtmpf);
+        if ( ntmpf>0 && (!bcf_float_is_missing(args->tmpf[0]) || (col->replace & CARRY_OVER_MISSING)) )
+        {
+            col->mm_dbl_nused = ntmpf;
+            hts_expand(double,col->mm_dbl_nused,col->mm_dbl_nalloc,col->mm_dbl);
+            for (i=0; i<ntmpf; i++)
+                if ( bcf_float_is_missing(args->tmpf[i]) )
+                    bcf_double_set_missing(col->mm_dbl[i]);
+                else
+                    col->mm_dbl[i] = args->tmpf[i];
+            col->mm_dbl_ndat = 1;
+        }
+        ntmpf = 0;
+    }
+    if ( tab )  // data row, not just flushing
     {
         char *str = tab->cols[col->icol], *end = str;
-        if ( str[0]=='.' && str[1]==0 && col->merge_method!=MM_APPEND_MISSING ) return 1;
+        if ( str[0]=='.' && str[1]==0 && col->merge_method!=MM_APPEND_MISSING && !(col->replace & CARRY_OVER_MISSING) ) return 1;
 
         while ( *end )
         {
@@ -897,7 +945,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
             hts_expand(float,ntmpf,args->mtmpf,args->tmpf);
             if ( str[0]=='.' && (str[1]==0 || str[1]==',') )
             {
-                if ( col->merge_method==MM_APPEND_MISSING ) 
+                if ( col->merge_method==MM_APPEND_MISSING || (col->replace & CARRY_OVER_MISSING) ) 
                     bcf_float_set_missing(args->tmpf[ntmpf-1]);
                 else
                     ntmpf--;
@@ -980,7 +1028,7 @@ static int setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, void *
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
         return setter_ARinfo_real(args,line,col,tab->nals,tab->als,ntmpf);
 
-    if ( col->replace==REPLACE_MISSING )
+    if ( col->replace & REPLACE_MISSING )
     {
         int ret = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpf2, &args->mtmpf2);
         if ( ret>0 && !bcf_float_is_missing(args->tmpf2[0]) ) return 0;
@@ -997,7 +1045,7 @@ static int vcf_setter_info_real(args_t *args, bcf1_t *line, annot_col_t *col, vo
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
         return setter_ARinfo_real(args,line,col,rec->n_allele,rec->d.allele,ntmpf);
 
-    if ( col->replace==REPLACE_MISSING )
+    if ( col->replace & REPLACE_MISSING )
     {
         int ret = bcf_get_info_float(args->hdr, line, col->hdr_key_dst, &args->tmpf2, &args->mtmpf2);
         if ( ret>0 && !bcf_float_is_missing(args->tmpf2[0]) ) return 0;
@@ -1044,7 +1092,7 @@ static int setter_ARinfo_string(args_t *args, bcf1_t *line, annot_col_t *col, in
             if ( empty ) copy_string_field(".",0,1,&args->tmpks,i);
             continue;
         }
-        if ( col->replace==REPLACE_MISSING )
+        if ( col->replace & REPLACE_MISSING )
         {
             // Do not replace filled values. The field must be looked up again because
             // of realloc in copy_string_field
@@ -1073,7 +1121,7 @@ void khash_str2int_clear_free(void *_hash)
 }
 static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
-    if ( col->replace==REPLACE_MISSING && col->number!=BCF_VL_A && col->number!=BCF_VL_R )
+    if ( (col->replace & REPLACE_MISSING) && col->number!=BCF_VL_A && col->number!=BCF_VL_R )
     {
         int ret = bcf_get_info_string(args->hdr, line, col->hdr_key_dst, &args->tmps2, &args->mtmps2);
         if ( ret>0 && (args->tmps2[0]!='.' || args->tmps2[1]!=0) ) return 0;
@@ -1081,7 +1129,7 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
 
     // This is a bit hacky, only to reuse existing code with minimal changes:
     //      -c =TAG will now behave as -l TAG:unique for strings
-    if ( col->replace==SET_OR_APPEND ) col->merge_method=MM_UNIQUE;
+    if ( col->replace & SET_OR_APPEND ) col->merge_method=MM_UNIQUE;
 
     annot_line_t *tab = (annot_line_t*) data;
 
@@ -1090,7 +1138,7 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
     {
         len = strlen(tab->cols[col->icol]);
         if ( !len ) return 0;
-        if ( len==1 && tab->cols[col->icol][0]=='.' && col->merge_method!=MM_APPEND_MISSING ) return 1;
+        if ( len==1 && tab->cols[col->icol][0]=='.' && col->merge_method!=MM_APPEND_MISSING && !(col->replace & CARRY_OVER_MISSING) ) return 1;
     }
 
     if ( col->merge_method!=MM_FIRST )
@@ -1106,6 +1154,14 @@ static int setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, void *d
                 if ( !col->mm_str_hash ) col->mm_str_hash = (khash_t(str2int)*)khash_str2int_init();
                 if ( khash_str2int_has_key(col->mm_str_hash, tab->cols[col->icol]) ) return 1;
                 khash_str2int_inc(col->mm_str_hash, strdup(tab->cols[col->icol]));
+            }
+
+            if ( (col->replace & SET_OR_APPEND) && !col->mm_kstr.l )
+            {
+                int m = col->mm_kstr.m;
+                int n = bcf_get_info_string(args->hdr, line, col->hdr_key_dst, &col->mm_kstr.s, &m);
+                col->mm_kstr.m = m;
+                if ( n>0 && ((col->replace & CARRY_OVER_MISSING) || col->mm_kstr.s[0]!='.' || col->mm_kstr.s[1]) ) col->mm_kstr.l = n;
             }
 
             if ( col->mm_kstr.l ) kputc(',',&col->mm_kstr);
@@ -1153,7 +1209,7 @@ static int vcf_setter_info_str(args_t *args, bcf1_t *line, annot_col_t *col, voi
     if ( col->number==BCF_VL_A || col->number==BCF_VL_R ) 
         return setter_ARinfo_string(args,line,col,rec->n_allele,rec->d.allele);
 
-    if ( col->replace==REPLACE_MISSING )
+    if ( col->replace & REPLACE_MISSING )
     {
         int ret = bcf_get_info_string(args->hdr, line, col->hdr_key_dst, &args->tmps2, &args->mtmps2);
         if ( ret>0 && (args->tmps2[0]!='.' || args->tmps2[1]!=0) ) return 0;
@@ -1228,7 +1284,7 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
     nsrc /= bcf_hdr_nsamples(args->files->readers[1].header);
     if ( ndst<=0 )  // field not present in dst file
     {
-        if ( col->replace==REPLACE_NON_MISSING ) return 0;
+        if ( col->replace & REPLACE_NON_MISSING ) return 0;
         hts_expand(int32_t, nsrc*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
         for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
         {
@@ -1253,8 +1309,8 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
             if ( args->sample_map[i]==-1 ) continue;
             int32_t *src = args->tmpi  + nsrc*args->sample_map[i];
             int32_t *dst = args->tmpi2 + ndst*i;
-            if ( col->replace==REPLACE_NON_MISSING && bcf_gt_is_missing(dst[0]) ) continue;
-            if ( col->replace==REPLACE_MISSING  && !bcf_gt_is_missing(dst[0]) ) continue;
+            if ( (col->replace & REPLACE_NON_MISSING) && bcf_gt_is_missing(dst[0]) ) continue;
+            if ( (col->replace & REPLACE_MISSING)  && !bcf_gt_is_missing(dst[0]) ) continue;
             for (j=0; j<nsrc; j++) dst[j] = src[j];
             for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
         }
@@ -1269,8 +1325,8 @@ static int vcf_setter_format_gt(args_t *args, bcf1_t *line, annot_col_t *col, vo
             int32_t *dst = args->tmpi3 + nsrc*i;
             int keep_ori = 0;
             if ( args->sample_map[i]==-1 ) keep_ori = 1;
-            else if ( col->replace==REPLACE_NON_MISSING && bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
-            else if ( col->replace==REPLACE_MISSING  && !bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
+            else if ( (col->replace & REPLACE_NON_MISSING) && bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
+            else if ( (col->replace & REPLACE_MISSING)  && !bcf_gt_is_missing(ori[0]) ) keep_ori = 1;
             if ( keep_ori )
             {
                 for (j=0; j<ndst; j++) dst[j] = ori[j];
@@ -1316,7 +1372,7 @@ static int core_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, 
     if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
     if ( ndst<=0 )
     {
-        if ( col->replace==REPLACE_NON_MISSING ) return 0;    // overwrite only if present
+        if ( col->replace & REPLACE_NON_MISSING ) return 0;    // overwrite only if present
         hts_expand(int32_t, nvals*bcf_hdr_nsamples(args->hdr_out), args->mtmpi2, args->tmpi2);
         for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
         {
@@ -1349,9 +1405,9 @@ static int core_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, 
             //       .  y     y     TAG,+TAG,-TAG    .. REPLACE_ALL, REPLACE_MISSING, REPLACE_NON_MISSING
             //       x  .     x     TAG,+TAG         .. REPLACE_ALL, REPLACE_MISSING
             //       x  .     .    -TAG              .. REPLACE_NON_MISSING
-            if ( col->replace==REPLACE_NON_MISSING ) { if ( dst[0]==bcf_int32_missing ) continue; } 
-            else if ( col->replace==REPLACE_MISSING ) { if ( dst[0]!=bcf_int32_missing ) continue; }
-            else if ( col->replace==REPLACE_ALL ) { if ( src[0]==bcf_int32_missing ) continue; }
+            if ( col->replace & REPLACE_NON_MISSING ) { if ( dst[0]==bcf_int32_missing ) continue; } 
+            else if ( col->replace & REPLACE_MISSING ) { if ( dst[0]!=bcf_int32_missing ) continue; }
+            else if ( col->replace & REPLACE_ALL ) { if ( src[0]==bcf_int32_missing ) continue; }
             for (j=0; j<nvals; j++) dst[j] = src[j];
             for (; j<ndst; j++) dst[j] = bcf_int32_vector_end;
         }
@@ -1367,9 +1423,9 @@ static int core_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, 
             int32_t *dst = args->tmpi3 + nvals*i;               // expanded buffer
             int use_new_ann = 1;
             if ( args->sample_map[i]==-1 ) use_new_ann = 0;
-            else if ( col->replace==REPLACE_NON_MISSING ) { if ( ori[0]==bcf_int32_missing ) use_new_ann = 0; }
-            else if ( col->replace==REPLACE_MISSING ) { if ( ori[0]!=bcf_int32_missing ) use_new_ann = 0; }
-            else if ( col->replace==REPLACE_ALL ) { if ( ann[0]==bcf_int32_missing ) use_new_ann = 0; }
+            else if ( col->replace & REPLACE_NON_MISSING ) { if ( ori[0]==bcf_int32_missing ) use_new_ann = 0; }
+            else if ( col->replace & REPLACE_MISSING ) { if ( ori[0]!=bcf_int32_missing ) use_new_ann = 0; }
+            else if ( col->replace & REPLACE_ALL ) { if ( ann[0]==bcf_int32_missing ) use_new_ann = 0; }
             if ( !use_new_ann )
             {
                 for (j=0; j<ndst; j++) dst[j] = ori[j];
@@ -1390,7 +1446,7 @@ static int core_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col,
     if ( ndst > 0 ) ndst /= bcf_hdr_nsamples(args->hdr_out);
     if ( ndst<=0 )
     {
-        if ( col->replace==REPLACE_NON_MISSING ) return 0;    // overwrite only if present
+        if ( col->replace & REPLACE_NON_MISSING ) return 0;    // overwrite only if present
         hts_expand(float, nvals*bcf_hdr_nsamples(args->hdr_out), args->mtmpf2, args->tmpf2);
         for (i=0; i<bcf_hdr_nsamples(args->hdr_out); i++)
         {
@@ -1415,9 +1471,9 @@ static int core_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col,
             if ( args->sample_map[i]==-1 ) continue;
             float *src = vals  + nvals*args->sample_map[i];
             float *dst = args->tmpf2 + ndst*i;
-            if ( col->replace==REPLACE_NON_MISSING ) { if ( bcf_float_is_missing(dst[0]) ) continue; } 
-            else if ( col->replace==REPLACE_MISSING ) { if ( !bcf_float_is_missing(dst[0]) ) continue; }
-            else if ( col->replace==REPLACE_ALL ) { if ( bcf_float_is_missing(src[0]) ) continue; }
+            if ( col->replace & REPLACE_NON_MISSING ) { if ( bcf_float_is_missing(dst[0]) ) continue; } 
+            else if ( col->replace & REPLACE_MISSING ) { if ( !bcf_float_is_missing(dst[0]) ) continue; }
+            else if ( col->replace & REPLACE_ALL ) { if ( bcf_float_is_missing(src[0]) ) continue; }
             for (j=0; j<nvals; j++) dst[j] = src[j];
             for (; j<ndst; j++) bcf_float_set_vector_end(dst[j]);
         }
@@ -1433,9 +1489,9 @@ static int core_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col,
             float *dst = args->tmpf3 + nvals*i;               // expanded buffer
             int use_new_ann = 1;
             if ( args->sample_map[i]==-1 ) use_new_ann = 0;
-            else if ( col->replace==REPLACE_NON_MISSING ) { if ( bcf_float_is_missing(ori[0]) ) use_new_ann = 0; }
-            else if ( col->replace==REPLACE_MISSING ) { if ( !bcf_float_is_missing(ori[0]) ) use_new_ann = 0; }
-            else if ( col->replace==REPLACE_ALL ) { if ( bcf_float_is_missing(ann[0]) ) use_new_ann = 0; }
+            else if ( col->replace & REPLACE_NON_MISSING ) { if ( bcf_float_is_missing(ori[0]) ) use_new_ann = 0; }
+            else if ( col->replace & REPLACE_MISSING ) { if ( !bcf_float_is_missing(ori[0]) ) use_new_ann = 0; }
+            else if ( col->replace & REPLACE_ALL ) { if ( bcf_float_is_missing(ann[0]) ) use_new_ann = 0; }
             if ( !use_new_ann )
             {
                 for (j=0; j<ndst; j++) dst[j] = ori[j];
@@ -1476,9 +1532,9 @@ static int core_setter_format_str(args_t *args, bcf1_t *line, annot_col_t *col, 
         char **src = vals + args->sample_map[i];
         char **dst = args->tmpp2 + i;
 
-        if ( col->replace==REPLACE_NON_MISSING ) { if ( (*dst)[0]=='.' && (*dst)[1]==0 ) continue; } 
-        else if ( col->replace==REPLACE_MISSING ) { if ( (*dst)[0]!='.' || (*dst)[1]!=0 ) continue; }
-        else if ( col->replace==REPLACE_ALL ) { if ( (*src)[0]=='.' && (*src)[1]==0 ) continue; }
+        if ( col->replace & REPLACE_NON_MISSING ) { if ( (*dst)[0]=='.' && (*dst)[1]==0 ) continue; } 
+        else if ( col->replace & REPLACE_MISSING ) { if ( (*dst)[0]!='.' || (*dst)[1]!=0 ) continue; }
+        else if ( col->replace & REPLACE_ALL ) { if ( (*src)[0]=='.' && (*src)[1]==0 ) continue; }
         *dst = *src;
     }
     return bcf_update_format_string(args->hdr_out,line,col->hdr_key_dst,(const char**)args->tmpp2,nsmpl);
@@ -1636,7 +1692,7 @@ static int vcf_setter_format_int(args_t *args, bcf1_t *line, annot_col_t *col, v
     int ndst1 = ndst / nsmpl_dst;
     if ( ndst <= 0 )
     {
-        if ( col->replace==REPLACE_NON_MISSING ) return 0;  // overwrite only if present
+        if ( col->replace & REPLACE_NON_MISSING ) return 0;  // overwrite only if present
         if ( col->number==BCF_VL_G )
             ndst1 = line->n_allele*(line->n_allele+1)/2;
         else
@@ -1743,7 +1799,7 @@ static int vcf_setter_format_real(args_t *args, bcf1_t *line, annot_col_t *col, 
     int ndst1 = ndst / nsmpl_dst;
     if ( ndst <= 0 )
     {
-        if ( col->replace==REPLACE_NON_MISSING ) return 0;  // overwrite only if present
+        if ( col->replace & REPLACE_NON_MISSING ) return 0;  // overwrite only if present
         if ( col->number==BCF_VL_G )
             ndst1 = line->n_allele*(line->n_allele+1)/2;
         else
@@ -2029,6 +2085,24 @@ static void bcf_hrec_format_rename(bcf_hrec_t *hrec, char *tag, kstring_t *str)
     }
     ksprintf(str,">\n");
 }
+static char *set_replace_mode(char *ss, int *replace)
+{
+    int mode = 0;
+    while (*ss)
+    {
+        if ( *ss=='+' ) mode |= REPLACE_MISSING;
+        else if ( *ss=='-' ) mode |= REPLACE_NON_MISSING;
+        else if ( *ss=='=' ) mode |= SET_OR_APPEND;
+        else if ( *ss=='.' ) mode |= CARRY_OVER_MISSING;
+        else break;
+        ss++;
+    }
+    if ( !mode ) mode = REPLACE_ALL;
+// is exactly one bit set?
+//    if ( mode && !(mode && ((mode & mode-1) == 0)) )
+    *replace = mode;
+    return ss;
+}
 static void init_columns(args_t *args)
 {
     int need_sample_map = 0;
@@ -2079,10 +2153,8 @@ static void init_columns(args_t *args)
     while ( *ss )
     {
         if ( *se && *se!=',' ) { se++; continue; }
-        int replace = REPLACE_ALL;
-        if ( *ss=='+' ) { replace = REPLACE_MISSING; ss++; }
-        else if ( *ss=='-' ) { replace = REPLACE_NON_MISSING; ss++; }
-        else if ( *ss=='=' ) { replace = SET_OR_APPEND; ss++; }
+        int replace;
+        ss = set_replace_mode(ss, &replace);
         icol++;
         str.l = 0;
         kputsn(ss, se-ss, &str);
@@ -2119,9 +2191,9 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("ID",str.s) || !strcasecmp("~ID",str.s) )
         {
-            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
+            if ( replace & REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
             if ( str.s[0]=='~' ) replace = MATCH_VALUE;
-            if ( args->tgts_is_vcf && replace==MATCH_VALUE ) error("todo: -c ~ID with -a VCF?\n");
+            if ( args->tgts_is_vcf && (replace & MATCH_VALUE) ) error("todo: -c ~ID with -a VCF?\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2130,12 +2202,12 @@ static void init_columns(args_t *args)
             col->setter = args->tgts_is_vcf ? vcf_setter_id : setter_id;
             col->hdr_key_src = strdup(str.s);
             col->hdr_key_dst = strdup(str.s);
-            if ( replace==MATCH_VALUE ) args->match_id = icol;
+            if ( replace & MATCH_VALUE ) args->match_id = icol;
         }
         else if ( !strncasecmp("ID:=",str.s,4) )    // transfer a tag from INFO to ID column
         {
             if ( !args->tgts_is_vcf ) error("The annotation source must be a VCF for \"%s\"\n",str.s);
-            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
+            if ( replace & REPLACE_NON_MISSING ) error("Apologies, the -ID feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2154,7 +2226,7 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("FILTER",str.s) )
         {
-            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -FILTER feature has not been implemented yet.\n");
+            if ( replace & REPLACE_NON_MISSING ) error("Apologies, the -FILTER feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2183,8 +2255,8 @@ static void init_columns(args_t *args)
         }
         else if ( !strcasecmp("QUAL",str.s) )
         {
-            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -QUAL feature has not been implemented yet.\n");
-            if ( replace==SET_OR_APPEND ) error("Apologies, the =QUAL feature has not been implemented yet.\n");
+            if ( replace & REPLACE_NON_MISSING ) error("Apologies, the -QUAL feature has not been implemented yet.\n");
+            if ( replace & SET_OR_APPEND ) error("Apologies, the =QUAL feature has not been implemented yet.\n");
             args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
             annot_col_t *col = &args->cols[args->ncols-1];
             memset(col,0,sizeof(*col));
@@ -2196,8 +2268,8 @@ static void init_columns(args_t *args)
         }
         else if ( args->tgts_is_vcf && !strcasecmp("INFO",str.s) ) // All INFO fields
         {
-            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
-            if ( replace==SET_OR_APPEND ) error("Apologies, the =INFO feature has not been implemented yet.\n");
+            if ( replace & REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
+            if ( replace & SET_OR_APPEND ) error("Apologies, the =INFO feature has not been implemented yet.\n");
             bcf_hdr_t *tgts_hdr = args->files->readers[1].header;
             int j;
             for (j=0; j<tgts_hdr->nhrec; j++)
@@ -2335,8 +2407,8 @@ static void init_columns(args_t *args)
         }
         else
         {
-            if ( replace==REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
-            if ( replace==SET_OR_APPEND )
+            if ( replace & REPLACE_NON_MISSING ) error("Apologies, the -INFO/TAG feature has not been implemented yet.\n");
+            if ( replace & SET_OR_APPEND )
             {
                 if ( args->tgts_is_vcf )
                     error("Error: the =INFO/TAG feature is currently supported only with TAB annotation files and has limitations\n"
@@ -2438,7 +2510,7 @@ static void init_columns(args_t *args)
                 case BCF_HT_STR:    col->setter = args->tgts_is_vcf ? vcf_setter_info_str  : setter_info_str; break;
                 default: error("The type of %s not recognised (%d)\n", str.s,bcf_hdr_id2type(args->hdr_out,BCF_HL_INFO,hdr_id));
             }
-            if ( replace==SET_OR_APPEND )   // change to Number=.
+            if ( replace & SET_OR_APPEND )   // change to Number=.
             {
                 bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, BCF_HL_INFO, "ID", key_dst, NULL);
                 if ( !hrec ) error("Uh, could not find the new tag \"%s\" in the header\n", key_dst);
@@ -3079,6 +3151,9 @@ static void usage(args_t *args)
     fprintf(stderr, "       --single-overlaps        keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
     fprintf(stderr, "   -x, --remove LIST            list of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
     fprintf(stderr, "       --threads INT            number of extra output compression threads [0]\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Examples:\n");
+    fprintf(stderr, "   http://samtools.github.io/bcftools/howtos/annotate.html\n");
     fprintf(stderr, "\n");
     exit(1);
 }
