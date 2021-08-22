@@ -195,7 +195,7 @@ static const char *usage_text(void)
         "       --columns-types -|FILE      Pass \"-\" to print the default -c types or FILE to override the presets\n"
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
-        "   -f, --format STR                Formatting expression for non-VCF/BCF output, same as `bcftools query -f`\n"
+        "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
@@ -246,6 +246,8 @@ static const char *usage_text(void)
         "   # the -x switch. See the online documentation referenced above for more examples.\n"
         "   bcftools +split-vep -c gnomAD_AF:Float -s :missense    file.vcf.gz\n"
         "   bcftools +split-vep -c gnomAD_AF:Float -s :missense -x file.vcf.gz\n"
+        "\n"
+        "   See also http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
         "\n";
 }
 
