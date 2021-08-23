@@ -352,6 +352,7 @@ Add or remove annotations.
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
     To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
+    If position needs to be replaced, mark the column with the new position as "~POS".
     {nbsp} +
     {nbsp} +
     If the annotation file is not a VCF/BCF, all new annotations must be

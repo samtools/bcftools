@@ -574,6 +574,17 @@ static int vcf_setter_filter(args_t *args, bcf1_t *line, annot_col_t *col, void 
     bcf_update_filter(args->hdr_out,line,NULL,0);
     return bcf_update_filter(args->hdr_out,line,args->tmpi,rec->d.n_flt);
 }
+static int setter_pos(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
+{
+    annot_line_t *tab = (annot_line_t*) data;
+    if ( tab->cols[col->icol] && tab->cols[col->icol][0]=='.' && !tab->cols[col->icol][1] ) return 0; // don't replace with "."
+    char *tmp;
+    int pos = strtol(tab->cols[col->icol], &tmp, 10);
+    if ( tmp==tab->cols[col->icol] )
+        error("Could not parse ~POS at %s:%"PRId64" .. [%s]\n",bcf_seqname(args->hdr,line),(int64_t)line->pos+1,tab->cols[col->icol]);
+    line->pos = pos - 1;
+    return 0;
+}
 static int setter_id(args_t *args, bcf1_t *line, annot_col_t *col, void *data)
 {
     if ( !data ) error("Error: the --merge-logic option cannot be used with ID (yet?)\n");
@@ -2214,6 +2225,19 @@ static void init_columns(args_t *args)
             col->icol = icol;
             col->replace = replace;
             col->setter  = NULL;
+            col->hdr_key_src = strdup(str.s);
+            col->hdr_key_dst = strdup(str.s);
+            args->match_end = icol;
+        }
+        else if ( !strcasecmp("~POS",str.s) && !args->tgts_is_vcf )
+        {
+            if ( args->tgts_is_vcf ) error("Error: cannot use ~POS, position can be replaced only from a tab-delimited file\n");
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            memset(col,0,sizeof(*col));
+            col->icol = icol;
+            col->replace = replace;
+            col->setter  = setter_pos;
             col->hdr_key_src = strdup(str.s);
             col->hdr_key_dst = strdup(str.s);
             args->match_end = icol;

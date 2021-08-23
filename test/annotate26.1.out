@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	111	.	G	.	.	.	.
+1	222	.	G	.	.	.	.
+1	333	.	G	.	.	.	.
