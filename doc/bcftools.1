@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.15.dev
-.\"      Date: 2021-08-20
+.\"      Date: 2021-08-23
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021-08-20" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021-08-23" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-08\-20 13:50 BST\fP and refers to bcftools git version \fB1.13\-25\-g41093eb+\fP.
+This manual page was last updated \fB2021\-08\-23 13:49 BST\fP and refers to bcftools git version \fB1.13\-27\-g7956618+\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -575,13 +575,29 @@ number of annotation columns. BED files are expected to have
 the ".bed" or ".bed.gz" suffix (case\-insensitive), otherwise a tab\-delimited file is assumed.
 Note that in case of tab\-delimited file, the coordinates POS, FROM and TO are
 one\-based and inclusive.  When REF and ALT are present, only matching VCF
-records will be annotated.
+records will be annotated. If the END coordinate is present in the annotation file
+and given on command line as "\f(CR\-c ~INFO/END\fP", then VCF records will be matched also by the INFO/END coordinate.
+If ID is present in the annotation file and given as "\f(CR\-c ~ID\fP", then VCF records will be matched
+also by the ID column.
+\~
+.br
+\~
+.br
 When multiple ALT alleles are present in the annotation file (given as
 comma\-separated list of alleles), at least one must match one of the
 alleles in the corresponding VCF record. Similarly, at least one
 alternate allele from a multi\-allelic VCF record must be present in the
 annotation file.
-Missing values can be added by providing "." in place of actual value.
+\~
+.br
+\~
+.br
+Missing values can be added by providing "." in place of actual value
+and using the missing value modifier with \fB\-c\fP, such as ".TAG".
+\~
+.br
+\~
+.br
 Note that flag types, such as "INFO/FLAG", can be annotated by including
 a field with the value "1" to set the flag, "0" to remove it, or "." to
 keep existing flags.
@@ -640,7 +656,7 @@ exist in the target file; existing tags will not be overwritten.
 To append to existing values (rather than replacing or leaving untouched), use "=TAG"
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "\-TAG".
-To match the record also by ID, in addition to REF and ALT, use "~ID".
+To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
 \~
 .br
 \~

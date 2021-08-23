@@ -11,7 +11,10 @@
     - while non-symbolic variation are uniquely identified by POS,REF,ALT,
       symbolic alleles starting at the same position were undistinguishable.
       This prevented correct matching of records with the same positions and
-      variant type but different length given by INFO/END (samtools/htslib@60977f2)
+      variant type but different length given by INFO/END (samtools/htslib@60977f2).
+      When annotating froma VCF/BCF, the matching is done automatically. When
+      annotating from a tab-delimited text file, this feature can be invoked
+      by using `-c INFO/END`.
 
     - add a new '.' modifier to control wheter missing values should be carried
       over from a tab-delimited file or not. For example: 

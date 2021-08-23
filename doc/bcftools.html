@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-08-20 13:50 BST</strong> and refers to bcftools git version <strong>1.13-25-g41093eb+</strong>.</p>
+<p>This manual page was last updated <strong>2021-08-23 13:49 BST</strong> and refers to bcftools git version <strong>1.13-27-g7956618+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -411,13 +411,23 @@ number of annotation columns. BED files are expected to have
 the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
 Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
 one-based and inclusive.  When REF and ALT are present, only matching VCF
-records will be annotated.
+records will be annotated. If the END coordinate is present in the annotation file
+and given on command line as "<code>-c ~INFO/END</code>", then VCF records will be matched also by the INFO/END coordinate.
+If ID is present in the annotation file and given as "<code>-c ~ID</code>", then VCF records will be matched
+also by the ID column.
+&#160;<br>
+&#160;<br>
 When multiple ALT alleles are present in the annotation file (given as
 comma-separated list of alleles), at least one must match one of the
 alleles in the corresponding VCF record. Similarly, at least one
 alternate allele from a multi-allelic VCF record must be present in the
 annotation file.
-Missing values can be added by providing "." in place of actual value.
+&#160;<br>
+&#160;<br>
+Missing values can be added by providing "." in place of actual value
+and using the missing value modifier with <strong>-c</strong>, such as ".TAG".
+&#160;<br>
+&#160;<br>
 Note that flag types, such as "INFO/FLAG", can be annotated by including
 a field with the value "1" to set the flag, "0" to remove it, or "." to
 keep existing flags.
@@ -469,7 +479,7 @@ exist in the target file; existing tags will not be overwritten.
 To append to existing values (rather than replacing or leaving untouched), use "=TAG"
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "-TAG".
-To match the record also by ID, in addition to REF and ALT, use "~ID".
+To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
 &#160;<br>
 &#160;<br>
 If the annotation file is not a VCF/BCF, all new annotations must be
@@ -4696,7 +4706,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-08-20 13:44:49 +0100
+Last updated 2021-08-23 12:14:58 +0100
 </div>
 </div>
 </body>

@@ -140,6 +140,7 @@ typedef struct _args_t
     annot_col_t *cols;      // column indexes and setters
     int ncols;
     int match_id;           // set iff `-c ~ID` given
+    int match_end;          // set iff `-c ~INFO/END` is given
 
     char *set_ids_fmt;
     convert_t *set_ids;
@@ -2204,6 +2205,19 @@ static void init_columns(args_t *args)
             col->hdr_key_dst = strdup(str.s);
             if ( replace & MATCH_VALUE ) args->match_id = icol;
         }
+        else if ( !strcasecmp("~INFO/END",str.s) && !args->tgts_is_vcf )
+        {
+            replace = MATCH_VALUE;
+            args->ncols++; args->cols = (annot_col_t*) realloc(args->cols,sizeof(annot_col_t)*args->ncols);
+            annot_col_t *col = &args->cols[args->ncols-1];
+            memset(col,0,sizeof(*col));
+            col->icol = icol;
+            col->replace = replace;
+            col->setter  = NULL;
+            col->hdr_key_src = strdup(str.s);
+            col->hdr_key_dst = strdup(str.s);
+            args->match_end = icol;
+        }
         else if ( !strncasecmp("ID:=",str.s,4) )    // transfer a tag from INFO to ID column
         {
             if ( !args->tgts_is_vcf ) error("The annotation source must be a VCF for \"%s\"\n",str.s);
@@ -2421,6 +2435,11 @@ static void init_columns(args_t *args)
             if ( !strncasecmp("INFO/",str.s,5) )
             {
                 key_dst = str.s + 5;
+                explicit_dst_info = 1;
+            }
+            else if ( !strcasecmp("~INFO/END",str.s) )
+            {
+                key_dst = str.s + 6;
                 explicit_dst_info = 1;
             }
             else
@@ -2958,6 +2977,7 @@ static void annotate(args_t *args, bcf1_t *line)
         for (j=0; j<args->ncols; j++)
         {
             if ( args->cols[j].done==1 || args->cols[j].merge_method == MM_FIRST ) continue;
+            if ( !args->cols[j].setter ) continue;
             if ( args->cols[j].setter(args,line,&args->cols[j],NULL) < 0 )
                 error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
         }
@@ -2975,6 +2995,10 @@ static void annotate(args_t *args, bcf1_t *line)
         hts_expand(uint32_t,args->nalines,args->msrt_alines,args->srt_alines);
         if ( args->nalines >= 0xffff || line->n_allele >= 0xffff )
             error("Error: too many alleles or annotation lines in the buffer at %s:%"PRId64" (todo:skip?)\n",bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+
+        kstring_t match_end = {0,0,0};
+        if ( args->match_end>=0 && bcf_get_info_int32(args->hdr,line,"END",&args->tmpi,&args->mtmpi)==1 )
+            kputw(args->tmpi[0],&match_end);
 
         // Find matching lines
         for (i=0; i<args->nalines; i++)
@@ -2995,6 +3019,7 @@ static void annotate(args_t *args, bcf1_t *line)
                         ialt++;
                     }
                     if ( args->match_id>=0 && !strstr_match(line->d.id,args->alines[i].cols[args->match_id]) ) continue;
+                    if ( match_end.l && strcmp(match_end.s,args->alines[i].cols[args->match_end]) ) continue;
                     args->srt_alines[args->nsrt_alines++] = (ialt<<16) | i;
                     has_overlap = 1;
                     break;
@@ -3006,6 +3031,9 @@ static void annotate(args_t *args, bcf1_t *line)
                 has_overlap = 1;
             }
         }
+
+        free(match_end.s);
+
         // Sort lines if needed
         if ( args->has_append_mode )
         {
@@ -3034,6 +3062,7 @@ static void annotate(args_t *args, bcf1_t *line)
                         {
                             if ( args->cols[j].merge_method != MM_APPEND_MISSING ) continue;
                             if ( args->cols[j].done==1 ) continue;
+                            if ( !args->cols[j].setter ) continue;
                             int ret = args->cols[j].setter(args,line,&args->cols[j],args->aline_missing);
                             if ( ret < 0 )
                                 error("fixme: Could not set missing %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
@@ -3046,6 +3075,7 @@ static void annotate(args_t *args, bcf1_t *line)
             for (j=0; j<args->ncols; j++)
             {
                 if ( args->cols[j].done==1 ) continue;
+                if ( !args->cols[j].setter ) continue;
                 int ret = args->cols[j].setter(args,line,&args->cols[j],&args->alines[ilin]);
                 if ( ret < 0 )
                     error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
@@ -3066,6 +3096,7 @@ static void annotate(args_t *args, bcf1_t *line)
                     {
                         if ( args->cols[j].merge_method != MM_APPEND_MISSING ) continue;
                         if ( args->cols[j].done==1 ) continue;
+                        if ( !args->cols[j].setter ) continue;
                         int ret = args->cols[j].setter(args,line,&args->cols[j],args->aline_missing);
                         if ( ret < 0 )
                             error("fixme: Could not set missing %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
@@ -3078,6 +3109,7 @@ static void annotate(args_t *args, bcf1_t *line)
             for (j=0; j<args->ncols; j++)
             {
                 if ( args->cols[j].done==1 || args->cols[j].merge_method == MM_FIRST ) continue;
+                if ( !args->cols[j].setter ) continue;
                 int ret = args->cols[j].setter(args,line,&args->cols[j],NULL);
                 if ( ret < 0 )
                     error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
@@ -3090,8 +3122,11 @@ static void annotate(args_t *args, bcf1_t *line)
         {
             bcf1_t *aline = bcf_sr_get_line(args->files,1);
             for (j=0; j<args->ncols; j++)
+            {
+                if ( !args->cols[j].setter ) continue;
                 if ( args->cols[j].setter(args,line,&args->cols[j],aline) )
                     error("fixme: Could not set %s at %s:%"PRId64"\n", args->cols[j].hdr_key_src,bcf_seqname(args->hdr,line),(int64_t) line->pos+1);
+            }
 
             has_overlap = 1;
         }

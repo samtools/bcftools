@@ -291,13 +291,23 @@ Add or remove annotations.
     the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
     Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
     one-based and inclusive.  When REF and ALT are present, only matching VCF
-    records will be annotated.
+    records will be annotated. If the END coordinate is present in the annotation file
+    and given on command line as "`-c ~INFO/END`", then VCF records will be matched also by the INFO/END coordinate.
+    If ID is present in the annotation file and given as "`-c ~ID`", then VCF records will be matched
+    also by the ID column.
+    {nbsp} +
+    {nbsp} +
     When multiple ALT alleles are present in the annotation file (given as
     comma-separated list of alleles), at least one must match one of the
     alleles in the corresponding VCF record. Similarly, at least one
     alternate allele from a multi-allelic VCF record must be present in the
     annotation file.
-    Missing values can be added by providing "." in place of actual value.
+    {nbsp} +
+    {nbsp} +
+    Missing values can be added by providing "." in place of actual value
+    and using the missing value modifier with *-c*, such as ".TAG".
+    {nbsp} +
+    {nbsp} +
     Note that flag types, such as "INFO/FLAG", can be annotated by including
     a field with the value "1" to set the flag, "0" to remove it, or "." to
     keep existing flags.
@@ -341,7 +351,7 @@ Add or remove annotations.
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
-    To match the record also by ID, in addition to REF and ALT, use "~ID".
+    To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
     {nbsp} +
     {nbsp} +
     If the annotation file is not a VCF/BCF, all new annotations must be
