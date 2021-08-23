@@ -57,7 +57,7 @@ typedef struct _args_t
     char **argv, *output_fname, *file_list, **fnames, *remove_dups, *regions_list;
     int argc, nfnames, allow_overlaps, phased_concat, regions_is_file;
     int compact_PS, phase_set_changed, naive_concat, naive_concat_trust_headers;
-    int verbose;
+    int verbose, explicit_output_type;
     htsThreadPool *tpool;
 }
 args_t;
@@ -742,6 +742,10 @@ static void naive_concat(args_t *args)
     // only compressed BCF atm
     BGZF *bgzf_out = bgzf_open(args->output_fname,"w");;
 
+    htsFormat output_type;
+    output_type.format = (args->output_type & FT_VCF) ? vcf : bcf;
+    output_type.compression = (args->output_type & FT_GZ) ? bgzf : no_compression;
+
     struct timeval t0, t1;
     const size_t page_size = BGZF_MAX_BLOCK_SIZE;
     uint8_t *buf = (uint8_t*) malloc(page_size);
@@ -759,10 +763,17 @@ static void naive_concat(args_t *args)
         htsFormat type = *hts_get_format(hts_fp);
 
         if ( type.compression!=bgzf )
-            error("\nThe --naive option works only for compressed BCFs or VCFs, sorry :-/\n");
+            error("\nThe --naive option works only for compressed BCFs or VCFs\n");
         file_types |= type.format==vcf ? 1 : 2;
         if ( file_types==3 )
-            error("\nThe --naive option works only for compressed files of the same type, all BCFs or all VCFs :-/\n");
+            error("\nThe --naive option works only for compressed files of the same type, all BCFs or all VCFs\n");
+        if ( args->explicit_output_type )
+        {
+            if ( output_type.format!=type.format )
+                error("\nThe --naive option works only for the output of the same type, all BCFs or all VCFs\n");
+            if ( output_type.compression!=type.compression )
+                error("\nThe --naive option works only for the output of the same compression type\n");
+        }
 
         BGZF *fp = hts_get_bgzfp(hts_fp);
         if ( !fp || bgzf_read_block(fp) != 0 || !fp->block_length )
@@ -917,6 +928,7 @@ int main_vcfconcat(int argc, char *argv[])
             case 'f': args->file_list = optarg; break;
             case 'o': args->output_fname = optarg; break;
             case 'O':
+                args->explicit_output_type = 1;
                 switch (optarg[0]) {
                     case 'b': args->output_type = FT_BCF_GZ; break;
                     case 'u': args->output_type = FT_BCF; break;
