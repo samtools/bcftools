@@ -495,6 +495,9 @@ int run(int argc, char **argv)
     else if ( optind+1!=argc ) error("%s",usage_text());
     else args->fname = argv[optind];
 
+    if ( !args->control_samples_str ) error("Error: missing the -0, --control-samples option\n");
+    if ( !args->case_samples_str ) error("Error: missing the -1, --case-samples option\n");
+
     init_data(args);
 
     while ( bcf_sr_next_line(args->sr) )
