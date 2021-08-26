@@ -2921,6 +2921,7 @@ static void buffer_annot_lines(args_t *args, bcf1_t *line, int start_pos, int en
 
     while ( !bcf_sr_regions_overlap(args->tgts, bcf_seqname(args->hdr,line), start_pos,end_pos) )
     {
+        if ( args->nalines + 1 == 0xffff ) break;   // likely a symbolic allele, don't let the buffer overflow
         args->nalines++;
         hts_expand0(annot_line_t,args->nalines,args->malines,args->alines);
         annot_line_t *tmp = &args->alines[args->nalines-1];
