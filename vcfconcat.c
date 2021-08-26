@@ -501,7 +501,20 @@ static void concat(args_t *args)
                 }
 
                 // We are assuming that there is a perfect overlap, sites which are not present in both files are dropped
-                if ( args->files->nreaders>1 && !bcf_sr_has_line(args->files,1) && !bcf_sr_region_done(args->files,1) ) continue;
+                if ( args->files->nreaders>1 && !bcf_sr_has_line(args->files,1) && !bcf_sr_region_done(args->files,1) )
+                {
+                    if ( !site_drop_warned )
+                    {
+                        fprintf(stderr,
+                                "Warning: Dropping the site %s:%"PRId64". The --ligate option is intended for VCFs with perfect\n"
+                                "         overlap, sites in overlapping regions present in one but missing in other are dropped.\n"
+                                "         This warning is printed only once.\n",
+                                bcf_seqname(bcf_sr_get_header(args->files,0),line), (int64_t) line->pos+1
+                               );
+                        site_drop_warned = 1;
+                    }
+                    continue;
+                }
 
                 phased_push(args, bcf_sr_get_line(args->files,0), args->files->nreaders>1 ? bcf_sr_get_line(args->files,1) : NULL);
             }
