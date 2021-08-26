@@ -130,7 +130,7 @@ static int cmp_int(const void *a, const void *b)
 static void read_sample_list_or_file(bcf_hdr_t *hdr, const char *str, int **smpl, int *nsmpl, int force_samples)
 {
     char **str_list = NULL;
-    int i,j, *list, nlist = 0, is_file, nskipped = 0;
+    int i,j, *list = NULL, nlist = 0, is_file, nskipped = 0;
 
     for (is_file=0; is_file<=1; is_file++)
     {
@@ -139,10 +139,17 @@ static void read_sample_list_or_file(bcf_hdr_t *hdr, const char *str, int **smpl
             for (i=0; i<nlist; i++) free(str_list[i]);
             free(str_list);
             free(list);
+            str_list = NULL;
+            list = NULL;
+            nlist = 0;
         }
 
         str_list = hts_readlist(str, is_file, &nlist);
-        if ( !str_list ) error("The sample \"%s\", is not present in the VCF\n", str);
+        if ( !str_list )
+        {
+            if ( force_samples ) continue;
+            error("The sample \"%s\", is not present in the VCF\n", str);
+        }
 
         list = (int*) malloc(sizeof(int)*nlist);
         for (i=0,j=0; i<nlist; i++,j++)
@@ -162,7 +169,7 @@ static void read_sample_list_or_file(bcf_hdr_t *hdr, const char *str, int **smpl
     }
     for (i=0; i<nlist; i++) free(str_list[i]);
     nlist -= nskipped;
-    if ( !nlist ) error("None of the samples are present in the VCF: %s\n", str);
+    if ( !nlist && !force_samples ) error("None of the samples are present in the VCF: %s\n", str);
     if ( nskipped ) fprintf(stderr,"Warning: using %d sample%s, %d from %s %s not present in the VCF\n", nlist,nlist>1?"s":"",nskipped,str,nskipped>1?"are":"is");
     free(str_list);
     qsort(list,nlist,sizeof(*list),cmp_int);
@@ -317,7 +324,7 @@ static int process_record(args_t *args, bcf1_t *rec)
         if ( args->annots & PRINT_NOVELGT )
             binary_insert(gt, &args->control_gts, &args->ncontrol_gts, &args->mcontrol_gts);
     }
-    if ( !control_als )
+    if ( !control_als && args->ncontrol_smpl )
     {
         // all are missing
         args->nskipped++;
@@ -368,7 +375,7 @@ static int process_record(args_t *args, bcf1_t *rec)
             kputs(smpl, &args->case_gts_smpl);
         }
     }
-    if ( !has_gt )
+    if ( !has_gt && args->ncase_smpl )
     {
         // all are missing
         args->nskipped++;
@@ -395,14 +402,14 @@ static int process_record(args_t *args, bcf1_t *rec)
     }
 
     float vals[2];
-    if ( args->annots & PRINT_PASSOC )
+    if ( (args->annots & PRINT_PASSOC) && args->ncontrol_smpl && args->ncase_smpl )
     {
         double left, right, fisher;
         kt_fisher_exact(nals[0],nals[1],nals[2],nals[3], &left,&right,&fisher);
         vals[0] = fisher;
         bcf_update_info_float(args->hdr_out, rec, "PASSOC", vals, 1);
     }
-    if ( args->annots & PRINT_FASSOC )
+    if ( (args->annots & PRINT_FASSOC) && args->ncontrol_smpl && args->ncase_smpl )
     {
         if ( nals[0]+nals[1] ) vals[0] = (float)nals[1]/(nals[0]+nals[1]);
         else bcf_float_set_missing(vals[0]);
