@@ -601,11 +601,14 @@ test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.bcf.out',do_bcf=>1,args=>'-a');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.vcf.out',do_bcf=>0,args=>'-aD');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.bcf.out',do_bcf=>1,args=>'-aD');
-test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-l');
-test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-l');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-l --ligate-warn');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-l --ligate-warn');
 test_naive_concat($opts,name=>'naive_concat',max_hdr_lines=>10000,max_body_lines=>10000,nfiles=>10);
 test_vcf_concat($opts,in=>['concat.4.a','concat.4.b'],out=>'concat.5.out',do_bcf=>0,args=>'-l');
 test_vcf_concat($opts,in=>['concat.4.a','concat.4.b'],out=>'concat.5.out',do_bcf=>1,args=>'-l');
+test_vcf_concat($opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.1.out',do_bcf=>0,args=>'-l --ligate-warn');
+test_vcf_concat($opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.1.out',do_bcf=>1,args=>'-l --ligate-warn');
+test_vcf_concat($opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.2.out',do_bcf=>1,args=>'-l --ligate-force');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');

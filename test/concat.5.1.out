@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PQ,Number=1,Type=Integer,Description="Phasing Quality (bigger is better)">
+##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase Set">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+chr1	1	.	A	C	.	.	.	GT:PS	0|1:1
+chr1	3	.	G	T	.	.	.	GT:PS	0|1:1
+chr1	4	.	T	A	.	.	.	GT:PS	1|0:1

@@ -33,6 +33,20 @@
       information carried in the missing and half-missing genotypes
       (e.g. ".", "./." or "./1")
 
+* bcftools concat:
+
+    - new `--ligate-force` and `--ligate-warn` options for finer control
+      of `-l, --ligate` behavior in imperfect overlaps. The new default is
+      to throw an error when sites present in one chunk but absent in the
+      other are encountered. To drop such sites and proceed, use the new
+      `--ligate-warn` option (previously this was the default). To keep such
+      sites, use the new `--ligate-force` option (#1567).
+
+* bcftools +contrast:
+
+    - support for chunking within map/reduce framework allowing to collect
+      NASSOC counts even for empty case/control sample sets (#1566)
+
 * bcftools csq:
 
     - bug fix, compound indels were not recognised in some cases (#1536)

@@ -787,7 +787,13 @@ are concatenated without being recompressed, which is very fast..
 *-l, --ligate*::
     Ligate phased VCFs by matching phase at overlapping haplotypes.
     Note that the option is intended for VCFs with perfect overlap, sites
-    in overlapping regions present in one but missing in other are dropped.
+    in overlapping regions present in one but missing in the other are dropped.
+
+*--ligate-force*::
+    Keep all sites and ligate even non-overlapping chunks and chunks with imperfect overlap
+
+*--ligate-warn*::
+    Drop sites in imperfect overlaps
 
 *--no-version*::
     see *<<common_options,Common Options>>*
