@@ -2040,6 +2040,11 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     0.75) while higher depth samples or where you favour recall rates
     over precision may work better with a higher value such as 2.0.
 
+*--indel-size* 'INT'::
+    Indel window size to use when assessing the quality of candidate indels.
+    Note that although the window size approximately corresponds to the maximum
+    indel size considered, it is not an exact threshold [110]
+
 *-I, --skip-indels*::
     Do not perform INDEL calling
 
