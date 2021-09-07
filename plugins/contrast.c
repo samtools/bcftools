@@ -54,6 +54,7 @@
 typedef struct
 {
     int argc, filter_logic, regions_is_file, targets_is_file, output_type, force_samples;
+    int regions_overlap, targets_overlap;
     uint32_t annots;
     char **argv, *output_fname, *fname, *regions, *targets, *filter_str, *annots_str;
     char *control_samples_str, *case_samples_str, *max_AC_str;
@@ -91,20 +92,22 @@ static const char *usage_text(void)
         "       - NOVELGT .. lists samples with a novel genotype not observed in the control group\n"
         "Usage: bcftools +contrast [Plugin Options]\n"
         "Plugin options:\n"
-        "   -a, --annots <list>                 list of annotations to output [PASSOC,FASSOC,NOVELAL]\n"
-        "   -0, --control-samples <list|file>   file or comma-separated list of control (background) samples\n"
-        "   -1, --case-samples <list|file>      file or comma-separated list of samples where novel allele or genotype is expected\n"
-        "   -e, --exclude EXPR                  exclude sites and samples for which the expression is true\n"
-        "   -f, --max-allele-freq NUM           calculate enrichment of rare alleles. Floating point numbers between 0 and 1 are\n"
-        "                                           interpreted as ALT allele frequencies, integers as ALT allele counts\n"
-        "       --force-samples                 continue even if some samples listed in the -0,-1 files are missing from the VCF\n"
-        "   -i, --include EXPR                  include sites and samples for which the expression is true\n"
-        "   -o, --output FILE                   output file name [stdout]\n"
-        "   -O, --output-type <b|u|z|v>         b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "   -r, --regions REG                   restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE             restrict to regions listed in a file\n"
-        "   -t, --targets REG                   similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE             similar to -R but streams rather than index-jumps\n"
+        "   -a, --annots LIST                List of annotations to output [PASSOC,FASSOC,NOVELAL]\n"
+        "   -0, --control-samples LIST|FILE  File or comma-separated list of control (background) samples\n"
+        "   -1, --case-samples LIST|FILE     File or comma-separated list of samples where novel allele or genotype is expected\n"
+        "   -e, --exclude EXPR               Exclude sites and samples for which the expression is true\n"
+        "   -f, --max-allele-freq NUM        Calculate enrichment of rare alleles. Floating point numbers between 0 and 1 are\n"
+        "                                        interpreted as ALT allele frequencies, integers as ALT allele counts\n"
+        "       --force-samples              Continue even if some samples listed in the -0,-1 files are missing from the VCF\n"
+        "   -i, --include EXPR               Include sites and samples for which the expression is true\n"
+        "   -o, --output FILE                Output file name [stdout]\n"
+        "   -O, --output-type b|u|z|v        b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "   -r, --regions REG                Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE          Restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
+        "   -t, --targets REG                Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE          Similar to -R but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "\n"
         "Example:\n"
         "   # Test if any of the samples a,b is different from the samples c,d,e\n"
@@ -197,9 +200,14 @@ static void init_data(args_t *args)
     if ( args->regions )
     {
         args->sr->require_index = 1;
+        bcf_sr_set_opt(args->sr,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(args->sr, args->regions, args->regions_is_file)<0 ) error("Failed to read the regions: %s\n",args->regions);
     }
-    if ( args->targets && bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    if ( args->targets )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_TARGETS_OVERLAP,args->targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    }
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
@@ -440,6 +448,8 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
     args->annots_str = "PASSOC,FASSOC";
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
     static struct option loptions[] =
     {
         {"max-allele-freq",required_argument,0,'f'},
@@ -455,8 +465,10 @@ int run(int argc, char **argv)
         {"output-type",required_argument,NULL,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"regions-overlap",required_argument,NULL,3},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"targets-overlap",required_argument,NULL,4},
         {NULL,0,NULL,0}
     };
     int c;
@@ -489,6 +501,18 @@ int run(int argc, char **argv)
                           default: error("The output type \"%s\" not recognised\n", optarg);
                       };
                       break;
+            case  3 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case  4 :
+                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;

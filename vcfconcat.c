@@ -56,7 +56,7 @@ typedef struct _args_t
     int32_t *GTa, *GTb, mGTa, mGTb, *phase_qual, *phase_set;
 
     char **argv, *output_fname, *file_list, **fnames, *remove_dups, *regions_list;
-    int argc, nfnames, allow_overlaps, phased_concat, regions_is_file;
+    int argc, nfnames, allow_overlaps, phased_concat, regions_is_file, regions_overlap;
     int compact_PS, phase_set_changed, naive_concat, naive_concat_trust_headers;
     int verbose, explicit_output_type, ligate_force, ligate_warn;
     htsThreadPool *tpool;
@@ -145,6 +145,7 @@ static void init_data(args_t *args)
     {
         if ( args->regions_list )
         {
+            bcf_sr_set_opt(args->files,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
             if ( bcf_sr_set_regions(args->files, args->regions_list, args->regions_is_file)<0 )
                 error("Failed to read the regions: %s\n", args->regions_list);
         }
@@ -916,22 +917,23 @@ static void usage(args_t *args)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --allow-overlaps           First coordinate of the next file can precede last record of the current file.\n");
     fprintf(stderr, "   -c, --compact-PS               Do not output PS tag at each site, only at the start of a new phase set block.\n");
-    fprintf(stderr, "   -d, --rm-dups <string>         Output duplicate records present in multiple files only once: <snps|indels|both|all|exact>\n");
+    fprintf(stderr, "   -d, --rm-dups STRING           Output duplicate records present in multiple files only once: <snps|indels|both|all|exact>\n");
     fprintf(stderr, "   -D, --remove-duplicates        Alias for -d exact\n");
-    fprintf(stderr, "   -f, --file-list <file>         Read the list of files from a file.\n");
+    fprintf(stderr, "   -f, --file-list FILE           Read the list of files from a file.\n");
     fprintf(stderr, "   -l, --ligate                   Ligate phased VCFs by matching phase at overlapping haplotypes\n");
     fprintf(stderr, "       --ligate-force             Ligate even non-overlapping chunks, keep all sites\n");
     fprintf(stderr, "       --ligate-warn              Drop sites in imperfect overlaps\n");
     fprintf(stderr, "       --no-version               Do not append version and command line to the header\n");
     fprintf(stderr, "   -n, --naive                    Concatenate files without recompression, a header check compatibility is performed\n");
     fprintf(stderr, "       --naive-force              Same as --naive, but header compatibility is not checked. Dangerous, use with caution.\n");
-    fprintf(stderr, "   -o, --output <file>            Write output to a file [standard output]\n");
-    fprintf(stderr, "   -O, --output-type <b|u|z|v>    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -q, --min-PQ <int>             Break phase set if phasing quality is lower than <int> [30]\n");
-    fprintf(stderr, "   -r, --regions <region>         Restrict to comma-separated list of regions\n");
-    fprintf(stderr, "   -R, --regions-file <file>      Restrict to regions listed in a file\n");
-    fprintf(stderr, "       --threads <int>            Use multithreading with <int> worker threads [0]\n");
-    fprintf(stderr, "   -v, --verbose <0|1>            Set verbosity level [1]\n");
+    fprintf(stderr, "   -o, --output FILE              Write output to a file [standard output]\n");
+    fprintf(stderr, "   -O, --output-type b|u|z|v      b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -q, --min-PQ INT               Break phase set if phasing quality is lower than <int> [30]\n");
+    fprintf(stderr, "   -r, --regions REGION           Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file FILE        Restrict to regions listed in a file\n");
+    fprintf(stderr, "       --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "       --threads INT              Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "   -v, --verbose 0|1              Set verbosity level [1]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -956,6 +958,7 @@ int main_vcfconcat(int argc, char *argv[])
         {"compact-PS",no_argument,NULL,'c'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"regions-overlap",required_argument,NULL,12},
         {"remove-duplicates",no_argument,NULL,'D'},
         {"rm-dups",required_argument,NULL,'d'},
         {"allow-overlaps",no_argument,NULL,'a'},
@@ -1003,6 +1006,12 @@ int main_vcfconcat(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case  7 : args->naive_concat = 1; args->naive_concat_trust_headers = 1; break;
+            case 12 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
             case 'v':
                       args->verbose = strtol(optarg, 0, 0);
                       error("Error: currently only --verbose 0 or --verbose 1 is supported\n");

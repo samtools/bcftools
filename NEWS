@@ -1,5 +1,16 @@
 ## Release a.b
 
+Changes affecting the whole of bcftools, or multiple commands:
+
+* New `--regions-overlap` and `--targets-overlap` options which address
+  a long-standing design problem with subsetting VCF files by region. 
+  BCFtools recognize two sets of options, one for streaming (`-t/-T`) and
+  one for index-gumping (`-r/-R`). They behave differently, the first
+  includes only records with POS coordinate within the regions, the other
+  includes overlapping regions. The two new options allow to modify the
+  default behavior, see the man page for more details.
+
+Changes affecting specific commands:
 
 * bcftools annotate
 
@@ -60,6 +71,12 @@
 
     - further improve the detection of mismatching chromosome naming
       (e.g. "chrX" vs "X") in the GFF, VCF and fasta files
+
+* bcftools mpileup:
+
+    - new --indel-size option which allows to increase the maximum considered
+      indel size considered, large deletions in long read data are otherwise
+      lost.
 
 * bcftools norm:
 

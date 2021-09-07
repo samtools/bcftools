@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2013-2018 Genome Research Ltd.
+   Copyright (c) 2013-2021 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -56,6 +56,7 @@ typedef struct
     char **argv, *output_dir;
     double fit_th, peak_symmetry, cn_penalty, min_peak_size, min_fraction;
     int argc, plot, verbose, regions_is_file, targets_is_file, include_aa, force_cn;
+    int regions_overlap, targets_overlap;
     char *dat_fname, *fname, *regions_list, *targets_list, *sample;
     FILE *dat_fp;
 }
@@ -169,11 +170,13 @@ static void init_data(args_t *args)
     bcf_srs_t *files = bcf_sr_init();
     if ( args->regions_list )
     {
+        bcf_sr_set_opt(files,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(files, args->regions_list, args->regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }
     if ( args->targets_list )
     {
+        bcf_sr_set_opt(files,BCF_SR_TARGETS_OVERLAP,args->targets_overlap);
         if ( bcf_sr_set_targets(files, args->targets_list, args->targets_is_file, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets_list);
     }
@@ -619,24 +622,26 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Detect number of chromosomal copies from Illumina's B-allele frequency (BAF)\n");
-    fprintf(stderr, "Usage:   bcftools polysomy [OPTIONS] <file.vcf>\n");
+    fprintf(stderr, "Usage:   bcftools polysomy [OPTIONS] FILE.vcf\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "General options:\n");
-    fprintf(stderr, "    -o, --output-dir <path>        \n");
-    fprintf(stderr, "    -r, --regions <region>         restrict to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file <file>      restrict to regions listed in a file\n");
-    fprintf(stderr, "    -s, --sample <name>            sample to analyze\n");
-    fprintf(stderr, "    -t, --targets <region>         similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "    -T, --targets-file <file>      similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "    -o, --output-dir PATH          \n");
+    fprintf(stderr, "    -r, --regions REGION           Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file FILE        Restrict to regions listed in a file\n");
+    fprintf(stderr, "        --regions-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "    -s, --sample NAME              Sample to analyze\n");
+    fprintf(stderr, "    -t, --targets REGION           Similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "    -T, --targets-file FILE        Similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "        --targets-overlap 0|1|2    Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "    -v, --verbose                  \n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Algorithm options:\n");
-    fprintf(stderr, "    -b, --peak-size <float>        minimum peak size (0-1, larger is stricter) [0.1]\n");
-    fprintf(stderr, "    -c, --cn-penalty <float>       penalty for increasing CN (0-1, larger is stricter) [0.7]\n");
-    fprintf(stderr, "    -f, --fit-th <float>           goodness of fit threshold (>0, smaller is stricter) [3.3]\n");
-    fprintf(stderr, "    -i, --include-aa               include the AA peak in CN2 and CN3 evaluation\n");
-    fprintf(stderr, "    -m, --min-fraction <float>     minimum distinguishable fraction of aberrant cells [0.1]\n");
-    fprintf(stderr, "    -p, --peak-symmetry <float>    peak symmetry threshold (0-1, larger is stricter) [0.5]\n");
+    fprintf(stderr, "    -b, --peak-size FLOAT          Minimum peak size (0-1, larger is stricter) [0.1]\n");
+    fprintf(stderr, "    -c, --cn-penalty FLOA>         Penalty for increasing CN (0-1, larger is stricter) [0.7]\n");
+    fprintf(stderr, "    -f, --fit-th FLOAT             Goodness of fit threshold (>0, smaller is stricter) [3.3]\n");
+    fprintf(stderr, "    -i, --include-aa               Include the AA peak in CN2 and CN3 evaluation\n");
+    fprintf(stderr, "    -m, --min-fraction FLOAT       Minimum distinguishable fraction of aberrant cells [0.1]\n");
+    fprintf(stderr, "    -p, --peak-symmetry FLOAT      Peak symmetry threshold (0-1, larger is stricter) [0.5]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -653,6 +658,8 @@ int main_polysomy(int argc, char *argv[])
     args->ra_rr_scaling = 1;
     args->min_fraction = 0.1;
     args->smooth = -3;
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
 
     static struct option loptions[] =
     {
@@ -671,8 +678,10 @@ int main_polysomy(int argc, char *argv[])
         {"sample",1,0,'s'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"targets-overlap",required_argument,NULL,4},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"regions-overlap",required_argument,NULL,3},
         {0,0,0,0}
     };
     char *tmp;
@@ -683,6 +692,18 @@ int main_polysomy(int argc, char *argv[])
         {
             case  1 : args->ra_rr_scaling = 0; break;
             case  2 : args->force_cn = atoi(optarg); break;
+            case  3 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case  4 :
+                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'n': args->nbins = atoi(optarg); break;
             case 'S': args->smooth = atoi(optarg); break;
             case 'i': args->include_aa = 1; break;

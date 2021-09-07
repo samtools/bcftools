@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-08-23 13:49 BST</strong> and refers to bcftools git version <strong>1.13-27-g7956618+</strong>.</p>
+<p>This manual page was last updated <strong>2021-09-06 16:23 BST</strong> and refers to bcftools git version <strong>1.13-37-g4c71bfb+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -292,6 +292,16 @@ duplicated out of order positions in the output.
 This option requires indexed VCF/BCF files. Note that <strong>-R</strong> cannot be used
 in combination with <strong>-r</strong>.</p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>This option controls how overlapping records are determined:
+set to <strong>0</strong> if the VCF record has to have POS inside a region
+(this corresponds to the default behavior of <strong>-t/-T</strong>);
+set to <strong>1</strong> if also overlapping records with POS outside a region
+should be included (this is the default behavior of <strong>-r/-R</strong>); or set
+to <strong>2</strong> to include only true overlapping variation (compare
+the full VCF representation "<code>TA&gt;T-</code>" vs the true sequence variation "<code>A&gt;-</code>").</p>
+</dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> [&#94;]<em>LIST</em></dt>
 <dd>
 <p>Comma-separated list of samples to include or exclude if prefixed
@@ -387,6 +397,10 @@ Such a file can be easily created from a VCF using:</p>
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>Same as <strong>--regions-overlap</strong> but for <strong>-t/-T</strong>.</p>
+</dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>Use multithreading with <em>INT</em> worker threads. The option is currently used only for the compression of the
@@ -480,6 +494,7 @@ To append to existing values (rather than replacing or leaving untouched), use "
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "-TAG".
 To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
+If position needs to be replaced, mark the column with the new position as "~POS".
 &#160;<br>
 &#160;<br>
 If the annotation file is not a VCF/BCF, all new annotations must be
@@ -1046,7 +1061,15 @@ Requires <strong>-a, --allow-overlaps</strong>.</p>
 <dd>
 <p>Ligate phased VCFs by matching phase at overlapping haplotypes.
 Note that the option is intended for VCFs with perfect overlap, sites
-in overlapping regions present in one but missing in other are dropped.</p>
+in overlapping regions present in one but missing in the other are dropped.</p>
+</dd>
+<dt class="hdlist1"><strong>--ligate-force</strong></dt>
+<dd>
+<p>Keep all sites and ligate even non-overlapping chunks and chunks with imperfect overlap</p>
+</dd>
+<dt class="hdlist1"><strong>--ligate-warn</strong></dt>
+<dd>
+<p>Drop sites in imperfect overlaps</p>
 </dd>
 <dt class="hdlist1"><strong>--no-version</strong></dt>
 <dd>
@@ -2686,6 +2709,12 @@ variants, selecting the best quality ones only (favouring
 precision over recall), it is advisable to set this lower (such as
 0.75) while higher depth samples or where you favour recall rates
 over precision may work better with a higher value such as 2.0.</p>
+</dd>
+<dt class="hdlist1"><strong>--indel-size</strong> <em>INT</em></dt>
+<dd>
+<p>Indel window size to use when assessing the quality of candidate indels.
+Note that although the window size approximately corresponds to the maximum
+indel size considered, it is not an exact threshold [110]</p>
 </dd>
 <dt class="hdlist1"><strong>-I, --skip-indels</strong></dt>
 <dd>
@@ -4706,7 +4735,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-08-23 12:14:58 +0100
+Last updated 2021-09-06 16:23:55 +0100
 </div>
 </div>
 </body>

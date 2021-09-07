@@ -3083,24 +3083,25 @@ static void usage(void)
     fprintf(stderr, "Usage:   bcftools merge [options] <A.vcf.gz> <B.vcf.gz> [...]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "        --force-samples                resolve duplicate sample names\n");
-    fprintf(stderr, "        --print-header                 print only the merged header and exit\n");
-    fprintf(stderr, "        --use-header <file>            use the provided header\n");
-    fprintf(stderr, "    -0  --missing-to-ref               assume genotypes at missing sites are 0/0\n");
-    fprintf(stderr, "    -f, --apply-filters <list>         require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
-    fprintf(stderr, "    -F, --filter-logic <x|+>           remove filters if some input is PASS (\"x\"), or apply all filters (\"+\") [+]\n");
-    fprintf(stderr, "    -g, --gvcf <-|ref.fa>              merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\n");
-    fprintf(stderr, "    -i, --info-rules <tag:method,..>   rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
-    fprintf(stderr, "    -l, --file-list <file>             read file names from the file\n");
-    fprintf(stderr, "    -L, --local-alleles <int>          EXPERIMENTAL: if more than <int> ALT alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");
-    fprintf(stderr, "    -m, --merge <string>               allow multiallelic records for <snps|indels|both|all|none|id>, see man page for details [both]\n");
-    fprintf(stderr, "        --no-index                     merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
-    fprintf(stderr, "        --no-version                   do not append version and command line to the header\n");
-    fprintf(stderr, "    -o, --output <file>                write output to a file [standard output]\n");
-    fprintf(stderr, "    -O, --output-type <b|u|z|v>        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "    -r, --regions <region>             restrict to comma-separated list of regions\n");
-    fprintf(stderr, "    -R, --regions-file <file>          restrict to regions listed in a file\n");
-    fprintf(stderr, "        --threads <int>                use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "        --force-samples               Resolve duplicate sample names\n");
+    fprintf(stderr, "        --print-header                Print only the merged header and exit\n");
+    fprintf(stderr, "        --use-header FILE             Use the provided header\n");
+    fprintf(stderr, "    -0  --missing-to-ref              Assume genotypes at missing sites are 0/0\n");
+    fprintf(stderr, "    -f, --apply-filters LIST          Require at least one of the listed FILTER strings (e.g. \"PASS,.\")\n");
+    fprintf(stderr, "    -F, --filter-logic x|+            Remove filters if some input is PASS (\"x\"), or apply all filters (\"+\") [+]\n");
+    fprintf(stderr, "    -g, --gvcf -|REF.FA               Merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max\n");
+    fprintf(stderr, "    -i, --info-rules TAG:METHOD,..    Rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
+    fprintf(stderr, "    -l, --file-list FILE              Read file names from the file\n");
+    fprintf(stderr, "    -L, --local-alleles INT           EXPERIMENTAL: if more than <int> ALT alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");
+    fprintf(stderr, "    -m, --merge STRING                Allow multiallelic records for <snps|indels|both|all|none|id>, see man page for details [both]\n");
+    fprintf(stderr, "        --no-index                    Merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
+    fprintf(stderr, "        --no-version                  Do not append version and command line to the header\n");
+    fprintf(stderr, "    -o, --output FILE                 Write output to a file [standard output]\n");
+    fprintf(stderr, "    -O, --output-type b|u|z|v        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "    -r, --regions REGION              Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in a file\n");
+    fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "        --threads INT                 Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -3117,6 +3118,7 @@ int main_vcfmerge(int argc, char *argv[])
     args->record_cmd_line = 1;
     args->collapse = COLLAPSE_BOTH;
     int regions_is_file = 0;
+    int regions_overlap = 1;
 
     static struct option loptions[] =
     {
@@ -3135,6 +3137,7 @@ int main_vcfmerge(int argc, char *argv[])
         {"threads",required_argument,NULL,9},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"regions-overlap",required_argument,NULL,4},
         {"info-rules",required_argument,NULL,'i'},
         {"no-version",no_argument,NULL,8},
         {"no-index",no_argument,NULL,10},
@@ -3193,6 +3196,12 @@ int main_vcfmerge(int argc, char *argv[])
             case  1 : args->header_fname = optarg; break;
             case  2 : args->header_only = 1; break;
             case  3 : args->force_samples = 1; break;
+            case  4 :
+                if ( !strcasecmp(optarg,"0") ) regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 10 : args->no_index = 1; break;
@@ -3213,6 +3222,7 @@ int main_vcfmerge(int argc, char *argv[])
         bcf_sr_set_opt(args->files,BCF_SR_REQUIRE_IDX);
     if ( args->regions_list )
     {
+        bcf_sr_set_opt(args->files,BCF_SR_REGIONS_OVERLAP,regions_overlap);
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
         if ( regions_is_file )

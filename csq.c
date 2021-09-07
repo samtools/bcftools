@@ -4175,10 +4175,12 @@ static const char *usage(void)
         "                                   v: uncompressed VCF, t: plain tab-delimited text output [v]\n"
         "   -r, --regions REGION            restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
         "   -s, --samples -|LIST            samples to include or \"-\" to apply all variants and ignore samples\n"
         "   -S, --samples-file FILE         samples to include\n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --threads INT               use multithreading with <int> worker threads [0]\n"
         "   -v, --verbose INT               verbosity level 0-2 [1]\n"
         "\n"
@@ -4222,14 +4224,18 @@ int main_csq(int argc, char *argv[])
         {"verbose",1,0,'v'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"regions-overlap",required_argument,NULL,4},
         {"samples",1,0,'s'},
         {"samples-file",1,0,'S'},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"targets-overlap",required_argument,NULL,5},
         {"no-version",no_argument,NULL,3},
         {0,0,0,0}
     };
     int c, targets_is_file = 0, regions_is_file = 0; 
+    int regions_overlap = 1;
+    int targets_overlap = 0;
     char *targets_list = NULL, *regions_list = NULL, *tmp;
     while ((c = getopt_long(argc, argv, "?hr:R:t:T:i:e:f:o:O:g:s:S:p:qc:ln:bB:v:",loptions,NULL)) >= 0)
     {
@@ -4296,6 +4302,18 @@ int main_csq(int argc, char *argv[])
             case 'S': args->sample_list = optarg; args->sample_is_file = 1; break;
             case 't': targets_list = optarg; break;
             case 'T': targets_list = optarg; targets_is_file = 1; break;
+            case  4 :
+                if ( !strcasecmp(optarg,"0") ) regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case  5 :
+                if ( !strcasecmp(optarg,"0") ) targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'h':
             case '?': error("%s",usage());
             default: error("The option not recognised: %s\n\n", optarg); break;
@@ -4312,10 +4330,18 @@ int main_csq(int argc, char *argv[])
     if ( !args->fa_fname ) error("Missing the --fa-ref option\n");
     if ( !args->gff_fname ) error("Missing the --gff option\n");
     args->sr = bcf_sr_init();
-    if ( targets_list && bcf_sr_set_targets(args->sr, targets_list, targets_is_file, 0)<0 )
-        error("Failed to read the targets: %s\n", targets_list);
-    if ( regions_list && bcf_sr_set_regions(args->sr, regions_list, regions_is_file)<0 )
-        error("Failed to read the regions: %s\n", regions_list);
+    if ( targets_list )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_TARGETS_OVERLAP,targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, targets_list, targets_is_file, 0)<0 )
+            error("Failed to read the targets: %s\n", targets_list);
+    }
+    if ( regions_list )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_REGIONS_OVERLAP,regions_overlap);
+        if ( bcf_sr_set_regions(args->sr, regions_list, regions_is_file)<0 )
+            error("Failed to read the regions: %s\n", regions_list);
+    }
     if ( bcf_sr_set_threads(args->sr, args->n_threads)<0 ) error("Failed to create %d extra threads\n", args->n_threads);
     if ( !bcf_sr_add_reader(args->sr, fname) )
         error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->sr->errnum));

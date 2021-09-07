@@ -2091,9 +2091,11 @@ static void usage(void)
     fprintf(stderr, "    -O, --output-type TYPE          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
     fprintf(stderr, "    -r, --regions REGION            Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE         Restrict to regions listed in a file\n");
+    fprintf(stderr, "        --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "    -s, --strict-filter             When merging (-m+), merged site is PASS only if all sites being merged PASS\n");
     fprintf(stderr, "    -t, --targets REGION            Similar to -r but streams rather than index-jumps\n");
     fprintf(stderr, "    -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "        --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "        --threads INT               Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "    -w, --site-win INT              Buffer for sorting lines which changed position during realignment [1000]\n");
     fprintf(stderr, "\n");
@@ -2124,6 +2126,8 @@ int main_vcfnorm(int argc, char *argv[])
     int region_is_file  = 0;
     int targets_is_file = 0;
     args->use_star_allele = 1;
+    int regions_overlap = 1;
+    int targets_overlap = 0;
 
     static struct option loptions[] =
     {
@@ -2138,8 +2142,10 @@ int main_vcfnorm(int argc, char *argv[])
         {"multiallelics",required_argument,NULL,'m'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"regions-overlap",required_argument,NULL,1},
         {"targets",required_argument,NULL,'t'},
         {"targets-file",required_argument,NULL,'T'},
+        {"targets-overlap",required_argument,NULL,2},
         {"site-win",required_argument,NULL,'w'},
         {"remove-duplicates",no_argument,NULL,'D'},
         {"rm-dup",required_argument,NULL,'d'},
@@ -2224,6 +2230,18 @@ int main_vcfnorm(int argc, char *argv[])
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case  7 : args->force = 1; break;
+            case  1 :
+                if ( !strcasecmp(optarg,"0") ) regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case  2 :
+                if ( !strcasecmp(optarg,"0") ) targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'h':
             case '?': usage(); break;
             default: error("Unknown argument: %s\n", optarg);
@@ -2244,11 +2262,13 @@ int main_vcfnorm(int argc, char *argv[])
 
     if ( args->region )
     {
+        bcf_sr_set_opt(args->files,BCF_SR_REGIONS_OVERLAP,regions_overlap);
         if ( bcf_sr_set_regions(args->files, args->region,region_is_file)<0 )
             error("Failed to read the regions: %s\n", args->region);
     }
     if ( args->targets )
     {
+        bcf_sr_set_opt(args->files,BCF_SR_TARGETS_OVERLAP,targets_overlap);
         if ( bcf_sr_set_targets(args->files, args->targets,targets_is_file, 0)<0 )
             error("Failed to read the targets: %s\n", args->targets);
     }

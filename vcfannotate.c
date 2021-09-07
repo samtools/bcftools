@@ -3188,29 +3188,30 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations FILE       VCF file or tabix-indexed FILE with annotations: CHR\\tPOS[\\tVALUE]+\n");
-    fprintf(stderr, "       --collapse STR           matching records by <snps|indels|both|all|some|none>, see man page for details [some]\n");
-    fprintf(stderr, "   -c, --columns LIST           list of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
-    fprintf(stderr, "   -C, --columns-file FILE      read -c columns from FILE, one name per row, with optional --merge-logic TYPE: NAME[ TYPE]\n");
-    fprintf(stderr, "   -e, --exclude EXPR           exclude sites for which the expression is true (see man page for details)\n");
-    fprintf(stderr, "       --force                  continue despite parsing error (at your own risk!)\n");
-    fprintf(stderr, "   -h, --header-lines FILE      lines which should be appended to the VCF header\n");
-    fprintf(stderr, "   -I, --set-id [+]FORMAT       set ID column using a `bcftools query`-like expression, see man page for details\n");
-    fprintf(stderr, "   -i, --include EXPR           select sites for which the expression is true (see man page for details)\n");
-    fprintf(stderr, "   -k, --keep-sites             leave -i/-e sites unchanged instead of discarding them\n");
-    fprintf(stderr, "   -l, --merge-logic TAG:TYPE   merge logic for multiple overlapping regions (see man page for details), EXPERIMENTAL\n");
-    fprintf(stderr, "   -m, --mark-sites [+-]TAG     add INFO/TAG flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
-    fprintf(stderr, "       --no-version             do not append version and command line to the header\n");
-    fprintf(stderr, "   -o, --output FILE            write output to a file [standard output]\n");
-    fprintf(stderr, "   -O, --output-type [b|u|z|v]  b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -r, --regions REGION         restrict to comma-separated list of regions\n");
-    fprintf(stderr, "   -R, --regions-file FILE      restrict to regions listed in FILE\n");
-    fprintf(stderr, "       --rename-annots FILE     rename annotations: TYPE/old\\tnew, where TYPE is one of FILTER,INFO,FORMAT\n");
-    fprintf(stderr, "       --rename-chrs FILE       rename sequences according to the mapping: old\\tnew\n");
-    fprintf(stderr, "   -s, --samples [^]LIST        comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
-    fprintf(stderr, "   -S, --samples-file [^]FILE   file of samples to annotate (or exclude with \"^\" prefix)\n");
-    fprintf(stderr, "       --single-overlaps        keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
-    fprintf(stderr, "   -x, --remove LIST            list of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
-    fprintf(stderr, "       --threads INT            number of extra output compression threads [0]\n");
+    fprintf(stderr, "       --collapse STR           Matching records by <snps|indels|both|all|some|none>, see man page for details [some]\n");
+    fprintf(stderr, "   -c, --columns LIST           List of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
+    fprintf(stderr, "   -C, --columns-file FILE      Read -c columns from FILE, one name per row, with optional --merge-logic TYPE: NAME[ TYPE]\n");
+    fprintf(stderr, "   -e, --exclude EXPR           Exclude sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "       --force                  Continue despite parsing error (at your own risk!)\n");
+    fprintf(stderr, "   -h, --header-lines FILE      Lines which should be appended to the VCF header\n");
+    fprintf(stderr, "   -I, --set-id [+]FORMAT       Set ID column using a `bcftools query`-like expression, see man page for details\n");
+    fprintf(stderr, "   -i, --include EXPR           Select sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "   -k, --keep-sites             Leave -i/-e sites unchanged instead of discarding them\n");
+    fprintf(stderr, "   -l, --merge-logic TAG:TYPE   Merge logic for multiple overlapping regions (see man page for details), EXPERIMENTAL\n");
+    fprintf(stderr, "   -m, --mark-sites [+-]TAG     Add INFO/TAG flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
+    fprintf(stderr, "       --no-version             Do not append version and command line to the header\n");
+    fprintf(stderr, "   -o, --output FILE            Write output to a file [standard output]\n");
+    fprintf(stderr, "   -O, --output-type b|u|z|v    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -r, --regions REGION         Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file FILE      Restrict to regions listed in FILE\n");
+    fprintf(stderr, "       --regions-overlap 0|1|2  Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "       --rename-annots FILE     Rename annotations: TYPE/old\\tnew, where TYPE is one of FILTER,INFO,FORMAT\n");
+    fprintf(stderr, "       --rename-chrs FILE       Rename sequences according to the mapping: old\\tnew\n");
+    fprintf(stderr, "   -s, --samples [^]LIST        Comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "   -S, --samples-file [^]FILE   File of samples to annotate (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "       --single-overlaps        Keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
+    fprintf(stderr, "   -x, --remove LIST            List of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
+    fprintf(stderr, "       --threads INT            Number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   http://samtools.github.io/bcftools/howtos/annotate.html\n");
@@ -3232,6 +3233,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->set_ids_replace = 1;
     args->match_id = -1;
     int regions_is_file = 0, collapse = 0;
+    int regions_overlap = 1;
 
     static struct option loptions[] =
     {
@@ -3248,6 +3250,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"exclude",required_argument,NULL,'e'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"regions-overlap",required_argument,NULL,3},
         {"remove",required_argument,NULL,'x'},
         {"columns-file",required_argument,NULL,'C'},
         {"columns",required_argument,NULL,'c'},
@@ -3313,6 +3316,12 @@ int main_vcfannotate(int argc, char *argv[])
                 else if ( !strcmp(optarg,"none") ) collapse = COLLAPSE_NONE;
                 else error("The --collapse string \"%s\" not recognised.\n", optarg);
                 break;
+            case  3 :
+                if ( !strcasecmp(optarg,"0") ) regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
             case  9 : args->n_threads = strtol(optarg, 0, 0); break;
             case  8 : args->record_cmd_line = 0; break;
             case 10 : args->single_overlaps = 1; break;
@@ -3332,6 +3341,7 @@ int main_vcfannotate(int argc, char *argv[])
 
     if ( args->regions_list )
     {
+        bcf_sr_set_opt(args->files,BCF_SR_REGIONS_OVERLAP,regions_overlap);
         if ( bcf_sr_set_regions(args->files, args->regions_list, regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions_list);
     }

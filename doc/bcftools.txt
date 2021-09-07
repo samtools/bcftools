@@ -204,6 +204,15 @@ specific commands to see if they apply.
     This option requires indexed VCF/BCF files. Note that *-R* cannot be used
     in combination with *-r*.
 
+*--regions-overlap* '0'|'1'|'2'::
+    This option controls how overlapping records are determined:
+    set to *0* if the VCF record has to have POS inside a region
+    (this corresponds to the default behavior of *-t/-T*); 
+    set to *1* if also overlapping records with POS outside a region
+    should be included (this is the default behavior of *-r/-R*); or set
+    to *2* to include only true overlapping variation (compare
+    the full VCF representation "`TA>T-`" vs the true sequence variation "`A>-`").
+
 *-s, --samples* \[&#94;]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
     with "&#94;".
@@ -272,6 +281,9 @@ Such a file can be easily created from a VCF using:
 ----
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
+
+*--targets-overlap* '0'|'1'|'2'::
+    Same as *--regions-overlap* but for *-t/-T*.
 
 *--threads* 'INT'::
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the

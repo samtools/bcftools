@@ -272,6 +272,15 @@ test_vcf_view($opts,in=>'idx.3',out=>'idx.3.out',args=>q[-H -R {PATH}/idx.3.bed]
 test_vcf_view($opts,in=>'idx.4',out=>'idx.4.out',args=>q[-H -R {PATH}/idx.4.bed]);
 test_vcf_view($opts,in=>'view-t',out=>'view-t.1.out',args=>'-Ht 2',reg=>'');
 test_vcf_view($opts,in=>'view-t',out=>'view-t.2.out',args=>'-Ht 3',reg=>'');
+test_vcf_view($opts,in=>'overlap',out=>'overlap.0.out',args=>q[-H -r chr1:100-200 --regions-overlap 0]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.1.out',args=>q[-H -r chr1:100-200 --regions-overlap 1]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.2.out',args=>q[-H -r chr1:100-200 --regions-overlap 2]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.0.out',args=>q[-H -t chr1:100-200 --targets-overlap 0]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.1.out',args=>q[-H -t chr1:100-200 --targets-overlap 1]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.2.out',args=>q[-H -t chr1:100-200 --targets-overlap 2]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.neg0.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 0]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.neg1.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 1]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.neg2.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 2]);
 test_vcf_64bit($opts,in=>'view64bit.1',out=>'view64bit.1.out',do_bcf=>1);
 test_vcf_64bit($opts,in=>'view64bit.2',out=>'view64bit.2.out',do_bcf=>1);
 test_vcf_64bit($opts,in=>'view64bit.3',out=>'view64bit.3.out');     # large coordinates don't work with BCF

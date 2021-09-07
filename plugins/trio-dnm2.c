@@ -85,6 +85,7 @@ priors_t;
 typedef struct
 {
     int argc, filter_logic, regions_is_file, targets_is_file, output_type, record_cmd_line;
+    int regions_overlap, targets_overlap;
     char *filter_str;
     filter_t *filter;
     char **argv, *ped_fname, *pfm, *output_fname, *fname, *regions, *targets;
@@ -140,8 +141,10 @@ static const char *usage_text(void)
         "   -O, --output-type <b|u|z|v>     b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "       --no-version                Do not append version and command line to the header\n"
         "\n"
         "General options:\n"
@@ -639,9 +642,14 @@ static void init_data(args_t *args)
     if ( args->regions )
     {
         args->sr->require_index = 1;
+        bcf_sr_set_opt(args->sr,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(args->sr, args->regions, args->regions_is_file)<0 ) error("Failed to read the regions: %s\n",args->regions);
     }
-    if ( args->targets && bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    if ( args->targets )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_TARGETS_OVERLAP,args->targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    }
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
 
@@ -1485,6 +1493,8 @@ int run(int argc, char **argv)
     args->pns_frac  = 0.045;
     args->pns_abs   = 0;
     args->record_cmd_line = 1;
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
     static struct option loptions[] =
     {
         {"use",required_argument,0,'u'},
@@ -1514,8 +1524,10 @@ int run(int argc, char **argv)
         {"pfm",required_argument,NULL,'p'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"regions-overlap",required_argument,NULL,14},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"targets-overlap",required_argument,NULL,15},
         {NULL,0,NULL,0}
     };
     int c;
@@ -1555,6 +1567,18 @@ int run(int argc, char **argv)
             case 11 : args->use_model = USE_NAIVE; break;
             case 12 : args->record_cmd_line = 0; break;
             case 13 : args->with_pad = 1; break;
+            case 14 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case 15 :
+                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg); break;
             case 'e':

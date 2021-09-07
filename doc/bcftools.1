@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.15.dev
-.\"      Date: 2021-08-23
+.\"      Date: 2021-09-06
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021-08-23" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021-09-06" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-08\-23 13:49 BST\fP and refers to bcftools git version \fB1.13\-27\-g7956618+\fP.
+This manual page was last updated \fB2021\-09\-06 16:23 BST\fP and refers to bcftools git version \fB1.13\-37\-g4c71bfb+\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -458,6 +458,17 @@ This option requires indexed VCF/BCF files. Note that \fB\-R\fP cannot be used
 in combination with \fB\-r\fP.
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+This option controls how overlapping records are determined:
+set to \fB0\fP if the VCF record has to have POS inside a region
+(this corresponds to the default behavior of \fB\-t/\-T\fP);
+set to \fB1\fP if also overlapping records with POS outside a region
+should be included (this is the default behavior of \fB\-r/\-R\fP); or set
+to \fB2\fP to include only true overlapping variation (compare
+the full VCF representation "\f(CRTA>T\-\fP" vs the true sequence variation "\f(CRA>\-\fP").
+.RE
+.sp
 \fB\-s, \-\-samples\fP [&#94;]\fILIST\fP
 .RS 4
 Comma\-separated list of samples to include or exclude if prefixed
@@ -556,6 +567,11 @@ Such a file can be easily created from a VCF using:
 .fam
 .fi
 .if n .RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+Same as \fB\-\-regions\-overlap\fP but for \fB\-t/\-T\fP.
+.RE
 .sp
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
@@ -657,6 +673,7 @@ To append to existing values (rather than replacing or leaving untouched), use "
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "\-TAG".
 To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
+If position needs to be replaced, mark the column with the new position as "~POS".
 \~
 .br
 \~
@@ -1256,7 +1273,17 @@ Read file names from \fIFILE\fP, one file name per line.
 .RS 4
 Ligate phased VCFs by matching phase at overlapping haplotypes.
 Note that the option is intended for VCFs with perfect overlap, sites
-in overlapping regions present in one but missing in other are dropped.
+in overlapping regions present in one but missing in the other are dropped.
+.RE
+.sp
+\fB\-\-ligate\-force\fP
+.RS 4
+Keep all sites and ligate even non\-overlapping chunks and chunks with imperfect overlap
+.RE
+.sp
+\fB\-\-ligate\-warn\fP
+.RS 4
+Drop sites in imperfect overlaps
 .RE
 .sp
 \fB\-\-no\-version\fP
@@ -2965,6 +2992,13 @@ variants, selecting the best quality ones only (favouring
 precision over recall), it is advisable to set this lower (such as
 0.75) while higher depth samples or where you favour recall rates
 over precision may work better with a higher value such as 2.0.
+.RE
+.sp
+\fB\-\-indel\-size\fP \fIINT\fP
+.RS 4
+Indel window size to use when assessing the quality of candidate indels.
+Note that although the window size approximately corresponds to the maximum
+indel size considered, it is not an exact threshold [110]
 .RE
 .sp
 \fB\-I, \-\-skip\-indels\fP

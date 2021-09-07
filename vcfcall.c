@@ -80,7 +80,7 @@ typedef struct
     char **samples;             // for subsampling and ploidy
     int nsamples, *samples_map; // mapping from output sample names to original VCF
     char *regions, *targets;    // regions to process
-    int regions_is_file, targets_is_file;
+    int regions_is_file, targets_is_file, regions_overlap;
     regidx_t *tgt_idx;
     regitr_t *tgt_itr, *tgt_itr_prev, *tgt_itr_tmp;
     vcfbuf_t *vcfbuf;
@@ -624,6 +624,7 @@ static void init_data(args_t *args)
 
     if ( args->regions )
     {
+        bcf_sr_set_opt(args->aux.srs,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(args->aux.srs, args->regions, args->regions_is_file)<0 )
             error("Failed to read the regions: %s\n", args->regions);
     }
@@ -883,6 +884,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --ploidy-file FILE        Space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n");
     fprintf(stderr, "   -r, --regions REGION          Restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file FILE       Restrict to regions listed in a file\n");
+    fprintf(stderr, "       --regions-overlap 0|1|2   Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
     fprintf(stderr, "   -s, --samples LIST            List of samples to include [all samples]\n");
     fprintf(stderr, "   -S, --samples-file FILE       PED file or a file with an optional column with sex (see man page for details) [all samples]\n");
     fprintf(stderr, "   -t, --targets REGION          Similar to -r but streams rather than index-jumps\n");
@@ -946,6 +948,7 @@ int main_vcfcall(int argc, char *argv[])
     args.record_cmd_line = 1;
     args.aux.trio_Pm_SNPs = 1 - 1e-8;
     args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
+    args.regions_overlap = 1;
 
     int c;
     static struct option loptions[] =
@@ -961,6 +964,7 @@ int main_vcfcall(int argc, char *argv[])
         {"output-type",required_argument,NULL,'O'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"regions-overlap",required_argument,NULL,4},
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
         {"targets",required_argument,NULL,'t'},
@@ -1056,6 +1060,12 @@ int main_vcfcall(int argc, char *argv[])
             case 'S': args.samples_fname = optarg; args.samples_is_file = 1; break;
             case  9 : args.n_threads = strtol(optarg, 0, 0); break;
             case  8 : args.record_cmd_line = 0; break;
+            case  4 :
+                if ( !strcasecmp(optarg,"0") ) args.regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args.regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args.regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
             default: usage(&args);
         }
     }
