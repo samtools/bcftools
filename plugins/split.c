@@ -451,7 +451,7 @@ static void init_data(args_t *args)
         if ( str.s[str.l-1] != '/' ) kputc('/', &str);
         kputs(set->fname, &str);
         char *suffix = NULL;
-        if ( args->output_type & FT_BCF ) suffix = "bcf";
+        if ( args->output_type & FT_BCF ) suffix = ".bcf";
         else if ( args->output_type & FT_GZ ) suffix = ".vcf.gz";
         else suffix = ".vcf";
         int len = strlen(set->fname);
