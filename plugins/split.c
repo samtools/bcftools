@@ -62,6 +62,7 @@ typedef struct
     uint8_t *info_tags, *fmt_tags;
     int ninfo_tags, minfo_tags, nfmt_tags, mfmt_tags, keep_info, keep_fmt;
     int argc, region_is_file, target_is_file, output_type;
+    int regions_overlap, targets_overlap;
     char **argv, *region, *target, *fname, *output_dir, *keep_tags, *samples_fname, *groups_fname;
     void *unique_fnames;
     bcf_hdr_t *hdr_in, *hdr_out;
@@ -102,6 +103,7 @@ static const char *usage_text(void)
         "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
         "   -r, --regions REGION            restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
         "   -S, --samples-file FILE         list of samples to keep with up to three columns, one line per output file:\n"
         "                                       \n"
         "                                       # Create two output files, the first sample is the basename\n"
@@ -119,6 +121,7 @@ static const char *usage_text(void)
         "                                       sample2,sample3   -           file2\n"
         "                                       \n"
         "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
         "       --hts-opts LIST             low-level options to pass to HTSlib, e.g. block_size=32768\n"
         "\n"
@@ -361,9 +364,14 @@ static void init_data(args_t *args)
     if ( args->region )
     {
         args->sr->require_index = 1;
+        bcf_sr_set_opt(args->sr,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(args->sr, args->region, args->region_is_file)<0 ) error("Failed to read the regions: %s\n",args->region);
     }
-    if ( args->target && bcf_sr_set_targets(args->sr, args->target, args->target_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->target);
+    if ( args->target )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_TARGETS_OVERLAP,args->targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, args->target, args->target_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->target);
+    }
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr_in  = bcf_sr_get_header(args->sr,0);
 
@@ -612,6 +620,8 @@ int run(int argc, char **argv)
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->argc   = argc; args->argv = argv;
     args->output_type  = FT_VCF;
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
     static struct option loptions[] =
     {
         {"hts-opts",required_argument,NULL,1},
@@ -620,6 +630,10 @@ int run(int argc, char **argv)
         {"include",required_argument,NULL,'i'},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
+        {"regions-overlap",required_argument,NULL,2},
+        {"targets",required_argument,NULL,'t'},
+        {"targets-file",required_argument,NULL,'T'},
+        {"targets-overlap",required_argument,NULL,3},
         {"samples-file",required_argument,NULL,'S'},
         {"groups-file",required_argument,NULL,'G'},
         {"output",required_argument,NULL,'o'},
@@ -655,6 +669,18 @@ int run(int argc, char **argv)
                           default: error("The output type \"%s\" not recognised\n", optarg);
                       }
                       break;
+            case  2 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case  3 :
+                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
