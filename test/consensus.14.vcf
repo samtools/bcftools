@@ -1,5 +1,5 @@
 ##fileformat=VCFv4.2
 ##reference=genome.fa
 ##contig=<ID=1,length=249250621>
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	.
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 1	1	.	GA	A	.	.	.
