@@ -1,4 +1,4 @@
-/* 
+/*
     Copyright (C) 2016-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
@@ -9,10 +9,10 @@
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-    
+
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-    
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -39,7 +39,7 @@
 
 typedef struct
 {
-    int argc, output_type, regions_is_file, targets_is_file;
+    int argc, output_type, regions_is_file, targets_is_file, clevel;
     char **argv, *output_fname, *regions_list, *targets_list;
     int32_t *arr_a, narr_a, *arr_b, narr_b;
     bcf_srs_t *sr;
@@ -55,18 +55,18 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Compare two files and set non-identical genotypes in the first file to missing.\n"
         "\n"
         "Usage: bcftools +isecGT <A.bcf> <B.bcf> [Plugin Options]\n"
         "Plugin options:\n"
-        "   -o, --output <file>             write output to a file [standard output]\n"
-        "   -O, --output-type <b|u|z|v>     'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n"
-        "   -r, --regions <region>          restrict to comma-separated list of regions\n"
-        "   -R, --regions-file <file>       restrict to regions listed in a file\n"
-        "   -t, --targets <region>          similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file <file>       similar to -R but streams rather than index-jumps\n"
+        "   -o, --output FILE               Write output to a file [standard output]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
+        "   -r, --regions REGION            Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
         "\n";
 }
 
@@ -75,6 +75,7 @@ int run(int argc, char **argv)
     args_t *args = (args_t*) calloc(1,sizeof(args_t));
     args->output_fname = "-";
     args->output_type = FT_VCF;
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"regions",required_argument,NULL,'r'},
@@ -86,9 +87,10 @@ int run(int argc, char **argv)
         {NULL,0,NULL,0}
     };
     int c;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "o:O:r:R:t:T:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'o': args->output_fname = optarg; break;
             case 'O':
@@ -97,7 +99,16 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
             case 'r': args->regions_list = optarg; break;
@@ -130,10 +141,12 @@ int run(int argc, char **argv)
     args->hdr_a = bcf_sr_get_header(args->sr,0);
     args->hdr_b = bcf_sr_get_header(args->sr,1);
     smpl_ilist_t *smpl = smpl_ilist_map(args->hdr_a, args->hdr_b, SMPL_STRICT);
-    args->out_fh = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_a)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
-    
+
     while ( bcf_sr_next_line(args->sr) )
     {
         if ( !bcf_sr_has_line(args->sr,0) ) continue;

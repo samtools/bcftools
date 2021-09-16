@@ -74,7 +74,7 @@ rec_tgt_t;
 typedef struct
 {
     int flag;   // combination of CF_* flags above
-    int output_type, n_threads, record_cmd_line;
+    int output_type, n_threads, record_cmd_line, clevel;
     htsFile *bcf_in, *out_fh;
     char *bcf_fname, *output_fname;
     char **samples;             // for subsampling and ploidy
@@ -693,7 +693,9 @@ static void init_data(args_t *args)
     if ( args->aux.flag & CALL_CONSTR_ALLELES )
         args->vcfbuf = vcfbuf_init(args->aux.hdr, 0);
 
-    args->out_fh = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Error: cannot write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
 
@@ -877,43 +879,41 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools call [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "File format options:\n");
-    fprintf(stderr, "       --no-version              Do not append version and command line to the header\n");
-    fprintf(stderr, "   -o, --output FILE             Write output to a file [standard output]\n");
-    fprintf(stderr, "   -O, --output-type b|u|z|v     Output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "       --ploidy ASSEMBLY[?]      Predefined ploidy, 'list' to print available settings, append '?' for details [2]\n");
-    fprintf(stderr, "       --ploidy-file FILE        Space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n");
-    fprintf(stderr, "   -r, --regions REGION          Restrict to comma-separated list of regions\n");
-    fprintf(stderr, "   -R, --regions-file FILE       Restrict to regions listed in a file\n");
-    fprintf(stderr, "       --regions-overlap 0|1|2   Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
-    fprintf(stderr, "   -s, --samples LIST            List of samples to include [all samples]\n");
-    fprintf(stderr, "   -S, --samples-file FILE       PED file or a file with an optional column with sex (see man page for details) [all samples]\n");
-    fprintf(stderr, "   -t, --targets REGION          Similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "   -T, --targets-file FILE       Similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "       --threads INT             Use multithreading with INT worker threads [0]\n");
+    fprintf(stderr, "       --no-version                Do not append version and command line to the header\n");
+    fprintf(stderr, "   -o, --output FILE               Write output to a file [standard output]\n");
+    fprintf(stderr, "   -O, --output-type b|u|z|v       Output type: 'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
+    fprintf(stderr, "       --ploidy ASSEMBLY[?]        Predefined ploidy, 'list' to print available settings, append '?' for details [2]\n");
+    fprintf(stderr, "       --ploidy-file FILE          Space/tab-delimited list of CHROM,FROM,TO,SEX,PLOIDY\n");
+    fprintf(stderr, "   -r, --regions REGION            Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file FILE         Restrict to regions listed in a file\n");
+    fprintf(stderr, "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "   -s, --samples LIST              List of samples to include [all samples]\n");
+    fprintf(stderr, "   -S, --samples-file FILE         PED file or a file with an optional column with sex (see man page for details) [all samples]\n");
+    fprintf(stderr, "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "       --threads INT               Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Input/output options:\n");
-    fprintf(stderr, "   -A, --keep-alts               Keep all possible alternate alleles at variant sites\n");
-    fprintf(stderr, "   -a, --annotate LIST           Optional tags to output (lowercase allowed); '?' to list available tags\n");
-//todo?    
-//    fprintf(stderr, "   -a, --annots LIST             Add annotations: GQ,GP,PV4 (lowercase allowed). Prefixed with ^ indicates a request for\n");
-//    fprintf(stderr, "                                 tag removal [^I16,^QS,^FMT/QS]\n");
-    fprintf(stderr, "   -F, --prior-freqs AN,AC       Use prior allele frequencies, determined from these pre-filled tags\n");
-    fprintf(stderr, "   -G, --group-samples FILE|-    Group samples by population (file with \"sample\\tgroup\") or \"-\" for single-sample calling.\n");
-    fprintf(stderr, "                                 This requires FORMAT/QS or other Number=R,Type=Integer tag such as FORMAT/AD\n"); 
-    fprintf(stderr, "       --group-samples-tag TAG   The tag to use with -G, by default FORMAT/QS and FORMAT/AD are checked automatically\n");
-    fprintf(stderr, "   -g, --gvcf INT,[...]          Group non-variant sites into gVCF blocks by minimum per-sample DP\n");
-    fprintf(stderr, "   -i, --insert-missed           Output also sites missed by mpileup but present in -T\n");
-    fprintf(stderr, "   -M, --keep-masked-ref         Keep sites with masked reference allele (REF=N)\n");
-    fprintf(stderr, "   -V, --skip-variants TYPE      Skip indels/snps\n");
-    fprintf(stderr, "   -v, --variants-only           Output variant sites only\n");
+    fprintf(stderr, "   -A, --keep-alts                 Keep all possible alternate alleles at variant sites\n");
+    fprintf(stderr, "   -a, --annotate LIST             Optional tags to output (lowercase allowed); '?' to list available tags\n");
+    fprintf(stderr, "   -F, --prior-freqs AN,AC         Use prior allele frequencies, determined from these pre-filled tags\n");
+    fprintf(stderr, "   -G, --group-samples FILE|-      Group samples by population (file with \"sample\\tgroup\") or \"-\" for single-sample calling.\n");
+    fprintf(stderr, "                                   This requires FORMAT/QS or other Number=R,Type=Integer tag such as FORMAT/AD\n"); 
+    fprintf(stderr, "       --group-samples-tag TAG     The tag to use with -G, by default FORMAT/QS and FORMAT/AD are checked automatically\n");
+    fprintf(stderr, "   -g, --gvcf INT,[...]            Group non-variant sites into gVCF blocks by minimum per-sample DP\n");
+    fprintf(stderr, "   -i, --insert-missed             Output also sites missed by mpileup but present in -T\n");
+    fprintf(stderr, "   -M, --keep-masked-ref           Keep sites with masked reference allele (REF=N)\n");
+    fprintf(stderr, "   -V, --skip-variants TYPE        Skip indels/snps\n");
+    fprintf(stderr, "   -v, --variants-only             Output variant sites only\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Consensus/variant calling options:\n");
-    fprintf(stderr, "   -c, --consensus-caller        The original calling method (conflicts with -m)\n");
-    fprintf(stderr, "   -C, --constrain STR           One of: alleles, trio (see manual)\n");
-    fprintf(stderr, "   -m, --multiallelic-caller     Alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
-    fprintf(stderr, "   -n, --novel-rate FLOAT,[...]  Likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
-    fprintf(stderr, "   -p, --pval-threshold FLOAT    Variant if P(ref|D)<FLOAT with -c [0.5]\n");
-    fprintf(stderr, "   -P, --prior FLOAT             Mutation rate (use bigger for greater sensitivity), use with -m [1.1e-3]\n");
+    fprintf(stderr, "   -c, --consensus-caller          The original calling method (conflicts with -m)\n");
+    fprintf(stderr, "   -C, --constrain STR             One of: alleles, trio (see manual)\n");
+    fprintf(stderr, "   -m, --multiallelic-caller       Alternative model for multiallelic and rare-variant calling (conflicts with -c)\n");
+    fprintf(stderr, "   -n, --novel-rate FLOAT,[...]    Likelihood of novel mutation for constrained trio calling, see man page for details [1e-8,1e-9,1e-9]\n");
+    fprintf(stderr, "   -p, --pval-threshold FLOAT      Variant if P(ref|D)<FLOAT with -c [0.5]\n");
+    fprintf(stderr, "   -P, --prior FLOAT               Mutation rate (use bigger for greater sensitivity), use with -m [1.1e-3]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Example:\n");
     fprintf(stderr, "   # See also http://samtools.github.io/bcftools/howtos/variant-calling.html\n");
@@ -949,6 +949,7 @@ int main_vcfcall(int argc, char *argv[])
     args.aux.trio_Pm_SNPs = 1 - 1e-8;
     args.aux.trio_Pm_ins  = args.aux.trio_Pm_del  = 1 - 1e-9;
     args.regions_overlap = 1;
+    args.clevel = -1;
 
     int c;
     static struct option loptions[] =
@@ -1030,7 +1031,16 @@ int main_vcfcall(int argc, char *argv[])
                           case 'u': args.output_type = FT_BCF; break;
                           case 'z': args.output_type = FT_VCF_GZ; break;
                           case 'v': args.output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args.clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args.clevel<0 || args.clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args.clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args.clevel<0 || args.clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
             case 'C':

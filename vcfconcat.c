@@ -43,7 +43,7 @@ typedef struct _args_t
 {
     bcf_srs_t *files;
     htsFile *out_fh;
-    int output_type, n_threads, record_cmd_line;
+    int output_type, n_threads, record_cmd_line, clevel;
     bcf_hdr_t *out_hdr;
     int *seen_seq;
 
@@ -117,7 +117,9 @@ static void init_data(args_t *args)
         bcf_hdr_append(args->out_hdr,"##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase Set\">");
     }
     if (args->record_cmd_line) bcf_hdr_append_version(args->out_hdr, args->argc, args->argv, "bcftools_concat");
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->allow_overlaps || args->phased_concat )
     {
@@ -927,7 +929,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -n, --naive                    Concatenate files without recompression, a header check compatibility is performed\n");
     fprintf(stderr, "       --naive-force              Same as --naive, but header compatibility is not checked. Dangerous, use with caution.\n");
     fprintf(stderr, "   -o, --output FILE              Write output to a file [standard output]\n");
-    fprintf(stderr, "   -O, --output-type b|u|z|v      b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -O, --output-type u|b|v|z[0-9] u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "   -q, --min-PQ INT               Break phase set if phasing quality is lower than <int> [30]\n");
     fprintf(stderr, "   -r, --regions REGION           Restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file FILE        Restrict to regions listed in a file\n");
@@ -949,6 +951,7 @@ int main_vcfconcat(int argc, char *argv[])
     args->record_cmd_line = 1;
     args->min_PQ  = 30;
     args->verbose = 1;
+    args->clevel = -1;
 
     static struct option loptions[] =
     {
@@ -998,8 +1001,17 @@ int main_vcfconcat(int argc, char *argv[])
                     case 'u': args->output_type = FT_BCF; break;
                     case 'z': args->output_type = FT_VCF_GZ; break;
                     case 'v': args->output_type = FT_VCF; break;
-                    default: error("The output type \"%s\" not recognised\n", optarg);
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
                 };
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                }
                 break;
             case 10 : args->ligate_force = 1; break;
             case 11 : args->ligate_warn  = 1; break;

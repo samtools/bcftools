@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-09-06 16:23 BST</strong> and refers to bcftools git version <strong>1.13-37-g4c71bfb+</strong>.</p>
+<p>This manual page was last updated <strong>2021-09-16 11:04 BST</strong> and refers to bcftools git version <strong>1.13-42-g45811d2+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -254,14 +254,19 @@ use <strong>-f</strong> <em>.,PASS</em>.</p>
 <dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
 <dd>
 <p>When output consists of a single stream, write it to <em>FILE</em> rather than
-to standard output, where it is written by default.</p>
+to standard output, where it is written by default.
+The file type is determined automatically from the file name suffix and in
+case a conflicting <strong>-O</strong> option is given, the file name suffix takes precedence.</p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>Output compressed BCF (<em>b</em>), uncompressed BCF (<em>u</em>), compressed VCF (<em>z</em>), uncompressed VCF (<em>v</em>).
 Use the -Ou option when piping between bcftools subcommands to speed up
 performance by removing unnecessary compression/decompression and
-VCF&#8592;&#8594;BCF conversion.</p>
+VCF&#8592;&#8594;BCF conversion.
+&#160;
+The compression level of the compressed formats (<em>b</em> and <em>z</em>) can be set by
+by appending a number between 0-9.</p>
 </dd>
 <dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:beg-end</em>|<em>chr:beg-</em>[,&#8230;&#8203;]</dt>
 <dd>
@@ -588,7 +593,7 @@ This is an experimental feature.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -703,7 +708,7 @@ demand. The original calling model can be invoked with the <strong>-c</strong> o
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1091,7 +1096,7 @@ is performed and the program throws an error if it is not safe to use the option
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1300,7 +1305,7 @@ format details.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1703,7 +1708,7 @@ Note that increasing the value leads to increased size of the output BCF.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>t</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>t</em>|<em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong>. In addition, a custom tab-delimited
 plain text output can be printed (<em>t</em>).</p>
@@ -1892,7 +1897,7 @@ filters of sites which pass to "PASS". Modes "+" and "x" can both be set.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2153,7 +2158,7 @@ many or fewer (-), or the exact same (~) files</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong>.  When several files are being
 output, their names are controlled via <strong>-p</strong> instead.</p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2344,7 +2349,7 @@ the same order and consistent with the order of sequences in the VCF header.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2621,7 +2626,7 @@ sign,  it  is  interpreted  as <strong>--output</strong>.  Usually the filename 
 will take care of this, but to write to an entirely numeric filename use <strong>-o
 ./123</strong> or <strong>--output 123</strong>.)</p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2891,7 +2896,7 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2983,7 +2988,7 @@ the usage examples that each plugin comes with.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3805,7 +3810,7 @@ your system limit on the number of open files ("ulimit") may need to be increase
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3963,7 +3968,7 @@ best compression.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -4735,7 +4740,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-09-06 16:23:55 +0100
+Last updated 2021-09-16 11:04:10 +0100
 </div>
 </div>
 </body>

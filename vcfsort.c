@@ -56,7 +56,7 @@ typedef struct _args_t
 {
     bcf_hdr_t *hdr;
     char **argv, *fname, *output_fname, *tmp_dir;
-    int argc, output_type;
+    int argc, output_type, clevel;
     size_t max_mem, mem;
     bcf1_t **buf;
     size_t nbuf, mbuf, nblk;
@@ -227,7 +227,9 @@ void merge_blocks(args_t *args)
         blk_read(args, bhp, args->hdr, blk);
     }
 
-    htsFile *out = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    htsFile *out = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( bcf_hdr_write(out, args->hdr)!=0 ) clean_files_and_throw(args, "[%s] Error: cannot write to %s\n", __func__,args->output_fname);
     while ( bhp->ndat )
     {
@@ -252,13 +254,15 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools sort [OPTIONS] <FILE.vcf>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    -m, --max-mem FLOAT[kMG]    maximum memory to use [768M]\n");    // using metric units, 1M=1e6
-    fprintf(stderr, "    -o, --output FILE           output file name [stdout]\n");
-    fprintf(stderr, "    -O, --output-type b|u|z|v   b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -m, --max-mem FLOAT[kMG]       maximum memory to use [768M]\n");    // using metric units, 1M=1e6
+    fprintf(stderr, "    -o, --output FILE              output file name [stdout]\n");
+    fprintf(stderr, "    -O, --output-type b|u|z|v      b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -O, --output-type u|b|v|z[0-9] u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
+
 #ifdef _WIN32
-    fprintf(stderr, "    -T, --temp-dir DIR          temporary files [/bcftools.XXXXXX]\n");
+    fprintf(stderr, "    -T, --temp-dir DIR             temporary files [/bcftools.XXXXXX]\n");
 #else
-    fprintf(stderr, "    -T, --temp-dir DIR          temporary files [/tmp/bcftools.XXXXXX]\n");
+    fprintf(stderr, "    -T, --temp-dir DIR             temporary files [/tmp/bcftools.XXXXXX]\n");
 #endif
     fprintf(stderr, "\n");
     exit(1);
@@ -306,6 +310,7 @@ int main_sort(int argc, char *argv[])
     args->argc    = argc; args->argv = argv;
     args->max_mem = 768*1000*1000;
     args->output_fname = "-";
+    args->clevel = -1;
 
     static struct option loptions[] =
     {
@@ -317,6 +322,7 @@ int main_sort(int argc, char *argv[])
         {"help",no_argument,NULL,'h'},
         {0,0,0,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "m:T:O:o:h?",loptions,NULL)) >= 0)
     {
         switch (c)
@@ -330,8 +336,17 @@ int main_sort(int argc, char *argv[])
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
                       };
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                      }
                       break;
             case 'h':
             case '?': usage(args); break;

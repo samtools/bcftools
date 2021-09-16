@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.15.dev
-.\"      Date: 2021-09-06
+.\"      Date: 2021-09-16
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021-09-06" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021-09-16" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-09\-06 16:23 BST\fP and refers to bcftools git version \fB1.13\-37\-g4c71bfb+\fP.
+This manual page was last updated \fB2021\-09\-16 11:04 BST\fP and refers to bcftools git version \fB1.13\-42\-g45811d2+\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -417,14 +417,19 @@ Do not append version and command line information to the output VCF header.
 .RS 4
 When output consists of a single stream, write it to \fIFILE\fP rather than
 to standard output, where it is written by default.
+The file type is determined automatically from the file name suffix and in
+case a conflicting \fB\-O\fP option is given, the file name suffix takes precedence.
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 Output compressed BCF (\fIb\fP), uncompressed BCF (\fIu\fP), compressed VCF (\fIz\fP), uncompressed VCF (\fIv\fP).
 Use the \-Ou option when piping between bcftools subcommands to speed up
 performance by removing unnecessary compression/decompression and
 VCF\(<-\(->BCF conversion.
+\~
+The compression level of the compressed formats (\fIb\fP and \fIz\fP) can be set by
+by appending a number between 0\-9.
 .RE
 .sp
 \fB\-r, \-\-regions\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:beg\-end\fP|\fIchr:beg\-\fP[,...]
@@ -781,7 +786,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -903,7 +908,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -1310,7 +1315,7 @@ Same as \-\-naive, but header compatibility is not checked. Dangerous, use with 
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -1537,7 +1542,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -1929,7 +1934,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIt\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIt\fP|\fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP. In addition, a custom tab\-delimited
 plain text output can be printed (\fIt\fP).
@@ -2130,7 +2135,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2395,7 +2400,7 @@ see \fBCommon Options\fP.  When several files are being
 output, their names are controlled via \fB\-p\fP instead.
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2605,7 +2610,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2896,7 +2901,7 @@ will take care of this, but to write to an entirely numeric filename use \fB\-o
 \&./123\fP or \fB\-\-output 123\fP.)
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3190,7 +3195,7 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3284,7 +3289,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -4340,7 +4345,7 @@ your system limit on the number of open files ("ulimit") may need to be increase
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -4509,7 +4514,7 @@ best compression.
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE

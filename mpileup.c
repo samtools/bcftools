@@ -74,7 +74,7 @@ typedef struct {
     double min_frac; // for indels
     double indel_bias;
     char *reg_fname, *pl_list, *fai_fname, *output_fname;
-    int reg_is_file, record_cmd_line, n_threads;
+    int reg_is_file, record_cmd_line, n_threads, clevel;
     faidx_t *fai;
     regidx_t *bed, *reg;    // bed: skipping regions, reg: index-jump to regions
     regitr_t *bed_itr, *reg_itr;
@@ -718,7 +718,9 @@ static int mpileup(mplp_conf_t *conf)
 
     fprintf(stderr, "[%s] %d samples in %d input files\n", __func__, conf->gplp->n, conf->nfiles);
     // write the VCF header
-    conf->bcf_fp = hts_open(conf->output_fname?conf->output_fname:"-", hts_bcf_wmode2(conf->output_type,conf->output_fname));
+    char wmode[8];
+    set_wmode(wmode,conf->output_type,conf->output_fname,conf->clevel);
+    conf->bcf_fp = hts_open(conf->output_fname ? conf->output_fname : "-", wmode);
     if (conf->bcf_fp == NULL) {
         fprintf(stderr, "[%s] failed to write to %s: %s\n", __func__, conf->output_fname? conf->output_fname : "standard output", strerror(errno));
         exit(EXIT_FAILURE);
@@ -1138,7 +1140,7 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "      --no-version        Do not append version and command line to the header\n"
         "  -o, --output FILE       Write output to FILE [standard output]\n"
         "  -O, --output-type TYPE  'b' compressed BCF; 'u' uncompressed BCF;\n"
-        "                          'z' compressed VCF; 'v' uncompressed VCF [v]\n"
+        "                          'z' compressed VCF; 'v' uncompressed VCF; 0-9 compression level [v]\n"
         "  -U, --mwu-u             Use older probability scale for Mann-Whitney U test\n"
         "      --threads INT       Use multithreading with INT worker threads [0]\n"
         "\n"
@@ -1214,6 +1216,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
     mplp.indel_win_size = 110;
+    mplp.clevel = -1;
     hts_srand48(0);
 
     static const struct option lopts[] =
@@ -1344,7 +1347,18 @@ int main_mpileup(int argc, char *argv[])
                 case 'u': mplp.output_type = FT_BCF; break;
                 case 'z': mplp.output_type = FT_VCF_GZ; break;
                 case 'v': mplp.output_type = FT_VCF; break;
-                default: error("[error] The option \"-O\" changed meaning when mpileup moved to bcftools. Did you mean: \"bcftools mpileup --output-type\" or \"samtools mpileup --output-BP\"?\n");
+                default:
+                {
+                    char *tmp;
+                    mplp.clevel = strtol(optarg,&tmp,10);
+                    if ( *tmp || mplp.clevel<0 || mplp.clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                }
+            }
+            if ( optarg[1] )
+            {
+                char *tmp;
+                mplp.clevel = strtol(optarg+1,&tmp,10);
+                if ( *tmp || mplp.clevel<0 || mplp.clevel>9 ) error("Could not parse argument: --output-type %s\n", optarg+1);
             }
             break;
         case 'C': mplp.capQ_thres = atoi(optarg); break;

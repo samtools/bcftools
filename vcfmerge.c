@@ -161,7 +161,7 @@ typedef struct
     htsFile *out_fh;
     bcf_hdr_t *out_hdr;
     char **argv;
-    int argc, n_threads, record_cmd_line;
+    int argc, n_threads, record_cmd_line, clevel;
     int local_alleles;    // the value of -L option
 }
 args_t;
@@ -3003,7 +3003,9 @@ void hdr_add_localized_tags(args_t *args, bcf_hdr_t *hdr)
 }
 void merge_vcf(args_t *args)
 {
-    args->out_fh  = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads ) hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p); //hts_set_threads(args->out_fh, args->n_threads);
     args->out_hdr = bcf_hdr_init("w");
@@ -3097,7 +3099,7 @@ static void usage(void)
     fprintf(stderr, "        --no-index                    Merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
     fprintf(stderr, "        --no-version                  Do not append version and command line to the header\n");
     fprintf(stderr, "    -o, --output FILE                 Write output to a file [standard output]\n");
-    fprintf(stderr, "    -O, --output-type b|u|z|v        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "    -O, --output-type u|b|v|z[0-9]    u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "    -r, --regions REGION              Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
@@ -3117,6 +3119,7 @@ int main_vcfmerge(int argc, char *argv[])
     args->n_threads = 0;
     args->record_cmd_line = 1;
     args->collapse = COLLAPSE_BOTH;
+    args->clevel = -1;
     int regions_is_file = 0;
     int regions_overlap = 1;
 
@@ -3176,7 +3179,16 @@ int main_vcfmerge(int argc, char *argv[])
                     case 'u': args->output_type = FT_BCF; break;
                     case 'z': args->output_type = FT_VCF_GZ; break;
                     case 'v': args->output_type = FT_VCF; break;
-                    default: error("The output type \"%s\" not recognised\n", optarg);
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
+                }
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                 }
                 break;
             case 'm':

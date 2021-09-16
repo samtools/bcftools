@@ -69,7 +69,7 @@ struct _args_t
     int regions_overlap, targets_overlap;
     char **argv, *sample_list, *targets_list, *regions_list, *tag, *columns;
     char *outfname, *infname, *ref_fname, *sex_fname;
-    int argc, n_threads, record_cmd_line, keep_duplicates;
+    int argc, n_threads, record_cmd_line, keep_duplicates, clevel;
 };
 
 static void destroy_data(args_t *args)
@@ -397,7 +397,9 @@ static void gensample_to_vcf(args_t *args)
     for (i=0; i<nsamples; i++) free(samples[i]);
     free(samples);
 
-    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode2(args->output_type,args->outfname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->outfname,args->clevel);
+    htsFile *out_fh = hts_open(args->outfname ? args->outfname : "-", wmode);
     if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     if ( bcf_hdr_write(out_fh,args->header)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->outfname);
@@ -525,7 +527,9 @@ static void haplegendsample_to_vcf(args_t *args)
     for (i=0; i<nrows; i++) free(samples[i]);
     free(samples);
 
-    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode2(args->output_type,args->outfname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->outfname,args->clevel);
+    htsFile *out_fh = hts_open(args->outfname ? args->outfname : "-", wmode);
     if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     if ( bcf_hdr_write(out_fh,args->header)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__,args->outfname);
@@ -639,7 +643,9 @@ static void hapsample_to_vcf(args_t *args)
     for (i=0; i<nsamples; i++) free(samples[i]);
     free(samples);
 
-    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode2(args->output_type,args->outfname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->outfname,args->clevel);
+    htsFile *out_fh = hts_open(args->outfname ? args->outfname : "-", wmode);
     if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     if ( bcf_hdr_write(out_fh,args->header)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
@@ -1227,7 +1233,9 @@ static void tsv_to_vcf(args_t *args)
     bcf_hdr_add_sample(args->header, NULL);
     args->gts = (int32_t *) malloc(sizeof(int32_t)*n*2);
 
-    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode2(args->output_type,args->outfname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->outfname,args->clevel);
+    htsFile *out_fh = hts_open(args->outfname ? args->outfname : "-", wmode);
     if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
     if ( bcf_hdr_write(out_fh,args->header)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->outfname);
@@ -1279,7 +1287,9 @@ static void tsv_to_vcf(args_t *args)
 static void vcf_to_vcf(args_t *args)
 {
     open_vcf(args,NULL);
-    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode2(args->output_type,args->outfname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->outfname,args->clevel);
+    htsFile *out_fh = hts_open(args->outfname ? args->outfname : "-", wmode);
     if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
 
@@ -1308,7 +1318,9 @@ static void gvcf_to_vcf(args_t *args)
     if ( !args->ref ) error("Could not load the fai index for reference %s\n", args->ref_fname);
 
     open_vcf(args,NULL);
-    htsFile *out_fh = hts_open(args->outfname,hts_bcf_wmode2(args->output_type,args->outfname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->outfname,args->clevel);
+    htsFile *out_fh = hts_open(args->outfname ? args->outfname : "-", wmode);
     if ( out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->outfname, strerror(errno));
     if ( args->n_threads ) hts_set_threads(out_fh, args->n_threads);
 
@@ -1401,7 +1413,7 @@ static void usage(void)
     fprintf(stderr, "VCF output options:\n");
     fprintf(stderr, "       --no-version               Do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output FILE              Output file name [stdout]\n");
-    fprintf(stderr, "   -O, --output-type b|u|z|v      b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "   -O, --output-type u|b|v|z[0-9] u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "       --threads INT              Use multithreading with INT worker threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "GEN/SAMPLE conversion (input/output from IMPUTE2):\n");
@@ -1460,6 +1472,7 @@ int main_vcfconvert(int argc, char *argv[])
     args->record_cmd_line = 1;
     args->regions_overlap = 1;
     args->targets_overlap = 0;
+    args->clevel = -1;
 
     static struct option loptions[] =
     {
@@ -1495,6 +1508,7 @@ int main_vcfconvert(int argc, char *argv[])
         {"keep-duplicates",no_argument,NULL,12},
         {NULL,0,NULL,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "?h:r:R:s:S:t:T:i:e:g:G:o:O:c:f:H:",loptions,NULL)) >= 0) {
         switch (c) {
             case 'e':
@@ -1529,7 +1543,16 @@ int main_vcfconvert(int argc, char *argv[])
                     case 'u': args->output_type = FT_BCF; break;
                     case 'z': args->output_type = FT_VCF_GZ; break;
                     case 'v': args->output_type = FT_VCF; break;
-                    default: error("The output type \"%s\" not recognised\n", optarg);
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
+                }
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                 }
                 break;
             case 'h': args->convert_func = vcf_to_haplegendsample; args->outfname = optarg; break;

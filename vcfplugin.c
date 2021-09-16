@@ -137,7 +137,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hdr_out;
     htsFile *out_fh;
-    int output_type, n_threads;
+    int output_type, n_threads, clevel;
 
     filter_t *filter;
     char *filter_str;
@@ -522,7 +522,9 @@ static void init_data(args_t *args)
     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_plugin");
     if ( !args->drop_header )
     {
-        args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+        char wmode[8];
+        set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+        args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
         if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
         if ( args->n_threads ) hts_set_threads(args->out_fh, args->n_threads);
         if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
@@ -558,24 +560,24 @@ static void usage(args_t *args)
     fprintf(stderr, "         bcftools +name [OPTIONS] <file>  [-- PLUGIN_OPTIONS]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "VCF input options:\n");
-    fprintf(stderr, "   -e, --exclude EXPR            Exclude sites for which the expression is true\n");
-    fprintf(stderr, "   -i, --include EXPR            Select sites for which the expression is true\n");
-    fprintf(stderr, "   -r, --regions REGION          Restrict to comma-separated list of regions\n");
-    fprintf(stderr, "   -R, --regions-file FILE       Restrict to regions listed in a file\n");
-    fprintf(stderr, "        --regions-overlap 0|1|2  Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
-    fprintf(stderr, "   -t, --targets REGION          Similar to -r but streams rather than index-jumps\n");
-    fprintf(stderr, "   -T, --targets-file FILE       Similar to -R but streams rather than index-jumps\n");
-    fprintf(stderr, "        --targets-overlap 0|1|2  Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
+    fprintf(stderr, "   -e, --exclude EXPR             Exclude sites for which the expression is true\n");
+    fprintf(stderr, "   -i, --include EXPR             Select sites for which the expression is true\n");
+    fprintf(stderr, "   -r, --regions REGION           Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file FILE        Restrict to regions listed in a file\n");
+    fprintf(stderr, "        --regions-overlap 0|1|2   Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "   -t, --targets REGION           Similar to -r but streams rather than index-jumps\n");
+    fprintf(stderr, "   -T, --targets-file FILE        Similar to -R but streams rather than index-jumps\n");
+    fprintf(stderr, "        --targets-overlap 0|1|2   Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n");
     fprintf(stderr, "VCF output options:\n");
-    fprintf(stderr, "       --no-version              Do not append version and command line to the header\n");
-    fprintf(stderr, "   -o, --output FILE             Write output to a file [standard output]\n");
-    fprintf(stderr, "   -O, --output-type TYPE        'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
-    fprintf(stderr, "       --threads INTT            Use multithreading with <int> worker threads [0]\n");
+    fprintf(stderr, "       --no-version               Do not append version and command line to the header\n");
+    fprintf(stderr, "   -o, --output FILE              Write output to a file [standard output]\n");
+    fprintf(stderr, "   -O, --output-type u|b|v|z[0-9] u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
+    fprintf(stderr, "       --threads INTT             Use multithreading with <int> worker threads [0]\n");
     fprintf(stderr, "Plugin options:\n");
-    fprintf(stderr, "   -h, --help                    List plugin's options\n");
-    fprintf(stderr, "   -l, --list-plugins            List available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
-    fprintf(stderr, "   -v, --verbose                 Print verbose information, -vv increases verbosity\n");
-    fprintf(stderr, "   -V, --version                 Print version string and exit\n");
+    fprintf(stderr, "   -h, --help                     List plugin's options\n");
+    fprintf(stderr, "   -l, --list-plugins             List available plugins. See BCFTOOLS_PLUGINS environment variable and man page for details\n");
+    fprintf(stderr, "   -v, --verbose                  Print verbose information, -vv increases verbosity\n");
+    fprintf(stderr, "   -V, --version                  Print version string and exit\n");
     fprintf(stderr, "\n");
     exit(1);
 }
@@ -611,6 +613,7 @@ int main_plugin(int argc, char *argv[])
     args->n_threads = 0;
     args->record_cmd_line = 1;
     args->nplugin_paths = -1;
+    args->clevel = -1;
     int regions_is_file = 0, targets_is_file = 0, usage_only = 0, version_only = 0;
     int regions_overlap = 1;
     int targets_overlap = 0;
@@ -654,6 +657,7 @@ int main_plugin(int argc, char *argv[])
         {"no-version",no_argument,NULL,8},
         {NULL,0,NULL,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "h?o:O:r:R:t:T:li:e:vV",loptions,NULL)) >= 0)
     {
         switch (c) {
@@ -666,8 +670,17 @@ int main_plugin(int argc, char *argv[])
                     case 'u': args->output_type = FT_BCF; break;
                     case 'z': args->output_type = FT_VCF_GZ; break;
                     case 'v': args->output_type = FT_VCF; break;
-                    default: error("The output type \"%s\" not recognised\n", optarg);
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
                 };
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                }
                 break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");

@@ -53,7 +53,7 @@
 
 typedef struct
 {
-    int argc, filter_logic, regions_is_file, targets_is_file, output_type, force_samples;
+    int argc, filter_logic, regions_is_file, targets_is_file, output_type, force_samples, clevel;
     int regions_overlap, targets_overlap;
     uint32_t annots;
     char **argv, *output_fname, *fname, *regions, *targets, *filter_str, *annots_str;
@@ -101,7 +101,7 @@ static const char *usage_text(void)
         "       --force-samples              Continue even if some samples listed in the -0,-1 files are missing from the VCF\n"
         "   -i, --include EXPR               Include sites and samples for which the expression is true\n"
         "   -o, --output FILE                Output file name [stdout]\n"
-        "   -O, --output-type b|u|z|v        b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "   -O, --output-type u|b|v|z[0-9]   u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
         "   -r, --regions REG                Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE          Restrict to regions listed in a file\n"
         "       --regions-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
@@ -228,7 +228,9 @@ static void init_data(args_t *args)
     read_sample_list_or_file(args->hdr, args->control_samples_str, &args->control_smpl, &args->ncontrol_smpl, args->force_samples);
     read_sample_list_or_file(args->hdr, args->case_samples_str, &args->case_smpl, &args->ncase_smpl, args->force_samples);
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
@@ -450,6 +452,7 @@ int run(int argc, char **argv)
     args->annots_str = "PASSOC,FASSOC";
     args->regions_overlap = 1;
     args->targets_overlap = 0;
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"max-allele-freq",required_argument,0,'f'},
@@ -472,6 +475,7 @@ int run(int argc, char **argv)
         {NULL,0,NULL,0}
     };
     int c;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:",loptions,NULL)) >= 0)
     {
         switch (c) 
@@ -498,8 +502,17 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
                       };
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                      }
                       break;
             case  3 :
                 if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;

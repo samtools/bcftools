@@ -73,7 +73,7 @@ typedef struct
     int ngrp;
     grp_t *grp;
     char *group_by;
-    int argc, region_is_file, target_is_file, output_type, trim_alts;
+    int argc, region_is_file, target_is_file, output_type, trim_alts, clevel;
     int32_t *tmpi, mtmpi, mean_min_dp_reported;
     char **argv, *region, *target, *fname, *output_fname, *keep_tags;
     bcf_hdr_t *hdr_in, *hdr_out;
@@ -99,7 +99,7 @@ static const char *usage_text(void)
         "   -i, --include <expr>            include sites for which the expression is true\n"
         "   -g, --group-by EXPR             group gVCF blocks according to the expression\n"
         "   -o, --output FILE               write gVCF output to the FILE\n"
-        "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
         "Examples:\n"
         "   # Compress blocks by GQ and DP. Multiple blocks separated by a semicolon can be defined\n"
         "   bcftools +gvcfz input.bcf -g'PASS:GQ>60 & DP<20; PASS:GQ>40 & DP<15; Flt1:QG>20; Flt2:-'\n"
@@ -313,6 +313,7 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->output_type  = FT_VCF;
     args->output_fname = "-";
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"trim-alt-alleles",required_argument,0,'a'},
@@ -325,6 +326,7 @@ int run(int argc, char **argv)
         {NULL,0,NULL,0}
     };
     int c;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "vr:R:t:T:o:O:g:i:e:a",loptions,NULL)) >= 0)
     {
         switch (c) 
@@ -344,7 +346,16 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
             case 'h':
@@ -370,7 +381,9 @@ int run(int argc, char **argv)
     if ( args->filter_str )
         args->filter = filter_init(args->hdr_in, args->filter_str);
     init_groups(args);
-    args->fh_out = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->fh_out = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( bcf_hdr_write(args->fh_out, args->hdr_out)!=0 ) error("Failed to write the header\n");
     while ( bcf_sr_next_line(args->sr) ) process_gvcf(args);
     flush_block(args, NULL);

@@ -221,17 +221,9 @@ static void init_data(args_t *args)
         free(type_list);
     }
 
-    // setup output
-    const char *tmp = hts_bcf_wmode2(args->output_type,args->fn_out);
-    char modew[8];
-    strcpy(modew,tmp);
-    if (args->clevel >= 0 && args->clevel <= 9)
-    {
-        if ( !strchr(modew,'z') && !strchr(modew,'b') ) strcat(modew,"z");
-        int len = strlen(modew);
-        sprintf(modew + len, "%s%d", tmp, args->clevel);
-    }
-    args->out = hts_open(args->fn_out ? args->fn_out : "-", modew);
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->fn_out,args->clevel);
+    args->out = hts_open(args->fn_out ? args->fn_out : "-", wmode);
     if ( !args->out ) error("%s: %s\n", args->fn_out,strerror(errno));
     if ( args->n_threads > 0)
         hts_set_opt(args->out, HTS_OPT_THREAD_POOL, args->files->p);
@@ -506,7 +498,7 @@ static void usage(args_t *args)
     fprintf(stderr, "    -l,   --compression-level [0-9]   Compression level: 0 uncompressed, 1 best speed, 9 best compression [%d]\n", args->clevel);
     fprintf(stderr, "          --no-version                Do not append version and command line to the header\n");
     fprintf(stderr, "    -o,   --output FILE               Output file name [stdout]\n");
-    fprintf(stderr, "    -O,   --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
+    fprintf(stderr, "    -O,   --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "    -r, --regions REGION              Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE           Restrict to regions listed in FILE\n");
     fprintf(stderr, "        --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
@@ -613,8 +605,17 @@ int main_vcfview(int argc, char *argv[])
                     case 'u': args->output_type = FT_BCF; break;
                     case 'z': args->output_type = FT_VCF_GZ; break;
                     case 'v': args->output_type = FT_VCF; break;
-                    default: error("The output type \"%s\" not recognised\n", optarg);
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
                 };
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                }
                 break;
             case 'l':
                 args->clevel = strtol(optarg,&tmp,10);

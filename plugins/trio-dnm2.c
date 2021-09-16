@@ -84,7 +84,7 @@ priors_t;
 
 typedef struct
 {
-    int argc, filter_logic, regions_is_file, targets_is_file, output_type, record_cmd_line;
+    int argc, filter_logic, regions_is_file, targets_is_file, output_type, record_cmd_line, clevel;
     int regions_overlap, targets_overlap;
     char *filter_str;
     filter_t *filter;
@@ -138,7 +138,7 @@ static const char *usage_text(void)
         "   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
         "   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)\n"
         "   -o, --output FILE               Output file name [stdout]\n"
-        "   -O, --output-type <b|u|z|v>     b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
         "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
@@ -745,7 +745,9 @@ static void init_data(args_t *args)
     if ( args->record_cmd_line )
         bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_trio-dnm2");
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
@@ -1495,6 +1497,7 @@ int run(int argc, char **argv)
     args->record_cmd_line = 1;
     args->regions_overlap = 1;
     args->targets_overlap = 0;
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"use",required_argument,0,'u'},
@@ -1598,8 +1601,17 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
                       };
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                      }
                       break;
             case 'P': args->ped_fname = optarg; break;
             case 'p': args->pfm = optarg; break;

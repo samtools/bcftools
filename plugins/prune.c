@@ -62,7 +62,7 @@ typedef struct
     int ld_max_set[VCFBUF_LD_N];
     char *ld_annot[VCFBUF_LD_N], *ld_annot_pos[VCFBUF_LD_N];
     int ld_mask;
-    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win, rseed;
+    int argc, region_is_file, target_is_file, output_type, ld_filter_id, rand_missing, nsites, ld_win, rseed, clevel;
     char *nsites_mode;
     int keep_sites;
     char **argv, *region, *target, *fname, *output_fname, *ld_filter;
@@ -85,24 +85,24 @@ static const char *usage_text(void)
         "\n"
         "Usage: bcftools +prune [Options]\n"
         "Plugin options:\n"
-        "       --AF-tag STR                use this tag with -n to determine allele frequency\n"
-        "   -a, --annotate r2,LD            add position of an upstream record with the biggest r2/LD value\n"
-        "   -e, --exclude EXPR              exclude sites for which the expression is true\n"
-        "   -f, --set-filter STR            apply soft filter STR instead of discarding the site (only with -m)\n"
-        "   -i, --include EXPR              include only sites for which the expression is true\n"
-        "   -k, --keep-sites                leave sites filtered by -i/-e unchanged instead of discarding them\n"
-        "   -m, --max [r2|LD=]FLOAT         remove sites with r2 or Lewontin's D bigger than FLOAT within the -w window\n"
-        "   -n, --nsites-per-win N          keep at most N sites in the -w window. See also -N, --nsites-per-win-mode\n"
-        "   -N, --nsites-per-win-mode STR   keep sites with biggest AF (\"maxAF\"); sites that come first (\"1st\"); pick randomly (\"rand\") [maxAF]\n"
-        "   -o, --output FILE               write output to the FILE [standard output]\n"
-        "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "       --random-seed INT           use the provided random seed for reproducibility\n"
-        "       --randomize-missing         replace missing data with randomly assigned genotype based on site's allele frequency\n"
-        "   -r, --regions REGION            restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE         restrict to regions listed in a file\n"
-        "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
-        "   -w, --window INT[bp|kb|Mb]      the window size of INT sites or INT bp/kb/Mb for the -n/-l options [100kb]\n"
+        "       --AF-tag STR                Use this tag with -n to determine allele frequency\n"
+        "   -a, --annotate r2,LD            Add position of an upstream record with the biggest r2/LD value\n"
+        "   -e, --exclude EXPR              Exclude sites for which the expression is true\n"
+        "   -f, --set-filter STR            Apply soft filter STR instead of discarding the site (only with -m)\n"
+        "   -i, --include EXPR              Include only sites for which the expression is true\n"
+        "   -k, --keep-sites                Leave sites filtered by -i/-e unchanged instead of discarding them\n"
+        "   -m, --max [r2|LD=]FLOAT         Remove sites with r2 or Lewontin's D bigger than FLOAT within the -w window\n"
+        "   -n, --nsites-per-win N          Keep at most N sites in the -w window. See also -N, --nsites-per-win-mode\n"
+        "   -N, --nsites-per-win-mode STR   Keep sites with biggest AF (\"maxAF\"); sites that come first (\"1st\"); pick randomly (\"rand\") [maxAF]\n"
+        "   -o, --output FILE               Write output to the FILE [standard output]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
+        "       --random-seed INT           Use the provided random seed for reproducibility\n"
+        "       --randomize-missing         Replace missing data with randomly assigned genotype based on site's allele frequency\n"
+        "   -r, --regions REGION            Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "   -t, --targets REGION            Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
+        "   -w, --window INT[bp|kb|Mb]      The window size of INT sites or INT bp/kb/Mb for the -n/-l options [100kb]\n"
         "Examples:\n"
         "   # Discard records with r2 bigger than 0.6 in a window of 1000 sites\n"
         "   bcftools +prune -m 0.6 -w 1000 input.bcf -Ob -o output.bcf\n"
@@ -133,7 +133,9 @@ static void init_data(args_t *args)
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
 
     if ( args->ld_filter && strcmp(".",args->ld_filter) )
@@ -282,6 +284,7 @@ int run(int argc, char **argv)
     args->ld_win = -100e3;
     args->nsites_mode = "maxAF";
     args->rseed = time(NULL);
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"keep-sites",no_argument,NULL,'k'},
@@ -405,7 +408,16 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
             case 'h':

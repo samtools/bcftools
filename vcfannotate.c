@@ -115,7 +115,7 @@ typedef struct _args_t
     bcf_srs_t *files;
     bcf_hdr_t *hdr, *hdr_out, *tgts_hdr;
     htsFile *out_fh;
-    int output_type, n_threads;
+    int output_type, n_threads, clevel;
     bcf_sr_regions_t *tgts;
 
     regidx_t *tgt_idx;  // keep everything in memory only with .tab annotation file and -c BEG,END columns
@@ -2783,13 +2783,15 @@ static void init_data(args_t *args)
             args->mark_sites,args->mark_sites_logic==MARK_LISTED?"":"not ",args->mark_sites);
     }
 
-     if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
+    if (args->record_cmd_line) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_annotate");
     if ( !args->drop_header )
     {
         if ( args->rename_chrs ) rename_chrs(args, args->rename_chrs);
         if ( args->rename_annots ) rename_annots(args, args->rename_annots);
 
-        args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+        char wmode[8];
+        set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+        args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
         if ( args->out_fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__,args->output_fname, strerror(errno));
         if ( args->n_threads )
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->files->p);
@@ -3187,31 +3189,31 @@ static void usage(args_t *args)
     fprintf(stderr, "Usage:   bcftools annotate [options] <in.vcf.gz>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "   -a, --annotations FILE       VCF file or tabix-indexed FILE with annotations: CHR\\tPOS[\\tVALUE]+\n");
-    fprintf(stderr, "       --collapse STR           Matching records by <snps|indels|both|all|some|none>, see man page for details [some]\n");
-    fprintf(stderr, "   -c, --columns LIST           List of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
-    fprintf(stderr, "   -C, --columns-file FILE      Read -c columns from FILE, one name per row, with optional --merge-logic TYPE: NAME[ TYPE]\n");
-    fprintf(stderr, "   -e, --exclude EXPR           Exclude sites for which the expression is true (see man page for details)\n");
-    fprintf(stderr, "       --force                  Continue despite parsing error (at your own risk!)\n");
-    fprintf(stderr, "   -h, --header-lines FILE      Lines which should be appended to the VCF header\n");
-    fprintf(stderr, "   -I, --set-id [+]FORMAT       Set ID column using a `bcftools query`-like expression, see man page for details\n");
-    fprintf(stderr, "   -i, --include EXPR           Select sites for which the expression is true (see man page for details)\n");
-    fprintf(stderr, "   -k, --keep-sites             Leave -i/-e sites unchanged instead of discarding them\n");
-    fprintf(stderr, "   -l, --merge-logic TAG:TYPE   Merge logic for multiple overlapping regions (see man page for details), EXPERIMENTAL\n");
-    fprintf(stderr, "   -m, --mark-sites [+-]TAG     Add INFO/TAG flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
-    fprintf(stderr, "       --no-version             Do not append version and command line to the header\n");
-    fprintf(stderr, "   -o, --output FILE            Write output to a file [standard output]\n");
-    fprintf(stderr, "   -O, --output-type b|u|z|v    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n");
-    fprintf(stderr, "   -r, --regions REGION         Restrict to comma-separated list of regions\n");
-    fprintf(stderr, "   -R, --regions-file FILE      Restrict to regions listed in FILE\n");
-    fprintf(stderr, "       --regions-overlap 0|1|2  Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
-    fprintf(stderr, "       --rename-annots FILE     Rename annotations: TYPE/old\\tnew, where TYPE is one of FILTER,INFO,FORMAT\n");
-    fprintf(stderr, "       --rename-chrs FILE       Rename sequences according to the mapping: old\\tnew\n");
-    fprintf(stderr, "   -s, --samples [^]LIST        Comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
-    fprintf(stderr, "   -S, --samples-file [^]FILE   File of samples to annotate (or exclude with \"^\" prefix)\n");
-    fprintf(stderr, "       --single-overlaps        Keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
-    fprintf(stderr, "   -x, --remove LIST            List of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
-    fprintf(stderr, "       --threads INT            Number of extra output compression threads [0]\n");
+    fprintf(stderr, "   -a, --annotations FILE          VCF file or tabix-indexed FILE with annotations: CHR\\tPOS[\\tVALUE]+\n");
+    fprintf(stderr, "       --collapse STR              Matching records by <snps|indels|both|all|some|none>, see man page for details [some]\n");
+    fprintf(stderr, "   -c, --columns LIST              List of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
+    fprintf(stderr, "   -C, --columns-file FILE         Read -c columns from FILE, one name per row, with optional --merge-logic TYPE: NAME[ TYPE]\n");
+    fprintf(stderr, "   -e, --exclude EXPR              Exclude sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "       --force                     Continue despite parsing error (at your own risk!)\n");
+    fprintf(stderr, "   -h, --header-lines FILE         Lines which should be appended to the VCF header\n");
+    fprintf(stderr, "   -I, --set-id [+]FORMAT          Set ID column using a `bcftools query`-like expression, see man page for details\n");
+    fprintf(stderr, "   -i, --include EXPR              Select sites for which the expression is true (see man page for details)\n");
+    fprintf(stderr, "   -k, --keep-sites                Leave -i/-e sites unchanged instead of discarding them\n");
+    fprintf(stderr, "   -l, --merge-logic TAG:TYPE      Merge logic for multiple overlapping regions (see man page for details), EXPERIMENTAL\n");
+    fprintf(stderr, "   -m, --mark-sites [+-]TAG        Add INFO/TAG flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
+    fprintf(stderr, "       --no-version                Do not append version and command line to the header\n");
+    fprintf(stderr, "   -o, --output FILE               Write output to a file [standard output]\n");
+    fprintf(stderr, "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
+    fprintf(stderr, "   -r, --regions REGION            Restrict to comma-separated list of regions\n");
+    fprintf(stderr, "   -R, --regions-file FILE         Restrict to regions listed in FILE\n");
+    fprintf(stderr, "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
+    fprintf(stderr, "       --rename-annots FILE        Rename annotations: TYPE/old\\tnew, where TYPE is one of FILTER,INFO,FORMAT\n");
+    fprintf(stderr, "       --rename-chrs FILE          Rename sequences according to the mapping: old\\tnew\n");
+    fprintf(stderr, "   -s, --samples [^]LIST           Comma separated list of samples to annotate (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "   -S, --samples-file [^]FILE      File of samples to annotate (or exclude with \"^\" prefix)\n");
+    fprintf(stderr, "       --single-overlaps           Keep memory low by avoiding complexities arising from handling multiple overlapping intervals\n");
+    fprintf(stderr, "   -x, --remove LIST               List of annotations (e.g. ID,INFO/DP,FORMAT/DP,FILTER) to remove (or keep with \"^\" prefix). See man page for details\n");
+    fprintf(stderr, "       --threads INT               Number of extra output compression threads [0]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
     fprintf(stderr, "   http://samtools.github.io/bcftools/howtos/annotate.html\n");
@@ -3232,6 +3234,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->ref_idx = args->alt_idx = args->chr_idx = args->beg_idx = args->end_idx = -1;
     args->set_ids_replace = 1;
     args->match_id = -1;
+    args->clevel = -1;
     int regions_is_file = 0, collapse = 0;
     int regions_overlap = 1;
 
@@ -3264,6 +3267,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"force",no_argument,NULL,'f'},
         {NULL,0,NULL,0}
     };
+    char *tmp;
     while ((c = getopt_long(argc, argv, "h:?o:O:r:R:a:x:c:C:i:e:S:s:I:m:kl:f",loptions,NULL)) >= 0)
     {
         switch (c) {
@@ -3291,8 +3295,17 @@ int main_vcfannotate(int argc, char *argv[])
                     case 'u': args->output_type = FT_BCF; break;
                     case 'z': args->output_type = FT_VCF_GZ; break;
                     case 'v': args->output_type = FT_VCF; break;
-                    default: error("The output type \"%s\" not recognised\n", optarg);
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
                 };
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                }
                 break;
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");

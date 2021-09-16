@@ -97,7 +97,7 @@ typedef struct
     faidx_t *fai;
     struct { int tot, set, swap; } nref;
     char **argv, *output_fname, *ref_fname, *vcf_fname, *region, *targets;
-    int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels;
+    int argc, rmdup, output_type, n_threads, check_ref, strict_filter, do_indels, clevel;
     int nchanged, nskipped, nsplit, ntotal, mrows_op, mrows_collapse, parsimonious;
     int record_cmd_line, force, force_warned, keep_sum_ad;
     abuf_t *abuf;
@@ -1990,7 +1990,9 @@ static bcf1_t *next_atomized_line(args_t *args)
 }
 static void normalize_vcf(args_t *args)
 {
-    args->out = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( args->n_threads )
         hts_set_opt(args->out, HTS_OPT_THREAD_POOL, args->files->p);
@@ -2088,7 +2090,7 @@ static void usage(void)
     fprintf(stderr, "    -N, --do-not-normalize          Do not normalize indels (with -m or -c s)\n");
     fprintf(stderr, "        --old-rec-tag STR           Annotate modified records with INFO/STR indicating the original variant\n");
     fprintf(stderr, "    -o, --output FILE               Write output to a file [standard output]\n");
-    fprintf(stderr, "    -O, --output-type TYPE          'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n");
+    fprintf(stderr, "    -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
     fprintf(stderr, "    -r, --regions REGION            Restrict to comma-separated list of regions\n");
     fprintf(stderr, "    -R, --regions-file FILE         Restrict to regions listed in a file\n");
     fprintf(stderr, "        --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
@@ -2123,6 +2125,7 @@ int main_vcfnorm(int argc, char *argv[])
     args->buf_win = 1000;
     args->mrows_collapse = COLLAPSE_BOTH;
     args->do_indels = 1;
+    args->clevel = -1;
     int region_is_file  = 0;
     int targets_is_file = 0;
     args->use_star_allele = 1;
@@ -2209,7 +2212,16 @@ int main_vcfnorm(int argc, char *argv[])
                     case 'u': args->output_type = FT_BCF; break;
                     case 'z': args->output_type = FT_VCF_GZ; break;
                     case 'v': args->output_type = FT_VCF; break;
-                    default: error("The output type \"%s\" not recognised\n", optarg);
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
+                }
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                 }
                 break;
             case 'o': args->output_fname = optarg; break;

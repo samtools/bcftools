@@ -10,6 +10,9 @@ Changes affecting the whole of bcftools, or multiple commands:
   includes overlapping regions. The two new options allow to modify the
   default behavior, see the man page for more details.
 
+* The `--output-type` option can be used to override the default compression
+  level
+
 Changes affecting specific commands:
 
 * bcftools annotate

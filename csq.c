@@ -590,7 +590,7 @@ typedef struct _args_t
 
     char *outdir, **argv, *fa_fname, *gff_fname, *output_fname;
     char *bcsq_tag;
-    int argc, output_type;
+    int argc, output_type, clevel;
     int phase, verbosity, local_csq, record_cmd_line;
     int ncsq2_max, nfmt_bcsq;   // maximum number of csq per site that can be accessed from FORMAT/BCSQ (*2 and 1 bit skipped to avoid BCF missing values)
     int ncsq2_small_warned;
@@ -1447,7 +1447,9 @@ void init_data(args_t *args)
     }
     else
     {
-        args->out_fh = hts_open(args->output_fname? args->output_fname : "-",hts_bcf_wmode2(args->output_type,args->output_fname));
+        char wmode[8];
+        set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+        args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
         if ( args->out_fh == NULL ) error("[%s] Error: cannot write to %s: %s\n", __func__,args->output_fname? args->output_fname : "standard output", strerror(errno));
         if ( args->n_threads > 0)
             hts_set_opt(args->out_fh, HTS_OPT_THREAD_POOL, args->sr->p);
@@ -4151,38 +4153,38 @@ static const char *usage(void)
         "Usage: bcftools csq [OPTIONS] in.vcf\n"
         "\n"
         "Required options:\n"
-        "   -f, --fasta-ref FILE            reference file in fasta format\n"
-        "   -g, --gff-annot FILE            gff3 annotation file\n"
+        "   -f, --fasta-ref FILE              Reference file in fasta format\n"
+        "   -g, --gff-annot FILE              GFF3 annotation file\n"
         "\n"
         "CSQ options:\n"
-        "   -B, --trim-protein-seq INT      abbreviate protein-changing predictions to max INT aminoacids\n" 
-        "   -c, --custom-tag STRING         use this tag instead of the default BCSQ\n"
-        "   -l, --local-csq                 localized predictions, consider only one VCF record at a time\n"
-        "   -n, --ncsq INT                  maximum number of per-haplotype consequences to consider for each site [15]\n"
-        "   -p, --phase a|m|r|R|s           how to handle unphased heterozygous genotypes: [r]\n"
-        "                                     a: take GTs as is, create haplotypes regardless of phase (0/1 -> 0|1)\n"
-        "                                     m: merge *all* GTs into a single haplotype (0/1 -> 1, 1/2 -> 1)\n"
-        "                                     r: require phased GTs, throw an error on unphased het GTs\n"
-        "                                     R: create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)\n"
-        "                                     s: skip unphased hets\n"
+        "   -B, --trim-protein-seq INT        Abbreviate protein-changing predictions to max INT aminoacids\n" 
+        "   -c, --custom-tag STRING           Use this tag instead of the default BCSQ\n"
+        "   -l, --local-csq                   Localized predictions, consider only one VCF record at a time\n"
+        "   -n, --ncsq INT                    Maximum number of per-haplotype consequences to consider for each site [15]\n"
+        "   -p, --phase a|m|r|R|s             How to handle unphased heterozygous genotypes: [r]\n"
+        "                                       a: take GTs as is, create haplotypes regardless of phase (0/1 -> 0|1)\n"
+        "                                       m: merge *all* GTs into a single haplotype (0/1 -> 1, 1/2 -> 1)\n"
+        "                                       r: require phased GTs, throw an error on unphased het GTs\n"
+        "                                       R: create non-reference haplotypes if possible (0/1 -> 1|1, 1/2 -> 1|2)\n"
+        "                                       s: skip unphased hets\n"
         "Options:\n"
-        "   -e, --exclude EXPR              exclude sites for which the expression is true\n"
-        "       --force                     run even if some sanity checks fail\n"
-        "   -i, --include EXPR              select sites for which the expression is true\n"
-        "       --no-version                do not append version and command line to the header\n"
-        "   -o, --output FILE               write output to a file [standard output]\n"
-        "   -O, --output-type b|u|z|v|t     b: compressed BCF, u: uncompressed BCF, z: compressed VCF\n"
-        "                                   v: uncompressed VCF, t: plain tab-delimited text output [v]\n"
-        "   -r, --regions REGION            restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE         restrict to regions listed in a file\n"
-        "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
-        "   -s, --samples -|LIST            samples to include or \"-\" to apply all variants and ignore samples\n"
-        "   -S, --samples-file FILE         samples to include\n"
-        "   -t, --targets REGION            similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE         similar to -R but streams rather than index-jumps\n"
-        "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
-        "       --threads INT               use multithreading with <int> worker threads [0]\n"
-        "   -v, --verbose INT               verbosity level 0-2 [1]\n"
+        "   -e, --exclude EXPR                Exclude sites for which the expression is true\n"
+        "       --force                       Run even if some sanity checks fail\n"
+        "   -i, --include EXPR                Select sites for which the expression is true\n"
+        "       --no-version                  Do not append version and command line to the header\n"
+        "   -o, --output FILE                 Write output to a file [standard output]\n"
+        "   -O, --output-type b|u|z|v|t[0-9]  b: compressed BCF, u: uncompressed BCF, z: compressed VCF\n"
+        "                                     v: uncompressed VCF, t: plain tab-delimited text output, 0-9: compression level [v]\n"
+        "   -r, --regions REGION              Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE           Restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
+        "   -s, --samples -|LIST              Samples to include or \"-\" to apply all variants and ignore samples\n"
+        "   -S, --samples-file FILE           Samples to include\n"
+        "   -t, --targets REGION              Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE           Similar to -R but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2       Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "       --threads INT                 Use multithreading with <int> worker threads [0]\n"
+        "   -v, --verbose INT                 Verbosity level 0-2 [1]\n"
         "\n"
         "Example:\n"
         "   bcftools csq -f hs37d5.fa -g Homo_sapiens.GRCh37.82.gff3.gz in.vcf\n"
@@ -4202,6 +4204,7 @@ int main_csq(int argc, char *argv[])
     args->ncsq2_max = 2*(16-1);      // 1 bit is reserved for BCF missing values
     args->verbosity = 1;
     args->record_cmd_line = 1;
+    args->clevel = -1;
 
     static struct option loptions[] =
     {
@@ -4287,7 +4290,16 @@ int main_csq(int argc, char *argv[])
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --output-type %s\n", optarg+1);
                       }
                       break;
             case 'e':
