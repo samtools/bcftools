@@ -2636,6 +2636,7 @@ fprintf(stderr,"csq_push: %d .. %d\n",rec->pos+1,csq->type.type);
             if ( csq->type.biotype != vrec->vcsq[i].biotype ) continue;
             if ( csq->type.gene != vrec->vcsq[i].gene ) continue;
             if ( csq->type.vcf_ial != vrec->vcsq[i].vcf_ial ) continue;
+            if ( (csq->type.type&CSQ_UPSTREAM_STOP)^(vrec->vcsq[i].type&CSQ_UPSTREAM_STOP) ) continue;  // both must or mustn't have upstream_stop
             if ( csq->type.vstr.s || vrec->vcsq[i].vstr.s ) 
             {
                 // This is a bit hacky, but we want a simpler and more predictable output. The splice_csq() function

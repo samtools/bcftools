@@ -72,6 +72,10 @@ Changes affecting specific commands:
       to some samples at multiallelic sites, a superset of the correct
       consequences would have been set (#1539)
 
+    - bug fix, the upstream stop could be falsely assigned to all samples in
+      a multi-sample VCF even if the stop was relevant for a single sample
+      only (#1578)
+
     - further improve the detection of mismatching chromosome naming
       (e.g. "chrX" vs "X") in the GFF, VCF and fasta files
 
