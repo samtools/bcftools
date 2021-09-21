@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.15.dev
-.\"      Date: 2021-09-16
+.\"      Date: 2021-09-21
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021-09-16" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021-09-21" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-09\-16 11:04 BST\fP and refers to bcftools git version \fB1.13\-42\-g45811d2+\fP.
+This manual page was last updated \fB2021\-09\-21 09:50 BST\fP and refers to bcftools git version \fB1.13\-44\-g3a918b7+\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -1261,6 +1261,14 @@ Do not output PS tag at each site, only at the start of a new phase set block.
 \fB\-d, \-\-rm\-dups\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIexact\fP
 .RS 4
 Output duplicate records of specified type present in multiple files only once.
+Note that records duplicate within one file are not removed with this option,
+for that use \fBbcftools norm \-d\fP instead.
+.br
+In other words, the default behavior of the program is similar to unix "\f(CRcat\fP" in
+that when two files contain a record with the same position, that position will appear
+twice on output. With \fB\-d\fP, every line that finds a matching record in another
+file will be printed only once.
+.br
 Requires \fB\-a, \-\-allow\-overlaps\fP.
 .RE
 .sp

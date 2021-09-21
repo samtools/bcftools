@@ -793,6 +793,12 @@ are concatenated without being recompressed, which is very fast..
 
 *-d, --rm-dups* 'snps'|'indels'|'both'|'all'|'exact'::
     Output duplicate records of specified type present in multiple files only once.
+    Note that records duplicate within one file are not removed with this option,
+    for that use *<<norm,bcftools norm -d>>* instead. +
+    In other words, the default behavior of the program is similar to unix "`cat`" in
+    that when two files contain a record with the same position, that position will appear
+    twice on output. With *-d*, every line that finds a matching record in another
+    file will be printed only once. +
     Requires *-a, --allow-overlaps*.
 
 *-D, --remove-duplicates*::

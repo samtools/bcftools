@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-09-16 11:04 BST</strong> and refers to bcftools git version <strong>1.13-42-g45811d2+</strong>.</p>
+<p>This manual page was last updated <strong>2021-09-21 09:50 BST</strong> and refers to bcftools git version <strong>1.13-44-g3a918b7+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1052,6 +1052,12 @@ are concatenated without being recompressed, which is very fast..</p>
 <dt class="hdlist1"><strong>-d, --rm-dups</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
 <p>Output duplicate records of specified type present in multiple files only once.
+Note that records duplicate within one file are not removed with this option,
+for that use <strong><a href="#norm">bcftools norm -d</a></strong> instead.<br>
+In other words, the default behavior of the program is similar to unix "<code>cat</code>" in
+that when two files contain a record with the same position, that position will appear
+twice on output. With <strong>-d</strong>, every line that finds a matching record in another
+file will be printed only once.<br>
 Requires <strong>-a, --allow-overlaps</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-D, --remove-duplicates</strong></dt>
@@ -4740,7 +4746,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-09-16 11:04:10 +0100
+Last updated 2021-09-21 09:50:15 +0100
 </div>
 </div>
 </body>
