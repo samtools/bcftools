@@ -785,14 +785,13 @@ static void process_gp_to_prob3(convert_t *convert, bcf1_t *line, fmt_t *fmt, in
     n /= convert->nsamples;
     for (i=0; i<convert->nsamples; i++)
     {
-        float sum = 0, *ptr = (float*)convert->dat + i*n;
+        float *ptr = (float*)convert->dat + i*n;
         int j;
         for (j=0; j<n; j++)
         {
             if ( bcf_float_is_vector_end(ptr[j]) ) break;
             if ( bcf_float_is_missing(ptr[j]) ) { ptr[j]=0; continue; }
             if ( ptr[j]<0 || ptr[j]>1 ) error("[%s:%"PRId64":%f] GP value outside range [0,1]; bcftools convert expects the VCF4.3+ spec for the GP field encoding genotype posterior probabilities", bcf_seqname(convert->header,line),(int64_t) line->pos+1,ptr[j]);
-            sum+=ptr[j];
         }
         if ( j==line->n_allele )
             ksprintf(str," %f %f %f",ptr[0],0.,ptr[1]); // haploid
