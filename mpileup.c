@@ -315,18 +315,11 @@ static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
     }
 
     if (ma->conf->flag & MPLP_REALN) {
-        int i, tot_ins = 0;
+        int i;
         uint32_t *cigar = bam_get_cigar(b);
-        int p = 0;
         for (i=0; i<b->core.n_cigar; i++) {
             int cig = cigar[i] & BAM_CIGAR_MASK;
-            if (bam_cigar_type(cig) & 2)
-                p += cigar[i] >> BAM_CIGAR_SHIFT;
             if (cig == BAM_CINS || cig == BAM_CDEL || cig == BAM_CREF_SKIP) {
-                tot_ins += cigar[i] >> BAM_CIGAR_SHIFT;
-                // Possible further optimsation, check tot_ins==1 later
-                // (and remove break) so we can detect single bp indels.
-                // We may want to focus BAQ on more complex regions only.
                 PLP_SET_INDEL(cd->i);
                 break;
             }

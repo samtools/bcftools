@@ -502,17 +502,12 @@ double mann_whitney_1947_cdf(int n, int m, int U)
 double calc_mwu_bias_cdf(int *a, int *b, int n)
 {
     int na = 0, nb = 0, i;
-    double U = 0, ties = 0;
+    double U = 0;
     for (i=0; i<n; i++)
     {
         na += a[i];
         U  += a[i] * (nb + b[i]*0.5);
         nb += b[i];
-        if ( a[i] && b[i] )
-        {
-            double tie = a[i] + b[i];
-            ties += (tie*tie-1)*tie;
-        }
     }
     if ( !na || !nb ) return HUGE_VAL;
 
@@ -527,12 +522,6 @@ double calc_mwu_bias_cdf(int *a, int *b, int n)
     if ( na>=8 || nb>=8 )
     {
         double mean = ((double)na*nb)*0.5;
-        // Correction for ties:
-        //      double N = na+nb;
-        //      double var2 = (N*N-1)*N-ties;
-        //      if ( var2==0 ) return 1.0;
-        //      var2 *= ((double)na*nb)/N/(N-1)/12.0;
-        // No correction for ties:
         double var2 = ((double)na*nb)*(na+nb+1)/12.0;
         double z = (U_min - mean)/sqrt(2*var2);   // z is N(0,1)
         return 2.0 - kf_erfc(z);  // which is 1 + erf(z)
@@ -546,7 +535,7 @@ double calc_mwu_bias_cdf(int *a, int *b, int n)
 double calc_mwu_bias(int *a, int *b, int n, int left)
 {
     int na = 0, nb = 0, i;
-    double U = 0, ties = 0;
+    double U = 0;
     for (i=0; i<n; i++)
     {
         if (!a[i]) {
@@ -559,8 +548,6 @@ double calc_mwu_bias(int *a, int *b, int n, int left)
             na += a[i];
             U  += a[i] * (nb + b[i]*0.5);
             nb += b[i];
-            double tie = a[i] + b[i];
-            ties += (tie*tie-1)*tie;
         }
     }
     if ( !na || !nb ) return HUGE_VAL;
@@ -573,12 +560,6 @@ double calc_mwu_bias(int *a, int *b, int n, int left)
         // Linear approximation
         return U>mean ? (2.0*mean-U)/mean : U/mean;
     }
-    // Correction for ties:
-    //      double N = na+nb;
-    //      double var2 = (N*N-1)*N-ties;
-    //      if ( var2==0 ) return 1.0;
-    //      var2 *= ((double)na*nb)/N/(N-1)/12.0;
-    // No correction for ties:
     double var2 = ((double)na*nb)*(na+nb+1)/12.0;
     if ( na>=8 || nb>=8 )
     {

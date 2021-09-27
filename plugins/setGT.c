@@ -413,7 +413,7 @@ bcf1_t *process(bcf1_t *rec)
     // only do this if use_major is true
     if ( args->new_mask & GT_MAJOR )
     {
-        int an = 0, maxAC = -1, majorAllele = -1;
+        int maxAC = -1, majorAllele = -1;
         hts_expand(int,rec->n_allele,args->marr,args->arr);
         int ret = bcf_calc_ac(args->in_hdr,rec,args->arr,BCF_UN_FMT);
         if ( ret<= 0 )
@@ -421,7 +421,6 @@ bcf1_t *process(bcf1_t *rec)
 
         for (i=0; i < rec->n_allele; ++i)
         {
-            an += args->arr[i];
             if (args->arr[i] > maxAC)
             {
                 maxAC = args->arr[i];
