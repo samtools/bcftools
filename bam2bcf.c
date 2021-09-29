@@ -502,17 +502,18 @@ double mann_whitney_1947_cdf(int n, int m, int U)
 double calc_mwu_bias_cdf(int *a, int *b, int n)
 {
     int na = 0, nb = 0, i;
-    double U = 0, ties = 0;
+    double U = 0;
+    //double ties = 0;
     for (i=0; i<n; i++)
     {
         na += a[i];
         U  += a[i] * (nb + b[i]*0.5);
         nb += b[i];
-        if ( a[i] && b[i] )
-        {
-            double tie = a[i] + b[i];
-            ties += (tie*tie-1)*tie;
-        }
+        // if ( a[i] && b[i] )
+        // {
+        //     double tie = a[i] + b[i];
+        //     ties += (tie*tie-1)*tie;
+        // }
     }
     if ( !na || !nb ) return HUGE_VAL;
 
@@ -546,7 +547,8 @@ double calc_mwu_bias_cdf(int *a, int *b, int n)
 double calc_mwu_bias(int *a, int *b, int n, int left)
 {
     int na = 0, nb = 0, i;
-    double U = 0, ties = 0;
+    double U = 0;
+    // double ties = 0;
     for (i=0; i<n; i++)
     {
         if (!a[i]) {
@@ -559,8 +561,8 @@ double calc_mwu_bias(int *a, int *b, int n, int left)
             na += a[i];
             U  += a[i] * (nb + b[i]*0.5);
             nb += b[i];
-            double tie = a[i] + b[i];
-            ties += (tie*tie-1)*tie;
+            // double tie = a[i] + b[i];
+            // ties += (tie*tie-1)*tie;
         }
     }
     if ( !na || !nb ) return HUGE_VAL;
