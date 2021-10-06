@@ -76,28 +76,28 @@ LIST OF COMMANDS
 For a full list of available commands, run *bcftools* without arguments. For a full
 list of available options, run *bcftools* 'COMMAND' without arguments.
 
-- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations
-- *<<call,call>>*        ..  SNP/indel calling (former "view")
-- *<<cnv,cnv>>*          ..  Copy Number Variation caller
+- *<<annotate,annotate>>*  ..  edit VCF files, add or remove annotations
+- *<<call,call>>*      ..  SNP/indel calling (former "view")
+- *<<cnv,cnv>>*       ..  Copy Number Variation caller
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
-- *<<consensus,consensus>>*    ..  create consensus sequence by applying VCF variants
-- *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
-- *<<csq,csq>>*          ..  haplotype aware consequence caller
+- *<<consensus,consensus>>* ..  create consensus sequence by applying VCF variants
+- *<<convert,convert>>*   ..  convert VCF/BCF to other formats and back
+- *<<csq,csq>>*       ..  haplotype aware consequence caller
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
-- *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
-- *<<index,index>>*      ..  index VCF/BCF
-- *<<isec,isec>>*        ..  intersections of VCF/BCF files
-- *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
-- *<<mpileup,mpileup>>*  ..  multi-way pileup producing genotype likelihoods
-- *<<norm,norm>>*        ..  normalize indels
+- *<<gtcheck,gtcheck>>*   ..  check sample concordance, detect sample swaps and contamination
+- *<<index,index>>*     ..  index VCF/BCF
+- *<<isec,isec>>*      ..  intersections of VCF/BCF files
+- *<<merge,merge>>*     ..  merge VCF/BCF files files from non-overlapping sample sets
+- *<<mpileup,mpileup>>*   ..  multi-way pileup producing genotype likelihoods
+- *<<norm,norm>>*      ..  normalize indels
 - *<<plugin,plugin>>*    ..  run user-defined plugin
-- *<<polysomy,polysomy>>*   ..  detect contaminations and whole-chromosome aberrations
-- *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
-- *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
-- *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
-- *<<sort,sort>>*        ..  sort VCF/BCF files
-- *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
-- *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
+- *<<polysomy,polysomy>>*  ..  detect contaminations and whole-chromosome aberrations
+- *<<query,query>>*     ..  transform VCF/BCF into user-defined formats
+- *<<reheader,reheader>>*  ..  modify VCF/BCF header, change sample names
+- *<<roh,roh>>*       ..  identify runs of homo/auto-zygosity
+- *<<sort,sort>>*      ..  sort VCF/BCF files
+- *<<stats,stats>>*     ..  produce VCF/BCF stats (former vcfcheck)
+- *<<view,view>>*      ..  subset, filter and convert VCF and BCF files
 
 
 LIST OF SCRIPTS
