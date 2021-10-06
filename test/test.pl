@@ -297,6 +297,7 @@ test_vcf_view($opts,in=>'view.minmaxac',out=>'view.minmaxac.1.out',args=>q[-H -q
 test_vcf_view($opts,in=>'view.filter.annovar',out=>'view.filter.annovar.1.out',args=>q[-H -i 'Gene.refGene=="RAD21L1"'],reg=>'');
 test_vcf_view($opts,in=>'view.filter.annovar',out=>'view.filter.annovar.2.out',args=>q[-H -i 'Gene.refGene~"NOD"'],reg=>'');
 test_vcf_view($opts,in=>'view.filter.annovar',out=>'view.filter.annovar.3.out',args=>q[-H -i 'LJB2_MutationTaster=="0.291000"'],reg=>'');
+test_vcf_head($opts,in=>'mpileup.2.vcf',in_nheaders=>22);
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mg0');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.3.out',args=>'-mv -S {PATH}/mpileup.3.samples');
@@ -1271,6 +1272,52 @@ sub test_vcf_64bit
     {
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view $$opts{path}/$args{in}.vcf -Ou | $$opts{bin}/bcftools view -H", exp_fix=>1);
     }
+}
+sub gen_head_output
+{
+    my ($h, $n, $desc, $infile) = @_;
+
+    my $expected = "";
+    open my $in, '<', $infile or die "Couldn't open $infile: $!\n";
+    while (<$in>) {
+        my $counter = /^#/? \$h : \$n;
+        next unless $$counter > 0;
+        $expected .= $_;
+        $$counter--;
+    }
+    close $in;
+    return (out => "head.$desc.out", exp => $expected);
+}
+sub test_vcf_head
+{
+    my ($opts, %args) = @_;
+
+    my $infile = "$$opts{path}/$args{in}";
+
+    test_cmd($opts, %args, gen_head_output(1000, 0, "all", $infile),
+             cmd => "$$opts{bin}/bcftools head $infile");
+    test_cmd($opts, %args, gen_head_output(0, 0, "none", $infile),
+             cmd => "$$opts{bin}/bcftools head -h 0 $infile");
+    test_cmd($opts, %args, gen_head_output(1, 0, "one", $infile),
+             cmd => "$$opts{bin}/bcftools head -h 1 $infile");
+    test_cmd($opts, %args, gen_head_output(5, 0, "five", $infile),
+             cmd => "$$opts{bin}/bcftools head -h 5 $infile");
+
+    my $nh = $args{in_nheaders};  # Test exactly the number of headers
+    test_cmd($opts, %args, gen_head_output($nh, 0, "exact", $infile),
+             cmd => "$$opts{bin}/bcftools head -h $nh $infile");
+    $nh++;  # Also test asking for one more line than there are headers
+    test_cmd($opts, %args, gen_head_output($nh, 0, "toomany", $infile),
+             cmd => "$$opts{bin}/bcftools head -h $nh $infile");
+
+    test_cmd($opts, %args, gen_head_output(1000, 0, "alln0", $infile),
+             cmd => "$$opts{bin}/bcftools head -n 0 $infile");
+    test_cmd($opts, %args, gen_head_output(1000, 1, "onerec", $infile),
+             cmd => "$$opts{bin}/bcftools head -n 1 $infile");
+    test_cmd($opts, %args, gen_head_output(1000, 5, "fiverecs", $infile),
+             cmd => "$$opts{bin}/bcftools head -n 5 $infile");
+    test_cmd($opts, %args, gen_head_output(5, 5, "fiveboth", $infile),
+             cmd => "$$opts{bin}/bcftools head -h 5 -n 5 < $infile");
 }
 sub test_vcf_call
 {
