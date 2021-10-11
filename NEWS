@@ -95,6 +95,11 @@ Changes affecting specific commands:
       that was not the case, reference alleles would have been filled
       instead of multiple alternate alleles (#1542)
 
+* bcftools sort:
+
+    - increase accuracy of the --max-mem option limit, previously the limit
+      could be exceeded by more than 20% (#1576)
+
 * bcftools +trio-dnm:
 
     - new `--with-pAD` option to allow processing of VCFs without FORMAT/QS.
