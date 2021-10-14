@@ -635,7 +635,7 @@ double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
         }
     }
 
-    if (na+nb <= 1)
+    if (!na || !nb)
         return HUGE_VAL;
 
     double U, m;
@@ -646,7 +646,7 @@ double calc_mwu_biasZ(int *a, int *b, int n, int left_only, int do_Z) {
     double var2 = (na*nb)/12.0 * ((na+nb+1) - t/(double)((na+nb)*(na+nb-1)));
     // var = na*nb*(na+nb+1)/12.0; // simpler; minus tie adjustment
     if (var2 <= 0)
-        return HUGE_VAL;
+        return do_Z ? 0 : 1;
 
     if (do_Z) {
         // S.D. normalised Z-score
