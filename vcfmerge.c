@@ -163,6 +163,7 @@ typedef struct
     char **argv;
     int argc, n_threads, record_cmd_line, clevel;
     int local_alleles;    // the value of -L option
+    int keep_AC_AN;
 }
 args_t;
 
@@ -345,6 +346,19 @@ static void info_rules_init(args_t *args)
             if ( str.l ) kputc(',',&str);
             kputs("IMF:max",&str);
         }
+        if ( !bcf_hdr_nsamples(args->out_hdr) )
+        {
+            if ( bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "AN")) )
+            {
+                if ( str.l ) kputc(',',&str);
+                kputs("AN:sum",&str);
+            }
+            if ( bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, "AC")) )
+            {
+                if ( str.l ) kputc(',',&str);
+                kputs("AC:sum",&str);
+            }
+        }
 
         if ( !str.l ) return;
         args->info_rules = str.s;
@@ -375,6 +389,8 @@ static void info_rules_init(args_t *args)
         else if ( rule->type==BCF_HT_REAL ) rule->type_size = sizeof(float);
         else if ( rule->type==BCF_HT_STR ) rule->type_size = sizeof(char); 
         else error("The INFO rule \"%s\" is not supported; the tag \"%s\" type is %d\n", ss,rule->hdr_tag,rule->type);
+
+        if ( !strcmp(rule->hdr_tag,"AC") || !strcmp(rule->hdr_tag,"AN") ) args->keep_AC_AN = 1;
 
         ss = strchr(ss, '\0'); ss++;
         if ( !*ss ) error("Could not parse INFO rules, missing logic of \"%s\"\n", rule->hdr_tag);
@@ -1251,7 +1267,7 @@ void merge_info(args_t *args, bcf1_t *out)
             bcf_info_t *inf = &line->d.info[j];
 
             const char *key = hdr->id[BCF_DT_ID][inf->key].key;
-            if ( !strcmp("AC",key) || !strcmp("AN",key) ) continue;  // AC and AN are done in merge_format() after genotypes are done
+            if ( !args->keep_AC_AN && (!strcmp("AC",key) || !strcmp("AN",key)) ) continue;  // AC and AN are done in merge_format() after genotypes are done
 
             int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
             if ( id==-1 ) error("Error: The INFO field is not defined in the header: %s\n", key);
@@ -2268,7 +2284,8 @@ void merge_format(args_t *args, bcf1_t *out)
     out->n_sample = bcf_hdr_nsamples(out_hdr);
     if ( has_GT )
         merge_GT(args, ma->fmt_map, out);
-    update_AN_AC(out_hdr, out);
+    if ( !args->keep_AC_AN )
+        update_AN_AC(out_hdr, out);
 
     for (i=1; i<=max_ifmt; i++)
         merge_format_field(args, &ma->fmt_map[i*files->nreaders], out);

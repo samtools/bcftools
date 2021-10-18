@@ -79,6 +79,10 @@ Changes affecting specific commands:
     - further improve the detection of mismatching chromosome naming
       (e.g. "chrX" vs "X") in the GFF, VCF and fasta files
 
+* bcftools merge:
+
+    - keep (sum) INFO/AN,AC values when merging VCFs with no samples (#1394)
+
 * bcftools mpileup:
 
     - new --indel-size option which allows to increase the maximum considered

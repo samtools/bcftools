@@ -93,6 +93,10 @@ test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.
 test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
 test_vcf_merge($opts,in=>['merge.noidx.a','merge.noidx.b','merge.noidx.c'],out=>'merge.noidx.abc.out',args=>'');
 test_vcf_merge($opts,in=>['merge.noidx.a','merge.noidx.b','merge.noidx.c'],out=>'merge.noidx.abc.out',args=>'--no-index',noidx=>1);
+test_vcf_merge($opts,in=>['merge.8.a','merge.8.b'],out=>'merge.8.out',args=>'');
+test_vcf_merge($opts,in=>['merge.8.a','merge.8.b'],out=>'merge.8.out',args=>'-i AN:sum,AC:sum');
+test_vcf_merge($opts,in=>['merge.9.a','merge.9.b'],out=>'merge.9.1.out',args=>'');
+test_vcf_merge($opts,in=>['merge.9.a','merge.9.b'],out=>'merge.9.2.out',args=>'-i AN:sum,AC:sum');
 # test_vcf_merge_big($opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
 test_vcf_query($opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
 test_vcf_query($opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);
