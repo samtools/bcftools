@@ -1566,11 +1566,18 @@ sub test_naive_concat
     my $seed = srand();
     print STDERR "Random seed for test_naive_concat: $seed\n";
 
+    my @hdr  = ();
+    my $nhdr = 1 + int(rand($args{max_hdr_lines}));
+    for (my $i=0; $i<$nhdr; $i++)
+    {
+        my $x = rand;
+        push @hdr, "##INFO=<ID=XX$i,Number=1,Type=Integer,Description=\"Test Tag $x\">\n";
+    }
+
     my @files = ();
     my $exp   = '';
     for (my $n=0; $n<$args{nfiles}; $n++)
     {
-        my $nhdr = 1 + int(rand($args{max_hdr_lines}));
         my $nbdy = int(rand($args{max_body_lines}));
         my $file = "$$opts{tmp}/$args{name}.$n";
         push @files,$file;
@@ -1579,11 +1586,7 @@ sub test_naive_concat
         print $fh "##fileformat=VCFv4.0\n";
         print $fh "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
         print $fh "##contig=<ID=1,length=62435964>\n";
-        for (my $i=0; $i<$nhdr; $i++)
-        {
-            my $x = rand;
-            print $fh "##INFO=<ID=XX$i,Number=1,Type=Integer,Description=\"Test Tag $x\">\n";
-        }
+        print $fh join('',@hdr);
         print $fh join("\t",'#CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO')."\n";
 
         # let one of the files have no body

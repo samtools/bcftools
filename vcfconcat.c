@@ -780,11 +780,6 @@ static void naive_concat_check_headers(args_t *args)
         // if BCF, check if tag IDs are consistent in the dictionary of strings
         if ( type.compression!=bgzf )
             error("The --naive option works only for compressed BCFs or VCFs, sorry :-/\n");
-        if ( type.format==vcf )
-        {
-            bcf_hdr_destroy(hdr);
-            continue;
-        }
 
         _check_hrecs(hdr0,hdr,args->fnames[0],args->fnames[i]);
         _check_hrecs(hdr,hdr0,args->fnames[i],args->fnames[0]);
