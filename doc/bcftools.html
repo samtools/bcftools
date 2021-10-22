@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.16.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-09-21 09:50 BST</strong> and refers to bcftools git version <strong>1.13-44-g3a918b7+</strong>.</p>
+<p>This manual page was last updated <strong>2021-10-22</strong> and refers to bcftools git version <strong>1.14</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -91,70 +91,70 @@ list of available options, run <strong>bcftools</strong> <em>COMMAND</em> withou
 <div class="ulist">
 <ul>
 <li>
-<p><strong><a href="#annotate">annotate</a></strong>   .. edit VCF files, add or remove annotations</p>
+<p><strong><a href="#annotate">annotate</a></strong>  ..  edit VCF files, add or remove annotations</p>
 </li>
 <li>
-<p><strong><a href="#call">call</a></strong>        ..  SNP/indel calling (former "view")</p>
+<p><strong><a href="#call">call</a></strong>      ..  SNP/indel calling (former "view")</p>
 </li>
 <li>
-<p><strong><a href="#cnv">cnv</a></strong>          ..  Copy Number Variation caller</p>
+<p><strong><a href="#cnv">cnv</a></strong>       ..  Copy Number Variation caller</p>
 </li>
 <li>
 <p><strong><a href="#concat">concat</a></strong>    ..  concatenate VCF/BCF files from the same set of samples</p>
 </li>
 <li>
-<p><strong><a href="#consensus">consensus</a></strong>    ..  create consensus sequence by applying VCF variants</p>
+<p><strong><a href="#consensus">consensus</a></strong> ..  create consensus sequence by applying VCF variants</p>
 </li>
 <li>
-<p><strong><a href="#convert">convert</a></strong>  ..  convert VCF/BCF to other formats and back</p>
+<p><strong><a href="#convert">convert</a></strong>   ..  convert VCF/BCF to other formats and back</p>
 </li>
 <li>
-<p><strong><a href="#csq">csq</a></strong>          ..  haplotype aware consequence caller</p>
+<p><strong><a href="#csq">csq</a></strong>       ..  haplotype aware consequence caller</p>
 </li>
 <li>
 <p><strong><a href="#filter">filter</a></strong>    ..  filter VCF/BCF files using fixed thresholds</p>
 </li>
 <li>
-<p><strong><a href="#gtcheck">gtcheck</a></strong>  ..  check sample concordance, detect sample swaps and contamination</p>
+<p><strong><a href="#gtcheck">gtcheck</a></strong>   ..  check sample concordance, detect sample swaps and contamination</p>
 </li>
 <li>
-<p><strong><a href="#index">index</a></strong>      ..  index VCF/BCF</p>
+<p><strong><a href="#index">index</a></strong>     ..  index VCF/BCF</p>
 </li>
 <li>
-<p><strong><a href="#isec">isec</a></strong>        ..  intersections of VCF/BCF files</p>
+<p><strong><a href="#isec">isec</a></strong>      ..  intersections of VCF/BCF files</p>
 </li>
 <li>
-<p><strong><a href="#merge">merge</a></strong>      ..  merge VCF/BCF files files from non-overlapping sample sets</p>
+<p><strong><a href="#merge">merge</a></strong>     ..  merge VCF/BCF files files from non-overlapping sample sets</p>
 </li>
 <li>
-<p><strong><a href="#mpileup">mpileup</a></strong>  ..  multi-way pileup producing genotype likelihoods</p>
+<p><strong><a href="#mpileup">mpileup</a></strong>   ..  multi-way pileup producing genotype likelihoods</p>
 </li>
 <li>
-<p><strong><a href="#norm">norm</a></strong>        ..  normalize indels</p>
+<p><strong><a href="#norm">norm</a></strong>      ..  normalize indels</p>
 </li>
 <li>
 <p><strong><a href="#plugin">plugin</a></strong>    ..  run user-defined plugin</p>
 </li>
 <li>
-<p><strong><a href="#polysomy">polysomy</a></strong>   ..  detect contaminations and whole-chromosome aberrations</p>
+<p><strong><a href="#polysomy">polysomy</a></strong>  ..  detect contaminations and whole-chromosome aberrations</p>
 </li>
 <li>
-<p><strong><a href="#query">query</a></strong>      ..  transform VCF/BCF into user-defined formats</p>
+<p><strong><a href="#query">query</a></strong>     ..  transform VCF/BCF into user-defined formats</p>
 </li>
 <li>
-<p><strong><a href="#reheader">reheader</a></strong>   ..  modify VCF/BCF header, change sample names</p>
+<p><strong><a href="#reheader">reheader</a></strong>  ..  modify VCF/BCF header, change sample names</p>
 </li>
 <li>
-<p><strong><a href="#roh">roh</a></strong>          ..  identify runs of homo/auto-zygosity</p>
+<p><strong><a href="#roh">roh</a></strong>       ..  identify runs of homo/auto-zygosity</p>
 </li>
 <li>
-<p><strong><a href="#sort">sort</a></strong>        ..  sort VCF/BCF files</p>
+<p><strong><a href="#sort">sort</a></strong>      ..  sort VCF/BCF files</p>
 </li>
 <li>
-<p><strong><a href="#stats">stats</a></strong>      ..  produce VCF/BCF stats (former vcfcheck)</p>
+<p><strong><a href="#stats">stats</a></strong>     ..  produce VCF/BCF stats (former vcfcheck)</p>
 </li>
 <li>
-<p><strong><a href="#view">view</a></strong>        ..  subset, filter and convert VCF and BCF files</p>
+<p><strong><a href="#view">view</a></strong>      ..  subset, filter and convert VCF and BCF files</p>
 </li>
 </ul>
 </div>
@@ -2845,7 +2845,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;." class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;.</a>)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -3965,6 +3965,11 @@ Convert between VCF and BCF. Former <strong>bcftools subset</strong>.</p>
 <dd>
 <p>suppress the header in VCF output</p>
 </dd>
+<dt class="hdlist1"><strong>--with-header</strong></dt>
+<dd>
+<p>output both VCF header and records (this is the default, but the option
+is useful for explicitness or to reset the effects of <strong>-h</strong> or <strong>-H</strong>)</p>
+</dd>
 <dt class="hdlist1"><strong>-l, --compression-level</strong> [<em>0-9</em>]</dt>
 <dd>
 <p>compression level. 0 stands for uncompressed, 1 for best speed and 9 for
@@ -4746,7 +4751,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-09-21 09:50:15 +0100
+Last updated 2021-10-22 12:15:14 +0100
 </div>
 </div>
 </body>

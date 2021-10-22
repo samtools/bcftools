@@ -1,5 +1,8 @@
 ## Release a.b
 
+## Release 1.14 (22nd October 2021)
+
+
 Changes affecting the whole of bcftools, or multiple commands:
 
 * New `--regions-overlap` and `--targets-overlap` options which address
