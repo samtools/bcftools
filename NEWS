@@ -56,6 +56,13 @@ Changes affecting specific commands:
       `--ligate-warn` option (previously this was the default). To keep such
       sites, use the new `--ligate-force` option (#1567).
 
+* bcftools consensus:
+
+    - Apply mask even when the VCF has no notion about the chromosome. It
+      was possible to encounter this problem when `contig` lines were not
+      present in the VCF header and no variants were called on that chromosome
+      (#1592)
+
 * bcftools +contrast:
 
     - support for chunking within map/reduce framework allowing to collect
