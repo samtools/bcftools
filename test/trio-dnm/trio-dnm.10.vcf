@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	mother	father	proband
+1	69	.	G	GA	.	.	.	AD:PL	35,0:0,105,1540	16,0:0,48,720	15,13:489,0,580
+1	71	.	G	GCGGCCTCA	.	.	.	AD:PL	35,0:0,105,1540	16,0:0,48,720	15,13:489,0,580

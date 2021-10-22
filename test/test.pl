@@ -93,6 +93,10 @@ test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.
 test_vcf_merge($opts,in=>['merge.gvcf.10.b','merge.gvcf.10.a'],out=>'merge.gvcf.10.4.out',args=>'-g {PATH}/merge.gvcf.10.fa -m none');
 test_vcf_merge($opts,in=>['merge.noidx.a','merge.noidx.b','merge.noidx.c'],out=>'merge.noidx.abc.out',args=>'');
 test_vcf_merge($opts,in=>['merge.noidx.a','merge.noidx.b','merge.noidx.c'],out=>'merge.noidx.abc.out',args=>'--no-index',noidx=>1);
+test_vcf_merge($opts,in=>['merge.8.a','merge.8.b'],out=>'merge.8.out',args=>'');
+test_vcf_merge($opts,in=>['merge.8.a','merge.8.b'],out=>'merge.8.out',args=>'-i AN:sum,AC:sum');
+test_vcf_merge($opts,in=>['merge.9.a','merge.9.b'],out=>'merge.9.1.out',args=>'');
+test_vcf_merge($opts,in=>['merge.9.a','merge.9.b'],out=>'merge.9.2.out',args=>'-i AN:sum,AC:sum');
 # test_vcf_merge_big($opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
 test_vcf_query($opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
 test_vcf_query($opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);
@@ -238,6 +242,8 @@ test_vcf_norm($opts,in=>'atomize.split.1',out=>'atomize.split.1.1.out',args=>'--
 test_vcf_norm($opts,in=>'atomize.split.1',out=>'atomize.split.1.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
 test_vcf_norm($opts,in=>'atomize.split.2',out=>'atomize.split.2.1.out',args=>'--atomize --old-rec-tag OLD_REC');
 test_vcf_norm($opts,in=>'atomize.split.2',out=>'atomize.split.2.2.out',args=>'--atomize --atom-overlaps . --old-rec-tag OLD_REC');
+test_vcf_norm($opts,in=>'norm.4',out=>'norm.4.1.out',args=>'-m +both');
+test_vcf_norm($opts,in=>'norm.4',out=>'norm.4.2.out',args=>'-m +any');
 test_vcf_view($opts,in=>'view',out=>'view.1.out',args=>'-aUc1 -C1 -s NA00002 -v snps',reg=>'');
 test_vcf_view($opts,in=>'view',out=>'view.2.out',args=>'-f PASS -Xks NA00003',reg=>'-r20,Y');
 test_vcf_view($opts,in=>'view',out=>'view.3.out',args=>'-xs NA00003',reg=>'');
@@ -270,6 +276,15 @@ test_vcf_view($opts,in=>'idx.3',out=>'idx.3.out',args=>q[-H -R {PATH}/idx.3.bed]
 test_vcf_view($opts,in=>'idx.4',out=>'idx.4.out',args=>q[-H -R {PATH}/idx.4.bed]);
 test_vcf_view($opts,in=>'view-t',out=>'view-t.1.out',args=>'-Ht 2',reg=>'');
 test_vcf_view($opts,in=>'view-t',out=>'view-t.2.out',args=>'-Ht 3',reg=>'');
+test_vcf_view($opts,in=>'overlap',out=>'overlap.0.out',args=>q[-H -r chr1:100-200 --regions-overlap 0]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.1.out',args=>q[-H -r chr1:100-200 --regions-overlap 1]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.2.out',args=>q[-H -r chr1:100-200 --regions-overlap 2]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.0.out',args=>q[-H -t chr1:100-200 --targets-overlap 0]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.1.out',args=>q[-H -t chr1:100-200 --targets-overlap 1]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.2.out',args=>q[-H -t chr1:100-200 --targets-overlap 2]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.neg0.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 0]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.neg1.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 1]);
+test_vcf_view($opts,in=>'overlap',out=>'overlap.neg2.out',args=>q[-H -t ^chr1:100-200 --targets-overlap 2]);
 test_vcf_64bit($opts,in=>'view64bit.1',out=>'view64bit.1.out',do_bcf=>1);
 test_vcf_64bit($opts,in=>'view64bit.2',out=>'view64bit.2.out',do_bcf=>1);
 test_vcf_64bit($opts,in=>'view64bit.3',out=>'view64bit.3.out');     # large coordinates don't work with BCF
@@ -435,6 +450,18 @@ test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args
 test_vcf_annotate($opts,in=>'annotate21',out=>'annotate29.out',args=>'--rename-annots {PATH}/annotate21.txt');
 test_vcf_annotate($opts,in=>'annotate22',vcf=>'annotate22',out=>'annotate30.out',args=>'-c FMT/XX,INFO/XX -x FMT/XX,INFO/XX');
 test_vcf_annotate($opts,in=>'annotate23',tab=>'annotate23',out=>'annotate31.out',args=>'-c CHROM,POS,~ID,REF,ALT,INFO/END');
+test_vcf_annotate($opts,in=>'annotate24.dst',vcf=>'annotate24.src',out=>'annotate24.1.out',args=>'-c XX');
+test_vcf_annotate($opts,in=>'annotate25',tab=>'annotate25',out=>'annotate25.1.out',args=>'-c CHROM,POS,ID,REF,ALT,~INFO/END');
+test_vcf_annotate($opts,in=>'annotate26',tab=>'annotate26',out=>'annotate26.1.out',args=>'-c CHROM,POS,~POS');
+test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.1.out',args=>'-c CHROM,POS,REF,ALT,TSTR,TFLT,TINT');
+test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.2.out',args=>'-c CHROM,POS,REF,ALT,.TSTR,.TFLT,.TINT');
+test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.3.out',args=>'-c CHROM,POS,REF,ALT,.+TSTR,.+TFLT,.+TINT');
+test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.4.out',args=>'-c CHROM,POS,REF,ALT,+TSTR,+TFLT,+TINT');
+test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.5.out',args=>'-c CHROM,POS,REF,ALT,.=TSTR,.=TFLT,.=TINT');
+test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.6.out',args=>'-c CHROM,POS,REF,ALT,=TSTR,=TFLT,=TINT');
+test_vcf_plugin($opts,in=>'checkploidy',out=>'checkploidy.out',cmd=>'+check-ploidy --no-version');
+test_vcf_plugin($opts,in=>'checkploidy.2',out=>'checkploidy.2.out',cmd=>'+check-ploidy --no-version');
+test_vcf_plugin($opts,in=>'checkploidy.2',out=>'checkploidy.3.out',cmd=>'+check-ploidy --no-version',args=>'-- -m');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+missing2ref --no-version');
 test_vcf_plugin($opts,in=>'plugin1',out=>'missing2ref.out',cmd=>'+setGT --no-version',args=>'-- -t . -n 0');
 test_vcf_plugin($opts,in=>'setGT',out=>'setGT.1.out',cmd=>'+setGT --no-version',args=>'-- -t q -n 0 -i \'GT~"." && FMT/DP=30 && GQ=150\'');
@@ -507,6 +534,7 @@ test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.4.out',cmd=>'+mendelian',a
 test_vcf_plugin($opts,in=>'mendelian',out=>'mendelian.5.out',cmd=>'+mendelian',args=>'-t mom1,dad1,child1 -mu');
 test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-a PASSOC,FASSOC,NOVELAL,NOVELGT -0 a,b -1 c');
 test_vcf_plugin($opts,in=>'contrast',out=>'contrast.out',cmd=>'+contrast',args=>'-a PASSOC,FASSOC,NOVELAL,NOVELGT -0 {PATH}/contrast0.txt -1 {PATH}/contrast1.txt');
+test_vcf_plugin($opts,in=>'contrast',out=>'contrast.1.out',cmd=>'+contrast',args=>'-a NASSOC -0 a,b,c -1 d --force-samples');
 test_vcf_plugin($opts,in=>'contrast.1',out=>'contrast.1.1.out',cmd=>'+contrast',args=>'-a NOVELAL,NOVELGT -0 A -1 B');
 test_vcf_plugin($opts,in=>'contrast.1',out=>'contrast.1.2.out',cmd=>'+contrast',args=>'-a NOVELGT -0 A -1 B');
 test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.1',out=>'trio-dnm/trio-dnm.1.out',cmd=>'+trio-dnm2',args=>"-p proband,father,mother --ppl --dnm-tag DNM:log | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
@@ -524,6 +552,7 @@ test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.7',out=>'trio-dnm/trio-dnm.7.1.out'
 test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.8',out=>'trio-dnm/trio-dnm.8.1.out',cmd=>'+trio-dnm2',args=>"-p proband,father,mother  | $$opts{bin}/bcftools query -f'[\\t%DNM]\\t[\\t%VAF]\\n'");
 test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.9',out=>'trio-dnm/trio-dnm.9.1.out',cmd=>'+trio-dnm2',args=>"-p 1X:proband,father,mother --use-NAIVE | $$opts{bin}/bcftools query -f'[\\t%DNM]\\n'");
 test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.9',out=>'trio-dnm/trio-dnm.9.2.out',cmd=>'+trio-dnm2',args=>"-p 2X:proband,father,mother --use-NAIVE | $$opts{bin}/bcftools query -f'[\\t%DNM]\\n'");
+test_vcf_plugin($opts,in=>'trio-dnm/trio-dnm.10',out=>'trio-dnm/trio-dnm.10.1.out',cmd=>'+trio-dnm2',args=>"-p proband,father,mother --with-pAD | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 test_vcf_plugin($opts,in=>'gvcfz',out=>'gvcfz.2.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GQ>10; FLT:-' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 test_vcf_plugin($opts,in=>'gvcfz.2',out=>'gvcfz.2.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP]\\n']);
@@ -585,11 +614,14 @@ test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.vcf.out',do
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.2.bcf.out',do_bcf=>1,args=>'-a');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.vcf.out',do_bcf=>0,args=>'-aD');
 test_vcf_concat($opts,in=>['concat.2.a','concat.2.b'],out=>'concat.4.bcf.out',do_bcf=>1,args=>'-aD');
-test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-l');
-test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-l');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.vcf.out',do_bcf=>0,args=>'-l --ligate-warn');
+test_vcf_concat($opts,in=>['concat.3.a','concat.3.b','concat.3.0','concat.3.c','concat.3.d','concat.3.e','concat.3.f'],out=>'concat.3.bcf.out',do_bcf=>1,args=>'-l --ligate-warn');
 test_naive_concat($opts,name=>'naive_concat',max_hdr_lines=>10000,max_body_lines=>10000,nfiles=>10);
 test_vcf_concat($opts,in=>['concat.4.a','concat.4.b'],out=>'concat.5.out',do_bcf=>0,args=>'-l');
 test_vcf_concat($opts,in=>['concat.4.a','concat.4.b'],out=>'concat.5.out',do_bcf=>1,args=>'-l');
+test_vcf_concat($opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.1.out',do_bcf=>0,args=>'-l --ligate-warn');
+test_vcf_concat($opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.1.out',do_bcf=>1,args=>'-l --ligate-warn');
+test_vcf_concat($opts,in=>['concat.5.a','concat.5.b','concat.5.c'],out=>'concat.5.2.out',do_bcf=>1,args=>'-l --ligate-force');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.1.out',header=>'reheader.hdr');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples');
 test_vcf_reheader($opts,in=>'reheader',out=>'reheader.2.out',samples=>'reheader.samples2');
@@ -661,6 +693,7 @@ test_vcf_consensus($opts,in=>'consensus.12',out=>'consensus.15.out',fa=>'consens
 test_vcf_consensus($opts,in=>'consensus.15',out=>'consensus.17.out',fa=>'consensus.15.fa',args=>'-H I --mark-ins lc --mark-snv lc');
 test_vcf_consensus($opts,in=>'consensus.16',out=>'consensus.18.out',fa=>'consensus.fa',args=>'-I');
 test_vcf_consensus($opts,in=>'consensus.16',out=>'consensus.18.out',fa=>'consensus.fa',args=>'-H I');
+test_vcf_consensus($opts,in=>'consensus.17',out=>'consensus17.1.out',fa=>'consensus2.fa',mask=>'consensus.17.bed',args=>'-M N');
 test_mpileup($opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.1.out',args=>q[-r17:100-150],test_list=>1);
 test_mpileup($opts,in=>[qw(mpileup.1 mpileup.2 mpileup.3)],out=>'mpileup/mpileup.2.out',args=>q[-a DP,DV -r17:100-600]); # test files from samtools mpileup test suite
 test_mpileup($opts,in=>[qw(mpileup.1)],out=>'mpileup/mpileup.3.out',args=>q[-B --ff 0x14 -r17:1050-1060]); # test file converted to vcf from samtools mpileup test suite
@@ -1534,11 +1567,18 @@ sub test_naive_concat
     my $seed = srand();
     print STDERR "Random seed for test_naive_concat: $seed\n";
 
+    my @hdr  = ();
+    my $nhdr = 1 + int(rand($args{max_hdr_lines}));
+    for (my $i=0; $i<$nhdr; $i++)
+    {
+        my $x = rand;
+        push @hdr, "##INFO=<ID=XX$i,Number=1,Type=Integer,Description=\"Test Tag $x\">\n";
+    }
+
     my @files = ();
     my $exp   = '';
     for (my $n=0; $n<$args{nfiles}; $n++)
     {
-        my $nhdr = 1 + int(rand($args{max_hdr_lines}));
         my $nbdy = int(rand($args{max_body_lines}));
         my $file = "$$opts{tmp}/$args{name}.$n";
         push @files,$file;
@@ -1547,11 +1587,7 @@ sub test_naive_concat
         print $fh "##fileformat=VCFv4.0\n";
         print $fh "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n";
         print $fh "##contig=<ID=1,length=62435964>\n";
-        for (my $i=0; $i<$nhdr; $i++)
-        {
-            my $x = rand;
-            print $fh "##INFO=<ID=XX$i,Number=1,Type=Integer,Description=\"Test Tag $x\">\n";
-        }
+        print $fh join('',@hdr);
         print $fh join("\t",'#CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO')."\n";
 
         # let one of the files have no body
@@ -1652,15 +1688,13 @@ sub test_csq_real
         opendir(my $tmp,"$dirname/$dir") or error("opendir: $dirname/$dir: $!");
         while (my $file=readdir($tmp))
         {
-            my $cmd = undef;
-            
             if ( $file=~/\.vcf$/ )
             {
                 my $bname = $`;
                 my $vcf   = "$dirname/$dir/$file";
                 my $out   = "$args{in}/$dir/$bname.txt";
                 my $outl  = "$args{in}/$dir/$bname.txt-l";
-
+                my $cmd   = undef;
                 my @nsmpl = `$$opts{bin}/bcftools query -l $vcf`;
                 if ( !@nsmpl )
                 {
@@ -1682,7 +1716,8 @@ sub test_csq_real
             }
             if ( $file=~/\.cmd$/ )
             {
-                chomp(my $cmd = (`cat $dirname/$dir/$file`)[0]);
+                my @cmd = grep { chomp } `cat $dirname/$dir/$file | grep -v ^#`;
+                my $cmd = join(' ; ', @cmd);
                 $cmd =~ s/{bin}/$$opts{bin}/g;
                 test_cmd($opts,%args,out=>"$args{in}/$dir/$file.out",cmd=>"cd $dirname/$dir && $cmd");
             }

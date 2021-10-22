@@ -74,7 +74,8 @@ typedef struct
 {
     convert_t *convert;
     filter_t *filter;
-    int argc, filter_logic, regions_is_file, targets_is_file, list_hdr, record_cmd_line;
+    int argc, filter_logic, regions_is_file, targets_is_file, list_hdr, record_cmd_line, clevel;
+    int regions_overlap, targets_overlap;
     kstring_t kstr;
     char *filter_str,
         *vep_tag;       // the --annotation INFO tag to process
@@ -195,7 +196,7 @@ static const char *usage_text(void)
         "       --columns-types -|FILE      Pass \"-\" to print the default -c types or FILE to override the presets\n"
         "   -d, --duplicate                 Output per transcript/allele consequences on a new line rather rather than\n"
         "                                     as comma-separated fields on a single line\n"
-        "   -f, --format STR                Formatting expression for non-VCF/BCF output, same as `bcftools query -f`\n"
+        "   -f, --format STR                Create non-VCF output; similar to `bcftools query -f` but drops lines w/o consequence\n"
         "   -l, --list                      Parse the VCF header and list the annotation fields\n"
         "   -p, --annot-prefix STR          Before doing anything else, prepend STR to all CSQ fields to avoid tag name conflicts\n"
         "   -s, --select TR:CSQ             Select transcripts to extract by type and/or consequence severity. (See also -S and -x.)\n"
@@ -212,11 +213,13 @@ static const char *usage_text(void)
         "   -i, --include EXPR              Include sites and samples for which the expression is true\n"
         "       --no-version                Do not append version and command line to the header\n"
         "   -o, --output FILE               Output file name [stdout]\n"
-        "   -O, --output-type b|u|z|v       b: compressed BCF, u: uncompressed BCF, z: compressed VCF or text, v: uncompressed VCF or text [v]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "\n"
         "Examples:\n"
         "   # List available fields of the INFO/CSQ annotation\n"
@@ -246,6 +249,8 @@ static const char *usage_text(void)
         "   # the -x switch. See the online documentation referenced above for more examples.\n"
         "   bcftools +split-vep -c gnomAD_AF:Float -s :missense    file.vcf.gz\n"
         "   bcftools +split-vep -c gnomAD_AF:Float -s :missense -x file.vcf.gz\n"
+        "\n"
+        "   See also http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
         "\n";
 }
 
@@ -395,9 +400,14 @@ static void init_data(args_t *args)
     if ( args->regions )
     {
         args->sr->require_index = 1;
+        bcf_sr_set_opt(args->sr,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(args->sr, args->regions, args->regions_is_file)<0 ) error("Failed to read the regions: %s\n",args->regions);
     }
-    if ( args->targets && bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    if ( args->targets )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_TARGETS_OVERLAP,args->targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    }
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
@@ -1027,6 +1037,9 @@ int run(int argc, char **argv)
     args->output_type  = FT_VCF;
     args->vep_tag = "CSQ";
     args->record_cmd_line = 1;
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"drop-sites",no_argument,0,'x'},
@@ -1046,13 +1059,16 @@ int run(int argc, char **argv)
         {"output-type",required_argument,NULL,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"regions-overlap",required_argument,NULL,3},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"targets-overlap",required_argument,NULL,4},
         {"no-version",no_argument,NULL,2},
         {"allow-undef-tags",no_argument,0,'u'},
         {NULL,0,NULL,0}
     };
     int c;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xu",loptions,NULL)) >= 0)
     {
         switch (c) 
@@ -1091,9 +1107,30 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
+            case  3 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case  4 :
+                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -1129,7 +1166,9 @@ int run(int argc, char **argv)
             args->fh_bgzf = bgzf_open(args->output_fname, args->output_type&FT_GZ ? "wg" : "wu");
         else
         {
-            args->fh_vcf = hts_open(args->output_fname, hts_bcf_wmode2(args->output_type,args->output_fname));
+            char wmode[8];
+            set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+            args->fh_vcf = hts_open(args->output_fname ? args->output_fname : "-", wmode);
             if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_split-vep");
             if ( bcf_hdr_write(args->fh_vcf, args->hdr_out)!=0 ) error("Failed to write the header to %s\n", args->output_fname);
         }

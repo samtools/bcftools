@@ -1,0 +1,4 @@
+6723	A	T	aaa	1/1	stop_gained|WBGene00016561|C41D11.1e.1|protein_coding|+|49K>49*|6723A>T+6725G>A	stop_gained|WBGene00016561|C41D11.1e.1|protein_coding|+|49K>49*|6723A>T+6725G>A
+6725	G	A	aaa	1/1	@6723	@6723
+7395	G	T	aaa	1/1	*missense|WBGene00016561|C41D11.1e.1|protein_coding|+|259D>259Y|7395G>T	*missense|WBGene00016561|C41D11.1e.1|protein_coding|+|259D>259Y|7395G>T
+7395	G	T	bbb	1/1	missense|WBGene00016561|C41D11.1e.1|protein_coding|+|259D>259Y|7395G>T	missense|WBGene00016561|C41D11.1e.1|protein_coding|+|259D>259Y|7395G>T

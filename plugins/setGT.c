@@ -283,6 +283,11 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( !args->filter_str && args->tgt_mask&GT_QUERY ) error("Expected -i/-e with -tq\n");
     if ( args->filter_str ) args->filter = filter_init(in,args->filter_str);
 
+    // Check the existence of FORMAT/GT tag, add it if not present
+    int id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,"GT");
+    if ( !bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
+        bcf_hdr_printf(args->out_hdr, "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
+
     return 0;
 }
 
@@ -408,7 +413,7 @@ bcf1_t *process(bcf1_t *rec)
     // only do this if use_major is true
     if ( args->new_mask & GT_MAJOR )
     {
-        int an = 0, maxAC = -1, majorAllele = -1;
+        int maxAC = -1, majorAllele = -1;
         hts_expand(int,rec->n_allele,args->marr,args->arr);
         int ret = bcf_calc_ac(args->in_hdr,rec,args->arr,BCF_UN_FMT);
         if ( ret<= 0 )
@@ -416,7 +421,6 @@ bcf1_t *process(bcf1_t *rec)
 
         for (i=0; i < rec->n_allele; ++i)
         {
-            an += args->arr[i];
             if (args->arr[i] > maxAC)
             {
                 maxAC = args->arr[i];
@@ -546,7 +550,11 @@ bcf1_t *process(bcf1_t *rec)
         }
     }
     args->nchanged += changed;
-    if ( changed ) bcf_update_genotypes(args->out_hdr, rec, args->gts, ngts*rec->n_sample);
+    if ( changed )
+    {
+        int ret = bcf_update_genotypes(args->out_hdr, rec, args->gts, ngts*rec->n_sample);
+        if ( ret!=0 ) error("Error: failed to update genotypes at %s:%"PRIhts_pos"\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
+    }
     return rec;
 }
 

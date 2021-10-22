@@ -1,5 +1,5 @@
 /* 
-    Copyright (C) 2017 Genome Research Ltd.
+    Copyright (C) 2017-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -47,7 +47,7 @@ typedef struct
 {
     int argc;
     char **argv;
-    int rid, gt_id, ndat;
+    int rid, gt_id, ndat, ignore_missing;
     dat_t *dat;
     bcf_hdr_t *hdr;
 }
@@ -69,16 +69,43 @@ const char *usage(void)
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
         "\n"
+        "Plugin options:\n"
+        "   -m, --use-missing           use missing and half-missing genotypes such as ., ./., 0/1\n"
+        "\n"
         "Example:\n"
+        "   # report ploidy, ignore missing genotypes\n"
         "   bcftools +check-ploidy file.bcf\n"
+        "\n"
+        "   # use missing genotypes\n"
+        "   bcftools +check-ploidy file.bcf -- -m\n"
         "\n";
 }
 
 int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
 {
     args = (args_t*) calloc(1,sizeof(args_t));
-    args->argc   = argc; args->argv = argv;
-    args->hdr = in;
+    args->argc = argc; args->argv = argv;
+    if ( !in ) error("%s",usage());
+
+    args->ignore_missing = 1;
+    static struct option loptions[] =
+    {
+        {"use-missing",0,0,'m'},
+        {0,0,0,0}
+    };
+    int c;
+    while ((c = getopt_long(argc, argv, "?hm",loptions,NULL)) >= 0)
+    {
+        switch (c)
+        {
+            case 'm': args->ignore_missing = 0; break;
+            case 'h':
+            case '?':
+            default: error("%s", usage()); break;
+        }
+    }
+
+    args->hdr  = in;
     args->ndat = bcf_hdr_nsamples(args->hdr);
     args->dat  = (dat_t*) calloc(args->ndat,sizeof(dat_t));
     int i;
@@ -108,7 +135,7 @@ bcf1_t *process(bcf1_t *rec)
         for (i=0; i<args->ndat; i++)
         {
             dat_t *dat = &args->dat[i];
-            if ( dat->ploidy!=0 ) printf("%s\t%s\t%d\t%d\t%d\n", dat->sample,bcf_seqname(args->hdr,rec),dat->beg+1,dat->end+1,dat->ploidy); 
+            if ( dat->ploidy!=0 ) printf("%s\t%s\t%d\t%d\t%d\n", dat->sample,bcf_hdr_id2name(args->hdr, args->rid),dat->beg+1,dat->end+1,dat->ploidy);
             dat->ploidy = 0;
         }
     }
@@ -123,7 +150,7 @@ bcf1_t *process(bcf1_t *rec)
             for (nal=0; nal<fmt_gt->n; nal++) \
             { \
                 if ( p[nal]==vector_end ) break; /* smaller ploidy */ \
-                if ( bcf_gt_is_missing(p[nal]) ) { missing=1; break; } /* missing allele */ \
+                if ( bcf_gt_is_missing(p[nal]) && args->ignore_missing ) { missing=1; break; } /* missing allele */ \
             } \
             if ( !nal || missing ) continue; /* missing genotype */ \
             dat_t *dat = &args->dat[i]; \

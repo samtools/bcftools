@@ -1,6 +1,6 @@
 /*  plugins/missing2ref.c -- sets missing genotypes to reference allele.
 
-    Copyright (C) 2014-2015 Genome Research Ltd.
+    Copyright (C) 2014-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -95,13 +95,11 @@ bcf1_t *process(bcf1_t *rec)
     // only do this if use_major is true
     int majorAllele = -1;
     int maxAC = -1;
-    int an = 0;
     if(use_major == 1){
         hts_expand(int,rec->n_allele,marr,arr);
         int ret = bcf_calc_ac(in_hdr,rec,arr,BCF_UN_FMT);
         if(ret > 0){
             for(i=0; i < rec->n_allele; ++i){
-                an += arr[i];
                 if(*(arr+i) > maxAC){
                     maxAC = *(arr+i);
                     majorAllele = i;

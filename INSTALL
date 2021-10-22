@@ -197,6 +197,16 @@ compiler or SSL implementation.  It is assumed you already have the core set
 of packages for the given distribution - the lists may be incomplete if
 this is not the case.
 
+Intel Compiler
+--------------
+
+At some optimisation levels the Intel compiler may use approximate
+floating point mathematics.  We do not believe this to produce
+substantially erroneous results, but it can cause the test harness to
+fail due to minor fluctuations in the least significiant digits.  If
+you wish to use icc with the test harness, it is recommended you use
+the "-fp-model precise" icc option.
+
 Debian / Ubuntu
 ---------------
 

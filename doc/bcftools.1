@@ -1,23 +1,32 @@
 '\" t
 .\"     Title: bcftools
-.\"    Author: [see the "AUTHORS" section]
-.\" Generator: Asciidoctor 1.5.5
-.\"      Date: 2021-07-07
+.\"    Author: [see the "AUTHOR(S)" section]
+.\" Generator: Asciidoctor 2.0.16.dev
+.\"      Date: 2021-10-22
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021-07-07" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021-10-22" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
 .nh
 .ad l
 .de URL
-\\$2 \(laURL: \\$1 \(ra\\$3
+\fI\\$2\fP <\\$1>\\$3
 ..
-.if \n[.g] .mso www.tmac
-.LINKSTYLE blue R < >
+.als MTO URL
+.if \n[.g] \{\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .
+.  LINKSTYLE blue R < >
+.\}
 .SH "NAME"
 bcftools \- utilities for variant calling and manipulating VCFs and BCFs.
 .SH "SYNOPSIS"
@@ -35,14 +44,14 @@ will work in all situations. Un\-indexed VCF and BCF and streams will
 work in most, but not all situations. In general, whenever multiple VCFs are
 read simultaneously, they must be indexed and therefore also compressed.
 (Note that files with non\-standard index names can be accessed as e.g.
-"\f[CR]bcftools view \-r X:2928329 file.vcf.gz##idx##non\-standard\-index\-name\fP".)
+"\f(CRbcftools view \-r X:2928329 file.vcf.gz##idx##non\-standard\-index\-name\fP".)
 .sp
 BCFtools is designed to work on a stream. It regards an input file "\-" as the
 standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-07\-07\fP and refers to bcftools git version \fB1.13\fP.
+This manual page was last updated \fB2021\-10\-22\fP and refers to bcftools git version \fB1.14\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -51,15 +60,13 @@ the view command from old versions of bcftools packaged with samtools
 versions <= 0.1.19 to convert to VCF, which can then be read by
 this version of bcftools.
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     samtools\-0.1.19/bcftools/bcftools view file.bcf1 | bcftools view
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "VARIANT CALLING"
 .sp
 See \fIbcftools call\fP for variant calling from the output of the
@@ -78,10 +85,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBannotate\fP   .. edit VCF files, add or remove annotations
+\fBannotate\fP  ..  edit VCF files, add or remove annotations
 .RE
 .sp
 .RS 4
@@ -89,10 +96,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBcall\fP        ..  SNP/indel calling (former "view")
+\fBcall\fP      ..  SNP/indel calling (former "view")
 .RE
 .sp
 .RS 4
@@ -100,10 +107,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBcnv\fP          ..  Copy Number Variation caller
+\fBcnv\fP       ..  Copy Number Variation caller
 .RE
 .sp
 .RS 4
@@ -111,8 +118,8 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 \fBconcat\fP    ..  concatenate VCF/BCF files from the same set of samples
 .RE
@@ -122,10 +129,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBconsensus\fP    ..  create consensus sequence by applying VCF variants
+\fBconsensus\fP ..  create consensus sequence by applying VCF variants
 .RE
 .sp
 .RS 4
@@ -133,10 +140,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBconvert\fP  ..  convert VCF/BCF to other formats and back
+\fBconvert\fP   ..  convert VCF/BCF to other formats and back
 .RE
 .sp
 .RS 4
@@ -144,10 +151,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBcsq\fP          ..  haplotype aware consequence caller
+\fBcsq\fP       ..  haplotype aware consequence caller
 .RE
 .sp
 .RS 4
@@ -155,8 +162,8 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 \fBfilter\fP    ..  filter VCF/BCF files using fixed thresholds
 .RE
@@ -166,10 +173,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBgtcheck\fP  ..  check sample concordance, detect sample swaps and contamination
+\fBgtcheck\fP   ..  check sample concordance, detect sample swaps and contamination
 .RE
 .sp
 .RS 4
@@ -177,10 +184,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBindex\fP      ..  index VCF/BCF
+\fBindex\fP     ..  index VCF/BCF
 .RE
 .sp
 .RS 4
@@ -188,10 +195,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBisec\fP        ..  intersections of VCF/BCF files
+\fBisec\fP      ..  intersections of VCF/BCF files
 .RE
 .sp
 .RS 4
@@ -199,10 +206,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBmerge\fP      ..  merge VCF/BCF files files from non\-overlapping sample sets
+\fBmerge\fP     ..  merge VCF/BCF files files from non\-overlapping sample sets
 .RE
 .sp
 .RS 4
@@ -210,10 +217,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBmpileup\fP  ..  multi\-way pileup producing genotype likelihoods
+\fBmpileup\fP   ..  multi\-way pileup producing genotype likelihoods
 .RE
 .sp
 .RS 4
@@ -221,10 +228,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBnorm\fP        ..  normalize indels
+\fBnorm\fP      ..  normalize indels
 .RE
 .sp
 .RS 4
@@ -232,8 +239,8 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 \fBplugin\fP    ..  run user\-defined plugin
 .RE
@@ -243,10 +250,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBpolysomy\fP   ..  detect contaminations and whole\-chromosome aberrations
+\fBpolysomy\fP  ..  detect contaminations and whole\-chromosome aberrations
 .RE
 .sp
 .RS 4
@@ -254,10 +261,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBquery\fP      ..  transform VCF/BCF into user\-defined formats
+\fBquery\fP     ..  transform VCF/BCF into user\-defined formats
 .RE
 .sp
 .RS 4
@@ -265,10 +272,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBreheader\fP   ..  modify VCF/BCF header, change sample names
+\fBreheader\fP  ..  modify VCF/BCF header, change sample names
 .RE
 .sp
 .RS 4
@@ -276,10 +283,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBroh\fP          ..  identify runs of homo/auto\-zygosity
+\fBroh\fP       ..  identify runs of homo/auto\-zygosity
 .RE
 .sp
 .RS 4
@@ -287,10 +294,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBsort\fP        ..  sort VCF/BCF files
+\fBsort\fP      ..  sort VCF/BCF files
 .RE
 .sp
 .RS 4
@@ -298,10 +305,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBstats\fP      ..  produce VCF/BCF stats (former vcfcheck)
+\fBstats\fP     ..  produce VCF/BCF stats (former vcfcheck)
 .RE
 .sp
 .RS 4
@@ -309,10 +316,10 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
-\fBview\fP        ..  subset, filter and convert VCF and BCF files
+\fBview\fP      ..  subset, filter and convert VCF and BCF files
 .RE
 .SH "LIST OF SCRIPTS"
 .sp
@@ -323,8 +330,8 @@ Some helper scripts are bundled with the bcftools code.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 \fBplot\-vcfstats\fP  .. plots the output of \fBstats\fP
 .RE
@@ -410,14 +417,19 @@ Do not append version and command line information to the output VCF header.
 .RS 4
 When output consists of a single stream, write it to \fIFILE\fP rather than
 to standard output, where it is written by default.
+The file type is determined automatically from the file name suffix and in
+case a conflicting \fB\-O\fP option is given, the file name suffix takes precedence.
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 Output compressed BCF (\fIb\fP), uncompressed BCF (\fIu\fP), compressed VCF (\fIz\fP), uncompressed VCF (\fIv\fP).
 Use the \-Ou option when piping between bcftools subcommands to speed up
 performance by removing unnecessary compression/decompression and
 VCF\(<-\(->BCF conversion.
+\~
+The compression level of the compressed formats (\fIb\fP and \fIz\fP) can be set by
+by appending a number between 0\-9.
 .RE
 .sp
 \fB\-r, \-\-regions\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:beg\-end\fP|\fIchr:beg\-\fP[,...]
@@ -451,6 +463,17 @@ This option requires indexed VCF/BCF files. Note that \fB\-R\fP cannot be used
 in combination with \fB\-r\fP.
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+This option controls how overlapping records are determined:
+set to \fB0\fP if the VCF record has to have POS inside a region
+(this corresponds to the default behavior of \fB\-t/\-T\fP);
+set to \fB1\fP if also overlapping records with POS outside a region
+should be included (this is the default behavior of \fB\-r/\-R\fP); or set
+to \fB2\fP to include only true overlapping variation (compare
+the full VCF representation "\f(CRTA>T\-\fP" vs the true sequence variation "\f(CRA>\-\fP").
+.RE
+.sp
 \fB\-s, \-\-samples\fP [&#94;]\fILIST\fP
 .RS 4
 Comma\-separated list of samples to include or exclude if prefixed
@@ -464,15 +487,13 @@ tags for the subset in another command one can pipe from \fBview\fP into
 that command. For example:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     bcftools view \-Ou \-s sample1,sample2 file.vcf | bcftools query \-f %INFO/AC\(rst%INFO/AN\(rsn
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-S, \-\-samples\-file\fP \fIFILE\fP
 .RS 4
@@ -485,46 +506,40 @@ column indicating ploidy (0, 1 or 2) or sex (as defined by
 \fB\-\-ploidy\fP, for example "F" or "M"), for example:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     sample1    1
     sample2    2
     sample3    2
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 or
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     sample1    M
     sample2    F
     sample3    F
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 If the second column is not present, the sex "F" is assumed.
 With \fBbcftools call \-C\fP \fItrio\fP, PED file is expected.
 The program ignores the first column and the last indicates sex (1=male, 2=female), for example:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     ignored_column  daughterA fatherA  motherA  2
     ignored_column  sonB      fatherB  motherB  1
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-t, \-\-targets\fP [&#94;]\fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
@@ -550,15 +565,18 @@ Note that the file must be compressed and indexed.
 Such a file can be easily created from a VCF using:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-    bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF,%ALT\(rsn\(aq file.vcf | bgzip \-c > als.tsv.gz &amp;&amp; tabix \-s1 \-b2 \-e2 als.tsv.gz
+.fam C
+    bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF,%ALT\(rsn\*(Aq file.vcf | bgzip \-c > als.tsv.gz && tabix \-s1 \-b2 \-e2 als.tsv.gz
+.fam
 .fi
-.if n \{\
+.if n .RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+Same as \fB\-\-regions\-overlap\fP but for \fB\-t/\-T\fP.
 .RE
-.\}
 .sp
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
@@ -578,30 +596,44 @@ number of annotation columns. BED files are expected to have
 the ".bed" or ".bed.gz" suffix (case\-insensitive), otherwise a tab\-delimited file is assumed.
 Note that in case of tab\-delimited file, the coordinates POS, FROM and TO are
 one\-based and inclusive.  When REF and ALT are present, only matching VCF
-records will be annotated.
+records will be annotated. If the END coordinate is present in the annotation file
+and given on command line as "\f(CR\-c ~INFO/END\fP", then VCF records will be matched also by the INFO/END coordinate.
+If ID is present in the annotation file and given as "\f(CR\-c ~ID\fP", then VCF records will be matched
+also by the ID column.
+\~
+.br
+\~
+.br
 When multiple ALT alleles are present in the annotation file (given as
 comma\-separated list of alleles), at least one must match one of the
 alleles in the corresponding VCF record. Similarly, at least one
 alternate allele from a multi\-allelic VCF record must be present in the
 annotation file.
-Missing values can be added by providing "." in place of actual value.
+\~
+.br
+\~
+.br
+Missing values can be added by providing "." in place of actual value
+and using the missing value modifier with \fB\-c\fP, such as ".TAG".
+\~
+.br
+\~
+.br
 Note that flag types, such as "INFO/FLAG", can be annotated by including
 a field with the value "1" to set the flag, "0" to remove it, or "." to
 keep existing flags.
 See also \fB\-c, \-\-columns\fP and \fB\-h, \-\-header\-lines\fP.
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # Sample annotation file with columns CHROM, POS, STRING_TAG, NUMERIC_TAG
     1  752566  SomeString      5
     1  798959  SomeOtherString 6
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-collapse\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fInone\fP
 .RS 4
@@ -617,26 +649,46 @@ Comma\-separated list of columns or tags to carry over from the annotation file
 \fIlist\fP describes the columns of the annotation file and must include CHROM,
 POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
 columns which should be ignored can be indicated by "\-".
-+
+\~
+.br
+\~
+.br
 If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
 order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
 can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
 and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
 The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
-+
+\~
+.br
+\~
+.br
 To carry over all INFO annotations, use "INFO". To add all INFO annotations except
 "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
-+
-To add annotations without overwriting existing values (that is, to add missing tags or
-add values to existing tags with missing values), use "+TAG" instead of "TAG".
+\~
+.br
+\~
+.br
+By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
+If also missing values should be carried over (and overwrite existing tags), use ".TAG" instead of "TAG".
+To add annotations without overwriting existing values (that is, to add tags that are absent or
+to add values to existing tags with missing values), use "+TAG" instead of "TAG". These can be combined,
+for example ".+TAG" can be used to add TAG even if the source value is missing but only if TAG does not
+exist in the target file; existing tags will not be overwritten.
 To append to existing values (rather than replacing or leaving untouched), use "=TAG"
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "\-TAG".
-To match the record also by ID, in addition to REF and ALT, use "~ID".
-+
+To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
+If position needs to be replaced, mark the column with the new position as "~POS".
+\~
+.br
+\~
+.br
 If the annotation file is not a VCF/BCF, all new annotations must be
 defined via \fB\-h, \-\-header\-lines\fP.
-+
+\~
+.br
+\~
+.br
 See also the \fB\-l, \-\-merge\-logic\fP option.
 .RE
 .sp
@@ -667,18 +719,16 @@ option is used, make sure to sanity check the result thoroughly.
 Lines to append to the VCF header, see also \fB\-c, \-\-columns\fP and \fB\-a, \-\-annotations\fP. For example:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     ##INFO=<ID=NUMERIC_TAG,Number=1,Type=Integer,Description="Example header line">
     ##INFO=<ID=STRING_TAG,Number=1,Type=String,Description="Yet another header line">
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-\fB\-I, \-\-set\-id\fP [&#43;]\fIFORMAT\fP
+\fB\-I, \-\-set\-id\fP [+]\fIFORMAT\fP
 .RS 4
 assign ID on the fly. The format is the same as in the \fBquery\fP
 command (see below).  By default all existing IDs are replaced. If the
@@ -686,15 +736,13 @@ format string is preceded by "+", only missing IDs will be set. For example,
 one can use
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-    bcftools annotate \-\-set\-id +\(aq%CHROM\(rs_%POS\(rs_%REF\(rs_%FIRST_ALT\(aq file.vcf
+.fam C
+    bcftools annotate \-\-set\-id +\*(Aq%CHROM\(rs_%POS\(rs_%REF\(rs_%FIRST_ALT\*(Aq file.vcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-i, \-\-include\fP \fIEXPRESSION\fP
 .RS 4
@@ -738,7 +786,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -806,10 +854,9 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
 .sp
 \fBExamples:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # Remove three fields
     bcftools annotate \-x ID,INFO/DP,FORMAT/DP file.vcf.gz
 
@@ -839,10 +886,9 @@ except GT. To remove all INFO tags except "FOO" and "BAR", use
     bcftools annotate \-a annots.tab.gz  \-c CHROM,POS,~ID,REF,ALT,INFO/END input.vcf
 
     # For more examples see http://samtools.github.io/bcftools/howtos/annotate.html
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools call \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
 This command replaces the former \fBbcftools view\fP caller. Some of the original
@@ -862,7 +908,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -883,10 +929,9 @@ The default ploidy can be given using the starred records (see
 below), unlisted regions have ploidy 2. The default ploidy definition is
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     X 1 60000 M 1
     X 2699521 154931043 M 1
     Y 1 59373566 M 1
@@ -895,10 +940,9 @@ below), unlisted regions have ploidy 2. The default ploidy definition is
     MT 1 16569 F 1
     *  * *     M 2
     *  * *     F 2
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-r, \-\-regions\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
@@ -956,15 +1000,14 @@ take advantage of prior knowledge of population allele frequencies. The
 workflow looks like this:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # Extract AN,AC values from an existing VCF, such 1000Genomes
-    bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\(aq 1000Genomes.bcf | bgzip \-c > AFs.tab.gz
+    bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\*(Aq 1000Genomes.bcf | bgzip \-c > AFs.tab.gz
 
     # If the tags AN,AC are not already present, use the +fill\-tags plugin
-    bcftools +fill\-tags 1000Genomes.bcf | bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\(aq | bgzip \-c > AFs.tab.gz
+    bcftools +fill\-tags 1000Genomes.bcf | bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF\(rst%ALT\(rst%AN\(rst%AC\(rsn\*(Aq | bgzip \-c > AFs.tab.gz
     tabix \-s1 \-b2 \-e2 AFs.tab.gz
 
     # Create a VCF header description, here we name the tags REF_AN,REF_AC
@@ -974,10 +1017,9 @@ workflow looks like this:
 
     # Now before calling, stream the raw mpileup output through `bcftools annotate` to add the frequencies
     bcftools mpileup [...] \-Ou | bcftools annotate \-a AFs.tab.gz \-h AFs.hdr \-c CHROM,POS,REF,ALT,REF_AN,REF_AC \-Ou | bcftools call \-mv \-F REF_AN,REF_AC [...]
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-G, \-\-group\-samples\fP \fIFILE\fP|\fI\-\fP
 .RS 4
@@ -1219,6 +1261,14 @@ Do not output PS tag at each site, only at the start of a new phase set block.
 \fB\-d, \-\-rm\-dups\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIexact\fP
 .RS 4
 Output duplicate records of specified type present in multiple files only once.
+Note that records duplicate within one file are not removed with this option,
+for that use \fBbcftools norm \-d\fP instead.
+.br
+In other words, the default behavior of the program is similar to unix "\f(CRcat\fP" in
+that when two files contain a record with the same position, that position will appear
+twice on output. With \fB\-d\fP, every line that finds a matching record in another
+file will be printed only once.
+.br
 Requires \fB\-a, \-\-allow\-overlaps\fP.
 .RE
 .sp
@@ -1236,7 +1286,17 @@ Read file names from \fIFILE\fP, one file name per line.
 .RS 4
 Ligate phased VCFs by matching phase at overlapping haplotypes.
 Note that the option is intended for VCFs with perfect overlap, sites
-in overlapping regions present in one but missing in other are dropped.
+in overlapping regions present in one but missing in the other are dropped.
+.RE
+.sp
+\fB\-\-ligate\-force\fP
+.RS 4
+Keep all sites and ligate even non\-overlapping chunks and chunks with imperfect overlap
+.RE
+.sp
+\fB\-\-ligate\-warn\fP
+.RS 4
+Drop sites in imperfect overlaps
 .RE
 .sp
 \fB\-\-no\-version\fP
@@ -1263,7 +1323,7 @@ Same as \-\-naive, but header compatibility is not checked. Dangerous, use with 
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -1356,15 +1416,13 @@ the shorter allele. If both have the same length, use the REF allele (SR), or th
 .RS 4
 first/second allele for phased genotypes and IUPAC code for unphased genotypes
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 This option requires *\-s*, unless exactly one sample is present in the VCF
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .RE
 .sp
@@ -1424,20 +1482,18 @@ apply variants of the given sample
 .sp
 \fBExamples:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # Apply variants present in sample "NA001", output IUPAC codes for hets
     bcftools consensus \-i \-s NA001 \-f in.fa in.vcf.gz > out.fa
 
     # Create consensus for one region. The fasta header lines are then expected
     # in the form ">chr:from\-to".
     samtools faidx ref.fa 8:11870\-11890 | bcftools consensus in.vcf.gz \-o out.fa
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools convert \fI[OPTIONS]\fP \fIFILE\fP"
 .SS "VCF input options:"
 .sp
@@ -1494,7 +1550,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -1522,10 +1578,9 @@ prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
 For example:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
   .gen
   \-\-\-\-
   1:111485207_G_A 1:111485207_G_A 111485207 G A 0 1 0 0 1 0
@@ -1537,10 +1592,9 @@ For example:
   0 0 0
   sample1 sample1 0
   sample2 sample2 0
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-tag\fP \fISTRING\fP
 .RS 4
@@ -1557,16 +1611,14 @@ output chromosome in the first column instead of CHROM:POS_REF_ALT
 output sex column in the sample file. The FILE format is
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     MaleSample    M
     FemaleSample  F
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-vcf\-ids\fP
 .RS 4
@@ -1598,19 +1650,17 @@ the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
 defining the INFO/END tag when ALT is a symbolic allele, for example:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
   .hap
   \-\-\-\-
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
   1:111494194_C_T rsID2 111494194 C T 0 1 0 0
   1:111495231_A_<DEL>_111495784 rsID3 111495231 A <DEL> 0 0 1 0
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-hapsample\fP \fIprefix\fP or \fIhap\-file\fP,\fIsample\-file\fP
 .RS 4
@@ -1633,16 +1683,14 @@ genotypes correctly.
 output sex column in the sample file. The FILE format is
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     MaleSample    M
     FemaleSample  F
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-vcf\-ids\fP
 .RS 4
@@ -1665,10 +1713,9 @@ file is quite basic at the moment with columns for population, group and
 sex expected to be edited by the user. For example:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
   .hap
   \-\-\-\-\-
   0 1 0 0 1 0
@@ -1685,10 +1732,9 @@ sex expected to be edited by the user. For example:
   sample population group sex
   sample1 sample1 sample1 2
   sample2 sample2 sample2 2
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-haploid2diploid\fP
 .RS 4
@@ -1703,16 +1749,14 @@ genotypes correctly.
 output sex column in the sample file. The FILE format is
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     MaleSample    M
     FemaleSample  F
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-vcf\-ids\fP
 .RS 4
@@ -1755,16 +1799,14 @@ file of sample names. See \fBCommon Options\fP
 .sp
 \fBExample:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Convert 23andme results into VCF
 bcftools convert \-c ID,CHROM,POS,AA \-s SampleName \-f 23andme\-ref.fa \-\-tsv2vcf 23andme.txt \-Oz \-o out.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools csq \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
 Haplotype aware consequence predictor which correctly handles combined
@@ -1834,13 +1876,12 @@ GFF3 annotation file (required), such as \c
 An example of a minimal working GFF file:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # The program looks for "CDS", "exon", "three_prime_UTR" and "five_prime_UTR" lines,
     # looks up their parent transcript (determined from the "Parent=transcript:" attribute),
-    # the gene (determined from the transcript\(aqs "Parent=gene:" attribute), and the biotype
+    # the gene (determined from the transcript\*(Aqs "Parent=gene:" attribute), and the biotype
     # (the most interesting is "protein_coding").
     #
     # Attributes required for
@@ -1866,10 +1907,9 @@ An example of a minimal working GFF file:
     1   ignored_field  exon            21  2148  .   \-   .   Parent=transcript:TranscriptId
     1   ignored_field  CDS             21  2148  .   \-   1   Parent=transcript:TranscriptId
     1   ignored_field  five_prime_UTR  210 2148  .   \-   .   Parent=transcript:TranscriptId
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-i, \-\-include\fP \fIEXPRESSION\fP
 .RS 4
@@ -1902,7 +1942,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIt\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIt\fP|\fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP. In addition, a custom tab\-delimited
 plain text output can be printed (\fIt\fP).
@@ -1975,10 +2015,9 @@ see \fBCommon Options\fP
 .sp
 \fBExamples:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # Basic usage
     bcftools csq \-f hs37d5.fa \-g Homo_sapiens.GRCh37.82.gff3.gz in.vcf \-Ob \-o out.bcf
 
@@ -1988,18 +2027,16 @@ see \fBCommon Options\fP
     #   %TBCSQ{0} .. print the first haplotype only
     #   %TBCSQ{1} .. print the second haplotype only
     #   %TBCSQ{*} .. print a list of unique consequences present in either haplotype
-    bcftools query \-f\(aq[%CHROM\(rst%POS\(rst%SAMPLE\(rst%TBCSQ\(rsn]\(aq out.bcf
+    bcftools query \-f\*(Aq[%CHROM\(rst%POS\(rst%SAMPLE\(rst%TBCSQ\(rsn]\*(Aq out.bcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fBExamples of BCSQ annotation:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # Two separate VCF records at positions 2:122106101 and 2:122106102
     # change the same codon. This UV\-induced C>T dinucleotide mutation
     # has been annotated fully at the position 2:122106101 with
@@ -2023,10 +2060,9 @@ see \fBCommon Options\fP
 
     # The consequence type of a variant downstream from a stop are prefixed with *
     BCSQ=*missense|PER3|ENST00000361923|+|1028M>1028T|7890117T>C
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools filter \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
 Apply fixed\-threshold filters.
@@ -2037,17 +2073,16 @@ exclude sites for which \fIEXPRESSION\fP is true. For valid expressions see
 \fBEXPRESSIONS\fP.
 .RE
 .sp
-\fB\-g, \-\-SnpGap\fP \fIINT\fP[:\(aqindel\(aq,\fImnp\fP,\fIbnd\fP,\fIother\fP,\fIoverlap\fP]
+\fB\-g, \-\-SnpGap\fP \fIINT\fP[:\*(Aqindel\*(Aq,\fImnp\fP,\fIbnd\fP,\fIother\fP,\fIoverlap\fP]
 .RS 4
 filter SNPs within \fIINT\fP base pairs of an indel or other other variant type. The following example
 demonstrates the logic of \fB\-\-SnpGap\fP \fI3\fP applied on a deletion and
 an insertion:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 The SNPs at positions 1 and 7 are filtered, positions 0 and 8 are not:
          0123456789
     ref  .G.GT..G..
@@ -2056,10 +2091,9 @@ Here the positions 1 and 6 are filtered, 0 and 7 are not:
          0123\-456789
     ref  .G.G\-..G..
     ins  .A.GT..A..
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-G, \-\-IndelGap\fP \fIINT\fP
 .RS 4
@@ -2068,10 +2102,9 @@ only one to pass. The following example demonstrates the logic of
 \fB\-\-IndelGap\fP \fI2\fP applied on a deletion and an insertion:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 The second indel is filtered:
          012345678901
     ref  .GT.GT..GT..
@@ -2080,10 +2113,9 @@ And similarly here, the second is filtered:
          01 23 456 78
     ref  .A\-.A\-..A\-..
     ins  .AT.AT..AT..
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-i, \-\-include\fP \fIEXPRESSION\fP
 .RS 4
@@ -2111,7 +2143,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2178,6 +2210,8 @@ represents genotype quality when GT tag is used (e.g. Q=30 represents one error 
 Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
 non\-zero integer can be provided). See also the \fB\-u, \-\-use\fP option below. If set to 0,
 the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
+Note that the values with and without \fB\-e\fP are not comparable, only values generated
+with \fB\-e 0\fP correspond to mismatching genotypes.
 If performance is an issue, set to 0 for faster run but less accurate results.
 .RE
 .sp
@@ -2223,18 +2257,18 @@ from the query file, the second from the genotypes file when \fB\-g\fP is given
 Restrict to comma\-separated list of regions, see \fBCommon Options\fP
 .RE
 .sp
-*\-R, \-\-regions\-file\(aq \fIFILE\fP
+*\-R, \-\-regions\-file\*(Aq \fIFILE\fP
 .RS 4
 Restrict to regions listed in a file, see \fBCommon Options\fP
 .RE
 .sp
-\fB\-s, \-\-samples\fP [\fIqry\fP|\fIgt\fP]:\(aqLIST\(aq:
-    List of query samples or \fB\-g\fP samples. If neither \fB\-s\fP nor \fB\-S\fP are given, all possible sample
-    pair combinations are compared
+\fB\-s, \-\-samples\fP [\fIqry\fP|\fIgt\fP]:\*(AqLIST\*(Aq:
+List of query samples or \fB\-g\fP samples. If neither \fB\-s\fP nor \fB\-S\fP are given, all possible sample
+pair combinations are compared
 .sp
-\fB\-S, \-\-samples\-file\fP [\fIqry\fP|\fIgt\fP]:\(aqFILE\(aq
-    File with the query or \fB\-g\fP samples to compare.  If neither \fB\-s\fP nor \fB\-S\fP are given, all possible sample
-    pair combinations are compared
+\fB\-S, \-\-samples\-file\fP [\fIqry\fP|\fIgt\fP]:\*(AqFILE\*(Aq
+File with the query or \fB\-g\fP samples to compare.  If neither \fB\-s\fP nor \fB\-S\fP are given, all possible sample
+pair combinations are compared
 .sp
 \fB\-t, \-\-targets\fP \fIfile\fP
 .RS 4
@@ -2255,10 +2289,9 @@ available.
 .sp
 \fBExamples:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
    # Check discordance of all samples from B against all sample in A
    bcftools gtcheck \-g A.bcf B.bcf
 
@@ -2267,11 +2300,10 @@ available.
 
    # Compare only two pairs a1,b1 and a1,b2
    bcftools gtcheck \-p a1,b1,a1,b2 \-g A.bcf B.bcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
-.SS "bcftools index [\fIOPTIONS\fP]  \fIin.bcf\fP|\fIin.vcf.gz\fP"
+.if n .RE
+.SS "bcftools index [\fIOPTIONS\fP] \fIin.bcf\fP|\fIin.vcf.gz\fP"
 .sp
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate\-sorted index) is created by default. The CSI format
@@ -2326,7 +2358,7 @@ Output format is three tab\-delimited columns listing the contig
 name, contig length (\fI.\fP if unknown) and number of records for
 the contig. Contigs with zero records are not printed.
 .RE
-.SS "bcftools isec [\fIOPTIONS\fP]  \fIA.vcf.gz\fP \fIB.vcf.gz\fP [...]"
+.SS "bcftools isec [\fIOPTIONS\fP] \fIA.vcf.gz\fP \fIB.vcf.gz\fP [...]"
 .sp
 Creates intersections, unions and complements of VCF files. Depending
 on the options, the program can output records from one (or more) files
@@ -2376,7 +2408,7 @@ see \fBCommon Options\fP.  When several files are being
 output, their names are controlled via \fB\-p\fP instead.
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2415,65 +2447,55 @@ list of input files to output given as 1\-based indices. With \fB\-p\fP and no
 .sp
 Create intersection and complements of two sets saving the output in dir/*
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     bcftools isec \-p dir A.vcf.gz B.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 Filter sites in A (require INFO/MAF>=0.01) and B (require INFO/dbSNP) but not in C,
 and create an intersection, including only sites which appear in at least two of
 the files after filters have been applied
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-    bcftools isec \-e\(aqMAF<0.01\(aq \-i\(aqdbSNP=1\(aq \-e\- A.vcf.gz B.vcf.gz C.vcf.gz \-n +2 \-p dir
+.fam C
+    bcftools isec \-e\*(AqMAF<0.01\*(Aq \-i\*(AqdbSNP=1\*(Aq \-e\- A.vcf.gz B.vcf.gz C.vcf.gz \-n +2 \-p dir
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 Extract and write records from A shared by both A and B using exact allele match
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     bcftools isec \-p dir \-n=2 \-w1 A.vcf.gz B.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 Extract records private to A or B comparing by position only
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     bcftools isec \-p dir \-n\-1 \-c all A.vcf.gz B.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 Print a list of records which are present in A and B but not in C and D
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     bcftools isec \-n~1100 \-c all A.vcf.gz B.vcf.gz C.vcf.gz D.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools merge [\fIOPTIONS\fP] \fIA.vcf.gz\fP \fIB.vcf.gz\fP [...]"
 .sp
 Merge multiple VCF/BCF files from non\-overlapping sample sets to create one
@@ -2566,20 +2588,18 @@ is 0 which disables the feature and outputs values for all alternate alleles.
 The option controls what types of multiallelic records can be created:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 \-m none   ..  no new multiallelics, output multiple records instead
 \-m snps   ..  allow multiallelic SNP records
 \-m indels ..  allow multiallelic indel records
 \-m both   ..  both SNP and indel records can be multiallelic
 \-m all    ..  SNP records can be merged with indel records
 \-m id     ..  merge by ID
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-\-no\-index\fP
 .RS 4
@@ -2598,7 +2618,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2735,10 +2755,9 @@ a read group ID can be matched with "?". \fBNOTE:\fP The meaning of \fBbcftools 
 is the opposite of \fBsamtools mpileup \-G\fP.
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     RG_ID_1
     RG_ID_2  SAMPLE_A
     RG_ID_3  SAMPLE_A
@@ -2747,10 +2766,9 @@ is the opposite of \fBsamtools mpileup \-G\fP.
     RG_ID_6  FILE_2.bam  SAMPLE_A
     *        FILE_3.bam  SAMPLE_C
     ?        FILE_3.bam  SAMPLE_D
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-q, \-min\-MQ\fP \fIINT\fP
 .RS 4
@@ -2841,10 +2859,9 @@ the "FORMAT/" prefix is optional, and use "?" to list available annotations
 on the command line) [null]:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 FORMAT/AD   .. Allelic depth (Number=R,Type=Integer)
 FORMAT/ADF  .. Allelic depths on the forward strand (Number=R,Type=Integer)
 FORMAT/ADR  .. Allelic depths on the reverse strand (Number=R,Type=Integer)
@@ -2862,10 +2879,9 @@ FORMAT/DP4  .. Deprecated in favor of FORMAT/ADF and FORMAT/ADR; Number of high\
                alt\-forward and alt\-reverse bases (Number=4,Type=Integer)
 FORMAT/DPR  .. Deprecated in favor of FORMAT/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
 INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high\-quality bases for each observed allele (Number=R,Type=Integer)
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-g, \-\-gvcf\fP \fIINT\fP[,...]
 .RS 4
@@ -2886,14 +2902,14 @@ see \fBCommon Options\fP
 \fB\-o, \-\-output\fP \fIFILE\fP
 .RS 4
 Write output to \fIFILE\fP, rather than the default of standard output.
-(The same short option is used for both \fB\-\-open\-prob\fP and \fB\-\-output\fP.  If \fB\-o\fP\(cqs
+(The same short option is used for both \fB\-\-open\-prob\fP and \fB\-\-output\fP.  If \fB\-o\fP\*(Aqs
 argument contains any non\-digit characters other than a leading + or \-
 sign,  it  is  interpreted  as \fB\-\-output\fP.  Usually the filename extension
 will take care of this, but to write to an entirely numeric filename use \fB\-o
 \&./123\fP or \fB\-\-output 123\fP.)
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2914,17 +2930,15 @@ zero being matching the mean).  It keeps both positive and
 negative values.  This can be important for some tests where
 errors are asymmetric.
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 This option changes the INFO field names produced back to the ones
 used by the earlier Bcftools releases.  For excample BQBZ becomes
 BQB.
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .SS "Options for SNP/INDEL genotype likelihood computation"
 .sp
@@ -2934,18 +2948,16 @@ Specify a platform specific configuration profile.  The profile
 should be one of \fI1.12\fP, \fIillumina\fP, \fIont\fP or \fIpacbio\-ccs\fP.
 Settings applied are as follows:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 1.12           \-Q13 \-h100 \-m1
 illumina       [ default values ]
 ont                   \-B \-Q5 \-\-max\-BQ 30 \-I
 pacbio\-ccs     \-D \-Q5 \-\-max\-BQ 50 \-F0.1 \-o25 \-e1 \-M99999
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 \fB\-\-ar, \-\-ambig\-reads\fP \fIdrop\fP|\fIincAD\fP|\fIincAD0\fP
@@ -2993,6 +3005,13 @@ variants, selecting the best quality ones only (favouring
 precision over recall), it is advisable to set this lower (such as
 0.75) while higher depth samples or where you favour recall rates
 over precision may work better with a higher value such as 2.0.
+.RE
+.sp
+\fB\-\-indel\-size\fP \fIINT\fP
+.RS 4
+Indel window size to use when assessing the quality of candidate indels.
+Note that although the window size approximately corresponds to the maximum
+indel size considered, it is not an exact threshold [110]
 .RE
 .sp
 \fB\-I, \-\-skip\-indels\fP
@@ -3051,17 +3070,15 @@ mpileup if mapping quality is overestimated  for reads containing  excessive
 mismatches.  Applying this option usually helps for BWA\-backtrack alignments,
 but may not other aligners.
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     bcftools mpileup \-Ou \-f ref.fa aln.bam | \(rs
     bcftools call \-Ou \-mv | \(rs
-    bcftools filter \-s LowQual \-e \(aq%QUAL<20 || DP>100\(aq > var.flt.vcf
+    bcftools filter \-s LowQual \-e \*(Aq%QUAL<20 || DP>100\*(Aq > var.flt.vcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools norm [\fIOPTIONS\fP] \fIfile.vcf.gz\fP"
 .sp
 Left\-align and normalize indels, check if REF alleles match the reference,
@@ -3083,10 +3100,9 @@ the VCF specification. IMPORTANT: Note that asterisk is expaneded
 by shell and must be put in quotes or escaped by a backslash:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     # Before atomization:
     100  CC  C,GG   1/2
 
@@ -3097,15 +3113,14 @@ by shell and must be put in quotes or escaped by a backslash:
     101         C         G      ./1
 
     # After:
-    #   bcftools norm \-a \(aq*\(aq
+    #   bcftools norm \-a \*(Aq*\*(Aq
     #   bcftools norm \-a \(rs*
     100         C         G,*    2/1
     100         CC         C,*    1/2
     101         C         G,*    2/1
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-c, \-\-check\-ref\fP \fIe\fP|\fIw\fP|\fIx\fP|\fIs\fP
 .RS 4
@@ -3116,10 +3131,10 @@ can swap alleles and will update genotypes (GT) and AC counts,
 but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that \fIs\fP will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
-.URL "http://samtools.github.io/bcftools/howtos/plugin.af\-dist.html" "" " "
+.URL "http://samtools.github.io/bcftools/howtos/plugin.af\-dist.html" "" ""
 and
-<\c
-.URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html>." "" ")"
+\c
+.URL "http://samtools.github.io/bcftools/howtos/plugin.fixref.html" "" ".)"
 .RE
 .sp
 \fB\-d, \-\-rm\-dup\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIexact\fP
@@ -3188,7 +3203,7 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3228,7 +3243,7 @@ see \fBCommon Options\fP
 maximum distance between two records to consider when locally
 sorting variants which changed position during the realignment
 .RE
-.SS "bcftools [plugin \fINAME\fP|+\fINAME\fP] \fI[OPTIONS]\fP \fIFILE\fP \(em; \fI[PLUGIN OPTIONS]\fP"
+.SS "bcftools [plugin \fINAME\fP|+\fINAME\fP] \fI[OPTIONS]\fP \fIFILE\fP \(em \fI[PLUGIN OPTIONS]\fP"
 .sp
 A common framework for various utilities. The plugins can be used
 the same way as normal commands only their name is prefixed with "+".
@@ -3282,7 +3297,7 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3303,11 +3318,11 @@ list plugin\(cqs options
 List all available plugins.
 .sp
 By default, appropriate system directories are searched for installed plugins.
-    You can override this by setting the BCFTOOLS_PLUGINS environment variable
-    to a colon\-separated list of directories to search.
-    If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains
-    adjacent colons, the system directories are also searched at that position
-    in the list of directories.
+You can override this by setting the BCFTOOLS_PLUGINS environment variable
+to a colon\-separated list of directories to search.
+If BCFTOOLS_PLUGINS begins with a colon, ends with a colon, or contains
+adjacent colons, the system directories are also searched at that position
+in the list of directories.
 .RE
 .sp
 \fB\-v, \-\-verbose\fP
@@ -3366,8 +3381,8 @@ genotypes in two groups of samples. Adds the following INFO annotations:
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 PASSOC  .. Fisher\(cqs exact test probability of genotypic association (REF vs non\-REF allele)
 .RE
@@ -3377,8 +3392,8 @@ PASSOC  .. Fisher\(cqs exact test probability of genotypic association (REF vs n
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 FASSOC  .. proportion of non\-REF allele in controls and cases
 .RE
@@ -3388,8 +3403,8 @@ FASSOC  .. proportion of non\-REF allele in controls and cases
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 NASSOC  .. number of control\-ref, control\-alt, case\-ref and case\-alt alleles
 .RE
@@ -3399,8 +3414,8 @@ NASSOC  .. number of control\-ref, control\-alt, case\-ref and case\-alt alleles
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 NOVELAL .. lists samples with a novel allele not observed in the control group
 .RE
@@ -3410,8 +3425,8 @@ NOVELAL .. lists samples with a novel allele not observed in the control group
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 NOVELGT .. lists samples with a novel genotype not observed in the control group
 .RE
@@ -3442,8 +3457,8 @@ set various INFO tags. The list of tags supported in this version:
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/AC         Number:A  Type:Integer  ..  Allele count in genotypes
 .RE
@@ -3453,8 +3468,8 @@ INFO/AC         Number:A  Type:Integer  ..  Allele count in genotypes
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/AC_Hom     Number:A  Type:Integer  ..  Allele counts in homozygous genotypes
 .RE
@@ -3464,8 +3479,8 @@ INFO/AC_Hom     Number:A  Type:Integer  ..  Allele counts in homozygous genotype
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/AC_Het     Number:A  Type:Integer  ..  Allele counts in heterozygous genotypes
 .RE
@@ -3475,8 +3490,8 @@ INFO/AC_Het     Number:A  Type:Integer  ..  Allele counts in heterozygous genoty
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/AC_Hemi    Number:A  Type:Integer  ..  Allele counts in hemizygous genotypes
 .RE
@@ -3486,8 +3501,8 @@ INFO/AC_Hemi    Number:A  Type:Integer  ..  Allele counts in hemizygous genotype
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/AF         Number:A  Type:Float    ..  Allele frequency
 .RE
@@ -3497,8 +3512,8 @@ INFO/AF         Number:A  Type:Float    ..  Allele frequency
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/AN         Number:1  Type:Integer  ..  Total number of alleles in called genotypes
 .RE
@@ -3508,8 +3523,8 @@ INFO/AN         Number:1  Type:Integer  ..  Total number of alleles in called ge
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/ExcHet     Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 0=bad
 .RE
@@ -3519,8 +3534,8 @@ INFO/ExcHet     Number:A  Type:Float    ..  Test excess heterozygosity; 1=good, 
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/END        Number:1  Type:Integer  ..  End position of the variant
 .RE
@@ -3530,8 +3545,8 @@ INFO/END        Number:1  Type:Integer  ..  End position of the variant
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/F_MISSING  Number:1  Type:Float    ..  Fraction of missing genotypes
 .RE
@@ -3541,8 +3556,8 @@ INFO/F_MISSING  Number:1  Type:Float    ..  Fraction of missing genotypes
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/HWE        Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=bad
 .RE
@@ -3552,8 +3567,8 @@ INFO/HWE        Number:A  Type:Float    ..  HWE test (PMID:15789306); 1=good, 0=
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/MAF        Number:A  Type:Float    ..  Minor Allele frequency
 .RE
@@ -3563,8 +3578,8 @@ INFO/MAF        Number:A  Type:Float    ..  Minor Allele frequency
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/NS         Number:1  Type:Integer  ..  Number of samples with data
 .RE
@@ -3574,8 +3589,8 @@ INFO/NS         Number:1  Type:Integer  ..  Number of samples with data
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO/TYPE       Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,etc)
 .RE
@@ -3585,8 +3600,8 @@ INFO/TYPE       Number:.  Type:String   ..  The record type (REF,SNP,MNP,INDEL,e
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 FORMAT/VAF      Number:A  Type:Float    ..  The fraction of reads with the alternate allele, requires FORMAT/AD or ADF+ADR
 .RE
@@ -3596,8 +3611,8 @@ FORMAT/VAF      Number:A  Type:Float    ..  The fraction of reads with the alter
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 FORMAT/VAF1     Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively
 .RE
@@ -3607,8 +3622,8 @@ FORMAT/VAF1     Number:1  Type:Float    ..  The same as FORMAT/VAF but for all a
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 TAG=func(TAG)   Number:1  Type:Integer  ..  Experimental support for user\-defined expressions such as "DP=sum(DP)"
 .RE
@@ -3684,7 +3699,7 @@ determine parental origin of a CNV region
 \fBprune\fP
 .RS 4
 prune sites by missingness, allele frequency or linkage disequilibrium.
-Alternatively, annotate sites with r2, Lewontin\(cqs D\(aq (PMID:19433632), Ragsdale\(cqs D (PMID:31697386).
+Alternatively, annotate sites with r2, Lewontin\(cqs D\*(Aq (PMID:19433632), Ragsdale\(cqs D (PMID:31697386).
 .RE
 .sp
 \fBremove\-overlaps\fP
@@ -3694,7 +3709,7 @@ remove overlapping variants and duplicate sites
 .sp
 \fBscatter\fP
 .RS 4
-intended as an inverse to \f[CR]bcftools concat\fP, scatter VCF by chunks or regions, creating multiple VCFs.
+intended as an inverse to \f(CRbcftools concat\fP, scatter VCF by chunks or regions, creating multiple VCFs.
 .RE
 .sp
 \fBsetGT\fP
@@ -3717,7 +3732,7 @@ split VCF by sample, creating single\- or multi\-sample VCFs
 .RS 4
 extract fields from structured annotations such as INFO/CSQ created by bcftools/csq or VEP. These
 can be added as a new INFO field to the VCF or in a custom text format. See
-.URL "http://samtools.github.io/bcftools/howtos/plugin.split\-vep.html" "" " "
+.URL "http://samtools.github.io/bcftools/howtos/plugin.split\-vep.html" "" ""
 for more.
 .RE
 .sp
@@ -3748,10 +3763,9 @@ generate unsorted VariantKey\-RSid index files in hexadecimal format
 .RE
 .SS "Examples:"
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # List options common to all plugins
 bcftools plugin
 
@@ -3778,10 +3792,9 @@ bcftools +missing2ref in.vcf
 
 # Replace missing genotypes with 0|0
 bcftools +missing2ref in.vcf \-\- \-p
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "Plugins troubleshooting:"
 .sp
 Things to check if your plugin does not show up in the \fBbcftools plugin \-l\fP output:
@@ -3791,8 +3804,8 @@ Things to check if your plugin does not show up in the \fBbcftools plugin \-l\fP
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 Run with the \fB\-v\fP option for verbose output: \fBbcftools plugin \-lv\fP
 .RE
@@ -3802,21 +3815,20 @@ Run with the \fB\-v\fP option for verbose output: \fBbcftools plugin \-lv\fP
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 Does the environment variable BCFTOOLS_PLUGINS include the correct path?
 .RE
 .SS "Plugins API:"
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-// Short description used by \(aqbcftools plugin \-l\(aq
+.fam C
+// Short description used by \*(Aqbcftools plugin \-l\*(Aq
 const char *about(void);
 
-// Longer description used by \(aqbcftools +name \-h\(aq
+// Longer description used by \*(Aqbcftools +name \-h\*(Aq
 const char *usage(void);
 
 // Called once at startup, allows initialization of local variables.
@@ -3829,10 +3841,9 @@ bcf1_t *process(bcf1_t *rec);
 
 // Called after all lines have been processed to clean up
 void destroy(void);
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools polysomy [\fIOPTIONS\fP] \fIfile.vcf.gz\fP"
 .sp
 Detect number of chromosomal copies in VCFs annotates with the Illumina\(cqs
@@ -3993,10 +4004,9 @@ process multiple VCFs listed in the file
 .RE
 .SS "Format:"
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 %CHROM          The CHROM column (similarly also other columns: POS, ID, REF, ALT, QUAL, FILTER)
 %END            End position of the REF allele
 %END0           End position of the REF allele in 0\-based coordinates
@@ -4019,111 +4029,92 @@ process multiple VCFs listed in the file
 []              Format fields must be enclosed in brackets to loop over all samples
 \(rsn              new line
 \(rst              tab character
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 Everything else is printed verbatim.
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "Examples:"
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Print chromosome, position, ref allele and the first alternate allele
-bcftools query \-f \(aq%CHROM  %POS  %REF  %ALT{0}\(rsn\(aq file.vcf.gz
+bcftools query \-f \*(Aq%CHROM  %POS  %REF  %ALT{0}\(rsn\*(Aq file.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Similar to above, but use tabs instead of spaces, add sample name and genotype
-bcftools query \-f \(aq%CHROM\(rst%POS\(rst%REF\(rst%ALT[\(rst%SAMPLE=%GT]\(rsn\(aq file.vcf.gz
+bcftools query \-f \*(Aq%CHROM\(rst%POS\(rst%REF\(rst%ALT[\(rst%SAMPLE=%GT]\(rsn\*(Aq file.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Print FORMAT/GT fields followed by FORMAT/GT fields
-bcftools query \-f \(aqGQ:[ %GQ] \(rst GT:[ %GT]\(rsn\(aq file.vcf
+bcftools query \-f \*(AqGQ:[ %GQ] \(rst GT:[ %GT]\(rsn\*(Aq file.vcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Make a BED file: chr, pos (0\-based), end pos (1\-based), id
-bcftools query \-f\(aq%CHROM\(rst%POS0\(rst%END\(rst%ID\(rsn\(aq file.bcf
+bcftools query \-f\*(Aq%CHROM\(rst%POS0\(rst%END\(rst%ID\(rsn\*(Aq file.bcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Print only samples with alternate (non\-reference) genotypes
-bcftools query \-f\(aq[%CHROM:%POS %SAMPLE %GT\(rsn]\(aq \-i\(aqGT="alt"\(aq file.bcf
+bcftools query \-f\*(Aq[%CHROM:%POS %SAMPLE %GT\(rsn]\*(Aq \-i\*(AqGT="alt"\*(Aq file.bcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Print all samples at sites with at least one alternate genotype
-bcftools view \-i\(aqGT="alt"\(aq file.bcf \-Ou | bcftools query \-f\(aq[%CHROM:%POS %SAMPLE %GT\(rsn]\(aq
+bcftools view \-i\*(AqGT="alt"\*(Aq file.bcf \-Ou | bcftools query \-f\*(Aq[%CHROM:%POS %SAMPLE %GT\(rsn]\*(Aq
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Print phred\-scaled binomial probability from FORMAT/AD tag for all heterozygous genotypes
-bcftools query \-i\(aqGT="het"\(aq \-f\(aq[%CHROM:%POS %SAMPLE %GT %PBINOM(AD)\(rsn]\(aq file.vcf
+bcftools query \-i\*(AqGT="het"\*(Aq \-f\*(Aq[%CHROM:%POS %SAMPLE %GT %PBINOM(AD)\(rsn]\*(Aq file.vcf
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Print the second value of AC field if bigger than 10. Note the (unfortunate) difference in
 # index subscript notation: formatting expressions (\-f) uses "{}" while filtering expressions
 # (\-i) use "[]". This is for historic reasons and backward\-compatibility.
-bcftools query \-f \(aq%AC{1}\(rsn\(aq \-i \(aqAC[1]>10\(aq file.vcf.gz
+bcftools query \-f \*(Aq%AC{1}\(rsn\*(Aq \-i \*(AqAC[1]>10\*(Aq file.vcf.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "bcftools reheader [\fIOPTIONS\fP] \fIfile.vcf.gz\fP"
 .sp
 Modify header of VCF/BCF files, change sample names.
@@ -4170,10 +4161,9 @@ A program for detecting runs of homo/autozygosity. Only bi\-allelic sites
 are considered.
 .SS "The HMM model:"
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 Notation:
   D  = Data, AZ = autozygosity, HW = Hardy\-Weinberg (non\-autozygosity),
   f  = non\-ref allele frequency
@@ -4192,10 +4182,9 @@ Transition probabilities:
 
   P_{i+1}(AZ) = oAZ * max[(1 \- tAZ * ci) * AZ{i\-1} , tAZ * ci * (1\-AZ{i\-1})]
   P_{i+1}(HW) = oHW * max[(1 \- tHW * ci) * (1\-AZ{i\-1}) , tHW * ci * AZ{i\-1}]
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SS "General Options:"
 .sp
 \fB\-\-AF\-dflt\fP \fIFLOAT\fP
@@ -4220,15 +4209,13 @@ the \fIFILE\fP or have different reference or alternate allele will be skipped.
 Note that such a file can be easily created from a VCF using:
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-    bcftools query \-f\(aq%CHROM\(rst%POS\(rst%REF,%ALT\(rst%INFO/TAG\(rsn\(aq file.vcf | bgzip \-c > freqs.tab.gz
+.fam C
+    bcftools query \-f\*(Aq%CHROM\(rst%POS\(rst%REF,%ALT\(rst%INFO/TAG\(rsn\*(Aq file.vcf | bgzip \-c > freqs.tab.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-b, \-\-buffer\-size\fP \fIINT\fP[,\fIINT\fP]
 .RS 4
@@ -4366,7 +4353,7 @@ your system limit on the number of open files ("ulimit") may need to be increase
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -4434,15 +4421,13 @@ of the file are CHR, FROM, TO, with 1\-based, inclusive, positions. The file
 is BGZF\-compressed and indexed with tabix
 .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
     tabix \-s1 \-b2 \-e3 file.gz
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fB\-f, \-\-apply\-filters\fP \fILIST\fP
 .RS 4
@@ -4526,6 +4511,12 @@ output the VCF header only
 suppress the header in VCF output
 .RE
 .sp
+\fB\-\-with\-header\fP
+.RS 4
+output both VCF header and records (this is the default, but the option
+is useful for explicitness or to reset the effects of \fB\-h\fP or \fB\-H\fP)
+.RE
+.sp
 \fB\-l, \-\-compression\-level\fP [\fI0\-9\fP]
 .RS 4
 compression level. 0 stands for uncompressed, 1 for best speed and 9 for
@@ -4537,13 +4528,13 @@ best compression.
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP
+\fB\-O, \-\-output\-type\fP \fIb\fP|\fIu\fP|\fIz\fP|\fIv\fP[0\-9]
 .RS 4
 see \fBCommon Options\fP
 .RE
 .sp
 \fB\-o, \-\-output\fP \fIFILE\fP:
-    output file name. If not present, the default is to print to standard output (stdout).
+output file name. If not present, the default is to print to standard output (stdout).
 .sp
 \fB\-r, \-\-regions\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
@@ -4617,7 +4608,7 @@ column when present but calculated on the fly when absent. Therefore it is stron
 required order explicitly by separating such commands into two steps. (Make sure to use the \fB\-O u\fP option
 when piping!)
 .sp
-\fB\-c, \-\-min\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|\fI:major\fP|:\(aqnonmajor\(aq]
+\fB\-c, \-\-min\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|\fI:major\fP|:\*(Aqnonmajor\*(Aq]
 .RS 4
 minimum allele count (INFO/AC) of sites to be printed.
 Specifying the type of allele is optional and can be set to
@@ -4626,7 +4617,7 @@ frequent (\fIminor\fP), the most frequent (\fImajor\fP) or sum of all but the
 most frequent (\fInonmajor\fP) alleles.
 .RE
 .sp
-\fB\-C, \-\-max\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|:\(aqmajor\(aq|:\(aqnonmajor\(aq]
+\fB\-C, \-\-max\-ac\fP \fIINT\fP[\fI:nref\fP|\fI:alt1\fP|\fI:minor\fP|:\*(Aqmajor\*(Aq|:\*(Aqnonmajor\*(Aq]
 .RS 4
 maximum allele count (INFO/AC) of sites to be printed.
 Specifying the type of allele is optional and can be set to
@@ -4771,23 +4762,21 @@ These filtering expressions are accepted by most of the commands.
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 numerical constants, string constants, file names (this is currently
 supported only to filter by the ID column)
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 1, 1.0, 1e\-4
 "String"
 @file_name
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4795,20 +4784,18 @@ supported only to filter by the ID column)
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 arithmetic operators
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 +,*,\-,/
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4816,20 +4803,18 @@ arithmetic operators
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 comparison operators
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 == (same as =), >, >=, <=, <, !=
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4837,21 +4822,19 @@ comparison operators
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 regex operators "\(rs~" and its negation "!~". The expressions are case sensitive unless "/i" is added.
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 INFO/HAYSTACK ~ "needle"
 INFO/HAYSTACK ~ "NEEDless/i"
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4859,20 +4842,18 @@ INFO/HAYSTACK ~ "NEEDless/i"
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 parentheses
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 (, )
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4880,22 +4861,20 @@ parentheses
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 logical operators. See also the examples below and the \c
-.URL "http://samtools.github.io/bcftools/howtos/filtering.html" "filtering tutorial" ""
-about the distinction between "&amp;&amp;" vs "&amp;" and "||" vs "|".
+.URL "http://samtools.github.io/bcftools/howtos/filtering.html" "filtering tutorial"
+about the distinction between "&&" vs "&" and "||" vs "|".
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-&amp;&amp;,  &amp;, ||,  |
+.fam C
+&&,  &, ||,  |
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4903,22 +4882,20 @@ about the distinction between "&amp;&amp;" vs "&amp;" and "||" vs "|".
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 INFO tags, FORMAT tags, column names
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 INFO/DP or DP
 FORMAT/DV, FMT/DV, or DV
 FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4926,24 +4903,22 @@ FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 starting with 1.11, the FILTER column can be queried as follows:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 FILTER="PASS"
 FILTER="A"          .. exact match, for example "A;B" does not pass
 FILTER!="A"         .. exact match, for example "A;B" does pass
 FILTER~"A"          .. both "A" and "A;B" pass
 FILTER!~"A"         .. neither "A" nor "A;B" pass
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4951,20 +4926,18 @@ FILTER!~"A"         .. neither "A" nor "A;B" pass
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 1 (or 0) to test the presence (or absence) of a flag
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-FlagA=1 &amp;&amp; FlagB=0
+.fam C
+FlagA=1 && FlagB=0
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4972,20 +4945,18 @@ FlagA=1 &amp;&amp; FlagB=0
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 "." to test missing values
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 DP=".", DP!=".", ALT="."
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -4993,21 +4964,19 @@ DP=".", DP!=".", ALT="."
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 missing genotypes can be matched regardless of phase and ploidy (".|.", "./.", ".", "0|.")
 using these expressions
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 GT="mis", GT~"\(rs.", GT!~"\(rs."
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5015,21 +4984,19 @@ GT="mis", GT~"\(rs.", GT!~"\(rs."
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 missing genotypes can be matched including the phase and ploidy (".|.", "./.", ".")
 using these expressions
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 GT=".|.", GT="./.", GT="."
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5037,18 +5004,17 @@ GT=".|.", GT="./.", GT="."
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 sample genotype: reference (haploid or diploid), alternate (hom or het,
 haploid or diploid), missing genotype, homozygous, heterozygous, haploid,
 ref\-ref hom, alt\-alt hom, ref\-alt het, alt\-alt het, haploid ref, haploid alt
 (case\-insensitive)
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 GT="ref"
 GT="alt"
 GT="mis"
@@ -5061,10 +5027,9 @@ GT="RA" or GT="AR"
 GT="Aa" or GT="aA"
 GT="R"
 GT="A"
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5072,25 +5037,23 @@ GT="A"
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 TYPE for variant type in REF,ALT columns (indel,snp,mnp,ref,bnd,other,overlap). Use the regex
 operator "\(rs~" to require at least one allele of the given type or the equal sign "="
 to require that all alleles are of the given type. Compare
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 TYPE="snp"
 TYPE~"snp"
 TYPE!="snp"
 TYPE!~"snp"
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5098,17 +5061,16 @@ TYPE!~"snp"
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 array subscripts (0\-based), "*" for any element, "\-" to indicate a range. Note that
 for querying FORMAT vectors, the colon ":" can be used to select a sample and an
 element of the vector, as shown in the examples below
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 INFO/AF[0] > 0.3             .. first AF value bigger than 0.3
 FORMAT/AD[0:0] > 30          .. first AD value of the first sample bigger than 30
 FORMAT/AD[0:1]               .. first sample, second AD value
@@ -5123,10 +5085,9 @@ FORMAT/AD[0:*], AD[0:] or AD[0] .. first sample, any AD field
 FORMAT/AD[*:1] or AD[:1]        .. any sample, second AD field
 (DP4[0]+DP4[1])/(DP4[2]+DP4[3]) > 0.3
 CSQ[*] ~ "missense_variant.*deleterious"
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5134,21 +5095,19 @@ CSQ[*] ~ "missense_variant.*deleterious"
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 with many samples it can be more practical to provide a file with sample names,
 one sample name per line
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-GT[@samples.txt]="het" &amp; binom(AD)<0.01
+.fam C
+GT[@samples.txt]="het" & binom(AD)<0.01
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5156,39 +5115,35 @@ GT[@samples.txt]="het" &amp; binom(AD)<0.01
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 function on FORMAT tags (over samples) and INFO tags (over vector fields):
 maximum; minimum; arithmetic mean (AVG is synonymous with MEAN); median;
 standard deviation from mean; sum; string length; absolute value; number of
 elements:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 MAX, MIN, AVG, MEAN, MEDIAN, STDEV, SUM, STRLEN, ABS, COUNT
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 Note that functions above evaluate to a single value across all samples and
 are intended to select sites, not samples, even when applied on FORMAT tags.
 However, when prefixed with SMPL_ (or "s" for brevity, e.g. SMPL_MAX or sMAX),
 they will evaluate to a vector of per\-sample values when applied on FORMAT tags:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 SMPL_MAX, SMPL_MIN, SMPL_AVG, SMPL_MEAN, SMPL_MEDIAN, SMPL_STDEV, SMPL_SUM,
 sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5196,24 +5151,22 @@ sMAX, sMIN, sAVG, sMEAN, sMEDIAN, sSTDEV, sSUM
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 two\-tailed binomial test. Note that for N=0 the test evaluates to a missing value
 and when FORMAT/GT is used to determine the vector indices, it evaluates to 1 for
 homozygous genotypes.
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 binom(FMT/AD)                .. GT can be used to determine the correct index
 binom(AD[0],AD[1])           .. or the fields can be given explicitly
 phred(binom())               .. the same as binom but phred\-scaled
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5221,8 +5174,8 @@ phred(binom())               .. the same as binom but phred\-scaled
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 variables calculated on the fly if not present: number of alternate alleles;
 number of samples; count of alternate alleles; minor allele count (similar to
@@ -5231,15 +5184,13 @@ frequency of minor alleles (MAF=MAC/AN); number of alleles in called genotypes;
 number of samples with missing genotype; fraction of samples with missing genotype;
 indel length (deletions negative, insertions positive)
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5247,21 +5198,19 @@ N_ALT, N_SAMPLES, AC, MAC, AF, MAF, AN, N_MISSING, F_MISSING, ILEN
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 the number (N_PASS) or fraction (F_PASS) of samples which pass the expression
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-N_PASS(GQ>90 &amp; GT!="mis") > 90
-F_PASS(GQ>90 &amp; GT!="mis") > 0.9
+.fam C
+N_PASS(GQ>90 & GT!="mis") > 90
+F_PASS(GQ>90 & GT!="mis") > 0.9
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5269,23 +5218,21 @@ F_PASS(GQ>90 &amp; GT!="mis") > 0.9
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 custom perl filtering. Note that this command is not compiled in by default, see
 the section \fBOptional Compilation with Perl\fP in the INSTALL file for help
 and misc/demo\-flt.pl for a working example. The demo defined the perl subroutine
 "severity" which can be invoked from the command line as follows:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 perl:path/to/script.pl; perl.severity(INFO/CSQ) > 3
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .B Notes:
@@ -5296,8 +5243,8 @@ perl:path/to/script.pl; perl.severity(INFO/CSQ) > 3
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 String comparisons and regular expressions are case\-insensitive
 .RE
@@ -5307,23 +5254,21 @@ String comparisons and regular expressions are case\-insensitive
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 Comma in strings is interpreted as a separator and when multiple values are compared, the OR logic is used.
 Consequently, the following two expressions are equivalent but not the third:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-\-i \(aqTAG="hello,world"\(aq
-\-i \(aqTAG="hello" || TAG="world"\(aq
-\-i \(aqTAG="hello" &amp;&amp; TAG="world"\(aq
+.fam C
+\-i \*(AqTAG="hello,world"\*(Aq
+\-i \*(AqTAG="hello" || TAG="world"\*(Aq
+\-i \*(AqTAG="hello" && TAG="world"\*(Aq
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 .RS 4
@@ -5331,8 +5276,8 @@ Consequently, the following two expressions are equivalent but not the third:
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 Variables and function names are case\-insensitive, but not tag names. For example,
 "qual" can be used instead of "QUAL", "strlen()" instead of "STRLEN()" , but
@@ -5344,181 +5289,149 @@ not "dp" instead of "DP".
 \h'-04'\(bu\h'+03'\c
 .\}
 .el \{\
-.sp -1
-.IP \(bu 2.3
+.  sp -1
+.  IP \(bu 2.3
 .\}
 When querying multiple values, all elements are tested and the OR logic is
 used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluated as follows:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-\-i \(aqTAG[*]=1\(aq   .. true, the record will be printed
-\-i \(aqTAG[*]!=1\(aq  .. true
-\-e \(aqTAG[*]=1\(aq   .. false, the record will be discarded
-\-e \(aqTAG[*]!=1\(aq  .. false
-\-i \(aqTAG[0]=1\(aq   .. true
-\-i \(aqTAG[0]!=1\(aq  .. false
-\-e \(aqTAG[0]=1\(aq   .. false
-\-e \(aqTAG[0]!=1\(aq  .. true
+.fam C
+\-i \*(AqTAG[*]=1\*(Aq   .. true, the record will be printed
+\-i \*(AqTAG[*]!=1\*(Aq  .. true
+\-e \*(AqTAG[*]=1\*(Aq   .. false, the record will be discarded
+\-e \*(AqTAG[*]!=1\*(Aq  .. false
+\-i \*(AqTAG[0]=1\*(Aq   .. true
+\-i \*(AqTAG[0]!=1\*(Aq  .. false
+\-e \*(AqTAG[0]=1\*(Aq   .. false
+\-e \*(AqTAG[0]!=1\*(Aq  .. true
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .RE
 .sp
 \fBExamples:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 MIN(DV)>5       .. selects the whole site, evaluates min across all values and samples
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 SMPL_MIN(DV)>5  .. selects matching samples, evaluates within samples
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 MIN(DV/DP)>0.3
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-MIN(DP)>10 &amp; MIN(DV)>3
+.fam C
+MIN(DP)>10 & MIN(DV)>3
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-FMT/DP>10  &amp; FMT/GQ>10 .. both conditions must be satisfied within one sample
+.fam C
+FMT/DP>10  & FMT/GQ>10 .. both conditions must be satisfied within one sample
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-FMT/DP>10 &amp;&amp; FMT/GQ>10 .. the conditions can be satisfied in different samples
+.fam C
+FMT/DP>10 && FMT/GQ>10 .. the conditions can be satisfied in different samples
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 QUAL>10 |  FMT/GQ>10   .. true for sites with QUAL>10 or a sample with GQ>10, but selects only samples with GQ>10
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 QUAL>10 || FMT/GQ>10   .. true for sites with QUAL>10 or a sample with GQ>10, plus selects all samples at such sites
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-TYPE="snp" &amp;&amp; QUAL>=10 &amp;&amp; (DP4[2]+DP4[3] > 2)
+.fam C
+TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 COUNT(GT="hom")=0      .. no homozygous genotypes at the site
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger than 50
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 ID=@file       .. selects lines with ID present in the file
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 ID!=@~/file    .. skip lines with ID present in the ~/file
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 MAF[0]<0.05    .. select rare variants at 5% cutoff
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 POS>=100   .. restrict your range query, e.g. 20:100\-200 to strictly sites with POS in that range.
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 \fBShell expansion:\fP
 .sp
@@ -5527,15 +5440,13 @@ have special meaning in the shell.
 An example of expression enclosed in single quotes which cause
 that the whole expression is passed to the program as intended:
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
-bcftools view \-i \(aq%ID!="." &amp; MAF[0]<0.01\(aq
+.fam C
+bcftools view \-i \*(Aq%ID!="." & MAF[0]<0.01\*(Aq
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
 Please refer to the documentation of your shell for details.
 .SH "SCRIPTS AND OPTIONS"
@@ -5589,39 +5500,33 @@ Main title for the PDF.
 .sp
 \fBExample:\fP
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Generate the stats
 bcftools stats \-s \- > file.vchk
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # Plot the stats
 plot\-vcfstats \-p outdir file.vchk
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .sp
-.if n \{\
-.RS 4
-.\}
+.if n .RS 4
 .nf
+.fam C
 # The final looks can be customized by editing the generated
-# \(aqoutdir/plot.py\(aq script and re\-running manually
-cd outdir &amp;&amp; python plot.py &amp;&amp; pdflatex summary.tex
+# \*(Aqoutdir/plot.py\*(Aq script and re\-running manually
+cd outdir && python plot.py && pdflatex summary.tex
+.fam
 .fi
-.if n \{\
-.RE
-.\}
+.if n .RE
 .SH "PERFORMANCE"
 .sp
 HTSlib was designed with BCF format in mind. When parsing VCF files, all records

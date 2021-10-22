@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=1>
+##INFO=<ID=NASSOC,Number=4,Type=Integer,Description="Number of control-ref, control-alt, case-ref and case-alt alleles">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	a	b	c
+1	100	.	A	G	.	.	NASSOC=6,0,0,0	GT	0/0	0/0	0/0
+1	101	.	A	G	.	.	NASSOC=5,1,0,0	GT	0/0	0/0	0/1
+1	102	.	A	G	.	.	NASSOC=3,3,0,0	GT	0/0	0/1	1/1
+1	103	.	A	G	.	.	NASSOC=1,5,0,0	GT	1/1	1/1	0/1

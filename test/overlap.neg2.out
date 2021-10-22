@@ -1,0 +1,11 @@
+chr1	90	outsv1	A	ATGC	.	.	END=99
+chr1	98	outd1	AT	A	.	.	.
+chr1	98	outi1	A	AT	.	.	.
+chr1	99	outs1	A	T	.	.	.
+chr1	99	outi2	A	AT	.	.	.
+chr1	99	outi3	A	ATTTT	.	.	.
+chr1	200	outd2	AT	A	.	.	.
+chr1	200	outi4	A	AT	.	.	.
+chr1	201	outs2	A	T	.	.	.
+chr1	201	outd3	AT	A	.	.	.
+chr1	201	outi5	A	ATTTT	.	.	.

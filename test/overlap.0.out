@@ -1,0 +1,12 @@
+chr1	100	s1	A	T	.	.	.
+chr1	100	d4	AT	A	.	.	.
+chr1	100	i1	A	ATTTT	.	.	.
+chr1	101	s2	A	T	.	.	.
+chr1	101	i2	A	AT	.	.	.
+chr1	198	i3	A	ATTTTT	.	.	.
+chr1	199	s3	A	T	.	.	.
+chr1	199	d5f	AT	A	.	.	.
+chr1	199	i4f	A	ATTTT	.	.	.
+chr1	200	s4f	A	T	.	.	.
+chr1	200	outd2	AT	A	.	.	.
+chr1	200	outi4	A	AT	.	.	.

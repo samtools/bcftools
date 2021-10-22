@@ -76,28 +76,28 @@ LIST OF COMMANDS
 For a full list of available commands, run *bcftools* without arguments. For a full
 list of available options, run *bcftools* 'COMMAND' without arguments.
 
-- *<<annotate,annotate>>*   .. edit VCF files, add or remove annotations
-- *<<call,call>>*        ..  SNP/indel calling (former "view")
-- *<<cnv,cnv>>*          ..  Copy Number Variation caller
+- *<<annotate,annotate>>*  ..  edit VCF files, add or remove annotations
+- *<<call,call>>*      ..  SNP/indel calling (former "view")
+- *<<cnv,cnv>>*       ..  Copy Number Variation caller
 - *<<concat,concat>>*    ..  concatenate VCF/BCF files from the same set of samples
-- *<<consensus,consensus>>*    ..  create consensus sequence by applying VCF variants
-- *<<convert,convert>>*  ..  convert VCF/BCF to other formats and back
-- *<<csq,csq>>*          ..  haplotype aware consequence caller
+- *<<consensus,consensus>>* ..  create consensus sequence by applying VCF variants
+- *<<convert,convert>>*   ..  convert VCF/BCF to other formats and back
+- *<<csq,csq>>*       ..  haplotype aware consequence caller
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
-- *<<gtcheck,gtcheck>>*  ..  check sample concordance, detect sample swaps and contamination
-- *<<index,index>>*      ..  index VCF/BCF
-- *<<isec,isec>>*        ..  intersections of VCF/BCF files
-- *<<merge,merge>>*      ..  merge VCF/BCF files files from non-overlapping sample sets
-- *<<mpileup,mpileup>>*  ..  multi-way pileup producing genotype likelihoods
-- *<<norm,norm>>*        ..  normalize indels
+- *<<gtcheck,gtcheck>>*   ..  check sample concordance, detect sample swaps and contamination
+- *<<index,index>>*     ..  index VCF/BCF
+- *<<isec,isec>>*      ..  intersections of VCF/BCF files
+- *<<merge,merge>>*     ..  merge VCF/BCF files files from non-overlapping sample sets
+- *<<mpileup,mpileup>>*   ..  multi-way pileup producing genotype likelihoods
+- *<<norm,norm>>*      ..  normalize indels
 - *<<plugin,plugin>>*    ..  run user-defined plugin
-- *<<polysomy,polysomy>>*   ..  detect contaminations and whole-chromosome aberrations
-- *<<query,query>>*      ..  transform VCF/BCF into user-defined formats
-- *<<reheader,reheader>>*   ..  modify VCF/BCF header, change sample names
-- *<<roh,roh>>*          ..  identify runs of homo/auto-zygosity
-- *<<sort,sort>>*        ..  sort VCF/BCF files
-- *<<stats,stats>>*      ..  produce VCF/BCF stats (former vcfcheck)
-- *<<view,view>>*        ..  subset, filter and convert VCF and BCF files
+- *<<polysomy,polysomy>>*  ..  detect contaminations and whole-chromosome aberrations
+- *<<query,query>>*     ..  transform VCF/BCF into user-defined formats
+- *<<reheader,reheader>>*  ..  modify VCF/BCF header, change sample names
+- *<<roh,roh>>*       ..  identify runs of homo/auto-zygosity
+- *<<sort,sort>>*      ..  sort VCF/BCF files
+- *<<stats,stats>>*     ..  produce VCF/BCF stats (former vcfcheck)
+- *<<view,view>>*      ..  subset, filter and convert VCF and BCF files
 
 
 LIST OF SCRIPTS
@@ -170,12 +170,17 @@ specific commands to see if they apply.
 *-o, --output* 'FILE'::
     When output consists of a single stream, write it to 'FILE' rather than
     to standard output, where it is written by default.
+    The file type is determined automatically from the file name suffix and in
+    case a conflicting *-O* option is given, the file name suffix takes precedence.
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     Output compressed BCF ('b'), uncompressed BCF ('u'), compressed VCF ('z'), uncompressed VCF ('v').
     Use the -Ou option when piping between bcftools subcommands to speed up
     performance by removing unnecessary compression/decompression and
     VCF<-->BCF conversion.
+    {nbsp}
+    The compression level of the compressed formats ('b' and 'z') can be set by
+    by appending a number between 0-9.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:beg-end'|'chr:beg-'[,...]::
     Comma-separated list of regions, see also *-R, --regions-file*. Overlapping
@@ -203,6 +208,15 @@ specific commands to see if they apply.
     duplicated out of order positions in the output.
     This option requires indexed VCF/BCF files. Note that *-R* cannot be used
     in combination with *-r*.
+
+*--regions-overlap* '0'|'1'|'2'::
+    This option controls how overlapping records are determined:
+    set to *0* if the VCF record has to have POS inside a region
+    (this corresponds to the default behavior of *-t/-T*); 
+    set to *1* if also overlapping records with POS outside a region
+    should be included (this is the default behavior of *-r/-R*); or set
+    to *2* to include only true overlapping variation (compare
+    the full VCF representation "`TA>T-`" vs the true sequence variation "`A>-`").
 
 *-s, --samples* \[&#94;]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
@@ -273,6 +287,9 @@ Such a file can be easily created from a VCF using:
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
 
+*--targets-overlap* '0'|'1'|'2'::
+    Same as *--regions-overlap* but for *-t/-T*.
+
 *--threads* 'INT'::
     Use multithreading with 'INT' worker threads. The option is currently used only for the compression of the
     output stream, only when '--output-type' is 'b' or 'z'. Default: 0.
@@ -291,13 +308,23 @@ Add or remove annotations.
     the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
     Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
     one-based and inclusive.  When REF and ALT are present, only matching VCF
-    records will be annotated.
+    records will be annotated. If the END coordinate is present in the annotation file
+    and given on command line as "`-c ~INFO/END`", then VCF records will be matched also by the INFO/END coordinate.
+    If ID is present in the annotation file and given as "`-c ~ID`", then VCF records will be matched
+    also by the ID column.
+    {nbsp} +
+    {nbsp} +
     When multiple ALT alleles are present in the annotation file (given as
     comma-separated list of alleles), at least one must match one of the
     alleles in the corresponding VCF record. Similarly, at least one
     alternate allele from a multi-allelic VCF record must be present in the
     annotation file.
-    Missing values can be added by providing "." in place of actual value.
+    {nbsp} +
+    {nbsp} +
+    Missing values can be added by providing "." in place of actual value
+    and using the missing value modifier with *-c*, such as ".TAG".
+    {nbsp} +
+    {nbsp} +
     Note that flag types, such as "INFO/FLAG", can be annotated by including
     a field with the value "1" to set the flag, "0" to remove it, or "." to
     keep existing flags.
@@ -319,26 +346,36 @@ Add or remove annotations.
     'list' describes the columns of the annotation file and must include CHROM,
     POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
     columns which should be ignored can be indicated by "-".
-    +
+    {nbsp} +
+    {nbsp} +
     If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
     order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
     can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
     and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
     The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
-    +
+    {nbsp} +
+    {nbsp} +
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
     "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
-    +
-    To add annotations without overwriting existing values (that is, to add missing tags or
-    add values to existing tags with missing values), use "+TAG" instead of "TAG".
+    {nbsp} +
+    {nbsp} +
+    By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
+    If also missing values should be carried over (and overwrite existing tags), use ".TAG" instead of "TAG".
+    To add annotations without overwriting existing values (that is, to add tags that are absent or
+    to add values to existing tags with missing values), use "+TAG" instead of "TAG". These can be combined,
+    for example ".+TAG" can be used to add TAG even if the source value is missing but only if TAG does not
+    exist in the target file; existing tags will not be overwritten.
     To append to existing values (rather than replacing or leaving untouched), use "=TAG"
     (instead of "TAG" or "+TAG").
     To replace only existing values without modifying missing annotations, use "-TAG".
-    To match the record also by ID, in addition to REF and ALT, use "~ID".
-    +
+    To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
+    If position needs to be replaced, mark the column with the new position as "~POS".
+    {nbsp} +
+    {nbsp} +
     If the annotation file is not a VCF/BCF, all new annotations must be
     defined via *-h, --header-lines*.
-    +
+    {nbsp} +
+    {nbsp} +
     See also the *-l, --merge-logic* option.
 
 *-C, --columns-file* 'file'::
@@ -403,7 +440,7 @@ Add or remove annotations.
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 
@@ -501,7 +538,7 @@ demand. The original calling model can be invoked with the *-c* option.
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *--ploidy* 'ASSEMBLY'['?'][[ploidy]]::
@@ -756,6 +793,12 @@ are concatenated without being recompressed, which is very fast..
 
 *-d, --rm-dups* 'snps'|'indels'|'both'|'all'|'exact'::
     Output duplicate records of specified type present in multiple files only once.
+    Note that records duplicate within one file are not removed with this option,
+    for that use *<<norm,bcftools norm -d>>* instead. +
+    In other words, the default behavior of the program is similar to unix "`cat`" in
+    that when two files contain a record with the same position, that position will appear
+    twice on output. With *-d*, every line that finds a matching record in another
+    file will be printed only once. +
     Requires *-a, --allow-overlaps*.
 
 *-D, --remove-duplicates*::
@@ -767,7 +810,13 @@ are concatenated without being recompressed, which is very fast..
 *-l, --ligate*::
     Ligate phased VCFs by matching phase at overlapping haplotypes.
     Note that the option is intended for VCFs with perfect overlap, sites
-    in overlapping regions present in one but missing in other are dropped.
+    in overlapping regions present in one but missing in the other are dropped.
+
+*--ligate-force*::
+    Keep all sites and ligate even non-overlapping chunks and chunks with imperfect overlap
+
+*--ligate-warn*::
+    Drop sites in imperfect overlaps
 
 *--no-version*::
     see *<<common_options,Common Options>>*
@@ -785,7 +834,7 @@ are concatenated without being recompressed, which is very fast..
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *-q, --min-PQ* 'INT'::
@@ -934,7 +983,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -1219,7 +1268,7 @@ output VCF and are ignored for the prediction analysis.
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'t'|'u'|'z'|'v'::
+*-O, --output-type* 't'|'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*. In addition, a custom tab-delimited
     plain text output can be printed ('t').
 
@@ -1362,7 +1411,7 @@ And similarly here, the second is filtered:
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
@@ -1411,6 +1460,8 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
     non-zero integer can be provided). See also the *-u, --use* option below. If set to 0,
     the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
+    Note that the values with and without *-e* are not comparable, only values generated
+    with *-e 0* correspond to mismatching genotypes.
     If performance is an issue, set to 0 for faster run but less accurate results.
 
 *-g, --genotypes* 'FILE'::
@@ -1581,7 +1632,7 @@ in the other files.
     see *<<common_options,Common Options>>*.  When several files are being
     output, their names are controlled via *-p* instead.
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *-p, --prefix* 'DIR'::
@@ -1723,7 +1774,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
@@ -1943,7 +1994,7 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     will take care of this, but to write to an entirely numeric filename use *-o
     ./123* or *--output 123*.)
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -2011,6 +2062,11 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     precision over recall), it is advisable to set this lower (such as
     0.75) while higher depth samples or where you favour recall rates
     over precision may work better with a higher value such as 2.0.
+
+*--indel-size* 'INT'::
+    Indel window size to use when assessing the quality of candidate indels.
+    Note that although the window size approximately corresponds to the maximum
+    indel size considered, it is not an exact threshold [110]
 
 *-I, --skip-indels*::
     Do not perform INDEL calling
@@ -2152,7 +2208,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
@@ -2222,7 +2278,7 @@ the usage examples that each plugin comes with.
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -2796,7 +2852,7 @@ Transition probabilities:
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *-T, --temp-dir* 'DIR'::
@@ -2905,6 +2961,10 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-H, --no-header*::
     suppress the header in VCF output
 
+*--with-header*::
+    output both VCF header and records (this is the default, but the option
+    is useful for explicitness or to reset the effects of *-h* or *-H*)
+
 *-l, --compression-level* ['0-9']::
     compression level. 0 stands for uncompressed, 1 for best speed and 9 for
     best compression.
@@ -2912,7 +2972,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *--no-version*::
     see *<<common_options,Common Options>>*
 
-*-O, --output-type* 'b'|'u'|'z'|'v'::
+*-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
 *-o, --output* 'FILE':

@@ -50,7 +50,7 @@
 105	AC	A	@121
 
 121	AC	A	frameshift|ABC|ENST00000000002|protein_coding|-|11VVRTY>11*|105AC>A+121AC>A,splice_region|ABC|ENST00000000002|protein_coding
-121	AC	A	frameshift|ABC|ENST00000000002|protein_coding|-|11VVRTY>11*|105AC>A+121AC>A,splice_region|ABC|ENST00000000002|protein_coding
+121	AC	A	splice_region|ABC|ENST00000000002|protein_coding,stop_gained&frameshift|ABC|ENST00000000002|protein_coding|-|11VVRTY>11*|105AC>A+121AC>A
 
 126	C	CTT	@127
 126	C	CTT	@127

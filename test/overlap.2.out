@@ -1,0 +1,15 @@
+chr1	90	sv1	A	ATGC	.	.	END=100
+chr1	90	sv2	A	ATGC	.	.	END=110
+chr1	95	d1	AATGCATGCATGCATGCATGC	A	.	.	.
+chr1	98	d2	ATT	A	.	.	.
+chr1	99	d3	AT	A	.	.	.
+chr1	100	s1	A	T	.	.	.
+chr1	100	d4	AT	A	.	.	.
+chr1	100	i1	A	ATTTT	.	.	.
+chr1	101	s2	A	T	.	.	.
+chr1	101	i2	A	AT	.	.	.
+chr1	198	i3	A	ATTTTT	.	.	.
+chr1	199	s3	A	T	.	.	.
+chr1	199	d5f	AT	A	.	.	.
+chr1	199	i4f	A	ATTTT	.	.	.
+chr1	200	s4f	A	T	.	.	.

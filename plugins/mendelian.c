@@ -73,7 +73,7 @@ typedef struct _args_t
     int ngt_arr, nrec;
     trio_t *trios;
     int ntrios, mtrios;
-    int output_type;
+    int output_type, clevel;
     char *output_fname;
     bcf_srs_t *sr;
 }
@@ -145,23 +145,23 @@ const char *usage(void)
         "About: Count Mendelian consistent / inconsistent genotypes.\n"
         "Usage: bcftools +mendelian [Options]\n"
         "Options:\n"
-        "   -c, --count                 count the number of consistent sites [DEPRECATED, use `-m c` instead]\n"
-        "   -d, --delete                delete inconsistent genotypes (set to \"./.\") [DEPRECATED, use `-m d` instead]\n"
-        "   -l, --list [+x]             list consistent (+) or inconsistent (x) sites [DEPRECATED, use `-m +` or `-m x` instead]\n"
-        "   -m, --mode [+acdux]         output mode (the default is `-m c`):\n"
-        "                                   + .. list consistent sites\n"
-        "                                   a .. add INFO/MERR annotation with the number of inconsistent samples\n"
-        "                                   c .. print counts, a text summary with the number of errors per trio\n"
-        "                                   d .. delete inconsistent genotypes (set to \"./.\")\n"
-        "                                   u .. list uninformative sites\n"
-        "                                   x .. list inconsistent sites\n"
-        "   -o, --output <file>         write output to a file [standard output]\n"
-        "   -O, --output-type <type>    'b' compressed BCF; 'u' uncompressed BCF; 'z' compressed VCF; 'v' uncompressed VCF [v]\n"
-        "   -r, --rules <assembly>[?]   predefined rules, 'list' to print available settings, append '?' for details\n"
-        "   -R, --rules-file <file>     inheritance rules, see example below\n"
-        "   -t, --trio <m,f,c>          names of mother, father and the child\n"
-        "   -T, --trio-file <file>      list of trios, one per line (mother,father,child)\n"
-        "   -p, --ped <file>            PED file\n"
+        "   -c, --count                     Count the number of consistent sites [DEPRECATED, use `-m c` instead]\n"
+        "   -d, --delete                    Delete inconsistent genotypes (set to \"./.\") [DEPRECATED, use `-m d` instead]\n"
+        "   -l, --list [+x]                 List consistent (+) or inconsistent (x) sites [DEPRECATED, use `-m +` or `-m x` instead]\n"
+        "   -m, --mode [+acdux]             Output mode (the default is `-m c`):\n"
+        "                                       + .. list consistent sites\n"
+        "                                       a .. add INFO/MERR annotation with the number of inconsistent samples\n"
+        "                                       c .. print counts, a text summary with the number of errors per trio\n"
+        "                                       d .. delete inconsistent genotypes (set to \"./.\")\n"
+        "                                       u .. list uninformative sites\n"
+        "                                       x .. list inconsistent sites\n"
+        "   -o, --output FILE               Write output to a file [standard output]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
+        "   -r, --rules ASSEMBLY[?]         Predefined rules, 'list' to print available settings, append '?' for details\n"
+        "   -R, --rules-file FILE           Inheritance rules, see example below\n"
+        "   -t, --trio M,F,C                Names of mother, father and the child\n"
+        "   -T, --trio-file FILE            List of trios, one per line (mother,father,child)\n"
+        "   -p, --ped FILE                  PED file\n"
         "\n"
         "Example:\n"
         "   # Default inheritance patterns, override with -r\n"
@@ -349,6 +349,7 @@ int run(int argc, char **argv)
     memset(&args,0,sizeof(args_t));
     args.mode = 0;
     args.output_fname = "-";
+    args.clevel = -1;
 
     static struct option loptions[] =
     {
@@ -366,6 +367,7 @@ int run(int argc, char **argv)
         {0,0,0,0}
     };
     int c;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "?ht:T:p:l:m:cdr:R:o:O:",loptions,NULL)) >= 0)
     {
         switch (c)
@@ -377,8 +379,17 @@ int run(int argc, char **argv)
                           case 'u': args.output_type = FT_BCF; break;
                           case 'z': args.output_type = FT_VCF_GZ; break;
                           case 'v': args.output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args.clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args.clevel<0 || args.clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
                       };
+                      if ( optarg[1] )
+                      {
+                          args.clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args.clevel<0 || args.clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                      }
                       break;
             case 'R': rules_fname = optarg; break;
             case 'r': rules_string = optarg; break;
@@ -447,7 +458,9 @@ int run(int argc, char **argv)
     args.hdr = bcf_sr_get_header(args.sr, 0);
     if ( args.mode!=MODE_COUNT )
     {
-        args.out_fh = hts_open(args.output_fname,hts_bcf_wmode2(args.output_type,args.output_fname));
+        char wmode[8];
+        set_wmode(wmode,args.output_type,args.output_fname,args.clevel);
+        args.out_fh = hts_open(args.output_fname ? args.output_fname : "-", wmode);
         if ( args.out_fh == NULL ) error("Can't write to \"%s\": %s\n", args.output_fname, strerror(errno));
         if ( args.mode&MODE_ANNOTATE )
             bcf_hdr_append(args.hdr, "##INFO=<ID=MERR,Number=1,Type=Integer,Description=\"Mendelian genotype errors\">");

@@ -1,0 +1,32 @@
+##fileformat=VCFv4.3
+##INFO=<ID=END,Number=1,Type=Integer,Description="End coordinate of this variant">
+##contig=<ID=chr1>
+##bcftools_annotateVersion=1.13-36-gef5cf0a-dirty+htslib-1.13-19-g31bf087-dirty
+##bcftools_annotateCommand=annotate -x FILTER events.vcf.txt; Date=Fri Sep  3 09:42:26 2021
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	90	outsv1	A	ATGC	.	.	END=99
+chr1	90	sv1	A	ATGC	.	.	END=100
+chr1	90	sv2	A	ATGC	.	.	END=110
+chr1	95	d1	AATGCATGCATGCATGCATGC	A	.	.	.
+chr1	98	outd1	AT	A	.	.	.
+chr1	98	d2	ATT	A	.	.	.
+chr1	98	outi1	A	AT	.	.	.
+chr1	99	outs1	A	T	.	.	.
+chr1	99	d3	AT	A	.	.	.
+chr1	99	outi2	A	AT	.	.	.
+chr1	99	outi3	A	ATTTT	.	.	.
+chr1	100	s1	A	T	.	.	.
+chr1	100	d4	AT	A	.	.	.
+chr1	100	i1	A	ATTTT	.	.	.
+chr1	101	s2	A	T	.	.	.
+chr1	101	i2	A	AT	.	.	.
+chr1	198	i3	A	ATTTTT	.	.	.
+chr1	199	s3	A	T	.	.	.
+chr1	199	d5f	AT	A	.	.	.
+chr1	199	i4f	A	ATTTT	.	.	.
+chr1	200	s4f	A	T	.	.	.
+chr1	200	outd2	AT	A	.	.	.
+chr1	200	outi4	A	AT	.	.	.
+chr1	201	outs2	A	T	.	.	.
+chr1	201	outd3	AT	A	.	.	.
+chr1	201	outi5	A	ATTTT	.	.	.

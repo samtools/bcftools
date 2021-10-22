@@ -1,0 +1,19 @@
+53590
+|
+01234  5
+CAGCA--ACTCTGG..   ref
+CAGCAGCTCTCTGG..   alt
+     GC
+       T
+
+CDS: 53590-53676 -
+
+   CAG|CAA|CTC|TGG|GGG|..   ref
+    L   L   E   P   P
+   GCA|GCT|CTC|TGG|GGG|..   AA>AGCT
+    C   S   E   P   P
+
+   GCA|GCA|CTC|TGG|         A>AGC
+    C   C   E
+   CAG|CAT|CTC|TGG          A>T
+    L   M   E

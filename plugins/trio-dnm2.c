@@ -84,7 +84,8 @@ priors_t;
 
 typedef struct
 {
-    int argc, filter_logic, regions_is_file, targets_is_file, output_type;
+    int argc, filter_logic, regions_is_file, targets_is_file, output_type, record_cmd_line, clevel;
+    int regions_overlap, targets_overlap;
     char *filter_str;
     filter_t *filter;
     char **argv, *ped_fname, *pfm, *output_fname, *fname, *regions, *targets;
@@ -113,8 +114,9 @@ typedef struct
     double mrate;                   // --mrate, mutation rate
     double pn_abs,pn_frac;          // --pn
     double pns_abs,pns_frac;        // --pns
-    int use_ppl;                    // --ppl
+    int with_ppl, with_pad;         // --with-pPL or --with-pAD
     int use_dng_priors;             // --dng-priors
+    int need_QS;
     priors_t priors, priors_X, priors_XX;
 }
 args_t;
@@ -136,11 +138,14 @@ static const char *usage_text(void)
         "   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)\n"
         "   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)\n"
         "   -o, --output FILE               Output file name [stdout]\n"
-        "   -O, --output-type <b|u|z|v>     b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
         "   -r, --regions REG               Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
         "   -t, --targets REG               Similar to -r but streams rather than index-jumps\n"
         "   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
+        "       --no-version                Do not append version and command line to the header\n"
         "\n"
         "General options:\n"
         "   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM\n"
@@ -154,18 +159,19 @@ static const char *usage_text(void)
         "                                       flag  .. is a DNM, implies --use-NAIVE (1; int)\n"
         "                                       phred .. phred quality (0-255; int)\n"
         "                                       prob  .. probability (0-1; float)\n"
+        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "       --va TAG                    Output tag name for the variant allele [VA]\n"
         "       --vaf TAG                   Output tag name for variant allele fraction [VAF]\n"
         "\n"
         "Model options:\n"
         "       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)\n"
-        "       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!\n"
         "       --mrate NUM                 Mutation rate [1e-8]\n"
         "       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]\n"
         "       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]\n"
-        "       --ppl                       Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
         "       --use-DNG                   The original DeNovoGear model, implies --dng-priors\n"
         "       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs\n"
+        "       --with-pAD                  Do not use FMT/QS but parental FMT/AD\n"
+        "       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)\n"
         "\n"
         "Example:\n"
         "   # Annotate VCF with FORMAT/DNM, run for a single trio\n"
@@ -636,9 +642,14 @@ static void init_data(args_t *args)
     if ( args->regions )
     {
         args->sr->require_index = 1;
+        bcf_sr_set_opt(args->sr,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(args->sr, args->regions, args->regions_is_file)<0 ) error("Failed to read the regions: %s\n",args->regions);
     }
-    if ( args->targets && bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    if ( args->targets )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_TARGETS_OVERLAP,args->targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    }
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
 
@@ -652,12 +663,13 @@ static void init_data(args_t *args)
     }
     else if ( (id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "PL"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id) )
         error("Error: the tag FORMAT/PL is not present in %s\n", args->fname);
-    if ( (args->use_model==USE_ACM) && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) && !args->use_ppl )
+    args->need_QS = ( args->use_model==USE_ACM && !args->with_ppl && !args->with_pad ) ? 1 : 0;
+    if ( args->need_QS && ((id=bcf_hdr_id2int(args->hdr, BCF_DT_ID, "QS"))<0 || !bcf_hdr_idinfo_exists(args->hdr,BCF_HL_FMT,id)) )
         error(
             "Error:\n"
-            "   The FORMAT/QS tag is not present. If you want to proceed anyway, run with the `--ppl`\n"
-            "   option at the cost of inflated false discovery rate. The QS annotation can be generated\n"
-            "   at the mpileup step together with the AD annotation using the command\n"
+            "   The FORMAT/QS tag is not present. If you want to proceed anyway, add either `--with-pAD` or\n"
+            "   `--with-pPL` option, the latter at the cost of inflated false discovery rate. The QS annotation\n"
+            "    can be generated at the mpileup step together with the AD annotation using the command\n"
             "       bcftools mpileup -a AD,QS -f ref.fa file.bam\n");   // Possible future todo: use AD as a proxy for QS?
     if ( args->use_model!=USE_NAIVE )
     {
@@ -665,6 +677,8 @@ static void init_data(args_t *args)
             fprintf(stderr, "Warning: the tag FORMAT/AD is not present in %s, the output tag FORMAT/VAF will not be added\n", args->fname);
         else
             args->has_fmt_ad = 1;
+        if ( args->with_pad && !args->has_fmt_ad )
+            error("Error: no FORMAT/AD is present in %s, cannot run with --with-pAD\n", args->fname);
     }
 
     init_priors(args,&args->priors,autosomal);
@@ -728,7 +742,12 @@ static void init_data(args_t *args)
     args->chrX_idx = regidx_init_string(rmme, regidx_parse_reg, NULL, 0, NULL);
     free(rmme);
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+    if ( args->record_cmd_line )
+        bcf_hdr_append_version(args->hdr_out, args->argc, args->argv, "bcftools_trio-dnm2");
+
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
@@ -817,7 +836,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                 {
                     int fals = (1<<fa)|(1<<fb);
                     double fpl;
-                    if ( args->use_ppl ) fpl = pl[iFATHER][fi];
+                    if ( args->with_ppl ) fpl = pl[iFATHER][fi];
                     else
                     {
                         fpl = 0;
@@ -838,7 +857,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                         {
                             int mals = (1<<ma)|(1<<mb);
                             double mpl = 0;
-                            if ( args->use_ppl ) mpl = pl[iMOTHER][mi];
+                            if ( args->with_ppl ) mpl = pl[iMOTHER][mi];
                             else
                             {
                                 mpl = 0;
@@ -1269,12 +1288,39 @@ static void process_record(args_t *args, bcf1_t *rec)
         error("todo: not a diploid site at %s:%"PRId64": %d alleles, %d PLs\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,rec->n_allele,npl1);
     hts_expand(double,3*npl1,args->mpl3,args->pl3);
 
-    int nqs1 = 0;
-    if ( (args->use_model==USE_ACM && !args->use_ppl) || rec->n_allele > 4 )    // DNG does not use QS, but QS is needed when trimming ALTs
+    int i,j, nqs1 = 0;
+    if ( args->use_model==USE_ACM || rec->n_allele > 4 )    // DNG does not use QS, but QS is needed when trimming ALTs
     {
         nret = bcf_get_format_int32(args->hdr,rec,"QS",&args->qs,&args->mqs);
-        if ( nret<0 ) error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
-        if ( nret != nsmpl * rec->n_allele ) error("Error: incorrect number of FMT/QS values at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        if ( nret<0 )
+        {
+            if ( args->need_QS )
+                error("Error: the FMT/QS tag is not available at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+            if ( n_ad==0 )
+            {
+                static int missing_AD_warned = 0;
+                if ( !missing_AD_warned )
+                {
+                    hts_log_warning(
+                        "Neither FMT/QS nor FMT/AD present at %s:%"PRId64", cannot trim the number of alleles to four, skipping.\n"
+                        "This warning is printed only once", bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+                    missing_AD_warned = 1;
+                }
+                return;
+            }
+
+            // fake QS from AD assuming average BQ=30
+            nret = n_ad * nsmpl;
+            hts_expand(int32_t,nret,args->mqs,args->qs);
+            for (i=0; i<nret; i++)
+            {
+                if ( args->ad[i]==bcf_int32_missing || args->ad[i]==bcf_int32_vector_end ) args->qs[i] = args->ad[i];
+                else args->qs[i] = 30 * args->ad[i];
+            }
+        }
+        else if ( nret != nsmpl * rec->n_allele )
+            error("Error: incorrect number of FMT/QS values at %s:%"PRId64".\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+
         nqs1 = nret<=0 ? 0 : nret/nsmpl;
         hts_expand(double,3*nqs1,args->mqs3,args->qs3);
     }
@@ -1282,7 +1328,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     int is_chrX = 0;
     if ( regidx_overlap(args->chrX_idx,bcf_seqname(args->hdr,rec),rec->pos,rec->pos+rec->rlen,NULL) ) is_chrX = 1;
 
-    int i, j, al0, al1, write_dnm = 0, ad_set = 0;
+    int al0, al1, write_dnm = 0, ad_set = 0;
     if ( args->dnm_score_type & DNM_FLOAT )
         for (i=0; i<nsmpl; i++) bcf_float_set_missing(args->dnm_qual_float[i]);
     else
@@ -1414,7 +1460,7 @@ static void set_option(args_t *args, char *optarg)
     }
     else if ( !strcasecmp(opt,"DNG") ) { args->use_model = USE_DNG; args->use_dng_priors = 1; }
     else if ( !strcasecmp(opt,"dng-priors") ) args->use_dng_priors = 1;
-    else if ( !strcasecmp(opt,"ppl") ) args->use_ppl = 1;
+    else if ( !strcasecmp(opt,"ppl") ) args->with_ppl = 1;
     else if ( !strcasecmp(opt,"tag") )
     {
         if ( !val ) error("Error: expected value with -u tag, e.g. -u tag=ANN\n");
@@ -1448,6 +1494,10 @@ int run(int argc, char **argv)
     args->pn_abs    = 0;
     args->pns_frac  = 0.045;
     args->pns_abs   = 0;
+    args->record_cmd_line = 1;
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"use",required_argument,0,'u'},
@@ -1461,7 +1511,12 @@ int run(int argc, char **argv)
         {"pns",required_argument,0,8},
         {"use-DNG",no_argument,0,9},
         {"ppl",no_argument,0,10},
+        {"with-pPL",no_argument,0,10},
+        {"with-ppl",no_argument,0,10},
         {"use-NAIVE",no_argument,0,11},
+        {"no-version",no_argument,NULL,12},
+        {"with-pAD",no_argument,0,13},
+        {"with-pad",no_argument,0,13},
         {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
         {"include",required_argument,0,'i'},
@@ -1472,8 +1527,10 @@ int run(int argc, char **argv)
         {"pfm",required_argument,NULL,'p'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"regions-overlap",required_argument,NULL,14},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"targets-overlap",required_argument,NULL,15},
         {NULL,0,NULL,0}
     };
     int c;
@@ -1509,8 +1566,22 @@ int run(int argc, char **argv)
                 if ( args->pns_abs<0 ) error("Error: expected positive value for --pns %s\n", optarg);
                 break;
             case 9  : args->use_model = USE_DNG; args->use_dng_priors = 1; break;
-            case 10 : args->use_ppl = 1; break;
+            case 10 : args->with_ppl = 1; break;
             case 11 : args->use_model = USE_NAIVE; break;
+            case 12 : args->record_cmd_line = 0; break;
+            case 13 : args->with_pad = 1; break;
+            case 14 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case 15 :
+                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg); break;
             case 'e':
@@ -1530,8 +1601,17 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
                       };
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                      }
                       break;
             case 'P': args->ped_fname = optarg; break;
             case 'p': args->pfm = optarg; break;

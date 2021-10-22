@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<meta name="generator" content="Asciidoctor 2.0.16.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-05-10 14:26 BST</strong> and refers to bcftools git version <strong>1.12-40-g203abd9+</strong>.</p>
+<p>This manual page was last updated <strong>2021-10-22</strong> and refers to bcftools git version <strong>1.14</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -91,70 +91,70 @@ list of available options, run <strong>bcftools</strong> <em>COMMAND</em> withou
 <div class="ulist">
 <ul>
 <li>
-<p><strong><a href="#annotate">annotate</a></strong>   .. edit VCF files, add or remove annotations</p>
+<p><strong><a href="#annotate">annotate</a></strong>  ..  edit VCF files, add or remove annotations</p>
 </li>
 <li>
-<p><strong><a href="#call">call</a></strong>        ..  SNP/indel calling (former "view")</p>
+<p><strong><a href="#call">call</a></strong>      ..  SNP/indel calling (former "view")</p>
 </li>
 <li>
-<p><strong><a href="#cnv">cnv</a></strong>          ..  Copy Number Variation caller</p>
+<p><strong><a href="#cnv">cnv</a></strong>       ..  Copy Number Variation caller</p>
 </li>
 <li>
 <p><strong><a href="#concat">concat</a></strong>    ..  concatenate VCF/BCF files from the same set of samples</p>
 </li>
 <li>
-<p><strong><a href="#consensus">consensus</a></strong>    ..  create consensus sequence by applying VCF variants</p>
+<p><strong><a href="#consensus">consensus</a></strong> ..  create consensus sequence by applying VCF variants</p>
 </li>
 <li>
-<p><strong><a href="#convert">convert</a></strong>  ..  convert VCF/BCF to other formats and back</p>
+<p><strong><a href="#convert">convert</a></strong>   ..  convert VCF/BCF to other formats and back</p>
 </li>
 <li>
-<p><strong><a href="#csq">csq</a></strong>          ..  haplotype aware consequence caller</p>
+<p><strong><a href="#csq">csq</a></strong>       ..  haplotype aware consequence caller</p>
 </li>
 <li>
 <p><strong><a href="#filter">filter</a></strong>    ..  filter VCF/BCF files using fixed thresholds</p>
 </li>
 <li>
-<p><strong><a href="#gtcheck">gtcheck</a></strong>  ..  check sample concordance, detect sample swaps and contamination</p>
+<p><strong><a href="#gtcheck">gtcheck</a></strong>   ..  check sample concordance, detect sample swaps and contamination</p>
 </li>
 <li>
-<p><strong><a href="#index">index</a></strong>      ..  index VCF/BCF</p>
+<p><strong><a href="#index">index</a></strong>     ..  index VCF/BCF</p>
 </li>
 <li>
-<p><strong><a href="#isec">isec</a></strong>        ..  intersections of VCF/BCF files</p>
+<p><strong><a href="#isec">isec</a></strong>      ..  intersections of VCF/BCF files</p>
 </li>
 <li>
-<p><strong><a href="#merge">merge</a></strong>      ..  merge VCF/BCF files files from non-overlapping sample sets</p>
+<p><strong><a href="#merge">merge</a></strong>     ..  merge VCF/BCF files files from non-overlapping sample sets</p>
 </li>
 <li>
-<p><strong><a href="#mpileup">mpileup</a></strong>  ..  multi-way pileup producing genotype likelihoods</p>
+<p><strong><a href="#mpileup">mpileup</a></strong>   ..  multi-way pileup producing genotype likelihoods</p>
 </li>
 <li>
-<p><strong><a href="#norm">norm</a></strong>        ..  normalize indels</p>
+<p><strong><a href="#norm">norm</a></strong>      ..  normalize indels</p>
 </li>
 <li>
 <p><strong><a href="#plugin">plugin</a></strong>    ..  run user-defined plugin</p>
 </li>
 <li>
-<p><strong><a href="#polysomy">polysomy</a></strong>   ..  detect contaminations and whole-chromosome aberrations</p>
+<p><strong><a href="#polysomy">polysomy</a></strong>  ..  detect contaminations and whole-chromosome aberrations</p>
 </li>
 <li>
-<p><strong><a href="#query">query</a></strong>      ..  transform VCF/BCF into user-defined formats</p>
+<p><strong><a href="#query">query</a></strong>     ..  transform VCF/BCF into user-defined formats</p>
 </li>
 <li>
-<p><strong><a href="#reheader">reheader</a></strong>   ..  modify VCF/BCF header, change sample names</p>
+<p><strong><a href="#reheader">reheader</a></strong>  ..  modify VCF/BCF header, change sample names</p>
 </li>
 <li>
-<p><strong><a href="#roh">roh</a></strong>          ..  identify runs of homo/auto-zygosity</p>
+<p><strong><a href="#roh">roh</a></strong>       ..  identify runs of homo/auto-zygosity</p>
 </li>
 <li>
-<p><strong><a href="#sort">sort</a></strong>        ..  sort VCF/BCF files</p>
+<p><strong><a href="#sort">sort</a></strong>      ..  sort VCF/BCF files</p>
 </li>
 <li>
-<p><strong><a href="#stats">stats</a></strong>      ..  produce VCF/BCF stats (former vcfcheck)</p>
+<p><strong><a href="#stats">stats</a></strong>     ..  produce VCF/BCF stats (former vcfcheck)</p>
 </li>
 <li>
-<p><strong><a href="#view">view</a></strong>        ..  subset, filter and convert VCF and BCF files</p>
+<p><strong><a href="#view">view</a></strong>      ..  subset, filter and convert VCF and BCF files</p>
 </li>
 </ul>
 </div>
@@ -254,14 +254,19 @@ use <strong>-f</strong> <em>.,PASS</em>.</p>
 <dt class="hdlist1"><strong>-o, --output</strong> <em>FILE</em></dt>
 <dd>
 <p>When output consists of a single stream, write it to <em>FILE</em> rather than
-to standard output, where it is written by default.</p>
+to standard output, where it is written by default.
+The file type is determined automatically from the file name suffix and in
+case a conflicting <strong>-O</strong> option is given, the file name suffix takes precedence.</p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>Output compressed BCF (<em>b</em>), uncompressed BCF (<em>u</em>), compressed VCF (<em>z</em>), uncompressed VCF (<em>v</em>).
 Use the -Ou option when piping between bcftools subcommands to speed up
 performance by removing unnecessary compression/decompression and
-VCF&#8592;&#8594;BCF conversion.</p>
+VCF&#8592;&#8594;BCF conversion.
+&#160;
+The compression level of the compressed formats (<em>b</em> and <em>z</em>) can be set by
+by appending a number between 0-9.</p>
 </dd>
 <dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:beg-end</em>|<em>chr:beg-</em>[,&#8230;&#8203;]</dt>
 <dd>
@@ -291,6 +296,16 @@ appear in <em>FILE</em>. Note that overlapping regions in <em>FILE</em> can resu
 duplicated out of order positions in the output.
 This option requires indexed VCF/BCF files. Note that <strong>-R</strong> cannot be used
 in combination with <strong>-r</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>This option controls how overlapping records are determined:
+set to <strong>0</strong> if the VCF record has to have POS inside a region
+(this corresponds to the default behavior of <strong>-t/-T</strong>);
+set to <strong>1</strong> if also overlapping records with POS outside a region
+should be included (this is the default behavior of <strong>-r/-R</strong>); or set
+to <strong>2</strong> to include only true overlapping variation (compare
+the full VCF representation "<code>TA&gt;T-</code>" vs the true sequence variation "<code>A&gt;-</code>").</p>
 </dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> [&#94;]<em>LIST</em></dt>
 <dd>
@@ -374,7 +389,7 @@ cannot be used in combination with <strong>-t</strong>.</p>
 <div class="paragraph">
 <p>With the <strong>call -C</strong> <em>alleles</em> command, third column of the targets file must
 be comma-separated list of alleles, starting with the reference allele.
-Note that the file must be compressed and index.
+Note that the file must be compressed and indexed.
 Such a file can be easily created from a VCF using:</p>
 </div>
 </dd>
@@ -387,6 +402,10 @@ Such a file can be easily created from a VCF using:</p>
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>Same as <strong>--regions-overlap</strong> but for <strong>-t/-T</strong>.</p>
+</dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>Use multithreading with <em>INT</em> worker threads. The option is currently used only for the compression of the
@@ -411,13 +430,23 @@ number of annotation columns. BED files are expected to have
 the ".bed" or ".bed.gz" suffix (case-insensitive), otherwise a tab-delimited file is assumed.
 Note that in case of tab-delimited file, the coordinates POS, FROM and TO are
 one-based and inclusive.  When REF and ALT are present, only matching VCF
-records will be annotated.
+records will be annotated. If the END coordinate is present in the annotation file
+and given on command line as "<code>-c ~INFO/END</code>", then VCF records will be matched also by the INFO/END coordinate.
+If ID is present in the annotation file and given as "<code>-c ~ID</code>", then VCF records will be matched
+also by the ID column.
+&#160;<br>
+&#160;<br>
 When multiple ALT alleles are present in the annotation file (given as
 comma-separated list of alleles), at least one must match one of the
 alleles in the corresponding VCF record. Similarly, at least one
 alternate allele from a multi-allelic VCF record must be present in the
 annotation file.
-Missing values can be added by providing "." in place of actual value.
+&#160;<br>
+&#160;<br>
+Missing values can be added by providing "." in place of actual value
+and using the missing value modifier with <strong>-c</strong>, such as ".TAG".
+&#160;<br>
+&#160;<br>
 Note that flag types, such as "INFO/FLAG", can be annotated by including
 a field with the value "1" to set the flag, "0" to remove it, or "." to
 keep existing flags.
@@ -447,26 +476,36 @@ See <strong><a href="#common_options">Common Options</a></strong> for more.</p>
 <em>list</em> describes the columns of the annotation file and must include CHROM,
 POS (or, alternatively, FROM and TO), and optionally REF and ALT. Unused
 columns which should be ignored can be indicated by "-".
-+
+&#160;<br>
+&#160;<br>
 If the annotation file is a VCF/BCF, only the edited columns/tags must be present and their
 order does not matter. The columns ID, QUAL, FILTER, INFO and FORMAT
 can be edited, where INFO tags can be written both as "INFO/TAG" or simply "TAG",
 and FORMAT tags can be written as "FORMAT/TAG" or "FMT/TAG".
 The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TAG:=FMT/SRC_TAG".
-+
+&#160;<br>
+&#160;<br>
 To carry over all INFO annotations, use "INFO". To add all INFO annotations except
 "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
-+
-To add annotations without overwriting existing values (that is, to add missing tags or
-add values to existing tags with missing values), use "+TAG" instead of "TAG".
+&#160;<br>
+&#160;<br>
+By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
+If also missing values should be carried over (and overwrite existing tags), use ".TAG" instead of "TAG".
+To add annotations without overwriting existing values (that is, to add tags that are absent or
+to add values to existing tags with missing values), use "+TAG" instead of "TAG". These can be combined,
+for example ".+TAG" can be used to add TAG even if the source value is missing but only if TAG does not
+exist in the target file; existing tags will not be overwritten.
 To append to existing values (rather than replacing or leaving untouched), use "=TAG"
 (instead of "TAG" or "+TAG").
 To replace only existing values without modifying missing annotations, use "-TAG".
-To match the record also by ID, in addition to REF and ALT, use "~ID".
-+
+To match the record also by ID or INFO/END, in addition to REF and ALT, use "~ID" or "~INFO/END".
+If position needs to be replaced, mark the column with the new position as "~POS".
+&#160;<br>
+&#160;<br>
 If the annotation file is not a VCF/BCF, all new annotations must be
 defined via <strong>-h, --header-lines</strong>.
-+
+&#160;<br>
+&#160;<br>
 See also the <strong>-l, --merge-logic</strong> option.</p>
 </dd>
 <dt class="hdlist1"><strong>-C, --columns-file</strong> <em>file</em></dt>
@@ -554,7 +593,7 @@ This is an experimental feature.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -669,7 +708,7 @@ demand. The original calling model can be invoked with the <strong>-c</strong> o
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1010,14 +1049,20 @@ are concatenated without being recompressed, which is very fast..</p>
 <dd>
 <p>Do not output PS tag at each site, only at the start of a new phase set block.</p>
 </dd>
-<dt class="hdlist1"><strong>-d, --rm-dups</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>none</em></dt>
+<dt class="hdlist1"><strong>-d, --rm-dups</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
 <p>Output duplicate records of specified type present in multiple files only once.
+Note that records duplicate within one file are not removed with this option,
+for that use <strong><a href="#norm">bcftools norm -d</a></strong> instead.<br>
+In other words, the default behavior of the program is similar to unix "<code>cat</code>" in
+that when two files contain a record with the same position, that position will appear
+twice on output. With <strong>-d</strong>, every line that finds a matching record in another
+file will be printed only once.<br>
 Requires <strong>-a, --allow-overlaps</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-D, --remove-duplicates</strong></dt>
 <dd>
-<p>Alias for <strong>-d none</strong></p>
+<p>Alias for <strong>-d exact</strong></p>
 </dd>
 <dt class="hdlist1"><strong>-f, --file-list</strong> <em>FILE</em></dt>
 <dd>
@@ -1027,7 +1072,15 @@ Requires <strong>-a, --allow-overlaps</strong>.</p>
 <dd>
 <p>Ligate phased VCFs by matching phase at overlapping haplotypes.
 Note that the option is intended for VCFs with perfect overlap, sites
-in overlapping regions present in one but missing in other are dropped.</p>
+in overlapping regions present in one but missing in the other are dropped.</p>
+</dd>
+<dt class="hdlist1"><strong>--ligate-force</strong></dt>
+<dd>
+<p>Keep all sites and ligate even non-overlapping chunks and chunks with imperfect overlap</p>
+</dd>
+<dt class="hdlist1"><strong>--ligate-warn</strong></dt>
+<dd>
+<p>Drop sites in imperfect overlaps</p>
 </dd>
 <dt class="hdlist1"><strong>--no-version</strong></dt>
 <dd>
@@ -1049,7 +1102,7 @@ is performed and the program throws an error if it is not safe to use the option
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1258,7 +1311,7 @@ format details.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1573,11 +1626,12 @@ output VCF and are ignored for the prediction analysis.</p>
 <dd>
 <p>use this custom tag to store consequences rather than the default BCSQ tag</p>
 </dd>
-<dt class="hdlist1"><strong>-b, --brief-predictions</strong></dt>
+<dt class="hdlist1"><strong>-B, --trim-protein-seq</strong> <em>INT</em></dt>
 <dd>
-<p>annotate with abbreviated protein-changing predictions. That is, instead of writing
-the whole modified protein sequence with potentially hundreds of aminoacids, only an
-abbreviated version such as <em>25E..329&gt;25G..94</em> will be written</p>
+<p>abbreviate protein-changing predictions to maximum of INT aminoacids.
+For example, instead of writing the whole modified protein sequence with potentially hundreds of
+aminoacids, with <strong>-B 1</strong> only an abbreviated version such as <em>25E..329&gt;25G..94</em> will be
+written.</p>
 </dd>
 <dt class="hdlist1"><strong>-e, --exclude</strong> <em>EXPRESSION</em></dt>
 <dd>
@@ -1660,7 +1714,7 @@ Note that increasing the value leads to increased size of the output BCF.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>t</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>t</em>|<em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong>. In addition, a custom tab-delimited
 plain text output can be printed (<em>t</em>).</p>
@@ -1849,7 +1903,7 @@ filters of sites which pass to "PASS". Modes "+" and "x" can both be set.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1913,6 +1967,8 @@ represents genotype quality when GT tag is used (e.g. Q=30 represents one error 
 Q=40 one error in 10,000 genotypes) and is ignored when PL tag is used (in that case an arbitrary
 non-zero integer can be provided). See also the <strong>-u, --use</strong> option below. If set to 0,
 the discordance equals to the number of mismatching genotypes when GT vs GT is compared.
+Note that the values with and without <strong>-e</strong> are not comparable, only values generated
+with <strong>-e 0</strong> correspond to mismatching genotypes.
 If performance is an issue, set to 0 for faster run but less accurate results.</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --genotypes</strong> <em>FILE</em></dt>
@@ -2108,7 +2164,7 @@ many or fewer (-), or the exact same (~) files</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong>.  When several files are being
 output, their names are controlled via <strong>-p</strong> instead.</p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2299,7 +2355,7 @@ the same order and consistent with the order of sequences in the VCF header.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2511,6 +2567,10 @@ name".</p>
 <dd>
 <p>Disable read-pair overlap detection.</p>
 </dd>
+<dt class="hdlist1"><strong>--seed</strong> <em>INT</em></dt>
+<dd>
+<p>Set the random number seed used when sub-sampling deep regions [0].</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -2572,7 +2632,7 @@ sign,  it  is  interpreted  as <strong>--output</strong>.  Usually the filename 
 will take care of this, but to write to an entirely numeric filename use <strong>-o
 ./123</strong> or <strong>--output 123</strong>.)</p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2619,6 +2679,15 @@ pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999</pre>
 </div>
 </div>
 </dd>
+<dt class="hdlist1"><strong>--ar, --ambig-reads</strong> <em>drop</em>|<em>incAD</em>|<em>incAD0</em></dt>
+<dd>
+<p>What to do with ambiguous indel reads that do not span an entire
+short tandem repeat region: discard ambiguous reads from calling
+and do not increment high-quality AD depth counters (<em>drop</em>),
+exclude from calling but increment AD counters proportionally (<em>incAD</em>),
+exclude from calling and increment the first value of the AD counter
+(<em>incAD0</em>) [<em>drop</em>]</p>
+</dd>
 <dt class="hdlist1"><strong>-e, --ext-prob</strong> <em>INT</em></dt>
 <dd>
 <p>Phred-scaled gap extension sequencing error probability. Reducing <em>INT</em>
@@ -2651,6 +2720,12 @@ variants, selecting the best quality ones only (favouring
 precision over recall), it is advisable to set this lower (such as
 0.75) while higher depth samples or where you favour recall rates
 over precision may work better with a higher value such as 2.0.</p>
+</dd>
+<dt class="hdlist1"><strong>--indel-size</strong> <em>INT</em></dt>
+<dd>
+<p>Indel window size to use when assessing the quality of candidate indels.
+Note that although the window size approximately corresponds to the maximum
+indel size considered, it is not an exact threshold [110]</p>
 </dd>
 <dt class="hdlist1"><strong>-I, --skip-indels</strong></dt>
 <dd>
@@ -2770,7 +2845,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;." class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;.</a>)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -2827,7 +2902,7 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2919,7 +2994,7 @@ the usage examples that each plugin comes with.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3539,6 +3614,10 @@ each on a separate line. If a sample name contains spaces, the
 spaces can be escaped using the backslash character, for example
 "Not\ a\ good\ sample\ name".</p>
 </dd>
+<dt class="hdlist1"><strong>-T, --temp-prefix</strong> <em>PATH</em></dt>
+<dd>
+<p>template for temporary file names, used with <strong>-f</strong></p>
+</dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3737,7 +3816,7 @@ your system limit on the number of open files ("ulimit") may need to be increase
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3886,6 +3965,11 @@ Convert between VCF and BCF. Former <strong>bcftools subset</strong>.</p>
 <dd>
 <p>suppress the header in VCF output</p>
 </dd>
+<dt class="hdlist1"><strong>--with-header</strong></dt>
+<dd>
+<p>output both VCF header and records (this is the default, but the option
+is useful for explicitness or to reset the effects of <strong>-h</strong> or <strong>-H</strong>)</p>
+</dd>
 <dt class="hdlist1"><strong>-l, --compression-level</strong> [<em>0-9</em>]</dt>
 <dd>
 <p>compression level. 0 stands for uncompressed, 1 for best speed and 9 for
@@ -3895,7 +3979,7 @@ best compression.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em></dt>
+<dt class="hdlist1"><strong>-O, --output-type</strong> <em>b</em>|<em>u</em>|<em>z</em>|<em>v</em>[0-9]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -4667,7 +4751,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-05-10 14:26:54 +0100
+Last updated 2021-10-22 12:15:14 +0100
 </div>
 </div>
 </body>

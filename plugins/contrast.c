@@ -53,7 +53,8 @@
 
 typedef struct
 {
-    int argc, filter_logic, regions_is_file, targets_is_file, output_type, force_samples;
+    int argc, filter_logic, regions_is_file, targets_is_file, output_type, force_samples, clevel;
+    int regions_overlap, targets_overlap;
     uint32_t annots;
     char **argv, *output_fname, *fname, *regions, *targets, *filter_str, *annots_str;
     char *control_samples_str, *case_samples_str, *max_AC_str;
@@ -91,20 +92,22 @@ static const char *usage_text(void)
         "       - NOVELGT .. lists samples with a novel genotype not observed in the control group\n"
         "Usage: bcftools +contrast [Plugin Options]\n"
         "Plugin options:\n"
-        "   -a, --annots <list>                 list of annotations to output [PASSOC,FASSOC,NOVELAL]\n"
-        "   -0, --control-samples <list|file>   file or comma-separated list of control (background) samples\n"
-        "   -1, --case-samples <list|file>      file or comma-separated list of samples where novel allele or genotype is expected\n"
-        "   -e, --exclude EXPR                  exclude sites and samples for which the expression is true\n"
-        "   -f, --max-allele-freq NUM           calculate enrichment of rare alleles. Floating point numbers between 0 and 1 are\n"
-        "                                           interpreted as ALT allele frequencies, integers as ALT allele counts\n"
-        "       --force-samples                 continue even if some samples listed in the -0,-1 files are missing from the VCF\n"
-        "   -i, --include EXPR                  include sites and samples for which the expression is true\n"
-        "   -o, --output FILE                   output file name [stdout]\n"
-        "   -O, --output-type <b|u|z|v>         b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "   -r, --regions REG                   restrict to comma-separated list of regions\n"
-        "   -R, --regions-file FILE             restrict to regions listed in a file\n"
-        "   -t, --targets REG                   similar to -r but streams rather than index-jumps\n"
-        "   -T, --targets-file FILE             similar to -R but streams rather than index-jumps\n"
+        "   -a, --annots LIST                List of annotations to output [PASSOC,FASSOC,NOVELAL]\n"
+        "   -0, --control-samples LIST|FILE  File or comma-separated list of control (background) samples\n"
+        "   -1, --case-samples LIST|FILE     File or comma-separated list of samples where novel allele or genotype is expected\n"
+        "   -e, --exclude EXPR               Exclude sites and samples for which the expression is true\n"
+        "   -f, --max-allele-freq NUM        Calculate enrichment of rare alleles. Floating point numbers between 0 and 1 are\n"
+        "                                        interpreted as ALT allele frequencies, integers as ALT allele counts\n"
+        "       --force-samples              Continue even if some samples listed in the -0,-1 files are missing from the VCF\n"
+        "   -i, --include EXPR               Include sites and samples for which the expression is true\n"
+        "   -o, --output FILE                Output file name [stdout]\n"
+        "   -O, --output-type u|b|v|z[0-9]   u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
+        "   -r, --regions REG                Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE          Restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
+        "   -t, --targets REG                Similar to -r but streams rather than index-jumps\n"
+        "   -T, --targets-file FILE          Similar to -R but streams rather than index-jumps\n"
+        "       --targets-overlap 0|1|2      Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "\n"
         "Example:\n"
         "   # Test if any of the samples a,b is different from the samples c,d,e\n"
@@ -130,7 +133,7 @@ static int cmp_int(const void *a, const void *b)
 static void read_sample_list_or_file(bcf_hdr_t *hdr, const char *str, int **smpl, int *nsmpl, int force_samples)
 {
     char **str_list = NULL;
-    int i,j, *list, nlist = 0, is_file, nskipped = 0;
+    int i,j, *list = NULL, nlist = 0, is_file, nskipped = 0;
 
     for (is_file=0; is_file<=1; is_file++)
     {
@@ -139,10 +142,17 @@ static void read_sample_list_or_file(bcf_hdr_t *hdr, const char *str, int **smpl
             for (i=0; i<nlist; i++) free(str_list[i]);
             free(str_list);
             free(list);
+            str_list = NULL;
+            list = NULL;
+            nlist = 0;
         }
 
         str_list = hts_readlist(str, is_file, &nlist);
-        if ( !str_list ) error("The sample \"%s\", is not present in the VCF\n", str);
+        if ( !str_list )
+        {
+            if ( force_samples ) continue;
+            error("The sample \"%s\", is not present in the VCF\n", str);
+        }
 
         list = (int*) malloc(sizeof(int)*nlist);
         for (i=0,j=0; i<nlist; i++,j++)
@@ -162,7 +172,7 @@ static void read_sample_list_or_file(bcf_hdr_t *hdr, const char *str, int **smpl
     }
     for (i=0; i<nlist; i++) free(str_list[i]);
     nlist -= nskipped;
-    if ( !nlist ) error("None of the samples are present in the VCF: %s\n", str);
+    if ( !nlist && !force_samples ) error("None of the samples are present in the VCF: %s\n", str);
     if ( nskipped ) fprintf(stderr,"Warning: using %d sample%s, %d from %s %s not present in the VCF\n", nlist,nlist>1?"s":"",nskipped,str,nskipped>1?"are":"is");
     free(str_list);
     qsort(list,nlist,sizeof(*list),cmp_int);
@@ -190,9 +200,14 @@ static void init_data(args_t *args)
     if ( args->regions )
     {
         args->sr->require_index = 1;
+        bcf_sr_set_opt(args->sr,BCF_SR_REGIONS_OVERLAP,args->regions_overlap);
         if ( bcf_sr_set_regions(args->sr, args->regions, args->regions_is_file)<0 ) error("Failed to read the regions: %s\n",args->regions);
     }
-    if ( args->targets && bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    if ( args->targets )
+    {
+        bcf_sr_set_opt(args->sr,BCF_SR_TARGETS_OVERLAP,args->targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, args->targets, args->targets_is_file, 0)<0 ) error("Failed to read the targets: %s\n",args->targets);
+    }
     if ( !bcf_sr_add_reader(args->sr,args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
     args->hdr = bcf_sr_get_header(args->sr,0);
     args->hdr_out = bcf_hdr_dup(args->hdr);
@@ -213,7 +228,9 @@ static void init_data(args_t *args)
     read_sample_list_or_file(args->hdr, args->control_samples_str, &args->control_smpl, &args->ncontrol_smpl, args->force_samples);
     read_sample_list_or_file(args->hdr, args->case_samples_str, &args->case_smpl, &args->ncase_smpl, args->force_samples);
 
-    args->out_fh = hts_open(args->output_fname,hts_bcf_wmode2(args->output_type,args->output_fname));
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->output_fname,args->clevel);
+    args->out_fh = hts_open(args->output_fname ? args->output_fname : "-", wmode);
     if ( args->out_fh == NULL ) error("Can't write to \"%s\": %s\n", args->output_fname, strerror(errno));
     if ( bcf_hdr_write(args->out_fh, args->hdr_out)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
@@ -317,7 +334,7 @@ static int process_record(args_t *args, bcf1_t *rec)
         if ( args->annots & PRINT_NOVELGT )
             binary_insert(gt, &args->control_gts, &args->ncontrol_gts, &args->mcontrol_gts);
     }
-    if ( !control_als )
+    if ( !control_als && args->ncontrol_smpl )
     {
         // all are missing
         args->nskipped++;
@@ -368,7 +385,7 @@ static int process_record(args_t *args, bcf1_t *rec)
             kputs(smpl, &args->case_gts_smpl);
         }
     }
-    if ( !has_gt )
+    if ( !has_gt && args->ncase_smpl )
     {
         // all are missing
         args->nskipped++;
@@ -395,14 +412,14 @@ static int process_record(args_t *args, bcf1_t *rec)
     }
 
     float vals[2];
-    if ( args->annots & PRINT_PASSOC )
+    if ( (args->annots & PRINT_PASSOC) && args->ncontrol_smpl && args->ncase_smpl )
     {
         double left, right, fisher;
         kt_fisher_exact(nals[0],nals[1],nals[2],nals[3], &left,&right,&fisher);
         vals[0] = fisher;
         bcf_update_info_float(args->hdr_out, rec, "PASSOC", vals, 1);
     }
-    if ( args->annots & PRINT_FASSOC )
+    if ( (args->annots & PRINT_FASSOC) && args->ncontrol_smpl && args->ncase_smpl )
     {
         if ( nals[0]+nals[1] ) vals[0] = (float)nals[1]/(nals[0]+nals[1]);
         else bcf_float_set_missing(vals[0]);
@@ -433,6 +450,9 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->output_fname = "-";
     args->annots_str = "PASSOC,FASSOC";
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"max-allele-freq",required_argument,0,'f'},
@@ -448,11 +468,14 @@ int run(int argc, char **argv)
         {"output-type",required_argument,NULL,'O'},
         {"regions",1,0,'r'},
         {"regions-file",1,0,'R'},
+        {"regions-overlap",required_argument,NULL,3},
         {"targets",1,0,'t'},
         {"targets-file",1,0,'T'},
+        {"targets-overlap",required_argument,NULL,4},
         {NULL,0,NULL,0}
     };
     int c;
+    char *tmp;
     while ((c = getopt_long(argc, argv, "O:o:i:e:r:R:t:T:0:1:a:f:",loptions,NULL)) >= 0)
     {
         switch (c) 
@@ -479,9 +502,30 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
                       };
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                      }
                       break;
+            case  3 :
+                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
+                else error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
+            case  4 :
+                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
+                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
+                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
+                else error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
@@ -494,6 +538,9 @@ int run(int argc, char **argv)
     }
     else if ( optind+1!=argc ) error("%s",usage_text());
     else args->fname = argv[optind];
+
+    if ( !args->control_samples_str ) error("Error: missing the -0, --control-samples option\n");
+    if ( !args->case_samples_str ) error("Error: missing the -1, --case-samples option\n");
 
     init_data(args);
 

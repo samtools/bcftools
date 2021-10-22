@@ -1,3 +1,128 @@
+## Release 1.14 (22nd October 2021)
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* New `--regions-overlap` and `--targets-overlap` options which address
+  a long-standing design problem with subsetting VCF files by region. 
+  BCFtools recognize two sets of options, one for streaming (`-t/-T`) and
+  one for index-gumping (`-r/-R`). They behave differently, the first
+  includes only records with POS coordinate within the regions, the other
+  includes overlapping regions. The two new options allow to modify the
+  default behavior, see the man page for more details.
+
+* The `--output-type` option can be used to override the default compression
+  level
+
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - when `--set-id` and `--remove` are combined, `--set-id` cannot use
+      tags deleted by `--remove`. This is now detected and the program
+      exists with an informative error message instead of segfaulting
+      (#1540)
+
+    - while non-symbolic variation are uniquely identified by POS,REF,ALT,
+      symbolic alleles starting at the same position were undistinguishable.
+      This prevented correct matching of records with the same positions and
+      variant type but different length given by INFO/END (samtools/htslib@60977f2).
+      When annotating froma VCF/BCF, the matching is done automatically. When
+      annotating from a tab-delimited text file, this feature can be invoked
+      by using `-c INFO/END`.
+
+    - add a new '.' modifier to control wheter missing values should be carried
+      over from a tab-delimited file or not. For example: 
+
+         -c TAG .. adds TAG if the source value is not missing. If TAG
+                   exists in the target file, it will be overwritten
+    
+        -c .TAG .. adds TAG even if the source value is missing. This
+                   can overwrite non-missing values with a missing value
+                   and can create empty VCF fields (`TAG=.`)
+
+* bcftools +check-ploidy
+
+    - by default missing genotypes are not used when determining ploidy.
+      With the new option `-m, --use-missing` it is possible to use the
+      information carried in the missing and half-missing genotypes
+      (e.g. ".", "./." or "./1")
+
+* bcftools concat:
+
+    - new `--ligate-force` and `--ligate-warn` options for finer control
+      of `-l, --ligate` behavior in imperfect overlaps. The new default is
+      to throw an error when sites present in one chunk but absent in the
+      other are encountered. To drop such sites and proceed, use the new
+      `--ligate-warn` option (previously this was the default). To keep such
+      sites, use the new `--ligate-force` option (#1567).
+
+* bcftools consensus:
+
+    - Apply mask even when the VCF has no notion about the chromosome. It
+      was possible to encounter this problem when `contig` lines were not
+      present in the VCF header and no variants were called on that chromosome
+      (#1592)
+
+* bcftools +contrast:
+
+    - support for chunking within map/reduce framework allowing to collect
+      NASSOC counts even for empty case/control sample sets (#1566)
+
+* bcftools csq:
+
+    - bug fix, compound indels were not recognised in some cases (#1536)
+
+    - compound variants were incorrectly marked as 'inframe' even when
+      stop codon would occur before the frame was restored (#1551)
+
+    - bug fix, FORMAT/BCSQ bitmasks could have been assigned incorrectly
+      to some samples at multiallelic sites, a superset of the correct
+      consequences would have been set (#1539)
+
+    - bug fix, the upstream stop could be falsely assigned to all samples in
+      a multi-sample VCF even if the stop was relevant for a single sample
+      only (#1578)
+
+    - further improve the detection of mismatching chromosome naming
+      (e.g. "chrX" vs "X") in the GFF, VCF and fasta files
+
+* bcftools merge:
+
+    - keep (sum) INFO/AN,AC values when merging VCFs with no samples (#1394)
+
+* bcftools mpileup:
+
+    - new --indel-size option which allows to increase the maximum considered
+      indel size considered, large deletions in long read data are otherwise
+      lost.
+
+* bcftools norm:
+
+    - atomization now supports Number=A,R string annotations (#1503)
+
+    - assign as many alternate alleles to genotypes at multiallelic sites
+      in the`-m +` mode, disregarding the phase.  Previously the program
+      assumed to be executed as an inverse operation of `-m -`, but when
+      that was not the case, reference alleles would have been filled
+      instead of multiple alternate alleles (#1542)
+
+* bcftools sort:
+
+    - increase accuracy of the --max-mem option limit, previously the limit
+      could be exceeded by more than 20% (#1576)
+
+* bcftools +trio-dnm:
+
+    - new `--with-pAD` option to allow processing of VCFs without FORMAT/QS.
+      The existing `--ppl` option was changed to the analogous `--with-pPL`
+
+* bcftools view:
+
+    - the functionality of the option --compression-level lost in 1.12
+      has been restored
+
+
 ## Release 1.13 (7th July 2021)
 
 

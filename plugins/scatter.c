@@ -49,7 +49,7 @@ typedef struct
     void *hash;
     regidx_t *reg_idx;
     regitr_t *reg_itr;
-    int argc, region_is_file, target_is_file, nsites, chunk_cnt, rec_cnt, scatter_is_file, output_type, n_threads;
+    int argc, region_is_file, target_is_file, nsites, chunk_cnt, rec_cnt, scatter_is_file, output_type, n_threads, clevel;
     char **argv, *region, *target, *scatter, *fname, *prefix, *extra, *output_dir;
     bcf_srs_t *sr;
     kstring_t str;
@@ -74,23 +74,23 @@ static const char *usage_text(void)
         "\n"
         "Usage: bcftools +scatter [Options]\n"
         "Plugin options:\n"
-        "   -e, --exclude <expr>          exclude sites for which the expression is true\n"
-        "   -i, --include <expr>          select sites for which the expression is true\n"
-        "       --no-version              do not append version and command line to the header\n"
-        "   -o, --output DIR              write output to the directory DIR\n"
-        "   -O, --output-type b|u|z|v     b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]\n"
-        "       --threads <int>           use multithreading with <int> worker threads [0]\n"
-        "   -r, --regions <region>        restrict to comma-separated list of regions\n"
-        "   -R, --regions-file <file>     restrict to regions listed in a file\n"
-        "   -t, --targets [^]<region>     similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n"
-        "   -T, --targets-file [^]<file>  similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n"
-        "   -n, --nsites-per-chunk <int>  keep N sites for each chunk\n"
-        "   -s, --scatter <region>        comma-separated list of regions defining variant windows for each output VCF\n"
-        "   -S, --scatter-file <file>     regions listed in a file with an optional second column used to name each output VCF.\n"
-        "                                     Variants from multiple regions can be assigned to the same output VCF.\n"
-        "   -x, --extra <string>          output records not overlapping listed regions in separate file\n"
-        "   -p, --prefix <string>         prepend string to output VCF names\n"
-        "       --hts-opts <list>         low-level options to pass to HTSlib, e.g. block_size=32768\n"
+        "   -e, --exclude EXPR              Exclude sites for which the expression is true\n"
+        "   -i, --include EXPR              Select sites for which the expression is true\n"
+        "       --no-version                Do not append version and command line to the header\n"
+        "   -o, --output DIR                Write output to the directory DIR\n"
+        "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n"
+        "       --threads INT               Use multithreading with INT worker threads [0]\n"
+        "   -r, --regions REGION            Restrict to comma-separated list of regions\n"
+        "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "   -t, --targets [^]REGION         Similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n"
+        "   -T, --targets-file [^]FILE      Similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n"
+        "   -n, --nsites-per-chunk INT      Keep N sites for each chunk\n"
+        "   -s, --scatter REGION            Comma-separated list of regions defining variant windows for each output VCF\n"
+        "   -S, --scatter-file FILE         Regions listed in a file with an optional second column used to name each output VCF.\n"
+        "                                        Variants from multiple regions can be assigned to the same output VCF.\n"
+        "   -x, --extra STRING              Output records not overlapping listed regions in separate file\n"
+        "   -p, --prefix STRING             Prepend string to output VCF names\n"
+        "       --hts-opts LIST             Low-level options to pass to HTSlib, e.g. block_size=32768\n"
         "\n"
         "Examples:\n"
         "   # Scatter a VCF file by shards with 10000 variants each\n"
@@ -175,7 +175,10 @@ static void open_set(subset_t *set, args_t *args)
     if ( args->output_type & FT_BCF ) kputs(".bcf", &args->str);
     else if ( args->output_type & FT_GZ ) kputs(".vcf.gz", &args->str);
     else kputs(".vcf", &args->str);
-    set->fh = hts_open(args->str.s, hts_bcf_wmode2(args->output_type,args->str.s));
+
+    char wmode[8];
+    set_wmode(wmode,args->output_type,args->str.s,args->clevel);
+    set->fh = hts_open(args->str.s, wmode);
     if ( set->fh == NULL ) error("[%s] Error: cannot write to \"%s\": %s\n", __func__, args->str.s, strerror(errno));
     if ( args->n_threads > 0)
         hts_set_opt(set->fh, HTS_OPT_THREAD_POOL, args->sr->p);
@@ -301,6 +304,7 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->output_type  = FT_VCF;
     args->record_cmd_line = 1;
+    args->clevel = -1;
     static struct option loptions[] =
     {
         {"exclude",required_argument,NULL,'e'},
@@ -341,7 +345,16 @@ int run(int argc, char **argv)
                           case 'u': args->output_type = FT_BCF; break;
                           case 'z': args->output_type = FT_VCF_GZ; break;
                           case 'v': args->output_type = FT_VCF; break;
-                          default: error("The output type \"%s\" not recognised\n", optarg);
+                          default:
+                          {
+                              args->clevel = strtol(optarg,&tmp,10);
+                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                          }
+                      }
+                      if ( optarg[1] )
+                      {
+                          args->clevel = strtol(optarg+1,&tmp,10);
+                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
                       }
                       break;
             case  2 : args->n_threads = strtol(optarg, 0, 0); break;
