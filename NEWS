@@ -1,5 +1,12 @@
 ## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools +trio-dnm2
+
+    - The --use-NAIVE mode now also adds the de novo allele in FORMAT/VA
+
+
 ## Release 1.14 (22nd October 2021)
 
 

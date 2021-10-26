@@ -953,12 +953,13 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
 #endif
     return log2phred(subtract_log(0,max-sum));
 }
-static int process_trio_naive(args_t *args, priors_t *priors, int nals, int32_t gts[3])
+static int process_trio_naive(args_t *args, priors_t *priors, int nals, int32_t gts[3], int *denovo_allele)
 {
     int fi = seq3[gts[iFATHER]];
     int mi = seq3[gts[iMOTHER]];
     int ci = seq3[gts[iCHILD]];
     assert( fi!=-1 && mi!=-1 && ci!=-1 );
+    *denovo_allele = priors->denovo_allele[fi][mi][ci];
     return priors->denovo[fi][mi][ci];
 }
 static int test_filters(args_t *args, bcf1_t *rec)
@@ -1219,6 +1220,7 @@ static void process_record_naive(args_t *args, bcf1_t *rec)
 
     int i, write_dnm = 0;
     for (i=0; i<nsmpl; i++) args->dnm_qual_int[i] = bcf_int32_missing;
+    for (i=0; i<nsmpl; i++) args->dnm_allele[i] = bcf_int32_missing;
     for (i=0; i<args->ntrio; i++)
     {
         if ( args->filter && !args->trio[i].pass ) continue;
@@ -1232,8 +1234,10 @@ static void process_record_naive(args_t *args, bcf1_t *rec)
         else if ( args->trio[i].is_male ) priors = &args->priors_X;
         else priors = &args->priors_XX;
 
-        double is_dnm = process_trio_naive(args, priors, rec->n_allele, gts);
+        int dnm_allele;
+        double is_dnm = process_trio_naive(args, priors, rec->n_allele, gts, &dnm_allele);
         args->dnm_qual_int[ args->trio[i].idx[iCHILD] ] = is_dnm;
+        args->dnm_allele[ args->trio[i].idx[iCHILD] ] = dnm_allele;
         if ( is_dnm ) write_dnm = 1;
     }
     if ( write_dnm )
@@ -1241,8 +1245,12 @@ static void process_record_naive(args_t *args, bcf1_t *rec)
         int ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_score_tag,args->dnm_qual_int,nsmpl);
         if ( ret )
             error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_score_tag, bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_allele_tag,args->dnm_allele,nsmpl);
+        if ( ret )
+            error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_allele_tag,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
-    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 )
+        error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
 }
 static void process_record(args_t *args, bcf1_t *rec)
 {
