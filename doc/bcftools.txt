@@ -1901,7 +1901,7 @@ those scenarios.
 *-Q, --min-BQ* 'INT'::
     Minimum base quality for a base to be considered [13]
 
-*    --max-BQ* 'INT'::
+*--max-BQ* 'INT'::
     Caps the base quality to a maximum value [60].  This can be
     particularly useful on technologies that produce overly optimistic
     high qualities, leading to too many false positives or incorrect
@@ -1920,10 +1920,10 @@ those scenarios.
     Ignore RG tags. Treat all reads in one alignment file as one sample.
 
 *--rf, --incl-flags* 'STR'|'INT'::
-    Required flags: skip reads with mask bits unset  [null]
+    Required flags: skip reads with none of the mask bits set  [null]
 
 *--ff, --excl-flags* 'STR'|'INT'::
-    Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
+    Filter flags: skip reads with any of the mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
 
 *-s, --samples* [&#94;]'LIST'::
     list of sample names. See *<<common_options,Common Options>>*

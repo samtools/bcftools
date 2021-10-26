@@ -1122,9 +1122,9 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "  -r, --regions REG[,...] Comma separated list of regions in which pileup is generated\n"
         "  -R, --regions-file FILE Restrict to regions listed in a file\n"
         "      --ignore-RG         Ignore RG tags (one BAM = one sample)\n"
-        "  --rf, --incl-flags STR|INT  Required flags: skip reads with mask bits unset [%s]\n", tmp_require);
+        "  --rf, --incl-flags STR|INT  Required flags: skip reads with none of the bits set [%s]\n", tmp_require);
     fprintf(fp,
-        "  --ff, --excl-flags STR|INT  Filter flags: skip reads with mask bits set\n"
+        "  --ff, --excl-flags STR|INT  Filter flags: skip reads with any of the bits set\n"
         "                                            [%s]\n", tmp_filter);
     fprintf(fp,
         "  -s, --samples LIST      Comma separated list of samples to include\n"
