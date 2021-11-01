@@ -205,6 +205,7 @@ test_vcf_query($opts,in=>'query.filter.8',out=>'query.69.out',args=>q[-f'%POS\\t
 test_vcf_query($opts,in=>'query.filter.8',out=>'query.70.out',args=>q[-f'%POS\\t%REF\\t%ALT\\t%ILEN\\n' -i'ILEN==1']);
 test_vcf_query($opts,in=>'query.filter.9',out=>'query.71.out',args=>q[-f'[%POS  %SAMPLE  %AD\\n]' -i'FMT/AD[:0] < FMT/AD[:1]']);
 test_vcf_query($opts,in=>'query.filter.9',out=>'query.72.out',args=>q[-f'[%POS  %SAMPLE  %AD\\n]' -i'FMT/AD[:0] > FMT/AD[:1]']);
+test_vcf_query($opts,in=>'query.filter.13',out=>'query.84.out',args=>q[-f'[ %AD\\n]' -i'AD[:1] / sum(AD[*]) > 0.5']);
 test_vcf_query($opts,in=>'query.filter.10',out=>'query.73.out',args=>q[-f'%POS  %NUM_TAG\\n' -i'COUNT(INFO/NUM_TAG)=2']);
 test_vcf_query($opts,in=>'query.filter.10',out=>'query.74.out',args=>q[-f'%POS  %STR_TAG\\n' -i'COUNT(INFO/STR_TAG)=2']);
 test_vcf_query($opts,in=>'query',out=>'query.75.out',args=>q[-f '%CHROM:%POS\\t%N_PASS(GT="alt" & GQ>110)\\t[\\t%GT]\\t[\\t%GQ]\n']);

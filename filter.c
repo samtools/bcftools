@@ -1902,7 +1902,11 @@ static int func_phred(filter_t *flt, bcf1_t *line, token_t *rtok, token_t **stac
 }
 inline static void tok_init_values(token_t *atok, token_t *btok, token_t *rtok)
 {
-    token_t *tok = atok->nvalues > btok->nvalues ? atok : btok;
+    token_t *tok;
+    if ( (atok->nsamples || btok->nsamples) && (!atok->nsamples || !btok->nsamples) )
+        tok = atok->nsamples ? atok : btok;
+    else
+        tok = atok->nvalues > btok->nvalues ? atok : btok;
     rtok->nvalues = tok->nvalues;
     rtok->nval1   = tok->nval1;
     hts_expand(double, rtok->nvalues, rtok->mvalues, rtok->values);
