@@ -449,6 +449,7 @@ test_vcf_annotate($opts,in=>'annotate.multi',tab=>'annotate.multi',out=>'annotat
 test_vcf_annotate($opts,in=>'annotate.missing-append',tab=>'annotate.missing-append',out=>'annotate.missing-append.1.out',args=>'-c CHROM,POS,REF,ALT,STR,INT,FLT -l STR:append-missing,INT:append-missing,FLT:append-missing');
 test_vcf_annotate($opts,in=>'annotate9',tab=>'annots9',out=>'annotate9.out',args=>'-c CHROM,POS,REF,ALT,+ID');
 test_vcf_annotate($opts,in=>'annotate21',out=>'annotate29.out',args=>'--rename-annots {PATH}/annotate21.txt');
+test_vcf_annotate($opts,in=>'annotate21',out=>'annotate29.out',args=>'-c XX:=FORMAT/X-X,YY:=FORMAT/Y-Y,AA:=FORMAT/A-A,AA:=INFO/A-A,BB:=INFO/B-B,XX:=INFO/X-X,YY:=INFO/Y-Y,fltA:=FILTER/flt-A,fltB:=FILTER/flt-B,fltX:=FILTER/flt-X,fltY:=FILTER/flt-Y');
 test_vcf_annotate($opts,in=>'annotate22',vcf=>'annotate22',out=>'annotate30.out',args=>'-c FMT/XX,INFO/XX -x FMT/XX,INFO/XX');
 test_vcf_annotate($opts,in=>'annotate23',tab=>'annotate23',out=>'annotate31.out',args=>'-c CHROM,POS,~ID,REF,ALT,INFO/END');
 test_vcf_annotate($opts,in=>'annotate24.dst',vcf=>'annotate24.src',out=>'annotate24.1.out',args=>'-c XX');

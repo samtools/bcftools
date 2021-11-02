@@ -2,6 +2,11 @@
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - In addition to `--rename-annots`, which requires a file with name mappings,
+      it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
+
 * bcftools +trio-dnm2
 
     - The --use-NAIVE mode now also adds the de novo allele in FORMAT/VA
