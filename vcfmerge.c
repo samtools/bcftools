@@ -1267,7 +1267,12 @@ void merge_info(args_t *args, bcf1_t *out)
             bcf_info_t *inf = &line->d.info[j];
 
             const char *key = hdr->id[BCF_DT_ID][inf->key].key;
-            if ( !args->keep_AC_AN && (!strcmp("AC",key) || !strcmp("AN",key)) ) continue;  // AC and AN are done in merge_format() after genotypes are done
+            // AC and AN are done in merge_format() after genotypes are done
+            if (!args->keep_AC_AN &&
+                (key[0] == 'A'
+                  && (key[1] == 'C' || key[1] == 'N')
+                  && key[2] == 0))
+                continue;
 
             int id = bcf_hdr_id2int(out_hdr, BCF_DT_ID, key);
             if ( id==-1 ) error("Error: The INFO field is not defined in the header: %s\n", key);
