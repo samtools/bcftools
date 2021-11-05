@@ -814,7 +814,7 @@ void maux_expand1(buffer_t *buf, int size)
         buf->mrec = size;
     }
 }
-void maux_reset(maux_t *ma)
+void maux_reset(maux_t *ma, int *rid_tab)
 {
     int i,j;
     for (i=0; i<ma->n; i++) maux_expand1(&ma->buf[i],ma->files->readers[i].nbuffer+1);
@@ -846,7 +846,10 @@ void maux_reset(maux_t *ma)
     for (i=0; i<ma->n; i++)
     {
         bcf_hdr_t *hdr = bcf_sr_get_header(ma->files,i);
-        ma->buf[i].rid = bcf_hdr_name2id(hdr,chr);
+        if (new_chr)
+            rid_tab[i] = bcf_hdr_name2id(hdr,chr);
+
+        ma->buf[i].rid = rid_tab[i];
         ma->buf[i].beg = bcf_sr_has_line(ma->files,i) ? 0 : 1;
         for (j=ma->buf[i].beg; j<=ma->files->readers[i].nbuffer; j++)
         {
@@ -3065,13 +3068,17 @@ void merge_vcf(args_t *args)
     args->out_line = bcf_init1();
     args->tmph = kh_init(strdict);
 
+    int *rid_tab = calloc(args->maux->n, sizeof(*rid_tab));
+    if (!rid_tab)
+        return; // NB: no ability to return error code.
+
     while ( bcf_sr_next_line(args->files) )
     {
         // output cached gVCF blocks which end before the new record
         if ( args->do_gvcf )
             gvcf_flush(args,0);
 
-        maux_reset(args->maux);
+        maux_reset(args->maux, rid_tab);
 
         // determine which of the new records are gvcf blocks
         if ( args->do_gvcf )
@@ -3085,6 +3092,7 @@ void merge_vcf(args_t *args)
         clean_buffer(args);
         // debug_state(args);
     }
+    free(rid_tab);
     if ( args->do_gvcf )
         gvcf_flush(args,1);
 
