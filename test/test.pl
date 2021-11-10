@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2021 Genome Research Ltd.
+#   Copyright (C) 2012-2022 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -721,6 +721,10 @@ test_mpileup($opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.2.out',ref=>'inde
 test_mpileup($opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.3.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75 --ambig-reads incAD]);
 test_mpileup($opts,in=>[qw(indel-AD.2)],out=>'mpileup/indel-AD.4.out',ref=>'indel-AD.2.fa',args=>q[-a AD -r 11:75 --ambig-reads incAD0]);
 test_mpileup($opts,in=>[qw(mpileup-SCR)],out=>'mpileup/mpileup-SCR.out',ref=>'mpileup-SCR.fa',args=>q[-a INFO/SCR,FMT/SCR]);
+test_mpileup($opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.1.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-all-set PAIRED,PROPER_PAIR,MREVERSE]);
+test_mpileup($opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.1.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-any-set READ1]);
+test_mpileup($opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.2.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-all-unset READ1]);
+test_mpileup($opts,in=>[qw(mpileup-filter)],out=>'mpileup/mpileup-filter.2.out',ref=>'mpileup-SCR.fa',args=>q[-t 1:100 --skip-any-unset READ1]);
 test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.gff3');
 test_csq($opts,in=>'csq',out=>'csq.1.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.chr.gff3');
 test_csq($opts,in=>'csq.2',out=>'csq.2.out',cmd=>'-f {PATH}/csq.fa -g {PATH}/csq.2.gff',tbcsq=>1);
@@ -1649,10 +1653,16 @@ sub test_mpileup
     my $ref = exists($args{ref}) ? $args{ref} : "mpileup.ref.fa";
 
     $args{args} =~ s/{PATH}/$$opts{path}/g;
-    for my $fmt ('bam','cram')
+    for my $fmt ('sam','bam','cram')
     {
+        if ( $fmt eq 'sam' && ($args{args}=~/-r/ or $args{args}=~/-R/) ) { next; }
         my @files = ();
-        for my $file (@{$args{in}}) { push @files, "$$opts{path}/mpileup/$file.$fmt"; }
+        for my $file (@{$args{in}})
+        {
+            if ( !-e "$$opts{path}/mpileup/$file.$fmt" ) { next; }
+            push @files, "$$opts{path}/mpileup/$file.$fmt";
+        }
+        if ( !@files ) { next; }
         my $files = join(' ',@files);
         my $grep_hdr = "grep -v ^##bcftools | grep -v ^##reference";
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/$ref $files | $grep_hdr");

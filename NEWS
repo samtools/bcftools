@@ -7,6 +7,19 @@ Changes affecting specific commands:
     - In addition to `--rename-annots`, which requires a file with name mappings,
       it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
 
+* bcftools mpileup
+
+    - More flexible read filtering using the options
+        --ls, --skip-all-set    ..  skip reads with all of the FLAG bits set
+        --ns, --skip-any-set    ..  skip reads with any of the FLAG bits set
+        --lu, --skip-all-unset  ..  skip reads with all of the FLAG bits unset
+        --nu, --skip-any-unset  ..  skip reads with any of the FLAG bits unset
+
+      The existing synonymous options will continue to function but their use
+      is discouraged
+        --rf, --incl-flags STR|INT  Required flags: skip reads with mask bits unset
+        --ff, --excl-flags STR|INT  Filter flags: skip reads with mask bits set
+
 * bcftools +setGT
 
     - Fix a bug in `-t q -e EXPR` logic applied on FORMAT fields, sites with all
