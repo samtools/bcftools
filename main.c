@@ -55,6 +55,7 @@ int main_polysomy(int argc, char *argv[]);
 #endif
 #ifdef ENABLE_BCF_PLUGINS
 int main_plugin(int argc, char *argv[]);
+int count_plugins(void);
 #endif
 int main_consensus(int argc, char *argv[]);
 int main_csq(int argc, char *argv[]);
@@ -225,6 +226,14 @@ static void usage(FILE *fp)
         if ( cmds[i].func && cmds[i].help[0]!='-' ) fprintf(fp, "    %-12s %s\n", cmds[i].alias, cmds[i].help);
         i++;
     }
+#if ENABLE_BCF_PLUGINS
+    fprintf(fp,"\n -- Plugins (collection of programs for calling, file manipulation & analysis)\n");
+    int nplugins = count_plugins();
+    if ( nplugins )
+        fprintf(fp,"    %d plugins available, run \"bcftools plugin -lv\" to see a complete list\n", nplugins);
+    else
+        fprintf(fp,"    0 plugins available, run \"bcftools plugin -l\" for help\n");
+#endif
     fprintf(fp,"\n");
     fprintf(fp,
             " Most commands accept VCF, bgzipped VCF, and BCF with the file type detected\n"

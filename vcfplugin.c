@@ -455,11 +455,22 @@ static int cmp_plugin_name(const void *p1, const void *p2)
     return strcmp(a->name,b->name);
 }
 
+// If args=NULL then returns the number of plugins available. Otherwise prints the
+// plugins on stdout and returns 0 on success.
 static int list_plugins(args_t *args)
 {
     plugin_t *plugins = NULL;
     int nplugins = 0, mplugins = 0;
 
+    int count_only = 0;
+    args_t _args;
+    if ( !args )
+    {
+        memset(&_args,0,sizeof(_args));
+        args = &_args;
+        args->nplugin_paths = -1;
+        count_only = 1;
+    }
     init_plugin_paths(args);
 
     kstring_t str = {0,0,0};
@@ -490,6 +501,11 @@ static int list_plugins(args_t *args)
         }
         closedir(dp);
     }
+    if ( count_only )
+    {
+        free(str.s);
+        return nplugins;
+    }
     if ( nplugins )
     {
         qsort(plugins, nplugins, sizeof(plugins[0]), cmp_plugin_name);
@@ -507,6 +523,10 @@ static int list_plugins(args_t *args)
         print_plugin_usage_hint(NULL);
     free(str.s);
     return nplugins ? 0 : 1;
+}
+int count_plugins(void)
+{
+    return list_plugins(NULL);
 }
 
 static void init_data(args_t *args)
