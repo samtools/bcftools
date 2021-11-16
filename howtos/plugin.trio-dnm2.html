@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Asciidoctor 2.0.15.dev">
+<title>Plugin trio-dnm2</title>
+<link rel="stylesheet" href="./index.css">
+</head>
+<body class="article">
+<div id="header">
+</div>
+<div id="content">
+<div class="sidebarblock navig">
+<div class="content">
+<div class="ulist">
+<div class="title">General</div>
+<ul>
+<li>
+<p><a href="index.html">Main page</a></p>
+</li>
+<li>
+<p><a href="../bcftools.html">Manual page</a></p>
+</li>
+<li>
+<p><a href="install.html">Installation</a></p>
+</li>
+<li>
+<p><a href="publications.html">Publications</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Calling</div>
+<ul>
+<li>
+<p><a href="cnv-calling.html">CNV calling</a></p>
+</li>
+<li>
+<p><a href="csq-calling.html">Consequence calling</a></p>
+</li>
+<li>
+<p><a href="consensus-sequence.html">Consensus calling</a></p>
+</li>
+<li>
+<p><a href="roh-calling.html">ROH calling</a></p>
+</li>
+<li>
+<p><a href="variant-calling.html">Variant calling and filtering</a></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Tips and Tricks</div>
+<ul>
+<li>
+<p><a href="convert.html">Converting formats</a></p>
+</li>
+<li>
+<p><a href="annotate.html">Adding annotation</a></p>
+</li>
+<li>
+<p><a href="query.html">Extracting information</a></p>
+</li>
+<li>
+<p><a href="filtering.html">Filtering expressions</a></p>
+</li>
+<li>
+<p><a href="plugins.html">Plugins</a></p>
+</li>
+<li>
+<p><a href="FAQ.html">FAQ</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="main">
+<div class="sect1">
+<h2 id="_plugin_trio_dnm2">Plugin trio-dnm2</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This plugin can be used to screen variants for possible de-novo mutations in trios (i.e. in samples with parental data available).</p>
+</div>
+<div class="paragraph">
+<p>The program adds the following annotations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>FORMAT/DNM: posterior probability of the variant being DNM (see <code>--dnm-tag</code> option)</p>
+</li>
+<li>
+<p>FORMAT/VA: the variant allele given as a 0-based index to REF,ALT alleles (see <code>--va</code> option)</p>
+</li>
+<li>
+<p>FORMAT/VAF: the fraction of reads supporting the de novo allele (see <code>--vaf</code> option)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>There are three calling models are available:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Naive model</dt>
+<dd>
+<p>This simply looks at sample genotypes (FORMAT/GT) and identifies sites that violate
+Mendelian inheritance, taking into account sex inheritance patterns on sex chromosomes and in pseudo-autosomal regions.
+This model is activated as</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +trio-dnm2 -P samples.ped --use-NAIVE</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">DeNovoGear model</dt>
+<dd>
+<p>The original DeNovoGear model with fixed bugs (<code>--with-pPL</code>) or with bugs left as is (<code>--use-DNG</code>)
+This model is activated as</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +trio-dnm2 -P samples.ped --with-pPL
+bcftools +trio-dnm2 -P samples.ped --use-DNG</pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Trio-DNM model</dt>
+<dd>
+<p>A new calling model which results in a cleaner callset at the cost of decreased sensitivity to parental mosaics.
+This model is executed by default</p>
+</dd>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>bcftools +trio-dnm2 -P samples.ped</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For more information and math notes see <a href="http://samtools.github.io/bcftools/trio-dnm.pdf" class="bare">http://samtools.github.io/bcftools/trio-dnm.pdf</a></p>
+</div>
+<div class="paragraph">
+<p>The list of plugin-specific options can be obtained by running
+<code>bcftools +trio-dnm2</code>, which will print the following usage page:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>About: Screen variants for possible de-novo mutations in trios
+Usage: bcftools +trio-dnm2 [OPTIONS]
+Common options:
+   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)
+   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)
+   -o, --output FILE               Output file name [stdout]
+   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]
+   -r, --regions REG               Restrict to comma-separated list of regions
+   -R, --regions-file FILE         Restrict to regions listed in a file
+       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]
+   -t, --targets REG               Similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps
+       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]
+       --no-version                Do not append version and command line to the header
+
+General options:
+   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM
+   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; "1X:" for male pattern of chrX inheritance [2X:]
+   -P, --ped FILE                  PED file with the columns: &lt;ignored&gt;,proband,father,mother,sex(1:male,2:female)
+   -X, --chrX LIST                 List of regions with chrX inheritance pattern or one of the presets: [GRCh37]
+                                      GRCh37 .. X:1-60000,chrX:1-60000,X:2699521-154931043,chrX:2699521-154931043
+                                      GRCh38 .. X:1-9999,chrX:1-9999,X:2781480-155701381,chrX:2781480-155701381
+       --dnm-tag TAG[:type]        Output tag with DNM quality score and its type [DNM:log]
+                                       log   .. log-scaled quality (-inf,0; float)
+                                       flag  .. is a DNM, implies --use-NAIVE (1; int)
+                                       phred .. phred quality (0-255; int)
+                                       prob  .. probability (0-1; float)
+       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!
+       --va TAG                    Output tag name for the variant allele [VA]
+       --vaf TAG                   Output tag name for variant allele fraction [VAF]
+
+Model options:
+       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)
+       --mrate NUM                 Mutation rate [1e-8]
+       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]
+       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]
+       --use-DNG                   The original DeNovoGear model, implies --dng-priors
+       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs
+       --with-pAD                  Do not use FMT/QS but parental FMT/AD
+       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)
+
+Example:
+   # Annotate VCF with FORMAT/DNM, run for a single trio
+   bcftools +trio-dnm2 -p proband,father,mother file.bcf
+
+   # Same as above, but read the trio(s) from a PED file
+   bcftools +trio-dnm2 -P file.ped file.bcf
+
+   # Same as above plus extract a list of significant DNMs using the bcftools/query command
+   bcftools +trio-dnm2 -P file.ped file.bcf -Ou | bcftools query -i'DNM&gt;10' -f'[%CHROM:%POS %SAMPLE %DNM\n]'
+
+   # A complete example with a variant calling step. Note that this is one long
+   # command and should be on a single line. Also note that a filtering step is
+   # recommended, e.g. by depth and VAF (not shown here):
+   bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |
+       bcftools call -mv -Ou |
+       bcftools +trio-dnm2 -p proband,father,mother -Oz -o output.vcf.gz</pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_feedback">Feedback</h3>
+<div class="paragraph">
+<p>We welcome your feedback, please help us improve this page by 
+either opening an <a href="https://github.com/samtools/bcftools/issues">issue on github</a> or <a href="https://github.com/samtools/bcftools/tree/gh-pages/howtos">editing it directly</a> and sending
+a pull request.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

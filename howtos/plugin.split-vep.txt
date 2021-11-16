@@ -26,7 +26,8 @@ bcftools +split-vep test/split-vep.vcf -l | head
 The default tag can be changed using the `-a, -annotation` option. For example, if the tag is named `XXX`, add
 the `-a XXX` option.
 
-Extract the `Consequence` field using a `bcftools query` like output:
+Extract the `Consequence` field using a `bcftools query` like output. Note that lines without a consequence
+are dropped
 ----
 bcftools +split-vep test/split-vep.vcf -f '%CHROM:%POS %Consequence\n'
 

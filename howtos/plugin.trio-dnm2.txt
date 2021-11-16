@@ -1,0 +1,107 @@
+include::header.inc[]
+
+
+Plugin trio-dnm2
+----------------
+
+This plugin can be used to screen variants for possible de-novo mutations in trios (i.e. in samples with parental data available).
+
+The program adds the following annotations: 
+
+* FORMAT/DNM: posterior probability of the variant being DNM (see `--dnm-tag` option)
+* FORMAT/VA: the variant allele given as a 0-based index to REF,ALT alleles (see `--va` option)
+* FORMAT/VAF: the fraction of reads supporting the de novo allele (see `--vaf` option)
+
+There are three calling models are available:
+
+Naive model::  This simply looks at sample genotypes (FORMAT/GT) and identifies sites that violate
+Mendelian inheritance, taking into account sex inheritance patterns on sex chromosomes and in pseudo-autosomal regions.
+This model is activated as
+----
+bcftools +trio-dnm2 -P samples.ped --use-NAIVE
+----
+
+
+DeNovoGear model:: The original DeNovoGear model with fixed bugs (`--with-pPL`) or with bugs left as is (`--use-DNG`)
+This model is activated as
+----
+bcftools +trio-dnm2 -P samples.ped --with-pPL
+bcftools +trio-dnm2 -P samples.ped --use-DNG
+----
+
+
+Trio-DNM model:: A new calling model which results in a cleaner callset at the cost of decreased sensitivity to parental mosaics.
+This model is executed by default
+----
+bcftools +trio-dnm2 -P samples.ped
+----
+
+For more information and math notes see http://samtools.github.io/bcftools/trio-dnm.pdf
+
+
+The list of plugin-specific options can be obtained by running 
+`bcftools +trio-dnm2`, which will print the following usage page:
+----
+About: Screen variants for possible de-novo mutations in trios
+Usage: bcftools +trio-dnm2 [OPTIONS]
+Common options:
+   -e, --exclude EXPR              Exclude trios for which the expression is true (one matching sample invalidates a trio)
+   -i, --include EXPR              Include trios for which the expression is true (one failing samples invalidates a trio)
+   -o, --output FILE               Output file name [stdout]
+   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]
+   -r, --regions REG               Restrict to comma-separated list of regions
+   -R, --regions-file FILE         Restrict to regions listed in a file
+       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]
+   -t, --targets REG               Similar to -r but streams rather than index-jumps
+   -T, --targets-file FILE         Similar to -R but streams rather than index-jumps
+       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]
+       --no-version                Do not append version and command line to the header
+
+General options:
+   -m, --min-score NUM             Do not add FMT/DNM annotation if the score is smaller than NUM
+   -p, --pfm [1X:|2X:]P,F,M        Sample names of child (the proband), father, mother; "1X:" for male pattern of chrX inheritance [2X:]
+   -P, --ped FILE                  PED file with the columns: <ignored>,proband,father,mother,sex(1:male,2:female)
+   -X, --chrX LIST                 List of regions with chrX inheritance pattern or one of the presets: [GRCh37]
+                                      GRCh37 .. X:1-60000,chrX:1-60000,X:2699521-154931043,chrX:2699521-154931043
+                                      GRCh38 .. X:1-9999,chrX:1-9999,X:2781480-155701381,chrX:2781480-155701381
+       --dnm-tag TAG[:type]        Output tag with DNM quality score and its type [DNM:log]
+                                       log   .. log-scaled quality (-inf,0; float)
+                                       flag  .. is a DNM, implies --use-NAIVE (1; int)
+                                       phred .. phred quality (0-255; int)
+                                       prob  .. probability (0-1; float)
+       --force-AD                  Calculate VAF even if the number of FMT/AD fields is incorrect. Use at your own risk!
+       --va TAG                    Output tag name for the variant allele [VA]
+       --vaf TAG                   Output tag name for variant allele fraction [VAF]
+
+Model options:
+       --dng-priors                Use the original DeNovoGear priors (including bugs in prior assignment, but with chrX bugs fixed)
+       --mrate NUM                 Mutation rate [1e-8]
+       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]
+       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]
+       --use-DNG                   The original DeNovoGear model, implies --dng-priors
+       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs
+       --with-pAD                  Do not use FMT/QS but parental FMT/AD
+       --with-pPL                  Do not use FMT/QS but parental FMT/PL. Equals to DNG with bugs fixed (more FPs, fewer FNs)
+
+Example:
+   # Annotate VCF with FORMAT/DNM, run for a single trio
+   bcftools +trio-dnm2 -p proband,father,mother file.bcf
+
+   # Same as above, but read the trio(s) from a PED file
+   bcftools +trio-dnm2 -P file.ped file.bcf
+
+   # Same as above plus extract a list of significant DNMs using the bcftools/query command
+   bcftools +trio-dnm2 -P file.ped file.bcf -Ou | bcftools query -i'DNM>10' -f'[%CHROM:%POS %SAMPLE %DNM\n]'
+
+   # A complete example with a variant calling step. Note that this is one long
+   # command and should be on a single line. Also note that a filtering step is
+   # recommended, e.g. by depth and VAF (not shown here):
+   bcftools mpileup -a AD,QS -f ref.fa -Ou proband.bam father.bam mother.bam |
+       bcftools call -mv -Ou |
+       bcftools +trio-dnm2 -p proband,father,mother -Oz -o output.vcf.gz
+----
+
+
+include::footer.inc[]
+
+

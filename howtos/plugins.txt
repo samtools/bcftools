@@ -86,7 +86,7 @@ link:plugin.split-vep.html[split-vep]:: extract fields from structured annotatio
 
 tag2tag:: Converts between similar tags, such as GL, PL and GP.
 
-trio-dnm2:: screen variants for possible de-novo mutations in trios
+link:plugin.trio-dnm2.html[trio-dnm2]:: screen variants for possible de-novo mutations in trios
 
 trio-stats:: Calculate transmission rate in trio children. The usage and format is similar to ``indel-stats`` and ``smpl-stats``. 
 
