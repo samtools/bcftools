@@ -3070,7 +3070,8 @@ void merge_vcf(args_t *args)
 
     int *rid_tab = calloc(args->maux->n, sizeof(*rid_tab));
     if (!rid_tab)
-        return; // NB: no ability to return error code.
+        error("[%s:%d] Could not allocate %ld bytes\n",
+              __FILE__, __LINE__, args->maux->n*sizeof(*rid_tab));
 
     while ( bcf_sr_next_line(args->files) )
     {
