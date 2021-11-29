@@ -991,20 +991,39 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 ==== GEN/SAMPLE conversion:
 *-G, --gensample2vcf* 'prefix' or 'gen-file','sample-file'::
-    convert IMPUTE2 output to VCF. The second column must be of the form
-    "CHROM:POS_REF_ALT" to detect possible strand swaps; IMPUTE2 leaves the
-    first one empty ("--") when sites from reference panel are filled in. See
-    also *-g* below.
+    convert IMPUTE2 output to VCF. One of the ID columns ("SNP ID" or "rsID" in
+    https://www.cog-genomics.org/plink/2.0/formats#gen) must be of the form 
+    "CHROM:POS_REF_ALT" to detect possible strand swaps. 
+    {nbsp} +
+    When the *--vcf-ids* option is given, the other column (autodetected) is used
+    to fill the ID column of the VCF.
+    {nbsp} +
+    See also *-g* and *--3N6* options.
 
 *-g, --gensample* 'prefix' or 'gen-file','sample-file'::
     convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
     The columns of .gen file format are ID1,ID2,POS,A,B followed by three
     genotype probabilities P(AA), P(AB), P(BB) for each sample.  In order to
     prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
-    For example:
+    When the *--vcf-ids* option is given, the second column is set to match the ID
+    column of the VCF.
+    {nbsp} +
+    See also *-G* and *--3N6* options.
+    {nbsp} +
+    The file .gen and .sample file format are:
 ----
-  .gen
-  ----
+  .gen (with --3N6 --vcf-ids)
+  ---------------------------
+  chr1 1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  chr1 1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (with --vcf-ids)
+  ---------------------------
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (the default)
+  ------------------------------
   1:111485207_G_A 1:111485207_G_A 111485207 G A 0 1 0 0 1 0
   1:111494194_C_T 1:111494194_C_T 111494194 C T 0 1 0 0 0 1
 
@@ -1016,11 +1035,12 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
   sample2 sample2 0
 ----
 
+*--3N6*::
+    Expect/Create files in the 3*N+6 column format. This is the new .gen file format with the first
+    column containing the chromosome name, see https://www.cog-genomics.org/plink/2.0/formats#gen
+
 *--tag* 'STRING'::
     tag to take values for .gen file: GT,PL,GL,GP
-
-*--chrom*::
-    output chromosome in the first column instead of CHROM:POS_REF_ALT
 
 *--sex* 'FILE'::
     output sex column in the sample file. The FILE format is
@@ -1049,15 +1069,19 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *--hapsample2vcf* 'prefix' or 'hap-file','sample-file'::
     convert from hap/sample format to VCF. The columns of .hap file are
     similar to .gen file above, but there are only two haplotype columns per
-    sample. Note that the first column of the .hap file is expected to be in
-    the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
-    defining the INFO/END tag when ALT is a symbolic allele, for example:
+    sample.  Note that the first or the second column of the .hap file is expected to be in
+    the form "CHR:POS_REF_ALT[_END]", with the _END being optional for
+    defining the INFO/END tag when ALT is a symbolic allele. For example:
 ----
-  .hap
-  ----
+  .hap (with --vcf-ids)
+  ---------------------
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
-  1:111494194_C_T rsID2 111494194 C T 0 1 0 0
   1:111495231_A_<DEL>_111495784 rsID3 111495231 A <DEL> 0 0 1 0
+
+  .hap (the default)
+  ------------------
+  1 1:111485207_G_A 111485207 G A 0 1 0 0
+  1 1:111495231_A_<DEL>_111495784 111495231 A <DEL> 0 0 1 0
 ----
 
 *--hapsample* 'prefix' or 'hap-file','sample-file'::
@@ -1080,18 +1104,22 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 ----
 
 *--vcf-ids*::
-    output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
+    the second column of the .hap file holds the VCF ids, the first
+    column is of the form "CHR:POS_REF_ALT[_END]". Without the option,
+    the format follows https://www.cog-genomics.org/plink/2.0/formats#haps
+    with ids (the second column) of the form "CHR:POS_REF_ALT[_END]"
+
 
 ==== HAP/LEGEND/SAMPLE conversion:
 *-H, --haplegendsample2vcf* 'prefix' or 'hap-file','legend-file','sample-file'::
-    convert from hap/legend/sample format used by IMPUTE2 to VCF, see
-    also *-h, --hapslegendsample* below.
+    convert from hap/legend/sample format used by IMPUTE2 to VCF.
+    See also *-h, --hapslegendsample* below.
 
 *-h, --haplegendsample* 'prefix' or 'hap-file','legend-file','sample-file'::
     convert from VCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT.
     The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
-    swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
-    file is quite basic at the moment with columns for population, group and
+    swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
+    The .sample file is quite basic at the moment with columns for population, group and
     sex expected to be edited by the user. For example:
 ----
   .hap
@@ -1126,7 +1154,8 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 ----
 
 *--vcf-ids*::
-    output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
+    output VCF IDs instead of "CHROM:POS_REF_ALT". Note that this option can
+    be used with *--haplegendsample* but not with *--haplegendsample2vcf*.
 
 ==== TSV conversion:
 *--tsv2vcf* 'file'::

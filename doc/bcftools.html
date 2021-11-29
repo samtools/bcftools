@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16.dev">
+<meta name="generator" content="Asciidoctor 2.0.15.dev">
 <title>bcftools(1)</title>
 <link rel="stylesheet" href="./docbook-xsl.css">
 </head>
@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-10-22</strong> and refers to bcftools git version <strong>1.14</strong>.</p>
+<p>This manual page was last updated <strong>2021-11-29 17:07 GMT</strong> and refers to bcftools git version <strong>1.14-17-g34bcdbb+</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1328,10 +1328,14 @@ format details.</p>
 <dl>
 <dt class="hdlist1"><strong>-G, --gensample2vcf</strong> <em>prefix</em> or <em>gen-file</em>,<em>sample-file</em></dt>
 <dd>
-<p>convert IMPUTE2 output to VCF. The second column must be of the form
-"CHROM:POS_REF_ALT" to detect possible strand swaps; IMPUTE2 leaves the
-first one empty ("--") when sites from reference panel are filled in. See
-also <strong>-g</strong> below.</p>
+<p>convert IMPUTE2 output to VCF. One of the ID columns ("SNP ID" or "rsID" in
+<a href="https://www.cog-genomics.org/plink/2.0/formats#gen" class="bare">https://www.cog-genomics.org/plink/2.0/formats#gen</a>) must be of the form
+"CHROM:POS_REF_ALT" to detect possible strand swaps.
+&#160;<br>
+When the <strong>--vcf-ids</strong> option is given, the other column (autodetected) is used
+to fill the ID column of the VCF.
+&#160;<br>
+See also <strong>-g</strong> and <strong>--3N6</strong> options.</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --gensample</strong> <em>prefix</em> or <em>gen-file</em>,<em>sample-file</em></dt>
 <dd>
@@ -1339,14 +1343,29 @@ also <strong>-g</strong> below.</p>
 The columns of .gen file format are ID1,ID2,POS,A,B followed by three
 genotype probabilities P(AA), P(AB), P(BB) for each sample.  In order to
 prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
-For example:</p>
+When the <strong>--vcf-ids</strong> option is given, the second column is set to match the ID
+column of the VCF.
+&#160;<br>
+See also <strong>-G</strong> and <strong>--3N6</strong> options.
+&#160;<br>
+The file .gen and .sample file format are:</p>
 </dd>
 </dl>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>  .gen
-  ----
+<pre>  .gen (with --3N6 --vcf-ids)
+  ---------------------------
+  chr1 1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  chr1 1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (with --vcf-ids)
+  ---------------------------
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (the default)
+  ------------------------------
   1:111485207_G_A 1:111485207_G_A 111485207 G A 0 1 0 0 1 0
   1:111494194_C_T 1:111494194_C_T 111494194 C T 0 1 0 0 0 1
 
@@ -1360,13 +1379,14 @@ For example:</p>
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>--3N6</strong></dt>
+<dd>
+<p>Expect/Create files in the 3*N+6 column format. This is the new .gen file format with the first
+column containing the chromosome name, see <a href="https://www.cog-genomics.org/plink/2.0/formats#gen" class="bare">https://www.cog-genomics.org/plink/2.0/formats#gen</a></p>
+</dd>
 <dt class="hdlist1"><strong>--tag</strong> <em>STRING</em></dt>
 <dd>
 <p>tag to take values for .gen file: GT,PL,GL,GP</p>
-</dd>
-<dt class="hdlist1"><strong>--chrom</strong></dt>
-<dd>
-<p>output chromosome in the first column instead of CHROM:POS_REF_ALT</p>
 </dd>
 <dt class="hdlist1"><strong>--sex</strong> <em>FILE</em></dt>
 <dd>
@@ -1416,19 +1436,23 @@ output. In order to drop sites, stream first through <strong><a href="#view">bcf
 <dd>
 <p>convert from hap/sample format to VCF. The columns of .hap file are
 similar to .gen file above, but there are only two haplotype columns per
-sample. Note that the first column of the .hap file is expected to be in
-the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
-defining the INFO/END tag when ALT is a symbolic allele, for example:</p>
+sample.  Note that the first or the second column of the .hap file is expected to be in
+the form "CHR:POS_REF_ALT[_END]", with the _END being optional for
+defining the INFO/END tag when ALT is a symbolic allele. For example:</p>
 </dd>
 </dl>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>  .hap
-  ----
+<pre>  .hap (with --vcf-ids)
+  ---------------------
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
-  1:111494194_C_T rsID2 111494194 C T 0 1 0 0
-  1:111495231_A_&lt;DEL&gt;_111495784 rsID3 111495231 A &lt;DEL&gt; 0 0 1 0</pre>
+  1:111495231_A_&lt;DEL&gt;_111495784 rsID3 111495231 A &lt;DEL&gt; 0 0 1 0
+
+  .hap (the default)
+  ------------------
+  1 1:111485207_G_A 111485207 G A 0 1 0 0
+  1 1:111495231_A_&lt;DEL&gt;_111495784 111495231 A &lt;DEL&gt; 0 0 1 0</pre>
 </div>
 </div>
 <div class="dlist">
@@ -1463,7 +1487,10 @@ genotypes correctly.</p>
 <dl>
 <dt class="hdlist1"><strong>--vcf-ids</strong></dt>
 <dd>
-<p>output VCF IDs instead of "CHROM:POS_REF_ALT" IDs</p>
+<p>the second column of the .hap file holds the VCF ids, the first
+column is of the form "CHR:POS_REF_ALT[_END]". Without the option,
+the format follows <a href="https://www.cog-genomics.org/plink/2.0/formats#haps" class="bare">https://www.cog-genomics.org/plink/2.0/formats#haps</a>
+with ids (the second column) of the form "CHR:POS_REF_ALT[_END]"</p>
 </dd>
 </dl>
 </div>
@@ -1474,15 +1501,15 @@ genotypes correctly.</p>
 <dl>
 <dt class="hdlist1"><strong>-H, --haplegendsample2vcf</strong> <em>prefix</em> or <em>hap-file</em>,<em>legend-file</em>,<em>sample-file</em></dt>
 <dd>
-<p>convert from hap/legend/sample format used by IMPUTE2 to VCF, see
-also <strong>-h, --hapslegendsample</strong> below.</p>
+<p>convert from hap/legend/sample format used by IMPUTE2 to VCF.
+See also <strong>-h, --hapslegendsample</strong> below.</p>
 </dd>
 <dt class="hdlist1"><strong>-h, --haplegendsample</strong> <em>prefix</em> or <em>hap-file</em>,<em>legend-file</em>,<em>sample-file</em></dt>
 <dd>
 <p>convert from VCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT.
 The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
-swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
-file is quite basic at the moment with columns for population, group and
+swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
+The .sample file is quite basic at the moment with columns for population, group and
 sex expected to be edited by the user. For example:</p>
 </dd>
 </dl>
@@ -1532,7 +1559,8 @@ genotypes correctly.</p>
 <dl>
 <dt class="hdlist1"><strong>--vcf-ids</strong></dt>
 <dd>
-<p>output VCF IDs instead of "CHROM:POS_REF_ALT" IDs</p>
+<p>output VCF IDs instead of "CHROM:POS_REF_ALT". Note that this option can
+be used with <strong>--haplegendsample</strong> but not with <strong>--haplegendsample2vcf</strong>.</p>
 </dd>
 </dl>
 </div>
@@ -2512,7 +2540,7 @@ is the opposite of <strong>samtools mpileup -G</strong>.</p>
 <dd>
 <p>Minimum base quality for a base to be considered [13]</p>
 </dd>
-<dt class="hdlist1">*    --max-BQ* <em>INT</em></dt>
+<dt class="hdlist1"><strong>--max-BQ</strong> <em>INT</em></dt>
 <dd>
 <p>Caps the base quality to a maximum value [60].  This can be
 particularly useful on technologies that produce overly optimistic
@@ -2536,11 +2564,11 @@ see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>--rf, --incl-flags</strong> <em>STR</em>|<em>INT</em></dt>
 <dd>
-<p>Required flags: skip reads with mask bits unset  [null]</p>
+<p>Required flags: skip reads with none of the mask bits set  [null]</p>
 </dd>
 <dt class="hdlist1"><strong>--ff, --excl-flags</strong> <em>STR</em>|<em>INT</em></dt>
 <dd>
-<p>Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]</p>
+<p>Filter flags: skip reads with any of the mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]</p>
 </dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em class="&#94;">LIST</em></dt>
 <dd>
@@ -2845,7 +2873,7 @@ but will not attempt to fix PL or other fields. Also note, and this
 cannot be stressed enough, that <em>s</em> will NOT fix strand issues in
 your VCF, do NOT use it for that purpose!!! (Instead see
 <a href="http://samtools.github.io/bcftools/howtos/plugin.af-dist.html" class="bare">http://samtools.github.io/bcftools/howtos/plugin.af-dist.html</a> and
-&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;" class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;</a>.)</p>
+&lt;<a href="http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;." class="bare">http://samtools.github.io/bcftools/howtos/plugin.fixref.html&gt;.</a>)</p>
 </dd>
 <dt class="hdlist1"><strong>-d, --rm-dup</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>exact</em></dt>
 <dd>
@@ -4751,7 +4779,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-10-22 12:15:14 +0100
+Last updated 2021-11-29 17:07:04 UTC
 </div>
 </div>
 </body>

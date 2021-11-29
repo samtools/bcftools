@@ -7,6 +7,24 @@ Changes affecting specific commands:
     - In addition to `--rename-annots`, which requires a file with name mappings,
       it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
 
+* bcftools convert
+
+    - Revamp of `--gensample`, `--hapsample` and `--haplegendsample` family of options
+      which includes the following changes:
+
+    - New `--3N6` option to output/input the new version of the .gen file format,
+      see https://www.cog-genomics.org/plink/2.0/formats#gen
+
+    - Deprecate the `--chrom` option in favor of `--3N6`. A simple `cut` command
+      can be used to convert from the new 3*M+6 column format to the format printed
+      with `--chrom` (`cut -d' ' -f1,3-`).
+
+    - The CHROM:POS_REF_ALT IDs which are used to detect strand swaps are required
+      and must appear either in the "SNP ID" column or the "rsID" column. The column
+      is autodetected for `--gensample2vcf`, can be the first or the second for
+      `--hapsample2vcf` (depending on whether the `--vcf-ids` option is given), must be
+      the first for `--haplegendsample2vcf`.
+
 * bcftools +setGT
 
     - Fix a bug in `-t q -e EXPR` logic applied on FORMAT fields, sites with all
