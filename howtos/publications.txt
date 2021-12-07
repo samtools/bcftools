@@ -4,7 +4,7 @@ include::header.inc[]
 Publications
 ------------
 
-Samtools calling (`bcftools call -c`)::
+Original samtools variant calling (`bcftools call -c`)::
     Li H. A statistical framework for SNP calling, mutation discovery, association mapping and
     population genetical parameter estimation from sequencing data. _Bioinformatics_ (2011) 27(21)
     2987-93.
@@ -31,7 +31,7 @@ Consequence calling (`bcftools csq`)::
     BCFtools/csq: Haplotype-aware variant consequences. _Bioinformatics_ (2017) 33(13) 2037-39
     link:https://pubmed.ncbi.nlm.nih.gov/28205675[link]
 
-VCF/BCF manipuplation and all of BCFtools::
+All of BCFtools, file manipuplation, `-m` calling, etc::
     Danecek P, Bonfield JK, _et al_. Twelve years of SAMtools and BCFtools. _Gigascience_ (2021) 10(2):giab008
     link:https://pubmed.ncbi.nlm.nih.gov/33590861[link]
 
