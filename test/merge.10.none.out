@@ -5,5 +5,6 @@
 ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotypes">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B
-1	10	.	CGT	GGT,CGA,AGT	.	.	AN=4;AC=1,1,1	GT	0/1	2/3
+1	10	.	C	G	.	.	AN=2;AC=1	GT	0/1	./.
+1	10	.	CGT	CGA,AGT	.	.	AN=2;AC=1,1	GT	./.	1/2
 1	12	.	T	A	.	.	AN=2;AC=1	GT	0/1	./.
