@@ -58,7 +58,7 @@ int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2)
 
     char *a = ref1, *b = ref2;
     while ( *a && *b && toupper(*a)==toupper(*b) ) { a++; b++; }
-    if ( !*a && !*b ) return 0;
+    if ( !*a && !*b ) return 1; // perfect match
     if ( *a && *b ) return -1;  // refs not compatible
 
     int i;
@@ -70,18 +70,19 @@ int vcmp_set_ref(vcmp_t *vcmp, char *ref1, char *ref2)
         hts_expand(char,vcmp->ndref+1,vcmp->mdref,vcmp->dref);
         for (i=0; i<vcmp->ndref; i++) vcmp->dref[i] = toupper(ref1[vcmp->nmatch+i]);
         vcmp->dref[vcmp->ndref] = 0;
-        return 0;
+        return 0; // compatible
+    } else if ( *b ) { // ref2 is longer
+        vcmp->nmatch = a-ref1;
+        while ( *b ) b++;
+        vcmp->ndref = (b-ref2) - vcmp->nmatch;
+        hts_expand(char,vcmp->ndref+1,vcmp->mdref,vcmp->dref);
+        for (i=0; i<vcmp->ndref; i++) vcmp->dref[i] = toupper(ref2[vcmp->nmatch+i]);
+        vcmp->dref[vcmp->ndref] = 0;
+        vcmp->ndref *= -1;
+        return 0; // compatible
+    } else {
+        return -1; // should not happen
     }
-
-    // ref2 is longer
-    vcmp->nmatch = a-ref1;
-    while ( *b ) b++;
-    vcmp->ndref = (b-ref2) - vcmp->nmatch;
-    hts_expand(char,vcmp->ndref+1,vcmp->mdref,vcmp->dref);
-    for (i=0; i<vcmp->ndref; i++) vcmp->dref[i] = toupper(ref2[vcmp->nmatch+i]);
-    vcmp->dref[vcmp->ndref] = 0;
-    vcmp->ndref *= -1;
-    return 0;
 }
 
 int vcmp_find_allele(vcmp_t *vcmp, char **als1, int nals1, char *al2)
