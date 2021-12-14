@@ -1,5 +1,9 @@
 ## Release a.b
 
+* New `bcftools head` subcommand for conveniently displaying the headers
+  of a VCF or BCF file. Without any options, this is equivalent to
+  `bcftools view --header-only --no-version` but more succinct and memorable.
+
 Changes affecting specific commands:
 
 * bcftools annotate

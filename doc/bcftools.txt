@@ -85,6 +85,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<csq,csq>>*       ..  haplotype aware consequence caller
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*   ..  check sample concordance, detect sample swaps and contamination
+- *<<head,head>>*      ..  view VCF/BCF file headers
 - *<<index,index>>*     ..  index VCF/BCF
 - *<<isec,isec>>*      ..  intersections of VCF/BCF files
 - *<<merge,merge>>*     ..  merge VCF/BCF files files from non-overlapping sample sets
@@ -1585,6 +1586,27 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 //        most dissimilar to the rest.
 
 
+[[head]]
+=== bcftools head ['OPTIONS'] ['FILE']
+By default, prints all headers from the specified input file to standard output
+in VCF format. The input file may be in VCF or BCF format; if no 'FILE' is
+specified, standard input will be read. With appropriate options, only some
+of the headers and/or additionally some of the variant records will be printed.
+
+The *bcftools head* command outputs VCF headers almost exactly as they appear
+in the input file: it may add a `##FILTER=<ID=PASS>` header if not already
+present, but it never adds version or command line information itself.
+
+==== Options:
+*-h, --header* 'INT'::
+    Display only the first 'INT' header lines.
+    By default, all header lines are displayed.
+
+*-n, --records* 'INT'::
+    Also display the first 'INT' variant records.
+    By default, no variant records are displayed.
+
+
 [[index]]
 === bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
@@ -2985,7 +3007,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
     drop individual genotype information (after subsetting if *-s* option is set)
 
 *-h, --header-only*::
-    output the VCF header only
+    output the VCF header only (see also *<<head,bcftools head>>*)
 
 *-H, --no-header*::
     suppress the header in VCF output
