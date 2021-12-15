@@ -29,6 +29,10 @@ Changes affecting specific commands:
       `--hapsample2vcf` (depending on whether the `--vcf-ids` option is given), must be
       the first for `--haplegendsample2vcf`.
 
+* bcftools csq
+
+    - Allow GFF files with phase column unset
+
 * bcftools +setGT
 
     - Fix a bug in `-t q -e EXPR` logic applied on FORMAT fields, sites with all
