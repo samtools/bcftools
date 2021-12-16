@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.15.dev
-.\"      Date: 2021-11-29
+.\"      Date: 2021-12-16
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021-11-29" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2021-12-16" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-11\-29 17:07 GMT\fP and refers to bcftools git version \fB1.14\-17\-g34bcdbb+\fP.
+This manual page was last updated \fB2021\-12\-16 11:38 GMT\fP and refers to bcftools git version \fB1.14\-23\-ge63c00e+\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -177,6 +177,17 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 .  IP \(bu 2.3
 .\}
 \fBgtcheck\fP   ..  check sample concordance, detect sample swaps and contamination
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\fBhead\fP      ..  view VCF/BCF file headers
 .RE
 .sp
 .RS 4
@@ -474,10 +485,11 @@ to \fB2\fP to include only true overlapping variation (compare
 the full VCF representation "\f(CRTA>T\-\fP" vs the true sequence variation "\f(CRA>\-\fP").
 .RE
 .sp
-\fB\-s, \-\-samples\fP [&#94;]\fILIST\fP
+\fB\-s, \-\-samples\fP [^]\fILIST\fP
 .RS 4
 Comma\-separated list of samples to include or exclude if prefixed
-with "&#94;".
+with "^." (Note that when multiple samples are to be excluded,
+the "^" prefix is still present only once, e.g.  "^SAMPLE1,SAMPLE2".)
 The sample order is updated to reflect that given on the command line.
 Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
 to correspond to the subset samples. \fBbcftools view\fP is the
@@ -495,9 +507,9 @@ that command. For example:
 .fi
 .if n .RE
 .sp
-\fB\-S, \-\-samples\-file\fP \fIFILE\fP
+\fB\-S, \-\-samples\-file\fP [^]\fIFILE\fP
 .RS 4
-File of sample names to include or exclude if prefixed with "&#94;".
+File of sample names to include or exclude if prefixed with "^".
 One sample per line. See also the note above for the \fB\-s, \-\-samples\fP
 option.
 The sample order is updated to reflect that given in the input file.
@@ -541,20 +553,20 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 .fi
 .if n .RE
 .sp
-\fB\-t, \-\-targets\fP [&#94;]\fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
+\fB\-t, \-\-targets\fP [^]\fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
 Similar as \fB\-r, \-\-regions\fP, but the next position is accessed by streaming the
 whole VCF/BCF rather than using the tbi/csi index. Both \fB\-r\fP and \fB\-t\fP options
 can be applied simultaneously: \fB\-r\fP  uses  the index  to  jump  to  a  region
 and \fB\-t\fP discards positions which are not in the targets. Unlike \fB\-r\fP, targets
-can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
+can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
 indicates that sequences X, Y and MT should be skipped.
 Yet another difference between the \fB\-t/\-T\fP and \fB\-r/\-R\fP is that \fB\-r/\-R\fP checks for
 proper overlaps and considers both POS and the end position of an indel, while \fB\-t/\-T\fP
 considers the POS coordinate only. Note that \fB\-t\fP cannot be used in combination with \fB\-T\fP.
 .RE
 .sp
-\fB\-T, \-\-targets\-file\fP [&#94;]\fIFILE\fP
+\fB\-T, \-\-targets\-file\fP [^]\fIFILE\fP
 .RS 4
 Same \fB\-t, \-\-targets\fP, but reads regions from a file. Note that \fB\-T\fP
 cannot be used in combination with \fB\-t\fP.
@@ -663,7 +675,7 @@ The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TA
 \~
 .br
 To carry over all INFO annotations, use "INFO". To add all INFO annotations except
-"TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+"TAG", use "^INFO/TAG". By default, existing values are replaced.
 \~
 .br
 \~
@@ -728,7 +740,7 @@ Lines to append to the VCF header, see also \fB\-c, \-\-columns\fP and \fB\-a, \
 .fi
 .if n .RE
 .sp
-\fB\-I, \-\-set\-id\fP [&#43;]\fIFORMAT\fP
+\fB\-I, \-\-set\-id\fP [+]\fIFORMAT\fP
 .RS 4
 assign ID on the fly. The format is the same as in the \fBquery\fP
 command (see below).  By default all existing IDs are replaced. If the
@@ -816,7 +828,7 @@ rename chromosomes according to the map in \fIfile\fP, with
 line.
 .RE
 .sp
-\fB\-s, \-\-samples\fP [&#94;]\fILIST\fP
+\fB\-s, \-\-samples\fP [^]\fILIST\fP
 .RS 4
 subset of samples to annotate, see also \fBCommon Options\fP
 .RE
@@ -848,7 +860,7 @@ List of annotations to remove. Use "FILTER" to remove all filters or
 "FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
 be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
 except GT. To remove all INFO tags except "FOO" and "BAR", use
-"&#94;INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+"^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 .RE
 .sp
@@ -990,7 +1002,7 @@ appear in any of the genotypes
 .RS 4
 comma\-separated list of FORMAT fields to output for each sample. Currently
 GQ and GP fields are supported. For convenience, the fields can be given
-as lower case letters. Prefixed with "&#94;" indicates a request for tag
+as lower case letters. Prefixed with "^" indicates a request for tag
 removal of auxiliary tags useful only for calling.
 .RE
 .sp
@@ -2338,12 +2350,35 @@ available.
 .fam
 .fi
 .if n .RE
+.SS "bcftools head [\fIOPTIONS\fP] [\fIFILE\fP]"
+.sp
+By default, prints all headers from the specified input file to standard output
+in VCF format. The input file may be in VCF or BCF format; if no \fIFILE\fP is
+specified, standard input will be read. With appropriate options, only some
+of the headers and/or additionally some of the variant records will be printed.
+.sp
+The \fBbcftools head\fP command outputs VCF headers almost exactly as they appear
+in the input file: it may add a \f(CR##FILTER=<ID=PASS>\fP header if not already
+present, but it never adds version or command line information itself.
+.SS "Options:"
+.sp
+\fB\-h, \-\-header\fP \fIINT\fP
+.RS 4
+Display only the first \fIINT\fP header lines.
+By default, all header lines are displayed.
+.RE
+.sp
+\fB\-n, \-\-records\fP \fIINT\fP
+.RS 4
+Also display the first \fIINT\fP variant records.
+By default, no variant records are displayed.
+.RE
 .SS "bcftools index [\fIOPTIONS\fP] \fIin.bcf\fP|\fIin.vcf.gz\fP"
 .sp
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate\-sorted index) is created by default. The CSI format
-supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
-index files, which support chromosome lengths up to 2&#94;29, can be
+supports indexing of chromosomes up to length 2^31. TBI (tabix index)
+index files, which support chromosome lengths up to 2^29, can be
 created by using the \fI\-t/\-\-tbi\fP option or using the \fItabix\fP program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.
@@ -2361,7 +2396,7 @@ overwrite index if it already exists
 .sp
 \fB\-m, \-\-min\-shift \fIINT\fP\fP
 .RS 4
-set minimal interval size for CSI indices to 2&#94;INT; default: 14
+set minimal interval size for CSI indices to 2^INT; default: 14
 .RE
 .sp
 \fB\-o, \-\-output \fIFILE\fP\fP
@@ -2778,7 +2813,7 @@ Do not require the \fB\-\-fasta\-ref\fP option.
 .sp
 \fB\-G, \-\-read\-groups\fP \fIFILE\fP
 .RS 4
-list of read groups to include or exclude if prefixed with "&#94;".
+list of read groups to include or exclude if prefixed with "^".
 One read group per line.  This file can also be used to assign new sample
 names to read groups by giving the new sample name as a second
 white\-space\-separated field, like this: "read_group_id new_sample_name".
@@ -2858,7 +2893,7 @@ list of sample names. See \fBCommon Options\fP
 .sp
 \fB\-S, \-\-samples\-file\fP \fIFILE\fP
 .RS 4
-file of sample names to include or exclude if prefixed with "&#94;".
+file of sample names to include or exclude if prefixed with "^".
 One sample per line. This file can also be used to rename samples by giving
 the new sample name as a second white\-space\-separated column, like this:
 "old_name new_name".  If a sample name contains spaces, the spaces can be
@@ -4538,7 +4573,7 @@ drop individual genotype information (after subsetting if \fB\-s\fP option is se
 .sp
 \fB\-h, \-\-header\-only\fP
 .RS 4
-output the VCF header only
+output the VCF header only (see also \fBbcftools head\fP)
 .RE
 .sp
 \fB\-H, \-\-no\-header\fP
@@ -4672,11 +4707,11 @@ exclude sites for which \fIEXPRESSION\fP is true. For valid expressions see
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-g, \-\-genotype\fP [&#94;][\fIhom\fP|\fIhet\fP|\fImiss\fP]
+\fB\-g, \-\-genotype\fP [^][\fIhom\fP|\fIhet\fP|\fImiss\fP]
 .RS 4
 include only sites with one or more homozygous (\fIhom\fP), heterozygous
-(\fIhet\fP) or missing (\fImiss\fP) genotypes. When prefixed with \fI&#94;\fP, the logic
-is reversed; thus \fI&#94;het\fP excludes sites with heterozygous genotypes.
+(\fIhet\fP) or missing (\fImiss\fP) genotypes. When prefixed with \fI^\fP, the logic
+is reversed; thus \fI^het\fP excludes sites with heterozygous genotypes.
 .RE
 .sp
 \fB\-i, \-\-include\fP \fIEXPRESSION\fP

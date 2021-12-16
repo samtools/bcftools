@@ -219,9 +219,10 @@ specific commands to see if they apply.
     to *2* to include only true overlapping variation (compare
     the full VCF representation "`TA>T-`" vs the true sequence variation "`A>-`").
 
-*-s, --samples* \[&#94;]'LIST'::
+*-s, --samples* \[^]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
-    with "&#94;".
+    with "^." (Note that when multiple samples are to be excluded,
+    the "^" prefix is still present only once, e.g.  "^SAMPLE1,SAMPLE2".)
     The sample order is updated to reflect that given on the command line.
     Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
     to correspond to the subset samples. *<<view,bcftools view>>* is the
@@ -233,8 +234,8 @@ specific commands to see if they apply.
     bcftools view -Ou -s sample1,sample2 file.vcf | bcftools query -f %INFO/AC\t%INFO/AN\n
 ----
 
-*-S, --samples-file* [&#94;]'FILE'[[samples_file]]::
-    File of sample names to include or exclude if prefixed with "&#94;".
+*-S, --samples-file* \[^]'FILE'[[samples_file]]::
+    File of sample names to include or exclude if prefixed with "^".
     One sample per line. See also the note above for the *-s, --samples*
     option.
     The sample order is updated to reflect that given in the input file.
@@ -264,18 +265,18 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
     ignored_column  sonB      fatherB  motherB  1
 ----
 
-*-t, --targets* \[&#94;]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* \[^]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Similar as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
     and *-t* discards positions which are not in the targets. Unlike *-r*, targets
-    can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
+    can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the *-t/-T* and *-r/-R* is that *-r/-R* checks for
     proper overlaps and considers both POS and the end position of an indel, while *-t/-T*
     considers the POS coordinate only. Note that *-t* cannot be used in combination with *-T*.
 
-*-T, --targets-file* \[&#94;]'FILE'::
+*-T, --targets-file* \[^]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
     cannot be used in combination with *-t*. 
 +
@@ -357,7 +358,7 @@ Add or remove annotations.
     {nbsp} +
     {nbsp} +
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
-    "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+    "TAG", use "^INFO/TAG". By default, existing values are replaced.
     {nbsp} +
     {nbsp} +
     By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
@@ -402,7 +403,7 @@ Add or remove annotations.
     ##INFO=<ID=STRING_TAG,Number=1,Type=String,Description="Yet another header line">
 ----
 
-*-I, --set-id* \[&#43;]'FORMAT'::
+*-I, --set-id* \[+]'FORMAT'::
     assign ID on the fly. The format is the same as in the *<<query,query>>*
     command (see below).  By default all existing IDs are replaced. If the
     format string is preceded by "+", only missing IDs will be set. For example,
@@ -462,7 +463,7 @@ Add or remove annotations.
     "old_name new_name\n" pairs separated by whitespaces, each on a separate
     line.
 
-*-s, --samples* \[&#94;]'LIST'::
+*-s, --samples* \[^]'LIST'::
     subset of samples to annotate, see also *<<common_options,Common Options>>*
 
 *-S, --samples-file* 'FILE'::
@@ -485,7 +486,7 @@ Add or remove annotations.
     "FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
     be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
     except GT. To remove all INFO tags except "FOO" and "BAR", use
-    "&#94;INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+    "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
 *Examples:*
@@ -594,7 +595,7 @@ demand. The original calling model can be invoked with the *-c* option.
 *-f, --format-fields* 'list'::
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
-    as lower case letters. Prefixed with "&#94;" indicates a request for tag
+    as lower case letters. Prefixed with "^" indicates a request for tag
     removal of auxiliary tags useful only for calling.
 
 *-F, --prior-freqs* 'AN','AC'::
@@ -1611,8 +1612,8 @@ present, but it never adds version or command line information itself.
 === bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate-sorted index) is created by default. The CSI format
-supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
-index files, which support chromosome lengths up to 2&#94;29, can be
+supports indexing of chromosomes up to length 2^31. TBI (tabix index)
+index files, which support chromosome lengths up to 2^29, can be
 created by using the '-t/--tbi' option or using the 'tabix' program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.
@@ -1625,7 +1626,7 @@ the CSI first and then the TBI.
     overwrite index if it already exists
 
 *-m, --min-shift 'INT'*::
-    set minimal interval size for CSI indices to 2&#94;INT; default: 14
+    set minimal interval size for CSI indices to 2^INT; default: 14
 
 *-o, --output 'FILE'*::
     output file name. If not set, then the index will be created
@@ -1924,8 +1925,8 @@ those scenarios.
 *--no-reference*::
     Do not require the *--fasta-ref* option.
 
-*-G, --read-groups* [&#94;]'FILE'::
-    list of read groups to include or exclude if prefixed with "&#94;".
+*-G, --read-groups* [^]'FILE'::
+    list of read groups to include or exclude if prefixed with "^".
     One read group per line.  This file can also be used to assign new sample
     names to read groups by giving the new sample name as a second
     white-space-separated field, like this: "read_group_id new_sample_name".
@@ -1976,11 +1977,11 @@ those scenarios.
 *--ff, --excl-flags* 'STR'|'INT'::
     Filter flags: skip reads with any of the mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
 
-*-s, --samples* [&#94;]'LIST'::
+*-s, --samples* [^]'LIST'::
     list of sample names. See *<<common_options,Common Options>>*
 
-*-S, --samples-file* [&#94;]'FILE'::
-    file of sample names to include or exclude if prefixed with "&#94;".
+*-S, --samples-file* [^]'FILE'::
+    file of sample names to include or exclude if prefixed with "^".
     One sample per line. This file can also be used to rename samples by giving
     the new sample name as a second white-space-separated column, like this:
     "old_name new_name".  If a sample name contains spaces, the spaces can be
@@ -3104,10 +3105,10 @@ when piping!)
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
-*-g, --genotype* [&#94;]['hom'|'het'|'miss']::
+*-g, --genotype* [^]['hom'|'het'|'miss']::
     include only sites with one or more homozygous ('hom'), heterozygous
-    ('het') or missing ('miss') genotypes. When prefixed with '&#94;', the logic
-    is reversed; thus '&#94;het' excludes sites with heterozygous genotypes.
+    ('het') or missing ('miss') genotypes. When prefixed with '^', the logic
+    is reversed; thus '^het' excludes sites with heterozygous genotypes.
 
 *-i, --include* 'EXPRESSION'::
     include sites for which 'EXPRESSION' is true. For valid expressions see
