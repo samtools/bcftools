@@ -211,6 +211,12 @@ test_vcf_query($opts,in=>'query.filter.10',out=>'query.74.out',args=>q[-f'%POS  
 test_vcf_query($opts,in=>'query',out=>'query.75.out',args=>q[-f '%CHROM:%POS\\t%N_PASS(GT="alt" & GQ>110)\\t[\\t%GT]\\t[\\t%GQ]\n']);
 test_vcf_query($opts,in=>'query.filter.12',out=>'query.82.out',args=>q[-f '%CHROM:%POS[\\t%SAMPLE=%GT]\\n' -e 'GT="mis"' -s 1,3,0]);
 test_vcf_query($opts,in=>'query.filter.12',out=>'query.83.out',args=>q[-f '%CHROM:%POS[\\t%SAMPLE=%GT]\\n' -e 'GT="mis"' -s 0,1,3]);
+test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.1.out',args=>q[-f "[%SAMPLE %GT\n]" -S {PATH}/query.smpl.11.txt]);
+test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.2.out',args=>q[-l -S {PATH}/query.smpl.11.txt]);
+test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.3.out',args=>q[-f "[%SAMPLE %GT\n]" -S ^{PATH}/query.smpl.11.txt]);
+test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.4.out',args=>q[-l -S ^{PATH}/query.smpl.11.txt]);
+test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.5.out',args=>q[-f "[%SAMPLE %GT\n]" -S {PATH}/query.smpl.txt]);
+test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.6.out',args=>q[-l -S {PATH}/query.smpl.txt]);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
@@ -1197,6 +1203,7 @@ sub test_vcf_query
 {
     my ($opts,%args) = @_;
     bgzip_tabix_vcf($opts,$args{in});
+    $args{args} =~ s/{PATH}/$$opts{path}/g;
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools query $args{args} $$opts{tmp}/$args{in}.vcf.gz", exp_fix=>1);
     test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools view -Ob $$opts{tmp}/$args{in}.vcf.gz | $$opts{bin}/bcftools query $args{args}", exp_fix=>1);
 }

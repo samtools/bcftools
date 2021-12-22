@@ -246,7 +246,7 @@ vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h) $(htslib_kstring_h) $(hts
 vcfisec.o: vcfisec.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_hts_os_h) $(bcftools_h) $(filter_h)
 vcfmerge.o: vcfmerge.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_faidx_h) regidx.h $(bcftools_h) vcmp.h $(htslib_khash_h)
 vcfnorm.o: vcfnorm.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_faidx_h) $(htslib_khash_str2int_h) $(bcftools_h) rbuf.h abuf.h
-vcfquery.o: vcfquery.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_str2int_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) $(convert_h)
+vcfquery.o: vcfquery.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_str2int_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) $(convert_h) $(smpl_ilist_h)
 vcfroh.o: vcfroh.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kstring_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(bcftools_h) HMM.h $(smpl_ilist_h) $(filter_h)
 vcfcnv.o: vcfcnv.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kstring_h) $(htslib_kfunc_h) $(htslib_khash_str2int_h) $(bcftools_h) HMM.h rbuf.h
 vcfhead.o: vcfhead.c $(htslib_kstring_h) $(htslib_vcf_h) $(bcftools_h)

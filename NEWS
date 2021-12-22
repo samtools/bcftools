@@ -33,6 +33,12 @@ Changes affecting specific commands:
 
     - Allow GFF files with phase column unset
 
+* bcftools query
+
+    - Make the `--samples` and `--samples-file` options work also in the `--list-samples`
+      mode. Add a new `--force-samples` option which allows to proceed even when some of
+      the requested samples are not present in the VCF (#1631)
+
 * bcftools +setGT
 
     - Fix a bug in `-t q -e EXPR` logic applied on FORMAT fields, sites with all

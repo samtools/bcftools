@@ -2631,6 +2631,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*--force-samples*::
+    continue even when some samples requested via *-s/-S* do not exist
+
 *-f, --format* 'FORMAT'::
     learn by example, see below
 
