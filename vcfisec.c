@@ -1,6 +1,6 @@
 /*  vcfisec.c -- Create intersections, unions and complements of VCF files.
 
-    Copyright (C) 2012-2021 Genome Research Ltd.
+    Copyright (C) 2012-2022 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -182,6 +182,7 @@ void isec_vcf(args_t *args)
             }
             ret |= 1<<i;    // this may overflow for many files, but will be used only with two (OP_VENN)
         }
+        if ( !line ) continue;  // the site has been filtered in all files
 
         switch (args->isec_op)
         {

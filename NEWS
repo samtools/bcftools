@@ -33,6 +33,10 @@ Changes affecting specific commands:
 
     - Allow GFF files with phase column unset
 
+* bcftools isec
+
+    - Prevent segfault on sites filtered with -i/-e in all files (#1632)
+
 * bcftools query
 
     - Make the `--samples` and `--samples-file` options work also in the `--list-samples`
