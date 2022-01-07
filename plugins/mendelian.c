@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2021 Genome Research Ltd.
+   Copyright (c) 2015-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -487,6 +487,7 @@ int run(int argc, char **argv)
     if ( trio_file )
     {
         list = hts_readlist(trio_file, 1, &n);
+        if ( !list ) error("Error: could not read file %s\n",trio_file);
         args.ntrios = n;
         args.trios = (trio_t*) calloc(n,sizeof(trio_t));
         for (i=0; i<n; i++)

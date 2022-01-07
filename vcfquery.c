@@ -1,6 +1,6 @@
 /*  vcfquery.c -- Extracts fields from VCF/BCF file.
 
-    Copyright (C) 2013-2021 Genome Research Ltd.
+    Copyright (C) 2013-2022 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -178,6 +178,7 @@ static void list_columns(args_t *args)
         has_sample = khash_str2int_init();
         int i, nsmpl;
         char **smpl = hts_readlist(negate ? args->sample_list+1 : args->sample_list, args->sample_is_file, &nsmpl);
+        if ( !smpl ) error("Error: failed to read %s\n", negate ? args->sample_list+1 : args->sample_list);
         for (i=0; i<nsmpl; i++)
         {
             if ( bcf_hdr_id2int(reader->header,BCF_DT_SAMPLE,smpl[i])<0 && !args->force_samples )
@@ -406,6 +407,7 @@ int main_vcfquery(int argc, char *argv[])
     int i, k, nfiles, prev_nsamples = 0;
     char **fnames, **prev_samples = NULL;
     fnames = hts_readlist(args->vcf_list, 1, &nfiles);
+    if ( !fnames ) error("Error: failed to read %s\n", args->vcf_list);
     if ( !nfiles ) error("No files in %s?\n", args->vcf_list);
     for (i=0; i<nfiles; i++)
     {
