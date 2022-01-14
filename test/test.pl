@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #
-#   Copyright (C) 2012-2021 Genome Research Ltd.
+#   Copyright (C) 2012-2022 Genome Research Ltd.
 #
 #   Author: Petr Danecek <pd3@sanger.ac.uk>
 #
@@ -217,6 +217,8 @@ test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.3.out',args=>q[-f "[%SAMP
 test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.4.out',args=>q[-l -S ^{PATH}/query.smpl.11.txt]);
 test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.5.out',args=>q[-f "[%SAMPLE %GT\n]" -S {PATH}/query.smpl.txt]);
 test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.6.out',args=>q[-l -S {PATH}/query.smpl.txt]);
+test_vcf_query($opts,in=>'query.filter.id',out=>'query.filter.id.1.out',args=>q[-f'%ID\\n' -i'ID~"s12"']);
+test_vcf_query($opts,in=>'query.filter.id',out=>'query.filter.id.2.out',args=>q[-f'%ID\\n' -i'ID="rs123"']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');
