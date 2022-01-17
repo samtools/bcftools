@@ -37,6 +37,19 @@ Changes affecting specific commands:
 
     - Prevent segfault on sites filtered with -i/-e in all files (#1632)
 
+* bcftools mpileup
+
+    - More flexible read filtering using the options
+        --ls, --skip-all-set    ..  skip reads with all of the FLAG bits set
+        --ns, --skip-any-set    ..  skip reads with any of the FLAG bits set
+        --lu, --skip-all-unset  ..  skip reads with all of the FLAG bits unset
+        --nu, --skip-any-unset  ..  skip reads with any of the FLAG bits unset
+
+      The existing synonymous options will continue to function but their use
+      is discouraged
+        --rf, --incl-flags STR|INT  Required flags: skip reads with mask bits unset
+        --ff, --excl-flags STR|INT  Filter flags: skip reads with mask bits set
+
 * bcftools query
 
     - Make the `--samples` and `--samples-file` options work also in the `--list-samples`

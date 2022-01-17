@@ -1971,11 +1971,19 @@ those scenarios.
 *--ignore-RG*::
     Ignore RG tags. Treat all reads in one alignment file as one sample.
 
-*--rf, --incl-flags* 'STR'|'INT'::
-    Required flags: skip reads with none of the mask bits set  [null]
+*--ls, --skip-all-set*::
+    Skip reads with all of the FLAG bits set [null]
 
-*--ff, --excl-flags* 'STR'|'INT'::
-    Filter flags: skip reads with any of the mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
+*--ns, --skip-any-set*::
+    Skip reads with any of the FLAG bits set. This option replaces and
+    is synonymous to the deprecated *--ff, --excl-flags* [UNMAP,SECONDARY,QCFAIL,DUP]
+
+*--lu, --skip-all-unset*::
+    Skip reads with all of the FLAG bits unset. This option replaces and
+    is synonymous to the deprecated *--rf, --incl-flags* [null]
+
+*--nu, --skip-any-unset*::
+    Skip reads with any of the FLAG bits unset [null]
 
 *-s, --samples* [^]'LIST'::
     list of sample names. See *<<common_options,Common Options>>*
