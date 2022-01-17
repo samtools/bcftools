@@ -413,6 +413,10 @@ test_vcf_filter($opts,in=>'filter.10',out=>'filter.38.out',args=>q[-i 'sum(AD[*]
 test_vcf_filter($opts,in=>'filter.10',out=>'filter.38.out',args=>q[-i 'FORMAT/DP < sum(AD[*])']);
 test_vcf_filter($opts,in=>'filter.10',out=>'filter.39.out',args=>q[-i 'sum(AD[*]) < FORMAT/DP']);
 test_vcf_filter($opts,in=>'filter.10',out=>'filter.39.out',args=>q[-i 'FORMAT/DP > sum(AD[*])']);
+test_vcf_filter($opts,in=>'filter.1',out=>'filter.40.out',args=>q[--soft-filter xxx --mask 2:1005-1008 --mask-overlap 0]);
+test_vcf_filter($opts,in=>'filter.1',out=>'filter.41.out',args=>q[--soft-filter xxx --mask 2:1005-1008 --mask-overlap 1]);
+test_vcf_filter($opts,in=>'filter.1',out=>'filter.42.out',args=>q[--soft-filter xxx --mask 2:1005-1008 --mask-overlap 2]);
+test_vcf_filter($opts,in=>'filter.1',out=>'filter.43.out',args=>q[--soft-filter xxx --mask ^2:1005-1008]);
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 0],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_sort($opts,in=>'sort',out=>'sort.out',args=>q[-m 1000],fmt=>'%CHROM\\t%POS\\t%REF,%ALT\\n');
 test_vcf_regions($opts,in=>'regions');

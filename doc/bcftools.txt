@@ -452,6 +452,9 @@ Add or remove annotations.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *--rename-annots* 'file'::
     rename annotations according to the map in 'file', with
     "old_name new_name\n" pairs separated by whitespaces, each on a separate
@@ -571,6 +574,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -581,6 +587,9 @@ demand. The original calling model can be invoked with the *-c* option.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -722,6 +731,9 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --query-sample* 'string'::
     query sample name
 
@@ -729,6 +741,9 @@ loss), 0 (complete loss), 3 (single-copy gain).
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== HMM Options:
@@ -848,6 +863,9 @@ are concatenated without being recompressed, which is very fast..
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*. Requires *-a, --allow-overlaps*.
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
@@ -965,6 +983,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -975,6 +996,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== VCF output options:
@@ -1330,6 +1354,9 @@ output VCF and are ignored for the prediction analysis.
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     samples to include or "-" to apply all variants and ignore samples
 
@@ -1340,6 +1367,9 @@ output VCF and are ignored for the prediction analysis.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *Examples:*
@@ -1428,6 +1458,16 @@ And similarly here, the second is filtered:
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*--mask* \[^]'REGION'::
+    Soft filter regions, prepepend "^" to negate. Requires *-s, --soft-filter*.
+
+*-M, --mask-file* \[^]'FILE'::
+    Soft filter regions listed in a file, "^" to negate.  Requires *-s, --soft-filter*.
+
+*--mask-overlap* '0'|'1'|'2'::
+    Same as *--regions-overlap* but for *--mask/--mask-file*.
+    See *<<common_options,Common Options>>*. [1]
+
 *-m, --mode* ['+x']::
     define behaviour at sites with existing FILTER annotations. The default
     mode replaces existing filters of failed sites with a new FILTER string
@@ -1451,6 +1491,9 @@ And similarly here, the second is filtered:
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --soft-filter* 'STRING'|'+'::
     annotate FILTER column with 'STRING' or, with '+', a unique filter name generated
     by the program ("Filter%d").
@@ -1462,6 +1505,9 @@ And similarly here, the second is filtered:
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -1526,6 +1572,9 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 *-R, --regions-file' 'FILE'::
     Restrict to regions listed in a file, see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* ['qry'|'gt']:'LIST':
     List of query samples or *-g* samples. If neither *-s* nor *-S* are given, all possible sample
     pair combinations are compared
@@ -1538,6 +1587,9 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-u, --use* 'TAG1'[,'TAG2']::
@@ -1696,10 +1748,16 @@ in the other files.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-w, --write* 'LIST'::
@@ -1835,6 +1893,9 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
@@ -1968,6 +2029,9 @@ those scenarios.
     As for *-r, --regions*, but regions read from FILE;
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *--ignore-RG*::
     Ignore RG tags. Treat all reads in one alignment file as one sample.
 
@@ -2000,6 +2064,9 @@ those scenarios.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-x, --ignore-overlaps*::
@@ -2277,6 +2344,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --strict-filter*::
     when merging ('-m+'), merged site is PASS only if all sites being merged PASS
 
@@ -2284,6 +2354,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -2324,10 +2397,16 @@ the usage examples that each plugin comes with.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== VCF output options:
@@ -2589,6 +2668,9 @@ file for help.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --sample* 'string'::
     sample name
 
@@ -2596,6 +2678,9 @@ file for help.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-v, --verbose*::
@@ -2664,6 +2749,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -2674,6 +2762,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-u, --allow-undef-tags*::
@@ -2879,6 +2970,9 @@ Transition probabilities:
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -2889,6 +2983,9 @@ Transition probabilities:
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== HMM Options:
@@ -2989,6 +3086,9 @@ and correlation are also printed. Per-site discordance (PSD) is also printed in 
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -2999,6 +3099,9 @@ and correlation are also printed. Per-site discordance (PSD) is also printed in 
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-u, --user-tstv* '<TAG[:min:max:n]>'::
@@ -3047,10 +3150,16 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::

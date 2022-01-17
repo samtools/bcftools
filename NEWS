@@ -33,6 +33,11 @@ Changes affecting specific commands:
 
     - Allow GFF files with phase column unset
 
+* bcftools filter
+
+    - New `--mask`, `--mask-file` and `--mask-overlap` options to soft filter
+      variants in regions (#1635)
+
 * bcftools isec
 
     - Prevent segfault on sites filtered with -i/-e in all files (#1632)
