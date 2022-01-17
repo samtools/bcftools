@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##reference=file://some/path/human_g1k_v37.fasta
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##ALT=<ID=NON_REF,Description="gVCF block">
+##contig=<ID=chr19>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA001
+chr19	1048985	.	C	<NON_REF>	.	.	END=1048985	GT	0/0
+chr19	1048986	.	C	<NON_REF>	.	.	END=1048994	GT	0/0
+chr19	1048995	.	G	<NON_REF>	.	.	END=1049004	GT	0/0
+chr19	1049005	.	G	<NON_REF>	.	.	END=1049006	GT	0/0
+chr19	1049007	.	T	<NON_REF>	.	.	END=1049008	GT	0/0
+chr19	1049009	.	A	<NON_REF>	.	.	END=1049009	GT	0/0
+chr19	1049010	.	G	<NON_REF>	.	.	END=1049012	GT	0/0
+chr19	1049013	.	A	C,<NON_REF>	.	.	.	GT	1/1
+chr19	1049014	.	C	<NON_REF>	.	.	END=1049014	GT	0/0

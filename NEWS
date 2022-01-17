@@ -1,11 +1,41 @@
 ## Release a.b
 
+* New `bcftools head` subcommand for conveniently displaying the headers
+  of a VCF or BCF file. Without any options, this is equivalent to
+  `bcftools view --header-only --no-version` but more succinct and memorable.
+
 Changes affecting specific commands:
 
 * bcftools annotate
 
     - In addition to `--rename-annots`, which requires a file with name mappings,
       it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
+
+* bcftools convert
+
+    - Revamp of `--gensample`, `--hapsample` and `--haplegendsample` family of options
+      which includes the following changes:
+
+    - New `--3N6` option to output/input the new version of the .gen file format,
+      see https://www.cog-genomics.org/plink/2.0/formats#gen
+
+    - Deprecate the `--chrom` option in favor of `--3N6`. A simple `cut` command
+      can be used to convert from the new 3*M+6 column format to the format printed
+      with `--chrom` (`cut -d' ' -f1,3-`).
+
+    - The CHROM:POS_REF_ALT IDs which are used to detect strand swaps are required
+      and must appear either in the "SNP ID" column or the "rsID" column. The column
+      is autodetected for `--gensample2vcf`, can be the first or the second for
+      `--hapsample2vcf` (depending on whether the `--vcf-ids` option is given), must be
+      the first for `--haplegendsample2vcf`.
+
+* bcftools csq
+
+    - Allow GFF files with phase column unset
+
+* bcftools isec
+
+    - Prevent segfault on sites filtered with -i/-e in all files (#1632)
 
 * bcftools mpileup
 
@@ -19,6 +49,12 @@ Changes affecting specific commands:
       is discouraged
         --rf, --incl-flags STR|INT  Required flags: skip reads with mask bits unset
         --ff, --excl-flags STR|INT  Filter flags: skip reads with mask bits set
+
+* bcftools query
+
+    - Make the `--samples` and `--samples-file` options work also in the `--list-samples`
+      mode. Add a new `--force-samples` option which allows to proceed even when some of
+      the requested samples are not present in the VCF (#1631)
 
 * bcftools +setGT
 

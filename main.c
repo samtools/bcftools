@@ -43,6 +43,7 @@ int main_vcfsom(int argc, char *argv[]);
 int main_vcfnorm(int argc, char *argv[]);
 int main_vcfgtcheck(int argc, char *argv[]);
 int main_vcfview(int argc, char *argv[]);
+int main_vcfhead(int argc, char *argv[]);
 int main_vcfcall(int argc, char *argv[]);
 int main_vcfannotate(int argc, char *argv[]);
 int main_vcfroh(int argc, char *argv[]);
@@ -100,6 +101,10 @@ static cmd_t cmds[] =
     { .func  = main_vcfconvert,
       .alias = "convert",
       .help  = "convert VCF/BCF files to different formats and back"
+    },
+    { .func  = main_vcfhead,
+      .alias = "head",
+      .help  = "view VCF/BCF file headers"
     },
     { .func  = main_vcfisec,
       .alias = "isec",
