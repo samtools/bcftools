@@ -111,7 +111,7 @@ static void init_data(args_t *args)
     args->hdr = args->files->readers[0].header;
     args->flt_pass = bcf_hdr_id2int(args->hdr,BCF_DT_ID,"PASS"); assert( !args->flt_pass );  // sanity check: required by BCF spec
 
-    if ( args->soft_filter )
+    if ( args->soft_filter && (args->filter_logic || args->mask_list) )
     {
         kstring_t flt_name = {0,0,0};
         if ( strcmp(args->soft_filter,"+") )
@@ -145,6 +145,7 @@ static void init_data(args_t *args)
         }
         else if ( args->mask_list )
             ksprintf(&tmp,"Record masked by region");
+
         int ret = bcf_hdr_printf(args->hdr, "##FILTER=<ID=%s,Description=\"%s\">", flt_name.s,tmp.s);
         if ( ret!=0 )
             error("Failed to append header line: ##FILTER=<ID=%s,Description=\"%s\">\n", flt_name.s,tmp.s);
@@ -644,7 +645,6 @@ int main_vcffilter(int argc, char *argv[])
     else fname = argv[optind];
 
     if ( args->mask_list && !args->soft_filter ) error("The option --soft-filter is required with --mask and --mask-file options\n");
-    if ( args->mask_overlap && !args->mask_list ) error("The option --mask or --mask-file is required with --mask-overlap\n");
 
     // read in the regions from the command line
     if ( args->regions_list )
