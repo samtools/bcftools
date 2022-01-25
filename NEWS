@@ -3,6 +3,20 @@
 * New plugin `bcftools +variant-distance` to annotate records with distance to the
   nearest variant (#1690)
 
+* bcftools mpileup
+
+    - Substantial revamp of indel calling, the most significant being indel realignment
+      newly done against two template sequences to account for diploid genomes. This
+      allows to detect previously missed cases with multiple nearby variants (#1679)
+
+    - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within
+      supporting reads
+
+    - Suppress the output of MQSBZ and FS annotations in absence of alternate allele
+
+
+## Release 1.15.1 (7th April 2022)
+
 * bcftools annotate
 
     - New `-H, --header-line` convenience option to pass a header line on command line,
@@ -45,7 +59,6 @@
 
 
 ## Release 1.15 (21st February 2022)
-
 
 * New `bcftools head` subcommand for conveniently displaying the headers
   of a VCF or BCF file. Without any options, this is equivalent to
