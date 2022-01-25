@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2015-2021 Genome Research Ltd.
+   Copyright (c) 2015-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -509,8 +509,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_END ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant\">");
     if ( args->tags & SET_TYPE ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=TYPE,Number=.,Type=String,Description=\"Variant type\">");
     if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Test excess heterozygosity%s%s; 1=good, 0=bad\">");
-    if ( args->tags & SET_VAF ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF,Number=A,Type=Float,Description=\"The fraction of reads with alternate allele (nALT/nSumAll)\"");
-    if ( args->tags & SET_VAF1 ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF1,Number=1,Type=Float,Description=\"The fraction of reads with alternate alleles (nSumALT/nSumAll)\"");
+    if ( args->tags & SET_VAF ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF,Number=A,Type=Float,Description=\"The fraction of reads with alternate allele (nALT/nSumAll)\">");
+    if ( args->tags & SET_VAF1 ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF1,Number=1,Type=Float,Description=\"The fraction of reads with alternate alleles (nSumALT/nSumAll)\">");
 
     return 0;
 }
