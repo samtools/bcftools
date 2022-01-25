@@ -11,6 +11,7 @@
 ##INFO=<ID=MQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)">
 ##INFO=<ID=BQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)">
 ##INFO=<ID=MQSBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)">
+##INFO=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better)">
 ##INFO=<ID=SCBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)">
 ##INFO=<ID=FS,Number=1,Type=Float,Description="Phred-scaled p-value using Fisher's exact test to detect strand bias">
 ##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
@@ -19,4 +20,4 @@
 ##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
 ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
-1	100	.	A	<*>	0	.	DP=1;I16=1,0,0,0,34,1156,0,0,0,0,0,0,25,625,0,0;QS=1,0;FS=0;MQ0F=1	PL	0,3,4
+1	100	.	A	<*>	0	.	DP=1;I16=1,0,0,0,34,1156,0,0,0,0,0,0,25,625,0,0;QS=1,0;MQ0F=1	PL	0,3,4

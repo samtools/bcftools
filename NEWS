@@ -1,5 +1,20 @@
 ## Release a.b
 
+* bcftools annotate
+
+    - New `-H, --header-line` convenience option to pass a header line on command line,
+      this complements the existing `-h, --header-lines` option which requires a file
+      with header lines
+
+* bcftools mpileup
+
+    - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within
+      supporting reads
+
+    - Suppress the output of MQSBZ and FS annotations in absence of alternate allele
+
+## Release 1.15 (21st February 2022)
+
 * New `bcftools head` subcommand for conveniently displaying the headers
   of a VCF or BCF file. Without any options, this is equivalent to
   `bcftools view --header-only --no-version` but more succinct and memorable.
@@ -78,7 +93,7 @@ Changes affecting specific commands:
 Changes affecting the whole of bcftools, or multiple commands:
 
 * New `--regions-overlap` and `--targets-overlap` options which address
-  a long-standing design problem with subsetting VCF files by region. 
+  a long-standing design problem with subsetting VCF files by region.
   BCFtools recognize two sets of options, one for streaming (`-t/-T`) and
   one for index-gumping (`-r/-R`). They behave differently, the first
   includes only records with POS coordinate within the regions, the other
@@ -106,11 +121,11 @@ Changes affecting specific commands:
       by using `-c INFO/END`.
 
     - add a new '.' modifier to control wheter missing values should be carried
-      over from a tab-delimited file or not. For example: 
+      over from a tab-delimited file or not. For example:
 
          -c TAG .. adds TAG if the source value is not missing. If TAG
                    exists in the target file, it will be overwritten
-    
+
         -c .TAG .. adds TAG even if the source value is missing. This
                    can overwrite non-missing values with a missing value
                    and can create empty VCF fields (`TAG=.`)
@@ -239,7 +254,7 @@ Changes affecting specific commands:
 * bcftools +fill-tags:
 
     - Generalization and better support for custom functions that allow
-      adding new INFO tags based on arbitrary `-i, --include` type of 
+      adding new INFO tags based on arbitrary `-i, --include` type of
       expressions. For example, to calculate a missing INFO/DP annotation
       from FORMAT/AD, it is possible to use:
 
@@ -303,7 +318,7 @@ Changes affecting specific commands:
 
     - Atomization of AD and QS tags now correctly updates occurrences of duplicate
       alleles within different haplotypes
-    
+
     - Fix a bug in atomization of Number=A,R tags
 
 * bcftools reheader:
@@ -315,7 +330,7 @@ Changes affecting specific commands:
     - A wider range of genotypes can be set by the plugin by allowing
       specifying custom genotypes. For example, to force a heterozygous
       genotype it is now possible to use expressions like:
-    
+
         c:'m|M'
         c:0/1
         c:0
@@ -327,7 +342,7 @@ Changes affecting specific commands:
     - Better handling of ambiguous keys such as INFO/AF and CSQ/AD. The
       `-p, --annot-prefix` option is now applied before doing anything else
       which allows its use with `-f, --format` and `-c, --columns` options.
-    
+
     - Some consequence field names may not constitute a valid tag name, such
       as "pos(1-based)". Newly field names are trimmed to exclude brackets.
 
@@ -457,7 +472,7 @@ Changes affecting specific commands:
 
 * bcftools csq:
 
-    - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too 
+    - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too
       many per-sample consequences
 
     - Fix a bug which incorrectly handled the --ncsq parameter and could clash
