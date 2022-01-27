@@ -11,6 +11,9 @@ Changes affecting specific commands:
     - In addition to `--rename-annots`, which requires a file with name mappings,
       it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
 
+    - Add new option --min-overlap which allows to specify the minimum required
+      overlap of intersecting regions
+
 * bcftools convert
 
     - Revamp of `--gensample`, `--hapsample` and `--haplegendsample` family of options

@@ -436,6 +436,13 @@ Add or remove annotations.
 *-m, --mark-sites* [+-]'TAG'::
     annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
 
+*--min-overlap* 'ANN':'VCF'::
+    minimum overlap required as a fraction of the variant in the annotation *-a* file ('ANN'), in the
+    target VCF file (':VCF'), or both for reciprocal overlap ('ANN:VCF').
+    By default overlaps of arbitrary length are sufficient.
+    The option can be used only with the tab-delimited annotation *-a* file and with 'BEG' and 'END'
+    columns present.
+
 *--no-version*::
     see *<<common_options,Common Options>>*
 
@@ -444,7 +451,6 @@ Add or remove annotations.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
-
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*

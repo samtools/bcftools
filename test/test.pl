@@ -475,6 +475,8 @@ test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'ann
 test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.4.out',args=>'-c CHROM,POS,REF,ALT,+TSTR,+TFLT,+TINT');
 test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.5.out',args=>'-c CHROM,POS,REF,ALT,.=TSTR,.=TFLT,.=TINT');
 test_vcf_annotate($opts,in=>'annotate.missing',tab=>'annotate.missing',out=>'annotate.missing.6.out',args=>'-c CHROM,POS,REF,ALT,=TSTR,=TFLT,=TINT');
+test_vcf_annotate($opts,in=>'annotate.olap',tab=>'annots.olap',out=>'annotate.olap.1.out',args=>'-c CHROM,BEG,END,DB -l DB:unique');
+test_vcf_annotate($opts,in=>'annotate.olap',tab=>'annots.olap',out=>'annotate.olap.2.out',args=>'-c CHROM,BEG,END,DB -l DB:unique --min-overlap 0.4:0.5');
 test_vcf_plugin($opts,in=>'checkploidy',out=>'checkploidy.out',cmd=>'+check-ploidy --no-version');
 test_vcf_plugin($opts,in=>'checkploidy.2',out=>'checkploidy.2.out',cmd=>'+check-ploidy --no-version');
 test_vcf_plugin($opts,in=>'checkploidy.2',out=>'checkploidy.3.out',cmd=>'+check-ploidy --no-version',args=>'-- -m');

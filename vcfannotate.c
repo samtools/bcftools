@@ -1,6 +1,6 @@
 /*  vcfannotate.c -- Annotate and edit VCF/BCF files.
 
-    Copyright (C) 2013-2021 Genome Research Ltd.
+    Copyright (C) 2013-2022 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -160,6 +160,8 @@ typedef struct _args_t
     char **argv, *output_fname, *targets_fname, *regions_list, *header_fname;
     char *remove_annots, *columns, *rename_chrs, *rename_annots, *sample_names, *mark_sites;
     char **rename_annots_map;
+    char *min_overlap_str;
+    float min_overlap_ann, min_overlap_vcf;
     int rename_annots_nmap;
     kstring_t merge_method_str;
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
@@ -2796,6 +2798,22 @@ static void init_data(args_t *args)
             args->nalines++;
             hts_expand0(annot_line_t,args->nalines,args->malines,args->alines);
         }
+        if ( args->min_overlap_str )
+        {
+            char *tmp = args->min_overlap_str;
+            if ( args->min_overlap_str[0] != ':' )
+            {
+                args->min_overlap_ann = strtod(args->min_overlap_str,&tmp);
+                if ( args->min_overlap_ann < 0 || args->min_overlap_ann > 1 || (*tmp && *tmp!=':') )
+                    error("Could not parse \"--min-overlap %s\", expected value(s) between 0-1\n", args->min_overlap_str);
+            }
+            if ( *tmp && *tmp==':' )
+            {
+                args->min_overlap_vcf = strtod(tmp+1,&tmp);
+                if ( args->min_overlap_vcf < 0 || args->min_overlap_vcf > 1 || *tmp )
+                    error("Could not parse \"--min-overlap %s\", expected value(s) between 0-1\n", args->min_overlap_str);
+            }
+        }
     }
     init_merge_method(args);
     args->vcmp = vcmp_init();
@@ -3020,6 +3038,15 @@ static void annotate(args_t *args, bcf1_t *line)
                 tmp->rid   = line->rid;
                 tmp->start = args->tgt_itr->beg;
                 tmp->end   = args->tgt_itr->end;
+
+                // Check min overlap
+                int len_ann = tmp->end - tmp->start + 1;
+                int len_vcf = line->rlen;
+                int isec = (tmp->end < line->pos+line->rlen-1 ? tmp->end : line->pos+line->rlen-1) - (tmp->start > line->pos ? tmp->start : line->pos) + 1;
+                assert( isec > 0 );
+                if ( args->min_overlap_ann && args->min_overlap_ann > (float)isec/len_ann ) continue;
+                if ( args->min_overlap_vcf && args->min_overlap_vcf > (float)isec/len_vcf ) continue;
+
                 parse_annot_line(args, regitr_payload(args->tgt_itr,char*), tmp);
                 for (j=0; j<args->ncols; j++)
                 {
@@ -3218,7 +3245,7 @@ static void usage(args_t *args)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "About:   Annotate and edit VCF/BCF files.\n");
-    fprintf(stderr, "Usage:   bcftools annotate [options] <in.vcf.gz>\n");
+    fprintf(stderr, "Usage:   bcftools annotate [options] VCF\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations FILE          VCF file or tabix-indexed FILE with annotations: CHR\\tPOS[\\tVALUE]+\n");
@@ -3233,6 +3260,7 @@ static void usage(args_t *args)
     fprintf(stderr, "   -k, --keep-sites                Leave -i/-e sites unchanged instead of discarding them\n");
     fprintf(stderr, "   -l, --merge-logic TAG:TYPE      Merge logic for multiple overlapping regions (see man page for details), EXPERIMENTAL\n");
     fprintf(stderr, "   -m, --mark-sites [+-]TAG        Add INFO/TAG flag to sites which are (\"+\") or are not (\"-\") listed in the -a file\n");
+    fprintf(stderr, "       --min-overlap ANN:VCF       Required overlap as a fraction of variant in the -a file (ANN), the VCF (:VCF), or reciprocal (ANN:VCF)\n");
     fprintf(stderr, "       --no-version                Do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output FILE               Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
@@ -3295,6 +3323,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"samples",required_argument,NULL,'s'},
         {"samples-file",required_argument,NULL,'S'},
         {"single-overlaps",no_argument,NULL,10},
+        {"min-overlap",required_argument,NULL,12},
         {"no-version",no_argument,NULL,8},
         {"force",no_argument,NULL,'f'},
         {NULL,0,NULL,0}
@@ -3371,6 +3400,7 @@ int main_vcfannotate(int argc, char *argv[])
             case  8 : args->record_cmd_line = 0; break;
             case 10 : args->single_overlaps = 1; break;
             case 11 : args->rename_annots = optarg; break;
+            case 12 : args->min_overlap_str = optarg; break;
             case '?': usage(args); break;
             default: error("Unknown argument: %s\n", optarg);
         }
@@ -3402,8 +3432,10 @@ int main_vcfannotate(int argc, char *argv[])
             args->tgts_is_vcf = 1;
             args->files->require_index = 1;
             args->files->collapse = collapse ? collapse : COLLAPSE_SOME;
+            if ( args->min_overlap_str ) error("The --min-overlap option cannot be used when annotating from a VCF\n");
         }
     }
+    if ( args->min_overlap_str && args->single_overlaps ) error("The options --single-overlaps and --min-overlap cannot be combined\n");
     if ( bcf_sr_set_threads(args->files, args->n_threads)<0 ) error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->files, fname) ) error("Failed to read from %s: %s\n", !strcmp("-",fname)?"standard input":fname,bcf_sr_strerror(args->files->errnum));
 
