@@ -101,6 +101,7 @@ typedef struct __bcf_callaux_t {
     errmod_t *e;
     void *rghash;
     float indel_bias_inverted;  // adjusts indel score threshold, 1/--indel-bias, so lower => call more.
+    int no_indelQ_tweaks;
 } bcf_callaux_t;
 
 // per-sample values

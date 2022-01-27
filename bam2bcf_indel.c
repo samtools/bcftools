@@ -629,7 +629,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             // events.
             //
             // reduce indelQ
-            if ( bca->indel_bias_inverted >= 1 )
+            if ( !bca->no_indelQ_tweaks )
                 indelQ = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ + .499);
 
             // Doesn't really help accuracy, but permits -h to take

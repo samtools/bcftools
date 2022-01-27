@@ -73,6 +73,7 @@ typedef struct {
     int openQ, extQ, tandemQ, min_support, indel_win_size; // for indels
     double min_frac; // for indels
     double indel_bias;
+    int no_indelQ_tweaks;
     char *reg_fname, *pl_list, *fai_fname, *output_fname;
     int reg_is_file, record_cmd_line, n_threads, clevel;
     faidx_t *fai;
@@ -843,6 +844,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
     conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
     conf->bca->indel_bias_inverted = 1 / conf->indel_bias;
+    conf->bca->no_indelQ_tweaks = conf->no_indelQ_tweaks;
     conf->bca->min_frac = conf->min_frac;
     conf->bca->min_support = conf->min_support;
     conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
@@ -1175,13 +1177,15 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n", mplp->indel_bias);
     fprintf(fp,
         "      --indel-size INT    Approximate maximum indel size considered [%d]\n", mplp->indel_win_size);
+    fprintf(fp,
+        "      --no-indelQ-tweaks  Increase sensitivity by disabling indel quality adjustments\n");
     fprintf(fp,"\n");
     fprintf(fp,
         "Configuration profiles activated with -X, --config:\n"
         "    1.12:        -Q13 -h100 -m1 -F0.002\n"
         "    illumina:    [ default values ]\n"
-        "    ont:         -B -Q5 --max-BQ 30 --indel-bias 1.01 -I [also try eg |bcftools call -P0.01]\n"
-        "    pacbio-ccs:  -D -Q5 --max-BQ 50 --indel-bias 1.01 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
+        "    ont:         -B -Q5 --max-BQ 30 --no-indelQ-tweaks -I [also try eg |bcftools call -P0.01]\n"
+        "    pacbio-ccs:  -D -Q5 --max-BQ 50 --no-indelQ-tweaks -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
         "\n"
         "Notes: Assuming diploid individuals.\n"
         "\n"
@@ -1283,6 +1287,7 @@ int main_mpileup(int argc, char *argv[])
         {"gap-frac", required_argument, NULL, 'F'},
         {"indel-bias", required_argument, NULL, 10},
         {"indel-size", required_argument, NULL, 15},
+        {"no-indelQ-tweaks", no_argument, NULL, 20},
         {"tandem-qual", required_argument, NULL, 'h'},
         {"skip-indels", no_argument, NULL, 'I'},
         {"max-idepth", required_argument, NULL, 'L'},
@@ -1415,6 +1420,7 @@ int main_mpileup(int argc, char *argv[])
                 }
             }
             break;
+        case  20: mplp.no_indelQ_tweaks = 1; break;
         case 'A': use_orphan = 1; break;
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;
@@ -1439,7 +1445,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.extQ = 1;
                 mplp.flag |= MPLP_REALN_PARTIAL;
                 mplp.max_read_len = 99999;
-                mplp.indel_bias = 1.01;
+                mplp.no_indelQ_tweaks = 1;
             } else if (strcasecmp(optarg, "ont") == 0) {
                 fprintf(stderr, "For ONT it may be beneficial to also run bcftools call with "
                         "a higher -P, eg -P0.01 or -P 0.1\n");
@@ -1447,7 +1453,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.max_baseQ = 30;
                 mplp.flag &= ~MPLP_REALN;
                 mplp.flag |= MPLP_NO_INDEL;
-                mplp.indel_bias = 1.01;
+                mplp.no_indelQ_tweaks = 1;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
                 mplp.min_frac = 0.002;
