@@ -842,7 +842,7 @@ static int mpileup(mplp_conf_t *conf)
                               conf->delta_baseQ);
     conf->bcr = (bcf_callret1_t*) calloc(nsmpl, sizeof(bcf_callret1_t));
     conf->bca->openQ = conf->openQ, conf->bca->extQ = conf->extQ, conf->bca->tandemQ = conf->tandemQ;
-    conf->bca->indel_bias = conf->indel_bias;
+    conf->bca->indel_bias_inverted = 1 / conf->indel_bias;
     conf->bca->min_frac = conf->min_frac;
     conf->bca->min_support = conf->min_support;
     conf->bca->per_sample_flt = conf->flag & MPLP_PER_SAMPLE;
@@ -1180,8 +1180,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "Configuration profiles activated with -X, --config:\n"
         "    1.12:        -Q13 -h100 -m1 -F0.002\n"
         "    illumina:    [ default values ]\n"
-        "    ont:         -B -Q5 --max-BQ 30 -I [also try eg |bcftools call -P0.01]\n"
-        "    pacbio-ccs:  -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
+        "    ont:         -B -Q5 --max-BQ 30 --indel-bias 1.01 -I [also try eg |bcftools call -P0.01]\n"
+        "    pacbio-ccs:  -D -Q5 --max-BQ 50 --indel-bias 1.01 -F0.1 -o25 -e1 --delta-BQ 10 -M99999\n"
         "\n"
         "Notes: Assuming diploid individuals.\n"
         "\n"
@@ -1400,11 +1400,9 @@ int main_mpileup(int argc, char *argv[])
             break;
         case 'e': mplp.extQ = atoi(optarg); break;
         case 'h': mplp.tandemQ = atoi(optarg); break;
-        case 10: // --indel-bias (inverted so higher => more indels called)
-            if (atof(optarg) < 1e-2)
-                mplp.indel_bias = 1/1e2;
-            else
-                mplp.indel_bias = 1/atof(optarg);
+        case 10: // --indel-bias
+            mplp.indel_bias =  atof(optarg);
+            if ( mplp.indel_bias < 1e-2 ) mplp.indel_bias = 1e-2;
             break;
         case  15: {
                 char *tmp;
@@ -1441,6 +1439,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.extQ = 1;
                 mplp.flag |= MPLP_REALN_PARTIAL;
                 mplp.max_read_len = 99999;
+                mplp.indel_bias = 1.01;
             } else if (strcasecmp(optarg, "ont") == 0) {
                 fprintf(stderr, "For ONT it may be beneficial to also run bcftools call with "
                         "a higher -P, eg -P0.01 or -P 0.1\n");
@@ -1448,6 +1447,7 @@ int main_mpileup(int argc, char *argv[])
                 mplp.max_baseQ = 30;
                 mplp.flag &= ~MPLP_REALN;
                 mplp.flag |= MPLP_NO_INDEL;
+                mplp.indel_bias = 1.01;
             } else if (strcasecmp(optarg, "1.12") == 0) {
                 // 1.12 and earlier
                 mplp.min_frac = 0.002;

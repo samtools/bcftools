@@ -2150,8 +2150,8 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
         1.12           -Q13 -h100 -m1
         illumina       [ default values ]
-        ont	           -B -Q5 --max-BQ 30 -I
-        pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
+        ont	           -B -Q5 --max-BQ 30 --indel-bias 1.01 -I
+        pacbio-ccs     -D -Q5 --max-BQ 50 --indel-bias 1.01 -F0.1 -o25 -e1 -M99999
 
 *--ar, --ambig-reads* 'drop'|'incAD'|'incAD0'::
     What to do with ambiguous indel reads that do not span an entire

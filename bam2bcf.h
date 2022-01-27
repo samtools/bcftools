@@ -1,7 +1,8 @@
 /*  bam2bcf.h -- variant calling.
+                mplp.indel_bias = 1.01;
 
     Copyright (C) 2010-2012 Broad Institute.
-    Copyright (C) 2012-2021 Genome Research Ltd.
+    Copyright (C) 2012-2022 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -99,7 +100,7 @@ typedef struct __bcf_callaux_t {
     uint16_t *bases;        // 5bit: unused, 6:quality, 1:is_rev, 4:2-bit base or indel allele (index to bcf_callaux_t.indel_types)
     errmod_t *e;
     void *rghash;
-    float indel_bias;  // adjusts indel score threshold; lower => call more.
+    float indel_bias_inverted;  // adjusts indel score threshold, 1/--indel-bias, so lower => call more.
 } bcf_callaux_t;
 
 // per-sample values
