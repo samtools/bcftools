@@ -67,6 +67,10 @@ Changes affecting specific commands:
       samples failing the expression EXPR were incorrectly skipped. This problem
       affected only the use of `-e` logic, not the `-i` expressions (#1607)
 
+* bcftools sort
+
+    - make use of the TMPDIR environment variable when defined
+
 * bcftools +trio-dnm2
 
     - The --use-NAIVE mode now also adds the de novo allele in FORMAT/VA
