@@ -165,7 +165,7 @@ typedef struct _args_t
     int rename_annots_nmap;
     kstring_t merge_method_str;
     int argc, drop_header, record_cmd_line, tgts_is_vcf, mark_sites_logic, force, single_overlaps;
-    int columns_is_file, has_append_mode;
+    int columns_is_file, has_append_mode, pair_logic;
 }
 args_t;
 
@@ -655,6 +655,7 @@ static int vcf_setter_alt(args_t *args, bcf1_t *line, annot_col_t *col, void *da
 {
     bcf1_t *rec = (bcf1_t*) data;
     int i;
+    if ( line->n_allele>1 && (col->replace & REPLACE_MISSING) ) return 0;
     if ( rec->n_allele==line->n_allele )
     {
         for (i=1; i<rec->n_allele; i++) if ( strcmp(rec->d.allele[i],line->d.allele[i]) ) break;
@@ -2204,6 +2205,8 @@ static void init_columns(args_t *args)
                 col->setter = vcf_setter_alt;
                 col->hdr_key_src = strdup(str.s);
                 col->hdr_key_dst = strdup(str.s);
+                col->replace = replace;
+                if ( args->pair_logic==-1 ) bcf_sr_set_opt(args->files,BCF_SR_PAIR_LOGIC,BCF_SR_PAIR_BOTH_REF);
             }
             else args->alt_idx = icol;
         }
@@ -3249,7 +3252,6 @@ static void usage(args_t *args)
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "   -a, --annotations FILE          VCF file or tabix-indexed FILE with annotations: CHR\\tPOS[\\tVALUE]+\n");
-    fprintf(stderr, "       --collapse STR              Matching records by <snps|indels|both|all|some|none>, see man page for details [some]\n");
     fprintf(stderr, "   -c, --columns LIST              List of columns in the annotation file, e.g. CHROM,POS,REF,ALT,-,INFO/TAG. See man page for details\n");
     fprintf(stderr, "   -C, --columns-file FILE         Read -c columns from FILE, one name per row, with optional --merge-logic TYPE: NAME[ TYPE]\n");
     fprintf(stderr, "   -e, --exclude EXPR              Exclude sites for which the expression is true (see man page for details)\n");
@@ -3264,6 +3266,7 @@ static void usage(args_t *args)
     fprintf(stderr, "       --no-version                Do not append version and command line to the header\n");
     fprintf(stderr, "   -o, --output FILE               Write output to a file [standard output]\n");
     fprintf(stderr, "   -O, --output-type u|b|v|z[0-9]  u/b: un/compressed BCF, v/z: un/compressed VCF, 0-9: compression level [v]\n");
+    fprintf(stderr, "       --pair-logic STR            Matching records by <snps|indels|both|all|some|exact>, see man page for details [some]\n");
     fprintf(stderr, "   -r, --regions REGION            Restrict to comma-separated list of regions\n");
     fprintf(stderr, "   -R, --regions-file FILE         Restrict to regions listed in FILE\n");
     fprintf(stderr, "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n");
@@ -3295,7 +3298,8 @@ int main_vcfannotate(int argc, char *argv[])
     args->set_ids_replace = 1;
     args->match_id = -1;
     args->clevel = -1;
-    int regions_is_file = 0, collapse = 0;
+    args->pair_logic = -1;
+    int regions_is_file = 0;
     int regions_overlap = 1;
 
     static struct option loptions[] =
@@ -3309,6 +3313,7 @@ int main_vcfannotate(int argc, char *argv[])
         {"annotations",required_argument,NULL,'a'},
         {"merge-logic",required_argument,NULL,'l'},
         {"collapse",required_argument,NULL,2},
+        {"pair-logic",required_argument,NULL,2},
         {"include",required_argument,NULL,'i'},
         {"exclude",required_argument,NULL,'e'},
         {"regions",required_argument,NULL,'r'},
@@ -3381,14 +3386,15 @@ int main_vcfannotate(int argc, char *argv[])
             case 'h': args->header_fname = optarg; break;
             case  1 : args->rename_chrs = optarg; break;
             case  2 :
-                if ( !strcmp(optarg,"snps") ) collapse |= COLLAPSE_SNPS;
-                else if ( !strcmp(optarg,"indels") ) collapse |= COLLAPSE_INDELS;
-                else if ( !strcmp(optarg,"both") ) collapse |= COLLAPSE_SNPS | COLLAPSE_INDELS;
-                else if ( !strcmp(optarg,"any") ) collapse |= COLLAPSE_ANY;
-                else if ( !strcmp(optarg,"all") ) collapse |= COLLAPSE_ANY;
-                else if ( !strcmp(optarg,"some") ) collapse |= COLLAPSE_SOME;
-                else if ( !strcmp(optarg,"none") ) collapse = COLLAPSE_NONE;
-                else error("The --collapse string \"%s\" not recognised.\n", optarg);
+                if ( !strcmp(optarg,"snps") ) args->pair_logic |= BCF_SR_PAIR_SNP_REF;
+                else if ( !strcmp(optarg,"indels") ) args->pair_logic |= BCF_SR_PAIR_INDEL_REF;
+                else if ( !strcmp(optarg,"both") ) args->pair_logic |= BCF_SR_PAIR_BOTH_REF;
+                else if ( !strcmp(optarg,"any") ) args->pair_logic |= BCF_SR_PAIR_ANY;
+                else if ( !strcmp(optarg,"all") ) args->pair_logic |= BCF_SR_PAIR_ANY;
+                else if ( !strcmp(optarg,"some") ) args->pair_logic |= BCF_SR_PAIR_SOME;
+                else if ( !strcmp(optarg,"none") ) args->pair_logic = BCF_SR_PAIR_EXACT;
+                else if ( !strcmp(optarg,"exact") ) args->pair_logic = BCF_SR_PAIR_EXACT;
+                else error("The --pair-logic string \"%s\" not recognised.\n", optarg);
                 break;
             case  3 :
                 if ( !strcasecmp(optarg,"0") ) regions_overlap = 0;
@@ -3431,7 +3437,7 @@ int main_vcfannotate(int argc, char *argv[])
         {
             args->tgts_is_vcf = 1;
             args->files->require_index = 1;
-            args->files->collapse = collapse ? collapse : COLLAPSE_SOME;
+            bcf_sr_set_opt(args->files,BCF_SR_PAIR_LOGIC,args->pair_logic>=0 ? args->pair_logic : BCF_SR_PAIR_SOME);
             if ( args->min_overlap_str ) error("The --min-overlap option cannot be used when annotating from a VCF\n");
         }
     }

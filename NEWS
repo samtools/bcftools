@@ -14,6 +14,10 @@ Changes affecting specific commands:
     - Add new option --min-overlap which allows to specify the minimum required
       overlap of intersecting regions
 
+    - Allow to transfer ALT from VCF with or without replacement using
+        bcftools annotate -a annots.vcf.gz -c ALT file.vcf.gz
+        bcftools annotate -a annots.vcf.gz -c +ALT file.vcf.gz
+
 * bcftools convert
 
     - Revamp of `--gensample`, `--hapsample` and `--haplegendsample` family of options

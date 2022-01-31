@@ -337,11 +337,6 @@ Add or remove annotations.
     1  798959  SomeOtherString 6
 ----
 
-*--collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
-    Controls how to match records from the annotation file to the target VCF.
-    Effective only when *-a* is a VCF or BCF.
-    See *<<common_options,Common Options>>* for more.
-
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
@@ -451,6 +446,12 @@ Add or remove annotations.
 
 *-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
+
+*--pair-logic* 'snps'|'indels'|'both'|'all'|'some'|'exact'::
+    Controls how to match records from the annotation file to the target VCF.
+    Effective only when *-a* is a VCF or BCF. The option replaces the former
+    uninuitive *--collapse*.
+    See *<<common_options,Common Options>>* for more.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
