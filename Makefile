@@ -217,7 +217,7 @@ bcftools: $(OBJS) $(HTSLIB)
 
 plugins: $(PLUGINS)
 
-bcftools_h = bcftools.h $(htslib_hts_defs_h) $(htslib_vcf_h)
+bcftools_h = bcftools.h $(htslib_hts_defs_h) $(htslib_vcf_h) $(htslib_synced_bcf_reader_h)
 call_h = call.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) vcmp.h
 variantkey_h = variantkey.h hex.h
 convert_h = convert.h $(htslib_vcf_h)
@@ -240,7 +240,7 @@ vcfplugin.o: vcfplugin.c config.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) 
 vcfcall.o: vcfcall.c $(htslib_vcf_h) $(htslib_kfunc_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_str2int_h) $(bcftools_h) $(call_h) $(prob1_h) $(ploidy_h) $(gvcf_h) regidx.h $(vcfbuf_h)
 vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_thread_pool_h) $(bcftools_h)
 vcfconvert.o: vcfconvert.c $(htslib_faidx_h) $(htslib_vcf_h) $(htslib_bgzf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kseq_h) $(bcftools_h) $(filter_h) $(convert_h) $(tsv2vcf_h)
-vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h
+vcffilter.o: vcffilter.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(bcftools_h) $(filter_h) rbuf.h regidx.h
 vcfgtcheck.o: vcfgtcheck.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_kbitset_h) $(htslib_hts_os_h) $(bcftools_h) extsort.h
 vcfindex.o: vcfindex.c $(htslib_vcf_h) $(htslib_tbx_h) $(htslib_kstring_h) $(htslib_bgzf_h) $(bcftools_h)
 vcfisec.o: vcfisec.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_vcfutils_h) $(htslib_hts_os_h) $(bcftools_h) $(filter_h)
