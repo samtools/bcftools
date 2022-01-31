@@ -1,4 +1,4 @@
-##fileformat=VCFv4.r3
+##fileformat=VCFv4.3
 ##FILTER=<ID=PASS,Description="All filters passed">
 ##reference=ref.fa
 ##contig=<ID=1,assembly=b37,length=249250621>
