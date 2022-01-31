@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2014-2021 Genome Research Ltd.
+   Copyright (c) 2014-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
    
@@ -1130,8 +1130,6 @@ static int parse_lrr_baf(sample_t *smpl, bcf_fmt_t *baf_fmt, bcf_fmt_t *lrr_fmt,
 
     return *baf<0 ? 0 : 1;
 }
-
-int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq);
 
 static void cnv_next_line(args_t *args, bcf1_t *line)
 {
