@@ -213,7 +213,7 @@ specific commands to see if they apply.
 *--regions-overlap* '0'|'1'|'2'::
     This option controls how overlapping records are determined:
     set to *0* if the VCF record has to have POS inside a region
-    (this corresponds to the default behavior of *-t/-T*); 
+    (this corresponds to the default behavior of *-t/-T*);
     set to *1* if also overlapping records with POS outside a region
     should be included (this is the default behavior of *-r/-R*); or set
     to *2* to include only true overlapping variation (compare
@@ -278,7 +278,7 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 
 *-T, --targets-file* \[^]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
-    cannot be used in combination with *-t*. 
+    cannot be used in combination with *-t*.
 +
 With the *call -C* 'alleles' command, third column of the targets file must
 be comma-separated list of alleles, starting with the reference allele.
@@ -485,7 +485,7 @@ Add or remove annotations.
 *--single-overlaps*::
     use this option to keep memory requirements low with very large annotation
     files. Note, however, that this comes at a cost, only single overlapping intervals
-    are considered in this mode. This was the default mode until the commit 
+    are considered in this mode. This was the default mode until the commit
     af6f0c9 (Feb 24 2019).
 
 *--threads* 'INT'::
@@ -640,7 +640,7 @@ demand. The original calling model can be invoked with the *-c* option.
     text file with sample names in the first column and group names in the second column. If '-' is
     given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
     in low coverage data this inflates the rate of false positives.) The *-G* option requires the presence of
-    per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*). 
+    per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*).
 
 *-g, --gvcf* 'INT'::
     output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
@@ -887,6 +887,9 @@ Note that the program does not act as a primitive variant caller and ignores all
 depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *setGT* plugin.
 
+*-a, --absent* 'CHAR'::
+    replace positions absent from VCF with CHAR
+
 *-c, --chain* 'FILE'::
     write a chain file for liftover
 
@@ -899,7 +902,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *-H, --haplotype* '1'|'2'|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
-    
+
         '1';;
             the first allele, regardless of phasing
 
@@ -1025,8 +1028,8 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 ==== GEN/SAMPLE conversion:
 *-G, --gensample2vcf* 'prefix' or 'gen-file','sample-file'::
     convert IMPUTE2 output to VCF. One of the ID columns ("SNP ID" or "rsID" in
-    https://www.cog-genomics.org/plink/2.0/formats#gen) must be of the form 
-    "CHROM:POS_REF_ALT" to detect possible strand swaps. 
+    https://www.cog-genomics.org/plink/2.0/formats#gen) must be of the form
+    "CHROM:POS_REF_ALT" to detect possible strand swaps.
     {nbsp} +
     When the *--vcf-ids* option is given, the other column (autodetected) is used
     to fill the ID column of the VCF.
@@ -1286,7 +1289,7 @@ output VCF and are ignored for the prediction analysis.
     #
     # Attributes required for
     #   gene lines:
-    #   - ID=gene:<gene_id> 
+    #   - ID=gene:<gene_id>
     #   - biotype=<biotype>
     #   - Name=<gene_name>      [optional]
     #
@@ -1560,7 +1563,7 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     that average score is used to determine the top matches, not absolute values.
 
 *--no-HWE-prob*::
-    Disable calculation of HWE probability to reduce memory requirements with 
+    Disable calculation of HWE probability to reduce memory requirements with
     comparisons between very large number of sample pairs.
 
 *-p, --pairs* 'LIST'::
@@ -1629,11 +1632,11 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 //          present, a constant value '99' is used for the unseen genotypes.  With
 //          *-G*, the value '1' can be used instead; the discordance value then
 //          gives exactly the number of differing genotypes.
-//  
+//
 //      ERR, error rate;;
 //          Pairwise error rate calculated as number of differences divided
 //          by the total number of comparisons.
-//  
+//
 //      CLUSTER, TH, DOT;;
 //          In presence of multiple samples, related samples and outliers can be
 //          identified by clustering samples by error rate. A simple hierarchical
@@ -1868,7 +1871,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     alternate alleles relevant (local) for the current sample. The number 'INT' gives the
     maximum number of alternate alleles that can be included in the PL tag. The default value
     is 0 which disables the feature and outputs values for all alternate alleles.
-   
+
 *-m, --merge* 'snps'|'indels'|'both'|'all'|'none'|'id'::
     The option controls what types of multiallelic records can be created:
 ----
@@ -2263,7 +2266,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     See also *--atom-overlaps* and *--old-rec-tag*.
 
 *--atom-overlaps* '.'|'*'::
-    Alleles missing because of an overlapping variant can be set either 
+    Alleles missing because of an overlapping variant can be set either
     to missing (.) or to the star alele (*), as recommended by
     the VCF specification. IMPORTANT: Note that asterisk is expaneded
     by shell and must be put in quotes or escaped by a backslash:
@@ -2293,7 +2296,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields. Also note, and this
     cannot be stressed enough, that 's' will NOT fix strand issues in
-    your VCF, do NOT use it for that purpose!!! (Instead see 
+    your VCF, do NOT use it for that purpose!!! (Instead see
     <http://samtools.github.io/bcftools/howtos/plugin.af-dist.html> and
     <http://samtools.github.io/bcftools/howtos/plugin.fixref.html>.)
 
@@ -2337,7 +2340,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *--old-rec-tag* 'STR'::
     Add INFO/STR annotation with the original record. The format of the
-    annotation is CHROM|POS|REF|ALT|USED_ALT_IDX. 
+    annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -2956,11 +2959,11 @@ Transition probabilities:
 
 *-M, --rec-rate* 'FLOAT'::
     constant recombination rate per bp. In combination with *--genetic-map*,
-    the *--rec-rate* parameter is interpreted differently, as 'FLOAT'-fold increase of 
+    the *--rec-rate* parameter is interpreted differently, as 'FLOAT'-fold increase of
     transition probabilities, which allows the model to become more sensitive
     yet still account for recombination hotspots. Note that also the range
     of the values is therefore different in both cases: normally the
-    parameter will be in the range (1e-3,1e-9) but with *--genetic-map* 
+    parameter will be in the range (1e-3,1e-9) but with *--genetic-map*
     it will be in the range (10,1000).
 
 *-o, --output* 'FILE'::
@@ -3199,7 +3202,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that a filter like '--min-af 0.1' will be calculated from INFO/AC and INFO/AN 
+that a filter like '--min-af 0.1' will be calculated from INFO/AC and INFO/AN
 when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
 field, like INFO/AF for example. For that, use '--exclude AF<0.1' instead.
 
@@ -3418,7 +3421,7 @@ to require that all alleles are of the given type. Compare
 * array subscripts (0-based), "*" for any element, "-" to indicate a range. Note that
 for querying FORMAT vectors, the colon ":" can be used to select a sample and an
 element of the vector, as shown in the examples below
-    
+
         INFO/AF[0] > 0.3             .. first AF value bigger than 0.3
         FORMAT/AD[0:0] > 30          .. first AD value of the first sample bigger than 30
         FORMAT/AD[0:1]               .. first sample, second AD value
@@ -3531,7 +3534,7 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 
     TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
 
-    COUNT(GT="hom")=0      .. no homozygous genotypes at the site 
+    COUNT(GT="hom")=0      .. no homozygous genotypes at the site
 
     AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger than 50
 
