@@ -482,6 +482,10 @@ static char *bcf_cgp_calc_cons(int n, int *n_plp, bam_pileup1_t **plp,
 #  define MIN(a,b) ((a)<(b)?(a):(b))
 #endif
 
+#ifndef MAX
+#  define MAX(a,b) ((a)>(b)?(a):(b))
+#endif
+
 // Part of bcf_call_gap_prep.
 //
 // Realign using BAQ to get an alignment score of a single read vs
@@ -542,6 +546,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // used for adjusting indelQ below
     l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
     *score = sc<<8 | MIN(255, l);
+    //fprintf(stderr, "score = %d, qend-qbeg = %d, => adj score %d\n", sc, qend-qbeg, l);
 
     rep_ele *reps, *elt, *tmp;
     uint8_t *seg = ref2 + tbeg - left;
@@ -601,6 +606,10 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
     for (s = K = 0; s < n; ++s) {
         for (i = 0; i < n_plp[s]; ++i, ++K) {
             bam_pileup1_t *p = plp[s] + i;
+            // Labelling is confusing here.
+            //    sct is short for score.
+            //    sc is score + t(type)
+            // Why aren't these variable names reversed?
             int *sct = &score[K*n_types], seqQ, indelQ;
             for (t = 0; t < n_types; ++t) sc[t] = sct[t]<<6 | t;
             for (t = 1; t < n_types; ++t) // insertion sort
@@ -614,6 +623,8 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
              * compromise for multi-allelic indels.
              */
             if ((sc[0]&0x3f) == ref_type) {
+                // sc >> 14 is the total score.  It's been shifted by 8
+                // from normalised score and 6 from type.
                 indelQ = (sc[1]>>14) - (sc[0]>>14);
                 seqQ = est_seqQ(bca, types[sc[1]&0x3f], l_run);
             } else {
@@ -622,8 +633,14 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 indelQ = (sc[t]>>14) - (sc[0]>>14);
                 seqQ = est_seqQ(bca, types[sc[0]&0x3f], l_run);
             }
-            tmp = sc[0]>>6 & 0xff;
+
+            tmp = sc[0]>>6 & 0xff; // normalised score
+
             // reduce indelQ
+            // high score = bad, low score = good.
+            // low normalised scores leave indelQ unmodified
+            // high normalised scores set indelQ to 0
+            // inbetween scores have a linear scale from indelQ to 0
             indelQ = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ + .499);
 
             // Doesn't really help accuracy, but permits -h to take
@@ -632,8 +649,8 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             if (indelQ > 255) indelQ = 255;
             if (seqQ > 255) seqQ = 255;
             p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ; // use 22 bits in total
-            sumq[sc[0]&0x3f] += indelQ < seqQ? indelQ : seqQ;
-            //              fprintf(stderr, "pos=%d read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", pos, s, i, bam1_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
+            sumq[sc[0]&0x3f] += indelQ < seqQ? indelQ : seqQ; // FIXME: redunctant; always indelQ
+            // fprintf(stderr, "  read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", s, i, bam_get_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
         }
     }
     // determine bca->indel_types[] and bca->inscns
@@ -721,13 +738,118 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     // calculate left and right boundary
     left = pos > bca->indel_win_size ? pos - bca->indel_win_size : 0;
     right = pos + bca->indel_win_size;
-    if (types[0] < 0) right -= types[0];
+    int del_size = types[0]<0 ? -types[0] : 0;
+    int ins_size = types[0]>0 ? types[0] : 0;
+    right += del_size;
 
     // in case the alignments stand out the reference
     for (i = pos; i < right; ++i)
         if (ref[i] == 0) break;
     right = i;
 
+    // FIXME: move to own function: STR_adj_left_right?
+    if (1) {
+        rep_ele *reps, *elt, *tmp;
+
+        // Convert ASCII to 0,1,2,3 seq for find_STR usage
+        int j;
+        char ref4[1024]; // FIXME, check!
+        if (right > left+1024)
+            right = left+1024;
+        for (j = 0, i = left; i < right; i++, j++) {
+            switch(ref[i]) {
+            case 'A': ref4[j] = 0; break;
+            case 'C': ref4[j] = 1; break;
+            case 'G': ref4[j] = 2; break;
+            case 'T': ref4[j] = 3; break;
+            default:  ref4[j] = j%4; break; // mix N across all 4 types
+            }
+        }
+        reps = find_STR(ref4, right-left, 0);
+
+        int over_l = pos-1;
+        int over_r = pos+del_size+1;
+        int adjusted = 1;
+
+        //fprintf(stderr, "\nRef at %d: %.*s\n", left, right-left, ref+left);
+
+#if 0
+        DL_FOREACH_SAFE(reps, elt, tmp) {
+            //fprintf(stderr, "rep %d..%d: %.*s\n", elt->start, elt->end,
+            //        elt->end-elt->start+1, ref+left+elt->start);
+            if (elt->start + left < over_l && elt->end + left >= pos-1) {
+                over_l = elt->start + left;
+                //fprintf(stderr, "Adj left\n");
+                adjusted=1;
+            }
+            if (elt->end + left > over_r && elt->start + left <= pos+1) {
+                over_r = elt->end + left;
+                //fprintf(stderr, "Adj right\n");
+                adjusted=1;
+            }
+            //DL_DELETE(reps, elt);
+            //free(elt);
+        }
+
+        // 2nd pass, adjusting to next STR so require 2 STRs out
+        if (adjusted) {
+            int pos_l = over_l;
+            int pos_r = over_r;
+            DL_FOREACH_SAFE(reps, elt, tmp) {
+                if (elt->start + left < over_l && elt->end + left >= pos_l-1)
+                    over_l = elt->start + left;
+                if (elt->end + left > over_r && elt->start + left <= pos_r+1)
+                    over_r = elt->end + left;
+                DL_DELETE(reps, elt);
+                free(elt);
+            }
+        }
+        //fprintf(stderr, "STR overlap = %d..(%d)..%d\n", over_l, pos, over_r);
+
+        // FIXME adjustable param
+        over_l = pos - (pos-over_l)*2;
+        over_r = pos + (over_r-pos)*2;
+        //over_l -= 5+del_size+ins_size;
+        //over_r += 5+del_size+ins_size;
+
+        over_l -= 5+3*(del_size+ins_size);
+        over_r += 5+3*(del_size+ins_size);
+        //fprintf(stderr, "=>  overlap = %d..(%d)..%d\n", over_l, pos, over_r);
+        if (left < over_l)
+            left = over_l;
+        if (right > over_r)
+            right = over_r;
+#else
+        // Too many FNs, but OK otherwise.
+        char str[1024] = {0};
+        const int n = 3;
+        DL_FOREACH_SAFE(reps, elt, tmp) {
+            int i, i_start = MAX(elt->start-n, 0), i_end = MIN(elt->end+n, 1024);
+//            fprintf(stderr, "rep %d..%d: %.*s\n", elt->start, elt->end,
+//                    elt->end-elt->start+1, ref+left+elt->start);
+            for (i = i_start; i < i_end; i++)
+                str[i]=1;
+            DL_DELETE(reps, elt);
+            free(elt);
+        }
+        int score;
+        for (score = 3, i = pos; i > left && score; i--)
+            score -= str[i-left]==0;
+        int left_new = i;
+
+        for (score = 3, i = pos; i < right && score; i++)
+            score -= str[i-left]==0;
+        int right_new = i;
+
+//        fprintf(stderr, "left %d, %d, pos %d, %d, right %d\n",
+//                left, left_new, pos, right_new, right);
+
+        left = left_new;
+        right = right_new;
+#endif
+    }
+
+//    fprintf(stderr, "=== POS %d, left/right = len %d\n", pos, right-left);
 
     /* The following call fixes a long-existing flaw in the INDEL
      * calling model: the interference of nearby SNPs. However, it also
@@ -895,7 +1017,9 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // RG platform field.
                 int long_read = p->b->core.l_qseq > 1000;
 
-                // do realignment; this is the bottleneck
+                // do realignment; this is the bottleneck.
+                //
+                // Note low score = good, high score = bad.
                 if (tend > tbeg) {
                     if (bcf_cgp_align_score(p, bca, types[t],
                                             (uint8_t *)ref2 + left2-left,
@@ -920,9 +1044,9 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                     fputc("ACGTN"[(int)query[l]], stderr);
                 fputc('\n', stderr);
                 fprintf(stderr, "pos=%d type=%d read=%d:%d name=%s "
-                        "qbeg=%d tbeg=%d score=%d\n",
+                        "qbeg=%d tbeg=%d score=%d,%d\n",
                         pos, types[t], s, i, bam_get_qname(p->b),
-                        qbeg, tbeg, sc);
+                        qbeg, tbeg, score[K*n_types + t]>>8, score[K*n_types + t]&0xff);
 #endif
             }
         }

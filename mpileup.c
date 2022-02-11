@@ -1412,7 +1412,7 @@ int main_mpileup(int argc, char *argv[])
                 if ( *tmp ) error("Could not parse argument: --indel-size %s\n", optarg);
                 if ( mplp.indel_win_size < 110 )
                 {
-                    mplp.indel_win_size = 110;
+                    //mplp.indel_win_size = 110;
                     fprintf(stderr,"Warning: running with --indel-size %d, the requested value is too small\n",mplp.indel_win_size);
                 }
             }
