@@ -72,7 +72,7 @@ idist_t;
 
 typedef struct
 {
-    uint32_t n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals, n_records, n_noalts;
+    uint64_t n_snps, n_indels, n_mnps, n_others, n_mals, n_snp_mals, n_records, n_noalts;
     int *af_ts, *af_tv, *af_snps;   // first bin of af_* stats are singletons
     #if HWE_STATS
         int *af_hwe;
@@ -107,7 +107,7 @@ typedef struct
 {
     uint64_t gt2gt[5][5];   // number of RR->RR, RR->RA, etc. matches/mismatches; see type2stats
     /*
-        Pearson's R^2 is used for aggregate R^2 
+        Pearson's R^2 is used for aggregate R^2
         y, yy .. sum of dosage and squared dosage in the query VCF (second file)
         x, xx .. sum of squared dosage in the truth VCF (first file)
         n     .. number of genotypes
@@ -436,7 +436,7 @@ static void init_stats(args_t *args)
     else
     {
         args->af_bins = bin_init(args->af_bins_list,0,1);
-    
+
         // m_af is used also for other af arrays, where the first bin is for
         // singletons. However, since the last element is unused in af_bins
         // (n boundaries form n-1 intervals), the m_af count is good for both.
@@ -892,7 +892,7 @@ static inline void update_dvaf(stats_t *stats, bcf1_t *line, bcf_fmt_t *fmt, int
     else if ( len > stats->m_indel ) len = stats->m_indel;
     int bin = stats->m_indel + len;
     stats->nvaf[bin]++;
-    stats->dvaf[bin] += dvaf; 
+    stats->dvaf[bin] += dvaf;
 }
 
 static void do_sample_stats(args_t *args, stats_t *stats, bcf_sr_t *reader, int matched)
@@ -1199,7 +1199,7 @@ static void do_vcf_stats(args_t *args)
             do_sample_stats(args, stats, reader, ret);
 
         if ( bcf_get_info_int32(reader->header,line,"DP",&args->tmp_iaf,&args->ntmp_iaf)==1 )
-            (*idist(&stats->dp_sites, args->tmp_iaf[0]))++;    
+            (*idist(&stats->dp_sites, args->tmp_iaf[0]))++;
     }
 }
 
@@ -1270,14 +1270,14 @@ static void print_stats(args_t *args)
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
-        printf("SN\t%d\tnumber of records:\t%u\n", id, stats->n_records);
-        printf("SN\t%d\tnumber of no-ALTs:\t%u\n", id, stats->n_noalts);
-        printf("SN\t%d\tnumber of SNPs:\t%u\n", id, stats->n_snps);
-        printf("SN\t%d\tnumber of MNPs:\t%u\n", id, stats->n_mnps);
-        printf("SN\t%d\tnumber of indels:\t%u\n", id, stats->n_indels);
-        printf("SN\t%d\tnumber of others:\t%u\n", id, stats->n_others);
-        printf("SN\t%d\tnumber of multiallelic sites:\t%u\n", id, stats->n_mals);
-        printf("SN\t%d\tnumber of multiallelic SNP sites:\t%u\n", id, stats->n_snp_mals);
+        printf("SN\t%d\tnumber of records:\t%"PRId64"\n", id, stats->n_records);
+        printf("SN\t%d\tnumber of no-ALTs:\t%"PRId64"\n", id, stats->n_noalts);
+        printf("SN\t%d\tnumber of SNPs:\t%"PRId64"\n", id, stats->n_snps);
+        printf("SN\t%d\tnumber of MNPs:\t%"PRId64"\n", id, stats->n_mnps);
+        printf("SN\t%d\tnumber of indels:\t%"PRId64"\n", id, stats->n_indels);
+        printf("SN\t%d\tnumber of others:\t%"PRId64"\n", id, stats->n_others);
+        printf("SN\t%d\tnumber of multiallelic sites:\t%"PRId64"\n", id, stats->n_mals);
+        printf("SN\t%d\tnumber of multiallelic SNP sites:\t%"PRId64"\n", id, stats->n_snp_mals);
     }
     printf("# TSTV, transitions/transversions:\n# TSTV\t[2]id\t[3]ts\t[4]tv\t[5]ts/tv\t[6]ts (1st ALT)\t[7]tv (1st ALT)\t[8]ts/tv (1st ALT)\n");
     for (id=0; id<args->nstats; id++)
@@ -1419,7 +1419,7 @@ static void print_stats(args_t *args)
             {
                 if ( usr->vals_ts[j]+usr->vals_tv[j] == 0 ) continue;   // skip empty bins
                 float val = usr->min + (usr->max - usr->min)*j/(usr->nbins-1);
-                const char *fmt = usr->type==BCF_HT_REAL ? "USR:%s/%d\t%d\t%e\t%d\t%d\t%d\n" : "USR:%s/%d\t%d\t%.0f\t%d\t%d\t%d\n";
+                const char *fmt = usr->type==BCF_HT_REAL ? "USR:%s/%d\t%d\t%e\t%"PRId64"\t%"PRId64"\t%"PRId64"\n" : "USR:%s/%d\t%d\t%.0f\t%"PRId64"\t%"PRId64"\t%"PRId64"\n";
                 printf(fmt,usr->tag,usr->idx,id,val,usr->vals_ts[j]+usr->vals_tv[j],usr->vals_ts[j],usr->vals_tv[j]);
             }
         }
@@ -1489,7 +1489,7 @@ static void print_stats(args_t *args)
                     for (k=0; k<4; k++)
                     {
                         n += stats[i].gt2gt[j][k];
-                        if ( j==k ) 
+                        if ( j==k )
                         {
                             nrd_m[j] += stats[i].gt2gt[j][k];
                             m[j]     += stats[i].gt2gt[j][k];
@@ -1571,7 +1571,7 @@ static void print_stats(args_t *args)
                     r2 *= r2;
                 }
                 printf("GC%cS\t2\t%s\t%.3f",  x==0 ? 's' : 'i', args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", 
+                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"",
                     stats[i].gt2gt[T2S(GT_HOM_RR)][T2S(GT_HOM_RR)],
                     stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HET_RA)],
                     stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HOM_AA)]);
