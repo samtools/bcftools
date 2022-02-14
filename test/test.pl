@@ -306,6 +306,8 @@ test_vcf_view($opts,in=>'view.filter.annovar',out=>'view.filter.annovar.1.out',a
 test_vcf_view($opts,in=>'view.filter.annovar',out=>'view.filter.annovar.2.out',args=>q[-H -i 'Gene.refGene~"NOD"'],reg=>'');
 test_vcf_view($opts,in=>'view.filter.annovar',out=>'view.filter.annovar.3.out',args=>q[-H -i 'LJB2_MutationTaster=="0.291000"'],reg=>'');
 test_vcf_view($opts,in=>'view-a',out=>'view-a.1.out',args=>q[-H -a]);
+test_vcf_view($opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt');
+test_vcf_view($opts,in=>'view.sites',out=>'view.sites.1.out',args=>'',tgts=>'view.sites.txt.gz');
 test_vcf_head($opts,in=>'mpileup.2.vcf',in_nheaders=>22);
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.1.out',args=>'-mv');
 test_vcf_call($opts,in=>'mpileup',out=>'mpileup.2.out',args=>'-mg0');
@@ -868,7 +870,7 @@ sub parse_params
         $$opts{path} = cygpath($$opts{path});
         $$opts{bin}  = cygpath($$opts{bin});
     }
-    
+
     return $opts;
 }
 sub _cmd
@@ -1540,7 +1542,7 @@ sub test_vcf_plugin
     if ( !$$opts{test_plugins} ) { return; }
     $ENV{BCFTOOLS_PLUGINS} = "$$opts{bin}/plugins";
     if ( !exists($args{args}) ) { $args{args} = ''; }
-    my $wpath = $$opts{path}; 
+    my $wpath = $$opts{path};
     if ($^O =~ /^msys/) {
         $wpath = `cygpath -w $$opts{path}`;
         $wpath =~ s/\r?\n//;
