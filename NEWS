@@ -49,6 +49,12 @@ Changes affecting specific commands:
     - New `--mask`, `--mask-file` and `--mask-overlap` options to soft filter
       variants in regions (#1635)
 
+* bcftools +fixref
+
+    - The `-m id` option now works also for non-dbSNP ids, i.e. not just `rsINT`
+
+    - New `-m flip-all` mode for flipping all sites, including ambiguous A/T and C/G sites
+
 * bcftools isec
 
     - Prevent segfault on sites filtered with -i/-e in all files (#1632)
