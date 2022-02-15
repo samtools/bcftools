@@ -1270,14 +1270,14 @@ static void print_stats(args_t *args)
     for (id=0; id<args->nstats; id++)
     {
         stats_t *stats = &args->stats[id];
-        printf("SN\t%d\tnumber of records:\t%"PRId64"\n", id, stats->n_records);
-        printf("SN\t%d\tnumber of no-ALTs:\t%"PRId64"\n", id, stats->n_noalts);
-        printf("SN\t%d\tnumber of SNPs:\t%"PRId64"\n", id, stats->n_snps);
-        printf("SN\t%d\tnumber of MNPs:\t%"PRId64"\n", id, stats->n_mnps);
-        printf("SN\t%d\tnumber of indels:\t%"PRId64"\n", id, stats->n_indels);
-        printf("SN\t%d\tnumber of others:\t%"PRId64"\n", id, stats->n_others);
-        printf("SN\t%d\tnumber of multiallelic sites:\t%"PRId64"\n", id, stats->n_mals);
-        printf("SN\t%d\tnumber of multiallelic SNP sites:\t%"PRId64"\n", id, stats->n_snp_mals);
+        printf("SN\t%d\tnumber of records:\t%"PRIu64"\n", id, stats->n_records);
+        printf("SN\t%d\tnumber of no-ALTs:\t%"PRIu64"\n", id, stats->n_noalts);
+        printf("SN\t%d\tnumber of SNPs:\t%"PRIu64"\n", id, stats->n_snps);
+        printf("SN\t%d\tnumber of MNPs:\t%"PRIu64"\n", id, stats->n_mnps);
+        printf("SN\t%d\tnumber of indels:\t%"PRIu64"\n", id, stats->n_indels);
+        printf("SN\t%d\tnumber of others:\t%"PRIu64"\n", id, stats->n_others);
+        printf("SN\t%d\tnumber of multiallelic sites:\t%"PRIu64"\n", id, stats->n_mals);
+        printf("SN\t%d\tnumber of multiallelic SNP sites:\t%"PRIu64"\n", id, stats->n_snp_mals);
     }
     printf("# TSTV, transitions/transversions:\n# TSTV\t[2]id\t[3]ts\t[4]tv\t[5]ts/tv\t[6]ts (1st ALT)\t[7]tv (1st ALT)\t[8]ts/tv (1st ALT)\n");
     for (id=0; id<args->nstats; id++)
@@ -1419,7 +1419,7 @@ static void print_stats(args_t *args)
             {
                 if ( usr->vals_ts[j]+usr->vals_tv[j] == 0 ) continue;   // skip empty bins
                 float val = usr->min + (usr->max - usr->min)*j/(usr->nbins-1);
-                const char *fmt = usr->type==BCF_HT_REAL ? "USR:%s/%d\t%d\t%e\t%"PRId64"\t%"PRId64"\t%"PRId64"\n" : "USR:%s/%d\t%d\t%.0f\t%"PRId64"\t%"PRId64"\t%"PRId64"\n";
+                const char *fmt = usr->type==BCF_HT_REAL ? "USR:%s/%d\t%d\t%e\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"\n" : "USR:%s/%d\t%d\t%.0f\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"\n";
                 printf(fmt,usr->tag,usr->idx,id,val,usr->vals_ts[j]+usr->vals_tv[j],usr->vals_ts[j],usr->vals_tv[j]);
             }
         }
@@ -1512,8 +1512,8 @@ static void print_stats(args_t *args)
                 }
                 double af = args->af_bins ? (bin_get_value(args->af_bins,i)+bin_get_value(args->af_bins,i-1))*0.5 : (double)(i-1)/(args->m_af-1);
                 printf("GC%cAF\t2\t%f", x==0 ? 's' : 'i', af);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", m[T2S(GT_HOM_RR)],m[T2S(GT_HET_RA)],m[T2S(GT_HOM_AA)]);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"", mm[T2S(GT_HOM_RR)],mm[T2S(GT_HET_RA)],mm[T2S(GT_HOM_AA)]);
+                printf("\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"", m[T2S(GT_HOM_RR)],m[T2S(GT_HET_RA)],m[T2S(GT_HOM_AA)]);
+                printf("\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"", mm[T2S(GT_HOM_RR)],mm[T2S(GT_HET_RA)],mm[T2S(GT_HOM_AA)]);
                 if ( stats[i].n && !isnan(r2) ) printf("\t%f", r2);
                 else printf("\t"NA_STRING);
                 printf("\t%.0f\n", stats[i].n);
@@ -1571,11 +1571,11 @@ static void print_stats(args_t *args)
                     r2 *= r2;
                 }
                 printf("GC%cS\t2\t%s\t%.3f",  x==0 ? 's' : 'i', args->files->samples[i], m+mm ? mm*100.0/(m+mm) : 0);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"",
+                printf("\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"",
                     stats[i].gt2gt[T2S(GT_HOM_RR)][T2S(GT_HOM_RR)],
                     stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HET_RA)],
                     stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HOM_AA)]);
-                printf("\t%"PRId64"\t%"PRId64"\t%"PRId64"",
+                printf("\t%"PRIu64"\t%"PRIu64"\t%"PRIu64"",
                     stats[i].gt2gt[T2S(GT_HOM_RR)][T2S(GT_HET_RA)] + stats[i].gt2gt[T2S(GT_HOM_RR)][T2S(GT_HOM_AA)],
                     stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HOM_RR)] + stats[i].gt2gt[T2S(GT_HET_RA)][T2S(GT_HOM_AA)],
                     stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HOM_RR)] + stats[i].gt2gt[T2S(GT_HOM_AA)][T2S(GT_HET_RA)]);
@@ -1631,7 +1631,7 @@ static void print_stats(args_t *args)
                 printf("GCT%c\t%s",  x==0 ? 's' : 'i', args->files->samples[i]);
                 for (j=0; j<5; j++)
                     for (k=0; k<5; k++)
-                        printf("\t%"PRId64, stats[i].gt2gt[j][k]);
+                        printf("\t%"PRIu64, stats[i].gt2gt[j][k]);
                 printf("\n");
             }
         }
@@ -1650,8 +1650,8 @@ static void print_stats(args_t *args)
             if ( i==0 ) printf("<%d", stats->dp.min);
             else if ( i+1==stats->dp.m_vals ) printf(">%d", stats->dp.max);
             else printf("%d", idist_i2bin(&stats->dp,i));
-            printf("\t%"PRId64"\t%f", stats->dp.vals[i], sum ? stats->dp.vals[i]*100./sum : 0);
-            printf("\t%"PRId64"\t%f\n", stats->dp_sites.vals[i], sum_sites ? stats->dp_sites.vals[i]*100./sum_sites : 0);
+            printf("\t%"PRIu64"\t%f", stats->dp.vals[i], sum ? stats->dp.vals[i]*100./sum : 0);
+            printf("\t%"PRIu64"\t%f\n", stats->dp_sites.vals[i], sum_sites ? stats->dp_sites.vals[i]*100./sum_sites : 0);
         }
     }
 
