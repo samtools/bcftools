@@ -72,6 +72,9 @@ Changes affecting specific commands:
         --rf, --incl-flags STR|INT  Required flags: skip reads with mask bits unset
         --ff, --excl-flags STR|INT  Filter flags: skip reads with mask bits set
 
+    - New option --no-indelQ-tweaks to increase sensitivity for indels, especially
+      in long reads.
+
 * bcftools query
 
     - Make the `--samples` and `--samples-file` options work also in the `--list-samples`

@@ -2160,8 +2160,8 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
 
         1.12           -Q13 -h100 -m1
         illumina       [ default values ]
-        ont	           -B -Q5 --max-BQ 30 -I
-        pacbio-ccs     -D -Q5 --max-BQ 50 -F0.1 -o25 -e1 -M99999
+        ont	           -B -Q5 --max-BQ 30 --no-indelQ-tweaks -I
+        pacbio-ccs     -D -Q5 --max-BQ 50 --no-indelQ-tweaks -F0.1 -o25 -e1 -M99999
 
 *--ar, --ambig-reads* 'drop'|'incAD'|'incAD0'::
     What to do with ambiguous indel reads that do not span an entire
@@ -2204,6 +2204,13 @@ INFO/DPR    .. Deprecated in favor of INFO/AD; Number of high-quality bases for 
     Indel window size to use when assessing the quality of candidate indels.
     Note that although the window size approximately corresponds to the maximum
     indel size considered, it is not an exact threshold [110]
+
+*--no-indelQ-tweaks*::
+    Increase sensitivity of indel calling, especially from long reads.
+    The indel calling algorithm was designed for short reads and uses heuristics
+    to estimate the maximum tolerable deviation of the query sequence
+    from the reference. However, for long reads this sometimes leads to incorrect
+    rejection of valid indels.
 
 *-I, --skip-indels*::
     Do not perform INDEL calling

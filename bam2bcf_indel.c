@@ -1,7 +1,7 @@
 /*  bam2bcf_indel.c -- indel caller.
 
     Copyright (C) 2010, 2011 Broad Institute.
-    Copyright (C) 2012-2014,2016-2017, 2021 Genome Research Ltd.
+    Copyright (C) 2012-2014,2016-2017,2021-2022 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -540,7 +540,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     }
 
     // used for adjusting indelQ below
-    l = (int)(100. * sc / (qend - qbeg) + .499) * bca->indel_bias;
+    l = (int)((100. * sc / (qend - qbeg) + .499) * bca->indel_bias_inverted);
     *score = sc<<8 | MIN(255, l);
 
     rep_ele *reps, *elt, *tmp;
@@ -623,8 +623,14 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
                 seqQ = est_seqQ(bca, types[sc[0]&0x3f], l_run);
             }
             tmp = sc[0]>>6 & 0xff;
+
+            // Don't know how this indelQ reduction threshold of 111 was derived,
+            // but it does not function well for longer reads that span multiple
+            // events.
+            //
             // reduce indelQ
-            indelQ = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ + .499);
+            if ( !bca->no_indelQ_tweaks )
+                indelQ = tmp > 111? 0 : (int)((1. - tmp/111.) * indelQ + .499);
 
             // Doesn't really help accuracy, but permits -h to take
             // affect still.
@@ -633,7 +639,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             if (seqQ > 255) seqQ = 255;
             p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ; // use 22 bits in total
             sumq[sc[0]&0x3f] += indelQ < seqQ? indelQ : seqQ;
-            //              fprintf(stderr, "pos=%d read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", pos, s, i, bam1_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
+            // fprintf(stderr, "  read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", s, i, bam_get_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
         }
     }
     // determine bca->indel_types[] and bca->inscns
@@ -922,7 +928,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 fprintf(stderr, "pos=%d type=%d read=%d:%d name=%s "
                         "qbeg=%d tbeg=%d score=%d\n",
                         pos, types[t], s, i, bam_get_qname(p->b),
-                        qbeg, tbeg, sc);
+                        qbeg, tbeg, score[K*n_types + t]);
 #endif
             }
         }
