@@ -55,6 +55,7 @@ const char *hts_bcf_wmode2(int file_type, const char *fname);
 void set_wmode(char dst[8], int file_type, const char *fname, int compression_level);  // clevel: 0-9 with or zb type, -1 unset
 char *init_tmp_prefix(const char *prefix);
 int read_AF(bcf_sr_regions_t *tgt, bcf1_t *line, double *alt_freq);
+int parse_overlap_option(const char *arg);
 
 void *smalloc(size_t size);     // safe malloc
 

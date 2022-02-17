@@ -100,3 +100,10 @@ void set_wmode(char dst[8], int file_type, const char *fname, int clevel)
         strcpy(dst, ret);
 }
 
+int parse_overlap_option(const char *arg)
+{
+    if ( strcasecmp(arg, "pos") == 0 || strcmp(arg, "0") == 0 ) return 0;
+    else if ( strcasecmp(arg, "record") == 0 || strcmp(arg, "1") == 0 ) return 1;
+    else if ( strcasecmp(arg, "variant") == 0 || strcmp(arg, "2") == 0 ) return 2;
+    else return -1;
+}
