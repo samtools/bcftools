@@ -575,7 +575,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         // check me: rghash in bcf_call_gap_prep() should have no effect, reads mplp_func already excludes them
         if (!(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth
             && (bcf_callaux_clean(conf->bca, &conf->bc),
-                bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref) >= 0))
+                bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref, ref_len) >= 0))
         {
             for (i = 0; i < conf->gplp->n; ++i)
                 bcf_call_glfgen(conf->gplp->n_plp[i], conf->gplp->plp[i], -1, conf->bca, conf->bcr + i);
@@ -1243,7 +1243,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB|B2B_INFO_SCB|B2B_INFO_ZSCORE;
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
-    mplp.indel_win_size = 110;
+    mplp.indel_win_size = 80;
     mplp.clevel = -1;
     hts_srand48(0);
 
@@ -1429,9 +1429,9 @@ int main_mpileup(int argc, char *argv[])
                 char *tmp;
                 mplp.indel_win_size = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --indel-size %s\n", optarg);
-                if ( mplp.indel_win_size < 110 )
+                if ( mplp.indel_win_size < 20 )
                 {
-                    //mplp.indel_win_size = 110;
+                    mplp.indel_win_size = 20;
                     fprintf(stderr,"Warning: running with --indel-size %d, the requested value is too small\n",mplp.indel_win_size);
                 }
             }
