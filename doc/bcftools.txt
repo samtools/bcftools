@@ -210,13 +210,14 @@ specific commands to see if they apply.
     This option requires indexed VCF/BCF files. Note that *-R* cannot be used
     in combination with *-r*.
 
-*--regions-overlap* '0'|'1'|'2'::
+*--regions-overlap* 'pos'|'record'|'variant'|'0'|'1'|'2'::
     This option controls how overlapping records are determined:
-    set to *0* if the VCF record has to have POS inside a region
+    set to *pos* or *0* if the VCF record has to have POS inside a region
     (this corresponds to the default behavior of *-t/-T*);
-    set to *1* if also overlapping records with POS outside a region
-    should be included (this is the default behavior of *-r/-R*); or set
-    to *2* to include only true overlapping variation (compare
+    set to *record* or *1* if also overlapping records with POS outside a region
+    should be included (this is the default behavior of *-r/-R*, and includes indels
+    with POS at the end of a region, which are technically outside the region); or set
+    to *variant* or *2* to include only true overlapping variation (compare
     the full VCF representation "`TA>T-`" vs the true sequence variation "`A>-`").
 
 *-s, --samples* \[^]'LIST'::
@@ -274,7 +275,8 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the *-t/-T* and *-r/-R* is that *-r/-R* checks for
     proper overlaps and considers both POS and the end position of an indel, while *-t/-T*
-    considers the POS coordinate only. Note that *-t* cannot be used in combination with *-T*.
+    considers the POS coordinate only (by default; see also *--regions-overlap* and *--targets-overlap*).
+    Note that *-t* cannot be used in combination with *-T*.
 
 *-T, --targets-file* \[^]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
@@ -289,7 +291,7 @@ Such a file can be easily created from a VCF using:
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
 
-*--targets-overlap* '0'|'1'|'2'::
+*--targets-overlap* 'pos'|'record'|'variant'|'0'|'1'|'2'::
     Same as *--regions-overlap* but for *-t/-T*.
 
 *--threads* 'INT'::
