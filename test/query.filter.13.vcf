@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##reference=test.fa
+##contig=<ID=22,length=51304566>
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12890
+22	16053659	.	A	C,T	352	.	.	AD	0,9,1
+22	16053791	.	C	A,T	287	.	.	AD	4,4,1

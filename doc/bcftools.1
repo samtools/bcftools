@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2021-10-22
+.\"      Date: 2022-02-21
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2021-10-22" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2022-02-21" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2021\-10\-22\fP and refers to bcftools git version \fB1.14\fP.
+This manual page was last updated \fB2022\-02\-21\fP and refers to bcftools git version \fB1.15\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -177,6 +177,17 @@ list of available options, run \fBbcftools\fP \fICOMMAND\fP without arguments.
 .  IP \(bu 2.3
 .\}
 \fBgtcheck\fP   ..  check sample concordance, detect sample swaps and contamination
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\fBhead\fP      ..  view VCF/BCF file headers
 .RE
 .sp
 .RS 4
@@ -463,21 +474,23 @@ This option requires indexed VCF/BCF files. Note that \fB\-R\fP cannot be used
 in combination with \fB\-r\fP.
 .RE
 .sp
-\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+\fB\-\-regions\-overlap\fP \fIpos\fP|\fIrecord\fP|\fIvariant\fP|\fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 This option controls how overlapping records are determined:
-set to \fB0\fP if the VCF record has to have POS inside a region
+set to \fBpos\fP or \fB0\fP if the VCF record has to have POS inside a region
 (this corresponds to the default behavior of \fB\-t/\-T\fP);
-set to \fB1\fP if also overlapping records with POS outside a region
-should be included (this is the default behavior of \fB\-r/\-R\fP); or set
-to \fB2\fP to include only true overlapping variation (compare
+set to \fBrecord\fP or \fB1\fP if also overlapping records with POS outside a region
+should be included (this is the default behavior of \fB\-r/\-R\fP, and includes indels
+with POS at the end of a region, which are technically outside the region); or set
+to \fBvariant\fP or \fB2\fP to include only true overlapping variation (compare
 the full VCF representation "\f(CRTA>T\-\fP" vs the true sequence variation "\f(CRA>\-\fP").
 .RE
 .sp
-\fB\-s, \-\-samples\fP [&#94;]\fILIST\fP
+\fB\-s, \-\-samples\fP [^]\fILIST\fP
 .RS 4
 Comma\-separated list of samples to include or exclude if prefixed
-with "&#94;".
+with "^." (Note that when multiple samples are to be excluded,
+the "^" prefix is still present only once, e.g.  "^SAMPLE1,SAMPLE2".)
 The sample order is updated to reflect that given on the command line.
 Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
 to correspond to the subset samples. \fBbcftools view\fP is the
@@ -495,9 +508,9 @@ that command. For example:
 .fi
 .if n .RE
 .sp
-\fB\-S, \-\-samples\-file\fP \fIFILE\fP
+\fB\-S, \-\-samples\-file\fP [^]\fIFILE\fP
 .RS 4
-File of sample names to include or exclude if prefixed with "&#94;".
+File of sample names to include or exclude if prefixed with "^".
 One sample per line. See also the note above for the \fB\-s, \-\-samples\fP
 option.
 The sample order is updated to reflect that given in the input file.
@@ -541,20 +554,21 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 .fi
 .if n .RE
 .sp
-\fB\-t, \-\-targets\fP [&#94;]\fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
+\fB\-t, \-\-targets\fP [^]\fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
 Similar as \fB\-r, \-\-regions\fP, but the next position is accessed by streaming the
 whole VCF/BCF rather than using the tbi/csi index. Both \fB\-r\fP and \fB\-t\fP options
 can be applied simultaneously: \fB\-r\fP  uses  the index  to  jump  to  a  region
 and \fB\-t\fP discards positions which are not in the targets. Unlike \fB\-r\fP, targets
-can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
+can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
 indicates that sequences X, Y and MT should be skipped.
 Yet another difference between the \fB\-t/\-T\fP and \fB\-r/\-R\fP is that \fB\-r/\-R\fP checks for
 proper overlaps and considers both POS and the end position of an indel, while \fB\-t/\-T\fP
-considers the POS coordinate only. Note that \fB\-t\fP cannot be used in combination with \fB\-T\fP.
+considers the POS coordinate only (by default; see also \fB\-\-regions\-overlap\fP and \fB\-\-targets\-overlap\fP).
+Note that \fB\-t\fP cannot be used in combination with \fB\-T\fP.
 .RE
 .sp
-\fB\-T, \-\-targets\-file\fP [&#94;]\fIFILE\fP
+\fB\-T, \-\-targets\-file\fP [^]\fIFILE\fP
 .RS 4
 Same \fB\-t, \-\-targets\fP, but reads regions from a file. Note that \fB\-T\fP
 cannot be used in combination with \fB\-t\fP.
@@ -573,7 +587,7 @@ Such a file can be easily created from a VCF using:
 .fi
 .if n .RE
 .sp
-\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+\fB\-\-targets\-overlap\fP \fIpos\fP|\fIrecord\fP|\fIvariant\fP|\fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 Same as \fB\-\-regions\-overlap\fP but for \fB\-t/\-T\fP.
 .RE
@@ -635,13 +649,6 @@ See also \fB\-c, \-\-columns\fP and \fB\-h, \-\-header\-lines\fP.
 .fi
 .if n .RE
 .sp
-\fB\-\-collapse\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fInone\fP
-.RS 4
-Controls how to match records from the annotation file to the target VCF.
-Effective only when \fB\-a\fP is a VCF or BCF.
-See \fBCommon Options\fP for more.
-.RE
-.sp
 \fB\-c, \-\-columns\fP \fIlist\fP
 .RS 4
 Comma\-separated list of columns or tags to carry over from the annotation file
@@ -663,7 +670,7 @@ The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TA
 \~
 .br
 To carry over all INFO annotations, use "INFO". To add all INFO annotations except
-"TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+"TAG", use "^INFO/TAG". By default, existing values are replaced.
 \~
 .br
 \~
@@ -776,6 +783,15 @@ This is an experimental feature.
 annotate sites which are present ("+") or absent ("\-") in the \fB\-a\fP file with a new INFO/TAG flag
 .RE
 .sp
+\fB\-\-min\-overlap\fP \fIANN\fP:\*(AqVCF\*(Aq
+.RS 4
+minimum overlap required as a fraction of the variant in the annotation \fB\-a\fP file (\fIANN\fP), in the
+target VCF file (\fI:VCF\fP), or both for reciprocal overlap (\fIANN:VCF\fP).
+By default overlaps of arbitrary length are sufficient.
+The option can be used only with the tab\-delimited annotation \fB\-a\fP file and with \fIBEG\fP and \fIEND\fP
+columns present.
+.RE
+.sp
 \fB\-\-no\-version\fP
 .RS 4
 see \fBCommon Options\fP
@@ -791,12 +807,25 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-pair\-logic\fP \fIsnps\fP|\fIindels\fP|\fIboth\fP|\fIall\fP|\fIsome\fP|\fIexact\fP
+.RS 4
+Controls how to match records from the annotation file to the target VCF.
+Effective only when \fB\-a\fP is a VCF or BCF. The option replaces the former
+uninuitive \fB\-\-collapse\fP.
+See \fBCommon Options\fP for more.
+.RE
+.sp
 \fB\-r, \-\-regions\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
 see \fBCommon Options\fP
 .RE
 .sp
 \fB\-R, \-\-regions\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -816,7 +845,7 @@ rename chromosomes according to the map in \fIfile\fP, with
 line.
 .RE
 .sp
-\fB\-s, \-\-samples\fP [&#94;]\fILIST\fP
+\fB\-s, \-\-samples\fP [^]\fILIST\fP
 .RS 4
 subset of samples to annotate, see also \fBCommon Options\fP
 .RE
@@ -848,7 +877,7 @@ List of annotations to remove. Use "FILTER" to remove all filters or
 "FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
 be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
 except GT. To remove all INFO tags except "FOO" and "BAR", use
-"&#94;INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+"^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 .RE
 .sp
@@ -954,6 +983,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
 see \fBCommon Options\fP
@@ -974,6 +1008,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
@@ -990,7 +1029,7 @@ appear in any of the genotypes
 .RS 4
 comma\-separated list of FORMAT fields to output for each sample. Currently
 GQ and GP fields are supported. For convenience, the fields can be given
-as lower case letters. Prefixed with "&#94;" indicates a request for tag
+as lower case letters. Prefixed with "^" indicates a request for tag
 removal of auxiliary tags useful only for calling.
 .RE
 .sp
@@ -1165,6 +1204,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-query\-sample\fP \fIstring\fP
 .RS 4
 query sample name
@@ -1176,6 +1220,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -1343,6 +1392,11 @@ see \fBCommon Options\fP. Requires \fB\-a, \-\-allow\-overlaps\fP.
 see \fBCommon Options\fP. Requires \fB\-a, \-\-allow\-overlaps\fP.
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
@@ -1356,6 +1410,11 @@ obtain the consensus sequence. Using the \fB\-\-sample\fP (and, optionally,
 Note that the program does not act as a primitive variant caller and ignores allelic
 depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 \fBsetGT\fP plugin.
+.sp
+\fB\-a, \-\-absent\fP \fICHAR\fP
+.RS 4
+replace positions absent from VCF with CHAR
+.RE
 .sp
 \fB\-c, \-\-chain\fP \fIFILE\fP
 .RS 4
@@ -1519,6 +1578,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
 see \fBCommon Options\fP
@@ -1535,6 +1599,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -1563,10 +1632,17 @@ see \fBCommon Options\fP
 .sp
 \fB\-G, \-\-gensample2vcf\fP \fIprefix\fP or \fIgen\-file\fP,\fIsample\-file\fP
 .RS 4
-convert IMPUTE2 output to VCF. The second column must be of the form
-"CHROM:POS_REF_ALT" to detect possible strand swaps; IMPUTE2 leaves the
-first one empty ("\-\-") when sites from reference panel are filled in. See
-also \fB\-g\fP below.
+convert IMPUTE2 output to VCF. One of the ID columns ("SNP ID" or "rsID" in
+.URL "https://www.cog\-genomics.org/plink/2.0/formats#gen" "" ")"
+must be of the form
+"CHROM:POS_REF_ALT" to detect possible strand swaps.
+\~
+.br
+When the \fB\-\-vcf\-ids\fP option is given, the other column (autodetected) is used
+to fill the ID column of the VCF.
+\~
+.br
+See also \fB\-g\fP and \fB\-\-3N6\fP options.
 .RE
 .sp
 \fB\-g, \-\-gensample\fP \fIprefix\fP or \fIgen\-file\fP,\fIsample\-file\fP
@@ -1575,14 +1651,31 @@ convert from VCF to gen/sample format used by IMPUTE2 and SHAPEIT.
 The columns of .gen file format are ID1,ID2,POS,A,B followed by three
 genotype probabilities P(AA), P(AB), P(BB) for each sample.  In order to
 prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
-For example:
+When the \fB\-\-vcf\-ids\fP option is given, the second column is set to match the ID
+column of the VCF.
+\~
+.br
+See also \fB\-G\fP and \fB\-\-3N6\fP options.
+\~
+.br
+The file .gen and .sample file format are:
 .RE
 .sp
 .if n .RS 4
 .nf
 .fam C
-  .gen
-  \-\-\-\-
+  .gen (with \-\-3N6 \-\-vcf\-ids)
+  \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+  chr1 1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  chr1 1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (with \-\-vcf\-ids)
+  \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (the default)
+  \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
   1:111485207_G_A 1:111485207_G_A 111485207 G A 0 1 0 0 1 0
   1:111494194_C_T 1:111494194_C_T 111494194 C T 0 1 0 0 0 1
 
@@ -1596,14 +1689,16 @@ For example:
 .fi
 .if n .RE
 .sp
+\fB\-\-3N6\fP
+.RS 4
+Expect/Create files in the 3*N+6 column format. This is the new .gen file format with the first
+column containing the chromosome name, see \c
+.URL "https://www.cog\-genomics.org/plink/2.0/formats#gen" "" ""
+.RE
+.sp
 \fB\-\-tag\fP \fISTRING\fP
 .RS 4
 tag to take values for .gen file: GT,PL,GL,GP
-.RE
-.sp
-\fB\-\-chrom\fP
-.RS 4
-output chromosome in the first column instead of CHROM:POS_REF_ALT
 .RE
 .sp
 \fB\-\-sex\fP \fIFILE\fP
@@ -1645,19 +1740,23 @@ reference sequence in fasta format. Must be indexed with samtools faidx
 .RS 4
 convert from hap/sample format to VCF. The columns of .hap file are
 similar to .gen file above, but there are only two haplotype columns per
-sample. Note that the first column of the .hap file is expected to be in
-the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
-defining the INFO/END tag when ALT is a symbolic allele, for example:
+sample.  Note that the first or the second column of the .hap file is expected to be in
+the form "CHR:POS_REF_ALT[_END]", with the _END being optional for
+defining the INFO/END tag when ALT is a symbolic allele. For example:
 .RE
 .sp
 .if n .RS 4
 .nf
 .fam C
-  .hap
-  \-\-\-\-
+  .hap (with \-\-vcf\-ids)
+  \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
-  1:111494194_C_T rsID2 111494194 C T 0 1 0 0
   1:111495231_A_<DEL>_111495784 rsID3 111495231 A <DEL> 0 0 1 0
+
+  .hap (the default)
+  \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+  1 1:111485207_G_A 111485207 G A 0 1 0 0
+  1 1:111495231_A_<DEL>_111495784 111495231 A <DEL> 0 0 1 0
 .fam
 .fi
 .if n .RE
@@ -1694,22 +1793,26 @@ output sex column in the sample file. The FILE format is
 .sp
 \fB\-\-vcf\-ids\fP
 .RS 4
-output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
+the second column of the .hap file holds the VCF ids, the first
+column is of the form "CHR:POS_REF_ALT[_END]". Without the option,
+the format follows \c
+.URL "https://www.cog\-genomics.org/plink/2.0/formats#haps" ""
+with ids (the second column) of the form "CHR:POS_REF_ALT[_END]"
 .RE
 .SS "HAP/LEGEND/SAMPLE conversion:"
 .sp
 \fB\-H, \-\-haplegendsample2vcf\fP \fIprefix\fP or \fIhap\-file\fP,\fIlegend\-file\fP,\fIsample\-file\fP
 .RS 4
-convert from hap/legend/sample format used by IMPUTE2 to VCF, see
-also \fB\-h, \-\-hapslegendsample\fP below.
+convert from hap/legend/sample format used by IMPUTE2 to VCF.
+See also \fB\-h, \-\-hapslegendsample\fP below.
 .RE
 .sp
 \fB\-h, \-\-haplegendsample\fP \fIprefix\fP or \fIhap\-file\fP,\fIlegend\-file\fP,\fIsample\-file\fP
 .RS 4
 convert from VCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT.
 The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
-swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
-file is quite basic at the moment with columns for population, group and
+swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
+The .sample file is quite basic at the moment with columns for population, group and
 sex expected to be edited by the user. For example:
 .RE
 .sp
@@ -1760,7 +1863,8 @@ output sex column in the sample file. The FILE format is
 .sp
 \fB\-\-vcf\-ids\fP
 .RS 4
-output VCF IDs instead of "CHROM:POS_REF_ALT" IDs
+output VCF IDs instead of "CHROM:POS_REF_ALT". Note that this option can
+be used with \fB\-\-haplegendsample\fP but not with \fB\-\-haplegendsample2vcf\fP.
 .RE
 .SS "TSV conversion:"
 .sp
@@ -1993,6 +2097,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
 samples to include or "\-" to apply all variants and ignore samples
@@ -2009,6 +2118,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2123,6 +2237,22 @@ include only sites for which \fIEXPRESSION\fP is true. For valid expressions see
 \fBEXPRESSIONS\fP.
 .RE
 .sp
+\fB\-\-mask\fP [^]\fIREGION\fP
+.RS 4
+Soft filter regions, prepepend "^" to negate. Requires \fB\-s, \-\-soft\-filter\fP.
+.RE
+.sp
+\fB\-M, \-\-mask\-file\fP [^]\fIFILE\fP
+.RS 4
+Soft filter regions listed in a file, "^" to negate.  Requires \fB\-s, \-\-soft\-filter\fP.
+.RE
+.sp
+\fB\-\-mask\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+Same as \fB\-\-regions\-overlap\fP but for \fB\-\-mask/\-\-mask\-file\fP.
+See \fBCommon Options\fP. [1]
+.RE
+.sp
 \fB\-m, \-\-mode\fP [\fI+x\fP]
 .RS 4
 define behaviour at sites with existing FILTER annotations. The default
@@ -2158,6 +2288,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-soft\-filter\fP \fISTRING\fP|\fI+\fP
 .RS 4
 annotate FILTER column with \fISTRING\fP or, with \fI+\fP, a unique filter name generated
@@ -2175,6 +2310,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2262,6 +2402,11 @@ Restrict to comma\-separated list of regions, see \fBCommon Options\fP
 Restrict to regions listed in a file, see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP [\fIqry\fP|\fIgt\fP]:\*(AqLIST\*(Aq:
 List of query samples or \fB\-g\fP samples. If neither \fB\-s\fP nor \fB\-S\fP are given, all possible sample
 pair combinations are compared
@@ -2276,6 +2421,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2303,12 +2453,35 @@ available.
 .fam
 .fi
 .if n .RE
+.SS "bcftools head [\fIOPTIONS\fP] [\fIFILE\fP]"
+.sp
+By default, prints all headers from the specified input file to standard output
+in VCF format. The input file may be in VCF or BCF format; if no \fIFILE\fP is
+specified, standard input will be read. With appropriate options, only some
+of the headers and/or additionally some of the variant records will be printed.
+.sp
+The \fBbcftools head\fP command outputs VCF headers almost exactly as they appear
+in the input file: it may add a \f(CR##FILTER=<ID=PASS>\fP header if not already
+present, but it never adds version or command line information itself.
+.SS "Options:"
+.sp
+\fB\-h, \-\-header\fP \fIINT\fP
+.RS 4
+Display only the first \fIINT\fP header lines.
+By default, all header lines are displayed.
+.RE
+.sp
+\fB\-n, \-\-records\fP \fIINT\fP
+.RS 4
+Also display the first \fIINT\fP variant records.
+By default, no variant records are displayed.
+.RE
 .SS "bcftools index [\fIOPTIONS\fP] \fIin.bcf\fP|\fIin.vcf.gz\fP"
 .sp
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate\-sorted index) is created by default. The CSI format
-supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
-index files, which support chromosome lengths up to 2&#94;29, can be
+supports indexing of chromosomes up to length 2^31. TBI (tabix index)
+index files, which support chromosome lengths up to 2^29, can be
 created by using the \fI\-t/\-\-tbi\fP option or using the \fItabix\fP program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.
@@ -2326,7 +2499,7 @@ overwrite index if it already exists
 .sp
 \fB\-m, \-\-min\-shift \fIINT\fP\fP
 .RS 4
-set minimal interval size for CSI indices to 2&#94;INT; default: 14
+set minimal interval size for CSI indices to 2^INT; default: 14
 .RE
 .sp
 \fB\-o, \-\-output \fIFILE\fP\fP
@@ -2428,12 +2601,22 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-t, \-\-targets\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
 see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -2633,6 +2816,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-\-threads\fP \fIINT\fP
 .RS 4
 see \fBCommon Options\fP
@@ -2743,7 +2931,7 @@ Do not require the \fB\-\-fasta\-ref\fP option.
 .sp
 \fB\-G, \-\-read\-groups\fP \fIFILE\fP
 .RS 4
-list of read groups to include or exclude if prefixed with "&#94;".
+list of read groups to include or exclude if prefixed with "^".
 One read group per line.  This file can also be used to assign new sample
 names to read groups by giving the new sample name as a second
 white\-space\-separated field, like this: "read_group_id new_sample_name".
@@ -2780,7 +2968,7 @@ Minimum mapping quality for an alignment to be used [0]
 Minimum base quality for a base to be considered [13]
 .RE
 .sp
-*    \-\-max\-BQ* \fIINT\fP
+\fB\-\-max\-BQ\fP \fIINT\fP
 .RS 4
 Caps the base quality to a maximum value [60].  This can be
 particularly useful on technologies that produce overly optimistic
@@ -2801,19 +2989,36 @@ As for \fB\-r, \-\-regions\fP, but regions read from FILE;
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-\-ignore\-RG\fP
 .RS 4
 Ignore RG tags. Treat all reads in one alignment file as one sample.
 .RE
 .sp
-\fB\-\-rf, \-\-incl\-flags\fP \fISTR\fP|\fIINT\fP
+\fB\-\-ls, \-\-skip\-all\-set\fP
 .RS 4
-Required flags: skip reads with mask bits unset  [null]
+Skip reads with all of the FLAG bits set [null]
 .RE
 .sp
-\fB\-\-ff, \-\-excl\-flags\fP \fISTR\fP|\fIINT\fP
+\fB\-\-ns, \-\-skip\-any\-set\fP
 .RS 4
-Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
+Skip reads with any of the FLAG bits set. This option replaces and
+is synonymous to the deprecated \fB\-\-ff, \-\-excl\-flags\fP [UNMAP,SECONDARY,QCFAIL,DUP]
+.RE
+.sp
+\fB\-\-lu, \-\-skip\-all\-unset\fP
+.RS 4
+Skip reads with all of the FLAG bits unset. This option replaces and
+is synonymous to the deprecated \fB\-\-rf, \-\-incl\-flags\fP [null]
+.RE
+.sp
+\fB\-\-nu, \-\-skip\-any\-unset\fP
+.RS 4
+Skip reads with any of the FLAG bits unset [null]
 .RE
 .sp
 \fB\-s, \-\-samples\fP \fILIST\fP
@@ -2823,7 +3028,7 @@ list of sample names. See \fBCommon Options\fP
 .sp
 \fB\-S, \-\-samples\-file\fP \fIFILE\fP
 .RS 4
-file of sample names to include or exclude if prefixed with "&#94;".
+file of sample names to include or exclude if prefixed with "^".
 One sample per line. This file can also be used to rename samples by giving
 the new sample name as a second white\-space\-separated column, like this:
 "old_name new_name".  If a sample name contains spaces, the spaces can be
@@ -2837,6 +3042,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3218,6 +3428,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-strict\-filter\fP
 .RS 4
 when merging (\fI\-m+\fP), merged site is PASS only if all sites being merged PASS
@@ -3229,6 +3444,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3276,12 +3496,22 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-t, \-\-targets\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
 see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3867,6 +4097,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-sample\fP \fIstring\fP
 .RS 4
 sample name
@@ -3878,6 +4113,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIFILE\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -3936,6 +4176,11 @@ exclude sites for which \fIEXPRESSION\fP is true. For valid expressions see
 \fBEXPRESSIONS\fP.
 .RE
 .sp
+\fB\-\-force\-samples\fP
+.RS 4
+continue even when some samples requested via \fB\-s/\-S\fP do not exist
+.RE
+.sp
 \fB\-f, \-\-format\fP \fIFORMAT\fP
 .RS 4
 learn by example, see below
@@ -3972,6 +4217,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
 see \fBCommon Options\fP
@@ -3988,6 +4238,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -4303,6 +4558,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
 see \fBCommon Options\fP
@@ -4319,6 +4579,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -4461,6 +4726,11 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-s, \-\-samples\fP \fILIST\fP
 .RS 4
 see \fBCommon Options\fP
@@ -4477,6 +4747,11 @@ see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -4503,7 +4778,7 @@ drop individual genotype information (after subsetting if \fB\-s\fP option is se
 .sp
 \fB\-h, \-\-header\-only\fP
 .RS 4
-output the VCF header only
+output the VCF header only (see also \fBbcftools head\fP)
 .RE
 .sp
 \fB\-H, \-\-no\-header\fP
@@ -4546,12 +4821,22 @@ see \fBCommon Options\fP
 see \fBCommon Options\fP
 .RE
 .sp
+\fB\-\-regions\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
 \fB\-t, \-\-targets\fP \fIchr\fP|\fIchr:pos\fP|\fIchr:from\-to\fP|\fIchr:from\-\fP[,...]
 .RS 4
 see \fBCommon Options\fP
 .RE
 .sp
 \fB\-T, \-\-targets\-file\fP \fIfile\fP
+.RS 4
+see \fBCommon Options\fP
+.RE
+.sp
+\fB\-\-targets\-overlap\fP \fI0\fP|\fI1\fP|\fI2\fP
 .RS 4
 see \fBCommon Options\fP
 .RE
@@ -4637,11 +4922,11 @@ exclude sites for which \fIEXPRESSION\fP is true. For valid expressions see
 see \fBCommon Options\fP
 .RE
 .sp
-\fB\-g, \-\-genotype\fP [&#94;][\fIhom\fP|\fIhet\fP|\fImiss\fP]
+\fB\-g, \-\-genotype\fP [^][\fIhom\fP|\fIhet\fP|\fImiss\fP]
 .RS 4
 include only sites with one or more homozygous (\fIhom\fP), heterozygous
-(\fIhet\fP) or missing (\fImiss\fP) genotypes. When prefixed with \fI&#94;\fP, the logic
-is reversed; thus \fI&#94;het\fP excludes sites with heterozygous genotypes.
+(\fIhet\fP) or missing (\fImiss\fP) genotypes. When prefixed with \fI^\fP, the logic
+is reversed; thus \fI^het\fP excludes sites with heterozygous genotypes.
 .RE
 .sp
 \fB\-i, \-\-include\fP \fIEXPRESSION\fP

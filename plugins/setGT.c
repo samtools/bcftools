@@ -487,7 +487,7 @@ bcf1_t *process(bcf1_t *rec)
     else if ( args->tgt_mask&GT_QUERY )
     {
         int pass_site = filter_test(args->filter,rec,(const uint8_t **)&args->smpl_pass);
-        if ( pass_site && args->filter_logic==FLT_EXCLUDE )
+        if ( args->filter_logic==FLT_EXCLUDE )
         {
             // -i can include a site but exclude a sample, -e exclude a site but include a sample
             if ( pass_site )

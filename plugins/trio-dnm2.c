@@ -953,12 +953,13 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
 #endif
     return log2phred(subtract_log(0,max-sum));
 }
-static int process_trio_naive(args_t *args, priors_t *priors, int nals, int32_t gts[3])
+static int process_trio_naive(args_t *args, priors_t *priors, int nals, int32_t gts[3], int *denovo_allele)
 {
     int fi = seq3[gts[iFATHER]];
     int mi = seq3[gts[iMOTHER]];
     int ci = seq3[gts[iCHILD]];
     assert( fi!=-1 && mi!=-1 && ci!=-1 );
+    *denovo_allele = priors->denovo_allele[fi][mi][ci];
     return priors->denovo[fi][mi][ci];
 }
 static int test_filters(args_t *args, bcf1_t *rec)
@@ -1158,7 +1159,7 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
 #endif
     }
 }
-static int set_trio_GT(args_t *args, trio_t *trio, int32_t gts[3], int ngts)
+static int set_trio_GT(args_t *args, trio_t *trio, int32_t gts[3], int ngts, int ignore_father)
 {
     int j,k;
     for (j=0; j<3; j++)     // iFATHER,iMOTHER,iCHILD
@@ -1166,16 +1167,23 @@ static int set_trio_GT(args_t *args, trio_t *trio, int32_t gts[3], int ngts)
         int32_t *src = args->gt + ngts * trio->idx[j];
         for (k=0; k<ngts; k++)
         {
-            if ( src[k]==bcf_int32_vector_end ) break;
-            if ( bcf_gt_is_missing(src[k]) ) return -1;
-            gts[j] |= 1<<bcf_gt_allele(src[k]);
+            int ial = src[k];
+            if ( ial==bcf_int32_vector_end ) break;
+            if ( bcf_gt_is_missing(ial) )
+            {
+                if ( j!=iFATHER || !ignore_father ) return -1;
+                ial = 0;     // can be anything, will not be used
+            }
+            else
+                ial = bcf_gt_allele(ial);
+            gts[j] |= 1 << ial;
             assert(gts[j]>0 && gts[j]<13);
         }
-        if ( !gts[j] ) return -1;
+        if ( !gts[j] && (j!=iFATHER || !ignore_father) ) return -1;
     }
     return 0;
 }
-static int set_trio_GT_many_alts(args_t *args, trio_t *trio, int32_t gts[3], int ngts, int nals)
+static int set_trio_GT_many_alts(args_t *args, trio_t *trio, int32_t gts[3], int ngts, int nals, int ignore_father)
 {
     int i,j,k, nused = 0;
     hts_expand(int,nals,args->malt_idx,args->alt_idx);
@@ -1185,9 +1193,15 @@ static int set_trio_GT_many_alts(args_t *args, trio_t *trio, int32_t gts[3], int
         int32_t *src = args->gt + ngts * trio->idx[j];
         for (k=0; k<ngts; k++)
         {
-            if ( src[k]==bcf_int32_vector_end ) break;
-            if ( bcf_gt_is_missing(src[k]) ) return -1;
-            int ial = bcf_gt_allele(src[k]);
+            int ial = src[k];
+            if ( ial==bcf_int32_vector_end ) break;
+            if ( bcf_gt_is_missing(ial) )
+            {
+                if ( j!=iFATHER || !ignore_father ) return -1;
+                ial = 0;    // can be anything, will not be used
+            }
+            else
+                ial = bcf_gt_allele(ial);
             if ( ial >= nals ) error("Error: FMT/GT contains incorrect allele \"%d\" at a site with %d alleles\n",ial,nals);
             if ( args->alt_idx[ial]==-1 )
             {
@@ -1219,21 +1233,25 @@ static void process_record_naive(args_t *args, bcf1_t *rec)
 
     int i, write_dnm = 0;
     for (i=0; i<nsmpl; i++) args->dnm_qual_int[i] = bcf_int32_missing;
+    for (i=0; i<nsmpl; i++) args->dnm_allele[i] = bcf_int32_missing;
     for (i=0; i<args->ntrio; i++)
     {
         if ( args->filter && !args->trio[i].pass ) continue;
         
-        int32_t gts[3] = {0,0,0};
-        int ret = rec->n_allele<=4 ? set_trio_GT(args,&args->trio[i],gts,ngts) : set_trio_GT_many_alts(args,&args->trio[i],gts,ngts,rec->n_allele);
-        if ( ret<0 ) continue;
-
+        int ignore_father = 0;  // father is irrelevant for male proband on chrX and can have missing GT
         priors_t *priors;
         if ( !is_chrX ) priors = &args->priors;
-        else if ( args->trio[i].is_male ) priors = &args->priors_X;
+        else if ( args->trio[i].is_male ) priors = &args->priors_X, ignore_father = 1;
         else priors = &args->priors_XX;
 
-        double is_dnm = process_trio_naive(args, priors, rec->n_allele, gts);
+        int32_t gts[3] = {0,0,0};
+        int ret = rec->n_allele<=4 ? set_trio_GT(args,&args->trio[i],gts,ngts,ignore_father) : set_trio_GT_many_alts(args,&args->trio[i],gts,ngts,rec->n_allele,ignore_father);
+        if ( ret<0 ) continue;
+
+        int dnm_allele;
+        double is_dnm = process_trio_naive(args, priors, rec->n_allele, gts, &dnm_allele);
         args->dnm_qual_int[ args->trio[i].idx[iCHILD] ] = is_dnm;
+        args->dnm_allele[ args->trio[i].idx[iCHILD] ] = dnm_allele;
         if ( is_dnm ) write_dnm = 1;
     }
     if ( write_dnm )
@@ -1241,8 +1259,12 @@ static void process_record_naive(args_t *args, bcf1_t *rec)
         int ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_score_tag,args->dnm_qual_int,nsmpl);
         if ( ret )
             error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_score_tag, bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
+        ret = bcf_update_format_int32(args->hdr_out,rec,args->dnm_allele_tag,args->dnm_allele,nsmpl);
+        if ( ret )
+            error("Failed to write FORMAT/%s at %s:%"PRId64"\n", args->dnm_allele_tag,bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1);
     }
-    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 ) error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
+    if ( bcf_write(args->out_fh, args->hdr_out, rec)!=0 )
+        error("[%s] Error: cannot write to %s at %s:%"PRId64"\n", __func__,args->output_fname,bcf_seqname(args->hdr,rec),(int64_t)rec->pos+1);
 }
 static void process_record(args_t *args, bcf1_t *rec)
 {
@@ -1571,16 +1593,12 @@ int run(int argc, char **argv)
             case 12 : args->record_cmd_line = 0; break;
             case 13 : args->with_pad = 1; break;
             case 14 :
-                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
-                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
-                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
-                else error("Could not parse: --regions-overlap %s\n",optarg);
+                args->regions_overlap = parse_overlap_option(optarg);
+                if ( args->regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
                 break;
             case 15 :
-                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
-                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
-                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
-                else error("Could not parse: --targets-overlap %s\n",optarg);
+                args->targets_overlap = parse_overlap_option(optarg);
+                if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
             case 'X': args->chrX_list_str = optarg; break;
             case 'u': set_option(args,optarg); break;

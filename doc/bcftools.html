@@ -50,7 +50,7 @@ commands can thus be  combined  with  Unix pipes.</p>
 <div class="sect2">
 <h3 id="_version">VERSION</h3>
 <div class="paragraph">
-<p>This manual page was last updated <strong>2021-10-22</strong> and refers to bcftools git version <strong>1.14</strong>.</p>
+<p>This manual page was last updated <strong>2022-02-21</strong> and refers to bcftools git version <strong>1.15</strong>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -116,6 +116,9 @@ list of available options, run <strong>bcftools</strong> <em>COMMAND</em> withou
 </li>
 <li>
 <p><strong><a href="#gtcheck">gtcheck</a></strong>   ..  check sample concordance, detect sample swaps and contamination</p>
+</li>
+<li>
+<p><strong><a href="#head">head</a></strong>      ..  view VCF/BCF file headers</p>
 </li>
 <li>
 <p><strong><a href="#index">index</a></strong>     ..  index VCF/BCF</p>
@@ -297,20 +300,22 @@ duplicated out of order positions in the output.
 This option requires indexed VCF/BCF files. Note that <strong>-R</strong> cannot be used
 in combination with <strong>-r</strong>.</p>
 </dd>
-<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>pos</em>|<em>record</em>|<em>variant</em>|<em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>This option controls how overlapping records are determined:
-set to <strong>0</strong> if the VCF record has to have POS inside a region
+set to <strong>pos</strong> or <strong>0</strong> if the VCF record has to have POS inside a region
 (this corresponds to the default behavior of <strong>-t/-T</strong>);
-set to <strong>1</strong> if also overlapping records with POS outside a region
-should be included (this is the default behavior of <strong>-r/-R</strong>); or set
-to <strong>2</strong> to include only true overlapping variation (compare
+set to <strong>record</strong> or <strong>1</strong> if also overlapping records with POS outside a region
+should be included (this is the default behavior of <strong>-r/-R</strong>, and includes indels
+with POS at the end of a region, which are technically outside the region); or set
+to <strong>variant</strong> or <strong>2</strong> to include only true overlapping variation (compare
 the full VCF representation "<code>TA&gt;T-</code>" vs the true sequence variation "<code>A&gt;-</code>").</p>
 </dd>
-<dt class="hdlist1"><strong>-s, --samples</strong> [&#94;]<em>LIST</em></dt>
+<dt class="hdlist1"><strong>-s, --samples</strong> [^]<em>LIST</em></dt>
 <dd>
 <p>Comma-separated list of samples to include or exclude if prefixed
-with "&#94;".
+with "^." (Note that when multiple samples are to be excluded,
+the "^" prefix is still present only once, e.g.  "^SAMPLE1,SAMPLE2".)
 The sample order is updated to reflect that given on the command line.
 Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
 to correspond to the subset samples. <strong><a href="#view">bcftools view</a></strong> is the
@@ -328,9 +333,9 @@ that command. For example:</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>-S, --samples-file</strong> <em class="&#94;">FILE</em><a id="samples_file"></a></dt>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> [^]<em>FILE</em><a id="samples_file"></a></dt>
 <dd>
-<p>File of sample names to include or exclude if prefixed with "&#94;".
+<p>File of sample names to include or exclude if prefixed with "^".
 One sample per line. See also the note above for the <strong>-s, --samples</strong>
 option.
 The sample order is updated to reflect that given in the input file.
@@ -370,19 +375,20 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>-t, --targets</strong> [&#94;]<em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
+<dt class="hdlist1"><strong>-t, --targets</strong> [^]<em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
 <p>Similar as <strong>-r, --regions</strong>, but the next position is accessed by streaming the
 whole VCF/BCF rather than using the tbi/csi index. Both <strong>-r</strong> and <strong>-t</strong> options
 can be applied simultaneously: <strong>-r</strong>  uses  the index  to  jump  to  a  region
 and <strong>-t</strong> discards positions which are not in the targets. Unlike <strong>-r</strong>, targets
-can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
+can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
 indicates that sequences X, Y and MT should be skipped.
 Yet another difference between the <strong>-t/-T</strong> and <strong>-r/-R</strong> is that <strong>-r/-R</strong> checks for
 proper overlaps and considers both POS and the end position of an indel, while <strong>-t/-T</strong>
-considers the POS coordinate only. Note that <strong>-t</strong> cannot be used in combination with <strong>-T</strong>.</p>
+considers the POS coordinate only (by default; see also <strong>--regions-overlap</strong> and <strong>--targets-overlap</strong>).
+Note that <strong>-t</strong> cannot be used in combination with <strong>-T</strong>.</p>
 </dd>
-<dt class="hdlist1"><strong>-T, --targets-file</strong> [&#94;]<em>FILE</em></dt>
+<dt class="hdlist1"><strong>-T, --targets-file</strong> [^]<em>FILE</em></dt>
 <dd>
 <p>Same <strong>-t, --targets</strong>, but reads regions from a file. Note that <strong>-T</strong>
 cannot be used in combination with <strong>-t</strong>.</p>
@@ -402,7 +408,7 @@ Such a file can be easily created from a VCF using:</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>pos</em>|<em>record</em>|<em>variant</em>|<em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>Same as <strong>--regions-overlap</strong> but for <strong>-t/-T</strong>.</p>
 </dd>
@@ -463,12 +469,6 @@ See also <strong>-c, --columns</strong> and <strong>-h, --header-lines</strong>.
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>--collapse</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>none</em></dt>
-<dd>
-<p>Controls how to match records from the annotation file to the target VCF.
-Effective only when <strong>-a</strong> is a VCF or BCF.
-See <strong><a href="#common_options">Common Options</a></strong> for more.</p>
-</dd>
 <dt class="hdlist1"><strong>-c, --columns</strong> <em>list</em></dt>
 <dd>
 <p>Comma-separated list of columns or tags to carry over from the annotation file
@@ -486,7 +486,7 @@ The imported VCF annotations can be renamed as "DST_TAG:=SRC_TAG" or "FMT/DST_TA
 &#160;<br>
 &#160;<br>
 To carry over all INFO annotations, use "INFO". To add all INFO annotations except
-"TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+"TAG", use "^INFO/TAG". By default, existing values are replaced.
 &#160;<br>
 &#160;<br>
 By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
@@ -541,7 +541,7 @@ option is used, make sure to sanity check the result thoroughly.</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><strong>-I, --set-id</strong> [&#43;]<em>FORMAT</em></dt>
+<dt class="hdlist1"><strong>-I, --set-id</strong> [+]<em>FORMAT</em></dt>
 <dd>
 <p>assign ID on the fly. The format is the same as in the <strong><a href="#query">query</a></strong>
 command (see below).  By default all existing IDs are replaced. If the
@@ -585,6 +585,14 @@ This is an experimental feature.</p>
 <dd>
 <p>annotate sites which are present ("+") or absent ("-") in the <strong>-a</strong> file with a new INFO/TAG flag</p>
 </dd>
+<dt class="hdlist1"><strong>--min-overlap</strong> <em>ANN</em>:'VCF'</dt>
+<dd>
+<p>minimum overlap required as a fraction of the variant in the annotation <strong>-a</strong> file (<em>ANN</em>), in the
+target VCF file (<em>:VCF</em>), or both for reciprocal overlap (<em>ANN:VCF</em>).
+By default overlaps of arbitrary length are sufficient.
+The option can be used only with the tab-delimited annotation <strong>-a</strong> file and with <em>BEG</em> and <em>END</em>
+columns present.</p>
+</dd>
 <dt class="hdlist1"><strong>--no-version</strong></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -597,11 +605,22 @@ This is an experimental feature.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--pair-logic</strong> <em>snps</em>|<em>indels</em>|<em>both</em>|<em>all</em>|<em>some</em>|<em>exact</em></dt>
+<dd>
+<p>Controls how to match records from the annotation file to the target VCF.
+Effective only when <strong>-a</strong> is a VCF or BCF. The option replaces the former
+uninuitive <strong>--collapse</strong>.
+See <strong><a href="#common_options">Common Options</a></strong> for more.</p>
+</dd>
 <dt class="hdlist1"><strong>-r, --regions</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-R, --regions-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -618,7 +637,7 @@ INFO, FORMAT, or FILTER.</p>
 "old_name new_name\n" pairs separated by whitespaces, each on a separate
 line.</p>
 </dd>
-<dt class="hdlist1"><strong>-s, --samples</strong> [&#94;]<em>LIST</em></dt>
+<dt class="hdlist1"><strong>-s, --samples</strong> [^]<em>LIST</em></dt>
 <dd>
 <p>subset of samples to annotate, see also <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -646,7 +665,7 @@ af6f0c9 (Feb 24 2019).</p>
 "FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
 be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
 except GT. To remove all INFO tags except "FOO" and "BAR", use
-"&#94;INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+"^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
 "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".</p>
 </dd>
 </dl>
@@ -750,6 +769,10 @@ below), unlisted regions have ploidy 2. The default ploidy definition is</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -763,6 +786,10 @@ below), unlisted regions have ploidy 2. The default ploidy definition is</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -786,7 +813,7 @@ appear in any of the genotypes</p>
 <dd>
 <p>comma-separated list of FORMAT fields to output for each sample. Currently
 GQ and GP fields are supported. For convenience, the fields can be given
-as lower case letters. Prefixed with "&#94;" indicates a request for tag
+as lower case letters. Prefixed with "^" indicates a request for tag
 removal of auxiliary tags useful only for calling.</p>
 </dd>
 <dt class="hdlist1"><strong>-F, --prior-freqs</strong> <em>AN</em>,<em>AC</em></dt>
@@ -956,6 +983,10 @@ generated. If not given, a <strong>matplotlib</strong> script will be created bu
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --query-sample</strong> <em>string</em></dt>
 <dd>
 <p>query sample name</p>
@@ -965,6 +996,10 @@ generated. If not given, a <strong>matplotlib</strong> script will be created bu
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1118,6 +1153,10 @@ is performed and the program throws an error if it is not safe to use the option
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong>. Requires <strong>-a, --allow-overlaps</strong>.</p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -1138,6 +1177,10 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>-a, --absent</strong> <em>CHAR</em></dt>
+<dd>
+<p>replace positions absent from VCF with CHAR</p>
+</dd>
 <dt class="hdlist1"><strong>-c, --chain</strong> <em>FILE</em></dt>
 <dd>
 <p>write a chain file for liftover</p>
@@ -1280,6 +1323,10 @@ format details.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -1293,6 +1340,10 @@ format details.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1328,10 +1379,14 @@ format details.</p>
 <dl>
 <dt class="hdlist1"><strong>-G, --gensample2vcf</strong> <em>prefix</em> or <em>gen-file</em>,<em>sample-file</em></dt>
 <dd>
-<p>convert IMPUTE2 output to VCF. The second column must be of the form
-"CHROM:POS_REF_ALT" to detect possible strand swaps; IMPUTE2 leaves the
-first one empty ("--") when sites from reference panel are filled in. See
-also <strong>-g</strong> below.</p>
+<p>convert IMPUTE2 output to VCF. One of the ID columns ("SNP ID" or "rsID" in
+<a href="https://www.cog-genomics.org/plink/2.0/formats#gen" class="bare">https://www.cog-genomics.org/plink/2.0/formats#gen</a>) must be of the form
+"CHROM:POS_REF_ALT" to detect possible strand swaps.
+&#160;<br>
+When the <strong>--vcf-ids</strong> option is given, the other column (autodetected) is used
+to fill the ID column of the VCF.
+&#160;<br>
+See also <strong>-g</strong> and <strong>--3N6</strong> options.</p>
 </dd>
 <dt class="hdlist1"><strong>-g, --gensample</strong> <em>prefix</em> or <em>gen-file</em>,<em>sample-file</em></dt>
 <dd>
@@ -1339,14 +1394,29 @@ also <strong>-g</strong> below.</p>
 The columns of .gen file format are ID1,ID2,POS,A,B followed by three
 genotype probabilities P(AA), P(AB), P(BB) for each sample.  In order to
 prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
-For example:</p>
+When the <strong>--vcf-ids</strong> option is given, the second column is set to match the ID
+column of the VCF.
+&#160;<br>
+See also <strong>-G</strong> and <strong>--3N6</strong> options.
+&#160;<br>
+The file .gen and .sample file format are:</p>
 </dd>
 </dl>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>  .gen
-  ----
+<pre>  .gen (with --3N6 --vcf-ids)
+  ---------------------------
+  chr1 1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  chr1 1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (with --vcf-ids)
+  ---------------------------
+  1:111485207_G_A rsID1 111485207 G A 0 1 0 0 1 0
+  1:111494194_C_T rsID2 111494194 C T 0 1 0 0 0 1
+
+  .gen (the default)
+  ------------------------------
   1:111485207_G_A 1:111485207_G_A 111485207 G A 0 1 0 0 1 0
   1:111494194_C_T 1:111494194_C_T 111494194 C T 0 1 0 0 0 1
 
@@ -1360,13 +1430,14 @@ For example:</p>
 </div>
 <div class="dlist">
 <dl>
+<dt class="hdlist1"><strong>--3N6</strong></dt>
+<dd>
+<p>Expect/Create files in the 3*N+6 column format. This is the new .gen file format with the first
+column containing the chromosome name, see <a href="https://www.cog-genomics.org/plink/2.0/formats#gen" class="bare">https://www.cog-genomics.org/plink/2.0/formats#gen</a></p>
+</dd>
 <dt class="hdlist1"><strong>--tag</strong> <em>STRING</em></dt>
 <dd>
 <p>tag to take values for .gen file: GT,PL,GL,GP</p>
-</dd>
-<dt class="hdlist1"><strong>--chrom</strong></dt>
-<dd>
-<p>output chromosome in the first column instead of CHROM:POS_REF_ALT</p>
 </dd>
 <dt class="hdlist1"><strong>--sex</strong> <em>FILE</em></dt>
 <dd>
@@ -1416,19 +1487,23 @@ output. In order to drop sites, stream first through <strong><a href="#view">bcf
 <dd>
 <p>convert from hap/sample format to VCF. The columns of .hap file are
 similar to .gen file above, but there are only two haplotype columns per
-sample. Note that the first column of the .hap file is expected to be in
-the form "CHR:POS_REF_ALT(_END)?", with the _END being optional for
-defining the INFO/END tag when ALT is a symbolic allele, for example:</p>
+sample.  Note that the first or the second column of the .hap file is expected to be in
+the form "CHR:POS_REF_ALT[_END]", with the _END being optional for
+defining the INFO/END tag when ALT is a symbolic allele. For example:</p>
 </dd>
 </dl>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>  .hap
-  ----
+<pre>  .hap (with --vcf-ids)
+  ---------------------
   1:111485207_G_A rsID1 111485207 G A 0 1 0 0
-  1:111494194_C_T rsID2 111494194 C T 0 1 0 0
-  1:111495231_A_&lt;DEL&gt;_111495784 rsID3 111495231 A &lt;DEL&gt; 0 0 1 0</pre>
+  1:111495231_A_&lt;DEL&gt;_111495784 rsID3 111495231 A &lt;DEL&gt; 0 0 1 0
+
+  .hap (the default)
+  ------------------
+  1 1:111485207_G_A 111485207 G A 0 1 0 0
+  1 1:111495231_A_&lt;DEL&gt;_111495784 111495231 A &lt;DEL&gt; 0 0 1 0</pre>
 </div>
 </div>
 <div class="dlist">
@@ -1463,7 +1538,10 @@ genotypes correctly.</p>
 <dl>
 <dt class="hdlist1"><strong>--vcf-ids</strong></dt>
 <dd>
-<p>output VCF IDs instead of "CHROM:POS_REF_ALT" IDs</p>
+<p>the second column of the .hap file holds the VCF ids, the first
+column is of the form "CHR:POS_REF_ALT[_END]". Without the option,
+the format follows <a href="https://www.cog-genomics.org/plink/2.0/formats#haps" class="bare">https://www.cog-genomics.org/plink/2.0/formats#haps</a>
+with ids (the second column) of the form "CHR:POS_REF_ALT[_END]"</p>
 </dd>
 </dl>
 </div>
@@ -1474,15 +1552,15 @@ genotypes correctly.</p>
 <dl>
 <dt class="hdlist1"><strong>-H, --haplegendsample2vcf</strong> <em>prefix</em> or <em>hap-file</em>,<em>legend-file</em>,<em>sample-file</em></dt>
 <dd>
-<p>convert from hap/legend/sample format used by IMPUTE2 to VCF, see
-also <strong>-h, --hapslegendsample</strong> below.</p>
+<p>convert from hap/legend/sample format used by IMPUTE2 to VCF.
+See also <strong>-h, --hapslegendsample</strong> below.</p>
 </dd>
 <dt class="hdlist1"><strong>-h, --haplegendsample</strong> <em>prefix</em> or <em>hap-file</em>,<em>legend-file</em>,<em>sample-file</em></dt>
 <dd>
 <p>convert from VCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT.
 The columns of .legend file ID,POS,REF,ALT. In order to prevent strand
-swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The .sample
-file is quite basic at the moment with columns for population, group and
+swaps, the program uses IDs of the form "CHROM:POS_REF_ALT".
+The .sample file is quite basic at the moment with columns for population, group and
 sex expected to be edited by the user. For example:</p>
 </dd>
 </dl>
@@ -1532,7 +1610,8 @@ genotypes correctly.</p>
 <dl>
 <dt class="hdlist1"><strong>--vcf-ids</strong></dt>
 <dd>
-<p>output VCF IDs instead of "CHROM:POS_REF_ALT" IDs</p>
+<p>output VCF IDs instead of "CHROM:POS_REF_ALT". Note that this option can
+be used with <strong>--haplegendsample</strong> but not with <strong>--haplegendsample2vcf</strong>.</p>
 </dd>
 </dl>
 </div>
@@ -1759,6 +1838,10 @@ plain text output can be printed (<em>t</em>).</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
 <p>samples to include or "-" to apply all variants and ignore samples</p>
@@ -1772,6 +1855,10 @@ plain text output can be printed (<em>t</em>).</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -1886,6 +1973,19 @@ And similarly here, the second is filtered:
 <p>include only sites for which <em>EXPRESSION</em> is true. For valid expressions see
 <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
 </dd>
+<dt class="hdlist1"><strong>--mask</strong> [^]<em>REGION</em></dt>
+<dd>
+<p>Soft filter regions, prepepend "^" to negate. Requires <strong>-s, --soft-filter</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-M, --mask-file</strong> [^]<em>FILE</em></dt>
+<dd>
+<p>Soft filter regions listed in a file, "^" to negate.  Requires <strong>-s, --soft-filter</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>--mask-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>Same as <strong>--regions-overlap</strong> but for <strong>--mask/--mask-file</strong>.
+See <strong><a href="#common_options">Common Options</a></strong>. [1]</p>
+</dd>
 <dt class="hdlist1"><strong>-m, --mode</strong> [<em>+x</em>]</dt>
 <dd>
 <p>define behaviour at sites with existing FILTER annotations. The default
@@ -1915,6 +2015,10 @@ filters of sites which pass to "PASS". Modes "+" and "x" can both be set.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --soft-filter</strong> <em>STRING</em>|<em>+</em></dt>
 <dd>
 <p>annotate FILTER column with <em>STRING</em> or, with <em>+</em>, a unique filter name generated
@@ -1929,6 +2033,10 @@ by the program ("Filter%d").</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2010,6 +2118,10 @@ from the query file, the second from the genotypes file when <strong>-g</strong>
 <dd>
 <p>Restrict to regions listed in a file, see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 </dl>
 </div>
 <div class="paragraph">
@@ -2029,6 +2141,10 @@ from the query file, the second from the genotypes file when <strong>-g</strong>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2057,12 +2173,43 @@ available.</p>
 </div>
 </div>
 <div class="sect2">
+<h3 id="head">bcftools head [<em>OPTIONS</em>] [<em>FILE</em>]</h3>
+<div class="paragraph">
+<p>By default, prints all headers from the specified input file to standard output
+in VCF format. The input file may be in VCF or BCF format; if no <em>FILE</em> is
+specified, standard input will be read. With appropriate options, only some
+of the headers and/or additionally some of the variant records will be printed.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>bcftools head</strong> command outputs VCF headers almost exactly as they appear
+in the input file: it may add a <code>##FILTER=&lt;ID=PASS&gt;</code> header if not already
+present, but it never adds version or command line information itself.</p>
+</div>
+<div class="sect3">
+<h4 id="_options">Options:</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-h, --header</strong> <em>INT</em></dt>
+<dd>
+<p>Display only the first <em>INT</em> header lines.
+By default, all header lines are displayed.</p>
+</dd>
+<dt class="hdlist1"><strong>-n, --records</strong> <em>INT</em></dt>
+<dd>
+<p>Also display the first <em>INT</em> variant records.
+By default, no variant records are displayed.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
 <h3 id="index">bcftools index [<em>OPTIONS</em>]  <em>in.bcf</em>|<em>in.vcf.gz</em></h3>
 <div class="paragraph">
 <p>Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate-sorted index) is created by default. The CSI format
-supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
-index files, which support chromosome lengths up to 2&#94;29, can be
+supports indexing of chromosomes up to length 2^31. TBI (tabix index)
+index files, which support chromosome lengths up to 2^29, can be
 created by using the <em>-t/--tbi</em> option or using the <em>tabix</em> program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.</p>
@@ -2081,7 +2228,7 @@ the CSI first and then the TBI.</p>
 </dd>
 <dt class="hdlist1"><strong>-m, --min-shift <em>INT</em></strong></dt>
 <dd>
-<p>set minimal interval size for CSI indices to 2&#94;INT; default: 14</p>
+<p>set minimal interval size for CSI indices to 2^INT; default: 14</p>
 </dd>
 <dt class="hdlist1"><strong>-o, --output <em>FILE</em></strong></dt>
 <dd>
@@ -2180,11 +2327,19 @@ output, their names are controlled via <strong>-p</strong> instead.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2367,6 +2522,10 @@ the same order and consistent with the order of sequences in the VCF header.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>--threads</strong> <em>INT</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -2475,9 +2634,9 @@ unless the <strong>--no-reference</strong> option is set [null]</p>
 <dd>
 <p>Do not require the <strong>--fasta-ref</strong> option.</p>
 </dd>
-<dt class="hdlist1"><strong>-G, --read-groups</strong> <em class="&#94;">FILE</em></dt>
+<dt class="hdlist1"><strong>-G, --read-groups</strong> <em class="^">FILE</em></dt>
 <dd>
-<p>list of read groups to include or exclude if prefixed with "&#94;".
+<p>list of read groups to include or exclude if prefixed with "^".
 One read group per line.  This file can also be used to assign new sample
 names to read groups by giving the new sample name as a second
 white-space-separated field, like this: "read_group_id new_sample_name".
@@ -2512,7 +2671,7 @@ is the opposite of <strong>samtools mpileup -G</strong>.</p>
 <dd>
 <p>Minimum base quality for a base to be considered [13]</p>
 </dd>
-<dt class="hdlist1">*    --max-BQ* <em>INT</em></dt>
+<dt class="hdlist1"><strong>--max-BQ</strong> <em>INT</em></dt>
 <dd>
 <p>Caps the base quality to a maximum value [60].  This can be
 particularly useful on technologies that produce overly optimistic
@@ -2530,25 +2689,39 @@ see <strong><a href="#common_options">Common Options</a></strong></p>
 <p>As for <strong>-r, --regions</strong>, but regions read from FILE;
 see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>--ignore-RG</strong></dt>
 <dd>
 <p>Ignore RG tags. Treat all reads in one alignment file as one sample.</p>
 </dd>
-<dt class="hdlist1"><strong>--rf, --incl-flags</strong> <em>STR</em>|<em>INT</em></dt>
+<dt class="hdlist1"><strong>--ls, --skip-all-set</strong></dt>
 <dd>
-<p>Required flags: skip reads with mask bits unset  [null]</p>
+<p>Skip reads with all of the FLAG bits set [null]</p>
 </dd>
-<dt class="hdlist1"><strong>--ff, --excl-flags</strong> <em>STR</em>|<em>INT</em></dt>
+<dt class="hdlist1"><strong>--ns, --skip-any-set</strong></dt>
 <dd>
-<p>Filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]</p>
+<p>Skip reads with any of the FLAG bits set. This option replaces and
+is synonymous to the deprecated <strong>--ff, --excl-flags</strong> [UNMAP,SECONDARY,QCFAIL,DUP]</p>
 </dd>
-<dt class="hdlist1"><strong>-s, --samples</strong> <em class="&#94;">LIST</em></dt>
+<dt class="hdlist1"><strong>--lu, --skip-all-unset</strong></dt>
+<dd>
+<p>Skip reads with all of the FLAG bits unset. This option replaces and
+is synonymous to the deprecated <strong>--rf, --incl-flags</strong> [null]</p>
+</dd>
+<dt class="hdlist1"><strong>--nu, --skip-any-unset</strong></dt>
+<dd>
+<p>Skip reads with any of the FLAG bits unset [null]</p>
+</dd>
+<dt class="hdlist1"><strong>-s, --samples</strong> <em class="^">LIST</em></dt>
 <dd>
 <p>list of sample names. See <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-S, --samples-file</strong> <em class="&#94;">FILE</em></dt>
+<dt class="hdlist1"><strong>-S, --samples-file</strong> <em class="^">FILE</em></dt>
 <dd>
-<p>file of sample names to include or exclude if prefixed with "&#94;".
+<p>file of sample names to include or exclude if prefixed with "^".
 One sample per line. This file can also be used to rename samples by giving
 the new sample name as a second white-space-separated column, like this:
 "old_name new_name".  If a sample name contains spaces, the spaces can be
@@ -2560,6 +2733,10 @@ name".</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2914,6 +3091,10 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --strict-filter</strong></dt>
 <dd>
 <p>when merging (<em>-m+</em>), merged site is PASS only if all sites being merged PASS</p>
@@ -2923,6 +3104,10 @@ annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -2971,11 +3156,19 @@ the usage examples that each plugin comes with.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3368,6 +3561,10 @@ file for help.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --sample</strong> <em>string</em></dt>
 <dd>
 <p>sample name</p>
@@ -3377,6 +3574,10 @@ file for help.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>FILE</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3440,6 +3641,10 @@ The <em>float</em> is from the interval [0,1] and larger is stricter</p>
 <p>exclude sites for which <em>EXPRESSION</em> is true. For valid expressions see
 <strong><a href="#expressions">EXPRESSIONS</a></strong>.</p>
 </dd>
+<dt class="hdlist1"><strong>--force-samples</strong></dt>
+<dd>
+<p>continue even when some samples requested via <strong>-s/-S</strong> do not exist</p>
+</dd>
 <dt class="hdlist1"><strong>-f, --format</strong> <em>FORMAT</em></dt>
 <dd>
 <p>learn by example, see below</p>
@@ -3469,6 +3674,10 @@ The <em>float</em> is from the interval [0,1] and larger is stricter</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3482,6 +3691,10 @@ The <em>float</em> is from the interval [0,1] and larger is stricter</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3762,6 +3975,10 @@ a compressed output.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3775,6 +3992,10 @@ a compressed output.</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3916,6 +4137,10 @@ sites") or which do not have the ID column set ("novel sites").</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-s, --samples</strong> <em>LIST</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
@@ -3929,6 +4154,10 @@ sites") or which do not have the ID column set ("novel sites").</p>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -3959,7 +4188,7 @@ Convert between VCF and BCF. Former <strong>bcftools subset</strong>.</p>
 </dd>
 <dt class="hdlist1"><strong>-h, --header-only</strong></dt>
 <dd>
-<p>output the VCF header only</p>
+<p>output the VCF header only (see also <strong><a href="#head">bcftools head</a></strong>)</p>
 </dd>
 <dt class="hdlist1"><strong>-H, --no-header</strong></dt>
 <dd>
@@ -3999,11 +4228,19 @@ best compression.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
+<dt class="hdlist1"><strong>--regions-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
 <dt class="hdlist1"><strong>-t, --targets</strong> <em>chr</em>|<em>chr:pos</em>|<em>chr:from-to</em>|<em>chr:from-</em>[,&#8230;&#8203;]</dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
 <dt class="hdlist1"><strong>-T, --targets-file</strong> <em>file</em></dt>
+<dd>
+<p>see <strong><a href="#common_options">Common Options</a></strong></p>
+</dd>
+<dt class="hdlist1"><strong>--targets-overlap</strong> <em>0</em>|<em>1</em>|<em>2</em></dt>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
@@ -4092,11 +4329,11 @@ most frequent (<em>nonmajor</em>) alleles.</p>
 <dd>
 <p>see <strong><a href="#common_options">Common Options</a></strong></p>
 </dd>
-<dt class="hdlist1"><strong>-g, --genotype</strong> [&#94;][<em>hom</em>|<em>het</em>|<em>miss</em>]</dt>
+<dt class="hdlist1"><strong>-g, --genotype</strong> [^][<em>hom</em>|<em>het</em>|<em>miss</em>]</dt>
 <dd>
 <p>include only sites with one or more homozygous (<em>hom</em>), heterozygous
-(<em>het</em>) or missing (<em>miss</em>) genotypes. When prefixed with <em>&#94;</em>, the logic
-is reversed; thus <em>&#94;het</em> excludes sites with heterozygous genotypes.</p>
+(<em>het</em>) or missing (<em>miss</em>) genotypes. When prefixed with <em>^</em>, the logic
+is reversed; thus <em>^het</em> excludes sites with heterozygous genotypes.</p>
 </dd>
 <dt class="hdlist1"><strong>-i, --include</strong> <em>EXPRESSION</em></dt>
 <dd>
@@ -4751,7 +4988,7 @@ Copyright (c) Genome Research Ltd.</p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-10-22 12:15:14 +0100
+Last updated 2022-02-21 11:43:27 UTC
 </div>
 </div>
 </body>

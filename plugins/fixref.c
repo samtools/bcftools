@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2016-2019 Genome Research Ltd.
+   Copyright (c) 2016-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -93,6 +93,7 @@
 #define MODE_FLIP2FWD 3
 #define MODE_USE_ID   4
 #define MODE_REF_ALT  5
+#define MODE_FLIP_ALL 6
 
 typedef struct
 {
@@ -101,7 +102,7 @@ typedef struct
 }
 marker_t;
 
-KHASH_MAP_INIT_INT(i2m, marker_t)
+KHASH_MAP_INIT_STR(i2m, marker_t)
 typedef khash_t(i2m) i2m_t;
 
 typedef struct
@@ -127,15 +128,16 @@ const char *about(void)
 
 const char *usage(void)
 {
-    return 
+    return
         "\n"
         "About: This tool helps to determine and fix strand orientation.\n"
         "       Currently the following modes are recognised:\n"
-        "           flip    .. flip REF/ALT columns and GTs for non-ambiguous SNPs and ignore the rest\n"
-        "           id      .. swap REF/ALT columns and GTs using the ID column to determine the REF allele\n"
-        "           ref-alt .. swap REF/ALT columns to match the reference but not modify the genotypes\n"
-        "           stats   .. collect and print stats\n"
-        "           top     .. convert from Illumina TOP strand to fwd\n"
+        "           flip     .. flip REF/ALT columns and GTs for non-ambiguous SNPs and ignore the rest\n"
+        "           flip-all .. flip REF/ALT columns and GTs for all SNPs, including ambiguous (A/T, C/G) sites\n"
+        "           id       .. swap REF/ALT columns and GTs using the ID column to determine the REF allele\n"
+        "           ref-alt  .. swap REF/ALT columns to match the reference but not modify the genotypes\n"
+        "           stats    .. collect and print stats\n"
+        "           top      .. convert from Illumina TOP strand to fwd\n"
         "\n"
         "       WARNING: Do not use the program blindly, make an effort to\n"
         "       understand what strand convention your data uses! Make sure\n"
@@ -190,14 +192,15 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     int c;
     while ((c = getopt_long(argc, argv, "?hf:m:di:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
-            case 'm': 
-                if ( !strcasecmp(optarg,"top") ) args.mode = MODE_TOP2FWD; 
-                else if ( !strcasecmp(optarg,"flip") ) args.mode = MODE_FLIP2FWD; 
-                else if ( !strcasecmp(optarg,"id") ) args.mode = MODE_USE_ID; 
-                else if ( !strcasecmp(optarg,"ref-alt") ) args.mode = MODE_REF_ALT; 
-                else if ( !strcasecmp(optarg,"stats") ) args.mode = MODE_STATS; 
+            case 'm':
+                if ( !strcasecmp(optarg,"top") ) args.mode = MODE_TOP2FWD;
+                else if ( !strcasecmp(optarg,"flip") ) args.mode = MODE_FLIP2FWD;
+                else if ( !strcasecmp(optarg,"flip-all") ) args.mode = MODE_FLIP_ALL;
+                else if ( !strcasecmp(optarg,"id") ) args.mode = MODE_USE_ID;
+                else if ( !strcasecmp(optarg,"ref-alt") ) args.mode = MODE_REF_ALT;
+                else if ( !strcasecmp(optarg,"stats") ) args.mode = MODE_STATS;
                 else error("The source strand convention not recognised: %s\n", optarg);
                 break;
             case 'i': args.dbsnp_fname = optarg; args.mode = MODE_USE_ID; break;
@@ -241,7 +244,7 @@ static bcf1_t *set_ref_alt(args_t *args, bcf1_t *rec, const char ref, const char
         }
     }
     bcf_update_genotypes(args->hdr,rec,args->gts,args->ngts);
-    
+
     return rec;
 }
 
@@ -256,21 +259,6 @@ static inline int nt2int(char nt)
 }
 #define int2nt(x) "ACGT"[x]
 #define revint(x) ("3210"[x]-'0')
-
-static inline uint32_t parse_rsid(char *name)
-{
-    if ( name[0]!='r' || name[1]!='s' ) 
-    {
-        name = strstr(name, "rs");
-        if ( !name ) return 0;
-    }
-    char *tmp;
-    name += 2;
-    uint64_t id = strtol(name, &tmp, 10);
-    if ( tmp==name || *tmp ) return 0;
-    if ( id > UINT32_MAX ) error("FIXME: the ID is too big for uint32_t: %s\n", name-2);
-    return id;
-}
 
 static int fetch_ref(args_t *args, bcf1_t *rec)
 {
@@ -292,9 +280,17 @@ static int fetch_ref(args_t *args, bcf1_t *rec)
     return ir;
 }
 
+static void dbsnp_destroy(args_t *args)
+{
+    if ( !args->i2m ) return;
+    khint_t k;
+    for (k = 0; k < kh_end(args->i2m); ++k)
+        if (kh_exist(args->i2m, k)) free((char*)kh_key(args->i2m, k));
+    kh_destroy(i2m, args->i2m);
+}
 static void dbsnp_init(args_t *args, const char *chr)
 {
-    if ( args->i2m ) kh_destroy(i2m, args->i2m);
+    dbsnp_destroy(args);
     args->i2m = kh_init(i2m);
     bcf_srs_t *sr = bcf_sr_init();
     if ( bcf_sr_set_regions(sr, chr, 0) != 0 ) goto done;
@@ -308,13 +304,13 @@ static void dbsnp_init(args_t *args, const char *chr)
         int ref = nt2int(rec->d.allele[0][0]);
         if ( ref<0 ) continue;     // non-[ACGT] base
 
-        uint32_t id = parse_rsid(rec->d.id);
-        if ( !id ) continue;
+        if ( !rec->d.id || (rec->d.id[0]=='.' && !rec->d.id[1]) ) continue;
+        char *id = strdup(rec->d.id);
 
         int ret, k;
         k = kh_put(i2m, args->i2m, id, &ret);
-        if ( ret<0 ) error("An error occurred while inserting the key %u\n", id);
-        if ( ret==0 ) continue; // skip ambiguous id
+        if ( ret<0 ) error("An error occurred while inserting the key \"%s\"\n", id);
+        if ( ret==0 ) { free(id); continue; }       // skip ambiguous id
         kh_val(args->i2m, k).pos = (uint32_t)rec->pos;
         kh_val(args->i2m, k).ref = ref;
     }
@@ -325,14 +321,14 @@ done:
 static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
 {
     int k, ref,pos;
-    uint32_t id = parse_rsid(rec->d.id);
-    if ( !id ) goto no_info;
+    char *id = rec->d.id;
+    if ( !id || (id[0]=='.' && !id[1]) ) goto no_info;
 
     k = kh_get(i2m, args->i2m, id);
     if ( k==kh_end(args->i2m) ) goto no_info;
 
     pos = (int)kh_val(args->i2m, k).pos;
-    if ( pos != rec->pos ) 
+    if ( pos != rec->pos )
     {
         rec->pos = pos;
         ir = fetch_ref(args, rec);
@@ -340,7 +336,7 @@ static bcf1_t *dbsnp_check(args_t *args, bcf1_t *rec, int ir, int ia, int ib)
     }
 
     ref = kh_val(args->i2m, k).ref;
-	if ( ref!=ir ) 
+	if ( ref!=ir )
         error("Reference base mismatch at %s:%"PRId64" .. %c vs %c\n",bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,int2nt(ref),int2nt(ir));
 
     if ( ia==ref ) return rec;
@@ -435,10 +431,10 @@ bcf1_t *process(bcf1_t *rec)
         if ( ir==revint(ib) ) { args.nflip_swap++; return set_ref_alt(&args,rec,int2nt(revint(ib)),int2nt(revint(ia)),0); }
         error("FIXME: this should not happen %s:%"PRId64"\n", bcf_seqname(args.hdr,rec),(int64_t) rec->pos+1);
     }
-    else if ( args.mode==MODE_FLIP2FWD )
+    else if ( args.mode==MODE_FLIP2FWD || args.mode==MODE_FLIP_ALL )
     {
         int pair = 1 << ia | 1 << ib;
-        if ( pair==0x9 || pair==0x6 )   // skip ambiguous pairs: A/T or C/G
+        if ( args.mode==MODE_FLIP2FWD && (pair==0x9 || pair==0x6) )   // skip ambiguous pairs: A/T or C/G
         {
             args.nunresolved++;
             return args.discard ? NULL : ret;
@@ -491,7 +487,7 @@ bcf1_t *process(bcf1_t *rec)
                 break;
             }
             free(ref);
-            
+
             if ( strand==1 )
             {
                 if ( ir==ia ) return ret;
@@ -524,15 +520,15 @@ bcf1_t *process(bcf1_t *rec)
     return ret;
 }
 
-int top_mask[4][4] = 
-{ 
+int top_mask[4][4] =
+{
     {0,1,1,1},
     {0,0,1,0},
     {0,0,0,0},
     {0,0,0,0},
 };
-int bot_mask[4][4] = 
-{ 
+int bot_mask[4][4] =
+{
     {0,0,0,0},
     {0,0,0,0},
     {0,1,0,0},
@@ -587,5 +583,5 @@ void destroy(void)
 
     free(args.gts);
     if ( args.fai ) fai_destroy(args.fai);
-    if ( args.i2m ) kh_destroy(i2m, args.i2m);
+    dbsnp_destroy(&args);
 }
