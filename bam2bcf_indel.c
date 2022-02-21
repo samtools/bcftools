@@ -469,11 +469,13 @@ static int bcf_cgp_append_cons(str_freq *sf, char *str, int len) {
  */
 static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                int pos, bcf_callaux_t *bca, const char *ref,
-                               char *ref_sample,
-                               int left, int right, int sample, int type,
+                               char *ref_sample, int left, int right,
+                               int sample, int type, int biggest_del,
                                int *left_shift, int *right_shift) {
     int (*cons_base)[6] = calloc(right - left + 1, sizeof(*cons_base));// single base or del
     str_freq *cons_ins  = calloc(right - left + 1, sizeof(*cons_ins)); // multi-base insertions
+
+    biggest_del = biggest_del<0?biggest_del+1:0;
 
     // non-indel ref for all reads on this sample, rather than those just
     // matching type.  We use this for handling the case where we have a
@@ -564,8 +566,10 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             }
 
             case BAM_CINS: {
-                if (p->indel != type)
+                if (p->indel != type) {
+                    y += len; // for when adding to ref_base
                     break;
+                }
 
                 char ins[1024];
                 for (j = 0; j < len; j++, y++) {
@@ -628,7 +632,8 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 
         double rfract = (r - t*2)*.75 / (r+1);
         if (rfract > 0) { //  && !(type == 0 && i+left == pos)) {
-            if (i+left >= pos+1 && i+left <= pos+1-(type<0?type+1:0)) {
+            //if (i+left >= pos+1 && i+left <= pos+1-(type<0?type+1:0)) {
+            if (i+left >= pos+1 && i+left <= pos+1-biggest_del) {
                 int rem = rfract * n_plp[s];
                 fprintf(stderr, "rfract=%f rem=%d type=%d, t=%d r=%d\n", rfract, rem, type, t, r);
 //                switch(ref_sample[i]) {
@@ -755,9 +760,9 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
-#define CONS_CUTOFF     .40 // 70% needed for base vs N
+#define CONS_CUTOFF     .40 // 40% needed for base vs N
 #define CONS_CUTOFF_INC .30 // 30% to include any insertion.
-#define CONS_CUTOFF_INS .60 // and then 70% needed for it to be bases vs N
+#define CONS_CUTOFF_INS .60 // and then 60% needed for it to be bases vs N
     // Walk through the frequency arrays to call the consensus
     *left_shift = 0;
     *right_shift = 0;
@@ -1378,6 +1383,11 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     // scoring higher than against ref.  So need a consensus with the large
     // insertion and no small hypothesised one.
 
+    int biggest_del = 0;
+    for (t = 0; t < n_types; t++)
+        if (biggest_del > types[t])
+            biggest_del = types[t];
+
     for (t = 0; t < n_types; ++t) {
         int l, ir;
 
@@ -1408,7 +1418,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             int left_shift, right_shift;
             tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref,
                                       ref_sample[s],
-                                      left, right, s, types[t],
+                                      left, right, s, types[t], biggest_del, 
                                       &left_shift, &right_shift);
             fprintf(stderr, "Cons (%2d) %d/%d   %s\n", left_shift, t, s, tcons);
             // FIXME: map from ascii to 0,1,2,3,4.
