@@ -251,11 +251,26 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
         return NULL;
     }
     t = 0;
-    types[t++] = aux[0] - MINUS_CONST;
-    for (i = 1; i < m; ++i)
-        if (aux[i] != aux[i-1])
-            types[t++] = aux[i] - MINUS_CONST;
+    for (i = 0; i < m; ++i) {
+        int sz = (int32_t)(aux[i] - MINUS_CONST);
+        int j;
+        for (j = i+1; j < m; j++)
+            if (aux[j] != aux[i])
+                break;
+
+        if (sz == 0
+            || j-i >= bca->min_support
+            // Note, doesn't handle bca->per_sample_flt yet
+            || bca->per_sample_flt 
+            || (double)(j-i) / n_tot >= bca->min_frac)
+            types[t++] = sz;
+        i = j-1;
+    }
     free(aux);
+
+    if (t <= 1)
+        return NULL;
+    n_types = t;
 
     // Find reference type; types[?] == 0)
     for (t = 0; t < n_types; ++t)
@@ -551,12 +566,16 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 for (j = 0; j < len; j++, x++, y++) {
                     if (x < left) continue;
                     if (x >= right) break;
+
+                    // FIXME: don't want this, but alternative isn't
+                    // working yet.
                     if (last_base_ins) {
                         last_base_ins = 0;
                         continue;
                     }
                     base = bam_seqi(seq, y);
                     if (p->indel == type)
+//                    if (p->indel == type || p->indel >= 0) // alternative
                         cons_base[x-left][L[base]]++;
                     //else
                         ref_base[x-left][L[base]]++;
@@ -584,7 +603,7 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 // 5I 5M is IIIIIM M M M M events, not
                 // {IIIII,M} M M M M choice.  So we need to include the
                 // next match in our sequence when choosing the consensus.
-                if (y < b->core.l_qseq) {
+                if (y < b->core.l_qseq) { // alternative is to comment out
                     base = bam_seqi(seq, y);
                     if (j < 1024)
                         ins[j++] = seq_nt16_str[base];
@@ -810,8 +829,8 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 for (j = 0; j < cons_ins[i].len[max_j_ins]; j++)
                     cons[k++] = 'N';
             }
-            continue; // don't call next base as included in insertion
-            // NB causes debugging output missing newlines, but meh
+            // don't call next base as included in insertion
+            continue; // alternative is to comment out.
         }
 
         // Call
