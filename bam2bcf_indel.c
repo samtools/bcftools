@@ -528,6 +528,11 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
+// cons_ins sequence is the insertion seq followed by the
+// next match base
+#define INS_PLUS_BASE
+
+
     // Accumulate sequences into cons_base and cons_ins arrays
     int last_base_ins = 0;
     for (i = 0; i < n_plp[s]; i++) {
@@ -567,15 +572,18 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (x < left) continue;
                     if (x >= right) break;
 
-                    // FIXME: don't want this, but alternative isn't
-                    // working yet.
+#ifdef INS_PLUS_BASE
                     if (last_base_ins) {
                         last_base_ins = 0;
                         continue;
                     }
+#endif
                     base = bam_seqi(seq, y);
+#ifdef INS_PLUS_BASE
                     if (p->indel == type)
-//                    if (p->indel == type || p->indel >= 0) // alternative
+#else
+                    if (p->indel == type || p->indel > 0) // alternative
+#endif
                         cons_base[x-left][L[base]]++;
                     //else
                         ref_base[x-left][L[base]]++;
@@ -603,12 +611,14 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 // 5I 5M is IIIIIM M M M M events, not
                 // {IIIII,M} M M M M choice.  So we need to include the
                 // next match in our sequence when choosing the consensus.
-                if (y < b->core.l_qseq) { // alternative is to comment out
+#ifdef INS_PLUS_BASE
+                if (y < b->core.l_qseq) {
                     base = bam_seqi(seq, y);
                     if (j < 1024)
                         ins[j++] = seq_nt16_str[base];
                 }
                 last_base_ins = 1;
+#endif
 
                 //                fprintf(stderr, "<+%.*s>", j<1024?j:1024, ins);
                 if (x >= left && x < right)
@@ -812,7 +822,13 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 //            fprintf(stderr, "%.*s%d ", cons_ins[i].len[j], cons_ins[i].str[j],
 //                    cons_ins[i].freq[j]);
         }
+        // NB: tot is based on next matching base, so it includes
+        // everything with or without the insertion.
+#ifdef INS_PLUS_BASE
         if (max_v_ins > CONS_CUTOFF_INC*(tot+tot_ins)) {
+#else
+        if (max_v_ins > CONS_CUTOFF_INC*tot) {
+#endif
             if (max_v_ins > CONS_CUTOFF_INS*tot_ins) {
                 // Insert bases
                 for (j = 0; j < cons_ins[i].len[max_j_ins]; j++) {
@@ -830,7 +846,9 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     cons[k++] = 'N';
             }
             // don't call next base as included in insertion
-            continue; // alternative is to comment out.
+#ifdef INS_PLUS_BASE
+            continue;
+#endif
         }
 
         // Call
