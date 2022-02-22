@@ -760,8 +760,8 @@ static char *bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
-#define CONS_CUTOFF     .40 // 40% needed for base vs N
-#define CONS_CUTOFF_INC .30 // 30% to include any insertion.
+#define CONS_CUTOFF     .30 // 40% needed for base vs N
+#define CONS_CUTOFF_INC .20 // 30% to include any insertion.
 #define CONS_CUTOFF_INS .60 // and then 60% needed for it to be bases vs N
     // Walk through the frequency arrays to call the consensus
     *left_shift = 0;
@@ -983,7 +983,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
     }
 
     type = abs(type);
-    apf.bw = type + 3; // apf.bw=100;
+    apf.bw = type + 3;
     int l, sc1, sc2;
     const uint8_t *qual = bam_get_qual(p->b), *bq;
     uint8_t *qq;
@@ -1012,6 +1012,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
                          query, qend - qbeg, qq, &apf, 0, 0);
     sc2 = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                          query, qend - qbeg, qq, &apf, 0, 0);
+    //    sc1 = INT_MAX; // disable for now
     if (sc1 < 0 && sc2 < 0) {
         *score = 0xffffff;
         free(qq);
@@ -1456,9 +1457,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             if (right > j)
                 right = j;
 
-            memcpy(ref1, ref2, right-left); // original consensus method
+            // original consensus method
+            memcpy(ref1, ref2, right-left+(types[t]>0?types[t]:0));
             fprintf(stderr, "Type %d = %2d\t", t, types[t]);
-            for (j = 0; j < right-left; j++)
+            for (j = 0; j < right-left+(types[t]>0?types[t]:0); j++)
                 putc("ACGTN"[ref2[j]], stderr);
             putc('\n', stderr);
 
@@ -1487,7 +1489,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             free(tcons);
 
             fprintf(stderr, "TYPE %d = %2d\t", t, types[t]);
-            for (j = 0; j < right-left && j < max_ref2; j++)
+            for (j = 0; j < rright-left && j < max_ref2; j++)
                 putc("ACGTN"[ref2[j]], stderr);
             putc('\n', stderr);
 
