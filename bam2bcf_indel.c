@@ -787,7 +787,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 if (max_v < ins[l][3]) max_v = ins[l][3], base = 3;
                 if (max_v < ins[l][4]) max_v = ins[l][4], base = 4;
 
-                cons_ins[i].str[j][l] = (max_v > 0.8*tot) ?"ACGTN"[base] :'N';
+                cons_ins[i].str[j][l] = (max_v > 0.6*tot) ?"ACGTN"[base] :'N';
             }
         }
     }
@@ -882,6 +882,13 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             }
 
             // Call
+            if (type < 0 && i > pos-left && i <= pos-left-type) {
+                if (max_j != 5)
+                fprintf(stderr, "pos %d i %d pos-left %d type %d, max_j %d\n",
+                        pos, i, pos-left, type, max_j);
+                max_v = cons_base[i][max_j = 5];
+            }
+
             if (cnum == 0) {
                 if (max_v > CONS_CUTOFF*tot) { // HET or HOM
                     if (max_j != 5) // gap
