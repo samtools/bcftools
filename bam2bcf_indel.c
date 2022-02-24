@@ -834,6 +834,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     continue; // previously merged
 
                 if (max_v_ins < cons_ins[i].freq[j])
+                    //if (i != pos-left+1 || cons_ins[i].len[j] == type)
                     max_v_ins = cons_ins[i].freq[j], max_j_ins = j;
                 tot_ins += cons_ins[i].freq[j];
 
@@ -843,13 +844,18 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             // NB: tot is based on next matching base, so it includes
             // everything with or without the insertion.
 #ifdef INS_PLUS_BASE
-            if (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins) && (cnum==0 ||
-                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||
-                i == pos-left+1)) {
+//            if (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins) && (cnum==0 ||
+//                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||
+//                i == pos-left+1)) {
+            if ((i == pos-left+1 && type) || // current 'type' at pos
+                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||  // HOM
+                (max_v_ins > bca->min_support &&
+                 (cnum != 0) ^ max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins))) { // HET
 #else
-            if (max_v_ins > CONS_CUTOFF_INC *tot && (cnum==0 ||
-                max_v_ins > CONS_CUTOFF_INC2*tot ||
-                i == pos-left+1)) {
+            if ((i == pos-left+1 && type) || // current 'type' at pos
+                max_v_ins > CONS_CUTOFF_INC2*tot ||  // HOM
+                (max_v_ins > bca->min_support &&
+                 (cnum != 0) ^ max_v_ins > CONS_CUTOFF_INC*tot)) { // HET
 #endif
                 if (max_v_ins > CONS_CUTOFF_INS*tot_ins) {
                     // Insert bases
@@ -877,7 +883,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 
             // Call
             if (cnum == 0) {
-                if (max_v > CONS_CUTOFF*tot) {
+                if (max_v > CONS_CUTOFF*tot) { // HET or HOM
                     if (max_j != 5) // gap
                         cons[cnum][k++] = "ACGTN*"[max_j];
                     else if (k < pos-left+*left_shift)
@@ -889,7 +895,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 }
             } else {
                 if (max_j == 5) {
-                    if (max_v > CONS_CUTOFF2*tot)
+                    if (max_v > CONS_CUTOFF2*tot) // HOM
                         ; // no need to output "*"
                     else
                         max_j = max_j2, max_v = max_v2;
@@ -1570,7 +1576,11 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
             // original consensus method
             //memcpy(ref1, ref2, right-left+(types[t]>0?types[t]:0));
-            memcpy(ref1, tcons[1], tcon_len[1]);
+            memcpy(ref1, tcons[1], right-left+(types[t]>0?types[t]:0));
+            if (tcon_len[1] < right-left+(types[t]>0?types[t]:0)) {
+                memset(ref1+tcon_len[1], 4,
+                       right-left+(types[t]>0?types[t]:0) - tcon_len[1]);
+            }
             fprintf(stderr, "Type %d = %2d\t", t, types[t]);
             for (j = 0; j < right-left+(types[t]>0?types[t]:0); j++)
                 putc("ACGTN"[(uint8_t)ref2[j]], stderr);
