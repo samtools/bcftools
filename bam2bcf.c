@@ -234,7 +234,8 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
                 // particularly indicative of being a good REF match either,
                 // at least not in low coverage.  So require solid coverage
                 // before we start utilising such quals.
-                b = 0;
+                if (b != 0)
+                    b = 5;
                 q = (int)bam_get_qual(p->b)[p->qpos];
                 seqQ = (3*seqQ + 2*q)/8;
             }

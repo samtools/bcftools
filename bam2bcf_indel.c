@@ -516,17 +516,21 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     // So the amount we add should be a proportion of the amount we didn't
     // include in our consensus.  Eg MAX(0, depth - Nused*2).
 
-    // FIXME: maybe this no longer matters now we have ref_base[]
-#define REF_SEED 1
-    for (i = left; i < right; i++) {
-        switch(ref[i]) {
-        case 'A': cons_base[i-left][0]+=REF_SEED; break;
-        case 'C': cons_base[i-left][1]+=REF_SEED; break;
-        case 'G': cons_base[i-left][2]+=REF_SEED; break;
-        case 'T': cons_base[i-left][3]+=REF_SEED; break;
-        default:  cons_base[i-left][4]+=REF_SEED; break;
-        }
-    }
+    // FIXME: maybe this no longer matters now we have ref_base[].
+    // ~20MB of chr1 showed 0.6% more FN (vs FN not FN+TP) and
+    // identical FP/GT errs.  Maybe not worth the effort of retaining
+    // ref_sample creation, but explore why this is and if tweaking
+    // elsewhere helps instead, eg the proportion of ref_base (rfract).
+//#define REF_SEED 1
+//    for (i = left; i < right; i++) {
+//        switch(ref[i]) {
+//        case 'A': cons_base[i-left][0]+=REF_SEED; break;
+//        case 'C': cons_base[i-left][1]+=REF_SEED; break;
+//        case 'G': cons_base[i-left][2]+=REF_SEED; break;
+//        case 'T': cons_base[i-left][3]+=REF_SEED; break;
+//        default:  cons_base[i-left][4]+=REF_SEED; break;
+//        }
+//    }
 
 // cons_ins sequence is the insertion seq followed by the
 // next match base
@@ -660,6 +664,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             ref_base[i][3] + ref_base[i][4] + ref_base[i][5];
 
         double rfract = (r - t*2)*.75 / (r+1);
+        rfract += 1.01 / (r+1e-10); // compensate for REF_SEED=0 above: RF0b
         if (rfract > 0) { //  && !(type == 0 && i+left == pos)) {
             //if (i+left >= pos+1 && i+left <= pos+1-(type<0?type+1:0)) {
             if (i+left >= pos+1 && i+left <= pos+1-biggest_del) {
@@ -792,10 +797,11 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
-#define CONS_CUTOFF      .30 // 30% needed for base vs N
+// TODO CUTOFF .4, INC .4 (test .5)
+#define CONS_CUTOFF      .40 // 40% needed for base vs N
 #define CONS_CUTOFF2     .80 // 80% needed for gap in cons[1]
-#define CONS_CUTOFF_INC  .20 // 20% to include any insertion cons[0]
-#define CONS_CUTOFF_INC2 .80 // 80% to include any insertion cons[1]
+#define CONS_CUTOFF_INC  .40 // 40% to include any insertion cons[0]
+#define CONS_CUTOFF_INC2 .80 // 80% to include any insertion cons[1] HOM
 #define CONS_CUTOFF_INS  .60 // and then 60% needed for it to be bases vs N
     // Walk through the frequency arrays to call the consensus.
     // We produce cons[0] and cons[1].  Both include strongly
@@ -1251,7 +1257,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             if (seqQ > 255) seqQ = 255;
             p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ; // use 22 bits in total
             sumq[sc[0]&0x3f] += indelQ < seqQ? indelQ : seqQ; // FIXME: redunctant; always indelQ
-            // fprintf(stderr, "  read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", s, i, bam_get_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
+            fprintf(stderr, "  read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", s, i, bam_get_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
         }
     }
     // determine bca->indel_types[] and bca->inscns
@@ -1443,8 +1449,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             score -= str[i-left]==0;
         int right_new = i;
 
-//        fprintf(stderr, "left %d, %d, pos %d, %d, right %d\n",
-//                left, left_new, pos, right_new, right);
+        fprintf(stderr, "left %d, %d, pos %d, %d, right %d\n",
+                left, left_new, pos, right_new, right);
 
         left = left_new;
         right = right_new;
