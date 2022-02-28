@@ -668,8 +668,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         if (rfract > 0) { //  && !(type == 0 && i+left == pos)) {
             //if (i+left >= pos+1 && i+left <= pos+1-(type<0?type+1:0)) {
             if (i+left >= pos+1 && i+left <= pos+1-biggest_del) {
-                int rem = rfract * n_plp[s];
-                fprintf(stderr, "rfract=%f rem=%d type=%d, t=%d r=%d\n", rfract, rem, type, t, r);
+//                int rem = rfract * n_plp[s];
+//                fprintf(stderr, "rfract=%f rem=%d type=%d, t=%d r=%d\n", rfract, rem, type, t, r);
 //                switch(ref_sample[i]) {
 //                case 1: cons_base[i][0] += rem; break; // A
 //                case 2: cons_base[i][1] += rem; break; // C
@@ -856,7 +856,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             if ((i == pos-left+1 && type) || // current 'type' at pos
                 max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||  // HOM
                 (max_v_ins > bca->min_support &&
-                 (cnum != 0) ^ max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins))) { // HET
+                 (cnum != 0) ^ (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins)))) { // HET
 #else
             if ((i == pos-left+1 && type) || // current 'type' at pos
                 max_v_ins > CONS_CUTOFF_INC2*tot ||  // HOM
@@ -1126,15 +1126,15 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
     // Try original cons and new cons and pick best.
     // This doesn't removed FN much (infact maybe adds very slightly),
     // but it does reduce GT errors and some slight reduction to FP.
-    sc1 = probaln_glocal(ref1 + tbeg - left, tend - tbeg + type,
-                         query, qend - qbeg, qq, &apf, 0, 0);
     sc2 = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                          query, qend - qbeg, qq, &apf, 0, 0);
-    fprintf(stderr, "sc1=%x, sc2=%x\n", sc1, sc2);
-    //    sc1 = INT_MAX; // disable for now
-    // Correct solution is to get ref1 being second consensus rather
-    // than ref_sample, and to pick top two alleles by monitoring
-    // indel locations.  (See google docs details)
+    if (memcmp((char *)ref1 + tbeg - left, (char *)ref2 + tbeg - left,
+               tend - tbeg + type) != 0)
+        sc1 = probaln_glocal(ref1 + tbeg - left, tend - tbeg + type,
+                             query, qend - qbeg, qq, &apf, 0, 0);
+    else
+        sc1 = INT_MAX; // skip
+
     if (sc1 < 0 && sc2 < 0) {
         *score = 0xffffff;
         free(qq);
@@ -1257,7 +1257,7 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             if (seqQ > 255) seqQ = 255;
             p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ; // use 22 bits in total
             sumq[sc[0]&0x3f] += indelQ < seqQ? indelQ : seqQ; // FIXME: redunctant; always indelQ
-            fprintf(stderr, "  read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", s, i, bam_get_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
+//            fprintf(stderr, "  read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", s, i, bam_get_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
         }
     }
     // determine bca->indel_types[] and bca->inscns
@@ -1542,8 +1542,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                                       ref_sample[s],
                                       left, right, s, types[t], biggest_del, 
                                       &left_shift, &right_shift);
-            fprintf(stderr, "Cons0 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[0]);
-            fprintf(stderr, "Cons1 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[1]);
+//            fprintf(stderr, "Cons0 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[0]);
+//            fprintf(stderr, "Cons1 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[1]);
             // FIXME: map from ascii to 0,1,2,3,4.
             // This is only needed because bcf_cgp_consensus is reporting in ASCII
             // currently, for ease of debugging.
@@ -1582,10 +1582,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             if (right > j)
                 right = j;
 
-            fprintf(stderr, "ConsR (##) ?/?  ");
-            for (i = 0; i < right-left+(types[t]>0?types[t]:0); i++)
-                putc("ACGTN"[(uint8_t)ref2[i]], stderr);
-            putc('\n', stderr);
+//            fprintf(stderr, "ConsR (##) ?/?  ");
+//            for (i = 0; i < right-left+(types[t]>0?types[t]:0); i++)
+//                putc("ACGTN"[(uint8_t)ref2[i]], stderr);
+//            putc('\n', stderr);
 
             // original consensus method
             //memcpy(ref1, ref2, right-left+(types[t]>0?types[t]:0));
@@ -1594,10 +1594,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 memset(ref1+tcon_len[1], 4,
                        right-left+(types[t]>0?types[t]:0) - tcon_len[1]);
             }
-            fprintf(stderr, "Type %d = %2d\t", t, types[t]);
-            for (j = 0; j < right-left+(types[t]>0?types[t]:0); j++)
-                putc("ACGTN"[(uint8_t)ref2[j]], stderr);
-            putc('\n', stderr);
+//            fprintf(stderr, "Type %d = %2d\t", t, types[t]);
+//            for (j = 0; j < right-left+(types[t]>0?types[t]:0); j++)
+//                putc("ACGTN"[(uint8_t)ref2[j]], stderr);
+//            putc('\n', stderr);
 
             // Our computed consensus may start/end in slightly different
             // positions due to indels.
@@ -1622,10 +1622,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             }
             free(tcons);
 
-            fprintf(stderr, "TYPE %d = %2d\t", t, types[t]);
-            for (j = 0; j < rright-left && j < max_ref2; j++)
-                putc("ACGTN"[(uint8_t)ref2[j]], stderr);
-            putc('\n', stderr);
+//            fprintf(stderr, "TYPE %d = %2d\t", t, types[t]);
+//            for (j = 0; j < rright-left && j < max_ref2; j++)
+//                putc("ACGTN"[(uint8_t)ref2[j]], stderr);
+//            putc('\n', stderr);
 
             // align each read to ref2
             for (i = 0; i < n_plp[s]; ++i, ++K) {
@@ -1747,7 +1747,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                     // region entirely within a deletion (thus tend < tbeg).
                     score[K*n_types + t] = 0xffffff;
                 }
-#if 1
+#if 0
                 for (l = 0; l < tend - tbeg + abs(types[t]); ++l) {
                     if (tbeg-left+l >= max_ref2)
                         break;
