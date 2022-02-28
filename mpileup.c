@@ -1224,7 +1224,7 @@ int main_mpileup(int argc, char *argv[])
     mplp.fmt_flag = B2B_INFO_VDB|B2B_INFO_RPB|B2B_INFO_SCB|B2B_INFO_ZSCORE;
     mplp.max_read_len = 500;
     mplp.ambig_reads = B2B_DROP;
-    mplp.indel_win_size = 110;
+    mplp.indel_win_size = 80;
     mplp.clevel = -1;
     hts_srand48(0);
 
@@ -1410,9 +1410,9 @@ int main_mpileup(int argc, char *argv[])
                 char *tmp;
                 mplp.indel_win_size = strtol(optarg,&tmp,10);
                 if ( *tmp ) error("Could not parse argument: --indel-size %s\n", optarg);
-                if ( mplp.indel_win_size < 110 )
+                if ( mplp.indel_win_size < 20 )
                 {
-                    //mplp.indel_win_size = 110;
+                    mplp.indel_win_size = 20;
                     fprintf(stderr,"Warning: running with --indel-size %d, the requested value is too small\n",mplp.indel_win_size);
                 }
             }
