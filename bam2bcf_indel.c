@@ -432,7 +432,7 @@ typedef struct {
     int freq[NI];
 } str_freq;
 
-static int bcf_cgp_append_cons(str_freq *sf, char *str, int len) {
+static int bcf_cgp_append_cons(str_freq *sf, char *str, int len, int freq) {
     int j;
 
     for (j = 0; j < NI && sf->str[j]; j++) {
@@ -442,7 +442,7 @@ static int bcf_cgp_append_cons(str_freq *sf, char *str, int len) {
     if (j >= NI)
         return 0; // too many choices; discard
 
-    sf->freq[j]++;
+    sf->freq[j]+=freq;
     if (!sf->str[j]) {
         // new insertion
         if (!(sf->str[j] = malloc(len+1)))
@@ -466,6 +466,7 @@ static int bcf_cgp_append_cons(str_freq *sf, char *str, int len) {
  * cons_base   - consensus of data with p->indel == type, bases or gap
  * ref_base    - consensus of data with p->indel != type, bases or gap
  * cons_ins    - consensus of data with p->indel == type, insertions
+ * ref_ins     - consensus of data with p->indel == type, bases or gap
  *
  * The purpose of cons_ins vs cons_base is if we have very low
  * coverage due to nearly all reads being another type, then we can
@@ -502,6 +503,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     // the other reads from type[] != 0 to flesh out the consensus and
     // improve accuracy.
     int (*ref_base)[6]  = calloc(right - left + 1, sizeof(*ref_base));
+    str_freq *ref_ins   = calloc(right - left + 1, sizeof(*ref_ins));
 
     int i, j, k, s = sample;
 
@@ -577,6 +579,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (x >= right) break;
 
 #ifdef INS_PLUS_BASE
+                    // FIXME: need last_base_ins_type and last_base_ins_ref?
                     if (last_base_ins) {
                         last_base_ins = 0;
                         continue;
@@ -589,18 +592,19 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (p->indel == type || p->indel > 0) // alternative
 #endif
                         cons_base[x-left][L[base]]++;
-                    //else
+                    else if (x != pos+1) // indel being assessed question
                         ref_base[x-left][L[base]]++;
                     //                    fputc(seq_nt16_str[base], stderr);
+                    // else last_base_ins=0?
                 }
                 break;
             }
 
             case BAM_CINS: {
-                if (p->indel != type) {
-                    y += len; // for when adding to ref_base
-                    break;
-                }
+//                if (p->indel != type) {
+//                    y += len; // for when adding to ref_base
+//                    break;
+//                }
 
                 char ins[1024];
                 for (j = 0; j < len; j++, y++) {
@@ -621,12 +625,21 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (j < 1024)
                         ins[j++] = seq_nt16_str[base];
                 }
-                last_base_ins = 1;
+                //last_base_ins = 1;
 #endif
 
                 //                fprintf(stderr, "<+%.*s>", j<1024?j:1024, ins);
-                if (x >= left && x < right)
-                    bcf_cgp_append_cons(&cons_ins[x-left], ins, j<1024?j:1024);
+                if (x >= left && x < right) {
+                    int ilen = j<1024?j:1024;
+                    if (p->indel == type) {
+                        bcf_cgp_append_cons(&cons_ins[x-left], ins, ilen, 1);
+                    } else  if (x != pos+1){
+                        bcf_cgp_append_cons(&ref_ins[x-left],  ins, ilen, 1);
+                    }
+#ifdef INS_PLUS_BASE
+                    last_base_ins = 1;
+#endif
+                }
                 break;
             }
 
@@ -638,8 +651,9 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (x >= right) break;
                     //                    fputc('-', stderr);
                     if (p->indel == type)
+                        // fixme: not p->indel==type but x==pos+1
                         cons_base[x-left][5]++;
-                    //else
+                    else
                         ref_base[x-left][5]++;
                 }
                 break;
@@ -659,11 +673,16 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 break;
             t += cons_ins[i].freq[j];
         }
-
         int r = ref_base[i][0] + ref_base[i][1] + ref_base[i][2] +
             ref_base[i][3] + ref_base[i][4] + ref_base[i][5];
+        for (j = 0; j < NI; j++) {
+            if (!ref_ins[i].str[j])
+                break;
+            r += ref_ins[i].freq[j];
+        }
 
         double rfract = (r - t*2)*.75 / (r+1);
+        if (rfract<0) rfract=0; // with or without? TEST
         rfract += 1.01 / (r+1e-10); // compensate for REF_SEED=0 above: RF0b
         if (rfract > 0) { //  && !(type == 0 && i+left == pos)) {
             //if (i+left >= pos+1 && i+left <= pos+1-(type<0?type+1:0)) {
@@ -685,27 +704,15 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 cons_base[i][4] += rfract * ref_base[i][4];
                 cons_base[i][5] += rfract * ref_base[i][5];
             }
-        }
 
-//        // A portion of what's left copied from ref_sample
-//        int rem = (n_plp[s] - t*2)*.75;
-//        if (rem > 0) {
-//            rem = REF_SEED; // FUDGE; minimal count to block N
-//            // Add in the full "rem" amount and we get many more FN again
-//            // (but low low FP).  Assume this is the del off-target being
-//            // turned back into bases?
-//            //
-//            // We could use the ref_sample construction code which adds to
-//            // cns[] as depth to track base vs gap.  Or write a newer
-//            // ref_sample creation code.  Do it right here infact...
-//            switch(ref_sample[i]) {
-//            case 1: cons_base[i][0] += rem; break; // A
-//            case 2: cons_base[i][1] += rem; break; // C
-//            case 4: cons_base[i][2] += rem; break; // G
-//            case 8: cons_base[i][3] += rem; break; // T
-//            default:cons_base[i][4] += rem; break; // N
-//            }
-//        }
+            for (j = 0; j < NI; j++) {
+                if (!ref_ins[i].str[j])
+                    break;
+                bcf_cgp_append_cons(&cons_ins[i],
+                                    ref_ins[i].str[j], ref_ins[i].len[j],
+                                    rfract * ref_ins[i].freq[j]);
+            }
+        }
     }
 
     // Allocate consensus buffer, to worst case length
@@ -813,6 +820,11 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     *left_shift = 0;
     *right_shift = 0;
     int cnum;
+
+    // Het call filled out in cnum==0 (+ve or -ve)
+    // Used in cnum==1 to do the opposite of whichever way we did before.
+    int het[1024] = {0};
+
     for (cnum = 0; cnum < 2; cnum++) {
         for (i = k = 0; i < right-left; i++) {
             //        fprintf(stderr, "%d\t", i);
@@ -853,10 +865,28 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 //            if (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins) && (cnum==0 ||
 //                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||
 //                i == pos-left+1)) {
-            if ((i == pos-left+1 && type) || // current 'type' at pos
-                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||  // HOM
-                (max_v_ins > bca->min_support &&
-                 (cnum != 0) ^ (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins)))) { // HET
+            int always_ins =
+                (i == pos-left+1 && type) ||               // current eval
+                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins);// HOM
+            int het_ins = 0;
+            if (!always_ins && max_v_ins >= bca->min_support) {
+                // Candidate HET ins.
+                if (cnum == 0) {
+                    het_ins = max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins);
+                    if (i < 1024) het[i] = het_ins
+                                      ? 1
+                                      : (max_v_ins > .2*(tot+tot_ins) ? -1:0);
+                } else {
+                    het_ins = (het[i] == -1); // HET but uncalled before
+                }
+            }
+//            if (max_v_ins)
+//                fprintf(stderr, "Cons @ %d: type %d cnum %d always %d het_ins %d // max_v %d vs %d+%d\n", i, type, cnum, always_ins, het_ins, max_v_ins, tot, tot_ins);
+            if (always_ins || het_ins) {
+//            if ((i == pos-left+1 && type) || // current 'type' at pos
+//                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||  // HOM
+//                (max_v_ins > bca->min_support &&
+//                 (cnum != 0) ^ (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins)))) { // HET
 #else
             if ((i == pos-left+1 && type) || // current 'type' at pos
                 max_v_ins > CONS_CUTOFF_INC2*tot ||  // HOM
@@ -930,12 +960,16 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     free(ref_base);
 
     for (i = 0; i < right-left; i++) {
-        for (j = 0; j < NI; j++)
+        for (j = 0; j < NI; j++) {
             // FIXME: replace by string pool
             if (cons_ins[i].str[j])
                 free(cons_ins[i].str[j]);
+            if (ref_ins[i].str[j])
+                free(ref_ins[i].str[j]);
+        }
     }
     free(cons_ins);
+    free(ref_ins);
 
     return cons;
 }
@@ -1128,12 +1162,29 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
     // but it does reduce GT errors and some slight reduction to FP.
     sc2 = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
                          query, qend - qbeg, qq, &apf, 0, 0);
+
     if (memcmp((char *)ref1 + tbeg - left, (char *)ref2 + tbeg - left,
                tend - tbeg + type) != 0)
         sc1 = probaln_glocal(ref1 + tbeg - left, tend - tbeg + type,
                              query, qend - qbeg, qq, &apf, 0, 0);
     else
         sc1 = INT_MAX; // skip
+
+#if 0
+    fprintf(stderr, "\nref1: ");
+    for (int j = 0; j < tend-tbeg+type; j++)
+        putc("ACGTN"[(uint8_t)ref1[j+tbeg-left]], stderr);
+    putc('\n', stderr);
+    fprintf(stderr, "ref2: ");
+    for (int j = 0; j < tend-tbeg+type; j++)
+        putc("ACGTN"[(uint8_t)ref2[j+tbeg-left]], stderr);
+    putc('\n', stderr);
+    fprintf(stderr, "qury: ");
+    for (int j = 0; j < qend-qbeg; j++)
+        putc("ACGTN"[(uint8_t)query[j]], stderr);
+    putc('\n', stderr);
+    fprintf(stderr, "sc1=%d sc2=%d\n\n", sc1, sc2);
+#endif
 
     if (sc1 < 0 && sc2 < 0) {
         *score = 0xffffff;
@@ -1544,6 +1595,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                                       &left_shift, &right_shift);
 //            fprintf(stderr, "Cons0 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[0]);
 //            fprintf(stderr, "Cons1 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[1]);
+
             // FIXME: map from ascii to 0,1,2,3,4.
             // This is only needed because bcf_cgp_consensus is reporting in ASCII
             // currently, for ease of debugging.
@@ -1589,7 +1641,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
             // original consensus method
             //memcpy(ref1, ref2, right-left+(types[t]>0?types[t]:0));
-            memcpy(ref1, tcons[1], right-left+(types[t]>0?types[t]:0));
+            memcpy(ref1, tcons[1], MIN(tcon_len[1], max_ref2));
             if (tcon_len[1] < right-left+(types[t]>0?types[t]:0)) {
                 memset(ref1+tcon_len[1], 4,
                        right-left+(types[t]>0?types[t]:0) - tcon_len[1]);
