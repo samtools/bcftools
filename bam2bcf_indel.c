@@ -682,9 +682,11 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
 
         double rfract = (r - t*2)*.75 / (r+1);
-        if (rfract<0) rfract=0; // with or without? TEST
-        rfract += 1.01 / (r+1e-10); // compensate for REF_SEED=0 above: RF0b
-        if (rfract > 0) { //  && !(type == 0 && i+left == pos)) {
+        //rfract*=.5; // -FN +FP/GT.  Which poison do we want?
+        if (rfract < 1.01 / (r+1e-10))// compensate for REF_SEED=0 above: RF0b
+            rfract = 1.01 / (r+1e-10);
+
+        if (1 || rfract > 0) { //  && !(type == 0 && i+left == pos)) {
             //if (i+left >= pos+1 && i+left <= pos+1-(type<0?type+1:0)) {
             if (i+left >= pos+1 && i+left <= pos+1-biggest_del) {
 //                int rem = rfract * n_plp[s];
@@ -804,7 +806,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
-// TODO CUTOFF .4, INC .4 (test .5)
+// TODO: try CONS_CUTOFF higher, eg .6, to force more Ns?
 #define CONS_CUTOFF      .40 // 40% needed for base vs N
 #define CONS_CUTOFF2     .80 // 80% needed for gap in cons[1]
 #define CONS_CUTOFF_INC  .40 // 40% to include any insertion cons[0]
@@ -937,6 +939,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     cons[cnum][k++] = 'N';
                 }
             } else {
+                // FIXME: use the same het[] array logic as for ins above
                 if (max_j == 5) {
                     if (max_v > CONS_CUTOFF2*tot) // HOM
                         ; // no need to output "*"
@@ -1095,7 +1098,7 @@ static char *bcf_cgp_calc_cons(int n, int *n_plp, bam_pileup1_t **plp,
 static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
                                uint8_t *ref1, uint8_t *ref2, uint8_t *query,
                                int r_start, int r_end, int long_read,
-                               int tbeg, int tend,
+                               int tbeg, int tend1, int tend2,
                                int left, int right,
                                int qbeg, int qend,
                                int qpos, int max_deletion,
@@ -1160,23 +1163,24 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
     // Try original cons and new cons and pick best.
     // This doesn't removed FN much (infact maybe adds very slightly),
     // but it does reduce GT errors and some slight reduction to FP.
-    sc2 = probaln_glocal(ref2 + tbeg - left, tend - tbeg + type,
+    sc2 = probaln_glocal(ref2 + tbeg - left, tend2 - tbeg,
                          query, qend - qbeg, qq, &apf, 0, 0);
 
-    if (memcmp((char *)ref1 + tbeg - left, (char *)ref2 + tbeg - left,
-               tend - tbeg + type) != 0)
-        sc1 = probaln_glocal(ref1 + tbeg - left, tend - tbeg + type,
+    if (tend1 != tend2 ||
+        memcmp((char *)ref1 + tbeg - left, (char *)ref2 + tbeg - left,
+               tend1 - tbeg + type) != 0)
+        sc1 = probaln_glocal(ref1 + tbeg - left, tend1 - tbeg,
                              query, qend - qbeg, qq, &apf, 0, 0);
     else
         sc1 = INT_MAX; // skip
 
-#if 0
+#if 1
     fprintf(stderr, "\nref1: ");
-    for (int j = 0; j < tend-tbeg+type; j++)
+    for (int j = 0; j < tend1-tbeg; j++)
         putc("ACGTN"[(uint8_t)ref1[j+tbeg-left]], stderr);
     putc('\n', stderr);
     fprintf(stderr, "ref2: ");
-    for (int j = 0; j < tend-tbeg+type; j++)
+    for (int j = 0; j < tend2-tbeg; j++)
         putc("ACGTN"[(uint8_t)ref2[j+tbeg-left]], stderr);
     putc('\n', stderr);
     fprintf(stderr, "qury: ");
@@ -1208,7 +1212,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
 
     rep_ele *reps, *elt, *tmp;
     uint8_t *seg = ref2 + tbeg - left;
-    int seg_len = tend - tbeg + type;
+    int seg_len = tend2 - tbeg + type;
 
     // Note: although seg moves (tbeg varies), ref2 is reused many times
     // so we could factor out some find_STR calls.  However it's not the
@@ -1590,11 +1594,11 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             char **tcons, *cp;
             int left_shift, right_shift;
             tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref,
-                                      ref_sample[s],
+                                      NULL,//ref_sample[s],
                                       left, right, s, types[t], biggest_del, 
                                       &left_shift, &right_shift);
-//            fprintf(stderr, "Cons0 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[0]);
-//            fprintf(stderr, "Cons1 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[1]);
+            fprintf(stderr, "Cons0 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[0]);
+            fprintf(stderr, "Cons1 (%2d) %d/%d  %s\n", left_shift, t, s, tcons[1]);
 
             // FIXME: map from ascii to 0,1,2,3,4.
             // This is only needed because bcf_cgp_consensus is reporting in ASCII
@@ -1672,7 +1676,6 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                        MIN(right_shift, max_ref2-ref2_pos));
 //                rright += MIN(right_shift, max_ref2-ref2_pos);
             }
-            free(tcons);
 
 //            fprintf(stderr, "TYPE %d = %2d\t", t, types[t]);
 //            for (j = 0; j < rright-left && j < max_ref2; j++)
@@ -1779,16 +1782,27 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // RG platform field.
                 int long_read = p->b->core.l_qseq > 1000;
 
+                // FIXME: we can improve (see above).
+                // Maybe use tbeg/tend as before, but with adjustment for
+                // difference between right-left and tcon_len.
+                // For now we just brute force it and do full ref range.
+                // It doesn't seem to impact on band at all.  *Why?*
+                int tend1 = left + tcon_len[0] - (left2-left);
+                int tend2 = left + tcon_len[1] - (left2-left);
+
+
                 // do realignment; this is the bottleneck.
                 //
                 // Note low score = good, high score = bad.
                 if (tend > tbeg) {
                     if (bcf_cgp_align_score(p, bca, types[t],
-                                            (uint8_t *)ref1 + left2-left,
-                                            (uint8_t *)ref2 + left2-left,
+                                            //(uint8_t *)ref1 + left2-left,
+                                            //(uint8_t *)ref2 + left2-left,
+                                            (uint8_t *)tcons[0] + left2-left,
+                                            (uint8_t *)tcons[1] + left2-left,
                                             (uint8_t *)query,
                                             r_start, r_end, long_read,
-                                            tbeg, tend, left2, rright,
+                                            tbeg, tend1, tend2, left2, rright,
                                             qbeg, qend, qpos, max_deletion,
                                             &score[K*n_types + t]) < 0) {
                         score[K*n_types + t] = 0xffffff;
@@ -1815,6 +1829,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                         qbeg, tbeg, score[K*n_types + t]>>8, score[K*n_types + t]&0xff);
 #endif
             }
+            free(tcons);
         }
     }
 
