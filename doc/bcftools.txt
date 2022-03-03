@@ -1425,6 +1425,32 @@ output VCF and are ignored for the prediction analysis.
     BCSQ=*missense|PER3|ENST00000361923|+|1028M>1028T|7890117T>C
 ----
 
+*Supported consequence types*
+----
+3_prime_utr
+5_prime_utr
+coding_sequence
+feature_elongation
+frameshift
+inframe_altering
+inframe_deletion
+inframe_insertion
+intergenic
+intron
+missense
+non_coding
+splice_acceptor
+splice_donor
+splice_region
+start_lost
+start_retained
+stop_gained
+stop_lost
+stop_retained
+synonymous
+----
+See also https://ensembl.org/info/genome/variation/prediction/predicted_data.html
+
 
 
 [[filter]]
