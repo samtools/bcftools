@@ -361,6 +361,11 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
     r->ori_depth = ori_depth;
     // glfgen
     errmod_cal(bca->e, n, 5, bca->bases, r->p); // calculate PL of each genotype
+
+    // TODO: account for the number of unassigned reads.  If depth is 50,
+    // but AD is 5,7 then it may look like a variant but it's probably
+    // should be low quality.
+
     return n;
 }
 

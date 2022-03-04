@@ -5,8 +5,6 @@ TODO:
 - Reevaluate the two STR indel-size adjusting modes.
   Maybe no longer relevant
 
-- Write deletion test perl script and evaluate consensus construction
-
 - Explore INS_PLUS_BASE again. Prefer to disable this as it's hard to
   understand and doesn't work properly on reads ending on an
   insertion.
@@ -17,6 +15,30 @@ TODO:
 
 - Consider limiting fract to never add more than current depth, so we
   change cons to Ns but not to another base type entirely.
+
+- Set BAQ band width based on maximum size of ins / del observed. Do
+  from *all* types, as we may realign from one type to another.
+
+- Trim left/right down better, as we used to.  Judge this based on
+  summation of various types and their consensii?
+
+- Separate consensus het[] array into heti[] and hetd[] to cope with
+  varying numbers of poly-X including both + and -.
+
+- Consider a separate rfract for lift-over of SNPs than for indels.
+  SNPs is good at replacing bases with N where we're unsure on the
+  data.  However ref_ins may cause issues with sizing?
+
+- Left-align indels before consensus generation.  Eg:
+
+      /pos being studied
+  AGCTGGGGGGAATCG  REF
+  AGCT-GGGGGAATCG  Seq type -1
+  ACGTGGGGG-AATGCG Seq type 0
+      ^
+
+  Type 0 cons shouldn't include the right hand del, but it's outside
+  of "biggest_del" window.  Expand this to STR size or left-align.
 */
 
 /*  bam2bcf_indel.c -- indel caller.
@@ -385,8 +407,6 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     int (*cons_base)[6] = calloc(right - left + 1, sizeof(*cons_base));// single base or del
     str_freq *cons_ins  = calloc(right - left + 1, sizeof(*cons_ins)); // multi-base insertions
 
-    biggest_del = biggest_del<0?biggest_del+1:0;
-
     // non-indel ref for all reads on this sample, rather than those just
     // matching type.  We use this for handling the case where we have a
     // homozygous deletion being studied, but with 1 or 2 reads misaligned
@@ -570,7 +590,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         // incase that variant is genuine.
 
         if (1 || rfract > 0) { //  && !(type == 0 && i+left == pos)) {
-            if (i+left >= pos+1 && i+left <= pos+1-biggest_del) {
+            if (i+left >= pos+1 && i+left < pos+1-biggest_del) {
                 // We're overlapping the current indel region, so
                 // we don't wish to bring in evidence from the other
                 // "type" data.
@@ -710,7 +730,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             for (j = 0; j < 6; j++) {
                 // Top 2 consensus calls
                 if (max_v < cons_base[i][j]) {
-                    max_v2 = max_v, max_j2 = j;
+                    max_v2 = max_v, max_j2 = max_j;
                     max_v = cons_base[i][j], max_j = j;
                 } else if (max_v2 < cons_base[i][j]) {
                     max_v2 = cons_base[i][j], max_j2 = j;
@@ -744,7 +764,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 //                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||
 //                i == pos-left+1)) {
             int always_ins =
-                (i == pos-left+1 && type) ||               // current eval
+                (i == pos-left+1 && type>0) ||             // current eval
                 max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins);// HOM
             int het_ins = 0;
             if (!always_ins && max_v_ins >= bca->min_support) {
@@ -796,39 +816,78 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             }
 
             // Call
-            if (type < 0 && i > pos-left && i <= pos-left-type) {
-                if (max_j != 5)
-                fprintf(stderr, "pos %d i %d pos-left %d type %d, max_j %d\n",
-                        pos, i, pos-left, type, max_j);
-                max_v = cons_base[i][max_j = 5];
+//            if (type < 0 && i > pos-left && i <= pos-left-type) {
+////                if (max_j != 5)
+////                fprintf(stderr, "pos %d i %d pos-left %d type %d, max_j %d\n",
+////                        pos, i, pos-left, type, max_j);
+//                max_v = cons_base[i][max_j = 5];
+//            }
+
+            // FIXME.  Sounds good, but old code is still doing better.
+            // Double check the biggest_del and region stuff...
+
+            int always_del = (type < 0 && i > pos-left && i <= pos-left-type) ||
+                cons_base[i][5] > CONS_CUTOFF2 * tot; // HOM del
+            int het_del = 0;
+            if (!always_del && cons_base[i][5] >= bca->min_support) {
+                // Candidate HET del.
+                if (cnum == 0) {
+                    het_del = cons_base[i][5] >= CONS_CUTOFF * tot;
+                    if (i < 1024) {
+                        if (i >= pos-left && i <= pos-left-biggest_del)
+                            het[i] = 0;
+                        else
+                            het[i] = het_del
+                                ? 1
+                                : (cons_base[i][5] >= .2 * tot ? -1 : 0);
+                    }
+                } else {
+                    het_del = (het[i] == -1); // HET del uncalled on cnum 0
+                    if (max_j == 5 && het_del == 0) {
+                        max_v = max_v2;
+                        max_j = max_j2;
+                    }
+                }
+            }
+            if (always_del || het_del) {
+                // Deletion
+                if (k < pos-left+*left_shift)
+                    (*left_shift)--;
+                else
+                    (*right_shift)++;
+            } else {
+                if (max_v > CONS_CUTOFF*tot)
+                    cons[cnum][k++] = "ACGTN*"[max_j];
+                else
+                    cons[cnum][k++] = 'N';
             }
 
-            if (cnum == 0) {
-                if (max_v > CONS_CUTOFF*tot) { // HET or HOM
-                    if (max_j != 5) // gap
-                        cons[cnum][k++] = "ACGTN*"[max_j];
-                    else if (k < pos-left+*left_shift)
-                        (*left_shift)--;
-                    else
-                        (*right_shift)++;
-                } else {
-                    cons[cnum][k++] = 'N';
-                }
-            } else {
-                // FIXME: use the same het[] array logic as for ins above
-                if (max_j == 5) {
-                    if (max_v > CONS_CUTOFF2*tot) // HOM
-                        ; // no need to output "*"
-                    else
-                        max_j = max_j2, max_v = max_v2;
-                }
-                if (max_j != 5) {
-                    if (max_v > CONS_CUTOFF*tot)
-                        cons[cnum][k++] = "ACGTN*"[max_j];
-                    else
-                        cons[cnum][k++] = 'N';
-                }
-            }
+//            if (cnum == 0) {
+//                if (max_v > CONS_CUTOFF*tot) { // HET or HOM
+//                    if (max_j != 5) // gap
+//                        cons[cnum][k++] = "ACGTN*"[max_j];
+//                    else if (k < pos-left+*left_shift)
+//                        (*left_shift)--;
+//                    else
+//                        (*right_shift)++;
+//                } else {
+//                    cons[cnum][k++] = 'N';
+//                }
+//            } else {
+//                // FIXME: use the same het[] array logic as for ins above
+//                if (max_j == 5) {
+//                    if (max_v > CONS_CUTOFF2*tot) // HOM
+//                        ; // no need to output "*"
+//                    else
+//                        max_j = max_j2, max_v = max_v2;
+//                }
+//                if (max_j != 5) {
+//                    if (max_v > CONS_CUTOFF*tot)
+//                        cons[cnum][k++] = "ACGTN*"[max_j];
+//                    else
+//                        cons[cnum][k++] = 'N';
+//                }
+//            }
 
             //        fprintf(stderr, "\n");
         }
@@ -995,6 +1054,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
     // FIXME  Maybe instead of l>ABS(type) it should be l>query_len/2 ?
     // TODO: no difference to result, but what difference is there to
     // speed? Is this worth it?
+#if 1
     for (l = 0; l < tend1-tbeg && l < tend2-tbeg; l++)
         if (ref1[l + tbeg-left] != 4 || ref2[l + tbeg-left] != 4)
             break;
@@ -1020,6 +1080,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
         fprintf(stderr, "Prune %d N to right 2\n", l-ABS(type));
         tend2 -= l-ABS(type);
     }
+#endif
 
     // Get segment of quality, either ZQ tag or if absent QUAL.
     if (!(qq = (uint8_t*) calloc(qend - qbeg, 1)))
@@ -1489,8 +1550,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref,
                                       left, right, s, types[t], biggest_del, 
                                       &left_shift, &right_shift);
-            fprintf(stderr, "Cons0 @ %d %d  %s\n", pos, types[t], tcons[0]);
-            fprintf(stderr, "Cons1 @ %d %d  %s\n", pos, types[t], tcons[1]);
+            fprintf(stderr, "Cons0 @ %d %4d/%3d %s\n", pos, types[t], left_shift, tcons[0]);
+            fprintf(stderr, "Cons1 @ %d %4d/%3d %s\n", pos, types[t], left_shift, tcons[1]);
 
             // FIXME: map from ascii to 0,1,2,3,4.
             // This is only needed because bcf_cgp_consensus is reporting in ASCII
@@ -1624,6 +1685,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                     int l = -types[t];
                     tbeg = tbeg - l > left?  tbeg - l : left;
                 }
+                if (left_shift < 0)
+                    tbeg = tbeg + left_shift > left ? tbeg + left_shift : left;
 
                 // FIXME: Why +20?  tbeg-left_shift to tend+right_shift
                 // is still insufficient.  Why?  Check tpos2qpos maybe?
