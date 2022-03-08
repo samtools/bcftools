@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Allelic depth">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depth">
+##contig=<ID=chr1,length=249250621,assembly=hg19>
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Added by +fill-tags expression INFO/DP:1=int(sum(FMT/AD))">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C
+chr1	10153	.	AC	A	.	.	AD=3,1;DP=66	AD	10,1	20,2	30,3
+chr1	10153	.	AC	A	.	.	AD=3,1;DP=11	AD	10,1	.	.

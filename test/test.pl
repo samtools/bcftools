@@ -520,7 +520,9 @@ test_vcf_plugin($opts,in=>'fill-tags-hwe',out=>'fill-tags-hwe.out',cmd=>'+fill-t
 test_vcf_plugin($opts,in=>'fill-tags-hwe',out=>'fill-tags-func.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'XX:1=F_PASS(GT="alt")']);
 test_vcf_plugin($opts,in=>'fill-tags-AN0',out=>'fill-tags-AN0.out',cmd=>'+fill-tags --no-version',args=>'-- -t all,END,TYPE,F_MISSING');
 test_vcf_plugin($opts,in=>'fill-tags-VAF',out=>'fill-tags-VAF.out',cmd=>'+fill-tags --no-version',args=>'-- -t VAF,VAF1');
-test_vcf_plugin($opts,in=>'fill-tags-AD',out=>'fill-tags-AD.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'DP:1=int(sum(AD))']);
+test_vcf_plugin($opts,in=>'fill-tags-AD',out=>'fill-tags-AD.1.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'INFO/DP:1=int(sum(FMT/AD))']);
+test_vcf_plugin($opts,in=>'fill-tags-AD',out=>'fill-tags-AD.2.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'INFO/DP:1=int(sum(INFO/AD))']);
+test_vcf_plugin($opts,in=>'fill-tags-AD',out=>'fill-tags-AD.3.out',cmd=>'+fill-tags --no-version',args=>q[-- -t 'FORMAT/DP:1=int(smpl_sum(FMT/AD))']);
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.out',cmd=>'+GTisec',args=>' | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.H.out',cmd=>'+GTisec',args=>'-- -H | grep -v bcftools');
 test_vcf_plugin($opts,in=>'view',out=>'view.GTisec.Hm.out',cmd=>'+GTisec',args=>'-- -Hm | grep -v bcftools');

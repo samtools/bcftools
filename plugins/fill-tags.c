@@ -3,17 +3,17 @@
    Copyright (c) 2015-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -65,6 +65,7 @@ struct _ftf_t
     int32_t *ival;
     int nfval, nival;
     int type, len, cnt;     // VCF type (e.g. BCF_HT_REAL); length (BCF_VL_FIXED); count (e.g. 1)
+    int info;               // filling INFO or FORMAT?
 };
 
 typedef struct
@@ -108,7 +109,7 @@ const char *about(void)
 
 const char *usage(void)
 {
-    return 
+    return
         "\n"
         "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS\n"
         "       FORMAT tag VAF, custom INFO/TAG=func(FMT/TAG).\n"
@@ -137,7 +138,10 @@ const char *usage(void)
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE\n"
         "\n"
         "   # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)\n"
-        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP:1=int(sum(DP))'\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP:1=int(sum(FORMAT/DP))'\n"
+        "\n"
+        "   # Calculate per-sample read depth (FORMAT/DP) from per-sample allelic depths (FORMAT/AD)\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'FORMAT/DP:1=int(smpl_sum(FORMAT/AD))'\n"
         "\n"
         "   # Annotate with allelic fraction\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"
@@ -172,7 +176,7 @@ void parse_samples(args_t *args, char *fname)
         smpl = str.s;
 
         int ismpl = bcf_hdr_id2int(args->in_hdr,BCF_DT_SAMPLE,smpl);
-        if ( ismpl<0 ) 
+        if ( ismpl<0 )
         {
             fprintf(stderr,"Warning: The sample not present in the VCF: %s\n",smpl);
             continue;
@@ -265,7 +269,7 @@ void ftf_destroy(args_t *args)
 }
 int ftf_filter_expr(args_t *args, bcf1_t *rec, ftf_t *ftf)
 {
-    int i,j, nval, nval1;
+    int i,j,k, nval, nval1;
     for (i=0; i<args->npop; i++)
     {
         args->str.l = 0;
@@ -274,23 +278,54 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, ftf_t *ftf)
         filter_test(args->pop[i].filter, rec, NULL);
         const double *val = filter_get_doubles(args->pop[i].filter,&nval,&nval1);
 
-        int nfill = ftf->len==BCF_VL_FIXED ? ftf->cnt : nval;
-        int ncopy = nval < nfill ? nval : nfill;
         int ret;
-
-        if ( ftf->type==BCF_HT_REAL )
+        if ( ftf->info )
         {
-            hts_expand(float,nfill,ftf->nfval,ftf->fval);
-            for (j=0; j<ncopy; j++) ftf->fval[j] = val[j];
-            for (; j<nfill; j++) bcf_float_set_missing(ftf->fval[j]);
-            ret = bcf_update_info_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill);
+            int nfill = ftf->len==BCF_VL_FIXED ? ftf->cnt : nval;
+            int ncopy = nval < nfill ? nval : nfill;    // number of values available, the rest is filled with missing values
+            if ( ftf->type==BCF_HT_REAL )
+            {
+                hts_expand(float,nfill,ftf->nfval,ftf->fval);
+                for (j=0; j<ncopy; j++) ftf->fval[j] = val[j];
+                for (; j<nfill; j++) bcf_float_set_missing(ftf->fval[j]);
+                ret = bcf_update_info_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill);
+            }
+            else
+            {
+                hts_expand(int32_t,nfill,ftf->nival,ftf->ival);
+                for (j=0; j<ncopy; j++) ftf->ival[j] = (int)val[j];
+                for (; j<nfill; j++) ftf->ival[j] = bcf_int32_missing;
+                ret = bcf_update_info_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill);
+            }
         }
         else
         {
-            hts_expand(int32_t,nfill,ftf->nival,ftf->ival);
-            for (j=0; j<ncopy; j++) ftf->ival[j] = (int)val[j];
-            for (; j<nfill; j++) ftf->ival[j] = bcf_int32_missing;
-            ret = bcf_update_info_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill);
+            int nfill = ftf->len==BCF_VL_FIXED ? ftf->cnt : nval1;
+            int ncopy = nval1 < nfill ? nval1 : nfill;
+            if ( ftf->type==BCF_HT_REAL )
+            {
+                hts_expand(float,nfill*rec->n_sample,ftf->nfval,ftf->fval);
+                for (k=0; k<rec->n_sample; k++)
+                {
+                    float *dst  = ftf->fval + k*nval1;
+                    const double *src = val + k*nval1;
+                    for (j=0; j<ncopy; j++) dst[j] = src[j];
+                    for (; j<nfill; j++) bcf_float_set_missing(dst[j]);
+                }
+                ret = bcf_update_format_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill*rec->n_sample);
+            }
+            else
+            {
+                hts_expand(int32_t,nfill*rec->n_sample,ftf->nival,ftf->ival);
+                for (k=0; k<rec->n_sample; k++)
+                {
+                    int32_t *dst = ftf->ival + k*nval1;
+                    const double *src  = val + k*nval1;
+                    for (j=0; j<ncopy; j++) dst[j] = (int)src[j];
+                    for (; j<nfill; j++) dst[j] = bcf_int32_missing;
+                }
+                ret = bcf_update_format_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill*rec->n_sample);
+            }
         }
         if ( ret )
             error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
@@ -312,10 +347,15 @@ int parse_func(args_t *args, char *tag_expr, char *expr)
     ftf->type = BCF_HT_REAL;
     ftf->len  = BCF_VL_VAR;
     ftf->cnt  = 0;
+    ftf->info = 1;
 
     char *end = strchr(tag_expr,'=');
-    ftf->dst_tag = (char*)calloc(end-tag_expr+1,1);
-    memcpy(ftf->dst_tag, tag_expr, end-tag_expr);
+    char *beg = tag_expr;
+    if ( !strncasecmp("info/",tag_expr,5) ) beg += 5;
+    else if ( !strncasecmp("format/",tag_expr,7) ) { beg += 7; ftf->info = 0; }
+    else if ( !strncasecmp("fmt/",tag_expr,4) ) { beg += 4; ftf->info = 0; }
+    ftf->dst_tag = (char*)calloc(end-beg+1,1);
+    memcpy(ftf->dst_tag, beg, end-beg);
     char *tmp, *cnt = strchr(ftf->dst_tag,':');
     if ( cnt )
     {
@@ -346,19 +386,31 @@ int parse_func(args_t *args, char *tag_expr, char *expr)
         args->str.l = 0;
         ksprintf(&args->str, "%s%s", ftf->dst_tag,args->pop[i].suffix);
         int id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,args->str.s);
-        if ( bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
+        int update_hdr = 1;
+        if ( ftf->info && bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_INFO,id) )
         {
-            if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_FMT,id)!=ftf->len )
+            if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_INFO,id)!=ftf->len )
                 error("Error: the field INFO/%s already exists and its Number definition is different\n",args->str.s);
-            if ( ftf->len==BCF_VL_FIXED && bcf_hdr_id2number(args->in_hdr,BCF_HL_FMT,id)!=ftf->cnt )
+            if ( ftf->len==BCF_VL_FIXED && bcf_hdr_id2number(args->in_hdr,BCF_HL_INFO,id)!=ftf->cnt )
                 error("Error: the field INFO/%s already exists and its Number definition is different from %d\n",args->str.s,ftf->cnt);
             if ( bcf_hdr_id2type(args->in_hdr,BCF_HT_INT,id)!=ftf->type )
                 error("Error: the field INFO/%s already exists and its Type definition is different\n",args->str.s);
+            update_hdr = 0;
         }
-        else
+        else if ( !ftf->info && bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
+        {
+            if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_FMT,id)!=ftf->len )
+                error("Error: the field FORMAT/%s already exists and its Number definition is different\n",args->str.s);
+            if ( ftf->len==BCF_VL_FIXED && bcf_hdr_id2number(args->in_hdr,BCF_HL_FMT,id)!=ftf->cnt )
+                error("Error: the field FORMAT/%s already exists and its Number definition is different from %d\n",args->str.s,ftf->cnt);
+            if ( bcf_hdr_id2type(args->in_hdr,BCF_HT_INT,id)!=ftf->type )
+                error("Error: the field FORMAT/%s already exists and its Type definition is different\n",args->str.s);
+            update_hdr = 0;
+        }
+        if ( update_hdr )
         {
             args->str.l = 0;
-            ksprintf(&args->str, "##INFO=<ID=%s%s,Number=", ftf->dst_tag,args->pop[i].suffix);
+            ksprintf(&args->str, "##%s=<ID=%s%s,Number=", ftf->info?"INFO":"FORMAT",ftf->dst_tag,args->pop[i].suffix);
             if ( ftf->len==BCF_VL_FIXED ) kputw(ftf->cnt, &args->str);
             else kputc('.', &args->str);
             kputs(",Type=", &args->str);
@@ -474,7 +526,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     int c;
     while ((c = getopt_long(argc, argv, "?ht:dS:l",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'l': list_tags(); break;
             case 'd': args->drop_missing = 1; break;
@@ -515,8 +567,8 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     return 0;
 }
 
-/* 
-    Wigginton 2005, PMID: 15789306 
+/*
+    Wigginton 2005, PMID: 15789306
 
     nref .. number of reference alleles
     nalt .. number of alt alleles
@@ -696,7 +748,7 @@ static void process_fmt(bcf1_t *rec)
         {
             pop_t *pop = &args->pop[i];
             int32_t an = 0;
-            for (j=0; j<rec->n_allele; j++) 
+            for (j=0; j<rec->n_allele; j++)
                 an += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
 
             args->str.l = 0;
@@ -713,7 +765,7 @@ static void process_fmt(bcf1_t *rec)
             if ( rec->n_allele > 1 )
             {
                 pop_t *pop = &args->pop[i];
-                for (j=0; j<rec->n_allele; j++) 
+                for (j=0; j<rec->n_allele; j++)
                 {
                     args->farr[j] = pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
                     an += args->farr[j];
@@ -747,7 +799,7 @@ static void process_fmt(bcf1_t *rec)
             if ( rec->n_allele > 1 )
             {
                 pop_t *pop = &args->pop[i];
-                for (j=0; j<rec->n_allele; j++) 
+                for (j=0; j<rec->n_allele; j++)
                     args->iarr[j] = pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
             }
             args->str.l = 0;
@@ -764,7 +816,7 @@ static void process_fmt(bcf1_t *rec)
             {
                 pop_t *pop = &args->pop[i];
                 memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                     args->iarr[j-1] += pop->counts[j].nhet;
             }
             args->str.l = 0;
@@ -781,7 +833,7 @@ static void process_fmt(bcf1_t *rec)
             {
                 pop_t *pop = &args->pop[i];
                 memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                     args->iarr[j-1] += pop->counts[j].nhom;
             }
             args->str.l = 0;
@@ -798,7 +850,7 @@ static void process_fmt(bcf1_t *rec)
             {
                 pop_t *pop = &args->pop[i];
                 memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                     args->iarr[j-1] += pop->counts[j].nhemi;
             }
             args->str.l = 0;
@@ -819,7 +871,7 @@ static void process_fmt(bcf1_t *rec)
                 memset(args->farr,  0, sizeof(*args->farr)*(2*rec->n_allele));
                 int nref_tot = pop->counts[0].nhom;
                 for (j=0; j<rec->n_allele; j++) nref_tot += pop->counts[j].nhet;   // NB this neglects multiallelic genotypes
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                 {
                     int nref = nref_tot - pop->counts[j].nhet;
                     int nalt = pop->counts[j].nhet + pop->counts[j].nhom;
@@ -956,7 +1008,7 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
-    int i; 
+    int i;
     for (i=0; i<args->npop; i++)
     {
         free(args->pop[i].name);
