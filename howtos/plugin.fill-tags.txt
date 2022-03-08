@@ -27,7 +27,7 @@ TAG=func(TAG)  Number:1  Type:Integer  ..  Experimental support for user-defined
 
 By default the values are calculated across all samples, but also
 per-population values can be calculated. For this,
-provide a file with the list of samples in the first column and 
+provide a file with the list of samples in the first column and
 a comma-separated list of populations in the second column. The
 file can look for example like this:
 ----
@@ -37,7 +37,7 @@ Sample3     Group2
 ----
 
 
-The list of plugin-specific options can be obtained by running 
+The list of plugin-specific options can be obtained by running
 `bcftools +fill-tags -h`, which will print the following usage page:
 ----
 About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS
@@ -68,10 +68,13 @@ Examples:
    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE
 
    # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)
-   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP=sum(DP)'
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP=sum(FORMAT/DP)'
 
-    # Annotate with allelic fraction
-    bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"
+   # Calculate per-sample read depth (FORMAT/DP) from per-sample allelic depths (FORMAT/AD)
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'FORMAT/DP:1=int(smpl_sum(FORMAT/AD))'
+
+   # Annotate with allelic fraction
+   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"
 ----
 
 
