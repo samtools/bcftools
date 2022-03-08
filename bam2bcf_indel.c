@@ -12,6 +12,8 @@ TODO:
 - Explore indelQ and the effect of STR at boundaries.  I'm not
   convined our quality calculation is correct.  Certainly QUAL appears
   to have little reality with actual indel likelihood!
+  It's already there - see end of bcf_cgp_align_score.
+  However try tweaking this now we've got better consensus.
 
 - Consider limiting fract to never add more than current depth, so we
   change cons to Ns but not to another base type entirely.
@@ -22,12 +24,10 @@ TODO:
 - Trim left/right down better, as we used to.  Judge this based on
   summation of various types and their consensii?
 
-- Separate consensus het[] array into heti[] and hetd[] to cope with
-  varying numbers of poly-X including both + and -.
-
 - Consider a separate rfract for lift-over of SNPs than for indels.
   SNPs is good at replacing bases with N where we're unsure on the
   data.  However ref_ins may cause issues with sizing?
+  rfract*.8 is working better (so far).  Trying 0.5 too.
 
 - Left-align indels before consensus generation.  Eg:
 
@@ -721,7 +721,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 
     // Het call filled out in cnum==0 (+ve or -ve)
     // Used in cnum==1 to do the opposite of whichever way we did before.
-    int het[1024] = {0};
+    int heti[1024] = {0}, hetd[1024] = {0};
 
     for (cnum = 0; cnum < 2; cnum++) {
         for (i = k = 0; i < right-left; i++) {
@@ -771,11 +771,11 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 // Candidate HET ins.
                 if (cnum == 0) {
                     het_ins = max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins);
-                    if (i < 1024) het[i] = het_ins
+                    if (i < 1024) heti[i] = het_ins
                                       ? 1
                                       : (max_v_ins > .2*(tot+tot_ins) ? -1:0);
                 } else {
-                    het_ins = (het[i] == -1); // HET but uncalled before
+                    het_ins = (heti[i] == -1); // HET but uncalled before
                 }
             }
 //            if (max_v_ins)
@@ -815,19 +815,9 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 #endif
             }
 
-            // Call
-//            if (type < 0 && i > pos-left && i <= pos-left-type) {
-////                if (max_j != 5)
-////                fprintf(stderr, "pos %d i %d pos-left %d type %d, max_j %d\n",
-////                        pos, i, pos-left, type, max_j);
-//                max_v = cons_base[i][max_j = 5];
-//            }
-
-            // FIXME.  Sounds good, but old code is still doing better.
-            // Double check the biggest_del and region stuff...
-
-            int always_del = (type < 0 && i > pos-left && i <= pos-left-type) ||
-                cons_base[i][5] > CONS_CUTOFF2 * tot; // HOM del
+            // Call deletions
+            int always_del = (type < 0 && i > pos-left && i <= pos-left-type)
+                || cons_base[i][5] > CONS_CUTOFF2 * tot; // HOM del
             int het_del = 0;
             if (!always_del && cons_base[i][5] >= bca->min_support) {
                 // Candidate HET del.
@@ -835,14 +825,14 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     het_del = cons_base[i][5] >= CONS_CUTOFF * tot;
                     if (i < 1024) {
                         if (i >= pos-left && i <= pos-left-biggest_del)
-                            het[i] = 0;
+                            hetd[i] = 0;
                         else
-                            het[i] = het_del
+                            hetd[i] = het_del
                                 ? 1
                                 : (cons_base[i][5] >= .2 * tot ? -1 : 0);
                     }
                 } else {
-                    het_del = (het[i] == -1); // HET del uncalled on cnum 0
+                    het_del = (hetd[i] == -1); // HET del uncalled on cnum 0
                     if (max_j == 5 && het_del == 0) {
                         max_v = max_v2;
                         max_j = max_j2;
@@ -856,40 +846,12 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 else
                     (*right_shift)++;
             } else {
+                // Finally the easy case - a non-indel base or an N
                 if (max_v > CONS_CUTOFF*tot)
                     cons[cnum][k++] = "ACGTN*"[max_j];
                 else
                     cons[cnum][k++] = 'N';
             }
-
-//            if (cnum == 0) {
-//                if (max_v > CONS_CUTOFF*tot) { // HET or HOM
-//                    if (max_j != 5) // gap
-//                        cons[cnum][k++] = "ACGTN*"[max_j];
-//                    else if (k < pos-left+*left_shift)
-//                        (*left_shift)--;
-//                    else
-//                        (*right_shift)++;
-//                } else {
-//                    cons[cnum][k++] = 'N';
-//                }
-//            } else {
-//                // FIXME: use the same het[] array logic as for ins above
-//                if (max_j == 5) {
-//                    if (max_v > CONS_CUTOFF2*tot) // HOM
-//                        ; // no need to output "*"
-//                    else
-//                        max_j = max_j2, max_v = max_v2;
-//                }
-//                if (max_j != 5) {
-//                    if (max_v > CONS_CUTOFF*tot)
-//                        cons[cnum][k++] = "ACGTN*"[max_j];
-//                    else
-//                        cons[cnum][k++] = 'N';
-//                }
-//            }
-
-            //        fprintf(stderr, "\n");
         }
         cons[cnum][k++] = '\0';
     }
@@ -1200,7 +1162,9 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca, int type,
             iscore += (elt->end-elt->start) / elt->rep_len;  // c
             if (elt->start+tbeg <= r_start ||
                 elt->end+tbeg   >= r_end) {
-                iscore += 2*(elt->end-elt->start);
+                //iscore += 2*(elt->end-elt->start); //h5  (STR2)
+                //iscore += 4*(elt->end-elt->start);  //h5STR4
+                iscore += (elt->end-elt->start);  //h5STR1
             }
        }
 
