@@ -403,7 +403,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                 int pos, bcf_callaux_t *bca, const char *ref,
                                 int left, int right,
                                 int sample, int type, int biggest_del,
-                                int *left_shift, int *right_shift) {
+                                int *left_shift, int *right_shift,
+                                int *band) {
     int (*cons_base)[6] = calloc(right - left + 1, sizeof(*cons_base));// single base or del
     str_freq *cons_ins  = calloc(right - left + 1, sizeof(*cons_ins)); // multi-base insertions
 
@@ -423,11 +424,12 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 
 // cons_ins sequence is the insertion seq followed by the
 // next match base
-#define INS_PLUS_BASE
+//#define INS_PLUS_BASE
 
+    int last_base_ins = 0;
 
     // Accumulate sequences into cons_base and cons_ins arrays
-    int last_base_ins = 0;
+    int local_band_max = 0; // maximum absolute deviation from diagonal
     for (i = 0; i < n_plp[s]; i++) {
         const bam_pileup1_t *p = plp[s] + i;
 //        if (p->indel != type)
@@ -442,6 +444,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         uint8_t *seq = bam_get_seq(b);
 
         last_base_ins = 0;
+        int local_band = 0; // current deviation from diagonal
         for (k = 0; k < b->core.n_cigar; ++k) {
             int op  = cigar[k] &  BAM_CIGAR_MASK;
             int len = cigar[k] >> BAM_CIGAR_SHIFT;
@@ -488,6 +491,9 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             }
 
             case BAM_CINS: {
+                local_band += p->indel;
+                if (local_band_max < local_band)
+                    local_band_max = local_band;
 //                if (p->indel != type) {
 //                    y += len; // for when adding to ref_base
 //                    break;
@@ -531,6 +537,10 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             }
 
             case BAM_CDEL:
+                local_band += p->indel;
+                if (local_band_max < -local_band)
+                    local_band_max = -local_band;
+
                 // FIXME, not perfect for I/D combos, but likely sufficient.
                 last_base_ins = 0;
                 for (j = 0; j < len; j++, x++) {
@@ -546,6 +556,9 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 break;
             }
         }
+        // Also track the biggest deviation +/- from diagonal
+        if (*band < local_band_max)
+            *band = local_band_max;
         //        fprintf(stderr, " %s\n", bam_get_qname(p->b));
     }
 
@@ -760,20 +773,24 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             // NB: tot is based on next matching base, so it includes
             // everything with or without the insertion.
 #ifdef INS_PLUS_BASE
+            int tot_sum = tot+tot_ins;
+#else
+            int tot_sum = tot;
+#endif
 //            if (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins) && (cnum==0 ||
 //                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||
 //                i == pos-left+1)) {
             int always_ins =
                 (i == pos-left+1 && type>0) ||             // current eval
-                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins);// HOM
+                max_v_ins > CONS_CUTOFF_INC2*tot_sum;// HOM
             int het_ins = 0;
             if (!always_ins && max_v_ins >= bca->min_support) {
                 // Candidate HET ins.
                 if (cnum == 0) {
-                    het_ins = max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins);
+                    het_ins = max_v_ins > CONS_CUTOFF_INC * tot_sum;
                     if (i < 1024) heti[i] = het_ins
                                       ? 1
-                                      : (max_v_ins > .2*(tot+tot_ins) ? -1:0);
+                                      : (max_v_ins > .2*tot_sum ? -1:0);
                 } else {
                     het_ins = (heti[i] == -1); // HET but uncalled before
                 }
@@ -781,16 +798,12 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 //            if (max_v_ins)
 //                fprintf(stderr, "Cons @ %d: type %d cnum %d always %d het_ins %d // max_v %d vs %d+%d\n", i, type, cnum, always_ins, het_ins, max_v_ins, tot, tot_ins);
             if (always_ins || het_ins) {
-//            if ((i == pos-left+1 && type) || // current 'type' at pos
-//                max_v_ins > CONS_CUTOFF_INC2*(tot+tot_ins) ||  // HOM
-//                (max_v_ins > bca->min_support &&
-//                 (cnum != 0) ^ (max_v_ins > CONS_CUTOFF_INC *(tot+tot_ins)))) { // HET
-#else
-            if ((i == pos-left+1 && type) || // current 'type' at pos
-                max_v_ins > CONS_CUTOFF_INC2*tot ||  // HOM
-                (max_v_ins > bca->min_support &&
-                 (cnum != 0) ^ max_v_ins > CONS_CUTOFF_INC*tot)) { // HET
-#endif
+// #else
+//             if ((i == pos-left+1 && type) || // current 'type' at pos
+//                 max_v_ins > CONS_CUTOFF_INC2*tot ||  // HOM
+//                 (max_v_ins > bca->min_support &&
+//                  (cnum != 0) ^ max_v_ins > CONS_CUTOFF_INC*tot)) { // HET
+// #endif
                 if (max_v_ins > CONS_CUTOFF_INS*tot_ins) {
                     // Insert bases
                     for (j = 0; j < cons_ins[i].len[max_j_ins]; j++) {
@@ -1479,9 +1492,14 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     // insertion and no small hypothesised one.
 
     int biggest_del = 0;
-    for (t = 0; t < n_types; t++)
+    int biggest_ins = 0;
+    for (t = 0; t < n_types; t++) {
         if (biggest_del > types[t])
             biggest_del = types[t];
+        if (biggest_ins < types[t])
+            biggest_ins = types[t];
+    }
+    int band = biggest_ins - biggest_del; // NB del is -ve
 
     for (t = 0; t < n_types; ++t) {
         int l, ir;
@@ -1513,7 +1531,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             int left_shift, right_shift;
             tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref,
                                       left, right, s, types[t], biggest_del, 
-                                      &left_shift, &right_shift);
+                                      &left_shift, &right_shift, &band);
             fprintf(stderr, "Cons0 @ %d %4d/%3d %s\n", pos, types[t], left_shift, tcons[0]);
             fprintf(stderr, "Cons1 @ %d %4d/%3d %s\n", pos, types[t], left_shift, tcons[1]);
 
