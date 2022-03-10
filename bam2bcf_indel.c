@@ -406,6 +406,11 @@ static int bcf_cgp_append_cons(str_freq *sf, char *str, int len, int freq) {
  *
  * Cons for no-del is Cs not Gs.  Cannot trust it, so use N if shallow.
  * CON: AGCTACNAGGGTGATA
+ *
+ * There are still some problems in cons_ins vs ref_ins assignment.
+ * We sometimes seem multiple similar-length insertions added at
+ * different locations.  Ideally we'd like to consider these as all
+ * the same insertion if the size is the same and it's comparable seq.
  */
 static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                 int pos, bcf_callaux_t *bca, const char *ref,
@@ -457,6 +462,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
             int op  = cigar[k] &  BAM_CIGAR_MASK;
             int len = cigar[k] >> BAM_CIGAR_SHIFT;
             int base;
+            int skip_to = 0;
 
             switch(op) {
             case BAM_CSOFT_CLIP:
@@ -487,7 +493,10 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
 #ifdef INS_PLUS_BASE
                     if (p->indel == type)
 #else
-                    if (p->indel == type || p->indel > 0) // alternative
+                    // FIXME: or is_del && len==type as below
+                    if (p->indel == type)                   // 7g
+                    //if (p->indel == type || p->indel > 0) // 7f
+                    //if (p->indel == type || (p->indel > 0 && x == pos+1)
 #endif
                         cons_base[x-left][L[base]]++;
                     else if (x != pos+1) // indel being assessed question
@@ -534,7 +543,9 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 //                fprintf(stderr, "<+%.*s>", j<1024?j:1024, ins);
                 if (x >= left && x < right) {
                     int ilen = j<1024?j:1024;
-                    if (p->indel == type) {
+                    if (p->indel == type /*&& x == pos+1*/) {
+                        // Assume any ins of the same size is the same ins.
+                        // (This rescues misaligned insertions.)
                         bcf_cgp_append_cons(&cons_ins[x-left], ins, ilen, 1);
                     } else  if (x != pos+1){
                         bcf_cgp_append_cons(&ref_ins[x-left],  ins, ilen, 1);
@@ -562,10 +573,24 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     //if (p->indel == type)
                     if ((p->indel == type && !p->is_del) ||  // starts here
                         (p->indel == 0 && p->is_del && len == type)) // to left
-                        // fixme: not p->indel==type but x==pos+1
+                        // FIXME: len == -type?
                         cons_base[x-left][5]++;
-                    else
+//                    else // 7h
+//                        ref_base[x-left][5]++;
+
+                    // 7i
+                    else if (x+len <= pos+1 || (skip_to && x > skip_to))
                         ref_base[x-left][5]++;
+                    else if (x <= pos && x+len > pos+1) {
+                        // we have a deletion which overlaps pos, but
+                        // isn't the same "type".  We don't wish to
+                        // include these as they may bias the
+                        // evaluation by confirming against a
+                        // secondary consensus produced with the other
+                        // deletion.  We set a marker for how long to
+                        // skip adding to ref_base.
+                        skip_to = x+len;
+                    }
                 }
                 break;
             }
@@ -804,7 +829,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     het_ins = max_v_ins > CONS_CUTOFF_INC * tot_sum;
                     if (i < 1024) heti[i] = het_ins
                                       ? 1
-                                      : (max_v_ins > .2*tot_sum ? -1:0);
+                                      : (max_v_ins > .3*tot_sum ? -1:0);
                 } else {
                     het_ins = (heti[i] == -1); // HET but uncalled before
                 }
@@ -851,12 +876,12 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                 if (cnum == 0) {
                     het_del = cons_base[i][5] >= CONS_CUTOFF * tot;
                     if (i < 1024) {
-                        if (i >= pos-left && i <= pos-left-biggest_del)
+                        if (i > pos-left && i <= pos-left-biggest_del)
                             hetd[i] = 0;
                         else
                             hetd[i] = het_del
                                 ? 1
-                                : (cons_base[i][5] >= .2 * tot ? -1 : 0);
+                                : (cons_base[i][5] >= .3 * tot ? -1 : 0);
                     }
                 } else {
                     het_del = (hetd[i] == -1); // HET del uncalled on cnum 0
@@ -1692,23 +1717,14 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 }
                 min_win_size += 10;
                 fprintf(stderr, " => %d", min_win_size);
-                if (p->b->core.l_qseq > 1000) {
+                if (p->b->core.l_qseq > 1000) { // ||1 for 7f-long
                     // long read data needs less context.  It also tends to
                     // have many more candidate indels to investigate so
                     // speed here matters more.
-//                    if (pos - left >= bca->indel_win_size)
-//                        left2 += bca->indel_win_size/2;
-//                    if (right-pos >= bca->indel_win_size)
-//                        right2 -= bca->indel_win_size/2;
                     if (pos - left >= min_win_size)
                         left2 = MAX(left2, pos - min_win_size);
                     if (right-pos >= min_win_size)
                         right2 = MIN(right2, pos + min_win_size);
-
-//                    if (pos - left >= min_win_size)
-//                        left2 += bca->indel_win_size - min_win_size;
-//                    if (right-pos >= min_win_size)
-//                        right2 -= bca->indel_win_size - min_win_size;
 
                     fprintf(stderr, "  LR = %d / %d / %d", left2, pos, right2);
                 }
