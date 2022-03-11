@@ -5,7 +5,7 @@
 TODO:
 
 - Reevaluate the two STR indel-size adjusting modes.
-  Maybe no longer relevant
+  Maybe no longer relevant.  (Looks poor to me)
 
 - Consider limiting fract to never add more than current depth, so we
   change cons to Ns but not to another base type entirely.
@@ -320,8 +320,10 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
     }
     free(aux);
 
-    if (t <= 1)
+    if (t <= 1) {
+        free(types);
         return NULL;
+    }
     n_types = t;
 
     // Find reference type; types[?] == 0)
@@ -1066,7 +1068,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
 
     if (tend1 != tend2 ||
         memcmp((char *)ref1 + tbeg - left, (char *)ref2 + tbeg - left,
-               tend1 - tbeg + type) != 0)
+               tend1 - tbeg) != 0)
         sc1 = probaln_glocal(ref1 + tbeg - left, tend1 - tbeg,
                              query, qend - qbeg, qq, &apf, 0, 0);
     else
@@ -1114,7 +1116,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
 
     rep_ele *reps, *elt, *tmp;
     uint8_t *seg = ref2 + tbeg - left;
-    int seg_len = tend2 - tbeg + type;
+    int seg_len = tend2 - tbeg;
 
     // Note: although seg moves (tbeg varies), ref2 is reused many times
     // so we could factor out some find_STR calls.  However it's not the
@@ -1638,8 +1640,6 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                         left2 = MAX(left2, pos - min_win_size);
                     if (right-pos >= min_win_size)
                         right2 = MIN(right2, pos + min_win_size);
-
-                    fprintf(stderr, "  LR = %d / %d / %d", left2, pos, right2);
                 }
 
                 int r_start = p->b->core.pos;
