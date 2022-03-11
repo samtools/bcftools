@@ -1,5 +1,12 @@
 ## Release a.b
 
+* bcftools annotate
+
+    - New `-H, --header-line` convenience option to pass a header line on command line,
+      this complements the existing `-h, --header-lines` option which requires a file
+      with header lines
+
+
 ## Release 1.15 (21st February 2022)
 
 
