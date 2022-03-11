@@ -448,6 +448,7 @@ test_vcf_annotate($opts,in=>'annotate13',tab=>'annots13',out=>'annotate24.out',a
 test_vcf_annotate($opts,in=>'annotate14',out=>'annotate25.out',args=>'-x FILTER/XX,INFO/XX --force');
 test_vcf_annotate($opts,in=>'annotate15',tab=>'annotate15',out=>'annotate26.out',args=>'-s SAMPLE1 -c CHROM,FROM,TO,FMT/FOO,BAR');
 test_vcf_annotate($opts,in=>'annotate15',tab=>'annotate15',out=>'annotate27.out',args=>'-s SAMPLE2 -c CHROM,FROM,TO,FMT/FOO,BAR');
+test_vcf_annotate($opts,in=>'annotate15',tab=>'annotate15',out=>'annotate27.out',args=>q[-s SAMPLE2 -c CHROM,FROM,TO,FMT/FOO,BAR -H '##FORMAT=<ID=FOO,Number=1,Type=String,Description="Some description">' -H '##INFO=<ID=BAR,Number=1,Type=Integer,Description="Some description">']);
 test_vcf_annotate($opts,in=>'annotate16',out=>'annotate28.out',args=>'-x FILTER');
 test_vcf_annotate($opts,in=>'annotate17.1',tab=>'annotate17.1',out=>'annotate17.1.out',args=>'-c CHROM,BEG,END,A,B -l A:append,B:append');
 test_vcf_annotate($opts,in=>'annotate17.2',tab=>'annotate17.1',out=>'annotate17.2.out',args=>'-c CHROM,BEG,END,A,B -l A:append,B:append');
@@ -1514,7 +1515,7 @@ sub test_vcf_annotate
         bgzip_tabix($opts,file=>$args{tab},suffix=>'tab',args=>'-s1 -b2 -e2');
         $annot_fname = "-a $$opts{tmp}/$args{tab}.tab.gz";
         $in_fname = "$$opts{path}/$args{in}.vcf";
-        $hdr = -e "$$opts{path}/$args{in}.hdr" ? "-h $$opts{path}/$args{in}.hdr" : '';
+        $hdr = (-e "$$opts{path}/$args{in}.hdr" && !($args{args}=~/-H/) && !($args{args}=~/--header-line\s/)) ? "-h $$opts{path}/$args{in}.hdr" : '';
     }
     elsif ( exists($args{vcf}) )
     {
