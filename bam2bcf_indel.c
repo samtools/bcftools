@@ -1,43 +1,3 @@
-//#define CONS_DEBUG
-
-/*
-
-TODO:
-
-- Reevaluate the two STR indel-size adjusting modes.
-  Maybe no longer relevant.  (Looks poor to me)
-
-- Consider limiting fract to never add more than current depth, so we
-  change cons to Ns but not to another base type entirely.
-
-- Consider a separate rfract for lift-over of SNPs than for indels.
-  SNPs is good at replacing bases with N where we're unsure on the
-  data.  However ref_ins may cause issues with sizing?
-  rfract*.8 is working better (so far).  Trying 0.5 too.
-
-- Left-align indels before consensus generation.  Eg:
-
-      /pos being studied
-  AGCTGGGGGGAATCG  REF
-  AGCT-GGGGGAATCG  Seq type -1
-  ACGTGGGGG-AATGCG Seq type 0
-      ^
-
-  Type 0 cons shouldn't include the right hand del, but it's outside
-  of "biggest_del" window.  Expand this to STR size or left-align.
-
-- Long reads cause multiple scans of CIGAR to compute consensus.
-  We need a way of caching CIGAR/seq start coords for pos p=left so at
-  pos P where P>p we can start at p and continue instead of from the
-  start each time.
-
-- Improve QUAL scoring to consider AD vs DP.
-  Eg. AD 10,8 looks good if we have 18 sequences.  High qual.
-  But AD 10,8 looks poor if we had 50 seqs.  Why did we have to discard
-  32 of them?
-
-*/
-
 /*  bam2bcf_indel.c -- indel caller.
 
     Copyright (C) 2010, 2011 Broad Institute.
@@ -62,6 +22,8 @@ THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
+
+//#define CONS_DEBUG
 
 #include <assert.h>
 #include <ctype.h>
@@ -126,8 +88,16 @@ static int tpos2qpos(const bam1_core_t *c, const uint32_t *cigar, int32_t tpos, 
     return last_y;
 }
 
-// FIXME: check if the inserted sequence is consistent with the homopolymer run
-// l is the relative gap length and l_run is the length of the homopolymer on the reference
+// l is the relative gap length and l_run is the length of the homopolymer
+// on the reference.
+//
+// Larger seqQ is good, so increasing tandemQ calls more indels,
+// and longer l_run means fewer calls.  It is capped later at 255.
+// For short l_runs, the qual is simply based on size of indel
+// larger ones being considered more likely to be real.
+// Longer indels get assigned a score based on the relative indel size
+// to homopolymer, where l_run base will have already been verified by
+// the caller to ensure it's compatible.
 static inline int est_seqQ(const bcf_callaux_t *bca, int l, int l_run)
 {
     int q, qh;
@@ -408,7 +378,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                 int left, int right,
                                 int sample, int type, int biggest_del,
                                 int *left_shift, int *right_shift,
-                                int *band, int *tcon_len) {
+                                int *band, int *tcon_len, int *cpos_pos) {
     // Map ASCII ACGTN* to 012345
     static uint8_t base6[256] = {
         4,4,4,4,4,4,4,4,  4,4,4,4,4,4,4,4,  4,4,4,4,4,4,4,4,  4,4,4,4,4,4,4,4,
@@ -717,8 +687,13 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     // Used in cnum==1 to do the opposite of whichever way we did before.
     int heti[1024] = {0}, hetd[1024] = {0};
 
+    *cpos_pos = -1;
     for (cnum = 0; cnum < 2; cnum++) {
         for (i = k = 0; i < right-left; i++) {
+            // Location in consensus matching the indel itself
+            if (i >= pos-left+1 && *cpos_pos == -1)
+                *cpos_pos = k;
+
             int max_v = 0, max_v2 = 0, max_j = 4, max_j2 = 4, tot = 0;
             for (j = 0; j < 6; j++) {
                 // Top 2 consensus calls
@@ -815,7 +790,6 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     (*right_shift)++;
             } else {
                 // Finally the easy case - a non-indel base or an N
-                // FIXME: make cons[] in 0,1,2,3,4,5 terms
                 if (max_v > CONS_CUTOFF*tot)
                     cons[cnum][k++] = max_j; // "ACGTN*"
                 else if (max_v > 0)
@@ -1320,6 +1294,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
     // The length of the homopolymer run around the current position
     l_run = bcf_cgp_l_run(ref, pos);
+    int l_run_base = seq_nt16_table[(uint8_t)ref[pos+1]];
+    int l_run_ins = 0;
 
     // construct the consensus sequence (minus indels, which are added later)
     if (max_ins > 0) {
@@ -1371,20 +1347,37 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             char **tcons;
             int left_shift, right_shift;
             int tcon_len[2];
+            int cpos_pos;
             tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref,
                                       left, right, s, types[t], biggest_del, 
                                       &left_shift, &right_shift, &band,
-                                      tcon_len);
+                                      tcon_len, &cpos_pos);
 #ifdef CONS_DEBUG
-            for (j = 0; j < 2; j++) {
-                int k;
-                fprintf(stderr, "Cons%d @ %d %4d/%3d ",
-                        pos, types[t], left_shift);
-                for (k = 0; k < tcon_len[j]; k++)
-                    putc("ACGTN"[(uint8_t)tcons[j][k]], stderr);
-                putc('\n', stderr);
+            {
+                int j;
+                for (j = 0; j < 2; j++) {
+                    int k;
+                    fprintf(stderr, "Cons%d @ %d %4d/%4d ",
+                            j, pos, types[t], left_shift);
+                    for (k = 0; k < tcon_len[j]; k++) {
+                        if (k == cpos_pos)
+                            putc('#', stderr);
+                        putc("ACGTN"[(uint8_t)tcons[j][k]], stderr);
+                    }
+                    putc('\n', stderr);
+                }
             }
 #endif
+
+            // Scan for base-runs in the insertion.
+            int k = tcons[0][cpos_pos], j;
+            for (j = 0; j < types[t]; j++)
+                if (tcons[0][cpos_pos+j] != k)
+                    break;
+            if (j && j == types[t])
+                l_run_ins |= "\x1\x2\x4\x8\xf"[k]; // ACGTN
+            if (types[t] < 0)
+                l_run_ins |= 0xff;
 
             // align each read to consensus(es)
             for (i = 0; i < n_plp[s]; ++i, ++K) {
@@ -1542,6 +1535,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     }
 
     // compute indelQ
+    if (!(l_run_base & l_run_ins))
+        l_run = 1; // different base type in ins to flanking region.
     n_alt = bcf_cgp_compute_indelQ(n, n_plp, plp, bca, inscns, l_run, max_ins,
                                    ref_type, types, n_types, score);
 

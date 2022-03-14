@@ -240,6 +240,8 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
                 seqQ = (3*seqQ + 2*q)/8;
             }
             if (_n > 20 && seqQ > 40) seqQ = 40;
+            // Note baseQ changes some output fields such as I16, but has no
+            // significant affect on "call".
             baseQ  = p->aux>>8&0xff;
 
             is_diff = (b != 0);
@@ -357,6 +359,11 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         if ( dp )
             for (i=0; i<4; i++) r->ADF[i] += lroundf((float)dp_ambig * r->ADF[i]/dp);
     }
+
+    // Else consider downgrading bca->bases[] scores by AD vs AD_ref_missed
+    // ratios.  This is detrimental on Illumina, but beneficial on PacBio CCS.
+    // It's possibly related to the homopolyer error likelihoods or overall
+    // Indel accuracy.  Maybe tie this in to the -h option?
 
     r->ori_depth = ori_depth;
     // glfgen
