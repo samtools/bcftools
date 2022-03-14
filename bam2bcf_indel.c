@@ -1282,10 +1282,10 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 {
     if (ref == 0 || bca == 0) return -1;
 
-    int i, s, t, n_types, *types, max_rd_len, left, right, max_ins;
-    int *score;
-    int N, K, l_run, ref_type, n_alt;
-    char *inscns = 0, *ref1, *ref2, *query;
+    int i, s, t, n_types, *types = NULL, max_rd_len, left, right, max_ins;
+    int *score = NULL;
+    int N, K, l_run, ref_type, n_alt = -1;
+    char *inscns = NULL, *query = NULL;
 
     // determine if there is a gap
     for (s = N = 0; s < n; ++s) {
@@ -1301,7 +1301,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     types = bcf_cgp_find_types(n, n_plp, plp, pos, bca, ref,
                                &max_rd_len, &n_types, &ref_type, &N);
     if (!types)
-        return -1;
+        goto err;
 
 
     // calculate left and right boundary
@@ -1365,27 +1365,6 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
         if (ir > bca->indelreg)
             bca->indelreg = ir;
-
-        // Identify max deletion length.
-        // Note these are maximum sizes in the aligned data, rather
-        // than the maximum sizes in the types[] array (which are
-        // already known in biggest_del and biggest_ins).
-        int max_deletion = 0;
-        int max_insertion = 0;
-        for (s = 0; s < n; ++s) {
-            for (i = 0; i < n_plp[s]; ++i, ++K) {
-                bam_pileup1_t *p = plp[s] + i;
-                if (max_deletion < -p->indel)
-                    max_deletion = -p->indel;
-                if (max_insertion < p->indel)
-                    max_insertion = p->indel;
-            }
-        }
-
-//        // FIXME: does this matter?  Try just using
-//        // biggest_del/biggest_ins
-//        max_insertion = biggest_ins; // 8b
-//        max_deletion = -biggest_del;
 
         // Realignment score, computed via BAQ
         for (s = K = 0; s < n; ++s) {
@@ -1530,7 +1509,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // We know an estimation of band, plus biggest indel,
                 // so we can trim tbeg/tend to a smaller region if we
                 // wish here.  This speeds up BAQ scoring.
-                int wband = band + MAX(max_deletion, max_insertion)*2 + 20;
+                int wband = band + MAX(-biggest_del, biggest_ins)*2 + 20;
                 int tend1 = left + tcon_len[0] - (left2-left);
                 int tend2 = left + tcon_len[1] - (left2-left);
                 tend1 = MIN(tend1, old_tend + wband);
@@ -1548,10 +1527,9 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                                             r_start, r_end, long_read,
                                             tbeg, tend1, tend2,
                                             left2, left + tcon_len[0],
-                                            qbeg, qend, qpos, max_deletion,
+                                            qbeg, qend, qpos, -biggest_del,
                                             &score[K*n_types + t]) < 0) {
-                        score[K*n_types + t] = 0xffffff;
-                        return -1;
+                        goto err;
                     }
                 } else {
                     // place holder large cost for reads that cover the
@@ -1567,6 +1545,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
     n_alt = bcf_cgp_compute_indelQ(n, n_plp, plp, bca, inscns, l_run, max_ins,
                                    ref_type, types, n_types, score);
 
+ err:
     // free
     free(query);
     free(score);
