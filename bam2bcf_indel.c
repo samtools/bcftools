@@ -1,7 +1,7 @@
 /*  bam2bcf_indel.c -- indel caller.
 
     Copyright (C) 2010, 2011 Broad Institute.
-    Copyright (C) 2012-2014,2016-2017, 2021 Genome Research Ltd.
+    Copyright (C) 2012-2014,2016-2017, 2021-2022 Genome Research Ltd.
 
     Author: Heng Li <lh3@sanger.ac.uk>
 
@@ -283,7 +283,7 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
         if (sz == 0
             || j-i >= bca->min_support
             // Note, doesn't handle bca->per_sample_flt yet
-            || bca->per_sample_flt 
+            || bca->per_sample_flt
             || (double)(j-i) / n_tot >= bca->min_frac)
             types[t++] = sz;
         i = j-1;
@@ -309,7 +309,7 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
 }
 
 // Increment ins["str"] and freq["str"]
-#define NI 10 // number of alternative insertion sequences
+#define NI 100 // number of alternative insertion sequences
 // Could use a hash table too, but expectation is a tiny number of alternatives
 typedef struct {
     char *str[NI];
@@ -410,6 +410,10 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
     int (*ref_base)[6]  = calloc(right - left + 1, sizeof(*ref_base));
     str_freq *ref_ins   = calloc(right - left + 1, sizeof(*ref_ins));
     int i, j, k, s = sample;
+    char **cons = NULL;
+
+    if (!cons_base || !cons_ins || !ref_base || !ref_ins)
+        goto err;
 
     //--------------------------------------------------
     // Accumulate sequences into cons_base and cons_ins arrays
@@ -479,9 +483,13 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     if (p->indel == type /*&& x == pos+1*/) {
                         // Assume any ins of the same size is the same ins.
                         // (This rescues misaligned insertions.)
-                        bcf_cgp_append_cons(&cons_ins[x-left], ins, ilen, 1);
+                        if (bcf_cgp_append_cons(&cons_ins[x-left], ins,
+                                                ilen, 1) < 0)
+                            goto err;
                     } else  if (x != pos+1){
-                        bcf_cgp_append_cons(&ref_ins[x-left],  ins, ilen, 1);
+                        if (bcf_cgp_append_cons(&ref_ins[x-left],  ins,
+                                                ilen, 1) < 0)
+                            goto err;
                     }
                 }
                 break;
@@ -550,7 +558,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         // When evaluating this particular indel, we don't want to
         // penalise alignments by SNP errors elsewhere.  This can
         // happen when we have low depth for a particular 'type'.
-        // 
+        //
         // So add in a little data from ref_base/ref_ins.
         double rfract = (r - t*2)*.75 / (r+1);
 
@@ -582,9 +590,10 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         for (j = 0; j < NI; j++) {
             if (!ref_ins[i].str[j])
                 break;
-            bcf_cgp_append_cons(&cons_ins[i],
-                                ref_ins[i].str[j], ref_ins[i].len[j],
-                                rfract * ref_ins[i].freq[j]);
+            if (bcf_cgp_append_cons(&cons_ins[i],
+                                    ref_ins[i].str[j], ref_ins[i].len[j],
+                                    rfract * ref_ins[i].freq[j]) < 0)
+                goto err;
         }
     }
 
@@ -604,7 +613,9 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
         max_len += ins;
     }
-    char **cons = malloc((max_len+1)*2 + sizeof(char *)*2);
+    cons = malloc((max_len+1)*2 + sizeof(char *)*2);
+    if (!cons)
+        goto err;
     cons[0] = (char *)&cons[2];
     cons[1] = cons[0] + max_len+1;
 
@@ -802,7 +813,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         tcon_len[cnum] = k;
     }
 
-    // FIXME: replace by string pool for rapid tidying
+    // TODO: replace by io_lib's string pool for rapid tidying.
+    // For now this isn't the bottleneck though.
     for (i = 0; i < right-left; i++) {
         for (j = 0; j < NI; j++) {
             if (cons_ins[i].str[j])
@@ -812,6 +824,7 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
         }
     }
 
+ err:
     free(cons_base);
     free(ref_base);
     free(cons_ins);
@@ -841,7 +854,9 @@ static int bcf_cgp_l_run(const char *ref, int pos) {
 
 
 // Compute the insertion consensus for this sample 's' via a basic
-// majority rule
+// majority rule.
+//
+// TODO: merge this into bcf_cgp_consensus as another return value?
 static char *bcf_cgp_calc_ins_cons(int n, int *n_plp, bam_pileup1_t **plp,
                                    int pos, int *types, int n_types,
                                    int max_ins, int s) {
@@ -962,25 +977,18 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // Trim poly_Ns at ends of ref.
     // This helps to keep len(ref) and len(query) similar, to reduce
     // band size and reduce the chance of -ve BAQ scores.
-
-    // FIXME  Maybe instead of l>ABS(type) it should be l>query_len/2 ?
-    // TODO: no difference to result, but what difference is there to
-    // speed? Is this worth it?
-#if 1
     for (l = 0; l < tend1-tbeg && l < tend2-tbeg; l++)
         if (ref1[l + tbeg-left] != 4 || ref2[l + tbeg-left] != 4)
             break;
-    if (l > ABS(type)) {
+    if (l > ABS(type))
         tbeg += l-ABS(type);
-    }
 
     for (l = tend1-tbeg-1; l >= 0; l--)
         if (ref1[l + tbeg-left] != 4)
             break;
     l = tend1-tbeg-1 - l;
-    if (l > ABS(type)) {
+    if (l > ABS(type))
         tend1 -= l-ABS(type);
-    }
 
     for (l = tend2-tbeg-1; l >= 0; l--)
         if (ref2[l + tbeg-left] != 4)
@@ -989,7 +997,6 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     if (l > ABS(type)) {
         tend2 -= l-ABS(type);
     }
-#endif
 
     // Get segment of quality, either ZQ tag or if absent QUAL.
     if (!(qq = (uint8_t*) calloc(qend - qbeg, 1)))
@@ -1003,37 +1010,14 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
         if (qval < 7)
             qval = 7;
         qq[l - qbeg] = qval;
-
-        // Skew qq at qpos to be higher than background and qq at
-        // other regions to be lower.  This means the alignment of
-        // indel we are currently assessing takes precedence over
-        // alignment of flanking regions.
-        //
-        // Ins; type = +ve
-        // Ref  AGCTAG---CTGA
-        // Qry  AGCTAGGGGCTGA  (qpos..qpos+type)
-        //
-        // Del; type = -ve
-        // Ref  AGCTAGGGGCTGA
-        // Qry  AGCTAG---CTGA  (qpos..qpos)
-
-//        // Tests over 1-47MB
-//        // shift8b            FP/GT/FN = 290/296/2310
-//        // develop                     = 264/326/2282
-//        if (l >= qpos-2 && l <= qpos+2+(type>0?type:0))
-//            //qq[l-qbeg] += 15;  //qq2 = 282/312/2334
-//            qq[l-qbeg] *= 1.5;   //qq3 = 284/305/2326
-//            //qq[l-qbeg] *= 0.75;//qq4 = 287/333/2347
-////        else
-////          qq[l-qbeg] *= 0.67;  // qq = 269/343/2413 (qq3 with else clause)
     }
 
     // The bottom 8 bits are length-normalised score while
     // the top bits are unnormalised.
     //
     // Try original cons and new cons and pick best.
-    // This doesn't removed FN much (infact maybe adds very slightly),
-    // but it does reduce GT errors and some slight reduction to FP.
+    // This doesn't reduce FN much (infact maybe adds very slightly),
+    // but it does reduce GT errors and is a slight reduction to FP.
     sc2 = probaln_glocal(ref2 + tbeg - left, tend2 - tbeg,
                          query, qend - qbeg, qq, &apf, 0, 0);
 
@@ -1083,7 +1067,6 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // used for adjusting indelQ below
     l = (int)((100. * sc2 / (qend - qbeg) + .499) * bca->indel_bias);
     *score = sc2<<8 | MIN(255, l);
-    //fprintf(stderr, "score = %d, qend-qbeg = %d, => adj score %d\n", sc, qend-qbeg, l);
 
     rep_ele *reps, *elt, *tmp;
     uint8_t *seg = ref2 + tbeg - left;
@@ -1112,9 +1095,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
             iscore += (elt->end-elt->start) / elt->rep_len;  // c
             if (elt->start+tbeg <= r_start ||
                 elt->end+tbeg   >= r_end) {
-                //iscore += 2*(elt->end-elt->start); //h5  (STR2)
-                //iscore += 4*(elt->end-elt->start);  //h5STR4
-                iscore += (elt->end-elt->start);  //h5STR1
+                iscore += (elt->end-elt->start);
             }
        }
 
@@ -1191,9 +1172,10 @@ static int bcf_cgp_compute_indelQ(int n, int *n_plp, bam_pileup1_t **plp,
             if (indelQ > seqQ) indelQ = seqQ;
             if (indelQ > 255) indelQ = 255;
             if (seqQ > 255) seqQ = 255;
-            p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ; // use 22 bits in total
-            sumq[sc[0]&0x3f] += indelQ < seqQ? indelQ : seqQ; // FIXME: redunctant; always indelQ
-//            fprintf(stderr, "  read=%d:%d name=%s call=%d indelQ=%d seqQ=%d\n", s, i, bam_get_qname(p->b), types[sc[0]&0x3f], indelQ, seqQ);
+
+            // use 22 bits in total
+            p->aux = (sc[0]&0x3f)<<16 | seqQ<<8 | indelQ;
+            sumq[sc[0]&0x3f] += indelQ;
         }
     }
     // determine bca->indel_types[] and bca->inscns
@@ -1299,7 +1281,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 
     // construct the consensus sequence (minus indels, which are added later)
     if (max_ins > 0) {
-        // FIXME: replace filling inscns[] with calc_consensus return
+        // TODO: replace filling inscns[] with calc_consensus return
         // so the merges of the insertion consensus for type[t] is
         // reported directly.  (It may need adjustment to avoid N)
         inscns = bcf_cgp_calc_ins_cons(n, n_plp, plp, pos,
@@ -1349,7 +1331,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             int tcon_len[2];
             int cpos_pos;
             tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref,
-                                      left, right, s, types[t], biggest_del, 
+                                      left, right, s, types[t], biggest_del,
                                       &left_shift, &right_shift, &band,
                                       tcon_len, &cpos_pos);
 #ifdef CONS_DEBUG
@@ -1370,6 +1352,8 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
 #endif
 
             // Scan for base-runs in the insertion.
+            // We use this to avoid over-correction in est_seqQ when the
+            // insertion is not part of the neighbouring homopolymer.
             int k = tcons[0][cpos_pos], j;
             for (j = 0; j < types[t]; j++)
                 if (tcons[0][cpos_pos+j] != k)
@@ -1437,16 +1421,17 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 {
                     rep_ele *reps, *elt, *tmp;
                     reps = find_STR(tcons[0], tcon_len[0], 0);
-                    int max_str = 0, tot_str = 0;
+                    //int max_str = 0;
+                    int tot_str = 0;
                     DL_FOREACH_SAFE(reps, elt, tmp) {
-                        if (max_str < elt->end - elt->start)
-                            max_str = elt->end - elt->start;
+                        // if (max_str < elt->end - elt->start)
+                        //     max_str = elt->end - elt->start;
                         tot_str += elt->end - elt->start;
                         DL_DELETE(reps, elt);
                         free(elt);
                     }
 
-                    // Max_str should be enough, but it's still not
+                    // Ideally max_str should be enough, but it's still not
                     // sufficient in longer range some repeats.
                     //min_win_size += max_str;
                     min_win_size += tot_str;
@@ -1476,11 +1461,11 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 // entire left/right region, so this also returns the
                 // equivalent genomic coords for qbeg/qend in tbeg/tend.
                 qbeg = tpos2qpos(&p->b->core, bam_get_cigar(p->b),
-                                 left2/*+biggest_ins*/, 0, &tbeg);
+                                 left2, 0, &tbeg);
                 qpos = tpos2qpos(&p->b->core, bam_get_cigar(p->b), pos,
                                      0, &tend) - qbeg;
                 qend = tpos2qpos(&p->b->core, bam_get_cigar(p->b),
-                                 right2/*-biggest_ins*/, 1, &tend);
+                                 right2, 1, &tend);
 
                 int old_tend = tend;
                 int old_tbeg = tbeg;

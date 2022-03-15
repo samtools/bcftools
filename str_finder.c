@@ -184,33 +184,33 @@ rep_ele *find_STR(char *cons, int len, int lower_only) {
 	w <<= 2;
 	w |= cons[i];
 	//printf("%3d %c w=%08x\n", i, cons[i], w);
-	if      ((w&0xfffffff) == ((w>>28)&0xfffffff)) 
+	if      ((w&0xfffffff) == ((w>>28)&0xfffffff))
 	    add_rep(&reps, cons, len, i, 14, lower_only, w);
-	else if ((w&0x3ffffff) == ((w>>26)&0x3ffffff)) 
+	else if ((w&0x3ffffff) == ((w>>26)&0x3ffffff))
 	    add_rep(&reps, cons, len, i, 13, lower_only, w);
-	else if ((w&0x0ffffff) == ((w>>24)&0x0ffffff)) 
+	else if ((w&0x0ffffff) == ((w>>24)&0x0ffffff))
 	    add_rep(&reps, cons, len, i, 12, lower_only, w);
-	else if ((w&0x03fffff) == ((w>>22)&0x03fffff)) 
+	else if ((w&0x03fffff) == ((w>>22)&0x03fffff))
 	    add_rep(&reps, cons, len, i, 11, lower_only, w);
-	else if ((w&0x00fffff) == ((w>>20)&0x00fffff)) 
+	else if ((w&0x00fffff) == ((w>>20)&0x00fffff))
 	    add_rep(&reps, cons, len, i, 10, lower_only, w);
-	else if ((w&0x003ffff) == ((w>>18)&0x003ffff)) 
+	else if ((w&0x003ffff) == ((w>>18)&0x003ffff))
 	    add_rep(&reps, cons, len, i, 9, lower_only, w);
-	else if ((w&0xffff) == ((w>>16)&0xffff)) 
+	else if ((w&0xffff) == ((w>>16)&0xffff))
 	    add_rep(&reps, cons, len, i, 8, lower_only, w);
-	else if ((w&0x3fff) == ((w>>14)&0x3fff)) 
+	else if ((w&0x3fff) == ((w>>14)&0x3fff))
 	    add_rep(&reps, cons, len, i, 7, lower_only, w);
-	else if ((w&0x0fff) == ((w>>12)&0x0fff)) 
+	else if ((w&0x0fff) == ((w>>12)&0x0fff))
 	    add_rep(&reps, cons, len, i, 6, lower_only, w);
-	else if ((w&0x03ff) == ((w>>10)&0x03ff)) 
+	else if ((w&0x03ff) == ((w>>10)&0x03ff))
 	    add_rep(&reps, cons, len, i, 5, lower_only, w);
-	else if ((w&0x00ff) == ((w>> 8)&0x00ff)) 
+	else if ((w&0x00ff) == ((w>> 8)&0x00ff))
 	    add_rep(&reps, cons, len, i, 4, lower_only, w);
-	else if ((w&0x003f) == ((w>> 6)&0x003f)) 
+	else if ((w&0x003f) == ((w>> 6)&0x003f))
 	    add_rep(&reps, cons, len, i, 3, lower_only, w);
-	else if ((w&0x000f) == ((w>> 4)&0x000f)) 
+	else if ((w&0x000f) == ((w>> 4)&0x000f))
 	    add_rep(&reps, cons, len, i, 2, lower_only, w);
-	else if ((w&0x0003) == ((w>> 2)&0x0003)) 
+	else if ((w&0x0003) == ((w>> 2)&0x0003))
 	    add_rep(&reps, cons, len, i, 1, lower_only, w);
     }
 
