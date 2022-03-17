@@ -281,10 +281,10 @@ static int *bcf_cgp_find_types(int n, int *n_plp, bam_pileup1_t **plp,
                 break;
 
         if (sz == 0
-            || j-i >= bca->min_support
-            // Note, doesn't handle bca->per_sample_flt yet
-            || bca->per_sample_flt
-            || (double)(j-i) / n_tot >= bca->min_frac)
+            || (j-i >= bca->min_support &&
+                // Note, doesn't handle bca->per_sample_flt yet
+                (bca->per_sample_flt
+                 || (double)(j-i) / n_tot >= bca->min_frac)))
             types[t++] = sz;
         i = j-1;
     }
@@ -519,7 +519,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                         // secondary consensus produced with the other
                         // deletion.  We set a marker for how long to
                         // skip adding to ref_base.
-                        skip_to = x+len;
+                        if (x > skip_to)
+                            skip_to = x+len;
                     }
                 }
                 break;
@@ -952,7 +953,7 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
                                int tbeg, int tend1, int tend2,
                                int left, int right,
                                int qbeg, int qend,
-                               int qpos, int max_deletion,
+                               int pos, int qpos, int max_deletion,
                                int *score) {
     // Illumina
     probaln_par_t apf = { 1e-4, 1e-2, 10 };
@@ -1091,12 +1092,21 @@ static int bcf_cgp_align_score(bam_pileup1_t *p, bcf_callaux_t *bca,
     // This is emphasised further if the sequence ends with
     // soft clipping.
     DL_FOREACH_SAFE(reps, elt, tmp) {
-        if (elt->start <= qpos && elt->end >= qpos) {
-            iscore += (elt->end-elt->start) / elt->rep_len;  // c
-            if (elt->start+tbeg <= r_start ||
-                elt->end+tbeg   >= r_end) {
-                iscore += (elt->end-elt->start);
-            }
+        int str_beg = elt->start+tbeg;
+        int str_end = elt->end+tbeg;
+
+
+        if (str_beg <= pos && str_end >= pos) {
+            // Overlaps indel region; num repeat units.
+            iscore += (elt->end-elt->start) / elt->rep_len;
+        }
+#define STR_HALO2 (2+2*elt->rep_len)
+        if (str_beg <= pos+STR_HALO2 && str_end >= pos-STR_HALO2) {
+            // Worst: extends beyond read end by >= 1 repeat unit
+            if (str_beg <= r_start-elt->rep_len)
+                iscore += 10*(r_start - str_beg)/elt->rep_len;
+            if (str_end >= r_end+elt->rep_len)
+                iscore += 10*(elt->end+tbeg - r_end)/elt->rep_len;
        }
 
         DL_DELETE(reps, elt);
@@ -1505,7 +1515,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                                             r_start, r_end, long_read,
                                             tbeg, tend1, tend2,
                                             left2, left + tcon_len[0],
-                                            qbeg, qend, qpos, -biggest_del,
+                                            qbeg, qend, pos,qpos, -biggest_del,
                                             &score[K*n_types + t]) < 0) {
                         goto err;
                     }
