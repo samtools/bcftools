@@ -748,7 +748,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                       ? 1
                                       : (max_v_ins > .3*tot_sum ? -1:0);
                 } else {
-                    het_ins = (heti[i] == -1); // HET but uncalled before
+                    // HET but uncalled before
+                    het_ins = i < 1024 ? (heti[i] == -1) : 0;
                 }
             }
 
@@ -787,7 +788,8 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                 : (cons_base[i][5] >= .3 * tot ? -1 : 0);
                     }
                 } else {
-                    het_del = (hetd[i] == -1); // HET del uncalled on cnum 0
+                    // HET del uncalled on cnum 0
+                    het_del = i < 1024 ? (hetd[i] == -1) : 0;
                     if (max_j == 5 && het_del == 0) {
                         max_v = max_v2;
                         max_j = max_j2;
