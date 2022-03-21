@@ -6,6 +6,15 @@
       this complements the existing `-h, --header-lines` option which requires a file
       with header lines
 
+* bcftools +fill-tags
+
+    - Extend generalized functions so that FORMAT tags can be filled as well, for example:
+
+        bcftools +fill-tags in.bcf -o out.bcf -- -t 'FORMAT/DP:1=int(smpl_sum(FORMAT/AD))'
+
+    - Allow multiple custom functions in a single run. Previously the program would silently
+      go with the last one, assigning the same values to all (#1684)
+
 
 ## Release 1.15 (21st February 2022)
 
