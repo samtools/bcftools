@@ -375,7 +375,7 @@ static int bcf_cgp_append_cons(str_freq *sf, char *str, int len, int freq) {
  */
 static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                                 int pos, bcf_callaux_t *bca, const char *ref,
-                                int left, int right,
+                                int ref_len, int left, int right,
                                 int sample, int type, int biggest_del,
                                 int *left_shift, int *right_shift,
                                 int *band, int *tcon_len, int *cpos_pos) {
@@ -808,8 +808,12 @@ static char **bcf_cgp_consensus(int n, int *n_plp, bam_pileup1_t **plp,
                     cons[cnum][k++] = max_j; // "ACGTN*"
                 else if (max_v > 0)
                     cons[cnum][k++] = 4;     // 'N';
-                else
-                    cons[cnum][k] = base6[(uint8_t)ref[left+k]], k++;
+                else {
+                    cons[cnum][k] = left+k < ref_len
+                        ? base6[(uint8_t)ref[left+k]]
+                        : 4;
+                    k++;
+                }
             }
         }
 
@@ -1246,7 +1250,7 @@ specific sample? Needs to check bca->per_sample_flt (--per-sample-mF) opt.
         - 8: indel quality                                  .. aux&0xff
  */
 int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
-                      bcf_callaux_t *bca, const char *ref)
+                      bcf_callaux_t *bca, const char *ref, int ref_len)
 {
     if (ref == 0 || bca == 0) return -1;
 
@@ -1342,7 +1346,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
             int left_shift, right_shift;
             int tcon_len[2];
             int cpos_pos;
-            tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref,
+            tcons = bcf_cgp_consensus(n, n_plp, plp, pos, bca, ref, ref_len,
                                       left, right, s, types[t], biggest_del,
                                       &left_shift, &right_shift, &band,
                                       tcon_len, &cpos_pos);

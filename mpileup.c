@@ -575,7 +575,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         // check me: rghash in bcf_call_gap_prep() should have no effect, reads mplp_func already excludes them
         if (!(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth
             && (bcf_callaux_clean(conf->bca, &conf->bc),
-                bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref) >= 0))
+                bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref, ref_len) >= 0))
         {
             for (i = 0; i < conf->gplp->n; ++i)
                 bcf_call_glfgen(conf->gplp->n_plp[i], conf->gplp->plp[i], -1, conf->bca, conf->bcr + i);
