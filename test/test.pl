@@ -613,6 +613,8 @@ test_vcf_plugin($opts,in=>'split-vep.8',out=>'split-vep.21.out',cmd=>'+split-vep
 test_vcf_plugin($opts,in=>'split-vep.8',out=>'split-vep.22.out',cmd=>'+split-vep',args=>qq[-a BCSQ -s worst -f '%POS\\t%Consequence\\t%amino_acid_change\\t%BCSQ\\n' | grep -v ^#]);
 test_vcf_plugin($opts,in=>'split-vep.9',out=>'split-vep.23.out',cmd=>'+split-vep',args=>qq[-a BCSQ -f '%CHROM\\t%POS\\t%REF\\t%ALT\\t%BCSQ\\n' -d -A tab | grep -v ^#]);
 test_vcf_plugin($opts,in=>'split-vep.9',out=>'split-vep.24.out',cmd=>'+split-vep',args=>qq[-a BCSQ -f '%xPOS %xConsequence\\n' -p x | grep -v ^#]);
+test_vcf_plugin($opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=>'+split-vep',args=>qq[-a CSQ -f '%M_CAP_pred %M_CAP_score\\n' | grep -v ^#]);
+test_vcf_plugin($opts,in=>'split-vep.10',out=>'split-vep.25.out',cmd=>'+split-vep',args=>qq[-a CSQ -f '%xM_CAP_pred %xM_CAP_score\\n' -p x | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.1.out',cmd=>'+parental-origin',args=>qq[-r 20:100 -p proband,father,mother -t del | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.2.out',cmd=>'+parental-origin',args=>qq[-r 20:101 -p proband,father,mother -t del | grep -v ^#]);
 test_vcf_plugin($opts,in=>'parental-origin',out=>'parental-origin.3.out',cmd=>'+parental-origin',args=>qq[-r 20:102 -p proband,father,mother -t del | grep -v ^#]);
