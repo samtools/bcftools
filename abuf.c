@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2021 Genome Research Ltd.
+   Copyright (c) 2021-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -466,7 +466,10 @@ static void _split_table_set_gt(abuf_t *buf)
                     error("Out-of-bounds genotypes at %s:%"PRIhts_pos"\n",bcf_seqname(buf->hdr,rec),rec->pos+1);
                 int ial = _split_table_get_ial(buf,iout,iori);
                 if ( ial==2 && !star_allele )
+                {
                     dst[j] = bcf_gt_missing;
+                    if ( bcf_gt_is_phased(src[j]) ) dst[j] |= 1;
+                }
                 else
                     dst[j] = bcf_gt_is_phased(src[j]) ? bcf_gt_phased(ial) : bcf_gt_unphased(ial);
             }

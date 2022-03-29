@@ -15,6 +15,16 @@
     - Allow multiple custom functions in a single run. Previously the program would silently
       go with the last one, assigning the same values to all (#1684)
 
+* bcftools norm
+
+    - Fix the loss of phasing in half-missing genotypes in variant atomization (#1689)
+
+* bcftools +split-vep
+
+    - VEP fields with characters disallowed in VCF tag names by the specification (such as '-'
+      in 'M-CAP') couldn't be queried. This has been fixed, the program now sanitizes the field
+      names, replacing invalid characters with underscore (#1686)
+
 
 ## Release 1.15 (21st February 2022)
 
