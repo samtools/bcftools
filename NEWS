@@ -19,6 +19,11 @@
 
     - Fix the loss of phasing in half-missing genotypes in variant atomization (#1689)
 
+* bcftools roh
+
+    - Fix a bug that could result in an endless loop or incorrect AF estimate when
+      missing genotypes are present and the `--estimate-AF -` option was used (#1687)
+
 * bcftools +split-vep
 
     - VEP fields with characters disallowed in VCF tag names by the specification (such as '-'
