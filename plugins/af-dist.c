@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2016-2017 Genome Research Ltd.
+   Copyright (c) 2016-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -53,10 +53,12 @@ const char *about(void)
 
 const char *usage(void)
 {
-    return 
+    return
         "\n"
-        "About: Collect AF deviation stats and GT probability distribution\n"
-        "       given AF and assuming HWE\n"
+        "About: Collect AF deviation stats and GT probability distribution given AF and\n"
+        "       assuming HWE. Only non-reference genotypes with known allele frequency\n"
+        "       at the site are considered, their probabilities are 2*AF*(1-AF) for RA\n"
+        "       and AF**2 for the AA genotype.\n"
         "Usage: bcftools +af-dist [General Options] -- [Plugin Options]\n"
         "Options:\n"
         "   run \"bcftools plugin\" for a list of common options\n"
@@ -71,7 +73,7 @@ const char *usage(void)
         "   -d: 0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1\n"
         "   -p: 0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1\n"
         "Example:\n"
-        "   bcftools +af-tag file.bcf -- -t EUR_AF -p bins.txt\n"
+        "   bcftools +af-dist file.bcf -- -t EUR_AF -p bins.txt\n"
         "\n";
 }
 
@@ -94,9 +96,9 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     int c;
     while ((c = getopt_long(argc, argv, "?ht:d:p:l:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
-            case 'l': 
+            case 'l':
             {
                 char *a,*b;
                 args->list_min = strtod(optarg,&a);
