@@ -2727,6 +2727,26 @@ static int rename_annots_core(args_t *args, char *ori_tag, char *new_tag)
     else if ( !strncasecmp("fmt/",ori_tag,4) ) type = BCF_HL_FMT, ori_tag += 4;
     else if ( !strncasecmp("filter/",ori_tag,7) ) type = BCF_HL_FLT, ori_tag += 7;
     else return -1;
+    if ( !strncasecmp("info/",new_tag,5) )
+    {
+        if ( type != BCF_HL_INFO ) error("Cannot transfer %s to INFO\n", ori_tag);
+        new_tag += 5;
+    }
+    else if ( !strncasecmp("format/",new_tag,7) )
+    {
+        if ( type != BCF_HL_FMT ) error("Cannot transfer %s to FORMAT\n", ori_tag);
+        new_tag += 7;
+    }
+    else if ( !strncasecmp("fmt/",new_tag,4) )
+    {
+        if ( type != BCF_HL_FMT ) error("Cannot transfer %s to FORMAT\n", ori_tag);
+        new_tag += 4;
+    }
+    else if ( !strncasecmp("filter/",new_tag,7) )
+    {
+        if ( type != BCF_HL_FLT ) error("Cannot transfer %s to FILTER\n", ori_tag);
+        new_tag += 7;
+    }
     int id = bcf_hdr_id2int(args->hdr_out, BCF_DT_ID, ori_tag);
     if ( id<0 ) return 1;
     bcf_hrec_t *hrec = bcf_hdr_get_hrec(args->hdr_out, type, "ID", ori_tag, NULL);
