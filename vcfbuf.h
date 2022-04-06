@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2017-2021 Genome Research Ltd.
+   Copyright (c) 2017-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -49,7 +49,7 @@ typedef enum
     LD_FILTER1,             // exclude the next record inserted by vcfbuf_push() from LD analysis
     LD_MAX_R2,              // If set, vcfbuf_ld() will stop at the first record that exceeds the R2,
     LD_MAX_LD,              //      LD, or HD threshold. When multiple are set, the OR logic is applied
-    LD_MAX_HD,              //      
+    LD_MAX_HD,              //
 }
 vcfbuf_opt_t;
 
@@ -59,7 +59,8 @@ void vcfbuf_set(vcfbuf_t *buf, vcfbuf_opt_t key, void *value);
 
 /*
  *  vcfbuf_init() - init buffer
- *  @win:   number of sites (>0) or bp (<0)
+ *  @win:   number of sites (>0), bp (<0), or 0 in the dummy mode which is controlled manually by the caller
+ *          with explicit push/peak/flush calls
  */
 vcfbuf_t *vcfbuf_init(bcf_hdr_t *hdr, int win);
 void vcfbuf_destroy(vcfbuf_t *buf);
@@ -81,6 +82,10 @@ bcf1_t *vcfbuf_peek(vcfbuf_t *buf, int idx);
  */
 bcf1_t *vcfbuf_remove(vcfbuf_t *buf, int idx);
 
+/*
+ *  vcfbuf_flush() - returns the next record or NULL, depending on the mode of operation and
+ *      the content of the buffer
+ */
 bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all);
 
 /*
