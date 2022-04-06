@@ -1,5 +1,8 @@
 ## Release a.b
 
+* New plugin `bcftools +variant-distance` to annotate records with distance to the
+  nearest variant (#1690)
+
 * bcftools annotate
 
     - New `-H, --header-line` convenience option to pass a header line on command line,

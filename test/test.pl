@@ -629,6 +629,7 @@ test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.4.out',cmd=>'+prune -w 2bp -n 
 test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.5.out',cmd=>q[+prune -w 2bp -n 1 --AF-tag AF -i 'GT="alt"']);  # same as above but first discard REF-only sites
 test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.6.out',cmd=>'+prune -w 2bp -n 1 -N 1st');
 test_vcf_plugin($opts,in=>'prune.1',out=>'prune.1.7.out',cmd=>'+prune -w 2bp -n 1 -N rand --random-seed 1');
+test_vcf_plugin($opts,in=>'variant-distance',out=>'variant-distance.1.out',cmd=>'+variant-distance');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.1.out',tmp=>'split.1.1');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.2.out',tmp=>'split.1.2',args=>'-S {PATH}/split.smpl.1.2.txt');
 test_plugin_split($opts,in=>'split.1',out=>'split.1.3.out',tmp=>'split.1.3',args=>'-S {PATH}/split.smpl.1.3.txt');

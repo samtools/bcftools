@@ -2622,6 +2622,9 @@ By default, appropriate system directories are searched for installed plugins.
 *trio-switch-rate*::
     calculate phase switch rate in trio samples, children samples must have phased GTs
 
+*variant-distance*::
+    annotate sites with the distance to the nearest variant
+
 *variantkey-hex*::
     generate unsorted VariantKey-RSid index files in hexadecimal format
 
