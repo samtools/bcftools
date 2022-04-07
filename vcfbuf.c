@@ -75,7 +75,7 @@ overlap_t;
 
 struct _vcfbuf_t
 {
-    int win;
+    int win, dummy;
     bcf_hdr_t *hdr;
     vcfrec_t *vcf;
     rbuf_t rbuf;
@@ -118,6 +118,7 @@ void vcfbuf_set(vcfbuf_t *buf, vcfbuf_opt_t key, void *value)
     if ( key==LD_MAX_LD ) { buf->ld.max[VCFBUF_LD_IDX_LD] = *((double*)value); return; }
     if ( key==LD_MAX_HD ) { buf->ld.max[VCFBUF_LD_IDX_HD] = *((double*)value); return; }
 
+    if ( key==VCFBUF_DUMMY ) { buf->dummy = *((int*)value); return; }
     if ( key==VCFBUF_NSITES )
     {
         buf->prune.max_sites = *((int*)value);
@@ -331,7 +332,7 @@ bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all)
     int i,j;
 
     if ( buf->rbuf.n==0 ) return NULL;
-    if ( flush_all || buf->win==0 ) goto ret;
+    if ( flush_all || buf->dummy ) goto ret;
 
     i = rbuf_kth(&buf->rbuf, 0);    // first
     j = rbuf_last(&buf->rbuf);      // last
@@ -350,6 +351,8 @@ bcf1_t *vcfbuf_flush(vcfbuf_t *buf, int flush_all)
         if ( buf->vcf[i].rec->pos - buf->vcf[j].rec->pos > buf->win ) return NULL;
         goto ret;
     }
+    else
+        return NULL;
 
 ret:
     if ( buf->prune.max_sites && buf->prune.max_sites < buf->rbuf.n ) _prune_sites(buf, flush_all);
