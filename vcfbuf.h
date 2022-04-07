@@ -38,6 +38,8 @@ typedef struct _vcfbuf_t vcfbuf_t;
 // Modes of operation
 typedef enum
 {
+    VCFBUF_DUMMY,           // the caller maintains the buffer via push/peek/flush, nothing is removed by vcfbuf
+
     VCFBUF_OVERLAP_WIN,     // keep only overlapping variants in the window
     VCFBUF_RMDUP,           // remove duplicate sites (completely)
     VCFBUF_NSITES,          // leave at max this many sites in the window
@@ -59,8 +61,7 @@ void vcfbuf_set(vcfbuf_t *buf, vcfbuf_opt_t key, void *value);
 
 /*
  *  vcfbuf_init() - init buffer
- *  @win:   number of sites (>0), bp (<0), or 0 in the dummy mode which is controlled manually by the caller
- *          with explicit push/peak/flush calls
+ *  @win:   number of sites (>0), bp (<0)
  */
 vcfbuf_t *vcfbuf_init(bcf_hdr_t *hdr, int win);
 void vcfbuf_destroy(vcfbuf_t *buf);

@@ -116,6 +116,7 @@ static void init_data(args_t *args)
     if ( bcf_hdr_write(args->out_fh, args->hdr)!=0 ) error("[%s] Error: cannot write to %s\n", __func__,args->output_fname);
 
     args->buf = vcfbuf_init(args->hdr, 0);
+    vcfbuf_set_opt(args->buf,int,VCFBUF_DUMMY,1)
 }
 static void destroy_data(args_t *args)
 {
