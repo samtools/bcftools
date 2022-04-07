@@ -1,6 +1,7 @@
 ##fileformat=VCFv4.2
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Allelic depth">
 ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depth">
 ##contig=<ID=chr1,length=249250621,assembly=hg19>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A	B	C
-chr1	10153	.	AC	A	.	.	.	AD	10,1	20,2	30,3
-chr1	10153	.	AC	A	.	.	.	AD	10,1	.	.
+chr1	10153	.	AC	A	.	.	AD=3,1	AD	10,1	20,2	30,3
+chr1	10153	.	AC	A	.	.	AD=3,1	AD	10,1	.	.

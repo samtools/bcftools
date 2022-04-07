@@ -2,12 +2,12 @@
 .\"     Title: bcftools
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.16.dev
-.\"      Date: 2022-02-21
+.\"      Date: 2022-04-07
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "BCFTOOLS" "1" "2022-02-21" "\ \&" "\ \&"
+.TH "BCFTOOLS" "1" "2022-04-07" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -51,7 +51,7 @@ standard input (stdin) and outputs to the standard output (stdout). Several
 commands can thus be  combined  with  Unix pipes.
 .SS "VERSION"
 .sp
-This manual page was last updated \fB2022\-02\-21\fP and refers to bcftools git version \fB1.15\fP.
+This manual page was last updated \fB2022\-04\-07\fP and refers to bcftools git version \fB1.15.1\fP.
 .SS "BCF1"
 .sp
 The BCF1 format output by versions of samtools <= 0.1.19 is \fBnot\fP
@@ -2177,6 +2177,39 @@ see \fBCommon Options\fP
 .fam
 .fi
 .if n .RE
+.sp
+\fBSupported consequence types\fP
+.sp
+.if n .RS 4
+.nf
+.fam C
+3_prime_utr
+5_prime_utr
+coding_sequence
+feature_elongation
+frameshift
+inframe_altering
+inframe_deletion
+inframe_insertion
+intergenic
+intron
+missense
+non_coding
+splice_acceptor
+splice_donor
+splice_region
+start_lost
+start_retained
+stop_gained
+stop_lost
+stop_retained
+synonymous
+.fam
+.fi
+.if n .RE
+.sp
+See also \c
+.URL "https://ensembl.org/info/genome/variation/prediction/predicted_data.html" "" ""
 .SS "bcftools filter \fI[OPTIONS]\fP \fIFILE\fP"
 .sp
 Apply fixed\-threshold filters.

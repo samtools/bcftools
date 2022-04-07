@@ -104,7 +104,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.15
+PACKAGE_VERSION = 1.15.1
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
@@ -230,12 +230,13 @@ prob1_h = prob1.h $(htslib_vcf_h) $(call_h)
 smpl_ilist_h = smpl_ilist.h $(htslib_vcf_h)
 vcfbuf_h = vcfbuf.h $(htslib_vcf_h)
 abuf_h = abuf.h $(htslib_vcf_h)
+dbuf_h = dbuf.h $(htslib_vcf_h)
 bam2bcf_h = bam2bcf.h $(htslib_hts_h) $(htslib_vcf_h)
 bam_sample_h = bam_sample.h $(htslib_sam_h)
 
 str_finder.o: str_finder.h utlist.h
 main.o: main.c $(htslib_hts_h) config.h version.h $(bcftools_h)
-vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h) $(convert_h) $(smpl_ilist_h) regidx.h $(htslib_khash_h)
+vcfannotate.o: vcfannotate.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h) $(convert_h) $(smpl_ilist_h) regidx.h $(htslib_khash_h) $(dbuf_h)
 vcfplugin.o: vcfplugin.c config.h $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_khash_str2int_h) $(bcftools_h) vcmp.h $(filter_h)
 vcfcall.o: vcfcall.c $(htslib_vcf_h) $(htslib_kfunc_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_str2int_h) $(bcftools_h) $(call_h) $(prob1_h) $(ploidy_h) $(gvcf_h) regidx.h $(vcfbuf_h)
 vcfconcat.o: vcfconcat.c $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(htslib_tbx_h) $(htslib_thread_pool_h) $(bcftools_h)
