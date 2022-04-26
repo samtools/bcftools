@@ -123,9 +123,17 @@ typedef struct
 }
 args_t;
 
+static void destroy_chain(chain_t *chain)
+{
+    if ( !chain ) return;
+    free(chain->ref_gaps);
+    free(chain->alt_gaps);
+    free(chain->block_lengths);
+    free(chain);
+}
 static chain_t* init_chain(chain_t *chain, int ref_ori_pos)
 {
-//     fprintf(stderr, "init_chain(*chain, ref_ori_pos=%d)\n", ref_ori_pos);
+    if ( chain ) destroy_chain(chain);
     chain = (chain_t*) calloc(1,sizeof(chain_t));
     chain->num = 0;
     chain->block_lengths = NULL;
@@ -135,18 +143,6 @@ static chain_t* init_chain(chain_t *chain, int ref_ori_pos)
     chain->ref_last_block_ori = ref_ori_pos;
     chain->alt_last_block_ori = ref_ori_pos;
     return chain;
-}
-
-static void destroy_chain(args_t *args)
-{
-    chain_t *chain = args->chain;
-    free(chain->ref_gaps);
-    free(chain->alt_gaps);
-    free(chain->block_lengths);
-    free(chain);
-    chain = NULL;
-    free(args->chr);
-    args->chr = NULL;
 }
 
 static void print_chain(args_t *args)
@@ -197,7 +193,7 @@ static void print_chain(args_t *args)
 
 static void push_chain_gap(chain_t *chain, int ref_start, int ref_len, int alt_start, int alt_len)
 {
-//     fprintf(stderr, "push_chain_gap(*chain, ref_start=%d, ref_len=%d, alt_start=%d, alt_len=%d)\n", ref_start, ref_len, alt_start, alt_len);
+    // fprintf(stderr, "push_chain_gap(chain=%p, ref_start=%d, ref_len=%d, alt_start=%d, alt_len=%d)\n", chain, ref_start, ref_len, alt_start, alt_len);
     int num = chain->num;
 
     if (num && ref_start <= chain->ref_last_block_ori) {
@@ -305,6 +301,7 @@ static void destroy_data(args_t *args)
     if ( args->chain_fname )
         if ( fclose(args->fp_chain) ) error("Close failed: %s\n", args->chain_fname);
     if ( fclose(args->fp_out) ) error("Close failed: %s\n", args->output_fname);
+    destroy_chain(args->chain);
 }
 
 static void init_region(args_t *args, char *line)
@@ -346,12 +343,8 @@ static void init_region(args_t *args, char *line)
     bcf_sr_seek(args->files,line,args->fa_ori_pos);
     if ( tmp_ptr ) *tmp_ptr = tmp;
     fprintf(args->fp_out,">%s%s\n",args->chr_prefix?args->chr_prefix:"",line);
-    if (args->chain_fname )
-    {
+    if ( args->chain_fname )
         args->chain = init_chain(args->chain, args->fa_ori_pos);
-    } else {
-        args->chain = NULL;
-    }
 }
 
 static bcf1_t **next_vcf_line(args_t *args)
@@ -949,10 +942,8 @@ static void consensus(args_t *args)
         if ( str.s[0]=='>' )
         {
             // new sequence encountered
-            if (args->chain) {
-                print_chain(args);
-                destroy_chain(args);
-            }
+            if ( args->chain ) print_chain(args);
+
             // apply all cached variants and variants that might have been missed because of short fasta (see test/consensus.9.*)
             bcf1_t **rec_ptr = NULL;
             while ( args->rid>=0 && (rec_ptr = next_vcf_line(args)) )
@@ -1026,11 +1017,7 @@ static void consensus(args_t *args)
         if ( args->fa_ori_pos + args->fa_buf.l - args->fa_mod_off <= rec->pos ) break;
         apply_variant(args, rec);
     }
-    if (args->chain)
-    {
-        print_chain(args);
-        destroy_chain(args);
-    }
+    if (args->chain) print_chain(args);
     if ( args->absent_allele ) apply_absent(args, HTS_POS_MAX);
     flush_fa_buffer(args, 0);
     bgzf_close(fasta);

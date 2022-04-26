@@ -1,13 +1,23 @@
 ## Release a.b
 
+
 * New plugin `bcftools +variant-distance` to annotate records with distance to the
   nearest variant (#1690)
+
+
+## Release 1.15.1 (7th April 2022)
+
 
 * bcftools annotate
 
     - New `-H, --header-line` convenience option to pass a header line on command line,
       this complements the existing `-h, --header-lines` option which requires a file
       with header lines
+
+* bcftools csq
+
+    - A list of consequence types supported by `bcftools csq` has been added to
+      the manual page. (#1671)
 
 * bcftools +fill-tags
 
@@ -19,6 +29,11 @@
       go with the last one, assigning the same values to all (#1684)
 
 * bcftools norm
+
+    - Fix an assertion failure triggered when a faulty VCF file with a '-'
+      character in the REF allele was used with `bcftools norm --atomize`.  This
+      option now checks that the REF allele only includes the allowed characters
+      A, C, G, T and N. (#1668)
 
     - Fix the loss of phasing in half-missing genotypes in variant atomization (#1689)
 
