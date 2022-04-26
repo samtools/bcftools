@@ -32,10 +32,16 @@ bcftools filter --IndelGap 5 calls.norm.bcf -Ob -o calls.norm.flt-indels.bcf
 
 # apply variants to create consensus sequence
 cat reference.fa | bcftools consensus calls.vcf.gz > consensus.fa
+
+# output IUPAC ambiguity codes based on REF+ALT columns (regardless of genotype)
+cat reference.fa | bcftools consensus --iupac-codes calls.vcf.gz > consensus.fa
+
+# output IUPAC ambiguity codes based on sample genotypes
+cat reference.fa | bcftools consensus --haplotype I calls.vcf.gz > consensus.fa
 ----
 
-Note that in order to keep the program relatively simple,
-``consensus`` merely applies variants from a VCF.
+*Note:* in order to keep the program relatively simple,
+``consensus`` merely applies variants from the VCF regardless of AF or other properties.
 If more more advanced logic
 is required, the VCF has to be preprocessed with other tools, such as the ``+setGT`` plugin
 (see an example link:https://github.com/samtools/bcftools/issues/1516[here]).
