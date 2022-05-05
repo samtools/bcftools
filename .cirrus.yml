@@ -76,7 +76,7 @@ gcc_task:
 ubuntu_task:
   name: ubuntu-clang
   container:
-    image: ubuntu:devel
+    image: ubuntu:latest
     cpu: 2
     memory: 1G
 
