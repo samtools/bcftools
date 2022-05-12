@@ -4,6 +4,13 @@
 * New plugin `bcftools +variant-distance` to annotate records with distance to the
   nearest variant (#1690)
 
+* bcftools mpileup
+
+    - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within
+      supporting reads
+
+    - Suppress the output of MQSBZ and FS annotations in absence of alternate allele
+
 
 ## Release 1.15.1 (7th April 2022)
 
@@ -50,7 +57,6 @@
 
 
 ## Release 1.15 (21st February 2022)
-
 
 * New `bcftools head` subcommand for conveniently displaying the headers
   of a VCF or BCF file. Without any options, this is equivalent to
