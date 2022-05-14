@@ -1,0 +1,10 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##reference=ref.fa
+##contig=<ID=1,assembly=b37,length=249250621>
+##ALT=<ID=CNV,Description="Copy Number Variation">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=DB,Number=1,Type=String,Description="CNV id from a database">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	10	.	C	<CNV>	.	.	END=19;DB=cnv10_15,cnv18_19
+1	20	.	C	<CNV>	.	.	END=30;DB=cnv20_50

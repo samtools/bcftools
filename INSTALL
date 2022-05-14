@@ -3,8 +3,8 @@ For the impatient
 
 The latest source code can be downloaded from github and compiled using:
 
-    git clone --recurse-submodules git://github.com/samtools/htslib.git
-    git clone git://github.com/samtools/bcftools.git
+    git clone --recurse-submodules https://github.com/samtools/htslib.git
+    git clone https://github.com/samtools/bcftools.git
     cd bcftools
      # The following is optional:
      #   autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters
@@ -218,7 +218,13 @@ Note: libcurl4-openssl-dev can be used as an alternative to libcurl4-gnutls-dev.
 RedHat / CentOS
 ---------------
 
+Note: To install gsl-devel, it may be necessary to enable the "crb" repository.
+dnf --enablerepo=crb install gsl-devel
+
 sudo yum install autoconf automake make gcc perl-Data-Dumper zlib-devel bzip2 bzip2-devel xz-devel curl-devel openssl-devel gsl-devel perl-ExtUtils-Embed
+
+Note: On some versions, Perl FindBin will need to be installed to make the tests work.
+sudo yum install perl-FindBin
 
 Alpine Linux
 ------------
@@ -226,8 +232,8 @@ Alpine Linux
 Note: To install gsl-dev, it may be necessary to enable the "community"
 repository in /etc/apk/repositories.
 
-sudo apk update  # Ensure the package list is up to date
-sudo apk add autoconf automake make gcc musl-dev perl bash zlib-dev bzip2-dev xz-dev curl-dev libressl-dev gsl-dev perl-dev
+doas apk update  # Ensure the package list is up to date
+doas apk add autoconf automake make gcc musl-dev perl bash zlib-dev bzip2-dev xz-dev curl-dev libressl-dev gsl-dev perl-dev
 
 OpenSUSE
 --------
@@ -240,4 +246,23 @@ MacOS, assuming Xcode is installed:
 xz
 gsl (optional)
 
+Windows MSYS2/MINGW64
+---------------------
+
+The configure script must be used as without it the compilation will
+likely fail.
+
+Follow MSYS2 installation instructions at
+https://www.msys2.org/wiki/MSYS2-installation/
+
+Then relaunch to MSYS2 shell using the "MSYS2 MinGW x64" executable.
+Once in that environment (check $MSYSTEM equals "MINGW64") install the
+compilers using pacman -S and the following package list:
+
+base-devel mingw-w64-x86_64-toolchain
+mingw-w64-x86_64-libdeflate mingw-w64-x86_64-zlib mingw-w64-x86_64-bzip2
+mingw-w64-x86_64-xz mingw-w64-x86_64-curl mingw-w64-x86_64-autotools
+mingw-w64-x86_64-tools-git
+
+(The last is only needed for building libraries compatible with MSVC.)
 

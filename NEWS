@@ -1,11 +1,84 @@
 ## Release a.b
 
+
+* New plugin `bcftools +variant-distance` to annotate records with distance to the
+  nearest variant (#1690)
+
+* bcftools mpileup
+
+    - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within
+      supporting reads
+
+    - Suppress the output of MQSBZ and FS annotations in absence of alternate allele
+
+
+## Release 1.15.1 (7th April 2022)
+
+
+* bcftools annotate
+
+    - New `-H, --header-line` convenience option to pass a header line on command line,
+      this complements the existing `-h, --header-lines` option which requires a file
+      with header lines
+
+* bcftools csq
+
+    - A list of consequence types supported by `bcftools csq` has been added to
+      the manual page. (#1671)
+
+* bcftools +fill-tags
+
+    - Extend generalized functions so that FORMAT tags can be filled as well, for example:
+
+        bcftools +fill-tags in.bcf -o out.bcf -- -t 'FORMAT/DP:1=int(smpl_sum(FORMAT/AD))'
+
+    - Allow multiple custom functions in a single run. Previously the program would silently
+      go with the last one, assigning the same values to all (#1684)
+
+* bcftools norm
+
+    - Fix an assertion failure triggered when a faulty VCF file with a '-'
+      character in the REF allele was used with `bcftools norm --atomize`.  This
+      option now checks that the REF allele only includes the allowed characters
+      A, C, G, T and N. (#1668)
+
+    - Fix the loss of phasing in half-missing genotypes in variant atomization (#1689)
+
+* bcftools roh
+
+    - Fix a bug that could result in an endless loop or incorrect AF estimate when
+      missing genotypes are present and the `--estimate-AF -` option was used (#1687)
+
+* bcftools +split-vep
+
+    - VEP fields with characters disallowed in VCF tag names by the specification (such as '-'
+      in 'M-CAP') couldn't be queried. This has been fixed, the program now sanitizes the field
+      names, replacing invalid characters with underscore (#1686)
+
+
+## Release 1.15 (21st February 2022)
+
+* New `bcftools head` subcommand for conveniently displaying the headers
+  of a VCF or BCF file. Without any options, this is equivalent to
+  `bcftools view --header-only --no-version` but more succinct and memorable.
+
+* The `-T, --targets-file` option had the following bug originating in HTSlib code:
+  when an uncompressed file with multiple columns CHR,POS,REF was provided, the
+  REF would be interpreted as 0 gigabases (#1598)
+
 Changes affecting specific commands:
 
 * bcftools annotate
 
     - In addition to `--rename-annots`, which requires a file with name mappings,
       it is now possible to do the same on the command line `-c NEW_TAG:=OLD_TAG`
+
+    - Add new option --min-overlap which allows to specify the minimum required
+      overlap of intersecting regions
+
+    - Allow to transfer ALT from VCF with or without replacement using
+        bcftools annotate -a annots.vcf.gz -c ALT file.vcf.gz
+        bcftools annotate -a annots.vcf.gz -c +ALT file.vcf.gz
 
 * bcftools convert
 
@@ -25,11 +98,53 @@ Changes affecting specific commands:
       `--hapsample2vcf` (depending on whether the `--vcf-ids` option is given), must be
       the first for `--haplegendsample2vcf`.
 
+* bcftools csq
+
+    - Allow GFF files with phase column unset
+
+* bcftools filter
+
+    - New `--mask`, `--mask-file` and `--mask-overlap` options to soft filter
+      variants in regions (#1635)
+
+* bcftools +fixref
+
+    - The `-m id` option now works also for non-dbSNP ids, i.e. not just `rsINT`
+
+    - New `-m flip-all` mode for flipping all sites, including ambiguous A/T and C/G sites
+
+* bcftools isec
+
+    - Prevent segfault on sites filtered with -i/-e in all files (#1632)
+
+* bcftools mpileup
+
+    - More flexible read filtering using the options
+        --ls, --skip-all-set    ..  skip reads with all of the FLAG bits set
+        --ns, --skip-any-set    ..  skip reads with any of the FLAG bits set
+        --lu, --skip-all-unset  ..  skip reads with all of the FLAG bits unset
+        --nu, --skip-any-unset  ..  skip reads with any of the FLAG bits unset
+
+      The existing synonymous options will continue to function but their use
+      is discouraged
+        --rf, --incl-flags STR|INT  Required flags: skip reads with mask bits unset
+        --ff, --excl-flags STR|INT  Filter flags: skip reads with mask bits set
+
+* bcftools query
+
+    - Make the `--samples` and `--samples-file` options work also in the `--list-samples`
+      mode. Add a new `--force-samples` option which allows to proceed even when some of
+      the requested samples are not present in the VCF (#1631)
+
 * bcftools +setGT
 
     - Fix a bug in `-t q -e EXPR` logic applied on FORMAT fields, sites with all
       samples failing the expression EXPR were incorrectly skipped. This problem
       affected only the use of `-e` logic, not the `-i` expressions (#1607)
+
+* bcftools sort
+
+    - make use of the TMPDIR environment variable when defined
 
 * bcftools +trio-dnm2
 
@@ -42,7 +157,7 @@ Changes affecting specific commands:
 Changes affecting the whole of bcftools, or multiple commands:
 
 * New `--regions-overlap` and `--targets-overlap` options which address
-  a long-standing design problem with subsetting VCF files by region. 
+  a long-standing design problem with subsetting VCF files by region.
   BCFtools recognize two sets of options, one for streaming (`-t/-T`) and
   one for index-gumping (`-r/-R`). They behave differently, the first
   includes only records with POS coordinate within the regions, the other
@@ -70,11 +185,11 @@ Changes affecting specific commands:
       by using `-c INFO/END`.
 
     - add a new '.' modifier to control wheter missing values should be carried
-      over from a tab-delimited file or not. For example: 
+      over from a tab-delimited file or not. For example:
 
          -c TAG .. adds TAG if the source value is not missing. If TAG
                    exists in the target file, it will be overwritten
-    
+
         -c .TAG .. adds TAG even if the source value is missing. This
                    can overwrite non-missing values with a missing value
                    and can create empty VCF fields (`TAG=.`)
@@ -203,7 +318,7 @@ Changes affecting specific commands:
 * bcftools +fill-tags:
 
     - Generalization and better support for custom functions that allow
-      adding new INFO tags based on arbitrary `-i, --include` type of 
+      adding new INFO tags based on arbitrary `-i, --include` type of
       expressions. For example, to calculate a missing INFO/DP annotation
       from FORMAT/AD, it is possible to use:
 
@@ -267,7 +382,7 @@ Changes affecting specific commands:
 
     - Atomization of AD and QS tags now correctly updates occurrences of duplicate
       alleles within different haplotypes
-    
+
     - Fix a bug in atomization of Number=A,R tags
 
 * bcftools reheader:
@@ -279,7 +394,7 @@ Changes affecting specific commands:
     - A wider range of genotypes can be set by the plugin by allowing
       specifying custom genotypes. For example, to force a heterozygous
       genotype it is now possible to use expressions like:
-    
+
         c:'m|M'
         c:0/1
         c:0
@@ -291,7 +406,7 @@ Changes affecting specific commands:
     - Better handling of ambiguous keys such as INFO/AF and CSQ/AD. The
       `-p, --annot-prefix` option is now applied before doing anything else
       which allows its use with `-f, --format` and `-c, --columns` options.
-    
+
     - Some consequence field names may not constitute a valid tag name, such
       as "pos(1-based)". Newly field names are trimmed to exclude brackets.
 
@@ -421,7 +536,7 @@ Changes affecting specific commands:
 
 * bcftools csq:
 
-    - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too 
+    - Fix a bug wich caused incorrect FORMAT/BCSQ formatting at sites with too
       many per-sample consequences
 
     - Fix a bug which incorrectly handled the --ncsq parameter and could clash

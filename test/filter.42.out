@@ -1,0 +1,35 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype Likelihood">
+##FILTER=<ID=q10,Description="Quality below 10">
+##test=<xx=A,yy=B,zz=C>
+##reference=file:///lustre/scratch105/projects/g1k/ref/main_project/human_g1k_v37.fasta
+##contig=<ID=1,assembly=b37,length=249250621>
+##contig=<ID=2,assembly=b37,length=249250621>
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##readme=AAAAAA
+##readme=BBBBBB
+##FILTER=<ID=xxx,Description="Record masked by region">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	A
+1	1000	.	G	A	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	1001	.	G	A	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	1003	.	GT	G	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	1006	.	G	A	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	1007	.	G	A	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	2000	.	T	C	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	2001	.	T	C	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	2003	.	T	TC	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	2005	.	T	C	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+1	2006	.	T	C	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+2	1001	.	GT	G	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+2	1004	.	GT	G	1806	xxx	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+2	1008	.	GT	G	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+2	2001	.	A	AT	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+2	2003	.	A	AT	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20
+2	2006	.	A	AT	1806	PASS	DP=35;DP4=1,2,3,4;AN=2;AC=1	GT:GQ:DP:GL	0/1:409:35:-20,-5,-20

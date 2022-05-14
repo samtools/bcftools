@@ -1,0 +1,7 @@
+##fileformat=VCFv4.1
+##reference=file:///seq/references/1000Genomes-NCBI37.fasta
+##contig=<ID=1>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	123	rs123	A	.	.	.	.
+1	124	ss124;abc	A	.	.	.	.
+1	125	.	A	.	.	.	.

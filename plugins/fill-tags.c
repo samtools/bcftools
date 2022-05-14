@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2015-2021 Genome Research Ltd.
+   Copyright (c) 2015-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -56,7 +56,8 @@
 
 typedef struct _args_t args_t;
 typedef struct _ftf_t ftf_t;
-typedef int (*fill_tag_f)(args_t *, bcf1_t *, ftf_t *);
+typedef struct _pop_t pop_t;
+typedef int (*fill_tag_f)(args_t *, bcf1_t *, pop_t *, ftf_t *);
 struct _ftf_t
 {
     char *src_tag, *dst_tag;
@@ -65,6 +66,8 @@ struct _ftf_t
     int32_t *ival;
     int nfval, nival;
     int type, len, cnt;     // VCF type (e.g. BCF_HT_REAL); length (BCF_VL_FIXED); count (e.g. 1)
+    int info;               // filling INFO or FORMAT?
+    filter_t *filter;
 };
 
 typedef struct
@@ -73,16 +76,16 @@ typedef struct
 }
 counts_t;
 
-typedef struct
+struct _pop_t
 {
     int ns;
     int ncounts, mcounts;
     counts_t *counts;
     char *name, *suffix;
     int nsmpl, *smpl;
-    filter_t *filter;
-}
-pop_t;
+    ftf_t *ftf;
+    int nftf;
+};
 
 struct _args_t
 {
@@ -95,8 +98,6 @@ struct _args_t
     int mhwe_probs;
     kstring_t str;
     kbitset_t *bset;
-    ftf_t *ftf;
-    int nftf;
 };
 
 static args_t *args;
@@ -108,7 +109,7 @@ const char *about(void)
 
 const char *usage(void)
 {
-    return 
+    return
         "\n"
         "About: Set INFO tags AF, AC, AC_Hemi, AC_Hom, AC_Het, AN, ExcHet, HWE, MAF, NS\n"
         "       FORMAT tag VAF, custom INFO/TAG=func(FMT/TAG).\n"
@@ -137,7 +138,10 @@ const char *usage(void)
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -S sample-group.txt -t HWE\n"
         "\n"
         "   # Calculate total read depth (INFO/DP) from per-sample depths (FORMAT/DP)\n"
-        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP:1=int(sum(DP))'\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'DP:1=int(sum(FORMAT/DP))'\n"
+        "\n"
+        "   # Calculate per-sample read depth (FORMAT/DP) from per-sample allelic depths (FORMAT/AD)\n"
+        "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t 'FORMAT/DP:1=int(smpl_sum(FORMAT/AD))'\n"
         "\n"
         "   # Annotate with allelic fraction\n"
         "   bcftools +fill-tags in.bcf -Ob -o out.bcf -- -t FORMAT/VAF\n"
@@ -172,7 +176,7 @@ void parse_samples(args_t *args, char *fname)
         smpl = str.s;
 
         int ismpl = bcf_hdr_id2int(args->in_hdr,BCF_DT_SAMPLE,smpl);
-        if ( ismpl<0 ) 
+        if ( ismpl<0 )
         {
             fprintf(stderr,"Warning: The sample not present in the VCF: %s\n",smpl);
             continue;
@@ -250,34 +254,35 @@ void init_pops(args_t *args)
     }
 }
 
-void ftf_destroy(args_t *args)
+void ftf_destroy(pop_t *pop)
 {
     int i;
-    for (i=0; i<args->nftf; i++)
+    for (i=0; i<pop->nftf; i++)
     {
-        ftf_t *ftf = &args->ftf[i];
+        ftf_t *ftf = &pop->ftf[i];
         free(ftf->src_tag);
         free(ftf->dst_tag);
         free(ftf->fval);
         free(ftf->ival);
+        if ( ftf->filter ) filter_destroy(ftf->filter);
     }
-    free(args->ftf);
+    free(pop->ftf);
 }
-int ftf_filter_expr(args_t *args, bcf1_t *rec, ftf_t *ftf)
+int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
 {
-    int i,j, nval, nval1;
-    for (i=0; i<args->npop; i++)
+    int j,k, nval, nval1;
+
+    args->str.l = 0;
+    ksprintf(&args->str, "%s%s", ftf->dst_tag,pop->suffix);
+
+    filter_test(ftf->filter, rec, NULL);
+    const double *val = filter_get_doubles(ftf->filter,&nval,&nval1);
+
+    int ret;
+    if ( ftf->info )
     {
-        args->str.l = 0;
-        ksprintf(&args->str, "%s%s", ftf->dst_tag,args->pop[i].suffix);
-
-        filter_test(args->pop[i].filter, rec, NULL);
-        const double *val = filter_get_doubles(args->pop[i].filter,&nval,&nval1);
-
         int nfill = ftf->len==BCF_VL_FIXED ? ftf->cnt : nval;
-        int ncopy = nval < nfill ? nval : nfill;
-        int ret;
-
+        int ncopy = nval < nfill ? nval : nfill;    // number of values available, the rest is filled with missing values
         if ( ftf->type==BCF_HT_REAL )
         {
             hts_expand(float,nfill,ftf->nfval,ftf->fval);
@@ -292,9 +297,38 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, ftf_t *ftf)
             for (; j<nfill; j++) ftf->ival[j] = bcf_int32_missing;
             ret = bcf_update_info_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill);
         }
-        if ( ret )
-            error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
     }
+    else
+    {
+        int nfill = ftf->len==BCF_VL_FIXED ? ftf->cnt : nval1;
+        int ncopy = nval1 < nfill ? nval1 : nfill;
+        if ( ftf->type==BCF_HT_REAL )
+        {
+            hts_expand(float,nfill*rec->n_sample,ftf->nfval,ftf->fval);
+            for (k=0; k<rec->n_sample; k++)
+            {
+                float *dst  = ftf->fval + k*nval1;
+                const double *src = val + k*nval1;
+                for (j=0; j<ncopy; j++) dst[j] = src[j];
+                for (; j<nfill; j++) bcf_float_set_missing(dst[j]);
+            }
+            ret = bcf_update_format_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill*rec->n_sample);
+        }
+        else
+        {
+            hts_expand(int32_t,nfill*rec->n_sample,ftf->nival,ftf->ival);
+            for (k=0; k<rec->n_sample; k++)
+            {
+                int32_t *dst = ftf->ival + k*nval1;
+                const double *src  = val + k*nval1;
+                for (j=0; j<ncopy; j++) dst[j] = (int)src[j];
+                for (; j<nfill; j++) dst[j] = bcf_int32_missing;
+            }
+            ret = bcf_update_format_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill*rec->n_sample);
+        }
+    }
+    if ( ret )
+        error("Error occurred while updating %s at %s:%"PRId64"\n", args->str.s,bcf_seqname(args->in_hdr,rec),(int64_t) rec->pos+1);
     return 0;
 }
 void hdr_append(args_t *args, char *fmt)
@@ -303,19 +337,24 @@ void hdr_append(args_t *args, char *fmt)
     for (i=0; i<args->npop; i++)
         bcf_hdr_printf(args->out_hdr, fmt, args->pop[i].suffix,*args->pop[i].name ? " in " : "",args->pop[i].name);
 }
-int parse_func(args_t *args, char *tag_expr, char *expr)
+int parse_func_pop(args_t *args, pop_t *pop, char *tag_expr, char *expr)
 {
-    args->nftf++;
-    args->ftf = (ftf_t *)realloc(args->ftf,sizeof(*args->ftf)*args->nftf);
-    ftf_t *ftf = &args->ftf[ args->nftf - 1 ];
+    pop->nftf++;
+    pop->ftf = (ftf_t *)realloc(pop->ftf,sizeof(*pop->ftf)*pop->nftf);
+    ftf_t *ftf = &pop->ftf[ pop->nftf - 1 ];
     memset(ftf,0,sizeof(ftf_t));
     ftf->type = BCF_HT_REAL;
     ftf->len  = BCF_VL_VAR;
     ftf->cnt  = 0;
+    ftf->info = 1;
 
     char *end = strchr(tag_expr,'=');
-    ftf->dst_tag = (char*)calloc(end-tag_expr+1,1);
-    memcpy(ftf->dst_tag, tag_expr, end-tag_expr);
+    char *beg = tag_expr;
+    if ( !strncasecmp("info/",tag_expr,5) ) beg += 5;
+    else if ( !strncasecmp("format/",tag_expr,7) ) { beg += 7; ftf->info = 0; }
+    else if ( !strncasecmp("fmt/",tag_expr,4) ) { beg += 4; ftf->info = 0; }
+    ftf->dst_tag = (char*)calloc(end-beg+1,1);
+    memcpy(ftf->dst_tag, beg, end-beg);
     char *tmp, *cnt = strchr(ftf->dst_tag,':');
     if ( cnt )
     {
@@ -340,58 +379,75 @@ int parse_func(args_t *args, char *tag_expr, char *expr)
     ftf->func = ftf_filter_expr;
     uint8_t *samples = (uint8_t*)calloc(bcf_hdr_nsamples(args->in_hdr),1);
 
-    int i,j;
-    for (i=0; i<args->npop; i++)
+    args->str.l = 0;
+    ksprintf(&args->str, "%s%s", ftf->dst_tag,pop->suffix);
+    int id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,args->str.s);
+    int update_hdr = 1;
+    if ( ftf->info && bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_INFO,id) )
+    {
+        if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_INFO,id)!=ftf->len )
+            error("Error: the field INFO/%s already exists and its Number definition is different\n",args->str.s);
+        if ( ftf->len==BCF_VL_FIXED && bcf_hdr_id2number(args->in_hdr,BCF_HL_INFO,id)!=ftf->cnt )
+            error("Error: the field INFO/%s already exists and its Number definition is different from %d\n",args->str.s,ftf->cnt);
+        if ( bcf_hdr_id2type(args->in_hdr,BCF_HT_INT,id)!=ftf->type )
+            error("Error: the field INFO/%s already exists and its Type definition is different\n",args->str.s);
+        update_hdr = 0;
+    }
+    else if ( !ftf->info && bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
+    {
+        if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_FMT,id)!=ftf->len )
+            error("Error: the field FORMAT/%s already exists and its Number definition is different\n",args->str.s);
+        if ( ftf->len==BCF_VL_FIXED && bcf_hdr_id2number(args->in_hdr,BCF_HL_FMT,id)!=ftf->cnt )
+            error("Error: the field FORMAT/%s already exists and its Number definition is different from %d\n",args->str.s,ftf->cnt);
+        if ( bcf_hdr_id2type(args->in_hdr,BCF_HT_INT,id)!=ftf->type )
+            error("Error: the field FORMAT/%s already exists and its Type definition is different\n",args->str.s);
+        update_hdr = 0;
+    }
+    if ( update_hdr )
     {
         args->str.l = 0;
-        ksprintf(&args->str, "%s%s", ftf->dst_tag,args->pop[i].suffix);
-        int id = bcf_hdr_id2int(args->in_hdr,BCF_DT_ID,args->str.s);
-        if ( bcf_hdr_idinfo_exists(args->in_hdr,BCF_HL_FMT,id) )
+        ksprintf(&args->str, "##%s=<ID=%s%s,Number=", ftf->info?"INFO":"FORMAT",ftf->dst_tag,pop->suffix);
+        if ( ftf->len==BCF_VL_FIXED ) kputw(ftf->cnt, &args->str);
+        else kputc('.', &args->str);
+        kputs(",Type=", &args->str);
+        if ( ftf->type==BCF_HT_INT ) kputs("Integer", &args->str);
+        else kputs("Float", &args->str);
+        kputs(",Description=\"Added by +fill-tags expression ", &args->str);
+        // escape quotes
+        char *tmp = tag_expr;
+        while ( *tmp )
         {
-            if ( bcf_hdr_id2length(args->in_hdr,BCF_HL_FMT,id)!=ftf->len )
-                error("Error: the field INFO/%s already exists and its Number definition is different\n",args->str.s);
-            if ( ftf->len==BCF_VL_FIXED && bcf_hdr_id2number(args->in_hdr,BCF_HL_FMT,id)!=ftf->cnt )
-                error("Error: the field INFO/%s already exists and its Number definition is different from %d\n",args->str.s,ftf->cnt);
-            if ( bcf_hdr_id2type(args->in_hdr,BCF_HT_INT,id)!=ftf->type )
-                error("Error: the field INFO/%s already exists and its Type definition is different\n",args->str.s);
+            if ( *tmp=='"' ) kputc('\\', &args->str);
+            kputc(*tmp, &args->str);
+            tmp++;
         }
-        else
+        if ( *pop->name )
         {
-            args->str.l = 0;
-            ksprintf(&args->str, "##INFO=<ID=%s%s,Number=", ftf->dst_tag,args->pop[i].suffix);
-            if ( ftf->len==BCF_VL_FIXED ) kputw(ftf->cnt, &args->str);
-            else kputc('.', &args->str);
-            kputs(",Type=", &args->str);
-            if ( ftf->type==BCF_HT_INT ) kputs("Integer", &args->str);
-            else kputs("Float", &args->str);
-            kputs(",Description=\"Added by +fill-tags expression ", &args->str);
-            // escape quotes
-            char *tmp = tag_expr;
-            while ( *tmp )
-            {
-                if ( *tmp=='"' ) kputc('\\', &args->str);
-                kputc(*tmp, &args->str);
-                tmp++;
-            }
-            if ( *args->pop[i].name )
-            {
-                kputs(" in ", &args->str);
-                kputs(args->pop[i].name, &args->str);
-            }
-            kputs("\">", &args->str);
-            bcf_hdr_append(args->out_hdr, args->str.s);
+            kputs(" in ", &args->str);
+            kputs(pop->name, &args->str);
         }
-        args->pop[i].filter = filter_init(args->in_hdr, filter);
-        memset(samples,0,sizeof(*samples)*bcf_hdr_nsamples(args->in_hdr));
-        if ( *args->pop[i].name )
-        {
-            for (j=0; j<args->pop[i].nsmpl; j++) samples[ args->pop[i].smpl[j] ] = 1;
-            filter_set_samples(args->pop[i].filter, samples);
-        }
+        kputs("\">", &args->str);
+        bcf_hdr_append(args->out_hdr, args->str.s);
+    }
+    ftf->filter = filter_init(args->in_hdr, filter);
+    args->unpack |= filter_max_unpack(ftf->filter);
+    memset(samples,0,sizeof(*samples)*bcf_hdr_nsamples(args->in_hdr));
+    if ( *pop->name )
+    {
+        int j;
+        for (j=0; j<pop->nsmpl; j++) samples[ pop->smpl[j] ] = 1;
+        filter_set_samples(ftf->filter, samples);
     }
     free(samples);
     free(filter);
     return SET_FUNC;
+}
+int parse_func(args_t *args, char *tag_expr, char *expr)
+{
+    int i, ret = 0;
+    for (i=0; i<args->npop; i++)
+        ret |= parse_func_pop(args,&args->pop[i],tag_expr,expr);
+    return ret;
 }
 int parse_tags(args_t *args, const char *str)
 {
@@ -474,7 +530,7 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     int c;
     while ((c = getopt_long(argc, argv, "?ht:dS:l",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'l': list_tags(); break;
             case 'd': args->drop_missing = 1; break;
@@ -509,14 +565,20 @@ int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out)
     if ( args->tags & SET_END ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the variant\">");
     if ( args->tags & SET_TYPE ) bcf_hdr_printf(args->out_hdr, "##INFO=<ID=TYPE,Number=.,Type=String,Description=\"Variant type\">");
     if ( args->tags & SET_ExcHet ) hdr_append(args, "##INFO=<ID=ExcHet%s,Number=A,Type=Float,Description=\"Test excess heterozygosity%s%s; 1=good, 0=bad\">");
-    if ( args->tags & SET_VAF ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF,Number=A,Type=Float,Description=\"The fraction of reads with alternate allele (nALT/nSumAll)\"");
-    if ( args->tags & SET_VAF1 ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF1,Number=1,Type=Float,Description=\"The fraction of reads with alternate alleles (nSumALT/nSumAll)\"");
+    if ( args->tags & SET_VAF ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF,Number=A,Type=Float,Description=\"The fraction of reads with alternate allele (nALT/nSumAll)\">");
+    if ( args->tags & SET_VAF1 ) bcf_hdr_append(args->out_hdr, "##FORMAT=<ID=VAF1,Number=1,Type=Float,Description=\"The fraction of reads with alternate alleles (nSumALT/nSumAll)\">");
+
+    int i, max_unpack_bit = 0;
+    for (i=0; i<=3; i++)
+        if ( args->unpack & (1<<i) ) max_unpack_bit = i;
+    for (i=0; i<=max_unpack_bit; i++)
+        args->unpack |= 1<<i;
 
     return 0;
 }
 
-/* 
-    Wigginton 2005, PMID: 15789306 
+/*
+    Wigginton 2005, PMID: 15789306
 
     nref .. number of reference alleles
     nalt .. number of alt alleles
@@ -618,12 +680,7 @@ static int cmpfloat_desc(const void *a, const void *b)
 }
 static void process_fmt(bcf1_t *rec)
 {
-    bcf_unpack(rec, BCF_UN_FMT);
-
     int i,j, nsmpl = bcf_hdr_nsamples(args->in_hdr);;
-
-    for (i=0; i<args->nftf; i++)
-        args->ftf[i].func(args, rec, &args->ftf[i]);
 
     bcf_fmt_t *fmt_gt = NULL;
     for (i=0; i<rec->n_fmt; i++)
@@ -696,7 +753,7 @@ static void process_fmt(bcf1_t *rec)
         {
             pop_t *pop = &args->pop[i];
             int32_t an = 0;
-            for (j=0; j<rec->n_allele; j++) 
+            for (j=0; j<rec->n_allele; j++)
                 an += pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
 
             args->str.l = 0;
@@ -713,7 +770,7 @@ static void process_fmt(bcf1_t *rec)
             if ( rec->n_allele > 1 )
             {
                 pop_t *pop = &args->pop[i];
-                for (j=0; j<rec->n_allele; j++) 
+                for (j=0; j<rec->n_allele; j++)
                 {
                     args->farr[j] = pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
                     an += args->farr[j];
@@ -747,7 +804,7 @@ static void process_fmt(bcf1_t *rec)
             if ( rec->n_allele > 1 )
             {
                 pop_t *pop = &args->pop[i];
-                for (j=0; j<rec->n_allele; j++) 
+                for (j=0; j<rec->n_allele; j++)
                     args->iarr[j] = pop->counts[j].nhet + pop->counts[j].nhom + pop->counts[j].nhemi + pop->counts[j].nac;
             }
             args->str.l = 0;
@@ -764,7 +821,7 @@ static void process_fmt(bcf1_t *rec)
             {
                 pop_t *pop = &args->pop[i];
                 memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                     args->iarr[j-1] += pop->counts[j].nhet;
             }
             args->str.l = 0;
@@ -781,7 +838,7 @@ static void process_fmt(bcf1_t *rec)
             {
                 pop_t *pop = &args->pop[i];
                 memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                     args->iarr[j-1] += pop->counts[j].nhom;
             }
             args->str.l = 0;
@@ -798,7 +855,7 @@ static void process_fmt(bcf1_t *rec)
             {
                 pop_t *pop = &args->pop[i];
                 memset(args->iarr, 0, sizeof(*args->iarr)*(rec->n_allele-1));
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                     args->iarr[j-1] += pop->counts[j].nhemi;
             }
             args->str.l = 0;
@@ -819,7 +876,7 @@ static void process_fmt(bcf1_t *rec)
                 memset(args->farr,  0, sizeof(*args->farr)*(2*rec->n_allele));
                 int nref_tot = pop->counts[0].nhom;
                 for (j=0; j<rec->n_allele; j++) nref_tot += pop->counts[j].nhet;   // NB this neglects multiallelic genotypes
-                for (j=1; j<rec->n_allele; j++) 
+                for (j=1; j<rec->n_allele; j++)
                 {
                     int nref = nref_tot - pop->counts[j].nhet;
                     int nalt = pop->counts[j].nhet + pop->counts[j].nhom;
@@ -920,6 +977,13 @@ static void process_vaf_vaf1(bcf1_t *rec)
 
 bcf1_t *process(bcf1_t *rec)
 {
+    int i,j;
+
+    bcf_unpack(rec, args->unpack);
+    for (i=0; i<args->npop; i++)
+        for (j=0; j<args->pop[i].nftf; j++)
+            args->pop[i].ftf[j].func(args, rec, &args->pop[i], &args->pop[i].ftf[j]);
+
     if ( args->unpack & BCF_UN_FMT )
     {
         process_fmt(rec);
@@ -956,14 +1020,14 @@ bcf1_t *process(bcf1_t *rec)
 
 void destroy(void)
 {
-    int i; 
+    int i;
     for (i=0; i<args->npop; i++)
     {
         free(args->pop[i].name);
         free(args->pop[i].suffix);
         free(args->pop[i].smpl);
         free(args->pop[i].counts);
-        if ( args->pop[i].filter ) filter_destroy(args->pop[i].filter);
+        ftf_destroy(&args->pop[i]);
     }
     kbs_destroy(args->bset);
     free(args->str.s);
@@ -972,7 +1036,6 @@ void destroy(void)
     free(args->iarr);
     free(args->farr);
     free(args->hwe_probs);
-    ftf_destroy(args);
     free(args);
 }
 

@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2019-2021 Genome Research Ltd.
+   Copyright (c) 2019-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -180,7 +180,7 @@ static const char *default_column_types(void)
 }
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Query structured annotations such INFO/CSQ created by bcftools/csq or VEP. For more\n"
         "   more information and pointers see http://samtools.github.io/bcftools/howtos/plugin.split-vep.html\n"
@@ -384,14 +384,52 @@ static int query_has_field(char *fmt, char *field, kstring_t *str)
     }
     return 1;
 }
+/**
+   The valid_tag array was generated with
+        perl -le '@v = (split(//,q[_.]),"a"..."z","A"..."Z","0"..."9"); @a = (0) x 256; foreach $c (@v) { $a[ord($c)] = 1; } print join(", ",@a)' | fold -w 48
+*/
+static const uint8_t valid_tag[256] =
+{
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+static void sanitize_field_name(char *fmt)
+{
+    while ( *fmt )
+    {
+        if ( !valid_tag[(uint8_t)*fmt] ) *fmt = '_';
+        fmt++;
+    }
+}
 char *strdup_annot_prefix(args_t *args, const char *str)
 {
-    if ( !args->annot_prefix ) return strdup(str);
+    char *out;
+    if ( !args->annot_prefix )
+    {
+        out = strdup(str);
+        sanitize_field_name(out);
+        return out;
+    }
     int str_len = strlen(str);
     int prefix_len = strlen(args->annot_prefix);
-    char *out = calloc(str_len+prefix_len+1,1);
+    out = calloc(str_len+prefix_len+1,1);
     memcpy(out,args->annot_prefix,prefix_len);
     memcpy(out+prefix_len,str,str_len);
+    sanitize_field_name(out);
     return out;
 }
 static void init_data(args_t *args)
@@ -587,7 +625,7 @@ static void init_data(args_t *args)
                 if ( keep ) ksprintf(&str,",%s",ep+1);
                 free(args->column_str);
                 args->column_str = str.s;
-                ep = str.s; 
+                ep = str.s;
                 continue;
             }
             char *tmp = strdup_annot_prefix(args, bp);
@@ -637,7 +675,7 @@ static void init_data(args_t *args)
                         ep++;
                         continue;
                     }
-                    else 
+                    else
                         error("No such column: \"%s\"\n", bp);
                 }
             }
@@ -957,7 +995,7 @@ static void process_record(args_t *args, bcf1_t *rec)
     int len = bcf_get_info_string(args->hdr,rec,args->vep_tag,&args->csq_str,&args->ncsq_str);
     if ( len<=0 )
     {
-        if ( !args->drop_sites ) 
+        if ( !args->drop_sites )
         {
             annot_reset(args->annot, args->nannot);
             filter_and_output(args,rec,1,1);
@@ -1015,7 +1053,7 @@ static void process_record(args_t *args, bcf1_t *rec)
             else
                 annot_append(ann, "."); // missing value
         }
-        
+
         if ( args->duplicate )
         {
             filter_and_output(args, rec, severity_pass, all_missing);
@@ -1071,7 +1109,7 @@ int run(int argc, char **argv)
     char *tmp;
     while ((c = getopt_long(argc, argv, "o:O:i:e:r:R:t:T:lS:s:c:p:a:f:dA:xu",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case  2 : args->record_cmd_line = 0; break;
             case  1 : args->column_types = optarg; break;
@@ -1120,16 +1158,12 @@ int run(int argc, char **argv)
                       }
                       break;
             case  3 :
-                if ( !strcasecmp(optarg,"0") ) args->regions_overlap = 0;
-                else if ( !strcasecmp(optarg,"1") ) args->regions_overlap = 1;
-                else if ( !strcasecmp(optarg,"2") ) args->regions_overlap = 2;
-                else error("Could not parse: --regions-overlap %s\n",optarg);
+                args->regions_overlap = parse_overlap_option(optarg);
+                if ( args->regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
                 break;
             case  4 :
-                if ( !strcasecmp(optarg,"0") ) args->targets_overlap = 0;
-                else if ( !strcasecmp(optarg,"1") ) args->targets_overlap = 1;
-                else if ( !strcasecmp(optarg,"2") ) args->targets_overlap = 2;
-                else error("Could not parse: --targets-overlap %s\n",optarg);
+                args->targets_overlap = parse_overlap_option(optarg);
+                if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
                 break;
             case 'h':
             case '?':

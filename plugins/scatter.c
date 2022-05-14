@@ -50,6 +50,7 @@ typedef struct
     regidx_t *reg_idx;
     regitr_t *reg_itr;
     int argc, region_is_file, target_is_file, nsites, chunk_cnt, rec_cnt, scatter_is_file, output_type, n_threads, clevel;
+    int regions_overlap, targets_overlap;
     char **argv, *region, *target, *scatter, *fname, *prefix, *extra, *output_dir;
     bcf_srs_t *sr;
     kstring_t str;
@@ -82,8 +83,10 @@ static const char *usage_text(void)
         "       --threads INT               Use multithreading with INT worker threads [0]\n"
         "   -r, --regions REGION            Restrict to comma-separated list of regions\n"
         "   -R, --regions-file FILE         Restrict to regions listed in a file\n"
+        "       --regions-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [1]\n"
         "   -t, --targets [^]REGION         Similar to -r but streams rather than index-jumps. Exclude regions with \"^\" prefix\n"
         "   -T, --targets-file [^]FILE      Similar to -R but streams rather than index-jumps. Exclude regions with \"^\" prefix\n"
+        "       --targets-overlap 0|1|2     Include if POS in the region (0), record overlaps (1), variant overlaps (2) [0]\n"
         "   -n, --nsites-per-chunk INT      Keep N sites for each chunk\n"
         "   -s, --scatter REGION            Comma-separated list of regions defining variant windows for each output VCF\n"
         "   -S, --scatter-file FILE         Regions listed in a file with an optional second column used to name each output VCF.\n"
@@ -201,11 +204,16 @@ static void init_data(args_t *args)
     if ( args->region )
     {
         args->sr->require_index = 1;
+        bcf_sr_set_opt(args->sr, BCF_SR_REGIONS_OVERLAP, args->regions_overlap);
         if ( bcf_sr_set_regions(args->sr, args->region, args->region_is_file)<0 )
             error("Failed to read the regions: %s\n", args->region);
     }
-    if ( args->target && bcf_sr_set_targets(args->sr, args->target, args->target_is_file, 0)<0 )
-        error("Failed to read the targets: %s\n", args->target);
+    if ( args->target )
+    {
+        bcf_sr_set_opt(args->sr, BCF_SR_TARGETS_OVERLAP, args->targets_overlap);
+        if ( bcf_sr_set_targets(args->sr, args->target, args->target_is_file, 0)<0 )
+            error("Failed to read the targets: %s\n", args->target);
+    }
     if ( bcf_sr_set_threads(args->sr, args->n_threads)<0 ) error("Failed to create threads\n");
     if ( !bcf_sr_add_reader(args->sr, args->fname) ) error("Error: %s\n", bcf_sr_strerror(args->sr->errnum));
 
@@ -285,7 +293,7 @@ static void process(args_t *args)
           args->chunk_cnt++;
         }
     } else {
-        if ( regidx_overlap(args->reg_idx, bcf_hdr_id2name(hdr, rec->rid), rec->pos, rec->pos + rec->rlen-1, args->reg_itr) ) {
+        if ( regidx_overlap(args->reg_idx, bcf_hdr_id2name(hdr, rec->rid), rec->pos, rec->pos, args->reg_itr) ) {
             while (regitr_overlap(args->reg_itr)) {
                 int idx = regitr_payload(args->reg_itr, int);
                 set = &args->sets[idx];
@@ -304,6 +312,8 @@ int run(int argc, char **argv)
     args->argc   = argc; args->argv = argv;
     args->output_type  = FT_VCF;
     args->record_cmd_line = 1;
+    args->regions_overlap = 1;
+    args->targets_overlap = 0;
     args->clevel = -1;
     static struct option loptions[] =
     {
@@ -315,14 +325,16 @@ int run(int argc, char **argv)
         {"threads",required_argument,NULL,2},
         {"regions",required_argument,NULL,'r'},
         {"regions-file",required_argument,NULL,'R'},
-        {"targets", required_argument, NULL, 't'},
-        {"targets-file", required_argument, NULL, 'T'},
+        {"regions-overlap",required_argument,NULL,3},
+        {"targets", required_argument, NULL,'t'},
+        {"targets-file", required_argument, NULL,'T'},
+        {"targets-overlap",required_argument,NULL,4},
         {"nsites-per-chunk",required_argument,NULL,'n'},
         {"scatter",required_argument,NULL,'s'},
         {"scatter-file",required_argument,NULL,'S'},
         {"extra",required_argument,NULL,'x'},
         {"prefix",required_argument,NULL,'p'},
-        {"hts-opts",required_argument,NULL,3},
+        {"hts-opts",required_argument,NULL,5},
         {NULL,0,NULL,0}
     };
     int c;
@@ -340,28 +352,36 @@ int run(int argc, char **argv)
             case  1 : args->record_cmd_line = 0; break;
             case 'o': args->output_dir = optarg; break;
             case 'O':
-                      switch (optarg[0]) {
-                          case 'b': args->output_type = FT_BCF_GZ; break;
-                          case 'u': args->output_type = FT_BCF; break;
-                          case 'z': args->output_type = FT_VCF_GZ; break;
-                          case 'v': args->output_type = FT_VCF; break;
-                          default:
-                          {
-                              args->clevel = strtol(optarg,&tmp,10);
-                              if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
-                          }
-                      }
-                      if ( optarg[1] )
-                      {
-                          args->clevel = strtol(optarg+1,&tmp,10);
-                          if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
-                      }
-                      break;
+                switch (optarg[0]) {
+                    case 'b': args->output_type = FT_BCF_GZ; break;
+                    case 'u': args->output_type = FT_BCF; break;
+                    case 'z': args->output_type = FT_VCF_GZ; break;
+                    case 'v': args->output_type = FT_VCF; break;
+                    default:
+                    {
+                        args->clevel = strtol(optarg,&tmp,10);
+                        if ( *tmp || args->clevel<0 || args->clevel>9 ) error("The output type \"%s\" not recognised\n", optarg);
+                    }
+                }
+                if ( optarg[1] )
+                {
+                    args->clevel = strtol(optarg+1,&tmp,10);
+                    if ( *tmp || args->clevel<0 || args->clevel>9 ) error("Could not parse argument: --compression-level %s\n", optarg+1);
+                }
+                break;
             case  2 : args->n_threads = strtol(optarg, 0, 0); break;
             case 'r': args->region = optarg; break;
             case 'R': args->region = optarg; args->region_is_file = 1;  break;
+            case  3 :
+                args->regions_overlap = parse_overlap_option(optarg);
+                if ( args->regions_overlap < 0 ) error("Could not parse: --regions-overlap %s\n",optarg);
+                break;
             case 't': args->target = optarg; break;
             case 'T': args->target = optarg; args->target_is_file = 1; break;
+            case  4 :
+                args->targets_overlap = parse_overlap_option(optarg);
+                if ( args->targets_overlap < 0 ) error("Could not parse: --targets-overlap %s\n",optarg);
+                break;
             case 'n':
                 args->nsites = strtod(optarg, &tmp);
                 if ( tmp==optarg || *tmp ) error("Could not parse: --nsites-per-chunk %s\n", optarg);
@@ -371,7 +391,7 @@ int run(int argc, char **argv)
             case 'S': args->scatter = optarg; args->scatter_is_file = 1;  break;
             case 'x': args->extra = optarg;  break;
             case 'p': args->prefix = optarg;  break;
-            case  3 : args->hts_opts = hts_readlist(optarg, 0, &args->nhts_opts); break;
+            case  5 : args->hts_opts = hts_readlist(optarg, 0, &args->nhts_opts); break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;

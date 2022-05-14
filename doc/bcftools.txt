@@ -85,6 +85,7 @@ list of available options, run *bcftools* 'COMMAND' without arguments.
 - *<<csq,csq>>*       ..  haplotype aware consequence caller
 - *<<filter,filter>>*    ..  filter VCF/BCF files using fixed thresholds
 - *<<gtcheck,gtcheck>>*   ..  check sample concordance, detect sample swaps and contamination
+- *<<head,head>>*      ..  view VCF/BCF file headers
 - *<<index,index>>*     ..  index VCF/BCF
 - *<<isec,isec>>*      ..  intersections of VCF/BCF files
 - *<<merge,merge>>*     ..  merge VCF/BCF files files from non-overlapping sample sets
@@ -209,18 +210,20 @@ specific commands to see if they apply.
     This option requires indexed VCF/BCF files. Note that *-R* cannot be used
     in combination with *-r*.
 
-*--regions-overlap* '0'|'1'|'2'::
+*--regions-overlap* 'pos'|'record'|'variant'|'0'|'1'|'2'::
     This option controls how overlapping records are determined:
-    set to *0* if the VCF record has to have POS inside a region
-    (this corresponds to the default behavior of *-t/-T*); 
-    set to *1* if also overlapping records with POS outside a region
-    should be included (this is the default behavior of *-r/-R*); or set
-    to *2* to include only true overlapping variation (compare
+    set to *pos* or *0* if the VCF record has to have POS inside a region
+    (this corresponds to the default behavior of *-t/-T*);
+    set to *record* or *1* if also overlapping records with POS outside a region
+    should be included (this is the default behavior of *-r/-R*, and includes indels
+    with POS at the end of a region, which are technically outside the region); or set
+    to *variant* or *2* to include only true overlapping variation (compare
     the full VCF representation "`TA>T-`" vs the true sequence variation "`A>-`").
 
-*-s, --samples* \[&#94;]'LIST'::
+*-s, --samples* \[^]'LIST'::
     Comma-separated list of samples to include or exclude if prefixed
-    with "&#94;".
+    with "^." (Note that when multiple samples are to be excluded,
+    the "^" prefix is still present only once, e.g.  "^SAMPLE1,SAMPLE2".)
     The sample order is updated to reflect that given on the command line.
     Note that in general tags such as INFO/AC, INFO/AN, etc are not updated
     to correspond to the subset samples. *<<view,bcftools view>>* is the
@@ -232,8 +235,8 @@ specific commands to see if they apply.
     bcftools view -Ou -s sample1,sample2 file.vcf | bcftools query -f %INFO/AC\t%INFO/AN\n
 ----
 
-*-S, --samples-file* [&#94;]'FILE'[[samples_file]]::
-    File of sample names to include or exclude if prefixed with "&#94;".
+*-S, --samples-file* \[^]'FILE'[[samples_file]]::
+    File of sample names to include or exclude if prefixed with "^".
     One sample per line. See also the note above for the *-s, --samples*
     option.
     The sample order is updated to reflect that given in the input file.
@@ -263,20 +266,21 @@ The program ignores the first column and the last indicates sex (1=male, 2=femal
     ignored_column  sonB      fatherB  motherB  1
 ----
 
-*-t, --targets* \[&#94;]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
+*-t, --targets* \[^]'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     Similar as *-r, --regions*, but the next position is accessed by streaming the
     whole VCF/BCF rather than using the tbi/csi index. Both *-r* and *-t* options
     can be applied simultaneously: *-r*  uses  the index  to  jump  to  a  region
     and *-t* discards positions which are not in the targets. Unlike *-r*, targets
-    can be prefixed with "&#94;" to request logical complement. For example, "&#94;X,Y,MT"
+    can be prefixed with "^" to request logical complement. For example, "^X,Y,MT"
     indicates that sequences X, Y and MT should be skipped.
     Yet another difference between the *-t/-T* and *-r/-R* is that *-r/-R* checks for
     proper overlaps and considers both POS and the end position of an indel, while *-t/-T*
-    considers the POS coordinate only. Note that *-t* cannot be used in combination with *-T*.
+    considers the POS coordinate only (by default; see also *--regions-overlap* and *--targets-overlap*).
+    Note that *-t* cannot be used in combination with *-T*.
 
-*-T, --targets-file* \[&#94;]'FILE'::
+*-T, --targets-file* \[^]'FILE'::
     Same *-t, --targets*, but reads regions from a file. Note that *-T*
-    cannot be used in combination with *-t*. 
+    cannot be used in combination with *-t*.
 +
 With the *call -C* 'alleles' command, third column of the targets file must
 be comma-separated list of alleles, starting with the reference allele.
@@ -287,7 +291,7 @@ Such a file can be easily created from a VCF using:
     bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' file.vcf | bgzip -c > als.tsv.gz && tabix -s1 -b2 -e2 als.tsv.gz
 ----
 
-*--targets-overlap* '0'|'1'|'2'::
+*--targets-overlap* 'pos'|'record'|'variant'|'0'|'1'|'2'::
     Same as *--regions-overlap* but for *-t/-T*.
 
 *--threads* 'INT'::
@@ -335,11 +339,6 @@ Add or remove annotations.
     1  798959  SomeOtherString 6
 ----
 
-*--collapse* 'snps'|'indels'|'both'|'all'|'some'|'none'::
-    Controls how to match records from the annotation file to the target VCF.
-    Effective only when *-a* is a VCF or BCF.
-    See *<<common_options,Common Options>>* for more.
-
 *-c, --columns* 'list'::
     Comma-separated list of columns or tags to carry over from the annotation file
     (see also *-a, --annotations*). If the annotation file is not a VCF/BCF,
@@ -356,7 +355,7 @@ Add or remove annotations.
     {nbsp} +
     {nbsp} +
     To carry over all INFO annotations, use "INFO". To add all INFO annotations except
-    "TAG", use "&#94;INFO/TAG". By default, existing values are replaced.
+    "TAG", use "^INFO/TAG". By default, existing values are replaced.
     {nbsp} +
     {nbsp} +
     By default, existing tags are overwritten unless the source value is a missing value (i.e. ".").
@@ -401,7 +400,7 @@ Add or remove annotations.
     ##INFO=<ID=STRING_TAG,Number=1,Type=String,Description="Yet another header line">
 ----
 
-*-I, --set-id* \[&#43;]'FORMAT'::
+*-I, --set-id* \[+]'FORMAT'::
     assign ID on the fly. The format is the same as in the *<<query,query>>*
     command (see below).  By default all existing IDs are replaced. If the
     format string is preceded by "+", only missing IDs will be set. For example,
@@ -434,6 +433,13 @@ Add or remove annotations.
 *-m, --mark-sites* [+-]'TAG'::
     annotate sites which are present ("+") or absent ("-") in the *-a* file with a new INFO/TAG flag
 
+*--min-overlap* 'ANN':'VCF'::
+    minimum overlap required as a fraction of the variant in the annotation *-a* file ('ANN'), in the
+    target VCF file (':VCF'), or both for reciprocal overlap ('ANN:VCF').
+    By default overlaps of arbitrary length are sufficient.
+    The option can be used only with the tab-delimited annotation *-a* file and with 'BEG' and 'END'
+    columns present.
+
 *--no-version*::
     see *<<common_options,Common Options>>*
 
@@ -443,11 +449,19 @@ Add or remove annotations.
 *-O, --output-type* 'b'|'u'|'z'|'v'[0-9]::
     see *<<common_options,Common Options>>*
 
+*--pair-logic* 'snps'|'indels'|'both'|'all'|'some'|'exact'::
+    Controls how to match records from the annotation file to the target VCF.
+    Effective only when *-a* is a VCF or BCF. The option replaces the former
+    uninuitive *--collapse*.
+    See *<<common_options,Common Options>>* for more.
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--regions-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--rename-annots* 'file'::
@@ -461,7 +475,7 @@ Add or remove annotations.
     "old_name new_name\n" pairs separated by whitespaces, each on a separate
     line.
 
-*-s, --samples* \[&#94;]'LIST'::
+*-s, --samples* \[^]'LIST'::
     subset of samples to annotate, see also *<<common_options,Common Options>>*
 
 *-S, --samples-file* 'FILE'::
@@ -473,7 +487,7 @@ Add or remove annotations.
 *--single-overlaps*::
     use this option to keep memory requirements low with very large annotation
     files. Note, however, that this comes at a cost, only single overlapping intervals
-    are considered in this mode. This was the default mode until the commit 
+    are considered in this mode. This was the default mode until the commit
     af6f0c9 (Feb 24 2019).
 
 *--threads* 'INT'::
@@ -484,7 +498,7 @@ Add or remove annotations.
     "FILTER/SomeFilter" to remove a specific filter. Similarly, "INFO" can
     be used to remove all INFO tags and "FORMAT" to remove all FORMAT tags
     except GT. To remove all INFO tags except "FOO" and "BAR", use
-    "&#94;INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
+    "^INFO/FOO,INFO/BAR" (and similarly for FORMAT and FILTER).
     "INFO" can be abbreviated to "INF" and "FORMAT" to "FMT".
 
 *Examples:*
@@ -569,6 +583,9 @@ demand. The original calling model can be invoked with the *-c* option.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -579,6 +596,9 @@ demand. The original calling model can be invoked with the *-c* option.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -593,7 +613,7 @@ demand. The original calling model can be invoked with the *-c* option.
 *-f, --format-fields* 'list'::
     comma-separated list of FORMAT fields to output for each sample. Currently
     GQ and GP fields are supported. For convenience, the fields can be given
-    as lower case letters. Prefixed with "&#94;" indicates a request for tag
+    as lower case letters. Prefixed with "^" indicates a request for tag
     removal of auxiliary tags useful only for calling.
 
 *-F, --prior-freqs* 'AN','AC'::
@@ -622,7 +642,7 @@ demand. The original calling model can be invoked with the *-c* option.
     text file with sample names in the first column and group names in the second column. If '-' is
     given instead, no HWE assumption is made at all and single-sample calling is performed. (Note that
     in low coverage data this inflates the rate of false positives.) The *-G* option requires the presence of
-    per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*). 
+    per-sample FORMAT/QS or FORMAT/AD tag generated with *bcftools mpileup -a QS* (or *-a AD*).
 
 *-g, --gvcf* 'INT'::
     output also gVCF blocks of homozygous REF calls. The parameter 'INT' is the
@@ -720,6 +740,9 @@ loss), 0 (complete loss), 3 (single-copy gain).
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --query-sample* 'string'::
     query sample name
 
@@ -727,6 +750,9 @@ loss), 0 (complete loss), 3 (single-copy gain).
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== HMM Options:
@@ -846,6 +872,9 @@ are concatenated without being recompressed, which is very fast..
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*. Requires *-a, --allow-overlaps*.
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *--threads* 'INT'::
     see *<<common_options,Common Options>>*
 
@@ -860,6 +889,9 @@ Note that the program does not act as a primitive variant caller and ignores all
 depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *setGT* plugin.
 
+*-a, --absent* 'CHAR'::
+    replace positions absent from VCF with CHAR
+
 *-c, --chain* 'FILE'::
     write a chain file for liftover
 
@@ -872,7 +904,7 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 
 *-H, --haplotype* '1'|'2'|'R'|'A'|'I'|'LR'|'LA'|'SR'|'SA'|'1pIu'|'2pIu'::
     choose which allele from the FORMAT/GT field to use (the codes are case-insensitive):
-    
+
         '1';;
             the first allele, regardless of phasing
 
@@ -941,6 +973,8 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     # Create consensus for one region. The fasta header lines are then expected
     # in the form ">chr:from-to".
     samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa
+
+    # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html
 ----
 
 
@@ -963,6 +997,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -973,6 +1010,9 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== VCF output options:
@@ -992,8 +1032,8 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
 ==== GEN/SAMPLE conversion:
 *-G, --gensample2vcf* 'prefix' or 'gen-file','sample-file'::
     convert IMPUTE2 output to VCF. One of the ID columns ("SNP ID" or "rsID" in
-    https://www.cog-genomics.org/plink/2.0/formats#gen) must be of the form 
-    "CHROM:POS_REF_ALT" to detect possible strand swaps. 
+    https://www.cog-genomics.org/plink/2.0/formats#gen) must be of the form
+    "CHROM:POS_REF_ALT" to detect possible strand swaps.
     {nbsp} +
     When the *--vcf-ids* option is given, the other column (autodetected) is used
     to fill the ID column of the VCF.
@@ -1253,7 +1293,7 @@ output VCF and are ignored for the prediction analysis.
     #
     # Attributes required for
     #   gene lines:
-    #   - ID=gene:<gene_id> 
+    #   - ID=gene:<gene_id>
     #   - biotype=<biotype>
     #   - Name=<gene_name>      [optional]
     #
@@ -1328,6 +1368,9 @@ output VCF and are ignored for the prediction analysis.
 *-R, --regions-file* 'FILE'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     samples to include or "-" to apply all variants and ignore samples
 
@@ -1338,6 +1381,9 @@ output VCF and are ignored for the prediction analysis.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *Examples:*
@@ -1380,6 +1426,32 @@ output VCF and are ignored for the prediction analysis.
     # The consequence type of a variant downstream from a stop are prefixed with *
     BCSQ=*missense|PER3|ENST00000361923|+|1028M>1028T|7890117T>C
 ----
+
+*Supported consequence types*
+----
+3_prime_utr
+5_prime_utr
+coding_sequence
+feature_elongation
+frameshift
+inframe_altering
+inframe_deletion
+inframe_insertion
+intergenic
+intron
+missense
+non_coding
+splice_acceptor
+splice_donor
+splice_region
+start_lost
+start_retained
+stop_gained
+stop_lost
+stop_retained
+synonymous
+----
+See also https://ensembl.org/info/genome/variation/prediction/predicted_data.html
 
 
 
@@ -1426,6 +1498,16 @@ And similarly here, the second is filtered:
     include only sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*--mask* \[^]'REGION'::
+    Soft filter regions, prepepend "^" to negate. Requires *-s, --soft-filter*.
+
+*-M, --mask-file* \[^]'FILE'::
+    Soft filter regions listed in a file, "^" to negate.  Requires *-s, --soft-filter*.
+
+*--mask-overlap* '0'|'1'|'2'::
+    Same as *--regions-overlap* but for *--mask/--mask-file*.
+    See *<<common_options,Common Options>>*. [1]
+
 *-m, --mode* ['+x']::
     define behaviour at sites with existing FILTER annotations. The default
     mode replaces existing filters of failed sites with a new FILTER string
@@ -1449,6 +1531,9 @@ And similarly here, the second is filtered:
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --soft-filter* 'STRING'|'+'::
     annotate FILTER column with 'STRING' or, with '+', a unique filter name generated
     by the program ("Filter%d").
@@ -1460,6 +1545,9 @@ And similarly here, the second is filtered:
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -1505,7 +1593,7 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     that average score is used to determine the top matches, not absolute values.
 
 *--no-HWE-prob*::
-    Disable calculation of HWE probability to reduce memory requirements with 
+    Disable calculation of HWE probability to reduce memory requirements with
     comparisons between very large number of sample pairs.
 
 *-p, --pairs* 'LIST'::
@@ -1524,6 +1612,9 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 *-R, --regions-file' 'FILE'::
     Restrict to regions listed in a file, see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* ['qry'|'gt']:'LIST':
     List of query samples or *-g* samples. If neither *-s* nor *-S* are given, all possible sample
     pair combinations are compared
@@ -1536,6 +1627,9 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-u, --use* 'TAG1'[,'TAG2']::
@@ -1568,11 +1662,11 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 //          present, a constant value '99' is used for the unseen genotypes.  With
 //          *-G*, the value '1' can be used instead; the discordance value then
 //          gives exactly the number of differing genotypes.
-//  
+//
 //      ERR, error rate;;
 //          Pairwise error rate calculated as number of differences divided
 //          by the total number of comparisons.
-//  
+//
 //      CLUSTER, TH, DOT;;
 //          In presence of multiple samples, related samples and outliers can be
 //          identified by clustering samples by error rate. A simple hierarchical
@@ -1585,12 +1679,33 @@ Without the *-g* option, multi-sample cross-check of samples in 'query.vcf.gz' i
 //        most dissimilar to the rest.
 
 
+[[head]]
+=== bcftools head ['OPTIONS'] ['FILE']
+By default, prints all headers from the specified input file to standard output
+in VCF format. The input file may be in VCF or BCF format; if no 'FILE' is
+specified, standard input will be read. With appropriate options, only some
+of the headers and/or additionally some of the variant records will be printed.
+
+The *bcftools head* command outputs VCF headers almost exactly as they appear
+in the input file: it may add a `##FILTER=<ID=PASS>` header if not already
+present, but it never adds version or command line information itself.
+
+==== Options:
+*-h, --header* 'INT'::
+    Display only the first 'INT' header lines.
+    By default, all header lines are displayed.
+
+*-n, --records* 'INT'::
+    Also display the first 'INT' variant records.
+    By default, no variant records are displayed.
+
+
 [[index]]
 === bcftools index ['OPTIONS']  'in.bcf'|'in.vcf.gz'
 Creates index for bgzip compressed VCF/BCF files for random access. CSI
 (coordinate-sorted index) is created by default. The CSI format
-supports indexing of chromosomes up to length 2&#94;31. TBI (tabix index)
-index files, which support chromosome lengths up to 2&#94;29, can be
+supports indexing of chromosomes up to length 2^31. TBI (tabix index)
+index files, which support chromosome lengths up to 2^29, can be
 created by using the '-t/--tbi' option or using the 'tabix' program
 packaged with htslib. When loading an index file, bcftools will try
 the CSI first and then the TBI.
@@ -1603,7 +1718,7 @@ the CSI first and then the TBI.
     overwrite index if it already exists
 
 *-m, --min-shift 'INT'*::
-    set minimal interval size for CSI indices to 2&#94;INT; default: 14
+    set minimal interval size for CSI indices to 2^INT; default: 14
 
 *-o, --output 'FILE'*::
     output file name. If not set, then the index will be created
@@ -1673,10 +1788,16 @@ in the other files.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-w, --write* 'LIST'::
@@ -1780,7 +1901,7 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     alternate alleles relevant (local) for the current sample. The number 'INT' gives the
     maximum number of alternate alleles that can be included in the PL tag. The default value
     is 0 which disables the feature and outputs values for all alternate alleles.
-   
+
 *-m, --merge* 'snps'|'indels'|'both'|'all'|'none'|'id'::
     The option controls what types of multiallelic records can be created:
 ----
@@ -1810,6 +1931,9 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     see *<<common_options,Common Options>>*
 
 *-R, --regions-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--regions-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -1902,8 +2026,8 @@ those scenarios.
 *--no-reference*::
     Do not require the *--fasta-ref* option.
 
-*-G, --read-groups* [&#94;]'FILE'::
-    list of read groups to include or exclude if prefixed with "&#94;".
+*-G, --read-groups* [^]'FILE'::
+    list of read groups to include or exclude if prefixed with "^".
     One read group per line.  This file can also be used to assign new sample
     names to read groups by giving the new sample name as a second
     white-space-separated field, like this: "read_group_id new_sample_name".
@@ -1945,20 +2069,31 @@ those scenarios.
     As for *-r, --regions*, but regions read from FILE;
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *--ignore-RG*::
     Ignore RG tags. Treat all reads in one alignment file as one sample.
 
-*--rf, --incl-flags* 'STR'|'INT'::
-    Required flags: skip reads with none of the mask bits set  [null]
+*--ls, --skip-all-set*::
+    Skip reads with all of the FLAG bits set [null]
 
-*--ff, --excl-flags* 'STR'|'INT'::
-    Filter flags: skip reads with any of the mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
+*--ns, --skip-any-set*::
+    Skip reads with any of the FLAG bits set. This option replaces and
+    is synonymous to the deprecated *--ff, --excl-flags* [UNMAP,SECONDARY,QCFAIL,DUP]
 
-*-s, --samples* [&#94;]'LIST'::
+*--lu, --skip-all-unset*::
+    Skip reads with all of the FLAG bits unset. This option replaces and
+    is synonymous to the deprecated *--rf, --incl-flags* [null]
+
+*--nu, --skip-any-unset*::
+    Skip reads with any of the FLAG bits unset [null]
+
+*-s, --samples* [^]'LIST'::
     list of sample names. See *<<common_options,Common Options>>*
 
-*-S, --samples-file* [&#94;]'FILE'::
-    file of sample names to include or exclude if prefixed with "&#94;".
+*-S, --samples-file* [^]'FILE'::
+    file of sample names to include or exclude if prefixed with "^".
     One sample per line. This file can also be used to rename samples by giving
     the new sample name as a second white-space-separated column, like this:
     "old_name new_name".  If a sample name contains spaces, the spaces can be
@@ -1969,6 +2104,9 @@ those scenarios.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-x, --ignore-overlaps*::
@@ -2158,7 +2296,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     See also *--atom-overlaps* and *--old-rec-tag*.
 
 *--atom-overlaps* '.'|'*'::
-    Alleles missing because of an overlapping variant can be set either 
+    Alleles missing because of an overlapping variant can be set either
     to missing (.) or to the star alele (*), as recommended by
     the VCF specification. IMPORTANT: Note that asterisk is expaneded
     by shell and must be put in quotes or escaped by a backslash:
@@ -2188,7 +2326,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     can swap alleles and will update genotypes (GT) and AC counts,
     but will not attempt to fix PL or other fields. Also note, and this
     cannot be stressed enough, that 's' will NOT fix strand issues in
-    your VCF, do NOT use it for that purpose!!! (Instead see 
+    your VCF, do NOT use it for that purpose!!! (Instead see
     <http://samtools.github.io/bcftools/howtos/plugin.af-dist.html> and
     <http://samtools.github.io/bcftools/howtos/plugin.fixref.html>.)
 
@@ -2232,7 +2370,7 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 
 *--old-rec-tag* 'STR'::
     Add INFO/STR annotation with the original record. The format of the
-    annotation is CHROM|POS|REF|ALT|USED_ALT_IDX. 
+    annotation is CHROM|POS|REF|ALT|USED_ALT_IDX.
 
 *-o, --output* 'FILE'::
     see *<<common_options,Common Options>>*
@@ -2246,6 +2384,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --strict-filter*::
     when merging ('-m+'), merged site is PASS only if all sites being merged PASS
 
@@ -2253,6 +2394,9 @@ the *<<fasta_ref,--fasta-ref>>* option is supplied.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -2293,10 +2437,16 @@ the usage examples that each plugin comes with.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== VCF output options:
@@ -2474,6 +2624,9 @@ By default, appropriate system directories are searched for installed plugins.
 *trio-switch-rate*::
     calculate phase switch rate in trio samples, children samples must have phased GTs
 
+*variant-distance*::
+    annotate sites with the distance to the nearest variant
+
 *variantkey-hex*::
     generate unsorted VariantKey-RSid index files in hexadecimal format
 
@@ -2558,6 +2711,9 @@ file for help.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --sample* 'string'::
     sample name
 
@@ -2565,6 +2721,9 @@ file for help.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'FILE'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-v, --verbose*::
@@ -2608,6 +2767,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     exclude sites for which 'EXPRESSION' is true. For valid expressions see
     *<<expressions,EXPRESSIONS>>*.
 
+*--force-samples*::
+    continue even when some samples requested via *-s/-S* do not exist
+
 *-f, --format* 'FORMAT'::
     learn by example, see below
 
@@ -2630,6 +2792,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -2640,6 +2805,9 @@ Extracts fields from VCF or BCF files and outputs them in user-defined format.
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-u, --allow-undef-tags*::
@@ -2824,11 +2992,11 @@ Transition probabilities:
 
 *-M, --rec-rate* 'FLOAT'::
     constant recombination rate per bp. In combination with *--genetic-map*,
-    the *--rec-rate* parameter is interpreted differently, as 'FLOAT'-fold increase of 
+    the *--rec-rate* parameter is interpreted differently, as 'FLOAT'-fold increase of
     transition probabilities, which allows the model to become more sensitive
     yet still account for recombination hotspots. Note that also the range
     of the values is therefore different in both cases: normally the
-    parameter will be in the range (1e-3,1e-9) but with *--genetic-map* 
+    parameter will be in the range (1e-3,1e-9) but with *--genetic-map*
     it will be in the range (10,1000).
 
 *-o, --output* 'FILE'::
@@ -2845,6 +3013,9 @@ Transition probabilities:
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -2855,6 +3026,9 @@ Transition probabilities:
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 ==== HMM Options:
@@ -2955,6 +3129,9 @@ and correlation are also printed. Per-site discordance (PSD) is also printed in 
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-s, --samples* 'LIST'::
     see *<<common_options,Common Options>>*
 
@@ -2965,6 +3142,9 @@ and correlation are also printed. Per-site discordance (PSD) is also printed in 
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *-u, --user-tstv* '<TAG[:min:max:n]>'::
@@ -2985,7 +3165,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
     drop individual genotype information (after subsetting if *-s* option is set)
 
 *-h, --header-only*::
-    output the VCF header only
+    output the VCF header only (see also *<<head,bcftools head>>*)
 
 *-H, --no-header*::
     suppress the header in VCF output
@@ -3013,10 +3193,16 @@ Convert between VCF and BCF. Former *bcftools subset*.
 *-R, --regions-file* 'file'::
     see *<<common_options,Common Options>>*
 
+*--regions-overlap* '0'|'1'|'2'::
+    see *<<common_options,Common Options>>*
+
 *-t, --targets* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
 
 *-T, --targets-file* 'file'::
+    see *<<common_options,Common Options>>*
+
+*--targets-overlap* '0'|'1'|'2'::
     see *<<common_options,Common Options>>*
 
 *--threads* 'INT'::
@@ -3049,7 +3235,7 @@ Convert between VCF and BCF. Former *bcftools subset*.
 Note that filter options below dealing with counting the number of alleles
 will, for speed, first check for the values of AC and AN in the INFO column to
 avoid parsing all the genotype (FORMAT/GT) fields in the VCF. This means
-that a filter like '--min-af 0.1' will be calculated from INFO/AC and INFO/AN 
+that a filter like '--min-af 0.1' will be calculated from INFO/AC and INFO/AN
 when available or FORMAT/GT otherwise. However, it will not attempt to use any other existing
 field, like INFO/AF for example. For that, use '--exclude AF<0.1' instead.
 
@@ -3082,10 +3268,10 @@ when piping!)
 *-f, --apply-filters* 'LIST'::
     see *<<common_options,Common Options>>*
 
-*-g, --genotype* [&#94;]['hom'|'het'|'miss']::
+*-g, --genotype* [^]['hom'|'het'|'miss']::
     include only sites with one or more homozygous ('hom'), heterozygous
-    ('het') or missing ('miss') genotypes. When prefixed with '&#94;', the logic
-    is reversed; thus '&#94;het' excludes sites with heterozygous genotypes.
+    ('het') or missing ('miss') genotypes. When prefixed with '^', the logic
+    is reversed; thus '^het' excludes sites with heterozygous genotypes.
 
 *-i, --include* 'EXPRESSION'::
     include sites for which 'EXPRESSION' is true. For valid expressions see
@@ -3268,7 +3454,7 @@ to require that all alleles are of the given type. Compare
 * array subscripts (0-based), "*" for any element, "-" to indicate a range. Note that
 for querying FORMAT vectors, the colon ":" can be used to select a sample and an
 element of the vector, as shown in the examples below
-    
+
         INFO/AF[0] > 0.3             .. first AF value bigger than 0.3
         FORMAT/AD[0:0] > 30          .. first AD value of the first sample bigger than 30
         FORMAT/AD[0:1]               .. first sample, second AD value
@@ -3381,7 +3567,7 @@ used on the result. For example, when querying "TAG=1,2,3,4", it will be evaluat
 
     TYPE="snp" && QUAL>=10 && (DP4[2]+DP4[3] > 2)
 
-    COUNT(GT="hom")=0      .. no homozygous genotypes at the site 
+    COUNT(GT="hom")=0      .. no homozygous genotypes at the site
 
     AVG(GQ)>50             .. average (arithmetic mean) of genotype qualities bigger than 50
 

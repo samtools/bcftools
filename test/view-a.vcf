@@ -1,0 +1,14 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Conditional genotype quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=MIN_DP,Number=1,Type=Integer,Description="Minimum DP observed within the GVCF block.">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">
+##FORMAT=<ID=VAF,Number=A,Type=Float,Description="Variant allele fractions.">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods rounded to the closest integer">
+##FORMAT=<ID=MED_DP,Number=1,Type=Integer,Description="Median DP observed within the GVCF block rounded to the nearest integer.">
+##contig=<ID=chr1,length=248956422>
+##FORMAT=<ID=DNM,Number=1,Type=Integer,Description="De-novo mutation score given as 1 for Mendelian-incompatible genotypes">
+##FORMAT=<ID=VA,Number=1,Type=Integer,Description="The de-novo allele">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	EGAN00001406653	EGAN00001405940	EGAN00001406033
+chr1	36	.	A	<*>,C	.	.	.	GT:GQ:MIN_DP:PL:DP:AD:VAF:DNM:VA	0/0:1:0:0,0,0,.,.,.:.:.:.:1:0	2/2:8:.:28,990,990,7,990,0:10:0,0,10:0,1:.:.	0/0:18:6:0,18,179,.,.,.:.:.:.:.:.
