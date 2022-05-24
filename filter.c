@@ -144,11 +144,11 @@ struct _filter_t
 #define TOK_sMEDIAN 35
 #define TOK_sSTDEV  36
 #define TOK_sSUM    37
-#define TOK_IN      38      // contains, e.g. FILTER~"A" 
-#define TOK_NOT_IN  39      // does not contain, e.g. FILTER!~"A" 
+#define TOK_IN      38      // contains, e.g. FILTER~"A"
+#define TOK_NOT_IN  39      // does not contain, e.g. FILTER!~"A"
 
 //                      0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37
-//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s 
+//                        ( ) [ < = > ] ! | &  +  -  *  /  M  m  a  A  O  ~  ^  S  .  l  f  c  p  b  P  i  s
 static int op_prec[] = {0,1,1,5,5,5,5,5,5,2,3, 6, 6, 7, 7, 8, 8, 8, 3, 2, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
 #define TOKEN_STRING "x()[<=>]!|&+-*/MmaAO~^S.lfcpis"       // this is only for debugging, not maintained diligently
 
@@ -242,7 +242,7 @@ static int filters_next_token(char **str, int *len)
             if ( tmp[0]=='~' ) break;
         }
         if ( tmp[0]==']' ) { if (square_brackets) tmp++; break; }
-        if ( tmp[0]=='[' ) square_brackets++; 
+        if ( tmp[0]=='[' ) square_brackets++;
         tmp++;
     }
     if ( tmp > *str )
@@ -298,7 +298,7 @@ static int filters_next_token(char **str, int *len)
 
 /*
     Simple path expansion, expands ~/, ~user, $var. The result must be freed by the caller.
-    
+
     Based on jkb's staden code with some adjustments.
     https://sourceforge.net/p/staden/code/HEAD/tree/staden/trunk/src/Misc/getfile.c#l123
 */
@@ -467,7 +467,7 @@ static void filters_cmp_filter(token_t *atok, token_t *btok, token_t *rtok, bcf1
         if ( line->d.n_flt==1 && atok->hdr_id==line->d.flt[0] ) rtok->pass_site = 1;
         return;
     }
-    else 
+    else
         error("Only ==, !=, ~, and !~ operators are supported for FILTER\n");
     return;
 }
@@ -490,7 +490,7 @@ static void filters_cmp_id(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *
 
     if ( !btok->str_value.l ) error("Error occurred while evaluating the expression\n");
 
-    if ( rtok->tok_type==TOK_EQ ) 
+    if ( rtok->tok_type==TOK_EQ )
         rtok->pass_site = strcmp(btok->str_value.s,line->d.id) ? 0 : 1;
     else if ( rtok->tok_type==TOK_NE )
         rtok->pass_site = strcmp(btok->str_value.s,line->d.id) ? 1 : 0;
@@ -886,7 +886,7 @@ static void _filters_set_genotype(filter_t *flt, bcf1_t *line, token_t *tok, int
         tok->nvalues = tok->str_value.l = 0;
         return;
     }
-    
+
     int i,j, nsmpl = bcf_hdr_nsamples(flt->hdr), nvals1 = type==2 ? 3 : 4;
     if ( tok->str_value.m <= nvals1*nsmpl )
     {
@@ -1072,7 +1072,7 @@ static void filters_set_nmissing(filter_t *flt, bcf1_t *line, token_t *tok)
         tok->nvalues = 0;
         return;
     }
-    
+
     int j,nmissing = 0;
     #define BRANCH(type_t, is_vector_end) { \
         for (i=0; i<line->n_sample; i++) \
@@ -1157,7 +1157,7 @@ static void filters_set_ac(filter_t *flt, bcf1_t *line, token_t *tok)
 static void filters_set_an(filter_t *flt, bcf1_t *line, token_t *tok)
 {
     filters_set_ac(flt,line,tok);
-    tok->values[0] = tok->nvalues ? flt->tmpi[0] : 0; 
+    tok->values[0] = tok->nvalues ? flt->tmpi[0] : 0;
     tok->nvalues = 1;
 }
 static void filters_set_mac(filter_t *flt, bcf1_t *line, token_t *tok)
@@ -1729,7 +1729,6 @@ static inline double calc_binom(int na, int nb)
 
     double pval = na < nb ? kf_betai(nb, na + 1, 0.5) : kf_betai(na, nb + 1, 0.5);
     pval *= 2;
-    assert( pval-1 < 1e-10 );
     if ( pval>1 ) pval = 1;     // this can happen, machine precision error, eg. kf_betai(1,0,0.5)
 
     return pval;
@@ -1928,7 +1927,7 @@ inline static void tok_init_samples(token_t *atok, token_t *btok, token_t *rtok)
     if ( (atok->nsamples || btok->nsamples) && !rtok->nsamples )
     {
         rtok->nsamples = atok->nsamples ? atok->nsamples : btok->nsamples;
-        rtok->usmpl = (uint8_t*) calloc(rtok->nsamples,1); 
+        rtok->usmpl = (uint8_t*) calloc(rtok->nsamples,1);
         int i;
         for (i=0; i<atok->nsamples; i++) rtok->usmpl[i] |= atok->usmpl[i];
         for (i=0; i<btok->nsamples; i++) rtok->usmpl[i] |= btok->usmpl[i];
@@ -2077,7 +2076,7 @@ static int vector_logic_and(filter_t *filter, bcf1_t *line, token_t *rtok, token
         for (i=0; i<rtok->nsamples; i++)
         {
             if ( !rtok->usmpl[i] ) continue;
-            rtok->pass_samples[i] = tok->pass_samples[i];  
+            rtok->pass_samples[i] = tok->pass_samples[i];
         }
         rtok->pass_site = 1;
         return 2;
@@ -2355,7 +2354,7 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
             return;
         }
         if ( !regex )
-            rtok->pass_site = _match_vector_strings(atok->str_value.s, atok->str_value.l, btok->str_value.s, btok->str_value.l, logic, missing_logic); 
+            rtok->pass_site = _match_vector_strings(atok->str_value.s, atok->str_value.l, btok->str_value.s, btok->str_value.l, logic, missing_logic);
         else
         {
             token_t *tok = atok->regex ? btok : atok;
@@ -2370,7 +2369,7 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
     {
         if ( missing_logic[2] )
         {
-            for (i=0; i<rtok->nsamples; i++) 
+            for (i=0; i<rtok->nsamples; i++)
                 if ( rtok->usmpl[i] ) { rtok->pass_samples[i] = missing_logic[2]; rtok->pass_site = 1; }
         }
         return;
@@ -2395,7 +2394,7 @@ static void cmp_vector_strings(token_t *atok, token_t *btok, token_t *rtok)
         return;
     }
 
-    // The case of (!atok->nsamples || !btok->nsamples) && (atok->nvalues && btok->nvalues) 
+    // The case of (!atok->nsamples || !btok->nsamples) && (atok->nvalues && btok->nvalues)
     token_t *xtok = atok->nsamples ? atok : btok;
     token_t *ytok = atok->nsamples ? btok : atok;
     assert( regex==ytok->regex );
@@ -2499,7 +2498,7 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
         if ( !list ) error("Could not read: %s\n", fname);
         free(fname);
         tok->nsamples = bcf_hdr_nsamples(hdr);
-        tok->usmpl = (uint8_t*) calloc(tok->nsamples,1); 
+        tok->usmpl = (uint8_t*) calloc(tok->nsamples,1);
         for (i=0; i<nsmpl; i++)
         {
             int ismpl = bcf_hdr_id2int(hdr,BCF_DT_SAMPLE,list[i]);
@@ -2547,7 +2546,7 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
         }
         else
         {
-            tok->idxs  = idxs1; 
+            tok->idxs  = idxs1;
             tok->nidxs = nidxs1;
             tok->idx   = idx1;
         }
@@ -2556,7 +2555,7 @@ static void parse_tag_idx(bcf_hdr_t *hdr, int is_fmt, char *tag, char *tag_idx, 
     if ( set_samples )
     {
         tok->nsamples = bcf_hdr_nsamples(hdr);
-        tok->usmpl = (uint8_t*) calloc(tok->nsamples,1); 
+        tok->usmpl = (uint8_t*) calloc(tok->nsamples,1);
         if ( idx1>=0 )
         {
             if ( idx1 >= bcf_hdr_nsamples(hdr) ) error("The sample index is too large: %s\n", ori);
@@ -2760,13 +2759,13 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         }
         if ( is_fmt==-1 ) is_fmt = 0;
     }
-    if ( is_array ) 
+    if ( is_array )
         parse_tag_idx(filter->hdr, is_fmt, tmp.s, tmp.s+is_array, tok);
-    else if ( is_fmt && !tok->nsamples ) 
+    else if ( is_fmt && !tok->nsamples )
     {
         int i;
         tok->nsamples = bcf_hdr_nsamples(filter->hdr);
-        tok->usmpl = (uint8_t*) malloc(tok->nsamples); 
+        tok->usmpl = (uint8_t*) malloc(tok->nsamples);
         for (i=0; i<tok->nsamples; i++) tok->usmpl[i] = 1;
     }
 
@@ -2817,7 +2816,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
                         case BCF_HT_STR:  tok->setter = &filters_set_info_string; tok->is_str = 1; break;
                         default: error("[%s:%d %s] FIXME\n", __FILE__,__LINE__,__FUNCTION__);
                     }
-                    if (!is_array) 
+                    if (!is_array)
                     {
                         tok->idx = -2;
                         tok->idxs = (int*) malloc(sizeof(int));
@@ -3015,7 +3014,7 @@ static void perl_init(filter_t *filter, char **str)
         char **env  = NULL;
         PERL_SYS_INIT3(&argc, &argv, &env);
     }
-    
+
     filter->perl = perl_alloc();
     PerlInterpreter *perl = filter->perl;
 
