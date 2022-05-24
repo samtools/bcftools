@@ -590,6 +590,8 @@ run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.8',out=>'trio-dnm/trio-d
 run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.9',out=>'trio-dnm/trio-dnm.9.1.out',cmd=>'+trio-dnm2',args=>"-p 1X:proband,father,mother --use-NAIVE | $$opts{bin}/bcftools query -f'[\\t%DNM]\\n'");
 run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.9',out=>'trio-dnm/trio-dnm.9.2.out',cmd=>'+trio-dnm2',args=>"-p 2X:proband,father,mother --use-NAIVE | $$opts{bin}/bcftools query -f'[\\t%DNM]\\n'");
 run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.10',out=>'trio-dnm/trio-dnm.10.1.out',cmd=>'+trio-dnm2',args=>"-p proband,father,mother --with-pAD | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
+run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.11',out=>'trio-dnm/trio-dnm.11.1.out',cmd=>'+trio-dnm2',args=>"-p proband,father,mother | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
+run_test(\&test_vcf_plugin,$opts,in=>'trio-dnm/trio-dnm.11',out=>'trio-dnm/trio-dnm.11.2.out',cmd=>'+trio-dnm2',args=>"-p 1X:proband,father,mother --strictly-novel | $$opts{bin}/bcftools query -f'[\\t%DNM][\\t%VAF]\\n'");
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz',out=>'gvcfz.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz',out=>'gvcfz.2.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GQ>10; FLT:-' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP][\\t%GQ][\\t%RGQ]\\n']);
 run_test(\&test_vcf_plugin,$opts,in=>'gvcfz.2',out=>'gvcfz.2.1.out',cmd=>'+gvcfz',args=>qq[-g 'PASS:GT!="alt"' -a | $$opts{bin}/bcftools query -f'%POS\\t%REF\\t%ALT\\t%FILTER\\t%END[\\t%GT][\\t%DP]\\n']);

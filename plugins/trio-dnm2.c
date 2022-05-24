@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2018-2021 Genome Research Ltd.
+   Copyright (c) 2018-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -117,6 +117,7 @@ typedef struct
     int with_ppl, with_pad;         // --with-pPL or --with-pAD
     int use_dng_priors;             // --dng-priors
     int need_QS;
+    int strictly_novel;
     priors_t priors, priors_X, priors_XX;
 }
 args_t;
@@ -130,7 +131,7 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Screen variants for possible de-novo mutations in trios\n"
         "Usage: bcftools +trio-dnm2 [OPTIONS]\n"
@@ -168,6 +169,7 @@ static const char *usage_text(void)
         "       --mrate NUM                 Mutation rate [1e-8]\n"
         "       --pn FRAC[,NUM]             Tolerance to parental noise or mosaicity, given as fraction of QS or number of reads [0.005,0]\n"
         "       --pns FRAC[,NUM]            Same as --pn but is not applied to alleles observed in both parents (fewer FPs, more FNs) [0.045,0]\n"
+        "   -n, --strictly-novel            When Mendelian inheritance is violiated, score highly only novel alleles (e.g. in LoH regions)\n"
         "       --use-DNG                   The original DeNovoGear model, implies --dng-priors\n"
         "       --use-NAIVE                 A naive calling model which uses only FMT/GT to determine DNMs\n"
         "       --with-pAD                  Do not use FMT/QS but parental FMT/AD\n"
@@ -365,7 +367,7 @@ static double init_mf_priors(args_t *args, int fi, int mi)
         gt_prior = p_poly / 57.;
     else if ( nref_mf==4 )                                          // 0 ALTs; 00,00
         gt_prior = p_homref;
-    else if ( nref_mf==3 )                                          // this and all remaining have 1 unique ALT allele; 00,0x 
+    else if ( nref_mf==3 )                                          // this and all remaining have 1 unique ALT allele; 00,0x
         gt_prior = p_nonref * (4.0/15.0) * (1.0/3.0);
     else if ( nref_mf==2 && ma==mb )                                // hom alt; 00,xx
         gt_prior = p_nonref * (2.0/15.0) * (1.0/3.0);
@@ -466,7 +468,7 @@ static void init_DNG_tprob_mprob(args_t *args, int fi, int mi, int ci, double *t
         }
         else
         {
-            if ( ca!=fa  && ca!=fb && ca!=ma  && ca!=mb && 
+            if ( ca!=fa  && ca!=fb && ca!=ma  && ca!=mb &&
                     cb!=fa  && cb!=fb && cb!=ma  && cb!=mb ) *mprob = args->mrate * args->mrate;    // two mutations
             else
                 *mprob = args->mrate;
@@ -502,7 +504,17 @@ static void init_tprob_mprob(args_t *args, int fi, int mi, int ci, double *tprob
     // tprob .. genotype transmission probability L(GC|GM,GF), 0 if not compatible with Mendelian inheritance
     // mprob .. probability of mutation
 
-    if ( ((ca==fa||ca==fb) && (cb==ma||cb==mb)) || ((ca==ma||ca==mb) && (cb==fa||cb==fb)) )
+    int is_novel;
+    if ( args->strictly_novel )     // account for LoH sites, see chr1:10000057 in trio-dnm.11.vcf
+    {
+        is_novel = ( (ca!=fa && ca!=fb && ca!=ma && ca!=mb) || (cb!=fa && cb!=fb && cb!=ma && cb!=mb) ) ? 1 : 0;
+    }
+    else
+    {
+        is_novel = ( ((ca==fa||ca==fb) && (cb==ma||cb==mb)) || ((ca==ma||ca==mb) && (cb==fa||cb==fb)) ) ? 0 : 1;
+    }
+
+    if ( !is_novel )
     {
         if ( fa==fb && ma==mb ) *tprob = 1;
         else if ( fa==fb || ma==mb ) *tprob = 0.5;
@@ -590,7 +602,7 @@ static void init_priors(args_t *args, priors_t *priors, init_priors_t type)
 
                 if ( args->use_dng_priors )
                     init_DNG_tprob_mprob(args,fi,mi,ci,&tprob,&mprob,&allele);
-                else if ( type==autosomal )
+                else if ( type==autosomal || args->strictly_novel )
                     init_tprob_mprob(args,fi,mi,ci,&tprob,&mprob,&allele);
                 else if ( type==chrX )
                     init_tprob_mprob_chrX(args,mi,ci,&tprob,&mprob,&allele);
@@ -849,7 +861,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                             else if ( fa==fb )
                                 fpl += qs[iFATHER][i];
                         }
-                    } 
+                    }
                     int mi = 0;
                     for (ma=0; ma<nals; ma++)
                     {
@@ -875,7 +887,7 @@ static double process_trio_ACM(args_t *args, priors_t *priors, int nals, double 
                             sum = sum_log(sum,val);
 #define DEBUG 0
 #if DEBUG
-                            if(val!=-HUGE_VAL)                            
+                            if(val!=-HUGE_VAL)
                                 fprintf(stderr,"m,f,c: %d%d+%d%d=%d%d  dn=%d (%d,%d,%d)   mpl,fpl,cpl: %+e %+e %+e \t prior:%+e \t pval=%+e  sum=%+e  %c\n",
                                     mb,ma,fb,fa,cb,ca,priors->denovo[fi][mi][ci],fi,mi,ci,mpl,fpl,cpl,priors->pprob[fi][mi][ci], val,sum,(priors->denovo[fi][mi][ci] && max < val)?'*':'-');
 #endif
@@ -927,7 +939,7 @@ static double process_trio_DNG(args_t *args, priors_t *priors, int nals, double 
                             val = pl[iCHILD][ci] + pl[iFATHER][fi] + pl[iMOTHER][mi] + priors->pprob[fi][mi][ci];
                             sum = sum_log(val,sum);
 #if DEBUG
-                            if(val!=-HUGE_VAL)                            
+                            if(val!=-HUGE_VAL)
                                 fprintf(stderr,"m,f,c: %d%d+%d%d=%d%d  dn=%d (%d,%d,%d)   mpl,fpl,cpl: %+e %+e %+e \t prior:%+e \t pval=%+e  sum=%+e  %c\n",
                                     mb,ma,fb,fa,cb,ca,priors->denovo[fi][mi][ci],fi,mi,ci,pl[iMOTHER][mi],pl[iFATHER][fi],pl[iCHILD][ci],priors->pprob[fi][mi][ci], val,sum,(priors->denovo[fi][mi][ci] && max < val)?'*':'-');
 #endif
@@ -1029,7 +1041,7 @@ static void many_alts_trim(args_t *args, int *_nals, double *pl[3], int *_npl, d
     for (i=2; i<nals; i++)
         for (j=i; j>1 && arr[idx[j]] < arr[idx[j-1]]; j--)
             tmp = idx[j], idx[j] = idx[j-1], idx[j-1] = tmp;
-    
+
     for (i=0; i<3; i++)
     {
         for (j=0; j<4; j++) args->alt_tmp[j] = qs[i][args->alt_idx[j]];
@@ -1140,12 +1152,12 @@ static void set_trio_QS_noisy(args_t *args, trio_t *trio, double *pqs[3], int nq
             double tmp = qs[k];
             if ( max_qs < tmp ) max_qs = tmp;
         }
-        for (k=0; k<nqs1; k++) 
+        for (k=0; k<nqs1; k++)
         {
             // This uses absolute value of parental QS, does not regard the depth. The penalty is way too
             // strict for high-coverage sites, random parental sequencing errors there are very likely.
             // Puts trio-dnm.40.vcf at -24,-17, which is too strict.
-            //      pqs[j][k] = phred2log(qs[k]);   
+            //      pqs[j][k] = phred2log(qs[k]);
 
 
             // Proportions in log space are not well motivated and does not work well.
@@ -1237,7 +1249,7 @@ static void process_record_naive(args_t *args, bcf1_t *rec)
     for (i=0; i<args->ntrio; i++)
     {
         if ( args->filter && !args->trio[i].pass ) continue;
-        
+
         int ignore_father = 0;  // father is irrelevant for male proband on chrX and can have missing GT
         priors_t *priors;
         if ( !is_chrX ) priors = &args->priors;
@@ -1541,6 +1553,7 @@ int run(int argc, char **argv)
         {"with-pad",no_argument,0,13},
         {"chrX",required_argument,0,'X'},
         {"min-score",required_argument,0,'m'},
+        {"strictly-novel",no_argument,0,'n'},
         {"include",required_argument,0,'i'},
         {"exclude",required_argument,0,'e'},
         {"output",required_argument,NULL,'o'},
@@ -1557,9 +1570,9 @@ int run(int argc, char **argv)
     };
     int c;
     char *tmp;
-    while ((c = getopt_long(argc, argv, "p:P:o:O:s:i:e:r:R:t:T:m:au:X:",loptions,NULL)) >= 0)
+    while ((c = getopt_long(argc, argv, "p:P:o:O:s:i:e:r:R:t:T:m:au:X:n",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case  1 : args->force_ad = 1; break;
             case  2 : free(args->dnm_score_tag); args->dnm_score_tag = strdup(optarg); break;
@@ -1636,6 +1649,7 @@ int run(int argc, char **argv)
             case 'm': args->min_score = strtod(optarg,&tmp);
                       if ( *tmp ) error("Could not parse: -M, --min-score %s\n", optarg);
                       break;
+            case 'n': args->strictly_novel = 1; break;
             case 'h':
             case '?':
             default: error("%s", usage_text()); break;
