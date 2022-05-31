@@ -4,6 +4,16 @@
 * New plugin `bcftools +variant-distance` to annotate records with distance to the
   nearest variant (#1690)
 
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* The -i/-e filtering expressions now support querying of multiple filters,
+  for example `-i 'FILTER="A;B"'` can be used to select sites with two filters
+  "A" and "B" set. See the documentation for more examples.
+
+
+Changes affecting specific commands:
+
 * bcftools mpileup
 
     - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within

@@ -219,6 +219,12 @@ test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.5.out',args=>q[-f "[%SAMP
 test_vcf_query($opts,in=>'query.smpl',out=>'query.smpl.6.out',args=>q[-l -S {PATH}/query.smpl.txt]);
 test_vcf_query($opts,in=>'query.filter.id',out=>'query.filter.id.1.out',args=>q[-f'%ID\\n' -i'ID~"s12"']);
 test_vcf_query($opts,in=>'query.filter.id',out=>'query.filter.id.2.out',args=>q[-f'%ID\\n' -i'ID="rs123"']);
+test_vcf_query($opts,in=>'filter.12',out=>'query.85.out',args=>q[-i'FILTER="A"' -f'%FILTER\\n']);
+test_vcf_query($opts,in=>'filter.12',out=>'query.86.out',args=>q[-i'FILTER~"A"' -f'%FILTER\\n']);
+test_vcf_query($opts,in=>'filter.12',out=>'query.87.out',args=>q[-i'FILTER="A;B"' -f'%FILTER\\n']);
+test_vcf_query($opts,in=>'filter.12',out=>'query.88.out',args=>q[-i'FILTER!="A;B"' -f'%FILTER\\n']);
+test_vcf_query($opts,in=>'filter.12',out=>'query.89.out',args=>q[-i'FILTER~"A;B"' -f'%FILTER\\n']);
+test_vcf_query($opts,in=>'filter.12',out=>'query.90.out',args=>q[-i'FILTER!~"A;B"' -f'%FILTER\\n']);
 test_vcf_norm($opts,in=>'norm',out=>'norm.out',fai=>'norm',args=>'-cx');
 test_vcf_norm($opts,in=>'norm.split',out=>'norm.split.out',args=>'-m-');
 test_vcf_norm($opts,in=>'norm.split.2',out=>'norm.split.2.out',args=>'-m-');

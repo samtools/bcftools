@@ -3398,13 +3398,17 @@ about the distinction between "&&" vs "&" and "||" vs "|".
         FORMAT/DV, FMT/DV, or DV
         FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 
-* starting with 1.11, the FILTER column can be queried as follows:
+* the FILTER column can be queried as follows:
 
         FILTER="PASS"
+        FILTER="."
         FILTER="A"          .. exact match, for example "A;B" does not pass
+        FILTER="A;B"        .. exact match, "A;B" and "B;A" pass, everything else fails
         FILTER!="A"         .. exact match, for example "A;B" does pass
-        FILTER~"A"          .. both "A" and "A;B" pass
-        FILTER!~"A"         .. neither "A" nor "A;B" pass
+        FILTER~"A"          .. subset match, for example both "A" and "A;B" pass
+        FILTER~"A;B"        .. subset match, pass only if both "A" and "B" are present
+        FILTER!~"A"         .. complement match, for example both "A" and "A;B" fail
+        FILTER!~"A;B"       .. complement match, fail if both "A" and "B" are present
 
 * 1 (or 0) to test the presence (or absence) of a flag
 

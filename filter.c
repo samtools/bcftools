@@ -420,51 +420,78 @@ static void filters_cmp_bit_and(token_t *atok, token_t *btok, token_t *rtok, bcf
 }
 static void filters_cmp_filter(token_t *atok, token_t *btok, token_t *rtok, bcf1_t *line)
 {
-    int i;
-    if ( rtok->tok_type==TOK_NOT_IN )
+    // the btok values contain FILTER ids obtained by parsing the user expression
+    int i,j;
+    if ( rtok->tok_type==TOK_NOT_IN )   // fail if the query expression is a subset of the VCF FILTER
     {
-        if ( !line->d.n_flt )
+        if ( !btok->nvalues )   // the query expression is ".", pass everything unless the VCF is also "."
         {
-            if ( atok->hdr_id==-1 ) return;   // missing value
-            rtok->pass_site = 1;
-            return; // no filter present, eval to true
+            if ( line->d.n_flt ) rtok->pass_site = 1;
+            return;
         }
-        for (i=0; i<line->d.n_flt; i++)
-            if ( atok->hdr_id==line->d.flt[i] ) return;
-        rtok->pass_site = 1;
+        if ( !line->d.n_flt )   // no filters at this VCF line and the query expression has a value
+        {
+            rtok->pass_site = 1;
+            return;
+        }
+        for (j=0; j<btok->nvalues; j++) // some query expression value must be absent from VCF in order to pass
+        {
+            for (i=0; i<line->d.n_flt; i++)
+                if ( btok->values[j]==line->d.flt[i] ) break;
+            if ( i==line->d.n_flt ) break;  // the query is not in the VCF
+        }
+        if ( j!=btok->nvalues ) rtok->pass_site = 1;
         return;
     }
     else if ( rtok->tok_type==TOK_IN )
     {
-        if ( !line->d.n_flt )
+        if ( !btok->nvalues )   // the query expression is ".", fail everything unless the VCF is also "."
         {
-            if ( atok->hdr_id==-1 ) { rtok->pass_site = 1; return; }
-            return; // no filter present, eval to false
+            if ( !line->d.n_flt ) rtok->pass_site = 1;
+            return;
         }
-        for (i=0; i<line->d.n_flt; i++)
-            if ( atok->hdr_id==line->d.flt[i] ) { rtok->pass_site = 1; return; }
+        if ( !line->d.n_flt ) return;   // no filters at this VCF line and the query expression has a value
+        for (j=0; j<btok->nvalues; j++) // all of the query values must be present in the VCF in order to pass
+        {
+            for (i=0; i<line->d.n_flt; i++)
+                if ( btok->values[j]==line->d.flt[i] ) break;
+            if ( i==line->d.n_flt ) break;  // the query is not in the VCF
+        }
+        if ( j==btok->nvalues ) rtok->pass_site = 1;
         return;
     }
-    else if ( rtok->tok_type==TOK_NE )  // exact match
+    else if ( rtok->tok_type==TOK_NE )  // require anything but exact match
     {
-        if ( !line->d.n_flt )
+        if ( btok->nvalues != line->d.n_flt )
         {
-            if ( atok->hdr_id==-1 ) return;   // missing value
             rtok->pass_site = 1;
-            return; // no filter present, eval to true
+            return;
         }
-        if ( line->d.n_flt==1 && atok->hdr_id==line->d.flt[0] ) return;    // exact match, fail iff a single matching value is present
-        rtok->pass_site = 1;
+        if ( !btok->nvalues ) return;
+        for (j=0; j<btok->nvalues; j++) // some of the query values must be absent from the VCF in order to pass
+        {
+            for (i=0; i<line->d.n_flt; i++)
+                if ( btok->values[j]==line->d.flt[i] ) break;
+            if ( i==line->d.n_flt ) break;  // the query is not in the VCF
+        }
+        if ( j!=btok->nvalues ) rtok->pass_site = 1;
         return;
     }
-    else if ( rtok->tok_type==TOK_EQ )  // exact match, pass iff a single matching value is present
+    else if ( rtok->tok_type==TOK_EQ )  // require exact match
     {
-        if ( !line->d.n_flt )
+        if ( btok->nvalues != line->d.n_flt ) return;
+        if ( !btok->nvalues )
         {
-            if ( atok->hdr_id==-1 ) { rtok->pass_site = 1; return; }
-            return; // no filter present, eval to false
+            rtok->pass_site = 1;
+            return;
         }
-        if ( line->d.n_flt==1 && atok->hdr_id==line->d.flt[0] ) rtok->pass_site = 1;
+        for (j=0; j<btok->nvalues; j++) // all of the query values must be present in the VCF in order to pass
+        {
+            for (i=0; i<line->d.n_flt; i++)
+                if ( btok->values[j]==line->d.flt[i] ) break;
+            if ( i==line->d.n_flt ) break;  // the query is not in the VCF
+        }
+        if ( j==btok->nvalues ) rtok->pass_site = 1;
         return;
     }
     else
@@ -2719,6 +2746,7 @@ static int filters_init1(filter_t *filter, char *str, int len, token_t *tok)
         {
             tok->tok_type = TOK_VAL;
             tok->threshold = bcf_hdr_nsamples(filter->hdr);
+            tok->is_constant = 1;
             return 0;
         }
         else if ( !strncasecmp(str,"N_MISSING",len) )
@@ -3113,6 +3141,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
                 tok->hdr_id    = -1;
                 tok->pass_site = -1;
                 tok->threshold = -1.0;
+                tok->is_constant = 1;
                 ret = TOK_MULT;
             }
             else if ( ret == -TOK_FUNC )
@@ -3327,6 +3356,7 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             else if ( !strcasecmp(out[ival].key,"overlap") ) { out[ival].threshold = VCF_OVERLAP<<1; out[ival].is_str = 0; }
             else if ( !strcasecmp(out[ival].key,"ref") ) { out[ival].threshold = 1; out[ival].is_str = 0; }
             else error("The type \"%s\" not recognised: %s\n", out[ival].key, filter->str);
+            out[ival].is_constant = 1;
             if ( out[itok].tok_type==TOK_LIKE || out[itok].tok_type==TOK_NLIKE ) out[itok].comparator = filters_cmp_bit_and;
             out[ival].tag = out[ival].key; out[ival].key = NULL;
             i = itok;
@@ -3372,16 +3402,34 @@ filter_t *filter_init(bcf_hdr_t *hdr, const char *str)
             else error("[%s:%d %s] Could not parse the expression: %s\n",  __FILE__,__LINE__,__FUNCTION__, filter->str);
             if ( out[ival].tok_type!=TOK_VAL || !out[ival].key )
                 error("[%s:%d %s] Could not parse the expression, an unquoted string value perhaps? %s\n", __FILE__,__LINE__,__FUNCTION__, filter->str);
-            if ( strcmp(".",out[ival].key) )
+            token_t *tok = &out[ival];
+            char *bp = tok->key;
+            tok->nvalues = 0;
+            int has_missing = 0;
+            while ( *bp )
             {
-                out[ival].hdr_id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, out[ival].key);
-                if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FLT,out[ival].hdr_id) )
-                    error("The filter \"%s\" not present in the VCF header\n", out[ival].key);
+                char tmp, *ep = bp;
+                while ( *ep && *ep!=';' ) ep++;
+                tmp = *ep;
+                *ep = 0;
+                if ( !strcmp(".",bp) ) has_missing = 1;
+                else
+                {
+                    tok->nvalues++;
+                    hts_expand(double,tok->nvalues,tok->mvalues,tok->values);
+                    int id = bcf_hdr_id2int(filter->hdr, BCF_DT_ID, bp);
+                    if ( !bcf_hdr_idinfo_exists(filter->hdr,BCF_HL_FLT,id) )
+                        error("The filter \"%s\" not present in the VCF header\n", bp);
+                    tok->values[tok->nvalues-1] = id;
+                }
+                *ep = tmp;
+                if ( !tmp ) break;
+                bp = ep + 1;
             }
-            else
-                out[ival].hdr_id = -1;
-            out[ival].tag = out[ival].key; out[ival].key = NULL;
-            out[itok].hdr_id = out[ival].hdr_id;
+            if ( has_missing && tok->nvalues ) error("The FILTER expression cannot contain missing value AND filters: \"%s\" (%d)\n",tok->key,tok->nvalues);
+            out[ival].tag = tok->key;
+            tok->key = NULL;
+            out[itok].hdr_id = tok->hdr_id;
             continue;
         }
     }
@@ -3472,7 +3520,7 @@ int filter_test(filter_t *filter, bcf1_t *line, const uint8_t **samples)
                 kputs(filter->filters[i].key, &filter->filters[i].str_value);
                 filter->filters[i].nvalues = filter->filters[i].str_value.l;
             }
-            else    // numeric constant
+            else if ( filter->filters[i].is_constant )   // numeric constant
             {
                 filter->filters[i].values[0] = filter->filters[i].threshold;
                 filter->filters[i].nvalues   = 1;
