@@ -1753,12 +1753,12 @@ sub test_mpileup
         }
         if ( !@files ) { next; }
         my $files = join(' ',@files);
-        my $grep_hdr = "grep -v ^##bcftools | grep -v ^##reference";
+        my $grep_hdr = "grep -v ^#";
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/$ref $files | $grep_hdr");
         test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/$ref -Ob $files | $$opts{bin}/bcftools view  | $grep_hdr");
         if ($args{test_list})
         {
-            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/$ref -b $$opts{tmp}/mpileup.$fmt.list --no-version | grep -v ^##reference");
+            test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/$ref -b $$opts{tmp}/mpileup.$fmt.list --no-version | $grep_hdr");
             test_cmd($opts,%args,cmd=>"$$opts{bin}/bcftools mpileup $args{args} -f $$opts{path}/mpileup/$ref -Ob -b $$opts{tmp}/mpileup.$fmt.urllist | $$opts{bin}/bcftools view  | $grep_hdr");
         }
     }

@@ -1,25 +1,3 @@
-##fileformat=VCFv4.2
-##FILTER=<ID=PASS,Description="All filters passed">
-##contig=<ID=17,length=4200>
-##ALT=<ID=*,Description="Represents allele(s) other than observed.">
-##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
-##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of raw reads supporting an indel">
-##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of raw reads supporting an indel">
-##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
-##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
-##INFO=<ID=RPBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Read Position Bias (closer to 0 is better)">
-##INFO=<ID=MQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)">
-##INFO=<ID=BQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)">
-##INFO=<ID=MQSBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)">
-##INFO=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better)">
-##INFO=<ID=SCBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)">
-##INFO=<ID=FS,Number=1,Type=Float,Description="Phred-scaled p-value using Fisher's exact test to detect strand bias">
-##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
-##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
-##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
-##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
-##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1	SAMPLE2
 17	100	.	C	<*>	0	.	DP=9;I16=7,1,0,0,322,13492,0,0,449,26041,0,0,173,4019,0,0;QS=2,0;MQ0F=0	PL	0,9,118	0,15,134
 17	101	.	C	<*>	0	.	DP=9;I16=7,1,0,0,299,12029,0,0,449,26041,0,0,172,3954,0,0;QS=2,0;MQ0F=0	PL	0,9,108	0,15,132
 17	102	.	C	<*>	0	.	DP=9;I16=7,1,0,0,327,13835,0,0,449,26041,0,0,171,3895,0,0;QS=2,0;MQ0F=0	PL	0,9,121	0,15,139
@@ -35,7 +13,7 @@
 17	112	.	C	<*>	0	.	DP=9;I16=7,1,0,0,295,11875,0,0,449,26041,0,0,150,3170,0,0;QS=2,0;MQ0F=0	PL	0,9,103	0,15,135
 17	113	.	A	<*>	0	.	DP=9;I16=7,1,0,0,301,12565,0,0,449,26041,0,0,147,3101,0,0;QS=2,0;MQ0F=0	PL	0,9,102	0,15,139
 17	114	.	C	<*>	0	.	DP=9;I16=7,1,0,0,306,12386,0,0,449,26041,0,0,144,3042,0,0;QS=2,0;MQ0F=0	PL	0,9,113	0,15,133
-17	115	.	C	A,<*>	0	.	DP=11;I16=7,2,1,0,321,13261,12,144,509,29641,29,841,117,2369,25,625;QS=1.88785,0.11215,0;SGB=-0.516033;RPBZ=0.174608;MQBZ=-2;MQSBZ=-1.125;BQBZ=-1.23359;NMBZ=2.23607;SCBZ=-0.496904;FS=0;MQ0F=0	PL	3,0,86,9,89,93	0,21,153,21,153,153
+17	115	.	C	A,<*>	0	.	DP=11;I16=7,2,1,0,321,13261,12,144,509,29641,29,841,117,2369,25,625;QS=1.88785,0.11215,0;SGB=-0.516033;NM=4;RPBZ=0.174608;MQBZ=-2;MQSBZ=-1.125;BQBZ=-1.23359;NMBZ=2.23607;SCBZ=-0.496904;FS=0;MQ0F=0	PL	3,0,86,9,89,93	0,21,153,21,153,153
 17	116	.	A	<*>	0	.	DP=11;I16=8,2,0,0,354,14068,0,0,538,30482,0,0,141,2959,0,0;QS=2,0;MQ0F=0	PL	0,9,102	0,21,175
 17	117	.	G	<*>	0	.	DP=11;I16=8,2,0,0,356,14150,0,0,538,30482,0,0,140,2938,0,0;QS=2,0;MQ0F=0	PL	0,9,97	0,21,177
 17	118	.	G	<*>	0	.	DP=11;I16=8,2,0,0,303,11685,0,0,538,30482,0,0,139,2931,0,0;QS=2,0;MQ0F=0	PL	0,9,65	0,21,162
