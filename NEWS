@@ -14,6 +14,13 @@ Changes affecting the whole of bcftools, or multiple commands:
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - A bug introduced in 1.14 caused that records with INFO/END annotation would
+      incorrectly trigger `-c ~INFO/END` mode of comparison even when not explicitly
+      requested, which would result in not transferring the annotation from a tab-delimited
+      file (#1733)
+
 * bcftools mpileup
 
     - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within

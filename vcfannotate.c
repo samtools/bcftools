@@ -140,8 +140,8 @@ typedef struct _args_t
     int ref_idx, alt_idx, chr_idx, beg_idx, end_idx;   // -1 if not present
     annot_col_t *cols;      // column indexes and setters
     int ncols;
-    int match_id;           // set iff `-c ~ID` given
-    int match_end;          // set iff `-c ~INFO/END` is given
+    int match_id;           // set iff `-c ~ID` given, -1 otherwise
+    int match_end;          // set iff `-c ~INFO/END` is given, -1 otherwise
 
     char *set_ids_fmt;
     convert_t *set_ids;
@@ -3145,7 +3145,7 @@ static void annotate(args_t *args, bcf1_t *line)
                         ialt++;
                     }
                     if ( args->match_id>=0 && !strstr_match(line->d.id,args->alines[i].cols[args->match_id]) ) continue;
-                    if ( match_end.l && strcmp(match_end.s,args->alines[i].cols[args->match_end]) ) continue;
+                    if ( args->match_end>=0 && match_end.l && strcmp(match_end.s,args->alines[i].cols[args->match_end]) ) continue;
                     args->srt_alines[args->nsrt_alines++] = (ialt<<16) | i;
                     has_overlap = 1;
                     break;
@@ -3335,6 +3335,7 @@ int main_vcfannotate(int argc, char *argv[])
     args->ref_idx = args->alt_idx = args->chr_idx = args->beg_idx = args->end_idx = -1;
     args->set_ids_replace = 1;
     args->match_id = -1;
+    args->match_end = -1;
     args->clevel = -1;
     args->pair_logic = -1;
     int regions_is_file = 0;
