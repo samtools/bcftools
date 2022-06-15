@@ -2799,7 +2799,7 @@ int can_merge(args_t *args)
                     // All alleles of the tested record must be present in the
                     // selected maux record plus variant types must be the same
                     if ( (maux->var_types & line_type) != line_type ) continue;
-                    if ( vcmp_set_ref(args->vcmp,maux->als[0],line->d.allele[0]) < 0 ) continue;   // refs not compatible
+                    if ( vcmp_set_ref(args->vcmp,maux->als[0],line->d.allele[0]) <= 0 ) continue;   // refs not perfect match
                     for (k=1; k<line->n_allele; k++)
                     {
                         if ( vcmp_find_allele(args->vcmp,maux->als+1,maux->nals-1,line->d.allele[k])>=0 ) break;

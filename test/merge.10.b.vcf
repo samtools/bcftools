@@ -1,0 +1,8 @@
+##fileformat=VCFv4.1
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:///ref.fa
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotypes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	B
+1	10	.	CGT	CGA,AGT	.	.	AN=4;AC=1	GT	1/2
