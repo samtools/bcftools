@@ -28,6 +28,10 @@ Changes affecting specific commands:
 
     - Suppress the output of MQSBZ and FS annotations in absence of alternate allele
 
+* bcftools +scatter
+
+    - Fix erroneous addition of duplicate PG lines
+
 
 ## Release 1.15.1 (7th April 2022)
 
