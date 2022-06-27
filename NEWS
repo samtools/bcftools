@@ -32,6 +32,10 @@ Changes affecting specific commands:
 
     - Fix erroneous addition of duplicate PG lines
 
+* bcftools +setGT
+
+    - Custom genotypes (e.g. `-n c:1/1`) now correctly override ploidy
+
 
 ## Release 1.15.1 (7th April 2022)
 
