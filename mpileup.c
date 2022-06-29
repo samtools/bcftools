@@ -97,6 +97,7 @@ typedef struct {
     bcf1_t *bcf_rec;
     htsFile *bcf_fp;
     bcf_hdr_t *bcf_hdr;
+    int indels_v20;
     int argc;
     char **argv;
 } mplp_conf_t;
@@ -553,8 +554,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         }
         int has_ref = mplp_get_ref(conf->mplp_data[0], tid, &ref, &ref_len);
         if (has_ref && (conf->flag & MPLP_REALN))
-            mplp_realn(conf->nfiles, conf->n_plp, conf->plp, conf->flag,
-                       conf->max_read_len, ref, ref_len, pos);
+            mplp_realn(conf->nfiles, conf->n_plp, conf->plp, conf->flag, conf->max_read_len, ref, ref_len, pos);
 
         int total_depth, _ref0, ref16;
         for (i = total_depth = 0; i < conf->nfiles; ++i) total_depth += conf->n_plp[i];
@@ -567,23 +567,29 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         conf->bc.tid = tid; conf->bc.pos = pos;
         bcf_call_combine(conf->gplp->n, conf->bcr, conf->bca, ref16, &conf->bc);
         bcf_clear1(conf->bcf_rec);
-        bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag,
-                     conf->bca, 0);
+        bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, conf->bca, 0);
         flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
 
         // call indels; todo: subsampling with total_depth>max_indel_depth instead of ignoring?
         // check me: rghash in bcf_call_gap_prep() should have no effect, reads mplp_func already excludes them
-        if (!(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth
-            && (bcf_callaux_clean(conf->bca, &conf->bc),
-                bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref) >= 0))
+        if ( !(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth )
         {
-            for (i = 0; i < conf->gplp->n; ++i)
-                bcf_call_glfgen(conf->gplp->n_plp[i], conf->gplp->plp[i], -1, conf->bca, conf->bcr + i);
-            if (bcf_call_combine(conf->gplp->n, conf->bcr, conf->bca, -1, &conf->bc) >= 0)
+            bcf_callaux_clean(conf->bca, &conf->bc);
+            int iret;
+            if ( conf->indels_v20 )
+                iret = bcf_iaux_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref);
+            else
+                iret = bcf_call_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref);
+            if ( iret>=0 )
             {
-                bcf_clear1(conf->bcf_rec);
-                bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, conf->bca, ref);
-                flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
+                for (i = 0; i < conf->gplp->n; ++i)
+                    bcf_call_glfgen(conf->gplp->n_plp[i], conf->gplp->plp[i], -1, conf->bca, conf->bcr + i);
+                if (bcf_call_combine(conf->gplp->n, conf->bcr, conf->bca, -1, &conf->bc) >= 0)
+                {
+                    bcf_clear1(conf->bcf_rec);
+                    bcf_call2bcf(&conf->bc, conf->bcf_rec, conf->bcr, conf->fmt_flag, conf->bca, ref);
+                    flush_bcf_records(conf, conf->bcf_fp, conf->bcf_hdr, conf->bcf_rec);
+                }
             }
         }
     }
@@ -1194,6 +1200,8 @@ static void print_usage(FILE *fp, const mplp_conf_t *mplp)
         "      --indel-bias FLOAT  Raise to favour recall over precision [%.2f]\n", mplp->indel_bias);
     fprintf(fp,
         "      --indel-size INT    Approximate maximum indel size considered [%d]\n", mplp->indel_win_size);
+    fprintf(fp,
+        "      --indels-2.0        New indel calling model (diploid reference consensus)\n");
     fprintf(fp,"\n");
     fprintf(fp,
         "Configuration profiles activated with -X, --config:\n"
@@ -1302,6 +1310,7 @@ int main_mpileup(int argc, char *argv[])
         {"gap-frac", required_argument, NULL, 'F'},
         {"indel-bias", required_argument, NULL, 10},
         {"indel-size", required_argument, NULL, 15},
+        {"indels-2.0", no_argument, NULL, 20},
         {"tandem-qual", required_argument, NULL, 'h'},
         {"skip-indels", no_argument, NULL, 'I'},
         {"max-idepth", required_argument, NULL, 'L'},
@@ -1436,6 +1445,7 @@ int main_mpileup(int argc, char *argv[])
                 }
             }
             break;
+        case  20: mplp.indels_v20 = 1; break;
         case 'A': use_orphan = 1; break;
         case 'F': mplp.min_frac = atof(optarg); break;
         case 'm': mplp.min_support = atoi(optarg); break;

@@ -72,9 +72,11 @@ bcf_callaux_t *bcf_call_init(double theta, int min_baseQ, int max_baseQ,
     return bca;
 }
 
+void bcf_iaux_destroy(bcf_callaux_t *bca);
 void bcf_call_destroy(bcf_callaux_t *bca)
 {
     if (bca == 0) return;
+    bcf_iaux_destroy(bca);
     errmod_destroy(bca->e);
     if (bca->npos) {
         free(bca->ref_pos);  free(bca->alt_pos);

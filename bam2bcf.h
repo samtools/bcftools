@@ -104,6 +104,7 @@ typedef struct __bcf_callaux_t {
     void *rghash;
     float indel_bias;  // adjusts indel score threshold; lower => call more.
     int32_t *ref_nm, *alt_nm;   // pointers to bcf_call_t.{ref_nm,alt_nm}
+    void *iaux;                 // auxiliary structure for --indels-2.0 calling
 } bcf_callaux_t;
 
 // per-sample values
@@ -162,6 +163,7 @@ extern "C" {
     int bcf_call2bcf(bcf_call_t *bc, bcf1_t *b, bcf_callret1_t *bcr, int fmt_flag,
                      const bcf_callaux_t *bca, const char *ref);
     int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref);
+    int bcf_iaux_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref);
     void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call);
 
 #ifdef __cplusplus
