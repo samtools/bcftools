@@ -72,13 +72,25 @@ DEALINGS IN THE SOFTWARE.  */
 #define B2B_INC_AD    1
 #define B2B_INC_AD0   2
 
-#define PLP_HAS_SOFT_CLIP(i) ((i)&1)
-#define PLP_HAS_INDEL(i)     ((i)&2)
-#define PLP_SAMPLE_ID(i)     ((i)>>2)
 
-#define PLP_SET_SOFT_CLIP(i)     ((i)|=1)
-#define PLP_SET_INDEL(i)         ((i)|=2)
-#define PLP_SET_SAMPLE_ID(i,n)   ((i)|=(n)<<2)
+// Pileup "client data" for each read to cache per-read information
+#define PLP_CD(x) ((plp_cd_t*)((x)->p))
+#define PLP_HAS_SOFT_CLIP(cd) (PLP_CD(cd)->i & 1)
+#define PLP_HAS_INDEL(cd)     (PLP_CD(cd)->i & 2)
+#define PLP_SAMPLE_ID(cd)     (PLP_CD(cd)->i >> 2)
+#define PLP_QLEN(cd)          (PLP_CD(cd)->qlen)
+
+#define PLP_SET_SOFT_CLIP(cd)     (PLP_CD(cd)->i |= 1)
+#define PLP_SET_INDEL(cd)         (PLP_CD(cd)->i |= 2)
+#define PLP_SET_SAMPLE_ID(cd,n)   (PLP_CD(cd)->i |= (n)<<2)
+
+typedef struct
+{
+    int64_t i;      // used to store sample id and flags for presence of soft-clip and indel
+    uint32_t qlen;  // cached output of bam_cigar2qlen(), 0 if unset
+}
+plp_cd_t;
+
 
 typedef struct __bcf_callaux_t {
     int fmt_flag, ambig_reads;
@@ -105,6 +117,7 @@ typedef struct __bcf_callaux_t {
     float indel_bias;  // adjusts indel score threshold; lower => call more.
     int32_t *ref_nm, *alt_nm;   // pointers to bcf_call_t.{ref_nm,alt_nm}
     void *iaux;                 // auxiliary structure for --indels-2.0 calling
+    char *chr;                  // current chromosome
 } bcf_callaux_t;
 
 // per-sample values
@@ -150,6 +163,7 @@ typedef struct {
     float strand_bias; // phred-scaled fisher-exact test
     kstring_t tmp;
 } bcf_call_t;
+
 
 #ifdef __cplusplus
 extern "C" {

@@ -295,24 +295,21 @@ static int mplp_func(void *data, bam1_t *b)
 // We cache sample information here so we don't have to keep recomputing this
 // on each and every pileup column. If FMT/SCR annotation is requested, a flag
 // is set to indicate the presence of a soft clip.
-//
-// Cd is an arbitrary block of data we can write into, which ends up in
-// the pileup structures. We stash the sample ID there:
-//      has_soft_clip .. cd->i & 1
-//      sample_id     .. cd->i >> 1
 static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
 {
+    cd->p = calloc(1,sizeof(plp_cd_t));
+
     mplp_aux_t *ma = (mplp_aux_t *)data;
     int n = bam_smpl_get_sample_id(ma->conf->bsmpl, ma->bam_id, (bam1_t *)b);
-    cd->i = 0;
-    PLP_SET_SAMPLE_ID(cd->i, n);
+    PLP_SET_SAMPLE_ID(cd, n);
+
     // Whether read has a soft-clip is used in mplp_realn's heuristics.
     // TODO: consider whether clip length is beneficial to use?
     int i;
     for (i=0; i<b->core.n_cigar; i++) {
         int cig = bam_get_cigar(b)[i] & BAM_CIGAR_MASK;
         if (cig == BAM_CSOFT_CLIP) {
-            PLP_SET_SOFT_CLIP(cd->i);
+            PLP_SET_SOFT_CLIP(cd);
             break;
         }
     }
@@ -331,7 +328,7 @@ static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
                 // Possible further optimsation, check tot_ins==1 later
                 // (and remove break) so we can detect single bp indels.
                 // We may want to focus BAQ on more complex regions only.
-                PLP_SET_INDEL(cd->i);
+                PLP_SET_INDEL(cd);
                 break;
             }
 
@@ -346,6 +343,11 @@ static int pileup_constructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
 
     return 0;
 }
+static int pileup_destructor(void *data, const bam1_t *b, bam_pileup_cd *cd)
+{
+    free(cd->p);
+    return 0;
+}
 
 static void group_smpl(mplp_pileup_t *m, bam_smpl_t *bsmpl, int n, int *n_plp, const bam_pileup1_t **plp)
 {
@@ -356,7 +358,7 @@ static void group_smpl(mplp_pileup_t *m, bam_smpl_t *bsmpl, int n, int *n_plp, c
         for (j = 0; j < n_plp[i]; ++j)  // iterate over all reads available at this position
         {
             const bam_pileup1_t *p = plp[i] + j;
-            int id = PLP_SAMPLE_ID(p->cd.i);
+            int id = PLP_SAMPLE_ID(&(p->cd));
             if (m->n_plp[id] == m->m_plp[id])
             {
                 m->m_plp[id] = m->m_plp[id]? m->m_plp[id]<<1 : 8;
@@ -419,11 +421,11 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
         nt += n_plp[i];
         for (j = 0; j < n_plp[i]; j++) { // iterate over reads
             bam_pileup1_t *p = (bam_pileup1_t *)plp[i] + j;
-            has_indel += (PLP_HAS_INDEL(p->cd.i) || p->indel) ? 1 : 0;
+            has_indel += (PLP_HAS_INDEL(&p->cd) || p->indel) ? 1 : 0;
             // Has_clip is almost always true for very long reads
             // (eg PacBio CCS), but these rarely matter as the clip
             // is likely a long way from this indel.
-            has_clip  += (PLP_HAS_SOFT_CLIP(p->cd.i))         ? 1 : 0;
+            has_clip  += (PLP_HAS_SOFT_CLIP(&p->cd))         ? 1 : 0;
             if (max_indel < p->indel)
                 max_indel = p->indel;
             if (min_indel > p->indel)
@@ -438,6 +440,8 @@ static void mplp_realn(int n, int *n_plp, const bam_pileup1_t **plp,
             return;
     }
 
+static int reminded = 0;
+if ( !reminded ) { fprintf(stderr,"todo: use plp_cd_t to avoid the read-only limitation of p->cd.i\n"); reminded = 1; }
     // Realign
     for (i = 0; i < n; i++) { // iterate over bams
         for (j = 0; j < n_plp[i]; j++) { // iterate over reads
@@ -575,6 +579,7 @@ static int mpileup_reg(mplp_conf_t *conf, uint32_t beg, uint32_t end)
         if ( !(conf->flag&MPLP_NO_INDEL) && total_depth < conf->max_indel_depth )
         {
             bcf_callaux_clean(conf->bca, &conf->bc);
+            conf->bca->chr = tid>=0 ? hdr->target_name[tid] : NULL;
             int iret;
             if ( conf->indels_v20 )
                 iret = bcf_iaux_gap_prep(conf->gplp->n, conf->gplp->n_plp, conf->gplp->plp, pos, conf->bca, ref);
@@ -908,6 +913,8 @@ static int mpileup(mplp_conf_t *conf)
     conf->max_indel_depth = conf->max_indel_depth * nsmpl;
     conf->bcf_rec = bcf_init1();
     bam_mplp_constructor(conf->iter, pileup_constructor);
+    bam_mplp_destructor(conf->iter, pileup_destructor);
+
 
     // Run mpileup for multiple regions
     if ( nregs )
