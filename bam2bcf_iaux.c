@@ -31,6 +31,7 @@
 #include <htslib/sam.h>
 #include <htslib/khash_str2int.h>
 #include "bam2bcf.h"
+#include "read_consensus.h"
 
 #include <htslib/ksort.h>
 KSORT_INIT_STATIC_GENERIC(uint32_t)
@@ -51,7 +52,11 @@ typedef struct
     uint32_t *inscns;       // insertions consensus [itype*max_ins_len+i]
     int muitmp, minscns;    // size of uitmp, inscns
     int iref_type, ntypes, types[MAX_TYPES];   // indel types
-    int max_ins_len;
+    int max_ins_len;        // largest insertion
+    int left, right;        // consensus sequence boundaries
+    read_cns_t *rcns;       // read consensus
+    const char **cns_seq;   // array of consensus sequences
+    int *cns_pos;           // array of relative pos indexes within cns_seq sequences
 }
 indel_aux_t;
 
@@ -71,6 +76,26 @@ static void _print_types(indel_aux_t *iaux)
         for (j=0; j<iaux->types[i]; j++) fprintf(stderr,"%c","ACGTN"[cns[j]]);
     }
     fprintf(stderr,"\n");
+}
+
+static void iaux_init_sequence_context(indel_aux_t *iaux)
+{
+    // Calculate left and right boundary. The array types is sorted in ascending order, the first
+    // element is the largest deletion (if a deletion present)
+    iaux->left  = iaux->pos > iaux->bca->indel_win_size ? iaux->pos - iaux->bca->indel_win_size : 0;
+    iaux->right = iaux->pos + iaux->bca->indel_win_size;
+    if ( iaux->types[0] < 0 ) iaux->right -= iaux->types[0];    // extend by the largest deletion length
+
+    // In case the alignments stand out the reference
+    int i;
+    for (i=iaux->pos; i<iaux->right; i++)
+        if ( !iaux->ref[i] ) break;
+    iaux->right = i;
+
+    // The length of the homopolymer run around the current position
+//    iaux->l_run = bcf_cgp_l_run(iaux->ref, iaux->pos);
+//int l_run_base = seq_nt16_table[(uint8_t)ref[pos+1]];
+//int l_run_ins = 0;
 }
 
 static int _have_indel_reads(indel_aux_t *iaux)
@@ -137,7 +162,7 @@ static int iaux_init_ins_types(indel_aux_t *iaux)
     // use the majority rule to construct the consensus
     for (t=0; t<iaux->ntypes; t++)
     {
-        for (i=0; i<iaux->types[t]; i++)
+        for (i=0; i<iaux->types[t]; i++)    // this naturally includes only insertions
         {
             uint32_t *tmp = &aux[5*(t*iaux->max_ins_len+i)], max = tmp[0], max_j = 0;
             for (j=1; j<5; j++)
@@ -263,6 +288,8 @@ static int iaux_init_types(indel_aux_t *iaux)
     // Init insertion types
     if ( iaux_init_ins_types(iaux) < 0 ) return -1;
 
+    iaux_init_sequence_context(iaux);
+
     _print_types(iaux);
 
     return iaux->ntypes;
@@ -271,6 +298,15 @@ static int iaux_init_types(indel_aux_t *iaux)
 
 static int iaux_set_consensus(indel_aux_t *iaux, int ismpl)
 {
+    if ( !iaux->rcns )
+        iaux->rcns = rcns_init(iaux->pos, iaux->left, iaux->right);
+    else
+        rcns_reset(iaux->rcns, iaux->pos, iaux->left, iaux->right);
+
+    rcns_set_reads(iaux->rcns, iaux->plp[ismpl], iaux->nplp[ismpl]);
+
+    iaux->cns_seq = rcns_get_consensus(iaux->rcns, iaux->ref + iaux->left, &iaux->cns_pos);
+
     return -1;
 }
 static int iaux_score_reads(indel_aux_t *iaux, int ismpl, int itype)
@@ -281,12 +317,6 @@ static int iaux_compute_quality(indel_aux_t *iaux)
 {
     return -1;
 }
-
-/*
-FIXME: with high number of samples, do we handle IMF correctly?  Is it
-fraction of indels across entire data set, or just fraction for this
-specific sample? Needs to check bca->per_sample_flt (--per-sample-mF) opt.
- */
 
 /*
     notes:
@@ -336,6 +366,7 @@ void bcf_iaux_destroy(bcf_callaux_t *bca)
     indel_aux_t *iaux = (indel_aux_t*)bca->iaux;
     free(iaux->uitmp);
     free(iaux->inscns);
+    rcns_destroy(iaux->rcns);
     free(iaux);
 }
 

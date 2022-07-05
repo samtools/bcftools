@@ -180,6 +180,8 @@ extern "C" {
     int bcf_iaux_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos, bcf_callaux_t *bca, const char *ref);
     void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call);
 
+    int bcf_cgp_l_run(const char *ref, int pos);
+
 #ifdef __cplusplus
 }
 #endif

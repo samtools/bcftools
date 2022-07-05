@@ -408,7 +408,7 @@ static char **bcf_cgp_ref_sample(int n, int *n_plp, bam_pileup1_t **plp,
 }
 
 // The length of the homopolymer run around the current position
-static int bcf_cgp_l_run(const char *ref, int pos) {
+int bcf_cgp_l_run(const char *ref, int pos) {
     int i, l_run;
 
     int c = seq_nt16_table[(int)ref[pos + 1]];
