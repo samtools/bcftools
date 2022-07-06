@@ -3370,9 +3370,9 @@ These filtering expressions are accepted by most of the commands.
         @file_name
 
 
-* arithmetic operators
+* arithmetic operators (addition, multiplication, subtraction, division, modulo)
 
-        +,*,-,/
+        +, *, -, /, %
 
 * comparison operators
 

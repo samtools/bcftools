@@ -7,10 +7,13 @@
 
 Changes affecting the whole of bcftools, or multiple commands:
 
-* The -i/-e filtering expressions now support querying of multiple filters,
-  for example `-i 'FILTER="A;B"'` can be used to select sites with two filters
-  "A" and "B" set. See the documentation for more examples.
+* The -i/-e filtering expressions
 
+    - Added support for querying of multiple filters, for example `-i 'FILTER="A;B"'`
+      can be used to select sites with two filters "A" and "B" set. See the documentation
+      for more examples.
+
+    - Added modulo arithmetic operator
 
 Changes affecting specific commands:
 
