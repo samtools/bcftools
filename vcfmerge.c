@@ -43,6 +43,8 @@ THE SOFTWARE.  */
 
 #define DBG 0
 
+#define COLLAPSE_SNP_INS_DEL (1<<10)
+
 #include <htslib/khash.h>
 KHASH_MAP_INIT_STR(strdict, int)
 typedef khash_t(strdict) strdict_t;
@@ -2517,7 +2519,16 @@ static inline int is_gvcf_block(bcf1_t *line)
     }
     return 0;
 }
-static const int snp_mask = (VCF_SNP<<2)|(VCF_MNP<<2), indel_mask = VCF_INDEL<<2, ref_mask = 2;
+
+// Lines can come with any combination of variant types. We use a subset of types defined in vcf.h
+// but shift by two bits to account for VCF_REF defined as 0 (design flaw in vcf.h, my fault) and
+// to accommodate for VCF_GVCF_REF defined below
+static const int
+    snp_mask = (VCF_SNP<<2)|(VCF_MNP<<2),
+    indel_mask = VCF_INDEL<<2,
+    ins_mask = VCF_INS<<2,
+    del_mask = VCF_DEL<<2,
+    ref_mask = 2;
 
 /*
     Check incoming lines for new gVCF blocks, set pointer to the current source
@@ -2743,6 +2754,11 @@ int can_merge(args_t *args)
             else
             {
                 int var_type = bcf_get_variant_types(line);
+                if ( args->collapse==COLLAPSE_SNP_INS_DEL )
+                {
+                    // need to distinguish between ins and del so strip the VCF_INDEL flag
+                    var_type &= ~VCF_INDEL;
+                }
                 maux->var_types |= var_type ? var_type<<2 : 2;
 
                 // for the `-m none -g` mode
@@ -2812,7 +2828,7 @@ int can_merge(args_t *args)
                     //  - SNPs+SNPs+MNPs+REF if -m both,snps
                     //  - indels+indels+REF  if -m both,indels, REF only if SNPs are not present
                     //  - SNPs come first
-                    if ( line_type & indel_mask )
+                    if ( line_type & (indel_mask|ins_mask|del_mask) )
                     {
                         if ( !(line_type&snp_mask) && maux->var_types&snp_mask ) continue;  // SNPs come first
                         if ( args->do_gvcf && maux->var_types&ref_mask ) continue;  // never merge indels with gVCF blocks
@@ -2898,16 +2914,22 @@ void stage_line(args_t *args)
                 int line_type = bcf_get_variant_types(buf->lines[j]);
                 if ( maux->var_types&snp_mask && line_type&VCF_SNP && (args->collapse&COLLAPSE_SNPS) ) break;
                 if ( maux->var_types&indel_mask && line_type&VCF_INDEL && (args->collapse&COLLAPSE_INDELS) ) break;
+                if ( maux->var_types&ins_mask && line_type&VCF_INS && (args->collapse&COLLAPSE_SNP_INS_DEL) ) break;
+                if ( maux->var_types&del_mask && line_type&VCF_DEL && (args->collapse&COLLAPSE_SNP_INS_DEL) ) break;
                 if ( line_type==VCF_REF )
                 {
                     if ( maux->var_types&snp_mask && (args->collapse&COLLAPSE_SNPS) ) break;
                     if ( maux->var_types&indel_mask && (args->collapse&COLLAPSE_INDELS) ) break;
+                    if ( maux->var_types&ins_mask && (args->collapse&COLLAPSE_SNP_INS_DEL) ) break;
+                    if ( maux->var_types&del_mask && (args->collapse&COLLAPSE_SNP_INS_DEL) ) break;
                     if ( maux->var_types&ref_mask ) break;
                 }
                 else if ( maux->var_types&ref_mask )
                 {
                     if ( line_type&snp_mask && (args->collapse&COLLAPSE_SNPS) ) break;
                     if ( line_type&indel_mask && (args->collapse&COLLAPSE_INDELS) ) break;
+                    if ( line_type&ins_mask && (args->collapse&COLLAPSE_SNP_INS_DEL) ) break;
+                    if ( line_type&del_mask && (args->collapse&COLLAPSE_SNP_INS_DEL) ) break;
                 }
             }
         }
@@ -3125,7 +3147,7 @@ static void usage(void)
     fprintf(stderr, "    -i, --info-rules TAG:METHOD,..    Rules for merging INFO fields (method is one of sum,avg,min,max,join) or \"-\" to turn off the default [DP:sum,DP4:sum]\n");
     fprintf(stderr, "    -l, --file-list FILE              Read file names from the file\n");
     fprintf(stderr, "    -L, --local-alleles INT           EXPERIMENTAL: if more than <int> ALT alleles are encountered, drop FMT/PL and output LAA+LPL instead; 0=unlimited [0]\n");
-    fprintf(stderr, "    -m, --merge STRING                Allow multiallelic records for <snps|indels|both|all|none|id>, see man page for details [both]\n");
+    fprintf(stderr, "    -m, --merge STRING                Allow multiallelic records for <snps|indels|both|snp-ins-del|all|none|id>, see man page for details [both]\n");
     fprintf(stderr, "        --no-index                    Merge unindexed files, the same chromosomal order is required and -r/-R are not allowed\n");
     fprintf(stderr, "        --no-version                  Do not append version and command line to the header\n");
     fprintf(stderr, "    -o, --output FILE                 Write output to a file [standard output]\n");
@@ -3229,6 +3251,7 @@ int main_vcfmerge(int argc, char *argv[])
                 else if ( !strcmp(optarg,"any") ) args->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"all") ) args->collapse |= COLLAPSE_ANY;
                 else if ( !strcmp(optarg,"none") ) args->collapse = COLLAPSE_NONE;
+                else if ( !strcmp(optarg,"snp-ins-del") ) args->collapse = COLLAPSE_SNP_INS_DEL;
                 else if ( !strcmp(optarg,"id") ) { args->collapse = COLLAPSE_NONE; args->merge_by_id = 1; }
                 else error("The -m type \"%s\" is not recognised.\n", optarg);
                 break;

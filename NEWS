@@ -24,6 +24,10 @@ Changes affecting specific commands:
       requested, which would result in not transferring the annotation from a tab-delimited
       file (#1733)
 
+* bcftools merge
+
+    - New `-m snp-ins-del` switch to merge SNVs, insertions and deletions separately (#1704)
+
 * bcftools mpileup
 
     - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within

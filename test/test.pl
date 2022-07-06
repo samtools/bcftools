@@ -97,6 +97,9 @@ run_test(\&test_vcf_merge,$opts,in=>['merge.8.a','merge.8.b'],out=>'merge.8.out'
 run_test(\&test_vcf_merge,$opts,in=>['merge.8.a','merge.8.b'],out=>'merge.8.out',args=>'-i AN:sum,AC:sum');
 run_test(\&test_vcf_merge,$opts,in=>['merge.9.a','merge.9.b'],out=>'merge.9.1.out',args=>'');
 run_test(\&test_vcf_merge,$opts,in=>['merge.9.a','merge.9.b'],out=>'merge.9.2.out',args=>'-i AN:sum,AC:sum');
+run_test(\&test_vcf_merge,$opts,in=>['merge.10.a','merge.10.b'],out=>'merge.10.1.out',args=>'-m none');
+run_test(\&test_vcf_merge,$opts,in=>['merge.10.a','merge.10.b'],out=>'merge.10.2.out',args=>'-m both');
+run_test(\&test_vcf_merge,$opts,in=>['merge.10.a','merge.10.b'],out=>'merge.10.3.out',args=>'-m snp-ins-del');
 # run_test(\&test_vcf_merge_big,$opts,in=>'merge_big.1',out=>'merge_big.1.1',nsmpl=>79000,nfiles=>79,nalts=>486,args=>'');   # commented out for speed
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided,_conflicting_interpretations"']);
 run_test(\&test_vcf_query,$opts,in=>'query.string',out=>'query.string.1.out',args=>q[-f '%CHROM\\t%POS\\t%CLNREVSTAT\\n' -i'CLNREVSTAT="criteria_provided" || CLNREVSTAT="_conflicting_interpretations"']);

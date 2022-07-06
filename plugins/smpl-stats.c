@@ -1,19 +1,19 @@
 /* The MIT License
 
-   Copyright (c) 2018-2021 Genome Research Ltd.
+   Copyright (c) 2018-2022 Genome Research Ltd.
 
    Author: Petr Danecek <pd3@sanger.ac.uk>
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
    copies of the Software, and to permit persons to whom the Software is
    furnished to do so, subject to the following conditions:
-   
+
    The above copyright notice and this permission notice shall be included in
    all copies or substantial portions of the Software.
-   
+
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -92,7 +92,7 @@ const char *about(void)
 
 static const char *usage_text(void)
 {
-    return 
+    return
         "\n"
         "About: Calculates basic per-sample stats. Use curly brackets to scan a range of values simultaneously\n"
         "Usage: bcftools +smpl-stats [Plugin Options]\n"
@@ -147,7 +147,7 @@ static void parse_filters(args_t *args)
         }
         if ( !expanded ) break;
     }
-    
+
     fprintf(stderr,"Collecting data for %d filtering expressions\n", args->nflt_str);
 }
 
@@ -184,9 +184,9 @@ static void init_data(args_t *args)
             // replace tab's with spaces so that the output stays parsable
             char *tmp = args->filters[i].expr;
             while ( *tmp )
-            { 
-                if ( *tmp=='\t' ) *tmp = ' '; 
-                tmp++; 
+            {
+                if ( *tmp=='\t' ) *tmp = ' ';
+                tmp++;
             }
         }
     }
@@ -339,7 +339,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
     int ngt = bcf_get_genotypes(args->hdr, rec, &args->gt_arr, &args->mgt_arr);
     if ( ngt<0 ) return;
     int ngt1 = ngt / rec->n_sample;
-    
+
 
     // For ts/tv: numeric code of the reference allele, -1 for insertions
     int ref = !rec->d.allele[0][1] ? bcf_acgt2int(*rec->d.allele[0]) : -1;
@@ -381,7 +381,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
             has_nonref = 1;
         }
         if ( !has_nonref ) continue; // only ref or * in this genotype
-        
+
         stats->nnon_ref++;
 
         // Calculate ts/tv, count SNPs, indels. It does the right thing and handles also HetAA genotypes
@@ -395,8 +395,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
 
                 if ( args->ac[als[j]]==1 ) { stats->nsingleton++; site_singleton = 1; }
 
-                int var_type = bcf_get_variant_type(rec, als[j]);
-                if ( var_type==VCF_SNP || var_type==VCF_MNP )
+                if ( bcf_has_variant_type(rec, als[j], VCF_SNP|VCF_MNP, subset) )
                 {
                     int k = 0;
                     while ( rec->d.allele[0][k] && rec->d.allele[als[j]][k] )
@@ -411,7 +410,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
                         k++;
                     }
                 }
-                else if ( var_type==VCF_INDEL ) has_indel = 1;
+                else if ( bcf_has_variant_type(rec, als[j], VCF_INDEL, exact) ) has_indel = 1;
             }
             if ( has_ts ) { stats->nts++; site_has_ts = 1; }
             if ( has_tv ) { stats->ntv++; site_has_tv = 1; }
@@ -446,7 +445,7 @@ int run(int argc, char **argv)
     int c, i;
     while ((c = getopt_long(argc, argv, "o:s:i:e:r:R:t:T:",loptions,NULL)) >= 0)
     {
-        switch (c) 
+        switch (c)
         {
             case 'e':
                 if ( args->filter_str ) error("Error: only one -i or -e expression can be given, and they cannot be combined\n");

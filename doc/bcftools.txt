@@ -1902,15 +1902,16 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     maximum number of alternate alleles that can be included in the PL tag. The default value
     is 0 which disables the feature and outputs values for all alternate alleles.
 
-*-m, --merge* 'snps'|'indels'|'both'|'all'|'none'|'id'::
+*-m, --merge* 'snps'|'indels'|'both'|'snp-ins-del'|'all'|'none'|'id'::
     The option controls what types of multiallelic records can be created:
 ----
--m none   ..  no new multiallelics, output multiple records instead
--m snps   ..  allow multiallelic SNP records
--m indels ..  allow multiallelic indel records
--m both   ..  both SNP and indel records can be multiallelic
--m all    ..  SNP records can be merged with indel records
--m id     ..  merge by ID
+-m none        ..  no new multiallelics, output multiple records instead
+-m snps        ..  allow multiallelic SNP records
+-m indels      ..  allow multiallelic indel records
+-m both        ..  both SNP and indel records can be multiallelic
+-m all         ..  SNP records can be merged with indel records
+-m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
+-m id          ..  merge by ID
 ----
 
 *--no-index*::
