@@ -103,7 +103,7 @@ ubuntu_task:
     apt-get install -y --no-install-suggests --no-install-recommends \
         ca-certificates clang git autoconf automake  \
         make zlib1g-dev libbz2-dev liblzma-dev libcurl4-gnutls-dev   \
-        libssl-dev libdeflate-dev libncurses5-dev
+        libssl-dev libdeflate-dev
 
   << : *COMPILE
   << : *TEST
@@ -113,7 +113,7 @@ ubuntu_task:
 rockylinux_task:
   name: rockylinux-gcc
   container:
-    image: rockylinux:latest
+    image: rockylinux:9
     cpu: 2
     memory: 1G
 
@@ -126,8 +126,8 @@ rockylinux_task:
   # NB: we could consider building a docker image with these
   # preinstalled and specifying that instead, to speed up testing.
   install_script: |
-    yum install -y autoconf automake make gcc perl-Data-Dumper zlib-devel \
-        bzip2 bzip2-devel xz-devel curl-devel openssl-devel ncurses-devel \
+    yum install -y autoconf automake make gcc perl-Data-Dumper perl-FindBin \
+        zlib-devel bzip2 bzip2-devel xz-devel curl-devel openssl-devel \
         git diffutils
 
   << : *COMPILE
