@@ -268,6 +268,16 @@ void ftf_destroy(pop_t *pop)
     }
     free(pop->ftf);
 }
+
+#define float_set_from_double(dst, src) \
+    if (bcf_double_is_missing_or_vector_end(src)) bcf_float_set_missing(dst); else (dst) = (src)
+
+static inline int32_t int32_from_double(double src)
+{
+    if (bcf_double_is_missing_or_vector_end(src)) return bcf_int32_missing;
+    else return (int)src;
+}
+
 int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
 {
     int j,k, nval, nval1;
@@ -286,14 +296,14 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
         if ( ftf->type==BCF_HT_REAL )
         {
             hts_expand(float,nfill,ftf->nfval,ftf->fval);
-            for (j=0; j<ncopy; j++) ftf->fval[j] = val[j];
+            for (j=0; j<ncopy; j++) float_set_from_double(ftf->fval[j], val[j]);
             for (; j<nfill; j++) bcf_float_set_missing(ftf->fval[j]);
             ret = bcf_update_info_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill);
         }
         else
         {
             hts_expand(int32_t,nfill,ftf->nival,ftf->ival);
-            for (j=0; j<ncopy; j++) ftf->ival[j] = (int)val[j];
+            for (j=0; j<ncopy; j++) ftf->ival[j] = int32_from_double(val[j]);
             for (; j<nfill; j++) ftf->ival[j] = bcf_int32_missing;
             ret = bcf_update_info_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill);
         }
@@ -309,7 +319,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             {
                 float *dst  = ftf->fval + k*nval1;
                 const double *src = val + k*nval1;
-                for (j=0; j<ncopy; j++) dst[j] = src[j];
+                for (j=0; j<ncopy; j++) float_set_from_double(dst[j], src[j]);
                 for (; j<nfill; j++) bcf_float_set_missing(dst[j]);
             }
             ret = bcf_update_format_float(args->out_hdr,rec,args->str.s,ftf->fval,nfill*rec->n_sample);
@@ -321,7 +331,7 @@ int ftf_filter_expr(args_t *args, bcf1_t *rec, pop_t *pop, ftf_t *ftf)
             {
                 int32_t *dst = ftf->ival + k*nval1;
                 const double *src  = val + k*nval1;
-                for (j=0; j<ncopy; j++) dst[j] = (int)src[j];
+                for (j=0; j<ncopy; j++) dst[j] = int32_from_double(src[j]);
                 for (; j<nfill; j++) dst[j] = bcf_int32_missing;
             }
             ret = bcf_update_format_int32(args->out_hdr,rec,args->str.s,ftf->ival,nfill*rec->n_sample);
