@@ -32,7 +32,6 @@ THE SOFTWARE.  */
 #include <math.h>
 #include <htslib/vcf.h>
 #include <time.h>
-#include <zlib.h>
 #include <stdarg.h>
 #include <htslib/kfunc.h>
 #include <htslib/synced_bcf_reader.h>
