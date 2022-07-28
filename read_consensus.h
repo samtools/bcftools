@@ -29,21 +29,31 @@
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 
+typedef struct
+{
+    char *seq;          // nt16 sequence
+    int nseq, ipos;     // the sequence length and the `pos` index relative to seq
+}
+cns_seq_t;
+
 typedef struct _read_cns_t read_cns_t;
 
 // Init and destroy read consensus
-read_cns_t *rcns_init(int pos, int beg, int end);
+read_cns_t *rcns_init(hts_pos_t pos, hts_pos_t beg, hts_pos_t end);
 void rcns_destroy(read_cns_t *rcns);
 
 // Reset the structures for new sample and/or position
-int rcns_reset(read_cns_t *rcns, int pos, int beg, int end);
+int rcns_reset(read_cns_t *rcns, hts_pos_t pos, hts_pos_t beg, hts_pos_t end);
 
-// Add reads to consensus. Can be called once or multiple times, eg for creating
-// a shared consensus for multiple samples (note ploidy might be an issue)
+// Add reads to consensus. The provided structures must continue to exist
+// until rcns_get_consensus() is called.
+//
+// Todo (easy): allow it to be called once or multiple times, eg for
+// creating a shared consensus for multiple samples
 int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp);
 
-// Generate up to two consensus sequences, the npos[] array holds the pos index
-// relative to the returned sequence (0-based)
-const char **rcns_get_consensus(read_cns_t *rcns, const char *ref, int **npos);
+// Generate up to two consensus sequences, cns_seq[1].nseq is 0 when only
+// the first is set
+cns_seq_t *rcns_get_consensus(read_cns_t *rcns, const char *ref);
 
 #endif

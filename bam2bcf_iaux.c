@@ -55,12 +55,12 @@ typedef struct
     int max_ins_len;        // largest insertion
     int left, right;        // consensus sequence boundaries
     read_cns_t *rcns;       // read consensus
-    const char **cns_seq;   // array of consensus sequences
+    cns_seq_t *cns_seq;     // array of consensus sequences
     int *cns_pos;           // array of relative pos indexes within cns_seq sequences
 }
 indel_aux_t;
 
-static void _print_types(indel_aux_t *iaux)
+static void debug_print_types(indel_aux_t *iaux)
 {
     int i,j;
     fprintf(stderr,"types at %s:%d ... ",iaux->chr,iaux->pos+1);
@@ -68,7 +68,7 @@ static void _print_types(indel_aux_t *iaux)
     {
         if ( iaux->types[i]<=0 )
         {
-            if ( i==iaux->iref_type ) fprintf(stderr," %d",iaux->types[i]);
+            if ( i==iaux->iref_type ) fprintf(stderr," ref=%d",iaux->types[i]);
             continue;
         }
         fprintf(stderr," ");
@@ -290,7 +290,7 @@ static int iaux_init_types(indel_aux_t *iaux)
 
     iaux_init_sequence_context(iaux);
 
-    _print_types(iaux);
+    debug_print_types(iaux);
 
     return iaux->ntypes;
 }
@@ -305,7 +305,12 @@ static int iaux_set_consensus(indel_aux_t *iaux, int ismpl)
 
     rcns_set_reads(iaux->rcns, iaux->plp[ismpl], iaux->nplp[ismpl]);
 
-    iaux->cns_seq = rcns_get_consensus(iaux->rcns, iaux->ref + iaux->left, &iaux->cns_pos);
+    iaux->cns_seq = rcns_get_consensus(iaux->rcns, iaux->ref + iaux->left);
+
+// todo:
+//  rcns should also collect localized number of mismatches as a substitute
+//  for uninformative MQ. This would not affect calling but would help with
+//  filtering
 
     return -1;
 }
