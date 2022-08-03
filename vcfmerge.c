@@ -2753,7 +2753,8 @@ int can_merge(args_t *args)
                 id = line->d.id;
             else
             {
-                int var_type = bcf_get_variant_types(line);
+                int var_type = bcf_has_variant_types(line, VCF_ANY, bcf_match_overlap);
+                if (var_type < 0) error("bcf_has_variant_types() failed.");
                 if ( args->collapse==COLLAPSE_SNP_INS_DEL )
                 {
                     // need to distinguish between ins and del so strip the VCF_INDEL flag
@@ -2794,7 +2795,8 @@ int can_merge(args_t *args)
 
             bcf1_t *line = buf->lines[j]; // ptr to reader's buffer or gvcf buffer
 
-            int line_type = bcf_get_variant_types(line);
+            int line_type = bcf_has_variant_types(line, VCF_ANY, bcf_match_overlap);
+            if (line_type < 0) error("bcf_has_variant_types() failed.");
             line_type = line_type ? line_type<<2 : 2;
 
             // select relevant lines
@@ -2911,7 +2913,8 @@ void stage_line(args_t *args)
             {
                 if ( buf->rec[j].skip ) continue;   // done or not compatible
                 if ( args->collapse&COLLAPSE_ANY ) break;   // anything can be merged
-                int line_type = bcf_get_variant_types(buf->lines[j]);
+                int line_type = bcf_has_variant_types(buf->lines[j], VCF_ANY, bcf_match_overlap);
+                if (line_type < 0) error("bcf_has_variant_types() failed.");
                 if ( maux->var_types&snp_mask && line_type&VCF_SNP && (args->collapse&COLLAPSE_SNPS) ) break;
                 if ( maux->var_types&indel_mask && line_type&VCF_INDEL && (args->collapse&COLLAPSE_INDELS) ) break;
                 if ( maux->var_types&ins_mask && line_type&VCF_INS && (args->collapse&COLLAPSE_SNP_INS_DEL) ) break;

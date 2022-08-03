@@ -394,8 +394,9 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
                     error("The GT index is out of range at %s:%"PRId64" in %s\n", bcf_seqname(args->hdr,rec),(int64_t) rec->pos+1,args->hdr->samples[j]);
 
                 if ( args->ac[als[j]]==1 ) { stats->nsingleton++; site_singleton = 1; }
-
-                if ( bcf_has_variant_type(rec, als[j], VCF_SNP|VCF_MNP, subset) )
+                int var_type = bcf_has_variant_type(rec, als[j], VCF_SNP|VCF_MNP|VCF_INDEL);
+                if ( var_type < 0 ) error("bcf_has_variant_type() failed");
+                if ( var_type & (VCF_SNP|VCF_MNP) )
                 {
                     int k = 0;
                     while ( rec->d.allele[0][k] && rec->d.allele[als[j]][k] )
@@ -410,7 +411,7 @@ static void process_record(args_t *args, bcf1_t *rec, flt_stats_t *flt)
                         k++;
                     }
                 }
-                else if ( bcf_has_variant_type(rec, als[j], VCF_INDEL, exact) ) has_indel = 1;
+                else if ( var_type == VCF_INDEL ) has_indel = 1;
             }
             if ( has_ts ) { stats->nts++; site_has_ts = 1; }
             if ( has_tv ) { stats->ntv++; site_has_tv = 1; }
