@@ -1733,7 +1733,8 @@ the CSI first and then the TBI.
 ==== Stats options:
 *-a, --all*::
     Used in conjunction with *-s, --stats*, print per contig stats
-    for all contigs, even those with zero records.
+    for all contigs, even those with zero records and those for which
+    no stats are recorded in the index file (shown as '.').
 
 *-n, --nrecords*::
     print the number of records based on the CSI or TBI index files

@@ -183,13 +183,15 @@ int vcf_index_stats(char *fname, int stats)
     for (tid=0; tid<nseq; tid++)
     {
         uint64_t records, v;
-        hts_idx_get_stat(tbx ? tbx->idx : idx, tid, &records, &v);
+        int ret = hts_idx_get_stat(tbx ? tbx->idx : idx, tid, &records, &v);
         sum += records;
         if ( (stats&total) || (records == 0 && !(stats&all_contigs)) ) continue;
         const char *ctg_name = tbx ? seq[tid] : hdr ? bcf_hdr_id2name(hdr, tid) : "n/a";
         bcf_hrec_t *hrec = hdr ? bcf_hdr_get_hrec(hdr, BCF_HL_CTG, "ID", ctg_name, NULL) : NULL;
         int hkey = hrec ? bcf_hrec_find_key(hrec, "length") : -1;
-        printf("%s\t%s\t%" PRIu64 "\n", ctg_name, hkey<0?".":hrec->vals[hkey], records);
+        printf("%s\t%s\t", ctg_name, hkey<0?".":hrec->vals[hkey]);
+        if (ret >= 0) printf("%" PRIu64 "\n", records);
+        else printf(".\n");
     }
     if ( !sum )
     {
