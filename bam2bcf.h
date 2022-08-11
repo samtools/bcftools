@@ -181,6 +181,7 @@ extern "C" {
     void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call);
 
     int bcf_cgp_l_run(const char *ref, int pos);
+    int est_indelreg(int pos, const char *ref, int l, char *ins4);
 
 #ifdef __cplusplus
 }

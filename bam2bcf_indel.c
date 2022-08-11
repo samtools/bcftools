@@ -84,7 +84,7 @@ static inline int est_seqQ(const bcf_callaux_t *bca, int l, int l_run)
     return q < qh? q : qh;
 }
 
-static inline int est_indelreg(int pos, const char *ref, int l, char *ins4)
+inline int est_indelreg(int pos, const char *ref, int l, char *ins4)
 {
     int i, j, max = 0, max_i = pos, score = 0;
     l = abs(l);
@@ -922,7 +922,7 @@ int bcf_call_gap_prep(int n, int *n_plp, bam_pileup1_t **plp, int pos,
                 fprintf(stderr, "pos=%d type=%d read=%d:%d name=%s "
                         "qbeg=%d tbeg=%d score=%d\n",
                         pos, types[t], s, i, bam_get_qname(p->b),
-                        qbeg, tbeg, sc);
+                        qbeg, tbeg, score[K*n_types + t]);
 #endif
             }
         }
