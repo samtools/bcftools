@@ -976,7 +976,14 @@ static void process_vaf_vaf1(bcf1_t *rec)
 
     args->niarr = bcf_get_format_int32(args->in_hdr, rec, "AD", &args->iarr, &args->miarr);
     if ( args->niarr <= 0 )
-        error("Could not read FORMAT/AD annotation at %s:%"PRIhts_pos"\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
+    {
+        static int missing_ad_warned = 0;
+        if ( !missing_ad_warned )
+            fprintf(stderr,"Warning: cannot add the VAF/VAF1 annotations, the required FORMAT/AD tag is missing at %s:%"PRIhts_pos".\n"
+                           "         (This warning is printed only once.)\n",bcf_seqname(args->in_hdr,rec),rec->pos+1);
+        missing_ad_warned = 1;
+        return;
+    }
 
     int nsmpl = bcf_hdr_nsamples(args->in_hdr);
     if ( args->niarr != nsmpl*rec->n_allele ) return;   // incorrect number of values (possibly all missing)
