@@ -2546,7 +2546,7 @@ By default, appropriate system directories are searched for installed plugins.
     - FORMAT/VAF1     Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively
     - TAG=func(TAG)   Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
 
-*fix-ploidy*::
+*fixploidy*::
     sets correct ploidy
 
 *fixref*::
