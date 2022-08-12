@@ -385,7 +385,7 @@ static void info_rules_init(args_t *args)
         info_rule_t *rule = &args->rules[n];
         rule->hdr_tag = strdup(ss);
         int id = bcf_hdr_id2int(args->out_hdr, BCF_DT_ID, rule->hdr_tag);
-        if ( !bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,id) ) error("The tag is not defined in the header: \"%s\"\n", rule->hdr_tag);
+        if ( !bcf_hdr_idinfo_exists(args->out_hdr,BCF_HL_INFO,id) ) error("The INFO tag is not defined in the header: \"%s\"\n", rule->hdr_tag);
         rule->type = bcf_hdr_id2type(args->out_hdr,BCF_HL_INFO,id);
         if ( rule->type==BCF_HT_INT ) rule->type_size = sizeof(int32_t);
         else if ( rule->type==BCF_HT_REAL ) rule->type_size = sizeof(float);
