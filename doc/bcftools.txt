@@ -1731,6 +1731,11 @@ the CSI first and then the TBI.
     see *<<common_options,Common Options>>*
 
 ==== Stats options:
+*-a, --all*::
+    Used in conjunction with *-s, --stats*, print per contig stats
+    for all contigs, even those with zero records and those for which
+    no stats are recorded in the index file (shown as '.').
+
 *-n, --nrecords*::
     print the number of records based on the CSI or TBI index files
 
@@ -1738,7 +1743,7 @@ the CSI first and then the TBI.
     Print per contig stats based on the CSI or TBI index files.
     Output format is three tab-delimited columns listing the contig
     name, contig length ('.' if unknown) and number of records for
-    the contig. Contigs with zero records are not printed.
+    the contig. Contigs with zero records are not printed by default.
 
 [[isec]]
 === bcftools isec ['OPTIONS']  'A.vcf.gz' 'B.vcf.gz' [...]
