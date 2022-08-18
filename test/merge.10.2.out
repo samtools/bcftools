@@ -1,0 +1,10 @@
+##fileformat=VCFv4.3
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:ref.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	3000000	.	C	CCG,CAA	.	.	.
+1	3000150	.	CC	C,CTTC	.	.	.
+1	3000152	.	C	A	.	.	.
+1	3000152	.	C	CA	.	.	.
+1	3000154	.	C	A,T	.	.	.

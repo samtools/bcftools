@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-#  
+#
 #  The MIT License
-#  
-#  Copyright (c) 2017-2019 Genome Research Ltd.
-#  
+#
+#  Copyright (c) 2017-2022 Genome Research Ltd.
+#
 #  Author: Petr Danecek <pd3@sanger.ac.uk>
-#  
+#
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
 #  in the Software without restriction, including without limitation the rights
 #  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 #  copies of the Software, and to permit persons to whom the Software is
 #  furnished to do so, subject to the following conditions:
-#  
+#
 #  The above copyright notice and this permission notice shall be included in
 #  all copies or substantial portions of the Software.
-#  
+#
 #  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 #  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 #  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -72,48 +72,48 @@ track_height = 1
 if len(sys.argv) < 2: usage()
 args = sys.argv[1:]
 while len(args):
-    if args[0]=='-r' or args[0]=='--region': 
+    if args[0]=='-r' or args[0]=='--region':
         args = args[1:]
         plot_regions = args[0]
-    elif args[0]=='-i' or args[0]=='--interactive': 
+    elif args[0]=='-i' or args[0]=='--interactive':
         interactive = True
-    elif args[0]=='-l' or args[0]=='--min-length': 
+    elif args[0]=='-l' or args[0]=='--min-length':
         args = args[1:]
         min_length = float(args[0])
-    elif args[0]=='-n' or args[0]=='--min-markers': 
+    elif args[0]=='-n' or args[0]=='--min-markers':
         args = args[1:]
         min_markers = float(args[0])
-    elif args[0]=='-o' or args[0]=='--outfile': 
+    elif args[0]=='-o' or args[0]=='--outfile':
         args = args[1:]
         outfile = args[0]
-    elif args[0]=='-q' or args[0]=='--min-qual': 
+    elif args[0]=='-q' or args[0]=='--min-qual':
         args = args[1:]
         min_qual = float(args[0])
-    elif args[0]=='-H' or args[0]=='--highlight': 
+    elif args[0]=='-H' or args[0]=='--highlight':
         args = args[1:]
         highlight = args[0]
-    elif args[0]=='-s' or args[0]=='--samples': 
+    elif args[0]=='-s' or args[0]=='--samples':
         args = args[1:]
         sample_file = args[0]
     elif args[0]=='-?' or args[0]=='-h' or args[0]=='--help':
         usage()
-    elif args[0]=='+adj' or args[0]=='--adjust': 
+    elif args[0]=='+adj' or args[0]=='--adjust':
         args = args[1:]
         adjust = args[0]
-    elif args[0]=='+dpi' or args[0]=='--dpi': 
+    elif args[0]=='+dpi' or args[0]=='--dpi':
         args = args[1:]
         dpi = float(args[0])
-    elif args[0]=='+sxt' or args[0]=='--show-xticks': 
+    elif args[0]=='+sxt' or args[0]=='--show-xticks':
         show_xticks = True
-    elif args[0]=='+twh' or args[0]=='--track-wh': 
+    elif args[0]=='+twh' or args[0]=='--track-wh':
         args = args[1:]
         (track_width,track_height) = args[0].split(',')
         track_height = -float(track_height)    # will be used as if negative, no auto-magic
         track_width  = float(track_width)
-    elif args[0]=='+xlb' or args[0]=='--xlabel': 
+    elif args[0]=='+xlb' or args[0]=='--xlabel':
         args = args[1:]
         xlabel = args[0]
-    elif args[0]=='+xli' or args[0]=='--xlimit': 
+    elif args[0]=='+xli' or args[0]=='--xlimit':
         args = args[1:]
         xlim = float(args[0])
     else:
@@ -153,7 +153,7 @@ def parse_regions(str):
     regs = { 'inc':[], 'exc':[] }
     list = str.split(',')
     key = 'inc'
-    if list[0][0]=='^': 
+    if list[0][0]=='^':
         key = 'exc'
         list[0] = list[0][1:]
     for reg in list:
@@ -222,7 +222,7 @@ def merge_regions(rg):
             if len(rgs[smpl])==0: continue
             reg = rgs[smpl][0]
             if reg[0] > end: continue
-            if reg[1] > end: 
+            if reg[1] > end:
                 rgs[smpl][0][0] = end + 1
             else:
                 rgs[smpl] = rgs[smpl][1:]
@@ -246,7 +246,7 @@ def prune_regions(groups,regions):
     for smpl in regions:
         rm = []
         for reg in regions[smpl]:
-            key = str(reg[0])+"-"+str(reg[1]) 
+            key = str(reg[0])+"-"+str(reg[1])
             if key in regs['-']: rm.append(reg)
             elif key not in regs['+'] or regs['+'][key]!=nexp: rm.append(reg)
         for reg in rm:
@@ -304,15 +304,15 @@ for fname in fnames:
                 smpl = row[i]
                 if samples!=None and smpl not in samples: continue
                 gt   = row[i+1]
-                x = gt.split('/')
+                x = re.split(r'[/|]',gt)
                 if x[0]=='.': continue          # missing genotype ./.
                 dsg = 2
                 if x[0]!=x[1]: dsg = 1
                 elif x[0]=='0': continue        # skip HomRef 0/0 genotypes
-                if chr not in dat_gt: 
+                if chr not in dat_gt:
                     dat_gt[chr] = {}
                     chrs.append(chr)
-                if smpl not in dat_gt[chr]: 
+                if smpl not in dat_gt[chr]:
                     dat_gt[chr][smpl] = []
                 if smpl not in smpl2y:
                     y = len(smpl2y)
@@ -339,7 +339,7 @@ for fname in fnames:
                 if end>reg[1]: end = reg[1]
             dat_rg[chr][smpl].append([beg,end])
 
-if samples==None: 
+if samples==None:
     samples = {}
     for smpl in smpl2y: samples[smpl] = smpl
 
@@ -355,7 +355,7 @@ dat_rg1 = {}
 for chr in chrs:
     if chr in dat_rg:
         rg1 = merge_regions(dat_rg[chr])
-        if groups!=None: 
+        if groups!=None:
             rg1 = prune_regions(groups,rg1)
         if len(rg1)!=0: dat_rg1[chr] = rg1
     off_hash[chr] = off
@@ -369,7 +369,7 @@ for chr in chrs:
 wh = track_width,len(smpl2y)
 if track_height < 0:
     wh = track_width,-track_height*len(smpl2y)
-elif len(smpl2y)>5: 
+elif len(smpl2y)>5:
     wh = track_width,5
 
 def bignum(num):

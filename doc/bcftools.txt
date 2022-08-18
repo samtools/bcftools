@@ -973,6 +973,8 @@ depth information, such as INFO/AD or FORMAT/AD. For that, consider using the
     # Create consensus for one region. The fasta header lines are then expected
     # in the form ">chr:from-to".
     samtools faidx ref.fa 8:11870-11890 | bcftools consensus in.vcf.gz -o out.fa
+
+    # For more examples see http://samtools.github.io/bcftools/howtos/consensus-sequence.html
 ----
 
 
@@ -1729,6 +1731,11 @@ the CSI first and then the TBI.
     see *<<common_options,Common Options>>*
 
 ==== Stats options:
+*-a, --all*::
+    Used in conjunction with *-s, --stats*, print per contig stats
+    for all contigs, even those with zero records and those for which
+    no stats are recorded in the index file (shown as '.').
+
 *-n, --nrecords*::
     print the number of records based on the CSI or TBI index files
 
@@ -1736,7 +1743,7 @@ the CSI first and then the TBI.
     Print per contig stats based on the CSI or TBI index files.
     Output format is three tab-delimited columns listing the contig
     name, contig length ('.' if unknown) and number of records for
-    the contig. Contigs with zero records are not printed.
+    the contig. Contigs with zero records are not printed by default.
 
 [[isec]]
 === bcftools isec ['OPTIONS']  'A.vcf.gz' 'B.vcf.gz' [...]
@@ -1900,15 +1907,16 @@ For "vertical" merge take a look at *<<concat,bcftools concat>>* or *<<norm,bcft
     maximum number of alternate alleles that can be included in the PL tag. The default value
     is 0 which disables the feature and outputs values for all alternate alleles.
 
-*-m, --merge* 'snps'|'indels'|'both'|'all'|'none'|'id'::
+*-m, --merge* 'snps'|'indels'|'both'|'snp-ins-del'|'all'|'none'|'id'::
     The option controls what types of multiallelic records can be created:
 ----
--m none   ..  no new multiallelics, output multiple records instead
--m snps   ..  allow multiallelic SNP records
--m indels ..  allow multiallelic indel records
--m both   ..  both SNP and indel records can be multiallelic
--m all    ..  SNP records can be merged with indel records
--m id     ..  merge by ID
+-m none        ..  no new multiallelics, output multiple records instead
+-m snps        ..  allow multiallelic SNP records
+-m indels      ..  allow multiallelic indel records
+-m both        ..  both SNP and indel records can be multiallelic
+-m all         ..  SNP records can be merged with indel records
+-m snp-ins-del ..  allow multiallelic SNVs, insertions, deletions, but don't mix them
+-m id          ..  merge by ID
 ----
 
 *--no-index*::
@@ -2543,7 +2551,7 @@ By default, appropriate system directories are searched for installed plugins.
     - FORMAT/VAF1     Number:1  Type:Float    ..  The same as FORMAT/VAF but for all alternate alleles cumulatively
     - TAG=func(TAG)   Number:1  Type:Integer  ..  Experimental support for user-defined expressions such as "DP=sum(DP)"
 
-*fix-ploidy*::
+*fixploidy*::
     sets correct ploidy
 
 *fixref*::
@@ -2621,6 +2629,9 @@ By default, appropriate system directories are searched for installed plugins.
 
 *trio-switch-rate*::
     calculate phase switch rate in trio samples, children samples must have phased GTs
+
+*variant-distance*::
+    annotate sites with the distance to the nearest variant
 
 *variantkey-hex*::
     generate unsorted VariantKey-RSid index files in hexadecimal format
@@ -3365,9 +3376,9 @@ These filtering expressions are accepted by most of the commands.
         @file_name
 
 
-* arithmetic operators
+* arithmetic operators (addition, multiplication, subtraction, division, modulo)
 
-        +,*,-,/
+        +, *, -, /, %
 
 * comparison operators
 
@@ -3393,13 +3404,17 @@ about the distinction between "&&" vs "&" and "||" vs "|".
         FORMAT/DV, FMT/DV, or DV
         FILTER, QUAL, ID, CHROM, POS, REF, ALT[0]
 
-* starting with 1.11, the FILTER column can be queried as follows:
+* the FILTER column can be queried as follows:
 
         FILTER="PASS"
+        FILTER="."
         FILTER="A"          .. exact match, for example "A;B" does not pass
+        FILTER="A;B"        .. exact match, "A;B" and "B;A" pass, everything else fails
         FILTER!="A"         .. exact match, for example "A;B" does pass
-        FILTER~"A"          .. both "A" and "A;B" pass
-        FILTER!~"A"         .. neither "A" nor "A;B" pass
+        FILTER~"A"          .. subset match, for example both "A" and "A;B" pass
+        FILTER~"A;B"        .. subset match, pass only if both "A" and "B" are present
+        FILTER!~"A"         .. complement match, for example both "A" and "A;B" fail
+        FILTER!~"A;B"       .. complement match, fail if both "A" and "B" are present
 
 * 1 (or 0) to test the presence (or absence) of a flag
 

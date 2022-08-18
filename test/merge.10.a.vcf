@@ -1,0 +1,8 @@
+##fileformat=VCFv4.3
+##contig=<ID=1,assembly=b37,length=249250621>
+##reference=file:ref.fa
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	3000000	.	C	CCG	.	.	.
+1	3000150	.	CC	C	.	.	.
+1	3000152	.	C	A	.	.	.
+1	3000154	.	C	A	.	.	.

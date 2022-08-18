@@ -1,0 +1,53 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr19,length=147>
+##ALT=<ID=*,Description="Represents allele(s) other than observed.">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=IDV,Number=1,Type=Integer,Description="Maximum number of raw reads supporting an indel">
+##INFO=<ID=IMF,Number=1,Type=Float,Description="Maximum fraction of raw reads supporting an indel">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=VDB,Number=1,Type=Float,Description="Variant Distance Bias for filtering splice-site artefacts in RNA-seq data (bigger is better)",Version="3">
+##INFO=<ID=RPBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Read Position Bias (closer to 0 is better)">
+##INFO=<ID=MQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)">
+##INFO=<ID=BQBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)">
+##INFO=<ID=MQSBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)">
+##INFO=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better)">
+##INFO=<ID=SCBZ,Number=1,Type=Float,Description="Mann-Whitney U-z test of Soft-Clip Length Bias (closer to 0 is better)">
+##INFO=<ID=FS,Number=1,Type=Float,Description="Phred-scaled p-value using Fisher's exact test to detect strand bias">
+##INFO=<ID=SGB,Number=1,Type=Float,Description="Segregation based metric.">
+##INFO=<ID=MQ0F,Number=1,Type=Float,Description="Fraction of MQ0 reads (smaller is better)">
+##INFO=<ID=I16,Number=16,Type=Float,Description="Auxiliary tag used for calling, see description of bcf_callret1_t in bam2bcf.h">
+##INFO=<ID=QS,Number=R,Type=Float,Description="Auxiliary tag used for calling">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
+chr19	69	.	G	C,<*>	0	.	DP=46;I16=18,21,2,3,1377,50689,217,10339,2340,140400,266,14324,759,16653,92,1754;QS=0.868222,0.131778,0;VDB=0.213368;SGB=-0.590765;RPBZ=0.0739965;MQBZ=-4.95028;MQSBZ=-0.485415;BQBZ=-0.0931785;NMBZ=6.54221;SCBZ=6.54221;FS=0;MQ0F=0	PL	60,0,255,177,255,255
+chr19	70	.	G	<*>	0	.	DP=47;I16=19,25,0,0,1638,63732,0,0,2606,154724,0,0,829,18007,0,0;QS=1,0;MQ0F=0	PL	0,132,255
+chr19	71	.	T	<*>	0	.	DP=47;I16=19,25,0,0,1488,54040,0,0,2606,154724,0,0,827,17989,0,0;QS=1,0;MQ0F=0	PL	0,132,255
+chr19	72	.	G	A,<*>	0	.	DP=48;I16=18,22,2,3,1377,49347,203,9477,2400,144000,266,14324,733,16223,92,1796;QS=0.874841,0.125159,0;VDB=0.197286;SGB=-0.590765;RPBZ=0.361277;MQBZ=-5.01073;MQSBZ=-0.448951;BQBZ=0.145086;NMBZ=6.61856;SCBZ=6.61856;FS=0;MQ0F=0	PL	48,0,255,169,255,255
+chr19	73	.	G	<*>	0	.	DP=48;I16=20,25,0,0,1608,61094,0,0,2666,158324,0,0,823,18049,0,0;QS=1,0;MQ0F=0	PL	0,135,255
+chr19	74	.	T	<*>	0	.	DP=48;I16=20,25,0,0,1478,53810,0,0,2666,158324,0,0,820,18080,0,0;QS=1,0;MQ0F=0	PL	0,135,255
+chr19	75	.	G	<*>	0	.	DP=48;I16=20,25,0,0,1617,61719,0,0,2666,158324,0,0,813,17961,0,0;QS=1,0;MQ0F=0	PL	0,135,255
+chr19	76	.	A	C,<*>	0	.	DP=47;I16=18,21,2,3,1383,50589,220,10546,2340,140400,266,14324,715,15927,92,1964;QS=0.867085,0.132915,0;VDB=0.181959;SGB=-0.590765;RPBZ=0.573514;MQBZ=-4.95028;MQSBZ=-0.485415;BQBZ=0.556487;NMBZ=6.54221;SCBZ=5.78316;FS=0;MQ0F=0	PL	63,0,255,180,255,255
+chr19	77	.	G	<*>	0	.	DP=47;I16=20,24,0,0,1639,63567,0,0,2606,154724,0,0,799,17769,0,0;QS=1,0;MQ0F=0	PL	0,132,255
+chr19	78	.	G	C,<*>	0	.	DP=46;I16=17,21,2,3,1392,52920,202,9494,2280,136800,266,14324,702,15700,88,1896;QS=0.87768,0.12232,0;VDB=0.187998;SGB=-0.590765;RPBZ=0.682374;MQBZ=-4.88906;MQSBZ=-0.44293;BQBZ=-0.380581;NMBZ=6.46493;SCBZ=5.71324;FS=0;MQ0F=0	PL	51,0,255,166,255,255
+chr19	79	.	G	<*>	0	.	DP=45;I16=18,24,0,0,1560,60778,0,0,2486,147524,0,0,780,17370,0,0;QS=1,0;MQ0F=0	PL	0,126,255
+chr19	80	.	G	<*>	0	.	DP=43;I16=17,23,0,0,1448,55202,0,0,2366,140324,0,0,771,17137,0,0;QS=1,0;MQ0F=0	PL	0,120,255
+chr19	81	.	C	<*>	0	.	DP=43;I16=17,23,0,0,1493,58329,0,0,2366,140324,0,0,762,16946,0,0;QS=1,0;MQ0F=0	PL	0,120,255
+chr19	82	.	T	<*>	0	.	DP=43;I16=17,23,0,0,1463,56415,0,0,2366,140324,0,0,753,16797,0,0;QS=1,0;MQ0F=0	PL	0,120,255
+chr19	83	.	G	<*>	0	.	DP=41;I16=16,22,0,0,1442,57270,0,0,2246,133124,0,0,745,16639,0,0;QS=1,0;MQ0F=0	PL	0,114,255
+chr19	84	.	C	<*>	0	.	DP=41;I16=16,22,0,0,1395,54045,0,0,2246,133124,0,0,736,16470,0,0;QS=1,0;MQ0F=0	PL	0,114,255
+chr19	85	.	G	<*>	0	.	DP=40;I16=15,23,0,0,1396,53802,0,0,2246,133124,0,0,750,16812,0,0;QS=1,0;MQ0F=0	PL	0,114,255
+chr19	86	.	A	<*>	0	.	DP=40;I16=15,23,0,0,1320,47524,0,0,2246,133124,0,0,737,16465,0,0;QS=1,0;MQ0F=0	PL	0,114,255
+chr19	87	.	C	<*>	0	.	DP=39;I16=15,22,0,0,1325,50283,0,0,2186,129524,0,0,724,16106,0,0;QS=1,0;MQ0F=0	PL	0,111,255
+chr19	88	.	C	<*>	0	.	DP=38;I16=14,23,0,0,1377,52341,0,0,2186,129524,0,0,735,16311,0,0;QS=1,0;MQ0F=0	PL	0,111,255
+chr19	89	.	G	<*>	0	.	DP=37;I16=13,23,0,0,1343,51159,0,0,2126,125924,0,0,720,15832,0,0;QS=1,0;MQ0F=0	PL	0,108,255
+chr19	90	.	C	<*>	0	.	DP=37;I16=13,23,0,0,1311,49173,0,0,2126,125924,0,0,704,15346,0,0;QS=1,0;MQ0F=0	PL	0,108,255
+chr19	91	.	A	G,<*>	0	.	DP=37;I16=13,18,0,5,1128,42894,164,5518,1860,111600,266,14324,579,12347,107,2459;QS=0.873065,0.126935,0;VDB=0.00744022;SGB=-0.590765;RPBZ=1.55676;MQBZ=-4.43656;MQSBZ=-1.33955;BQBZ=-1.63294;NMBZ=5.89499;SCBZ=5.1969;FS=0;MQ0F=0	PL	27,0,255,121,255,255
+chr19	92	.	T	<*>	0	.	DP=36;I16=13,23,0,0,1262,45858,0,0,2126,125924,0,0,668,14314,0,0;QS=1,0;MQ0F=0	PL	0,108,255
+chr19	93	.	C	<*>	0	.	DP=36;I16=13,23,0,0,1250,44748,0,0,2126,125924,0,0,649,13819,0,0;QS=1,0;MQ0F=0	PL	0,108,255
+chr19	94	.	G	<*>	0	.	DP=35;I16=12,23,0,0,1262,46192,0,0,2066,122324,0,0,631,13369,0,0;QS=1,0;MQ0F=0	PL	0,105,255
+chr19	95	.	T	<*>	0	.	DP=35;I16=12,23,0,0,1163,41003,0,0,2066,122324,0,0,610,12816,0,0;QS=1,0;MQ0F=0	PL	0,105,255
+chr19	96	.	G	<*>	0	.	DP=34;I16=11,23,0,0,1178,41726,0,0,2006,118724,0,0,589,12261,0,0;QS=1,0;MQ0F=0	PL	0,102,255
+chr19	97	.	C	<*>	0	.	DP=34;I16=11,23,0,0,1191,42673,0,0,2006,118724,0,0,568,11752,0,0;QS=1,0;MQ0F=0	PL	0,102,255
+chr19	98	.	C	<*>	0	.	DP=33;I16=11,22,0,0,1153,41759,0,0,1946,115124,0,0,546,11188,0,0;QS=1,0;MQ0F=0	PL	0,99,255
+chr19	99	.	C	G,<*>	0	.	DP=33;I16=11,17,0,5,1016,37202,178,6402,1680,100800,266,14324,436,8720,86,1850;QS=0.850921,0.149079,0;VDB=0.00429937;SGB=-0.590765;RPBZ=2.38675;MQBZ=-4.22751;MQSBZ=-1.26321;BQBZ=-0.583488;NMBZ=5.63252;SCBZ=4.95871;FS=0;MQ0F=0	PL	45,0,255,129,255,255

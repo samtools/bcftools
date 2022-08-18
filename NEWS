@@ -1,3 +1,50 @@
+## Release 1.16 (18th August 2022)
+
+
+
+* New plugin `bcftools +variant-distance` to annotate records with distance to the
+  nearest variant (#1690)
+
+
+Changes affecting the whole of bcftools, or multiple commands:
+
+* The -i/-e filtering expressions
+
+    - Added support for querying of multiple filters, for example `-i 'FILTER="A;B"'`
+      can be used to select sites with two filters "A" and "B" set. See the documentation
+      for more examples.
+
+    - Added modulo arithmetic operator
+
+Changes affecting specific commands:
+
+* bcftools annotate
+
+    - A bug introduced in 1.14 caused that records with INFO/END annotation would
+      incorrectly trigger `-c ~INFO/END` mode of comparison even when not explicitly
+      requested, which would result in not transferring the annotation from a tab-delimited
+      file (#1733)
+
+* bcftools merge
+
+    - New `-m snp-ins-del` switch to merge SNVs, insertions and deletions separately (#1704)
+
+* bcftools mpileup
+
+    - New NMBZ annotation for Mann-Whitney U-z test on number of mismatches within
+      supporting reads
+
+    - Suppress the output of MQSBZ and FS annotations in absence of alternate allele
+
+* bcftools +scatter
+
+    - Fix erroneous addition of duplicate PG lines
+
+* bcftools +setGT
+
+    - Custom genotypes (e.g. `-n c:1/1`) now correctly override ploidy
+
+
 ## Release 1.15.1 (7th April 2022)
 
 
@@ -43,7 +90,6 @@
 
 
 ## Release 1.15 (21st February 2022)
-
 
 * New `bcftools head` subcommand for conveniently displaying the headers
   of a VCF or BCF file. Without any options, this is equivalent to

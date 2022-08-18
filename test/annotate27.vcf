@@ -1,0 +1,12 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##ALT=<ID=DEL,Description="Deletion">
+##ALT=<ID=INS,Description="Duplication">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">
+##INFO=<ID=EVIDENCE,Number=.,Type=String,Description="Classes of random forest support.">
+##contig=<ID=chr1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	54713	.	N	<INS>	.	PASS	END=54714
+chr1	66224	.	N	<DEL>	.	PASS	END=66275
+chr1	66242	.	N	<DEL>	.	PASS	END=66520
+chr1	998763	.	N	<INS>	.	PASS	END=998764

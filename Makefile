@@ -104,7 +104,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.15.1
+PACKAGE_VERSION = 1.16
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value

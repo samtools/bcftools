@@ -59,6 +59,7 @@ typedef struct
     int record_cmd_line;
     char **hts_opts;
     int nhts_opts;
+    bcf_hdr_t *hdr;
 }
 args_t;
 
@@ -193,9 +194,12 @@ static void open_set(subset_t *set, args_t *args)
         if ( hts_opt_apply(set->fh, opts) ) error("Could not apply the HTS options\n");
         hts_opt_free(opts);
     }
-    bcf_hdr_t *hdr = bcf_sr_get_header(args->sr, 0);
-    if ( bcf_hdr_write(set->fh, hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__, args->str.s);
-    if (args->record_cmd_line) bcf_hdr_append_version(hdr, args->argc, args->argv, "bcftools_plugin");
+    if ( !args->hdr )
+    {
+        args->hdr = bcf_sr_get_header(args->sr, 0);
+        if ( args->record_cmd_line ) bcf_hdr_append_version(args->hdr, args->argc, args->argv, "bcftools_plugin");
+    }
+    if ( bcf_hdr_write(set->fh, args->hdr)!=0 ) error("[%s] Error: cannot write the header to %s\n", __func__, args->str.s);
 }
 
 static void init_data(args_t *args)
@@ -270,7 +274,6 @@ static void destroy_data(args_t *args)
 
 static void process(args_t *args)
 {
-    bcf_hdr_t *hdr = bcf_sr_get_header(args->sr, 0);
     bcf1_t *rec = bcf_sr_get_line(args->sr, 0);
     subset_t *set;
 
@@ -283,7 +286,7 @@ static void process(args_t *args)
             open_set(set, args);
             args->rec_cnt = 0;
         }
-        if ( bcf_write(set->fh, hdr, rec)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
+        if ( bcf_write(set->fh, args->hdr, rec)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
         args->rec_cnt++;
         if (args->rec_cnt == args->nsites) {
           args->rec_cnt = 0;
@@ -293,15 +296,15 @@ static void process(args_t *args)
           args->chunk_cnt++;
         }
     } else {
-        if ( regidx_overlap(args->reg_idx, bcf_hdr_id2name(hdr, rec->rid), rec->pos, rec->pos, args->reg_itr) ) {
+        if ( regidx_overlap(args->reg_idx, bcf_hdr_id2name(args->hdr, rec->rid), rec->pos, rec->pos, args->reg_itr) ) {
             while (regitr_overlap(args->reg_itr)) {
                 int idx = regitr_payload(args->reg_itr, int);
                 set = &args->sets[idx];
-                if ( bcf_write(set->fh, hdr, rec)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
+                if ( bcf_write(set->fh, args->hdr, rec)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
             }
         } else if (args->extra) {
             set = &args->sets[args->nsets-1];
-            if ( bcf_write(set->fh, hdr, rec)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
+            if ( bcf_write(set->fh, args->hdr, rec)!=0 ) error("[%s] Error: failed to write the record\n", __func__);
         }
     }
 }
