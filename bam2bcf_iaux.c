@@ -30,8 +30,10 @@
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 #include <htslib/khash_str2int.h>
+#include "bcftools.h"
 #include "bam2bcf.h"
 #include "read_consensus.h"
+#include "cigar_state.h"
 
 #include <htslib/ksort.h>
 KSORT_INIT_STATIC_GENERIC(uint32_t)
@@ -54,11 +56,12 @@ typedef struct
     int muitmp, minscns;    // size of uitmp, inscns
     int iref_type, ntypes, types[MAX_TYPES];   // indel types
     int max_ins_len;        // largest insertion
-    int left, right;        // consensus sequence boundaries
+    int left, right;        // consensus sequence boundaries, 0-based fa ref coordinates
     read_cns_t *rcns;       // read consensus
     cns_seq_t *cns_seq;     // array of consensus sequences
     int *cns_pos;           // array of relative pos indexes within cns_seq sequences
     uint8_t *ref_seq, *qry_seq; // reference and query sequence to align
+    hts_pos_t *pos_seq;         // ref_seq consensus template positions in reference sequence (see also cns_seq_t.pos)
     int nref_seq, nqry_seq;     // the allocated size of ref_seq and qry_seq
     uint8_t *qual;
     int nqual;
@@ -73,12 +76,13 @@ indel_aux_t;
 static void debug_print_types(indel_aux_t *iaux)
 {
     int i,j;
-    fprintf(stderr,"types at %s:%d ... ",iaux->chr,iaux->pos+1);
+    fprintf(stderr,"types at %s:%d n=%d... ",iaux->chr,iaux->pos+1,iaux->ntypes);
     for (i=0; i<iaux->ntypes; i++)
     {
         if ( iaux->types[i]<=0 )
         {
             if ( i==iaux->iref_type ) fprintf(stderr," ref=%d",iaux->types[i]);
+            else fprintf(stderr," %d",iaux->types[i]);
             continue;
         }
         fprintf(stderr," ");
@@ -99,6 +103,7 @@ void bcf_iaux_destroy(bcf_callaux_t *bca)
     free(iaux->inscns);
     free(iaux->ref_seq);
     free(iaux->qry_seq);
+    free(iaux->pos_seq);
     free(iaux->qual);
     free(iaux->read_scores);
     rcns_destroy(iaux->rcns);
@@ -381,58 +386,86 @@ static int iaux_set_consensus(indel_aux_t *iaux, int ismpl)
     return 0;
 }
 
-static int iaux_align_read(indel_aux_t *iaux, bam1_t *bam, uint8_t *ref, int nref)
+// Finds the smallest index in the seq_pos array holding value equal to pos, or if there is no
+// such value, the largest index with value smaller than pos. Starts at initial guess ioff.
+// This could use a binary search but the assumption is that the initial guess is indel-size close
+// to the actuall coordinate.
+static int find_ref_offset(hts_pos_t pos, hts_pos_t *seq_pos, int nseq_pos, int ioff)
+{
+    if ( ioff<0 ) ioff = 0;
+    else if ( ioff >= nseq_pos ) ioff = nseq_pos - 1;
+    if ( seq_pos[ioff] < pos )
+    {
+        while ( ioff+1 < nseq_pos && seq_pos[ioff] < pos ) ioff++;
+        if ( seq_pos[ioff] > pos ) ioff--;
+        return ioff;
+    }
+    while ( ioff > 0 && seq_pos[ioff-1] >= pos ) ioff--;
+    return ioff;
+}
+
+static int iaux_align_read(indel_aux_t *iaux, bam1_t *bam, uint8_t *ref_seq, hts_pos_t *pos_seq, int nref_seq)
 {
     if ( bam->core.flag & BAM_FUNMAP ) return 1;   // skip unmapped reads
 
-// BAM_CREF_SKIP check: save in plp aux data?
-//    uint32_t *cigar = bam_get_cigar(bam);
+    // Trim both ref and qry to the window of interest
+    hts_pos_t ref_beg = iaux->left;
+    hts_pos_t ref_end = iaux->right;
+    cigar_state_t cigar;
+    cstate_init(&cigar,bam);
+    int qry_off1 = cstate_seek_fwd(&cigar, &ref_beg, 1);    // trim qry from left
+    int qry_off2 = cstate_seek_fwd(&cigar, &ref_end, 0);    // trim qry from right
+    assert( qry_off1>=0 && qry_off2>=0 );
+
+    int ref_off1 = find_ref_offset(ref_beg, pos_seq, nref_seq, ref_beg - iaux->left);   // trim ref from left
+    int ref_off2 = find_ref_offset(ref_end, pos_seq, nref_seq, ref_end - iaux->left);   // trim ref from right
 
     // prepare query sequence
-    int i, qbeg = 0, qend = bam->core.l_qseq;
-    if ( iaux->nqry_seq < qend - qbeg )
+    int i, qlen = qry_off2 - qry_off1 + 1, rlen = ref_off2 - ref_off1 + 1;
+    if ( iaux->nqry_seq < qlen )
     {
-        uint8_t *tmp = (uint8_t*) calloc(qend - qbeg, 1);
+        uint8_t *tmp = (uint8_t*) realloc(iaux->qry_seq, qlen);
         if ( !tmp ) return -1;  // critical error
         iaux->qry_seq  = tmp;
-        iaux->nqry_seq = qend - qbeg;
+        iaux->nqry_seq = qlen;
     }
     uint8_t *seq = bam_get_seq(bam);
-    for (i=qbeg; i<qend; i++) iaux->qry_seq[i-qbeg] = seq_nt16_int[bam_seqi(seq,i)];
+    for (i=qry_off1; i<=qry_off2; i++) iaux->qry_seq[i-qry_off1] = seq_nt16_int[bam_seqi(seq,i)];
 
     // prepare qualities, either BQ or BAQ qualities (ZQ)
-    if ( iaux->nqual < qend - qbeg )
+    if ( iaux->nqual < qlen )
     {
-        uint8_t *tmp = (uint8_t*) calloc(qend - qbeg, 1);
+        uint8_t *tmp = (uint8_t*) realloc(iaux->qual, qlen);
         if ( !tmp ) return -1;  // critical error
         iaux->qual  = tmp;
-        iaux->nqual = qend - qbeg;
+        iaux->nqual = qlen;
     }
     uint8_t *qual = iaux->qual;
     const uint8_t *qq = bam_get_qual(bam);
     const uint8_t *bq = (uint8_t*)bam_aux_get(bam, "ZQ");
     if ( bq ) bq++; // skip type
-    for (i=qbeg; i<qend; i++)
+    for (i=qry_off1; i<=qry_off2; i++)
     {
-        qual[i-qbeg] = bq ? qq[i] + (bq[i] - 64) : qq[i];
-        if ( qual[i-qbeg] > 30 ) qual[i-qbeg] = 30;
-        if ( qual[i-qbeg] < 7 ) qual[i-qbeg] = 7;
+        int j = i - qry_off1;
+        qual[j] = bq ? qq[i] + (bq[i] - 64) : qq[i];
+        if ( qual[j] > 30 ) qual[j] = 30;
+        if ( qual[j] < 7 ) qual[j] = 7;
     }
 
 // Illumina
 probaln_par_t apf = { 1e-4, 1e-2, 10 };
 
     // align
-    int score = probaln_glocal(ref, nref, iaux->qry_seq, qend - qbeg, qual, &apf, 0, 0);
-    int adj_score = (int)(100. * score / (qend - qbeg) + .499) * iaux->bca->indel_bias;
+    int score = probaln_glocal(ref_seq + ref_off1, rlen, iaux->qry_seq, qlen, qual, &apf, 0, 0);
+    int adj_score = (int)(100. * score / qlen + .499) * iaux->bca->indel_bias;
 
 #if DEBUG_ALN
     fprintf(stderr,"aln: %d/%d\t%s\n\tref:  ",score,adj_score,bam_get_qname(bam));
-    for (i=0; i<nref; i++) fprintf(stderr,"%c","ACGTN"[(int)ref[i]]);
+    for (i=0; i<rlen; i++) fprintf(stderr,"%c","ACGTN"[(int)ref_seq[ref_off1 + i]]);
     fprintf(stderr,"\n\tqry:  ");
-    for (i=qbeg; i<qend; i++) fprintf(stderr,"%c","ACGTN"[(int)iaux->qry_seq[i]]);
+    for (i=0; i<qlen; i++) fprintf(stderr,"%c","ACGTN"[(int)iaux->qry_seq[i]]);
     fprintf(stderr,"\n\tqual: ");
-    for (i=0; i<qend-qbeg; i++) fprintf(stderr,"%c",(char)(qual[i]+64));
+    for (i=0; i<qlen; i++) fprintf(stderr,"%c",(char)(qual[i]+64));
     fprintf(stderr,"\n");
 #endif
 
@@ -448,32 +481,51 @@ static int iaux_score_reads(indel_aux_t *iaux, int ismpl, int itype)
     cns_seq_t *cns = iaux->cns_seq;
     while ( cns->nseq )
     {
-        // resize buffers if necessary
+        // Resize buffers if necessary
         int ref_len = cns->nseq + iaux->types[itype];
         if ( iaux->nref_seq < ref_len )
         {
-            uint8_t *buf = (uint8_t*) realloc(iaux->ref_seq,sizeof(uint8_t)*ref_len);
-            if ( !buf ) return -1;
-            iaux->ref_seq  = buf;
+            uint8_t *ref_buf = (uint8_t*) realloc(iaux->ref_seq,sizeof(uint8_t)*ref_len);
+            if ( !ref_buf ) return -1;
+            iaux->ref_seq  = ref_buf;
+            hts_pos_t *pos_buf = (hts_pos_t*) realloc(iaux->pos_seq,sizeof(hts_pos_t)*ref_len);
+            if ( !pos_buf ) return -1;
+            iaux->pos_seq  = pos_buf;
             iaux->nref_seq = ref_len;
         }
 
-        // apply the indel
-        memcpy(iaux->ref_seq,cns->seq,cns->ipos+1);
+        // Apply the indel and create the template ref sequence...
+        memcpy(iaux->ref_seq,cns->seq,(cns->ipos+1)*sizeof(*iaux->ref_seq));
         if ( iaux->types[itype] < 0 )   // deletion
-            memcpy(iaux->ref_seq + cns->ipos + 1, cns->seq + cns->ipos + 1 - iaux->types[itype], cns->nseq - cns->ipos - 1 + iaux->types[itype]);
+            memcpy(iaux->ref_seq + cns->ipos + 1, cns->seq + cns->ipos + 1 - iaux->types[itype], (cns->nseq - cns->ipos - 1 + iaux->types[itype])*sizeof(*iaux->ref_seq));
         else
         {
             char *ins = &iaux->inscns[itype*iaux->max_ins_len];
             for (i=0; i<iaux->types[itype]; i++) iaux->ref_seq[cns->ipos+1+i] = ins[i];
-            memcpy(iaux->ref_seq + cns->ipos + 1 + iaux->types[itype], cns->seq + 1 + cns->ipos, cns->nseq - cns->ipos - 1);
+            memcpy(iaux->ref_seq + cns->ipos + 1 + iaux->types[itype], cns->seq + 1 + cns->ipos, (cns->nseq - cns->ipos - 1)*sizeof(*iaux->ref_seq));
         }
 
-        // score reads
+        // ...and corresponding ref positions
+        memcpy(iaux->pos_seq,cns->pos,(cns->ipos+1)*sizeof(*iaux->pos_seq));
+        if ( iaux->types[itype] < 0 )   // deletion
+            memcpy(iaux->pos_seq + cns->ipos + 1, cns->pos + cns->ipos + 1 - iaux->types[itype], (cns->nseq - cns->ipos - 1 + iaux->types[itype])*sizeof(*iaux->pos_seq));
+        else
+        {
+            for (i=0; i<iaux->types[itype]; i++) iaux->pos_seq[cns->ipos+1+i] = cns->pos[cns->ipos];
+            memcpy(iaux->pos_seq + cns->ipos + 1 + iaux->types[itype], cns->pos + 1 + cns->ipos, (cns->nseq - cns->ipos - 1)*sizeof(*iaux->pos_seq));
+        }
+
+#if DEBUG_ALN
+    fprintf(stderr,"template %d, type %d, sample %d: ",cns==iaux->cns_seq?0:1,itype,ismpl);
+    for (i=0; i<ref_len; i++) fprintf(stderr,"%c","ACGTN"[(int)iaux->ref_seq[i]]);
+    fprintf(stderr,"\n");
+#endif
+
+        // Align and score reads
         for (i=0; i<iaux->nplp[ismpl]; i++)
         {
             const bam_pileup1_t *plp = iaux->plp[ismpl] + i;
-            int aln_score = iaux_align_read(iaux, plp->b, iaux->ref_seq, ref_len);
+            int aln_score = iaux_align_read(iaux, plp->b, iaux->ref_seq, iaux->pos_seq, ref_len);
             int *score = &iaux->read_scores[i*iaux->ntypes+itype];
             if ( cns==iaux->cns_seq || *score > aln_score ) *score = aln_score;
         }

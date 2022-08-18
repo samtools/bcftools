@@ -36,8 +36,9 @@ typedef struct
     uint8_t *seq;
     int ncig;
     int icig;           // position in the cigar string
-    int iseq;           // the cigar[icigar] operation refers to seq[iseq+1]
-    hts_pos_t ref_pos;  // reference coordinate, corresponds to iseq
+    int iseq;           // the cigar[icigar] operation refers to &seq[iseq]
+    hts_pos_t ref_pos;  // reference coordinate, corresponds to iseq; points to
+                        // the first base after the read when consumed
 }
 cigar_state_t;
 
@@ -55,14 +56,81 @@ inline void cstate_init(cigar_state_t *cs, bam1_t *bam)
     if ( op==BAM_CINS || op==BAM_CSOFT_CLIP ) cs->ref_pos -= len;
 }
 
-// Move in the cigar forward to find query index that matches the
-// seek operator and the reference position.
-//
-// Returns the index to the query sequence cs->seq
-// on success; -1 when there is no such matching position but the cigar
-// is still not entirely consumed (e.g. a deletion or a soft-clip); -2
-// when there is no overlap (i.e. the read ends before the position).
-inline int cstate_seek_fwd(cigar_state_t *cs, hts_pos_t pos, int seek_op, int *oplen)
+/**
+ *  cstate_seek_fwd() - Move in the cigar forward to find query index that
+ *  matches the reference position.
+ *
+ *  When the position is not contained within the sequence, either because there
+ *  is a deletion or there is no overlap, the behavior is controlled by the value
+ *  of trim_left:
+ *      - read starts after: qry_beg > pos && trim_left=1 .. returns 0 and sets pos to qry_beg
+ *      - read starts after: qry_beg > pos && trim_left=0 .. returns -1
+ *      - read ends before: qry_end < pos && trim_left=1 .. returns -2
+ *      - read ends before: qry_end < pos && trim_left=0 .. returns qry_len-1 and sets pos to qry_end
+ *      - pos inside a deletion && trim_left=1 .. returns position after the deletion
+ *      - pos inside a deletion && trim_left=0 .. returns position before the deletion
+ */
+inline int cstate_seek_fwd(cigar_state_t *cs, hts_pos_t *pos_ptr, int trim_left)
+{
+    hts_pos_t pos = *pos_ptr;
+    while ( cs->ref_pos <= pos )
+    {
+        if ( cs->icig >= cs->ncig )     // the read ends before pos
+        {
+            if ( trim_left ) return -2;
+            *pos_ptr = cs->ref_pos - 1;
+            return cs->iseq - 1;
+        }
+
+        int op  = cs->cigar[cs->icig] &  BAM_CIGAR_MASK;
+        int len = cs->cigar[cs->icig] >> BAM_CIGAR_SHIFT;
+        if ( op==BAM_CMATCH || op==BAM_CEQUAL || op==BAM_CDIFF )
+        {
+            if ( cs->ref_pos + len > pos ) return pos - cs->ref_pos + cs->iseq;  // the cigar op overlaps pos
+            cs->ref_pos += len;
+            cs->iseq += len;
+            cs->icig++;
+            continue;
+        }
+        if ( op==BAM_CINS || op==BAM_CSOFT_CLIP )
+        {
+            cs->iseq += len;
+            cs->icig++;
+            continue;
+        }
+        if ( op==BAM_CDEL || op==BAM_CREF_SKIP )
+        {
+            if ( cs->ref_pos + len > pos )
+            {
+                // The deletion overlaps the position. NB: assuming del is never the first or last op
+                *pos_ptr = trim_left ? cs->ref_pos + len : cs->ref_pos - 1;
+                return trim_left ? cs->iseq : cs->iseq - 1;
+            }
+            cs->ref_pos += len;
+            cs->icig++;
+            continue;
+        }
+    }
+    // the read starts after pos
+    if ( trim_left )
+    {
+        *pos_ptr = cs->bam->core.pos;
+        return 0;
+    }
+    return -1;
+}
+
+
+/**
+ *  cstate_seek_op_fwd() - Move in the cigar forward to find query index that
+ *  matches the seek operator and the reference position.
+ *
+ *  Returns the index to the query sequence cs->seq
+ *  on success; -1 when there is no such matching position but the cigar
+ *  is still not entirely consumed (e.g. a deletion or a soft-clip); -2
+ *  when there is no overlap (i.e. the read ends before the position).
+ */
+inline int cstate_seek_op_fwd(cigar_state_t *cs, hts_pos_t pos, int seek_op, int *oplen)
 {
     while ( cs->ref_pos <= pos )
     {

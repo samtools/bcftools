@@ -24,6 +24,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include "bcftools.h"
 #include "read_consensus.h"
 #include "cigar_state.h"
 #include "kheap.h"
@@ -116,9 +117,10 @@ void rcns_destroy(read_cns_t *rcns)
     khp_destroy(cvh,rcns->cv_heap);
     free(rcns);
 }
-int init_arrays(read_cns_t *rcns)
+static int init_arrays(read_cns_t *rcns)
 {
     int i,j,n = rcns->end - rcns->beg + 1;
+fprintf(stderr,"arrays: %d-%d n=%d\n",(int)rcns->beg+1,(int)rcns->end+1,n);
     if ( n > rcns->mfreq )
     {
         ins_freq_t *ifrq = (ins_freq_t*) realloc(rcns->ins_freq,sizeof(*rcns->ins_freq)*n);
@@ -164,11 +166,13 @@ int rcns_reset(read_cns_t *rcns, hts_pos_t pos, hts_pos_t beg, hts_pos_t end)
 static inline void add_base(read_cns_t *rcns, int ref_pos, int nt16)
 {
     int i = ref_pos - rcns->beg;
+assert(i>=0);
     rcns->base_freq[i].base[seq_nt16_int[nt16]]++;
 }
 static void add_ins(read_cns_t *rcns, int ref_pos, int seq_pos, uint8_t *raw_seq, int len)
 {
     int i = ref_pos - rcns->beg;
+assert(i>=0);
     ins_freq_t *ifrq = &rcns->ins_freq[i];
     char *str;
     if ( rcns->mstmp < len )
@@ -199,6 +203,7 @@ static void add_ins(read_cns_t *rcns, int ref_pos, int seq_pos, uint8_t *raw_seq
 static void add_del(read_cns_t *rcns, int ref_pos, int len)
 {
     int i = ref_pos - rcns->beg;
+assert(i>=0);
     int j,n = rcns->end - rcns->beg + 1;
     if ( i + len + 1 < n ) n = i + len + 1;
     for (j=i+1; j<n; j++)
@@ -236,6 +241,8 @@ int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp)
     rcns->plp  = plp;
     rcns->nplp = nplp;
 
+fprintf(stderr,"rcns_beg1,end1,pos1=%d %d %d\n\n",(int)rcns->beg+1,(int)rcns->end+1,(int)rcns->pos+1);
+
     // fill consensus arrays
     int i,j,k, local_band_max = 0;  // maximum absolute deviation from diagonal
     for (i=0; i<nplp; i++) // for each read...
@@ -255,30 +262,39 @@ int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp)
             if ( op==BAM_CSOFT_CLIP ) y += len;
             else if ( op==BAM_CMATCH || op==BAM_CEQUAL || op==BAM_CDIFF )
             {
-                int j_end = rcns->end < x + len - 1 ? rcns->end - x : len - 1;
-                int j_beg = rcns->beg > x ? rcns->beg - x : 0;
-                x += j_beg;     // ref pos
-                y += j_beg;     // seq pos
-                for (j=j_beg; j<=j_end; j++, x++, y++) add_base(rcns,x,bam_seqi(seq,y));
-            }
-            else if ( op==BAM_CINS )
-            {
-                if ( x>=rcns->beg && x<rcns->end )
+                if ( x<rcns->end && x+len>rcns->beg )
                 {
-                    local_band += p->indel;
-                    add_ins(rcns,x-1,y,seq,len);    // x-1: one base before as in VCF
+                    int j_beg = rcns->beg > x ? rcns->beg - x : 0;  // how many bases to skip in the ref and qry
+                    int j_end = rcns->end < x + len - 1 ? rcns->end - x : len - 1;
+                    x += j_beg;
+                    y += j_beg;
+                    for (j=j_beg; j<=j_end; j++, x++, y++) add_base(rcns,x,bam_seqi(seq,y));
+                }
+                else
+                {
+                    x += len;
                     y += len;
                 }
             }
+            else if ( op==BAM_CINS )
+            {
+                if ( x>rcns->beg && x<rcns->end )
+                {
+                    local_band += p->indel;
+                    add_ins(rcns,x-1,y,seq,len);    // x-1: one base before as in VCF
+                }
+                y += len;
+            }
             else if ( op==BAM_CDEL )
             {
-                if ( x>=rcns->beg && x+len-1<=rcns->end )
+                if ( x>rcns->beg && x+len-1<=rcns->end )
                 {
                     local_band += -p->indel;
                     add_del(rcns,x-1,len);          // x-1: one base before as in VCF
-                    x += len;
                 }
+                x += len;
             }
+            else error("rcns_set_reads todo: unknown cigar operator %d\n",op);
             if ( local_band_max < local_band ) local_band_max = local_band;
         }
 
@@ -293,6 +309,7 @@ int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp)
 static void debug_print_base_freqs(read_cns_t *rcns, const char *ref)
 {
     int i,j,k,n = rcns->end - rcns->beg + 1;
+    fprintf(stderr,"beg,end,pos=%d %d %d\n",(int)rcns->beg,(int)rcns->end,(int)rcns->pos);
     base_freq_t *bfreq = rcns->base_freq;
     ins_freq_t *ifreq  = rcns->ins_freq;
     del_freq_t *dfreq  = rcns->del_freq;
@@ -350,6 +367,9 @@ static void debug_print_consensus(read_cns_t *rcns)
         fprintf(stderr,"#");
         for (; j<rcns->cns[i].nseq; j++)
             fprintf(stderr,"%c","ACGTN"[(int)rcns->cns[i].seq[j]]);
+        fprintf(stderr,"\n");
+        for (j=0; j<rcns->cns[i].nseq; j++)
+            fprintf(stderr," %d",(int)rcns->cns[i].pos[j]);
         fprintf(stderr,"\n");
     }
 }
@@ -478,7 +498,7 @@ const float af_th = 0.05;// just for debugging
     rcns->max_del = 0;
     for (j=0; j<NI && j<dfreq[i].len[j]; j++)
     {
-        if ( rcns->max_del < -dfreq[i].len[j] ) rcns->max_del = -dfreq[i].len[j];
+        if ( rcns->max_del < dfreq[i].len[j] ) rcns->max_del = dfreq[i].len[j];
     }
 
     return 0;
@@ -500,7 +520,7 @@ static int create_haplotype_frequency_spectrum(read_cns_t *rcns)
             candidate_var_t *cvar = &rcns->cvar[j];
             if ( cvar->vtype==snv )
             {
-                int iseq = cstate_seek_fwd(&cigar, cvar->pos, BAM_CMATCH, NULL);
+                int iseq = cstate_seek_op_fwd(&cigar, cvar->pos, BAM_CMATCH, NULL);
                 if ( iseq==-2 ) break;
                 if ( iseq==-1 ) continue;
                 int nt16 = bam_seqi(cigar.seq, iseq);
@@ -510,7 +530,7 @@ static int create_haplotype_frequency_spectrum(read_cns_t *rcns)
             {
                 int len;
                 ins_freq_t *ifrq = &rcns->ins_freq[cvar->pos - rcns->beg];
-                int iseq = cstate_seek_fwd(&cigar, cvar->pos, BAM_CINS, &len);
+                int iseq = cstate_seek_op_fwd(&cigar, cvar->pos, BAM_CINS, &len);
                 if ( iseq==-2 ) break;
                 if ( iseq==-1 ) continue;
                 if ( len!=ifrq->len[cvar->which] ) continue;
@@ -522,7 +542,7 @@ static int create_haplotype_frequency_spectrum(read_cns_t *rcns)
             {
                 int len;
                 del_freq_t *dfrq = &rcns->del_freq[cvar->pos - rcns->beg];
-                int ret = cstate_seek_fwd(&cigar, cvar->pos, BAM_CDEL, &len);
+                int ret = cstate_seek_op_fwd(&cigar, cvar->pos, BAM_CDEL, &len);
                 if ( ret==-2 ) break;
                 if ( ret==-1 ) continue;
                 if ( len!=dfrq->len[cvar->which] ) continue;
@@ -536,7 +556,7 @@ static int create_haplotype_frequency_spectrum(read_cns_t *rcns)
 
 typedef struct
 {
-    int idx, count;
+    int haplotype, count;
 }
 ii_t;
 
@@ -547,20 +567,22 @@ static int ii_cmp(const void *a, const void *b)
     return 0;
 }
 
+// Select two most common haplotypes trying to account for 1bp errors. Haplotypes
+// are represented as 8-bit numbers, each bit corresponds to one candidate variant.
 static int correct_haplotype_errors(read_cns_t *rcns)
 {
     int i,j, tot = 0;
     ii_t freq[NHAP];
     for (i=0; i<NHAP; i++)
     {
-        freq[i].idx = i;
+        freq[i].haplotype = i;
         freq[i].count = rcns->hap_freq[i];
         tot += rcns->hap_freq[i];
     }
-    qsort(freq, NHAP, sizeof(ii_t), ii_cmp);
+    qsort(freq, NHAP, sizeof(ii_t), ii_cmp);    // sort haplotypes in descending order
     for (i=NHAP-1; i>=0; i--)
     {
-       //if ( freq[1].count > tot - freq[0].count ) break;   // the top2 hapotypes cannot change anymore
+//if ( freq[1].count > tot - freq[0].count ) break;   // the top2 hapotypes cannot change anymore
         if ( !freq[i].count ) continue;
 
         // Find a similar haplotype with the highest frequency. Assuming errors go in 0->1
@@ -568,8 +590,8 @@ static int correct_haplotype_errors(read_cns_t *rcns)
         int count = freq[i].count, max_hap = 0;
         for (j=0; j<MAX_NCVAR; j++)
         {
-            if ( !(freq[i].idx & (1U<<j)) ) continue;   // j-th bit not set in this haplotype
-            int hap = freq[i].idx ^ (1U<<j);
+            if ( !(freq[i].haplotype & (1U<<j)) ) continue; // j-th bit not set in this haplotype
+            int hap = freq[i].haplotype ^ (1U<<j);          // toggle j-th bit
             assert( hap>=0 && hap<NHAP );
             if ( count < rcns->hap_freq[hap] ) count = rcns->hap_freq[hap], max_hap = hap;
         }
@@ -578,7 +600,7 @@ static int correct_haplotype_errors(read_cns_t *rcns)
         // Update frequency and sort the two modified elements
         count = freq[i].count;
         freq[i].count = 0;
-        rcns->hap_freq[freq[i].idx] = 0;
+        rcns->hap_freq[freq[i].haplotype] = 0;
         rcns->hap_freq[max_hap] += count;
         for (j=i+1; j<NHAP; j++)
         {
@@ -587,24 +609,81 @@ static int correct_haplotype_errors(read_cns_t *rcns)
         }
         for (j=i-1; j>=0; j--)
         {
-            if ( freq[j].idx==max_hap ) freq[j].count += count;   // update the best matching haplotype
+            if ( freq[j].haplotype==max_hap ) freq[j].count += count;   // update the best matching haplotype
             if ( freq[j].count < freq[j+1].count )
             {
                 ii_t tmp = freq[j]; freq[j] = freq[j+1]; freq[j+1] = tmp;
             }
         }
     }
-    rcns->cns_hap[0] = freq[0].idx;
-    rcns->cns_hap[1] = freq[1].idx;
 
     // Use only one consensus if the next best haplotype is populated by less than 10% of reads
     rcns->ncns = (freq[1].count / (freq[0].count + freq[1].count) < 0.1) ? 1 : 2;
 if (freq[1].count) rcns->ncns = 2;
 
+    // Remove unused candidate variants from the top two haplotypes
+    int hap0 = freq[0].haplotype;
+    int hap1 = rcns->ncns==2 ? freq[1].haplotype : 0;
+    rcns->cns_hap[0] = 0;
+    rcns->cns_hap[1] = 0;
+    for (i=0,j=0; i<MAX_NCVAR; i++)
+    {
+        if ( !((hap0|hap1) & (1U<<i)) ) continue;   // unused candidate variant, skip
+        if ( i!=j ) rcns->cvar[j] = rcns->cvar[i];
+        if ( hap0 & (1U<<i) ) rcns->cns_hap[0] |= 1U<<j;
+        if ( hap1 & (1U<<i) ) rcns->cns_hap[1] |= 1U<<j;
+        j++;
+    }
+    rcns->ncvar = j;
+
+#if DEBUG_RCNS
+    // This only matters for debugging print
+    memset(rcns->hap_freq,0,NHAP*sizeof(*rcns->hap_freq));
+    rcns->hap_freq[rcns->cns_hap[1]] = freq[1].count;   // NB: the order matters when ncns==1
+    rcns->hap_freq[rcns->cns_hap[0]] = freq[0].count;
+#endif
+
     return 0;
 }
 
-void create_consensus(read_cns_t *rcns, const char *ref, int ith)
+
+// Check how frequent are insertions adjacent to the j-th position. Note that reads with an
+// insertion usually increment also bfreq counts at this position, but not necessarily so,
+// therefore the counts are approximate
+static inline void apply_consensus_insertion(read_cns_t *rcns, cns_seq_t *cns, int j, int ivar)
+{
+    // Only apply consensus insertions that are not being tested by bam2bcf_iaux, i.e. not at the current pos
+    hts_pos_t ref_pos = rcns->beg + j;
+    if ( rcns->pos == ref_pos ) return;
+
+    // Only apply when there is no insertion at this position registered as a variant
+    while ( ivar < rcns->ncvar && rcns->cvar[ivar].pos == ref_pos )
+    {
+        if ( rcns->cvar[ivar].vtype == ins ) return;
+        ivar++;
+    }
+
+    base_freq_t *bfreq = rcns->base_freq;
+    ins_freq_t *ifreq  = rcns->ins_freq;
+    int k, nreads = 0;
+    for (k=0; k<5; k++) nreads += bfreq[j].base[k];
+    int max_freq = 0, kmax = 0;
+    for (k=0; k<NI && ifreq[j].len[k]; k++)
+        if ( max_freq < ifreq[j].freq[k] ) max_freq = ifreq[j].freq[k], kmax = k;
+
+    // Include consensus insertion only if it has more than half of the reads
+    if ( nreads > max_freq*2 ) return;
+
+    int len = ifreq[j].len[kmax];
+    char *seq = ifreq[j].nt16_seq[kmax];
+    for (k=0; k<len; k++)
+    {
+        cns->pos[cns->nseq] = ref_pos;
+        cns->seq[cns->nseq++] = seq_nt16_int[(int)seq[k]];
+    }
+}
+
+static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
 {
     int n = rcns->end - rcns->beg + 1;
     cns_seq_t *cns = &rcns->cns[ith];
@@ -624,7 +703,7 @@ void create_consensus(read_cns_t *rcns, const char *ref, int ith)
             // This position is not recognised as a het variant so take the most frequent base, including
             // a deletion if that is most frequent. However, for deleted bases make sure they are not part
             // of the deletion that is being tested at this positions
-            int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[ref_pos]]];
+            int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[j]]];
             int nk = ( ref_pos < rcns->pos || ref_pos > rcns->pos + rcns->max_del ) ? 6 : 5;
             for (k=0; k<nk; k++)
                 if ( max_freq < bfreq[j].base[k] ) max_freq = bfreq[j].base[k], kmax = k;
@@ -634,33 +713,16 @@ void create_consensus(read_cns_t *rcns, const char *ref, int ith)
                 cns->pos[cns->nseq] = ref_pos;
                 cns->seq[cns->nseq++] = kmax;
             }
-            if ( rcns->pos == ref_pos ) continue;   // do not apply insertions that are being tested
-
-            // Also check how frequent are insertions adjacent to this position. Note that reads with
-            // an insertion usually increment also bfreq counts at this position, but not necessarily so,
-            // therefore the counts are approximate
-            int nreads = 0;
-            for (k=0; k<5; k++) nreads += bfreq[j].base[k];
-            max_freq = 0, kmax = 0;
-            for (k=0; k<NI && ifreq[j].len[k]; k++)
-                if ( max_freq < ifreq[j].freq[k] ) max_freq = ifreq[j].freq[k], kmax = k;
-
-            if ( nreads > max_freq*2 ) continue;  // the most frequent insertion is less than half of the reads
-
-            int len = ifreq[j].len[kmax];
-            char *seq = ifreq[j].nt16_seq[kmax];
-            for (k=0; k<len; k++)
-            {
-                cns->pos[cns->nseq] = ref_pos;
-                cns->seq[cns->nseq++] = seq_nt16_int[(int)seq[k]];
-            }
+            // Only apply consensus insertions that are not being tested by bam2bcf_iaux, i.e. not at the current pos
+            apply_consensus_insertion(rcns, cns, j, ivar);
             continue;
         }
+        int which = rcns->cvar[ivar].which;
         if ( !(rcns->cns_hap[ith] & (1U<<ivar)) )
         {
             // This position has a heterozygous variant but not in this haplotype. Take the
             // most frequent base different from the ivar-th variant
-            int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[ref_pos]]];
+            int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[j]]];
             for (k=0; k<6; k++)
             {
                 if ( rcns->cvar[ivar].vtype==snv && rcns->cvar[ivar].which==k ) continue;
@@ -671,21 +733,22 @@ void create_consensus(read_cns_t *rcns, const char *ref, int ith)
                 cns->pos[cns->nseq] = ref_pos;
                 cns->seq[cns->nseq++] = kmax;
             }
+            apply_consensus_insertion(rcns, cns, j, ivar);
             continue;
         }
-        int which = rcns->cvar[ivar].which;
         if ( rcns->cvar[ivar].vtype == snv )
         {
             cns->pos[cns->nseq] = ref_pos;
             cns->seq[cns->nseq++] = which;
+            apply_consensus_insertion(rcns, cns, j, ivar);
             continue;
         }
 
-        // There be multiple variants at this position, for example snv+ins. SNVs come first
+        // There can be multiple variants at this position, for example snv+ins. SNVs come first
         // thanks to cvar_pos_cmp(), make sure the base has not been added already.
         if ( !cns->nseq || cns->pos[cns->nseq-1] != ref_pos )
         {
-            int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[ref_pos]]];
+            int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[j]]];
             for (k=0; k<6; k++)
             {
                 if ( rcns->cvar[ivar].vtype==snv && rcns->cvar[ivar].which==k ) continue;
@@ -731,6 +794,7 @@ cns_seq_t *rcns_get_consensus(read_cns_t *rcns, const char *ref)
         debug_print_haplotype_frequency_spectrum(rcns);
 
         correct_haplotype_errors(rcns);
+        debug_print_candidate_variants(rcns);
         debug_print_haplotype_frequency_spectrum(rcns);
     }
     else
