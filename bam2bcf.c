@@ -275,16 +275,26 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
                 }
                 continue;
             }
-            if (p->indel == 0 && (q < _n/2 || _n > 20)) {
-                // high quality indel calls without p->indel set aren't
-                // particularly indicative of being a good REF match either,
-                // at least not in low coverage.  So require solid coverage
-                // before we start utilising such quals.
-                b = 0;
-                q = (int)bam_get_qual(p->b)[p->qpos];
-                seqQ = (3*seqQ + 2*q)/8;
+            if ( !bca->indels_v20 )
+            {
+                /*
+                    This heuristics was introduced by e4e161068 and claims to fix #1446. However, we obtain
+                    correct result on the provided test case even when this code is commented out, so this
+                    may not be needed anymore. Leaving it in only for backward compatibility for now.
+                    See mpileup-tests homdel-issue-1446 and CHM1_CHM13_2.45x-1-1701408 that work only when
+                    this code is disabled.
+                */
+                if (p->indel == 0 && (q < _n/2 || _n > 20)) {
+                    // high quality indel calls without p->indel set aren't
+                    // particularly indicative of being a good REF match either,
+                    // at least not in low coverage.  So require solid coverage
+                    // before we start utilising such quals.
+                    b = 0;
+                    q = (int)bam_get_qual(p->b)[p->qpos];
+                    seqQ = (3*seqQ + 2*q)/8;
+                }
+                if (_n > 20 && seqQ > 40) seqQ = 40;
             }
-            if (_n > 20 && seqQ > 40) seqQ = 40;
             baseQ  = p->aux>>8&0xff;
 
             is_diff = (b != 0);

@@ -107,7 +107,7 @@ typedef struct __bcf_callaux_t {
     // for internal uses
     int max_bases;
     int indel_types[4];     // indel lengths
-    int indel_win_size;
+    int indel_win_size, indels_v20;
     int maxins, indelreg;
     int read_len;
     char *inscns;

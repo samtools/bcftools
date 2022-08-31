@@ -120,7 +120,7 @@ void rcns_destroy(read_cns_t *rcns)
 static int init_arrays(read_cns_t *rcns)
 {
     int i,j,n = rcns->end - rcns->beg + 1;
-fprintf(stderr,"arrays: %d-%d n=%d\n",(int)rcns->beg+1,(int)rcns->end+1,n);
+//fprintf(stderr,"arrays: %d-%d n=%d\n",(int)rcns->beg+1,(int)rcns->end+1,n);
     if ( n > rcns->mfreq )
     {
         ins_freq_t *ifrq = (ins_freq_t*) realloc(rcns->ins_freq,sizeof(*rcns->ins_freq)*n);
@@ -241,7 +241,7 @@ int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp)
     rcns->plp  = plp;
     rcns->nplp = nplp;
 
-fprintf(stderr,"rcns_beg1,end1,pos1=%d %d %d\n\n",(int)rcns->beg+1,(int)rcns->end+1,(int)rcns->pos+1);
+//fprintf(stderr,"rcns_beg1,end1,pos1=%d %d %d\n\n",(int)rcns->beg+1,(int)rcns->end+1,(int)rcns->pos+1);
 
     // fill consensus arrays
     int i,j,k, local_band_max = 0;  // maximum absolute deviation from diagonal
@@ -439,8 +439,8 @@ static void register_variant(read_cns_t *rcns, enum variant_type vtype, int cns_
 // to the consensus template when realigning.
 static int select_candidate_variants(read_cns_t *rcns, const char *ref)
 {
-    //const float af_th = 0.1;
-const float af_th = 0.05;// just for debugging
+    const float af_th = 0.1;
+//const float af_th = 0.05;// just for debugging
     int i,j, n = rcns->end - rcns->beg + 1;
     int max_ins_len = 0;    // maximum total length of all insertions applied to allocate big enough buffers
     base_freq_t *bfreq = rcns->base_freq;
@@ -582,8 +582,8 @@ static int correct_haplotype_errors(read_cns_t *rcns)
     qsort(freq, NHAP, sizeof(ii_t), ii_cmp);    // sort haplotypes in descending order
     for (i=NHAP-1; i>=0; i--)
     {
-//if ( freq[1].count > tot - freq[0].count ) break;   // the top2 hapotypes cannot change anymore
-        if ( !freq[i].count ) continue;
+        if ( freq[1].count > tot - freq[0].count ) break;   // the top2 hapotypes cannot change anymore
+//if ( !freq[i].count ) continue;
 
         // Find a similar haplotype with the highest frequency. Assuming errors go in 0->1
         // direction only and considering one error only.
@@ -619,7 +619,7 @@ static int correct_haplotype_errors(read_cns_t *rcns)
 
     // Use only one consensus if the next best haplotype is populated by less than 10% of reads
     rcns->ncns = (freq[1].count / (freq[0].count + freq[1].count) < 0.1) ? 1 : 2;
-if (freq[1].count) rcns->ncns = 2;
+//if (freq[1].count) rcns->ncns = 2;
 
     // Remove unused candidate variants from the top two haplotypes
     int hap0 = freq[0].haplotype;

@@ -38,7 +38,9 @@
 #include <htslib/ksort.h>
 KSORT_INIT_STATIC_GENERIC(uint32_t)
 
+#ifndef DEBUG_ALN
 #define DEBUG_ALN 0
+#endif
 
 #define MAX_TYPES 64
 
@@ -76,16 +78,16 @@ indel_aux_t;
 static void debug_print_types(indel_aux_t *iaux)
 {
     int i,j;
-    fprintf(stderr,"types at %s:%d n=%d... ",iaux->chr,iaux->pos+1,iaux->ntypes);
+    fprintf(stderr,"types at %s:%d ntypes=%d... ",iaux->chr,iaux->pos+1,iaux->ntypes);
     for (i=0; i<iaux->ntypes; i++)
     {
+        fprintf(stderr," type%d=",i);
         if ( iaux->types[i]<=0 )
         {
-            if ( i==iaux->iref_type ) fprintf(stderr," ref=%d",iaux->types[i]);
-            else fprintf(stderr," %d",iaux->types[i]);
+            if ( i==iaux->iref_type ) fprintf(stderr,"%d(ref)",iaux->types[i]);
+            else fprintf(stderr,"%d",iaux->types[i]);
             continue;
         }
-        fprintf(stderr," ");
         char *cns = &iaux->inscns[i*iaux->max_ins_len];
         for (j=0; j<iaux->types[i]; j++) fprintf(stderr,"%c","ACGTN"[(int)cns[j]]);
     }
@@ -390,6 +392,8 @@ static int iaux_set_consensus(indel_aux_t *iaux, int ismpl)
 // such value, the largest index with value smaller than pos. Starts at initial guess ioff.
 // This could use a binary search but the assumption is that the initial guess is indel-size close
 // to the actuall coordinate.
+//
+// TODO: remove this function and seq_pos from cns creation as it seems unnecessary
 static int find_ref_offset(hts_pos_t pos, hts_pos_t *seq_pos, int nseq_pos, int ioff)
 {
     if ( ioff<0 ) ioff = 0;
@@ -409,16 +413,59 @@ static int iaux_align_read(indel_aux_t *iaux, bam1_t *bam, uint8_t *ref_seq, hts
     if ( bam->core.flag & BAM_FUNMAP ) return 1;   // skip unmapped reads
 
     // Trim both ref and qry to the window of interest
-    hts_pos_t ref_beg = iaux->left;
-    hts_pos_t ref_end = iaux->right;
+    hts_pos_t ref_beg = iaux->left;     // fa ref coordinates
+    hts_pos_t ref_end = iaux->right < ref_beg + nref_seq ? iaux->right : ref_beg + nref_seq - 1;
+
     cigar_state_t cigar;
     cstate_init(&cigar,bam);
-    int qry_off1 = cstate_seek_fwd(&cigar, &ref_beg, 1);    // trim qry from left
-    int qry_off2 = cstate_seek_fwd(&cigar, &ref_end, 0);    // trim qry from right
-    assert( qry_off1>=0 && qry_off2>=0 );
+    int qry_off1, qry_off2, ref_off1, ref_off2;
+    if ( ref_beg > bam->core.pos )
+    {
+        // the read needs trimming from left
+        qry_off1 = cstate_seek_fwd(&cigar, &ref_beg, 1);
+        ref_off1 = ref_beg - iaux->left;
 
-    int ref_off1 = find_ref_offset(ref_beg, pos_seq, nref_seq, ref_beg - iaux->left);   // trim ref from left
-    int ref_off2 = find_ref_offset(ref_end, pos_seq, nref_seq, ref_end - iaux->left);   // trim ref from right
+        if ( ref_beg + (bam->core.l_qseq - qry_off1) > ref_end )
+        {
+            // the read needs trimming from right
+            qry_off2 = ref_end - ref_beg + qry_off1;
+            ref_off2 = ref_end - iaux->left;
+        }
+        else
+        {
+            // the ref template needs trimming from right
+            qry_off2 = bam->core.l_qseq - 1;
+            ref_off2 = ref_off1 + qry_off2 - qry_off1;
+        }
+    }
+    else
+    {
+        // the ref template needs trimming from left
+        qry_off1 = 0;
+        ref_off1 = bam->core.pos - ref_beg;
+
+        if ( bam->core.pos + bam->core.l_qseq - 1 > ref_end )
+        {
+            // the read needs trimming from right
+            ref_off2 = ref_end - iaux->left;
+            qry_off2 = ref_off2 - ref_off1;
+        }
+        else
+        {
+            // the ref template needs trimming from right
+            qry_off2 = bam->core.l_qseq - 1;
+            ref_off2 = ref_off1 + qry_off2 - qry_off1;
+        }
+    }
+//fprintf(stderr,"xtrim: %s ..  left,right=%d,%d  rbeg,end=%d,%d  qpos=%d  qlen=%d  qoff=%d,%d  roff=%d,%d rlen=%d\n",bam_get_qname(bam),iaux->left,iaux->right,(int)ref_beg,(int)ref_end,(int)bam->core.pos,bam->core.l_qseq, qry_off1,qry_off2,ref_off1,ref_off2,nref_seq);
+
+    assert( qry_off1<=qry_off2 );
+    assert( qry_off1>=0 && qry_off1<bam->core.l_qseq );
+    assert( qry_off2>=0 && qry_off2<bam->core.l_qseq );
+
+    assert( ref_off1<=ref_off2 );
+    assert( ref_off1>=0 && ref_off1<nref_seq );
+    assert( ref_off2>=0 && ref_off2<nref_seq );
 
     // prepare query sequence
     int i, qlen = qry_off2 - qry_off1 + 1, rlen = ref_off2 - ref_off1 + 1;
@@ -466,7 +513,7 @@ probaln_par_t apf = { 1e-4, 1e-2, 10 };
     for (i=0; i<qlen; i++) fprintf(stderr,"%c","ACGTN"[(int)iaux->qry_seq[i]]);
     fprintf(stderr,"\n\tqual: ");
     for (i=0; i<qlen; i++) fprintf(stderr,"%c",(char)(qual[i]+64));
-    fprintf(stderr,"\n");
+    fprintf(stderr,"\n\ttrim: qry_len=%d qry_off=%d,%d   ref_len=%d ref_off=%d,%d ref_beg,end=%d,%d\n",qlen,qry_off1,qry_off2,rlen,ref_off1,ref_off2,(int)ref_beg,(int)ref_end);
 #endif
 
     if ( adj_score > 255 ) adj_score = 255;
@@ -519,6 +566,8 @@ static int iaux_score_reads(indel_aux_t *iaux, int ismpl, int itype)
     fprintf(stderr,"template %d, type %d, sample %d: ",cns==iaux->cns_seq?0:1,itype,ismpl);
     for (i=0; i<ref_len; i++) fprintf(stderr,"%c","ACGTN"[(int)iaux->ref_seq[i]]);
     fprintf(stderr,"\n");
+    for (i=0; i<ref_len; i++) fprintf(stderr,"%c%d",(i==0||iaux->pos_seq[i-1]+1==iaux->pos_seq[i])?' ':'x',(int)iaux->pos_seq[i]);
+    fprintf(stderr,"\n");
 #endif
 
         // Align and score reads
@@ -559,18 +608,19 @@ static int iaux_eval_scored_reads(indel_aux_t *iaux, int ismpl)
         int indelQ = (sc1>>8) - (sc0>>8);           // low=bad, high=good
         int seqQ   = iaux->ref_qual[alt_j];
 
-#if DEBUG_ALN
-        fprintf(stderr,"indelQ: %d (ref=%d alt=%d) j0=%d\t%s\n",indelQ,ref_score,alt_score,j0,bam_get_qname(plp->b));
-#endif
-
         // Reduce indelQ. High length-normalized alignment scores (i.e. bad alignments)
         // lower the quality more (e.g. gnuplot> plot [0:111] (1-x/111.)*255)
         int adj_score = sc0 & 0xff;
-        indelQ = adj_score > 111 ? 0 : (int)((1. - adj_score/111.) * indelQ + .499);
+        int adj_indelQ = adj_score > 111 ? 0 : (int)((1. - adj_score/111.) * indelQ + .499);
 
-        if ( indelQ > seqQ ) indelQ = seqQ;         // seqQ already capped at 255
-        plp->aux = j0<<16 | seqQ<<8 | indelQ;       // use 22 bits in total
-        iaux->sum_qual[j0] += indelQ;
+#if DEBUG_ALN
+        fprintf(stderr,"indelQ: %d  (raw_indelQ=%d adj_score=%d; ref=%d alt=%d) j0=%d\t%s\n",adj_indelQ,indelQ,adj_score,ref_score,alt_score,j0,bam_get_qname(plp->b));
+#endif
+
+        if ( adj_indelQ > seqQ ) adj_indelQ = seqQ;         // seqQ already capped at 255
+        plp->aux = j0<<16 | seqQ<<8 | adj_indelQ;       // use 22 bits in total
+        iaux->sum_qual[j0] += adj_indelQ;
+
     }
     return 0;
 }

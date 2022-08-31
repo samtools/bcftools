@@ -863,6 +863,7 @@ static int mpileup(mplp_conf_t *conf)
     conf->bca->fmt_flag = conf->fmt_flag;
     conf->bca->ambig_reads = conf->ambig_reads;
     conf->bca->indel_win_size = conf->indel_win_size;
+    conf->bca->indels_v20 = conf->indels_v20;
 
     conf->bc.bcf_hdr = conf->bcf_hdr;
     conf->bc.n  = nsmpl;
