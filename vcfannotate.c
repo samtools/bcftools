@@ -2022,7 +2022,7 @@ static int init_sample_map(args_t *args, bcf_hdr_t *src, bcf_hdr_t *dst)
     args->sample_map  = (int*) malloc(sizeof(int)*args->nsample_map);
     for (i=0; i<args->nsample_map; i++) args->sample_map[i] = -1;
 
-    int flags = !src ? SMPL_STRICT|SMPL_SINGLE : SMPL_STRICT|SMPL_SINGLE|SMPL_PAIR2; // is vcf vs tab annotation file
+    int flags = !src ? SMPL_STRICT|SMPL_SINGLE|SMPL_REORDER : SMPL_STRICT|SMPL_SINGLE|SMPL_PAIR2;   // is tab vs vcf annotation file
     smpl_ilist_t *ilist = smpl_ilist_init(dst, args->sample_names, args->sample_is_file, flags);    // gives mapping dst->src
     if ( !ilist || !ilist->n ) error("Could not parse the samples: %s\n", args->sample_names);
     args->nsmpl_annot = ilist->n;

@@ -2,6 +2,10 @@
 
 Changes affecting specific commands:
 
+* bcftools annotate
+
+    - Support sample reordering of annotation file ( #1785)
+
 * bcftools +trio-dnm2
 
     - New -n, --strictly-novel option to downplay alleles which violate Mendelian

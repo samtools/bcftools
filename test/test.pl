@@ -494,6 +494,10 @@ run_test(\&test_vcf_annotate,$opts,in=>'annotate.olap',tab=>'annots.olap',out=>'
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.id',vcf=>'annots.id',out=>'annotate.id.1.out',args=>'-c ALT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate.id',vcf=>'annots.id',out=>'annotate.id.2.out',args=>'-c +ALT');
 run_test(\&test_vcf_annotate,$opts,in=>'annotate27',tab=>'annotate27',out=>'annotate.32.out',args=>'-c CHROM,POS,REF,ALT,EVIDENCE');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.1.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl1,smpl2');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.2.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl2,smpl1');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.3.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl1');
+run_test(\&test_vcf_annotate,$opts,in=>'annotate28',tab=>'annots28',out=>'annotate28.4.out',args=>'-c CHROM,POS,REF,ALT,FMT/TEST -s smpl2');
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy',out=>'checkploidy.out',cmd=>'+check-ploidy --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy.2',out=>'checkploidy.2.out',cmd=>'+check-ploidy --no-version');
 run_test(\&test_vcf_plugin,$opts,in=>'checkploidy.2',out=>'checkploidy.3.out',cmd=>'+check-ploidy --no-version',args=>'-- -m');
