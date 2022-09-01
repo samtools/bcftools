@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##reference=file:///lustre/scratch118/humgen/resources/ref/Homo_sapiens/GRCh38_15/Homo_sapiens.GRCh38_15.fa
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chrX,length=156040895>
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="List of Phred-scaled genotype likelihoods">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths (high-quality bases)">
+##FORMAT=<ID=QS,Number=R,Type=Integer,Description="Phred-score allele quality sum used by `call -mG` and `+trio-dnm`">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	proband	father	mother
+chr1	10000057	.	C	T	.	.	.	GT:PL:AD:QS	1/1:255,90,0:0,30:0,1116	1/1:255,78,0:0,26:0,921	0/0:0,114,255:38,0:1364,0
+chrX	10000804	.	C	G	.	.	.	GT:PL:AD:QS	0/1:255,0,85:5,19:174,671	0/1:202,0,157:7,9:255,323	0/0:0,30,227:10,0:370,0

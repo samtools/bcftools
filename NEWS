@@ -1,8 +1,14 @@
 ## Release a.b
 
+Changes affecting specific commands:
+
+* bcftools +trio-dnm2
+
+    - New -n, --strictly-novel option to downplay alleles which violate Mendelian
+      inheritance but are not novel
+
+
 ## Release 1.16 (18th August 2022)
-
-
 
 * New plugin `bcftools +variant-distance` to annotate records with distance to the
   nearest variant (#1690)
@@ -45,7 +51,6 @@ Changes affecting specific commands:
 * bcftools +setGT
 
     - Custom genotypes (e.g. `-n c:1/1`) now correctly override ploidy
-
 
 ## Release 1.15.1 (7th April 2022)
 
