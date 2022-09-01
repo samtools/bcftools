@@ -583,7 +583,6 @@ static int correct_haplotype_errors(read_cns_t *rcns)
     for (i=NHAP-1; i>=0; i--)
     {
         if ( freq[1].count > tot - freq[0].count ) break;   // the top2 hapotypes cannot change anymore
-//if ( !freq[i].count ) continue;
 
         // Find a similar haplotype with the highest frequency. Assuming errors go in 0->1
         // direction only and considering one error only.
@@ -618,8 +617,7 @@ static int correct_haplotype_errors(read_cns_t *rcns)
     }
 
     // Use only one consensus if the next best haplotype is populated by less than 10% of reads
-    rcns->ncns = (freq[1].count / (freq[0].count + freq[1].count) < 0.1) ? 1 : 2;
-//if (freq[1].count) rcns->ncns = 2;
+    rcns->ncns = ((float)freq[1].count / (freq[0].count + freq[1].count) < 0.1) ? 1 : 2;
 
     // Remove unused candidate variants from the top two haplotypes
     int hap0 = freq[0].haplotype;
