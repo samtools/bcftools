@@ -705,7 +705,7 @@ assert(!(ref == 0 || bca == 0));    // can this ever happen? when?
     // window boundaries. todo: We want this information cached so that for long reads we don't keep
     // redoing the whole analysis again and again
     int ntypes = iaux_init_types(iaux);
-    if ( !ntypes ) return -1;
+    if ( ntypes<=0 ) return -1;
 
     debug_print_types(iaux);
 

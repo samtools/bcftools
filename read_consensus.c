@@ -166,13 +166,11 @@ int rcns_reset(read_cns_t *rcns, hts_pos_t pos, hts_pos_t beg, hts_pos_t end)
 static inline void add_base(read_cns_t *rcns, int ref_pos, int nt16)
 {
     int i = ref_pos - rcns->beg;
-assert(i>=0);
     rcns->base_freq[i].base[seq_nt16_int[nt16]]++;
 }
 static void add_ins(read_cns_t *rcns, int ref_pos, int seq_pos, uint8_t *raw_seq, int len)
 {
     int i = ref_pos - rcns->beg;
-assert(i>=0);
     ins_freq_t *ifrq = &rcns->ins_freq[i];
     char *str;
     if ( rcns->mstmp < len )
@@ -189,7 +187,7 @@ assert(i>=0);
     for (i=0; i<NI && ifrq->nt16_seq[i]; i++)
         if ( ifrq->len[i]==len && !memcmp(ifrq->nt16_seq[i],str,len) ) break;
 
-    assert( i<NI );         // how frequent is it to have too many insertion types?
+if ( i>=NI ) fprintf(stderr,"xxx: many ins types at pos=%d\n",(int)rcns->pos); // how frequent is it to have too many insertion types?
     if ( i>=NI ) return;    // too many choices; discard
 
     if ( !ifrq->nt16_seq[i] )      // new insertion
@@ -203,7 +201,6 @@ assert(i>=0);
 static void add_del(read_cns_t *rcns, int ref_pos, int len)
 {
     int i = ref_pos - rcns->beg;
-assert(i>=0);
     int j,n = rcns->end - rcns->beg + 1;
     if ( i + len + 1 < n ) n = i + len + 1;
     for (j=i+1; j<n; j++)
@@ -213,7 +210,7 @@ assert(i>=0);
     for (i=0; i<NI && dfrq->len[i]; i++)
         if ( dfrq->len[i]==len ) break;
 
-    assert( i<NI );         // how frequent is it to have too many deletion types?
+if ( i>=NI ) fprintf(stderr,"xxx: many del types at pos=%d\n",(int)rcns->pos); // how frequent is it to have too many insertion types?
     if ( i>=NI ) return;    // too many choices; discard
 
     if ( !dfrq->len[i] ) dfrq->len[i] = len;    // new deletion
