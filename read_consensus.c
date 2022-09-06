@@ -47,6 +47,7 @@ typedef struct
 }
 del_freq_t;
 
+#define BF_DEL 5
 typedef struct
 {
     int base[6];    // frequencies of A,C,G,T,N,deletion
@@ -106,10 +107,7 @@ void rcns_destroy(read_cns_t *rcns)
         for (j=0; j<NI && ifrq->nt16_seq[j]; j++) free(ifrq->nt16_seq[j]);
     }
     for (i=0; i<2; i++)
-    {
         free(rcns->cns[i].seq);
-        free(rcns->cns[i].pos);
-    }
     free(rcns->ins_freq);
     free(rcns->del_freq);
     free(rcns->base_freq);
@@ -204,7 +202,7 @@ static void add_del(read_cns_t *rcns, int ref_pos, int len)
     int j,n = rcns->end - rcns->beg + 1;
     if ( i + len + 1 < n ) n = i + len + 1;
     for (j=i+1; j<n; j++)
-        rcns->base_freq[j].base[5]++;
+        rcns->base_freq[j].base[BF_DEL]++;
 
     del_freq_t *dfrq = &rcns->del_freq[i];
     for (i=0; i<NI && dfrq->len[i]; i++)
@@ -328,6 +326,13 @@ static void debug_print_base_freqs(read_cns_t *rcns, const char *ref)
         fprintf(stderr,"\n");
     }
 }
+static const char *vtype2string(enum variant_type vtype)
+{
+    if ( vtype==snv ) return "snv";
+    if ( vtype==ins ) return "ins";
+    if ( vtype==del ) return "del";
+    return "???";
+}
 static void debug_print_candidate_variants(read_cns_t *rcns)
 {
     int i;
@@ -335,8 +340,8 @@ static void debug_print_candidate_variants(read_cns_t *rcns)
     for (i=0; i<rcns->ncvar; i++)
     {
         candidate_var_t *var = &rcns->cvar[i];
-        fprintf(stderr,"\tvar%d  pos=%"PRIhts_pos" idx=%d vtype=%d which=%d depth=%d af=%f af_dev=%f\n",
-            i,var->pos+1,var->idx,var->vtype,var->which,var->depth,var->af,var->af_dev);
+        fprintf(stderr,"\tvar%d  pos=%"PRIhts_pos" idx=%d vtype=%s which=%d depth=%d af=%f af_dev=%f\n",
+            i,var->pos+1,var->idx,vtype2string(var->vtype),var->which,var->depth,var->af,var->af_dev);
     }
 }
 static void debug_print_haplotype_frequency_spectrum(read_cns_t *rcns)
@@ -359,7 +364,7 @@ static void debug_print_consensus(read_cns_t *rcns)
     {
         if ( !rcns->cns[i].nseq ) break;
         fprintf(stderr,"Consensus%d: ",i);
-        for (j=0; j<rcns->cns[i].ipos; j++)
+        for (j=0; j<=rcns->cns[i].ipos; j++)
             fprintf(stderr,"%c","ACGTN"[(int)rcns->cns[i].seq[j]]);
         fprintf(stderr,"#");
         for (; j<rcns->cns[i].nseq; j++)
@@ -482,10 +487,6 @@ static int select_candidate_variants(read_cns_t *rcns, const char *ref)
             char *seq = (char*) realloc(rcns->cns[i].seq,sizeof(char)*n);
             if ( !seq ) return -1;
             rcns->cns[i].seq = seq;
-
-            hts_pos_t *pos = (hts_pos_t*) realloc(rcns->cns[i].pos,sizeof(hts_pos_t)*n);
-            if ( !pos ) return -1;
-            rcns->cns[i].pos = pos;
         }
         rcns->mcns = n;
     }
@@ -527,7 +528,7 @@ static int create_haplotype_frequency_spectrum(read_cns_t *rcns)
             {
                 int len;
                 ins_freq_t *ifrq = &rcns->ins_freq[cvar->pos - rcns->beg];
-                int iseq = cstate_seek_op_fwd(&cigar, cvar->pos, BAM_CINS, &len);
+                int iseq = cstate_seek_op_fwd(&cigar, cvar->pos+1, BAM_CINS, &len);
                 if ( iseq==-2 ) break;
                 if ( iseq==-1 ) continue;
                 if ( len!=ifrq->len[cvar->which] ) continue;
@@ -539,7 +540,7 @@ static int create_haplotype_frequency_spectrum(read_cns_t *rcns)
             {
                 int len;
                 del_freq_t *dfrq = &rcns->del_freq[cvar->pos - rcns->beg];
-                int ret = cstate_seek_op_fwd(&cigar, cvar->pos, BAM_CDEL, &len);
+                int ret = cstate_seek_op_fwd(&cigar, cvar->pos+1, BAM_CDEL, &len);
                 if ( ret==-2 ) break;
                 if ( ret==-1 ) continue;
                 if ( len!=dfrq->len[cvar->which] ) continue;
@@ -661,7 +662,7 @@ static inline void apply_consensus_insertion(read_cns_t *rcns, cns_seq_t *cns, i
     base_freq_t *bfreq = rcns->base_freq;
     ins_freq_t *ifreq  = rcns->ins_freq;
     int k, nreads = 0;
-    for (k=0; k<5; k++) nreads += bfreq[j].base[k];
+    for (k=0; k<BF_DEL; k++) nreads += bfreq[j].base[k];
     int max_freq = 0, kmax = 0;
     for (k=0; k<NI && ifreq[j].len[k]; k++)
         if ( max_freq < ifreq[j].freq[k] ) max_freq = ifreq[j].freq[k], kmax = k;
@@ -672,12 +673,11 @@ static inline void apply_consensus_insertion(read_cns_t *rcns, cns_seq_t *cns, i
     int len = ifreq[j].len[kmax];
     char *seq = ifreq[j].nt16_seq[kmax];
     for (k=0; k<len; k++)
-    {
-        cns->pos[cns->nseq] = ref_pos;
         cns->seq[cns->nseq++] = seq_nt16_int[(int)seq[k]];
-    }
 }
 
+// For each position of the realignment window apply either the candidate variants
+// from ith haplotype or decide on the base/ins/del by majority vote
 static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
 {
     int n = rcns->end - rcns->beg + 1;
@@ -685,11 +685,12 @@ static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
     base_freq_t *bfreq = rcns->base_freq;
     ins_freq_t *ifreq  = rcns->ins_freq;
     del_freq_t *dfreq  = rcns->del_freq;
+    hts_pos_t prev_pos = 0;
     int j,k, ivar = 0;
     for (j=0; j<n; j++)
     {
         hts_pos_t ref_pos = rcns->beg + j;
-        if ( rcns->pos == ref_pos ) cns->ipos = j;
+        if ( rcns->pos == ref_pos ) cns->ipos = cns->nseq;
 
         while ( ivar < rcns->ncvar && rcns->cvar[ivar].pos < ref_pos ) ivar++;
 
@@ -699,13 +700,13 @@ static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
             // a deletion if that is most frequent. However, for deleted bases make sure they are not part
             // of the deletion that is being tested at this positions
             int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[j]]];
-            int nk = ( ref_pos < rcns->pos || ref_pos > rcns->pos + rcns->max_del ) ? 6 : 5;
+            int nk = ( ref_pos < rcns->pos || ref_pos > rcns->pos + rcns->max_del ) ? BF_DEL+1 : BF_DEL;
             for (k=0; k<nk; k++)
                 if ( max_freq < bfreq[j].base[k] ) max_freq = bfreq[j].base[k], kmax = k;
 
-            if ( kmax!=5 )  // the most frequent base can be a deletion
+            if ( kmax!=BF_DEL )  // the most frequent base can be a deletion
             {
-                cns->pos[cns->nseq] = ref_pos;
+                prev_pos = ref_pos;
                 cns->seq[cns->nseq++] = kmax;
             }
             // Only apply consensus insertions that are not being tested by bam2bcf_iaux, i.e. not at the current pos
@@ -723,9 +724,9 @@ static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
                 if ( rcns->cvar[ivar].vtype==snv && rcns->cvar[ivar].which==k ) continue;
                 if ( max_freq < bfreq[j].base[k] ) max_freq = bfreq[j].base[k], kmax = k;
             }
-            if ( kmax!=5 && (!cns->nseq || cns->pos[cns->nseq-1] != ref_pos) )
+            if ( kmax!=BF_DEL && (!cns->nseq || prev_pos != ref_pos) )
             {
-                cns->pos[cns->nseq] = ref_pos;
+                prev_pos = ref_pos;
                 cns->seq[cns->nseq++] = kmax;
             }
             apply_consensus_insertion(rcns, cns, j, ivar);
@@ -733,7 +734,7 @@ static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
         }
         if ( rcns->cvar[ivar].vtype == snv )
         {
-            cns->pos[cns->nseq] = ref_pos;
+            prev_pos = ref_pos;
             cns->seq[cns->nseq++] = which;
             apply_consensus_insertion(rcns, cns, j, ivar);
             continue;
@@ -741,7 +742,7 @@ static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
 
         // There can be multiple variants at this position, for example snv+ins. SNVs come first
         // thanks to cvar_pos_cmp(), make sure the base has not been added already.
-        if ( !cns->nseq || cns->pos[cns->nseq-1] != ref_pos )
+        if ( !cns->nseq || prev_pos != ref_pos )
         {
             int max_freq = 0, kmax = seq_nt16_int[seq_nt16_table[(int)ref[j]]];
             for (k=0; k<6; k++)
@@ -749,9 +750,9 @@ static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
                 if ( rcns->cvar[ivar].vtype==snv && rcns->cvar[ivar].which==k ) continue;
                 if ( max_freq < bfreq[j].base[k] ) max_freq = bfreq[j].base[k], kmax = k;
             }
-            if ( kmax!=5 )
+            if ( kmax!=BF_DEL )
             {
-                cns->pos[cns->nseq] = ref_pos;
+                prev_pos = ref_pos;
                 cns->seq[cns->nseq++] = kmax;
             }
         }
@@ -761,7 +762,7 @@ static void create_consensus(read_cns_t *rcns, const char *ref, int ith)
             char *seq = ifreq[j].nt16_seq[which];
             for (k=0; k<len; k++)
             {
-                cns->pos[cns->nseq] = ref_pos;
+                prev_pos = ref_pos;
                 cns->seq[cns->nseq++] = seq_nt16_int[(int)seq[k]];
             }
         }
@@ -805,4 +806,3 @@ cns_seq_t *rcns_get_consensus(read_cns_t *rcns, const char *ref)
 
     return rcns->cns;
 }
-

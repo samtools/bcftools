@@ -535,9 +535,6 @@ static int iaux_score_reads(indel_aux_t *iaux, int ismpl, int itype)
             uint8_t *ref_buf = (uint8_t*) realloc(iaux->ref_seq,sizeof(uint8_t)*ref_len);
             if ( !ref_buf ) return -1;
             iaux->ref_seq  = ref_buf;
-            hts_pos_t *pos_buf = (hts_pos_t*) realloc(iaux->pos_seq,sizeof(hts_pos_t)*ref_len);
-            if ( !pos_buf ) return -1;
-            iaux->pos_seq  = pos_buf;
             iaux->nref_seq = ref_len;
         }
 
@@ -552,21 +549,9 @@ static int iaux_score_reads(indel_aux_t *iaux, int ismpl, int itype)
             memcpy(iaux->ref_seq + cns->ipos + 1 + iaux->types[itype], cns->seq + 1 + cns->ipos, (cns->nseq - cns->ipos - 1)*sizeof(*iaux->ref_seq));
         }
 
-        // ...and corresponding ref positions
-        memcpy(iaux->pos_seq,cns->pos,(cns->ipos+1)*sizeof(*iaux->pos_seq));
-        if ( iaux->types[itype] < 0 )   // deletion
-            memcpy(iaux->pos_seq + cns->ipos + 1, cns->pos + cns->ipos + 1 - iaux->types[itype], (cns->nseq - cns->ipos - 1 + iaux->types[itype])*sizeof(*iaux->pos_seq));
-        else
-        {
-            for (i=0; i<iaux->types[itype]; i++) iaux->pos_seq[cns->ipos+1+i] = cns->pos[cns->ipos];
-            memcpy(iaux->pos_seq + cns->ipos + 1 + iaux->types[itype], cns->pos + 1 + cns->ipos, (cns->nseq - cns->ipos - 1)*sizeof(*iaux->pos_seq));
-        }
-
 #if DEBUG_ALN
     fprintf(stderr,"template %d, type %d, sample %d: ",cns==iaux->cns_seq?0:1,itype,ismpl);
     for (i=0; i<ref_len; i++) fprintf(stderr,"%c","ACGTN"[(int)iaux->ref_seq[i]]);
-    fprintf(stderr,"\n");
-    for (i=0; i<ref_len; i++) fprintf(stderr,"%c%d",(i==0||iaux->pos_seq[i-1]+1==iaux->pos_seq[i])?' ':'x',(int)iaux->pos_seq[i]);
     fprintf(stderr,"\n");
 #endif
 

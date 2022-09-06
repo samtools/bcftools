@@ -37,7 +37,6 @@ typedef struct
 {
     char *seq;          // nt5 sequence: "ACGTN"[(int)seq[i]]
     int nseq, ipos;     // the sequence length and the `pos` index relative to seq
-    hts_pos_t *pos;     // corresponding refseq coordinates, inserted bases appear as a block of equal positions
 }
 cns_seq_t;
 

@@ -125,6 +125,10 @@ inline int cstate_seek_fwd(cigar_state_t *cs, hts_pos_t *pos_ptr, int trim_left)
  *  cstate_seek_op_fwd() - Move in the cigar forward to find query index that
  *  matches the seek operator and the reference position.
  *
+ *  In order to match a deletion, pass the position of the first deleted base.
+ *  In order to match an insertion, pass the reference coordinate of the base
+ *  after the inserted sequence.
+ *
  *  Returns the index to the query sequence cs->seq
  *  on success; -1 when there is no such matching position but the cigar
  *  is still not entirely consumed (e.g. a deletion or a soft-clip); -2
@@ -152,7 +156,7 @@ inline int cstate_seek_op_fwd(cigar_state_t *cs, hts_pos_t pos, int seek_op, int
         }
         if ( op==BAM_CINS || op==BAM_CSOFT_CLIP )
         {
-            if ( cs->ref_pos == pos + 1 && seek_op==op )
+            if ( cs->ref_pos == pos && seek_op==op )
             {
                 if ( oplen ) *oplen = len;
                 return cs->iseq;
