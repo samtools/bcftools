@@ -347,7 +347,7 @@ static void debug_print_candidate_variants(read_cns_t *rcns)
 static void debug_print_haplotype_frequency_spectrum(read_cns_t *rcns)
 {
     int i,j;
-    fprintf(stderr,"Haplotype frequencies:\n");
+    fprintf(stderr,"Haplotype frequencies (bits from left correspond to var0,1,..):\n");
     for (i=0; i<NHAP; i++)
     {
         if ( !rcns->hap_freq[i] ) continue;
@@ -357,9 +357,12 @@ static void debug_print_haplotype_frequency_spectrum(read_cns_t *rcns)
         fprintf(stderr,"\t%d\n", rcns->hap_freq[i]);
     }
 }
-static void debug_print_consensus(read_cns_t *rcns)
+static void debug_print_consensus(read_cns_t *rcns, const char *ref)
 {
-    int i,j;
+    int i,j,n = rcns->end - rcns->beg + 1;
+    fprintf(stderr,"ref:        ");
+    for (i=0; i<n && ref[i]; i++) fprintf(stderr,"%c",ref[i]);
+    fprintf(stderr,"\n");
     for (i=0; i<2; i++)
     {
         if ( !rcns->cns[i].nseq ) break;
@@ -370,16 +373,13 @@ static void debug_print_consensus(read_cns_t *rcns)
         for (; j<rcns->cns[i].nseq; j++)
             fprintf(stderr,"%c","ACGTN"[(int)rcns->cns[i].seq[j]]);
         fprintf(stderr,"\n");
-        for (j=0; j<rcns->cns[i].nseq; j++)
-            fprintf(stderr," %d",(int)rcns->cns[i].pos[j]);
-        fprintf(stderr,"\n");
     }
 }
 #else
 #define debug_print_base_freqs(rcns,ref)
 #define debug_print_candidate_variants(rcns)
 #define debug_print_haplotype_frequency_spectrum(rcns)
-#define debug_print_consensus(rcns)
+#define debug_print_consensus(rcns,ref)
 #endif
 
 static int cvar_pos_cmp(const void *aptr, const void *bptr)
@@ -580,7 +580,8 @@ static int correct_haplotype_errors(read_cns_t *rcns)
     qsort(freq, NHAP, sizeof(ii_t), ii_cmp);    // sort haplotypes in descending order
     for (i=NHAP-1; i>=0; i--)
     {
-        if ( freq[1].count > tot - freq[0].count ) break;   // the top2 hapotypes cannot change anymore
+        if ( !freq[i].count ) continue;
+        if ( freq[1].count > tot - freq[0].count - freq[1].count ) break;   // the top2 hapotypes cannot change anymore
 
         // Find a similar haplotype with the highest frequency. Assuming errors go in 0->1
         // direction only and considering one error only.
@@ -802,7 +803,7 @@ cns_seq_t *rcns_get_consensus(read_cns_t *rcns, const char *ref)
     // create consensus
     int i;
     for (i=0; i<rcns->ncns; i++) create_consensus(rcns,ref,i);
-    debug_print_consensus(rcns);
+    debug_print_consensus(rcns,ref);
 
     return rcns->cns;
 }
