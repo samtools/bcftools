@@ -388,6 +388,7 @@ static int iaux_set_consensus(indel_aux_t *iaux, int ismpl)
     return 0;
 }
 
+#if 0
 // Finds the smallest index in the seq_pos array holding value equal to pos, or if there is no
 // such value, the largest index with value smaller than pos. Starts at initial guess ioff.
 // This could use a binary search but the assumption is that the initial guess is indel-size close
@@ -407,6 +408,7 @@ static int find_ref_offset(hts_pos_t pos, hts_pos_t *seq_pos, int nseq_pos, int 
     while ( ioff > 0 && seq_pos[ioff-1] >= pos ) ioff--;
     return ioff;
 }
+#endif
 
 static int iaux_align_read(indel_aux_t *iaux, bam1_t *bam, uint8_t *ref_seq, hts_pos_t *pos_seq, int nref_seq)
 {

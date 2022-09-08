@@ -100,6 +100,7 @@ struct _read_cns_t
 
 void rcns_destroy(read_cns_t *rcns)
 {
+    if ( !rcns ) return;
     int i,j;
     for (i=0; i<rcns->mfreq; i++)
     {
@@ -118,7 +119,6 @@ void rcns_destroy(read_cns_t *rcns)
 static int init_arrays(read_cns_t *rcns)
 {
     int i,j,n = rcns->end - rcns->beg + 1;
-//fprintf(stderr,"arrays: %d-%d n=%d\n",(int)rcns->beg+1,(int)rcns->end+1,n);
     if ( n > rcns->mfreq )
     {
         ins_freq_t *ifrq = (ins_freq_t*) realloc(rcns->ins_freq,sizeof(*rcns->ins_freq)*n);
@@ -236,8 +236,6 @@ int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp)
     rcns->plp  = plp;
     rcns->nplp = nplp;
 
-//fprintf(stderr,"rcns_beg1,end1,pos1=%d %d %d\n\n",(int)rcns->beg+1,(int)rcns->end+1,(int)rcns->pos+1);
-
     // fill consensus arrays
     int i,j,k, local_band_max = 0;  // maximum absolute deviation from diagonal
     for (i=0; i<nplp; i++) // for each read...
@@ -248,7 +246,6 @@ int rcns_set_reads(read_cns_t *rcns, bam_pileup1_t *plp, int nplp)
         int y = 0;            // seq coordinate
         uint32_t *cigar = bam_get_cigar(b);
         uint8_t *seq = bam_get_seq(b);
-
         int local_band = 0; // current deviation from diagonal
         for (k = 0; k < b->core.n_cigar; ++k)
         {
@@ -442,7 +439,6 @@ static void register_variant(read_cns_t *rcns, enum variant_type vtype, int cns_
 static int select_candidate_variants(read_cns_t *rcns, const char *ref)
 {
     const float af_th = 0.1;
-//const float af_th = 0.05;// just for debugging
     int i,j, n = rcns->end - rcns->beg + 1;
     int max_ins_len = 0;    // maximum total length of all insertions applied to allocate big enough buffers
     base_freq_t *bfreq = rcns->base_freq;
@@ -578,7 +574,7 @@ static int correct_haplotype_errors(read_cns_t *rcns)
         tot += rcns->hap_freq[i];
     }
     qsort(freq, NHAP, sizeof(ii_t), ii_cmp);    // sort haplotypes in descending order
-    for (i=NHAP-1; i>=0; i--)
+    for (i=NHAP-1; i>1; i--)
     {
         if ( !freq[i].count ) continue;
         if ( freq[1].count > tot - freq[0].count - freq[1].count ) break;   // the top2 hapotypes cannot change anymore

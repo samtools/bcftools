@@ -51,9 +51,6 @@ inline void cstate_init(cigar_state_t *cs, bam1_t *bam)
     cs->icig  = 0;
     cs->iseq  = 0;
     cs->ref_pos = bam->core.pos;
-    int op  = cs->cigar[0] &  BAM_CIGAR_MASK;
-    int len = cs->cigar[0] >> BAM_CIGAR_SHIFT;
-    if ( op==BAM_CINS || op==BAM_CSOFT_CLIP ) cs->ref_pos -= len;
 }
 
 /**
