@@ -3012,6 +3012,25 @@ Transition probabilities:
     Generate per-site output ('s') or per-region output ('r'). By default
     both types are printed and the output is uncompressed. Add 'z' for
     a compressed output.
+----
+    # Output fields:
+    RG = predicted homo/autozygous regions
+        - Sample
+        - Chromosome
+        - Start
+        - End
+        - Length (bp)
+        - Number of markers
+        - Quality .. average phred score in the region from the forward-backward algorithm
+
+    ST = per-site output showing:
+        - Sample
+        - Chromosome
+        - Position
+        - State .. predicted state from the Viterbi algorithm, 0 for normal (HW, Hardy-Weinberg) or 1 for autozygous (AZ)
+        - Quality .. quality score from the forward-backward algorithm
+----
+
 
 *-r, --regions* 'chr'|'chr:pos'|'chr:from-to'|'chr:from-'[,...]::
     see *<<common_options,Common Options>>*
