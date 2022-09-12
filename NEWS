@@ -6,6 +6,12 @@ Changes affecting specific commands:
 
     - Support sample reordering of annotation file ( #1785)
 
+* bcftools query
+
+    - Fix a rare bug where the printing of SAMPLE field with `query` was incorrectly
+      suppressed when the `-e` option contained a sample expression while the formatting
+      query did not. See #1783 for details.
+
 * bcftools +trio-dnm2
 
     - New -n, --strictly-novel option to downplay alleles which violate Mendelian
