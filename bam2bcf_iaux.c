@@ -63,7 +63,6 @@ typedef struct
     cns_seq_t *cns_seq;     // array of consensus sequences
     int *cns_pos;           // array of relative pos indexes within cns_seq sequences
     uint8_t *ref_seq, *qry_seq; // reference and query sequence to align
-    hts_pos_t *pos_seq;         // ref_seq consensus template positions in reference sequence (see also cns_seq_t.pos)
     int nref_seq, nqry_seq;     // the allocated size of ref_seq and qry_seq
     uint8_t *qual;
     int nqual;
@@ -105,7 +104,6 @@ void bcf_iaux_destroy(bcf_callaux_t *bca)
     free(iaux->inscns);
     free(iaux->ref_seq);
     free(iaux->qry_seq);
-    free(iaux->pos_seq);
     free(iaux->qual);
     free(iaux->read_scores);
     rcns_destroy(iaux->rcns);
@@ -410,7 +408,7 @@ static int find_ref_offset(hts_pos_t pos, hts_pos_t *seq_pos, int nseq_pos, int 
 }
 #endif
 
-static int iaux_align_read(indel_aux_t *iaux, bam1_t *bam, uint8_t *ref_seq, hts_pos_t *pos_seq, int nref_seq)
+static int iaux_align_read(indel_aux_t *iaux, bam1_t *bam, uint8_t *ref_seq, int nref_seq)
 {
     if ( bam->core.flag & BAM_FUNMAP ) return 1;   // skip unmapped reads
 
@@ -561,7 +559,7 @@ static int iaux_score_reads(indel_aux_t *iaux, int ismpl, int itype)
         for (i=0; i<iaux->nplp[ismpl]; i++)
         {
             const bam_pileup1_t *plp = iaux->plp[ismpl] + i;
-            int aln_score = iaux_align_read(iaux, plp->b, iaux->ref_seq, iaux->pos_seq, ref_len);
+            int aln_score = iaux_align_read(iaux, plp->b, iaux->ref_seq, ref_len);
             int *score = &iaux->read_scores[i*iaux->ntypes+itype];
             if ( cns==iaux->cns_seq || *score > aln_score ) *score = aln_score;
         }
