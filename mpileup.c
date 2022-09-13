@@ -788,6 +788,7 @@ static int mpileup(mplp_conf_t *conf)
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality Bias (closer to 0 is better)\">");
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=BQBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Base Quality Bias (closer to 0 is better)\">");
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=MQSBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Mapping Quality vs Strand Bias (closer to 0 is better)\">");
+        bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=NM,Number=1,Type=Float,Description=\"Average number of mismatches in supporting reads (approximate, experimental, to be replaced with localized version)\">");
         bcf_hdr_append(conf->bcf_hdr,"##INFO=<ID=NMBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better)\">");
         if ( conf->fmt_flag&B2B_FMT_NMBZ )
             bcf_hdr_append(conf->bcf_hdr,"##FORMAT=<ID=NMBZ,Number=1,Type=Float,Description=\"Mann-Whitney U-z test of Number of Mismatches within supporting reads (closer to 0 is better)\">");

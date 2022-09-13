@@ -209,6 +209,7 @@ void bcf_callaux_clean(bcf_callaux_t *bca, bcf_call_t *call)
     memset(bca->alt_scl,  0, 100*sizeof(int));
     memset(bca->iref_scl, 0, 100*sizeof(int));
     memset(bca->ialt_scl, 0, 100*sizeof(int));
+    bca->nnm = bca->nm = 0;
 }
 
 /*
@@ -368,6 +369,7 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
         int imq  = mapQ * nqual_over_60;
         int ibq  = baseQ * nqual_over_60;
         int inm  = get_aux_nm(p->b,p->qpos,is_diff?0:1);
+        if ( is_diff ) { bca->nnm++; bca->nm += inm; }
 
         if ( bam_is_rev(p->b) )
             bca->rev_mqs[imq]++;
@@ -990,6 +992,7 @@ int bcf_call_combine(int n, const bcf_callret1_t *calls, bcf_callaux_t *bca, int
     // calc_chisq_bias("XMQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_mq, bca->alt_mq, bca->nqual);
     // calc_chisq_bias("XBQ", call->bcf_hdr->id[BCF_DT_CTG][call->tid].key, call->pos, bca->ref_bq, bca->alt_bq, bca->nqual);
 
+    call->nm = bca->nnm ? (float)bca->nm/bca->nnm : 0;
     if (bca->fmt_flag & B2B_INFO_ZSCORE) {
         // U z-normalised as +/- number of standard deviations from mean.
         if (call->ori_ref < 0) {    // indel
@@ -1140,6 +1143,7 @@ int bcf_call2bcf(bcf_call_t *bc, bcf1_t *rec, bcf_callret1_t *bcr, int fmt_flag,
     {
         if ( bc->vdb != HUGE_VAL )      bcf_update_info_float(hdr, rec, "VDB", &bc->vdb, 1);
         if ( bc->seg_bias != HUGE_VAL ) bcf_update_info_float(hdr, rec, "SGB", &bc->seg_bias, 1);
+        if ( bc->nm!=0 ) bcf_update_info_float(hdr, rec, "NM", &bc->nm, 1);
 
         if (bca->fmt_flag & B2B_INFO_ZSCORE) {
             if ( bc->mwu_pos != HUGE_VAL )
