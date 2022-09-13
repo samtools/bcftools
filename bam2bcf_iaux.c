@@ -347,7 +347,13 @@ static int iaux_init_types(indel_aux_t *iaux)
         else
         {
             if ( j-i >= iaux->bca->min_support ) is_ok = 1;
-            if ( !iaux->bca->per_sample_flt && (double)(j-i) / n_tot < iaux->bca->min_frac ) is_ok = 0;
+            // What is the best way to handle the -pmF options:
+            //  - consider only sites where a single indel type passes the -mF threshold, as opposed to all indel types cumulatively
+            //  - once a site passes, include all indel types in the evaluation, as opposed to considering only the strong candidates
+            // In this implementation sites are selected by counting reads from all indel types cumulatively and all indel types
+            // are considered.
+            // Uncomment the following condition to consider only strong indel candidates once the site has been selected
+            //      if ( !iaux->bca->per_sample_flt && (double)(j-i) / n_tot < iaux->bca->min_frac ) is_ok = 0;
         }
         if ( is_ok )
         {
