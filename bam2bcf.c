@@ -256,7 +256,13 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
     int ADF_ref_missed[4] = {0};
     for (i = n = 0; i < _n; ++i) {
         const bam_pileup1_t *p = pl + i;
-        int q, b, mapQ, baseQ, is_diff, min_dist, seqQ;
+        int b;          // the base or indel type
+        int q;          // the base or indel quality used to calculate PL
+        int seqQ;       // used to cap the indel quality given the sequence context
+        int mapQ;       // to cap the quality for low MQ reads
+        int baseQ;      // used only for supporting INFO annotations
+        int is_diff;    // is this base or indel type different from the reference
+        int min_dist;   // distance from the end, used for tail distance bias
         if ( bca->fmt_flag&(B2B_INFO_SCR|B2B_FMT_SCR) && PLP_HAS_SOFT_CLIP(&p->cd) ) r->SCR++;
         if (p->is_refskip || (p->b->core.flag&BAM_FUNMAP)) continue;
         if (p->is_del && !is_indel) continue;
@@ -297,7 +303,6 @@ int bcf_call_glfgen(int _n, const bam_pileup1_t *pl, int ref_base, bcf_callaux_t
                 if (_n > 20 && seqQ > 40) seqQ = 40;
             }
             baseQ  = p->aux>>8&0xff;
-
             is_diff = (b != 0);
         }
         else

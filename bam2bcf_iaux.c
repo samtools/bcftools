@@ -601,17 +601,38 @@ static int iaux_eval_scored_reads(indel_aux_t *iaux, int ismpl)
 
         // Reduce indelQ. High length-normalized alignment scores (i.e. bad alignments)
         // lower the quality more (e.g. gnuplot> plot [0:111] (1-x/111.)*255)
-        int adj_score = sc0 & 0xff;
-        int adj_indelQ = adj_score > 111 ? 0 : (int)((1. - adj_score/111.) * indelQ + .499);
+        int len_normQ  = sc0 & 0xff;    // length-normalized score of the best match (ref or alt)
+        int adj_indelQ;                 // final indelQ used in calling
+        if ( len_normQ > 111 )
+        {
+            // In the original code reads matching badly to any indel type or reference had indelQ set to 0
+            // here and thus would be effectively removed from calling. This leads to problems when there are
+            // many soft clipped reads and a few good matching indel reads (see noisy-softclips.bam in
+            // mpileup-tests). Only the few good quality indel reads would become visible to the caller and
+            // the indel would be called with high quality. Here we change the logic to make the badly matching
+            // reads low quality reference reads. The threshold was set to make the test case still be called
+            // as an indel, but with very low quality.
+            //
+            // Original code:
+            //  adj_indelQ = 0;
+            //
+            adj_indelQ = 12;
+            j0 = iaux->iref_type;
+        }
+        else
+            adj_indelQ = (int)((1. - len_normQ/111.) * indelQ + .499);
 
 #if DEBUG_ALN
-        fprintf(stderr,"indelQ: %d  (raw_indelQ=%d adj_score=%d; ref=%d alt=%d) j0=%d\t%s\n",adj_indelQ,indelQ,adj_score,ref_score,alt_score,j0,bam_get_qname(plp->b));
+        // Prints the selected indel type (itype); adjusted indelQ which will be used if bigger than seqQ;
+        //  raw indelQ; length-normalized indelQ and sequence context quality; ref and best alt indel type
+        //  and their raw and length-normalized scores
+        fprintf(stderr,"itype=%d adj_indelQ=%d\trawQ=%d\tlen_normQ=%d\tseqQ=%d\tref:%d=%d/%d alt:%d=%d/%d)\t%s\n",
+            j0,adj_indelQ,indelQ,len_normQ,seqQ,iaux->iref_type,ref_score>>8,ref_score&0xff,alt_j,alt_score>>8,alt_score&0xff,bam_get_qname(plp->b));
 #endif
 
-        if ( adj_indelQ > seqQ ) adj_indelQ = seqQ;         // seqQ already capped at 255
+        if ( adj_indelQ > seqQ ) adj_indelQ = seqQ;     // seqQ already capped at 255
         plp->aux = j0<<16 | seqQ<<8 | adj_indelQ;       // use 22 bits in total
         iaux->sum_qual[j0] += adj_indelQ;
-
     }
     return 0;
 }
@@ -671,8 +692,8 @@ static int iaux_eval_best_indels(indel_aux_t *iaux)
 /*
     notes:
     - n .. number of samples
-    - the routine sets bam_pileup1_t.aux of each read as follows:
-        - 6: unused
+    - the routine sets bam_pileup1_t.aux (27 bits) of each read as follows:
+        - 5: unused
         - 6: the call; index to bcf_callaux_t.indel_types   .. (aux>>16)&0x3f
         - 8: estimated sequence quality                     .. (aux>>8)&0xff
         - 8: indel quality                                  .. aux&0xff
